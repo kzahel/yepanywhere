@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { getChrome } from "../chrome";
 import { saveDevReload } from "../devReload";
@@ -134,9 +135,9 @@ export function DevBuildFooter() {
             : t("extensionDevCurrent", { build: current.slice(0, 8) })}
       </span>
       {(!fullReload || !latest || error) && (
-        <button
-          type="button"
-          className={update && !error ? styles.update : styles.reload}
+        <Button
+          variant={update && !error ? "primary" : "secondary"}
+          className={styles.action}
           disabled={reloading}
           title={t("extensionDevPanelReloadHelp")}
           onClick={reloadPanel}
@@ -146,17 +147,17 @@ export function DevBuildFooter() {
             : update
               ? t("extensionDevUpdatePanel")
               : t("extensionDevReloadPanel")}
-        </button>
+        </Button>
       )}
-      <button
-        type="button"
-        className={update && fullReload ? styles.update : styles.reload}
+      <Button
+        variant={update && fullReload ? "primary" : "secondary"}
+        className={styles.action}
         disabled={reloading}
         title={t("extensionDevFullReloadHelp")}
         onClick={() => void reloadExtension()}
       >
         {t("extensionDevReloadExtension")}
-      </button>
+      </Button>
     </footer>
   );
 }

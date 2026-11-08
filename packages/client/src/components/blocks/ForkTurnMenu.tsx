@@ -2,6 +2,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSessionRewind } from "../../contexts/SessionRewindContext";
 import { useI18n } from "../../i18n";
+import { ButtonBase } from "../ui/Button";
 import styles from "./ForkTurnMenu.module.css";
 
 interface ForkTurnMenuProps {
@@ -186,9 +187,8 @@ export function ForkTurnMenu({
 
   return (
     <div className={styles.wrapper}>
-      <button
+      <ButtonBase
         ref={triggerRef}
-        type="button"
         className="user-prompt-action"
         onClick={() => (isOpen ? setIsOpen(false) : openMenu())}
         aria-label={triggerLabel}
@@ -213,7 +213,7 @@ export function ForkTurnMenu({
           <path d="M6 9v6" />
           <path d="M8.5 7.5 15 11" />
         </svg>
-      </button>
+      </ButtonBase>
       {isOpen && createPortal(menu, document.body)}
     </div>
   );

@@ -16,6 +16,7 @@ import {
 import { SchemaWarning } from "../../SchemaWarning";
 import { ShikiHtml } from "../../ShikiHtml";
 import { SessionFilePathLink } from "../../SessionFilePathLink";
+import { Button, ButtonBase } from "../../ui/Button";
 import { FilePathDisplay } from "../../ui/FilePathDisplay";
 import { getOutputTailTooltip } from "./outputPreview";
 import type { WriteInput, WriteResult } from "./types";
@@ -264,13 +265,14 @@ function WriteToolResult({
         </pre>
       </div>
       {needsCollapse && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -363,11 +365,7 @@ function WriteCollapsedPreview({
 
   return (
     <>
-      <button
-        type="button"
-        className="write-collapsed-preview"
-        onClick={handleClick}
-      >
+      <ButtonBase className="write-collapsed-preview" onClick={handleClick}>
         <div className="write-preview-lines">
           <FilePathDisplay displayPath={displayPath} />
           {" · "}
@@ -389,7 +387,7 @@ function WriteCollapsedPreview({
           )}
           {isTruncated && <div className="write-preview-fade" />}
         </div>
-      </button>
+      </ButtonBase>
       {isModalOpen && (
         <ActivityDetailModal
           title={

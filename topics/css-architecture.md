@@ -116,6 +116,17 @@ not carry a migration queue.
   lists. Escaped punctuation, Unicode, leading digits, and single-character
   classes retain one canonical identity; source tokenization must not split one
   runtime class into ASCII word fragments.
+- `pnpm lint` runs `pnpm buttons:check`, the button family's ban
+  ([UI design](ui-design.md#shared-controls-and-the-design-playground)). It
+  rejects a legacy button class from `design/census/mapping.ts` that no global
+  stylesheet styles any more, a raw `<button>` outside `src/components/ui/`
+  and the later families (menus, tabs, option pickers, switches, the
+  composer), and a CSS Module rule whose selector reaches a bare `button`
+  element (`.panel button`, `button:hover`) and sets look properties. Such a
+  rule outranks `ButtonBase`'s zero-specificity reset and ties with
+  `Button`'s variants. Exceptions sit in
+  `packages/client/design/census/button-allowlist.json` with a count and a
+  reason; counts only fall, and `--record` lowers them.
 - `pnpm css:unused` remains the investigative global-and-module report. Its
   known legacy findings may make that command exit nonzero without breaking
   ordinary lint. `--remove` remains limited to global rules; module rules are
@@ -126,6 +137,7 @@ not carry a migration queue.
 | Command | Role | Exit/write contract |
 |---|---|---|
 | `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
+| `pnpm buttons:check` | Hard button-family ban | Exits 1 for a rule-less legacy button class, a raw `<button>` or a module `button` look rule beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts and drops entries at zero. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |
 | `pnpm lint` | Combined repository gate | Runs containment, module contracts, CSS lint, and Biome; any child failure fails lint. |

@@ -39,6 +39,7 @@ import {
   renderFixedFontRichContent,
 } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
+import { ButtonBase, IconButton } from "../../ui/Button";
 import { RenderModeGlyph } from "../../ui/RenderModeGlyph";
 import type {
   ImageFile,
@@ -334,17 +335,17 @@ function FileModalContent({
       {showSigma ? (
         <div className="fixed-font-render-toggle">
           {content}
-          <button
+          <IconButton
             ref={mathBtnRef}
-            type="button"
+            variant="outline"
+            size="small"
             className={`fixed-font-render-toggle__button ${showMath ? "is-rendered" : ""}`}
             onClick={handleMathToggle}
-            aria-label={showMath ? "Show source" : "Render math (LaTeX)"}
-            title={showMath ? "Show source" : "Render math (LaTeX)"}
+            label={showMath ? "Show source" : "Render math (LaTeX)"}
             aria-pressed={showMath}
           >
             <RenderModeGlyph />
-          </button>
+          </IconButton>
         </div>
       ) : (
         content
@@ -496,8 +497,7 @@ function ImageFileResult({
   return (
     <div className="read-image-result">
       <div className="local-media-link-group">
-        <button
-          type="button"
+        <ButtonBase
           className="local-media-inline-toggle"
           aria-expanded={expanded}
           aria-label={expanded ? "Collapse image" : "Expand image"}
@@ -505,7 +505,7 @@ function ImageFileResult({
           onClick={() => setOverride(!expanded)}
         >
           {expanded ? "-" : "+"}
-        </button>
+        </ButtonBase>
         {filePath && displayPath ? (
           <span className="file-range-inline">
             <SessionFilePathLink
@@ -535,8 +535,7 @@ function ImageFileResult({
       )}
       {expanded &&
         (previewUrl ? (
-          <button
-            type="button"
+          <ButtonBase
             className={styles.imagePreviewButton}
             aria-label={`Open ${fileName}`}
             onClick={openViewer}
@@ -549,7 +548,7 @@ function ImageFileResult({
               width={dimensions?.displayWidth}
               height={dimensions?.displayHeight}
             />
-          </button>
+          </ButtonBase>
         ) : (
           <span className="file-line-count-inline">
             {previewError
@@ -634,8 +633,7 @@ function PdfFileResult({
 
   return (
     <div className="read-pdf-result">
-      <button
-        type="button"
+      <ButtonBase
         className="file-link-button"
         onClick={() => openPdfInNewTab(base64)}
       >
@@ -647,7 +645,7 @@ function PdfFileResult({
           </span>
         )}
         <span className="file-line-count">Open PDF</span>
-      </button>
+      </ButtonBase>
     </div>
   );
 }

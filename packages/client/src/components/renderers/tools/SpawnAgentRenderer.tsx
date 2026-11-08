@@ -8,6 +8,7 @@ import { useRemoteBasePath } from "../../../hooks/useRemoteBasePath";
 import { useI18n } from "../../../i18n";
 import { providerChildSessionHref } from "../../../lib/providerChildSessions";
 import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
+import { ButtonBase, buttonClassName } from "../../ui/Button";
 import { Spinner, TaskNestedContent } from "./TaskNestedContent";
 import styles from "./TaskRenderer.module.css";
 
@@ -185,8 +186,7 @@ function SpawnAgentInline({
             <span className={`badge ${badge.className}`}>{badge.text}</span>
           </div>
         ) : (
-          <button
-            type="button"
+          <ButtonBase
             className={`task-inline-header ${styles.expandButton}`}
             onClick={handleExpand}
           >
@@ -205,11 +205,15 @@ function SpawnAgentInline({
             ) : (
               <span className={`badge ${badge.className}`}>{badge.text}</span>
             )}
-          </button>
+          </ButtonBase>
         )}
         {agentId && (
           <Link
-            className={styles.openPage}
+            className={buttonClassName({
+              variant: "ghost",
+              size: "small",
+              className: styles.openPage,
+            })}
             to={providerChildSessionHref(
               basePath,
               projectId,

@@ -587,25 +587,11 @@
   }
 }
 
-/* Copy button for text blocks */
+/* Text block copy, render toggle and quote buttons (IconButtons) stay hidden
+   until the block is hovered or focused. */
 .text-block-copy,
 .text-block-toggle,
 .text-block-quote {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background: var(--bg-secondary, #252525);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 999px;
-  color: var(--text-muted, #888);
-  cursor: pointer;
-  transition:
-    opacity 0.15s,
-    background 0.15s,
-    color 0.15s;
   opacity: 0;
   pointer-events: none;
 }
@@ -622,19 +608,6 @@
 .text-block-quote.always-visible {
   opacity: 1;
   pointer-events: auto;
-}
-
-.text-block-copy:hover,
-.text-block-toggle:hover,
-.text-block-quote:hover {
-  background: var(--bg-tertiary, #333);
-  color: var(--text-primary, #ccc);
-}
-
-.text-block-copy:active,
-.text-block-toggle:active,
-.text-block-quote:active {
-  background: var(--bg-tertiary, #444);
 }
 
 /* Per-paragraph quote circles sit in their own reserved right-side lane. The
@@ -662,17 +635,6 @@
 
 .text-block-quote-fallback {
   top: 0;
-}
-
-.text-block-copy:focus,
-.text-block-toggle:focus,
-.text-block-quote:focus {
-  outline: 1px solid var(--focus-border, #007acc);
-  outline-offset: -1px;
-}
-
-.text-block-quote {
-  font-weight: 700;
 }
 
 /* Viewer find (useViewerFind): all matches, then the current one on top.
@@ -711,18 +673,9 @@
   pointer-events: auto;
 }
 
+/* Pressed cue for the rendered view: color only, the control owns the rest. */
 .text-block-toggle.is-rendered {
-  color: var(--text-primary, #ccc);
-  border-color: color-mix(
-    in srgb,
-    var(--app-yep-green) 45%,
-    var(--border-color, #333)
-  );
-  background: color-mix(
-    in srgb,
-    var(--app-yep-green) 14%,
-    var(--bg-secondary, #252525)
-  );
+  color: var(--app-yep-green);
 }
 
 .text-block-local-rendered {
@@ -1417,23 +1370,8 @@ details[open] .collapsible__icon {
 }
 
 .bash-section-copy {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.45rem;
-  height: 1.45rem;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
-  color: var(--text-muted);
-  cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
 }
 
 .bash-inline-section-header:hover .bash-section-copy,
@@ -1452,23 +1390,8 @@ details[open] .collapsible__icon {
   pointer-events: auto;
 }
 
-.bash-section-copy:hover {
-  color: var(--text-primary);
-  border-color: var(--border-strong, var(--border-color));
-}
-
-.bash-section-copy:focus {
-  outline: 1px solid var(--focus-border, #007acc);
-  outline-offset: -1px;
-}
-
 .bash-section-copy.copied {
   color: var(--app-yep-green);
-}
-
-.bash-section-copy:disabled {
-  cursor: default;
-  opacity: 0.5;
 }
 
 .bash-stdout,
@@ -2057,24 +1980,7 @@ details[open] .collapsible__icon {
   position: absolute;
   top: 0.45rem;
   right: 0.45rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.45rem;
-  height: 1.45rem;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  line-height: 1.2;
-  cursor: pointer;
   opacity: 0;
-  transition:
-    opacity 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
   z-index: 11;
   user-select: none;
 }
@@ -2084,10 +1990,8 @@ details[open] .collapsible__icon {
   opacity: 1;
 }
 
-.diff-copy-button:hover,
 .diff-copy-button.copied {
-  color: var(--text-primary);
-  border-color: var(--border-strong, var(--border-color));
+  color: var(--app-yep-green);
 }
 
 .diff-view-container.truncated {
@@ -2667,19 +2571,26 @@ details[open] .collapsible__icon {
   background: var(--bg-surface);
 }
 
-.model-switch-action-button {
+/* A tall two-line action (label over a config badge) on the shared Button:
+   the compound selector outranks the control's single-line inline-flex. */
+.model-switch-actions .model-switch-action-button {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.35rem;
   min-width: 13rem;
+  height: auto;
+  padding-block: var(--space-2);
   text-align: left;
+  white-space: normal;
 }
 
 .model-switch-action-label {
   font-weight: 600;
 }
 
+/* Inherit the variant's text color so the badge reads on the green primary
+   as well as the neutral secondary; opacity keeps it subordinate. */
 .model-switch-action-badge {
   display: inline-flex;
   align-items: center;
@@ -2687,7 +2598,8 @@ details[open] .collapsible__icon {
   min-width: 0;
   max-width: 100%;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: inherit;
+  opacity: 0.85;
 }
 
 .model-switch-action-badge-main {
@@ -2696,18 +2608,12 @@ details[open] .collapsible__icon {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-primary);
+  color: inherit;
   font-weight: 600;
 }
 
 .model-switch-action-badge-detail {
   white-space: nowrap;
-}
-
-.model-switch-inline-save {
-  padding: 0.4rem 0.75rem;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 @media (width <= 768px) {
@@ -2722,7 +2628,6 @@ details[open] .collapsible__icon {
     flex-direction: column-reverse;
   }
 
-  .model-switch-actions .settings-button,
   .model-switch-item-row,
   .model-switch-inline-save {
     flex: 1;
@@ -2795,27 +2700,7 @@ details[open] .collapsible__icon {
    ========================================================================== */
 
 .expand-button {
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
   margin-top: 0.5rem;
-  min-height: 44px; /* Touch target */
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-}
-
-.expand-button:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary, var(--text-primary));
-}
-
-.expand-button:active {
-  background: var(--bg-tertiary);
 }
 
 /* ==========================================================================
@@ -2885,20 +2770,13 @@ details[open] .collapsible__icon {
   border-radius: 6px;
   overflow: hidden;
   width: 100%;
-  padding: 0;
   text-align: left;
-  cursor: pointer;
   transition: border-color 0.15s;
   margin-top: 0.25rem;
 }
 
 .write-collapsed-preview:hover {
   border-color: var(--border-input, var(--border-color));
-}
-
-.write-collapsed-preview:focus {
-  outline: 1px solid var(--focus-border, #007acc);
-  outline-offset: -1px;
 }
 
 .write-collapsed-error {
@@ -3104,21 +2982,6 @@ details[open] .collapsible__icon {
   margin-top: 0.5rem;
 }
 
-.task-prompt-toggle {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  font-size: var(--font-size-sm);
-}
-
-.task-prompt-toggle:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary, var(--text-primary));
-}
-
 .task-prompt-content {
   margin-top: 0.5rem;
   padding: 0.5rem;
@@ -3219,13 +3082,9 @@ details[open] .collapsible__icon {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: transparent;
-  border: none;
   width: 100%;
   text-align: left;
-  cursor: pointer;
   font-size: var(--font-size-base);
-  color: inherit;
   transition: background 0.15s;
 }
 
@@ -3233,16 +3092,11 @@ details[open] .collapsible__icon {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.task-inline-header.noninteractive {
-  cursor: default;
-}
-
 .task-inline-header.noninteractive:hover {
   background: transparent;
 }
 
 .task-inline-header:focus {
-  outline: none;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -3909,51 +3763,6 @@ details[open] .collapsible__icon {
   color: var(--text-muted);
 }
 
-.file-viewer-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.file-viewer-action:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.file-viewer-action:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.file-viewer-action:disabled:hover {
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.file-viewer-action.copied {
-  color: var(--success-color);
-}
-
-.file-viewer-action.file-viewer-new-session {
-  color: var(--success-color);
-}
-
-.file-viewer-action.file-viewer-new-session:hover {
-  background: color-mix(in srgb, var(--success-color) 14%, transparent);
-  color: var(--success-color);
-}
-
 .file-viewer-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -4131,25 +3940,6 @@ details[open] .collapsible__icon {
   white-space: nowrap;
 }
 
-.diff-context-toggle {
-  padding: 0.25rem 0.75rem;
-  font-size: var(--font-size-base);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.diff-context-toggle:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.diff-context-toggle:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
 .diff-context-error {
   color: var(--text-error);
   font-size: var(--font-size-sm);
@@ -4248,20 +4038,6 @@ pre.code-highlighter-plain code {
   padding: 2rem;
   text-align: center;
   color: var(--text-muted);
-}
-
-.file-viewer-download-btn {
-  padding: 0.5rem 1rem;
-  background: var(--primary-color);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: var(--font-size-base);
-  cursor: pointer;
-}
-
-.file-viewer-download-btn:hover {
-  filter: brightness(1.1);
 }
 
 /* Fullscreen mode */
@@ -4944,22 +4720,6 @@ pre.code-highlighter-plain,
   gap: 2px;
 }
 
-.diff-toolbar-icon-button {
-  display: inline-grid;
-  width: 24px;
-  min-width: 24px;
-  height: 22px;
-  place-items: center;
-  padding: 0;
-  color: var(--text-secondary, #8b949e);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.diff-toolbar-icon-button svg {
-  display: block;
-}
-
 .diff-whitespace-glyph {
   font-family: var(--font-mono, monospace);
   font-size: 0.78rem;
@@ -4994,24 +4754,6 @@ pre.code-highlighter-plain,
   font-variant-numeric: tabular-nums;
 }
 
-.diff-hunk-step {
-  align-self: stretch;
-  min-width: 18px;
-  padding: 0 2px 2px;
-  color: inherit;
-  font: inherit;
-  font-size: 0.9rem;
-  line-height: 1;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.diff-hunk-step:hover {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover);
-}
-
 .git-diff-preview-body > .diff-context-error {
   padding: 5px var(--space-3, 12px);
   background: var(--bg-secondary);
@@ -5022,28 +4764,6 @@ pre.code-highlighter-plain,
   display: flex;
   min-width: 0;
   align-items: center;
-}
-
-/* Copy affordance shared by status bar, commit rows, file rows. */
-.copy-button:not(.diff-context-toggle) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.copy-button:not(.diff-context-toggle):hover {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-}
-
-.copy-button.copied {
-  color: var(--success-color);
 }
 
 /* Commit browser: commits · files · diff. */
@@ -5287,57 +5007,6 @@ pre.code-highlighter-plain,
   border-radius: 999px;
 }
 
-.source-detail-action {
-  padding: 2px 8px;
-  font-size: 0.75rem;
-  color: var(--text-secondary, #8b949e);
-  background: transparent;
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.source-detail-action:hover:not(:disabled) {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-}
-
-.source-detail-action:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.source-compare-toggle.active {
-  color: var(--accent-color);
-  background: color-mix(in srgb, var(--accent-color) 11%, transparent);
-  border-color: color-mix(
-    in srgb,
-    var(--accent-color) 42%,
-    var(--border-color)
-  );
-}
-
-.source-detail-icon-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  min-width: 28px;
-  padding-inline: 0;
-}
-
-.git-diff-pane-toolbar
-  .git-diff-preview-header-actions
-  .source-detail-icon-action {
-  width: 24px;
-  min-width: 24px;
-  height: 22px;
-}
-
-.source-detail-icon-action svg {
-  display: block;
-}
-
 .changeset-file-filter {
   display: inline-flex;
   min-width: 0;
@@ -5497,48 +5166,8 @@ pre.code-highlighter-plain,
   flex-shrink: 0;
 }
 
-.commit-load-more {
-  width: 100%;
-  padding: 6px;
-  margin-top: 4px;
-  font-size: 0.8rem;
-  color: var(--text-secondary, #8b949e);
-  background: transparent;
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.commit-load-more:hover {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
-}
-
-.commit-jump-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 10px;
-  font-size: 0.78rem;
-  color: var(--text-secondary, #8b949e);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
 .commit-jump-touch-label {
   display: none;
-}
-
-.commit-jump-btn:hover:not(:disabled) {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-}
-
-.commit-jump-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 .commit-message-time {
@@ -5699,11 +5328,6 @@ pre.code-highlighter-plain,
 }
 
 @media (width <= 600px) {
-  .diff-hunk-step {
-    min-width: 32px;
-    min-height: 30px;
-  }
-
   .source-diff-context-controls {
     justify-content: flex-start;
     margin-bottom: 0;
@@ -5718,13 +5342,6 @@ pre.code-highlighter-plain,
     width: 100%;
     flex-wrap: wrap;
     justify-content: flex-end;
-  }
-
-  .source-diff-context-controls .diff-context-toggle {
-    width: 36px;
-    min-width: 36px;
-    min-height: 36px;
-    padding: 0;
   }
 
   /* Touch has no hover title recovery. Let long commit subjects use a
@@ -5777,11 +5394,6 @@ pre.code-highlighter-plain,
     -webkit-line-clamp: 2;
   }
 
-  .commit-jump-btn {
-    min-height: 32px;
-    padding-inline: 8px;
-  }
-
   .commit-jump-glyph {
     display: none;
   }
@@ -5790,21 +5402,7 @@ pre.code-highlighter-plain,
     display: inline;
   }
 
-  .source-detail-icon-action {
-    width: auto;
-    min-width: 0;
-    min-height: 32px;
-    gap: 5px;
-    padding-inline: 8px;
-  }
-
   .source-detail-action-text {
     display: inline;
-  }
-
-  .changeset-file-filter-toggle {
-    width: 32px;
-    min-width: 32px;
-    padding-inline: 0;
   }
 }

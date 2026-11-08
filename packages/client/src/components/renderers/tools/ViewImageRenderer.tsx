@@ -9,6 +9,7 @@ import {
   LocalMediaModal,
   useLocalFileScope,
 } from "../../LocalMediaModal";
+import { ButtonBase } from "../../ui/Button";
 
 function getFileName(path: string): string {
   return getPathBasename(path);
@@ -33,15 +34,14 @@ function ViewImageButton({
 }) {
   const displayPath = makeDisplayPath(path, projectPath);
   return (
-    <button
-      type="button"
+    <ButtonBase
       className={className}
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
       {getFileName(displayPath)}
       <span className="file-line-count-inline">(image)</span>
-    </button>
+    </ButtonBase>
   );
 }
 

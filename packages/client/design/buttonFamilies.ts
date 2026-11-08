@@ -39,12 +39,13 @@ const ROLE_FAMILIES: Record<string, RawButtonFamily> = {
 
 /** The session composer's files: excluded until the composer's own pass. */
 export const COMPOSER_FILE =
-  /^components\/(?:MessageInput[^/]*|Composer[^/]*|VoiceInputButton|SlashCommandButton|ThinkingToolbarControl|ModeSelector)\.tsx$/;
+  /^components\/(?:MessageInput[^/]*|Composer[^/]*|VoiceInputButton|SlashCommandButton|ThinkingToolbarControl|ModeSelector|AttachmentButton|BrowserDebugToolbarButton|FullPaneComposerToggle)\.tsx$/;
 
 /**
- * Which later family a raw button belongs to, judged from its role, an
- * option-picker class (`*-option`, `*Option`) or a switch class, or its
- * file; undefined for a button the button family itself should swap.
+ * Which later family a raw button belongs to, judged from its role, its
+ * file, an option-picker class (`*-option`, `styles.*Option`) or a switch
+ * class (`toggle-switch`, `styles.switch`); undefined for a button the
+ * button family itself should swap.
  */
 export function rawButtonFamily(
   row: Pick<ButtonElement, "file" | "role" | "className">,
@@ -52,9 +53,9 @@ export function rawButtonFamily(
   const byRole = row.role ? ROLE_FAMILIES[row.role] : undefined;
   if (byRole) return byRole;
   if (COMPOSER_FILE.test(row.file)) return "composer";
-  if (row.className && /-option\b|Option\b/.test(row.className))
+  if (row.className && /[\w-]-option\b|styles\.\w*Option\b/.test(row.className))
     return "option";
-  if (row.className && /toggle-switch|\bswitch\b/i.test(row.className))
+  if (row.className && /toggle-switch|styles\.switch\b/.test(row.className))
     return "switch";
   return undefined;
 }

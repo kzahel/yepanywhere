@@ -12,18 +12,6 @@
 .openPage {
   flex-shrink: 0;
   align-self: center;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm, 4px);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.openPage:hover,
-.openPage:focus-visible {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
 }
 
 .rejection {

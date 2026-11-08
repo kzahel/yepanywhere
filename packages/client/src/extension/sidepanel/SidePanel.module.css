@@ -8,21 +8,7 @@
     14px / 1.45 system-ui,
     sans-serif;
 }
-.panel button {
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-}
-.panel button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.panel :focus-visible {
+.panel :where(:not(button)):focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
@@ -66,14 +52,8 @@
 .offline {
   background: var(--text-dimmed);
 }
-.panel .iconButton {
-  width: 30px;
-  min-height: 30px;
-  padding: 0;
+.iconButton {
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
 }
 .body {
   flex: 1;
@@ -118,17 +98,26 @@
   flex-direction: column;
   gap: 6px;
 }
-.panel .row {
+.row {
   width: 100%;
+  min-height: 36px;
   padding: 9px 10px;
   display: flex;
   flex-direction: column;
   gap: 3px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: inherit;
   text-align: left;
-  border-color: var(--border-subtle);
 }
-.panel .row:hover {
+.row:hover {
   background: var(--bg-hover);
+}
+.row:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .rowTop {
   display: flex;
@@ -184,15 +173,13 @@
 .groupHeading {
   margin: 0 0 2px;
 }
-.panel .groupHeading button {
+.groupToggle {
   width: 100%;
   min-height: 30px;
   padding: 4px 2px;
   display: flex;
   align-items: center;
   gap: 6px;
-  border: none;
-  background: none;
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
@@ -200,10 +187,10 @@
   text-align: left;
   text-transform: uppercase;
 }
-.panel .mergedGroup button {
+.mergedGroup .groupToggle {
   min-height: 44px;
 }
-.panel .groupHeading button:hover {
+.groupToggle:hover {
   color: var(--text-secondary);
 }
 .groupHeading span {
@@ -216,12 +203,6 @@
 .groupHeading [aria-expanded="true"] .chevron,
 .siteAccess [aria-expanded="true"] .chevron {
   transform: rotate(90deg);
-}
-.panel .primary {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: var(--accent-contrast);
-  font-weight: 600;
 }
 .hint {
   margin: 0;
@@ -249,23 +230,19 @@
 .siteAccessContent[hidden] {
   display: none;
 }
-.panel .siteAccess button {
-  min-height: 44px;
-}
-.panel .siteAccess .siteAccessToggle {
+.siteAccessToggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+  min-height: 44px;
   padding: 10px 12px;
-  border: none;
-  background: none;
   color: var(--text-muted);
   text-align: left;
   font-size: 12px;
 }
-.panel .siteAccess .siteAccessToggle:hover {
+.siteAccessToggle:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }

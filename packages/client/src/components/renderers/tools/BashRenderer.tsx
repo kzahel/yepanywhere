@@ -27,6 +27,7 @@ import { validateToolResult } from "../../../lib/validateToolResult";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
 import { ProjectPathLinkedText } from "../../ProjectPathLinkedText";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Button } from "../../ui/Button";
 import { ToolOutputText } from "../../ToolOutputText";
 import {
   FixedFontMathToggle,
@@ -119,13 +120,14 @@ function BashToolUse({ input }: { input: BashInput }) {
       </pre>
       <NestedHarnessLaunchLink command={command} />
       {needsCollapse && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -267,15 +269,16 @@ function BashToolResult({
             renderRenderedView={(html) => renderFixedFontMathPanel(html)}
           />
           {needsCollapse && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="small"
               className="expand-button"
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded
                 ? "Show less"
                 : `Show all ${stdoutLines.length} lines`}
-            </button>
+            </Button>
           )}
         </div>
       )}

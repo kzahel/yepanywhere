@@ -7,6 +7,7 @@ import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import { ProviderBadge } from "../../components/ProviderBadge";
 import { NotificationBadge } from "../../components/StatusBadge";
 import { ThinkingIndicator } from "../../components/ThinkingIndicator";
+import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { formatBriefAge } from "../../lib/sessionAge";
 import { loadSavedHosts, type SavedHost } from "../../lib/hostStorage";
@@ -147,8 +148,7 @@ function SessionRow({
   const { t } = useI18n();
   return (
     <li>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.row}
         aria-label={t("extensionPanelOpenSession", { title: session.title })}
         onClick={(event) => onOpen(session, event)}
@@ -183,7 +183,7 @@ function SessionRow({
             {t("extensionPanelMentions", { count: session.mentions })}
           </span>
         )}
-      </button>
+      </ButtonBase>
     </li>
   );
 }
@@ -217,8 +217,8 @@ function SessionIssueList({
           aria-label={t("extensionPanelMergedPrs", { count: merged.length })}
         >
           <h3 className={`${styles.groupHeading} ${styles.mergedGroup}`}>
-            <button
-              type="button"
+            <ButtonBase
+              className={styles.groupToggle}
               aria-expanded={expanded}
               aria-controls="panel-merged-prs"
               onClick={() => setExpanded((value) => !value)}
@@ -236,7 +236,7 @@ function SessionIssueList({
                 <path d="m9 6 6 6-6 6" />
               </svg>
               {t("extensionPanelMergedPrs", { count: merged.length })}
-            </button>
+            </ButtonBase>
           </h3>
           <ul id="panel-merged-prs" className={styles.list} hidden={!expanded}>
             {rows(merged)}
@@ -252,8 +252,7 @@ function IssueRow({ item, onOpen }: { item: IssueItem; onOpen: () => void }) {
   const title = item.title ?? item.confirmation?.title;
   return (
     <li>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.row}
         aria-label={t("extensionPanelOpenIssue", { key: item.key })}
         disabled={!item.url}
@@ -292,7 +291,7 @@ function IssueRow({ item, onOpen }: { item: IssueItem; onOpen: () => void }) {
               .join(" · ")}
           </span>
         </span>
-      </button>
+      </ButtonBase>
     </li>
   );
 }
@@ -524,11 +523,9 @@ export function SidePanel() {
             );
           })}
         </span>
-        <button
-          type="button"
+        <IconButton
           className={styles.iconButton}
-          aria-label={t("extensionPanelOpenApp")}
-          title={t("extensionPanelOpenApp")}
+          label={t("extensionPanelOpenApp")}
           onClick={() => void focusOrOpenApp()}
         >
           <svg
@@ -544,12 +541,10 @@ export function SidePanel() {
           >
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" />
           </svg>
-        </button>
-        <button
-          type="button"
+        </IconButton>
+        <IconButton
           className={styles.iconButton}
-          aria-label={t("extensionPanelRefresh")}
-          title={t("extensionPanelRefresh")}
+          label={t("extensionPanelRefresh")}
           disabled={loading || hosts.length === 0}
           onClick={() => setRefreshCount((count) => count + 1)}
         >
@@ -565,12 +560,10 @@ export function SidePanel() {
           >
             <path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5" />
           </svg>
-        </button>
-        <button
-          type="button"
+        </IconButton>
+        <IconButton
           className={styles.iconButton}
-          aria-label={t("extensionPanelOptions")}
-          title={t("extensionPanelOptions")}
+          label={t("extensionPanelOptions")}
           onClick={openOptions}
         >
           <svg
@@ -585,7 +578,7 @@ export function SidePanel() {
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
           </svg>
-        </button>
+        </IconButton>
       </header>
 
       <main className={styles.body}>
@@ -597,9 +590,8 @@ export function SidePanel() {
                 ? t("extensionPanelNoHosts")
                 : t("extensionPanelNoActiveHosts")}
             </p>
-            <button
-              type="button"
-              className={styles.primary}
+            <Button
+              variant="primary"
               onClick={
                 savedHosts.length === 0
                   ? () => void openInApp("/login")
@@ -609,7 +601,7 @@ export function SidePanel() {
               {savedHosts.length === 0
                 ? t("extensionPanelOpenApp")
                 : t("extensionPanelOptions")}
-            </button>
+            </Button>
           </section>
         ) : (
           <>
@@ -619,16 +611,14 @@ export function SidePanel() {
                 aria-label={t("extensionPanelNewSessionSection")}
               >
                 {reference && (
-                  <button
-                    type="button"
-                    className={styles.primary}
+                  <Button
+                    variant="primary"
                     onClick={(event) => startSessionAbout(event, reference)}
                   >
                     {t("extensionPanelNewSession")}
-                  </button>
+                  </Button>
                 )}
-                <button
-                  type="button"
+                <Button
                   onClick={(event) =>
                     openNewSession(
                       hostPath(target, "new-session"),
@@ -641,7 +631,7 @@ export function SidePanel() {
                         host: target.displayName,
                       })
                     : t("extensionPanelStartSession")}
-                </button>
+                </Button>
               </section>
             )}
 
@@ -674,13 +664,9 @@ export function SidePanel() {
             )}
 
             {reference && !lookupWanted && (
-              <button
-                type="button"
-                className={styles.primary}
-                onClick={() => setManualUrl(tab.url)}
-              >
+              <Button variant="primary" onClick={() => setManualUrl(tab.url)}>
                 {t("extensionPanelLookUp")}
-              </button>
+              </Button>
             )}
 
             {route && (
@@ -819,8 +805,8 @@ function AttentionGroups({
         return (
           <section key={group.key} aria-label={group.heading}>
             <h3 className={styles.groupHeading}>
-              <button
-                type="button"
+              <ButtonBase
+                className={styles.groupToggle}
                 aria-expanded={expanded}
                 aria-controls={listId}
                 onClick={() => toggle(group.key)}
@@ -841,7 +827,7 @@ function AttentionGroups({
                 </svg>
                 {group.heading}
                 <span>{group.sessions.length}</span>
-              </button>
+              </ButtonBase>
             </h3>
             <ul id={listId} className={styles.list} hidden={!expanded}>
               {group.sessions.map((session) => (

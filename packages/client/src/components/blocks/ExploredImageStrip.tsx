@@ -13,6 +13,7 @@ import {
   type LocalMediaSource,
   useLocalFileScope,
 } from "../LocalMediaModal";
+import { ButtonBase } from "../ui/Button";
 import styles from "./ExploredImageStrip.module.css";
 
 export interface ExploredImage {
@@ -161,15 +162,14 @@ export function ExploredImageStrip({
   return (
     <div className={styles.strip} data-explored-images={images.length}>
       <div className="local-media-link-group">
-        <button
-          type="button"
+        <ButtonBase
           className="local-media-inline-toggle"
           aria-expanded={expanded}
           aria-label={expanded ? t("explorationCollapse") : label}
           onClick={() => setOverride(!expanded)}
         >
           {expanded ? "-" : "+"}
-        </button>
+        </ButtonBase>
         <span className="local-media-type">{label}</span>
       </div>
       {expanded && (

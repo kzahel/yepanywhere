@@ -1,0 +1,118 @@
+{
+  "rawButtons": {
+    "components/ErrorBoundary.tsx": {
+      "count": 3,
+      "reason": "Crash fallback page with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
+    },
+    "components/FilterDropdown.tsx": {
+      "count": 2,
+      "reason": "Option rows inside the dropdown list: menu family (plan 182, family 2)."
+    },
+    "components/ModelSwitchModal.tsx": {
+      "count": 4,
+      "reason": "Model, thinking, effort and speed chips that pick one value: segmented/option family."
+    },
+    "components/NewSessionForm.tsx": {
+      "count": 3,
+      "reason": "Composer submit, queue and attach controls: excluded until the composer pass."
+    },
+    "components/NewSessionQueueOptions.tsx": {
+      "count": 1,
+      "reason": "Model option row in the queue options list: option family."
+    },
+    "components/ProjectSelector.tsx": {
+      "count": 1,
+      "reason": "Project option rows inside the selector dropdown: menu family."
+    },
+    "components/PublicShareManagerModal.tsx": {
+      "count": 1,
+      "reason": "Scope filter that picks one of three scopes: segmented family."
+    },
+    "components/QuestionAnswerPanel.tsx": {
+      "count": 3,
+      "reason": "Question tab strip and single-choice answers (aria-pressed): tab and option families."
+    },
+    "components/renderers/tools/ReadRenderer.tsx": {
+      "count": 2,
+      "reason": "Source/Preview toggle-btn pair: segmented family."
+    },
+    "components/renderers/tools/WriteRenderer.tsx": {
+      "count": 2,
+      "reason": "Source/Preview toggle-btn pair: segmented family."
+    },
+    "components/RestartSessionModal.tsx": {
+      "count": 2,
+      "reason": "Handoff/fork chips that pick one mode: segmented family."
+    },
+    "components/session-search/SearchControls.tsx": {
+      "count": 1,
+      "reason": "Activity/Turns/Created sort that picks one value: segmented family."
+    },
+    "components/SessionMenu.tsx": {
+      "count": 25,
+      "reason": "Dropdown menu items without an explicit menuitem role: menu family."
+    },
+    "components/SourceEditor.tsx": {
+      "count": 2,
+      "reason": "Source/Preview pair that picks one view: segmented family."
+    },
+    "pages/BlameBrowser.tsx": {
+      "count": 2,
+      "reason": "Contents/Blame pair that picks one view: segmented family."
+    },
+    "pages/settings/RemoteAccessSettings.tsx": {
+      "count": 1,
+      "reason": "Host identity icon preset picker (aria-pressed, one of several): option family."
+    }
+  },
+  "moduleButtonLooks": {
+    "components/AsyncQuestions.module.css": {
+      "count": 1,
+      "reason": "Row menu items: menu family."
+    },
+    "components/blocks/ForkTurnMenu.module.css": {
+      "count": 4,
+      "reason": "Fork menu items: menu family."
+    },
+    "components/FileResourceActions.module.css": {
+      "count": 3,
+      "reason": "Resource menu items: menu family."
+    },
+    "components/NewSessionQueueOptions.module.css": {
+      "count": 3,
+      "reason": "Model option rows: option family."
+    },
+    "components/session-search/SearchPreviews.module.css": {
+      "count": 1,
+      "reason": "Match menu items: menu family."
+    },
+    "components/session-search/SessionSearch.module.css": {
+      "count": 4,
+      "reason": "Activity/Turns/Created segmented sort: segmented family."
+    },
+    "components/SessionMenu.module.css": {
+      "count": 5,
+      "reason": "Session dropdown menu items: menu family."
+    },
+    "components/SourceContextMenu.module.css": {
+      "count": 4,
+      "reason": "Source context menu items: menu family."
+    },
+    "components/SourceEditor.module.css": {
+      "count": 2,
+      "reason": "Source/Preview segmented pair: segmented family."
+    },
+    "components/UserTurnNavigator.module.css": {
+      "count": 2,
+      "reason": "Turn marker context menu items: menu family."
+    },
+    "components/ViewerWindowActions.module.css": {
+      "count": 3,
+      "reason": "The composer's mic action (ComposerMicAction), a raw button in the viewer actions row: composer pass."
+    },
+    "pages/BlameBrowser.module.css": {
+      "count": 2,
+      "reason": "Contents/Blame segmented pair: segmented family."
+    }
+  }
+}

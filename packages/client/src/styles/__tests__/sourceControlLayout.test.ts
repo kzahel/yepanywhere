@@ -347,7 +347,6 @@ describe("Source Control workbench layout CSS contract", () => {
       ".git-diff-pane-toolbar .diff-context-buttons, .git-diff-pane-toolbar .git-diff-preview-header-actions",
     );
     const path = getLastRuleDeclarations(css, ".git-diff-toolbar-path");
-    const icon = getLastRuleDeclarations(css, ".diff-toolbar-icon-button");
     const hunk = getLastRuleDeclarations(css, ".diff-hunk-indicator");
 
     expect(identity).toMatch(/min-width:\s*0\s*;/);
@@ -360,8 +359,6 @@ describe("Source Control workbench layout CSS contract", () => {
     expect(groups).toMatch(/flex-wrap:\s*wrap\s*;/);
     expect(path).toMatch(/flex:\s*0\s+1000\s+auto\s*;/);
     expect(path).toMatch(/direction:\s*rtl\s*;/);
-    expect(icon).toMatch(/width:\s*24px\s*;/);
-    expect(icon).toMatch(/padding:\s*0\s*;/);
     expect(hunk).toMatch(/min-width:\s*1\.9rem\s*;/);
   });
 

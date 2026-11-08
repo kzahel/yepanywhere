@@ -14,6 +14,7 @@ import { getPathBasename, makeDisplayPath } from "../../../lib/text";
 import { shellPollOutcome, shellResultText } from "./shellPollOutcome";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
 import { AnsiText } from "../../ui/AnsiText";
+import { ButtonBase } from "../../ui/Button";
 import { FixedFontMathToggle } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
 import type { ToolSummaryContext } from "./types";
@@ -242,14 +243,10 @@ function ReadViaPtyFile({
   return (
     <>
       <div className={wrapperClass}>
-        <button
-          type="button"
-          className={buttonClass}
-          onClick={() => setShowModal(true)}
-        >
+        <ButtonBase className={buttonClass} onClick={() => setShowModal(true)}>
           {fileName}
           <span className={lineCountClass}>{lineCount} lines</span>
-        </button>
+        </ButtonBase>
       </div>
       {showModal && (
         <ActivityDetailModal

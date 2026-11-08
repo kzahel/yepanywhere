@@ -5,6 +5,7 @@ import type { ZodError } from "zod";
 import { useSchemaValidationContext } from "../../../contexts/SchemaValidationContext";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Button } from "../../ui/Button";
 import type { TaskOutputInput, TaskOutputResult } from "./types";
 
 const MAX_LINES_COLLAPSED = 20;
@@ -122,15 +123,16 @@ function TaskOutputToolResult({ result }: { result: TaskOutputResult }) {
                 <code>{displayLines.join("\n")}</code>
               </pre>
               {needsCollapse && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="small"
                   className="expand-button"
                   onClick={() => setIsExpanded(!isExpanded)}
                 >
                   {isExpanded
                     ? "Show less"
                     : `Show all ${outputLines.length} lines`}
-                </button>
+                </Button>
               )}
             </>
           )}

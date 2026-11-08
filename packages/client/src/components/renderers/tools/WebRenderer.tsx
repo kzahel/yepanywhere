@@ -8,6 +8,7 @@ import {
 } from "../../../hooks/useTooltipAppearance";
 import { selectionIntersectsElement } from "../../../lib/domSelection";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
+import { Button } from "../../ui/Button";
 import { HiddenContentBadge } from "../../ui/HiddenContentBadge";
 import {
   getHiddenOutputLineCount,
@@ -189,13 +190,14 @@ function WebRunPageView({
       )}
       {contentText && <div className="webrun-text">{contentText}</div>}
       {needsCollapse && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
-        </button>
+        </Button>
       )}
     </div>
   );

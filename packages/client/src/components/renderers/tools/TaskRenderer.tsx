@@ -17,6 +17,7 @@ import { classifyToolError } from "../../../lib/classifyToolError";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Button, ButtonBase, buttonClassName } from "../../ui/Button";
 import { ContentBlockRenderer } from "../ContentBlockRenderer";
 import { Spinner, TaskNestedContent } from "./TaskNestedContent";
 import type { TaskInput, TaskResult } from "./types";
@@ -83,13 +84,13 @@ function TaskToolUse({ input }: { input: TaskInput }) {
       </div>
       {input.prompt && (
         <div className="task-prompt">
-          <button
-            type="button"
-            className="task-prompt-toggle"
+          <Button
+            variant="ghost"
+            size="small"
             onClick={() => setShowPrompt(!showPrompt)}
           >
             {showPrompt ? "Hide prompt" : "Show prompt"}
-          </button>
+          </Button>
           {showPrompt && (
             <pre className="task-prompt-content">
               <code>{showPrompt ? input.prompt : promptTruncated}</code>
@@ -343,8 +344,7 @@ function TaskInline({
     >
       {/* Header row */}
       <div className={styles.headerRow}>
-        <button
-          type="button"
+        <ButtonBase
           className={`task-inline-header ${styles.expandButton}`}
           onClick={handleExpand}
         >
@@ -388,10 +388,14 @@ function TaskInline({
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Task" errors={validationErrors} />
           )}
-        </button>
+        </ButtonBase>
         {agentId && (
           <Link
-            className={styles.openPage}
+            className={buttonClassName({
+              variant: "ghost",
+              size: "small",
+              className: styles.openPage,
+            })}
             to={providerChildSessionHref(
               basePath,
               projectId,
@@ -499,13 +503,14 @@ function TaskToolResult({
           {(result.totalTokens ?? 0).toLocaleString()} tokens &middot;{" "}
           {result.totalToolUseCount ?? 0} tools
         </span>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Collapse" : "Expand"}
-        </button>
+        </Button>
       </div>
       {isExpanded && result.content && result.content.length > 0 && (
         <div className="task-content">

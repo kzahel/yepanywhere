@@ -5,9 +5,9 @@ Topic: ui-design
 Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
-settings button batch have landed. Next: the remaining button batches
-(modals, other pages, session view, …). Composer controls are excluded
-and get their own later pass.
+whole button family (census, swap, delete, ban) have landed. Next: the
+undefined-token pass, then family 2 (menus, popovers and dropdowns).
+Composer controls are excluded and get their own later pass.
 
 ## Why
 
@@ -92,16 +92,20 @@ of slightly different styles.
   production TSX, with file, line and className. At its landing it found
   594 raw buttons to swap and 129 left for later families (30 menu, 36
   option, 13 switch, 3 tab, 47 composer).
-- **Settings batch:** every button in `pages/settings/` (45 files) is on
-  `Button`, `IconButton`, `ButtonBase` or `buttonClassName`, except option
-  pickers and switches left for family 3. Legacy rules that reached zero
-  uses are deleted (`settings-button-danger`, `-danger-subtle`,
-  `settings-inline-x`, `provider-deprecation-notice__dismiss`, and four
-  classes the mapping found dead). `settings-button`,
-  `settings-button-secondary`, `btn-primary` and `btn-secondary` remain for
-  the later batches. `ProjectAppInventorySection.module.css` keeps the
-  embedded `ProjectAppViewer`'s legacy button look, scoped to a `.viewer`
-  wrapper, until that viewer is swapped.
+- **Button family done (2026-11-08):** every button outside the composer
+  is on `Button`, `IconButton`, `ButtonBase` or `buttonClassName`: the
+  settings batch, then modals and other pages, the session view and other
+  components, and renderers, blocks and the extension side panel (about 600
+  buttons in 190 files). Variants follow one rule (topic, "Buttons"), also
+  applied back over settings. The global rules of every legacy button class
+  that reached zero uses are deleted (`settings-button*`, `btn-*`,
+  `copy-button`, `login-button`, `load-older-button`, the share, revoke,
+  queue and commit-browser buttons, …, about 700 lines), and rules on
+  classes kept for layout lost their look properties. `IconButton` gained
+  `tooltip` for tooltips that say more than the name. `pnpm buttons:check`
+  in `pnpm lint` is the ban; its allowlist holds the menu, tab, option and
+  segmented buttons and module rules that later families own, the
+  composer's, and the crash fallback page.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
@@ -187,13 +191,15 @@ switch roles.
 - **Batches** in the order above, one commit each (large batches may split
   by subdirectory). Each batch deletes the legacy rules it leaves unused and
   runs the screen tour before and after.
-- **Ban** once all batches land: lint rejects the deleted global button
-  classes, and a CSS Module selector named like a button (`button`, `btn`)
-  outside `components/ui/` and the composer files, except declared
-  `ButtonBase` users.
+- **Ban** once all batches land (`pnpm buttons:check`, in `pnpm lint`):
+  legacy button classes whose global rules are gone, raw `<button>`s
+  outside `components/ui/` and the later families, and CSS Module rules that
+  style a bare `button` element's look, each beyond a counted, reasoned
+  allowlist (`design/census/button-allowlist.json`).
 - **Done when** the button census shows no legacy classes outside the
   composer, the legacy button rules are gone from the global stylesheets,
-  and the ban is in lint.
+  and the ban is in lint. Done 2026-11-08; the later families inherit the
+  allowlist entries that name them.
 
 ### 2 — menus, popovers and dropdowns
 

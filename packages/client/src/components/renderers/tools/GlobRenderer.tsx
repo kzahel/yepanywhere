@@ -6,6 +6,7 @@ import { useSchemaValidationContext } from "../../../contexts/SchemaValidationCo
 import { getPathBasename, makeDisplayPath } from "../../../lib/text";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Button } from "../../ui/Button";
 import styles from "./GlobRenderer.module.css";
 import type { GlobInput, GlobResult } from "./types";
 
@@ -117,13 +118,14 @@ function GlobToolResult({
         )}
       </div>
       {needsCollapse && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${filenames.length} files`}
-        </button>
+        </Button>
       )}
     </div>
   );

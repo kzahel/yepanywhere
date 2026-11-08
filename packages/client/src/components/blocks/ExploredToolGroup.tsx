@@ -30,6 +30,7 @@ import { effectiveInvocationError } from "../renderers/tools/prepareDisplay";
 import type { RenderContext } from "../renderers/types";
 import { SessionFilePathLink } from "../SessionFilePathLink";
 import { getToolSummary } from "../tools/summaries";
+import { ButtonBase } from "../ui/Button";
 import { ToolCallRow } from "./ToolCallRow";
 
 interface Props {
@@ -210,8 +211,7 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
     >
       <div className="message-render-content">
         <div className="explored-group timeline-item">
-          <button
-            type="button"
+          <ButtonBase
             className="timeline-dot-btn"
             onClick={() => setExpanded((value) => !value)}
             aria-label={toggleLabel}
@@ -219,8 +219,7 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
             aria-expanded={expanded}
             title={toggleLabel}
           />
-          <button
-            type="button"
+          <ButtonBase
             className="explored-group-header"
             onClick={() => setExpanded((value) => !value)}
             aria-controls={bodyId}
@@ -231,7 +230,7 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
             <span className="expand-chevron" aria-hidden="true">
               {expanded ? "▾" : "▸"}
             </span>
-          </button>
+          </ButtonBase>
           {expanded && (
             <div className="explored-group-body" id={bodyId} role="list">
               {projection.parents.flatMap((parent) =>
@@ -280,8 +279,7 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
                     key={`details-${parent.item.id}`}
                     className="explored-parent-details"
                   >
-                    <button
-                      type="button"
+                    <ButtonBase
                       className="explored-parent-details-toggle"
                       onClick={() => toggleParentDetails(parent.item.id)}
                       aria-controls={rawDetailsId}
@@ -291,7 +289,7 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
                         {parentExpanded ? "▾" : "▸"}
                       </span>
                       {detailsLabel}
-                    </button>
+                    </ButtonBase>
                     {parentExpanded && (
                       <div className="explored-parent-raw" id={rawDetailsId}>
                         <ToolCallRow

@@ -6,6 +6,7 @@ import { useSchemaValidationContext } from "../../../contexts/SchemaValidationCo
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
 import { AnsiText } from "../../ui/AnsiText";
+import { Button } from "../../ui/Button";
 import { FixedFontMathToggle } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
 import type { BashOutputInput, BashOutputResult } from "./types";
@@ -170,13 +171,14 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
             />
           )}
           {needsCollapse && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="small"
               className="expand-button"
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded ? "Show less" : `Show all ${totalLines} lines`}
-            </button>
+            </Button>
           )}
         </>
       )}

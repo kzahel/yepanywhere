@@ -101,8 +101,10 @@ export const LEGACY_BUTTONS: readonly LegacyButton[] = [
   {
     classes: "copy-button",
     counted: "copy-button",
-    to: "secondary",
+    to: "ghost",
     small: true,
+    icon: true,
+    note: "CopyButton: a small IconButton.",
   },
   {
     classes: "session-share-icon-button",
@@ -114,14 +116,15 @@ export const LEGACY_BUTTONS: readonly LegacyButton[] = [
   {
     classes: "settings-button settings-button-secondary",
     counted: "settings-button-secondary",
-    to: "outline",
-    note: "Transparent with a border; 'secondary' in name only.",
+    to: "secondary",
+    note: "Transparent with a border; an ordinary action, so secondary under the variant rule.",
   },
   {
     classes: "expand-button",
     counted: "expand-button",
-    to: "outline",
-    note: "Muted text and a 44 px touch height of its own.",
+    to: "ghost",
+    small: true,
+    note: "An inline text action (show more), so ghost small; it had a 44 px touch height of its own.",
   },
   {
     classes: "diff-toolbar-icon-button",
@@ -615,10 +618,10 @@ export const MODULE_BUTTONS: readonly ModuleButton[] = [
   {
     file: "components/PublicShareInventory.module.css",
     name: "iconButtonDanger",
-    to: "danger",
+    to: "danger-outline",
     small: true,
     icon: true,
-    note: "Share row revoke modifier, filled red with 13px icon.",
+    note: "Share row revoke beside copy and freeze: a destructive secondary action.",
   },
   {
     file: "components/PublicShareInventory.module.css",
@@ -742,10 +745,10 @@ export const MODULE_BUTTONS: readonly ModuleButton[] = [
   {
     file: "components/SessionShareModal.module.css",
     name: "revokeTypeButton",
-    to: "danger",
+    to: "danger-outline",
     small: true,
     icon: true,
-    note: "Per-scope/type revoke/confirm icon, filled red; stretches row height.",
+    note: "Per-scope/type revoke/confirm icon beside other actions; stretches row height.",
   },
   {
     file: "components/SessionShareModal.module.css",

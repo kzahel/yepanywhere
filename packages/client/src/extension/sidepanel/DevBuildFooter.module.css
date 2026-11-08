@@ -19,14 +19,6 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
-.footer .reload,
-.footer .update {
+.action {
   flex-shrink: 0;
-  min-height: 44px;
-  font-size: 12px;
-}
-.footer .update {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: var(--accent-contrast);
 }

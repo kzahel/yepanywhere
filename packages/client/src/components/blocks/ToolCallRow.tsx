@@ -56,6 +56,7 @@ import { getOutputTailTooltip } from "../renderers/tools/outputPreview";
 import { shellPollOutcome } from "../renderers/tools/shellPollOutcome";
 import type { RenderContext } from "../renderers/types";
 import { getToolSummary } from "../tools/summaries";
+import { ButtonBase, IconButton } from "../ui/Button";
 import { HiddenContentBadge } from "../ui/HiddenContentBadge";
 import type { WorkflowAnnotation } from "@yep-anywhere/shared/transcript/workflowTags";
 import { WorkflowOutput } from "../WorkflowOutput";
@@ -1660,8 +1661,7 @@ function ToolRowCollapseStrip({
   ariaLabel?: string;
 }) {
   return (
-    <button
-      type="button"
+    <ButtonBase
       className="tool-row-collapse-strip"
       onClick={(event) => {
         event.stopPropagation();
@@ -1928,8 +1928,9 @@ function ToolHeaderCopyButton({
   const [copied, setCopied] = useState(false);
 
   return (
-    <button
-      type="button"
+    <IconButton
+      variant="outline"
+      size="small"
       className={`tool-header-copy ${copied ? "copied" : ""}`}
       onClick={(event) => {
         event.preventDefault();
@@ -1944,10 +1945,9 @@ function ToolHeaderCopyButton({
             console.error("Failed to copy tool header text:", error);
           });
       }}
-      aria-label={copied ? "Copied" : label}
-      title={copied ? "Copied" : label}
+      label={copied ? "Copied" : label}
     >
       {copied ? <CheckIcon /> : <CopyIcon />}
-    </button>
+    </IconButton>
   );
 }

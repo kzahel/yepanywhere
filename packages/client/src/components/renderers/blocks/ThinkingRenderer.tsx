@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ThinkingText } from "../../ThinkingText";
+import { ButtonBase } from "../../ui/Button";
 import type { ContentBlock, ContentRenderer, RenderContext } from "../types";
 
 interface ThinkingBlock extends ContentBlock {
@@ -47,15 +48,14 @@ function ThinkingRendererComponent({
   if (isExpanded) {
     return (
       <div className="thinking-block thinking-block-expanded">
-        <button
-          type="button"
+        <ButtonBase
           className="thinking-toggle-expanded"
           onClick={toggleThinkingExpanded}
           aria-expanded={true}
         >
           <span className="thinking-label">Thinking</span>
           <span className="thinking-icon">▲</span>
-        </button>
+        </ButtonBase>
         <div className="thinking-content">
           <ThinkingText text={thinking} isStreaming={context.isStreaming} />
         </div>
@@ -70,8 +70,7 @@ function ThinkingRendererComponent({
 
   return (
     <div className={collapsedClass}>
-      <button
-        type="button"
+      <ButtonBase
         className="thinking-toggle-collapsed"
         onClick={toggleThinkingExpanded}
         aria-expanded={false}
@@ -80,7 +79,7 @@ function ThinkingRendererComponent({
           {context.isStreaming ? "Thinking..." : "Thinking"}
         </span>
         <span className="thinking-icon">▼</span>
-      </button>
+      </ButtonBase>
     </div>
   );
 }

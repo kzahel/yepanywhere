@@ -43,12 +43,6 @@
 
 .toggle {
   margin-top: 0.25rem;
-  padding: 0;
-  border: none;
-  color: var(--link-color, var(--text-muted));
-  background: none;
-  font: inherit;
-  cursor: pointer;
 }
 
 .error {

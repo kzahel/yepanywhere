@@ -20,6 +20,7 @@ import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { useImageResourceActions } from "../ImageResourceActions";
 import { LocalMediaModal, type LocalMediaSource } from "../LocalMediaModal";
 import { TimelineDisclosure } from "../TimelineDisclosure";
+import { ButtonBase } from "../ui/Button";
 import styles from "./ToolResultMediaRows.module.css";
 
 interface ToolResultMediaRowsProps {
@@ -218,14 +219,13 @@ function StoredToolResultMediaRow({
       <div className={styles.rowHeader}>
         <span className="tool-name">{displayName}</span>
         <span className={`tool-summary ${styles.summary}`}>
-          <button
-            type="button"
+          <ButtonBase
             className={styles.filename}
             onClick={openViewer}
             onContextMenu={imageActions.handleContextMenu}
           >
             {filename}
-          </button>
+          </ButtonBase>
           <span className={styles.suffix}>
             ({t(isVideo ? "toolResultMediaVideo" : "toolResultMediaImage")})
           </span>
@@ -259,8 +259,7 @@ function StoredToolResultMediaRow({
                 aria-label={t("toolResultMediaAlt", { filename })}
               />
             ) : (
-              <button
-                type="button"
+              <ButtonBase
                 className={styles.imageButton}
                 onClick={openViewer}
                 onContextMenu={imageActions.handleContextMenu}
@@ -272,7 +271,7 @@ function StoredToolResultMediaRow({
                   width={media.width}
                   height={media.height}
                 />
-              </button>
+              </ButtonBase>
             ))}
         </div>
       )}

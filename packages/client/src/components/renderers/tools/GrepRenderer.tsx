@@ -17,6 +17,7 @@ import { validateToolResult } from "../../../lib/validateToolResult";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
 import { SchemaWarning } from "../../SchemaWarning";
 import { SessionFilePathLink } from "../../SessionFilePathLink";
+import { Button, ButtonBase } from "../../ui/Button";
 import styles from "./GrepRenderer.module.css";
 import type { GrepInput, GrepMatch, GrepResult } from "./types";
 
@@ -145,8 +146,7 @@ function GrepMatchDrilldown({
 
   return (
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.matchCountButton}
         onClick={(event) => {
           event.preventDefault();
@@ -155,7 +155,7 @@ function GrepMatchDrilldown({
         }}
       >
         {label}
-      </button>
+      </ButtonBase>
       {showModal && (
         <ActivityDetailModal
           title={label}
@@ -275,13 +275,14 @@ function FileListView({
         )}
       </div>
       {needsCollapse && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${filenames.length} files`}
-        </button>
+        </Button>
       )}
     </>
   );
@@ -312,13 +313,14 @@ function ContentView({
         <code>{displayContent}</code>
       </pre>
       {needsCollapse && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
-        </button>
+        </Button>
       )}
     </>
   );
@@ -657,8 +659,7 @@ function GrepSummaryPattern({
 
   const clipClassName = `${styles.summaryPatternClip}${onToggle ? ` ${styles.summaryPatternAction}` : ""}`;
   const clipContent = onToggle ? (
-    <button
-      type="button"
+    <ButtonBase
       className={clipClassName}
       title={summary}
       aria-label={expanded ? "Collapse grep pattern" : "Show full grep pattern"}
@@ -670,7 +671,7 @@ function GrepSummaryPattern({
       }}
     >
       {displayPattern}
-    </button>
+    </ButtonBase>
   ) : (
     <span className={clipClassName} title={summary}>
       {displayPattern}

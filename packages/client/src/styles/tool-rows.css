@@ -97,22 +97,13 @@
   top: 3px;
   width: 16px;
   height: 16px;
-  border: none;
-  background: transparent;
   border-radius: 50%;
-  cursor: pointer;
-  padding: 0;
   z-index: 1;
 }
 
 .timeline-dot-btn:hover {
   background: var(--bg-hover, rgba(255, 255, 255, 0.08));
   box-shadow: 0 0 0 1px var(--border-color, #444);
-}
-
-.timeline-dot-btn:focus {
-  outline: none;
-  box-shadow: none;
 }
 
 .timeline-dot-btn:focus-visible {
@@ -329,24 +320,9 @@ button.tool-summary {
 }
 
 .tool-header-copy {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-  width: 1.35rem;
-  height: 1.35rem;
-  padding: 0;
-  border: 1px solid var(--border-color, #333);
-  border-radius: var(--radius-sm, 4px);
-  background: color-mix(in srgb, var(--bg-surface, #181818) 86%, transparent);
-  color: var(--text-muted, #888);
-  cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
 }
 
 .tool-row-header:hover .tool-header-copy,
@@ -356,16 +332,6 @@ button.tool-summary {
 .tool-header-copy.copied {
   opacity: 1;
   pointer-events: auto;
-}
-
-.tool-header-copy:hover {
-  color: var(--text-primary, #ccc);
-  border-color: var(--border-strong, var(--border-color, #333));
-}
-
-.tool-header-copy:focus {
-  outline: 1px solid var(--focus-border, #007acc);
-  outline-offset: -1px;
 }
 
 .tool-header-copy.copied {
@@ -469,22 +435,14 @@ button.tool-summary {
   width: 100%;
   min-height: 20px;
   padding: 2px 4px;
-  border: none;
   border-radius: 2px;
-  background: transparent;
   color: var(--text-primary, #ccc);
-  cursor: pointer;
-  font: inherit;
+  font-size: inherit;
   text-align: left;
 }
 
 .explored-group-header:hover {
   background: var(--bg-hover, #2a2a2a);
-}
-
-.explored-group-header:focus {
-  outline: 1px solid var(--focus-border, #007acc);
-  outline-offset: -1px;
 }
 
 .explored-group-title {

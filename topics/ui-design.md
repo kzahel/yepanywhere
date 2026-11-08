@@ -47,7 +47,10 @@ the reference.
   `small`.
 - `IconButton`: icon-only; its required `label` is the accessible name and
   the tooltip, following the user's tooltip setting (`data-tooltip` for
-  `TooltipLayer` when themed, `title` when native). Defaults to `ghost`.
+  `TooltipLayer` when themed, `title` when native). `tooltip` replaces the
+  tooltip text when it should say more than the name (a gesture hint, a
+  freshness state). Defaults to `ghost`; a ghost with `aria-pressed="true"`
+  shows as a bordered, filled chip.
 - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
   arrows and chips. Its reset has zero specificity, so the owner's styles
   always win, including ancestor rules such as `.list button`; it keeps the
@@ -68,8 +71,25 @@ padding, size and type. A caller rule that must override the control's look is c
 (`.chip.disabled`), because two single-class rules resolve by stylesheet
 order.
 
-Swapped so far: every button in `pages/settings/` except the option
-pickers and switches that belong to later families.
+Which variant: the single main submit or confirm action of a form or
+dialog is `primary`; a destructive confirm is `danger`; a destructive action
+beside others (Remove, Delete, Revoke, Forget) is `danger-outline`; Cancel,
+Close and every other action is `secondary`; an inline text action ("Show
+more", "Copy", "Edit") is `ghost` `small`; an icon-only button is an
+`IconButton`. `outline` remains for the few places that must differ from a
+neighbouring secondary.
+
+Every client button outside the composer is on the shared controls, except
+menu items, tabs, option pickers and switches, which belong to later
+families. `pnpm buttons:check` (part of `pnpm lint`) keeps it so: it rejects
+a legacy button class from `design/census/mapping.ts` whose global rules are
+gone, a raw `<button>` outside `src/components/ui/` and those families, and
+a CSS Module rule that styles a bare `button` element's look
+(`.panel button { background: … }`), which would outrank `ButtonBase`'s
+reset and tie with `Button`'s variants. Remaining exceptions sit in
+`design/census/button-allowlist.json`, each with a count and a reason; counts
+only fall (`--record`). The Census/Buttons "Button elements" state lists what
+is left.
 
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:

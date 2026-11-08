@@ -4,6 +4,7 @@
  */
 
 import { createRoot } from "react-dom/client";
+import { TooltipLayer } from "../../components/ui/TooltipLayer";
 import { initializeTheme } from "../../hooks/useTheme";
 import { I18nProvider } from "../../i18n";
 import "../../styles/index.css";
@@ -15,6 +16,7 @@ const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");
 createRoot(root).render(
   <I18nProvider>
+    <TooltipLayer />
     <SidePanel />
   </I18nProvider>,
 );

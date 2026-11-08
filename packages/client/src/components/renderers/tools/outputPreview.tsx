@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { IconButton } from "../../ui/Button";
 
 /**
  * Shared building blocks for collapsed tool-output previews: the first-N-line
@@ -148,15 +149,15 @@ export function OutputCopyButton({
   );
 
   return (
-    <button
-      type="button"
+    <IconButton
+      variant="outline"
+      size="small"
       className={`bash-section-copy ${copied ? "copied" : ""}`}
       onClick={handleCopy}
       disabled={!text}
-      aria-label={copied ? "Copied" : label}
-      title={copied ? "Copied" : label}
+      label={copied ? "Copied" : label}
     >
       {copied ? <CheckIcon /> : <CopyIcon />}
-    </button>
+    </IconButton>
   );
 }

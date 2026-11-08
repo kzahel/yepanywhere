@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { YepAnywhereGlyph } from "../../components/YepAnywhereLogo";
+import { Button, ButtonBase } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { getChrome } from "../chrome";
 import styles from "./SidePanel.module.css";
@@ -102,8 +103,7 @@ function SiteAccessRequest({
 
   return (
     <section className={`${styles.context} ${styles.siteAccess}`}>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.siteAccessToggle}
         aria-expanded={expanded}
         aria-controls={contentId}
@@ -126,7 +126,7 @@ function SiteAccessRequest({
             strokeLinejoin="round"
           />
         </svg>
-      </button>
+      </ButtonBase>
       <div
         id={contentId}
         className={styles.siteAccessContent}
@@ -141,14 +141,13 @@ function SiteAccessRequest({
         {!site ? (
           <SiteAccessInstructions />
         ) : (
-          <button
-            type="button"
-            className={styles.primary}
+          <Button
+            variant="primary"
             onClick={requestSite}
             disabled={request === "waiting"}
           >
             {t("extensionPanelAllowNamedSite", { site })}
-          </button>
+          </Button>
         )}
         {(request === "error" || request === "denied") && (
           <p role="alert">

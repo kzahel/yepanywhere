@@ -38,6 +38,7 @@ import {
   useLocalMediaInlinePreviews,
   useLocalResourceClick,
 } from "../LocalMediaModal";
+import { ButtonBase, IconButton } from "../ui/Button";
 import { renderFixedFontMath } from "../ui/FixedFontMathToggle";
 import { RenderModeGlyph } from "../ui/RenderModeGlyph";
 import { useTurnImageGalleryNavigation } from "../TurnImageGallery";
@@ -429,26 +430,26 @@ export const TextBlock = memo(function TextBlock({
       ) : null}
       <div className="text-block-actions">
         {canToggleRendered && (
-          <button
-            type="button"
+          <IconButton
+            variant="outline"
+            size="small"
             className={`text-block-toggle ${showRendered ? "is-rendered" : ""}`}
             onClick={toggleLocalMode}
-            title={showRendered ? "Show source" : "Show rendered"}
-            aria-label={showRendered ? "Show source" : "Show rendered"}
+            label={showRendered ? "Show source" : "Show rendered"}
             aria-pressed={showRendered}
           >
             <RenderModeGlyph />
-          </button>
+          </IconButton>
         )}
-        <button
-          type="button"
+        <IconButton
+          variant="outline"
+          size="small"
           className={`text-block-copy ${copied ? "copied" : ""}`}
           onClick={handleCopy}
-          title={copied ? "Copied!" : "Copy markdown"}
-          aria-label={copied ? "Copied!" : "Copy markdown"}
+          label={copied ? "Copied!" : "Copy markdown"}
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
-        </button>
+        </IconButton>
       </div>
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click is delegated to media/link elements inside rendered markdown */}
@@ -523,8 +524,7 @@ export const TextBlock = memo(function TextBlock({
       </div>
       {galleryActionHost
         ? createPortal(
-            <button
-              type="button"
+            <ButtonBase
               className="turn-image-gallery-inline-action"
               aria-expanded={galleryActive}
               aria-label={t(
@@ -549,7 +549,7 @@ export const TextBlock = memo(function TextBlock({
             >
               <span aria-hidden="true">{galleryActive ? "−" : "+"}</span>
               {t("turnImageGalleryShow")}
-            </button>,
+            </ButtonBase>,
             galleryActionHost,
           )
         : null}

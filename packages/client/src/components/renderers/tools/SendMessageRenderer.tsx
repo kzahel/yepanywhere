@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "../../ui/Button";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import styles from "./SendMessageRenderer.module.css";
@@ -18,13 +19,14 @@ function MessageBody({ message }: { message: string }) {
     <div className={styles.body}>
       <div className={styles.message}>{shown}</div>
       {long ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className={styles.toggle}
           onClick={() => setExpanded((value) => !value)}
         >
           {expanded ? "Show less" : "Show full message"}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
