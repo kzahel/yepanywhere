@@ -473,6 +473,71 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Slice 4.9.2 — Codex session config builders (Landed 2026-11-09, this commit)
+
+[Plan 186](186-codex-session-lifecycle.md) slice 2.
+
+Moved:
+- `mapEffortToReasoningEffort`, `createThreadStartParams`,
+  `createThreadResumeParams`, `createThreadForkParams`,
+  `buildThreadConfigOverrides` and `createTurnStartParams` -> new
+  `codex-session-config.ts`, with `CODEX_THINKING_OFF_MIN_REASONING_EFFORT_PREFIXES`
+  and the two `...ParamsForRequest` aliases.
+  `CodexThreadResumeParamsForRequest` is exported because
+  `startOrResumeThread` still takes it.
+
+Added:
+- `CodexConfigSource` in the new module: `reasoningSummary()`,
+  `planToolMode()`, `subagentMaxDepth()` and `cachedModels()`. The cyber
+  access program is not in it; `resolveTurnCyberAccess` stays on the
+  provider and reads it every turn.
+- The provider holds one as `this.configSource`. Its methods call the
+  `getConfigured*` fields and read `modelCache` when invoked, so the
+  `set*Getter` calls that `configureProviderRuntime` makes after
+  construction still take effect.
+
+Signature conversions (dependency -> parameter):
+- All six take `configSource: CodexConfigSource` first. Their
+  `this.getConfiguredReasoningSummary()`, `...PlanToolMode()` and
+  `...SubagentMaxDepth()` calls became `configSource.reasoningSummary()`,
+  `.planToolMode()` and `.subagentMaxDepth()`, and `this.modelCache?.models`
+  became `configSource.cachedModels()`. The parameter is not called
+  `config` because `buildThreadConfigOverrides` already has a local of that
+  name. The ten call sites in `codex.ts` pass `this.configSource`. Bodies
+  are otherwise identical to HEAD apart from indentation and formatter
+  rewrapping.
+
+Tests:
+- New `test/sdk/providers/codex-config-source.ts` builds a literal source
+  (unset settings take the provider defaults) and binds the six functions
+  to it. The eleven builder tests in `codex.test.ts` and the two in
+  `codex-limited-instructions.test.ts` call that, not a provider; no
+  assertion changed. The three that set provider getters (reasoning
+  summary, subagent depth, plan tool) pass the same values as literal
+  settings.
+- `provider-runtime-settings.test.ts` is the wiring test. It reaches the
+  provider's `configSource` and calls the module functions. Its subagent
+  depth test now also checks the Codex thread config, because the removed
+  `setSubagentMaxDepthGetter` calls in `codex.test.ts` were the only Codex
+  coverage of that setter. Binding the source early (passing the getter
+  fields, not arrows) fails five tests across the three settings.
+- `cachedModels()` wiring has no direct test, as before: the effort tests
+  ran against an empty model cache, and still do.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 3: server `tsc` (main and tool-display configs; `tsconfig.test.json`
+  has no new errors in the touched files), the Codex-focused vitest set
+  (75 files, 1,132 passed), `pnpm lint`, `pnpm format:check`,
+  `pnpm typecheck`, `pnpm test:providers` (22 passed, 1 skipped; all 11
+  Codex cases ran), `pnpm test:e2e:sdk` (80 passed, 4 skipped),
+  `git diff --check`, and a normalized comparison of the moved bodies
+  against HEAD.
+- Budget: `codex.ts` 3,982 -> 3,740. `codex-session-config.ts` is 313
+  lines.
+
 ### Slice 4.9.1 — Codex provider host and helper threads (Landed 2026-11-09, this commit)
 
 [Plan 186](186-codex-session-lifecycle.md) slice 1.

@@ -36,14 +36,12 @@ import {
   codexCyberAccessProgramWireValue,
   type CodexReasoningSummary,
   type EffortLevel,
-  type EffectiveSessionLaunchSettings,
   hasInvocationCandidate,
   type ModelCatalogStatus,
   type ModelInfo,
   type PermissionMode,
   type ProviderSubscriptionUsage,
   type SubagentMaxDepth,
-  nativeModelEffort,
   resolveTurnEffort,
   thinkingOptionToConfig,
   type ThinkingOption,
@@ -74,7 +72,6 @@ import type {
   SkillMetadata,
   SkillsListParams,
   SkillsListResponse,
-  ThreadForkParams,
   ThreadForkResponse,
   ThreadGoalClearParams,
   ThreadGoalClearResponse,
@@ -93,7 +90,6 @@ import type {
   ThreadReadResponse,
   ThreadCompactStartParams,
   ThreadCompactStartResponse,
-  ThreadResumeParams,
   ThreadResumeResponse,
   ThreadStartParams,
   ThreadStartResponse,
@@ -101,11 +97,9 @@ import type {
   TurnInterruptResponse,
   TurnSettingsUpdateParams,
   TurnSettingsUpdateResponse,
-  TurnStartParams,
   TurnStartResponse,
   TurnSteerParams,
   TurnSteerResponse,
-  UserInput,
 } from "./codex-protocol/index.js";
 import type { CyberAccessProgram } from "./codex-protocol/generated/v2/CyberAccessProgram.js";
 import type { TurnError } from "./codex-protocol/generated/v2/TurnError.js";
@@ -148,18 +142,13 @@ import {
   terminateChildProcess,
 } from "./codex-app-server-client.js";
 import {
-  buildThreadPermissionParams,
-  buildTurnPermissionParams,
   CODEX_POLICY_OVERRIDES,
-  type CodexThreadPolicy,
   type CodexThreadTurn,
-  limitedUserThreadInstructions,
   mapPermissionModeToThreadPolicy,
   normalizePermissionMode,
   resolveCodexForkLastTurnId,
 } from "./codex-thread-params.js";
 import {
-  CODEX_DESKTOP_BROWSER_SKILL_NAME,
   createCodexSlashCommands,
   createCodexUserInputs,
 } from "./codex-skill-inputs.js";
@@ -178,6 +167,15 @@ import {
   handleForkServerRequest,
 } from "./codex-helper-threads.js";
 import type { CodexProviderHost } from "./codex-provider-host.js";
+import {
+  type CodexConfigSource,
+  type CodexThreadResumeParamsForRequest,
+  createThreadForkParams,
+  createThreadResumeParams,
+  createThreadStartParams,
+  createTurnStartParams,
+  mapEffortToReasoningEffort,
+} from "./codex-session-config.js";
 import type {
   AgentProvider,
   AgentSession,
@@ -209,7 +207,6 @@ import {
   extractTurnUsage,
 } from "./codex-live-event-conversion.js";
 import type { JsonRpcNotification, JsonRpcResponse } from "./codex-json-rpc.js";
-import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
 
 function formatCodexGoalStatus(
@@ -233,9 +230,6 @@ const APP_SERVER_MODEL_LIST_REQUEST_ID = 2;
 const CODEX_SERVER_OVERLOAD_RETRY_LIMIT = 16;
 const CODEX_SERVER_OVERLOAD_RETRY_SCALE_MS = 5000;
 const CODEX_SERVER_OVERLOAD_RETRY_MAX_DELAY_MS = 180_000;
-const CODEX_THINKING_OFF_MIN_REASONING_EFFORT_PREFIXES = [
-  "gpt-5.3-codex-spark",
-] as const;
 
 type CodexOverloadRetryWait = (
   delayMs: number,
@@ -336,9 +330,6 @@ async function withCodexTimeout<T>(
     if (timeout) clearTimeout(timeout);
   }
 }
-
-type CodexThreadResumeParamsForRequest = ThreadResumeParams;
-type CodexThreadForkParamsForRequest = ThreadForkParams;
 
 /**
  * When enabled, declare Codex session originator as "Codex Desktop" when
@@ -609,6 +600,16 @@ export class CodexProvider implements AgentProvider {
   private getSteeringMode: () =>
     | import("@yep-anywhere/shared").SteeringMode
     | undefined = () => undefined;
+  /**
+   * Settings for the thread and turn builders. Each method reads the getter
+   * field when called, so a setter applied later still takes effect.
+   */
+  private readonly configSource: CodexConfigSource = {
+    reasoningSummary: () => this.getConfiguredReasoningSummary(),
+    planToolMode: () => this.getConfiguredPlanToolMode(),
+    subagentMaxDepth: () => this.getConfiguredSubagentMaxDepth(),
+    cachedModels: () => this.modelCache?.models,
+  };
 
   constructor(config: CodexProviderConfig = {}) {
     this.config = config;
@@ -1097,76 +1098,6 @@ export class CodexProvider implements AgentProvider {
     }
   }
 
-  private mapEffortToReasoningEffort(
-    effort?: import("@yep-anywhere/shared").EffortLevel,
-    thinking?: import("@yep-anywhere/shared").ThinkingConfig,
-    model?: StartSessionOptions["model"],
-    accountModels?: readonly ModelInfo[],
-  ): NonNullable<TurnStartParams["effort"]> | undefined {
-    if (
-      accountModels &&
-      effort &&
-      !routerModelSupportsThinking(
-        accountModels.find((m) => m.id === model),
-        `on:${effort}`,
-      )
-    )
-      throw new Error("Thinking level unavailable for the pinned account");
-    if (thinking?.type === "disabled") {
-      const supported = (accountModels ?? this.modelCache?.models)?.find(
-        (candidate) => candidate.id === model,
-      )?.supportedReasoningEfforts;
-      if (
-        supported?.length &&
-        !supported.some((item) => item.reasoningEffort === "none")
-      ) {
-        const minimum = [
-          "minimal",
-          "low",
-          "medium",
-          "high",
-          "xhigh",
-          "max",
-          "ultra",
-        ].find((level) =>
-          supported.some((item) => item.reasoningEffort === level),
-        );
-        if (minimum) return minimum;
-      }
-      const normalizedModel = model?.trim().toLowerCase();
-      const hasSparkModelPrefix =
-        CODEX_THINKING_OFF_MIN_REASONING_EFFORT_PREFIXES.some((prefix) =>
-          normalizedModel?.startsWith(prefix),
-        );
-      if (hasSparkModelPrefix) {
-        return "low";
-      }
-      return "none";
-    }
-    if (!effort) {
-      return undefined;
-    }
-    switch (effort) {
-      case "low":
-        return "low";
-      case "medium":
-        return "medium";
-      case "high":
-        return "high";
-      case "xhigh":
-        return "xhigh";
-      case "max": {
-        const selectedModel = (accountModels ?? this.modelCache?.models)?.find(
-          (candidate) =>
-            candidate.id === model || (!model && candidate.isDefault),
-        );
-        return selectedModel
-          ? nativeModelEffort("max", selectedModel)
-          : "xhigh";
-      }
-    }
-  }
-
   /**
    * Start a new Codex session.
    */
@@ -1405,7 +1336,8 @@ export class CodexProvider implements AgentProvider {
           await activeClient?.request("thread/settings/update", {
             threadId: runtimeState.threadId,
             effort:
-              this.mapEffortToReasoningEffort(
+              mapEffortToReasoningEffort(
+                this.configSource,
                 effort,
                 options.thinking,
                 runtimeState.resolvedModel,
@@ -1417,7 +1349,8 @@ export class CodexProvider implements AgentProvider {
         if (effort !== undefined) {
           try {
             await updateActiveTurnSettings({
-              effort: this.mapEffortToReasoningEffort(
+              effort: mapEffortToReasoningEffort(
+                this.configSource,
                 effort,
                 options.thinking,
                 runtimeState.turnModelOverride ?? runtimeState.resolvedModel,
@@ -2110,7 +2043,8 @@ export class CodexProvider implements AgentProvider {
       );
       const fork = await appServer.request<ThreadForkResponse>(
         "thread/fork",
-        this.createThreadForkParams(
+        createThreadForkParams(
+          this.configSource,
           { ...options, lastTurnId },
           policy,
           experimentalApiEnabled,
@@ -2384,13 +2318,18 @@ export class CodexProvider implements AgentProvider {
         throw new Error(
           "Codex continuation requires native rollout path support",
         );
-      const threadResumeParams = this.createThreadResumeParams(
+      const threadResumeParams = createThreadResumeParams(
+        this.configSource,
         options,
         sessionId,
         policy,
         experimentalApiEnabled,
       );
-      const threadStartParams = this.createThreadStartParams(options, policy);
+      const threadStartParams = createThreadStartParams(
+        this.configSource,
+        options,
+        policy,
+      );
       const threadResult = await this.startOrResumeThread(
         appServer,
         options,
@@ -2443,7 +2382,8 @@ export class CodexProvider implements AgentProvider {
         ),
       } as SDKMessage);
 
-      const requestedReasoningEffort = this.mapEffortToReasoningEffort(
+      const requestedReasoningEffort = mapEffortToReasoningEffort(
+        this.configSource,
         options.effort,
         options.thinking,
         options.model,
@@ -3052,7 +2992,8 @@ export class CodexProvider implements AgentProvider {
             sessionId,
             runtimeState.turnModelOverride ?? runtimeState.resolvedModel,
           );
-          const turnStartParams = this.createTurnStartParams(
+          const turnStartParams = createTurnStartParams(
+            this.configSource,
             sessionId,
             preparedInput.input,
             options,
@@ -3092,7 +3033,8 @@ export class CodexProvider implements AgentProvider {
               throw new Error(
                 "Cannot restore the model's unknown normal effort",
               );
-            turnStartParams.effort = this.mapEffortToReasoningEffort(
+            turnStartParams.effort = mapEffortToReasoningEffort(
+              this.configSource,
               selected.effort,
               selected.thinking,
               modelId,
@@ -3103,7 +3045,8 @@ export class CodexProvider implements AgentProvider {
               appServer.request("thread/settings/update", {
                 threadId: sessionId,
                 effort:
-                  this.mapEffortToReasoningEffort(
+                  mapEffortToReasoningEffort(
+                    this.configSource,
                     runtimeState.turnEffortOverride ?? undefined,
                     options.thinking,
                     modelId,
@@ -3209,7 +3152,8 @@ export class CodexProvider implements AgentProvider {
               }
             }
 
-            const retryTurnStartParams = this.createTurnStartParams(
+            const retryTurnStartParams = createTurnStartParams(
+              this.configSource,
               sessionId,
               [],
               options,
@@ -3529,160 +3473,6 @@ export class CodexProvider implements AgentProvider {
         );
   }
 
-  private createThreadStartParams(
-    options: StartSessionOptions,
-    policy: CodexThreadPolicy,
-  ): ThreadStartParams {
-    return {
-      model: options.model ?? null,
-      ...(options.routerLaunch ? { modelProvider: "aar" } : {}),
-      ...(options.serviceTier ? { serviceTier: options.serviceTier } : {}),
-      cwd: options.cwd,
-      ...buildThreadPermissionParams(policy),
-      config: this.buildThreadConfigOverrides(options),
-      ...limitedUserThreadInstructions(options.sessionSandbox),
-      experimentalRawEvents: false,
-      ...(options.sessionSandbox?.instructions?.startFromDefault === false
-        ? { baseInstructions: "" }
-        : {}),
-    };
-  }
-
-  private createThreadResumeParams(
-    options: StartSessionOptions,
-    sessionId: string,
-    policy: CodexThreadPolicy,
-    experimentalApiEnabled = false,
-    includeTurns = false,
-  ): CodexThreadResumeParamsForRequest {
-    const params: CodexThreadResumeParamsForRequest = {
-      threadId: options.resumeSessionId ?? sessionId,
-      ...(options.nativeResumeSource
-        ? { path: options.nativeResumeSource.filePath }
-        : {}),
-      model: options.model ?? null,
-      ...(options.routerLaunch ? { modelProvider: "aar" } : {}),
-      ...(options.serviceTier ? { serviceTier: options.serviceTier } : {}),
-      cwd: options.cwd,
-      ...buildThreadPermissionParams(policy),
-      config: this.buildThreadConfigOverrides(options),
-      ...limitedUserThreadInstructions(options.sessionSandbox),
-    };
-    if (experimentalApiEnabled && !includeTurns) {
-      params.excludeTurns = true;
-    }
-    return params;
-  }
-
-  private createThreadForkParams(
-    options: {
-      nativeSessionId: ProviderForkOptions["nativeSessionId"];
-      nativeSource?: ProviderForkOptions["nativeSource"];
-      cwd: string;
-      lastTurnId?: string;
-      sessionSandbox?: SessionSandboxRuntime;
-      launchSettings?: Omit<
-        EffectiveSessionLaunchSettings,
-        "schemaVersion" | "revision"
-      >;
-    },
-    policy: CodexThreadPolicy,
-    experimentalApiEnabled = false,
-  ): CodexThreadForkParamsForRequest {
-    const settings = options.launchSettings;
-    const model =
-      settings?.requestedModel && settings.requestedModel !== "default"
-        ? settings.requestedModel
-        : undefined;
-    const params: CodexThreadForkParamsForRequest = {
-      ...(model ? { model } : {}),
-      ...(settings ? { serviceTier: settings.serviceTier } : {}),
-      threadId: options.nativeSessionId,
-      ...(options.nativeSource ? { path: options.nativeSource.filePath } : {}),
-      ...(options.lastTurnId ? { lastTurnId: options.lastTurnId } : {}),
-      cwd: options.cwd,
-      ...buildThreadPermissionParams(policy),
-      config: this.buildThreadConfigOverrides({
-        model,
-        thinking: settings?.thinking ?? undefined,
-        effort: settings?.effort ?? undefined,
-      }),
-      ...limitedUserThreadInstructions(options.sessionSandbox),
-    };
-    if (experimentalApiEnabled) {
-      params.excludeTurns = true;
-    }
-    return params;
-  }
-
-  private buildThreadConfigOverrides(
-    options: Pick<
-      StartSessionOptions,
-      | "compactAtContextTokenLimit"
-      | "effort"
-      | "thinking"
-      | "model"
-      | "routerLaunch"
-      | "agentApiEnvironment"
-    >,
-  ): NonNullable<ThreadStartParams["config"]> {
-    // The OpenAI browser plugin controls a desktop-owned browser backend that
-    // YA's Codex app-server host does not provide. Suppress the unavailable
-    // skill at thread scope so Codex follows YA's Playwright fallback instead
-    // of advertising a browser that fails during backend discovery.
-    const config: NonNullable<ThreadStartParams["config"]> = {
-      model_reasoning_summary: this.getConfiguredReasoningSummary(),
-      skills: {
-        config: [
-          {
-            name: CODEX_DESKTOP_BROWSER_SKILL_NAME,
-            enabled: false,
-          },
-        ],
-      },
-    };
-    if (options.agentApiEnvironment) {
-      // A policy-admitted Authorization value must not enter Codex shell
-      // snapshot files. This affects only the explicit YA API opt-in.
-      config.features = { shell_snapshot: false, shell_snapshot_v2: false };
-    }
-    const planToolMode = this.getConfiguredPlanToolMode();
-    if (planToolMode !== "provider-default") {
-      config.tools = {
-        update_plan: {
-          enabled: planToolMode === "enabled",
-        },
-      };
-    }
-    const subagentMaxDepth = this.getConfiguredSubagentMaxDepth();
-    if (subagentMaxDepth !== null) {
-      config.agents = { max_depth: subagentMaxDepth };
-    }
-    const reasoningEffort = this.mapEffortToReasoningEffort(
-      options.effort,
-      options.thinking,
-      options.model,
-      options.routerLaunch?.models,
-    );
-    if (reasoningEffort) {
-      config.model_reasoning_effort = reasoningEffort;
-    }
-    if (
-      options.compactAtContextTokenLimit !== undefined &&
-      Number.isFinite(options.compactAtContextTokenLimit) &&
-      options.compactAtContextTokenLimit > 0
-    ) {
-      config.model_auto_compact_token_limit = Math.round(
-        options.compactAtContextTokenLimit,
-      );
-      // The YA setting is explicitly a percentage of the full active context.
-      // Pin the scope so a user's Codex config cannot reinterpret it as growth
-      // after the carried compaction prefix.
-      config.model_auto_compact_token_limit_scope = "total";
-    }
-    return config;
-  }
-
   private async refreshCodexSkills(
     appServer: CodexAppServerClient,
     cwd: string,
@@ -3709,38 +3499,6 @@ export class CodexProvider implements AgentProvider {
         "Codex skill inventory is unavailable",
       );
     }
-  }
-
-  private createTurnStartParams(
-    threadId: string,
-    input: UserInput[],
-    options: StartSessionOptions,
-    turnPolicy: CodexThreadPolicy | null = null,
-    workspaceWriteSandboxPolicy: CodexSandboxPolicy | null = null,
-    modelOverride: string | null = options.model ?? null,
-    effortOverride: EffortLevel | null | undefined = options.effort,
-    clientUserMessageId?: string,
-    cyberAccessProgram: CyberAccessProgram | null = null,
-    serviceTier: string | null | undefined = options.serviceTier,
-  ): TurnStartParams {
-    return {
-      threadId,
-      ...(clientUserMessageId ? { clientUserMessageId } : {}),
-      model: modelOverride,
-      ...(serviceTier || serviceTier === null ? { serviceTier } : {}),
-      input,
-      effort:
-        effortOverride === null
-          ? null
-          : this.mapEffortToReasoningEffort(
-              effortOverride,
-              options.thinking,
-              modelOverride ?? undefined,
-              options.routerLaunch?.models,
-            ),
-      ...buildTurnPermissionParams(turnPolicy, workspaceWriteSandboxPolicy),
-      ...(cyberAccessProgram ? { cyberAccessProgram } : {}),
-    };
   }
 
   /**

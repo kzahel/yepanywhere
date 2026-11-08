@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
-import { CodexProvider } from "../../../src/sdk/providers/codex.js";
 import type { SessionSandboxRuntime } from "../../../src/session-sandbox.js";
+import { codexConfigBuilders } from "./codex-config-source.js";
 
 // Inspect the actual app-server request builders, without launching a paid turn.
-const provider = new CodexProvider() as unknown as {
+const provider = codexConfigBuilders() as unknown as {
   createThreadStartParams: (
     options: object,
     policy: object,

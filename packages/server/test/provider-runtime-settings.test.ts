@@ -11,6 +11,11 @@ import {
   codexProvider,
   configureProviderRuntime,
 } from "../src/sdk/providers/index.js";
+import {
+  buildThreadConfigOverrides,
+  type CodexConfigSource,
+  createTurnStartParams,
+} from "../src/sdk/providers/codex-session-config.js";
 import type {
   ServerSettings,
   ServerSettingsService,
@@ -26,34 +31,26 @@ function getClaudeLaunchEnvironment(): Record<string, string | undefined> {
   ).getEnv();
 }
 
+/** The config source the provider hands its thread and turn builders. */
+function getCodexConfigSource(): CodexConfigSource {
+  return (codexProvider as unknown as { configSource: CodexConfigSource })
+    .configSource;
+}
+
 function getCodexThreadConfig(): Record<string, unknown> {
-  return (
-    codexProvider as unknown as {
-      buildThreadConfigOverrides(options: object): Record<string, unknown>;
-    }
-  ).buildThreadConfigOverrides({});
+  return buildThreadConfigOverrides(getCodexConfigSource(), {});
 }
 
 /** Build a user turn's params as the session loop does, with no denials. */
 function getCodexTurnStartParams(): Record<string, unknown> {
   const provider = codexProvider as unknown as {
     getConfiguredCyberAccessProgram(): CodexCyberAccessProgram;
-    createTurnStartParams(
-      threadId: string,
-      input: unknown[],
-      options: object,
-      turnPolicy: null,
-      workspaceWriteSandboxPolicy: null,
-      modelOverride: null,
-      effortOverride: undefined,
-      clientUserMessageId: undefined,
-      cyberAccessProgram: string | null,
-    ): Record<string, unknown>;
   };
-  return provider.createTurnStartParams(
+  return createTurnStartParams(
+    getCodexConfigSource(),
     "thread-1",
     [],
-    {},
+    { cwd: "/tmp" },
     null,
     null,
     null,
@@ -110,6 +107,13 @@ describe("provider runtime settings", () => {
     expect(
       getSetting.mock.calls.filter(([key]) => key === "subagentMaxDepth"),
     ).toHaveLength(3);
+
+    subagentMaxDepth = 1;
+    expect(getCodexThreadConfig()).toMatchObject({ agents: { max_depth: 1 } });
+    subagentMaxDepth = 4;
+    expect(getCodexThreadConfig()).toMatchObject({ agents: { max_depth: 4 } });
+    subagentMaxDepth = null;
+    expect(getCodexThreadConfig()).not.toHaveProperty("agents");
   });
 
   it("reads the current Codex reasoning-summary mode for each thread launch", () => {

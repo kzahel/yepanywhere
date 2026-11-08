@@ -194,6 +194,10 @@ Landed 2026-11-09 as 058 slice 4.9.1. `codex.ts` went from 4,321 to
 
 ### 2. Config-dependent builders
 
+Landed 2026-11-09 as 058 slice 4.9.2. `codex.ts` went from 3,982 to
+3,740 lines. The wiring test also gained the Codex subagent-depth check
+that the rewritten provider tests used to give.
+
 - Move `mapEffortToReasoningEffort` and the five builders into
   `codex-session-config.ts`. They take a `CodexConfigSource`:
   `{ reasoningSummary(), planToolMode(), subagentMaxDepth(), cachedModels() }`.

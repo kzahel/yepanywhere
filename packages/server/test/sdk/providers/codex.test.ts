@@ -36,7 +36,7 @@ import {
   it,
   vi,
 } from "vitest";
-import type { CodexPlanToolMode, ModelInfo } from "@yep-anywhere/shared";
+import type { ModelInfo } from "@yep-anywhere/shared";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { getLogger } from "../../../src/logging/logger.js";
 import { getCodexCommonPaths } from "../../../src/sdk/cli-detection.js";
@@ -67,6 +67,7 @@ import {
   codexRawFunctionCallFixtures,
   createLiveEventState,
 } from "./codex-event-fixtures.js";
+import { codexConfigBuilders } from "./codex-config-source.js";
 
 vi.mock("../../../src/sdk/messageLogger.js", () => ({
   logSDKMessage: vi.fn(),
@@ -6744,7 +6745,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("inherits the thread reasoning-summary mode on ordinary turns", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createTurnStartParams: (
         threadId: string,
         userPrompt: string,
@@ -6897,7 +6898,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("builds stable thread policy params with limited history", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadStartParams: (
         options: { model?: string; cwd: string },
         policy: {
@@ -6941,7 +6942,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("builds stable resume params with limited history", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadResumeParams: (
         options: { resumeSessionId?: string; model?: string; cwd: string },
         sessionId: string,
@@ -6974,7 +6975,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("uses experimental excludeTurns after Codex negotiation succeeds", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadResumeParams: (
         options: { resumeSessionId?: string; model?: string; cwd: string },
         sessionId: string,
@@ -7005,10 +7006,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("applies the configured reasoning-summary mode to every thread path", () => {
-    const provider = createTestProvider() as unknown as {
-      setReasoningSummaryGetter: (
-        getter: () => "auto" | "concise" | "detailed" | "none",
-      ) => void;
+    type ThreadBuilders = {
       createThreadStartParams: (
         options: { cwd: string },
         policy: { approvalPolicy: string; sandbox: string },
@@ -7029,10 +7027,14 @@ describe("CodexProvider Event Normalization", () => {
     };
 
     expect(
-      provider.createThreadStartParams({ cwd: "/tmp" }, policy),
+      (
+        codexConfigBuilders() as unknown as ThreadBuilders
+      ).createThreadStartParams({ cwd: "/tmp" }, policy),
     ).toMatchObject({ config: { model_reasoning_summary: "auto" } });
 
-    provider.setReasoningSummaryGetter(() => "detailed");
+    const provider = codexConfigBuilders({
+      reasoningSummary: "detailed",
+    }) as unknown as ThreadBuilders;
     expect(
       provider.createThreadStartParams({ cwd: "/tmp" }, policy),
     ).toMatchObject({ config: { model_reasoning_summary: "detailed" } });
@@ -7052,8 +7054,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("applies V1 subagent nesting depth to every thread path", () => {
-    const provider = createTestProvider() as unknown as {
-      setSubagentMaxDepthGetter: (getter: () => number | null) => void;
+    type ThreadBuilders = {
       createThreadStartParams: (
         options: { cwd: string },
         policy: { approvalPolicy: string; sandbox: string },
@@ -7073,7 +7074,9 @@ describe("CodexProvider Event Normalization", () => {
       sandbox: "workspace-write",
     };
 
-    provider.setSubagentMaxDepthGetter(() => 4);
+    const provider = codexConfigBuilders({
+      subagentMaxDepth: 4,
+    }) as unknown as ThreadBuilders;
     expect(
       provider.createThreadStartParams({ cwd: "/tmp" }, policy),
     ).toMatchObject({ config: { agents: { max_depth: 4 } } });
@@ -7091,14 +7094,17 @@ describe("CodexProvider Event Normalization", () => {
       ),
     ).toMatchObject({ config: { agents: { max_depth: 4 } } });
 
-    provider.setSubagentMaxDepthGetter(() => null);
     expect(
-      provider.createThreadStartParams({ cwd: "/tmp" }, policy),
+      (
+        codexConfigBuilders({
+          subagentMaxDepth: null,
+        }) as unknown as ThreadBuilders
+      ).createThreadStartParams({ cwd: "/tmp" }, policy),
     ).not.toHaveProperty("config.agents");
   });
 
   it("suppresses the unavailable desktop browser skill for every thread path", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadStartParams: (
         options: { cwd: string },
         policy: { approvalPolicy: string; sandbox: string },
@@ -7151,8 +7157,9 @@ describe("CodexProvider Event Normalization", () => {
   ] as const)(
     "applies %s plan-tool mode to every thread path",
     (mode, enabled) => {
-      const provider = createTestProvider() as unknown as {
-        setPlanToolModeGetter: (getter: () => CodexPlanToolMode) => void;
+      const provider = codexConfigBuilders({
+        planToolMode: mode,
+      }) as unknown as {
         createThreadStartParams: (
           options: { cwd: string },
           policy: { approvalPolicy: string; sandbox: string },
@@ -7171,7 +7178,6 @@ describe("CodexProvider Event Normalization", () => {
         approvalPolicy: "on-request",
         sandbox: "workspace-write",
       };
-      provider.setPlanToolModeGetter(() => mode);
 
       const start = provider.createThreadStartParams({ cwd: "/tmp" }, policy);
       const resume = provider.createThreadResumeParams(
@@ -7197,7 +7203,7 @@ describe("CodexProvider Event Normalization", () => {
   );
 
   it("pins thread-scope reasoning effort via config when effort is requested", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadStartParams: (
         options: {
           model?: string;
@@ -7310,7 +7316,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("sets a total-context auto-compact limit only when requested", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadStartParams: (
         options: {
           cwd: string;
@@ -7369,7 +7375,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("passes service tier only when explicitly requested", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexConfigBuilders() as unknown as {
       createThreadStartParams: (
         options: {
           model?: string;
