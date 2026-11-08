@@ -309,6 +309,7 @@ and props stable.
 | 2.37 | Done 2026-11-08 | `SessionPage.tsx` header actions | Move the page's archive, star, suggestions, read, terminate, restart and share actions into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 1). | Move-only: the eleven handlers and values, the read-shortcut effect and the share modal state move verbatim into `hooks/useSessionHeaderActions.ts`, called where the handlers stood, so the effect keeps its place. The share state moves later in the hook order; nothing between reads it. No dependency list changed. Budget `SessionPage.tsx` 5,157 -> 5,019; the hook is 263 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.38 | Done 2026-11-08 | `SessionPage.tsx` project move menu | Move the page's project move menu into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 2). | Move-only: the menu state and its two refs, the options, the outside-click and Escape effect and the two handlers move verbatim into `hooks/useProjectReclassifyMenu.ts`, called where the options stood, so the effect keeps its place. The state moves later in the hook order; nothing between reads it. `setShowRecentSessions` joined one dependency list (a state setter). Budget `SessionPage.tsx` 5,019 -> 4,930; the hook is 164 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.39 | Done 2026-11-08 | `SessionPage.tsx` pop-ups | Move the page's five pop-ups into a component ([plan 182](182-session-page-header-and-footer.md) slice 3). | Move-only: the project defaults, recap, long-context warning, model and info, and handoff pop-ups move verbatim into `components/SessionPageModals.tsx`, rendered where they stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged. Budget `SessionPage.tsx` 4,930 -> 4,813; the component is 296 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.40 | Done 2026-11-08 | `SessionPage.tsx` header | Move the page's `<header>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 4). | Move-only: the header element and the `SidebarIcon` it renders move verbatim into `components/SessionHeader.tsx`, rendered where the header stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and one trailing comma the formatter dropped. The component calls only `useI18n`, so the page's hook order is unchanged; `SidebarIcon` is still defined during render. Budget `SessionPage.tsx` 4,813 -> 4,262; the component is 991 lines. Tier 3, plus plan 182's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -443,6 +444,53 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.40 — Session Page Header (Landed 2026-11-08, this commit)
+
+Moved:
+- The `<header>` element (sidebar opener, app actions, project breadcrumb
+  and move menu, title row with the rename and retitle fields, router
+  chip, goal flag, recent sessions and generate title, and the right-hand
+  controls through the session menu) -> `SessionHeader` in new
+  `packages/client/src/components/SessionHeader.tsx`.
+- `SidebarIcon`, which only the header renders, moved into the
+  component's body unchanged. It is still a component defined during
+  render, so its `<svg>` still remounts each render, as before.
+
+Signature conversions (closure -> prop):
+- The component takes 110 props, each passed as `name={name}`: `actualSessionId`, `attachTitleInput`, `basePath`, `canCreatePublicShares`, `canStopOwnedProcess`, `clearloopControls`, `cloneSession`, `condensedHeader`, `currentGoal`, `currentProviderInfo`, `displayTitle`, `draftControlsRef`, `effectiveModelConfig`, `effectiveProvider`, `forkAfterDisabled`, `forkUnavailableMessage`, `generatedRetitle`, `generatedTitleEnabled`, `goalDetails`, `handleAcceptGeneratedRetitle`, `handleCancelEditingTitle`, `handleCompactSession`, `handleGenerateAndApplyTitle`, `handleProjectBreadcrumbContextMenu`, `handleReclassifySessionProject`, `handleRestartProvider`, `handleRestorePendingElsewhereWarning`, `handleSaveTitle`, `handleSend`, `handleShare`, `handleShareIndicatorClick`, `handleShareIndicatorContextMenu`, `handleStartEditingTitle`, `handleTerminate`, `handleTitleBlur`, `handleTitleKeyDown`, `handleToggleArchive`, `handleTogglePromptSuggestions`, `handleToggleRead`, `handleToggleStar`, `hasPendingToolCalls`, `hasUnread`, `headerLayout`, `headerRef`, `hideHeaderSecondary`, `isArchived`, `isDomLingerParked`, `isEditingTitle`, `isReclassifyingProject`, `isRenaming`, `isStarred`, `isWideScreen`, `liveBadgeModel`, `loading`, `manualCompactBlocked`, `messages`, `navigate`, `openSessionInfo`, `openSidebar`, `pendingElsewhereDismissed`, `processState`, `project`, `projectAppEnabled`, `projectAppOpen`, `projectAppPress`, `projectBreadcrumbRef`, `projectCodeNamesEnabled`, `projectId`, `projectReclassifyMenuRef`, `projectReclassifyOptions`, `promptSuggestionMode`, `publicShareActionAvailable`, `publicShareGlobalStatus`, `publicShareInitialPrompt`, `publicShareManagementAvailable`, `publicSharesEnabled`, `renamePresentation`, `renameValue`, `rightPane`, `routedSession`, `saveTitleValue`, `session`, `sessionId`, `setModelPanelInitialTab`, `setProjectAppFull`, `setProjectAppOpen`, `setProjectAppOpenedBy`, `setRenameValue`, `setShareModalAnchor`, `setShowHandoffModal`, `setShowModelSwitchModal`, `setShowProjectSettingsModal`, `setShowRecapModal`, `setShowRecentSessions`, `setShowShareModal`, `shareModalAnchor`, `shareModalView`, `showProjectReclassifyMenu`, `showRecentSessions`, `showShareModal`, `status`, `supportsForkFromTurn`, `supportsManualCompact`, `supportsProjectSettings`, `supportsTitleGeneration`, `titleEditControlsRef`, `titleEditMode`, `titleRowRef`, `titleTooltip`, `versionInfo`.
+  Their types are the page's: `ReturnType<typeof useX>[...]` for hook
+  results, otherwise the type the checker gives the page's declaration.
+- `t` comes from `useI18n` inside. Refs (`headerRef`, `titleRowRef`,
+  `projectBreadcrumbRef`, `projectReclassifyMenuRef`,
+  `titleEditControlsRef` and the `attachTitleInput` callback ref) are
+  passed under their own names and attach to the same elements. The
+  inline arrows stay inline; the component is not memoized.
+- The JSX equals the moved lines apart from whitespace and one trailing
+  comma (`routerBindingChip(t, session.routerBinding)`), which the
+  formatter dropped when the call fit on one line.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The header-related specs pass at this commit (48 cases):
+  `session-page-header-paths`, `session-page-title-attachment-paths`,
+  `session-page-fork-paths`, `session-header-responsive` (rename typing
+  during live updates), `session-read-state`, `public-share-management`,
+  `session-title-access`, `session-resume-settings` and
+  `slash-command-argument-completions`.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.39 — Session Page Pop-ups (Landed 2026-11-08, this commit)
 

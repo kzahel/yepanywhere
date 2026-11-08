@@ -1,4 +1,5 @@
 import { FileDropZone } from "../components/FileDropZone";
+import { SessionHeader } from "../components/SessionHeader";
 import { SessionPageModals } from "../components/SessionPageModals";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import {
@@ -17,10 +18,7 @@ import {
   DRAFT_STORAGE_EVENT,
   collectSyncedSubmissionAttachments,
 } from "../lib/draftSyncStorage";
-import {
-  SessionIssuesLink,
-  SessionIssuesProvider,
-} from "../components/SessionIssuesLink";
+import { SessionIssuesProvider } from "../components/SessionIssuesLink";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
@@ -44,7 +42,6 @@ import type {
 import {
   SESSION_CONVERSATION_CONTEXT_CAPABILITY,
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
-  SIDEBAR_SESSION_RESUME_CAPABILITY,
   SYNTHETIC_ARCHIVE_COMMAND_CAPABILITY,
   SYNTHETIC_DONE_COMMAND_CAPABILITY,
   SYNTHETIC_TERMINATE_COMMAND_CAPABILITY,
@@ -72,7 +69,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { createSessionApi } from "../api/sessionClient";
@@ -80,18 +77,11 @@ import {
   SessionViewerProvider,
   SessionViewerTranscriptGate,
 } from "../components/SessionManagedViewer";
-import sessionHeaderStyles from "../components/SessionHeader.module.css";
-import { ProjectAppIcon } from "../components/ProjectAppIcon";
 import { LastSessionFile } from "../components/LastSessionFile";
 import styles from "./SessionPage.module.css";
-import { GoalFlag } from "../components/GoalNotice";
-import { ClearloopRemainingBadge } from "../components/ClearloopRemainingBadge";
 
 import { BtwAsidePane } from "../components/BtwAsidePane";
-import {
-  SessionRightPane,
-  SessionAppAction,
-} from "../components/SessionRightPane";
+import { SessionRightPane } from "../components/SessionRightPane";
 import { useSessionRightPane } from "../hooks/useSessionRightPane";
 import { useSessionViewPublication } from "../hooks/useSessionViewPublication";
 import { useSessionThinkingSelection } from "../hooks/useSessionThinkingSelection";
@@ -100,12 +90,9 @@ import type { VoiceInputButtonRef } from "../components/VoiceInputButton";
 import { useCanUseBearerGrants } from "../hooks/useActingPrincipal";
 import { useComposerHistoryScope } from "../hooks/useComposerHistoryScope";
 import { BtwAsideStickyCards } from "../components/BtwAsideStickyCards";
-import { ClientLogRecordingBadge } from "../components/ClientLogRecordingBadge";
 import { ExternalSessionWarning } from "../components/ExternalSessionWarning";
 import { useStartNewSessionWithPrefillAction } from "../components/FileResourceActions";
-import { HostIdentityMarker } from "../components/HostIdentityMarker";
 import { PendingToolWarning } from "../components/PendingToolWarning";
-import { ProviderChildSessionControl } from "../components/ProviderChildSessionControl";
 import { useQuestionAside } from "../hooks/useQuestionAside";
 import { useQuestionAsideSetting } from "../hooks/useQuestionAsideSetting";
 import { QuestionAsideCard } from "../components/QuestionAsideCard";
@@ -118,16 +105,7 @@ import type {
   ChosenNewSessionQueueTarget,
   NewSessionQueueTarget,
 } from "../components/NewSessionQueueOptions";
-import { ProviderBadge } from "../components/ProviderBadge";
 import { QuestionAnswerPanel } from "../components/QuestionAnswerPanel";
-import { RecentSessionsDropdown } from "../components/RecentSessionsDropdown";
-import { routerBindingChip } from "../components/RouterPoolSelector";
-import { SessionMenu } from "../components/SessionMenu";
-import {
-  SessionPublicShareControls,
-  SessionShareMenuLabel,
-} from "../components/SessionPublicShareControls";
-import { SessionRenameEditor } from "../components/SessionRenameEditor";
 import { useSessionHeaderLayout } from "../hooks/useSessionHeaderLayout";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
 import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
@@ -3299,24 +3277,6 @@ function SessionPageContent({
     // Render the failure inside the transcript below, including cold entry.
   }
 
-  // Sidebar icon component
-  const SidebarIcon = () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-    </svg>
-  );
-
   const liveSourceReviewThinking = parseThinkingConfig(
     effectiveModelConfig?.thinking,
   );
@@ -3346,633 +3306,122 @@ function SessionPageContent({
         onFiles={handleAttach}
         ownerKey={creationKey}
       >
-        <header
-          ref={headerRef}
-          data-session-read-scope={sessionId}
-          className={`session-header ${sessionHeaderStyles.header}`}
-          data-header-layout={headerLayout}
-          data-inline-rename={
-            isEditingTitle &&
-            titleEditMode === "manual" &&
-            renamePresentation === "inline"
-              ? "true"
-              : undefined
+        <SessionHeader
+          actualSessionId={actualSessionId}
+          attachTitleInput={attachTitleInput}
+          basePath={basePath}
+          canCreatePublicShares={canCreatePublicShares}
+          canStopOwnedProcess={canStopOwnedProcess}
+          clearloopControls={clearloopControls}
+          cloneSession={cloneSession}
+          condensedHeader={condensedHeader}
+          currentGoal={currentGoal}
+          currentProviderInfo={currentProviderInfo}
+          displayTitle={displayTitle}
+          draftControlsRef={draftControlsRef}
+          effectiveModelConfig={effectiveModelConfig}
+          effectiveProvider={effectiveProvider}
+          forkAfterDisabled={forkAfterDisabled}
+          forkUnavailableMessage={forkUnavailableMessage}
+          generatedRetitle={generatedRetitle}
+          generatedTitleEnabled={generatedTitleEnabled}
+          goalDetails={goalDetails}
+          handleAcceptGeneratedRetitle={handleAcceptGeneratedRetitle}
+          handleCancelEditingTitle={handleCancelEditingTitle}
+          handleCompactSession={handleCompactSession}
+          handleGenerateAndApplyTitle={handleGenerateAndApplyTitle}
+          handleProjectBreadcrumbContextMenu={
+            handleProjectBreadcrumbContextMenu
           }
-        >
-          <div
-            className={`session-header-inner ${sessionHeaderStyles.row}${isWideScreen ? ` ${sessionHeaderStyles.noLeadingControl}` : ""}`}
-          >
-            <div className={`session-header-left ${sessionHeaderStyles.left}`}>
-              {/* Sidebar opener for the overlay sidebar only. On desktop the
-                sidebar owns its own toggle, expanded or collapsed. */}
-              {!isWideScreen && (
-                <button
-                  type="button"
-                  className="sidebar-toggle"
-                  onClick={openSidebar}
-                  title={t("sessionOpenSidebar")}
-                  aria-label={t("sessionOpenSidebar")}
-                >
-                  <SidebarIcon />
-                </button>
-              )}
-              <HostIdentityMarker />
-              <SessionAppAction
-                pane={{
-                  ...rightPane,
-                  select: (url) => {
-                    setProjectAppOpen(false);
-                    return rightPane.select(url);
-                  },
-                }}
-              />
-              {projectAppEnabled && (
-                <button
-                  type="button"
-                  className={sessionHeaderStyles.projectAppButton}
-                  aria-pressed={projectAppOpen}
-                  aria-label={t("projectAppLabel")}
-                  title={t("projectAppFullViewHint")}
-                  {...projectAppPress.handlers}
-                  onClick={projectAppPress.click(() => {
-                    setProjectAppFull(false);
-                    setProjectAppOpenedBy("user");
-                    setProjectAppOpen((value) => !value);
-                  })}
-                >
-                  <ProjectAppIcon />
-                </button>
-              )}
-              {/* Project breadcrumb */}
-              {project?.name && (
-                <div
-                  className={`project-breadcrumb-wrapper ${sessionHeaderStyles.project}`}
-                >
-                  <Link
-                    ref={projectBreadcrumbRef}
-                    to={`${basePath}/sessions?project=${projectId}`}
-                    className="project-breadcrumb"
-                    title={
-                      project.caption
-                        ? `${project.name}\n${project.caption.text}`
-                        : project.name
-                    }
-                    aria-label={project.name}
-                    onContextMenu={handleProjectBreadcrumbContextMenu}
-                  >
-                    {projectCodeNamesEnabled && project.codeName
-                      ? project.codeName
-                      : project.name}
-                  </Link>
-                  {showProjectReclassifyMenu && (
-                    <div
-                      ref={projectReclassifyMenuRef}
-                      className="project-reclassify-menu"
-                      role="menu"
-                      aria-label={t("sessionReclassifyProjectMenu")}
-                    >
-                      <div className="project-reclassify-title">
-                        {t("sessionReclassifyProjectMenu")}
-                      </div>
-                      <div className="project-reclassify-list">
-                        {projectReclassifyOptions.map((candidate) => (
-                          <button
-                            key={candidate.id}
-                            type="button"
-                            className="project-reclassify-option"
-                            role="menuitem"
-                            disabled={isReclassifyingProject}
-                            onClick={() =>
-                              void handleReclassifySessionProject(candidate)
-                            }
-                            title={candidate.path}
-                          >
-                            <span className="project-reclassify-name">
-                              {candidate.name}
-                            </span>
-                            <span className="project-reclassify-path">
-                              {candidate.path}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div
-                ref={titleRowRef}
-                className={`session-title-row ${sessionHeaderStyles.titleRow}`}
-              >
-                {isStarred && (
-                  <svg
-                    className="star-indicator-inline"
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    role="img"
-                    aria-label={t("sessionStarredLabel")}
-                  >
-                    <title>{t("sessionStarredLabel")}</title>
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                )}
-                {loading ? (
-                  <span className="session-title-skeleton" />
-                ) : isEditingTitle &&
-                  !isDomLingerParked &&
-                  titleEditMode === "manual" ? (
-                  <SessionRenameEditor
-                    initialTitle={displayTitle}
-                    presentation={renamePresentation}
-                    onSave={saveTitleValue}
-                    onCancel={handleCancelEditingTitle}
-                  />
-                ) : isEditingTitle ? (
-                  <div
-                    ref={titleEditControlsRef}
-                    className="session-title-edit"
-                  >
-                    <div
-                      className="session-title-edit-row"
-                      title={
-                        generatedRetitle?.deferredInsertion
-                          ? generatedRetitle.submittedTurnText
-                          : undefined
-                      }
-                    >
-                      <input
-                        ref={attachTitleInput}
-                        type="text"
-                        className="session-title-input"
-                        value={
-                          generatedRetitle?.deferredInsertion ? "" : renameValue
-                        }
-                        placeholder={
-                          generatedRetitle?.deferredInsertion
-                            ? t("sessionRetitleDeferred")
-                            : undefined
-                        }
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={handleTitleKeyDown}
-                        onBlur={handleTitleBlur}
-                        disabled={
-                          isRenaming || !!generatedRetitle?.deferredInsertion
-                        }
-                        title={
-                          generatedRetitle?.deferredInsertion
-                            ? generatedRetitle.submittedTurnText
-                            : undefined
-                        }
-                      />
-                      {titleEditMode === "retitle" && (
-                        <button
-                          type="button"
-                          className={`session-title-edit-button session-title-retitle-accept${
-                            generatedRetitle?.deferredInsertion
-                              ? " is-armed"
-                              : ""
-                          }`}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={handleAcceptGeneratedRetitle}
-                          disabled={
-                            isRenaming ||
-                            !generatedRetitle ||
-                            !!generatedRetitle.deferredInsertion ||
-                            generatedRetitle.status === "error"
-                          }
-                          title={
-                            generatedRetitle?.status === "generating"
-                              ? t("sessionRetitleUseGeneratedWhenReady")
-                              : t("sessionRetitleUseGenerated")
-                          }
-                          aria-label={
-                            generatedRetitle?.status === "generating"
-                              ? t("sessionRetitleUseGeneratedWhenReady")
-                              : t("sessionRetitleUseGenerated")
-                          }
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z" />
-                            <path d="m11 8 4 4-4 4" />
-                            <path d="M8 12h7" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="session-title-edit-button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={handleSaveTitle}
-                        disabled={
-                          isRenaming || !!generatedRetitle?.deferredInsertion
-                        }
-                        title={
-                          titleEditMode === "retitle"
-                            ? t("sessionRetitleSaveAsTyped")
-                            : t("sessionTitleSave")
-                        }
-                        aria-label={
-                          titleEditMode === "retitle"
-                            ? t("sessionRetitleSaveAsTyped")
-                            : t("sessionTitleSave")
-                        }
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                          <path d="M17 21v-8H7v8" />
-                          <path d="M7 3v5h8" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="session-title-edit-button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={handleCancelEditingTitle}
-                        disabled={isRenaming}
-                        title={t("sessionRetitleCancel")}
-                        aria-label={t("sessionRetitleCancel")}
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M18 6 6 18" />
-                          <path d="m6 6 12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                    {titleEditMode === "retitle" &&
-                      generatedRetitle &&
-                      !generatedRetitle.deferredInsertion && (
-                        <div
-                          className={`session-title-retitle-status is-${generatedRetitle.status}`}
-                          title={
-                            generatedRetitle.status === "generating"
-                              ? generatedRetitle.submittedTurnText
-                              : undefined
-                          }
-                        >
-                          {generatedRetitle.status === "generating"
-                            ? t("sessionRetitleGenerating")
-                            : generatedRetitle.status === "ready" &&
-                                generatedRetitle.title
-                              ? `${t("sessionRetitleProposalLabel")} ${generatedRetitle.title}`
-                              : (generatedRetitle.error ??
-                                t("sessionRetitleFailed"))}
-                        </div>
-                      )}
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className={`session-title session-title-recent-trigger ${sessionHeaderStyles.titleWithBadge}`}
-                      onClick={() => setShowRecentSessions(!showRecentSessions)}
-                      title={titleTooltip}
-                      aria-haspopup="menu"
-                      aria-expanded={showRecentSessions}
-                    >
-                      <span className="session-title-text">{displayTitle}</span>
-                      {session?.clearloop !== undefined && (
-                        <ClearloopRemainingBadge
-                          badge={session.clearloop}
-                          controls={clearloopControls}
-                        />
-                      )}
-                    </button>
-                    {session?.routerBinding &&
-                      serverHasCapability(
-                        versionInfo,
-                        SERVER_CAPABILITIES.agentAuthRouter.name,
-                      ) &&
-                      (() => {
-                        const chip = routerBindingChip(
-                          t,
-                          session.routerBinding,
-                        );
-                        return (
-                          <button
-                            type="button"
-                            className={sessionHeaderStyles.routerAccount}
-                            title={chip.tooltip}
-                            aria-label={chip.tooltip}
-                            onClick={() => {
-                              setModelPanelInitialTab("info");
-                              setShowModelSwitchModal(true);
-                            }}
-                          >
-                            {chip.label}
-                          </button>
-                        );
-                      })()}
-                    {currentGoal && (
-                      <GoalFlag
-                        objective={currentGoal}
-                        status={goalDetails?.goalStatus}
-                        key={actualSessionId}
-                        onCommand={(argument) =>
-                          handleSend(`/goal ${argument}`, undefined, {
-                            preserveComposer: true,
-                            localControl: true,
-                          })
-                        }
-                        onEdit={() => {
-                          const controls = draftControlsRef.current;
-                          if (!controls || controls.getDraft().trim()) return;
-                          controls.setDraft(`/goal ${currentGoal}`);
-                          controls.focus?.();
-                        }}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      className={`session-title-chevron-trigger${
-                        showRecentSessions ? " is-open" : ""
-                      }`}
-                      onClick={() => setShowRecentSessions(!showRecentSessions)}
-                      title={
-                        showRecentSessions
-                          ? t("sessionCloseRecentSessions")
-                          : t("sessionRecentSessions")
-                      }
-                      aria-label={
-                        showRecentSessions
-                          ? t("sessionCloseRecentSessions")
-                          : t("sessionRecentSessions")
-                      }
-                      aria-expanded={showRecentSessions}
-                    >
-                      <svg
-                        className="session-title-chevron"
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </button>
-                    {supportsTitleGeneration && generatedTitleEnabled && (
-                      <button
-                        type="button"
-                        className="session-title-generate-trigger"
-                        onClick={handleGenerateAndApplyTitle}
-                        title={t("sessionGenerateNewTitle")}
-                        aria-label={t("sessionGenerateNewTitle")}
-                      >
-                        <svg
-                          className="session-title-generate-icon"
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.75"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z" />
-                          <path d="m11 8 4 4-4 4" />
-                          <path d="M8 12h7" />
-                        </svg>
-                      </button>
-                    )}
-                    <RecentSessionsDropdown
-                      currentSessionId={sessionId}
-                      currentSessionTitle={titleTooltip}
-                      isOpen={showRecentSessions}
-                      onClose={() => setShowRecentSessions(false)}
-                      onNavigate={() => setShowRecentSessions(false)}
-                      triggerRef={titleRowRef}
-                      basePath={basePath}
-                    />
-                  </>
-                )}
-                {!loading && isArchived && (
-                  <span className="archived-badge">
-                    {t("sessionArchivedBadge")}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div
-              className={`session-header-right ${sessionHeaderStyles.actions}`}
-            >
-              <ProviderChildSessionControl
-                projectId={projectId}
-                sessionId={actualSessionId}
-                basePath={basePath}
-                childrenFromSession={session?.providerChildren}
-                processState={processState}
-              />
-              <ClientLogRecordingBadge inline />
-              <SessionPublicShareControls
-                indicatorVisible={!hideHeaderSecondary}
-                enabled={publicSharesEnabled}
-                projectId={projectId}
-                sessionId={actualSessionId}
-                storageState={publicShareGlobalStatus?.storageState}
-                canCreateShares={canCreatePublicShares}
-                managementAvailable={publicShareManagementAvailable}
-                modalOpen={showShareModal}
-                modalAnchorRect={shareModalAnchor}
-                modalInitialView={shareModalView}
-                initialPrompt={publicShareInitialPrompt}
-                title={displayTitle}
-                onIndicatorClick={handleShareIndicatorClick}
-                onIndicatorContextMenu={
-                  publicShareManagementAvailable
-                    ? handleShareIndicatorContextMenu
-                    : undefined
-                }
-                onCloseModal={() => {
-                  setShowShareModal(false);
-                  setShareModalAnchor(null);
-                }}
-                t={t}
-              />
-              {!hideHeaderSecondary && !loading && actualSessionId && (
-                <SessionIssuesLink
-                  sessionId={actualSessionId}
-                  projectId={projectId}
-                  messageCount={messages.length}
-                />
-              )}
-              {!loading && effectiveProvider && (
-                <button
-                  type="button"
-                  className={`provider-badge-button ${sessionHeaderStyles.modelButton}`}
-                  onClick={() => {
-                    setModelPanelInitialTab("model");
-                    setShowModelSwitchModal(true);
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setModelPanelInitialTab("info");
-                    setShowModelSwitchModal(true);
-                  }}
-                  title={
-                    status.owner === "self" && status.processId
-                      ? t("sessionConfigureModel")
-                      : t("sessionViewInfo")
-                  }
-                >
-                  <ProviderBadge
-                    condensed={condensedHeader}
-                    provider={effectiveProvider}
-                    model={liveBadgeModel}
-                    thinking={effectiveModelConfig?.thinking}
-                    effort={effectiveModelConfig?.effort}
-                    isThinking={canStopOwnedProcess}
-                  />
-                </button>
-              )}
-              {!loading && (
-                <SessionMenu
-                  sessionId={sessionId}
-                  projectId={projectId}
-                  isStarred={isStarred}
-                  isArchived={isArchived}
-                  hasUnread={hasUnread}
-                  provider={session?.provider}
-                  processId={
-                    status.owner === "self" ? status.processId : undefined
-                  }
-                  onToggleStar={handleToggleStar}
-                  onToggleArchive={handleToggleArchive}
-                  onToggleRead={handleToggleRead}
-                  onRename={handleStartEditingTitle}
-                  onShowInfo={openSessionInfo}
-                  onGenerateTitle={
-                    supportsTitleGeneration
-                      ? handleGenerateAndApplyTitle
-                      : undefined
-                  }
-                  onClone={supportsForkFromTurn ? cloneSession : undefined}
-                  cloneUnavailableMessage={forkUnavailableMessage}
-                  cloneDisabled={forkAfterDisabled}
-                  onConfigureProjectSettings={
-                    supportsProjectSettings
-                      ? () => setShowProjectSettingsModal(true)
-                      : undefined
-                  }
-                  onConfigureRecaps={
-                    status.owner === "self"
-                      ? () => setShowRecapModal(true)
-                      : undefined
-                  }
-                  promptSuggestionMode={promptSuggestionMode}
-                  onTogglePromptSuggestions={
-                    currentProviderInfo?.supportsNativePromptSuggestions
-                      ? handleTogglePromptSuggestions
-                      : undefined
-                  }
-                  warningRestoreAvailable={
-                    hasPendingToolCalls && pendingElsewhereDismissed
-                  }
-                  onRestoreWarnings={handleRestorePendingElsewhereWarning}
-                  onHandoff={
-                    effectiveProvider && !routedSession
-                      ? () => setShowHandoffModal(true)
-                      : undefined
-                  }
-                  onClear={() => {
-                    const params = new URLSearchParams({ projectId });
-                    if (effectiveProvider) {
-                      params.set("provider", effectiveProvider);
-                    }
-                    if (liveBadgeModel) {
-                      params.set("model", liveBadgeModel);
-                    }
-                    navigate(`${basePath}/new-session?${params.toString()}`);
-                  }}
-                  onCompact={
-                    supportsManualCompact ? handleCompactSession : undefined
-                  }
-                  compactDisabled={manualCompactBlocked}
-                  onTerminate={handleTerminate}
-                  onRestartProvider={
-                    serverHasCapability(
-                      versionInfo,
-                      SIDEBAR_SESSION_RESUME_CAPABILITY,
-                    )
-                      ? handleRestartProvider
-                      : undefined
-                  }
-                  onReload={() => window.location.reload()}
-                  onShare={publicShareActionAvailable ? handleShare : undefined}
-                  triggerClassName={sessionHeaderStyles.menuTrigger}
-                  shareLabel={
-                    hideHeaderSecondary ? (
-                      <SessionShareMenuLabel
-                        enabled={publicSharesEnabled}
-                        projectId={projectId}
-                        sessionId={actualSessionId}
-                        storageState={publicShareGlobalStatus?.storageState}
-                        t={t}
-                      />
-                    ) : undefined
-                  }
-                  additionalItems={
-                    hideHeaderSecondary
-                      ? (close) => (
-                          <SessionIssuesLink
-                            sessionId={actualSessionId}
-                            projectId={projectId}
-                            messageCount={messages.length}
-                            presentation="menu"
-                            onSelect={close}
-                          />
-                        )
-                      : undefined
-                  }
-                  useFixedPositioning
-                  useEllipsisIcon
-                  onOpenChange={(open) => {
-                    if (open) setShowRecentSessions(false);
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </header>
+          handleReclassifySessionProject={handleReclassifySessionProject}
+          handleRestartProvider={handleRestartProvider}
+          handleRestorePendingElsewhereWarning={
+            handleRestorePendingElsewhereWarning
+          }
+          handleSaveTitle={handleSaveTitle}
+          handleSend={handleSend}
+          handleShare={handleShare}
+          handleShareIndicatorClick={handleShareIndicatorClick}
+          handleShareIndicatorContextMenu={handleShareIndicatorContextMenu}
+          handleStartEditingTitle={handleStartEditingTitle}
+          handleTerminate={handleTerminate}
+          handleTitleBlur={handleTitleBlur}
+          handleTitleKeyDown={handleTitleKeyDown}
+          handleToggleArchive={handleToggleArchive}
+          handleTogglePromptSuggestions={handleTogglePromptSuggestions}
+          handleToggleRead={handleToggleRead}
+          handleToggleStar={handleToggleStar}
+          hasPendingToolCalls={hasPendingToolCalls}
+          hasUnread={hasUnread}
+          headerLayout={headerLayout}
+          headerRef={headerRef}
+          hideHeaderSecondary={hideHeaderSecondary}
+          isArchived={isArchived}
+          isDomLingerParked={isDomLingerParked}
+          isEditingTitle={isEditingTitle}
+          isReclassifyingProject={isReclassifyingProject}
+          isRenaming={isRenaming}
+          isStarred={isStarred}
+          isWideScreen={isWideScreen}
+          liveBadgeModel={liveBadgeModel}
+          loading={loading}
+          manualCompactBlocked={manualCompactBlocked}
+          messages={messages}
+          navigate={navigate}
+          openSessionInfo={openSessionInfo}
+          openSidebar={openSidebar}
+          pendingElsewhereDismissed={pendingElsewhereDismissed}
+          processState={processState}
+          project={project}
+          projectAppEnabled={projectAppEnabled}
+          projectAppOpen={projectAppOpen}
+          projectAppPress={projectAppPress}
+          projectBreadcrumbRef={projectBreadcrumbRef}
+          projectCodeNamesEnabled={projectCodeNamesEnabled}
+          projectId={projectId}
+          projectReclassifyMenuRef={projectReclassifyMenuRef}
+          projectReclassifyOptions={projectReclassifyOptions}
+          promptSuggestionMode={promptSuggestionMode}
+          publicShareActionAvailable={publicShareActionAvailable}
+          publicShareGlobalStatus={publicShareGlobalStatus}
+          publicShareInitialPrompt={publicShareInitialPrompt}
+          publicShareManagementAvailable={publicShareManagementAvailable}
+          publicSharesEnabled={publicSharesEnabled}
+          renamePresentation={renamePresentation}
+          renameValue={renameValue}
+          rightPane={rightPane}
+          routedSession={routedSession}
+          saveTitleValue={saveTitleValue}
+          session={session}
+          sessionId={sessionId}
+          setModelPanelInitialTab={setModelPanelInitialTab}
+          setProjectAppFull={setProjectAppFull}
+          setProjectAppOpen={setProjectAppOpen}
+          setProjectAppOpenedBy={setProjectAppOpenedBy}
+          setRenameValue={setRenameValue}
+          setShareModalAnchor={setShareModalAnchor}
+          setShowHandoffModal={setShowHandoffModal}
+          setShowModelSwitchModal={setShowModelSwitchModal}
+          setShowProjectSettingsModal={setShowProjectSettingsModal}
+          setShowRecapModal={setShowRecapModal}
+          setShowRecentSessions={setShowRecentSessions}
+          setShowShareModal={setShowShareModal}
+          shareModalAnchor={shareModalAnchor}
+          shareModalView={shareModalView}
+          showProjectReclassifyMenu={showProjectReclassifyMenu}
+          showRecentSessions={showRecentSessions}
+          showShareModal={showShareModal}
+          status={status}
+          supportsForkFromTurn={supportsForkFromTurn}
+          supportsManualCompact={supportsManualCompact}
+          supportsProjectSettings={supportsProjectSettings}
+          supportsTitleGeneration={supportsTitleGeneration}
+          titleEditControlsRef={titleEditControlsRef}
+          titleEditMode={titleEditMode}
+          titleRowRef={titleRowRef}
+          titleTooltip={titleTooltip}
+          versionInfo={versionInfo}
+        />
 
         <SessionPageModals
           actualSessionId={actualSessionId}
