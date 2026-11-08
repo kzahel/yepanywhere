@@ -2,7 +2,7 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: in progress 2026-11-08 (slice 0 landed).
+Status: in progress 2026-11-08 (slices 0 and 1 landed).
 
 The next step after [plan 181](181-session-page-feature-hooks.md) for
 [the session page hub gap](../../gaps/session-page-react-hub.md). About

@@ -306,6 +306,7 @@ and props stable.
 | 2.34 | Done 2026-11-08 | `SessionPage.tsx` attachment upload | Move the page's attachment upload, incoming share and remove step into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 4). | Move-only: `uploadAttachedFiles`, `handleAttach`, the `useIncomingShareFiles` call and `handleRemoveAttachment` move verbatim into `hooks/useSessionAttachmentUploads.ts`, called where they stood, so the share hook's effects keep their place. Two refs and `setUploadProgress` joined dependency lists. Budget `SessionPage.tsx` 5,546 -> 5,383; the hook is 261 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.35 | Done 2026-11-08 | `SessionPage.tsx` recall and navigation actions | Move the page's recall entries, scroll-to-turn requests and navigation-state actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 5). | Move-only: the turn and command recall, the scroll-to-turn request, the search-match and non-human-turn navigation hooks and the navigation-state actions with their early-typing effects move verbatim into `hooks/useSessionTranscriptJumps.ts`, called where they stood, so no effect changes order. Three early-typing refs joined dependency lists, including the unmount-only effect's. Budget `SessionPage.tsx` 5,383 -> 5,231; the hook is 260 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.36 | Done 2026-11-08 | `SessionPage.tsx` route sync | Move the page's visit record and URL replacements into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 6). | Move-only: the four effects that record the visit and replace the URL for a real session id, a native-id viewer URL and the canonical project move verbatim into `hooks/useSessionRouteSync.ts`, called where they stood. No dependency list changed. Budget `SessionPage.tsx` 5,231 -> 5,157; the hook is 122 lines. Tier 3, plus plan 181's slice 0 pins. |
+| 2.37 | Done 2026-11-08 | `SessionPage.tsx` header actions | Move the page's archive, star, suggestions, read, terminate, restart and share actions into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 1). | Move-only: the eleven handlers and values, the read-shortcut effect and the share modal state move verbatim into `hooks/useSessionHeaderActions.ts`, called where the handlers stood, so the effect keeps its place. The share state moves later in the hook order; nothing between reads it. No dependency list changed. Budget `SessionPage.tsx` 5,157 -> 5,019; the hook is 263 lines. Tier 3, plus plan 182's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -440,6 +441,51 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.37 — Session Page Header Actions (Landed 2026-11-08, this commit)
+
+Moved:
+- The share modal state (`showShareModal`, `shareModalView`,
+  `shareModalAnchor`), `handleToggleArchive`, `handleToggleStar`,
+  `handleTogglePromptSuggestions`, `hasUnread`, `handleSetUnread`,
+  `handleToggleRead`, the read-shortcut effect, `handleTerminate`,
+  `handleRestartProvider`, `handleShare`, `handleShareIndicatorClick` and
+  `handleShareIndicatorContextMenu` -> `useSessionHeaderActions` in new
+  `packages/client/src/hooks/useSessionHeaderActions.ts`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `sessionId`, `projectId`, `actualSessionId`, `session`,
+  `sessionCollectionRecord`, `status`, `setStatus`, `isArchived`,
+  `isStarred`, `promptSuggestionMode`, `localPromptSuggestionMode`,
+  `setLocalIsArchived`, `setLocalIsStarred`,
+  `setLocalPromptSuggestionMode`, `isDomLingerParked`, `loading`,
+  `draftControlsRef` and `publicShareManagementAvailable`; `t` and
+  `showToast` come from the context hooks inside.
+- It returns the share modal state with `setShowShareModal` and
+  `setShareModalAnchor` (the header's close handler), the handlers the
+  header and session menu use, and `hasUnread`. `handleSetUnread` stays
+  inside.
+- The hook is called where `handleToggleArchive` stood, so the
+  read-shortcut effect keeps its place. The share state moved from before
+  the model switch state to the call, later in the hook order; nothing in
+  between reads or sets it. No dependency list changed.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The new hook calls neither `useLocation` nor `useNavigate`.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.36 — Session Page Route Sync (Landed 2026-11-08, this commit)
 

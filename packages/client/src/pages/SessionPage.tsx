@@ -24,6 +24,7 @@ import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
+import { useSessionHeaderActions } from "../hooks/useSessionHeaderActions";
 import { useSessionRouteSync } from "../hooks/useSessionRouteSync";
 import { useSessionTitleEditing } from "../hooks/useSessionTitleEditing";
 import { useSessionTranscriptJumps } from "../hooks/useSessionTranscriptJumps";
@@ -134,7 +135,6 @@ import { useSessionHeaderLayout } from "../hooks/useSessionHeaderLayout";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
 import { SessionRecapModal } from "../components/SessionRecapModal";
 import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
-import type { ModalAnchorRect } from "../components/ui/Modal";
 import { AgentContentProvider } from "../contexts/AgentContentContext";
 import { GlossaryProjectProvider } from "../contexts/GlossaryContext";
 import { RenderModeProvider } from "../contexts/RenderModeContext";
@@ -219,10 +219,6 @@ import {
   useSessionCollectionRecord,
 } from "../lib/clientSummaryStore";
 import { activityBus } from "../lib/activityBus";
-import {
-  sessionReadShortcut,
-  setSessionUnread,
-} from "../lib/sessionReadActions";
 import type {
   LastComposerSubmission,
   SentComposerSubmission,
@@ -1930,12 +1926,6 @@ function SessionPageContent({
   const [showProjectSettingsModal, setShowProjectSettingsModal] =
     useState(false);
   const [showRecapModal, setShowRecapModal] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareModalView, setShareModalView] = useState<"manage" | "session">(
-    "session",
-  );
-  const [shareModalAnchor, setShareModalAnchor] =
-    useState<ModalAnchorRect | null>(null);
   const canCreatePublicShares = publicShareGlobalStatus?.canCreate ?? false;
   const publicShareManagementAvailable = serverHasCapability(
     versionInfo,
@@ -3306,170 +3296,42 @@ function SessionPageContent({
     }
   };
 
-  const handleToggleArchive = async () => {
-    const newArchived = !isArchived;
-    try {
-      await api.updateSessionMetadata(sessionId, { archived: newArchived });
-      setLocalIsArchived(newArchived);
-      showToast(
-        newArchived ? t("sessionArchived") : t("sessionUnarchived"),
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update archive status:", err);
-      showToast(t("sessionArchiveFailed"), "error");
-    }
-  };
-
-  const handleToggleStar = async () => {
-    const newStarred = !isStarred;
-    try {
-      await api.updateSessionMetadata(sessionId, { starred: newStarred });
-      setLocalIsStarred(newStarred);
-      showToast(
-        newStarred ? t("sessionStarred") : t("sessionUnstarred"),
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update star status:", err);
-      showToast(t("sessionStarFailed"), "error");
-    }
-  };
-
-  const handleTogglePromptSuggestions = async () => {
-    const next: PromptSuggestionMode =
-      promptSuggestionMode === "native" ? "off" : "native";
-    const previous = localPromptSuggestionMode;
-    setLocalPromptSuggestionMode(next);
-    try {
-      await api.updateSessionMetadata(sessionId, {
-        promptSuggestionMode: next,
-      });
-      showToast(
-        next === "native"
-          ? t("sessionPromptSuggestionsEnabled")
-          : t("sessionPromptSuggestionsDisabled"),
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update prompt suggestion mode:", err);
-      setLocalPromptSuggestionMode(previous);
-      showToast(t("sessionPromptSuggestionsFailed"), "error");
-    }
-  };
-
-  const hasUnread =
-    sessionCollectionRecord?.hasUnread ?? session?.hasUnread ?? false;
-
-  const handleSetUnread = useCallback(
-    async (newHasUnread: boolean) => {
-      try {
-        await setSessionUnread(sessionId, newHasUnread);
-        showToast(
-          newHasUnread ? t("sessionMarkedUnread") : t("sessionMarkedRead"),
-          "success",
-        );
-      } catch (err) {
-        console.error("Failed to update read status:", err);
-        showToast(t("sessionReadFailed"), "error");
-      }
-    },
-    [sessionId, showToast, t],
-  );
-  const handleToggleRead = () => handleSetUnread(!hasUnread);
-
-  useEffect(() => {
-    if (isDomLingerParked || loading) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const unread = sessionReadShortcut(event);
-      if (unread === null) return;
-      const target = event.target as Element;
-      if (
-        target !== document.body &&
-        target
-          .closest("[data-session-read-scope]")
-          ?.getAttribute("data-session-read-scope") !== sessionId
-      )
-        return;
-      event.preventDefault();
-      void handleSetUnread(unread);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isDomLingerParked, loading, sessionId, handleSetUnread]);
-
-  const handleTerminate = async () => {
-    if (status.owner === "self" && status.processId) {
-      try {
-        await api.abortProcess(status.processId, { blockResume: true });
-        showToast(t("sessionTerminated"), "success");
-      } catch (err) {
-        console.error("Failed to terminate session:", err);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        showToast(t("sessionTerminateFailed", { message: errorMsg }), "error");
-      }
-    }
-  };
-
-  const handleRestartProvider = async () => {
-    if (status.owner !== "self" || !status.processId) return;
-    draftControlsRef.current?.flushDraft();
-    try {
-      await api.abortProcess(status.processId);
-      setStatus({ owner: "none" });
-      await api.reactivateSession(projectId, actualSessionId);
-      window.location.reload();
-    } catch (error) {
-      showToast(
-        t("sessionRestartProviderFailed", {
-          message: error instanceof Error ? error.message : String(error),
-        }),
-        "error",
-      );
-    }
-  };
-
-  const handleShare = useCallback(() => {
-    if (showShareModal) {
-      setShowShareModal(false);
-      setShareModalAnchor(null);
-      return;
-    }
-    setShareModalAnchor(null);
-    setShareModalView(publicShareManagementAvailable ? "manage" : "session");
-    setShowShareModal(true);
-  }, [publicShareManagementAvailable, showShareModal]);
-
-  const handleShareIndicatorClick = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      if (showShareModal) {
-        setShowShareModal(false);
-        setShareModalAnchor(null);
-        return;
-      }
-      const rect = event.currentTarget.getBoundingClientRect();
-      setShareModalAnchor({
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
-      });
-      setShareModalView(publicShareManagementAvailable ? "manage" : "session");
-      setShowShareModal(true);
-    },
-    [publicShareManagementAvailable, showShareModal],
-  );
-
-  const handleShareIndicatorContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      if (!publicShareManagementAvailable) return;
-      event.preventDefault();
-      handleShareIndicatorClick(event);
-    },
-    [handleShareIndicatorClick, publicShareManagementAvailable],
-  );
+  const {
+    showShareModal,
+    setShowShareModal,
+    shareModalView,
+    shareModalAnchor,
+    setShareModalAnchor,
+    handleToggleArchive,
+    handleToggleStar,
+    handleTogglePromptSuggestions,
+    hasUnread,
+    handleToggleRead,
+    handleTerminate,
+    handleRestartProvider,
+    handleShare,
+    handleShareIndicatorClick,
+    handleShareIndicatorContextMenu,
+  } = useSessionHeaderActions({
+    sessionId,
+    projectId,
+    actualSessionId,
+    session,
+    sessionCollectionRecord,
+    status,
+    setStatus,
+    isArchived,
+    isStarred,
+    promptSuggestionMode,
+    localPromptSuggestionMode,
+    setLocalIsArchived,
+    setLocalIsStarred,
+    setLocalPromptSuggestionMode,
+    isDomLingerParked,
+    loading,
+    draftControlsRef,
+    publicShareManagementAvailable,
+  });
 
   if (error) {
     const errorStatus =
