@@ -2,134 +2,15 @@
  * Proposed canonical controls, shown beside the legacy variants they would
  * replace. These are census prototypes, not shared controls: each family's
  * variants move into src/components/ui/ in its plan 182 slice, and this
- * file shrinks as they do. Values come from the most-used legacy family so
- * the census compares like with like.
+ * file shrinks as they do (buttons are now ui/Button.module.css). Values
+ * come from the most-used legacy family so the census compares like with
+ * like.
  */
 
-.button {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  min-height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    border-color 0.15s,
-    color 0.15s;
-}
-
-.button:focus-visible,
 .switch:focus-visible,
 .segment:focus-visible {
   outline: 2px solid var(--focus-border);
   outline-offset: 2px;
-}
-
-.button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.small {
-  min-height: 26px;
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
-}
-
-.icon {
-  width: 32px;
-  padding: 0;
-}
-
-.icon.small {
-  width: 26px;
-}
-
-/* Fingers, not cursors: coarse pointers get a larger hit area. */
-@media (pointer: coarse) {
-  .button {
-    min-height: 40px;
-  }
-
-  .small {
-    min-height: 32px;
-  }
-
-  .icon {
-    width: 40px;
-  }
-
-  .icon.small {
-    width: 32px;
-  }
-}
-
-.primary {
-  background: var(--app-yep-green-dark);
-  color: #fff;
-}
-
-.primary:hover:not(:disabled) {
-  background: var(--app-yep-green);
-}
-
-.secondary {
-  background: var(--bg-hover);
-  border-color: var(--border-color);
-  color: var(--text-primary);
-}
-
-.secondary:hover:not(:disabled) {
-  background: var(--border-color);
-}
-
-.outline {
-  background: transparent;
-  border-color: var(--border-color);
-  color: var(--text-primary);
-}
-
-.outline:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.ghost {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.ghost:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.danger {
-  background: var(--error-color);
-  border-color: var(--error-color);
-  color: #fff;
-}
-
-.danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--error-color) 85%, #000);
-}
-
-.dangerOutline {
-  background: transparent;
-  border-color: var(--error-color);
-  color: var(--error-color);
-}
-
-.dangerOutline:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--error-color) 14%, transparent);
 }
 
 /* Switch: the legacy toggle's 44×24 geometry, as a role="switch" button. */

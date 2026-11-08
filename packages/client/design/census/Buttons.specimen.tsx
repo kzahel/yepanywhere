@@ -5,9 +5,9 @@ import { CensusRow, useModuleClasses } from "./censusParts";
 import { isButtonClass, LEGACY_BUTTONS } from "./mapping";
 import {
   BUTTON_VARIANTS,
+  Button,
   type ButtonVariant,
-  ProposedButton,
-} from "./ProposedControls";
+} from "../../src/components/ui/Button";
 
 export default {
   title: "Census/Buttons",
@@ -15,7 +15,7 @@ export default {
     layer: "census",
     width: "fill",
     description:
-      "Every legacy button style beside the proposed canonical variant it maps to. The mapping in design/census/mapping.ts is a proposal until the maintainer confirms it.",
+      "Every legacy button style beside the shared variant it maps to (Controls/Button shows the variants). The mapping is design/census/mapping.ts.",
   },
 } satisfies SpecimenMeta;
 
@@ -24,37 +24,6 @@ const PLUS = (
     <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.6" />
   </svg>
 );
-
-export function Proposed() {
-  return (
-    <div className={styles.census}>
-      {[false, true].map((small) => (
-        <div key={String(small)} className={styles.variants}>
-          {BUTTON_VARIANTS.map((variant) => (
-            <div key={variant} className={styles.variantColumn}>
-              <span className={styles.variantName}>
-                {variant}
-                {small ? " · small" : ""}
-              </span>
-              <ProposedButton variant={variant} small={small}>
-                {variant === "danger" || variant === "danger-outline"
-                  ? "Delete"
-                  : "Save changes"}
-              </ProposedButton>
-              <ProposedButton variant={variant} small={small} disabled>
-                Disabled
-              </ProposedButton>
-              <ProposedButton variant={variant} small={small} icon label="Add">
-                {PLUS}
-              </ProposedButton>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-Proposed.storyName = "Proposed variants";
 
 function sampleLabel(to: string) {
   return to === "danger" || to === "danger-outline" ? "Delete" : "Save";
@@ -76,9 +45,9 @@ export function LegacyByVariant() {
                   The composer's own control row; unified as a pattern.
                 </span>
               ) : (
-                <ProposedButton variant={group as ButtonVariant}>
+                <Button variant={group as ButtonVariant}>
                   {sampleLabel(group)}
-                </ProposedButton>
+                </Button>
               )}
             </header>
             <div className={styles.rows}>

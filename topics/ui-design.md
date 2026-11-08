@@ -36,8 +36,29 @@ real desktop and phone renders under [UI testing](ui-testing.md).
 Status: direction selected 2026-11-08.
 [Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
 sequences the work. The playground, its token page, the undefined-property
-limit and the button and switch census have landed; no shared control has
-yet. Until one exists, the owners above remain the reference.
+limit, the button and switch census and the shared button family have
+landed. For controls without a shared version yet, the owners above remain
+the reference.
+
+**Buttons.** `src/components/ui/Button.tsx` owns the button family:
+
+- `Button`: variants `primary` (brand green), `secondary` (the default),
+  `outline`, `ghost`, `danger` and `danger-outline`; sizes `default` and
+  `small`.
+- `IconButton`: icon-only; its required `label` is the accessible name and
+  the tooltip (through `TooltipLayer`). Defaults to `ghost`.
+- `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
+  arrows and chips. Its reset has zero specificity, so the owner's styles
+  always win; it keeps the focus ring.
+- `buttonClassName()`: the same look for an `<a>` or router `Link` that is a
+  button-shaped navigation target.
+
+All of them default `type` to `button`, so none submits a form unless asked,
+pass ordinary button attributes through (including `data-testid`) and take
+`ref`. `busy` shows a spinner, sets `aria-busy` and ignores clicks and form
+submission while keeping focus. Coarse pointers get 40 px (default) and
+32 px (small) hit areas. A caller's `className` adds layout only (margins,
+flex placement, width); the control owns colors, borders, padding and type.
 
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
@@ -124,7 +145,7 @@ error.
 pnpm -s design:index                       # JSON: every specimen, state and URL
 pnpm -s design:shot census-buttons         # each state, dark theme, 1000 px
 pnpm -s design:shot tokens--colors --theme all --phone
-pnpm -s design:shot census-buttons--proposed --grid --theme all
+pnpm -s design:shot controls-button--variants --grid --theme all
 pnpm -s design:shot census-buttons --url http://localhost:3400
 ```
 
@@ -143,11 +164,13 @@ The playground's pages:
 - **Tokens:** every theme color resolved in each theme, the spacing, radius
   and type scales, and the undefined properties with their recorded counts,
   how many reads lack a fallback, and their CSS sites.
+- **Controls/Button:** every variant, size and state of the shared button
+  family.
 - **Census/Buttons** and **Census/Switches and segmented controls:** the
-  proposed canonical variants (census prototypes in `design/census/`, not
-  shared controls), the mapped legacy styles grouped by the variant they
-  would become, every unmapped global class, and every matching CSS Module
-  class, each rendered standalone. Global class counts are static whole-token
+  canonical variants (the shared `Button` for buttons; census prototypes in
+  `design/census/` for switches and segmented controls), the mapped legacy
+  styles grouped by the variant they become, every unmapped global class,
+  and every matching CSS Module class, each rendered standalone. Global class counts are static whole-token
   counts in production TypeScript, served by a dev-only Vite plugin and
   refreshed when sources change; classes built at runtime are not seen.
 

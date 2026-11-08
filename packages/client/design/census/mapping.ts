@@ -10,7 +10,7 @@
  * variants (`settings-button settings-button-danger`) render as they do in
  * the app. `counted` names the class whose use count represents the row.
  */
-import type { ButtonVariant } from "./ProposedControls";
+import type { ButtonVariant } from "../../src/components/ui/Button";
 
 /**
  * Where a legacy control goes: a canonical variant, or a disposition for

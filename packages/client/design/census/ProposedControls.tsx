@@ -1,63 +1,11 @@
 /**
  * Census prototypes of the proposed canonical controls. They exist so the
  * census can show each proposal beside the legacy variants it would absorb;
- * the chosen API moves into src/components/ui/ in plan 182's migration steps.
+ * the chosen API moves into src/components/ui/ in plan 182's family slices.
+ * Buttons have moved: the census renders src/components/ui/Button.tsx.
  */
-import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import styles from "./proposed.module.css";
-
-export const BUTTON_VARIANTS = [
-  "primary",
-  "secondary",
-  "outline",
-  "ghost",
-  "danger",
-  "danger-outline",
-] as const;
-export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
-
-const VARIANT_CLASS: Record<ButtonVariant, string | undefined> = {
-  primary: styles.primary,
-  secondary: styles.secondary,
-  outline: styles.outline,
-  ghost: styles.ghost,
-  danger: styles.danger,
-  "danger-outline": styles.dangerOutline,
-};
-
-export function ProposedButton({
-  variant,
-  small = false,
-  icon = false,
-  disabled = false,
-  label,
-  children,
-}: {
-  variant: ButtonVariant;
-  small?: boolean;
-  icon?: boolean;
-  disabled?: boolean;
-  /** Required for icon-only buttons. */
-  label?: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={[
-        styles.button,
-        VARIANT_CLASS[variant],
-        small ? styles.small : "",
-        icon ? styles.icon : "",
-      ].join(" ")}
-      disabled={disabled}
-      aria-label={label}
-      data-tooltip={icon ? label : undefined}
-    >
-      {children}
-    </button>
-  );
-}
 
 export function ProposedSwitch({
   label,

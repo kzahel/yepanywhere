@@ -1,0 +1,188 @@
+/*
+ * The shared button family (plan 182, family 1). The control owns its look;
+ * a caller's className adds layout only (margins, flex placement, width).
+ * Variants started from the census prototypes and the most-used legacy
+ * family, settings-button.
+ */
+
+/* ButtonBase: a reset for clickable rows, cards, disclosures and chips. The
+   :where() keeps it at zero specificity, so the owner's styles always win. */
+:where(.base) {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+:where(.base):disabled {
+  cursor: not-allowed;
+}
+
+.base:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
+.button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  margin: 0;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.small {
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.icon {
+  width: 32px;
+  padding: 0;
+}
+
+.icon.small {
+  width: 26px;
+}
+
+/* Fingers, not cursors: coarse pointers get a larger hit area. */
+@media (pointer: coarse) {
+  .button {
+    min-height: 40px;
+  }
+
+  .small {
+    min-height: 32px;
+  }
+
+  .icon {
+    width: 40px;
+  }
+
+  .icon.small {
+    width: 32px;
+  }
+}
+
+.icon svg {
+  flex-shrink: 0;
+}
+
+.primary {
+  background: var(--app-yep-green-dark);
+  color: #fff;
+}
+
+.primary:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--app-yep-green);
+}
+
+.secondary {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.secondary:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--border-color);
+}
+
+.outline {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.outline:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--bg-hover);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.ghost:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ghost[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.danger {
+  background: var(--error-color);
+  border-color: var(--error-color);
+  color: #fff;
+}
+
+.danger:hover:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--error-color) 85%, #000);
+}
+
+.dangerOutline {
+  background: transparent;
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+.dangerOutline:hover:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--error-color) 14%, transparent);
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
