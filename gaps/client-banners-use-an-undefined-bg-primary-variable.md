@@ -30,3 +30,11 @@ Modules (`rg 'var\(--bg-primary'`), so the line numbers above are stale.
 Found 2026-09-10 while styling the network-filesystem storage banner, which
 copied the neighboring banner's colors before the variable turned out to be
 undefined.
+
+On 2026-11-08 `pnpm css:check` began freezing every undefined custom property
+at its recorded read count (68 for `--bg-primary`, 65 without a fallback), so
+the use can no longer grow. The design playground's token page
+(`/design.html#/tokens--undefined` on the dev server) lists each name with its
+sites, and is the place to compare themes when settling them;
+[plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
+step 13 owns that work.

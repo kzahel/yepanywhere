@@ -1,7 +1,9 @@
 # UI design and mockup exports
 
-> YA UI proposals use real client components in isolated Vite fixtures,
-> exported as relocatable HTML, CSS, JavaScript, fonts, and linked captures.
+> YA's design language is moving onto a small set of shared controls that are
+> shown and captured in a dev-only design playground. UI proposals use real
+> client components in isolated Vite fixtures, exported as relocatable HTML,
+> CSS, JavaScript, fonts and linked captures.
 
 Topic: ui-design
 
@@ -29,7 +31,131 @@ This is fixture configuration, not a change to the application's default.
 Keep related controls grouped, allow long content to scroll, and inspect the
 real desktop and phone renders under [UI testing](ui-testing.md).
 
+## Shared controls and the design playground
+
+Status: direction selected 2026-11-08.
+[Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
+sequences the work. The playground, its token page, the undefined-property
+limit and the button and switch census have landed; no shared control has
+yet. Until one exists, the owners above remain the reference.
+
+**Layers.** The design language has four layers. Each lower layer may not
+depend on a higher one:
+
+1. **Tokens:** the theme custom properties in `src/styles/index.css`
+   (color, spacing, radius, type, and the planned shadow and z-index scales).
+   A token used in client CSS must be defined in every client theme. Reads of
+   properties no client source defines are frozen by `pnpm css:check`
+   ([CSS architecture](css-architecture.md#contract)).
+2. **Controls:** prop-driven shared components in `src/components/ui/`, each
+   with its own CSS Module. The planned set is `Button`, `IconButton`,
+   `Switch`, `SegmentedControl`, `Checkbox`, `Field`, `Popover`, `Menu`,
+   `Banner`, `Badge`, `Spinner` and `Tabs`, beside the existing `Modal` and
+   `TooltipLayer`. A control renders from props alone: no server, router or
+   app-level context. Needing a service makes it a pattern or a scene.
+3. **Patterns:** reusable compositions of controls, such as a settings row,
+   a confirm dialog or an icon toolbar group.
+4. **Scenes:** real surfaces rendered with fixture data. Server-backed data
+   reaches a scene through injected services (React context), never through
+   bundler aliasing of production modules.
+
+**Unification rules.**
+
+- Each control's variants are chosen from a census page: every legacy
+  variant rendered next to the proposed canonical set, reviewed by the
+  maintainer before migration. The legacy-to-variant mapping lives in
+  `packages/client/design/census/mapping.ts`, and migration follows it. Its
+  rows are proposals until the maintainer confirms them there.
+- Migration may change appearance slightly toward the canonical variant; it
+  is not a pixel-identical refactor. Deliberate restyling (radius, shadow,
+  density) happens afterwards in the shared controls and tokens, not per
+  feature.
+- Once a shared control exists, new code uses it rather than raw markup or a
+  new feature-local class. A count-only ratchet will hold the legacy
+  patterns (`toggle-switch` markup, `settings-button*`/`btn*` classes,
+  `createPortal` outside `components/ui/`, hand-written outside-click
+  listeners) so they can only decrease.
+
+**Playground.** `packages/client/design.html` is a separate entry served by
+the Vite dev server, so it opens at `/design.html` on the YA dev port (local
+or Tailscale). No production build lists it as an input, and it is not
+reachable on relay or hosted clients. Biome rejects any import of
+`packages/client/design/`, a `*.specimen.tsx` file or the playground's data
+module from production client code.
+
+Example files are `*.specimen.tsx`: beside their component under `src/`, or
+under `packages/client/design/` for playground-only pages. They use a
+Storybook-compatible subset of Component Story Format: a default export
+`{ title, component?, parameters }`, where `parameters.layer` is `token`,
+`control`, `pattern`, `scene` or `census`, and one exported function per
+state, optionally named with `storyName`. Decorators, args, loaders and play
+functions are not supported. Ids follow Storybook's rules: `Census/Buttons`
+is `census-buttons`, and its `LegacyByVariant` state is
+`census-buttons--legacy-by-variant`. States keep source order.
+
+| URL (after `/design.html`) | Shows |
+| --- | --- |
+| `#/` | Index, grouped by layer |
+| `#/<specimen-id>` | Every state, one column per theme (verydark, dark, light) |
+| `#/<state-id>` | One state across the themes |
+| `…?theme=light` | One theme only |
+| `…?phone` | Grid cells as 375 px frames, so media queries respond |
+| `#/<state-id>?iso&theme=light` | The state alone on a bare page, for capture |
+
+Each grid cell carries its own `data-theme`, so theme tokens resolve per cell.
+An isolated page marks `[data-design-ready]` once fonts load; a state still
+loading data marks an element `data-design-pending`, and capture waits for it
+to go. A state that throws renders its error in place and logs a console
+error.
+
+```bash
+pnpm -s design:index                       # JSON: every specimen, state and URL
+pnpm -s design:shot census-buttons         # each state, dark theme, 1000 px
+pnpm -s design:shot tokens--colors --theme all --phone
+pnpm -s design:shot census-buttons--proposed --grid --theme all
+pnpm -s design:shot census-buttons --url http://localhost:3400
+```
+
+`design:index` parses the example files statically, so it needs no browser or
+server; check it before writing a new control. `design:shot` starts a
+private dev server for the checkout on a free loopback port (with its own
+optimizer cache) and closes it afterwards, unless `--url` names a running
+one. It captures full-page PNGs in the system Chrome inside its sandbox and
+writes them with the same `capture.json`, `links.md` and image commentary as
+`artifact:capture`, under `.artifacts/design-shots/`. Page errors, console
+errors, failed requests and HTTP errors fail it with exit 3; invalid
+arguments exit 2. Inspect the images before claiming visual quality.
+
+The playground's pages:
+
+- **Tokens:** every theme color resolved in each theme, the spacing, radius
+  and type scales, and the undefined properties with their recorded counts,
+  how many reads lack a fallback, and their CSS sites.
+- **Census/Buttons** and **Census/Switches and segmented controls:** the
+  proposed canonical variants (census prototypes in `design/census/`, not
+  shared controls), the mapped legacy styles grouped by the variant they
+  would become, every unmapped global class, and every matching CSS Module
+  class, each rendered standalone. Global class counts are static whole-token
+  counts in production TypeScript, served by a dev-only Vite plugin and
+  refreshed when sources change; classes built at runtime are not seen.
+
+No visual-regression test of the playground runs in CI. Screenshots are
+taken on demand.
+
+**Mockup lifecycle.** A proposal mockup is temporary. Delete it in the change
+that implements or abandons the proposal; git history keeps it. Do not leave
+proposal fixtures checked in after the real UI ships. When the playground
+lands, proposals become proposal scenes that declare their owning tactical
+plan or gap, and a check fails once that owner is gone or marked done.
+Reference scenes render only real components and are kept. The existing
+`packages/client/mockups/` directories are scheduled for deletion once the
+export tests below move to a playground export.
+
 ## Authoring and commands
+
+This section describes the current export fixture. Plan 182 replaces it with
+a static export of the playground, after which the `mockup:*` commands are
+removed.
 
 The retained example is `packages/client/mockups/projects/`: an HTML entry,
 React source importing the actual `ProjectCard`, and a fixture-owned CSS
@@ -397,6 +523,17 @@ inspection controls remain owned by [the HTML viewer gap](../gaps/html-document-
   Storybook catalogue: uses the existing builder without runtime dependencies
   or a second UI implementation. A project with established stories can use
   its static exporter, but must prove the same completeness and viewing path.
+- **A self-built playground**, versus Storybook, Ladle or React Cosmos
+  (re-evaluated 2026-11-08): Storybook 10.3+ adds an agent-oriented MCP
+  addon, but its dev-dependency and configuration surface means continual
+  security upkeep for capability the Vite entry and `artifact:capture`
+  already provide. Example files keep a Storybook-compatible subset so that
+  choice stays reversible. The machine-readable index follows React Cosmos's
+  fixture list.
+- **Injected services for scenes**, versus bundler aliases or a faked network
+  layer: aliases silently break when module paths move, and a network fake
+  would duplicate the server contract. Context injection matches the ongoing
+  client refactor.
 - **A directory plus ordinary HTML metadata**, versus mandatory single-file
   inlining or browser-specific bundle navigation: preserves modules and fonts
   and works with the existing artifact grant. The current export includes the

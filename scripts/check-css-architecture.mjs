@@ -3,6 +3,10 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  scanCustomProperties,
+  undefinedCustomProperties,
+} from "./lib/css-custom-properties.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -19,12 +23,15 @@ function usage() {
   console.log(`Usage: node scripts/check-css-architecture.mjs [options]
 
 Options:
-  --record     Lower legacy global CSS limits to the current line counts.
+  --record     Lower legacy global CSS limits and undefined custom-property
+               counts to the current values.
   -h, --help   Show help.
 
 The check rejects:
   - growth above a legacy global stylesheet's recorded line limit; and
-  - a new non-module client stylesheet without a reviewed baseline entry.
+  - a new non-module client stylesheet without a reviewed baseline entry;
+  - a var(--name) read of a custom property that no client source defines,
+    beyond the recorded count for that name.
 
 Read topics/css-architecture.md before changing the baseline.
 `);
@@ -48,17 +55,32 @@ function parseArgs(argv) {
   return options;
 }
 
-async function collectCssFiles(directory) {
+async function collectFiles(directory, accept) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      files.push(...(await collectCssFiles(entryPath)));
-    } else if (entry.isFile() && entry.name.endsWith(".css")) {
+      files.push(...(await collectFiles(entryPath, accept)));
+    } else if (entry.isFile() && accept(entry.name, entryPath)) {
       files.push(entryPath);
     }
   }
   return files;
+}
+
+function collectCssFiles(directory) {
+  return collectFiles(directory, (name) => name.endsWith(".css"));
+}
+
+/** Production client sources that can define or read a custom property. */
+function collectCustomPropertySources(directory) {
+  return collectFiles(
+    directory,
+    (name, filePath) =>
+      /\.(css|tsx?)$/.test(name) &&
+      !/\.test\.tsx?$/.test(name) &&
+      !filePath.split(path.sep).includes("__tests__"),
+  );
 }
 
 function relativePath(filePath) {
@@ -116,6 +138,49 @@ for (const filePath of configuredGlobalPaths) {
   }
 }
 
+// Undefined custom properties: a var() read of a name no client source
+// defines silently takes its fallback, or drops the declaration when it has
+// none. Each recorded name may only lose uses; new names are rejected.
+const recordedUndefined = baseline.undefinedCustomProperties ?? {};
+const propertySources = await Promise.all(
+  (await collectCustomPropertySources(clientSrcDir)).map(async (file) => ({
+    path: relativePath(file),
+    text: await readFile(file, "utf8"),
+  })),
+);
+const currentUndefined = new Map(
+  undefinedCustomProperties(scanCustomProperties(propertySources)).map(
+    (entry) => [entry.name, entry],
+  ),
+);
+const undefinedBelow = [];
+for (const [name, entry] of currentUndefined) {
+  const limit = recordedUndefined[name];
+  if (limit === undefined) {
+    const site = entry.sites[0];
+    errors.push(
+      `var(${name}) is read ${entry.uses} time${entry.uses === 1 ? "" : "s"} (first at ${site.path}:${site.line}) but no client source defines it; use a theme token from packages/client/src/styles/index.css, define the property, or set it where its owner renders`,
+    );
+  } else if (!Number.isInteger(limit) || limit < 1) {
+    errors.push(`${name}: recorded undefined uses must be a positive integer`);
+  } else if (entry.uses > limit) {
+    errors.push(
+      `var(${name}) is read ${entry.uses} times without a definition; the recorded limit is ${limit}`,
+    );
+  } else if (entry.uses < limit) {
+    undefinedBelow.push({ name, actual: entry.uses, limit });
+  }
+}
+for (const [name, limit] of Object.entries(recordedUndefined)) {
+  if (!currentUndefined.has(name)) {
+    undefinedBelow.push({ name, actual: 0, limit });
+  }
+}
+const undefinedUses = [...currentUndefined.values()].reduce(
+  (total, entry) => total + entry.uses,
+  0,
+);
+
 console.log(
   `CSS architecture: ${globalFiles.length} authored global stylesheets, ${moduleFiles.length} CSS Modules.`,
 );
@@ -126,22 +191,41 @@ for (const filePath of [...configuredGlobalPaths].sort()) {
     console.log(`  ${actual}/${limit} lines  ${filePath}`);
   }
 }
+console.log(
+  `  ${currentUndefined.size} undefined custom properties read ${undefinedUses} times`,
+);
 
 if (errors.length > 0) {
   for (const error of errors) {
     console.error(`css-architecture: ${error}`);
   }
   console.error(
-    "Legacy global CSS is frozen. Extract component-owned rules into CSS Modules; do not raise a limit without explicit architectural justification.",
+    "Legacy global CSS and undefined custom properties are frozen. Extract component-owned rules into CSS Modules and read defined tokens; do not raise a limit without explicit architectural justification.",
   );
   process.exit(1);
 }
+
+const pending = [
+  ...belowBaseline.map(
+    ({ filePath, actual, limit }) => `${filePath} ${limit}->${actual}`,
+  ),
+  ...undefinedBelow.map(
+    ({ name, actual, limit }) => `${name} ${limit}->${actual}`,
+  ),
+];
 
 if (options.record) {
   for (const { filePath, actual } of belowBaseline) {
     legacyGlobalStyles[filePath].maxLines = actual;
   }
-  if (belowBaseline.length > 0) {
+  for (const { name, actual } of undefinedBelow) {
+    if (actual === 0) delete recordedUndefined[name];
+    else recordedUndefined[name] = actual;
+  }
+  if (pending.length > 0) {
+    baseline.undefinedCustomProperties = Object.fromEntries(
+      Object.entries(recordedUndefined).sort(([a], [b]) => a.localeCompare(b)),
+    );
     baseline.updated = new Date().toISOString().slice(0, 10);
     await writeFile(
       baselinePath,
@@ -149,15 +233,13 @@ if (options.record) {
       "utf8",
     );
     console.log(
-      `css-architecture: ratcheted ${belowBaseline.length} limit${belowBaseline.length === 1 ? "" : "s"} downward.`,
+      `css-architecture: ratcheted ${pending.length} limit${pending.length === 1 ? "" : "s"} downward.`,
     );
   } else {
     console.log("css-architecture: all limits already match current counts.");
   }
-} else if (belowBaseline.length > 0) {
+} else if (pending.length > 0) {
   console.log(
-    `css-architecture: below baseline; run pnpm css:check --record to ratchet ${belowBaseline
-      .map(({ filePath, actual, limit }) => `${filePath} ${limit}->${actual}`)
-      .join(", ")}.`,
+    `css-architecture: below baseline; run pnpm css:check --record to ratchet ${pending.join(", ")}.`,
   );
 }

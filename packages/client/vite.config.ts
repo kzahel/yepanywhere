@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { designDataPlugin } from "./design/vite-plugin-design-data";
 import { warningFreeBuildLogger } from "./vite-build-policy";
 import { cspPlugin, shouldInlineClientAsset } from "./vite-plugin-csp";
 import { prebootComposerPlugin } from "./vite-plugin-preboot-composer";
@@ -79,6 +80,8 @@ export default defineConfig(({ command }) => ({
     newSessionPreloadPlugin(),
     // Content Security Policy (stricter in production, permissive in dev for HMR)
     cspPlugin({ isRemote: false }),
+    // Census data for the dev-only design playground (design.html).
+    designDataPlugin(resolve(__dirname, "src")),
   ],
   resolve: {
     alias: {

@@ -1037,6 +1037,26 @@ saved/failed sessions. The [source audit](../../gaps/session-creation-source-mis
 is now narrowed to uncorrelated native-copy result loss; the six caller omissions
 are repaired by common admission.
 
+## Design language unification
+
+Selected by the maintainer on 2026-11-08 as active client work. The client has
+no shared button, switch, popover, menu, field or banner. It has two competing
+global button families, about 71 pasted copies of the switch markup, about 40
+hand-rolled popovers and menus, and several tokens that are used but never
+defined. [Plan 182](../tactical/182-design-playground-and-shared-controls.md)
+builds a self-built, dev-only design playground (`design.html`) with
+Storybook-compatible example files. It runs a census of existing variants
+before migrating each control, starting with `Switch` and then `Button`, and
+adds a ratchet so legacy patterns can only shrink. It replaces and then
+deletes the checked-in feature mockups and gives proposal scenes an
+owner-bound lifecycle check. Scenes receive server data through injected
+services, alongside the ongoing client refactor. There are no visual tests in
+CI. The [UI design topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
+owns the contract. Steps 1 to 3 landed on 2026-11-08: the dev-only playground
+with `design:index`/`design:shot`, the token page, a `css:check` limit on
+undefined custom properties, and the button and switch census. The census
+mapping awaits maintainer review before the `Switch` and `Button` migrations.
+
 ## Later directions
 
 The [clone and fork settings repair](../tactical/140-clone-session-settings-inheritance.md)

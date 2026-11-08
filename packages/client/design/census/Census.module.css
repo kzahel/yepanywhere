@@ -1,0 +1,97 @@
+.census {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  font-size: var(--font-size-sm);
+}
+
+.intro {
+  margin: 0;
+  max-width: 60rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.group {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.groupHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+}
+
+/* contain: a legacy class may position itself absolutely or fixed; keep
+   it inside its own row instead of over the page. */
+.sample {
+  position: relative;
+  contain: layout paint;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.meta code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.zero {
+  color: var(--warning-color);
+}
+
+.variants {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.variantColumn {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+}
+
+.variantName {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.loading {
+  color: var(--text-muted);
+}

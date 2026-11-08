@@ -74,6 +74,34 @@
       }
     },
     {
+      "includes": [
+        "packages/client/src/**",
+        "!packages/client/src/**/*.specimen.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/*.specimen",
+                      "**/*.specimen.tsx",
+                      "**/design/**",
+                      "virtual:ya-design-data"
+                    ],
+                    "message": "The design playground and its example files are dev-only; production client code must not import them (topics/ui-design.md)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["packages/client/src/**/*.module.css"],
       "linter": {
         "rules": {

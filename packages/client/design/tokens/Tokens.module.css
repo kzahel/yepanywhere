@@ -1,0 +1,131 @@
+.tokens {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  font-size: var(--font-size-sm);
+}
+
+.intro {
+  margin: 0;
+  max-width: 60rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.group h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--space-2);
+}
+
+.swatch {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chip {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  /* A checkerboard shows through translucent and missing values. */
+  background-image:
+    linear-gradient(45deg, #8884 25%, transparent 25%),
+    linear-gradient(-45deg, #8884 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #8884 75%),
+    linear-gradient(-45deg, transparent 75%, #8884 75%);
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+  background-size: 8px 8px;
+}
+
+.chipFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.label {
+  display: grid;
+  min-width: 0;
+}
+
+.label code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.value {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.scale {
+  display: grid;
+  grid-template-columns: 9rem max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.scale code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.bar {
+  height: 12px;
+  background: var(--accent-color);
+  border-radius: 2px;
+}
+
+.box {
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--text-muted);
+  background: var(--bg-hover);
+}
+
+.undefinedTable {
+  display: grid;
+  grid-template-columns: 28px minmax(10rem, max-content) max-content minmax(
+      0,
+      1fr
+    );
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.undefinedTable code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.sites {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.noFallback {
+  color: var(--error-color);
+}
+
+.loading {
+  color: var(--text-muted);
+}

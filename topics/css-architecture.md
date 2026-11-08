@@ -65,6 +65,18 @@ not carry a migration queue.
 - When extraction takes a legacy file below its ceiling, run
   `pnpm css:check --record` in the same change. Recording only lowers limits;
   it never accepts growth.
+- A `var(--name)` read of a custom property that no production client source
+  defines fails `pnpm css:check`, beyond the per-name count recorded under
+  `undefinedCustomProperties` in `scripts/css-architecture-baseline.json`
+  (62 names and 291 reads when recorded on 2026-11-08). Such a read silently
+  takes its fallback, or drops its declaration when it has none. A definition
+  is a CSS declaration or `@property`, or a TypeScript style key,
+  `setProperty` call or `--name:` string; the scan covers CSS and TypeScript
+  under `packages/client/src`, excluding tests. Read a theme token, define the
+  property, or set it where its owner renders. When a name loses reads, record
+  in the same change; a name with none left drops out of the baseline. The
+  [design playground](ui-design.md#shared-controls-and-the-design-playground)
+  token page lists each name with its sites.
 - CSS refactors preserve rendered appearance, responsive behavior, interaction
   states, and theme behavior unless an owning product topic explicitly changes
   them. Hashed module class names are implementation details; tests and browser
@@ -113,7 +125,7 @@ not carry a migration queue.
 
 | Command | Role | Exit/write contract |
 |---|---|---|
-| `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, or a stale/invalid baseline entry. `--record` is the only write mode and only lowers current ceilings. |
+| `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |
 | `pnpm lint` | Combined repository gate | Runs containment, module contracts, CSS lint, and Biome; any child failure fails lint. |

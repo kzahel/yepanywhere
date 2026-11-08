@@ -21,6 +21,8 @@
     "i18n:scan": "node scripts/find-raw-i18n-copy.mjs",
     "agent:monitor": "node scripts/monitor-agent-process.mjs",
     "artifact:capture": "tsx packages/client/scripts/capture-artifact.ts",
+    "design:index": "tsx packages/client/scripts/design-index.ts",
+    "design:shot": "tsx packages/client/scripts/design-shot.ts",
     "unicode-math:train": "tsx scripts/unicode-math/train.ts",
     "android:interop:check": "tsx --conditions source scripts/android-secure-interop-fixture.ts",
     "android:interop:write": "tsx scripts/android-secure-interop-fixture.ts --write",

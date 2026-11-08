@@ -1,0 +1,234 @@
+/*
+ * Proposed canonical controls, shown beside the legacy variants they would
+ * replace. These are census prototypes, not shared controls: the chosen
+ * variants move into src/components/ui/ (plan 182, steps 5 and 6), and this
+ * file shrinks as they do. Values come from the most-used legacy family so
+ * the census compares like with like.
+ */
+
+.button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.button:focus-visible,
+.switch:focus-visible,
+.segment:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.small {
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.icon {
+  width: 32px;
+  padding: 0;
+}
+
+.icon.small {
+  width: 26px;
+}
+
+/* Fingers, not cursors: coarse pointers get a larger hit area. */
+@media (pointer: coarse) {
+  .button {
+    min-height: 40px;
+  }
+
+  .small {
+    min-height: 32px;
+  }
+
+  .icon {
+    width: 40px;
+  }
+
+  .icon.small {
+    width: 32px;
+  }
+}
+
+.primary {
+  background: var(--app-yep-green-dark);
+  color: #fff;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--app-yep-green);
+}
+
+.secondary {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--border-color);
+}
+
+.outline {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.outline:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.danger {
+  background: var(--error-color);
+  border-color: var(--error-color);
+  color: #fff;
+}
+
+.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error-color) 85%, #000);
+}
+
+.dangerOutline {
+  background: transparent;
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+.dangerOutline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error-color) 14%, transparent);
+}
+
+/* Switch: the legacy toggle's 44×24 geometry, as a role="switch" button. */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.switch::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  content: "";
+  transition:
+    transform 0.2s,
+    background-color 0.2s;
+}
+
+.switch[aria-checked="true"] {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.switch[aria-checked="true"]::before {
+  background: #fff;
+  transform: translateX(20px);
+}
+
+.switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.switchRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* Segmented control: the font-size selector's look, as a radio group. */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.segment {
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.segment:hover:not([aria-checked="true"], :disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.segment[aria-checked="true"] {
+  background: var(--app-yep-green);
+  color: #fff;
+}
+
+.segment:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (pointer: coarse) {
+  .segment {
+    min-height: 36px;
+  }
+}

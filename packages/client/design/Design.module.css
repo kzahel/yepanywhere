@@ -1,0 +1,194 @@
+/* Playground shell. Specimen content brings its own styles; the shell only
+   frames it, using the app's tokens so it reads in the same type and colors. */
+
+.page {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: var(--space-4) var(--space-4) 48px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+}
+
+.page a {
+  color: var(--link-color);
+}
+
+.pageHeader {
+  max-width: 72rem;
+  margin-bottom: var(--space-4);
+}
+
+.pageHeader h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 20px;
+}
+
+.crumbs {
+  margin: 0 0 var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.description {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.source {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.toolbar a {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+
+.toolbar a[aria-current="page"] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toolbarLabel {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+}
+
+.toolbarLabel:first-child {
+  margin-left: 0;
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  min-width: 0;
+}
+
+.stateHeading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.isoLink {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+}
+
+.themes {
+  display: grid;
+  grid-template-columns: repeat(var(--design-columns, 3), minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.figure {
+  min-width: 0;
+  margin: 0;
+}
+
+.figure figcaption {
+  margin-bottom: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Each cell carries data-theme, so theme tokens resolve per cell. */
+.cell {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  overflow: auto;
+}
+
+.cell.fill,
+.isolated.fill {
+  display: block;
+}
+
+.phoneFrame {
+  display: block;
+  width: 375px;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.isolated {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  min-height: 100dvh;
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+}
+
+.stateError {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--error-color);
+  border-radius: var(--radius-sm);
+  color: var(--error-color);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+}
+
+.indexGroup h2 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.indexList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indexList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.indexNote {
+  color: var(--text-muted);
+}
+
+.indexStates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}

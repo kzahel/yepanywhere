@@ -224,6 +224,8 @@
   bang-composer completion/help UI proposal.
 - ui-testing - Capture-confirmed browser QA by default, with an explicit
   user-owned visual-verification handoff that skips agent capture work.
+- ui-design - Design language layers, shared controls and the dev-only design
+  playground, mockup lifecycle, and relocatable mockup exports and captures.
 - source-control - Repository-navigation workbench: changes, commits, files,
   blame, diffs, responsive panes, and links to relevant agent sessions.
 - aligned-markdown-diffs - Resumable source-positioned Markdown rendering that
