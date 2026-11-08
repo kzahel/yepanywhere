@@ -69,7 +69,6 @@
   border: 1px solid var(--border-color);
   border-left: 3px solid var(--project-queue-action-bg);
   border-radius: var(--radius-md);
-  cursor: pointer;
   text-align: left;
   transition:
     background 0.15s,

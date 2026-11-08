@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import { GoalPanel } from "./GoalPanel";
+import { ButtonBase } from "./ui/Button";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import styles from "./GoalNotice.module.css";
 
@@ -64,9 +65,8 @@ export function GoalFlag({
   );
   return (
     <>
-      <button
+      <ButtonBase
         ref={buttonRef}
-        type="button"
         className={styles.flag}
         {...tooltip}
         aria-label={t("goalFlagLabel", { objective })}
@@ -91,7 +91,7 @@ export function GoalFlag({
         >
           <path d="M5 21V4m0 0c5-5 9 5 14 0v10c-5 5-9-5-14 0" />
         </svg>
-      </button>
+      </ButtonBase>
       {open && (
         <GoalPanel
           id={panelId}

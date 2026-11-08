@@ -68,20 +68,6 @@
 
 .retry {
   flex: none;
-  min-height: 2rem;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.retry:hover {
-  border-color: var(--text-dimmed);
-  background: var(--bg-hover);
 }
 
 .caption {

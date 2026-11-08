@@ -76,28 +76,6 @@
   display: none;
 }
 
-.close {
-  appearance: none;
-  min-width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-md, 16px);
-  line-height: 1;
-}
-
-.close:hover,
-.close:focus-visible {
-  border-color: var(--focus-border);
-  color: var(--text-primary);
-  outline: none;
-}
-
 .input {
   width: min(260px, 38vw);
   min-width: 120px;
@@ -112,34 +90,6 @@
 
 .input:focus {
   border-color: var(--focus-border);
-}
-
-.caseToggle {
-  appearance: none;
-  min-width: 28px;
-  height: 24px;
-  padding: 0 6px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-}
-
-.caseToggle:hover,
-.caseToggle:focus-visible {
-  border-color: var(--focus-border);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.caseToggle.active {
-  border-color: var(--primary-color);
-  background: color-mix(in srgb, var(--primary-color) 18%, var(--bg-tertiary));
-  color: var(--text-primary);
 }
 
 .count,
@@ -162,29 +112,7 @@
 }
 
 .olderButton {
-  appearance: none;
   width: 5.75rem;
-  min-height: 24px;
-  padding: 2px 7px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-xs);
-}
-
-.olderButton:hover,
-.olderButton:focus-visible {
-  border-color: var(--focus-border);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.olderButton:disabled {
-  cursor: default;
-  opacity: 0.65;
 }
 
 .olderStatus,
@@ -194,14 +122,12 @@
 }
 
 .olderPreview {
-  appearance: none;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-tertiary);
   padding: 6px;
   font: inherit;
   text-align: left;
-  cursor: pointer;
   display: flex;
   flex: 1 1 240px;
   align-items: baseline;
@@ -248,18 +174,6 @@
   flex: 0 0 auto;
 }
 
-.previous,
-.next,
-.go {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-  padding: 0;
-}
-
 .previous {
   grid-area: 1 / 1;
 }
@@ -268,11 +182,6 @@
 }
 .go {
   grid-area: 1 / 2 / 3 / 3;
-  font-weight: 600;
-}
-.go:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .boundary {
@@ -330,11 +239,6 @@
     margin-left: auto;
   }
 
-  .caseToggle {
-    min-height: 36px;
-    min-width: 36px;
-  }
-
   .help {
     display: none;
   }
@@ -353,12 +257,10 @@
     right: 8px;
     width: 24px;
     height: 24px;
-    padding: 0;
     border: 1px solid var(--border-color);
     border-radius: 50%;
     background: var(--bg-tertiary);
     color: var(--text-secondary);
-    cursor: pointer;
     font: inherit;
     font-size: var(--font-size-xs);
     font-weight: 700;

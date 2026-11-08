@@ -79,7 +79,6 @@
 .backdrop {
   position: absolute;
   inset: 0;
-  border: 0;
   background: rgb(0 0 0 / 35%);
   z-index: 29;
 }
@@ -88,18 +87,6 @@
 }
 .launcher {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  text-decoration: none;
 }
 @media (width >= 1100px) {
   .pane {

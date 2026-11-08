@@ -7,6 +7,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectCaptionEditor.module.css";
+import { IconButton } from "./ui/Button";
 
 interface ProjectCaptionEditorProps {
   project: Project;
@@ -148,11 +149,9 @@ export function ProjectCaptionEditor({
               }
             }}
           />
-          <button
-            type="button"
-            className={styles.save}
-            aria-label={t("projectCaptionSave")}
-            title={t("projectCaptionSave")}
+          <IconButton
+            size="small"
+            label={t("projectCaptionSave")}
             disabled={saving}
             onMouseDown={(event) => event.preventDefault()}
             onClick={(event) => {
@@ -162,18 +161,16 @@ export function ProjectCaptionEditor({
             }}
           >
             ✓
-          </button>
-          <button
-            type="button"
-            className={styles.cancel}
-            aria-label={t("projectCaptionCancelEdit")}
-            title={t("projectCaptionCancelEdit")}
+          </IconButton>
+          <IconButton
+            size="small"
+            label={t("projectCaptionCancelEdit")}
             disabled={saving}
             onMouseDown={(event) => event.preventDefault()}
             onClick={cancelEdit}
           >
             ×
-          </button>
+          </IconButton>
         </div>
         {error && (
           <span className={styles.error} role="alert">
@@ -209,13 +206,10 @@ export function ProjectCaptionEditor({
             {caption.text}
           </span>
         )}
-        <button
-          type="button"
+        <IconButton
+          size="small"
           className={styles.editButton}
-          aria-label={
-            caption ? t("projectCaptionEdit") : t("projectCaptionAdd")
-          }
-          title={caption ? t("projectCaptionEdit") : t("projectCaptionAdd")}
+          label={caption ? t("projectCaptionEdit") : t("projectCaptionAdd")}
           onClick={startEdit}
         >
           <svg
@@ -232,7 +226,7 @@ export function ProjectCaptionEditor({
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
-        </button>
+        </IconButton>
       </div>
     );
   }

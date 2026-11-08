@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { TranslationFn } from "../i18n";
 import { CopyButton } from "./CopyButton";
+import { buttonClassName, IconButton } from "./ui/Button";
 
 /** Compact path-copy and provenance actions shared by source diff headers. */
 export function SourceFileHeaderActions({
@@ -22,16 +23,15 @@ export function SourceFileHeaderActions({
 }) {
   return (
     <>
-      <CopyButton
-        value={path}
-        title={t("sourceCopyPath")}
-        className="source-detail-action source-detail-icon-action"
-        icon="path"
-      />
+      <CopyButton value={path} title={t("sourceCopyPath")} icon="path" />
       {lastEditorSessionHref && (
         <Link
           to={lastEditorSessionHref}
-          className="source-detail-action source-detail-icon-action"
+          className={buttonClassName({
+            variant: "ghost",
+            size: "small",
+            icon: true,
+          })}
           title={lastEditorSessionLabel ?? t("sourceOpenLastEditorSession")}
           aria-label={
             lastEditorSessionLabel ?? t("sourceOpenLastEditorSession")
@@ -41,18 +41,14 @@ export function SourceFileHeaderActions({
         </Link>
       )}
       {onBlameFile && (
-        <button
-          type="button"
-          className={`source-detail-action source-detail-icon-action ${
-            blameActive ? "active" : ""
-          }`}
-          title={blameTitle ?? t("sourceBlameAtHead")}
-          aria-label={blameTitle ?? t("sourceBlameAtHead")}
+        <IconButton
+          size="small"
+          label={blameTitle ?? t("sourceBlameAtHead")}
           aria-pressed={blameActive}
           onClick={() => onBlameFile(path)}
         >
           <BlameIcon />
-        </button>
+        </IconButton>
       )}
     </>
   );

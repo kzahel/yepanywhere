@@ -25,6 +25,7 @@ import {
   rememberComposerUpload,
 } from "../lib/composerHistory";
 import templateStyles from "./TemplateProjectForm.module.css";
+import { Button, ButtonBase } from "./ui/Button";
 import { useProjectTemplateChoices } from "../hooks/useProjectTemplateChoices";
 import {
   fromUrlProjectId,
@@ -2630,8 +2631,7 @@ export function NewSessionForm({
       {/* The suggestion list drops below the search, not below New project. */}
       <div className={styles.projectSearchAnchor}>
         <div className="new-session-project-controls">
-          <button
-            type="button"
+          <ButtonBase
             className="new-session-project-summary"
             onClick={() => setIsProjectChooserExpanded((prev) => !prev)}
             aria-expanded={isProjectChooserExpanded}
@@ -2673,7 +2673,7 @@ export function NewSessionForm({
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
-          </button>
+          </ButtonBase>
 
           <label className="new-session-project-inline-field">
             <span className="new-session-project-inline-label">
@@ -2714,16 +2714,14 @@ export function NewSessionForm({
 
         {!launch && !fixedProject && (
           <div className={templateStyles.expansion}>
-            <button
-              type="button"
+            <Button
               aria-expanded={newProjectOpen}
               aria-controls="new-session-new-project"
-              className={templateStyles.secondary}
               disabled={templateProjectBusy || isStarting}
               onClick={toggleNewProject}
             >
               {t("templateNewProject")}
-            </button>
+            </Button>
           </div>
         )}
         {/* Shown over an open New project too: choosing a project closes it. */}
@@ -2867,8 +2865,7 @@ export function NewSessionForm({
                   : "sessionCreationNewerDraft",
               )}
             </span>
-            <button
-              type="button"
+            <Button
               onClick={() =>
                 navigate(
                   `${basePath}/projects/${acceptedCreation.projectId}/sessions/${acceptedCreation.sessionId}`,
@@ -2876,7 +2873,7 @@ export function NewSessionForm({
               }
             >
               {t("sessionCreationOpenSaved")}
-            </button>
+            </Button>
           </div>
         )}
       {pendingCreation && (
@@ -2888,8 +2885,7 @@ export function NewSessionForm({
                 : "sessionCreationUnconfirmedRequest",
             )}
           </span>
-          <button
-            type="button"
+          <Button
             onClick={async () => {
               const key = `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`;
               const pending = pendingSessionCreation(key);
@@ -2934,7 +2930,7 @@ export function NewSessionForm({
             }}
           >
             {t("sessionCreationCheckSaved")}
-          </button>
+          </Button>
         </div>
       )}
     </>
@@ -2944,14 +2940,15 @@ export function NewSessionForm({
     displayDefaultsPending && settingsError ? (
       <div role="alert" className={styles.catalogStatus}>
         <span>{t("newSessionDefaultsUnavailable")}</span>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className={styles.catalogAction}
           onClick={() => void refetchSettings()}
           disabled={settingsLoading}
         >
           {t("newSessionDefaultsRetry")}
-        </button>
+        </Button>
       </div>
     ) : null;
 

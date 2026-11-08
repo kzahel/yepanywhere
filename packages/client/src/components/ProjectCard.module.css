@@ -1,6 +1,6 @@
 .card {
   position: relative;
-  --app-control-size: 28px;
+  --app-link-width: 2.75rem;
 }
 
 .link {
@@ -23,7 +23,7 @@
 }
 
 .withApp .header {
-  padding-left: calc(var(--app-control-size) + var(--space-2));
+  padding-left: calc(var(--app-link-width) + var(--space-2));
 }
 
 .identity {
@@ -114,49 +114,20 @@
 .newSession,
 .settingsTrigger,
 .deleteTrigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--app-control-size);
-  height: var(--app-control-size);
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.15s ease;
 }
 
 .newSession {
   margin-left: auto;
 }
 
+/* Outside the card link (links cannot nest), so it sits over the header's
+   reserved leading space. */
 .appLink {
   position: absolute;
   top: 1rem;
   left: 1rem;
-  text-decoration: none;
-  font-size: var(--font-size-sm);
-}
-
-.newSession:hover,
-.settingsTrigger:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
-}
-
-.deleteTrigger:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--error-color);
-  border-color: var(--error-color);
-}
-
-.deleteTrigger:disabled {
-  cursor: default;
-  opacity: 0.45;
+  width: var(--app-link-width);
 }
 
 /* One footer line: path on the left, session stats right-aligned. */

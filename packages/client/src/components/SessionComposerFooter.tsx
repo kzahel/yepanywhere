@@ -14,6 +14,7 @@ import { MessageInputToolbar } from "./MessageInputToolbar";
 import { QuestionAnswerPanel } from "./QuestionAnswerPanel";
 import { QuestionAsideCard } from "./QuestionAsideCard";
 import { ToolApprovalPanel } from "./ToolApprovalPanel";
+import { Button } from "./ui/Button";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import type { useBtwAsides } from "../hooks/useBtwAsides";
 import type { DraftControls } from "../hooks/useDraftPersistence";
@@ -395,8 +396,9 @@ export function SessionComposerFooter({
                 : "sessionCreationUnconfirmedRequest",
             )}
           </span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="small"
             onClick={async () => {
               const view = captureCreationView();
               const pending = pendingSessionCreation(creationKey);
@@ -449,7 +451,7 @@ export function SessionComposerFooter({
             }}
           >
             {t("sessionCreationOpenSaved")}
-          </button>
+          </Button>
         </div>
       )}
       <div

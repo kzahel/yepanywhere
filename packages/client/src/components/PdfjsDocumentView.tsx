@@ -12,6 +12,7 @@ import {
   type PdfjsDocument,
   type PdfjsViewport,
 } from "../lib/pdfjsRenderer";
+import { Button, IconButton } from "./ui/Button";
 import styles from "./PdfjsDocumentView.module.css";
 
 interface PdfjsDocumentViewProps {
@@ -175,30 +176,28 @@ export function PdfjsDocumentView({
         </div>
       </div>
       <div className={styles.zoomControls}>
-        <button
-          type="button"
+        <IconButton
           onClick={() => zoomAboutCenter(1 / ZOOM_STEP)}
           disabled={zoom <= MIN_ZOOM}
-          aria-label={t("pdfjsZoomOut" as never)}
+          label={t("pdfjsZoomOut" as never)}
         >
           −
-        </button>
-        <button
-          type="button"
+        </IconButton>
+        <Button
+          variant="ghost"
           className={styles.zoomLevel}
           onClick={() => zoomAboutCenter(1 / zoom)}
           aria-label={t("pdfjsZoomFit" as never)}
         >
           {Math.round(zoom * 100)}%
-        </button>
-        <button
-          type="button"
+        </Button>
+        <IconButton
           onClick={() => zoomAboutCenter(ZOOM_STEP)}
           disabled={zoom >= MAX_ZOOM}
-          aria-label={t("pdfjsZoomIn" as never)}
+          label={t("pdfjsZoomIn" as never)}
         >
           +
-        </button>
+        </IconButton>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { useTooltipTrigger } from "../hooks/useTooltipTrigger";
 import styles from "./RiskAffordance.module.css";
+import { ButtonBase } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 /**
@@ -36,8 +37,7 @@ export function RiskAffordance({
       onPointerMove={tooltipTrigger.onPointerMove}
       onPointerLeave={tooltipTrigger.onPointerLeave}
     >
-      <button
-        type="button"
+      <ButtonBase
         className={`${styles.link}${
           labelClassName ? ` ${labelClassName}` : ""
         }`}
@@ -50,7 +50,7 @@ export function RiskAffordance({
         }}
       >
         {label}
-      </button>
+      </ButtonBase>
       {showTooltip && (
         <div className={styles.tooltip} role="tooltip">
           {explanation}

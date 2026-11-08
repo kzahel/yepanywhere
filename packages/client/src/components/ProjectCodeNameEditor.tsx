@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectCodeNameEditor.module.css";
+import { ButtonBase, IconButton } from "./ui/Button";
 
 interface ProjectCodeNameEditorProps {
   project: Project;
@@ -132,26 +133,24 @@ export function ProjectCodeNameEditor({
               }
             }}
           />
-          <button
-            type="button"
-            className={styles.cancel}
-            aria-label={t("projectCodeNameCancelEdit")}
+          <IconButton
+            size="small"
+            label={t("projectCodeNameCancelEdit")}
             disabled={saving}
             onMouseDown={(event) => event.preventDefault()}
             onClick={cancelEdit}
           >
             ×
-          </button>
+          </IconButton>
         </div>
       ) : onUpdateCodeName ? (
-        <button
-          type="button"
+        <ButtonBase
           className={styles.codeName}
           aria-label={t("projectCodeNameEdit")}
           onClick={startEdit}
         >
           {project.codeName}
-        </button>
+        </ButtonBase>
       ) : (
         <span className={styles.codeName}>{project.codeName}</span>
       )}

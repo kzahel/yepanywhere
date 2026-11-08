@@ -34,35 +34,6 @@
   background: transparent;
 }
 
-.control,
-.download {
-  min-width: 2rem;
-  min-height: 2rem;
-  box-sizing: border-box;
-  padding: 0.25rem 0.55rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.8125rem;
-  line-height: 1.25;
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.control:hover,
-.download:hover,
-.control[aria-pressed="true"] {
-  border-color: var(--accent-color);
-  color: var(--text-primary);
-}
-
-.control[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent-color) 14%, var(--bg-primary));
-}
-
 .zoomLevel {
   min-width: 3.25rem;
   color: var(--text-secondary);
@@ -71,9 +42,6 @@
 }
 
 .download {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   margin-left: auto;
 }
 
@@ -108,22 +76,19 @@
 .navigationButton {
   position: absolute;
   top: 50%;
-  display: grid;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+/* Over the image the arrows keep their round, translucent, shadowed shape
+   (census mapping); compounded so the override does not depend on
+   stylesheet order. */
+.navigationButton.navigationButton {
   width: 2.75rem;
   height: 2.75rem;
-  padding: 0;
-  place-items: center;
-  transform: translateY(-50%);
-  border: 1px solid
-    color-mix(in srgb, var(--text-primary) 30%, var(--border-color));
   border-radius: 50%;
   background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
-  color: var(--text-primary);
   box-shadow: var(--shadow-md);
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-  pointer-events: auto;
 }
 
 .navigation.visible {
@@ -155,12 +120,6 @@
 
 .navigationButton.next {
   right: 0.75rem;
-}
-
-.navigationButton:hover,
-.navigationButton:focus-visible {
-  border-color: var(--accent-color);
-  background: color-mix(in srgb, var(--accent-color) 18%, var(--bg-secondary));
 }
 
 .position {

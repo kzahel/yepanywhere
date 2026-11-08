@@ -62,18 +62,4 @@
 .dismiss {
   flex: none;
   margin-top: 0.05rem;
-  padding: 0.3rem 0.75rem;
-  min-height: 2.25rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.25rem;
-  color: inherit;
-  background: var(--bg-secondary);
-  font: inherit;
-  font-size: 0.85rem;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.dismiss:hover {
-  background: var(--bg-hover);
 }

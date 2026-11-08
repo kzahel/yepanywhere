@@ -10,6 +10,7 @@ import { useI18n } from "../i18n";
 import { pathForProjectName, settlePathEntry } from "../lib/newProjectPath";
 import type { Project } from "../types";
 import styles from "./AddProjectForm.module.css";
+import { Button } from "./ui/Button";
 
 export interface AddProjectRequest {
   path: string;
@@ -214,12 +215,16 @@ export function AddProjectForm({
         </div>
       )}
       <div className={styles.actions}>
-        <button type="submit" disabled={adding || !path.trim()}>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={adding || !path.trim()}
+        >
           {adding ? t("projectsAdding") : t("projectsAddConfirm")}
-        </button>
-        <button type="button" onClick={onCancel} disabled={adding}>
+        </Button>
+        <Button onClick={onCancel} disabled={adding}>
           {t("projectsCancel")}
-        </button>
+        </Button>
       </div>
       {error && <div className={styles.error}>{error}</div>}
     </form>

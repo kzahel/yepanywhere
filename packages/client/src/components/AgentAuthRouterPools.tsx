@@ -11,6 +11,7 @@ import { useI18n } from "../i18n";
 import { generateUUID } from "../lib/uuid";
 import styles from "./AgentAuthRouterPools.module.css";
 import { routerPolicyLabel } from "./RouterPoolSelector";
+import { Button } from "./ui/Button";
 
 const reasonKeys = {
   eligible: "routerPoolEligible",
@@ -154,9 +155,9 @@ export function AgentAuthRouterPools({
     >
       <div className={styles.toolbar}>
         <h3>{t("routerPoolsTitle")}</h3>
-        <button type="button" disabled={busy} onClick={() => void run()}>
+        <Button disabled={busy} onClick={() => void run()}>
           {t("routerPoolReload")}
-        </button>
+        </Button>
       </div>
       <p className={styles.muted}>{t("routerPoolOverviewHelp")}</p>
       {error && <p role="alert">{error}</p>}
@@ -208,8 +209,7 @@ export function AgentAuthRouterPools({
       )}
       {canManage && (
         <div className={styles.toolbar}>
-          <button
-            type="button"
+          <Button
             disabled={busy || !!draft}
             onClick={() =>
               setDraft({
@@ -223,10 +223,9 @@ export function AgentAuthRouterPools({
             }
           >
             {t("routerPoolCreate")}
-          </button>
+          </Button>
           {pool && (
-            <button
-              type="button"
+            <Button
               disabled={busy || !!draft}
               onClick={() =>
                 setDraft({
@@ -240,7 +239,7 @@ export function AgentAuthRouterPools({
               }
             >
               {t("routerPoolEdit")}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -327,8 +326,8 @@ export function AgentAuthRouterPools({
             </p>
           )}
           <div className={styles.toolbar}>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               disabled={
                 busy ||
                 !draft.name.trim() ||
@@ -343,17 +342,13 @@ export function AgentAuthRouterPools({
               }}
             >
               {t("routerPoolSave")}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setDraft(null)}
-            >
+            </Button>
+            <Button disabled={busy} onClick={() => setDraft(null)}>
               {t("routerPoolCloseEditor")}
-            </button>
+            </Button>
             {draft.revision > 0 && (
-              <button
-                type="button"
+              <Button
+                variant="danger-outline"
                 disabled={busy}
                 onClick={() => {
                   const removed = { id: draft.id, revision: draft.revision };
@@ -369,7 +364,7 @@ export function AgentAuthRouterPools({
                 }}
               >
                 {t("routerPoolDelete")}
-              </button>
+              </Button>
             )}
           </div>
           <p className={styles.muted}>{t("routerPoolRevisionHelp")}</p>
@@ -464,8 +459,7 @@ export function AgentAuthRouterPools({
                 </span>
               </div>
             ))}
-            <button
-              type="button"
+            <Button
               disabled={refreshing.has(account.id) || !account.enabled}
               onClick={() => {
                 const id = account.id;
@@ -484,7 +478,7 @@ export function AgentAuthRouterPools({
                   ? "routerRefreshingUsage"
                   : "routerRefreshUsage",
               )}
-            </button>
+            </Button>
           </article>
         ))}
       </div>

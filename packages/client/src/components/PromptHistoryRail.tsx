@@ -13,6 +13,7 @@ import { replaceTextareaRangeUndoably } from "../lib/composerTextarea";
 import { textareaDropCaret } from "../lib/textareaDropCaret";
 import { useComposerPromptRail } from "../hooks/useComposerPromptRail";
 import styles from "./PromptHistoryRail.module.css";
+import { ButtonBase } from "./ui/Button";
 
 interface PromptHistoryRailProps {
   scope: string | null;
@@ -133,8 +134,7 @@ function EnabledPromptHistoryRail({
         aria-label={t("promptHistoryLabel")}
       >
         {prompts.map((item, index) => (
-          <button
-            type="button"
+          <ButtonBase
             key={item.text}
             className={styles.target}
             aria-label={t("promptHistoryItem", { number: index + 1 })}
@@ -214,7 +214,7 @@ function EnabledPromptHistoryRail({
             }}
           >
             <span aria-hidden="true" />
-          </button>
+          </ButtonBase>
         ))}
       </div>
       {children}

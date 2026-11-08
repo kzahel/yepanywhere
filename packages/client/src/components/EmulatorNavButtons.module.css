@@ -7,25 +7,10 @@
   background: var(--app-bg-secondary);
 }
 
-.button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Round 48 px device keys (census mapping); compounded so the shape does
+   not depend on stylesheet order. */
+.button.button {
   width: 48px;
   height: 48px;
-  border: 1px solid var(--app-border);
   border-radius: 50%;
-  background: var(--app-bg-primary);
-  color: var(--app-text-primary);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.button:hover:not(:disabled) {
-  background: var(--app-bg-tertiary);
-}
-
-.button:disabled {
-  opacity: 0.4;
-  cursor: default;
 }

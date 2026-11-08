@@ -60,13 +60,8 @@
   font: inherit;
   outline: none;
 }
-.modelInput button {
-  width: 34px;
+.browse {
   flex-shrink: 0;
-  border: 0;
-  border-left: 1px solid var(--border-color);
-  background: transparent;
-  color: inherit;
 }
 .models {
   position: absolute;
@@ -120,14 +115,7 @@
   overflow-wrap: anywhere;
 }
 .close {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
   flex-shrink: 0;
-  background: transparent;
-  border: 0;
-  color: var(--text-secondary);
 }
 .sendActions {
   margin-left: auto;

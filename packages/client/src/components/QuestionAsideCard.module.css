@@ -54,67 +54,14 @@
   line-height: 1.4;
 }
 
-.actions button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: 30px;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.actions .save {
-  /* Optical centering for the label's ink, rather than its font line box. */
-  padding-top: calc(var(--space-1) + 1px);
-  padding-bottom: calc(var(--space-1) - 1px);
-  background: color-mix(in srgb, var(--app-yep-green) 12%, var(--bg-elevated));
-  border-color: color-mix(
-    in srgb,
-    var(--app-yep-green) 45%,
-    var(--border-color)
-  );
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.actions .discard,
-.actions .help {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.actions .help {
+.help {
   margin-left: auto;
-  min-width: 30px;
-  border-color: var(--border-color);
-  border-radius: 50%;
-}
-
-.actions button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--text-muted);
-}
-
-.actions button:focus-visible {
-  outline: 2px solid var(--app-yep-green);
-  outline-offset: 2px;
 }
 
 .actions kbd {
   color: var(--text-muted);
   font: inherit;
   font-size: var(--font-size-xs);
-}
-
-.actions button:disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 
 .helpContent {
@@ -137,15 +84,6 @@
 }
 
 @media (pointer: coarse) {
-  .actions button {
-    min-height: 44px;
-    padding-inline: var(--space-3);
-  }
-
-  .actions .help {
-    min-width: 44px;
-  }
-
   .actions kbd {
     display: none;
   }

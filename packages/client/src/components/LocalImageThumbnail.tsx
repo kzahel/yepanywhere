@@ -2,6 +2,7 @@ import type { SyntheticEvent } from "react";
 import { useRemoteImage } from "../hooks/useRemoteImage";
 import { useI18n } from "../i18n";
 import { useImageResourceActions } from "./ImageResourceActions";
+import { ButtonBase } from "./ui/Button";
 
 interface LocalImageThumbnailProps {
   /** Alternative text for the loaded image. */
@@ -49,8 +50,7 @@ export function LocalImageThumbnail({
 
   return (
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={buttonClassName}
         aria-label={ariaLabel}
         title={title}
@@ -64,7 +64,7 @@ export function LocalImageThumbnail({
             {error ? t("inlineImageUnavailable") : t("inlineImageLoading")}
           </span>
         )}
-      </button>
+      </ButtonBase>
       {imageActions.contextMenuElement}
     </>
   );

@@ -15,6 +15,7 @@ import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useResolvedTheme } from "../hooks/useTheme";
 import { useI18n } from "../i18n";
 import { McpAppBridge, mcpAppToolResult } from "../lib/mcpAppBridge";
+import { Button } from "./ui/Button";
 import styles from "./McpAppView.module.css";
 
 interface LoadedView {
@@ -309,15 +310,15 @@ export function McpAppView({
               tool: approval.toolTitle,
             })}
           </span>
-          <button type="button" onClick={() => approval.resolve("once")}>
+          <Button variant="primary" onClick={() => approval.resolve("once")}>
             {t("mcpAppViewAllowOnce")}
-          </button>
-          <button type="button" onClick={() => approval.resolve("always")}>
+          </Button>
+          <Button onClick={() => approval.resolve("always")}>
             {t("mcpAppViewAllowAlways")}
-          </button>
-          <button type="button" onClick={() => approval.resolve("deny")}>
+          </Button>
+          <Button onClick={() => approval.resolve("deny")}>
             {t("mcpAppViewDeny")}
-          </button>
+          </Button>
         </div>
       )}
       <iframe

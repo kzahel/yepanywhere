@@ -53,40 +53,9 @@
   font-weight: 600;
 }
 
+/* Keeps Pause and Resume the same width as the label flips. */
 .dispatchButton {
-  min-height: 32px;
   min-width: 72px;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid
-    color-mix(in srgb, var(--project-queue-action-bg) 42%, var(--border-input));
-  border-radius: var(--radius-sm);
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 12%,
-    transparent
-  );
-  color: var(--project-queue-action-bg);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.dispatchButton:hover:not(:disabled) {
-  border-color: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 68%,
-    var(--border-input)
-  );
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 18%,
-    transparent
-  );
-}
-
-.dispatchButton:disabled {
-  cursor: default;
-  opacity: 0.55;
 }
 
 .notice {
@@ -450,54 +419,6 @@
   gap: var(--space-1);
 }
 
-.itemActions button,
-.itemEditActions button,
-.recoveredMessageActions button {
-  min-height: 28px;
-  padding: 0.25rem 0.55rem;
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-}
-
-.itemActions button:hover:not(:disabled),
-.itemEditActions button:hover:not(:disabled),
-.recoveredMessageActions button:hover:not(:disabled) {
-  border-color: var(--text-muted);
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.itemActions .forceStart {
-  border-color: color-mix(
-    in srgb,
-    var(--warning-color) 55%,
-    var(--border-input)
-  );
-  color: var(--warning-color);
-}
-
-.itemActions .forceStart:hover:not(:disabled) {
-  border-color: var(--warning-color);
-  background: color-mix(in srgb, var(--warning-color) 12%, transparent);
-  color: var(--warning-color);
-}
-
-.itemActions button:disabled,
-.itemEditActions button:disabled,
-.recoveredMessageActions button:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.recoveredMessageActions button {
-  min-height: 32px;
-  padding-inline: 0.65rem;
-}
-
 @media (width <= 640px) {
   .header {
     flex-direction: column;
@@ -546,9 +467,5 @@
   .recoveredMessageActions {
     align-self: flex-end;
     flex-wrap: wrap;
-  }
-
-  .recoveredMessageActions button {
-    min-height: 36px;
   }
 }

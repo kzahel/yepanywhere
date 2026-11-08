@@ -12,6 +12,7 @@ import { useSessionCollectionRecord } from "../lib/clientSummaryStore";
 import { providerChildSessionHref } from "../lib/providerChildSessions";
 import { getProvider } from "../providers/registry";
 import styles from "./SessionRelationshipsSection.module.css";
+import { Button } from "./ui/Button";
 
 const LABELS: Record<string, readonly [string, string]> = {
   created_session: ["relationshipCreated", "relationshipCreatedBy"],
@@ -159,14 +160,9 @@ function SessionRelationshipsPage({
     >
       <div className={styles.heading}>
         <h3 className={styles.title}>{t("sessionRelationshipsTitle")}</h3>
-        <button
-          type="button"
-          className={styles.button}
-          onClick={refresh}
-          disabled={loading}
-        >
+        <Button onClick={refresh} disabled={loading}>
           {t("sessionRelationshipsRefresh")}
-        </button>
+        </Button>
       </div>
       <p className={styles.note}>{t("sessionRelationshipsCoverage")}</p>
       {loading && !page && (
@@ -205,20 +201,16 @@ function SessionRelationshipsPage({
               className={styles.paging}
               aria-label={t("sessionRelationshipsPages")}
             >
-              <button
-                type="button"
-                className={styles.button}
+              <Button
                 disabled={loading || !cursor}
                 onClick={() => setCursors((previous) => previous.slice(0, -1))}
               >
                 {t("sessionRelationshipsPrevious")}
-              </button>
+              </Button>
               <span className={styles.note}>
                 {t("sessionRelationshipsPage", { page: cursors.length + 1 })}
               </span>
-              <button
-                type="button"
-                className={styles.button}
+              <Button
                 disabled={loading || !page.nextCursor}
                 onClick={() => {
                   if (page.nextCursor)
@@ -226,7 +218,7 @@ function SessionRelationshipsPage({
                 }}
               >
                 {t("sessionRelationshipsNext")}
-              </button>
+              </Button>
             </nav>
           )}
         </>

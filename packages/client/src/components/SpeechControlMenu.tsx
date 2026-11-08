@@ -17,6 +17,7 @@ import { SpeechMessagePrefixControls } from "./SpeechMessagePrefixControls";
 import { WhisperModelControls } from "./WhisperModelControls";
 import { useVersion } from "../hooks/useVersion";
 import { SpeechSmartTurnControls } from "./SpeechSmartTurnControls";
+import { IconButton } from "./ui/Button";
 import { useModelSettings } from "../hooks/useModelSettings";
 import { useSpeechCaptureSettings } from "../hooks/useSpeechCaptureSettings";
 import { useI18n } from "../i18n";
@@ -418,15 +419,13 @@ export function SpeechControlMenu({
                 {selectedMethodLabel}
               </span>
             </div>
-            <button
-              type="button"
-              className="speech-options-close"
+            <IconButton
+              size="small"
+              label="Close speech options"
               onClick={() => setOpen(false)}
-              aria-label="Close speech options"
-              title="Close speech options"
             >
               x
-            </button>
+            </IconButton>
           </div>
           {showSmartTurnControls && (
             <section className="speech-options-section">

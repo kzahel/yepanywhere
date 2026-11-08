@@ -13,6 +13,7 @@ import {
   type SearchStatus,
   type TimeBasis,
 } from "./model";
+import { Button, ButtonBase, IconButton } from "../ui/Button";
 import styles from "./SessionSearch.module.css";
 
 export function CheckIcon({ size = 18 }: { size?: number }) {
@@ -255,8 +256,7 @@ export function SearchHeader({
           aria-label={t("globalSessionsSearchPlaceholder")}
         />
         <div ref={statusArea} className={styles.statusArea}>
-          <button
-            type="button"
+          <ButtonBase
             className={styles.searchStatus}
             disabled={!status}
             title={status}
@@ -275,7 +275,7 @@ export function SearchHeader({
             >
               …
             </span>
-          </button>
+          </ButtonBase>
           {statusOpen && <div className={styles.statusDetails}>{status}</div>}
         </div>
       </div>
@@ -375,9 +375,9 @@ export function SearchFilters({
         </div>
         <div className={styles.quickAge}>
           {[1, 7, 30].map((days) => (
-            <button
+            <Button
               key={days}
-              type="button"
+              size="small"
               title={t("sessionSearchRecentHelp", { days })}
               onClick={() => {
                 onBasis("activity");
@@ -386,17 +386,17 @@ export function SearchFilters({
               }}
             >
               {days}d
-            </button>
+            </Button>
           ))}
-          <button
-            type="button"
+          <Button
+            size="small"
             onClick={() => {
               onYoung("");
               onOld("");
             }}
           >
             {t("sessionSearchAnyAge")}
-          </button>
+          </Button>
         </div>
       </div>
       <div className={styles.filters}>
@@ -571,64 +571,57 @@ export function SearchSelection({
   return (
     <div className={styles.scope}>
       <div className={styles.selectionInfo}>
-        <button
-          type="button"
+        <ButtonBase
           className={styles.selectionCount}
           title={t("sessionSearchSelectionHelp", { count })}
           onClick={onManage}
         >
           <CheckIcon />
           {count}
-        </button>
-        <button
-          type="button"
-          className={styles.selectMatched}
+        </ButtonBase>
+        <Button
+          size="small"
           onClick={onSelectShown}
           disabled={!shown || allShownSelected || pending}
           title={t("sessionSearchSelectShownTitle", { count: shown })}
         >
           <SelectAllIcon />
           <span>{t("sessionSearchSelectShown", { count: shown })}</span>
-        </button>
-        <button
-          type="button"
-          className={styles.onlySelected}
+        </Button>
+        <Button
+          variant="ghost"
+          size="small"
           aria-pressed={onlySelected}
           onClick={() => onOnlySelected(!onlySelected)}
           title={t("sessionSearchOnlySelectedTitle")}
         >
           {t("sessionSearchOnlySelected")}
-        </button>
+        </Button>
         {count > 0 && (
-          <button
-            type="button"
-            className={styles.clearSelection}
+          <IconButton
+            size="small"
+            label={t("sessionSearchClear", { count })}
             onClick={onClear}
             disabled={pending}
-            title={t("sessionSearchClear", { count })}
-            aria-label={t("sessionSearchClear", { count })}
           >
             <SelectionCancel />
-          </button>
+          </IconButton>
         )}
       </div>
       <div className={styles.statusFilters}>
         <span>{t("sessionSearchFilter")}</span>
         {statuses.map((status) => (
-          <button
+          <IconButton
             key={status}
-            type="button"
+            size="small"
             aria-pressed={filters.includes(status)}
-            title={t("sessionSearchStatusFilter", {
-              status: t(`sessionSearchStatus_${status}`),
-            })}
-            aria-label={t("sessionSearchStatusFilter", {
+            label={t("sessionSearchStatusFilter", {
               status: t(`sessionSearchStatus_${status}`),
             })}
             onClick={() => onToggle(status)}
           >
             <StatusIcon status={status} />
-          </button>
+          </IconButton>
         ))}
       </div>
       <div

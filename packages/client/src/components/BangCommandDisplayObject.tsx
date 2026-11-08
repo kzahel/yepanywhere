@@ -8,6 +8,7 @@ import type { BangCommandTranscriptDisplayObject } from "@yep-anywhere/shared";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { Button } from "./ui/Button";
 import styles from "./BangCommandDisplayObject.module.css";
 
 export interface BangCommandOutput {
@@ -202,27 +203,18 @@ export function BangCommandDisplayObject({
 
       <div className={styles.actions}>
         {object.status === "running" && handlers?.onKill && (
-          <button
-            type="button"
-            className={styles.action}
-            onClick={() => handlers.onKill?.(object.id)}
-          >
+          <Button size="small" onClick={() => handlers.onKill?.(object.id)}>
             {t("bangCancel")}
-          </button>
+          </Button>
         )}
         {finished && renderedHtml && (
-          <button
-            type="button"
-            className={styles.action}
-            onClick={() => setShowRaw((value) => !value)}
-          >
+          <Button size="small" onClick={() => setShowRaw((value) => !value)}>
             {showRaw ? t("bangRendered") : t("bangRaw")}
-          </button>
+          </Button>
         )}
         {finished && fetchOutput && (
-          <button
-            type="button"
-            className={styles.action}
+          <Button
+            size="small"
             disabled={outputLoading}
             onClick={() => {
               if (outputLoadFailed) {
@@ -240,45 +232,42 @@ export function BangCommandDisplayObject({
                 : expanded
                   ? t("bangHideOutput")
                   : t("bangLoadOutput")}
-          </button>
+          </Button>
         )}
         {handlers?.onRecall && (
-          <button
-            type="button"
-            className={styles.action}
+          <Button
+            size="small"
             onClick={() => handlers.onRecall?.(object.command)}
             title={t("bangRecallTitle")}
           >
             {t("bangRecall")}
-          </button>
+          </Button>
         )}
         {finished && handlers?.onRerun && (
-          <button
-            type="button"
-            className={styles.action}
+          <Button
+            size="small"
             onClick={() => handlers.onRerun?.(object.command)}
           >
             {t("bangRerun")}
-          </button>
+          </Button>
         )}
         {finished && handlers?.onEcho && (
-          <button
-            type="button"
-            className={styles.action}
+          <Button
+            size="small"
             onClick={() => handlers.onEcho?.(object)}
             title={t("bangEchoTitle")}
           >
             {t("bangEcho")}
-          </button>
+          </Button>
         )}
         {finished && handlers?.onDelete && (
-          <button
-            type="button"
-            className={[styles.action, styles.actionDelete].join(" ")}
+          <Button
+            variant="danger-outline"
+            size="small"
             onClick={() => handlers.onDelete?.(object.id)}
           >
             {t("bangDelete")}
-          </button>
+          </Button>
         )}
       </div>
     </div>

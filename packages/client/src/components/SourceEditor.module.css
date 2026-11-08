@@ -11,7 +11,8 @@
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-.workspace button {
+/* The Source/Preview choice stays raw until the segmented-control family. */
+.tabs button {
   min-height: 36px;
   padding: 6px 12px;
   border: 1px solid var(--border-color);

@@ -134,33 +134,6 @@
   background: var(--border-color);
 }
 
-.button {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-hover) 70%, transparent);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.button:hover {
-  background: var(--border-color);
-}
-
-.buttonPrimary {
-  border-color: transparent;
-  background: var(--text-primary);
-  color: var(--bg-surface);
-}
-
-.buttonPrimary:hover {
-  background: color-mix(in srgb, var(--text-primary) 88%, transparent);
-}
-
 @media (width <= 720px) {
   .root {
     align-items: stretch;

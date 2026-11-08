@@ -16,8 +16,8 @@
   border-radius: 999px;
   box-shadow: var(--shadow-lg);
   font: inherit;
+  font-size: inherit;
   font-weight: 700;
-  cursor: pointer;
   transform: translateX(-50%);
 }
 

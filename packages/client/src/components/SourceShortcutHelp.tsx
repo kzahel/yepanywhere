@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TranslationFn } from "../i18n";
+import { ButtonBase } from "./ui/Button";
 import styles from "./SourceShortcutHelp.module.css";
 
 /** Compact hover/focus/tap disclosure for Source Control keyboard shortcuts. */
@@ -57,8 +58,7 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
         }
       }}
     >
-      <button
-        type="button"
+      <ButtonBase
         className={styles.trigger}
         aria-label={t("sourceShortcutHelp")}
         aria-expanded={open}
@@ -74,7 +74,7 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
         }}
       >
         ?
-      </button>
+      </ButtonBase>
       {open && (
         <span className={styles.popover} role="tooltip">
           <span className={styles.popoverTitle}>{t("sourceShortcutHelp")}</span>

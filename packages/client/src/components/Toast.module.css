@@ -64,18 +64,6 @@
 
 .action {
   flex-shrink: 0;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-sm);
-  color: inherit;
-  background: rgba(255, 255, 255, 0.2);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.action:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 
 @keyframes fadeOut {

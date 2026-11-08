@@ -14,6 +14,7 @@ import { getFunPhrasesEnabled } from "../hooks/useFunPhrases";
 import { useI18n } from "../i18n";
 import { observeViewportActivityAnimation } from "../lib/viewportActivityAnimation";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { ButtonBase } from "./ui/Button";
 
 const PROCESSING_PHRASES = [
   "Thinking...",
@@ -411,8 +412,7 @@ export const ProcessingIndicator = memo(function ProcessingIndicator({
       } ${!thinkingItemsVisible && hasThinkingItems ? "processing-indicator--thinking-hidden" : ""}`}
     >
       {showThinkingToggle && (
-        <button
-          type="button"
+        <ButtonBase
           className={`processing-thinking-toggle ${
             thinkingItemsVisible ? "is-visible" : "is-muted"
           } ${thinkingLatestOnly ? "is-latest-only" : ""}`.trim()}
@@ -427,7 +427,7 @@ export const ProcessingIndicator = memo(function ProcessingIndicator({
           title={thinkingToggleTitle}
         >
           <ThoughtTranscriptIcon muted={!thinkingItemsVisible} />
-        </button>
+        </ButtonBase>
       )}
       {isProcessing && (
         <>

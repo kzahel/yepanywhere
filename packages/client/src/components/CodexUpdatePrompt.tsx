@@ -4,6 +4,7 @@ import { useCodexUpdateStatus } from "../hooks/useCodexUpdateStatus";
 import { useProviders } from "../hooks/useProviders";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useI18n } from "../i18n";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 const STORAGE_KEY = "codex-update-seen-tag";
@@ -232,26 +233,19 @@ export function CodexUpdatePrompt() {
 
         <div className="codex-update-prompt__actions">
           {installSucceeded === true || !canInstall ? (
-            <button
-              type="button"
-              className="settings-button"
-              onClick={() => close({ markSeen: true })}
-            >
+            <Button onClick={() => close({ markSeen: true })}>
               {t("codexUpdateDone")}
-            </button>
+            </Button>
           ) : (
             <>
-              <button
-                type="button"
-                className="settings-button settings-button-secondary"
+              <Button
                 onClick={installAttempted ? () => close() : handleNotNow}
                 disabled={isInstalling}
               >
                 {installAttempted ? "Dismiss" : "Not now"}
-              </button>
-              <button
-                type="button"
-                className="settings-button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void handleUpdate()}
                 disabled={isInstalling}
               >
@@ -260,7 +254,7 @@ export function CodexUpdatePrompt() {
                   : installAttempted
                     ? "Retry update"
                     : "Update now"}
-              </button>
+              </Button>
             </>
           )}
         </div>

@@ -16,6 +16,7 @@ import {
 } from "../hooks/useCodeFenceRenderers";
 import { annotateGlossaryHtml } from "../lib/glossary/annotateGlossaryHtml";
 import densityStyles from "./FileViewerDensityControls.module.css";
+import { IconButton } from "./ui/Button";
 import { useInlineCodeActions } from "../hooks/useInlineCodeActions";
 
 const FILE_VIEWER_DENSITY_STORAGE_KEY = "yep-anywhere-file-viewer-density-zoom";
@@ -225,13 +226,11 @@ export function FileViewerDensityControls({
       role="group"
       aria-label="Source zoom"
     >
-      <button
-        type="button"
-        className={`file-viewer-action ${densityStyles.button}`}
+      <IconButton
+        size="small"
         onClick={onZoomOut}
         disabled={!canZoomOut}
-        title="Zoom source and preview out"
-        aria-label="Zoom source and preview out"
+        label="Zoom source and preview out"
       >
         <span className={densityStyles.operator} aria-hidden="true">
           −
@@ -239,14 +238,12 @@ export function FileViewerDensityControls({
         <span className={densityStyles.smallLetter} aria-hidden="true">
           a
         </span>
-      </button>
-      <button
-        type="button"
-        className={`file-viewer-action ${densityStyles.button}`}
+      </IconButton>
+      <IconButton
+        size="small"
         onClick={onZoomIn}
         disabled={!canZoomIn}
-        title="Zoom source and preview in"
-        aria-label="Zoom source and preview in"
+        label="Zoom source and preview in"
       >
         <span className={densityStyles.largeLetter} aria-hidden="true">
           A
@@ -254,7 +251,7 @@ export function FileViewerDensityControls({
         <span className={densityStyles.operator} aria-hidden="true">
           +
         </span>
-      </button>
+      </IconButton>
     </div>
   );
 }

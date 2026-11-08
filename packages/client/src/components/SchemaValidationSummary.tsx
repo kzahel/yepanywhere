@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "../i18n";
+import { ButtonBase } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import styles from "./SchemaValidationSummary.module.css";
 
@@ -54,8 +55,7 @@ export function SchemaValidationSummary({
 
   return (
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.trigger}
         title={tooltip}
         aria-label={tooltip}
@@ -65,7 +65,7 @@ export function SchemaValidationSummary({
           !
         </span>
         <span className={styles.count}>{gaps.length}</span>
-      </button>
+      </ButtonBase>
       {isOpen && (
         <Modal
           title={t("schemaGapSummaryTitle")}

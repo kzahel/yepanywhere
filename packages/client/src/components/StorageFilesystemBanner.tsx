@@ -3,6 +3,7 @@ import type { SqliteStatus } from "@yep-anywhere/shared";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import styles from "./StorageFilesystemBanner.module.css";
+import { Button } from "./ui/Button";
 
 /**
  * Dismissal is remembered per named filesystem rather than per server, so
@@ -75,9 +76,9 @@ export function StorageFilesystemBanner() {
           YEP_DATA_DIR=/path/on/local/disk/.yep-anywhere
         </code>
       </div>
-      <button type="button" className={styles.dismiss} onClick={dismiss}>
+      <Button className={styles.dismiss} onClick={dismiss}>
         {t("storageNetworkFilesystemDismiss")}
-      </button>
+      </Button>
     </div>
   );
 }

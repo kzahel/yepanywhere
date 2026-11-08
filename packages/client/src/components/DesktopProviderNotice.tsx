@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useProviders } from "../hooks/useProviders";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
+import { Button, buttonClassName, IconButton } from "./ui/Button";
 
 const CLAUDE_DOWNLOAD_URL = "https://claude.com/download";
 const CODEX_DOWNLOAD_URL = "https://openai.com/codex/get-started/";
@@ -68,26 +69,35 @@ export function DesktopProviderNotice() {
         <span>{t("desktopProviderNoticeDescription")}</span>
       </div>
       <div className="desktop-provider-notice__actions">
-        <a href={CLAUDE_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+        <a
+          href={CLAUDE_DOWNLOAD_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonClassName()}
+        >
           {t("desktopProviderNoticeGetClaude")}
         </a>
-        <a href={CODEX_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+        <a
+          href={CODEX_DOWNLOAD_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonClassName()}
+        >
           {t("desktopProviderNoticeGetCodex")}
         </a>
-        <button type="button" onClick={() => void refetch()}>
+        <Button onClick={() => void refetch()}>
           {t("desktopProviderNoticeRetry")}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <IconButton
           className="desktop-provider-notice__dismiss"
-          aria-label={t("desktopProviderNoticeDismiss")}
+          label={t("desktopProviderNoticeDismiss")}
           onClick={() => {
             writeDesktopProviderNoticeDismissed();
             setDismissed(true);
           }}
         >
           ×
-        </button>
+        </IconButton>
       </div>
     </aside>
   );

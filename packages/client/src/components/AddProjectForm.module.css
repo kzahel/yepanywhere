@@ -69,33 +69,6 @@
   justify-content: flex-end;
 }
 
-.actions button {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: var(--font-size-base);
-  cursor: pointer;
-}
-
-/* The legacy rule named an undefined --color-primary, which left the Add
- * button as pale text on the panel; --accent-color is the button color the
- * rest of the client uses. */
-.actions button[type="submit"] {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-}
-
-.actions button[type="submit"]:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.actions button[type="button"] {
-  background: transparent;
-  border: 1px solid var(--border-input);
-  color: var(--text-muted);
-}
-
 .error {
   padding: 0.5rem;
   background: rgba(239, 68, 68, 0.1);

@@ -218,10 +218,12 @@ describe("FileViewer", () => {
     );
     expect(await screen.findByRole("heading", { name: "First" })).toBeTruthy();
     const reload = screen.getByRole("button", { name: "Reload from disk" });
-    expect(reload.getAttribute("title")).toBe("Reload from disk");
+    expect(reload.getAttribute("data-tooltip")).toBe("Reload from disk");
     fireEvent.mouseEnter(reload);
     await waitFor(() =>
-      expect(reload.getAttribute("title")).toMatch(/^Changed on disk at /),
+      expect(reload.getAttribute("data-tooltip")).toMatch(
+        /^Changed on disk at /,
+      ),
     );
     expect(source.statFile).toHaveBeenCalledWith("project-id", "notes.md");
     fireEvent.click(reload);
@@ -229,7 +231,7 @@ describe("FileViewer", () => {
     expect(source.loadFile).toHaveBeenCalledTimes(2);
     fireEvent.mouseEnter(reload);
     await waitFor(() =>
-      expect(reload.getAttribute("title")).toMatch(/^Unchanged on disk/),
+      expect(reload.getAttribute("data-tooltip")).toMatch(/^Unchanged on disk/),
     );
   });
 
@@ -697,7 +699,9 @@ describe("FileViewer", () => {
       </I18nProvider>,
     );
 
-    const button = await screen.findByTitle("New session from path");
+    const button = await screen.findByRole("button", {
+      name: "New session from path",
+    });
     fireEvent.click(button);
 
     expect(getNewSessionPrefill(LOCAL_CLIENT_SUMMARY_SOURCE_KEY)).toBe(
@@ -1930,7 +1934,7 @@ describe("FileViewer", () => {
       await screen.findByPlaceholderText("Comment or ask a question…"),
       { target: { value: "Second comment" } },
     );
-    fireEvent.click(screen.getByTitle("Close"));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(onSendComment).toHaveBeenCalledTimes(1));

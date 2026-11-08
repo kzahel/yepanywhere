@@ -3,6 +3,7 @@ import {
   disableClientLogCollection,
   useClientLogCollectionStatus,
 } from "../lib/diagnostics";
+import { ButtonBase } from "./ui/Button";
 
 const RECORDING_FAVICON_ID = "ya-client-log-recording-favicon";
 const RECORDING_FAVICON =
@@ -54,8 +55,7 @@ export function ClientLogRecordingBadge({
   const tooltip = getTooltip();
 
   return (
-    <button
-      type="button"
+    <ButtonBase
       className={`client-log-recording-badge${inline ? " client-log-recording-badge--inline" : ""}`}
       title={tooltip}
       aria-label={tooltip}
@@ -63,6 +63,6 @@ export function ClientLogRecordingBadge({
     >
       <span className="client-log-recording-badge-dot" aria-hidden="true" />
       <span>REC</span>
-    </button>
+    </ButtonBase>
   );
 }

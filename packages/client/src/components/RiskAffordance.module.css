@@ -9,15 +9,10 @@
 }
 
 .link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
+  font-size: inherit;
   font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 2px;
-  cursor: pointer;
 }
 
 .link:hover,

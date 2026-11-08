@@ -11,22 +11,6 @@
   gap: var(--space-1, 4px);
 }
 
-.action {
-  min-height: 32px;
-  padding: 2px var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
-  background: transparent;
-  color: var(--link-color);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.action:hover,
-.action:focus-visible {
-  background: color-mix(in srgb, var(--link-color) 10%, transparent);
-}
-
 .note {
   margin: var(--space-1, 4px) 0 0;
   color: var(--text-secondary);

@@ -92,17 +92,12 @@
 }
 
 .marker {
-  appearance: none;
   position: absolute;
   right: 0;
   width: 22px;
   /* height + margin-top are set inline per marker (sized to neighbor gaps so
      targets tile without overlap); see UserTurnNavigator. */
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
 }
@@ -112,9 +107,6 @@
   position: fixed;
   inset: 0;
   z-index: 9998;
-  background: transparent;
-  border: 0;
-  padding: 0;
   cursor: default;
 }
 
@@ -197,16 +189,11 @@
 }
 
 .trimMarker {
-  appearance: none;
   position: absolute;
   right: 1px;
   width: 10px;
   /* height + margin-top set inline per marker (sized to neighbor gaps). */
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: color-mix(in srgb, var(--primary-color) 72%, var(--text-muted));
-  cursor: pointer;
   opacity: 0.64;
   pointer-events: auto;
   touch-action: manipulation;
@@ -240,7 +227,6 @@
 }
 
 .preview {
-  appearance: none;
   position: absolute;
   right: 34px;
   width: var(
@@ -248,7 +234,6 @@
     min(340px, calc(100dvw - 72px))
   );
   max-height: 4.4em;
-  margin: 0;
   padding: 6px 8px;
   transform: translateY(var(--user-turn-nav-preview-translate-y, -50%));
   border: 1px solid var(--border-color);
@@ -256,9 +241,7 @@
   background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
   box-shadow: 0 8px 28px rgb(0 0 0 / 0.28);
   color: var(--text-primary);
-  cursor: pointer;
   display: -webkit-box;
-  font: inherit;
   font-size: var(--font-size-sm);
   line-height: 1.35;
   overflow: hidden;

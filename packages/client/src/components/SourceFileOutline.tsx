@@ -11,6 +11,7 @@ import type { TranslationFn } from "../i18n";
 import { suppressSourceKeyboardTooltips } from "../hooks/useSourceKeyboard";
 import styles from "./SourceFileOutline.module.css";
 import { SourceFileStatusBadge } from "./SourceFileRow";
+import { ButtonBase } from "./ui/Button";
 
 const FALLBACK_VISIBLE_ROWS = 14;
 const ESTIMATED_ROW_HEIGHT = 29;
@@ -78,8 +79,7 @@ export function SourceFileSectionDivider({
 }) {
   if (onToggle) {
     return (
-      <button
-        type="button"
+      <ButtonBase
         className={`${styles.sectionDivider} ${styles.sectionDividerButton}`}
         aria-expanded={expanded}
         onClick={onToggle}
@@ -88,7 +88,7 @@ export function SourceFileSectionDivider({
           {expanded ? "▾" : "▸"}
         </span>
         <span>{children}</span>
-      </button>
+      </ButtonBase>
     );
   }
   return (
@@ -485,8 +485,7 @@ function renderEntries<T>(
         });
     return (
       <li key={entry.key} className={styles.group}>
-        <button
-          type="button"
+        <ButtonBase
           className={styles.groupButton}
           data-source-list-item
           aria-expanded={expanded}
@@ -526,7 +525,7 @@ function renderEntries<T>(
               {entry.directory?.truncated ? "+" : ""}
             </span>
           )}
-        </button>
+        </ButtonBase>
         {expanded && entry.children.length > 0 && (
           <ul className={styles.children}>
             {renderEntries(

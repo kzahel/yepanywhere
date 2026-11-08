@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { useTheme } from "../hooks/useTheme";
 import { toolRegistry } from "./renderers/tools";
 import { RiskAffordance } from "./RiskAffordance";
+import { IconButton } from "./ui/Button";
 
 /**
  * Blue "unfinished tool call" banner: shown when a session has no detected
@@ -99,12 +100,11 @@ export function PendingToolWarning({
           )}
         </span>
       </div>
-      <button
-        type="button"
+      <IconButton
+        size="small"
         className="pending-tool-warning-close"
+        label={t("sessionPendingElsewhereDismiss")}
         onClick={onDismiss}
-        aria-label={t("sessionPendingElsewhereDismiss")}
-        title={t("sessionPendingElsewhereDismiss")}
       >
         <svg
           width="14"
@@ -120,7 +120,7 @@ export function PendingToolWarning({
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
         </svg>
-      </button>
+      </IconButton>
     </div>
   );
 }

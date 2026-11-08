@@ -1,6 +1,7 @@
 /*
- * Match the neighboring share control's compact chip at every width. The
- * association count keeps tabular figures so it does not jitter as it changes.
+ * A header chip (ButtonBase) matching the neighboring share control at every
+ * width. The association count keeps tabular figures so it does not jitter
+ * as it changes.
  */
 .trigger {
   display: inline-flex;
@@ -14,21 +15,14 @@
   border-radius: var(--radius-md);
   background: var(--bg-tertiary);
   color: var(--text-secondary);
-  appearance: none;
-  font-family: inherit;
   font-size: var(--font-size-xs);
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  cursor: pointer;
 }
 .trigger:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-}
-.trigger:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
 }
 
 .count {

@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { useI18n } from "../i18n";
 import styles from "./QuestionAsideCard.module.css";
+import { Button, IconButton } from "./ui/Button";
 
 export interface QuestionAsideCardProps {
   question: string;
@@ -83,20 +84,18 @@ export function QuestionAsideCard({
       </div>
       <footer className={styles.actions}>
         {showSteer ? (
-          <button
-            className={styles.save}
-            type="button"
+          <Button
+            variant="primary"
             disabled={sending}
             onClick={onSteer}
             title={t("toolbarShortcutSteerCurrentTurn")}
           >
             {t(sending ? "asyncQuestionSending" : "toolbarSteerShortLabel")}
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              className={styles.save}
-              type="button"
+            <Button
+              variant="primary"
               aria-label={t(
                 saving ? "questionAsideSaving" : "questionAsideSave",
               )}
@@ -105,44 +104,40 @@ export function QuestionAsideCard({
               title={t("questionAsideSaveShortcut")}
             >
               {t(saving ? "questionAsideSaving" : "questionAsideSave")}
-            </button>
+            </Button>
             <kbd title={t("questionAsideSaveShortcut")}>↵</kbd>
           </>
         )}
-        <button
-          className={styles.discard}
-          type="button"
+        <Button
           disabled={!complete || moving}
           onClick={onContinueAsBtw}
           title={t("questionAsideContinueDescription")}
         >
           {t(moving ? "questionAsideContinuing" : "questionAsideContinue")}
-        </button>
-        <button
-          className={styles.discard}
-          type="button"
+        </Button>
+        <Button
+          variant="danger-outline"
           aria-label={t("questionAsideDiscard")}
           disabled={saving || sending || moving}
           onClick={onDiscard}
         >
           {t("questionAsideDiscard")}
           <kbd>Esc</kbd>
-        </button>
-        <button
+        </Button>
+        <IconButton
           className={styles.help}
-          type="button"
-          aria-label={t("questionAsideTitle")}
-          aria-expanded={helpOpen}
-          aria-controls={helpId}
-          title={
+          label={t("questionAsideTitle")}
+          tooltip={
             helpOpen
-              ? undefined
+              ? t("questionAsideTitle")
               : `${t("questionAsideTitle")}. ${t("questionAsideMainComposer")}. ${t("questionAsideSaveDescription")}`
           }
+          aria-expanded={helpOpen}
+          aria-controls={helpId}
           onClick={() => setHelpOpen(!helpOpen)}
         >
           ?
-        </button>
+        </IconButton>
         {helpOpen && (
           <div id={helpId} className={styles.helpContent} role="tooltip">
             <strong>{t("questionAsideTitle")}</strong>

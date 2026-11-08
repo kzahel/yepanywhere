@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { writeClipboardText, writeClipboardTextLater } from "../lib/clipboard";
+import { IconButton } from "./ui/Button";
 
 /**
  * A small copy-to-clipboard button used by the source-control copy affordances
@@ -32,11 +33,10 @@ export function CopyButton({
   }, [copied]);
 
   return (
-    <button
-      type="button"
-      className={`copy-button ${copied ? "copied" : ""} ${className ?? ""}`}
-      title={title}
-      aria-label={title}
+    <IconButton
+      size="small"
+      label={title}
+      className={className}
       disabled={disabled || copying}
       onClick={async (event) => {
         event.stopPropagation();
@@ -66,7 +66,7 @@ export function CopyButton({
       ) : (
         <CopyGlyph icon={icon} />
       )}
-    </button>
+    </IconButton>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   getMarkdownSnippetForElement,
   getMarkdownSnippetForSubElement,
 } from "../lib/markdownSelectionCopy";
+import { IconButton } from "./ui/Button";
 
 const PARAGRAPH_BLOCK_SELECTOR =
   "p, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6, table";
@@ -300,28 +301,26 @@ export function ParagraphQuoteRail({
     <div className="text-block-quote-rail">
       {paragraphQuoteCirclesEnabled && paragraphTargets.length > 0 ? (
         paragraphTargets.map((target, index) => (
-          <button
+          <IconButton
             key={target.blockIndex}
-            type="button"
+            size="small"
             className={`text-block-quote text-block-quote-paragraph ${alwaysShowQuoteCircle ? "always-visible" : ""}`}
             style={{ top: `${target.top + target.height}px` }}
             onClick={() => quoteParagraph(index)}
-            title={t("sessionQuoteBlock")}
-            aria-label={t("sessionQuoteBlock")}
+            label={t("sessionQuoteBlock")}
           >
             &gt;
-          </button>
+          </IconButton>
         ))
       ) : (
-        <button
-          type="button"
+        <IconButton
+          size="small"
           className={`text-block-quote text-block-quote-fallback ${alwaysShowQuoteCircle ? "always-visible" : ""}`}
           onClick={handleQuoteBlock}
-          title={t("sessionQuoteBlock")}
-          aria-label={t("sessionQuoteBlock")}
+          label={t("sessionQuoteBlock")}
         >
           &gt;
-        </button>
+        </IconButton>
       )}
     </div>
   );

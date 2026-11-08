@@ -22,6 +22,7 @@ import { useI18n } from "../i18n";
 import { formatBriefAge } from "../lib/sessionAge";
 import { IssueIcon } from "./IssueIcon";
 import styles from "./SessionIssuesLink.module.css";
+import { ButtonBase } from "./ui/Button";
 import { IssueMentionLinksContext } from "./IssueMentionText";
 import { createIssueMentionLinks } from "../lib/issueMentionLinks";
 import {
@@ -547,9 +548,8 @@ export function SessionIssuesLink({
 
   return (
     <>
-      <button
+      <ButtonBase
         ref={triggerRef}
-        type="button"
         className={styles.trigger}
         aria-label={label}
         aria-haspopup="menu"
@@ -565,7 +565,7 @@ export function SessionIssuesLink({
       >
         <IssueIcon size={14} />
         {badge && <span className={styles.count}>{badge}</span>}
-      </button>
+      </ButtonBase>
       {menu}
     </>
   );

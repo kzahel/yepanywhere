@@ -6,15 +6,7 @@
   position: absolute;
   inset-block: 0;
   inset-inline-end: 0;
-  width: 28px;
   align-self: stretch;
-  min-height: 28px;
-  padding: 0;
-  color: var(--text-muted);
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
   opacity: 0;
 }
 
@@ -27,21 +19,10 @@
   opacity: 1;
 }
 
-.trigger:hover,
-.trigger:focus-visible {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-  outline: 2px solid var(--focus-ring, var(--accent-color));
-  outline-offset: -2px;
-}
-
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 9998;
-  padding: 0;
-  background: transparent;
-  border: 0;
   cursor: default;
 }
 

@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import styles from "./FilterDropdown.module.css";
+import { Button } from "./ui/Button";
 
 // Breakpoint for desktop behavior (should match CSS)
 const DESKTOP_BREAKPOINT = 769;
@@ -490,9 +491,9 @@ export function FilterDropdown<T extends string>({
     <div
       className={cx(styles.container, fullWidth && styles.fullWidth, className)}
     >
-      <button
+      <Button
+        variant={triggerVariant === "chip" ? "ghost" : "secondary"}
         ref={buttonRef}
-        type="button"
         className={cx(
           styles.button,
           selected.length > 0 && styles.hasSelection,
@@ -523,7 +524,7 @@ export function FilterDropdown<T extends string>({
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </button>
+      </Button>
       {desktopDropdown}
       {mobileSheet}
     </div>

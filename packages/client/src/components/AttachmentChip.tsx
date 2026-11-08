@@ -22,6 +22,7 @@ import {
   type AttachmentHoverBox,
   placeAttachmentHoverPreview,
 } from "../lib/attachmentHoverPreview";
+import { ButtonBase, IconButton } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import styles from "./AttachmentChip.module.css";
 
@@ -310,14 +311,14 @@ function NonImageAttachmentChip({
       </span>
       <span className={styles.size}>{sizeLabel}</span>
       {onRemove && (
-        <button
-          type="button"
+        <IconButton
+          size="small"
+          label={t("attachmentRemove", { name: originalName })}
           className={styles.remove}
           onClick={onRemove}
-          aria-label={t("attachmentRemove", { name: originalName })}
         >
           x
-        </button>
+        </IconButton>
       )}
     </span>
   );
@@ -456,9 +457,8 @@ function ImageAttachmentChip({
   return (
     <>
       <div className={`${styles.chip} ${styles.imageChip}`}>
-        <button
+        <ButtonBase
           ref={chipButtonRef}
-          type="button"
           className={styles.main}
           onClick={() => {
             handleHoverEnd();
@@ -485,16 +485,16 @@ function ImageAttachmentChip({
             {formatAttachmentName(originalName)}
           </span>
           <span className={styles.size}>{sizeLabel}</span>
-        </button>
+        </ButtonBase>
         {onRemove && (
-          <button
-            type="button"
+          <IconButton
+            size="small"
+            label={t("attachmentRemove", { name: originalName })}
             className={styles.remove}
             onClick={onRemove}
-            aria-label={t("attachmentRemove", { name: originalName })}
           >
             x
-          </button>
+          </IconButton>
         )}
       </div>
       {showHoverPreview &&

@@ -32,6 +32,7 @@ import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import styles from "./InboxContent.module.css";
 import { SessionListItem } from "./SessionListItem";
 import { SessionAsyncQuestionsButton } from "./SessionAsyncQuestionsButton";
+import { Button } from "./ui/Button";
 
 /**
  * Tier configuration for visual styling.
@@ -693,12 +694,7 @@ export function InboxContent({
               multiSelect={false}
             />
           )}
-          <button
-            type="button"
-            className="inbox-refresh-button"
-            onClick={handleRefresh}
-            disabled={refreshing || loading}
-          >
+          <Button onClick={handleRefresh} disabled={refreshing || loading}>
             <svg
               className={refreshing ? styles.refreshSpinner : ""}
               width="16"
@@ -716,7 +712,7 @@ export function InboxContent({
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
             {refreshing ? t("inboxRefreshing") : t("inboxRefresh")}
-          </button>
+          </Button>
         </div>
 
         {pageLoading && <p className="loading">{t("inboxLoading")}</p>}

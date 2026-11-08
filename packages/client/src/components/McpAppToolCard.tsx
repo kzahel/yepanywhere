@@ -14,6 +14,7 @@ import { artifactAudience, artifactOrigin } from "../lib/artifactPreview";
 import { McpAppView } from "./McpAppView";
 import styles from "./McpAppToolCard.module.css";
 import { SessionManagedPanel } from "./SessionManagedViewer";
+import { Button } from "./ui/Button";
 
 type CardMode = "closed" | McpAppDisplayMode;
 
@@ -125,18 +126,13 @@ export function McpAppToolCard({
     <div className={styles.card} data-mcp-app-card={callId}>
       <div className={styles.actions}>
         {mode === "closed" ? (
-          <button
-            type="button"
-            className={styles.action}
-            onClick={() => setMode(mcpApp.displayMode)}
-          >
+          <Button variant="outline" onClick={() => setMode(mcpApp.displayMode)}>
             {t("mcpAppViewShow")}
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              type="button"
-              className={styles.action}
+            <Button
+              variant="outline"
               onClick={() =>
                 setMode(mode === "inline" ? "fullscreen" : "inline")
               }
@@ -144,10 +140,10 @@ export function McpAppToolCard({
               {t(
                 mode === "inline" ? "mcpAppViewExpand" : "mcpAppViewShowInline",
               )}
-            </button>
-            <button type="button" className={styles.action} onClick={close}>
+            </Button>
+            <Button variant="outline" onClick={close}>
               {t("mcpAppViewClose")}
-            </button>
+            </Button>
           </>
         )}
       </div>

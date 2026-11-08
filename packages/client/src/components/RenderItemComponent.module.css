@@ -202,13 +202,8 @@
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
   text-align: left;
-  font: inherit;
+  font-size: inherit;
 }
 
 .rewoundGroupToggleButton:hover,

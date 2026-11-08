@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { beginTooltipSuppression } from "../hooks/useTooltipAppearance";
 import type { TranslationFn } from "../i18n";
+import { ButtonBase, IconButton } from "./ui/Button";
 import styles from "./SourceContextMenu.module.css";
 
 /**
@@ -385,15 +386,14 @@ export function SourceRowMenuTrigger({
   openOptions?: SourceContextMenuOpenOptions;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      size="small"
       className={styles.trigger}
-      aria-label={label}
-      title={label}
+      label={label}
       onClick={(event) => onOpen(event, actions, openOptions)}
     >
       ⋯
-    </button>
+    </IconButton>
   );
 }
 
@@ -477,8 +477,7 @@ export function SourceContextMenu({
     (labels?.heading ? 32 : 0);
   return createPortal(
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.overlay}
         aria-label={labels?.dismiss ?? t("sourceDismissActions")}
         onClick={() => {

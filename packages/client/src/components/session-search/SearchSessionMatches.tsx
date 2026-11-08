@@ -3,6 +3,7 @@ import type { SessionContentDiagnostic } from "@yep-anywhere/shared";
 import type { GlobalSessionItem } from "../../api/client";
 import { useI18n } from "../../i18n";
 import { getSessionDisplayTitle } from "../../utils";
+import { Button } from "../ui/Button";
 import { SearchDetail } from "./SearchDetail";
 import { limitTurnMatches, type SearchMatch } from "./model";
 import {
@@ -70,9 +71,7 @@ export function SearchSessionMatches({
       closeOnBackGesture
       contentRef={scroller}
       actions={
-        <button type="button" className={styles.back} onClick={onClose}>
-          ← {t("sessionSearchBackToResults")}
-        </button>
+        <Button onClick={onClose}>← {t("sessionSearchBackToResults")}</Button>
       }
     >
       <div className={styles.matches} data-session-matches>
@@ -97,14 +96,9 @@ export function SearchSessionMatches({
           ))}
         </div>
         {count < turns.length && (
-          <button
-            ref={more}
-            className={styles.more}
-            type="button"
-            onClick={showMore}
-          >
+          <Button ref={more} className={styles.more} onClick={showMore}>
             {t("sessionSearchMoreMatches")}
-          </button>
+          </Button>
         )}
         <SearchDiagnostics
           sessions={[session]}

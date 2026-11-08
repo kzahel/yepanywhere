@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useEffect } from "react";
 import { useI18n } from "../i18n";
+import { IconButton } from "./ui/Button";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return (
@@ -57,7 +58,7 @@ export function ViewerSelectAllButton({
   className,
   contentRef,
 }: {
-  className: string;
+  className?: string;
   contentRef: RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useI18n();
@@ -92,19 +93,18 @@ export function ViewerSelectAllButton({
   }, [contentRef, selectAll]);
 
   const label = t("viewerSelectAll" as never);
-  const title = t("viewerSelectAllTitle" as never);
+  // The tooltip names the shortcut too; the accessible name stays short.
   return (
-    <button
-      type="button"
+    <IconButton
       className={className}
       onMouseDown={(event) => event.preventDefault()}
       onPointerDown={(event) => event.preventDefault()}
       onClick={selectAll}
-      title={title}
-      aria-label={label}
+      label={label}
+      tooltip={t("viewerSelectAllTitle" as never)}
     >
       <SelectAllIcon />
-    </button>
+    </IconButton>
   );
 }
 

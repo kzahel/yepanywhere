@@ -21,28 +21,6 @@
   letter-spacing: 0.05em;
 }
 
-.button {
-  min-height: 36px;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.button:hover:enabled {
-  background: var(--bg-hover);
-}
-
-.button:focus-visible,
 .link:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
@@ -108,10 +86,6 @@
 }
 
 @media (width <= 600px) {
-  .button {
-    min-height: 44px;
-  }
-
   .link {
     display: flex;
     min-height: 44px;

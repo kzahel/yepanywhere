@@ -39,3 +39,7 @@
   color: var(--text-muted);
   font-size: var(--font-size-xs);
 }
+
+.compactAction {
+  align-self: flex-start;
+}

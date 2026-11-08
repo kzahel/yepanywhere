@@ -9,10 +9,8 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 5px;
-  font: inherit;
   font-size: 0.8rem;
   white-space: nowrap;
-  cursor: pointer;
 }
 .recent {
   color: light-dark(#79551b, #d8b477);
@@ -85,12 +83,8 @@
   flex: 1;
   min-inline-size: 0;
   padding: 8px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
+  font-size: inherit;
   text-align: start;
-  cursor: pointer;
 }
 .previewText {
   overflow: hidden;
@@ -104,15 +98,7 @@
   background: light-dark(#79551b, #d8b477);
 }
 .dismiss {
-  flex: 0 0 32px;
-  min-inline-size: 32px;
-  min-block-size: 32px;
-  padding: 4px;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 1.2rem;
-  cursor: pointer;
+  flex-shrink: 0;
 }
 .rowMenu {
   position: absolute;
@@ -131,15 +117,8 @@
   border: 0;
   cursor: pointer;
 }
-.secondary {
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  padding: 6px 8px;
-  text-align: start;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.85rem;
+.showDismissed {
+  align-self: flex-start;
 }
 .inlineQuestion {
   padding: 10px;
@@ -167,7 +146,7 @@
   margin-block: 4px;
   padding: 0;
 }
-.options button {
+.option {
   display: flex;
   align-items: baseline;
   gap: 0.8em;
@@ -178,23 +157,15 @@
   border-radius: var(--radius-md);
   padding: 8px 10px;
   text-align: start;
-  font: inherit;
-  cursor: pointer;
+  font-size: inherit;
   overflow-wrap: anywhere;
 }
-.options button:hover:not(:disabled) {
+.option:hover:not(:disabled) {
   background: var(--bg-tertiary);
   border-color: var(--text-secondary);
   text-decoration: underline;
 }
-.iconAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-inline-size: 36px;
-  min-block-size: 36px;
-}
-.options button:disabled {
+.option:disabled {
   cursor: default;
   opacity: 0.7;
 }
@@ -219,14 +190,6 @@
   gap: 8px;
   margin-block-start: 4px;
 }
-.send {
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-}
 .sent {
   color: var(--text-secondary);
   white-space: pre-wrap;
@@ -235,25 +198,10 @@
 .error {
   color: var(--error-color, #d55);
 }
-.indicator:focus-visible,
-.preview:focus-visible,
-.dismiss:focus-visible,
-.secondary:focus-visible,
-.send:focus-visible,
-.options button:focus-visible {
-  outline: 2px solid var(--text-secondary);
-  outline-offset: 2px;
-}
 @media (pointer: coarse) {
   .indicator,
-  .dismiss,
   .preview,
-  .secondary,
-  .send,
-  .options button {
+  .option {
     min-block-size: 44px;
-  }
-  .dismiss {
-    min-inline-size: 44px;
   }
 }

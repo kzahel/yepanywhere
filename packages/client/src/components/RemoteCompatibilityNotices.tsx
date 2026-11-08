@@ -7,6 +7,7 @@ import {
   type RemoteNoticeSeverity,
   getRemoteCompatibilityNotices,
 } from "../lib/remoteCompatibilityNotices";
+import { Button, buttonClassName } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import styles from "./RemoteCompatibilityNotices.module.css";
 
@@ -164,30 +165,26 @@ export function RemoteCompatibilityNoticeCard({
       <div className={styles.actions!}>
         {notice.action?.href && (
           <a
-            className={`${styles.button!} ${styles.buttonPrimary!}`}
+            className={buttonClassName({ variant: "primary", size: "small" })}
             href={notice.action.href}
           >
             {notice.action.label}
           </a>
         )}
         {onRestore && (
-          <button
-            type="button"
-            className={`${styles.button!} ${styles.buttonPrimary!}`}
-            onClick={onRestore}
-          >
+          <Button variant="primary" size="small" onClick={onRestore}>
             Show reminder
-          </button>
+          </Button>
         )}
         {onDismiss && notice.dismissal === "dismiss" && (
-          <button type="button" className={styles.button!} onClick={onDismiss}>
+          <Button size="small" onClick={onDismiss}>
             Dismiss
-          </button>
+          </Button>
         )}
         {onSnooze && notice.severity !== "info" && (
-          <button type="button" className={styles.button!} onClick={onSnooze}>
+          <Button size="small" onClick={onSnooze}>
             Remind me later
-          </button>
+          </Button>
         )}
       </div>
     </section>

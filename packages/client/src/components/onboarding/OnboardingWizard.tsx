@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import { RemoteAccessStep, ThemeStep } from "./steps";
 import type { OnboardingStepConfig } from "./types";
@@ -92,22 +93,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         />
 
         <div className="onboarding-footer">
-          <button
-            type="button"
+          {/* `onboarding-skip-all` is a hook: e2e specs dismiss the wizard by it. */}
+          <Button
+            variant="ghost"
+            size="small"
             className="onboarding-skip-all"
             onClick={handleSkipAll}
           >
             Skip all
-          </button>
+          </Button>
           <div className="onboarding-footer-right">
             {!isFirstStep && (
-              <button
-                type="button"
-                className="onboarding-back"
-                onClick={handleBack}
-              >
+              <Button variant="ghost" size="small" onClick={handleBack}>
                 Back
-              </button>
+              </Button>
             )}
             <div className="onboarding-progress">
               {ONBOARDING_STEPS.map((step, index) => (

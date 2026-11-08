@@ -114,6 +114,7 @@ import {
   useStartNewSessionWithPrefillAction,
 } from "./FileResourceActions";
 import { useImageResourceActions } from "./ImageResourceActions";
+import { Button, IconButton } from "./ui/Button";
 import viewerStyles from "./FileViewer.module.css";
 import {
   combineDensityOffsets,
@@ -494,21 +495,16 @@ function SessionFileCommentEditor({
       }}
       actions={
         <>
-          <button
-            type="button"
-            onClick={() => onCancel(draft.id)}
-            disabled={busy}
-          >
+          <Button onClick={() => onCancel(draft.id)} disabled={busy}>
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={viewerStyles.commentSend}
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => onSend(draft.id)}
             disabled={!text.trim() || busy}
           >
             {sendLabel}
-          </button>
+          </Button>
         </>
       }
     />
@@ -1231,6 +1227,15 @@ export const FileViewer = memo(function FileViewer({
   const [freshness, setFreshness] = useState<
     { loadedAt: number; state: "fresh" } | { state: "stale"; at: number } | null
   >(null);
+  // The reload button's tooltip reports freshness; its name stays the action.
+  const reloadTooltip =
+    freshness?.state === "stale"
+      ? t("fileViewerReloadStale" as never, {
+          time: new Date(freshness.at).toLocaleTimeString(),
+        })
+      : freshness?.state === "fresh"
+        ? t("fileViewerReloadFresh" as never)
+        : t("fileViewerReload" as never);
   const checkFreshness = useCallback(() => {
     const loaded = fileData?.metadata.modifiedAt;
     if (!source.statFile || loaded === undefined) return;
@@ -2029,13 +2034,9 @@ export const FileViewer = memo(function FileViewer({
         {metadata ? formatFileSize(metadata.size) : ""}
       </p>
       {canDownload && (
-        <button
-          type="button"
-          className="file-viewer-download-btn"
-          onClick={handleDownload}
-        >
+        <Button variant="primary" onClick={handleDownload}>
           {t("fileViewerDownloadFile" as never)}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -2075,15 +2076,14 @@ export const FileViewer = memo(function FileViewer({
         <div ref={fileHeaderContextRef} className={viewerStyles.context}>
           {headerLeading}
           {onClose && (
-            <button
-              type="button"
-              className={`file-viewer-action ${viewerStyles.backButton}`}
+            <IconButton
+              size="small"
+              className={viewerStyles.backButton}
               onClick={handleClose}
-              title={t("actionBack")}
-              aria-label={t("actionBack")}
+              label={t("actionBack")}
             >
               <BackArrowIcon />
-            </button>
+            </IconButton>
           )}
         </div>
         <div className={`file-viewer-info ${viewerStyles.info}`}>
@@ -2153,12 +2153,9 @@ export const FileViewer = memo(function FileViewer({
           />
         )}
         {(diffActive || hasFilePreview) && (
-          <button
-            type="button"
-            className={`file-viewer-action ${viewerStyles.rawToggle}`}
-            aria-label={t("fileViewerRawSource" as never)}
+          <IconButton
+            label={t("fileViewerRawSource" as never)}
             aria-pressed={!diffActive && !showPreview}
-            title={t("fileViewerRawSource" as never)}
             onClick={() => {
               if (diffActive) {
                 selectView("source");
@@ -2171,19 +2168,16 @@ export const FileViewer = memo(function FileViewer({
             }}
           >
             <RawSourceIcon />
-          </button>
+          </IconButton>
         )}
         {commentModeSupported && (
-          <button
-            type="button"
-            className={`file-viewer-action ${viewerStyles.commentToggle}`}
-            aria-label={t("fileViewerCommentMode" as never)}
+          <IconButton
+            label={t("fileViewerCommentMode" as never)}
             aria-pressed={commentMode}
-            title={t("fileViewerCommentMode" as never)}
             onClick={handleCommentModeToggle}
           >
             <CommentIcon />
-          </button>
+          </IconButton>
         )}
         {publicShareContext === null &&
           source === DEFAULT_FILE_VIEWER_SOURCE &&
@@ -2199,25 +2193,20 @@ export const FileViewer = memo(function FileViewer({
           )}
         <span ref={setModeControlsHost} />
         {!diffActive && (fileData || error) && (
-          <button
-            type="button"
-            className={`file-viewer-action${freshness?.state === "stale" ? ` ${viewerStyles.reloadStale}` : ""}`}
-            aria-label={t("fileViewerReload" as never)}
-            title={
+          <IconButton
+            label={t("fileViewerReload" as never)}
+            tooltip={reloadTooltip}
+            className={
               freshness?.state === "stale"
-                ? t("fileViewerReloadStale" as never, {
-                    time: new Date(freshness.at).toLocaleTimeString(),
-                  })
-                : freshness?.state === "fresh"
-                  ? t("fileViewerReloadFresh" as never)
-                  : t("fileViewerReload" as never)
+                ? viewerStyles.reloadStale
+                : undefined
             }
             onMouseEnter={checkFreshness}
             onFocus={checkFreshness}
             onClick={reloadFromDisk}
           >
             <RefreshIcon />
-          </button>
+          </IconButton>
         )}
         {!diffActive && metadata?.isText && content !== undefined && (
           <FileViewerDensityControls
@@ -2231,24 +2220,19 @@ export const FileViewer = memo(function FileViewer({
           (!isImage &&
             content !== undefined &&
             !(showPreview && hasHtmlPreview))) && (
-          <ViewerSelectAllButton
-            className="file-viewer-action"
-            contentRef={fileViewerBodyRef}
-          />
+          <ViewerSelectAllButton contentRef={fileViewerBodyRef} />
         )}
         {!diffActive && content !== undefined && (
-          <button
-            type="button"
-            className={`file-viewer-action ${copied ? "copied" : ""}`}
+          <IconButton
             onClick={handleCopy}
-            title={
+            label={
               copied
                 ? t("fileViewerCopied" as never)
                 : t("fileViewerCopyContent" as never)
             }
           >
             {copied ? <CheckIcon /> : <CopyIcon />}
-          </button>
+          </IconButton>
         )}
         {publicShareContext === null &&
           source === DEFAULT_FILE_VIEWER_SOURCE &&
@@ -2276,37 +2260,32 @@ export const FileViewer = memo(function FileViewer({
             />
           )}
         {publicShareContext === null && (
-          <button
-            type="button"
-            className="file-viewer-action file-viewer-new-session"
+          <IconButton
             onClick={startNewSession}
-            title={t("fileViewerNewSession" as never)}
+            label={t("fileViewerNewSession" as never)}
           >
             <PlusCircleIcon />
-          </button>
+          </IconButton>
         )}
         {!diffActive && canDownload && (
-          <button
-            type="button"
-            className="file-viewer-action"
+          <IconButton
             onClick={handleDownload}
-            title={t("fileViewerDownload" as never)}
+            label={t("fileViewerDownload" as never)}
           >
             <DownloadIcon />
-          </button>
+          </IconButton>
         )}
-        <button
-          type="button"
-          className={`file-viewer-action file-viewer-fullscreen-toggle ${viewerStyles.fullscreenButton}`}
+        <IconButton
+          className={viewerStyles.fullscreenButton}
           onClick={() => setFullscreen(!fullscreen)}
-          title={
+          label={
             fullscreen
               ? t("fileViewerExitFullscreen" as never)
               : t("fileViewerFullscreen" as never)
           }
         >
           {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
-        </button>
+        </IconButton>
         <ViewerWindowActions
           url={absoluteViewerLink}
           onCopyLinkContextMenu={handlePathContextMenu}
@@ -2593,15 +2572,12 @@ function PublicFileShareButton({
     return null;
   }
   return (
-    <button
-      type="button"
-      className="file-viewer-action"
+    <IconButton
       onClick={(event) => onOpen(event.currentTarget.getBoundingClientRect())}
-      title={t("fileViewerSharePublicly")}
-      aria-label={t("fileViewerSharePublicly")}
+      label={t("fileViewerSharePublicly")}
     >
       <PublicLinkIcon />
-    </button>
+    </IconButton>
   );
 }
 

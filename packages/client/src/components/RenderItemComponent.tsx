@@ -11,6 +11,7 @@ import { useSessionRewind } from "../contexts/SessionRewindContext";
 import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import { useI18n } from "../i18n";
 import { getRenderItemRewoundGroupId } from "../lib/sessionDetail/renderItems";
+import { ButtonBase, IconButton } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { AsyncQuestionMessage } from "./AsyncQuestions";
 import {
@@ -301,8 +302,7 @@ function RewoundGroupHeader({
     <div
       className={`system-message system-message-local-command ${styles.rewoundGroupHeader}`}
     >
-      <button
-        type="button"
+      <ButtonBase
         className={styles.rewoundGroupToggleButton}
         aria-expanded={expanded}
         title={`${tooltip} — ${expanded ? t("rewoundGroupCollapse") : t("rewoundGroupExpand")}`}
@@ -313,7 +313,7 @@ function RewoundGroupHeader({
         </span>
         <span className="system-message-icon">↶</span>
         <span className="system-message-text">{label}</span>
-      </button>
+      </ButtonBase>
       {relaunchCommand && (
         <CopyTextButton
           text={relaunchCommand}
@@ -1094,8 +1094,7 @@ function ConversationActivitySummary({
       }
     >
       <div className="conversation-activity-column">
-        <button
-          type="button"
+        <ButtonBase
           className={`conversation-activity-summary${
             item.active ? " is-active" : ""
           }${item.expanded ? " is-expanded" : ""}`}
@@ -1118,7 +1117,7 @@ function ConversationActivitySummary({
             <span className={styles.activityPulse} aria-hidden="true" />
           ) : null}
           <span className={styles.activityLabel}>{label}</span>
-        </button>
+        </ButtonBase>
         {hasExpandedThinkingPreview && item.recentActivities ? (
           <ul
             ref={activityListRef}
@@ -1313,8 +1312,7 @@ function ConversationThinkingPreview({
       }
     >
       <div className="conversation-thinking-preview-header">
-        <button
-          type="button"
+        <ButtonBase
           className="conversation-thinking-preview-toggle"
           aria-expanded={!collapsed}
           aria-label={toggleLabel}
@@ -1336,16 +1334,14 @@ function ConversationThinkingPreview({
           <span className="conversation-thinking-preview-chevron" aria-hidden>
             {collapsed ? "▸" : "▾"}
           </span>
-        </button>
-        <button
-          type="button"
-          className="conversation-thinking-preview-dismiss"
-          aria-label={dismissLabel}
-          title={dismissLabel}
+        </ButtonBase>
+        <IconButton
+          size="small"
+          label={dismissLabel}
           onClick={() => onDismiss?.(preview.slot)}
         >
           ×
-        </button>
+        </IconButton>
       </div>
       {!collapsed ? (
         <div

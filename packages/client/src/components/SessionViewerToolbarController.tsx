@@ -5,6 +5,7 @@ import type { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import type { SessionViewerControllerState } from "../lib/sessionViewerController";
 import styles from "./SessionViewerToolbarController.module.css";
+import { ButtonBase } from "./ui/Button";
 
 type ToolbarTranslate = ReturnType<typeof useI18n>["t"];
 
@@ -178,8 +179,7 @@ export function SessionViewerToolbarController({
         { name: location },
       )}
     >
-      <button
-        type="button"
+      <ButtonBase
         className={styles.toggle}
         onClick={
           controller.minimized ? controller.restore : controller.minimize
@@ -211,10 +211,9 @@ export function SessionViewerToolbarController({
             <span className={styles.line}>{controller.lineSuffix}</span>
           )}
         </span>
-      </button>
+      </ButtonBase>
       {closeAction && (
-        <button
-          type="button"
+        <ButtonBase
           className={`${styles.close} ${closeAction.destructive ? styles.kill : ""}`}
           disabled={closeAction.busy}
           onClick={closeAction.run}
@@ -222,7 +221,7 @@ export function SessionViewerToolbarController({
           aria-label={closeLabel}
         >
           <FileViewerCloseIcon />
-        </button>
+        </ButtonBase>
       )}
     </div>
   );

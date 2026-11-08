@@ -1,4 +1,5 @@
 import type { MouseEvent } from "react";
+import { ButtonBase } from "./ui/Button";
 import styles from "./ViewerCountIndicator.module.css";
 
 interface ViewerCountIndicatorProps {
@@ -34,8 +35,7 @@ export function ViewerCountIndicator({
 
   if (interactive) {
     return (
-      <button
-        type="button"
+      <ButtonBase
         className={classes}
         title={label}
         aria-label={label}
@@ -43,7 +43,7 @@ export function ViewerCountIndicator({
         onContextMenu={onContextMenu}
       >
         {content}
-      </button>
+      </ButtonBase>
     );
   }
 

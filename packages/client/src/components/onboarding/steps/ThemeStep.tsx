@@ -1,5 +1,6 @@
 import { getThemeLabel, THEMES, useTheme } from "../../../hooks/useTheme";
 import { useI18n } from "../../../i18n";
+import { Button } from "../../ui/Button";
 import type { OnboardingStepProps } from "../types";
 
 /**
@@ -35,12 +36,10 @@ export function ThemeStep({ onNext, onSkip, isLastStep }: OnboardingStepProps) {
       </div>
 
       <div className="onboarding-step-actions">
-        <button type="button" className="btn-secondary" onClick={onSkip}>
-          Skip
-        </button>
-        <button type="button" className="btn-primary" onClick={onNext}>
+        <Button onClick={onSkip}>Skip</Button>
+        <Button variant="primary" onClick={onNext}>
           {isLastStep ? "Finish" : "Next"}
-        </button>
+        </Button>
       </div>
     </div>
   );

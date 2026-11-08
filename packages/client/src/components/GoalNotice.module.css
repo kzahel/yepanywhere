@@ -34,10 +34,7 @@
   min-height: 32px;
   padding: 0.35rem;
   color: var(--text-secondary);
-  background: transparent;
-  border: 0;
   border-radius: 4px;
-  cursor: pointer;
 }
 
 .flag[data-goal-status="active"] {

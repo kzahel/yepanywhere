@@ -166,6 +166,7 @@ import {
   type UserTurnNavAnchor,
   type UserTurnNavMotionCue,
 } from "./UserTurnNavigator";
+import { Button, ButtonBase, buttonClassName } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import styles from "./MessageList.module.css";
@@ -1040,8 +1041,7 @@ function BtwAsideTimelineCard({
       }`}
       data-render-id={`btw-${aside.id}`}
     >
-      <button
-        type="button"
+      <ButtonBase
         className="btw-aside-main"
         onClick={() => onFocus?.(aside.id)}
       >
@@ -1059,7 +1059,7 @@ function BtwAsideTimelineCard({
           <span className="btw-aside-preview">{aside.preview}</span>
         )}
         {aside.error && <span className="btw-aside-error">{aside.error}</span>}
-      </button>
+      </ButtonBase>
       {aside.expanded && canExpand && (
         <BtwAsideTranscript
           aside={aside}
@@ -1069,36 +1069,36 @@ function BtwAsideTimelineCard({
       )}
       <div className="btw-aside-actions">
         {canExpand && (
-          <button
-            type="button"
+          <Button
+            size="small"
             className="btw-aside-action"
             onClick={() => onToggleExpanded?.(aside.id)}
           >
             {aside.expanded ? "Less" : "Show"}
-          </button>
+          </Button>
         )}
         {aside.isFocused ? (
-          <button
-            type="button"
+          <Button
+            size="small"
             className="btw-aside-action"
             onClick={onDone}
             title={t("btwAsideReturnComposerTitle")}
           >
             Done
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
+          <Button
+            size="small"
             className="btw-aside-action"
             onClick={() => onFocus?.(aside.id)}
           >
             Focus
-          </button>
+          </Button>
         )}
         {aside.canStop && (
-          <button
-            type="button"
-            className="btw-aside-action btw-aside-action-stop"
+          <Button
+            size="small"
+            className="btw-aside-action"
             onClick={() => onStop?.(aside.id)}
             title={
               aside.isFocused
@@ -1107,7 +1107,7 @@ function BtwAsideTimelineCard({
             }
           >
             Stop
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -1165,6 +1165,11 @@ function ClearloopCountdown({
   return <>{t("clearloopCountdown", { seconds: String(remaining) })}</>;
 }
 
+const QUEUED_COPY_BUTTON_CLASS = buttonClassName({
+  size: "small",
+  className: "deferred-message-action-copy",
+});
+
 const subscribeComposerEditAvailable = () => () => {};
 const getComposerEditAvailable = () => true;
 
@@ -1201,26 +1206,24 @@ function QueuedMessageActions({
       <CopyTextButton
         text={text}
         label={isProject ? t("projectQueueInlineCopy") : t("sessionQueuedCopy")}
-        className="deferred-message-action deferred-message-action-copy"
+        className={QUEUED_COPY_BUTTON_CLASS}
         showTextLabel
         onClick={(event) => event.stopPropagation()}
       />
       {onResume ? (
-        <button
-          type="button"
-          className="deferred-message-action deferred-message-action-resume"
+        <Button
+          size="small"
           disabled={disabled}
           onClick={onResume}
           aria-label={t("projectQueueResume")}
         >
           <PlayIcon />
           <span>{t("projectQueueResume")}</span>
-        </button>
+        </Button>
       ) : null}
       {canEdit && onEdit ? (
-        <button
-          type="button"
-          className="deferred-message-action deferred-message-action-edit"
+        <Button
+          size="small"
           disabled={disabled}
           onClick={onEdit}
           aria-label={editLabel}
@@ -1228,12 +1231,11 @@ function QueuedMessageActions({
         >
           <PencilIcon />
           <span>{t("projectQueueEdit")}</span>
-        </button>
+        </Button>
       ) : null}
       {onSteer ? (
-        <button
-          type="button"
-          className="deferred-message-action deferred-message-action-steer"
+        <Button
+          size="small"
           disabled={disabled}
           onClick={onSteer}
           aria-label={steerLabel ?? t("sessionSteerQueuedMessageNow")}
@@ -1241,14 +1243,11 @@ function QueuedMessageActions({
         >
           <PlayIcon />
           <span>{t("sessionSteerNow")}</span>
-        </button>
+        </Button>
       ) : null}
       {onCancel ? (
-        <button
-          type="button"
-          className={`deferred-message-action deferred-message-action-cancel ${
-            isProject ? "project-queue-inline-message-cancel" : ""
-          }`}
+        <Button
+          size="small"
           disabled={disabled}
           onClick={onCancel}
           aria-label={cancelLabel}
@@ -1256,7 +1255,7 @@ function QueuedMessageActions({
         >
           <XIcon />
           <span>{t("projectQueueCancel")}</span>
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -4924,8 +4923,8 @@ export const MessageList = memo(function MessageList({
     : t("sessionFollowLatestOutput");
   const followButton =
     showFollowButton && !isScrolledToBottom ? (
-      <button
-        type="button"
+      <Button
+        size="small"
         className={`message-follow-toggle${
           newOutputBelowVisible ? " is-new-output" : ""
         }`}
@@ -4948,7 +4947,7 @@ export const MessageList = memo(function MessageList({
           <path d="m19 12-7 7-7-7" />
         </svg>
         <span>{followButtonLabel}</span>
-      </button>
+      </Button>
     ) : null;
   return createElement(
     RememberedDisclosureStateProvider,
@@ -5058,9 +5057,8 @@ export const MessageList = memo(function MessageList({
                 ) : null}
                 {(hasOlderMessages ||
                   conversationWindow.hiddenTurnCount > 0) && (
-                  <button
-                    type="button"
-                    className="load-older-button"
+                  <Button
+                    size="small"
                     onClick={handleLoadOlder}
                     disabled={
                       loadingOlder && conversationWindow.hiddenTurnCount === 0
@@ -5082,7 +5080,7 @@ export const MessageList = memo(function MessageList({
                     ) : (
                       t("sessionLoadOlderMessages")
                     )}
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -5296,7 +5294,7 @@ export const MessageList = memo(function MessageList({
                         <CopyTextButton
                           text={pending.content}
                           label="Copy message text"
-                          className="deferred-message-action deferred-message-action-copy"
+                          className={QUEUED_COPY_BUTTON_CLASS}
                           showTextLabel
                           onClick={(event) => event.stopPropagation()}
                         />
@@ -5561,7 +5559,7 @@ export const MessageList = memo(function MessageList({
                         <CopyTextButton
                           text={deferred.content}
                           label={t("sessionQueuedCopy")}
-                          className="deferred-message-action deferred-message-action-copy"
+                          className={QUEUED_COPY_BUTTON_CLASS}
                           showTextLabel
                           onClick={(event) => event.stopPropagation()}
                         />
@@ -5569,9 +5567,8 @@ export const MessageList = memo(function MessageList({
                         onSteerRecoveredDeferred &&
                         !deferred.metadata?.turnEffort &&
                         deferred.operation !== "compact" ? (
-                          <button
-                            type="button"
-                            className="deferred-message-action deferred-message-action-steer"
+                          <Button
+                            size="small"
                             onClick={() =>
                               onSteerRecoveredDeferred(recoveredQueueId)
                             }
@@ -5580,14 +5577,13 @@ export const MessageList = memo(function MessageList({
                           >
                             <PlayIcon />
                             <span>{t("sessionSteerNow")}</span>
-                          </button>
+                          </Button>
                         ) : null}
                         {tailRow.allowsRecoveredResume &&
                         recoveredQueueId &&
                         onResumeRecoveredDeferred ? (
-                          <button
-                            type="button"
-                            className="deferred-message-action deferred-message-action-resume"
+                          <Button
+                            size="small"
                             onClick={() =>
                               onResumeRecoveredDeferred(recoveredQueueId)
                             }
@@ -5598,14 +5594,13 @@ export const MessageList = memo(function MessageList({
                             <span>
                               {t("sessionRecoveredQueuedResumeShort")}
                             </span>
-                          </button>
+                          </Button>
                         ) : null}
                         {tailRow.allowsRecoveredDelete &&
                         recoveredQueueId &&
                         onDeleteRecoveredDeferred ? (
-                          <button
-                            type="button"
-                            className="deferred-message-action deferred-message-action-cancel"
+                          <Button
+                            size="small"
                             onClick={() =>
                               onDeleteRecoveredDeferred(recoveredQueueId)
                             }
@@ -5616,7 +5611,7 @@ export const MessageList = memo(function MessageList({
                             <span>
                               {t("sessionRecoveredQueuedDeleteShort")}
                             </span>
-                          </button>
+                          </Button>
                         ) : null}
                       </div>
                     ) : (
@@ -5625,9 +5620,8 @@ export const MessageList = memo(function MessageList({
                         deferred.compactionGate?.state === "failed" &&
                         deferred.tempId &&
                         onDeliverDeferredWithoutCompaction ? (
-                          <button
-                            type="button"
-                            className="deferred-message-action deferred-message-action-steer"
+                          <Button
+                            size="small"
                             onClick={() =>
                               onDeliverDeferredWithoutCompaction(
                                 deferred.tempId as string,
@@ -5639,7 +5633,7 @@ export const MessageList = memo(function MessageList({
                             <span>
                               {t("sessionQueuedSendWithoutCompacting")}
                             </span>
-                          </button>
+                          </Button>
                         ) : null}
                         <QueuedMessageActions
                           variant="session"

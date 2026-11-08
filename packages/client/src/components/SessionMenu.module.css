@@ -8,29 +8,6 @@
   position: absolute;
 }
 
-.trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  opacity: 0.6;
-  transition:
-    opacity 0.15s,
-    color 0.15s,
-    background 0.15s;
-}
-
-.trigger:hover {
-  opacity: 1;
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
 .dropdown {
   position: absolute;
   top: 100%;

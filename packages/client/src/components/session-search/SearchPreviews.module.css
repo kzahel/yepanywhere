@@ -7,8 +7,7 @@
   right: calc(100% + 2px);
   bottom: calc(100% + 1px);
   display: grid;
-  grid-template-columns: repeat(2, 21px);
-  width: 42px;
+  grid-template-columns: repeat(2, auto);
   z-index: 3;
 }
 .decrease {
@@ -17,23 +16,10 @@
 .increase {
   grid-column: 2;
 }
-.adjustLimit button,
-.expand {
-  width: 21px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  font-size: 15px;
-  cursor: pointer;
-}
 .expand {
   position: absolute;
   right: 64px;
   bottom: calc(100% + 1px);
-  width: 26px;
   z-index: 3;
 }
 .match {
@@ -87,17 +73,6 @@
 .match > a:hover .snippet {
   text-decoration: underline;
 }
-.match > button {
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: none;
-  color: var(--text-secondary);
-  min-width: 28px;
-  height: 26px;
-  padding: 0;
-  cursor: pointer;
-}
 .menu {
   position: absolute;
   right: 0;
@@ -145,9 +120,5 @@
 @media (width <= 700px) {
   .match > a {
     min-height: 30px;
-  }
-  .match > button {
-    min-width: 30px;
-    height: 30px;
   }
 }

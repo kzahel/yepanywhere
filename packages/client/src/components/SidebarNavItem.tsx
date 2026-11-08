@@ -4,6 +4,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import { Link, useLocation } from "react-router-dom";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import styles from "./SidebarNavItem.module.css";
+import { ButtonBase } from "./ui/Button";
 
 /**
  * Common SVG icons used in sidebar navigation.
@@ -307,9 +308,8 @@ export function SidebarNavButton({
     if (button) onLongPress?.(button.getBoundingClientRect());
   });
   return (
-    <button
+    <ButtonBase
       ref={buttonRef}
-      type="button"
       className={`sidebar-nav-item ${className}`.trim()}
       {...(onLongPress ? press.handlers : {})}
       onClick={onLongPress ? press.click(onClick) : onClick}
@@ -318,7 +318,7 @@ export function SidebarNavButton({
     >
       {icon}
       <span className="sidebar-nav-text">{label}</span>
-    </button>
+    </ButtonBase>
   );
 }
 

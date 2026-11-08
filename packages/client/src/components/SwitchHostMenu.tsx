@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { loadSavedHosts, type SavedHost } from "../lib/hostStorage";
 import styles from "./SwitchHostMenu.module.css";
+import { ButtonBase } from "./ui/Button";
 
 /** A saved relay host the menu can switch to by route. */
 export type SwitchableRelayHost = SavedHost & { relayUsername: string };
@@ -76,8 +77,7 @@ export function SwitchHostMenu({
 
   return createPortal(
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.overlay}
         aria-label={t("sidebarSwitchHostMenuDismiss")}
         onClick={onClose}

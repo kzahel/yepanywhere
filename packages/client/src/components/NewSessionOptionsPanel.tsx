@@ -13,6 +13,7 @@ import {
 } from "@yep-anywhere/shared";
 import { type ReactNode, useMemo, useState } from "react";
 import styles from "./NewSessionForm.module.css";
+import { Button, IconButton } from "./ui/Button";
 import type { useNewSessionOptions } from "../hooks/useNewSessionOptions";
 import { type MessageKey, useI18n } from "../i18n";
 import { formatContextWindowLabel } from "../lib/contextWindowLabel";
@@ -477,8 +478,9 @@ export function NewSessionOptionsPanel({
       >
         <span>{catalogNotice?.message}</span>
       </span>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="small"
         className={styles.catalogAction}
         disabled={
           routerSelection
@@ -496,7 +498,7 @@ export function NewSessionOptionsPanel({
         }
       >
         {catalogNotice?.action ?? t("newSessionModelCatalogRefresh")}
-      </button>
+      </Button>
     </div>
   );
   const modelSection = (
@@ -966,9 +968,7 @@ export function NewSessionOptionsPanel({
         </div>
       )}
       <div className={styles.advancedSection}>
-        <button
-          type="button"
-          className={styles.advancedToggle}
+        <Button
           aria-expanded={showAdvancedOptions}
           aria-controls="new-session-advanced-options"
           onClick={() => {
@@ -988,30 +988,25 @@ export function NewSessionOptionsPanel({
             )}
           </span>
           <span aria-hidden="true">{showAdvancedOptions ? "▴" : "▾"}</span>
-        </button>
+        </Button>
         {!showAdvancedOptions && activeAdvancedOptions.length > 0 && (
           <span className={styles.advancedSummary}>
             {activeAdvancedOptions.join(" · ")}
           </span>
         )}
-        <button
-          type="button"
+        <IconButton
+          size="small"
+          label={
+            showOptionCaptions
+              ? t("newSessionHideOptionCaptions")
+              : t("newSessionShowOptionCaptions")
+          }
           className={styles.captionToggle}
-          aria-label={
-            showOptionCaptions
-              ? t("newSessionHideOptionCaptions")
-              : t("newSessionShowOptionCaptions")
-          }
           aria-pressed={showOptionCaptions}
-          title={
-            showOptionCaptions
-              ? t("newSessionHideOptionCaptions")
-              : t("newSessionShowOptionCaptions")
-          }
           onClick={() => setShowOptionCaptions((shown) => !shown)}
         >
           <span aria-hidden="true">?</span>
-        </button>
+        </IconButton>
       </div>
       <div
         id="new-session-advanced-options"

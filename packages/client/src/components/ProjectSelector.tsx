@@ -7,6 +7,7 @@ import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectSelector.module.css";
+import { ButtonBase } from "./ui/Button";
 
 const DESKTOP_BREAKPOINT = 769;
 
@@ -211,9 +212,8 @@ export function ProjectSelector({
     // rules in styles/index.css reach in by those names to constrain and
     // truncate the identity row, and a focused style test asserts them.
     <div className={`project-selector-container ${styles.container}`}>
-      <button
+      <ButtonBase
         ref={buttonRef}
-        type="button"
         className={`project-selector-button ${styles.button}`}
         onClick={handleButtonClick}
         title={t("projectSelectorChangeProject")}
@@ -237,7 +237,7 @@ export function ProjectSelector({
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </button>
+      </ButtonBase>
       {desktopDropdown}
       {mobileSheet}
     </div>

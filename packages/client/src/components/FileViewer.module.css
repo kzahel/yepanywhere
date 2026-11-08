@@ -72,9 +72,6 @@
 
 .backButton {
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  color: var(--text-primary);
 }
 
 .htmlPreviewFrame {
@@ -90,41 +87,11 @@
   background: var(--bg-code);
 }
 
-.reloadStale {
+/* Changed on disk: the warning tint outranks the ghost look and its hover
+   (compound selectors keep that independent of stylesheet order). */
+.actions .reloadStale.reloadStale,
+.actions .reloadStale.reloadStale:hover {
   color: var(--warning-color, #d08a00);
-}
-
-.rawToggle[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
-  color: var(--primary-color);
-}
-
-.rawToggle[aria-pressed="true"]:hover {
-  background: color-mix(in srgb, var(--primary-color) 28%, transparent);
-  color: var(--primary-color);
-}
-
-.commentToggle[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--success-color) 18%, transparent);
-  color: var(--success-color);
-}
-
-.commentToggle[aria-pressed="true"]:hover {
-  background: color-mix(in srgb, var(--success-color) 28%, transparent);
-  color: var(--success-color);
-}
-
-.commentSend {
-  min-height: 32px;
-  border: 0;
-  border-radius: var(--radius-sm, 4px);
-  padding: var(--space-1, 4px) var(--space-3, 12px);
-  background: var(--accent-color);
-  color: var(--accent-contrast);
-}
-
-.commentSend:disabled {
-  opacity: 0.5;
 }
 
 .provenanceRow {

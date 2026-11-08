@@ -14,6 +14,7 @@ import {
   type ArtifactSourceTarget,
 } from "../lib/artifactSourceTargets";
 import { generateUUID } from "../lib/uuid";
+import { Button } from "./ui/Button";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
 import styles from "./SourceEditor.module.css";
 import { ViewerModeToggle } from "./ViewerModeToggle";
@@ -570,13 +571,13 @@ export function SourceEditor({
             {snapshot?.path ?? source.path ?? t("sourceEditorLoading")}
           </span>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
           disabled={busy || !snapshot || !dirty}
           onClick={() => void save()}
         >
           {t("sourceEditorSave")}
-        </button>
+        </Button>
         <ViewerModeToggle
           mode="edit"
           source={source}
@@ -626,8 +627,9 @@ export function SourceEditor({
           </span>
           {preview.regenerate && (
             <span className={styles.rebuildControls}>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="small"
                 disabled={building || busy}
                 onClick={() => void rebuild(preview)}
               >
@@ -636,7 +638,7 @@ export function SourceEditor({
                     ? "sourceEditorRebuild"
                     : "sourceEditorRebuildApprove",
                 )}
-              </button>
+              </Button>
               {preview.regenerate.registered && preview.regenerate.matches && (
                 <label>
                   <input
@@ -666,15 +668,19 @@ export function SourceEditor({
       {closing && (
         <div className={styles.confirm} role="alert">
           <span>{t("sourceEditorDiscardPrompt")}</span>
-          <button type="button" onClick={() => void save(true)} disabled={busy}>
+          <Button
+            variant="primary"
+            onClick={() => void save(true)}
+            disabled={busy}
+          >
             {t("sourceEditorSaveClose")}
-          </button>
-          <button type="button" onClick={onClose}>
+          </Button>
+          <Button variant="danger-outline" onClick={onClose}>
             {t("sourceEditorDiscard")}
-          </button>
-          <button type="button" onClick={() => setClosing(false)}>
+          </Button>
+          <Button onClick={() => setClosing(false)}>
             {t("sourceEditorKeepEditing")}
-          </button>
+          </Button>
         </div>
       )}
       {preview && (

@@ -27,6 +27,7 @@ import { useVersion } from "../hooks/useVersion";
 import { useToastContext } from "../contexts/ToastContext";
 import { generateUUID } from "../lib/uuid";
 import { TemplateCreationProgress } from "./TemplateCreationProgress";
+import { Button, IconButton } from "./ui/Button";
 
 /** One radio in a project's starting-point palette. */
 export interface ProjectStartChoice {
@@ -420,9 +421,7 @@ export function TemplateProjectForm({
                 event.target.value = "";
               }}
             />
-            <button
-              type="button"
-              className={styles.secondary}
+            <Button
               disabled={locked || !resolved || !attachmentsSupported}
               onClick={() => {
                 if (attachGesture.current.swiped) {
@@ -454,15 +453,15 @@ export function TemplateProjectForm({
               title="Choose files; right-click or swipe down for recent uploads"
             >
               Attach files
-            </button>
+            </Button>
             {uploading > 0 && <p role="status">Uploading attachments…</p>}
             {localAttachments.map((file) => (
               <span key={file.id} className={styles.attachment}>
                 {file.originalName}
-                <button
-                  type="button"
+                <IconButton
+                  size="small"
+                  label={`Remove ${file.originalName}`}
                   disabled={locked}
-                  aria-label={`Remove ${file.originalName}`}
                   onClick={() =>
                     setLocalAttachments((items) =>
                       items.filter((item) => item.id !== file.id),
@@ -470,7 +469,7 @@ export function TemplateProjectForm({
                   }
                 >
                   ×
-                </button>
+                </IconButton>
               </span>
             ))}
           </PromptHistoryRail>
@@ -487,9 +486,8 @@ export function TemplateProjectForm({
         </label>
       )}
       {path && !chosen && <small className={styles.path}>{path}</small>}
-      <button
-        type="button"
-        className={styles.action}
+      <Button
+        variant="primary"
         onClick={() => void create()}
         disabled={
           !resolved ||
@@ -508,16 +506,14 @@ export function TemplateProjectForm({
           : running && operation
             ? t(`templatePhase_${operation.phase}`)
             : t("templateCreatePrepare")}
-      </button>
+      </Button>
       {disabledReason && <p role="status">{disabledReason}</p>}
       {(pending || operation) && (
         <TemplateCreationProgress operation={operation} />
       )}
       {error && <p role="alert">{error}</p>}
       {operation && ["failed", "interrupted"].includes(operation.phase) && (
-        <button
-          type="button"
-          className={styles.secondary}
+        <Button
           onClick={() => {
             sessionStorage.removeItem(storageKey);
             request.current = null;
@@ -526,7 +522,7 @@ export function TemplateProjectForm({
           }}
         >
           {t("templateReset")}
-        </button>
+        </Button>
       )}
     </section>
   );

@@ -4,8 +4,9 @@
   flex: 0 0 auto;
   gap: 0;
 }
-.actions > a,
-.actions > button {
+/* ComposerMicAction's raw button keeps its legacy look until the composer
+   pass; shared controls always carry a class, so this cannot reach them. */
+.actions > button:not([class]) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -16,57 +17,48 @@
   border-radius: var(--radius-sm, 4px);
   background: var(--bg-secondary);
   color: var(--text-primary);
-  text-decoration: none;
   cursor: pointer;
   box-sizing: border-box;
 }
-.actions > a:hover,
-.actions > button:hover {
+.actions > button:not([class]):hover {
   background: var(--bg-hover);
 }
-.actions > .copyLink {
-  border-color: transparent;
-  background: transparent;
-}
-.actions > .copyLink:hover {
-  background: var(--bg-hover);
-}
-/* Newer content is there to load. */
-.actions > .reloadStale {
+/* Reload states signal the watch, so they outrank the ghost look (compound
+   selectors keep that independent of stylesheet order). Newer content is
+   there to load. */
+.actions > .reloadStale.reloadStale,
+.actions > .reloadStale.reloadStale:hover {
   color: var(--accent-contrast, #fff);
   background: var(--accent-color);
   border-color: var(--accent-color);
 }
-.actions > .reloadStale:hover {
-  background: var(--accent-color);
+.actions > .reloadStale.reloadStale:hover {
   filter: brightness(1.08);
 }
 /* Waiting to reload once on the next change. */
-.actions > .reloadArmed {
+.actions > .reloadArmed.reloadArmed,
+.actions > .reloadArmed.reloadArmed:hover {
   color: var(--accent-color);
   border-style: dashed;
   border-color: var(--accent-color);
 }
 /* Reloads on every change. */
-.actions > .reloadAuto {
+.actions > .reloadAuto.reloadAuto,
+.actions > .reloadAuto.reloadAuto:hover {
   color: var(--accent-color);
   border-color: var(--accent-color);
   box-shadow: inset 0 0 0 1px var(--accent-color);
 }
-.actions > .linkActive {
+.actions > .linkActive.linkActive,
+.actions > .linkActive.linkActive:hover {
   color: var(--success-color);
 }
 .actions > .linkInactive {
   color: var(--text-secondary);
 }
-.actions > .destructive {
+.actions > .destructive.destructive,
+.actions > .destructive.destructive:hover {
   color: var(--error-color, #e05252);
-}
-.actions > .textAction {
-  width: auto;
-  padding-inline: 10px;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
 }
 .actions svg {
   display: block;
@@ -74,8 +66,7 @@
   margin: 0;
 }
 @media (pointer: coarse) {
-  .actions > a,
-  .actions > button {
+  .actions > button:not([class]) {
     min-height: 32px;
   }
 }

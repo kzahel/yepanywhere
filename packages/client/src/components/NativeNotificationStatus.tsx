@@ -6,6 +6,7 @@ import {
   nativeHost,
 } from "../lib/nativeHost";
 import { SettingsItem } from "../pages/settings/SettingsItem";
+import { Button } from "./ui/Button";
 
 function statusKey(status: NativeStatus | null | undefined): MessageKey {
   if (status === undefined) return "notificationsAppChecking";
@@ -73,9 +74,7 @@ export function NativeNotificationStatus() {
       description={error ?? t(statusKey(status))}
     >
       {canManage && (
-        <button type="button" className="settings-button" onClick={manage}>
-          {t("notificationsAppManage")}
-        </button>
+        <Button onClick={manage}>{t("notificationsAppManage")}</Button>
       )}
     </SettingsItem>
   );

@@ -30,12 +30,8 @@
   min-width: 0;
   padding: 2px 4px;
   margin-left: -4px;
-  border: 0;
   border-radius: 4px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  font-size: inherit;
 }
 .home:hover:not(:disabled) {
   background: var(--bg-secondary);
@@ -70,12 +66,7 @@
   opacity: 0.7;
 }
 .crumb {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  font-size: inherit;
 }
 .crumb:hover {
   color: var(--text-primary);
@@ -103,10 +94,6 @@
   border: 0;
   background: white;
 }
-.viewer .livePreviewToggle[aria-pressed="true"] {
-  background: var(--accent-color);
-  color: var(--accent-contrast);
-}
 .details {
   overflow: auto;
   padding: 16px;
@@ -132,20 +119,8 @@
 }
 .details button {
   margin: 4px;
-  min-height: 32px;
-  padding: 5px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
   /* Icon-and-text buttons sit level with plain ones in a row. */
   vertical-align: middle;
-}
-.details button.iconLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 .details input:not([type="checkbox"]) {
   display: block;
@@ -174,10 +149,8 @@
   margin: 4px 0 12px;
 }
 /* Edit sits after the command text, level with it. */
-.details button.commandEdit {
+.details .commandEdit {
   margin-inline-start: 8px;
-  min-height: 28px;
-  padding: 2px 10px;
 }
 .commandEditor label {
   margin-block: 4px;

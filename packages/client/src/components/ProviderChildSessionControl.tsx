@@ -16,6 +16,7 @@ import {
 } from "../lib/sessionViewerController";
 import { ProviderChildSessionDetail } from "./ProviderChildSessionDetail";
 import { SessionManagedPanel } from "./SessionManagedViewer";
+import { ButtonBase, buttonClassName } from "./ui/Button";
 import styles from "./ProviderChildSessionControl.module.css";
 
 function latestChildId(
@@ -84,8 +85,7 @@ function ProviderChildSessionViewer({
             const isSelected = child.id === selected.id;
             return (
               <li key={child.id}>
-                <button
-                  type="button"
+                <ButtonBase
                   className={`${styles.selectorItem} ${
                     isSelected ? styles.selectorItemSelected : ""
                   }`}
@@ -98,7 +98,7 @@ function ProviderChildSessionViewer({
                       {child.agentType}
                     </span>
                   )}
-                </button>
+                </ButtonBase>
               </li>
             );
           })}
@@ -113,7 +113,7 @@ function ProviderChildSessionViewer({
           fallbackTitle={selectedTitle}
           actions={
             <a
-              className={styles.openNewTab}
+              className={buttonClassName({ size: "small" })}
               href={toBrowserAppHref(selectedHref)}
               target="_blank"
               rel="noopener noreferrer"
@@ -190,8 +190,7 @@ export function ProviderChildSessionControl({
 
   return (
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.trigger}
         title={activityLabel}
         aria-label={activityLabel}
@@ -216,7 +215,7 @@ export function ProviderChildSessionControl({
             ? `${activeCount}/${children.length}`
             : children.length}
         </span>
-      </button>
+      </ButtonBase>
       {open && (
         <SessionManagedPanel
           viewerId={viewerId}

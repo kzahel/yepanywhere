@@ -1,4 +1,5 @@
 import { useI18n } from "../i18n";
+import { IconButton } from "./ui/Button";
 import type { SpeechPendingKind } from "./VoiceInputButton";
 
 interface Props {
@@ -29,15 +30,14 @@ export function SpeechTranscribingChip({ kind, onCancel }: Props) {
     <div className="speech-transcribing-chip" role="status" aria-live="polite">
       <span className="speech-transcribing-spinner" aria-hidden="true" />
       <span className="speech-transcribing-label">{label}</span>
-      <button
-        type="button"
+      <IconButton
+        size="small"
+        label={t("speechTranscribingCancel" as never)}
         className="speech-transcribing-cancel"
         onClick={onCancel}
-        aria-label={t("speechTranscribingCancel" as never)}
-        title={t("speechTranscribingCancel" as never)}
       >
         ×
-      </button>
+      </IconButton>
     </div>
   );
 }

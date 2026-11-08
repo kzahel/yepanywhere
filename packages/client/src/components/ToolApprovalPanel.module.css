@@ -19,7 +19,6 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-muted);
-  cursor: pointer;
   transition:
     background 0.15s,
     color 0.15s,
@@ -83,12 +82,8 @@
 }
 
 .viewDetails {
-  background: none;
-  border: none;
-  padding: 0;
   color: var(--text-link, #58a6ff);
   font-size: var(--font-size-sm);
-  cursor: pointer;
   text-align: left;
   opacity: 0.8;
 }
@@ -119,43 +114,14 @@
   gap: var(--space-2);
 }
 
-.option {
-  display: flex;
-  align-items: center;
+/* Full-width rows with the shortcut digit leading the label; long labels
+   wrap instead of overflowing the panel. */
+.options .option {
+  justify-content: flex-start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-  text-align: left;
   width: 100%;
-}
-
-.option:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--text-muted);
-}
-
-.option:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.option.primary {
-  background: var(--success-color);
-  color: #000;
-  border-color: var(--success-color);
-}
-
-.option.primary:hover:not(:disabled) {
-  background: #8fd9a8;
-  border-color: #8fd9a8;
+  white-space: normal;
+  text-align: left;
 }
 
 .option kbd {
@@ -169,12 +135,6 @@
   background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-}
-
-.option.feedbackToggle {
-  color: var(--text-muted);
-  font-style: italic;
-  justify-content: center;
 }
 
 /* Feedback input */
@@ -200,27 +160,6 @@
 
 .feedbackInput::placeholder {
   color: var(--text-muted);
-}
-
-.feedbackSubmit {
-  padding: var(--space-2) var(--space-3);
-  background: var(--success-color);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: #000;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.feedbackSubmit:hover:not(:disabled) {
-  background: #8fd9a8;
-}
-
-.feedbackSubmit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Mobile adjustments */

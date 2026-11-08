@@ -1,8 +1,8 @@
 /*
  * Reload notice: the fixed bottom-right stack, the banner itself, its
- * message and warning text, and the reload / safe-restart / dismiss
- * buttons. Rules move here in their original cascade order, since the
- * button variants share a specificity and rely on source order.
+ * message and warning text, and the layout of its reload / safe-restart /
+ * dismiss buttons, which are shared Buttons that own their look. Rules
+ * move here in their original cascade order.
  *
  * Two literals stay on the elements alongside these module classes:
  *
@@ -98,26 +98,7 @@
 }
 
 .button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex: 0 0 auto;
-  height: 36px;
-  min-height: 36px;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.2);
-  color: #000;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.button:hover {
-  background: rgba(255, 255, 255, 0.4);
 }
 
 .buttonLabel {
@@ -125,55 +106,9 @@
   transform: translateY(1px);
 }
 
-.button:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.buttonPrimary {
-  background: #000;
-  color: var(--warning-color);
-  border-color: transparent;
-}
-
-.buttonPrimary:hover {
-  background: #222;
-}
-
 /* Warning state for unsafe restart */
 .warning {
   background: var(--error-color);
-}
-
-.warning .buttonPrimary {
-  color: var(--error-color);
-}
-
-.buttonSafe {
-  background: rgba(255, 255, 255, 0.32);
-}
-
-.buttonDanger {
-  background: #000;
-  border-color: transparent;
-}
-
-.buttonDanger:hover {
-  background: #222;
-}
-
-.dismiss {
-  width: 36px;
-  padding: 0;
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.dismiss > span {
-  display: inline-flex;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Mobile adjustments */
@@ -227,7 +162,6 @@
 
   .button {
     min-width: 56px;
-    padding: var(--space-1) var(--space-2);
   }
 
   .buttonPrimary {
@@ -236,9 +170,5 @@
 
   .buttonSafe {
     min-width: 78px;
-  }
-
-  .dismiss {
-    min-width: 36px;
   }
 }

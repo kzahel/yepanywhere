@@ -51,28 +51,6 @@
   line-height: 1.35;
 }
 
-.advancedToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.25rem;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-code);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.advancedToggle:hover,
-.advancedToggle[aria-expanded="true"] {
-  border-color: var(--app-yep-green);
-  color: var(--text-primary);
-}
-
 .selectedChoice {
   display: flex;
   align-items: center;
@@ -290,27 +268,7 @@
 }
 
 .captionToggle {
-  display: inline-grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
   margin-inline-start: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 50%;
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.captionToggle:hover,
-.captionToggle[aria-pressed="true"] {
-  border-color: var(--app-yep-green);
-  color: var(--app-yep-green);
-  background: color-mix(in srgb, var(--app-yep-green) 9%, var(--bg-surface));
 }
 
 .optionCaption {
@@ -492,38 +450,6 @@
 
 .catalogAction {
   flex: none;
-  min-height: 2rem;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.catalogStatusMuted .catalogAction {
-  border-color: transparent;
-  background: none;
-  color: inherit;
-  font-weight: inherit;
-  text-decoration: underline;
-}
-
-.catalogAction:hover:not(:disabled) {
-  border-color: var(--text-dimmed);
-  background: var(--bg-hover);
-}
-
-.catalogStatusMuted .catalogAction:hover:not(:disabled) {
-  background: none;
-  color: var(--text-primary);
-}
-
-.catalogAction:disabled {
-  cursor: wait;
-  opacity: 0.55;
 }
 
 .creationRecovery {
@@ -534,9 +460,6 @@
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-}
-.creationRecovery button {
-  min-height: 2.75rem;
 }
 
 .toolbarActions {

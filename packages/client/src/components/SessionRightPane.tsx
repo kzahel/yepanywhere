@@ -19,6 +19,7 @@ import { AppViewerToolbar } from "./AppViewerToolbar";
 import { LastViewIcon } from "./LastViewIcon";
 import { ViewerFindField } from "./ViewerFindField";
 import { ViewerWindowActions } from "./ViewerWindowActions";
+import { ButtonBase, buttonClassName, IconButton } from "./ui/Button";
 import { ComposerMicAction } from "./ComposerMicAction";
 import type { VoiceInputButtonRef } from "./VoiceInputButton";
 import { suppressTooltipsFor } from "../hooks/useTooltipAppearance";
@@ -42,22 +43,24 @@ export function SessionAppAction({ pane }: { pane: Pane }) {
   const app = pane.apps.at(-1);
   if (!app) return null;
   return pane.enabled ? (
-    <button
+    <IconButton
       className={styles.launcher}
-      type="button"
       onClick={() =>
         pane.selected && pane.expanded ? pane.close() : pane.select(app.url)
       }
       aria-pressed={!!pane.selected && pane.expanded}
-      aria-label={t("sessionRightPaneApps")}
-      title={app.label}
+      label={t("sessionRightPaneApps")}
+      tooltip={app.label}
     >
       {/* An icon, not a label, keeps the session title's room in the header. */}
       <LastViewIcon />
-    </button>
+    </IconButton>
   ) : (
     <a
-      className={styles.launcher}
+      className={buttonClassName({
+        variant: "ghost",
+        className: styles.launcher,
+      })}
       href={app.url}
       target="_blank"
       rel="noopener noreferrer"
@@ -221,8 +224,7 @@ function SessionRightPaneContent({
   return (
     <>
       {!wide && expanded && (
-        <button
-          type="button"
+        <ButtonBase
           className={styles.backdrop}
           onClick={hide}
           aria-label={t("sessionRightPaneHide")}

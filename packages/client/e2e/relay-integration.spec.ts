@@ -682,7 +682,9 @@ test.describe("Full Relay Integration", () => {
       const downloadPromise = page.waitForEvent("download", {
         timeout: 60_000,
       });
-      await page.locator(".file-viewer-download-btn").click();
+      await page
+        .getByRole("button", { name: "Download File", exact: true })
+        .click();
       const download = await downloadPromise;
       expect(download.suggestedFilename()).toBe(fileName);
       expect(download.url()).toContain("/__ya-download/");

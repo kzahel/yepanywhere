@@ -7,6 +7,7 @@ import {
   type SourceContextMenuAction,
   useSourceContextMenu,
 } from "./SourceContextMenu";
+import { ButtonBase } from "./ui/Button";
 import styles from "./ClearloopRemainingBadge.module.css";
 
 export interface ClearloopBadgeControls {
@@ -86,8 +87,7 @@ export function ClearloopRemainingBadge({
   const targetProps = menu.targetProps(actions, controls.onCancel);
   return (
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={`${className} ${styles.cancelable}`}
         aria-label={label}
         title={label}
@@ -102,7 +102,7 @@ export function ClearloopRemainingBadge({
         }}
       >
         {badge.remaining}
-      </button>
+      </ButtonBase>
       {menu.menu}
     </>
   );

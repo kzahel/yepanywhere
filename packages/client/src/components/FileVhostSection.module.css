@@ -109,7 +109,7 @@
   width: 10rem;
 }
 
-.form button {
+.submit {
   margin-left: auto;
 }
 
@@ -165,9 +165,7 @@
 }
 
 @media (width < 600px) {
-  .access,
-  .form button,
-  .actions button {
+  .access {
     min-height: 44px;
   }
 }

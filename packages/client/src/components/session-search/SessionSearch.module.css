@@ -17,15 +17,6 @@
   display: flex;
   gap: 4px;
 }
-.quickAge button {
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  min-height: 28px;
-  padding: 3px 6px;
-  font-size: 12px;
-}
 .withDetail {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 40%);
@@ -108,9 +99,6 @@
 .searchStatus {
   width: 100%;
   height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
   text-align: left;
   display: flex;
   align-items: center;
@@ -147,9 +135,6 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.more {
-  min-height: 32px;
 }
 .diagnostics {
   margin-top: 12px;
@@ -310,59 +295,17 @@
   align-items: center;
   gap: 5px;
 }
-.scope button {
+.scope .selectionCount {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 4px;
-  padding: 0;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 12px;
-}
-.scope button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.scope .selectionCount {
+  min-height: 30px;
   color: var(--text-primary);
+  font-size: inherit;
   text-decoration: underline;
   text-underline-offset: 3px;
-  min-height: 30px;
-}
-.scope .selectMatched {
-  min-height: 30px;
-  padding: 0 8px;
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  white-space: nowrap;
 }
 .selectionCancelIcon {
-  color: var(--error-color);
-}
-.scope .onlySelected {
-  min-height: 30px;
-  padding: 0 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  white-space: nowrap;
-}
-.scope .onlySelected[aria-pressed="true"] {
-  background: color-mix(
-    in srgb,
-    var(--accent-primary) 24%,
-    var(--bg-secondary)
-  );
-  border-color: var(--accent-primary);
-  color: var(--text-primary);
-}
-.scope .clearSelection {
-  width: 34px;
-  height: 32px;
   color: var(--error-color);
 }
 .statusFilters {
@@ -372,21 +315,6 @@
 }
 .statusFilters > span {
   margin-right: 3px;
-}
-.statusFilters button {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-}
-.statusFilters button[aria-pressed="true"] {
-  background: color-mix(
-    in srgb,
-    var(--accent-primary) 24%,
-    var(--bg-secondary)
-  );
-  border-color: var(--accent-primary);
-  color: var(--text-primary);
 }
 .results {
   display: grid;
@@ -512,8 +440,5 @@
   }
   .statusFilters {
     gap: 2px;
-  }
-  .statusFilters button {
-    width: 26px;
   }
 }

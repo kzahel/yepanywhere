@@ -26,8 +26,6 @@
 }
 
 .cancelable {
-  border: 0;
-  cursor: pointer;
   font: inherit;
   font-weight: 700;
 }

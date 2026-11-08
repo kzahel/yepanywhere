@@ -26,19 +26,6 @@
   border: 1px solid var(--border-color);
   border-radius: 6px;
 }
-.panel button {
-  min-height: 38px;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  cursor: pointer;
-}
-.panel button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
 .toolbar {
   display: flex;
   gap: 0.75rem;

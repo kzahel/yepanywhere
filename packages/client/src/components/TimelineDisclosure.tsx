@@ -1,5 +1,6 @@
 import type { MouseEventHandler } from "react";
 import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
+import { ButtonBase } from "./ui/Button";
 import styles from "./TimelineDisclosure.module.css";
 
 export function TimelineDisclosure({
@@ -18,8 +19,7 @@ export function TimelineDisclosure({
   inline?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <ButtonBase
       className={`${styles.toggle} ${inline ? styles.inline : ""}`}
       onClick={onClick}
       aria-label={label}
@@ -29,6 +29,6 @@ export function TimelineDisclosure({
       data-status={status}
     >
       <span aria-hidden="true">{expanded ? "−" : "+"}</span>
-    </button>
+    </ButtonBase>
   );
 }

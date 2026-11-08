@@ -189,12 +189,8 @@
   flex: 0 0 1.5rem;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  border: 0;
   border-radius: var(--radius-sm);
-  background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
 }
 
 .providerChildrenDisclosure:hover,

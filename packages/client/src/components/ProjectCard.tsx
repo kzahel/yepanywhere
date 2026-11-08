@@ -8,6 +8,7 @@ import styles from "./ProjectCard.module.css";
 import { ProjectCaptionEditor } from "./ProjectCaptionEditor";
 import { ProjectCodeNameEditor } from "./ProjectCodeNameEditor";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { Button, buttonClassName, IconButton } from "./ui/Button";
 
 interface ProjectCardProps {
   appEnabled?: boolean;
@@ -103,7 +104,10 @@ export function ProjectCard({
       {appEnabled && (
         <Link
           to={`${basePath}/projects/${project.id}/app`}
-          className={`${styles.newSession} ${styles.appLink}`}
+          className={buttonClassName({
+            size: "small",
+            className: styles.appLink,
+          })}
           aria-label={t("projectAppOpen")}
           title={t("projectAppOpen")}
         >
@@ -117,8 +121,8 @@ export function ProjectCard({
       >
         <div className={styles.header}>
           {onCopy && (
-            <button
-              type="button"
+            <Button
+              size="small"
               className={styles.newSession}
               aria-label={t("projectCopyTitle")}
               title={t("projectCopyTitle")}
@@ -129,15 +133,14 @@ export function ProjectCard({
               }}
             >
               {t("projectCopyLabel")}
-            </button>
+            </Button>
           )}
           {onOpenSettings && (
-            <button
-              type="button"
+            <IconButton
+              size="small"
+              label={t("projectCardOpenSettings")}
               className={styles.settingsTrigger}
               onClick={handleOpenSettings}
-              title={t("projectCardOpenSettings")}
-              aria-label={t("projectCardOpenSettings")}
             >
               <svg
                 width="16"
@@ -153,16 +156,15 @@ export function ProjectCard({
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
               </svg>
-            </button>
+            </IconButton>
           )}
           {onDeleteProject && (
-            <button
-              type="button"
+            <IconButton
+              size="small"
+              label={deleteLabel ?? t("projectsDelete")}
               className={styles.deleteTrigger}
               onClick={handleDeleteProject}
               disabled={isDeleting}
-              title={deleteLabel ?? t("projectsDelete")}
-              aria-label={deleteLabel ?? t("projectsDelete")}
             >
               <svg
                 width="16"
@@ -181,7 +183,7 @@ export function ProjectCard({
                 <path d="M10 11v6" />
                 <path d="M14 11v6" />
               </svg>
-            </button>
+            </IconButton>
           )}
           <div className={styles.identity}>
             <strong className={styles.name}>
@@ -235,12 +237,11 @@ export function ProjectCard({
               onUpdateCaption={onUpdateCaption}
             />
           </div>
-          <button
-            type="button"
+          <IconButton
+            size="small"
+            label={t("projectCardNewSession")}
             className={styles.newSession}
             onClick={handleNewSession}
-            title={t("projectCardNewSession")}
-            aria-label={t("projectCardNewSession")}
           >
             <svg
               width="16"
@@ -256,7 +257,7 @@ export function ProjectCard({
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
         <div className={styles.meta}>
           <span className={styles.path} title={project.path}>

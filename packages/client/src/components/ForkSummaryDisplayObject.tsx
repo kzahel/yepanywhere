@@ -1,6 +1,7 @@
 import type { ForkSummaryTranscriptDisplayObject } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
+import { Button } from "./ui/Button";
 
 function formatElapsed(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -57,13 +58,13 @@ export function ForkSummaryDisplayObject({
           />
           {t("forkSummaryAutoOpenToggle")}
         </label>
-        <button
-          type="button"
+        <Button
+          size="small"
           className="fork-summary-display-object-cancel"
           onClick={onCancel}
         >
           {t("forkSummaryCancelInFlight")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -79,13 +80,13 @@ export function ForkSummaryDisplayObject({
             ? `${t("forkSummaryFailed")}: ${object.error}`
             : t("forkSummaryFailed")}
         </span>
-        <button
-          type="button"
+        <Button
+          size="small"
           className="fork-summary-display-object-cancel"
           onClick={onCancel}
         >
           {t("forkSummaryDismiss")}
-        </button>
+        </Button>
       </div>
     );
   }

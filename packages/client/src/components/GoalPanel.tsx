@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
+import { Button, buttonClassName, IconButton } from "./ui/Button";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
@@ -149,18 +150,16 @@ export function GoalPanel({
               text={objective}
               label={t("goalPanelCopy")}
               copiedLabel={t("goalPanelCopied")}
-              className={styles.iconButton ?? ""}
+              className={buttonClassName({ variant: "ghost", icon: true })}
               copiedClassName={styles.copied}
             />
-            <button
+            <IconButton
               ref={closeRef}
-              type="button"
-              className={styles.iconButton}
-              aria-label={t("modalClose")}
+              label={t("modalClose")}
               onClick={onClose}
             >
               ×
-            </button>
+            </IconButton>
           </div>
         </div>
         <div className={styles.body}>
@@ -196,30 +195,22 @@ export function GoalPanel({
           <div className={styles.actions}>
             {editing ? (
               <>
-                <button
-                  type="button"
-                  className={styles.button}
-                  disabled={pending}
-                  onClick={() => setEditing(false)}
-                >
+                <Button disabled={pending} onClick={() => setEditing(false)}>
                   {t("goalPanelCancel")}
-                </button>
-                <button
-                  type="button"
-                  className={styles.primary}
+                </Button>
+                <Button
+                  variant="primary"
                   disabled={
                     pending || !draft.trim() || draft.trim() === objective
                   }
                   onClick={() => void runCommand(draft.trim())}
                 >
                   {t("goalPanelSave")}
-                </button>
+                </Button>
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  className={styles.button}
+                <Button
                   disabled={pending}
                   onClick={() => {
                     setDraft(objective);
@@ -228,26 +219,23 @@ export function GoalPanel({
                   }}
                 >
                   {t("goalPanelEdit")}
-                </button>
-                <button
-                  type="button"
-                  className={styles.button}
+                </Button>
+                <Button
                   disabled={pending}
                   onClick={() => void runCommand("clear")}
                 >
                   {t("goalPanelClear")}
-                </button>
+                </Button>
                 {action && (
-                  <button
-                    type="button"
-                    className={styles.primary}
+                  <Button
+                    variant="primary"
                     disabled={pending}
                     onClick={() => void runCommand(action)}
                   >
                     {t(
                       action === "pause" ? "goalPanelPause" : "goalPanelResume",
                     )}
-                  </button>
+                  </Button>
                 )}
               </>
             )}

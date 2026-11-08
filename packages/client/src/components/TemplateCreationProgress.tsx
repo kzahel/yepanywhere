@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { TemplateCreationOperation } from "../api/projectTemplatesClient";
 import { useI18n } from "../i18n";
 import styles from "./TemplateCreationProgress.module.css";
+import { Button } from "./ui/Button";
 
 /** Progress remains mounted while operation snapshots arrive; disclosure state
  * and elapsed time belong to this view, not individual polling responses. */
@@ -44,15 +45,14 @@ export function TemplateCreationProgress({
       </div>
       {active && <progress className={styles.activity} aria-label={phase} />}
       {operation?.error && <p role="alert">{operation.error}</p>}
-      <button
-        type="button"
+      <Button
         className={styles.toggle}
         aria-expanded={expanded}
         aria-controls={logId}
         onClick={() => setExpanded((value) => !value)}
       >
         {t(expanded ? "templateHideLog" : "templateShowLog")}
-      </button>
+      </Button>
       <pre id={logId} className={styles.log} hidden={!expanded}>
         {output || t("templateWaitingOutput")}
       </pre>

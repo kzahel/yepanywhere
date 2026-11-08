@@ -2,6 +2,7 @@ import type { ArtifactVhostSiteView } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
+import { Button } from "./ui/Button";
 import styles from "./FileVhostSection.module.css";
 
 /** The requests the section makes; the File Viewer binds them to its source. */
@@ -158,9 +159,7 @@ export function FileVhostSection({
                 </span>
                 <span className={styles.actions}>
                   {url && (
-                    <button
-                      type="button"
-                      className="settings-button"
+                    <Button
                       disabled={working}
                       onClick={async () =>
                         setNotice(
@@ -171,16 +170,11 @@ export function FileVhostSection({
                       }
                     >
                       {t("fileVhostCopy")}
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    type="button"
-                    className="settings-button"
-                    disabled={working}
-                    onClick={() => void stop(site)}
-                  >
+                  <Button disabled={working} onClick={() => void stop(site)}>
                     {t("fileVhostStop")}
-                  </button>
+                  </Button>
                 </span>
               </li>
             );
@@ -248,15 +242,16 @@ export function FileVhostSection({
               {t("fileVhostReplace")}
             </label>
           )}
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            className="settings-button settings-button-primary"
+            className={styles.submit}
             disabled={
               working || !name.trim() || (access === "password" && !password)
             }
           >
             {working ? t("fileVhostServing") : t("fileVhostServe")}
-          </button>
+          </Button>
         </form>
       )}
       {error && (

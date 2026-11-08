@@ -14,6 +14,7 @@ import {
 import { useI18n } from "../i18n";
 import { FilterDropdown } from "./FilterDropdown";
 import styles from "./RouterPoolSelector.module.css";
+import { Button } from "./ui/Button";
 export interface RouterSelection {
   sourceKey: string;
   poolId: string;
@@ -755,9 +756,14 @@ export function RouterPoolSelector({
         {error ? (
           <div className={styles.status} role="alert">
             <span>{t("routerDiscoveryFailed")}</span>
-            <button type="button" className={styles.retry} onClick={retry}>
+            <Button
+              variant="ghost"
+              size="small"
+              className={styles.retry}
+              onClick={retry}
+            >
               {t("routerRetry")}
-            </button>
+            </Button>
           </div>
         ) : unavailable ? (
           <div className={`${styles.status} ${styles.warning}`} role="status">

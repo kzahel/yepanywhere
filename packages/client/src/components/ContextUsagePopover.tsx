@@ -8,6 +8,7 @@ import type { ContextBreakdownState } from "../hooks/useContextBreakdown";
 import { useI18n } from "../i18n";
 import type { ContextUsage } from "../types";
 import { ContextBreakdownSection } from "./ContextBreakdownSection";
+import { Button, IconButton } from "./ui/Button";
 import styles from "./ContextUsagePopover.module.css";
 
 function formatDuration(minutes: number | undefined): string {
@@ -148,16 +149,14 @@ export function ContextUsagePopover({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            className="subscription-usage-refresh"
+          <IconButton
+            size="small"
+            label={t("subscriptionUsageRefresh")}
             onClick={onRefresh}
             disabled={refreshing}
-            aria-label={t("subscriptionUsageRefresh")}
-            title={t("subscriptionUsageRefresh")}
           >
             ↻
-          </button>
+          </IconButton>
         </div>
       )}
       <div className="subscription-usage-windows">
@@ -208,13 +207,14 @@ export function ContextUsagePopover({
       </div>
       {showTokens && contextUsage && <ContextTokenRows usage={contextUsage} />}
       {onEditCompactThreshold && (
-        <button
-          type="button"
-          className="subscription-usage-compact-action"
+        <Button
+          variant="ghost"
+          size="small"
+          className={styles.compactAction}
           onClick={onEditCompactThreshold}
         >
           {t("subscriptionUsageEditCompact")}
-        </button>
+        </Button>
       )}
     </div>
   );

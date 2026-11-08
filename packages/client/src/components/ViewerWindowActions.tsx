@@ -9,6 +9,7 @@ import {
 import { useLongPress } from "../hooks/useLongPress";
 import { useI18n } from "../i18n";
 import { writeClipboardText, writeClipboardTextLater } from "../lib/clipboard";
+import { buttonClassName, IconButton } from "./ui/Button";
 import styles from "./ViewerWindowActions.module.css";
 
 /** Shared viewer window actions: copy link, move out, minimize, close. */
@@ -78,6 +79,9 @@ export function ViewerWindowActions({
 }) {
   const { t } = useI18n();
   const reloadPress = useLongPress(() => onReloadHold?.());
+  const reloadName = reloadLabel ?? t("fileViewerReload" as never);
+  // The reload tooltip explains the watch state; its name stays the action.
+  const reloadTooltip = reloadTitle ?? reloadName;
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -106,8 +110,7 @@ export function ViewerWindowActions({
   return (
     <div className={`${styles.actions} ${className ?? ""}`}>
       {onReload && (
-        <button
-          type="button"
+        <IconButton
           className={
             reloadState === "stale"
               ? styles.reloadStale
@@ -117,13 +120,13 @@ export function ViewerWindowActions({
                   ? styles.reloadAuto
                   : undefined
           }
-          aria-label={reloadLabel ?? t("fileViewerReload" as never)}
+          label={reloadName}
+          tooltip={reloadTooltip}
           aria-pressed={
             onReloadHold
               ? reloadState === "auto" || reloadState === "armed"
               : undefined
           }
-          title={reloadTitle ?? reloadLabel ?? t("fileViewerReload" as never)}
           {...(onReloadHold ? reloadPress.handlers : {})}
           onClick={reloadPress.click(onReload)}
         >
@@ -141,11 +144,20 @@ export function ViewerWindowActions({
             <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
             <path d="M13.5 2.5v3.2h-3.2" />
           </svg>
-        </button>
+        </IconButton>
       )}
       {copyLink && (
         <a
-          className={`${styles.copyLink} ${copyLabel ? styles.textAction : ""} ${copyLinkActive === undefined ? "" : copyLinkActive ? styles.linkActive : styles.linkInactive}`}
+          className={buttonClassName({
+            variant: "ghost",
+            icon: !copyLabel,
+            className:
+              copyLinkActive === undefined
+                ? undefined
+                : copyLinkActive
+                  ? styles.linkActive
+                  : styles.linkInactive,
+          })}
           href={absoluteUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -200,6 +212,7 @@ export function ViewerWindowActions({
       {afterCopyLink}
       {moveOut && (
         <a
+          className={buttonClassName({ variant: "ghost", icon: true })}
           href={absoluteUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -216,27 +229,23 @@ export function ViewerWindowActions({
         </a>
       )}
       {onMinimize && (
-        <button
-          type="button"
+        <IconButton
           onClick={onMinimize}
-          aria-label={minimizeLabel ?? t("modalMinimize")}
-          title={minimizeLabel ?? t("modalMinimize")}
+          label={minimizeLabel ?? t("modalMinimize")}
         >
           {icon("M3 12h10")}
-        </button>
+        </IconButton>
       )}
       {onClose && (
-        <button
+        <IconButton
           ref={closeRef}
           className={destructiveClose ? styles.destructive : undefined}
           disabled={closeDisabled}
-          type="button"
           onClick={onClose}
-          aria-label={closeLabel ?? t("modalClose")}
-          title={closeLabel ?? t("modalClose")}
+          label={closeLabel ?? t("modalClose")}
         >
           {icon("M4 4l8 8M12 4l-8 8")}
-        </button>
+        </IconButton>
       )}
     </div>
   );

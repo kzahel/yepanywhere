@@ -12,6 +12,7 @@ import { useTooltipTrigger } from "../hooks/useTooltipTrigger";
 import { useI18n } from "../i18n";
 import type { PresentedCommentary } from "../lib/acliToolOutput";
 import { TextBlock } from "./blocks/TextBlock";
+import { ButtonBase, IconButton } from "./ui/Button";
 import { WorkflowBoundary, WorkflowContext } from "./WorkflowOutput";
 import styles from "./AcliCommentary.module.css";
 
@@ -151,9 +152,8 @@ function ContextBullet({
 
   return (
     <>
-      <button
+      <ButtonBase
         ref={button}
-        type="button"
         className={styles.bullet}
         aria-label={t(
           item.getContext ? "acliCommentaryContext" : "acliCommentaryOutput",
@@ -188,14 +188,14 @@ function ContextBullet({
               role="dialog"
               aria-label={t("acliCommentaryContext")}
             >
-              <button
-                type="button"
+              <IconButton
+                size="small"
                 className={styles.close}
                 onClick={close}
-                aria-label={t("acliCommentaryCloseContext")}
+                label={t("acliCommentaryCloseContext")}
               >
                 ×
-              </button>
+              </IconButton>
               <pre>{context}</pre>
             </div>,
             document.body,

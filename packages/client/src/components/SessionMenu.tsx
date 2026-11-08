@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import styles from "./SessionMenu.module.css";
+import { IconButton } from "./ui/Button";
 
 export interface SessionMenuProps {
   sessionId: string;
@@ -893,10 +894,11 @@ export function SessionMenu({
 
   return (
     <div className={wrapperClasses} ref={wrapperRef}>
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
-        className={[styles.trigger, "session-menu-trigger", triggerClassName]
+        size="small"
+        label={t("sessionMenuOptions")}
+        className={["session-menu-trigger", triggerClassName]
           .filter(Boolean)
           .join(" ")}
         onClick={(e) => {
@@ -904,7 +906,6 @@ export function SessionMenu({
           e.stopPropagation();
           handleToggleOpen();
         }}
-        aria-label={t("sessionMenuOptions")}
         aria-expanded={isOpen}
       >
         {useEllipsisIcon ? (
@@ -933,7 +934,7 @@ export function SessionMenu({
             <polyline points="6 9 12 15 18 9" />
           </svg>
         )}
-      </button>
+      </IconButton>
       {isOpen && renderDropdown()}
     </div>
   );

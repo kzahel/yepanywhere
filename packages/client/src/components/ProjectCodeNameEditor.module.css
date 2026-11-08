@@ -57,23 +57,3 @@ button.codeName:hover {
 .input[aria-invalid="true"] {
   border-color: var(--error-color);
 }
-
-.cancel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--font-size-base);
-  line-height: 1;
-  cursor: pointer;
-}
-
-.cancel:hover {
-  color: var(--text-primary);
-}

@@ -11,6 +11,7 @@ import { useI18n } from "../../i18n";
 import { getSessionDisplayTitle } from "../../utils";
 import { SearchDetail } from "./SearchDetail";
 import { renderHighlightedText } from "../SearchPreview";
+import { IconButton } from "../ui/Button";
 import previewStyles from "../UserTurnNavigator.module.css";
 import { limitTurnMatches, type SearchMatch } from "./model";
 import styles from "./SearchPreviews.module.css";
@@ -191,37 +192,34 @@ export function SearchPreviews({
     >
       {!!shown.length && (
         <>
-          <button
-            type="button"
+          <IconButton
+            size="small"
             className={styles.expand}
-            title={t("sessionSearchAllMatches")}
-            aria-label={t("sessionSearchAllMatches")}
+            label={t("sessionSearchAllMatches")}
             onClick={onExpand}
           >
             ↗
-          </button>
+          </IconButton>
           <div className={styles.adjustLimit} data-search-limit-controls>
             {canDecrease && (
-              <button
-                type="button"
+              <IconButton
+                size="small"
                 className={styles.decrease}
-                title={t("sessionSearchDecreaseLimit")}
-                aria-label={t("sessionSearchDecreaseLimit")}
+                label={t("sessionSearchDecreaseLimit")}
                 onClick={() => onAdjustLimit(-1, shownPerRole, root.current!)}
               >
                 −
-              </button>
+              </IconButton>
             )}
             {canIncrease && (
-              <button
-                type="button"
+              <IconButton
+                size="small"
                 className={styles.increase}
-                title={t("sessionSearchIncreaseLimit")}
-                aria-label={t("sessionSearchIncreaseLimit")}
+                label={t("sessionSearchIncreaseLimit")}
                 onClick={() => onAdjustLimit(1, shownPerRole, root.current!)}
               >
                 +
-              </button>
+              </IconButton>
             )}
           </div>
         </>
@@ -426,10 +424,10 @@ export function MatchPreview({
           {renderHighlightedText(match.preview, query)}
         </span>
       </Link>
-      <button
+      <IconButton
         ref={menuButton}
-        type="button"
-        aria-label={t("sessionSearchMatchMenu")}
+        size="small"
+        label={t("sessionSearchMatchMenu")}
         aria-haspopup="menu"
         aria-expanded={menu}
         onClick={() => setMenu((value) => !value)}
@@ -445,7 +443,7 @@ export function MatchPreview({
           <circle cx="9" cy="9" r="1.4" />
           <circle cx="14" cy="9" r="1.4" />
         </svg>
-      </button>
+      </IconButton>
       {menu && (
         <div className={styles.menu} role="menu">
           <button

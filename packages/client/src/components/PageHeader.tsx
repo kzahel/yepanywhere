@@ -4,6 +4,7 @@ import { truncateText } from "../lib/text";
 import { HostIdentityMarker } from "./HostIdentityMarker";
 import sessionHeaderStyles from "./SessionHeader.module.css";
 import { SidebarLauncher } from "./SidebarLauncher";
+import { ButtonBase, IconButton } from "./ui/Button";
 
 interface PageHeaderProps {
   title: string;
@@ -63,15 +64,9 @@ export function PageHeader({
       >
         <div className="session-header-left">
           {showBack && onBack ? (
-            <button
-              type="button"
-              className="sidebar-toggle"
-              onClick={onBack}
-              title={t("actionBack")}
-              aria-label={t("actionBack")}
-            >
+            <IconButton label={t("actionBack")} onClick={onBack}>
               <BackIcon />
-            </button>
+            </IconButton>
           ) : (
             handleToggle && (
               <SidebarLauncher
@@ -84,14 +79,13 @@ export function PageHeader({
           <HostIdentityMarker />
           {titleElement ??
             (onTitleClick ? (
-              <button
-                type="button"
+              <ButtonBase
                 className="session-title"
                 onClick={onTitleClick}
                 title={title.length > 60 ? title : undefined}
               >
                 {truncateText(title)}
-              </button>
+              </ButtonBase>
             ) : (
               <span
                 className="session-title"

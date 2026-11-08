@@ -20,6 +20,7 @@ import {
 import { sortProjectsForChooser } from "../lib/newSessionProjects";
 import styles from "./NewSessionQueueOptions.module.css";
 import { NewSessionQueueMark } from "./NewSessionQueueMark";
+import { IconButton } from "./ui/Button";
 
 /**
  * Where a Project Queue new-session item goes and what it launches with.
@@ -235,10 +236,10 @@ export function NewSessionQueueOptions({
                 }
               }}
             />
-            <button
-              type="button"
-              aria-label={t("newSessionQueueBrowseModels")}
-              title={t("newSessionQueueBrowseModels")}
+            <IconButton
+              size="small"
+              className={styles.browse}
+              label={t("newSessionQueueBrowseModels")}
               onClick={() => {
                 setModelMenu(modelMenu ? null : "browse");
                 setActiveIndex(0);
@@ -255,7 +256,7 @@ export function NewSessionQueueOptions({
               >
                 <path d="m6 9 6 6 6-6" />
               </svg>
-            </button>
+            </IconButton>
           </div>
           {modelMenu && (
             <div
@@ -313,12 +314,10 @@ export function NewSessionQueueOptions({
             {sortedProjects.find((project) => project.id === projectId)?.name}
           </strong>
         </span>
-        <button
-          type="button"
+        <IconButton
+          label={t("newSessionQueueExit")}
           className={styles.close}
           onClick={onClose}
-          aria-label={t("newSessionQueueExit")}
-          title={t("newSessionQueueExit")}
         >
           <svg
             width="16"
@@ -331,7 +330,7 @@ export function NewSessionQueueOptions({
           >
             <path d="m6 6 12 12M18 6 6 18" />
           </svg>
-        </button>
+        </IconButton>
         <div className={styles.sendActions}>
           {(["now", "patient"] as const).map((delivery) => (
             <button

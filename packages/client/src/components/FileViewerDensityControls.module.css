@@ -4,11 +4,6 @@
   align-items: center;
 }
 
-.controls .button {
-  flex: 0 0 28px;
-  width: 28px;
-}
-
 .operator {
   color: var(--text-primary);
   font:

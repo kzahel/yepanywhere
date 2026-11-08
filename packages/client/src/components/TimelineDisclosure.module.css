@@ -6,13 +6,9 @@
   place-items: center;
   inline-size: 24px;
   block-size: 24px;
-  padding: 0;
-  border: none;
   border-radius: 4px;
-  background: transparent;
   color: var(--timeline-dot-default);
   font: 16px / 1 var(--font-mono);
-  cursor: pointer;
   z-index: 1;
 }
 

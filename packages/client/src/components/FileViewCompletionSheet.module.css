@@ -1,28 +1,15 @@
 .jump {
   flex: 0 0 auto;
-  min-width: 36px;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-}
-.jump:hover {
-  background: var(--bg-tertiary);
-  color: var(--link-color);
 }
 .footerAction {
   display: block;
   width: 100%;
   min-height: 32px;
   padding: 6px 10px;
-  border: 0;
   border-top: 1px solid var(--border-color);
-  background: transparent;
   color: var(--link-color);
   font-size: 12px;
   text-align: left;
-  cursor: pointer;
 }
 .footerAction:hover {
   background: var(--bg-tertiary);

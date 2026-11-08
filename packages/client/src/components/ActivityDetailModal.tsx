@@ -32,10 +32,7 @@ export function ActivityDetailModal({
   const headerActions = (
     <>
       {actions}
-      <ViewerSelectAllButton
-        className="source-detail-action source-detail-icon-action"
-        contentRef={contentRef}
-      />
+      <ViewerSelectAllButton contentRef={contentRef} />
     </>
   );
   const managedPanelRef = useRef<{

@@ -18,13 +18,9 @@
   gap: 6px;
   padding: 5px 8px;
   color: var(--text-secondary);
-  font: inherit;
   font-size: 0.8rem;
   text-align: left;
-  background: transparent;
-  border: 0;
   border-radius: 6px;
-  cursor: pointer;
 }
 
 .groupButton:hover,
@@ -100,11 +96,7 @@
 
 .sectionDividerButton {
   width: calc(100% - 16px);
-  padding: 0;
   font: inherit;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
 }
 
 .sectionDividerButton:hover,

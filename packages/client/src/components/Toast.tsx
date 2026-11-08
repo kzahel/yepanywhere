@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { getToastDurationMs, type Toast as ToastType } from "../hooks/useToast";
 import styles from "./Toast.module.css";
+import { Button } from "./ui/Button";
 
 interface Props {
   toasts: ToastType[];
@@ -33,8 +34,8 @@ export function ToastContainer({ toasts, onDismiss }: Props) {
         >
           <span className={styles.message}>{toast.message}</span>
           {toast.action && (
-            <button
-              type="button"
+            <Button
+              size="small"
               className={styles.action}
               onClick={(e) => {
                 e.stopPropagation();
@@ -43,7 +44,7 @@ export function ToastContainer({ toasts, onDismiss }: Props) {
               }}
             >
               {toast.action.label}
-            </button>
+            </Button>
           )}
         </div>
       ))}

@@ -83,30 +83,6 @@
   color: var(--text-secondary);
 }
 
-.action {
-  min-height: 40px;
-  padding: 10px 16px;
-  border: 1px solid var(--accent-color);
-  border-radius: 6px;
-  background: var(--accent-color);
-  color: white;
-  font: inherit;
-  cursor: pointer;
-}
-.action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.secondary {
-  min-height: 36px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-}
 .expansion {
   display: grid;
   gap: 12px;

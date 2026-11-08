@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import styles from "./CompactResumeButton.module.css";
 
 interface CompactResumeButtonProps {
@@ -14,8 +15,9 @@ export function CompactResumeButton({
   onResume,
 }: CompactResumeButtonProps) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="small"
       className={styles.button}
       onClick={(event) => {
         event.preventDefault();
@@ -27,6 +29,6 @@ export function CompactResumeButton({
       aria-label={label}
     >
       {pending ? "…" : label}
-    </button>
+    </Button>
   );
 }

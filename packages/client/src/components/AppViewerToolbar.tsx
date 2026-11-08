@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useI18n } from "../i18n";
+import { IconButton } from "./ui/Button";
 import actions from "./ViewerWindowActions.module.css";
 import styles from "./AppViewerToolbar.module.css";
 
@@ -75,13 +76,9 @@ export function AppViewerToolbar({
       </div>
       <div className={actions.actions}>
         {!corner && document.fullscreenEnabled && (
-          <button
-            type="button"
+          <IconButton
             onClick={() => void toggleFullscreen()}
-            title={t(fullscreen ? "appFullscreenExit" : "appFullscreenEnter")}
-            aria-label={t(
-              fullscreen ? "appFullscreenExit" : "appFullscreenEnter",
-            )}
+            label={t(fullscreen ? "appFullscreenExit" : "appFullscreenEnter")}
             aria-pressed={fullscreen}
           >
             <svg
@@ -101,13 +98,11 @@ export function AppViewerToolbar({
                 }
               />
             </svg>
-          </button>
+          </IconButton>
         )}
-        <button
+        <IconButton
           ref={toggle}
-          type="button"
-          title={label}
-          aria-label={label}
+          label={label}
           aria-expanded={!corner}
           onClick={() => (corner ? setCorner(null) : collapse("right"))}
         >
@@ -124,7 +119,7 @@ export function AppViewerToolbar({
               d={corner ? "M4 6h16M4 12h16M4 18h16" : "M4 8h16M8 15l4-4 4 4"}
             />
           </svg>
-        </button>
+        </IconButton>
       </div>
       {error && (
         <span className={styles.error} role="alert">

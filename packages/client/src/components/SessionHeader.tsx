@@ -17,6 +17,7 @@ import {
 } from "./SessionPublicShareControls";
 import { SessionRenameEditor } from "./SessionRenameEditor";
 import { SessionAppAction } from "./SessionRightPane";
+import { ButtonBase, IconButton } from "./ui/Button";
 import {
   SERVER_CAPABILITIES,
   SIDEBAR_SESSION_RESUME_CAPABILITY,
@@ -392,15 +393,13 @@ export function SessionHeader({
           {/* Sidebar opener for the overlay sidebar only. On desktop the
             sidebar owns its own toggle, expanded or collapsed. */}
           {!isWideScreen && (
-            <button
-              type="button"
+            <IconButton
               className="sidebar-toggle"
               onClick={openSidebar}
-              title={t("sessionOpenSidebar")}
-              aria-label={t("sessionOpenSidebar")}
+              label={t("sessionOpenSidebar")}
             >
               <SidebarIcon />
-            </button>
+            </IconButton>
           )}
           <HostIdentityMarker />
           <SessionAppAction
@@ -413,12 +412,11 @@ export function SessionHeader({
             }}
           />
           {projectAppEnabled && (
-            <button
-              type="button"
+            <IconButton
               className={sessionHeaderStyles.projectAppButton}
               aria-pressed={projectAppOpen}
-              aria-label={t("projectAppLabel")}
-              title={t("projectAppFullViewHint")}
+              label={t("projectAppLabel")}
+              tooltip={t("projectAppFullViewHint")}
               {...projectAppPress.handlers}
               onClick={projectAppPress.click(() => {
                 setProjectAppFull(false);
@@ -427,7 +425,7 @@ export function SessionHeader({
               })}
             >
               <ProjectAppIcon />
-            </button>
+            </IconButton>
           )}
           {/* Project breadcrumb */}
           {project?.name && (
@@ -552,9 +550,9 @@ export function SessionHeader({
                     }
                   />
                   {titleEditMode === "retitle" && (
-                    <button
-                      type="button"
-                      className={`session-title-edit-button session-title-retitle-accept${
+                    <IconButton
+                      size="small"
+                      className={`session-title-retitle-accept${
                         generatedRetitle?.deferredInsertion ? " is-armed" : ""
                       }`}
                       onMouseDown={(e) => e.preventDefault()}
@@ -565,12 +563,7 @@ export function SessionHeader({
                         !!generatedRetitle.deferredInsertion ||
                         generatedRetitle.status === "error"
                       }
-                      title={
-                        generatedRetitle?.status === "generating"
-                          ? t("sessionRetitleUseGeneratedWhenReady")
-                          : t("sessionRetitleUseGenerated")
-                      }
-                      aria-label={
+                      label={
                         generatedRetitle?.status === "generating"
                           ? t("sessionRetitleUseGeneratedWhenReady")
                           : t("sessionRetitleUseGenerated")
@@ -591,22 +584,16 @@ export function SessionHeader({
                         <path d="m11 8 4 4-4 4" />
                         <path d="M8 12h7" />
                       </svg>
-                    </button>
+                    </IconButton>
                   )}
-                  <button
-                    type="button"
-                    className="session-title-edit-button"
+                  <IconButton
+                    size="small"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={handleSaveTitle}
                     disabled={
                       isRenaming || !!generatedRetitle?.deferredInsertion
                     }
-                    title={
-                      titleEditMode === "retitle"
-                        ? t("sessionRetitleSaveAsTyped")
-                        : t("sessionTitleSave")
-                    }
-                    aria-label={
+                    label={
                       titleEditMode === "retitle"
                         ? t("sessionRetitleSaveAsTyped")
                         : t("sessionTitleSave")
@@ -627,15 +614,13 @@ export function SessionHeader({
                       <path d="M17 21v-8H7v8" />
                       <path d="M7 3v5h8" />
                     </svg>
-                  </button>
-                  <button
-                    type="button"
-                    className="session-title-edit-button"
+                  </IconButton>
+                  <IconButton
+                    size="small"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={handleCancelEditingTitle}
                     disabled={isRenaming}
-                    title={t("sessionRetitleCancel")}
-                    aria-label={t("sessionRetitleCancel")}
+                    label={t("sessionRetitleCancel")}
                   >
                     <svg
                       width="15"
@@ -651,7 +636,7 @@ export function SessionHeader({
                       <path d="M18 6 6 18" />
                       <path d="m6 6 12 12" />
                     </svg>
-                  </button>
+                  </IconButton>
                 </div>
                 {titleEditMode === "retitle" &&
                   generatedRetitle &&
@@ -676,8 +661,7 @@ export function SessionHeader({
               </div>
             ) : (
               <>
-                <button
-                  type="button"
+                <ButtonBase
                   className={`session-title session-title-recent-trigger ${sessionHeaderStyles.titleWithBadge}`}
                   onClick={() => setShowRecentSessions(!showRecentSessions)}
                   title={titleTooltip}
@@ -691,7 +675,7 @@ export function SessionHeader({
                       controls={clearloopControls}
                     />
                   )}
-                </button>
+                </ButtonBase>
                 {session?.routerBinding &&
                   serverHasCapability(
                     versionInfo,
@@ -700,8 +684,7 @@ export function SessionHeader({
                   (() => {
                     const chip = routerBindingChip(t, session.routerBinding);
                     return (
-                      <button
-                        type="button"
+                      <ButtonBase
                         className={sessionHeaderStyles.routerAccount}
                         title={chip.tooltip}
                         aria-label={chip.tooltip}
@@ -711,7 +694,7 @@ export function SessionHeader({
                         }}
                       >
                         {chip.label}
-                      </button>
+                      </ButtonBase>
                     );
                   })()}
                 {currentGoal && (
@@ -733,18 +716,13 @@ export function SessionHeader({
                     }}
                   />
                 )}
-                <button
-                  type="button"
+                <IconButton
+                  size="small"
                   className={`session-title-chevron-trigger${
                     showRecentSessions ? " is-open" : ""
                   }`}
                   onClick={() => setShowRecentSessions(!showRecentSessions)}
-                  title={
-                    showRecentSessions
-                      ? t("sessionCloseRecentSessions")
-                      : t("sessionRecentSessions")
-                  }
-                  aria-label={
+                  label={
                     showRecentSessions
                       ? t("sessionCloseRecentSessions")
                       : t("sessionRecentSessions")
@@ -765,17 +743,14 @@ export function SessionHeader({
                   >
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
-                </button>
+                </IconButton>
                 {supportsTitleGeneration && generatedTitleEnabled && (
-                  <button
-                    type="button"
-                    className="session-title-generate-trigger"
+                  <IconButton
+                    size="small"
                     onClick={handleGenerateAndApplyTitle}
-                    title={t("sessionGenerateNewTitle")}
-                    aria-label={t("sessionGenerateNewTitle")}
+                    label={t("sessionGenerateNewTitle")}
                   >
                     <svg
-                      className="session-title-generate-icon"
                       width="15"
                       height="15"
                       viewBox="0 0 24 24"
@@ -790,7 +765,7 @@ export function SessionHeader({
                       <path d="m11 8 4 4-4 4" />
                       <path d="M8 12h7" />
                     </svg>
-                  </button>
+                  </IconButton>
                 )}
                 <RecentSessionsDropdown
                   currentSessionId={sessionId}
@@ -852,8 +827,7 @@ export function SessionHeader({
             />
           )}
           {!loading && effectiveProvider && (
-            <button
-              type="button"
+            <ButtonBase
               className={`provider-badge-button ${sessionHeaderStyles.modelButton}`}
               onClick={() => {
                 setModelPanelInitialTab("model");
@@ -878,7 +852,7 @@ export function SessionHeader({
                 effort={effectiveModelConfig?.effort}
                 isThinking={canStopOwnedProcess}
               />
-            </button>
+            </ButtonBase>
           )}
           {!loading && (
             <SessionMenu

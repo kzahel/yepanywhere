@@ -4,9 +4,6 @@
   position: fixed;
   inset: 0;
   z-index: 10010;
-  background: transparent;
-  border: 0;
-  padding: 0;
   cursor: default;
 }
 

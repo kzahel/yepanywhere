@@ -254,10 +254,9 @@ describe("RemoteCompatibilityNotices", () => {
       name: "Show reminder",
     });
 
-    expect(link.classList.contains(styles.button!)).toBe(true);
-    expect(link.classList.contains(styles.buttonPrimary!)).toBe(true);
-    expect(restoreButton.classList.contains(styles.button!)).toBe(true);
-    expect(restoreButton.classList.contains(styles.buttonPrimary!)).toBe(true);
+    expect(link.getAttribute("href")).toBe(
+      "https://example.invalid/release-notes",
+    );
     expect(
       screen.queryByRole("button", { name: "Remind me later" }),
     ).toBeNull();

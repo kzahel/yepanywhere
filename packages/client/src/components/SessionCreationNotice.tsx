@@ -6,6 +6,7 @@ import {
 import { useI18n } from "../i18n";
 import type { SourceTransportStatus } from "../lib/transport/types";
 import styles from "./SessionCreationNotice.module.css";
+import { Button } from "./ui/Button";
 
 export function SessionCreationNotice({
   creation,
@@ -140,8 +141,7 @@ export function SessionCreationNotice({
       )}
       <div className={styles.actions}>
         {prompt && (
-          <button
-            type="button"
+          <Button
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(prompt);
@@ -152,15 +152,12 @@ export function SessionCreationNotice({
             }}
           >
             {t("sessionCreationCopyPrompt")}
-          </button>
+          </Button>
         )}
         {(!active || checksExhausted) && (
-          <button
-            type="button"
-            onClick={() => void refresh.current().catch(() => {})}
-          >
+          <Button onClick={() => void refresh.current().catch(() => {})}>
             {t("sessionCreationRefresh")}
-          </button>
+          </Button>
         )}
       </div>
       {copyFailed && <p role="status">{t("sessionCreationCopyFailed")}</p>}

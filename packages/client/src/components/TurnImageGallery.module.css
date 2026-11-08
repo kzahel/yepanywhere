@@ -85,14 +85,10 @@
   flex: 1;
   align-items: baseline;
   gap: 0.5rem;
-  padding: 0;
   overflow: hidden;
-  border: 0;
-  background: transparent;
   color: var(--link-color);
-  font: inherit;
+  font-size: inherit;
   text-align: left;
-  cursor: pointer;
 }
 
 .caption > span {
@@ -117,19 +113,6 @@
 
 .dismiss {
   flex: none;
-  padding: 0.2rem 0.45rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.dismiss:hover {
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
 }
 
 @media (width <= 700px) {

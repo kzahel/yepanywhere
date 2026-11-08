@@ -1,5 +1,6 @@
 import type { DeviceType } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
+import { IconButton } from "./ui/Button";
 import styles from "./EmulatorNavButtons.module.css";
 
 interface EmulatorNavButtonsProps {
@@ -38,13 +39,12 @@ export function EmulatorNavButtons({
       aria-label={t("emulatorDeviceNavigation")}
     >
       {showAndroidNav && (
-        <button
-          type="button"
+        <IconButton
+          variant="outline"
           className={styles.button}
           onClick={() => sendKey("GoBack")}
           disabled={disabled}
-          title="Back"
-          aria-label="Back"
+          label="Back"
         >
           <svg
             width="24"
@@ -59,15 +59,14 @@ export function EmulatorNavButtons({
           >
             <polyline points="15 18 9 12 15 6" />
           </svg>
-        </button>
+        </IconButton>
       )}
-      <button
-        type="button"
+      <IconButton
+        variant="outline"
         className={styles.button}
         onClick={() => sendKey("GoHome")}
         disabled={disabled}
-        title="Home"
-        aria-label="Home"
+        label="Home"
       >
         <svg
           width="24"
@@ -82,15 +81,14 @@ export function EmulatorNavButtons({
         >
           <circle cx="12" cy="12" r="4" />
         </svg>
-      </button>
+      </IconButton>
       {showAndroidNav && (
-        <button
-          type="button"
+        <IconButton
+          variant="outline"
           className={styles.button}
           onClick={() => sendKey("AppSwitch")}
           disabled={disabled}
-          title="Recents"
-          aria-label="Recents"
+          label="Recents"
         >
           <svg
             width="24"
@@ -105,7 +103,7 @@ export function EmulatorNavButtons({
           >
             <rect x="6" y="6" width="12" height="12" rx="1" />
           </svg>
-        </button>
+        </IconButton>
       )}
     </div>
   );

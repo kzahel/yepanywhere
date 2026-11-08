@@ -14,12 +14,6 @@
   white-space: nowrap;
 }
 
-.button {
-  appearance: none;
-  font-family: inherit;
-  cursor: pointer;
-}
-
 .button:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-hover);

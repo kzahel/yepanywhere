@@ -8,6 +8,7 @@ import type { ContextBreakdownState } from "../hooks/useContextBreakdown";
 import { useI18n } from "../i18n";
 import styles from "./ContextBreakdownSection.module.css";
 import { formatTokens } from "./ContextUsageIndicator";
+import { ButtonBase } from "./ui/Button";
 
 /** Item rows shown before the remainder collapses into "N more". */
 const VISIBLE_ITEMS = 5;
@@ -104,14 +105,13 @@ function CategoryRow({
   return (
     <li>
       {expandable ? (
-        <button
-          type="button"
+        <ButtonBase
           className={styles.head}
           aria-expanded={open}
           onClick={() => setOpen((current) => !current)}
         >
           {head}
-        </button>
+        </ButtonBase>
       ) : (
         <div className={styles.head}>{head}</div>
       )}

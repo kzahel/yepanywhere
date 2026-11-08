@@ -16,6 +16,7 @@ import {
   type AsyncQuestion,
 } from "../lib/asyncQuestions";
 import styles from "./AsyncQuestions.module.css";
+import { Button, ButtonBase, IconButton } from "./ui/Button";
 
 function QuestionIcon() {
   return (
@@ -83,8 +84,7 @@ function QuestionMenuRow({
         {question.age}
       </span>
       <div className={styles.previewBox}>
-        <button
-          type="button"
+        <ButtonBase
           className={styles.preview}
           title={question.title}
           aria-label={question.title}
@@ -120,18 +120,18 @@ function QuestionMenuRow({
               aria-label={t("asyncQuestionUnseen")}
             />
           )}
-        </button>
-        <button
-          type="button"
+        </ButtonBase>
+        <IconButton
+          size="small"
           className={styles.dismiss}
           onClick={dismiss}
-          aria-label={t(
+          label={t(
             dismissed ? "asyncQuestionRestore" : "asyncQuestionDismiss",
             { question: question.title },
           )}
         >
           {dismissed && showDismissed ? "↶" : "×"}
-        </button>
+        </IconButton>
         {contextOpen && (
           <div className={styles.rowMenu} role="menu">
             <button type="button" role="menuitem" onClick={dismiss}>
@@ -293,11 +293,10 @@ export function AsyncQuestionsButton({
     : t("asyncQuestionsTitle");
   return (
     <>
-      <button
+      <ButtonBase
         ref={button}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        type="button"
         className={`${styles.indicator} ${recent.length ? styles.recent : ""} ${overflow ? styles.overflowEntry : ""}`}
         aria-label={label}
         title={label}
@@ -347,7 +346,7 @@ export function AsyncQuestionsButton({
           // accessible name and tooltip still carry the wording.
           compact !== "late" && <span>{t("asyncQuestionsTitle")}</span>
         )}
-      </button>
+      </ButtonBase>
       {open &&
         createPortal(
           <div
@@ -378,14 +377,14 @@ export function AsyncQuestionsButton({
           >
             <div className={styles.menuHeading}>
               <strong>{t("asyncQuestionsTitle")}</strong>
-              <button
-                type="button"
+              <IconButton
+                size="small"
                 className={styles.dismiss}
-                aria-label={t("asyncQuestionCloseMenu")}
+                label={t("asyncQuestionCloseMenu")}
                 onClick={close}
               >
                 ×
-              </button>
+              </IconButton>
             </div>
             <ul ref={list} className={styles.questionList}>
               {visible.map((question, index) => (
@@ -416,9 +415,10 @@ export function AsyncQuestionsButton({
             {omitted && (
               <p className={styles.hint}>{t("asyncQuestionsEarlierOmitted")}</p>
             )}
-            <button
-              type="button"
-              className={styles.secondary}
+            <Button
+              variant="ghost"
+              size="small"
+              className={styles.showDismissed}
               onClick={() => setShowDismissed(!showDismissed)}
             >
               {t(
@@ -426,7 +426,7 @@ export function AsyncQuestionsButton({
                   ? "asyncQuestionHideDismissed"
                   : "asyncQuestionShowDismissed",
               )}
-            </button>
+            </Button>
           </div>,
           document.body,
         )}

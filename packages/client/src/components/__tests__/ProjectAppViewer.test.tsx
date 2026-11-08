@@ -639,7 +639,7 @@ it("lights reload for newer static files, arms a one-shot reload, and holds to a
       window.dispatchEvent(new Event("focus"));
     });
   };
-  expect(reload().className).toBe("");
+  expect(reload().className).not.toMatch(/reload(Stale|Armed|Auto)/);
   // With no activity the viewer reads nothing, even as the files change.
   stamp = "2026-10-18T00:00:02.000Z";
   const quiet = infoReads();
@@ -660,7 +660,9 @@ it("lights reload for newer static files, arms a one-shot reload, and holds to a
     fireEvent.click(reload());
   });
   await waitFor(() => expect(container.querySelector("iframe")).toBeTruthy());
-  await waitFor(() => expect(reload().className).toBe(""));
+  await waitFor(() =>
+    expect(reload().className).not.toMatch(/reload(Stale|Armed|Auto)/),
+  );
   // A click with nothing new arms one reload for the next change.
   // Await the open and its focus-listener effect before returning to the page.
   await act(async () => {
@@ -671,7 +673,9 @@ it("lights reload for newer static files, arms a one-shot reload, and holds to a
   stamp = "2026-10-18T00:00:03.000Z";
   await poll();
   await waitFor(() => expect(opens()).toBe(armedOpens + 1));
-  await waitFor(() => expect(reload().className).toBe(""));
+  await waitFor(() =>
+    expect(reload().className).not.toMatch(/reload(Stale|Armed|Auto)/),
+  );
   // Holding (right-click here) reloads on every change, and is remembered.
   fireEvent.contextMenu(reload());
   expect(reload().className).toMatch(/reloadAuto/);

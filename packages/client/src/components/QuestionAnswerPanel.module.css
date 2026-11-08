@@ -21,7 +21,6 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-muted);
-  cursor: pointer;
   transition:
     background 0.15s,
     color 0.15s,
@@ -288,60 +287,7 @@
 }
 
 .btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  /* Transparent border on every variant keeps heights aligned whether or not
-     a variant draws a visible border (e.g. the ghost Cancel below). */
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    opacity 0.15s,
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
   min-width: 90px;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Cancel is the secondary action — a quiet ghost button so the single solid
-   Submit reads as the primary CTA instead of two loud filled buttons. */
-.btn.deny {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border-input);
-}
-
-.btn.deny:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.btn.next {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.btn.next:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.btn.submit {
-  background: var(--success-color);
-  color: #000;
-}
-
-.btn.submit:hover:not(:disabled) {
-  background: #8fd9a8;
 }
 
 .btn kbd {
@@ -349,7 +295,7 @@
   font-size: var(--font-size-xs);
   font-weight: 400;
   padding: 0.1rem 0.3rem;
-  /* Theme-agnostic translucent chip (reads on both the ghost Cancel and the
+  /* Theme-agnostic translucent chip (reads on both the outline Cancel and the
      solid Submit), de-emphasized so the shortcut hint stays subordinate. */
   background: rgba(127, 127, 127, 0.22);
   border-radius: var(--radius-sm);

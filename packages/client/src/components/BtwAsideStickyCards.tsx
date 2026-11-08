@@ -1,5 +1,6 @@
 import { useI18n } from "../i18n";
 import { BtwAsideTranscript, type BtwAsidePaneItem } from "./BtwAsidePane";
+import { Button, ButtonBase } from "./ui/Button";
 
 export interface BtwAsideStickyCardItem extends BtwAsidePaneItem {
   preview?: string;
@@ -54,8 +55,7 @@ export function BtwAsideStickyCards({
               isFocused ? "is-focused" : ""
             }`}
           >
-            <button
-              type="button"
+            <ButtonBase
               className="btw-aside-main"
               onClick={() => onFocusAside(aside.id)}
             >
@@ -75,7 +75,7 @@ export function BtwAsideStickyCards({
               {aside.error && (
                 <span className="btw-aside-error">{aside.error}</span>
               )}
-            </button>
+            </ButtonBase>
             {aside.expanded && canExpand && (
               <BtwAsideTranscript
                 aside={aside}
@@ -85,28 +85,28 @@ export function BtwAsideStickyCards({
             )}
             <div className="btw-aside-actions">
               {canExpand && (
-                <button
-                  type="button"
+                <Button
+                  size="small"
                   className="btw-aside-action"
                   onClick={() => onToggleAsideExpanded(aside.id)}
                 >
                   {aside.expanded ? "Less" : "Show"}
-                </button>
+                </Button>
               )}
               {isFocused && (
-                <button
-                  type="button"
+                <Button
+                  size="small"
                   className="btw-aside-action"
                   onClick={() => onDoneAside(aside.id)}
                   title={t("btwAsideReturnComposerTitle")}
                 >
                   Done
-                </button>
+                </Button>
               )}
               {(aside.status === "starting" || aside.status === "running") && (
-                <button
-                  type="button"
-                  className="btw-aside-action btw-aside-action-stop"
+                <Button
+                  size="small"
+                  className="btw-aside-action"
                   onClick={() => onStopAside(aside.id)}
                   title={
                     isFocused
@@ -115,16 +115,16 @@ export function BtwAsideStickyCards({
                   }
                 >
                   Stop
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
+              <Button
+                size="small"
                 className="btw-aside-action"
                 onClick={() => onHideAside(aside.id)}
                 title={t("btwAsideMoveToHistoryTitle")}
               >
                 Hide
-              </button>
+              </Button>
             </div>
           </div>
         );

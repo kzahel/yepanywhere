@@ -3,9 +3,6 @@
   position: fixed;
   inset: 0;
   z-index: 10010;
-  padding: 0;
-  border: 0;
-  background: transparent;
   cursor: default;
 }
 
@@ -50,30 +47,6 @@
 .stepper {
   display: inline-flex;
   flex: 0 0 auto;
-}
-
-.step {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.step:hover:not(:disabled),
-.step:focus-visible {
-  background: var(--bg-hover);
-}
-
-.step:disabled {
-  color: var(--text-muted);
-  opacity: 0.5;
-  cursor: default;
 }
 
 .rows {
@@ -167,10 +140,5 @@
 @media (pointer: coarse) {
   .row {
     min-height: 40px;
-  }
-
-  .step {
-    width: 40px;
-    height: 40px;
   }
 }

@@ -23,11 +23,7 @@
   flex: 1;
   padding: var(--space-1) var(--space-2);
   padding-right: var(--space-1);
-  background: transparent;
-  border: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  font-size: inherit;
 }
 
 .preview {
@@ -96,27 +92,7 @@
 }
 
 .remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
   margin-left: var(--space-1);
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  color: var(--text-dimmed);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.remove:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 @media (width <= 600px) {

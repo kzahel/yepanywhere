@@ -12,6 +12,7 @@ import {
   type DraftResolution,
   type PendingDraft,
 } from "../lib/draftSyncStorage";
+import { Button } from "./ui/Button";
 import styles from "./DraftSyncNotice.module.css";
 
 function DraftPreview({ value }: { value: DraftPayload }) {
@@ -73,13 +74,12 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
                 ? t("draftSyncRecovery")
                 : t("draftSyncPending")}
         </span>
-        <button
-          type="button"
+        <Button
           onClick={() => setReviewing(!reviewing)}
           aria-expanded={reviewing}
         >
           {t("draftSyncReview")}
-        </button>
+        </Button>
       </div>
       {reviewing && (
         <div className={styles.review}>
@@ -103,8 +103,8 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
           <div className={styles.actions}>
             {draft.error || draft.recovery ? (
               <>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
                   onClick={() =>
                     draft.error
                       ? retryPendingDraft(draft.key)
@@ -112,46 +112,30 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
                   }
                 >
                   {draft.error ? t("draftSyncRetry") : t("draftSyncRecover")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="danger-outline"
                   onClick={() => discardPendingDraft(draft.key)}
                 >
                   {t("draftSyncDiscard")}
-                </button>
+                </Button>
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void resolve("local")}
-                >
+                <Button disabled={busy} onClick={() => void resolve("local")}>
                   {t("draftSyncKeepMine")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void resolve("remote")}
-                >
+                </Button>
+                <Button disabled={busy} onClick={() => void resolve("remote")}>
                   {t("draftSyncUseOther")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void resolve("combine")}
-                >
+                </Button>
+                <Button disabled={busy} onClick={() => void resolve("combine")}>
                   {t("draftSyncCombine")}
-                </button>
+                </Button>
               </>
             )}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setReviewing(false)}
-            >
+            <Button disabled={busy} onClick={() => setReviewing(false)}>
               {t("draftSyncClose")}
-            </button>
+            </Button>
           </div>
         </div>
       )}

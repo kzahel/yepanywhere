@@ -14,23 +14,8 @@
   display: inline-block;
 }
 
-.button {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-
+/* The trigger is a shared Button: secondary by default, ghost for the chip
+ * variant. These rules keep its layout and the selected-filter state. */
 .buttonLabel {
   flex: 1 1 auto;
   min-width: 0;
@@ -43,25 +28,14 @@
   transition: transform 0.15s ease;
 }
 
-/*
- * Chip trigger, used by the below-composer model chip. Declared before :hover
- * and .hasSelection so both still win, matching the previous file order.
- */
-.button.chip {
-  padding: 2px 4px;
-  background: transparent;
-  border: none;
-}
-
+/* Chip trigger: a ghost Button with a smaller chevron. */
 .button.chip .chevron {
   width: 10px;
   height: 10px;
 }
 
-.button:hover {
-  background: var(--bg-hover);
-}
-
+/* An active filter marks the trigger; compounded so it outranks the
+ * Button variant regardless of stylesheet order. */
 .button.hasSelection {
   border-color: var(--app-yep-green);
   color: var(--text-primary);

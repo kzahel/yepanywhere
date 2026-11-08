@@ -6,6 +6,7 @@ import { useId } from "react";
 import { useI18n } from "../i18n";
 import { ProviderBadge } from "./ProviderBadge";
 import styles from "./NewSessionProjectQueue.module.css";
+import { ButtonBase } from "./ui/Button";
 import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
 
 type Translate = ReturnType<typeof useI18n>["t"];
@@ -100,8 +101,7 @@ export function NewSessionProjectQueue({
               className={styles.item}
               data-new-session-project-queue-item-id={item.id}
             >
-              <button
-                type="button"
+              <ButtonBase
                 className={styles.itemButton}
                 onClick={() => onOpenItem(item.id)}
                 title={title}
@@ -132,7 +132,7 @@ export function NewSessionProjectQueue({
                 {item.lastError && (
                   <span className={styles.itemError}>{item.lastError}</span>
                 )}
-              </button>
+              </ButtonBase>
             </li>
           );
         })}

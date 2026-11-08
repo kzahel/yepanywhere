@@ -14,19 +14,6 @@
   justify-content: space-between;
   gap: 0.75rem;
 }
-.notice button {
-  min-height: 44px;
-  padding: 0.5rem 0.75rem;
-  color: var(--text-primary);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-.notice button:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
 .review {
   margin-top: 0.75rem;
   max-height: 40vh;

@@ -9,7 +9,6 @@ import {
 import { createPortal } from "react-dom";
 import { useQuoteReply } from "../contexts/QuoteReplyContext";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
-import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import { useI18n } from "../i18n";
 import { toBrowserAppHref } from "../lib/appHref";
 import { useSessionLastFile } from "../lib/sessionLastFile";
@@ -24,6 +23,7 @@ import {
   getProjectViewerFilePath,
   presentProjectFileViewer,
 } from "./FilePathLink";
+import { IconButton } from "./ui/Button";
 import styles from "./LastSessionFile.module.css";
 
 function parseFileRoute(route: string) {
@@ -75,7 +75,6 @@ export function LastSessionFile({
   const quoteReply = suppliedQuoteReply ?? inheritedQuoteReply;
   const viewerId = useId();
   const { t } = useI18n();
-  const tooltip = useTextTooltipAttributes(file?.filePath);
   const [hasMargin, setHasMargin] = useState(false);
 
   // A reload reopens the file viewer this tab had open, where it was. The
@@ -146,11 +145,11 @@ export function LastSessionFile({
   )
     return null;
   return createPortal(
-    <button
-      type="button"
+    // The tooltip is the bare path; the name says what the button does.
+    <IconButton
       className={styles.reopen}
-      aria-label={t("fileViewerRestore", { name: file.filePath })}
-      {...tooltip}
+      label={t("fileViewerRestore", { name: file.filePath })}
+      tooltip={file.filePath}
       onClick={() =>
         presentProjectFileViewer({
           ...file,
@@ -172,7 +171,7 @@ export function LastSessionFile({
           strokeLinejoin="round"
         />
       </svg>
-    </button>,
+    </IconButton>,
     target,
   );
 }

@@ -7,13 +7,13 @@
  *
  * Several inbox-prefixed literals stay global and unchanged because other
  * components produce them:
- *   - `inbox-toolbar` and `inbox-refresh-button` are also rendered by
- *     `pages/ProjectsPage.tsx` and `pages/GlobalSessionsPage.tsx`.
+ *   - `inbox-toolbar` is also rendered by `pages/ProjectsPage.tsx` and
+ *     `pages/GlobalSessionsPage.tsx`.
  *   - `inbox-empty` is also rendered by both of those pages.
  *   - `inbox-item-badge` is produced by `SessionListItem.tsx`, which
  *     composes it with the `customBadge.className` supplied from here.
- * Only `.inbox-refresh-button svg.spinning` moved, as `.refreshSpinner`,
- * because this is the one refresh button in the app that spins.
+ * The refresh button is a shared Button; its spinning icon is
+ * `.refreshSpinner`, the one refresh button in the app that spins.
  *
  * `spin` is duplicated here rather than shared: CSS Modules scopes
  * keyframe names, and the global copies in `styles/index.css` still

@@ -4,6 +4,7 @@ import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import type { MessageKey, TranslationFn } from "../i18n";
 import { findTextMatch } from "../lib/searchMatch";
 import { SearchMatchText } from "./SearchMatchText";
+import { ButtonBase } from "./ui/Button";
 import styles from "./SourceFileRow.module.css";
 
 type SourceFileRowButtonProps = Omit<
@@ -26,9 +27,9 @@ export function SourceFileRowButton({
   const tooltipAttributes = useTextTooltipAttributes(path);
 
   return (
-    <button {...buttonProps} {...tooltipAttributes}>
+    <ButtonBase {...buttonProps} {...tooltipAttributes}>
       {children}
-    </button>
+    </ButtonBase>
   );
 }
 

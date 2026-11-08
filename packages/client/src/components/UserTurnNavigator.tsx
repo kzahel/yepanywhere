@@ -21,6 +21,7 @@ import { renderHighlightedText } from "./SearchPreview";
 import { useI18n } from "../i18n";
 import { findRenderRow, indexRenderRowsById } from "../lib/scrollAnchors";
 import styles from "./UserTurnNavigator.module.css";
+import { ButtonBase } from "./ui/Button";
 
 export interface UserTurnNavAnchor {
   id: string;
@@ -1350,8 +1351,7 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
         )}
         {markersToRender.map((marker) => (
           <span key={marker.id}>
-            <button
-              type="button"
+            <ButtonBase
               className={[
                 styles.marker,
                 marker.id === activeMarkerId ? styles.active : "",
@@ -1401,10 +1401,9 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
               onPointerDown={(event) => focusMarkerPreview(marker.id, event)}
             >
               <span className={styles.markerLine} />
-            </button>
+            </ButtonBase>
             {onTrimAnchor && (canTrimAnchor?.(marker.id) ?? true) && (
-              <button
-                type="button"
+              <ButtonBase
                 className={styles.trimMarker}
                 style={{
                   top: `${marker.renderTopPct * 100}%`,
@@ -1440,18 +1439,17 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
                 onPointerDown={(event) => focusMarkerPreview(marker.id, event)}
               >
                 <span className={styles.trimDot} />
-              </button>
+              </ButtonBase>
             )}
           </span>
         ))}
         {previewLabels.map((label) => (
-          <button
+          <ButtonBase
             key={
               hasSingleSearchMatch && searchState
                 ? `${label.id}:${searchState.query}`
                 : label.id
             }
-            type="button"
             className={[
               styles.preview,
               hasSearchMatches ? styles.searchPreview : "",
@@ -1490,14 +1488,13 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
             {hasSearchMatches
               ? renderPreviewLabelText(label, searchState)
               : label.text}
-          </button>
+          </ButtonBase>
         ))}
       </div>
       {notchMenu &&
         createPortal(
           <>
-            <button
-              type="button"
+            <ButtonBase
               className={styles.contextOverlay}
               aria-label={t("turnNotchDismissMenu")}
               onClick={closeNotchMenu}

@@ -6,6 +6,7 @@ import type { useFileViewCompletion } from "../hooks/useFileViewCompletion";
 import { type MessageKey, useI18n } from "../i18n";
 import styles from "./FileViewCompletionSheet.module.css";
 import { ProjectFileCompletionMenu } from "./ProjectFileCompletionMenu";
+import { ButtonBase, IconButton } from "./ui/Button";
 
 const TIER_LABELS: Record<FileViewSearchTier, MessageKey> = {
   path: "fileViewGroupPath",
@@ -42,16 +43,15 @@ export function FileViewCompletionSheet({
         const itemId = completion.mentionOf(entry.path);
         if (!itemId || !onGoToTurn) return null;
         return (
-          <button
-            type="button"
+          <IconButton
+            size="small"
             className={styles.jump}
-            aria-label={t("fileViewGoToMention")}
-            title={t("fileViewGoToMention")}
+            label={t("fileViewGoToMention")}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onGoToTurn(itemId)}
           >
             ↪
-          </button>
+          </IconButton>
         );
       }}
       emptyLabel={
@@ -61,14 +61,13 @@ export function FileViewCompletionSheet({
       }
       footer={
         completion.canSearchIgnored ? (
-          <button
-            type="button"
+          <ButtonBase
             className={styles.footerAction}
             onMouseDown={(event) => event.preventDefault()}
             onClick={completion.searchIgnored}
           >
             {t("fileViewSearchIgnored")}
-          </button>
+          </ButtonBase>
         ) : undefined
       }
       preview={

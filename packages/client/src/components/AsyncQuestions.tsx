@@ -10,6 +10,7 @@ import { useI18n } from "../i18n";
 import type { AsyncQuestion } from "../lib/asyncQuestions";
 import styles from "./AsyncQuestions.module.css";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { renderFixedFontRichContent } from "./ui/FixedFontMathToggle";
 
 function InlineQuestion({
@@ -97,14 +98,14 @@ function InlineQuestion({
           <ul className={styles.options}>
             {question.options.map((option, index) => (
               <li key={`${index}:${option}`}>
-                <button
-                  type="button"
+                <ButtonBase
+                  className={styles.option}
                   disabled={busy || answered}
                   onClick={() => void send(option)}
                 >
                   <span aria-hidden="true">•</span>
                   <span>{option}</span>
-                </button>
+                </ButtonBase>
               </li>
             ))}
           </ul>
@@ -119,13 +120,13 @@ function InlineQuestion({
       ) : (
         <>
           {!active && (
-            <button
-              type="button"
-              className={styles.secondary}
+            <Button
+              variant="ghost"
+              size="small"
               onClick={() => state.open(question)}
             >
               {t("asyncQuestionReply")}
-            </button>
+            </Button>
           )}
           {active && (
             <form
@@ -160,12 +161,9 @@ function InlineQuestion({
                 }
               />
               <div className={styles.replyActions}>
-                <button
-                  type="button"
-                  className={`${styles.secondary} ${styles.iconAction}`}
+                <IconButton
                   onClick={state.returnToPrevious}
-                  aria-label={t("asyncQuestionBack")}
-                  title={t("asyncQuestionBack")}
+                  label={t("asyncQuestionBack")}
                 >
                   <svg
                     width="20"
@@ -180,23 +178,20 @@ function InlineQuestion({
                   >
                     <path d="m10 5-7 7 7 7M3 12h18" />
                   </svg>
-                </button>
-                <button
+                </IconButton>
+                <Button
                   type="submit"
-                  className={styles.send}
+                  variant="primary"
                   disabled={busy || !record?.draft.trim()}
                 >
                   {t(busy ? "asyncQuestionSending" : "asyncQuestionSend")}
-                </button>
+                </Button>
               </div>
             </form>
           )}
-          <button
-            type="button"
-            className={`${styles.secondary} ${styles.iconAction}`}
+          <IconButton
             onClick={() => state.quote(question)}
-            aria-label={t("asyncQuestionQuoteMain")}
-            title={t("asyncQuestionQuoteMain")}
+            label={t("asyncQuestionQuoteMain")}
           >
             <svg
               width="20"
@@ -212,7 +207,7 @@ function InlineQuestion({
               <circle cx="12" cy="12" r="9" />
               <path d="m10 8 4 4-4 4" />
             </svg>
-          </button>
+          </IconButton>
         </>
       )}
       {error && (

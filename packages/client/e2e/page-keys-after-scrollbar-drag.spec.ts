@@ -146,7 +146,11 @@ for (const key of ["PageUp", "Home"] as const) {
     );
     await dismissOnboardingIfVisible(page);
     const transcript = await waitForTranscript(page);
-    await expect(page.locator(".load-older-button")).toBeAttached();
+    await expect(
+      page.getByRole("button", {
+        name: /^Load (older messages|\d+ earlier user turns)$/,
+      }),
+    ).toBeAttached();
     const oldestRequest = transcript.getByText("Oldest keyboard request");
     await expect(oldestRequest).toHaveCount(0);
 

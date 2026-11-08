@@ -1,5 +1,6 @@
 import { useCallback, useId, useRef, useState } from "react";
 import { useI18n } from "../i18n";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import styles from "./SessionRenameEditor.module.css";
 
@@ -100,12 +101,16 @@ export function SessionRenameEditor({
         }}
       />
       <div className={styles.actions}>
-        <button type="submit" disabled={saving || !value.trim()}>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={saving || !value.trim()}
+        >
           {t("sessionRenameSave")}
-        </button>
-        <button type="button" disabled={saving} onClick={cancel}>
+        </Button>
+        <Button disabled={saving} onClick={cancel}>
           {t("sessionRenameCancel")}
-        </button>
+        </Button>
       </div>
       {failed && (
         <p className={styles.error} role="alert">

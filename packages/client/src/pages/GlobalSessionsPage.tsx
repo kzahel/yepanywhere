@@ -63,6 +63,7 @@ import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useSessionRightPaneSetting } from "../hooks/useSessionRightPaneSetting";
 import { useVersion } from "../hooks/useVersion";
+import { Button } from "../components/ui/Button";
 import { useModalBackGesture } from "../components/ui/Modal";
 import { useI18n } from "../i18n";
 import { MainContent, useNavigationLayout } from "../layouts";
@@ -851,9 +852,9 @@ function SessionSearchPage() {
                   </code>
                 </span>
               </div>
-              <button type="button" onClick={startSession}>
+              <Button variant="primary" onClick={startSession}>
                 {t("sidebarNewSession")}
-              </button>
+              </Button>
             </div>
           )}
           {invalidRange && (
@@ -956,14 +957,9 @@ function SessionSearchPage() {
             ))}
           </ul>
           {results.length > renderedCount && (
-            <button
-              ref={more}
-              className={styles.more}
-              type="button"
-              onClick={showMore}
-            >
+            <Button ref={more} onClick={showMore}>
               {t("sessionSearchMore")}
-            </button>
+            </Button>
           )}
           {!helpInline && <SearchHelp />}
           <div className={styles.footer}>

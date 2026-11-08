@@ -19,6 +19,7 @@ import type { InputRequest } from "../types";
 import { toolRegistry } from "./renderers/tools";
 import type { RenderContext } from "./renderers/types";
 import { getToolSummary } from "./tools/summaries";
+import { Button, ButtonBase } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import styles from "./ToolApprovalPanel.module.css";
 
@@ -256,8 +257,7 @@ export function ToolApprovalPanel({
     >
       <DraftSyncNotice draftKey={draftKey} sessionId={sessionId} />
       {/* Floating toggle button */}
-      <button
-        type="button"
+      <ButtonBase
         className={`${styles.toggle} ${collapsed ? styles.hasPending : ""}`}
         onClick={() => onCollapsedChange?.(!collapsed)}
         aria-label={
@@ -279,7 +279,7 @@ export function ToolApprovalPanel({
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </button>
+      </ButtonBase>
 
       {!collapsed && (
         <div className={styles.panel}>
@@ -303,13 +303,12 @@ export function ToolApprovalPanel({
                     })}
                   </span>
                   {showViewDetails && (
-                    <button
-                      type="button"
+                    <ButtonBase
                       className={styles.viewDetails}
                       onClick={() => setShowPreviewModal(true)}
                     >
                       {t("toolApprovalViewDetails")}
-                    </button>
+                    </ButtonBase>
                   )}
                 </div>
                 {showPreviewModal && request.toolName && (
@@ -335,79 +334,75 @@ export function ToolApprovalPanel({
           <div className={styles.options}>
             {isExitPlanMode(request.toolName) ? (
               <>
-                <button
-                  type="button"
-                  className={`${styles.option} ${styles.primary}`}
+                <Button
+                  variant="primary"
+                  className={styles.option}
                   onClick={handleApproveAcceptEdits}
                   disabled={!armed || submitting || !onApproveAcceptEdits}
                 >
                   <kbd>1</kbd>
                   <span>{t("toolApprovalYesAuto")}</span>
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   className={styles.option}
                   onClick={handleApprove}
                   disabled={!armed || submitting}
                 >
                   <kbd>2</kbd>
                   <span>{t("toolApprovalYesManual")}</span>
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   className={styles.option}
                   onClick={handleDeny}
                   disabled={!armed || submitting}
                 >
                   <kbd>3</kbd>
                   <span>{t("toolApprovalNoKeepPlanning")}</span>
-                </button>
+                </Button>
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  className={`${styles.option} ${styles.primary}`}
+                <Button
+                  variant="primary"
+                  className={styles.option}
                   onClick={handleApprove}
                   disabled={!armed || submitting}
                 >
                   <kbd>1</kbd>
                   <span>{t("toolApprovalYes")}</span>
-                </button>
+                </Button>
 
                 {isEditTool && onApproveAcceptEdits && (
-                  <button
-                    type="button"
+                  <Button
                     className={styles.option}
                     onClick={handleApproveAcceptEdits}
                     disabled={!armed || submitting}
                   >
                     <kbd>2</kbd>
                     <span>{t("toolApprovalYesDontAsk")}</span>
-                  </button>
+                  </Button>
                 )}
 
-                <button
-                  type="button"
+                <Button
                   className={styles.option}
                   onClick={handleDeny}
                   disabled={!armed || submitting}
                 >
                   <kbd>{isEditTool && onApproveAcceptEdits ? "3" : "2"}</kbd>
                   <span>{t("toolApprovalNo")}</span>
-                </button>
+                </Button>
               </>
             )}
 
             {onDenyWithFeedback && !showFeedback && (
-              <button
-                type="button"
-                className={`${styles.option} ${styles.feedbackToggle}`}
+              <Button
+                variant="ghost"
+                className={styles.option}
                 onClick={() => setShowFeedback(true)}
                 disabled={!armed || submitting}
               >
                 <span>{t("toolApprovalTellInstead")}</span>
-              </button>
+              </Button>
             )}
 
             {onDenyWithFeedback && showFeedback && (
@@ -421,14 +416,12 @@ export function ToolApprovalPanel({
                   disabled={!armed || submitting}
                   className={styles.feedbackInput}
                 />
-                <button
-                  type="button"
-                  className={styles.feedbackSubmit}
+                <Button
                   onClick={handleDenyWithFeedback}
                   disabled={!armed || submitting || !feedback.trim()}
                 >
                   {t("toolApprovalSend")}
-                </button>
+                </Button>
               </div>
             )}
           </div>

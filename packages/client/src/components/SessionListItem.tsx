@@ -64,6 +64,7 @@ import {
 } from "./SessionProviderPhase";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import styles from "./SessionListItem.module.css";
+import { ButtonBase } from "./ui/Button";
 import { useSessionHasApp } from "../lib/sessionApps";
 
 export interface SessionNavigationIntent {
@@ -867,8 +868,7 @@ export function SessionListItem({
       )}
 
       {mode === "compact" && providerChildren.length > 0 && (
-        <button
-          type="button"
+        <ButtonBase
           className={styles.providerChildrenDisclosure}
           aria-label={providerChildrenDisclosureLabel}
           aria-expanded={providerChildrenExpanded}
@@ -887,7 +887,7 @@ export function SessionListItem({
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="m4 2 4 4-4 4" />
           </svg>
-        </button>
+        </ButtonBase>
       )}
 
       <div className={styles.body}>

@@ -62,10 +62,8 @@
   font-size: 0.6875rem;
   line-height: 1.25rem;
   color: var(--text-secondary);
-  background: none;
   border: 1px solid var(--border-color);
   border-radius: 999px;
-  cursor: pointer;
 }
 
 .routerAccount:hover,
@@ -95,7 +93,6 @@
 .header .menuTrigger {
   min-width: var(--header-control-size);
   min-height: var(--header-control-size);
-  opacity: 1;
 }
 
 .header .project {
@@ -145,14 +142,9 @@
   }
 }
 
-/* The project App button is a square home icon, level with the session's
-   last-view icon beside it. */
+/* The project App button sits beside the session's last-view icon. */
 .projectAppButton {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
 }
 
 @media (width <= 700px) {

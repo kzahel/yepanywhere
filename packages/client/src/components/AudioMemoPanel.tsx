@@ -9,6 +9,7 @@ import {
   publishSpeechWaveformSamples,
 } from "../lib/speechWaveform";
 import { SpeechWaveform } from "./SpeechWaveform";
+import { Button, ButtonBase } from "./ui/Button";
 import styles from "./AudioMemoPanel.module.css";
 
 const TRANSCRIPT_KEY = "yep-anywhere-audio-memo-transcript";
@@ -218,9 +219,8 @@ export function AudioMemoPanel({
 
   return (
     <section className={styles.panel} aria-label={t("audioMemoTitle")}>
-      <button
+      <ButtonBase
         className={styles.surface}
-        type="button"
         onClick={() => void commit()}
         disabled={
           status === "starting" ||
@@ -251,7 +251,7 @@ export function AudioMemoPanel({
                 : (commitLabel ?? t("audioMemoStopSend"))}
         </strong>
         <span className={styles.detail}>{t("audioMemoFormat")}</span>
-      </button>
+      </ButtonBase>
       <div className={styles.options}>
         <label>
           <input
@@ -279,20 +279,20 @@ export function AudioMemoPanel({
         </p>
       )}
       <div className={styles.actions}>
-        <button
-          type="button"
+        <Button
+          className={styles.action}
           disabled={status === "sending" || status === "processing"}
           onClick={() => setTake((value) => value + 1)}
         >
           {t("audioMemoRestart")}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          className={styles.action}
           disabled={status === "sending" || status === "processing"}
           onClick={onCancel}
         >
           {t("audioMemoCancel")}
-        </button>
+        </Button>
       </div>
     </section>
   );

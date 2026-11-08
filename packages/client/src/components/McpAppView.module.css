@@ -54,8 +54,3 @@
 .approval span {
   flex: 1 1 12rem;
 }
-
-.approval button {
-  min-height: 32px;
-  padding: 0 var(--space-3);
-}

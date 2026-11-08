@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { parseComposerSlashCommand } from "../lib/slashCommands";
 import { TextBlock } from "./blocks/TextBlock";
 import { UserPromptBlock } from "./blocks/UserPromptBlock";
+import { Button, IconButton } from "./ui/Button";
 
 export type BtwAsidePaneStatus =
   | "draft"
@@ -182,15 +183,13 @@ function TransferTurnButton({
       : "Insert user /btw turn into Mother composer";
 
   return (
-    <button
-      type="button"
-      className="user-prompt-action btw-aside-transfer-action"
+    <IconButton
+      size="small"
+      label={label}
       onClick={() => onTransferToComposer(text)}
-      aria-label={label}
-      title={label}
     >
       <ArrowDownIntoComposerIcon />
-    </button>
+    </IconButton>
   );
 }
 
@@ -255,32 +254,32 @@ export function BtwAsidePane({
           </span>
         </div>
         <div className="session-btw-pane-actions">
-          <button
-            type="button"
+          <Button
+            size="small"
             className="btw-aside-action"
             onClick={onHide}
             title={t("btwAsideMinimizeTitle")}
           >
             Min
-          </button>
+          </Button>
           {canStop && onStop && (
-            <button
-              type="button"
-              className="btw-aside-action btw-aside-action-stop"
+            <Button
+              size="small"
+              className="btw-aside-action"
               onClick={onStop}
               title="Stop this /btw aside"
             >
               Stop
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            size="small"
             className="btw-aside-action"
             onClick={() => onDone()}
             title={t("btwAsideDoneTitle")}
           >
             Done
-          </button>
+          </Button>
         </div>
       </header>
       <div className="session-btw-pane-body">
@@ -320,13 +319,9 @@ export function BtwAsidePane({
           rows={2}
           aria-label="/btw aside composer"
         />
-        <button
-          type="submit"
-          className="session-btw-pane-composer-send"
-          disabled={!draft.trim()}
-        >
+        <Button variant="primary" type="submit" disabled={!draft.trim()}>
           Send
-        </button>
+        </Button>
       </form>
     </aside>
   );

@@ -67,6 +67,7 @@ import { CompactResumeButton } from "./CompactResumeButton";
 import { SessionListItem } from "./SessionListItem";
 import type { SessionNavigationIntent } from "./SessionListItem";
 import sidebarStyles from "./Sidebar.module.css";
+import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { SidebarLauncher } from "./SidebarLauncher";
 import {
   SidebarIcons,
@@ -304,8 +305,7 @@ function SidebarSectionHeader({
 
   return (
     <h3 className={sidebarStyles.sectionHeading}>
-      <button
-        type="button"
+      <ButtonBase
         className={sidebarStyles.sectionToggle}
         onClick={onToggle}
         aria-expanded={expanded}
@@ -341,7 +341,7 @@ function SidebarSectionHeader({
             {countIsPartial ? "+" : ""}
           </span>
         )}
-      </button>
+      </ButtonBase>
     </h3>
   );
 }
@@ -1149,8 +1149,7 @@ export function Sidebar({
                 />
               )}
               {onMinimize && (
-                <button
-                  type="button"
+                <ButtonBase
                   className="sidebar-minimize"
                   onClick={onMinimize}
                   title={t("actionMinimizeSidebar")}
@@ -1168,7 +1167,7 @@ export function Sidebar({
                   >
                     <line x1="2" y1="10" x2="10" y2="10" />
                   </svg>
-                </button>
+                </ButtonBase>
               )}
             </>
           ) : isDesktop ? (
@@ -1202,11 +1201,10 @@ export function Sidebar({
               >
                 <YepAnywhereLogo />
               </Link>
-              <button
-                type="button"
+              <IconButton
+                label={t("actionCloseSidebar")}
                 className="sidebar-close"
                 onClick={onClose}
-                aria-label={t("actionCloseSidebar")}
               >
                 <svg
                   width="20"
@@ -1220,7 +1218,7 @@ export function Sidebar({
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
-              </button>
+              </IconButton>
             </>
           )}
         </div>
@@ -1519,9 +1517,9 @@ export function Sidebar({
                   {displayed.recent.map(renderCompactSession)}
                   {displayed.hiddenRecent.length > 0 && (
                     <li className="sidebar-hidden-dups">
-                      <button
-                        type="button"
-                        className="sidebar-hidden-dups-toggle"
+                      <Button
+                        variant="ghost"
+                        size="small"
                         onClick={() => setShowHiddenRecent((v) => !v)}
                         aria-expanded={showHiddenRecent}
                       >
@@ -1529,7 +1527,7 @@ export function Sidebar({
                         {t("sidebarHiddenDuplicateSessions", {
                           count: displayed.hiddenRecent.length,
                         })}
-                      </button>
+                      </Button>
                       {showHiddenRecent && (
                         <ul className="sidebar-session-list sidebar-hidden-sublist">
                           {displayed.hiddenRecent.map(renderCompactSession)}
@@ -1569,9 +1567,9 @@ export function Sidebar({
                   {displayed.older.map(renderCompactSession)}
                   {displayed.hiddenOlder.length > 0 && (
                     <li className="sidebar-hidden-dups">
-                      <button
-                        type="button"
-                        className="sidebar-hidden-dups-toggle"
+                      <Button
+                        variant="ghost"
+                        size="small"
                         onClick={() => setShowHiddenOlder((v) => !v)}
                         aria-expanded={showHiddenOlder}
                       >
@@ -1579,7 +1577,7 @@ export function Sidebar({
                         {t("sidebarHiddenDuplicateSessions", {
                           count: displayed.hiddenOlder.length,
                         })}
-                      </button>
+                      </Button>
                       {showHiddenOlder && (
                         <ul className="sidebar-session-list sidebar-hidden-sublist">
                           {displayed.hiddenOlder.map(renderCompactSession)}

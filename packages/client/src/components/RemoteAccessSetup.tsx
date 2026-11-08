@@ -18,6 +18,7 @@ import { isConnectionImpactDeclined } from "../api/connectionImpact";
 import { useI18n } from "../i18n";
 import { parseUserAgent } from "../lib/deviceDetection";
 import { QRCode } from "./QRCode";
+import { Button } from "./ui/Button";
 
 export interface RemoteAccessSetupProps {
   /** Custom title (default: "Remote Access") */
@@ -672,31 +673,26 @@ export function RemoteAccessSetup({
             </span>
             <div className="connect-url-row">
               <code className="connect-url">{connectUrl}</code>
-              <button
-                type="button"
-                className="copy-button"
+              <Button
+                size="small"
                 onClick={() => handleCopyUrl(connectUrl)}
                 title={t("remoteSetupCopyUrl" as never)}
               >
                 {copied
                   ? t("remoteSetupCopied" as never)
                   : t("remoteSetupCopy" as never)}
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {canShowQRCode && (
           <div className="remote-access-qr">
-            <button
-              type="button"
-              className="qr-toggle-button"
-              onClick={() => setShowQRCode(!showQRCode)}
-            >
+            <Button onClick={() => setShowQRCode(!showQRCode)}>
               {showQRCode
                 ? t("remoteSetupHideQr" as never)
                 : t("remoteSetupShowQr" as never)}
-            </button>
+            </Button>
             {showQRCode && qrCodeUrl && (
               <div className="qr-code-container">
                 <QRCode value={qrCodeUrl} size={200} />
@@ -714,15 +710,15 @@ export function RemoteAccessSetup({
               {t("remoteSetupSessions" as never, { count: sessions.length })}
             </span>
             {sessions.length > 0 && (
-              <button
-                type="button"
-                className="revoke-all-button"
+              <Button
+                variant="danger-outline"
+                size="small"
                 onClick={() => void revokeAllSessions().catch(() => {})}
                 disabled={isSaving}
                 title={t("remoteSetupRevokeEffect" as never)}
               >
                 {t("remoteSetupRevokeAll" as never)}
-              </button>
+              </Button>
             )}
           </div>
           <p className="settings-hint">
@@ -785,9 +781,9 @@ export function RemoteAccessSetup({
                         </>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      className="revoke-button"
+                    <Button
+                      variant="danger-outline"
+                      size="small"
                       onClick={() =>
                         void revokeSession(session.sessionId).catch(() => {})
                       }
@@ -795,7 +791,7 @@ export function RemoteAccessSetup({
                       title={t("remoteSetupRevokeEffect" as never)}
                     >
                       {t("remoteSetupRevoke" as never)}
-                    </button>
+                    </Button>
                   </li>
                 );
               })}
@@ -805,15 +801,11 @@ export function RemoteAccessSetup({
 
         {hasChanges && (
           <div className="remote-access-actions">
-            <button
-              type="submit"
-              className="settings-button"
-              disabled={isSaving}
-            >
+            <Button variant="primary" type="submit" disabled={isSaving}>
               {isSaving
                 ? t("remoteSetupSaving" as never)
                 : t("remoteSetupUpdate" as never)}
-            </button>
+            </Button>
           </div>
         )}
       </form>

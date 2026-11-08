@@ -32,6 +32,7 @@ import {
   useLocalFileScope,
 } from "./LocalMediaModal";
 import { LocalImageThumbnail } from "./LocalImageThumbnail";
+import { Button, ButtonBase } from "./ui/Button";
 import styles from "./TurnImageGallery.module.css";
 
 interface TurnImageGalleryNavigation {
@@ -678,8 +679,7 @@ export function AssistantTurnImageGallery({
             </div>
             <div className={styles.footer}>
               {featured ? (
-                <button
-                  type="button"
+                <ButtonBase
                   className={styles.caption}
                   onClick={() => jumpToSource(featured)}
                 >
@@ -687,7 +687,7 @@ export function AssistantTurnImageGallery({
                   {featured.basename !== featured.label ? (
                     <small>{featured.basename}</small>
                   ) : null}
-                </button>
+                </ButtonBase>
               ) : null}
               <span className={styles.count}>
                 {t("turnImageGalleryCount", {
@@ -700,14 +700,14 @@ export function AssistantTurnImageGallery({
                   ),
                 })}
               </span>
-              <button
-                type="button"
+              <Button
+                size="small"
                 className={styles.dismiss}
                 aria-keyshortcuts="Escape"
                 onClick={collapseGallery}
               >
                 {t("turnImageGalleryCollapse")}
-              </button>
+              </Button>
             </div>
           </section>
         ) : null}

@@ -32,6 +32,7 @@ import {
   stashNewSessionPrefillToken,
   type NewSessionPrefillCaret,
 } from "../lib/newSessionPrefill";
+import { ButtonBase } from "./ui/Button";
 import styles from "./FileResourceActions.module.css";
 
 export type FileViewPresentation = "preview" | "source";
@@ -545,8 +546,7 @@ export function ResourceContextMenu({
 
   return createPortal(
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.overlay}
         aria-label={dismissLabel ?? t("fileLinkDismissMenu" as never)}
         onClick={onClose}

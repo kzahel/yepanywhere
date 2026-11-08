@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useRemoteBasePath } from "../../../hooks/useRemoteBasePath";
 import { useI18n } from "../../../i18n";
+import { Button } from "../../ui/Button";
 import type { OnboardingStepProps } from "../types";
 
 /**
@@ -39,16 +40,12 @@ export function RemoteAccessStep({
       <p className="onboarding-step-hint">{t("onboardingRemoteHint")}</p>
 
       <div className="onboarding-step-actions">
-        <button type="button" className="btn-secondary" onClick={onSkip}>
+        <Button onClick={onSkip}>
           {isLastStep ? "Skip & Finish" : "Skip"}
-        </button>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={handleGoToSettings}
-        >
+        </Button>
+        <Button variant="primary" onClick={handleGoToSettings}>
           Set Up Remote Access
-        </button>
+        </Button>
       </div>
     </div>
   );

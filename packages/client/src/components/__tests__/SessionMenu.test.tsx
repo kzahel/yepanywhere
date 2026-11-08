@@ -47,7 +47,6 @@ describe("SessionMenu CSS module contracts", () => {
     expect(wrapper.classList.contains("session-menu-wrapper")).toBe(true);
     expect(wrapper.classList.contains("session-list-item__menu")).toBe(true);
     expect(wrapper.classList.contains("is-open")).toBe(false);
-    expect(trigger.classList.contains(styles.trigger ?? "")).toBe(true);
     expect(trigger.classList.contains("session-menu-trigger")).toBe(true);
 
     fireEvent.click(trigger);

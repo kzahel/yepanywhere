@@ -46,21 +46,8 @@
   gap: 4px;
 }
 
-.iconButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  min-height: 40px;
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 22px;
-}
-
-.copied {
+/* Doubled so the copied feedback outranks the shared ghost color. */
+.copied.copied {
   color: var(--success-color);
 }
 
@@ -92,30 +79,6 @@
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
-}
-
-.button,
-.primary {
-  min-height: 44px;
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font: inherit;
-}
-
-.primary {
-  background: var(--accent-color);
-  color: var(--text-on-accent, #fff);
-  border-color: var(--accent-color);
-}
-
-.button:disabled,
-.primary:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .editorLabel {

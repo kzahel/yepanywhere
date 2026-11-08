@@ -35,6 +35,7 @@ import { ComposerMicAction } from "./ComposerMicAction";
 import { AppViewerToolbar } from "./AppViewerToolbar";
 import { LastViewIcon } from "./LastViewIcon";
 import { ProjectAppIcon } from "./ProjectAppIcon";
+import { Button, ButtonBase, IconButton } from "./ui/Button";
 import actions from "./ViewerWindowActions.module.css";
 import styles from "./ProjectAppViewer.module.css";
 import { useI18n } from "../i18n";
@@ -506,6 +507,7 @@ export function ProjectAppViewer({
     setReload((value) => value + 1);
   }
   const restartPress = useLongPress(() => void perform(restart));
+  // The restart tooltip warns that the link stops working.
   const details = settings;
   const declaration = info?.activeDeclaration ?? info?.declaration;
   const served = addresses?.reservations.find(
@@ -629,10 +631,8 @@ export function ProjectAppViewer({
       {presentation === "viewer" && (
         <AppViewerToolbar viewerRef={viewerRef}>
           <div className={actions.actions}>
-            <button
-              type="button"
-              aria-label={t("projectAppBack")}
-              title={t("projectAppBack")}
+            <IconButton
+              label={t("projectAppBack")}
               onClick={() => {
                 if (details) {
                   setSettings(false);
@@ -646,13 +646,12 @@ export function ProjectAppViewer({
               }}
             >
               <Glyph path="M15 5l-7 7 7 7" />
-            </button>
+            </IconButton>
           </div>
           <span className={styles.title}>
             {/* Home: the app at its entry route, from an artifact or a page
                 navigated within the app. Back keeps the frame's own history. */}
-            <button
-              type="button"
+            <ButtonBase
               className={styles.home}
               title={t("projectAppHome")}
               disabled={!declaration}
@@ -675,7 +674,7 @@ export function ProjectAppViewer({
                   (targetKind === "artifact" ? undefined : view?.label) ??
                   t("projectAppLabel")}
               </span>
-            </button>
+            </ButtonBase>
             {targetKind === "artifact" && view && (
               <>
                 <LastViewIcon />
@@ -728,14 +727,13 @@ export function ProjectAppViewer({
                       {crumb.current ? (
                         <span aria-current="page">{crumb.label}</span>
                       ) : (
-                        <button
-                          type="button"
+                        <ButtonBase
                           className={styles.crumb}
                           title={crumb.path}
                           onClick={() => openFramePath(crumb.path)}
                         >
                           {crumb.label}
-                        </button>
+                        </ButtonBase>
                       )}
                     </span>
                   ))}
@@ -744,19 +742,15 @@ export function ProjectAppViewer({
             )}
             {repoLocation && (
               <div className={`${actions.actions} ${styles.pathActions}`}>
-                <button
-                  type="button"
+                <IconButton
                   className={styles.copyPath}
-                  title={t("fileLinkMenuCopyProjectRelativePath")}
-                  aria-label={t("fileLinkMenuCopyProjectRelativePath")}
+                  label={t("fileLinkMenuCopyProjectRelativePath")}
                   onClick={() => copyPath(repoLocation.path)}
                 >
                   <Glyph path="M9 9h11v12H9zM15 9V3H3v12h6" />
-                </button>
-                <button
-                  type="button"
-                  title={t("projectPathActions")}
-                  aria-label={t("projectPathActions")}
+                </IconButton>
+                <IconButton
+                  label={t("projectPathActions")}
                   onClick={(event) =>
                     pathMenu.openFromButton(
                       event,
@@ -765,30 +759,20 @@ export function ProjectAppViewer({
                   }
                 >
                   ⋯
-                </button>
+                </IconButton>
               </div>
             )}
           </span>
           <div className={actions.actions}>
             {onFullView && (
-              <button
-                type="button"
-                title={t("projectAppFullView")}
-                aria-label={t("projectAppFullView")}
-                onClick={onFullView}
-              >
+              <IconButton label={t("projectAppFullView")} onClick={onFullView}>
                 <Glyph path="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
-              </button>
+              </IconButton>
             )}
             {info?.canExecute && onSession && (
-              <button
-                type="button"
-                title={t("projectAppNewSession")}
-                aria-label={t("projectAppNewSession")}
-                onClick={onSession}
-              >
+              <IconButton label={t("projectAppNewSession")} onClick={onSession}>
                 <Glyph path="M12 4v16M4 12h16" />
-              </button>
+              </IconButton>
             )}
             {info?.canExecute && (
               <ComposerMicAction voice={voice} onActivate={onVoice} />
@@ -796,12 +780,8 @@ export function ProjectAppViewer({
             {info?.latestArtifact &&
               (offerLatestArtifact || targetKind === "artifact") && (
                 // Always reachable: the controls offering it hide once a view loads.
-                <button
-                  type="button"
-                  title={t("projectAppLatest", {
-                    label: info.latestArtifact.label,
-                  })}
-                  aria-label={t("projectAppLatest", {
+                <IconButton
+                  label={t("projectAppLatest", {
                     label: info.latestArtifact.label,
                   })}
                   aria-pressed={targetKind === "artifact"}
@@ -819,14 +799,12 @@ export function ProjectAppViewer({
                   }}
                 >
                   <LastViewIcon />
-                </button>
+                </IconButton>
               )}
             {/* Settings hold sharing too. Everyone may see sharing status and
                 copy its links; each control there is gated on its own right. */}
-            <button
-              type="button"
-              title={t("projectAppSettings")}
-              aria-label={t("projectAppSettings")}
+            <IconButton
+              label={t("projectAppSettings")}
               onClick={() => {
                 setSettings(true);
                 void refresh().catch((reason: Error) =>
@@ -848,16 +826,15 @@ export function ProjectAppViewer({
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
               </svg>
-            </button>
+            </IconButton>
           </div>
           {livePreviewSupported &&
             info?.livePreview &&
             info.canExecute &&
             targetKind === "app" && (
               <div className={actions.actions}>
-                <button
-                  type="button"
-                  className={`${actions.textAction} ${styles.livePreviewToggle}`}
+                <Button
+                  variant="ghost"
                   aria-pressed={info.mode === "live-preview"}
                   disabled={
                     busy ||
@@ -877,7 +854,7 @@ export function ProjectAppViewer({
                   }
                 >
                   {t("projectAppLivePreview")}
-                </button>
+                </Button>
               </div>
             )}
           {view && (
@@ -895,11 +872,10 @@ export function ProjectAppViewer({
                 view.kind === "service" &&
                 info?.activeDeclaration &&
                 info.canExecute && (
-                  <button
-                    type="button"
+                  <IconButton
                     disabled={busy}
-                    title={t("projectAppRestartRevokes")}
-                    aria-label={t("projectAppRestart")}
+                    label={t("projectAppRestart")}
+                    tooltip={t("projectAppRestartRevokes")}
                     // A held press or right-click is deliberate enough to skip
                     // the confirmation a stray tap gets.
                     {...restartPress.handlers}
@@ -909,7 +885,7 @@ export function ProjectAppViewer({
                     })}
                   >
                     <Glyph path="M12 3v8M7.5 6.5a7 7 0 1 0 9 0" />
-                  </button>
+                  </IconButton>
                 )
               }
               copyNotice={
@@ -984,8 +960,7 @@ export function ProjectAppViewer({
                   info?.livePreview &&
                   info.canExecute &&
                   !info.activeDeclaration && (
-                    <button
-                      type="button"
+                    <Button
                       disabled={busy}
                       onClick={() =>
                         void perform(async () => {
@@ -997,15 +972,14 @@ export function ProjectAppViewer({
                       }
                     >
                       {t("projectAppLivePreview")}
-                    </button>
+                    </Button>
                   )}
                 {info &&
                   (info.activeDeclaration
                     ? info.canExecute
                     : (info.canStart ?? info.canExecute) &&
                       info.declaration?.where.kind === "process") && (
-                    <button
-                      type="button"
+                    <Button
                       disabled={busy}
                       onClick={() =>
                         void perform(async () => {
@@ -1024,17 +998,16 @@ export function ProjectAppViewer({
                             ? "projectAppStop"
                             : "projectAppStart",
                       )}
-                    </button>
+                    </Button>
                   )}
                 {info?.activeDeclaration && info.canExecute && (
-                  <button
-                    type="button"
+                  <Button
                     disabled={busy}
                     title={t("projectAppRestartTitle")}
                     onClick={() => void perform(restart)}
                   >
                     {t("projectAppRestart")}
-                  </button>
+                  </Button>
                 )}
                 {info?.state === "none" && !info.latestArtifact && (
                   <p>{t("projectAppEmpty")}</p>
@@ -1061,8 +1034,9 @@ export function ProjectAppViewer({
                             <>
                               <code>{command}</code>
                               {canEditCommand && (
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="small"
                                   className={styles.commandEdit}
                                   disabled={busy}
                                   onClick={() =>
@@ -1070,7 +1044,7 @@ export function ProjectAppViewer({
                                   }
                                 >
                                   {t("projectAppCommandEdit")}
-                                </button>
+                                </Button>
                               )}
                             </>
                           ) : (
@@ -1096,19 +1070,19 @@ export function ProjectAppViewer({
                                 />
                               </label>
                               <div>
-                                <button
+                                <Button
+                                  variant="primary"
                                   type="submit"
                                   disabled={busy || !commandDraft.trim()}
                                 >
                                   {t("projectAppCommandSave")}
-                                </button>
-                                <button
-                                  type="button"
+                                </Button>
+                                <Button
                                   disabled={busy}
                                   onClick={() => setCommandDraft(null)}
                                 >
                                   {t("projectAppCommandCancel")}
-                                </button>
+                                </Button>
                               </div>
                             </form>
                           )}
@@ -1118,9 +1092,7 @@ export function ProjectAppViewer({
                   </dl>
                 )}
                 {presentation === "viewer" && info?.latestArtifact && (
-                  <button
-                    type="button"
-                    className={styles.iconLabel}
+                  <Button
                     onClick={() => {
                       setTarget({
                         target: "artifact",
@@ -1133,19 +1105,18 @@ export function ProjectAppViewer({
                     {t("projectAppLatest", {
                       label: info.latestArtifact.label,
                     })}
-                  </button>
+                  </Button>
                 )}
                 {presentation === "viewer" &&
                   (info?.declaration || info?.activeDeclaration) && (
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => {
                         setTarget({ target: "app" });
                         setSettings(false);
                       }}
                     >
                       {t("projectAppLabel")}
-                    </button>
+                    </Button>
                   )}
                 {info?.removedFrom.map((row) => (
                   <p key={row.username}>
@@ -1153,8 +1124,9 @@ export function ProjectAppViewer({
                       username: row.username,
                       date: new Date(row.at).toLocaleString(),
                     })}{" "}
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="small"
                       disabled={busy}
                       onClick={() =>
                         void perform(() =>
@@ -1165,7 +1137,7 @@ export function ProjectAppViewer({
                       }
                     >
                       {t("projectAppRestore")}
-                    </button>
+                    </Button>
                   </p>
                 ))}
               </>
@@ -1179,8 +1151,7 @@ export function ProjectAppViewer({
             {settings && presentation === "viewer" && info?.canShare && (
               <>
                 <p>{t("projectAppLinkWarning")}</p>
-                <button
-                  type="button"
+                <Button
                   disabled={busy || !target}
                   onClick={() =>
                     void perform(async () => {
@@ -1191,7 +1162,7 @@ export function ProjectAppViewer({
                   }
                 >
                   {t("projectAppCreateLink")}
-                </button>
+                </Button>
                 {share && (
                   <>
                     <p>
@@ -1290,8 +1261,7 @@ export function ProjectAppViewer({
                             {!row.privateOnly &&
                               publicAccess !== undefined &&
                               publicAccess !== row.public && (
-                                <button
-                                  type="button"
+                                <Button
                                   disabled={busy}
                                   onClick={() =>
                                     void perform(async () => {
@@ -1308,10 +1278,9 @@ export function ProjectAppViewer({
                                   }
                                 >
                                   {t("projectAppSaveAccess")}
-                                </button>
+                                </Button>
                               )}
-                            <button
-                              type="button"
+                            <Button
                               disabled={busy}
                               onClick={() =>
                                 void perform(async () => {
@@ -1344,7 +1313,7 @@ export function ProjectAppViewer({
                                     ? "projectAppStartAndServe"
                                     : "projectAppServe",
                               )}
-                            </button>
+                            </Button>
                             {addresses.autoStart &&
                               declaration?.where.kind === "process" &&
                               serverHasCapability(
@@ -1390,8 +1359,8 @@ export function ProjectAppViewer({
                           </>
                         )}
                         {(addresses.canRelease ?? addresses.canPublish) && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="danger-outline"
                             disabled={busy}
                             onClick={() => {
                               if (
@@ -1411,7 +1380,7 @@ export function ProjectAppViewer({
                             }}
                           >
                             {t("projectAppRelease")}
-                          </button>
+                          </Button>
                         )}
                       </>
                     )}
@@ -1430,8 +1399,8 @@ export function ProjectAppViewer({
                           onChange={(event) => setName(event.target.value)}
                         />
                       </label>
-                      <button
-                        type="button"
+                      <Button
+                        variant="primary"
                         disabled={busy || !name.trim()}
                         onClick={() =>
                           void perform(() =>
@@ -1442,7 +1411,7 @@ export function ProjectAppViewer({
                         }
                       >
                         {t("projectAppReserve")}
-                      </button>
+                      </Button>
                       <p>{t("projectAppReserveHint")}</p>
                     </>
                   )}

@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { formatFileSize } from "../lib/formatFileSize";
 import styles from "./FolderListPopover.module.css";
+import { ButtonBase, IconButton } from "./ui/Button";
 
 /** A folder path's parent in the same form, or null at a root we can name. */
 export function parentFolderPath(folder: string): string | null {
@@ -274,8 +275,7 @@ export function FolderListPopover({
   const label = folderLabel(folder, rootLabel);
   return createPortal(
     <>
-      <button
-        type="button"
+      <ButtonBase
         className={styles.overlay}
         aria-label={t("fileLinkDismissMenu" as never)}
         onClick={onClose}
@@ -304,44 +304,32 @@ export function FolderListPopover({
           </span>
           {siblings.length > 0 && index >= 0 ? (
             <span className={styles.stepper}>
-              <button
-                type="button"
-                className={styles.step}
+              <IconButton
+                size="small"
+                label={
+                  previous
+                    ? t("folderListPrevious" as never, { name: previous.name })
+                    : t("folderListNoPrevious" as never)
+                }
                 disabled={!previous}
-                title={
-                  previous
-                    ? t("folderListPrevious" as never, { name: previous.name })
-                    : t("folderListNoPrevious" as never)
-                }
-                aria-label={
-                  previous
-                    ? t("folderListPrevious" as never, { name: previous.name })
-                    : t("folderListNoPrevious" as never)
-                }
                 onClick={() =>
                   previous && onOpenFile(childPath(folder, previous.name))
                 }
               >
                 ‹
-              </button>
-              <button
-                type="button"
-                className={styles.step}
+              </IconButton>
+              <IconButton
+                size="small"
+                label={
+                  next
+                    ? t("folderListNext" as never, { name: next.name })
+                    : t("folderListNoNext" as never)
+                }
                 disabled={!next}
-                title={
-                  next
-                    ? t("folderListNext" as never, { name: next.name })
-                    : t("folderListNoNext" as never)
-                }
-                aria-label={
-                  next
-                    ? t("folderListNext" as never, { name: next.name })
-                    : t("folderListNoNext" as never)
-                }
                 onClick={() => next && onOpenFile(childPath(folder, next.name))}
               >
                 ›
-              </button>
+              </IconButton>
             </span>
           ) : null}
         </div>
@@ -387,9 +375,9 @@ export function FolderListPopover({
               return (
                 <li key={entry.name}>
                   {entry.kind === "other" ? (
-                    <button type="button" className={styles.row} disabled>
+                    <ButtonBase className={styles.row} disabled>
                       {cells}
-                    </button>
+                    </ButtonBase>
                   ) : (
                     <RowLink
                       href={isFolder ? folderHref(path) : fileHref(path)}
