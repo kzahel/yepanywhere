@@ -1,4 +1,5 @@
 import { FileDropZone } from "../components/FileDropZone";
+import { SessionPageModals } from "../components/SessionPageModals";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import {
   getSessionCreation,
@@ -117,13 +118,9 @@ import type {
   ChosenNewSessionQueueTarget,
   NewSessionQueueTarget,
 } from "../components/NewSessionQueueOptions";
-import { ModelSwitchModal } from "../components/ModelSwitchModal";
-import { ProcessInfoBody } from "../components/ProcessInfoModal";
-import { ProjectSessionDefaultsModal } from "../components/ProjectSessionDefaultsModal";
 import { ProviderBadge } from "../components/ProviderBadge";
 import { QuestionAnswerPanel } from "../components/QuestionAnswerPanel";
 import { RecentSessionsDropdown } from "../components/RecentSessionsDropdown";
-import { RestartSessionModal } from "../components/RestartSessionModal";
 import { routerBindingChip } from "../components/RouterPoolSelector";
 import { SessionMenu } from "../components/SessionMenu";
 import {
@@ -133,7 +130,6 @@ import {
 import { SessionRenameEditor } from "../components/SessionRenameEditor";
 import { useSessionHeaderLayout } from "../hooks/useSessionHeaderLayout";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
-import { SessionRecapModal } from "../components/SessionRecapModal";
 import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
 import { AgentContentProvider } from "../contexts/AgentContentContext";
 import { GlossaryProjectProvider } from "../contexts/GlossaryContext";
@@ -177,7 +173,6 @@ import {
   forkSessionAtEffort,
   useLongContextEffortGuard,
 } from "../hooks/useLongContextEffortGuard";
-import { LongContextEffortWarningModal } from "../components/LongContextEffortWarningModal";
 import { useSessionLoadingProgress } from "../hooks/useSessionLoadingProgress";
 import type { SessionLoadProgress } from "../hooks/useSessionMessages";
 import { useSessionPerformanceSettings } from "../hooks/useSessionPerformanceSettings";
@@ -278,10 +273,7 @@ import {
 import { shouldShowProjectQueueAffordance } from "../lib/projectQueueVisibility";
 import { createSessionDraftStorageKey } from "../lib/sessionDraftStorage";
 import { getSessionActivityUiState } from "../lib/sessionActivityUi";
-import {
-  createSessionNavigationState,
-  parseSessionNavigationState,
-} from "../lib/sessionNavigationState";
+import { parseSessionNavigationState } from "../lib/sessionNavigationState";
 import { getPublicShareInitialPrompt } from "../lib/sessionPublicSharePrompt";
 import { getUnifiedSessionForkAvailability } from "../lib/sessionForkAvailability";
 import { SessionRewindProvider } from "../contexts/SessionRewindContext";
@@ -3982,158 +3974,49 @@ function SessionPageContent({
           </div>
         </header>
 
-        {showProjectSettingsModal && supportsProjectSettings && (
-          <ProjectSessionDefaultsModal
-            projectId={projectId}
-            projectName={project?.name}
-            onClose={() => setShowProjectSettingsModal(false)}
-          />
-        )}
-
-        {showRecapModal && status.owner === "self" && (
-          <SessionRecapModal
-            sessionId={actualSessionId}
-            processId={status.processId}
-            provider={effectiveProvider}
-            currentModel={liveBadgeModel}
-            onClose={() => setShowRecapModal(false)}
-            onSaved={(settings) => {
-              setStatus((prev) =>
-                prev.owner === "self" && prev.processId === status.processId
-                  ? {
-                      ...prev,
-                      recapAfterSeconds: settings.recapAfterSeconds,
-                    }
-                  : prev,
-              );
-              showToast(t("sessionRecapSaved"), "success");
-            }}
-          />
-        )}
-
-        {longContextEffortWarning && (
-          <LongContextEffortWarningModal
-            contextTokens={longContextEffortWarning.contextTokens}
-            currentEffortLabel={longContextEffortWarning.currentEffortLabel}
-            nextEffortLabel={longContextEffortWarning.nextEffortLabel}
-            canFork={longContextEffortWarning.canFork}
-            busy={longContextEffortWarning.busy}
-            onChoose={(choice) => void chooseLongContextEffortWarning(choice)}
-          />
-        )}
-
-        {/* Model Switch Modal */}
-        {showModelSwitchModal && !isDomLingerParked && (
-          <ModelSwitchModal
-            routed={routedSession}
-            processId={status.owner === "self" ? status.processId : undefined}
-            sessionId={actualSessionId}
-            currentModel={session?.model}
-            sessionProvider={effectiveProvider}
-            onModelChanged={handleModelChanged}
-            guardEffortChange={guardEffortChange}
-            initialTab={modelPanelInitialTab}
-            infoPane={
-              session ? (
-                <ProcessInfoBody
-                  onRelationshipNavigate={() => setShowModelSwitchModal(false)}
-                  relationshipProjectId={
-                    creationPrincipalResolved &&
-                    creationPrincipal.superuser &&
-                    serverHasCapability(
-                      versionInfo,
-                      SERVER_CAPABILITIES.sessionRelationships,
-                    )
-                      ? projectId
-                      : undefined
-                  }
-                  sessionId={actualSessionId}
-                  sessionTitle={titleTooltip}
-                  provider={session.provider}
-                  model={session.model}
-                  savedServiceTier={savedLaunchSettings?.serviceTier}
-                  serviceTiers={providerServiceTiers}
-                  status={status}
-                  processState={processState}
-                  sessionLiveness={sessionLiveness}
-                  providerRuntimeStatus={providerRuntimeStatus}
-                  contextUsage={session.contextUsage}
-                  originator={session.originator}
-                  cliVersion={session.cliVersion}
-                  sessionSource={session.source}
-                  approvalPolicy={session.approvalPolicy}
-                  sandboxPolicy={session.sandboxPolicy}
-                  createdAt={session.createdAt}
-                  routerBinding={session.routerBinding}
-                  sessionStreamConnected={sessionUpdatesConnected}
-                  lastSessionEventAt={lastStreamActivityAt}
-                />
-              ) : null
-            }
-            onActivate={async () => {
-              const result = await api.reactivateSession(
-                projectId,
-                actualSessionId,
-              );
-              setStatus({
-                owner: "self",
-                processId: result.processId,
-                permissionMode: result.permissionMode,
-                appliedPermissionMode: result.appliedPermissionMode,
-                modeVersion: result.modeVersion,
-                recapAfterSeconds: result.recapAfterSeconds,
-              });
-            }}
-            onClose={() => setShowModelSwitchModal(false)}
-          />
-        )}
-
-        {showHandoffModal && effectiveProvider && !routedSession && (
-          <RestartSessionModal
-            projectId={projectId}
-            sessionId={actualSessionId}
-            provider={effectiveProvider}
-            providerDisplayName={currentProviderInfo?.displayName}
-            providers={providers}
-            models={currentProviderInfo?.models}
-            currentModel={liveBadgeModel}
-            mode={permissionMode}
-            thinking={getThinkingSetting()}
-            executor={session?.executor}
-            project={projects.find((candidate) => candidate.id === projectId)}
-            providerRuntimeStatus={providerRuntimeStatus}
-            onRestarted={(result, options) => {
-              setShowHandoffModal(false);
-              showToast(t("sessionHandoffStarted"), "success");
-              const handoffUrl = `${basePath}/projects/${projectId}/sessions/${result.sessionId}`;
-              const handoffHref = toBrowserAppHref(handoffUrl);
-              if (options?.targetWindow && !options.targetWindow.closed) {
-                options.targetWindow.location.href = handoffHref;
-                return;
-              }
-              if (options?.openInNewWindow) {
-                window.open(handoffHref, "_blank", "noopener");
-                return;
-              }
-              navigate(handoffUrl, {
-                state: createSessionNavigationState({
-                  initialStatus: {
-                    owner: "self",
-                    processId: result.processId,
-                    permissionMode: result.permissionMode,
-                    appliedPermissionMode: result.appliedPermissionMode,
-                    modeVersion: result.modeVersion,
-                    recapAfterSeconds: result.recapAfterSeconds,
-                  },
-                  initialTitle: result.title,
-                  initialModel: result.model ?? liveBadgeModel,
-                  initialProvider: result.provider ?? effectiveProvider,
-                }),
-              });
-            }}
-            onClose={() => setShowHandoffModal(false)}
-          />
-        )}
+        <SessionPageModals
+          actualSessionId={actualSessionId}
+          basePath={basePath}
+          chooseLongContextEffortWarning={chooseLongContextEffortWarning}
+          creationPrincipal={creationPrincipal}
+          creationPrincipalResolved={creationPrincipalResolved}
+          currentProviderInfo={currentProviderInfo}
+          effectiveProvider={effectiveProvider}
+          guardEffortChange={guardEffortChange}
+          handleModelChanged={handleModelChanged}
+          isDomLingerParked={isDomLingerParked}
+          lastStreamActivityAt={lastStreamActivityAt}
+          liveBadgeModel={liveBadgeModel}
+          longContextEffortWarning={longContextEffortWarning}
+          modelPanelInitialTab={modelPanelInitialTab}
+          navigate={navigate}
+          permissionMode={permissionMode}
+          processState={processState}
+          project={project}
+          projectId={projectId}
+          projects={projects}
+          providerRuntimeStatus={providerRuntimeStatus}
+          providers={providers}
+          providerServiceTiers={providerServiceTiers}
+          routedSession={routedSession}
+          savedLaunchSettings={savedLaunchSettings}
+          session={session}
+          sessionLiveness={sessionLiveness}
+          sessionUpdatesConnected={sessionUpdatesConnected}
+          setShowHandoffModal={setShowHandoffModal}
+          setShowModelSwitchModal={setShowModelSwitchModal}
+          setShowProjectSettingsModal={setShowProjectSettingsModal}
+          setShowRecapModal={setShowRecapModal}
+          setStatus={setStatus}
+          showHandoffModal={showHandoffModal}
+          showModelSwitchModal={showModelSwitchModal}
+          showProjectSettingsModal={showProjectSettingsModal}
+          showRecapModal={showRecapModal}
+          status={status}
+          supportsProjectSettings={supportsProjectSettings}
+          titleTooltip={titleTooltip}
+          versionInfo={versionInfo}
+        />
 
         <ExternalSessionWarning active={status.owner === "external"} />
 

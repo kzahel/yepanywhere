@@ -2,7 +2,7 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: in progress 2026-11-08 (slices 0 to 2 landed).
+Status: in progress 2026-11-08 (slices 0 to 3 landed).
 
 The next step after [plan 181](181-session-page-feature-hooks.md) for
 [the session page hub gap](../../gaps/session-page-react-hub.md). About
@@ -38,11 +38,12 @@ Nothing is rewritten. Each slice moves code verbatim; the hooks follow plan
   and the footer and pop-ups import `../pages/SessionPage.module.css` as
   `styles` (CSS module class maps are untyped strings, so the review checks
   the path).
-- **Prop types are derived, not written.** Each prop's type comes from an
-  existing source: an exported type, `ReturnType<typeof useX>["y"]` for a
-  hook's result, `ComponentProps<typeof X>["y"]` for a value passed
-  straight to a child, or `typeof` of a module value. No new hand-written
-  shape that could widen or narrow a value.
+- **Prop types are derived, not written.** A prop that is a hook's result
+  is typed `ReturnType<typeof useX>["y"]`; any other prop gets the type the
+  TypeScript checker gives the page's own declaration, printed with its
+  alias names (`Dispatch<SetStateAction<boolean>>`, `PermissionMode`), so
+  no type widens or narrows a value. A script generates the props
+  interface and the call site from the checker's list of the free names.
 - **Rendering.** The components are plain function components declared at
   module level, not wrapped in `memo`. The page re-renders every second;
   each component re-renders with it exactly as the inline markup did, and

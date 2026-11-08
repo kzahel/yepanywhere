@@ -308,6 +308,7 @@ and props stable.
 | 2.36 | Done 2026-11-08 | `SessionPage.tsx` route sync | Move the page's visit record and URL replacements into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 6). | Move-only: the four effects that record the visit and replace the URL for a real session id, a native-id viewer URL and the canonical project move verbatim into `hooks/useSessionRouteSync.ts`, called where they stood. No dependency list changed. Budget `SessionPage.tsx` 5,231 -> 5,157; the hook is 122 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.37 | Done 2026-11-08 | `SessionPage.tsx` header actions | Move the page's archive, star, suggestions, read, terminate, restart and share actions into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 1). | Move-only: the eleven handlers and values, the read-shortcut effect and the share modal state move verbatim into `hooks/useSessionHeaderActions.ts`, called where the handlers stood, so the effect keeps its place. The share state moves later in the hook order; nothing between reads it. No dependency list changed. Budget `SessionPage.tsx` 5,157 -> 5,019; the hook is 263 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.38 | Done 2026-11-08 | `SessionPage.tsx` project move menu | Move the page's project move menu into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 2). | Move-only: the menu state and its two refs, the options, the outside-click and Escape effect and the two handlers move verbatim into `hooks/useProjectReclassifyMenu.ts`, called where the options stood, so the effect keeps its place. The state moves later in the hook order; nothing between reads it. `setShowRecentSessions` joined one dependency list (a state setter). Budget `SessionPage.tsx` 5,019 -> 4,930; the hook is 164 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.39 | Done 2026-11-08 | `SessionPage.tsx` pop-ups | Move the page's five pop-ups into a component ([plan 182](182-session-page-header-and-footer.md) slice 3). | Move-only: the project defaults, recap, long-context warning, model and info, and handoff pop-ups move verbatim into `components/SessionPageModals.tsx`, rendered where they stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged. Budget `SessionPage.tsx` 4,930 -> 4,813; the component is 296 lines. Tier 3, plus plan 182's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -442,6 +443,44 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.39 — Session Page Pop-ups (Landed 2026-11-08, this commit)
+
+Moved:
+- The five conditional pop-ups between the header and
+  `ExternalSessionWarning` (`ProjectSessionDefaultsModal`,
+  `SessionRecapModal`, `LongContextEffortWarningModal`, `ModelSwitchModal`
+  with its `ProcessInfoBody`, and `RestartSessionModal`) ->
+  `SessionPageModals` in new
+  `packages/client/src/components/SessionPageModals.tsx`, wrapped in a
+  fragment, which adds no DOM.
+
+Signature conversions (closure -> prop):
+- The component takes 41 props, each passed as `name={name}`: `actualSessionId`, `basePath`, `chooseLongContextEffortWarning`, `creationPrincipal`, `creationPrincipalResolved`, `currentProviderInfo`, `effectiveProvider`, `guardEffortChange`, `handleModelChanged`, `isDomLingerParked`, `lastStreamActivityAt`, `liveBadgeModel`, `longContextEffortWarning`, `modelPanelInitialTab`, `navigate`, `permissionMode`, `processState`, `project`, `projectId`, `projects`, `providerRuntimeStatus`, `providers`, `providerServiceTiers`, `routedSession`, `savedLaunchSettings`, `session`, `sessionLiveness`, `sessionUpdatesConnected`, `setShowHandoffModal`, `setShowModelSwitchModal`, `setShowProjectSettingsModal`, `setShowRecapModal`, `setStatus`, `showHandoffModal`, `showModelSwitchModal`, `showProjectSettingsModal`, `showRecapModal`, `status`, `supportsProjectSettings`, `titleTooltip`, `versionInfo`.
+  Their types are the page's: `ReturnType<typeof useX>[...]` for hook
+  results, otherwise the type the checker gives the page's declaration.
+- `t` and `showToast` come from `useI18n` and `useToastContext` inside,
+  which return the values the page reads. The inline arrows (`onSaved`,
+  `onActivate`, `onRestarted` and the closers) stay inline and keep their
+  per-render identity; the component is not memoized.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- `session-page-header-paths` and `long-context-effort-warning` pass at
+  this commit (17 cases).
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.38 — Session Page Project Move Menu (Landed 2026-11-08, this commit)
 
