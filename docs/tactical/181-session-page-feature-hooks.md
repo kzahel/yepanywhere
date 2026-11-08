@@ -2,7 +2,8 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: in progress 2026-11-08. Slice 0 (the pins) landed: 37 cases in
+Status: done 2026-11-08 (slices 0 to 6); `SessionPage.tsx` went from
+6,560 to 5,157 lines. Slice 0 (the pins) landed: 37 cases in
 `session-page-fork-paths`, `session-page-queue-paths`,
 `session-page-title-attachment-paths` and `session-page-navigation-paths`
 (with `e2e/support/session-page-harness.ts`), passing at `e770fca38` and at

@@ -42,7 +42,10 @@ shared, and how risky it is to touch today.
    control, and the message boxes' shared speech state, handlers, keys, speech
    field and attachment upload step, of which the floating composer shares the
    speech pieces, and the page's submission, send, queue and Project Queue
-   decisions and its plain send module) landed 2026-11-07. Moving small
+   decisions and its plain send module) landed 2026-11-07, and slices 2.31
+   to 2.36 (the page's fork, queued-message, title, attachment upload,
+   recall and route-sync hooks, [plan 181](181-session-page-feature-hooks.md))
+   on 2026-11-08. Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session
@@ -299,6 +302,7 @@ and props stable.
 | 2.33 | Done 2026-11-08 | `SessionPage.tsx` title editing | Move the page's rename field, generated retitle and `/title` command into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 3). | Move-only: the editing state and refs, `attachTitleInput`, the retitle ref sync effect, the title handlers, the two Escape and parked-cancel effects and the `TitleEditMode` and `GeneratedRetitleState` types move verbatim into `hooks/useSessionTitleEditing.ts`, called where the handlers began. The state and the ref sync effect move later in the hook order; the ref sync is not observable (see the landing note). No dependency list changed. Budget `SessionPage.tsx` 5,819 -> 5,546; the hook is 379 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.34 | Done 2026-11-08 | `SessionPage.tsx` attachment upload | Move the page's attachment upload, incoming share and remove step into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 4). | Move-only: `uploadAttachedFiles`, `handleAttach`, the `useIncomingShareFiles` call and `handleRemoveAttachment` move verbatim into `hooks/useSessionAttachmentUploads.ts`, called where they stood, so the share hook's effects keep their place. Two refs and `setUploadProgress` joined dependency lists. Budget `SessionPage.tsx` 5,546 -> 5,383; the hook is 261 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.35 | Done 2026-11-08 | `SessionPage.tsx` recall and navigation actions | Move the page's recall entries, scroll-to-turn requests and navigation-state actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 5). | Move-only: the turn and command recall, the scroll-to-turn request, the search-match and non-human-turn navigation hooks and the navigation-state actions with their early-typing effects move verbatim into `hooks/useSessionTranscriptJumps.ts`, called where they stood, so no effect changes order. Three early-typing refs joined dependency lists, including the unmount-only effect's. Budget `SessionPage.tsx` 5,383 -> 5,231; the hook is 260 lines. Tier 3, plus plan 181's slice 0 pins. |
+| 2.36 | Done 2026-11-08 | `SessionPage.tsx` route sync | Move the page's visit record and URL replacements into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 6). | Move-only: the four effects that record the visit and replace the URL for a real session id, a native-id viewer URL and the canonical project move verbatim into `hooks/useSessionRouteSync.ts`, called where they stood. No dependency list changed. Budget `SessionPage.tsx` 5,231 -> 5,157; the hook is 122 lines. Tier 3, plus plan 181's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -433,6 +437,44 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.36 — Session Page Route Sync (Landed 2026-11-08, this commit)
+
+Moved:
+- The visit record, the temporary-id replacement, the native-id viewer
+  URL rewrite and the canonical project redirect effects ->
+  `useSessionRouteSync` in new
+  `packages/client/src/hooks/useSessionRouteSync.ts`, which returns
+  nothing.
+
+Signature conversions (closure -> parameter):
+- The hook takes `sessionId`, `projectId`, `actualSessionId`, `session`,
+  `location`, `navigate`, `basePath` and `isDomLingerParked`. `location`
+  is the page's, not the router's. The effects keep their order and
+  dependency lists.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 552 passed, 13 skipped, 2 failed:
+  `artifact-viewer.spec.ts:136` (below) and
+  `session-header-responsive.spec.ts:29`, which passes when rerun alone at
+  this commit. `artifact-viewer.spec.ts:136` fails the same way in a full
+  run at `e770fca38` (517 passed, 13 skipped, 1 failed) and passes alone; it
+  is recorded in the artifact viewer gap. Tier 3 ran before review folded
+  pin and doc fixes into slice 0; the source at this slice is unchanged by
+  them, and plan 181's slice 0 pins (37 cases) pass at this commit.
+- `pnpm i18n:scan` reports nothing in the new hook. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `e770fca38` (from `5e86a07b3`).
+- No pin uses route retention, so that the hook reads the page's `location`
+  rather than the router's is checked by review and by `rg
+  "useLocation|useNavigate"` over the new hooks, which finds nothing.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.35 — Session Page Transcript Jumps (Landed 2026-11-08, this commit)
 

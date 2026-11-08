@@ -8,7 +8,6 @@ import {
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import {
-  nativeSessionViewerUrl,
   sessionViewerResourceHref,
   viewerYaSessionId,
 } from "../lib/sessionViewerUrl";
@@ -25,6 +24,7 @@ import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
+import { useSessionRouteSync } from "../hooks/useSessionRouteSync";
 import { useSessionTitleEditing } from "../hooks/useSessionTitleEditing";
 import { useSessionTranscriptJumps } from "../hooks/useSessionTranscriptJumps";
 import type {
@@ -171,7 +171,6 @@ import { useProjectQueues } from "../hooks/useProjectQueues";
 import { useProject, useProjects } from "../hooks/useProjects";
 import { useProviders } from "../hooks/useProviders";
 import { usePublicShareStatus } from "../hooks/usePublicShareStatus";
-import { recordSessionVisit } from "../hooks/useRecentSessions";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useServerSettings } from "../hooks/useServerSettings";
 import {
@@ -1849,89 +1848,16 @@ function SessionPageContent({
     ],
   );
 
-  // Record session visit for recents tracking. Opening a session is not a
-  // sidebar interaction: only composer submissions move a row, so reading a
-  // session leaves its chronology alone.
-  useEffect(() => {
-    if (isDomLingerParked) return;
-    recordSessionVisit(sessionId, projectId);
-  }, [sessionId, projectId, isDomLingerParked]);
-
-  // Navigate to new session ID when temp ID is replaced with real SDK session ID
-  // This ensures the URL stays in sync with the actual session
-  useEffect(() => {
-    if (isDomLingerParked) {
-      return;
-    }
-    if (actualSessionId && actualSessionId !== sessionId) {
-      // Use replace to avoid creating a history entry for the temp ID
-      navigate(
-        `${basePath}/projects/${projectId}/sessions/${actualSessionId}`,
-        {
-          replace: true,
-          state: location.state, // Preserve initial state for seamless transition
-        },
-      );
-    }
-  }, [
-    actualSessionId,
+  useSessionRouteSync({
     sessionId,
     projectId,
+    actualSessionId,
+    session,
+    location,
     navigate,
-    location.state,
     basePath,
     isDomLingerParked,
-  ]);
-
-  useEffect(() => {
-    if (isDomLingerParked || !session?.nativeSessionId) return;
-    const target = nativeSessionViewerUrl(
-      location.pathname,
-      location.search,
-      location.hash ?? "",
-      actualSessionId,
-      session.nativeSessionId,
-    );
-    if (target) navigate(target, { replace: true, state: location.state });
-  }, [
-    actualSessionId,
-    session?.nativeSessionId,
-    isDomLingerParked,
-    navigate,
-    location.pathname,
-    location.search,
-    location.hash,
-    location.state,
-  ]);
-
-  // Navigate to the session reader canonical project when the API followed
-  // a provider-native redirect from a stale project-scoped link.
-  useEffect(() => {
-    if (isDomLingerParked) {
-      return;
-    }
-    const canonicalProjectId = session?.projectId;
-    if (!canonicalProjectId || canonicalProjectId === projectId) {
-      return;
-    }
-
-    navigate(
-      `${basePath}/projects/${canonicalProjectId}/sessions/${actualSessionId}${location.search}`,
-      {
-        replace: true,
-        state: location.state,
-      },
-    );
-  }, [
-    actualSessionId,
-    basePath,
-    location.search,
-    location.state,
-    navigate,
-    projectId,
-    isDomLingerParked,
-    session?.projectId,
-  ]);
+  });
 
   useEffect(() => {
     void sessionId;
