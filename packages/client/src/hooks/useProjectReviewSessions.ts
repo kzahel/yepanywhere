@@ -57,9 +57,9 @@ export function useProjectReviewSessions(
           current.sessions === null ? { ...current, sessions } : current,
         );
       })
-      .catch((cause) => {
-        // The complete walk stays authoritative and reports its own failure.
-        console.warn("[review-sessions] retained session list failed", cause);
+      .catch(() => {
+        // The retained read only speeds up the first offer; the complete
+        // walk stays authoritative and reports its own failure.
       });
 
     return () => {
