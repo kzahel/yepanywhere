@@ -92,6 +92,11 @@ its own commit with a test, and one a user could see is asked about. Proposals
    Done 2026-11-08 in
    [plan 184](../docs/tactical/184-message-box-send-routes.md):
    `MessageInput.tsx` went from 4,023 to 3,185 lines.
+9. **The session page's draft state** (move-only, then one unification).
+   The composer attachment state, the correction draft and the draft
+   attachment hydration move into hooks, and the two ways of starting a
+   correction become one step. In progress in
+   [plan 187](../docs/tactical/187-session-page-draft-hooks.md).
 
 Ownership and slice rows: [doc 058](../docs/tactical/058-typescript-module-boundary-refactor.md),
 priority-queue item 2. The broader hub-growth record is
