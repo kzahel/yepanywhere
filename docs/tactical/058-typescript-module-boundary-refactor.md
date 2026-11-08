@@ -326,6 +326,7 @@ and props stable.
 | 2.43 | Done 2026-11-08 | `MessageInput.tsx` delivery hook | Move the message box's delivery into a feature hook ([plan 184](184-message-box-send-routes.md) slice 2). | Move-only apart from parameters: `deliver`, setting a dictated draft aside and replaying or restoring it, the question aside submission, the touch delivery handlers and voice auto-send move into `hooks/useComposerDelivery.ts`, called where the delivery stood, before `useComposerSpeechHandlers`. The five refs only delivery uses move with it; 42 box values become inputs of the same names. Dependency lists gain only refs and setters that became inputs. Budget `MessageInput.tsx` 3,616 -> 3,185; the hook is 675 lines. Tier 3, plus plan 184's slice 0 pins. |
 | 2.44 | Done 2026-11-08 | `SessionPage.tsx` attachment state | Move the page's composer attachment state into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 1). | Move-only: the attachment list and its ref, upload progress, the in-flight uploads, the draft batch and hydration refs, the edit blocker, the navigation guard, the draft write, `setComposerAttachments`, the unmount preview cleanup, `ensureDraftAttachmentBatchId` and `materializeComposerAttachments` move verbatim into `hooks/useSessionComposerAttachments.ts`, called where the edit blocker stood, so the effects keep their order. The state moves later in the hook order; nothing between reads it. Two input refs joined three dependency lists, and a `biome.json` `stableResult` entry keeps the page's lists as they were. Budget `SessionPage.tsx` 3,903 -> 3,803; the hook is 179 lines. Tier 3, plus plan 187's slice 0 pins. |
 | 2.45 | Done 2026-11-08 | `SessionPage.tsx` correction draft | Move the page's correction draft into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 2). | Move-only apart from two effect splits: the correction state and its set-aside draft ref, Cancel, the two correction effects, Edit latest message and the recall move verbatim into `hooks/useSessionCorrectionDraft.ts`, called where Cancel stood, right after the session reset. The set-aside draft's unmount cleanup and the reset's `setCorrectionDraft(null)` become the hook's own effects; the page is keyed by session, so the reset runs only on mount (see the landing note). The state moves later and the recall earlier in the hook order. Three input refs joined four dependency lists. Budget `SessionPage.tsx` 3,803 -> 3,714; the hook is 182 lines. Tier 3, plus plan 187's slice 0 pins. |
+| 2.46 | Done 2026-11-08 | `SessionPage.tsx` draft hydration | Move the page's draft attachment hydration into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 3). | Move-only: `hydrateDraftAttachments` and the two effects that hydrate on a draft key change and on the draft storage event move verbatim into `useDraftAttachmentHydration` in `hooks/useSessionComposerAttachments.ts`, called where the effects stood, so they stay after the session reset. `handleDraftControlsReady` moves unchanged to just after the call. Four input refs joined two dependency lists. Budget `SessionPage.tsx` 3,714 -> 3,621; the hook file is 323 lines. Tier 3, plus plan 187's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -468,6 +469,52 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.46 — Session Page Draft Hydration (Landed 2026-11-08, this commit)
+
+Move-only. [Plan 187](187-session-page-draft-hooks.md) slice 3.
+
+Moved to `packages/client/src/hooks/useSessionComposerAttachments.ts`, as
+`useDraftAttachmentHydration` beside slice 2.44's hook, since hydration
+writes the same state; called where the two hydration effects stood:
+- `hydrateDraftAttachments`, which moved later in the hook order, past the
+  pending-send reconcile and the mother-composer transfer effect; neither
+  reads it.
+- The effect that hydrates when the draft key changes and the one that
+  hydrates when the draft storage event names this draft, in place, so
+  they still run after the session reset, which on mount clears the
+  attachments and bumps the hydration counter first.
+- `handleDraftControlsReady` calls `hydrateDraftAttachments`, so it moved
+  unchanged from before the mother-composer transfer effect to just after
+  the call; it is a `useCallback`.
+- `SessionPage.tsx` 3,714 -> 3,621 lines; the hook file is 323.
+
+Signature conversions (closure -> parameter):
+- The hook takes `attachmentsRef`, `draftAttachmentBatchIdRef`,
+  `draftAttachmentHydrationRef`, `draftControlsRef`, `mainComposerForAside`,
+  `sessionDraftKey`, `setComposerAttachments`, `sourceTransport` and
+  `versionInfo`; `t` and `showToast` come from the context hooks inside.
+  It returns `hydrateDraftAttachments`, which depends on changing values,
+  so it has no `stableResult` entry.
+- Dependency lists gain only input refs: `draftControlsRef`,
+  `draftAttachmentHydrationRef` and `draftAttachmentBatchIdRef` in
+  `hydrateDraftAttachments`, and `draftControlsRef` and `attachmentsRef`
+  in the storage-event effect. Refs keep their identity, so the hydration
+  callback and the listener are rebuilt exactly as often as before.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 581 passed, 13 skipped, 4 failed:
+  `artifact-viewer.spec.ts:136`, the known failure, and the three that
+  fail at `558f978dd` without this plan (see slice 2.44). Plan 187's
+  pins pass at this commit.
+- A script compared the moved lines, in order, with the hook's body,
+  whitespace aside: the only differences are the dependency entries
+  above. `handleDraftControlsReady` is identical line for line.
 
 ### Slice 2.45 — Session Page Correction Draft (Landed 2026-11-08, this commit)
 

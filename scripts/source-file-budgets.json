@@ -67,7 +67,7 @@
       "maxLines": 1683
     },
     "packages/client/src/pages/SessionPage.tsx": {
-      "maxLines": 3714
+      "maxLines": 3621
     },
     "packages/client/src/pages/settings/AppearanceSettings.tsx": {
       "maxLines": 2056

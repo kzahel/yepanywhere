@@ -5,9 +5,20 @@ import {
   useRef,
   useState,
 } from "react";
-import type { UploadedFile } from "@yep-anywhere/shared";
+import {
+  SERVER_CAPABILITIES,
+  serverHasCapability,
+  type UploadedFile,
+} from "@yep-anywhere/shared";
 import type { UploadProgress } from "../components/MessageInput";
 import type { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
+import { useToastContext } from "../contexts/ToastContext";
+import { useI18n } from "../i18n";
+import {
+  isInterruptedDraftAttachmentValidation,
+  validateDraftAttachmentRefs,
+} from "../lib/draftAttachmentStaging";
+import { DRAFT_STORAGE_EVENT } from "../lib/draftSyncStorage";
 import {
   hasAttachmentNavigationRisk,
   useAttachmentNavigationGuard,
@@ -25,6 +36,7 @@ import {
 } from "../lib/sessionComposerSubmission";
 import { generateUUID } from "../lib/uuid";
 import type { DraftControls } from "./useDraftPersistence";
+import type { useVersion } from "./useVersion";
 
 /**
  * One session page's composer attachments: the attachment list and its
@@ -168,4 +180,144 @@ export function useSessionComposerAttachments({
     ensureDraftAttachmentBatchId,
     materializeComposerAttachments,
   };
+}
+
+/**
+ * Fills one session page's composer attachments from its saved draft: when
+ * the draft controls are ready, when the draft key changes and when another
+ * tab changes the draft. Staged files are checked with the server first.
+ * Moved verbatim from `SessionPage.tsx`
+ * (docs/tactical/187-session-page-draft-hooks.md slice 3).
+ */
+export function useDraftAttachmentHydration({
+  attachmentsRef,
+  draftAttachmentBatchIdRef,
+  draftAttachmentHydrationRef,
+  draftControlsRef,
+  mainComposerForAside,
+  sessionDraftKey,
+  setComposerAttachments,
+  sourceTransport,
+  versionInfo,
+}: {
+  attachmentsRef: RefObject<ComposerAttachment[]>;
+  draftAttachmentBatchIdRef: RefObject<string | null>;
+  draftAttachmentHydrationRef: RefObject<number>;
+  draftControlsRef: RefObject<DraftControls | null>;
+  mainComposerForAside: boolean;
+  sessionDraftKey: string;
+  setComposerAttachments: ReturnType<
+    typeof useSessionComposerAttachments
+  >["setComposerAttachments"];
+  sourceTransport: ReturnType<typeof useCurrentSourceRuntime>["transport"];
+  versionInfo: ReturnType<typeof useVersion>["version"];
+}) {
+  const { t } = useI18n();
+  const { showToast } = useToastContext();
+  const hydrateDraftAttachments = useCallback(
+    async (controls = draftControlsRef.current) => {
+      if (mainComposerForAside || !controls) {
+        return;
+      }
+
+      const state = controls.getAttachmentState();
+      if (!state) {
+        setComposerAttachments([], {
+          persistDraft: false,
+          revokeRemovedPreviewUrls: true,
+        });
+        return;
+      }
+
+      const syncEnabled = serverHasCapability(
+        versionInfo,
+        SERVER_CAPABILITIES.draftSync.name,
+      );
+      if (syncEnabled)
+        setComposerAttachments(state.refs, {
+          persistDraft: false,
+          revokeRemovedPreviewUrls: true,
+        });
+      const hydrationId = draftAttachmentHydrationRef.current + 1;
+      draftAttachmentHydrationRef.current = hydrationId;
+
+      try {
+        const refs = await validateDraftAttachmentRefs(sourceTransport, state);
+        if (
+          draftAttachmentHydrationRef.current !== hydrationId ||
+          JSON.stringify(controls.getAttachmentState()?.refs) !==
+            JSON.stringify(state.refs)
+        ) {
+          return;
+        }
+        if (syncEnabled && refs.length !== state.refs.length) {
+          showToast(t("sessionDraftAttachmentsUnavailable"), "info");
+          return;
+        }
+        const nextState = createComposerDraftAttachmentState(refs);
+        draftAttachmentBatchIdRef.current = nextState?.batchId ?? null;
+        controls.setAttachmentState(nextState);
+        setComposerAttachments(refs, {
+          persistDraft: false,
+          revokeRemovedPreviewUrls: true,
+        });
+      } catch (err) {
+        if (
+          draftAttachmentHydrationRef.current !== hydrationId ||
+          JSON.stringify(controls.getAttachmentState()?.refs) !==
+            JSON.stringify(state.refs)
+        ) {
+          return;
+        }
+        // An interrupted validation says nothing about whether the file exists.
+        // Keep its chip too; sending still requires server materialization.
+        setComposerAttachments(state.refs, {
+          persistDraft: false,
+          revokeRemovedPreviewUrls: true,
+        });
+        if (!isInterruptedDraftAttachmentValidation(err))
+          showToast(t("sessionDraftAttachmentsValidationFailed"), "info");
+      }
+    },
+    [
+      sourceTransport,
+      mainComposerForAside,
+      setComposerAttachments,
+      showToast,
+      versionInfo,
+      t,
+      draftControlsRef,
+      draftAttachmentHydrationRef,
+      draftAttachmentBatchIdRef,
+    ],
+  );
+
+  useEffect(() => {
+    void sessionDraftKey;
+    void hydrateDraftAttachments();
+  }, [hydrateDraftAttachments, sessionDraftKey]);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if (
+        (event as CustomEvent<{ key: string }>).detail.key === sessionDraftKey
+      ) {
+        const current =
+          draftControlsRef.current?.getAttachmentState()?.refs ?? [];
+        const shown = attachmentsRef.current
+          .filter(isComposerStagedAttachment)
+          .map(toPersistedStagedAttachmentRef);
+        if (JSON.stringify(current) === JSON.stringify(shown)) return;
+        void hydrateDraftAttachments();
+      }
+    };
+    window.addEventListener(DRAFT_STORAGE_EVENT, changed);
+    return () => window.removeEventListener(DRAFT_STORAGE_EVENT, changed);
+  }, [
+    hydrateDraftAttachments,
+    sessionDraftKey,
+    draftControlsRef,
+    attachmentsRef,
+  ]);
+
+  return hydrateDraftAttachments;
 }

@@ -12,15 +12,15 @@ import {
   viewerYaSessionId,
 } from "../lib/sessionViewerUrl";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
-import {
-  DRAFT_STORAGE_EVENT,
-  collectSyncedSubmissionAttachments,
-} from "../lib/draftSyncStorage";
+import { collectSyncedSubmissionAttachments } from "../lib/draftSyncStorage";
 import { SessionIssuesProvider } from "../components/SessionIssuesLink";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
-import { useSessionComposerAttachments } from "../hooks/useSessionComposerAttachments";
+import {
+  useDraftAttachmentHydration,
+  useSessionComposerAttachments,
+} from "../hooks/useSessionComposerAttachments";
 import { useSessionCorrectionDraft } from "../hooks/useSessionCorrectionDraft";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
@@ -161,10 +161,6 @@ import {
   getProjectViewerFilePath,
   presentProjectFileViewer,
 } from "../components/FilePathLink";
-import {
-  isInterruptedDraftAttachmentValidation,
-  validateDraftAttachmentRefs,
-} from "../lib/draftAttachmentStaging";
 import { draftTextIsAccountedFor } from "../lib/draftSendReconcile";
 import {
   type StreamingMarkdownCallbacks,
@@ -217,15 +213,11 @@ import {
 } from "../lib/sessionModelConfig";
 import { parseThinkingConfig } from "../lib/sourceControlNavigationState";
 import type { MessageSubmissionMetadata } from "../types/messageSubmission";
-import {
-  isComposerStagedAttachment,
-  toPersistedStagedAttachmentRef,
-} from "../lib/sessionComposerAttachments";
+import { isComposerStagedAttachment } from "../lib/sessionComposerAttachments";
 import {
   appendComposerTransferDraft,
   appendSlashCommandDraft,
   collectComposerAttachmentsForSubmission as collectComposerAttachmentsForSubmissionHelper,
-  createComposerDraftAttachmentState,
   insertComposerTransferText,
 } from "../lib/sessionComposerSubmission";
 import { createSessionComposerSend } from "../lib/sessionComposerSend";
@@ -2282,81 +2274,6 @@ function SessionPageContent({
     [applyMotherComposerTransfer, mainComposerForAside],
   );
 
-  const hydrateDraftAttachments = useCallback(
-    async (controls = draftControlsRef.current) => {
-      if (mainComposerForAside || !controls) {
-        return;
-      }
-
-      const state = controls.getAttachmentState();
-      if (!state) {
-        setComposerAttachments([], {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        });
-        return;
-      }
-
-      const syncEnabled = serverHasCapability(
-        versionInfo,
-        SERVER_CAPABILITIES.draftSync.name,
-      );
-      if (syncEnabled)
-        setComposerAttachments(state.refs, {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        });
-      const hydrationId = draftAttachmentHydrationRef.current + 1;
-      draftAttachmentHydrationRef.current = hydrationId;
-
-      try {
-        const refs = await validateDraftAttachmentRefs(sourceTransport, state);
-        if (
-          draftAttachmentHydrationRef.current !== hydrationId ||
-          JSON.stringify(controls.getAttachmentState()?.refs) !==
-            JSON.stringify(state.refs)
-        ) {
-          return;
-        }
-        if (syncEnabled && refs.length !== state.refs.length) {
-          showToast(t("sessionDraftAttachmentsUnavailable"), "info");
-          return;
-        }
-        const nextState = createComposerDraftAttachmentState(refs);
-        draftAttachmentBatchIdRef.current = nextState?.batchId ?? null;
-        controls.setAttachmentState(nextState);
-        setComposerAttachments(refs, {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        });
-      } catch (err) {
-        if (
-          draftAttachmentHydrationRef.current !== hydrationId ||
-          JSON.stringify(controls.getAttachmentState()?.refs) !==
-            JSON.stringify(state.refs)
-        ) {
-          return;
-        }
-        // An interrupted validation says nothing about whether the file exists.
-        // Keep its chip too; sending still requires server materialization.
-        setComposerAttachments(state.refs, {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        });
-        if (!isInterruptedDraftAttachmentValidation(err))
-          showToast(t("sessionDraftAttachmentsValidationFailed"), "info");
-      }
-    },
-    [
-      sourceTransport,
-      mainComposerForAside,
-      setComposerAttachments,
-      showToast,
-      versionInfo,
-      t,
-    ],
-  );
-
   // A submit clears the composer optimistically and keeps the text as a
   // recovery copy, so a sibling tab or a reload can still see a send that
   // never landed. Once this session proves the same text is durable — a real
@@ -2379,6 +2296,22 @@ function SessionPageContent({
     reconcilePendingSendDraft();
   }, [reconcilePendingSendDraft]);
 
+  useEffect(() => {
+    flushPendingMotherComposerTransfer();
+  }, [flushPendingMotherComposerTransfer]);
+
+  const hydrateDraftAttachments = useDraftAttachmentHydration({
+    attachmentsRef,
+    draftAttachmentBatchIdRef,
+    draftAttachmentHydrationRef,
+    draftControlsRef,
+    mainComposerForAside,
+    sessionDraftKey,
+    setComposerAttachments,
+    sourceTransport,
+    versionInfo,
+  });
+
   const handleDraftControlsReady = useCallback(
     (controls: DraftControls) => {
       draftControlsRef.current = controls;
@@ -2394,32 +2327,6 @@ function SessionPageContent({
       hydrateDraftAttachments,
     ],
   );
-
-  useEffect(() => {
-    flushPendingMotherComposerTransfer();
-  }, [flushPendingMotherComposerTransfer]);
-
-  useEffect(() => {
-    void sessionDraftKey;
-    void hydrateDraftAttachments();
-  }, [hydrateDraftAttachments, sessionDraftKey]);
-  useEffect(() => {
-    const changed = (event: Event) => {
-      if (
-        (event as CustomEvent<{ key: string }>).detail.key === sessionDraftKey
-      ) {
-        const current =
-          draftControlsRef.current?.getAttachmentState()?.refs ?? [];
-        const shown = attachmentsRef.current
-          .filter(isComposerStagedAttachment)
-          .map(toPersistedStagedAttachmentRef);
-        if (JSON.stringify(current) === JSON.stringify(shown)) return;
-        void hydrateDraftAttachments();
-      }
-    };
-    window.addEventListener(DRAFT_STORAGE_EVENT, changed);
-    return () => window.removeEventListener(DRAFT_STORAGE_EVENT, changed);
-  }, [hydrateDraftAttachments, sessionDraftKey]);
 
   const transferBtwTurnToMotherComposer = useCallback(
     (text: string) => {
