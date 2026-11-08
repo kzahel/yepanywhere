@@ -14,8 +14,9 @@
   font-weight: 600;
 }
 
-/* A disabled account stays listed, visibly out of service. */
-.userChipDisabled {
+/* A disabled account stays listed, visibly out of service. Compounded so
+   it outranks the Button variant's color regardless of stylesheet order. */
+.userChip.userChipDisabled {
   color: var(--text-muted);
   text-decoration: line-through;
 }

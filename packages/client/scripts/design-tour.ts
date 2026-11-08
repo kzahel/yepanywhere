@@ -63,6 +63,8 @@ const result = spawnSync(
   {
     cwd: clientRoot,
     stdio: "inherit",
+    // pnpm is a .cmd shim on Windows, which spawn cannot run directly.
+    shell: process.platform === "win32",
     env: {
       ...process.env,
       YEP_E2E_UI_CAPTURE_DIR: out,
@@ -70,4 +72,7 @@ const result = spawnSync(
     },
   },
 );
+if (result.error) {
+  console.error(JSON.stringify({ error: String(result.error) }));
+}
 process.exit(result.status === 0 ? 0 : 3);

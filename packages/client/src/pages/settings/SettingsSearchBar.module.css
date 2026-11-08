@@ -22,8 +22,16 @@
    would silently become emit order, so the global class is compounded. */
 .input:global(.settings-input) {
   width: 100%;
-  padding-right: calc(var(--space-4) + var(--space-2));
+  /* The clear button is a small IconButton: 26 px wide, 36 px on coarse
+     pointers, inset by --space-1. */
+  padding-right: calc(26px + 2 * var(--space-1));
   box-sizing: border-box;
+}
+
+@media (pointer: coarse) {
+  .input:global(.settings-input) {
+    padding-right: calc(36px + 2 * var(--space-1));
+  }
 }
 
 .input::-webkit-search-cancel-button {

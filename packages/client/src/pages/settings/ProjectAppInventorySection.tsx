@@ -160,7 +160,6 @@ export function ProjectAppInventorySection() {
         <h3>{t("projectAppInventoryTitle")}</h3>
         {supported && (
           <Button
-            className={styles.sharedButton}
             disabled={loading || busy}
             onClick={() => {
               setError("");
@@ -195,7 +194,6 @@ export function ProjectAppInventorySection() {
               selected && canDelete ? (
                 <span className={styles.deleteActions}>
                   <Button
-                    className={styles.sharedButton}
                     disabled={busy}
                     title={t("projectAppDeleteAppTitle")}
                     onClick={() => void deleteSelected(false)}
@@ -203,7 +201,6 @@ export function ProjectAppInventorySection() {
                     {t("projectAppDeleteApp")}
                   </Button>
                   <Button
-                    className={styles.sharedButton}
                     disabled={busy}
                     title={t("projectAppDeleteProject")}
                     onClick={() => void deleteSelected(true)}
@@ -231,7 +228,6 @@ export function ProjectAppInventorySection() {
                           </strong>
                           {!version?.artifactViewer?.vhostPublicRoot && (
                             <Button
-                              className={styles.sharedButton}
                               disabled={busy}
                               onClick={() => void releaseAddress(address)}
                             >
@@ -241,45 +237,47 @@ export function ProjectAppInventorySection() {
                         </p>
                       ))}
                     {expanded === row.projectId && (
-                      <ProjectAppViewer
-                        key={`${row.projectId}:${revision}`}
-                        projectId={row.projectId}
-                        presentation="settings"
-                        onAddressesChanged={(addresses) =>
-                          setInventory((current) =>
-                            current && addresses.enabled
-                              ? {
+                      <div className={styles.viewer}>
+                        <ProjectAppViewer
+                          key={`${row.projectId}:${revision}`}
+                          projectId={row.projectId}
+                          presentation="settings"
+                          onAddressesChanged={(addresses) =>
+                            setInventory((current) =>
+                              current && addresses.enabled
+                                ? {
+                                    ...current,
+                                    reservations: [
+                                      ...current.reservations.filter(
+                                        (address) =>
+                                          address.projectId !== row.projectId,
+                                      ),
+                                      ...addresses.reservations.map(
+                                        (address) => ({
+                                          ...address,
+                                          projectId: row.projectId,
+                                        }),
+                                      ),
+                                    ],
+                                  }
+                                : current,
+                            )
+                          }
+                          onInfoChanged={(info) =>
+                            setInventory(
+                              (current) =>
+                                current && {
                                   ...current,
-                                  reservations: [
-                                    ...current.reservations.filter(
-                                      (address) =>
-                                        address.projectId !== row.projectId,
-                                    ),
-                                    ...addresses.reservations.map(
-                                      (address) => ({
-                                        ...address,
-                                        projectId: row.projectId,
-                                      }),
-                                    ),
-                                  ],
-                                }
-                              : current,
-                          )
-                        }
-                        onInfoChanged={(info) =>
-                          setInventory(
-                            (current) =>
-                              current && {
-                                ...current,
-                                projects: current.projects.map((project) =>
-                                  project.projectId === row.projectId
-                                    ? { ...project, info }
-                                    : project,
-                                ),
-                              },
-                          )
-                        }
-                      />
+                                  projects: current.projects.map((project) =>
+                                    project.projectId === row.projectId
+                                      ? { ...project, info }
+                                      : project,
+                                  ),
+                                },
+                            )
+                          }
+                        />
+                      </div>
                     )}
                   </article>
                 ),
@@ -356,7 +354,6 @@ export function ProjectAppInventorySection() {
                       <td>
                         {row.retained ? (
                           <Button
-                            className={styles.sharedButton}
                             disabled={busy}
                             onClick={() =>
                               row.retained && void releaseAddress(row.retained)

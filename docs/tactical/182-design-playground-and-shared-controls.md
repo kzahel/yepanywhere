@@ -82,9 +82,14 @@ of slightly different styles.
 - **Shared buttons** (`src/components/ui/Button.tsx`, Controls/Button page):
   `Button`, `IconButton`, `ButtonBase` and `buttonClassName`, built from the
   census prototypes, which the button census now renders instead.
-- **Button mapping:** every global (54) and CSS Module (80) button class
-  has a destination in `design/census/mapping.ts`; Census/Buttons shows
-  each beside what it becomes, and its Unmapped state is empty.
+- **Button mapping:** every global (54) and CSS Module (79) class *named*
+  like a button has a destination in `design/census/mapping.ts`;
+  Census/Buttons shows each beside what it becomes, and its Unmapped state
+  is empty. The census finds classes by name and only those with rules, so
+  buttons styled by classes such as `.close`, `.remove` or
+  `settings-button-primary` (no rule) are invisible to it. Before the next
+  batch, add an element-based pass: every `<button>` and button-classed
+  `<a>`/`Link` in TSX, keyed by its `className`.
 - **Settings batch:** every button in `pages/settings/` (45 files) is on
   `Button`, `IconButton`, `ButtonBase` or `buttonClassName`, except option
   pickers and switches left for family 3. Legacy rules that reached zero
@@ -92,9 +97,9 @@ of slightly different styles.
   `settings-inline-x`, `provider-deprecation-notice__dismiss`, and four
   classes the mapping found dead). `settings-button`,
   `settings-button-secondary`, `btn-primary` and `btn-secondary` remain for
-  the later batches. `ProjectAppInventorySection.module.css` keeps a
-  `.sharedButton` opt-out until `ProjectAppViewer` and `SettingsCollection`
-  are swapped.
+  the later batches. `ProjectAppInventorySection.module.css` keeps the
+  embedded `ProjectAppViewer`'s legacy button look, scoped to a `.viewer`
+  wrapper, until that viewer is swapped.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

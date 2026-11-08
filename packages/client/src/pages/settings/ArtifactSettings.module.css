@@ -195,10 +195,6 @@
   white-space: nowrap;
 }
 @container settings-collection (max-width: 560px) {
-  .linkIcon {
-    width: 44px;
-    height: 44px;
-  }
   .table th.linksHeader {
     width: 48px;
   }

@@ -929,12 +929,6 @@ export const MODULE_BUTTONS: readonly ModuleButton[] = [
     to: "base",
     note: "Sortable table column header button filling the th.",
   },
-  {
-    file: "pages/settings/SettingsTransfer.module.css",
-    name: "settings-button",
-    to: "not-a-button",
-    note: ":global(.settings-button) sizing inside .buttons (44px, full width).",
-  },
 ];
 
 /** Global classes that are button parts or containers, not buttons. */

@@ -21,7 +21,7 @@
  * }} CustomPropertyScan
  */
 
-const NAME = String.raw`--[A-Za-z0-9_-]+`;
+const NAME = "--[A-Za-z0-9_-]+";
 const CSS_DEFINITION = new RegExp(String.raw`(?<![\w-])(${NAME})\s*:`, "g");
 const AT_PROPERTY = new RegExp(String.raw`@property\s+(${NAME})`, "g");
 const SCRIPT_DEFINITION = new RegExp(

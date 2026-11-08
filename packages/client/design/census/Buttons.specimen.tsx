@@ -129,20 +129,28 @@ export function GlobalClasses() {
       </p>
       <Groups
         rows={LEGACY_BUTTONS}
-        render={(row) => (
-          <CensusRow
-            key={row.classes + row.counted}
-            label={`${row.classes} → ${destinationName(row)}`}
-            counted={row.counted}
-            note={row.note}
-            sample={
-              <button type="button" className={row.classes}>
-                {row.icon ? PLUS : sampleLabel(row.to)}
-              </button>
-            }
-            becomes={<Becomes {...row} />}
-          />
-        )}
+        render={(row) => {
+          // A swap batch deletes a class's rules once its uses reach zero.
+          const deleted = !classUsage[row.counted];
+          return (
+            <CensusRow
+              key={row.classes + row.counted}
+              label={`${row.classes} → ${destinationName(row)}${deleted ? " · rules deleted" : ""}`}
+              counted={row.counted}
+              note={row.note}
+              sample={
+                deleted ? (
+                  <span className={styles.loading}>rules deleted</span>
+                ) : (
+                  <button type="button" className={row.classes}>
+                    {row.icon ? PLUS : sampleLabel(row.to)}
+                  </button>
+                )
+              }
+              becomes={<Becomes {...row} />}
+            />
+          );
+        }}
       />
     </div>
   );

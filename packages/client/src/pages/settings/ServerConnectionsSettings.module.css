@@ -192,6 +192,7 @@
 .deviceName {
   display: block;
   width: 100%;
+  font-size: inherit;
   text-align: left;
 }
 .deviceName .host {
@@ -216,9 +217,7 @@
   overflow-wrap: anywhere;
 }
 .remove {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
+  flex: none;
 }
 .deviceName:focus-visible {
   outline: 2px solid var(--link-color);

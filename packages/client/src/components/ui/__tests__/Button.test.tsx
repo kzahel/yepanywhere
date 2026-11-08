@@ -2,10 +2,12 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { UI_KEYS } from "../../../lib/storageKeys";
 import { Button, IconButton } from "../Button";
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem(UI_KEYS.tooltipMode);
 });
 
 describe("Button", () => {
@@ -45,7 +47,7 @@ describe("Button", () => {
 });
 
 describe("IconButton", () => {
-  it("names itself and its tooltip from the label", () => {
+  it("names itself and its themed tooltip from the label", () => {
     render(
       <IconButton label="Remove server" onClick={() => {}}>
         <svg aria-hidden="true" />
@@ -53,5 +55,18 @@ describe("IconButton", () => {
     );
     const button = screen.getByRole("button", { name: "Remove server" });
     expect(button.getAttribute("data-tooltip")).toBe("Remove server");
+    expect(button.hasAttribute("title")).toBe(false);
+  });
+
+  it("gives the browser a title in native tooltip mode", () => {
+    localStorage.setItem(UI_KEYS.tooltipMode, "native");
+    render(
+      <IconButton label="Remove server" onClick={() => {}}>
+        <svg aria-hidden="true" />
+      </IconButton>,
+    );
+    const button = screen.getByRole("button", { name: "Remove server" });
+    expect(button.getAttribute("title")).toBe("Remove server");
+    expect(button.hasAttribute("data-tooltip")).toBe(false);
   });
 });

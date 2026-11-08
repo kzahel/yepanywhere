@@ -23,7 +23,7 @@
   cursor: pointer;
 }
 
-:where(.base):disabled {
+:where(.base:disabled) {
   cursor: not-allowed;
 }
 
@@ -89,19 +89,19 @@
 /* Fingers, not cursors: coarse pointers get a larger hit area. */
 @media (pointer: coarse) {
   .button {
-    min-height: 40px;
+    min-height: 44px;
   }
 
   .small {
-    min-height: 32px;
+    min-height: 36px;
   }
 
   .icon {
-    width: 40px;
+    width: 44px;
   }
 
   .icon.small {
-    width: 32px;
+    width: 36px;
   }
 }
 

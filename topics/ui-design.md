@@ -46,22 +46,27 @@ the reference.
   `outline`, `ghost`, `danger` and `danger-outline`; sizes `default` and
   `small`.
 - `IconButton`: icon-only; its required `label` is the accessible name and
-  the tooltip (through `TooltipLayer`). Defaults to `ghost`.
+  the tooltip, following the user's tooltip setting (`data-tooltip` for
+  `TooltipLayer` when themed, `title` when native). Defaults to `ghost`.
 - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
   arrows and chips. Its reset has zero specificity, so the owner's styles
-  always win; it keeps the focus ring. Its text is `--font-size-base`
-  rather than inherited, the size raw buttons had, so a swapped row keeps
-  its text size unless its owner sets one.
+  always win, including ancestor rules such as `.list button`; it keeps the
+  focus ring. Its text is `--font-size-base` rather than inherited, the
+  size raw buttons had, so a swapped row keeps its text size; an owner whose
+  row should follow its context sets `font-size: inherit`.
 - `buttonClassName()`: the same look for an `<a>` or router `Link` that is a
   button-shaped navigation target.
 
 All of them default `type` to `button`, so none submits a form unless asked,
 pass ordinary button attributes through (including `data-testid`) and take
 `ref`. `busy` shows a spinner, sets `aria-busy` and ignores clicks and form
-submission while keeping focus. Coarse pointers get 40 px (default) and
-32 px (small) hit areas. A text glyph used as an icon (×, ↑) renders larger
-than label text. A caller's `className` adds layout only (margins, flex
-placement, width); the control owns colors, borders, padding and type.
+submission while keeping focus. Coarse pointers get 44 px (default and
+icon) and 36 px (small) hit areas. A text glyph used as an icon (×, ↑)
+renders larger than label text. A caller's `className` adds layout only
+(margins, flex placement, width); the control owns colors, borders,
+padding, size and type. A caller rule that must override the control's look is compounded
+(`.chip.disabled`), because two single-class rules resolve by stylesheet
+order.
 
 Swapped so far: every button in `pages/settings/` except the option
 pickers and switches that belong to later families.
@@ -172,16 +177,20 @@ The playground's pages:
   how many reads lack a fallback, and their CSS sites.
 - **Controls/Button:** every variant, size and state of the shared button
   family.
-- **Census/Buttons:** every global and CSS Module button class, grouped by
-  its destination in `design/census/mapping.ts` (a shared variant,
-  `ButtonBase`, a later family, composer-excluded, or dead), each legacy
-  sample beside the shared control it becomes; and an **Unmapped** state
-  listing any button class the census finds without a row.
+- **Census/Buttons:** every global and CSS Module class named like a
+  button (`button`, `btn`), grouped by its destination in
+  `design/census/mapping.ts` (a shared variant, `ButtonBase`, a later
+  family, composer-excluded, or dead), each legacy sample beside the shared
+  control it becomes, with rows whose rules a swap already deleted marked
+  so; and an **Unmapped** state listing any such class without a row.
+  Buttons styled by classes with other names are not found.
 - **Census/Switches and segmented controls:** the census prototypes in
   `design/census/` beside the mapped legacy styles, every unmapped global
-  class and every matching CSS Module class, each rendered standalone. Global class counts are static whole-token
-  counts in production TypeScript, served by a dev-only Vite plugin and
-  refreshed when sources change; classes built at runtime are not seen.
+  class and every matching CSS Module class, each rendered standalone.
+
+Global class counts are static whole-token counts in production
+TypeScript, served by a dev-only Vite plugin and refreshed when sources
+change; classes built at runtime are not seen.
 
 No visual-regression test of the playground runs in CI. Screenshots are
 taken on demand.

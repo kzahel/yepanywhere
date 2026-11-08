@@ -130,6 +130,7 @@
   min-height: 2.25rem;
   padding: var(--space-1) 0;
   color: var(--text-primary);
+  font-size: inherit;
   font-weight: 650;
   text-align: left;
 }
@@ -200,6 +201,7 @@
 .messageJump {
   min-height: 2.25rem;
   color: var(--accent-color);
+  font-size: inherit;
   white-space: nowrap;
 }
 

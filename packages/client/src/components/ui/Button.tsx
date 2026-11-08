@@ -3,7 +3,8 @@
  *
  * - `Button`: a labelled button in one of six variants and two sizes.
  * - `IconButton`: an icon-only button. Its required `label` is both the
- *   accessible name and the tooltip, shown through TooltipLayer.
+ *   accessible name and the tooltip: `data-tooltip` for TooltipLayer in
+ *   themed mode, `title` in native mode (the user's tooltip setting).
  * - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
  *   arrows and chips. It resets the user-agent look, keeps the focus ring and
  *   defaults `type` to "button"; the owner supplies every other style.
@@ -22,6 +23,7 @@ import type {
   ReactNode,
   Ref,
 } from "react";
+import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import styles from "./Button.module.css";
 
 export const BUTTON_VARIANTS = [
@@ -144,14 +146,15 @@ export function IconButton({
   ...rest
 }: IconButtonProps) {
   const handleClick = guardBusyClick(busy, onClick);
+  const tooltip = useTextTooltipAttributes(label);
   return (
     <button
       {...rest}
+      {...tooltip}
       ref={ref}
       type={type}
       className={buttonClassName({ variant, size, icon: true, className })}
       aria-label={label}
-      data-tooltip={label}
       aria-busy={busy || undefined}
       aria-disabled={busy || rest["aria-disabled"] || undefined}
       onClick={handleClick}

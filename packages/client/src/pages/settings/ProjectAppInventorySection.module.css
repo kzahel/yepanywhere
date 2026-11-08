@@ -26,11 +26,13 @@
   flex: 1;
   overflow-wrap: anywhere;
 }
-/* The look for raw buttons nested from ProjectAppViewer and
-   SettingsCollection. This section's own buttons are on the shared Button
-   family and opt out with .sharedButton; :where() keeps the 0-1-1
-   specificity those nested buttons were styled against. */
-.inventory button:where(:not(.sharedButton)) {
+/* The embedded ProjectAppViewer's raw buttons keep their legacy look until
+   the viewer moves onto the shared button family. Scoped to the viewer so
+   it cannot reach this section's own shared controls. */
+.viewer {
+  display: contents;
+}
+.viewer button {
   min-height: 36px;
   padding: 6px 12px;
   border: 1px solid var(--border-color);
@@ -64,7 +66,7 @@
   justify-self: start;
 }
 @media (width <= 640px) {
-  .inventory button:where(:not(.sharedButton)) {
+  .viewer button {
     min-height: 44px;
   }
 }
