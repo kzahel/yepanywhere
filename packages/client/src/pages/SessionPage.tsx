@@ -1,10 +1,10 @@
 import { FileDropZone } from "../components/FileDropZone";
+import { SessionRouteModuleFallback } from "../components/SessionRouteModuleFallback";
+import { SessionComposerFooter } from "../components/SessionComposerFooter";
+import { SessionHeader } from "../components/SessionHeader";
+import { SessionPageModals } from "../components/SessionPageModals";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
-import {
-  getSessionCreation,
-  pendingSessionCreation,
-  settleSessionCreation,
-} from "../lib/sessionCreation";
+import { pendingSessionCreation } from "../lib/sessionCreation";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import {
@@ -16,14 +16,13 @@ import {
   DRAFT_STORAGE_EVENT,
   collectSyncedSubmissionAttachments,
 } from "../lib/draftSyncStorage";
-import {
-  SessionIssuesLink,
-  SessionIssuesProvider,
-} from "../components/SessionIssuesLink";
+import { SessionIssuesProvider } from "../components/SessionIssuesLink";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
+import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
+import { useSessionHeaderActions } from "../hooks/useSessionHeaderActions";
 import { useSessionRouteSync } from "../hooks/useSessionRouteSync";
 import { useSessionTitleEditing } from "../hooks/useSessionTitleEditing";
 import { useSessionTranscriptJumps } from "../hooks/useSessionTranscriptJumps";
@@ -41,7 +40,6 @@ import type {
 import {
   SESSION_CONVERSATION_CONTEXT_CAPABILITY,
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
-  SIDEBAR_SESSION_RESUME_CAPABILITY,
   SYNTHETIC_ARCHIVE_COMMAND_CAPABILITY,
   SYNTHETIC_DONE_COMMAND_CAPABILITY,
   SYNTHETIC_TERMINATE_COMMAND_CAPABILITY,
@@ -61,7 +59,6 @@ import {
 import {
   type ComponentProps,
   lazy,
-  type MouseEvent as ReactMouseEvent,
   Suspense,
   useCallback,
   useEffect,
@@ -70,7 +67,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { createSessionApi } from "../api/sessionClient";
@@ -78,18 +75,11 @@ import {
   SessionViewerProvider,
   SessionViewerTranscriptGate,
 } from "../components/SessionManagedViewer";
-import sessionHeaderStyles from "../components/SessionHeader.module.css";
-import { ProjectAppIcon } from "../components/ProjectAppIcon";
 import { LastSessionFile } from "../components/LastSessionFile";
 import styles from "./SessionPage.module.css";
-import { GoalFlag } from "../components/GoalNotice";
-import { ClearloopRemainingBadge } from "../components/ClearloopRemainingBadge";
 
 import { BtwAsidePane } from "../components/BtwAsidePane";
-import {
-  SessionRightPane,
-  SessionAppAction,
-} from "../components/SessionRightPane";
+import { SessionRightPane } from "../components/SessionRightPane";
 import { useSessionRightPane } from "../hooks/useSessionRightPane";
 import { useSessionViewPublication } from "../hooks/useSessionViewPublication";
 import { useSessionThinkingSelection } from "../hooks/useSessionThinkingSelection";
@@ -97,44 +87,21 @@ import { ProjectAppViewer } from "../components/ProjectAppViewer";
 import type { VoiceInputButtonRef } from "../components/VoiceInputButton";
 import { useCanUseBearerGrants } from "../hooks/useActingPrincipal";
 import { useComposerHistoryScope } from "../hooks/useComposerHistoryScope";
-import { BtwAsideStickyCards } from "../components/BtwAsideStickyCards";
-import { ClientLogRecordingBadge } from "../components/ClientLogRecordingBadge";
 import { ExternalSessionWarning } from "../components/ExternalSessionWarning";
 import { useStartNewSessionWithPrefillAction } from "../components/FileResourceActions";
-import { HostIdentityMarker } from "../components/HostIdentityMarker";
 import { PendingToolWarning } from "../components/PendingToolWarning";
-import { ProviderChildSessionControl } from "../components/ProviderChildSessionControl";
 import { useQuestionAside } from "../hooks/useQuestionAside";
 import { useQuestionAsideSetting } from "../hooks/useQuestionAsideSetting";
-import { QuestionAsideCard } from "../components/QuestionAsideCard";
 import type {
   FullPaneComposerControls,
   UploadProgress,
 } from "../components/MessageInput";
-import { MessageInputToolbar } from "../components/MessageInputToolbar";
 import type {
   ChosenNewSessionQueueTarget,
   NewSessionQueueTarget,
 } from "../components/NewSessionQueueOptions";
-import { ModelSwitchModal } from "../components/ModelSwitchModal";
-import { ProcessInfoBody } from "../components/ProcessInfoModal";
-import { ProjectSessionDefaultsModal } from "../components/ProjectSessionDefaultsModal";
-import { ProviderBadge } from "../components/ProviderBadge";
-import { QuestionAnswerPanel } from "../components/QuestionAnswerPanel";
-import { RecentSessionsDropdown } from "../components/RecentSessionsDropdown";
-import { RestartSessionModal } from "../components/RestartSessionModal";
-import { routerBindingChip } from "../components/RouterPoolSelector";
-import { SessionMenu } from "../components/SessionMenu";
-import {
-  SessionPublicShareControls,
-  SessionShareMenuLabel,
-} from "../components/SessionPublicShareControls";
-import { SessionRenameEditor } from "../components/SessionRenameEditor";
 import { useSessionHeaderLayout } from "../hooks/useSessionHeaderLayout";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
-import { SessionRecapModal } from "../components/SessionRecapModal";
-import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
-import type { ModalAnchorRect } from "../components/ui/Modal";
 import { AgentContentProvider } from "../contexts/AgentContentContext";
 import { GlossaryProjectProvider } from "../contexts/GlossaryContext";
 import { RenderModeProvider } from "../contexts/RenderModeContext";
@@ -177,7 +144,6 @@ import {
   forkSessionAtEffort,
   useLongContextEffortGuard,
 } from "../hooks/useLongContextEffortGuard";
-import { LongContextEffortWarningModal } from "../components/LongContextEffortWarningModal";
 import { useSessionLoadingProgress } from "../hooks/useSessionLoadingProgress";
 import type { SessionLoadProgress } from "../hooks/useSessionMessages";
 import { useSessionPerformanceSettings } from "../hooks/useSessionPerformanceSettings";
@@ -219,10 +185,6 @@ import {
   useSessionCollectionRecord,
 } from "../lib/clientSummaryStore";
 import { activityBus } from "../lib/activityBus";
-import {
-  sessionReadShortcut,
-  setSessionUnread,
-} from "../lib/sessionReadActions";
 import type {
   LastComposerSubmission,
   SentComposerSubmission,
@@ -282,10 +244,7 @@ import {
 import { shouldShowProjectQueueAffordance } from "../lib/projectQueueVisibility";
 import { createSessionDraftStorageKey } from "../lib/sessionDraftStorage";
 import { getSessionActivityUiState } from "../lib/sessionActivityUi";
-import {
-  createSessionNavigationState,
-  parseSessionNavigationState,
-} from "../lib/sessionNavigationState";
+import { parseSessionNavigationState } from "../lib/sessionNavigationState";
 import { getPublicShareInitialPrompt } from "../lib/sessionPublicSharePrompt";
 import { getUnifiedSessionForkAvailability } from "../lib/sessionForkAvailability";
 import { SessionRewindProvider } from "../contexts/SessionRewindContext";
@@ -303,36 +262,13 @@ import {
   resolveComposerSessionOperation,
 } from "../lib/slashCommands";
 import { generateUUID } from "../lib/uuid";
-import {
-  loadMessageInputModule,
-  loadMessageListModule,
-} from "../lib/sessionRouteModules";
-import type { Project } from "../types";
+import { loadMessageListModule } from "../lib/sessionRouteModules";
 
 const LazyMessageList = lazy(() =>
   loadMessageListModule().then(({ MessageList }) => ({
     default: MessageList,
   })),
 );
-const LazyMessageInput = lazy(() =>
-  loadMessageInputModule().then(({ MessageInput }) => ({
-    default: MessageInput,
-  })),
-);
-
-function SessionRouteModuleFallback({
-  label,
-}: {
-  label: "loading" | "sessionLoading";
-}) {
-  const { t } = useI18n();
-  return (
-    <div className="loading" role="status">
-      {t(label)}
-    </div>
-  );
-}
-
 function MessageList(props: ComponentProps<typeof LazyMessageList>) {
   return (
     <SessionViewerTranscriptGate>
@@ -342,14 +278,6 @@ function MessageList(props: ComponentProps<typeof LazyMessageList>) {
         <LazyMessageList {...props} />
       </Suspense>
     </SessionViewerTranscriptGate>
-  );
-}
-
-function MessageInput(props: ComponentProps<typeof LazyMessageInput>) {
-  return (
-    <Suspense fallback={<SessionRouteModuleFallback label="loading" />}>
-      <LazyMessageInput {...props} />
-    </Suspense>
   );
 }
 
@@ -1715,11 +1643,6 @@ function SessionPageContent({
   // Recent sessions dropdown state
   const [showRecentSessions, setShowRecentSessions] = useState(false);
   const titleRowRef = useRef<HTMLDivElement>(null);
-  const [showProjectReclassifyMenu, setShowProjectReclassifyMenu] =
-    useState(false);
-  const [isReclassifyingProject, setIsReclassifyingProject] = useState(false);
-  const projectBreadcrumbRef = useRef<HTMLAnchorElement>(null);
-  const projectReclassifyMenuRef = useRef<HTMLDivElement>(null);
 
   // Local metadata state (for optimistic updates)
   // Reset when session changes to avoid showing stale data from previous session
@@ -1746,107 +1669,24 @@ function SessionPageContent({
     setLocalPromptSuggestionMode(undefined);
   }, [sessionId]);
 
-  const projectReclassifyOptions = useMemo(
-    () =>
-      projects
-        .filter((candidate) => candidate.id !== projectId)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [projectId, projects],
-  );
-
-  useEffect(() => {
-    if (isDomLingerParked || !showProjectReclassifyMenu) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (
-        projectBreadcrumbRef.current?.contains(target) ||
-        projectReclassifyMenuRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setShowProjectReclassifyMenu(false);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowProjectReclassifyMenu(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isDomLingerParked, showProjectReclassifyMenu]);
-
-  const handleProjectBreadcrumbContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (projectReclassifyOptions.length === 0) {
-        return;
-      }
-      setShowRecentSessions(false);
-      setShowProjectReclassifyMenu(true);
-    },
-    [projectReclassifyOptions.length],
-  );
-
-  const handleReclassifySessionProject = useCallback(
-    async (targetProject: Project) => {
-      if (targetProject.id === projectId || isReclassifyingProject) {
-        return;
-      }
-
-      setIsReclassifyingProject(true);
-      try {
-        const result = await api.reclassifySessionProject(
-          projectId,
-          actualSessionId,
-          targetProject.id,
-        );
-        activityBus.emitLocal("session-metadata-changed", {
-          type: "session-metadata-changed",
-          sessionId: actualSessionId,
-          projectId: result.projectId,
-          transcriptProjectId: result.transcriptProjectId,
-          timestamp: new Date().toISOString(),
-        });
-        setShowProjectReclassifyMenu(false);
-        showToast(
-          t("sessionReclassifiedProject", { project: targetProject.name }),
-          "success",
-        );
-        navigate(
-          `${basePath}/projects/${result.projectId}/sessions/${actualSessionId}${location.search}`,
-          {
-            replace: true,
-            state: location.state,
-          },
-        );
-      } catch (err) {
-        console.error("Failed to move session to project:", err);
-        showToast(t("sessionReclassifyProjectFailed"), "error");
-      } finally {
-        setIsReclassifyingProject(false);
-      }
-    },
-    [
-      actualSessionId,
-      basePath,
-      isReclassifyingProject,
-      location.search,
-      location.state,
-      navigate,
-      projectId,
-      showToast,
-      t,
-    ],
-  );
+  const {
+    showProjectReclassifyMenu,
+    isReclassifyingProject,
+    projectBreadcrumbRef,
+    projectReclassifyMenuRef,
+    projectReclassifyOptions,
+    handleProjectBreadcrumbContextMenu,
+    handleReclassifySessionProject,
+  } = useProjectReclassifyMenu({
+    projectId,
+    actualSessionId,
+    projects,
+    basePath,
+    location,
+    navigate,
+    isDomLingerParked,
+    setShowRecentSessions,
+  });
 
   useSessionRouteSync({
     sessionId,
@@ -1930,12 +1770,6 @@ function SessionPageContent({
   const [showProjectSettingsModal, setShowProjectSettingsModal] =
     useState(false);
   const [showRecapModal, setShowRecapModal] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareModalView, setShareModalView] = useState<"manage" | "session">(
-    "session",
-  );
-  const [shareModalAnchor, setShareModalAnchor] =
-    useState<ModalAnchorRect | null>(null);
   const canCreatePublicShares = publicShareGlobalStatus?.canCreate ?? false;
   const publicShareManagementAvailable = serverHasCapability(
     versionInfo,
@@ -3306,170 +3140,42 @@ function SessionPageContent({
     }
   };
 
-  const handleToggleArchive = async () => {
-    const newArchived = !isArchived;
-    try {
-      await api.updateSessionMetadata(sessionId, { archived: newArchived });
-      setLocalIsArchived(newArchived);
-      showToast(
-        newArchived ? t("sessionArchived") : t("sessionUnarchived"),
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update archive status:", err);
-      showToast(t("sessionArchiveFailed"), "error");
-    }
-  };
-
-  const handleToggleStar = async () => {
-    const newStarred = !isStarred;
-    try {
-      await api.updateSessionMetadata(sessionId, { starred: newStarred });
-      setLocalIsStarred(newStarred);
-      showToast(
-        newStarred ? t("sessionStarred") : t("sessionUnstarred"),
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update star status:", err);
-      showToast(t("sessionStarFailed"), "error");
-    }
-  };
-
-  const handleTogglePromptSuggestions = async () => {
-    const next: PromptSuggestionMode =
-      promptSuggestionMode === "native" ? "off" : "native";
-    const previous = localPromptSuggestionMode;
-    setLocalPromptSuggestionMode(next);
-    try {
-      await api.updateSessionMetadata(sessionId, {
-        promptSuggestionMode: next,
-      });
-      showToast(
-        next === "native"
-          ? t("sessionPromptSuggestionsEnabled")
-          : t("sessionPromptSuggestionsDisabled"),
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update prompt suggestion mode:", err);
-      setLocalPromptSuggestionMode(previous);
-      showToast(t("sessionPromptSuggestionsFailed"), "error");
-    }
-  };
-
-  const hasUnread =
-    sessionCollectionRecord?.hasUnread ?? session?.hasUnread ?? false;
-
-  const handleSetUnread = useCallback(
-    async (newHasUnread: boolean) => {
-      try {
-        await setSessionUnread(sessionId, newHasUnread);
-        showToast(
-          newHasUnread ? t("sessionMarkedUnread") : t("sessionMarkedRead"),
-          "success",
-        );
-      } catch (err) {
-        console.error("Failed to update read status:", err);
-        showToast(t("sessionReadFailed"), "error");
-      }
-    },
-    [sessionId, showToast, t],
-  );
-  const handleToggleRead = () => handleSetUnread(!hasUnread);
-
-  useEffect(() => {
-    if (isDomLingerParked || loading) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const unread = sessionReadShortcut(event);
-      if (unread === null) return;
-      const target = event.target as Element;
-      if (
-        target !== document.body &&
-        target
-          .closest("[data-session-read-scope]")
-          ?.getAttribute("data-session-read-scope") !== sessionId
-      )
-        return;
-      event.preventDefault();
-      void handleSetUnread(unread);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isDomLingerParked, loading, sessionId, handleSetUnread]);
-
-  const handleTerminate = async () => {
-    if (status.owner === "self" && status.processId) {
-      try {
-        await api.abortProcess(status.processId, { blockResume: true });
-        showToast(t("sessionTerminated"), "success");
-      } catch (err) {
-        console.error("Failed to terminate session:", err);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        showToast(t("sessionTerminateFailed", { message: errorMsg }), "error");
-      }
-    }
-  };
-
-  const handleRestartProvider = async () => {
-    if (status.owner !== "self" || !status.processId) return;
-    draftControlsRef.current?.flushDraft();
-    try {
-      await api.abortProcess(status.processId);
-      setStatus({ owner: "none" });
-      await api.reactivateSession(projectId, actualSessionId);
-      window.location.reload();
-    } catch (error) {
-      showToast(
-        t("sessionRestartProviderFailed", {
-          message: error instanceof Error ? error.message : String(error),
-        }),
-        "error",
-      );
-    }
-  };
-
-  const handleShare = useCallback(() => {
-    if (showShareModal) {
-      setShowShareModal(false);
-      setShareModalAnchor(null);
-      return;
-    }
-    setShareModalAnchor(null);
-    setShareModalView(publicShareManagementAvailable ? "manage" : "session");
-    setShowShareModal(true);
-  }, [publicShareManagementAvailable, showShareModal]);
-
-  const handleShareIndicatorClick = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      if (showShareModal) {
-        setShowShareModal(false);
-        setShareModalAnchor(null);
-        return;
-      }
-      const rect = event.currentTarget.getBoundingClientRect();
-      setShareModalAnchor({
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
-      });
-      setShareModalView(publicShareManagementAvailable ? "manage" : "session");
-      setShowShareModal(true);
-    },
-    [publicShareManagementAvailable, showShareModal],
-  );
-
-  const handleShareIndicatorContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      if (!publicShareManagementAvailable) return;
-      event.preventDefault();
-      handleShareIndicatorClick(event);
-    },
-    [handleShareIndicatorClick, publicShareManagementAvailable],
-  );
+  const {
+    showShareModal,
+    setShowShareModal,
+    shareModalView,
+    shareModalAnchor,
+    setShareModalAnchor,
+    handleToggleArchive,
+    handleToggleStar,
+    handleTogglePromptSuggestions,
+    hasUnread,
+    handleToggleRead,
+    handleTerminate,
+    handleRestartProvider,
+    handleShare,
+    handleShareIndicatorClick,
+    handleShareIndicatorContextMenu,
+  } = useSessionHeaderActions({
+    sessionId,
+    projectId,
+    actualSessionId,
+    session,
+    sessionCollectionRecord,
+    status,
+    setStatus,
+    isArchived,
+    isStarred,
+    promptSuggestionMode,
+    localPromptSuggestionMode,
+    setLocalIsArchived,
+    setLocalIsStarred,
+    setLocalPromptSuggestionMode,
+    isDomLingerParked,
+    loading,
+    draftControlsRef,
+    publicShareManagementAvailable,
+  });
 
   if (error) {
     const errorStatus =
@@ -3534,24 +3240,6 @@ function SessionPageContent({
     // Render the failure inside the transcript below, including cold entry.
   }
 
-  // Sidebar icon component
-  const SidebarIcon = () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-    </svg>
-  );
-
   const liveSourceReviewThinking = parseThinkingConfig(
     effectiveModelConfig?.thinking,
   );
@@ -3581,786 +3269,166 @@ function SessionPageContent({
         onFiles={handleAttach}
         ownerKey={creationKey}
       >
-        <header
-          ref={headerRef}
-          data-session-read-scope={sessionId}
-          className={`session-header ${sessionHeaderStyles.header}`}
-          data-header-layout={headerLayout}
-          data-inline-rename={
-            isEditingTitle &&
-            titleEditMode === "manual" &&
-            renamePresentation === "inline"
-              ? "true"
-              : undefined
+        <SessionHeader
+          actualSessionId={actualSessionId}
+          attachTitleInput={attachTitleInput}
+          basePath={basePath}
+          canCreatePublicShares={canCreatePublicShares}
+          canStopOwnedProcess={canStopOwnedProcess}
+          clearloopControls={clearloopControls}
+          cloneSession={cloneSession}
+          condensedHeader={condensedHeader}
+          currentGoal={currentGoal}
+          currentProviderInfo={currentProviderInfo}
+          displayTitle={displayTitle}
+          draftControlsRef={draftControlsRef}
+          effectiveModelConfig={effectiveModelConfig}
+          effectiveProvider={effectiveProvider}
+          forkAfterDisabled={forkAfterDisabled}
+          forkUnavailableMessage={forkUnavailableMessage}
+          generatedRetitle={generatedRetitle}
+          generatedTitleEnabled={generatedTitleEnabled}
+          goalDetails={goalDetails}
+          handleAcceptGeneratedRetitle={handleAcceptGeneratedRetitle}
+          handleCancelEditingTitle={handleCancelEditingTitle}
+          handleCompactSession={handleCompactSession}
+          handleGenerateAndApplyTitle={handleGenerateAndApplyTitle}
+          handleProjectBreadcrumbContextMenu={
+            handleProjectBreadcrumbContextMenu
           }
-        >
-          <div
-            className={`session-header-inner ${sessionHeaderStyles.row}${isWideScreen ? ` ${sessionHeaderStyles.noLeadingControl}` : ""}`}
-          >
-            <div className={`session-header-left ${sessionHeaderStyles.left}`}>
-              {/* Sidebar opener for the overlay sidebar only. On desktop the
-                sidebar owns its own toggle, expanded or collapsed. */}
-              {!isWideScreen && (
-                <button
-                  type="button"
-                  className="sidebar-toggle"
-                  onClick={openSidebar}
-                  title={t("sessionOpenSidebar")}
-                  aria-label={t("sessionOpenSidebar")}
-                >
-                  <SidebarIcon />
-                </button>
-              )}
-              <HostIdentityMarker />
-              <SessionAppAction
-                pane={{
-                  ...rightPane,
-                  select: (url) => {
-                    setProjectAppOpen(false);
-                    return rightPane.select(url);
-                  },
-                }}
-              />
-              {projectAppEnabled && (
-                <button
-                  type="button"
-                  className={sessionHeaderStyles.projectAppButton}
-                  aria-pressed={projectAppOpen}
-                  aria-label={t("projectAppLabel")}
-                  title={t("projectAppFullViewHint")}
-                  {...projectAppPress.handlers}
-                  onClick={projectAppPress.click(() => {
-                    setProjectAppFull(false);
-                    setProjectAppOpenedBy("user");
-                    setProjectAppOpen((value) => !value);
-                  })}
-                >
-                  <ProjectAppIcon />
-                </button>
-              )}
-              {/* Project breadcrumb */}
-              {project?.name && (
-                <div
-                  className={`project-breadcrumb-wrapper ${sessionHeaderStyles.project}`}
-                >
-                  <Link
-                    ref={projectBreadcrumbRef}
-                    to={`${basePath}/sessions?project=${projectId}`}
-                    className="project-breadcrumb"
-                    title={
-                      project.caption
-                        ? `${project.name}\n${project.caption.text}`
-                        : project.name
-                    }
-                    aria-label={project.name}
-                    onContextMenu={handleProjectBreadcrumbContextMenu}
-                  >
-                    {projectCodeNamesEnabled && project.codeName
-                      ? project.codeName
-                      : project.name}
-                  </Link>
-                  {showProjectReclassifyMenu && (
-                    <div
-                      ref={projectReclassifyMenuRef}
-                      className="project-reclassify-menu"
-                      role="menu"
-                      aria-label={t("sessionReclassifyProjectMenu")}
-                    >
-                      <div className="project-reclassify-title">
-                        {t("sessionReclassifyProjectMenu")}
-                      </div>
-                      <div className="project-reclassify-list">
-                        {projectReclassifyOptions.map((candidate) => (
-                          <button
-                            key={candidate.id}
-                            type="button"
-                            className="project-reclassify-option"
-                            role="menuitem"
-                            disabled={isReclassifyingProject}
-                            onClick={() =>
-                              void handleReclassifySessionProject(candidate)
-                            }
-                            title={candidate.path}
-                          >
-                            <span className="project-reclassify-name">
-                              {candidate.name}
-                            </span>
-                            <span className="project-reclassify-path">
-                              {candidate.path}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div
-                ref={titleRowRef}
-                className={`session-title-row ${sessionHeaderStyles.titleRow}`}
-              >
-                {isStarred && (
-                  <svg
-                    className="star-indicator-inline"
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    role="img"
-                    aria-label={t("sessionStarredLabel")}
-                  >
-                    <title>{t("sessionStarredLabel")}</title>
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                )}
-                {loading ? (
-                  <span className="session-title-skeleton" />
-                ) : isEditingTitle &&
-                  !isDomLingerParked &&
-                  titleEditMode === "manual" ? (
-                  <SessionRenameEditor
-                    initialTitle={displayTitle}
-                    presentation={renamePresentation}
-                    onSave={saveTitleValue}
-                    onCancel={handleCancelEditingTitle}
-                  />
-                ) : isEditingTitle ? (
-                  <div
-                    ref={titleEditControlsRef}
-                    className="session-title-edit"
-                  >
-                    <div
-                      className="session-title-edit-row"
-                      title={
-                        generatedRetitle?.deferredInsertion
-                          ? generatedRetitle.submittedTurnText
-                          : undefined
-                      }
-                    >
-                      <input
-                        ref={attachTitleInput}
-                        type="text"
-                        className="session-title-input"
-                        value={
-                          generatedRetitle?.deferredInsertion ? "" : renameValue
-                        }
-                        placeholder={
-                          generatedRetitle?.deferredInsertion
-                            ? t("sessionRetitleDeferred")
-                            : undefined
-                        }
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={handleTitleKeyDown}
-                        onBlur={handleTitleBlur}
-                        disabled={
-                          isRenaming || !!generatedRetitle?.deferredInsertion
-                        }
-                        title={
-                          generatedRetitle?.deferredInsertion
-                            ? generatedRetitle.submittedTurnText
-                            : undefined
-                        }
-                      />
-                      {titleEditMode === "retitle" && (
-                        <button
-                          type="button"
-                          className={`session-title-edit-button session-title-retitle-accept${
-                            generatedRetitle?.deferredInsertion
-                              ? " is-armed"
-                              : ""
-                          }`}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={handleAcceptGeneratedRetitle}
-                          disabled={
-                            isRenaming ||
-                            !generatedRetitle ||
-                            !!generatedRetitle.deferredInsertion ||
-                            generatedRetitle.status === "error"
-                          }
-                          title={
-                            generatedRetitle?.status === "generating"
-                              ? t("sessionRetitleUseGeneratedWhenReady")
-                              : t("sessionRetitleUseGenerated")
-                          }
-                          aria-label={
-                            generatedRetitle?.status === "generating"
-                              ? t("sessionRetitleUseGeneratedWhenReady")
-                              : t("sessionRetitleUseGenerated")
-                          }
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z" />
-                            <path d="m11 8 4 4-4 4" />
-                            <path d="M8 12h7" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="session-title-edit-button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={handleSaveTitle}
-                        disabled={
-                          isRenaming || !!generatedRetitle?.deferredInsertion
-                        }
-                        title={
-                          titleEditMode === "retitle"
-                            ? t("sessionRetitleSaveAsTyped")
-                            : t("sessionTitleSave")
-                        }
-                        aria-label={
-                          titleEditMode === "retitle"
-                            ? t("sessionRetitleSaveAsTyped")
-                            : t("sessionTitleSave")
-                        }
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                          <path d="M17 21v-8H7v8" />
-                          <path d="M7 3v5h8" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="session-title-edit-button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={handleCancelEditingTitle}
-                        disabled={isRenaming}
-                        title={t("sessionRetitleCancel")}
-                        aria-label={t("sessionRetitleCancel")}
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M18 6 6 18" />
-                          <path d="m6 6 12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                    {titleEditMode === "retitle" &&
-                      generatedRetitle &&
-                      !generatedRetitle.deferredInsertion && (
-                        <div
-                          className={`session-title-retitle-status is-${generatedRetitle.status}`}
-                          title={
-                            generatedRetitle.status === "generating"
-                              ? generatedRetitle.submittedTurnText
-                              : undefined
-                          }
-                        >
-                          {generatedRetitle.status === "generating"
-                            ? t("sessionRetitleGenerating")
-                            : generatedRetitle.status === "ready" &&
-                                generatedRetitle.title
-                              ? `${t("sessionRetitleProposalLabel")} ${generatedRetitle.title}`
-                              : (generatedRetitle.error ??
-                                t("sessionRetitleFailed"))}
-                        </div>
-                      )}
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className={`session-title session-title-recent-trigger ${sessionHeaderStyles.titleWithBadge}`}
-                      onClick={() => setShowRecentSessions(!showRecentSessions)}
-                      title={titleTooltip}
-                      aria-haspopup="menu"
-                      aria-expanded={showRecentSessions}
-                    >
-                      <span className="session-title-text">{displayTitle}</span>
-                      {session?.clearloop !== undefined && (
-                        <ClearloopRemainingBadge
-                          badge={session.clearloop}
-                          controls={clearloopControls}
-                        />
-                      )}
-                    </button>
-                    {session?.routerBinding &&
-                      serverHasCapability(
-                        versionInfo,
-                        SERVER_CAPABILITIES.agentAuthRouter.name,
-                      ) &&
-                      (() => {
-                        const chip = routerBindingChip(
-                          t,
-                          session.routerBinding,
-                        );
-                        return (
-                          <button
-                            type="button"
-                            className={sessionHeaderStyles.routerAccount}
-                            title={chip.tooltip}
-                            aria-label={chip.tooltip}
-                            onClick={() => {
-                              setModelPanelInitialTab("info");
-                              setShowModelSwitchModal(true);
-                            }}
-                          >
-                            {chip.label}
-                          </button>
-                        );
-                      })()}
-                    {currentGoal && (
-                      <GoalFlag
-                        objective={currentGoal}
-                        status={goalDetails?.goalStatus}
-                        key={actualSessionId}
-                        onCommand={(argument) =>
-                          handleSend(`/goal ${argument}`, undefined, {
-                            preserveComposer: true,
-                            localControl: true,
-                          })
-                        }
-                        onEdit={() => {
-                          const controls = draftControlsRef.current;
-                          if (!controls || controls.getDraft().trim()) return;
-                          controls.setDraft(`/goal ${currentGoal}`);
-                          controls.focus?.();
-                        }}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      className={`session-title-chevron-trigger${
-                        showRecentSessions ? " is-open" : ""
-                      }`}
-                      onClick={() => setShowRecentSessions(!showRecentSessions)}
-                      title={
-                        showRecentSessions
-                          ? t("sessionCloseRecentSessions")
-                          : t("sessionRecentSessions")
-                      }
-                      aria-label={
-                        showRecentSessions
-                          ? t("sessionCloseRecentSessions")
-                          : t("sessionRecentSessions")
-                      }
-                      aria-expanded={showRecentSessions}
-                    >
-                      <svg
-                        className="session-title-chevron"
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </button>
-                    {supportsTitleGeneration && generatedTitleEnabled && (
-                      <button
-                        type="button"
-                        className="session-title-generate-trigger"
-                        onClick={handleGenerateAndApplyTitle}
-                        title={t("sessionGenerateNewTitle")}
-                        aria-label={t("sessionGenerateNewTitle")}
-                      >
-                        <svg
-                          className="session-title-generate-icon"
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.75"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z" />
-                          <path d="m11 8 4 4-4 4" />
-                          <path d="M8 12h7" />
-                        </svg>
-                      </button>
-                    )}
-                    <RecentSessionsDropdown
-                      currentSessionId={sessionId}
-                      currentSessionTitle={titleTooltip}
-                      isOpen={showRecentSessions}
-                      onClose={() => setShowRecentSessions(false)}
-                      onNavigate={() => setShowRecentSessions(false)}
-                      triggerRef={titleRowRef}
-                      basePath={basePath}
-                    />
-                  </>
-                )}
-                {!loading && isArchived && (
-                  <span className="archived-badge">
-                    {t("sessionArchivedBadge")}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div
-              className={`session-header-right ${sessionHeaderStyles.actions}`}
-            >
-              <ProviderChildSessionControl
-                projectId={projectId}
-                sessionId={actualSessionId}
-                basePath={basePath}
-                childrenFromSession={session?.providerChildren}
-                processState={processState}
-              />
-              <ClientLogRecordingBadge inline />
-              <SessionPublicShareControls
-                indicatorVisible={!hideHeaderSecondary}
-                enabled={publicSharesEnabled}
-                projectId={projectId}
-                sessionId={actualSessionId}
-                storageState={publicShareGlobalStatus?.storageState}
-                canCreateShares={canCreatePublicShares}
-                managementAvailable={publicShareManagementAvailable}
-                modalOpen={showShareModal}
-                modalAnchorRect={shareModalAnchor}
-                modalInitialView={shareModalView}
-                initialPrompt={publicShareInitialPrompt}
-                title={displayTitle}
-                onIndicatorClick={handleShareIndicatorClick}
-                onIndicatorContextMenu={
-                  publicShareManagementAvailable
-                    ? handleShareIndicatorContextMenu
-                    : undefined
-                }
-                onCloseModal={() => {
-                  setShowShareModal(false);
-                  setShareModalAnchor(null);
-                }}
-                t={t}
-              />
-              {!hideHeaderSecondary && !loading && actualSessionId && (
-                <SessionIssuesLink
-                  sessionId={actualSessionId}
-                  projectId={projectId}
-                  messageCount={messages.length}
-                />
-              )}
-              {!loading && effectiveProvider && (
-                <button
-                  type="button"
-                  className={`provider-badge-button ${sessionHeaderStyles.modelButton}`}
-                  onClick={() => {
-                    setModelPanelInitialTab("model");
-                    setShowModelSwitchModal(true);
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setModelPanelInitialTab("info");
-                    setShowModelSwitchModal(true);
-                  }}
-                  title={
-                    status.owner === "self" && status.processId
-                      ? t("sessionConfigureModel")
-                      : t("sessionViewInfo")
-                  }
-                >
-                  <ProviderBadge
-                    condensed={condensedHeader}
-                    provider={effectiveProvider}
-                    model={liveBadgeModel}
-                    thinking={effectiveModelConfig?.thinking}
-                    effort={effectiveModelConfig?.effort}
-                    isThinking={canStopOwnedProcess}
-                  />
-                </button>
-              )}
-              {!loading && (
-                <SessionMenu
-                  sessionId={sessionId}
-                  projectId={projectId}
-                  isStarred={isStarred}
-                  isArchived={isArchived}
-                  hasUnread={hasUnread}
-                  provider={session?.provider}
-                  processId={
-                    status.owner === "self" ? status.processId : undefined
-                  }
-                  onToggleStar={handleToggleStar}
-                  onToggleArchive={handleToggleArchive}
-                  onToggleRead={handleToggleRead}
-                  onRename={handleStartEditingTitle}
-                  onShowInfo={openSessionInfo}
-                  onGenerateTitle={
-                    supportsTitleGeneration
-                      ? handleGenerateAndApplyTitle
-                      : undefined
-                  }
-                  onClone={supportsForkFromTurn ? cloneSession : undefined}
-                  cloneUnavailableMessage={forkUnavailableMessage}
-                  cloneDisabled={forkAfterDisabled}
-                  onConfigureProjectSettings={
-                    supportsProjectSettings
-                      ? () => setShowProjectSettingsModal(true)
-                      : undefined
-                  }
-                  onConfigureRecaps={
-                    status.owner === "self"
-                      ? () => setShowRecapModal(true)
-                      : undefined
-                  }
-                  promptSuggestionMode={promptSuggestionMode}
-                  onTogglePromptSuggestions={
-                    currentProviderInfo?.supportsNativePromptSuggestions
-                      ? handleTogglePromptSuggestions
-                      : undefined
-                  }
-                  warningRestoreAvailable={
-                    hasPendingToolCalls && pendingElsewhereDismissed
-                  }
-                  onRestoreWarnings={handleRestorePendingElsewhereWarning}
-                  onHandoff={
-                    effectiveProvider && !routedSession
-                      ? () => setShowHandoffModal(true)
-                      : undefined
-                  }
-                  onClear={() => {
-                    const params = new URLSearchParams({ projectId });
-                    if (effectiveProvider) {
-                      params.set("provider", effectiveProvider);
-                    }
-                    if (liveBadgeModel) {
-                      params.set("model", liveBadgeModel);
-                    }
-                    navigate(`${basePath}/new-session?${params.toString()}`);
-                  }}
-                  onCompact={
-                    supportsManualCompact ? handleCompactSession : undefined
-                  }
-                  compactDisabled={manualCompactBlocked}
-                  onTerminate={handleTerminate}
-                  onRestartProvider={
-                    serverHasCapability(
-                      versionInfo,
-                      SIDEBAR_SESSION_RESUME_CAPABILITY,
-                    )
-                      ? handleRestartProvider
-                      : undefined
-                  }
-                  onReload={() => window.location.reload()}
-                  onShare={publicShareActionAvailable ? handleShare : undefined}
-                  triggerClassName={sessionHeaderStyles.menuTrigger}
-                  shareLabel={
-                    hideHeaderSecondary ? (
-                      <SessionShareMenuLabel
-                        enabled={publicSharesEnabled}
-                        projectId={projectId}
-                        sessionId={actualSessionId}
-                        storageState={publicShareGlobalStatus?.storageState}
-                        t={t}
-                      />
-                    ) : undefined
-                  }
-                  additionalItems={
-                    hideHeaderSecondary
-                      ? (close) => (
-                          <SessionIssuesLink
-                            sessionId={actualSessionId}
-                            projectId={projectId}
-                            messageCount={messages.length}
-                            presentation="menu"
-                            onSelect={close}
-                          />
-                        )
-                      : undefined
-                  }
-                  useFixedPositioning
-                  useEllipsisIcon
-                  onOpenChange={(open) => {
-                    if (open) setShowRecentSessions(false);
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </header>
+          handleReclassifySessionProject={handleReclassifySessionProject}
+          handleRestartProvider={handleRestartProvider}
+          handleRestorePendingElsewhereWarning={
+            handleRestorePendingElsewhereWarning
+          }
+          handleSaveTitle={handleSaveTitle}
+          handleSend={handleSend}
+          handleShare={handleShare}
+          handleShareIndicatorClick={handleShareIndicatorClick}
+          handleShareIndicatorContextMenu={handleShareIndicatorContextMenu}
+          handleStartEditingTitle={handleStartEditingTitle}
+          handleTerminate={handleTerminate}
+          handleTitleBlur={handleTitleBlur}
+          handleTitleKeyDown={handleTitleKeyDown}
+          handleToggleArchive={handleToggleArchive}
+          handleTogglePromptSuggestions={handleTogglePromptSuggestions}
+          handleToggleRead={handleToggleRead}
+          handleToggleStar={handleToggleStar}
+          hasPendingToolCalls={hasPendingToolCalls}
+          hasUnread={hasUnread}
+          headerLayout={headerLayout}
+          headerRef={headerRef}
+          hideHeaderSecondary={hideHeaderSecondary}
+          isArchived={isArchived}
+          isDomLingerParked={isDomLingerParked}
+          isEditingTitle={isEditingTitle}
+          isReclassifyingProject={isReclassifyingProject}
+          isRenaming={isRenaming}
+          isStarred={isStarred}
+          isWideScreen={isWideScreen}
+          liveBadgeModel={liveBadgeModel}
+          loading={loading}
+          manualCompactBlocked={manualCompactBlocked}
+          messages={messages}
+          navigate={navigate}
+          openSessionInfo={openSessionInfo}
+          openSidebar={openSidebar}
+          pendingElsewhereDismissed={pendingElsewhereDismissed}
+          processState={processState}
+          project={project}
+          projectAppEnabled={projectAppEnabled}
+          projectAppOpen={projectAppOpen}
+          projectAppPress={projectAppPress}
+          projectBreadcrumbRef={projectBreadcrumbRef}
+          projectCodeNamesEnabled={projectCodeNamesEnabled}
+          projectId={projectId}
+          projectReclassifyMenuRef={projectReclassifyMenuRef}
+          projectReclassifyOptions={projectReclassifyOptions}
+          promptSuggestionMode={promptSuggestionMode}
+          publicShareActionAvailable={publicShareActionAvailable}
+          publicShareGlobalStatus={publicShareGlobalStatus}
+          publicShareInitialPrompt={publicShareInitialPrompt}
+          publicShareManagementAvailable={publicShareManagementAvailable}
+          publicSharesEnabled={publicSharesEnabled}
+          renamePresentation={renamePresentation}
+          renameValue={renameValue}
+          rightPane={rightPane}
+          routedSession={routedSession}
+          saveTitleValue={saveTitleValue}
+          session={session}
+          sessionId={sessionId}
+          setModelPanelInitialTab={setModelPanelInitialTab}
+          setProjectAppFull={setProjectAppFull}
+          setProjectAppOpen={setProjectAppOpen}
+          setProjectAppOpenedBy={setProjectAppOpenedBy}
+          setRenameValue={setRenameValue}
+          setShareModalAnchor={setShareModalAnchor}
+          setShowHandoffModal={setShowHandoffModal}
+          setShowModelSwitchModal={setShowModelSwitchModal}
+          setShowProjectSettingsModal={setShowProjectSettingsModal}
+          setShowRecapModal={setShowRecapModal}
+          setShowRecentSessions={setShowRecentSessions}
+          setShowShareModal={setShowShareModal}
+          shareModalAnchor={shareModalAnchor}
+          shareModalView={shareModalView}
+          showProjectReclassifyMenu={showProjectReclassifyMenu}
+          showRecentSessions={showRecentSessions}
+          showShareModal={showShareModal}
+          status={status}
+          supportsForkFromTurn={supportsForkFromTurn}
+          supportsManualCompact={supportsManualCompact}
+          supportsProjectSettings={supportsProjectSettings}
+          supportsTitleGeneration={supportsTitleGeneration}
+          titleEditControlsRef={titleEditControlsRef}
+          titleEditMode={titleEditMode}
+          titleRowRef={titleRowRef}
+          titleTooltip={titleTooltip}
+          versionInfo={versionInfo}
+        />
 
-        {showProjectSettingsModal && supportsProjectSettings && (
-          <ProjectSessionDefaultsModal
-            projectId={projectId}
-            projectName={project?.name}
-            onClose={() => setShowProjectSettingsModal(false)}
-          />
-        )}
-
-        {showRecapModal && status.owner === "self" && (
-          <SessionRecapModal
-            sessionId={actualSessionId}
-            processId={status.processId}
-            provider={effectiveProvider}
-            currentModel={liveBadgeModel}
-            onClose={() => setShowRecapModal(false)}
-            onSaved={(settings) => {
-              setStatus((prev) =>
-                prev.owner === "self" && prev.processId === status.processId
-                  ? {
-                      ...prev,
-                      recapAfterSeconds: settings.recapAfterSeconds,
-                    }
-                  : prev,
-              );
-              showToast(t("sessionRecapSaved"), "success");
-            }}
-          />
-        )}
-
-        {longContextEffortWarning && (
-          <LongContextEffortWarningModal
-            contextTokens={longContextEffortWarning.contextTokens}
-            currentEffortLabel={longContextEffortWarning.currentEffortLabel}
-            nextEffortLabel={longContextEffortWarning.nextEffortLabel}
-            canFork={longContextEffortWarning.canFork}
-            busy={longContextEffortWarning.busy}
-            onChoose={(choice) => void chooseLongContextEffortWarning(choice)}
-          />
-        )}
-
-        {/* Model Switch Modal */}
-        {showModelSwitchModal && !isDomLingerParked && (
-          <ModelSwitchModal
-            routed={routedSession}
-            processId={status.owner === "self" ? status.processId : undefined}
-            sessionId={actualSessionId}
-            currentModel={session?.model}
-            sessionProvider={effectiveProvider}
-            onModelChanged={handleModelChanged}
-            guardEffortChange={guardEffortChange}
-            initialTab={modelPanelInitialTab}
-            infoPane={
-              session ? (
-                <ProcessInfoBody
-                  onRelationshipNavigate={() => setShowModelSwitchModal(false)}
-                  relationshipProjectId={
-                    creationPrincipalResolved &&
-                    creationPrincipal.superuser &&
-                    serverHasCapability(
-                      versionInfo,
-                      SERVER_CAPABILITIES.sessionRelationships,
-                    )
-                      ? projectId
-                      : undefined
-                  }
-                  sessionId={actualSessionId}
-                  sessionTitle={titleTooltip}
-                  provider={session.provider}
-                  model={session.model}
-                  savedServiceTier={savedLaunchSettings?.serviceTier}
-                  serviceTiers={providerServiceTiers}
-                  status={status}
-                  processState={processState}
-                  sessionLiveness={sessionLiveness}
-                  providerRuntimeStatus={providerRuntimeStatus}
-                  contextUsage={session.contextUsage}
-                  originator={session.originator}
-                  cliVersion={session.cliVersion}
-                  sessionSource={session.source}
-                  approvalPolicy={session.approvalPolicy}
-                  sandboxPolicy={session.sandboxPolicy}
-                  createdAt={session.createdAt}
-                  routerBinding={session.routerBinding}
-                  sessionStreamConnected={sessionUpdatesConnected}
-                  lastSessionEventAt={lastStreamActivityAt}
-                />
-              ) : null
-            }
-            onActivate={async () => {
-              const result = await api.reactivateSession(
-                projectId,
-                actualSessionId,
-              );
-              setStatus({
-                owner: "self",
-                processId: result.processId,
-                permissionMode: result.permissionMode,
-                appliedPermissionMode: result.appliedPermissionMode,
-                modeVersion: result.modeVersion,
-                recapAfterSeconds: result.recapAfterSeconds,
-              });
-            }}
-            onClose={() => setShowModelSwitchModal(false)}
-          />
-        )}
-
-        {showHandoffModal && effectiveProvider && !routedSession && (
-          <RestartSessionModal
-            projectId={projectId}
-            sessionId={actualSessionId}
-            provider={effectiveProvider}
-            providerDisplayName={currentProviderInfo?.displayName}
-            providers={providers}
-            models={currentProviderInfo?.models}
-            currentModel={liveBadgeModel}
-            mode={permissionMode}
-            thinking={getThinkingSetting()}
-            executor={session?.executor}
-            project={projects.find((candidate) => candidate.id === projectId)}
-            providerRuntimeStatus={providerRuntimeStatus}
-            onRestarted={(result, options) => {
-              setShowHandoffModal(false);
-              showToast(t("sessionHandoffStarted"), "success");
-              const handoffUrl = `${basePath}/projects/${projectId}/sessions/${result.sessionId}`;
-              const handoffHref = toBrowserAppHref(handoffUrl);
-              if (options?.targetWindow && !options.targetWindow.closed) {
-                options.targetWindow.location.href = handoffHref;
-                return;
-              }
-              if (options?.openInNewWindow) {
-                window.open(handoffHref, "_blank", "noopener");
-                return;
-              }
-              navigate(handoffUrl, {
-                state: createSessionNavigationState({
-                  initialStatus: {
-                    owner: "self",
-                    processId: result.processId,
-                    permissionMode: result.permissionMode,
-                    appliedPermissionMode: result.appliedPermissionMode,
-                    modeVersion: result.modeVersion,
-                    recapAfterSeconds: result.recapAfterSeconds,
-                  },
-                  initialTitle: result.title,
-                  initialModel: result.model ?? liveBadgeModel,
-                  initialProvider: result.provider ?? effectiveProvider,
-                }),
-              });
-            }}
-            onClose={() => setShowHandoffModal(false)}
-          />
-        )}
+        <SessionPageModals
+          actualSessionId={actualSessionId}
+          basePath={basePath}
+          chooseLongContextEffortWarning={chooseLongContextEffortWarning}
+          creationPrincipal={creationPrincipal}
+          creationPrincipalResolved={creationPrincipalResolved}
+          currentProviderInfo={currentProviderInfo}
+          effectiveProvider={effectiveProvider}
+          guardEffortChange={guardEffortChange}
+          handleModelChanged={handleModelChanged}
+          isDomLingerParked={isDomLingerParked}
+          lastStreamActivityAt={lastStreamActivityAt}
+          liveBadgeModel={liveBadgeModel}
+          longContextEffortWarning={longContextEffortWarning}
+          modelPanelInitialTab={modelPanelInitialTab}
+          navigate={navigate}
+          permissionMode={permissionMode}
+          processState={processState}
+          project={project}
+          projectId={projectId}
+          projects={projects}
+          providerRuntimeStatus={providerRuntimeStatus}
+          providers={providers}
+          providerServiceTiers={providerServiceTiers}
+          routedSession={routedSession}
+          savedLaunchSettings={savedLaunchSettings}
+          session={session}
+          sessionLiveness={sessionLiveness}
+          sessionUpdatesConnected={sessionUpdatesConnected}
+          setShowHandoffModal={setShowHandoffModal}
+          setShowModelSwitchModal={setShowModelSwitchModal}
+          setShowProjectSettingsModal={setShowProjectSettingsModal}
+          setShowRecapModal={setShowRecapModal}
+          setStatus={setStatus}
+          showHandoffModal={showHandoffModal}
+          showModelSwitchModal={showModelSwitchModal}
+          showProjectSettingsModal={showProjectSettingsModal}
+          showRecapModal={showRecapModal}
+          status={status}
+          supportsProjectSettings={supportsProjectSettings}
+          titleTooltip={titleTooltip}
+          versionInfo={versionInfo}
+        />
 
         <ExternalSessionWarning active={status.owner === "external"} />
 
@@ -4642,432 +3710,116 @@ function SessionPageContent({
             </button>
           )}
 
-          <footer className={`${styles.input} session-input`}>
-            {creationRecovery?.key === creationKey && (
-              <div role="status" className={styles.creationRecovery}>
-                <span>
-                  {t(
-                    creationRecovery.accepted
-                      ? "sessionCreationSavedWhileAway"
-                      : "sessionCreationUnconfirmedRequest",
-                  )}
-                </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const view = captureCreationView();
-                    const pending = pendingSessionCreation(creationKey);
-                    if (!pending) return;
-                    const controls = draftControlsRef.current;
-                    const filesMatch =
-                      !pendingUploadsRef.current.size &&
-                      attachmentsRef.current
-                        .map((file) => file.id)
-                        .join("\0") === (pending.draftFileIds ?? []).join("\0");
-                    const draftMatches =
-                      filesMatch &&
-                      controls?.getDraft() === pending.draftText &&
-                      JSON.stringify(
-                        controls?.getAttachmentState()?.refs ?? [],
-                      ) === (pending.draftAttachments ?? "[]");
-                    const captured = draftMatches
-                      ? controls?.captureSubmission?.()
-                      : undefined;
-                    try {
-                      const receipt = await getSessionCreation(
-                        sourceTransport,
-                        creationRecovery.requestId,
-                      );
-                      if (!ownsCreationView(view)) return;
-                      const stillMatches =
-                        !pendingUploadsRef.current.size &&
-                        attachmentsRef.current
-                          .map((file) => file.id)
-                          .join("\0") ===
-                          (pending.draftFileIds ?? []).join("\0") &&
-                        controls?.getDraft() === pending.draftText &&
-                        JSON.stringify(
-                          controls?.getAttachmentState()?.refs ?? [],
-                        ) === (pending.draftAttachments ?? "[]");
-                      const cleared =
-                        stillMatches && (captured?.confirm() ?? false);
-                      if (cleared)
-                        setComposerAttachments([], {
-                          persistDraft: false,
-                          revokeRemovedPreviewUrls: true,
-                        });
-                      if (cleared || !stillMatches) {
-                        settleSessionCreation(creationKey, receipt.requestId);
-                        setCreationRecovery(null);
-                      }
-                      navigate(
-                        `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
-                      );
-                    } catch (error) {
-                      showToast(
-                        error instanceof Error ? error.message : String(error),
-                        "error",
-                      );
-                    }
-                  }}
-                >
-                  {t("sessionCreationOpenSaved")}
-                </button>
-              </div>
-            )}
-            <div
-              className={`session-connection-bar session-connection-${sessionConnectionStatus}`}
-            />
-            <div data-selection-actions-mobile-slot />
-            <div className="session-input-inner">
-              <BtwAsideStickyCards
-                asides={composerStickyBtwAsides}
-                focusedAsideId={focusedBtwAsideId}
-                onFocusAside={setFocusedBtwAsideId}
-                onToggleAsideExpanded={toggleBtwAsideExpanded}
-                onDoneAside={hideBtwAside}
-                onHideAside={hideBtwAside}
-                onStopAside={(asideId) => void handleStopBtwAside(asideId)}
-                onTransferToComposer={transferBtwTurnToMotherComposer}
-              />
-
-              {/* User question panel */}
-              {pendingInputRequest &&
-                pendingInputRequest.sessionId === actualSessionId &&
-                isAskUserQuestion && (
-                  <QuestionAnswerPanel
-                    request={pendingInputRequest}
-                    sessionId={actualSessionId}
-                    onSubmit={handleQuestionSubmit}
-                    onDeny={handleDeny}
-                  />
-                )}
-
-              {/* Tool approval: show panel + always-visible toolbar */}
-              {pendingInputRequest &&
-                pendingInputRequest.sessionId === actualSessionId &&
-                !isAskUserQuestion && (
-                  <>
-                    <ToolApprovalPanel
-                      request={pendingInputRequest}
-                      sessionId={actualSessionId}
-                      onApprove={handleApprove}
-                      onDeny={handleDeny}
-                      onApproveAcceptEdits={handleApproveAcceptEdits}
-                      onDenyWithFeedback={handleDenyWithFeedback}
-                      collapsed={approvalCollapsed}
-                      onCollapsedChange={setApprovalCollapsed}
-                      projectPath={project?.path ?? null}
-                    />
-                    <MessageInputToolbar
-                      sessionId={actualSessionId}
-                      mode={permissionMode}
-                      onModeChange={setPermissionMode}
-                      modeChangesApplyNextTurn={
-                        effectiveProvider === "codex" && shouldDeferMessages
-                      }
-                      modeChangePending={codexPermissionModeChangePending}
-                      supportsPermissionMode={supportsPermissionMode}
-                      supportsThinkingToggle={supportsThinkingToggle}
-                      slashCommands={allSlashCommands}
-                      onSelectSlashCommand={handleToolbarSlashCommand}
-                      thinkingProvider={effectiveProvider}
-                      thinkingModel={liveBadgeModel}
-                      liveThinkingSelection={
-                        liveThinkingSelection
-                          ? {
-                              mode: liveThinkingSelection.mode,
-                              level: liveThinkingSelection.effortLevel,
-                              onSetMode: handleSetLiveThinkingMode,
-                              onSetEffort: handleSetLiveThinkingEffort,
-                            }
-                          : undefined
-                      }
-                      contextRequestedModel={
-                        effectiveModelConfig?.requestedModel
-                      }
-                      contextUsage={session?.contextUsage}
-                      lastActivityAt={activityAt}
-                      positionTimestampStore={transcriptPositionStore}
-                      sessionLiveness={sessionLiveness}
-                      providerRuntimeStatus={providerRuntimeStatus}
-                      isRunning={status.owner === "self"}
-                      isThinking={canStopOwnedProcess}
-                      onStop={handleAbort}
-                      onDone={
-                        syntheticDoneEnabled || mainComposerForAside
-                          ? handleDoneAction
-                          : undefined
-                      }
-                      doneTitle={
-                        mainComposerForAside
-                          ? t("btwAsideDoneTitle")
-                          : undefined
-                      }
-                      pendingApproval={
-                        approvalCollapsed
-                          ? {
-                              type: "tool-approval",
-                              onExpand: () => setApprovalCollapsed(false),
-                            }
-                          : undefined
-                      }
-                    />
-                  </>
-                )}
-
-              {questionAside.aside && (
-                <QuestionAsideCard
-                  {...questionAside.aside}
-                  onSave={() => {
-                    void questionAside.save();
-                  }}
-                  onDiscard={questionAside.discard}
-                  onSteer={() => {
-                    void questionAside.steer();
-                  }}
-                  onContinueAsBtw={() => {
-                    void questionAside.continueAsBtw();
-                  }}
-                />
-              )}
-
-              {/* No pending approval: show full message input */}
-              {!(
-                pendingInputRequest &&
-                pendingInputRequest.sessionId === actualSessionId &&
-                !isAskUserQuestion
-              ) && (
-                <MessageInput
-                  onVoiceControl={setProjectAppVoice}
-                  questionAside={
-                    !mainComposerForAside && !forkSummaryDraft
-                      ? {
-                          canAsk:
-                            questionAsidesEnabled &&
-                            supportsBtwAsides &&
-                            !questionAside.aside &&
-                            (processState === "in-turn" ||
-                              processState === "waiting-input"),
-                          onAsk: (rawText) =>
-                            (processState === "in-turn" ||
-                              processState === "waiting-input") &&
-                            questionAside.ask(rawText),
-                          onSave:
-                            questionAside.aside?.status === "complete"
-                              ? () => {
-                                  void questionAside.save();
-                                }
-                              : undefined,
-                          onDismiss: questionAside.aside
-                            ? questionAside.discard
-                            : undefined,
-                        }
-                      : undefined
-                  }
-                  completionRenderItems={activityRenderItems}
-                  speechVocabulary={speechVocabulary}
-                  onSend={
-                    mainComposerForAside
-                      ? (text) => handleFocusedBtwSend(text, "main")
-                      : primaryComposerAction === "steer"
-                        ? handleSemanticComposerSend
-                        : shouldDeferMessages
-                          ? handleSemanticComposerDefer
-                          : handleSemanticComposerSend
-                  }
-                  onQueue={
-                    !mainComposerForAside && shouldDeferMessages
-                      ? handleSemanticComposerDefer
-                      : undefined
-                  }
-                  onProjectQueue={
-                    !mainComposerForAside && showProjectQueueAction
-                      ? handleProjectQueue
-                      : undefined
-                  }
-                  onProjectQueueNewSession={
-                    !mainComposerForAside && effectiveProvider
-                      ? handleProjectQueueNewSession
-                      : undefined
-                  }
-                  projectQueueNewSessionTarget={projectQueueNewSessionTarget}
-                  primaryActionKind={
-                    mainComposerForAside ? "send" : primaryComposerAction
-                  }
-                  disabled={isSessionCreationPending(session?.creation)}
-                  placeholder={
-                    isSessionCreationPending(session?.creation)
-                      ? t(
-                          session?.creation?.state === "failed" ||
-                            session?.creation?.state === "uncertain"
-                            ? "sessionCreationBlocked"
-                            : session?.creation?.state === "queued"
-                              ? "sessionCreationQueueProgress"
-                              : "sessionCreationProgress",
-                        )
-                      : mainComposerForAside
-                        ? "/btw follow-up"
-                        : status.owner === "external"
-                          ? t("sessionPlaceholderExternal")
-                          : processState === "idle"
-                            ? shouldDeferMessages
-                              ? t("sessionPlaceholderQueue")
-                              : t("sessionPlaceholderResume")
-                            : t("sessionPlaceholderQueue")
-                  }
-                  mode={permissionMode}
-                  onModeChange={setPermissionMode}
-                  modeChangesApplyNextTurn={
-                    effectiveProvider === "codex" && shouldDeferMessages
-                  }
-                  modeChangePending={codexPermissionModeChangePending}
-                  supportsPermissionMode={supportsPermissionMode}
-                  supportsThinkingToggle={supportsThinkingToggle}
-                  supportsSteering={generallySupportsSteering}
-                  supportsSteerNow={supportsSteerNow}
-                  steerNowDefault={steerNowDefault}
-                  isRunning={status.owner === "self"}
-                  isThinking={canStopOwnedProcess}
-                  onStop={handleAbort}
-                  onDone={
-                    syntheticDoneEnabled || mainComposerForAside
-                      ? handleDoneAction
-                      : undefined
-                  }
-                  doneTitle={
-                    mainComposerForAside ? t("btwAsideDoneTitle") : undefined
-                  }
-                  draftKey={
-                    mainComposerForAside && focusedBtwAside
-                      ? `draft-btw-${focusedBtwAside.sessionId ?? focusedBtwAside.id}`
-                      : sessionDraftKey
-                  }
-                  draftIndex={
-                    mainComposerForAside && focusedBtwAside
-                      ? undefined
-                      : sessionDraftReference
-                  }
-                  onDraftControlsReady={handleDraftControlsReady}
-                  onDraftTextChange={handleComposerDraftTextChange}
-                  bangSupport={
-                    mainComposerForAside ? undefined : composerBangSupport
-                  }
-                  turnRecall={composerTurnRecall}
-                  correctionActive={
-                    !mainComposerForAside && correctionDraft !== null
-                  }
-                  onCancelCorrection={
-                    mainComposerForAside ? undefined : handleCancelCorrection
-                  }
-                  onRecallLastSubmission={handleRecallLastSubmission}
-                  onCancelLatestDeferred={handleCancelLatestDeferred}
-                  collapsed={
-                    !!(
-                      pendingInputRequest &&
-                      pendingInputRequest.sessionId === actualSessionId
-                    )
-                  }
-                  onFullPaneControlsReady={handleFullPaneControlsReady}
-                  contextUsage={session?.contextUsage}
-                  lastActivityAt={activityAt}
-                  positionTimestampStore={transcriptPositionStore}
-                  sessionLiveness={sessionLiveness}
-                  providerRuntimeStatus={providerRuntimeStatus}
-                  projectId={projectId}
-                  sessionId={sessionId}
-                  attachments={mainComposerForAside ? [] : attachments}
-                  onAttach={mainComposerForAside ? undefined : handleAttach}
-                  onAttachAudioMemo={
-                    mainComposerForAside
-                      ? undefined
-                      : async (file) => {
-                          const uploaded = await uploadAttachedFiles([file]);
-                          if (!uploaded[0])
-                            throw new Error(t("audioMemoUploadFailed"));
-                        }
-                  }
-                  onRemoveAttachment={
-                    mainComposerForAside ? undefined : handleRemoveAttachment
-                  }
-                  uploadProgress={mainComposerForAside ? [] : uploadProgress}
-                  slashCommands={allSlashCommands}
-                  onCustomCommand={handleCustomCommand}
-                  fileViewCommand={
-                    supportsFileViewCommand ? fileViewCommandOptions : undefined
-                  }
-                  onBtwShortcut={
-                    childSessionParentHref || supportsBtwAsides
-                      ? handleBtwShortcut
-                      : undefined
-                  }
-                  btwActive={!!mainComposerForAside || !!childSessionParentHref}
-                  btwHasAsides={
-                    stickyBtwAsides.length > 0 || !!childSessionParentHref
-                  }
-                  btwToolbarMode={btwToolbarMode}
-                  thinkingProvider={effectiveProvider}
-                  thinkingModel={liveBadgeModel}
-                  liveThinkingSelection={
-                    liveThinkingSelection
-                      ? {
-                          mode: liveThinkingSelection.mode,
-                          level: liveThinkingSelection.effortLevel,
-                          onSetMode: handleSetLiveThinkingMode,
-                          onSetEffort: handleSetLiveThinkingEffort,
-                        }
-                      : undefined
-                  }
-                  contextRequestedModel={effectiveModelConfig?.requestedModel}
-                  promptSuggestion={
-                    mainComposerForAside
-                      ? undefined
-                      : (promptSuggestion ?? undefined)
-                  }
-                  onDismissPromptSuggestion={
-                    mainComposerForAside ? undefined : dismissPromptSuggestion
-                  }
-                  forkSummaryMode={
-                    !mainComposerForAside && forkSummaryDraft
-                      ? {
-                          title: t("forkSummaryComposerTitle"),
-                          description: t("forkSummaryComposerDescription"),
-                          placeholder: t("forkSummaryComposerPlaceholder"),
-                          submitLabel: t("forkSummarySubmit"),
-                          tooltip: t("forkSummaryTooltip"),
-                          icon: "⑂",
-                          noSummarySubmitLabel: t("forkSummaryNoSummarySubmit"),
-                          noSummaryTooltip: t("forkSummaryNoSummaryTooltip"),
-                          noSummaryIcon: "↱",
-                          // The composer fork mode is dismissed the moment we
-                          // submit (generation backgrounds into the indicator),
-                          // so it never sits in a submitting state.
-                          submitting: false,
-                          onCancel: () => setForkSummaryDraft(null),
-                          onSubmit: (instructions) => {
-                            void submitForkAfterSummary(
-                              forkSummaryDraft.sourceMessageId,
-                              instructions,
-                            );
-                          },
-                          onSubmitWithoutSummary: (nextTurnText) => {
-                            void submitForkAfterWithoutSummary(
-                              forkSummaryDraft.sourceMessageId,
-                              nextTurnText,
-                            );
-                          },
-                        }
-                      : undefined
-                  }
-                  onForkSummaryShortcut={
-                    !mainComposerForAside && supportsForkFromTurn
-                      ? beginForkAfterInitialTurn
-                      : undefined
-                  }
-                />
-              )}
-            </div>
-          </footer>
+          <SessionComposerFooter
+            activityAt={activityAt}
+            activityRenderItems={activityRenderItems}
+            actualSessionId={actualSessionId}
+            allSlashCommands={allSlashCommands}
+            approvalCollapsed={approvalCollapsed}
+            attachments={attachments}
+            attachmentsRef={attachmentsRef}
+            basePath={basePath}
+            beginForkAfterInitialTurn={beginForkAfterInitialTurn}
+            btwToolbarMode={btwToolbarMode}
+            canStopOwnedProcess={canStopOwnedProcess}
+            captureCreationView={captureCreationView}
+            childSessionParentHref={childSessionParentHref}
+            codexPermissionModeChangePending={codexPermissionModeChangePending}
+            composerBangSupport={composerBangSupport}
+            composerStickyBtwAsides={composerStickyBtwAsides}
+            composerTurnRecall={composerTurnRecall}
+            correctionDraft={correctionDraft}
+            creationKey={creationKey}
+            creationRecovery={creationRecovery}
+            dismissPromptSuggestion={dismissPromptSuggestion}
+            draftControlsRef={draftControlsRef}
+            effectiveModelConfig={effectiveModelConfig}
+            effectiveProvider={effectiveProvider}
+            fileViewCommandOptions={fileViewCommandOptions}
+            focusedBtwAside={focusedBtwAside}
+            focusedBtwAsideId={focusedBtwAsideId}
+            forkSummaryDraft={forkSummaryDraft}
+            generallySupportsSteering={generallySupportsSteering}
+            handleAbort={handleAbort}
+            handleApprove={handleApprove}
+            handleApproveAcceptEdits={handleApproveAcceptEdits}
+            handleAttach={handleAttach}
+            handleBtwShortcut={handleBtwShortcut}
+            handleCancelCorrection={handleCancelCorrection}
+            handleCancelLatestDeferred={handleCancelLatestDeferred}
+            handleComposerDraftTextChange={handleComposerDraftTextChange}
+            handleCustomCommand={handleCustomCommand}
+            handleDeny={handleDeny}
+            handleDenyWithFeedback={handleDenyWithFeedback}
+            handleDoneAction={handleDoneAction}
+            handleDraftControlsReady={handleDraftControlsReady}
+            handleFocusedBtwSend={handleFocusedBtwSend}
+            handleFullPaneControlsReady={handleFullPaneControlsReady}
+            handleProjectQueue={handleProjectQueue}
+            handleProjectQueueNewSession={handleProjectQueueNewSession}
+            handleQuestionSubmit={handleQuestionSubmit}
+            handleRecallLastSubmission={handleRecallLastSubmission}
+            handleRemoveAttachment={handleRemoveAttachment}
+            handleSemanticComposerDefer={handleSemanticComposerDefer}
+            handleSemanticComposerSend={handleSemanticComposerSend}
+            handleSetLiveThinkingEffort={handleSetLiveThinkingEffort}
+            handleSetLiveThinkingMode={handleSetLiveThinkingMode}
+            handleStopBtwAside={handleStopBtwAside}
+            handleToolbarSlashCommand={handleToolbarSlashCommand}
+            hideBtwAside={hideBtwAside}
+            isAskUserQuestion={isAskUserQuestion}
+            liveBadgeModel={liveBadgeModel}
+            liveThinkingSelection={liveThinkingSelection}
+            mainComposerForAside={mainComposerForAside}
+            navigate={navigate}
+            ownsCreationView={ownsCreationView}
+            pendingInputRequest={pendingInputRequest}
+            pendingUploadsRef={pendingUploadsRef}
+            permissionMode={permissionMode}
+            primaryComposerAction={primaryComposerAction}
+            processState={processState}
+            project={project}
+            projectId={projectId}
+            projectQueueNewSessionTarget={projectQueueNewSessionTarget}
+            promptSuggestion={promptSuggestion}
+            providerRuntimeStatus={providerRuntimeStatus}
+            questionAside={questionAside}
+            questionAsidesEnabled={questionAsidesEnabled}
+            session={session}
+            sessionConnectionStatus={sessionConnectionStatus}
+            sessionDraftKey={sessionDraftKey}
+            sessionDraftReference={sessionDraftReference}
+            sessionId={sessionId}
+            sessionLiveness={sessionLiveness}
+            setApprovalCollapsed={setApprovalCollapsed}
+            setComposerAttachments={setComposerAttachments}
+            setCreationRecovery={setCreationRecovery}
+            setFocusedBtwAsideId={setFocusedBtwAsideId}
+            setForkSummaryDraft={setForkSummaryDraft}
+            setPermissionMode={setPermissionMode}
+            setProjectAppVoice={setProjectAppVoice}
+            shouldDeferMessages={shouldDeferMessages}
+            showProjectQueueAction={showProjectQueueAction}
+            sourceTransport={sourceTransport}
+            speechVocabulary={speechVocabulary}
+            status={status}
+            steerNowDefault={steerNowDefault}
+            stickyBtwAsides={stickyBtwAsides}
+            submitForkAfterSummary={submitForkAfterSummary}
+            submitForkAfterWithoutSummary={submitForkAfterWithoutSummary}
+            supportsBtwAsides={supportsBtwAsides}
+            supportsFileViewCommand={supportsFileViewCommand}
+            supportsForkFromTurn={supportsForkFromTurn}
+            supportsPermissionMode={supportsPermissionMode}
+            supportsSteerNow={supportsSteerNow}
+            supportsThinkingToggle={supportsThinkingToggle}
+            syntheticDoneEnabled={syntheticDoneEnabled}
+            toggleBtwAsideExpanded={toggleBtwAsideExpanded}
+            transcriptPositionStore={transcriptPositionStore}
+            transferBtwTurnToMotherComposer={transferBtwTurnToMotherComposer}
+            uploadAttachedFiles={uploadAttachedFiles}
+            uploadProgress={uploadProgress}
+          />
         </div>
       </FileDropZone>
       <SessionRightPane

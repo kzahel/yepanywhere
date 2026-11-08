@@ -79,6 +79,12 @@ its own commit with a test, and one a user could see is asked about. Proposals
    pass, the scroll machinery (slice 2.5).
 6. **Toolbar view sections.** Split `MessageInputToolbarView` into a
    component per toolbar region.
+7. **Session page header, footer and pop-ups** (move-only, taken before 5
+   and 6 because the header changes most often). Done 2026-11-08 in
+   [plan 182](../docs/tactical/182-session-page-header-and-footer.md): the
+   header, composer footer and pop-ups are components, and the header's
+   actions and project move menu are hooks. `SessionPage.tsx` went from
+   5,157 to 3,909 lines.
 
 Ownership and slice rows: [doc 058](../docs/tactical/058-typescript-module-boundary-refactor.md),
 priority-queue item 2. The broader hub-growth record is

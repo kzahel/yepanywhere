@@ -45,7 +45,10 @@ shared, and how risky it is to touch today.
    decisions and its plain send module) landed 2026-11-07, and slices 2.31
    to 2.36 (the page's fork, queued-message, title, attachment upload,
    recall and route-sync hooks, [plan 181](181-session-page-feature-hooks.md))
-   on 2026-11-08. Moving small
+   on 2026-11-08. Slices 2.37 to 2.41 move the page's header, composer
+   footer and pop-ups into components and its header actions and project
+   move menu into hooks
+   ([plan 182](182-session-page-header-and-footer.md)) on 2026-11-08. Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session
@@ -303,6 +306,11 @@ and props stable.
 | 2.34 | Done 2026-11-08 | `SessionPage.tsx` attachment upload | Move the page's attachment upload, incoming share and remove step into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 4). | Move-only: `uploadAttachedFiles`, `handleAttach`, the `useIncomingShareFiles` call and `handleRemoveAttachment` move verbatim into `hooks/useSessionAttachmentUploads.ts`, called where they stood, so the share hook's effects keep their place. Two refs and `setUploadProgress` joined dependency lists. Budget `SessionPage.tsx` 5,546 -> 5,383; the hook is 261 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.35 | Done 2026-11-08 | `SessionPage.tsx` recall and navigation actions | Move the page's recall entries, scroll-to-turn requests and navigation-state actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 5). | Move-only: the turn and command recall, the scroll-to-turn request, the search-match and non-human-turn navigation hooks and the navigation-state actions with their early-typing effects move verbatim into `hooks/useSessionTranscriptJumps.ts`, called where they stood, so no effect changes order. Three early-typing refs joined dependency lists, including the unmount-only effect's. Budget `SessionPage.tsx` 5,383 -> 5,231; the hook is 260 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.36 | Done 2026-11-08 | `SessionPage.tsx` route sync | Move the page's visit record and URL replacements into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 6). | Move-only: the four effects that record the visit and replace the URL for a real session id, a native-id viewer URL and the canonical project move verbatim into `hooks/useSessionRouteSync.ts`, called where they stood. No dependency list changed. Budget `SessionPage.tsx` 5,231 -> 5,157; the hook is 122 lines. Tier 3, plus plan 181's slice 0 pins. |
+| 2.37 | Done 2026-11-08 | `SessionPage.tsx` header actions | Move the page's archive, star, suggestions, read, terminate, restart and share actions into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 1). | Move-only: the eleven handlers and values, the read-shortcut effect and the share modal state move verbatim into `hooks/useSessionHeaderActions.ts`, called where the handlers stood, so the effect keeps its place. The share state moves later in the hook order; nothing between reads it. No dependency list changed. Budget `SessionPage.tsx` 5,157 -> 5,019; the hook is 263 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.38 | Done 2026-11-08 | `SessionPage.tsx` project move menu | Move the page's project move menu into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 2). | Move-only: the menu state and its two refs, the options, the outside-click and Escape effect and the two handlers move verbatim into `hooks/useProjectReclassifyMenu.ts`, called where the options stood, so the effect keeps its place. The state moves later in the hook order; nothing between reads it. `setShowRecentSessions` joined one dependency list (a state setter). Budget `SessionPage.tsx` 5,019 -> 4,930; the hook is 164 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.39 | Done 2026-11-08 | `SessionPage.tsx` pop-ups | Move the page's five pop-ups into a component ([plan 182](182-session-page-header-and-footer.md) slice 3). | Move-only: the project defaults, recap, long-context warning, model and info, and handoff pop-ups move verbatim into `components/SessionPageModals.tsx`, rendered where they stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged. Budget `SessionPage.tsx` 4,930 -> 4,813; the component is 296 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.40 | Done 2026-11-08 | `SessionPage.tsx` header | Move the page's `<header>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 4). | Move-only: the header element and the `SidebarIcon` it renders move verbatim into `components/SessionHeader.tsx`, rendered where the header stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and one trailing comma the formatter dropped. The component calls only `useI18n`, so the page's hook order is unchanged; `SidebarIcon` is still defined during render. Budget `SessionPage.tsx` 4,813 -> 4,262; the component is 991 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.41 | Done 2026-11-08 | `SessionPage.tsx` composer footer | Move the page's `<footer>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 5). | Move-only: the footer element moves verbatim into `components/SessionComposerFooter.tsx`, rendered where it stood, with the composer's `lazy()` wrapper, its only user; the shared module fallback moves to `components/SessionRouteModuleFallback.tsx`. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and two trailing commas the formatter dropped. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged; the composer stays in its own lazy chunk. Budget `SessionPage.tsx` 4,262 -> 3,909; the component is 799 lines. Tier 3, plus plan 182's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -355,8 +363,11 @@ owning behavior:
   It extends slice 3.2 only if the reducer update stays behavior-identical and
   the full remap fixture matrix moves with it.
 - `SessionPage.tsx`: recall wiring and navigation-state consumption moved
-  in slice 2.35 (plan 181). The correction draft, the attachment state and
-  draft hydration, and the title markup remain as possible follow-ups; choose
+  in slice 2.35 (plan 181), and the header, title markup included, the
+  composer footer and the pop-ups, with the header's actions and project move
+  menu, in slices 2.37 to 2.41 (plan 182). The
+  correction draft, the attachment state and draft hydration, and the
+  transcript region remain as possible follow-ups; choose
   one feature boundary per follow-up rather than another general page-helper
   module.
 
@@ -437,6 +448,240 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.41 — Session Page Composer Footer (Landed 2026-11-08, this commit)
+
+Moved:
+- The `<footer>` element (the creation recovery notice and its button,
+  the connection bar, the btw sticky cards, the question and tool
+  approval panels with the approval toolbar, the question aside card and
+  `MessageInput` with its props) -> `SessionComposerFooter` in new
+  `packages/client/src/components/SessionComposerFooter.tsx`.
+- `LazyMessageInput` and the `MessageInput` Suspense wrapper, used only
+  by the footer, moved with it unchanged. `SessionRouteModuleFallback`,
+  which the `MessageList` wrapper also uses, moved unchanged to new
+  `packages/client/src/components/SessionRouteModuleFallback.tsx`; both
+  import it. The page keeps its `import type` of the composer's
+  `FullPaneComposerControls` and `UploadProgress`, which it still uses.
+
+Signature conversions (closure -> prop):
+- The component takes 108 props, each passed as `name={name}`: `activityAt`, `activityRenderItems`, `actualSessionId`, `allSlashCommands`, `approvalCollapsed`, `attachments`, `attachmentsRef`, `basePath`, `beginForkAfterInitialTurn`, `btwToolbarMode`, `canStopOwnedProcess`, `captureCreationView`, `childSessionParentHref`, `codexPermissionModeChangePending`, `composerBangSupport`, `composerStickyBtwAsides`, `composerTurnRecall`, `correctionDraft`, `creationKey`, `creationRecovery`, `dismissPromptSuggestion`, `draftControlsRef`, `effectiveModelConfig`, `effectiveProvider`, `fileViewCommandOptions`, `focusedBtwAside`, `focusedBtwAsideId`, `forkSummaryDraft`, `generallySupportsSteering`, `handleAbort`, `handleApprove`, `handleApproveAcceptEdits`, `handleAttach`, `handleBtwShortcut`, `handleCancelCorrection`, `handleCancelLatestDeferred`, `handleComposerDraftTextChange`, `handleCustomCommand`, `handleDeny`, `handleDenyWithFeedback`, `handleDoneAction`, `handleDraftControlsReady`, `handleFocusedBtwSend`, `handleFullPaneControlsReady`, `handleProjectQueue`, `handleProjectQueueNewSession`, `handleQuestionSubmit`, `handleRecallLastSubmission`, `handleRemoveAttachment`, `handleSemanticComposerDefer`, `handleSemanticComposerSend`, `handleSetLiveThinkingEffort`, `handleSetLiveThinkingMode`, `handleStopBtwAside`, `handleToolbarSlashCommand`, `hideBtwAside`, `isAskUserQuestion`, `liveBadgeModel`, `liveThinkingSelection`, `mainComposerForAside`, `navigate`, `ownsCreationView`, `pendingInputRequest`, `pendingUploadsRef`, `permissionMode`, `primaryComposerAction`, `processState`, `project`, `projectId`, `projectQueueNewSessionTarget`, `promptSuggestion`, `providerRuntimeStatus`, `questionAside`, `questionAsidesEnabled`, `session`, `sessionConnectionStatus`, `sessionDraftKey`, `sessionDraftReference`, `sessionId`, `sessionLiveness`, `setApprovalCollapsed`, `setComposerAttachments`, `setCreationRecovery`, `setFocusedBtwAsideId`, `setForkSummaryDraft`, `setPermissionMode`, `setProjectAppVoice`, `shouldDeferMessages`, `showProjectQueueAction`, `sourceTransport`, `speechVocabulary`, `status`, `steerNowDefault`, `stickyBtwAsides`, `submitForkAfterSummary`, `submitForkAfterWithoutSummary`, `supportsBtwAsides`, `supportsFileViewCommand`, `supportsForkFromTurn`, `supportsPermissionMode`, `supportsSteerNow`, `supportsThinkingToggle`, `syntheticDoneEnabled`, `toggleBtwAsideExpanded`, `transcriptPositionStore`, `transferBtwTurnToMotherComposer`, `uploadAttachedFiles`, `uploadProgress`.
+  Their types are the page's: `ReturnType<typeof useX>[...]` for hook
+  results, otherwise the type the checker gives the page's declaration.
+  `captureCreationView`'s result keeps the page's inferred `any` for
+  `history.state.idx`, with a lint suppression saying so;
+  `ownsCreationView` takes that result's type.
+- `t` and `showToast` come from `useI18n` and `useToastContext` inside.
+  The footer's `catch (error)` binds its own `error`; it is not a prop.
+  The inline arrows and objects (`questionAside`, `forkSummaryMode`,
+  `onAttachAudioMemo`, the recovery button) stay inline and keep their
+  per-render identity; the component is not memoized.
+- The JSX equals the moved lines apart from whitespace and two trailing
+  commas (`JSON.stringify(controls?.getAttachmentState()?.refs ?? [])`, in
+  the creation recovery button), which the formatter dropped when the calls
+  fit on one line.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The footer, composer and typing specs pass at this commit (81 cases):
+  plan 182's footer pins (approval feedback and Other answer typing
+  included), plan 181's four pin specs, `durable-session-creation`,
+  `question-aside`, `audio-memo`, `session-send-paths`,
+  `queued-message-recall`, `draft-sync`, `bang-command` and
+  `composer-recall-drawer`. Tier 3 ran before review amended this commit's
+  doc 058 wording; the source is unchanged by it.
+- The client build's chunk list is identical to `bbc6244b5`'s, and the
+  `MessageInput` chunk is the same size (65.32 kB), so the composer is
+  still loaded lazily. The `SessionPage` chunk grew from 378.07 kB to
+  391.36 kB (117.18 to 120.48 kB gzipped) across plan 182, from the prop
+  names the page now passes to the three components.
+
+Follow-ups recorded:
+- None.
+
+### Slice 2.40 — Session Page Header (Landed 2026-11-08, this commit)
+
+Moved:
+- The `<header>` element (sidebar opener, app actions, project breadcrumb
+  and move menu, title row with the rename and retitle fields, router
+  chip, goal flag, recent sessions and generate title, and the right-hand
+  controls through the session menu) -> `SessionHeader` in new
+  `packages/client/src/components/SessionHeader.tsx`.
+- `SidebarIcon`, which only the header renders, moved into the
+  component's body unchanged. It is still a component defined during
+  render, so its `<svg>` still remounts each render, as before.
+
+Signature conversions (closure -> prop):
+- The component takes 110 props, each passed as `name={name}`: `actualSessionId`, `attachTitleInput`, `basePath`, `canCreatePublicShares`, `canStopOwnedProcess`, `clearloopControls`, `cloneSession`, `condensedHeader`, `currentGoal`, `currentProviderInfo`, `displayTitle`, `draftControlsRef`, `effectiveModelConfig`, `effectiveProvider`, `forkAfterDisabled`, `forkUnavailableMessage`, `generatedRetitle`, `generatedTitleEnabled`, `goalDetails`, `handleAcceptGeneratedRetitle`, `handleCancelEditingTitle`, `handleCompactSession`, `handleGenerateAndApplyTitle`, `handleProjectBreadcrumbContextMenu`, `handleReclassifySessionProject`, `handleRestartProvider`, `handleRestorePendingElsewhereWarning`, `handleSaveTitle`, `handleSend`, `handleShare`, `handleShareIndicatorClick`, `handleShareIndicatorContextMenu`, `handleStartEditingTitle`, `handleTerminate`, `handleTitleBlur`, `handleTitleKeyDown`, `handleToggleArchive`, `handleTogglePromptSuggestions`, `handleToggleRead`, `handleToggleStar`, `hasPendingToolCalls`, `hasUnread`, `headerLayout`, `headerRef`, `hideHeaderSecondary`, `isArchived`, `isDomLingerParked`, `isEditingTitle`, `isReclassifyingProject`, `isRenaming`, `isStarred`, `isWideScreen`, `liveBadgeModel`, `loading`, `manualCompactBlocked`, `messages`, `navigate`, `openSessionInfo`, `openSidebar`, `pendingElsewhereDismissed`, `processState`, `project`, `projectAppEnabled`, `projectAppOpen`, `projectAppPress`, `projectBreadcrumbRef`, `projectCodeNamesEnabled`, `projectId`, `projectReclassifyMenuRef`, `projectReclassifyOptions`, `promptSuggestionMode`, `publicShareActionAvailable`, `publicShareGlobalStatus`, `publicShareInitialPrompt`, `publicShareManagementAvailable`, `publicSharesEnabled`, `renamePresentation`, `renameValue`, `rightPane`, `routedSession`, `saveTitleValue`, `session`, `sessionId`, `setModelPanelInitialTab`, `setProjectAppFull`, `setProjectAppOpen`, `setProjectAppOpenedBy`, `setRenameValue`, `setShareModalAnchor`, `setShowHandoffModal`, `setShowModelSwitchModal`, `setShowProjectSettingsModal`, `setShowRecapModal`, `setShowRecentSessions`, `setShowShareModal`, `shareModalAnchor`, `shareModalView`, `showProjectReclassifyMenu`, `showRecentSessions`, `showShareModal`, `status`, `supportsForkFromTurn`, `supportsManualCompact`, `supportsProjectSettings`, `supportsTitleGeneration`, `titleEditControlsRef`, `titleEditMode`, `titleRowRef`, `titleTooltip`, `versionInfo`.
+  Their types are the page's: `ReturnType<typeof useX>[...]` for hook
+  results, otherwise the type the checker gives the page's declaration.
+- `t` comes from `useI18n` inside. Refs (`headerRef`, `titleRowRef`,
+  `projectBreadcrumbRef`, `projectReclassifyMenuRef`,
+  `titleEditControlsRef` and the `attachTitleInput` callback ref) are
+  passed under their own names and attach to the same elements. The
+  inline arrows stay inline; the component is not memoized.
+- The JSX equals the moved lines apart from whitespace and one trailing
+  comma (`routerBindingChip(t, session.routerBinding)`), which the
+  formatter dropped when the call fit on one line.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The header-related specs pass at this commit (48 cases):
+  `session-page-header-paths`, `session-page-title-attachment-paths`,
+  `session-page-fork-paths`, `session-header-responsive` (rename typing
+  during live updates), `session-read-state`, `public-share-management`,
+  `session-title-access`, `session-resume-settings` and
+  `slash-command-argument-completions`.
+
+Follow-ups recorded:
+- None.
+
+### Slice 2.39 — Session Page Pop-ups (Landed 2026-11-08, this commit)
+
+Moved:
+- The five conditional pop-ups between the header and
+  `ExternalSessionWarning` (`ProjectSessionDefaultsModal`,
+  `SessionRecapModal`, `LongContextEffortWarningModal`, `ModelSwitchModal`
+  with its `ProcessInfoBody`, and `RestartSessionModal`) ->
+  `SessionPageModals` in new
+  `packages/client/src/components/SessionPageModals.tsx`, wrapped in a
+  fragment, which adds no DOM.
+
+Signature conversions (closure -> prop):
+- The component takes 41 props, each passed as `name={name}`: `actualSessionId`, `basePath`, `chooseLongContextEffortWarning`, `creationPrincipal`, `creationPrincipalResolved`, `currentProviderInfo`, `effectiveProvider`, `guardEffortChange`, `handleModelChanged`, `isDomLingerParked`, `lastStreamActivityAt`, `liveBadgeModel`, `longContextEffortWarning`, `modelPanelInitialTab`, `navigate`, `permissionMode`, `processState`, `project`, `projectId`, `projects`, `providerRuntimeStatus`, `providers`, `providerServiceTiers`, `routedSession`, `savedLaunchSettings`, `session`, `sessionLiveness`, `sessionUpdatesConnected`, `setShowHandoffModal`, `setShowModelSwitchModal`, `setShowProjectSettingsModal`, `setShowRecapModal`, `setStatus`, `showHandoffModal`, `showModelSwitchModal`, `showProjectSettingsModal`, `showRecapModal`, `status`, `supportsProjectSettings`, `titleTooltip`, `versionInfo`.
+  Their types are the page's: `ReturnType<typeof useX>[...]` for hook
+  results, otherwise the type the checker gives the page's declaration.
+- `t` and `showToast` come from `useI18n` and `useToastContext` inside,
+  which return the values the page reads. The inline arrows (`onSaved`,
+  `onActivate`, `onRestarted` and the closers) stay inline and keep their
+  per-render identity; the component is not memoized.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- `session-page-header-paths` and `long-context-effort-warning` pass at
+  this commit (17 cases).
+
+Follow-ups recorded:
+- None.
+
+### Slice 2.38 — Session Page Project Move Menu (Landed 2026-11-08, this commit)
+
+Moved:
+- `showProjectReclassifyMenu`, `isReclassifyingProject`,
+  `projectBreadcrumbRef`, `projectReclassifyMenuRef`,
+  `projectReclassifyOptions`, the outside-click and Escape effect,
+  `handleProjectBreadcrumbContextMenu` and
+  `handleReclassifySessionProject` -> `useProjectReclassifyMenu` in new
+  `packages/client/src/hooks/useProjectReclassifyMenu.ts`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `projectId`, `actualSessionId`, `projects`, `basePath`,
+  `location`, `navigate`, `isDomLingerParked` and
+  `setShowRecentSessions`; `t` and `showToast` come from the context hooks
+  inside. `location` is the page's, not the router's.
+- It returns the menu state, the two refs, the options and both handlers,
+  all read by the header.
+- The hook is called where `projectReclassifyOptions` stood, so the effect
+  keeps its place. The state and refs moved from before the local metadata
+  state to the call; only that state, the collection record and their
+  reset effect lie between, and none reads them.
+- `handleProjectBreadcrumbContextMenu`'s dependency list gained
+  `setShowRecentSessions`, a state setter that never changes identity.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The hook takes the page's `location` and `navigate`; it calls neither
+  `useLocation` nor `useNavigate`. The slice 0 move-menu pin fails when the
+  handler's own navigation is disabled, so it holds that navigation and not
+  route sync's later replace.
+
+Follow-ups recorded:
+- None.
+
+### Slice 2.37 — Session Page Header Actions (Landed 2026-11-08, this commit)
+
+Moved:
+- The share modal state (`showShareModal`, `shareModalView`,
+  `shareModalAnchor`), `handleToggleArchive`, `handleToggleStar`,
+  `handleTogglePromptSuggestions`, `hasUnread`, `handleSetUnread`,
+  `handleToggleRead`, the read-shortcut effect, `handleTerminate`,
+  `handleRestartProvider`, `handleShare`, `handleShareIndicatorClick` and
+  `handleShareIndicatorContextMenu` -> `useSessionHeaderActions` in new
+  `packages/client/src/hooks/useSessionHeaderActions.ts`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `sessionId`, `projectId`, `actualSessionId`, `session`,
+  `sessionCollectionRecord`, `status`, `setStatus`, `isArchived`,
+  `isStarred`, `promptSuggestionMode`, `localPromptSuggestionMode`,
+  `setLocalIsArchived`, `setLocalIsStarred`,
+  `setLocalPromptSuggestionMode`, `isDomLingerParked`, `loading`,
+  `draftControlsRef` and `publicShareManagementAvailable`; `t` and
+  `showToast` come from the context hooks inside.
+- It returns the share modal state with `setShowShareModal` and
+  `setShareModalAnchor` (the header's close handler), the handlers the
+  header and session menu use, and `hasUnread`. `handleSetUnread` stays
+  inside.
+- The hook is called where `handleToggleArchive` stood, so the
+  read-shortcut effect keeps its place. The share state moved from before
+  the model switch state to the call, later in the hook order; nothing in
+  between reads or sets it. No dependency list changed.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The new hook calls neither `useLocation` nor `useNavigate`.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.36 — Session Page Route Sync (Landed 2026-11-08, this commit)
 

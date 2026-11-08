@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { Page, Route } from "@playwright/test";
+import type { Locator, Page, Route } from "@playwright/test";
 import {
   decodeJsonFrame,
   type RemoteClientMessage,
@@ -74,7 +74,11 @@ export const json = (route: Route, status: number, body: object) =>
 
 interface OpenOptions {
   owner: "self" | "none";
-  processState?: "idle" | "in-turn";
+  processState?: "idle" | "in-turn" | "waiting-input";
+  /** The pending approval or question the session read reports. */
+  pendingInputRequest?: Record<string, unknown>;
+  /** Skip waiting for the composer, which a pending approval replaces. */
+  composerHidden?: boolean;
   /** Replaces the fixture's one-row transcript. */
   messages?: unknown[];
   /** Queue entries the session stream and session reads report. */
@@ -140,6 +144,9 @@ export async function openSessionPage(
           ownership,
           processState,
           deferredMessages,
+          ...(options.pendingInputRequest
+            ? { pendingInputRequest: options.pendingInputRequest }
+            : {}),
         },
       });
       sessionLoads += 1;
@@ -176,6 +183,9 @@ export async function openSessionPage(
           permissionMode: "default",
           modeVersion: 1,
           deferredMessages,
+          ...(options.pendingInputRequest
+            ? { request: options.pendingInputRequest }
+            : {}),
         });
         return;
       }
@@ -206,7 +216,8 @@ export async function openSessionPage(
   const composer = page.locator(
     `[data-composer-input][data-draft-key="draft-message-${sessionId}"]`,
   );
-  await expect(composer).toBeVisible({ timeout: 30_000 });
+  if (!options.composerHidden)
+    await expect(composer).toBeVisible({ timeout: 30_000 });
   const ready =
     options.ready ??
     (options.messages ? "First request about the parser" : "Previous message");
@@ -256,3 +267,48 @@ export async function openSessionPage(
 }
 
 export type SessionPageHarness = Awaited<ReturnType<typeof openSessionPage>>;
+
+/**
+ * Types `text` into an empty `field` one key at a time, calling `between`
+ * before each key (to deliver a live update), and checks every key shows in
+ * the field within 100 ms of its keydown, painted (AGENTS.md).
+ */
+export async function typeEachKeyWithin100ms(
+  field: Locator,
+  text: string,
+  between: (typedSoFar: string) => void = () => {},
+) {
+  await field.evaluate((element) => {
+    element.addEventListener("keydown", () => performance.mark("pin-key"));
+    element.addEventListener("input", () => {
+      requestAnimationFrame(() => performance.measure("pin-ack", "pin-key"));
+    });
+  });
+  let typed = "";
+  for (const character of text) {
+    between(typed);
+    await field.pressSequentially(character);
+    typed += character;
+    await expect(field).toHaveValue(typed, { timeout: 100 });
+  }
+  const page = field.page();
+  await expect
+    .poll(() =>
+      page.evaluate(() => performance.getEntriesByName("pin-ack").length),
+    )
+    .toBe(text.length);
+  const acknowledgementMs = await page.evaluate(() =>
+    performance.getEntriesByName("pin-ack").map((entry) => entry.duration),
+  );
+  expect(Math.max(...acknowledgementMs)).toBeLessThan(100);
+}
+
+/** A streaming assistant row, for live updates while a case types. */
+export const liveUpdate = (count: number) => ({
+  uuid: "pin-live",
+  id: "pin-live",
+  type: "assistant",
+  _isStreaming: true,
+  timestamp: new Date(Date.UTC(2026, 0, 2, 10, 30)).toISOString(),
+  message: { role: "assistant", content: `Live update ${count}.` },
+});
