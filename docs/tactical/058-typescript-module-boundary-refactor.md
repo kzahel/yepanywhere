@@ -48,7 +48,7 @@ shared, and how risky it is to touch today.
    on 2026-11-08. Slices 2.37 to 2.41 move the page's header, composer
    footer and pop-ups into components and its header actions and project
    move menu into hooks
-   ([plan 182](182-session-page-header-and-footer.md), in progress). Moving small
+   ([plan 182](182-session-page-header-and-footer.md)) on 2026-11-08. Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session
@@ -310,6 +310,7 @@ and props stable.
 | 2.38 | Done 2026-11-08 | `SessionPage.tsx` project move menu | Move the page's project move menu into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 2). | Move-only: the menu state and its two refs, the options, the outside-click and Escape effect and the two handlers move verbatim into `hooks/useProjectReclassifyMenu.ts`, called where the options stood, so the effect keeps its place. The state moves later in the hook order; nothing between reads it. `setShowRecentSessions` joined one dependency list (a state setter). Budget `SessionPage.tsx` 5,019 -> 4,930; the hook is 164 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.39 | Done 2026-11-08 | `SessionPage.tsx` pop-ups | Move the page's five pop-ups into a component ([plan 182](182-session-page-header-and-footer.md) slice 3). | Move-only: the project defaults, recap, long-context warning, model and info, and handoff pop-ups move verbatim into `components/SessionPageModals.tsx`, rendered where they stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged. Budget `SessionPage.tsx` 4,930 -> 4,813; the component is 296 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.40 | Done 2026-11-08 | `SessionPage.tsx` header | Move the page's `<header>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 4). | Move-only: the header element and the `SidebarIcon` it renders move verbatim into `components/SessionHeader.tsx`, rendered where the header stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and one trailing comma the formatter dropped. The component calls only `useI18n`, so the page's hook order is unchanged; `SidebarIcon` is still defined during render. Budget `SessionPage.tsx` 4,813 -> 4,262; the component is 991 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.41 | Done 2026-11-08 | `SessionPage.tsx` composer footer | Move the page's `<footer>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 5). | Move-only: the footer element moves verbatim into `components/SessionComposerFooter.tsx`, rendered where it stood, with the composer's `lazy()` wrapper, its only user; the shared module fallback moves to `components/SessionRouteModuleFallback.tsx`. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and two trailing commas the formatter dropped. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged; the composer stays in its own lazy chunk. Budget `SessionPage.tsx` 4,262 -> 3,909; the component is 799 lines. Tier 3, plus plan 182's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -362,8 +363,11 @@ owning behavior:
   It extends slice 3.2 only if the reducer update stays behavior-identical and
   the full remap fixture matrix moves with it.
 - `SessionPage.tsx`: recall wiring and navigation-state consumption moved
-  in slice 2.35 (plan 181). The correction draft, the attachment state and
-  draft hydration, and the title markup remain as possible follow-ups; choose
+  in slice 2.35 (plan 181), and the header, title markup included, the
+  composer footer and the pop-ups, with the header's actions and project move
+  menu, in slices 2.37 to 2.41 (plan 182). The
+  correction draft, the attachment state and draft hydration, and the
+  transcript region remain as possible follow-ups; choose
   one feature boundary per follow-up rather than another general page-helper
   module.
 
@@ -444,6 +448,66 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.41 — Session Page Composer Footer (Landed 2026-11-08, this commit)
+
+Moved:
+- The `<footer>` element (the creation recovery notice and its button,
+  the connection bar, the btw sticky cards, the question and tool
+  approval panels with the approval toolbar, the question aside card and
+  `MessageInput` with its props) -> `SessionComposerFooter` in new
+  `packages/client/src/components/SessionComposerFooter.tsx`.
+- `LazyMessageInput` and the `MessageInput` Suspense wrapper, used only
+  by the footer, moved with it unchanged. `SessionRouteModuleFallback`,
+  which the `MessageList` wrapper also uses, moved unchanged to new
+  `packages/client/src/components/SessionRouteModuleFallback.tsx`; both
+  import it. The page keeps its `import type` of the composer's
+  `FullPaneComposerControls` and `UploadProgress`, which it still uses.
+
+Signature conversions (closure -> prop):
+- The component takes 108 props, each passed as `name={name}`: `activityAt`, `activityRenderItems`, `actualSessionId`, `allSlashCommands`, `approvalCollapsed`, `attachments`, `attachmentsRef`, `basePath`, `beginForkAfterInitialTurn`, `btwToolbarMode`, `canStopOwnedProcess`, `captureCreationView`, `childSessionParentHref`, `codexPermissionModeChangePending`, `composerBangSupport`, `composerStickyBtwAsides`, `composerTurnRecall`, `correctionDraft`, `creationKey`, `creationRecovery`, `dismissPromptSuggestion`, `draftControlsRef`, `effectiveModelConfig`, `effectiveProvider`, `fileViewCommandOptions`, `focusedBtwAside`, `focusedBtwAsideId`, `forkSummaryDraft`, `generallySupportsSteering`, `handleAbort`, `handleApprove`, `handleApproveAcceptEdits`, `handleAttach`, `handleBtwShortcut`, `handleCancelCorrection`, `handleCancelLatestDeferred`, `handleComposerDraftTextChange`, `handleCustomCommand`, `handleDeny`, `handleDenyWithFeedback`, `handleDoneAction`, `handleDraftControlsReady`, `handleFocusedBtwSend`, `handleFullPaneControlsReady`, `handleProjectQueue`, `handleProjectQueueNewSession`, `handleQuestionSubmit`, `handleRecallLastSubmission`, `handleRemoveAttachment`, `handleSemanticComposerDefer`, `handleSemanticComposerSend`, `handleSetLiveThinkingEffort`, `handleSetLiveThinkingMode`, `handleStopBtwAside`, `handleToolbarSlashCommand`, `hideBtwAside`, `isAskUserQuestion`, `liveBadgeModel`, `liveThinkingSelection`, `mainComposerForAside`, `navigate`, `ownsCreationView`, `pendingInputRequest`, `pendingUploadsRef`, `permissionMode`, `primaryComposerAction`, `processState`, `project`, `projectId`, `projectQueueNewSessionTarget`, `promptSuggestion`, `providerRuntimeStatus`, `questionAside`, `questionAsidesEnabled`, `session`, `sessionConnectionStatus`, `sessionDraftKey`, `sessionDraftReference`, `sessionId`, `sessionLiveness`, `setApprovalCollapsed`, `setComposerAttachments`, `setCreationRecovery`, `setFocusedBtwAsideId`, `setForkSummaryDraft`, `setPermissionMode`, `setProjectAppVoice`, `shouldDeferMessages`, `showProjectQueueAction`, `sourceTransport`, `speechVocabulary`, `status`, `steerNowDefault`, `stickyBtwAsides`, `submitForkAfterSummary`, `submitForkAfterWithoutSummary`, `supportsBtwAsides`, `supportsFileViewCommand`, `supportsForkFromTurn`, `supportsPermissionMode`, `supportsSteerNow`, `supportsThinkingToggle`, `syntheticDoneEnabled`, `toggleBtwAsideExpanded`, `transcriptPositionStore`, `transferBtwTurnToMotherComposer`, `uploadAttachedFiles`, `uploadProgress`.
+  Their types are the page's: `ReturnType<typeof useX>[...]` for hook
+  results, otherwise the type the checker gives the page's declaration.
+  `captureCreationView`'s result keeps the page's inferred `any` for
+  `history.state.idx`, with a lint suppression saying so;
+  `ownsCreationView` takes that result's type.
+- `t` and `showToast` come from `useI18n` and `useToastContext` inside.
+  The footer's `catch (error)` binds its own `error`; it is not a prop.
+  The inline arrows and objects (`questionAside`, `forkSummaryMode`,
+  `onAttachAudioMemo`, the recovery button) stay inline and keep their
+  per-render identity; the component is not memoized.
+- The JSX equals the moved lines apart from whitespace and two trailing
+  commas (`JSON.stringify(controls?.getAttachmentState()?.refs ?? [])`, in
+  the creation recovery button), which the formatter dropped when the calls
+  fit on one line.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The footer, composer and typing specs pass at this commit (81 cases):
+  plan 182's footer pins (approval feedback and Other answer typing
+  included), plan 181's four pin specs, `durable-session-creation`,
+  `question-aside`, `audio-memo`, `session-send-paths`,
+  `queued-message-recall`, `draft-sync`, `bang-command` and
+  `composer-recall-drawer`. Tier 3 ran before review amended this commit's
+  doc 058 wording; the source is unchanged by it.
+- The client build's chunk list is identical to `bbc6244b5`'s, and the
+  `MessageInput` chunk is the same size (65.32 kB), so the composer is
+  still loaded lazily. The `SessionPage` chunk grew from 378.07 kB to
+  391.36 kB (117.18 to 120.48 kB gzipped) across plan 182, from the prop
+  names the page now passes to the three components.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.40 — Session Page Header (Landed 2026-11-08, this commit)
 

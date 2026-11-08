@@ -2,7 +2,8 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: in progress 2026-11-08 (slices 0 to 4 landed).
+Status: done 2026-11-08 (slices 0 to 5); `SessionPage.tsx` went from
+5,157 to 3,909 lines.
 
 The next step after [plan 181](181-session-page-feature-hooks.md) for
 [the session page hub gap](../../gaps/session-page-react-hub.md). About
@@ -140,8 +141,8 @@ Line numbers are at `bbc6244b5`.
    and tool approval panels with the approval toolbar, the question aside
    card and `MessageInput` with its props. `MessageInput`'s lazy wrapper
    and `LazyMessageInput` (317-321, 348-354) move to the footer file, its
-   only user, and the page's `import type` of its types (110-113) moves
-   with them; `SessionRouteModuleFallback` (323-334), which the
+   only user (the page keeps its `import type` of the composer's types,
+   which it still uses); `SessionRouteModuleFallback` (323-334), which the
    `MessageList` wrapper also uses, moves to
    `components/SessionRouteModuleFallback.tsx` and both import it. The
    lazy loader is the shared `loadMessageInputModule`, so module loading

@@ -1,12 +1,10 @@
 import { FileDropZone } from "../components/FileDropZone";
+import { SessionRouteModuleFallback } from "../components/SessionRouteModuleFallback";
+import { SessionComposerFooter } from "../components/SessionComposerFooter";
 import { SessionHeader } from "../components/SessionHeader";
 import { SessionPageModals } from "../components/SessionPageModals";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
-import {
-  getSessionCreation,
-  pendingSessionCreation,
-  settleSessionCreation,
-} from "../lib/sessionCreation";
+import { pendingSessionCreation } from "../lib/sessionCreation";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import {
@@ -89,26 +87,21 @@ import { ProjectAppViewer } from "../components/ProjectAppViewer";
 import type { VoiceInputButtonRef } from "../components/VoiceInputButton";
 import { useCanUseBearerGrants } from "../hooks/useActingPrincipal";
 import { useComposerHistoryScope } from "../hooks/useComposerHistoryScope";
-import { BtwAsideStickyCards } from "../components/BtwAsideStickyCards";
 import { ExternalSessionWarning } from "../components/ExternalSessionWarning";
 import { useStartNewSessionWithPrefillAction } from "../components/FileResourceActions";
 import { PendingToolWarning } from "../components/PendingToolWarning";
 import { useQuestionAside } from "../hooks/useQuestionAside";
 import { useQuestionAsideSetting } from "../hooks/useQuestionAsideSetting";
-import { QuestionAsideCard } from "../components/QuestionAsideCard";
 import type {
   FullPaneComposerControls,
   UploadProgress,
 } from "../components/MessageInput";
-import { MessageInputToolbar } from "../components/MessageInputToolbar";
 import type {
   ChosenNewSessionQueueTarget,
   NewSessionQueueTarget,
 } from "../components/NewSessionQueueOptions";
-import { QuestionAnswerPanel } from "../components/QuestionAnswerPanel";
 import { useSessionHeaderLayout } from "../hooks/useSessionHeaderLayout";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
-import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
 import { AgentContentProvider } from "../contexts/AgentContentContext";
 import { GlossaryProjectProvider } from "../contexts/GlossaryContext";
 import { RenderModeProvider } from "../contexts/RenderModeContext";
@@ -269,35 +262,13 @@ import {
   resolveComposerSessionOperation,
 } from "../lib/slashCommands";
 import { generateUUID } from "../lib/uuid";
-import {
-  loadMessageInputModule,
-  loadMessageListModule,
-} from "../lib/sessionRouteModules";
+import { loadMessageListModule } from "../lib/sessionRouteModules";
 
 const LazyMessageList = lazy(() =>
   loadMessageListModule().then(({ MessageList }) => ({
     default: MessageList,
   })),
 );
-const LazyMessageInput = lazy(() =>
-  loadMessageInputModule().then(({ MessageInput }) => ({
-    default: MessageInput,
-  })),
-);
-
-function SessionRouteModuleFallback({
-  label,
-}: {
-  label: "loading" | "sessionLoading";
-}) {
-  const { t } = useI18n();
-  return (
-    <div className="loading" role="status">
-      {t(label)}
-    </div>
-  );
-}
-
 function MessageList(props: ComponentProps<typeof LazyMessageList>) {
   return (
     <SessionViewerTranscriptGate>
@@ -307,14 +278,6 @@ function MessageList(props: ComponentProps<typeof LazyMessageList>) {
         <LazyMessageList {...props} />
       </Suspense>
     </SessionViewerTranscriptGate>
-  );
-}
-
-function MessageInput(props: ComponentProps<typeof LazyMessageInput>) {
-  return (
-    <Suspense fallback={<SessionRouteModuleFallback label="loading" />}>
-      <LazyMessageInput {...props} />
-    </Suspense>
   );
 }
 
@@ -3747,432 +3710,116 @@ function SessionPageContent({
             </button>
           )}
 
-          <footer className={`${styles.input} session-input`}>
-            {creationRecovery?.key === creationKey && (
-              <div role="status" className={styles.creationRecovery}>
-                <span>
-                  {t(
-                    creationRecovery.accepted
-                      ? "sessionCreationSavedWhileAway"
-                      : "sessionCreationUnconfirmedRequest",
-                  )}
-                </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const view = captureCreationView();
-                    const pending = pendingSessionCreation(creationKey);
-                    if (!pending) return;
-                    const controls = draftControlsRef.current;
-                    const filesMatch =
-                      !pendingUploadsRef.current.size &&
-                      attachmentsRef.current
-                        .map((file) => file.id)
-                        .join("\0") === (pending.draftFileIds ?? []).join("\0");
-                    const draftMatches =
-                      filesMatch &&
-                      controls?.getDraft() === pending.draftText &&
-                      JSON.stringify(
-                        controls?.getAttachmentState()?.refs ?? [],
-                      ) === (pending.draftAttachments ?? "[]");
-                    const captured = draftMatches
-                      ? controls?.captureSubmission?.()
-                      : undefined;
-                    try {
-                      const receipt = await getSessionCreation(
-                        sourceTransport,
-                        creationRecovery.requestId,
-                      );
-                      if (!ownsCreationView(view)) return;
-                      const stillMatches =
-                        !pendingUploadsRef.current.size &&
-                        attachmentsRef.current
-                          .map((file) => file.id)
-                          .join("\0") ===
-                          (pending.draftFileIds ?? []).join("\0") &&
-                        controls?.getDraft() === pending.draftText &&
-                        JSON.stringify(
-                          controls?.getAttachmentState()?.refs ?? [],
-                        ) === (pending.draftAttachments ?? "[]");
-                      const cleared =
-                        stillMatches && (captured?.confirm() ?? false);
-                      if (cleared)
-                        setComposerAttachments([], {
-                          persistDraft: false,
-                          revokeRemovedPreviewUrls: true,
-                        });
-                      if (cleared || !stillMatches) {
-                        settleSessionCreation(creationKey, receipt.requestId);
-                        setCreationRecovery(null);
-                      }
-                      navigate(
-                        `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
-                      );
-                    } catch (error) {
-                      showToast(
-                        error instanceof Error ? error.message : String(error),
-                        "error",
-                      );
-                    }
-                  }}
-                >
-                  {t("sessionCreationOpenSaved")}
-                </button>
-              </div>
-            )}
-            <div
-              className={`session-connection-bar session-connection-${sessionConnectionStatus}`}
-            />
-            <div data-selection-actions-mobile-slot />
-            <div className="session-input-inner">
-              <BtwAsideStickyCards
-                asides={composerStickyBtwAsides}
-                focusedAsideId={focusedBtwAsideId}
-                onFocusAside={setFocusedBtwAsideId}
-                onToggleAsideExpanded={toggleBtwAsideExpanded}
-                onDoneAside={hideBtwAside}
-                onHideAside={hideBtwAside}
-                onStopAside={(asideId) => void handleStopBtwAside(asideId)}
-                onTransferToComposer={transferBtwTurnToMotherComposer}
-              />
-
-              {/* User question panel */}
-              {pendingInputRequest &&
-                pendingInputRequest.sessionId === actualSessionId &&
-                isAskUserQuestion && (
-                  <QuestionAnswerPanel
-                    request={pendingInputRequest}
-                    sessionId={actualSessionId}
-                    onSubmit={handleQuestionSubmit}
-                    onDeny={handleDeny}
-                  />
-                )}
-
-              {/* Tool approval: show panel + always-visible toolbar */}
-              {pendingInputRequest &&
-                pendingInputRequest.sessionId === actualSessionId &&
-                !isAskUserQuestion && (
-                  <>
-                    <ToolApprovalPanel
-                      request={pendingInputRequest}
-                      sessionId={actualSessionId}
-                      onApprove={handleApprove}
-                      onDeny={handleDeny}
-                      onApproveAcceptEdits={handleApproveAcceptEdits}
-                      onDenyWithFeedback={handleDenyWithFeedback}
-                      collapsed={approvalCollapsed}
-                      onCollapsedChange={setApprovalCollapsed}
-                      projectPath={project?.path ?? null}
-                    />
-                    <MessageInputToolbar
-                      sessionId={actualSessionId}
-                      mode={permissionMode}
-                      onModeChange={setPermissionMode}
-                      modeChangesApplyNextTurn={
-                        effectiveProvider === "codex" && shouldDeferMessages
-                      }
-                      modeChangePending={codexPermissionModeChangePending}
-                      supportsPermissionMode={supportsPermissionMode}
-                      supportsThinkingToggle={supportsThinkingToggle}
-                      slashCommands={allSlashCommands}
-                      onSelectSlashCommand={handleToolbarSlashCommand}
-                      thinkingProvider={effectiveProvider}
-                      thinkingModel={liveBadgeModel}
-                      liveThinkingSelection={
-                        liveThinkingSelection
-                          ? {
-                              mode: liveThinkingSelection.mode,
-                              level: liveThinkingSelection.effortLevel,
-                              onSetMode: handleSetLiveThinkingMode,
-                              onSetEffort: handleSetLiveThinkingEffort,
-                            }
-                          : undefined
-                      }
-                      contextRequestedModel={
-                        effectiveModelConfig?.requestedModel
-                      }
-                      contextUsage={session?.contextUsage}
-                      lastActivityAt={activityAt}
-                      positionTimestampStore={transcriptPositionStore}
-                      sessionLiveness={sessionLiveness}
-                      providerRuntimeStatus={providerRuntimeStatus}
-                      isRunning={status.owner === "self"}
-                      isThinking={canStopOwnedProcess}
-                      onStop={handleAbort}
-                      onDone={
-                        syntheticDoneEnabled || mainComposerForAside
-                          ? handleDoneAction
-                          : undefined
-                      }
-                      doneTitle={
-                        mainComposerForAside
-                          ? t("btwAsideDoneTitle")
-                          : undefined
-                      }
-                      pendingApproval={
-                        approvalCollapsed
-                          ? {
-                              type: "tool-approval",
-                              onExpand: () => setApprovalCollapsed(false),
-                            }
-                          : undefined
-                      }
-                    />
-                  </>
-                )}
-
-              {questionAside.aside && (
-                <QuestionAsideCard
-                  {...questionAside.aside}
-                  onSave={() => {
-                    void questionAside.save();
-                  }}
-                  onDiscard={questionAside.discard}
-                  onSteer={() => {
-                    void questionAside.steer();
-                  }}
-                  onContinueAsBtw={() => {
-                    void questionAside.continueAsBtw();
-                  }}
-                />
-              )}
-
-              {/* No pending approval: show full message input */}
-              {!(
-                pendingInputRequest &&
-                pendingInputRequest.sessionId === actualSessionId &&
-                !isAskUserQuestion
-              ) && (
-                <MessageInput
-                  onVoiceControl={setProjectAppVoice}
-                  questionAside={
-                    !mainComposerForAside && !forkSummaryDraft
-                      ? {
-                          canAsk:
-                            questionAsidesEnabled &&
-                            supportsBtwAsides &&
-                            !questionAside.aside &&
-                            (processState === "in-turn" ||
-                              processState === "waiting-input"),
-                          onAsk: (rawText) =>
-                            (processState === "in-turn" ||
-                              processState === "waiting-input") &&
-                            questionAside.ask(rawText),
-                          onSave:
-                            questionAside.aside?.status === "complete"
-                              ? () => {
-                                  void questionAside.save();
-                                }
-                              : undefined,
-                          onDismiss: questionAside.aside
-                            ? questionAside.discard
-                            : undefined,
-                        }
-                      : undefined
-                  }
-                  completionRenderItems={activityRenderItems}
-                  speechVocabulary={speechVocabulary}
-                  onSend={
-                    mainComposerForAside
-                      ? (text) => handleFocusedBtwSend(text, "main")
-                      : primaryComposerAction === "steer"
-                        ? handleSemanticComposerSend
-                        : shouldDeferMessages
-                          ? handleSemanticComposerDefer
-                          : handleSemanticComposerSend
-                  }
-                  onQueue={
-                    !mainComposerForAside && shouldDeferMessages
-                      ? handleSemanticComposerDefer
-                      : undefined
-                  }
-                  onProjectQueue={
-                    !mainComposerForAside && showProjectQueueAction
-                      ? handleProjectQueue
-                      : undefined
-                  }
-                  onProjectQueueNewSession={
-                    !mainComposerForAside && effectiveProvider
-                      ? handleProjectQueueNewSession
-                      : undefined
-                  }
-                  projectQueueNewSessionTarget={projectQueueNewSessionTarget}
-                  primaryActionKind={
-                    mainComposerForAside ? "send" : primaryComposerAction
-                  }
-                  disabled={isSessionCreationPending(session?.creation)}
-                  placeholder={
-                    isSessionCreationPending(session?.creation)
-                      ? t(
-                          session?.creation?.state === "failed" ||
-                            session?.creation?.state === "uncertain"
-                            ? "sessionCreationBlocked"
-                            : session?.creation?.state === "queued"
-                              ? "sessionCreationQueueProgress"
-                              : "sessionCreationProgress",
-                        )
-                      : mainComposerForAside
-                        ? "/btw follow-up"
-                        : status.owner === "external"
-                          ? t("sessionPlaceholderExternal")
-                          : processState === "idle"
-                            ? shouldDeferMessages
-                              ? t("sessionPlaceholderQueue")
-                              : t("sessionPlaceholderResume")
-                            : t("sessionPlaceholderQueue")
-                  }
-                  mode={permissionMode}
-                  onModeChange={setPermissionMode}
-                  modeChangesApplyNextTurn={
-                    effectiveProvider === "codex" && shouldDeferMessages
-                  }
-                  modeChangePending={codexPermissionModeChangePending}
-                  supportsPermissionMode={supportsPermissionMode}
-                  supportsThinkingToggle={supportsThinkingToggle}
-                  supportsSteering={generallySupportsSteering}
-                  supportsSteerNow={supportsSteerNow}
-                  steerNowDefault={steerNowDefault}
-                  isRunning={status.owner === "self"}
-                  isThinking={canStopOwnedProcess}
-                  onStop={handleAbort}
-                  onDone={
-                    syntheticDoneEnabled || mainComposerForAside
-                      ? handleDoneAction
-                      : undefined
-                  }
-                  doneTitle={
-                    mainComposerForAside ? t("btwAsideDoneTitle") : undefined
-                  }
-                  draftKey={
-                    mainComposerForAside && focusedBtwAside
-                      ? `draft-btw-${focusedBtwAside.sessionId ?? focusedBtwAside.id}`
-                      : sessionDraftKey
-                  }
-                  draftIndex={
-                    mainComposerForAside && focusedBtwAside
-                      ? undefined
-                      : sessionDraftReference
-                  }
-                  onDraftControlsReady={handleDraftControlsReady}
-                  onDraftTextChange={handleComposerDraftTextChange}
-                  bangSupport={
-                    mainComposerForAside ? undefined : composerBangSupport
-                  }
-                  turnRecall={composerTurnRecall}
-                  correctionActive={
-                    !mainComposerForAside && correctionDraft !== null
-                  }
-                  onCancelCorrection={
-                    mainComposerForAside ? undefined : handleCancelCorrection
-                  }
-                  onRecallLastSubmission={handleRecallLastSubmission}
-                  onCancelLatestDeferred={handleCancelLatestDeferred}
-                  collapsed={
-                    !!(
-                      pendingInputRequest &&
-                      pendingInputRequest.sessionId === actualSessionId
-                    )
-                  }
-                  onFullPaneControlsReady={handleFullPaneControlsReady}
-                  contextUsage={session?.contextUsage}
-                  lastActivityAt={activityAt}
-                  positionTimestampStore={transcriptPositionStore}
-                  sessionLiveness={sessionLiveness}
-                  providerRuntimeStatus={providerRuntimeStatus}
-                  projectId={projectId}
-                  sessionId={sessionId}
-                  attachments={mainComposerForAside ? [] : attachments}
-                  onAttach={mainComposerForAside ? undefined : handleAttach}
-                  onAttachAudioMemo={
-                    mainComposerForAside
-                      ? undefined
-                      : async (file) => {
-                          const uploaded = await uploadAttachedFiles([file]);
-                          if (!uploaded[0])
-                            throw new Error(t("audioMemoUploadFailed"));
-                        }
-                  }
-                  onRemoveAttachment={
-                    mainComposerForAside ? undefined : handleRemoveAttachment
-                  }
-                  uploadProgress={mainComposerForAside ? [] : uploadProgress}
-                  slashCommands={allSlashCommands}
-                  onCustomCommand={handleCustomCommand}
-                  fileViewCommand={
-                    supportsFileViewCommand ? fileViewCommandOptions : undefined
-                  }
-                  onBtwShortcut={
-                    childSessionParentHref || supportsBtwAsides
-                      ? handleBtwShortcut
-                      : undefined
-                  }
-                  btwActive={!!mainComposerForAside || !!childSessionParentHref}
-                  btwHasAsides={
-                    stickyBtwAsides.length > 0 || !!childSessionParentHref
-                  }
-                  btwToolbarMode={btwToolbarMode}
-                  thinkingProvider={effectiveProvider}
-                  thinkingModel={liveBadgeModel}
-                  liveThinkingSelection={
-                    liveThinkingSelection
-                      ? {
-                          mode: liveThinkingSelection.mode,
-                          level: liveThinkingSelection.effortLevel,
-                          onSetMode: handleSetLiveThinkingMode,
-                          onSetEffort: handleSetLiveThinkingEffort,
-                        }
-                      : undefined
-                  }
-                  contextRequestedModel={effectiveModelConfig?.requestedModel}
-                  promptSuggestion={
-                    mainComposerForAside
-                      ? undefined
-                      : (promptSuggestion ?? undefined)
-                  }
-                  onDismissPromptSuggestion={
-                    mainComposerForAside ? undefined : dismissPromptSuggestion
-                  }
-                  forkSummaryMode={
-                    !mainComposerForAside && forkSummaryDraft
-                      ? {
-                          title: t("forkSummaryComposerTitle"),
-                          description: t("forkSummaryComposerDescription"),
-                          placeholder: t("forkSummaryComposerPlaceholder"),
-                          submitLabel: t("forkSummarySubmit"),
-                          tooltip: t("forkSummaryTooltip"),
-                          icon: "⑂",
-                          noSummarySubmitLabel: t("forkSummaryNoSummarySubmit"),
-                          noSummaryTooltip: t("forkSummaryNoSummaryTooltip"),
-                          noSummaryIcon: "↱",
-                          // The composer fork mode is dismissed the moment we
-                          // submit (generation backgrounds into the indicator),
-                          // so it never sits in a submitting state.
-                          submitting: false,
-                          onCancel: () => setForkSummaryDraft(null),
-                          onSubmit: (instructions) => {
-                            void submitForkAfterSummary(
-                              forkSummaryDraft.sourceMessageId,
-                              instructions,
-                            );
-                          },
-                          onSubmitWithoutSummary: (nextTurnText) => {
-                            void submitForkAfterWithoutSummary(
-                              forkSummaryDraft.sourceMessageId,
-                              nextTurnText,
-                            );
-                          },
-                        }
-                      : undefined
-                  }
-                  onForkSummaryShortcut={
-                    !mainComposerForAside && supportsForkFromTurn
-                      ? beginForkAfterInitialTurn
-                      : undefined
-                  }
-                />
-              )}
-            </div>
-          </footer>
+          <SessionComposerFooter
+            activityAt={activityAt}
+            activityRenderItems={activityRenderItems}
+            actualSessionId={actualSessionId}
+            allSlashCommands={allSlashCommands}
+            approvalCollapsed={approvalCollapsed}
+            attachments={attachments}
+            attachmentsRef={attachmentsRef}
+            basePath={basePath}
+            beginForkAfterInitialTurn={beginForkAfterInitialTurn}
+            btwToolbarMode={btwToolbarMode}
+            canStopOwnedProcess={canStopOwnedProcess}
+            captureCreationView={captureCreationView}
+            childSessionParentHref={childSessionParentHref}
+            codexPermissionModeChangePending={codexPermissionModeChangePending}
+            composerBangSupport={composerBangSupport}
+            composerStickyBtwAsides={composerStickyBtwAsides}
+            composerTurnRecall={composerTurnRecall}
+            correctionDraft={correctionDraft}
+            creationKey={creationKey}
+            creationRecovery={creationRecovery}
+            dismissPromptSuggestion={dismissPromptSuggestion}
+            draftControlsRef={draftControlsRef}
+            effectiveModelConfig={effectiveModelConfig}
+            effectiveProvider={effectiveProvider}
+            fileViewCommandOptions={fileViewCommandOptions}
+            focusedBtwAside={focusedBtwAside}
+            focusedBtwAsideId={focusedBtwAsideId}
+            forkSummaryDraft={forkSummaryDraft}
+            generallySupportsSteering={generallySupportsSteering}
+            handleAbort={handleAbort}
+            handleApprove={handleApprove}
+            handleApproveAcceptEdits={handleApproveAcceptEdits}
+            handleAttach={handleAttach}
+            handleBtwShortcut={handleBtwShortcut}
+            handleCancelCorrection={handleCancelCorrection}
+            handleCancelLatestDeferred={handleCancelLatestDeferred}
+            handleComposerDraftTextChange={handleComposerDraftTextChange}
+            handleCustomCommand={handleCustomCommand}
+            handleDeny={handleDeny}
+            handleDenyWithFeedback={handleDenyWithFeedback}
+            handleDoneAction={handleDoneAction}
+            handleDraftControlsReady={handleDraftControlsReady}
+            handleFocusedBtwSend={handleFocusedBtwSend}
+            handleFullPaneControlsReady={handleFullPaneControlsReady}
+            handleProjectQueue={handleProjectQueue}
+            handleProjectQueueNewSession={handleProjectQueueNewSession}
+            handleQuestionSubmit={handleQuestionSubmit}
+            handleRecallLastSubmission={handleRecallLastSubmission}
+            handleRemoveAttachment={handleRemoveAttachment}
+            handleSemanticComposerDefer={handleSemanticComposerDefer}
+            handleSemanticComposerSend={handleSemanticComposerSend}
+            handleSetLiveThinkingEffort={handleSetLiveThinkingEffort}
+            handleSetLiveThinkingMode={handleSetLiveThinkingMode}
+            handleStopBtwAside={handleStopBtwAside}
+            handleToolbarSlashCommand={handleToolbarSlashCommand}
+            hideBtwAside={hideBtwAside}
+            isAskUserQuestion={isAskUserQuestion}
+            liveBadgeModel={liveBadgeModel}
+            liveThinkingSelection={liveThinkingSelection}
+            mainComposerForAside={mainComposerForAside}
+            navigate={navigate}
+            ownsCreationView={ownsCreationView}
+            pendingInputRequest={pendingInputRequest}
+            pendingUploadsRef={pendingUploadsRef}
+            permissionMode={permissionMode}
+            primaryComposerAction={primaryComposerAction}
+            processState={processState}
+            project={project}
+            projectId={projectId}
+            projectQueueNewSessionTarget={projectQueueNewSessionTarget}
+            promptSuggestion={promptSuggestion}
+            providerRuntimeStatus={providerRuntimeStatus}
+            questionAside={questionAside}
+            questionAsidesEnabled={questionAsidesEnabled}
+            session={session}
+            sessionConnectionStatus={sessionConnectionStatus}
+            sessionDraftKey={sessionDraftKey}
+            sessionDraftReference={sessionDraftReference}
+            sessionId={sessionId}
+            sessionLiveness={sessionLiveness}
+            setApprovalCollapsed={setApprovalCollapsed}
+            setComposerAttachments={setComposerAttachments}
+            setCreationRecovery={setCreationRecovery}
+            setFocusedBtwAsideId={setFocusedBtwAsideId}
+            setForkSummaryDraft={setForkSummaryDraft}
+            setPermissionMode={setPermissionMode}
+            setProjectAppVoice={setProjectAppVoice}
+            shouldDeferMessages={shouldDeferMessages}
+            showProjectQueueAction={showProjectQueueAction}
+            sourceTransport={sourceTransport}
+            speechVocabulary={speechVocabulary}
+            status={status}
+            steerNowDefault={steerNowDefault}
+            stickyBtwAsides={stickyBtwAsides}
+            submitForkAfterSummary={submitForkAfterSummary}
+            submitForkAfterWithoutSummary={submitForkAfterWithoutSummary}
+            supportsBtwAsides={supportsBtwAsides}
+            supportsFileViewCommand={supportsFileViewCommand}
+            supportsForkFromTurn={supportsForkFromTurn}
+            supportsPermissionMode={supportsPermissionMode}
+            supportsSteerNow={supportsSteerNow}
+            supportsThinkingToggle={supportsThinkingToggle}
+            syntheticDoneEnabled={syntheticDoneEnabled}
+            toggleBtwAsideExpanded={toggleBtwAsideExpanded}
+            transcriptPositionStore={transcriptPositionStore}
+            transferBtwTurnToMotherComposer={transferBtwTurnToMotherComposer}
+            uploadAttachedFiles={uploadAttachedFiles}
+            uploadProgress={uploadProgress}
+          />
         </div>
       </FileDropZone>
       <SessionRightPane
