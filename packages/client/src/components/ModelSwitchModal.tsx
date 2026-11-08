@@ -49,6 +49,7 @@ import {
 } from "../lib/serviceTiers";
 import { ProviderBadge } from "./ProviderBadge";
 import { ModelSubscriptionUsage } from "./ModelSubscriptionUsage";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 interface ModelSwitchModalProps {
@@ -457,14 +458,13 @@ export function ModelSwitchModal({
     </span>
   );
   const renderInlineSave = () => (
-    <button
-      type="button"
-      className="settings-button model-switch-inline-save"
+    <Button
+      className="model-switch-inline-save"
       onClick={() => void applyConfig()}
       disabled={switching || !selectedModel}
     >
       {t("modelSwitchSaveAll")}
-    </button>
+    </Button>
   );
 
   return (
@@ -556,16 +556,15 @@ export function ModelSwitchModal({
                   {t("processInfoNoActiveProcess")}
                 </span>
                 {onActivate && (
-                  <button
-                    type="button"
-                    className="settings-button model-switch-inline-save"
+                  <Button
+                    className="model-switch-inline-save"
                     onClick={handleActivate}
                     disabled={activating}
                   >
                     {activating
                       ? t("modelSwitchActivating")
                       : t("modelSwitchActivate")}
-                  </button>
+                  </Button>
                 )}
                 {activateError && (
                   <div className="model-switch-error">{activateError}</div>
@@ -790,9 +789,8 @@ export function ModelSwitchModal({
 
             {dirty && (
               <div className="model-switch-actions">
-                <button
-                  type="button"
-                  className="settings-button settings-button-secondary model-switch-action-button"
+                <Button
+                  className="model-switch-action-button"
                   onClick={handleDismiss}
                 >
                   <span className="model-switch-action-label">
@@ -804,10 +802,10 @@ export function ModelSwitchModal({
                     currentEffortLevel,
                     currentIndicatorTone,
                   )}
-                </button>
-                <button
-                  type="button"
-                  className="settings-button model-switch-action-button"
+                </Button>
+                <Button
+                  variant="primary"
+                  className="model-switch-action-button"
                   onClick={() => void applyConfig()}
                   disabled={switching || !selectedModel}
                 >
@@ -820,7 +818,7 @@ export function ModelSwitchModal({
                     effectiveEffortLevel,
                     pendingIndicatorTone,
                   )}
-                </button>
+                </Button>
               </div>
             )}
           </>

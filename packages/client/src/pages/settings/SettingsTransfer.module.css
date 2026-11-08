@@ -20,8 +20,7 @@
   gap: var(--space-2);
 }
 
-.buttons > button {
-  min-height: 44px;
+.buttons > * {
   width: 100%;
 }
 

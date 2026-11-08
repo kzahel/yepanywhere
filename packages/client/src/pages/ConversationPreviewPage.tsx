@@ -1,6 +1,7 @@
 import type { Content } from "@yep-anywhere/shared/experimental/simple-client.generated";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Button, ButtonBase, buttonClassName } from "../components/ui/Button";
 import { type MessageKey, useI18n } from "../i18n";
 import { loadSavedHosts } from "../lib/hostStorage";
 import { previewFullClientPath } from "../lib/experimental/previewLinks";
@@ -117,12 +118,14 @@ function Preview({
           <h1>{t("preview.title")}</h1>
           <span className={styles.muted}>{t("preview.subtitle")}</span>
         </div>
-        <Link className={styles.control} to={local ? "/projects" : "/login"}>
+        <Link
+          className={buttonClassName({ className: styles.control })}
+          to={local ? "/projects" : "/login"}
+        >
           {t("preview.fullApp")}
         </Link>
       </header>
-      <button
-        type="button"
+      <Button
         className={`${styles.control} ${styles.mobileToggle}`}
         aria-expanded={sidebarOpen}
         aria-controls="preview-sidebar"
@@ -135,7 +138,7 @@ function Preview({
               ? "preview.sessions"
               : "preview.showSessions",
         )}
-      </button>
+      </Button>
       <div className={styles.workspace}>
         <aside
           id="preview-sidebar"
@@ -177,13 +180,12 @@ function Preview({
                   <span>{t(statusKeys[item.status])}</span>
                   {item.status !== "excluded" &&
                     item.status !== "connecting" && (
-                      <button
-                        type="button"
+                      <Button
                         className={styles.control}
                         onClick={() => controller.include(item.host.id, true)}
                       >
                         {t("preview.refresh")}
-                      </button>
+                      </Button>
                     )}
                 </div>
                 {item.status === "sign-in-required" && (
@@ -210,7 +212,7 @@ function Preview({
                   item.status,
                 ) && (
                   <Link
-                    className={styles.control}
+                    className={buttonClassName({ className: styles.control })}
                     to={
                       previewFullClientPath(item.host) ??
                       (item.host.mode === "relay"
@@ -263,8 +265,7 @@ function Preview({
                   </h3>
                 )}
                 {group.rows.map(({ source: rowSource, session: row }) => (
-                  <button
-                    type="button"
+                  <ButtonBase
                     key={JSON.stringify([rowSource.host.id, row.id])}
                     className={styles.session}
                     aria-current={
@@ -288,7 +289,7 @@ function Preview({
                         ? row.projectName
                         : rowSource.host.displayName}
                     </small>
-                  </button>
+                  </ButtonBase>
                 ))}
               </section>
             ))}
@@ -316,11 +317,17 @@ function Preview({
                     <span>{t(`preview.activity.${view.activity}`)}</span>
                   )}
                   {fullPath ? (
-                    <Link className={styles.control} to={fullPath}>
+                    <Link
+                      className={buttonClassName({ className: styles.control })}
+                      to={fullPath}
+                    >
                       {t("preview.openFull")}
                     </Link>
                   ) : (
-                    <Link className={styles.control} to="/login/direct">
+                    <Link
+                      className={buttonClassName({ className: styles.control })}
+                      to="/login/direct"
+                    >
                       {t("preview.fullApp")}
                     </Link>
                   )}
@@ -339,13 +346,12 @@ function Preview({
                   <div role="status" className={styles.notice}>
                     <p>{t("preview.disconnected")}</p>
                     {source && (
-                      <button
+                      <Button
                         className={styles.control}
-                        type="button"
                         onClick={() => controller.include(source.host.id, true)}
                       >
                         {t("preview.reconnect")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
@@ -377,8 +383,7 @@ function Preview({
                           },
                         )}
                       </span>
-                      <button
-                        type="button"
+                      <Button
                         className={styles.control}
                         disabled={
                           busy ||
@@ -389,15 +394,14 @@ function Preview({
                         onClick={() => controller.more()}
                       >
                         {t("preview.more")}
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
                         className={styles.control}
                         disabled={busy || source?.status !== "ready"}
                         onClick={() => controller.latest()}
                       >
                         {t("preview.latest")}
-                      </button>
+                      </Button>
                     </div>
                     {state.anchorMessageId && (
                       <p className={styles.muted}>{t("preview.anchored")}</p>
@@ -467,13 +471,12 @@ function Preview({
                   </>
                 )}
                 {state.view?.kind === "error" && source?.status === "ready" && (
-                  <button
-                    type="button"
+                  <Button
                     className={styles.control}
                     onClick={() => controller.latest()}
                   >
                     {t("preview.latest")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </>

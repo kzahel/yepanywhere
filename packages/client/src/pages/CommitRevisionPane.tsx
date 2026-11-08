@@ -15,6 +15,7 @@ import {
 } from "../components/SourceContextMenu";
 import { SearchMatchText } from "../components/SearchMatchText";
 import { SourceShortcutHelp } from "../components/SourceShortcutHelp";
+import { Button } from "../components/ui/Button";
 import {
   handleSourceListKeyDown,
   suppressSourceKeyboardTooltips,
@@ -435,13 +436,9 @@ export function CommitRevisionPane({
             </ol>
             {listError && <div className="git-diff-error">{listError}</div>}
             {hasMore && !searchActive && (
-              <button
-                type="button"
-                className="commit-load-more"
-                onClick={onLoadMore}
-              >
+              <Button className={styles.loadMore} onClick={onLoadMore}>
                 {t("sourceLoadMore")}
-              </button>
+              </Button>
             )}
           </>
         )}

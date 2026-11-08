@@ -9,6 +9,7 @@ import { mutateResumeCredentials } from "../lib/rejectedResumeStorage";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
+import { Button } from "../components/ui/Button";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useSignInRequiredNotice } from "../hooks/useSignInRequiredNotice";
 import { useI18n } from "../i18n";
@@ -221,16 +222,16 @@ export function DirectLoginPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
-            className="login-button"
+            variant="primary"
             disabled={isConnecting}
             data-testid="login-button"
           >
             {isConnecting
               ? t("directLoginConnecting")
               : t("directLoginConnect")}
-          </button>
+          </Button>
         </form>
 
         <p className="login-hint">{t("directLoginHint")}</p>

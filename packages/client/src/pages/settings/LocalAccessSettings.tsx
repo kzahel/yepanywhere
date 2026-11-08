@@ -659,6 +659,7 @@ export function LocalAccessSettings() {
                     }}
                   />
                   <Button
+                    variant="primary"
                     className={styles.customFoldersButton}
                     disabled={!customFoldersChanged || fileAccessSaving}
                     onClick={() => void saveFileAccess(fileAccess)}

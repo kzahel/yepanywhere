@@ -2,6 +2,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { BackArrowIcon } from "../components/BackArrowIcon";
 import { FileViewer } from "../components/FileViewer";
 import { SidebarLauncher } from "../components/SidebarLauncher";
+import { buttonClassName } from "../components/ui/Button";
 import { GlossaryProjectBoundary } from "../contexts/GlossaryContext";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
@@ -82,7 +83,7 @@ export function FilePage() {
                 />
                 <Link
                   to={`${basePath}/projects/${projectId}`}
-                  className="file-viewer-action"
+                  className={buttonClassName({ variant: "ghost", icon: true })}
                   title={t("fileBackToProject" as never)}
                   aria-label={t("fileBackToProject" as never)}
                 >

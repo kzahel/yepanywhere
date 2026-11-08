@@ -17,6 +17,7 @@ import {
 import { ChangesetFileFilter } from "../components/ChangesetFileFilter";
 import { CopyButton } from "../components/CopyButton";
 import { SourceFileOutline } from "../components/SourceFileOutline";
+import { Button } from "../components/ui/Button";
 import {
   SourceFilePath,
   SourceFileRowButton,
@@ -236,25 +237,18 @@ export function CommitFilesPane({
               {detail?.shortHash ?? selectedCommit?.shortHash ?? "…"}
             </span>
           </span>
-          <button
-            type="button"
-            className={`source-detail-action source-compare-toggle ${
-              compareToHead ? "active" : ""
-            }`}
+          <Button
+            variant="ghost"
+            size="small"
             title={t("sourceCompareToHeadDescription")}
             aria-pressed={compareToHead}
             onClick={onToggleComparison}
           >
             {t("sourceCompareToHead")}
-          </button>
-          <CopyButton
-            value={selectedSha}
-            title={t("sourceCopyCommitHash")}
-            className="source-detail-action"
-          />
-          <button
-            type="button"
-            className="source-detail-action source-detail-icon-action"
+          </Button>
+          <CopyButton value={selectedSha} title={t("sourceCopyCommitHash")} />
+          <Button
+            size="small"
             title={t("sourceMarkReadToHere")}
             aria-label={t("sourceMarkReadToHere")}
             disabled={!selectedCommit}
@@ -266,10 +260,9 @@ export function CommitFilesPane({
             <span className="source-detail-action-text">
               {t("sourceMarkReadToHere")}
             </span>
-          </button>
-          <button
-            type="button"
-            className="source-detail-action source-detail-icon-action"
+          </Button>
+          <Button
+            size="small"
             title={t("sourceMarkUnreadSinceHere")}
             aria-label={t("sourceMarkUnreadSinceHere")}
             disabled={!selectedCommit}
@@ -281,7 +274,7 @@ export function CommitFilesPane({
             <span className="source-detail-action-text">
               {t("sourceMarkUnreadSinceHere")}
             </span>
-          </button>
+          </Button>
           <ChangesetFileFilter
             query={fileQuery}
             disabled={selectedFiles.length === 0}

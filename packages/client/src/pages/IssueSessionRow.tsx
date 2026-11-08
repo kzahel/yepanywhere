@@ -6,6 +6,7 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import { SessionListItem } from "../components/SessionListItem";
 import { useSourceContextMenu } from "../components/SourceContextMenu";
+import { Button, IconButton } from "../components/ui/Button";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
@@ -211,10 +212,9 @@ export function IssueSessionRow({
             />
           )}
         </div>
-        <button
+        <IconButton
           className={styles.iconButton}
-          type="button"
-          aria-label={t("issuesAssociationActions")}
+          label={t("issuesAssociationActions")}
           onClick={(e) =>
             menu.openFromButton(e, [
               ...(unresolved ||
@@ -256,7 +256,7 @@ export function IssueSessionRow({
           }
         >
           ⋯
-        </button>
+        </IconButton>
       </div>
       <div className={styles.sessionMeta}>
         <span
@@ -281,9 +281,9 @@ export function IssueSessionRow({
         excerpt(entry, !expanded),
       )}
       {session.evidenceCount > 1 && (
-        <button
-          className={styles.textButton}
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           aria-expanded={expanded}
           onClick={() => {
             setExpanded(!expanded);
@@ -293,17 +293,17 @@ export function IssueSessionRow({
           {t(expanded ? "issuesFewerMentions" : "issuesMoreMentions", {
             count: session.evidenceCount - 1,
           })}
-        </button>
+        </Button>
       )}
       {expanded && evidence.length > 1 && nextOffset !== null && (
-        <button
-          className={styles.textButton}
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           disabled={loading}
           onClick={() => void more()}
         >
           {t("issuesMoreEvidence")}
-        </button>
+        </Button>
       )}
       {loading && (
         <span className={styles.muted}>{t("issuesLoadingMentions")}</span>

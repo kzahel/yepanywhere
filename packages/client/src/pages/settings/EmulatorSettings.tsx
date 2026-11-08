@@ -261,7 +261,11 @@ export function EmulatorSettings() {
                   value={hostInput}
                   onChange={(event) => setHostInput(event.target.value)}
                 />
-                <Button type="submit" disabled={settingsLoading}>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  disabled={settingsLoading}
+                >
                   {t("projectsAddConfirm")}
                 </Button>
               </form>
@@ -288,6 +292,7 @@ export function EmulatorSettings() {
                     </div>
                     <div className="settings-item-action">
                       <Button
+                        variant="danger-outline"
                         onClick={() => {
                           void removeHost(host);
                         }}

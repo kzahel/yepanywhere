@@ -98,9 +98,13 @@ test("ticket refresh gestures stay compact and typing stays immediate during ref
     const settings = await page
       .getByRole("link", { name: "Indexing settings" })
       .boundingBox();
-    expect(button?.width).toBe(44);
-    expect(button?.height).toBe(44);
-    expect(Math.abs((input?.y ?? 0) - (button?.y ?? 0))).toBeLessThan(5);
+    // The shared icon button's own size (32 px, 44 px on coarse pointers),
+    // square and centred on the search field.
+    expect(button?.width).toBe(button?.height);
+    expect(button?.height).toBeGreaterThanOrEqual(32);
+    const middle = (box: typeof input) =>
+      (box?.y ?? 0) + (box?.height ?? 0) / 2;
+    expect(Math.abs(middle(input) - middle(button))).toBeLessThan(2);
     expect((settings?.x ?? 0) + (settings?.width ?? 0)).toBeLessThanOrEqual(
       viewport.width,
     );

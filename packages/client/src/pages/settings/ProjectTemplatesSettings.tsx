@@ -281,6 +281,7 @@ export function ProjectTemplatesSettings() {
                 {t("templatesMoveUp")}
               </Button>
               <Button
+                variant="danger-outline"
                 disabled={draft.sources.length === 1 || busy}
                 onClick={() =>
                   setDraft((previous) => ({
@@ -326,7 +327,7 @@ export function ProjectTemplatesSettings() {
         </Button>
         <p>{t("templatesFetchHelp")}</p>
         <div className={styles.actions}>
-          <Button type="submit" disabled={busy || !state}>
+          <Button variant="primary" type="submit" disabled={busy || !state}>
             {draft.enabled ? t("templatesFetch") : t("templatesSave")}
           </Button>
         </div>

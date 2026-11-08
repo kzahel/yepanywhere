@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useI18n } from "../i18n";
 import { ProjectSharingSection } from "./ProjectSharingSection";
 import styles from "./ProjectSessionDefaultsModal.module.css";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { Link } from "react-router-dom";
 import { useVersion } from "../hooks/useVersion";
@@ -61,9 +62,7 @@ export function ProjectSessionDefaultsModal({
           />
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondary} onClick={onClose}>
-            {t("cancel")}
-          </button>
+          <Button onClick={onClose}>{t("cancel")}</Button>
         </div>
       </div>
     </Modal>

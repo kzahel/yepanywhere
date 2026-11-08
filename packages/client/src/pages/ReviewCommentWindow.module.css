@@ -82,16 +82,3 @@
 .defaultSessionTarget {
   display: inline-flex;
 }
-
-.submit {
-  min-height: 32px;
-  background: var(--accent-color);
-  color: var(--accent-contrast);
-  border: none;
-  border-radius: var(--radius-sm, 4px);
-  padding: var(--space-1, 4px) var(--space-3, 12px);
-}
-
-.submit:disabled {
-  opacity: 0.5;
-}

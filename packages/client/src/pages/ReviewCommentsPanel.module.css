@@ -41,13 +41,9 @@
 }
 
 .location {
-  padding: 0;
   font-family: var(--font-mono, monospace);
   font-size: 0.8rem;
   color: var(--link-color);
-  background: transparent;
-  border: none;
-  cursor: pointer;
   text-align: left;
   overflow-wrap: anywhere;
 }
@@ -67,28 +63,6 @@
   display: flex;
   gap: var(--space-1, 4px);
   margin-left: auto;
-}
-
-.edit,
-.delete {
-  padding: 2px 8px;
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.75rem;
-  white-space: nowrap;
-  cursor: pointer;
-  background: transparent;
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-sm, 4px);
-}
-
-.edit:hover {
-  color: var(--text-primary, #e6edf3);
-  border-color: var(--accent-color);
-}
-
-.delete:hover {
-  color: var(--error-color);
-  border-color: var(--error-color);
 }
 
 .text {

@@ -194,7 +194,11 @@ export function ProviderSignIn({
               autoComplete="off"
               spellCheck={false}
             />
-            <Button type="submit" disabled={busy || !code.trim()}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={busy || !code.trim()}
+            >
               {t("providersSignInSubmitCode")}
             </Button>
           </form>

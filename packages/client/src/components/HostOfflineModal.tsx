@@ -15,6 +15,7 @@ import type {
 } from "../contexts/RemoteConnectionContext";
 import { useI18n } from "../i18n";
 import styles from "./HostOfflineModal.module.css";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 type Translate = ReturnType<typeof useI18n>["t"];
@@ -137,13 +138,11 @@ export function HostOfflineModal({
         </p>
 
         <div className={styles.actions}>
-          <button type="button" className="btn-secondary" onClick={onGoToLogin}>
-            {t("hostOfflineGoToLogin")}
-          </button>
+          <Button onClick={onGoToLogin}>{t("hostOfflineGoToLogin")}</Button>
           {canRetryResume(error.reason) && (
-            <button type="button" className="btn-primary" onClick={onRetry}>
+            <Button variant="primary" onClick={onRetry}>
               {t("hostOfflineRetry")}
-            </button>
+            </Button>
           )}
         </div>
       </div>

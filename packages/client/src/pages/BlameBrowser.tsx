@@ -34,6 +34,7 @@ import {
   SourceFileRowButton,
   SourceFileStatusBadge,
 } from "../components/SourceFileRow";
+import { Button, ButtonBase } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { useProjectReviewComments } from "../hooks/useProjectReviewComments";
 import { useProjectWorktree } from "../hooks/useProjectWorktree";
@@ -595,9 +596,8 @@ function WorktreeSectionControls({
       aria-label={t("sourceWorkingTreeSections")}
     >
       {sections.map(({ kind, label }) => (
-        <button
+        <ButtonBase
           key={kind}
-          type="button"
           className={`${styles.sectionToggle} ${
             coverage[kind] ? styles.activeSectionToggle : ""
           }`}
@@ -606,7 +606,7 @@ function WorktreeSectionControls({
         >
           <span aria-hidden="true">{coverage[kind] ? "●" : "○"}</span>
           {label}
-        </button>
+        </ButtonBase>
       ))}
     </fieldset>
   );
@@ -737,9 +737,9 @@ function WorkingTreeFileList({
         <div className={styles.truncated} role="status">
           <span aria-hidden="true">…</span>
           {onShowAll && totalFiles !== null ? (
-            <button type="button" onClick={onShowAll}>
+            <Button variant="ghost" size="small" onClick={onShowAll}>
               {t("sourceWorkingTreeShowAll", { count: totalFiles })}
-            </button>
+            </Button>
           ) : totalFiles !== null ? (
             t("sourceWorkingTreeFilesIncomplete", { count: totalFiles })
           ) : (

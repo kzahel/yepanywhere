@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Button } from "../components/ui/Button";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useAuth } from "../contexts/AuthContext";
 import { useI18n } from "../i18n";
@@ -155,17 +156,13 @@ export function LoginPage() {
 
           {error && <div className="login-error">{error}</div>}
 
-          <button
-            type="submit"
-            className="login-button"
-            disabled={isSubmitting}
-          >
+          <Button variant="primary" type="submit" disabled={isSubmitting}>
             {isSubmitting
               ? t("loginSubmitPending")
               : isSetupMode
                 ? t("loginSubmitSetup")
                 : t("loginSubmit")}
-          </button>
+          </Button>
         </form>
 
         {isSetupMode && <p className="login-hint">{t("loginSetupHint")}</p>}

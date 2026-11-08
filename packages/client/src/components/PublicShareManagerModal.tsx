@@ -26,6 +26,7 @@ import {
   PublicSharePlusIcon,
   PublicShareRevokeIcon,
 } from "./PublicShareInventory";
+import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
 import styles from "./SessionShareModal.module.css";
 
@@ -680,8 +681,10 @@ function SourcePublicShareManagerModal({
                         </span>
                         <span>{optionLabel}</span>
                       </button>
-                      <button
-                        type="button"
+                      <IconButton
+                        label={revokeLabel}
+                        variant="danger-outline"
+                        size="small"
                         className={styles.revokeTypeButton}
                         disabled={mutationsDisabled}
                         onClick={() =>
@@ -694,8 +697,6 @@ function SourcePublicShareManagerModal({
                                 scopeLabel: optionLabel,
                               }))
                         }
-                        title={revokeLabel}
-                        aria-label={revokeLabel}
                       >
                         {operationWorking?.endsWith(categoryKey) ? (
                           "…"
@@ -704,7 +705,7 @@ function SourcePublicShareManagerModal({
                         ) : (
                           <PublicShareRevokeIcon />
                         )}
-                      </button>
+                      </IconButton>
                     </div>
                   );
                 })}
@@ -761,8 +762,7 @@ function SourcePublicShareManagerModal({
                     }`}
                     key={modeOption}
                   >
-                    <button
-                      type="button"
+                    <ButtonBase
                       className={`${styles.filterButton} ${
                         selected ? styles.filterButtonActive : ""
                       }`}
@@ -774,26 +774,26 @@ function SourcePublicShareManagerModal({
                         <PublicShareFilterIcon kind={modeOption} />
                       </span>
                       <span>{typeLabel}</span>
-                    </button>
+                    </ButtonBase>
                     {creationControlsVisible && (
-                      <button
-                        type="button"
+                      <IconButton
+                        label={t("publicShareManagementCreate", {
+                          type: typeLabel,
+                        })}
+                        variant="primary"
+                        size="small"
                         className={styles.addButton}
                         disabled={mutationsDisabled}
                         onClick={() => void createManagedShare(modeOption)}
-                        title={t("publicShareManagementCreate", {
-                          type: typeLabel,
-                        })}
-                        aria-label={t("publicShareManagementCreate", {
-                          type: typeLabel,
-                        })}
                       >
                         <PublicSharePlusIcon />
-                      </button>
+                      </IconButton>
                     )}
                     {modeOption === "live" && selectiveFreezeAvailable && (
-                      <button
-                        type="button"
+                      <IconButton
+                        label={freezeLabel}
+                        variant="secondary"
+                        size="small"
                         className={styles.freezeTypeButton}
                         disabled={mutationsDisabled}
                         onClick={() =>
@@ -808,8 +808,6 @@ function SourcePublicShareManagerModal({
                                 typeLabel,
                               }))
                         }
-                        title={freezeLabel}
-                        aria-label={freezeLabel}
                       >
                         {freezeWorking ? (
                           "…"
@@ -818,10 +816,12 @@ function SourcePublicShareManagerModal({
                         ) : (
                           <PublicShareFreezeIcon />
                         )}
-                      </button>
+                      </IconButton>
                     )}
-                    <button
-                      type="button"
+                    <IconButton
+                      label={revokeLabel}
+                      variant="danger-outline"
+                      size="small"
                       className={styles.revokeTypeButton}
                       disabled={mutationsDisabled}
                       onClick={() =>
@@ -836,8 +836,6 @@ function SourcePublicShareManagerModal({
                               typeLabel,
                             }))
                       }
-                      title={revokeLabel}
-                      aria-label={revokeLabel}
                     >
                       {revokeWorking ? (
                         "…"
@@ -846,7 +844,7 @@ function SourcePublicShareManagerModal({
                       ) : (
                         <PublicShareRevokeIcon />
                       )}
-                    </button>
+                    </IconButton>
                   </div>
                 );
               })}
@@ -942,16 +940,14 @@ function SourcePublicShareManagerModal({
             )}
 
             {!inventoryError && cursor && (
-              <button
-                type="button"
-                className="settings-button settings-button-secondary"
+              <Button
                 disabled={inventoryLoading || mutationsDisabled}
                 onClick={() => void loadMore()}
               >
                 {inventoryLoading
                   ? t("publicShareManagementLoading")
                   : t("publicShareManagementLoadMore")}
-              </button>
+              </Button>
             )}
             {!inventoryError && (
               <PublicShareInventoryCount>

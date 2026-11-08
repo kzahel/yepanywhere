@@ -26,22 +26,6 @@
   flex: 1;
   overflow-wrap: anywhere;
 }
-/* The embedded ProjectAppViewer's raw buttons keep their legacy look until
-   the viewer moves onto the shared button family. Scoped to the viewer so
-   it cannot reach this section's own shared controls. */
-.viewer {
-  display: contents;
-}
-.viewer button {
-  min-height: 36px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  font: inherit;
-  cursor: pointer;
-}
 .row {
   display: grid;
   gap: 8px;
@@ -64,9 +48,4 @@
 }
 .row > button {
   justify-self: start;
-}
-@media (width <= 640px) {
-  .viewer button {
-    min-height: 44px;
-  }
 }

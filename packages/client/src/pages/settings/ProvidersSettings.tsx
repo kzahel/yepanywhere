@@ -530,7 +530,7 @@ function ClaudeGatewaySettings({
       setIsSaving(false);
     }
   }, [reloadProviders, startCommand, updateSettings, url]);
-
+  const canSave = hasChanges && !isSaving;
   return (
     <div
       id="provider-claude-gateway-configuration"
@@ -545,7 +545,7 @@ function ClaudeGatewaySettings({
         className="claude-gateway-settings-control"
         onSubmit={(event) => {
           event.preventDefault();
-          if (hasChanges && !isSaving) void handleSave();
+          if (canSave) void handleSave();
         }}
       >
         <div className="claude-gateway-settings-row">
@@ -560,7 +560,7 @@ function ClaudeGatewaySettings({
             placeholder={exampleUrl}
             aria-label={t("providersClaudeGatewayUrlAria")}
           />
-          <Button type="submit" disabled={!hasChanges || isSaving}>
+          <Button variant="primary" type="submit" disabled={!canSave}>
             {isSaving ? t("providersSaving") : t("providersSave")}
           </Button>
         </div>
@@ -1141,7 +1141,7 @@ export function ProvidersSettings() {
           .map((provider) => (
             <Link
               key={provider.name}
-              className={buttonClassName({ variant: "outline" })}
+              className={buttonClassName()}
               to={`${signInBasePath}/provider-sign-in/${provider.name}`}
             >
               {t("providersSignIn", { provider: provider.displayName })}

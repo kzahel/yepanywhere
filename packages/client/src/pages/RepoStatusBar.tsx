@@ -5,6 +5,7 @@ import type {
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { CopyButton } from "../components/CopyButton";
+import { ButtonBase } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import type { TranslationFn } from "../i18n";
 import { formatCommitDateTime } from "./CommitFilesPane";
@@ -115,14 +116,12 @@ export function RepoStatusBar({
                   ? t("sourceCopyBranch")
                   : t("sourceCopyCommitHash")
               }
-              className={styles.copyButton}
             />
           )}
         </span>
         {status.upstream &&
           (previewsIncoming ? (
-            <button
-              type="button"
+            <ButtonBase
               className={`${styles.upstream} ${styles.upstreamButton}`}
               title={t("sourceOpenIncomingCommits", {
                 upstream: status.upstream,
@@ -130,7 +129,7 @@ export function RepoStatusBar({
               onClick={() => setIncomingOpen(true)}
             >
               → {status.upstream}
-            </button>
+            </ButtonBase>
           ) : (
             <span className={styles.upstream} title={status.upstream}>
               → {status.upstream}
@@ -143,14 +142,13 @@ export function RepoStatusBar({
           </span>
         )}
         {!status.isClean && onSelectChanges ? (
-          <button
-            type="button"
+          <ButtonBase
             className={`${styles.badge} ${styles.dirty} ${styles.badgeAction}`}
             title={t("sourceOpenChanges")}
             onClick={onSelectChanges}
           >
             {t("gitStatusDirty")}
-          </button>
+          </ButtonBase>
         ) : (
           <span
             className={`${styles.badge} ${

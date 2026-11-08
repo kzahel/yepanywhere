@@ -1973,7 +1973,7 @@ export function AppearanceSettings() {
                 <span className="output-appearance-specimen-label">
                   {t("appearanceOutputSpecimenLabel")}
                 </span>
-                <Button variant="outline" onClick={resetOutputAppearance}>
+                <Button onClick={resetOutputAppearance}>
                   {t("appearanceOutputTypographyReset")}
                 </Button>
               </div>

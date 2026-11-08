@@ -1,12 +1,3 @@
-.appButton {
-  min-height: 36px;
-}
-
-.appButton[aria-pressed="true"] {
-  color: var(--app-yep-green);
-  border-color: var(--app-yep-green);
-}
-
 .workspace {
   display: flex;
   min-height: 0;

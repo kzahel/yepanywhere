@@ -86,59 +86,14 @@
   background: color-mix(in srgb, var(--app-yep-green) 62%, #111827);
 }
 
-.iconButton {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  cursor: pointer;
-  display: inline-flex;
-  justify-content: center;
-  min-height: 30px;
-  min-width: 30px;
-  padding: 4px;
-}
-
-.iconButton:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.iconButtonDanger {
-  background: color-mix(in srgb, var(--error-color) 72%, #320d12);
-  border-color: color-mix(in srgb, var(--error-color) 74%, #fff);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.16);
-  color: #fff;
-}
-
-.iconButtonFreeze {
-  background: color-mix(in srgb, var(--attention-color) 62%, #1e293b);
-  border-color: color-mix(in srgb, var(--attention-color) 66%, #fff);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.16);
-  color: #fff;
-}
-
 .iconButtonFreeze svg {
   height: 14px;
   width: 14px;
 }
 
-.iconButtonFreeze:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--attention-color) 76%, #1e293b);
-}
-
 .iconButtonDanger svg {
   height: 13px;
   width: 13px;
-}
-
-.iconButtonDanger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--error-color) 84%, #320d12);
-}
-
-.iconButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .error {

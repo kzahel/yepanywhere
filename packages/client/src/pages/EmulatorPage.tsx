@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { EmulatorNavButtons } from "../components/EmulatorNavButtons";
 import { EmulatorStream } from "../components/EmulatorStream";
 import { PageHeader } from "../components/PageHeader";
+import { Button } from "../components/ui/Button";
 import { useEmulatorSettings } from "../hooks/useEmulatorSettings";
 import { useEmulatorStream } from "../hooks/useEmulatorStream";
 import { useEmulators } from "../hooks/useEmulators";
@@ -96,31 +97,13 @@ function EmulatorListItem({
       </div>
       <div className={styles.itemActions}>
         {canConnect && (
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={() => onConnect(device)}
-          >
+          <Button variant="primary" onClick={() => onConnect(device)}>
             Connect
-          </button>
+          </Button>
         )}
-        {canStop && (
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnSecondary}`}
-            onClick={() => onStop(device.id)}
-          >
-            Stop
-          </button>
-        )}
+        {canStop && <Button onClick={() => onStop(device.id)}>Stop</Button>}
         {!canStop && canStart && (
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnSecondary}`}
-            onClick={() => onStart(device.id)}
-          >
-            Start
-          </button>
+          <Button onClick={() => onStart(device.id)}>Start</Button>
         )}
         {!canConnect && !canStop && !canStart && (
           <span className={styles.itemStatus}>No actions</span>
@@ -299,13 +282,7 @@ function StreamView({
   return (
     <div className={styles.streamView} ref={streamViewRef}>
       <div className={styles.streamHeader}>
-        <button
-          type="button"
-          className={`${styles.btn} ${styles.btnSecondary}`}
-          onClick={handleBack}
-        >
-          Back
-        </button>
+        <Button onClick={handleBack}>Back</Button>
         <span
           className={styles.connectionState}
           data-testid="device-connection-state"
@@ -314,9 +291,7 @@ function StreamView({
         </span>
         <div className={styles.streamHeaderActions}>
           {supportsImmersiveKeyboard && (
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.btnSecondary}`}
+            <Button
               onClick={() => {
                 if (immersiveKeyboardActive) {
                   void exitImmersiveKeyboard();
@@ -332,7 +307,7 @@ function StreamView({
                 : immersiveKeyboardActive
                   ? "Exit Immersive Keyboard"
                   : "Immersive Keyboard"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -449,12 +424,7 @@ export function BridgeRuntimePrompt({
         )}
       </p>
       {error && <div className={styles.error}>{error}</div>}
-      <button
-        type="button"
-        className={`${styles.btn} ${styles.btnPrimary}`}
-        onClick={handleDownload}
-        disabled={downloading}
-      >
+      <Button variant="primary" onClick={handleDownload} disabled={downloading}>
         {downloading
           ? mode === "update"
             ? "Updating..."
@@ -462,7 +432,7 @@ export function BridgeRuntimePrompt({
           : mode === "update"
             ? "Update Bridge"
             : "Download Bridge"}
-      </button>
+      </Button>
     </div>
   );
 }

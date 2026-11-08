@@ -60,33 +60,6 @@
 }
 
 /* Buttons */
-.btn {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85em;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btnPrimary {
-  background: var(--app-yep-green);
-  color: white;
-}
-
-.btnPrimary:hover {
-  background: var(--app-yep-green-dark);
-}
-
-.btnSecondary {
-  background: var(--app-button-secondary-bg, var(--app-bg-tertiary));
-  color: var(--app-text-primary);
-}
-
-.btnSecondary:hover {
-  background: var(--app-button-secondary-hover-bg, var(--app-bg-quaternary));
-}
-
 /* Stream view */
 .streamView {
   display: flex;

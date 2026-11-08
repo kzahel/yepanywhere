@@ -84,16 +84,6 @@ describe("RepoStatusBar", () => {
     ).toBe(true);
   });
 
-  it("keeps the branch copy button compact inside the bar", () => {
-    render(<RepoStatusBar status={gitStatus()} t={t} />);
-
-    const copy = screen.getByRole("button", { name: "sourceCopyBranch" });
-    // `.copy-button` stays a shared global primitive owned by CopyButton; the
-    // bar only supplies its own class through the documented pass-through.
-    expect(copy.classList.contains("copy-button")).toBe(true);
-    expect(copy.classList.contains(repoStyles.copyButton as string)).toBe(true);
-  });
-
   it("opens the branch tip as a real link that left-clicks in place", () => {
     const onOpenHeadCommit = vi.fn();
     render(

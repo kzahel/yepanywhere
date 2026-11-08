@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { SessionHoverCardTarget } from "../components/SessionHoverCardTarget";
+import { Button } from "../components/ui/Button";
 import type { SourceReviewDefaultSession } from "../contexts/SourceReviewDefaultSessionContext";
 import { useProjectReviewSessions } from "../hooks/useProjectReviewSessions";
 import type { TranslationFn } from "../i18n";
@@ -61,14 +62,13 @@ export function ReviewCommentWindow({
   const selectedSession =
     sessions?.find((session) => session.id === targetSessionId) ?? null;
   const submitButton = (
-    <button
-      type="button"
-      className={styles.submit}
+    <Button
+      variant="primary"
       onClick={() => onSubmit(text, targetSessionId)}
       disabled={!canSubmit}
     >
       {t("sourceReviewSubmitComment")}
-    </button>
+    </Button>
   );
 
   return (
@@ -83,22 +83,20 @@ export function ReviewCommentWindow({
         <>
           {/* review-comment-window-cancel and -add stay literal: no stylesheet
             declares them, so they are DOM hooks this module does not own. */}
-          <button
-            type="button"
+          <Button
             className="review-comment-window-cancel"
             onClick={onCancel}
             disabled={busy}
           >
             {t("cancel")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             className="review-comment-window-add"
             onClick={() => onAddToReview(text)}
             disabled={!canSubmit}
           >
             {t("sourceReviewAddToReview")}
-          </button>
+          </Button>
           <div className={styles.submitActions}>
             <label className={styles.destination}>
               <span>{t("sourceReviewTargetLegend")}</span>

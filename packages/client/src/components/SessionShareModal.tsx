@@ -13,6 +13,7 @@ import {
   PublicShareManagerModal,
   type PublicShareCreationIdentity,
 } from "./PublicShareManagerModal";
+import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
 import { ViewerCountIndicator } from "./ViewerCountIndicator";
 
@@ -273,8 +274,7 @@ export function LegacySessionShareModal({
         </p>
         {canCreateShares ? (
           <div className="session-share-actions">
-            <button
-              type="button"
+            <ButtonBase
               className="session-share-action"
               onClick={() => void createAndCopyShare("frozen")}
               disabled={isWorking !== null}
@@ -287,9 +287,8 @@ export function LegacySessionShareModal({
               <span className="session-share-option-description">
                 {t("sessionShareFrozenDescription")}
               </span>
-            </button>
-            <button
-              type="button"
+            </ButtonBase>
+            <ButtonBase
               className="session-share-action"
               onClick={() => void createAndCopyShare("live")}
               disabled={isWorking !== null}
@@ -302,7 +301,7 @@ export function LegacySessionShareModal({
               <span className="session-share-option-description">
                 {t("sessionShareLiveDescription")}
               </span>
-            </button>
+            </ButtonBase>
           </div>
         ) : (
           <p className="session-share-readonly-note">
@@ -341,13 +340,9 @@ export function LegacySessionShareModal({
           </div>
         )}
         {onManage && (
-          <button
-            type="button"
-            className="session-share-small-button"
-            onClick={onManage}
-          >
+          <Button size="small" onClick={onManage}>
             {t("publicShareManagementManageSession")}
-          </button>
+          </Button>
         )}
 
         {hasActiveShares && (
@@ -359,9 +354,8 @@ export function LegacySessionShareModal({
                 label={viewerSummary}
               />
               <div className="session-share-global-controls">
-                <button
-                  type="button"
-                  className="session-share-small-button"
+                <Button
+                  size="small"
                   onClick={() => void freezeAllLive()}
                   disabled={
                     isWorking !== null || (status?.liveCount ?? 0) === 0
@@ -371,10 +365,10 @@ export function LegacySessionShareModal({
                   {isWorking === "freeze-all"
                     ? t("sessionShareFreezing")
                     : t("sessionShareFreezeLive")}
-                </button>
-                <button
-                  type="button"
-                  className="session-share-revoke-button"
+                </Button>
+                <Button
+                  variant="danger-outline"
+                  size="small"
                   onClick={() => void revokeAll()}
                   disabled={isWorking !== null}
                   title={t("sessionShareRevokeAllTitle")}
@@ -382,7 +376,7 @@ export function LegacySessionShareModal({
                   {isWorking === "revoke"
                     ? t("sessionShareRevoking")
                     : t("sessionShareRevokeAll")}
-                </button>
+                </Button>
               </div>
             </div>
             {viewers.length > 0 && (
@@ -421,9 +415,12 @@ export function LegacySessionShareModal({
                               : t("sessionShareViewerInactiveState")}
                       </div>
                       <div className="session-share-viewer-actions">
-                        <button
-                          type="button"
-                          className="session-share-icon-button"
+                        <IconButton
+                          label={t("sessionShareFreezeViewerTitle", {
+                            token: viewer.shortId,
+                          })}
+                          variant="secondary"
+                          size="small"
                           onClick={() => void freezeViewerToken(viewer)}
                           disabled={
                             isWorking !== null ||
@@ -431,29 +428,20 @@ export function LegacySessionShareModal({
                             viewer.frozen ||
                             (status?.liveCount ?? 0) === 0
                           }
-                          title={t("sessionShareFreezeViewerTitle", {
-                            token: viewer.shortId,
-                          })}
-                          aria-label={t("sessionShareFreezeViewerTitle", {
-                            token: viewer.shortId,
-                          })}
                         >
                           |||
-                        </button>
-                        <button
-                          type="button"
-                          className="session-share-icon-button session-share-icon-button-danger"
+                        </IconButton>
+                        <IconButton
+                          label={t("sessionShareDisconnectViewerTitle", {
+                            token: viewer.shortId,
+                          })}
+                          variant="danger-outline"
+                          size="small"
                           onClick={() => void disconnectViewerToken(viewer)}
                           disabled={isWorking !== null || viewer.disconnected}
-                          title={t("sessionShareDisconnectViewerTitle", {
-                            token: viewer.shortId,
-                          })}
-                          aria-label={t("sessionShareDisconnectViewerTitle", {
-                            token: viewer.shortId,
-                          })}
                         >
                           x
-                        </button>
+                        </IconButton>
                       </div>
                     </div>
                   ))}

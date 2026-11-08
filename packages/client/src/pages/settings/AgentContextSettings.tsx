@@ -173,7 +173,11 @@ export function AgentContextSettings() {
                 max: MAX_LENGTH.toLocaleString(),
               })}
             </span>
-            <Button type="submit" disabled={!hasChanges || isSaving}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={!hasChanges || isSaving}
+            >
               {isSaving ? t("providersSaving") : t("providersSave")}
             </Button>
           </div>

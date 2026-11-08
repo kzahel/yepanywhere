@@ -11,6 +11,7 @@ import {
   type SourceContextMenuAction,
   useSourceContextMenu,
 } from "../components/SourceContextMenu";
+import { IconButton } from "../components/ui/Button";
 import { writeClipboardText } from "../lib/clipboard";
 import { useReviewCommentDraft } from "../hooks/useReviewCommentDraft";
 import { ReviewCommentWindow } from "./ReviewCommentWindow";
@@ -292,12 +293,12 @@ function DiffCommentLayer({
   return (
     <>
       {activeLine && (
-        <button
-          type="button"
+        <IconButton
+          label={t("sourceMoreActions")}
+          variant="secondary"
+          size="small"
           className={styles.menuTrigger}
           style={{ top: activeLine.top }}
-          aria-label={t("sourceMoreActions")}
-          title={t("sourceMoreActions")}
           onClick={(event) => {
             const resolved = resolveActiveLine();
             if (!resolved) return;
@@ -312,7 +313,7 @@ function DiffCommentLayer({
           }}
         >
           ⋯
-        </button>
+        </IconButton>
       )}
       {lineMenu}
     </>

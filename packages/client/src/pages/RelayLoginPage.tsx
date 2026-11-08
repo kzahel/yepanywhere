@@ -8,6 +8,7 @@ import { mutateResumeCredentials } from "../lib/rejectedResumeStorage";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Button, ButtonBase } from "../components/ui/Button";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useSignInRequiredNotice } from "../hooks/useSignInRequiredNotice";
@@ -346,8 +347,7 @@ export function RelayLoginPage() {
             </label>
           </div>
 
-          <button
-            type="button"
+          <ButtonBase
             className="login-advanced-toggle"
             onClick={() => setShowAdvanced(!showAdvanced)}
             disabled={isConnecting}
@@ -355,7 +355,7 @@ export function RelayLoginPage() {
             {showAdvanced
               ? t("relayLoginHideAdvanced")
               : t("relayLoginShowAdvanced")}
-          </button>
+          </ButtonBase>
 
           {showAdvanced && (
             <div className="login-field">
@@ -420,14 +420,14 @@ export function RelayLoginPage() {
             </div>
           )}
 
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            className="login-button"
             disabled={isConnecting}
             data-testid="login-button"
           >
             {isConnecting ? t("relayLoginConnecting") : t("relayLoginConnect")}
-          </button>
+          </Button>
         </form>
 
         <p className="login-hint">{t("relayLoginHint")}</p>

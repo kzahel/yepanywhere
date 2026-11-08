@@ -55,7 +55,11 @@ function OllamaUrlInput() {
           placeholder="http://localhost:11434"
           style={{ flex: 1 }}
         />
-        <Button type="submit" disabled={!hasChanges || isSaving}>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={!hasChanges || isSaving}
+        >
           {isSaving ? t("providersSaving") : t("providersSave")}
         </Button>
       </div>
@@ -142,7 +146,11 @@ function OllamaSystemPromptInput() {
         }}
       >
         <span className="settings-hint">{t("providersOllamaPromptHint")}</span>
-        <Button disabled={!hasChanges || isSaving} onClick={handleSave}>
+        <Button
+          variant="primary"
+          disabled={!hasChanges || isSaving}
+          onClick={handleSave}
+        >
           {isSaving ? t("providersSaving") : t("providersSave")}
         </Button>
       </div>

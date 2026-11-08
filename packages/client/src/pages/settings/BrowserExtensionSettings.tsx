@@ -231,6 +231,7 @@ export function BrowserExtensionSettings() {
                 <span>{t("extensionSettingsSiteGranted")}</span>
               </span>
               <Button
+                variant="danger-outline"
                 onClick={() =>
                   void getChrome()?.permissions.remove({
                     origins: [`https://${site}/*`],

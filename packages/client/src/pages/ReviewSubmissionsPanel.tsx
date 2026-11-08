@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { Button, ButtonBase } from "../components/ui/Button";
 import type { TranslationFn } from "../i18n";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
 import styles from "./ReviewSubmissionsPanel.module.css";
@@ -171,8 +172,7 @@ export function ReviewSubmissionsPanel({
       <ul className={styles.submissionList}>
         {submissions.map((submission) => (
           <li key={submission.id}>
-            <button
-              type="button"
+            <ButtonBase
               className={`${styles.submissionButton} ${
                 submission.id === selected.id ? styles.active : ""
               }`.trimEnd()}
@@ -187,18 +187,19 @@ export function ReviewSubmissionsPanel({
                   aria-label={t("sourceReviewUnread")}
                 />
               )}
-            </button>
+            </ButtonBase>
           </li>
         ))}
         {nextCursor && (
           <li>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="small"
               className={styles.loadMore}
               onClick={() => void loadSubmissions(nextCursor)}
             >
               {t("sourceReviewLoadOlder")}
-            </button>
+            </Button>
           </li>
         )}
       </ul>
@@ -299,15 +300,15 @@ function SubmissionDetail({
           </div>
         </div>
         <div className={styles.detailActions}>
-          <button
-            type="button"
+          <Button
+            size="small"
             disabled={refreshingResponse}
             onClick={() => void refreshResponse()}
           >
             {refreshingResponse
               ? t("sourceReviewRefreshingResponse")
               : t("sourceReviewRefreshResponse")}
-          </button>
+          </Button>
           {detail.submission.targetSessionId ? (
             <Link
               className={styles.sessionLink}
@@ -478,21 +479,17 @@ function ReviewSiteCard({
           />
           <div className={styles.siteActions}>
             {!site.resolvedAt && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void resolve()}
-              >
+              <Button disabled={busy} onClick={() => void resolve()}>
                 {t("sourceReviewResolve")}
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
+            <Button
+              variant="primary"
               disabled={busy || !followUp.trim()}
               onClick={() => void addFollowUp()}
             >
               {t("sourceReviewAddFollowUp")}
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -32,20 +32,6 @@
   box-shadow: none;
 }
 
-/* `.copy-button` is a shared global primitive owned by `CopyButton`, and a
-   later `index.css` rule of the same name restyles it for settings surfaces.
-   Passing this class through `CopyButton`'s `className` prop keeps the compact
-   presentation at the two-class specificity the old descendant rule had. */
-.bar .copyButton {
-  padding: 2px;
-  background: transparent;
-  border: 0;
-}
-
-.bar .copyButton:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-}
-
 .branch {
   display: inline-flex;
   min-width: 0;
@@ -117,21 +103,12 @@
   background: color-mix(in srgb, var(--warning-color) 16%, transparent);
 }
 
-.badgeAction {
-  font-family: inherit;
-  border: none;
-  cursor: pointer;
-}
-
 .badgeAction:hover {
   background: color-mix(in srgb, var(--warning-color) 24%, transparent);
 }
 
 .upstreamButton {
-  padding: 0;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+  font-size: inherit;
 }
 
 .upstreamButton:hover,

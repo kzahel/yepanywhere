@@ -40,11 +40,9 @@
   color: var(--text-secondary, #8b949e);
 }
 
-/* Passed through `CopyButton`'s `className`. Single-class, like the selector it
-   replaces, so the later `index.css` `.copy-button` keeps winning the border. */
+/* Passed through `CopyButton`'s `className`: layout only. */
 .pathCopy {
   flex-shrink: 0;
-  border-color: transparent;
 }
 
 .lines {

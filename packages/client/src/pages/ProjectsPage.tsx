@@ -22,6 +22,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ProjectCard } from "../components/ProjectCard";
 import { ProjectQueueSection } from "../components/ProjectQueueSection";
 import { ProjectSessionDefaultsModal } from "../components/ProjectSessionDefaultsModal";
+import { Button } from "../components/ui/Button";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
 import { useProjectQueues } from "../hooks/useProjectQueues";
@@ -366,23 +367,19 @@ export function ProjectsPage() {
               <span>
                 {t("projectsErrorPrefix")} {error.message}
               </span>
-              <button
-                className={styles.retry}
-                type="button"
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => void refetch()}
               >
                 {t("hostOfflineRetry")}
-              </button>
+              </Button>
             </div>
           )}
           {/* Toolbar with Add Project button */}
           <div className="inbox-toolbar">
             {!showAddForm ? (
-              <button
-                type="button"
-                className="inbox-refresh-button"
-                onClick={() => setShowAddForm(true)}
-              >
+              <Button onClick={() => setShowAddForm(true)}>
                 <svg
                   width="16"
                   height="16"
@@ -398,7 +395,7 @@ export function ProjectsPage() {
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
                 {t("projectsAdd")}
-              </button>
+              </Button>
             ) : (
               <div
                 className={
@@ -451,13 +448,12 @@ export function ProjectsPage() {
                 )}
                 {limitedTemplateOnly && (
                   <div className={formStyles.actions}>
-                    <button
-                      type="button"
+                    <Button
                       disabled={templateProjectBusy}
                       onClick={() => setShowAddForm(false)}
                     >
                       {t("projectsCancel")}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

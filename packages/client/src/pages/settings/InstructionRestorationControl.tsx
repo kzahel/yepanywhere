@@ -137,7 +137,7 @@ export function InstructionRestorationControl({
           ))}
         </div>
         <p>{t("instructionRestorationCompanion")}</p>
-        <Button type="submit" disabled={saving}>
+        <Button variant="primary" type="submit" disabled={saving}>
           {t("instructionRestorationSave")}
         </Button>
         {error && <p role="alert">{error}</p>}

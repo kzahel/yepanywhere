@@ -2,9 +2,10 @@
  * The shared button family (plan 182, family 1; topics/ui-design.md).
  *
  * - `Button`: a labelled button in one of six variants and two sizes.
- * - `IconButton`: an icon-only button. Its required `label` is both the
- *   accessible name and the tooltip: `data-tooltip` for TooltipLayer in
- *   themed mode, `title` in native mode (the user's tooltip setting).
+ * - `IconButton`: an icon-only button. Its required `label` is the
+ *   accessible name and, unless `tooltip` says more, the tooltip:
+ *   `data-tooltip` for TooltipLayer in themed mode, `title` in native mode
+ *   (the user's tooltip setting).
  * - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
  *   arrows and chips. It resets the user-agent look, keeps the focus ring and
  *   defaults `type` to "button"; the owner supplies every other style.
@@ -129,12 +130,18 @@ export function Button({
 export interface IconButtonProps extends Omit<ButtonProps, "children"> {
   /** Accessible name and tooltip. Required: the button has no text. */
   label: string;
+  /**
+   * Tooltip text when it says more than the name, such as a gesture hint or
+   * a state ("Reload: the file changed on disk"). Defaults to `label`.
+   */
+  tooltip?: string;
   /** The icon, usually an inline SVG marked aria-hidden. */
   children: ReactNode;
 }
 
 export function IconButton({
   label,
+  tooltip,
   variant = "ghost",
   size = "default",
   type = "button",
@@ -146,11 +153,11 @@ export function IconButton({
   ...rest
 }: IconButtonProps) {
   const handleClick = guardBusyClick(busy, onClick);
-  const tooltip = useTextTooltipAttributes(label);
+  const tooltipAttributes = useTextTooltipAttributes(tooltip ?? label);
   return (
     <button
       {...rest}
-      {...tooltip}
+      {...tooltipAttributes}
       ref={ref}
       type={type}
       className={buttonClassName({ variant, size, icon: true, className })}

@@ -198,7 +198,7 @@ export function DevelopmentSettings() {
               </>
             }
           >
-            <Button variant="outline" onClick={clearIgnoredTools}>
+            <Button onClick={clearIgnoredTools}>
               {t("developmentClearIgnored")}
             </Button>
           </SettingsItem>
@@ -209,7 +209,7 @@ export function DevelopmentSettings() {
             description={t("developmentRelayMonitorDescription")}
           >
             <a
-              className={buttonClassName({ variant: "outline" })}
+              className={buttonClassName()}
               href={relayMonitorUrl}
               target="_blank"
               rel="noreferrer"

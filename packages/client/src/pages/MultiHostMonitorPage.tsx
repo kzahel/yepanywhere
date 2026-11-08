@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
+import { Button, buttonClassName } from "../components/ui/Button";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { type MessageKey, useI18n } from "../i18n";
 import { loadSavedHosts, type SavedHost } from "../lib/hostStorage";
@@ -110,16 +111,12 @@ function HostMonitorCard({
       ) : (
         <div className="multi-host-card-action">
           {host.state === "offline" && (
-            <button
-              type="button"
-              className="settings-button"
-              onClick={() => controller.retryHost(host.hostId)}
-            >
+            <Button onClick={() => controller.retryHost(host.hostId)}>
               {t("multiHostMonitorRetry")}
-            </button>
+            </Button>
           )}
           {host.state === "sign-in-required" && (
-            <Link className="settings-button" to={signInPath(host)}>
+            <Link className={buttonClassName()} to={signInPath(host)}>
               {t("multiHostMonitorSignIn")}
             </Link>
           )}
@@ -165,7 +162,10 @@ export function MultiHostMonitorPage() {
             </div>
             <p>{t("multiHostMonitorDescription")}</p>
           </div>
-          <Link className="settings-button" to="/login">
+          <Link
+            className={buttonClassName({ className: "multi-host-back" })}
+            to="/login"
+          >
             {t("multiHostMonitorBack")}
           </Link>
         </header>
@@ -198,7 +198,7 @@ export function MultiHostMonitorPage() {
           <section className="multi-host-empty">
             <h2>{t("multiHostMonitorEmptyTitle")}</h2>
             <p>{t("multiHostMonitorEmptyDescription")}</p>
-            <Link className="settings-button" to="/login">
+            <Link className={buttonClassName()} to="/login">
               {t("multiHostMonitorAddHost")}
             </Link>
           </section>

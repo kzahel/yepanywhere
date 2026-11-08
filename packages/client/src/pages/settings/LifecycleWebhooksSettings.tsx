@@ -240,7 +240,11 @@ export function LifecycleWebhooksSettings() {
           className="settings-item"
           style={{ justifyContent: "flex-end", gap: "var(--space-2)" }}
         >
-          <Button type="submit" disabled={!hasChanges || isSaving}>
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={!hasChanges || isSaving}
+          >
             {isSaving ? t("providersSaving") : t("providersSave")}
           </Button>
         </div>

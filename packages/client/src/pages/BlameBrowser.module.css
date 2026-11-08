@@ -19,12 +19,9 @@
   gap: 5px;
   padding: 3px 8px;
   color: var(--text-muted);
-  font: inherit;
   font-size: 0.75rem;
-  background: transparent;
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  cursor: pointer;
 }
 
 .sectionToggle:hover,
@@ -46,24 +43,6 @@
   margin: 8px;
   color: var(--text-muted);
   font-size: 0.75rem;
-}
-
-.truncated button {
-  display: inline-flex;
-  min-height: 28px;
-  align-items: center;
-  padding: 3px 8px;
-  color: var(--text-primary);
-  font: inherit;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.truncated button:hover,
-.truncated button:focus-visible {
-  background: var(--bg-hover);
 }
 
 .detail {

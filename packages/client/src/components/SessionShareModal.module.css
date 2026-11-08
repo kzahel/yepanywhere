@@ -64,57 +64,32 @@
   min-width: 0;
 }
 
+/* The trailing columns hold small icon buttons, which widen on coarse
+   pointers; auto columns follow them. */
 .filterRow {
-  grid-template-columns: minmax(0, 1fr) 30px 30px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .filterRowNoCreate {
-  grid-template-columns: minmax(0, 1fr) 30px;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .filterRowWithFreeze {
-  grid-template-columns: minmax(0, 1fr) 30px 30px 30px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
 }
 
 .filterRowNoCreate.filterRowWithFreeze {
-  grid-template-columns: minmax(0, 1fr) 30px 30px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .scopeRow {
-  grid-template-columns: minmax(0, 1fr) 30px;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .addButton,
 .freezeTypeButton,
 .revokeTypeButton {
-  align-items: center;
   align-self: stretch;
-  border-radius: 7px;
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.2),
-    0 1px 3px rgba(0, 0, 0, 0.28);
-  color: #fff;
-  cursor: pointer;
-  display: inline-flex;
-  justify-content: center;
-  min-height: 30px;
-  min-width: 30px;
-  padding: 5px;
-}
-
-.addButton {
-  background: color-mix(in srgb, var(--app-yep-green) 78%, #12251d);
-  border: 1px solid color-mix(in srgb, var(--app-yep-green) 78%, #fff);
-}
-
-.freezeTypeButton {
-  background: color-mix(in srgb, var(--attention-color) 68%, #1e293b);
-  border: 1px solid color-mix(in srgb, var(--attention-color) 68%, #fff);
-}
-
-.revokeTypeButton {
-  background: color-mix(in srgb, var(--error-color) 78%, #320d12);
-  border: 1px solid color-mix(in srgb, var(--error-color) 78%, #fff);
 }
 
 .addButton svg,
@@ -123,30 +98,6 @@
   display: block;
   height: 16px;
   width: 16px;
-}
-
-.addButton:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--app-yep-green) 88%, #12251d);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.26),
-    0 2px 5px rgba(0, 0, 0, 0.32);
-  transform: translateY(-1px);
-}
-
-.freezeTypeButton:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--attention-color) 78%, #1e293b);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.26),
-    0 2px 5px rgba(0, 0, 0, 0.32);
-  transform: translateY(-1px);
-}
-
-.revokeTypeButton:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--error-color) 88%, #320d12);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.26),
-    0 2px 5px rgba(0, 0, 0, 0.32);
-  transform: translateY(-1px);
 }
 
 .freezeConfirmationBanner,
@@ -173,13 +124,6 @@
 .freezeConfirmationBanner {
   background: color-mix(in srgb, var(--attention-color) 72%, #1e293b);
   border: 1px solid color-mix(in srgb, var(--attention-color) 70%, #fff);
-}
-
-.addButton:active:not(:disabled),
-.freezeTypeButton:active:not(:disabled),
-.revokeTypeButton:active:not(:disabled) {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.28);
-  transform: translateY(0);
 }
 
 .filterButton:hover:not(:disabled) {
@@ -231,9 +175,6 @@
   }
 }
 
-.addButton:disabled,
-.freezeTypeButton:disabled,
-.revokeTypeButton:disabled,
 .filterButton:disabled {
   cursor: not-allowed;
   opacity: 0.5;
@@ -275,14 +216,5 @@
   .filterIcon svg {
     height: 15px;
     width: 15px;
-  }
-
-  .managerSidebar :global(.settings-button) {
-    font-size: 0.7rem;
-    min-width: 0;
-    padding-left: 5px;
-    padding-right: 5px;
-    white-space: normal;
-    width: 100%;
   }
 }

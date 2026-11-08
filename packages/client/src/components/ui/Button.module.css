@@ -148,8 +148,11 @@
   color: var(--text-primary);
 }
 
+/* On is a filled, bordered chip: a background alone is too faint to read as
+   a state in a row of toggles. */
 .ghost[aria-pressed="true"] {
   background: var(--bg-hover);
+  border-color: var(--border-color);
   color: var(--text-primary);
 }
 

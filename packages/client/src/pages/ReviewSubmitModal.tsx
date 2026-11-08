@@ -6,6 +6,7 @@ import { deriveReviewSubmissionName } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ReviewPreviewItem } from "../api/reviewClient";
+import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { useProjectReviewSessions } from "../hooks/useProjectReviewSessions";
 import {
@@ -303,17 +304,16 @@ export function ReviewSubmitModal({
               />
             </label>
           )}
-          <button type="button" onClick={onClose} disabled={busy}>
+          <Button onClick={onClose} disabled={busy}>
             {t("cancel")}
-          </button>
-          <button
-            type="button"
-            className={styles.go}
+          </Button>
+          <Button
+            variant="primary"
             onClick={submit}
             disabled={busy || queued || included.size === 0}
           >
             {t("sourceReviewSubmitReview", { count: included.size })}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

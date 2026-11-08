@@ -14,6 +14,7 @@ import { ClearloopRemainingBadge } from "../components/ClearloopRemainingBadge";
 import { ContextUsageIndicator } from "../components/ContextUsageIndicator";
 import { PageHeader } from "../components/PageHeader";
 import { ThinkingIndicator } from "../components/ThinkingIndicator";
+import { Button, ButtonBase } from "../components/ui/Button";
 import { useHostAgentProcesses } from "../hooks/useHostAgentProcesses";
 import { type ProcessInfo, useProcesses } from "../hooks/useProcesses";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
@@ -300,8 +301,7 @@ function ProcessMetrics({
       )}
       ref={wrapperRef}
     >
-      <button
-        type="button"
+      <ButtonBase
         className={styles.metrics}
         title={detail}
         aria-label={detail}
@@ -315,7 +315,7 @@ function ProcessMetrics({
         <span>{formatMemory(observation.memory.rootRssBytes)} RSS</span>
         <span aria-hidden>·</span>
         <span>{cpu}</span>
-      </button>
+      </ButtonBase>
       {open && (
         <span className={styles.metricsPopover} role="status">
           {detail}
@@ -377,8 +377,9 @@ function ProcessCard({
             </span>
           )}
           {!isTerminated && onKill && (
-            <button
-              type="button"
+            <Button
+              variant="danger-outline"
+              size="small"
               className={styles.killButton}
               disabled={killing}
               onClick={(e) => {
@@ -390,7 +391,7 @@ function ProcessCard({
               title={t("agentsKillTitle" as never)}
             >
               {killing ? t("agentsKilling" as never) : t("agentsKill" as never)}
-            </button>
+            </Button>
           )}
         </div>
         {/* `agent-card-meta` stays for the global ContextUsageIndicator

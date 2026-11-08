@@ -90,6 +90,7 @@ import { useComposerHistoryScope } from "../hooks/useComposerHistoryScope";
 import { ExternalSessionWarning } from "../components/ExternalSessionWarning";
 import { useStartNewSessionWithPrefillAction } from "../components/FileResourceActions";
 import { PendingToolWarning } from "../components/PendingToolWarning";
+import { Button, ButtonBase } from "../components/ui/Button";
 import { useQuestionAside } from "../hooks/useQuestionAside";
 import { useQuestionAsideSetting } from "../hooks/useQuestionAsideSetting";
 import type {
@@ -3200,8 +3201,7 @@ function SessionPageContent({
               flexWrap: "wrap",
             }}
           >
-            <button
-              type="button"
+            <Button
               onClick={async () => {
                 try {
                   await api.updateSessionMetadata(actualSessionId, {
@@ -3217,17 +3217,12 @@ function SessionPageContent({
                   showToast(`Failed to archive: ${message}`, "error");
                 }
               }}
-              style={{ padding: "8px 14px", cursor: "pointer" }}
             >
               {t("sessionNotFoundArchive")}
-            </button>
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              style={{ padding: "8px 14px", cursor: "pointer" }}
-            >
+            </Button>
+            <Button onClick={() => window.history.back()}>
               {t("sessionNotFoundGoBack")}
-            </button>
+            </Button>
           </div>
           <p style={{ fontSize: "12px", color: "#888", marginTop: 20 }}>
             {t("sessionNotFoundSessionId")} <code>{actualSessionId}</code>
@@ -3699,15 +3694,14 @@ function SessionPageContent({
             />
           )}
           {wantBtwSplitLayout && btwSidePaneCollapsed && (
-            <button
-              type="button"
+            <ButtonBase
               className="session-btw-pane-handle"
               onClick={() => setBtwSidePaneCollapsed(false)}
               title="Maximize /btw aside pane"
               aria-label="Maximize /btw aside pane"
             >
               /btw
-            </button>
+            </ButtonBase>
           )}
 
           <SessionComposerFooter

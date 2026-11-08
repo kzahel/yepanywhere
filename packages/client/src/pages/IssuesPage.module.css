@@ -38,41 +38,11 @@
   font: inherit;
   font-size: var(--font-size-sm);
 }
-.button,
-.toolbarIcon,
-.iconButton,
-.textButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
-  cursor: pointer;
-  min-height: 36px;
-  box-sizing: border-box;
-  font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-  text-decoration: none;
-}
 .iconButton {
   flex-shrink: 0;
-  width: 36px;
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
-  font-size: 20px;
 }
 .toolbarIcon {
-  flex: 0 0 44px;
-  height: 44px;
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
+  flex-shrink: 0;
   touch-action: manipulation;
   user-select: none;
 }
@@ -83,26 +53,9 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
 }
-.textButton {
-  background: transparent;
-  border-color: transparent;
-  color: var(--link-color);
-  padding: 4px 0;
-}
-.button:hover:not(:disabled),
-.toolbarIcon:hover:not(:disabled),
-.iconButton:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
 .page :is(button, input, select, a, summary):focus-visible {
   outline: 2px solid var(--focus-border);
   outline-offset: 2px;
-}
-.button:disabled,
-.toolbarIcon:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 .coverage {
   color: var(--text-muted);
@@ -165,10 +118,7 @@
   gap: 3px;
   padding: 10px 12px;
   color: var(--text-primary);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font: inherit;
+  font-size: inherit;
 }
 .item:hover {
   background: var(--bg-hover);
@@ -320,16 +270,9 @@
   .detail {
     padding: var(--space-3);
   }
-  .button,
-  .toolbarIcon,
-  .iconButton,
-  .textButton,
   .choice,
   .page input:not([type="checkbox"]),
   .page select {
     min-height: 44px;
-  }
-  .iconButton {
-    width: 44px;
   }
 }

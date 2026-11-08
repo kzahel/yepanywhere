@@ -44,7 +44,7 @@
 .list th:first-child {
   width: var(--settings-first-column-width, 50%);
 }
-.list button[aria-expanded] {
+.toggle {
   display: block;
   width: 100%;
   padding: 6px 8px;
@@ -53,7 +53,7 @@
   border-color: transparent;
   background: transparent;
 }
-.list button[aria-expanded="true"] {
+.toggle[aria-expanded="true"] {
   color: var(--accent-color);
   background: var(--bg-hover);
   border-color: var(--border-color);
@@ -97,8 +97,7 @@
   .detail {
     max-height: none;
   }
-  .list button[aria-expanded],
-  .heading button {
+  .toggle {
     min-height: 44px;
   }
 }

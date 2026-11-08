@@ -196,24 +196,6 @@
 .killButton {
   margin-left: auto;
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: var(--bg-hover);
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.killButton:hover:not(:disabled) {
-  border-color: var(--error-color);
-  color: var(--error-color);
-}
-
-.killButton:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .cardMeta {
@@ -256,11 +238,9 @@
   border-radius: 999px;
   background: var(--bg-surface);
   color: var(--text-muted);
-  font: inherit;
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  cursor: pointer;
 }
 
 .metrics:hover,

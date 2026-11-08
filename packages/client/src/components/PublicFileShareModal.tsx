@@ -19,6 +19,7 @@ import {
   PublicShareInventoryMeta,
   PublicShareInventoryRow,
 } from "./PublicShareInventory";
+import { Button } from "./ui/Button";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
 import styles from "./PublicFileShareModal.module.css";
 
@@ -178,9 +179,8 @@ export function PublicFileShareModal({
             <a href={projectAppLink} target="_blank" rel="noopener noreferrer">
               {new URL(projectAppLink).host}
             </a>
-            <button
-              type="button"
-              className={`settings-button settings-button-primary ${styles.createButton}`}
+            <Button
+              className={styles.createButton}
               onClick={() => {
                 void writeClipboardTextLater(
                   Promise.resolve(projectAppLink),
@@ -197,7 +197,7 @@ export function PublicFileShareModal({
               }}
             >
               {t("projectFileLinkCopy")}
-            </button>
+            </Button>
           </section>
         )}
         {playLinks && (
@@ -208,9 +208,9 @@ export function PublicFileShareModal({
           <span>{t("publicFileShareWarning")}</span>
         </div>
         {canUseBearerGrants && (
-          <button
-            type="button"
-            className={`settings-button settings-button-primary ${styles.createButton}`}
+          <Button
+            variant="primary"
+            className={styles.createButton}
             disabled={working !== null}
             onClick={() => void createAndCopyShare()}
           >
@@ -218,7 +218,7 @@ export function PublicFileShareModal({
             {working === "create"
               ? t("publicFileShareCreating")
               : t("publicFileShareCreate")}
-          </button>
+          </Button>
         )}
 
         {manualUrl && (

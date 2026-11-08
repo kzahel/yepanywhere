@@ -50,20 +50,3 @@
   align-items: center;
   gap: var(--space-1);
 }
-
-.entryAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1);
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-}
-
-.entryAction:hover {
-  color: var(--text-primary);
-  background: var(--bg-code);
-}

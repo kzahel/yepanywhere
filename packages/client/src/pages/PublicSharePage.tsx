@@ -11,6 +11,7 @@ import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { BrandWordmark } from "../components/BrandWordmark";
 import { ConversationViewIcon } from "../components/ConversationViewIcon";
 import { MessageList } from "../components/MessageList";
+import { IconButton } from "../components/ui/Button";
 import { ViewerCountIndicator } from "../components/ViewerCountIndicator";
 import {
   PublicShareProvider,
@@ -630,18 +631,10 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
           className="public-share-floating-controls"
           ref={setFloatingControlsElement}
         >
-          <button
-            type="button"
-            className={`conversation-view-toolbar-button public-share-conversation-toggle${
-              conversationViewEnabled ? " active" : ""
-            }`}
+          <IconButton
+            className="public-share-conversation-toggle"
             onClick={() => setConversationViewEnabled((enabled) => !enabled)}
-            title={
-              conversationViewEnabled
-                ? t("toolbarConversationViewDisable")
-                : t("toolbarConversationViewEnable")
-            }
-            aria-label={
+            label={
               conversationViewEnabled
                 ? t("toolbarConversationViewDisable")
                 : t("toolbarConversationViewEnable")
@@ -649,7 +642,7 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
             aria-pressed={conversationViewEnabled}
           >
             <ConversationViewIcon />
-          </button>
+          </IconButton>
         </div>
       )}
     </main>

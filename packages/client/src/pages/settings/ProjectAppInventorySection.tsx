@@ -7,11 +7,15 @@ import { useEffect, useState } from "react";
 import { projectAppApi } from "../../api/projectApp";
 import { api } from "../../api/client";
 import { ProjectAppViewer } from "../../components/ProjectAppViewer";
-import { Button, ButtonBase } from "../../components/ui/Button";
+import { Button } from "../../components/ui/Button";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
 import styles from "./ProjectAppInventorySection.module.css";
-import { expandableRowProps, SettingsCollection } from "./SettingsCollection";
+import {
+  expandableRowProps,
+  SettingsCollection,
+  SettingsCollectionToggle,
+} from "./SettingsCollection";
 import { SettingsDocLink } from "./SettingsDocLink";
 import { ElidedPath } from "../../components/ui/ElidedPath";
 import { SettingsSortHeader, useSettingsTableSort } from "./SettingsTableSort";
@@ -194,6 +198,7 @@ export function ProjectAppInventorySection() {
               selected && canDelete ? (
                 <span className={styles.deleteActions}>
                   <Button
+                    variant="danger-outline"
                     disabled={busy}
                     title={t("projectAppDeleteAppTitle")}
                     onClick={() => void deleteSelected(false)}
@@ -201,6 +206,7 @@ export function ProjectAppInventorySection() {
                     {t("projectAppDeleteApp")}
                   </Button>
                   <Button
+                    variant="danger-outline"
                     disabled={busy}
                     title={t("projectAppDeleteProject")}
                     onClick={() => void deleteSelected(true)}
@@ -237,47 +243,45 @@ export function ProjectAppInventorySection() {
                         </p>
                       ))}
                     {expanded === row.projectId && (
-                      <div className={styles.viewer}>
-                        <ProjectAppViewer
-                          key={`${row.projectId}:${revision}`}
-                          projectId={row.projectId}
-                          presentation="settings"
-                          onAddressesChanged={(addresses) =>
-                            setInventory((current) =>
-                              current && addresses.enabled
-                                ? {
-                                    ...current,
-                                    reservations: [
-                                      ...current.reservations.filter(
-                                        (address) =>
-                                          address.projectId !== row.projectId,
-                                      ),
-                                      ...addresses.reservations.map(
-                                        (address) => ({
-                                          ...address,
-                                          projectId: row.projectId,
-                                        }),
-                                      ),
-                                    ],
-                                  }
-                                : current,
-                            )
-                          }
-                          onInfoChanged={(info) =>
-                            setInventory(
-                              (current) =>
-                                current && {
+                      <ProjectAppViewer
+                        key={`${row.projectId}:${revision}`}
+                        projectId={row.projectId}
+                        presentation="settings"
+                        onAddressesChanged={(addresses) =>
+                          setInventory((current) =>
+                            current && addresses.enabled
+                              ? {
                                   ...current,
-                                  projects: current.projects.map((project) =>
-                                    project.projectId === row.projectId
-                                      ? { ...project, info }
-                                      : project,
-                                  ),
-                                },
-                            )
-                          }
-                        />
-                      </div>
+                                  reservations: [
+                                    ...current.reservations.filter(
+                                      (address) =>
+                                        address.projectId !== row.projectId,
+                                    ),
+                                    ...addresses.reservations.map(
+                                      (address) => ({
+                                        ...address,
+                                        projectId: row.projectId,
+                                      }),
+                                    ),
+                                  ],
+                                }
+                              : current,
+                          )
+                        }
+                        onInfoChanged={(info) =>
+                          setInventory(
+                            (current) =>
+                              current && {
+                                ...current,
+                                projects: current.projects.map((project) =>
+                                  project.projectId === row.projectId
+                                    ? { ...project, info }
+                                    : project,
+                                ),
+                              },
+                          )
+                        }
+                      />
                     )}
                   </article>
                 ),
@@ -328,7 +332,7 @@ export function ProjectAppInventorySection() {
                     >
                       <td>
                         {row.project ? (
-                          <ButtonBase
+                          <SettingsCollectionToggle
                             aria-expanded={expanded === row.project.projectId}
                             onClick={toggle}
                           >
@@ -338,7 +342,7 @@ export function ProjectAppInventorySection() {
                                 : "▸"}{" "}
                             </span>
                             {row.name}
-                          </ButtonBase>
+                          </SettingsCollectionToggle>
                         ) : (
                           row.name
                         )}

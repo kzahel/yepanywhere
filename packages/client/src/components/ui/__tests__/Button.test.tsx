@@ -58,6 +58,22 @@ describe("IconButton", () => {
     expect(button.hasAttribute("title")).toBe(false);
   });
 
+  it("shows a longer tooltip without changing its name", () => {
+    render(
+      <IconButton
+        label="Reload"
+        tooltip="Reload: the file changed on disk"
+        onClick={() => {}}
+      >
+        <svg aria-hidden="true" />
+      </IconButton>,
+    );
+    const button = screen.getByRole("button", { name: "Reload" });
+    expect(button.getAttribute("data-tooltip")).toBe(
+      "Reload: the file changed on disk",
+    );
+  });
+
   it("gives the browser a title in native tooltip mode", () => {
     localStorage.setItem(UI_KEYS.tooltipMode, "native");
     render(

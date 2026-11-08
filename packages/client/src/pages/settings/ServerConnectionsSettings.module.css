@@ -25,11 +25,6 @@
   gap: 8px;
   margin-block: 12px;
 }
-.actions button,
-.credential button,
-.detail button {
-  min-height: 40px;
-}
 .form {
   display: grid;
   gap: 14px;
@@ -119,9 +114,6 @@
   .form {
     padding: 12px;
   }
-  .actions button {
-    min-height: 44px;
-  }
 }
 
 .identifier {
@@ -152,10 +144,6 @@
 }
 .localIdentity > :first-child {
   font-size: 20px;
-}
-.header > button {
-  min-height: 44px;
-  white-space: nowrap;
 }
 .listSection {
   margin-bottom: 28px;
@@ -254,9 +242,6 @@
   gap: 10px;
   margin-top: 24px;
 }
-.confirmActions button {
-  min-height: 44px;
-}
 :global(.modal):has(.confirmation) {
   width: min(440px, calc(100dvw - 32px));
   max-width: calc(100dvw - 32px);
@@ -288,8 +273,5 @@
   }
   .deviceRow {
     padding-inline: 10px;
-  }
-  .detail button {
-    min-height: 44px;
   }
 }

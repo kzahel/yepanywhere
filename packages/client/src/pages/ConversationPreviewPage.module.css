@@ -10,11 +10,11 @@
 .page :where(h1, h2, h3, p) {
   margin: 0;
 }
-.page button,
 .page select {
   font: inherit;
 }
-.page a {
+/* Zero specificity, so links styled as shared buttons keep their color. */
+:where(.page a) {
   color: var(--accent-primary);
 }
 .topbar {
@@ -33,27 +33,6 @@
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
-}
-.control {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  text-decoration: none;
-  cursor: pointer;
-}
-.control:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.control:hover:not(:disabled) {
-  background: var(--bg-hover);
 }
 .workspace {
   display: grid;
@@ -174,8 +153,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text-primary);
-  background: transparent;
-  cursor: pointer;
+  font-size: inherit;
 }
 .session span {
   display: -webkit-box;
@@ -316,7 +294,9 @@
 .notice .control {
   margin-top: 8px;
 }
-.mobileToggle {
+/* Doubled so the layout display outranks the shared button's inline-flex
+   regardless of stylesheet order. */
+.mobileToggle.mobileToggle {
   display: none;
 }
 @media (width <= 640px) {
@@ -331,10 +311,9 @@
     font-size: 11px;
   }
   .topbar .control {
-    font-size: 12px;
     flex-shrink: 0;
   }
-  .mobileToggle {
+  .mobileToggle.mobileToggle {
     display: flex;
     margin: 8px 12px;
     flex-shrink: 0;

@@ -79,13 +79,6 @@
   width: 17px;
 }
 
-.createButton {
-  align-items: center;
-  display: inline-flex;
-  gap: 7px;
-  justify-content: center;
-}
-
 .createButton svg {
   height: 17px;
   stroke-linecap: round;

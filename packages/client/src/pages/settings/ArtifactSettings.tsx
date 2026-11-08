@@ -9,7 +9,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import { vhostOauthPolicy } from "@yep-anywhere/shared";
 import {
   Button,
-  ButtonBase,
   buttonClassName,
   IconButton,
 } from "../../components/ui/Button";
@@ -23,7 +22,11 @@ import { useVhostAccess } from "../../hooks/useVhostAccess";
 import { sessionVhostApp } from "../../lib/sessionVhostApps";
 import { writeClipboardText } from "../../lib/clipboard";
 import { ProjectAppInventorySection } from "./ProjectAppInventorySection";
-import { expandableRowProps, SettingsCollection } from "./SettingsCollection";
+import {
+  expandableRowProps,
+  SettingsCollection,
+  SettingsCollectionToggle,
+} from "./SettingsCollection";
 import { ElidedPath } from "../../components/ui/ElidedPath";
 import { SettingsSortHeader, useSettingsTableSort } from "./SettingsTableSort";
 import { ResourceContextMenu } from "../../components/FileResourceActions";
@@ -751,6 +754,7 @@ function ArtifactSettingsForm({
                         </>
                       )}
                       <Button
+                        variant="danger-outline"
                         onClick={() => {
                           const next = vhosts.filter((_, i) => i !== index);
                           setVhosts(next);
@@ -868,6 +872,7 @@ function ArtifactSettingsForm({
                                 {t("appAccessCopy")}
                               </Button>
                               <Button
+                                variant="danger-outline"
                                 disabled={saving}
                                 onClick={async () => {
                                   setSaving(true);
@@ -948,7 +953,12 @@ function ArtifactSettingsForm({
                         {...expandableRowProps(toggle)}
                       >
                         <td>
-                          <ButtonBase
+                          <SettingsCollectionToggle
+                            className={
+                              oauthBlocked(row)
+                                ? styles.blockedToggle
+                                : undefined
+                            }
                             aria-expanded={selectedId === row.id}
                             onClick={toggle}
                           >
@@ -966,7 +976,7 @@ function ArtifactSettingsForm({
                                 .{vhostPublicRoot || "localhost"}
                               </small>
                             )}
-                          </ButtonBase>
+                          </SettingsCollectionToggle>
                         </td>
                         <td>
                           {row.kind === "files" && row.path ? (

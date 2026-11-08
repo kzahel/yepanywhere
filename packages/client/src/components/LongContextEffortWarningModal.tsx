@@ -1,4 +1,5 @@
 import { useI18n } from "../i18n";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 export type LongContextEffortWarningChoice = "apply" | "fork" | "cancel";
@@ -48,32 +49,30 @@ export function LongContextEffortWarningModal({
           </p>
         )}
         <div className="model-switch-actions">
-          <button
-            type="button"
-            className="settings-button settings-button-secondary model-switch-action-button"
+          <Button
+            className="model-switch-action-button"
             onClick={() => onChoose("cancel")}
             disabled={busy}
           >
             {t("modalCancel")}
-          </button>
+          </Button>
           {canFork && (
-            <button
-              type="button"
-              className="settings-button settings-button-secondary model-switch-action-button"
+            <Button
+              className="model-switch-action-button"
               onClick={() => onChoose("fork")}
               disabled={busy}
             >
               {t("longContextEffortWarningFork", { to: nextEffortLabel })}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="settings-button model-switch-action-button"
+          <Button
+            variant="primary"
+            className="model-switch-action-button"
             onClick={() => onChoose("apply")}
             disabled={busy}
           >
             {t("longContextEffortWarningApply")}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

@@ -139,7 +139,6 @@ function HostIdentitySettings({
           />
           {currentIcon && (
             <Button
-              variant="outline"
               data-host-identity-clear
               disabled={disabled || saving}
               onClick={() => {
@@ -264,7 +263,6 @@ function HostAwakeSettings({
             )}
             {!enabled && (
               <Button
-                variant="outline"
                 disabled={statusLoading || saving}
                 onClick={() => void onRefresh()}
               >
@@ -325,6 +323,7 @@ function HostAwakeSettings({
               />
               <span aria-hidden="true">%</span>
               <Button
+                variant="primary"
                 type="submit"
                 disabled={
                   saving || !validFloor || parsedFloor === batteryFloorPercent
@@ -528,10 +527,7 @@ export function RemoteAccessSettings() {
             "viewer",
           ]}
         >
-          <Button
-            variant="outline"
-            onClick={() => setShowPublicShareManagement(true)}
-          >
+          <Button onClick={() => setShowPublicShareManagement(true)}>
             {t("advancedPublicShareManageButton")}
           </Button>
         </SettingsItem>

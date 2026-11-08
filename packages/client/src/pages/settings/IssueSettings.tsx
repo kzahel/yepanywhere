@@ -604,6 +604,7 @@ function CredentialControl({
         />
       </label>
       <Button
+        variant="primary"
         disabled={busy || !key.trim()}
         onClick={() => {
           void store(credential.provider, key.trim()).then(() => setKey(""));
@@ -613,6 +614,7 @@ function CredentialControl({
       </Button>
       {stored?.present && (
         <Button
+          variant="danger-outline"
           disabled={busy}
           onClick={() => void store(credential.provider, "")}
         >

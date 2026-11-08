@@ -727,7 +727,7 @@ export function ServerConnectionsSettings() {
                   disabled={busy}
                 />
               </label>
-              <Button type="submit" disabled={busy}>
+              <Button variant="primary" type="submit" disabled={busy}>
                 {t("connectionsSave")}
               </Button>
             </form>
@@ -799,6 +799,7 @@ export function ServerConnectionsSettings() {
                   )}
                   {credential.origin === "manual" && (
                     <Button
+                      variant="danger-outline"
                       disabled={busy}
                       onClick={() =>
                         requestRemoval(selectedPeer, direction, credential)

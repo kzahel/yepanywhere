@@ -167,6 +167,7 @@ export function SettingsClipboardTransfer() {
           />
           <div className={styles.buttons}>
             <Button
+              variant="primary"
               onClick={() => {
                 setError(null);
                 setStatus(null);
@@ -224,6 +225,7 @@ export function SettingsClipboardTransfer() {
           )}
           <div className={styles.buttons}>
             <Button
+              variant="primary"
               onClick={handleApply}
               title={t("settingsClipboardApplyTooltip")}
             >

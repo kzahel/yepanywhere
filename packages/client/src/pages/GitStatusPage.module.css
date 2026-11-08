@@ -62,10 +62,6 @@
     margin-left: 0;
   }
 
-  .headerControls.fallbackRow .actionGroup > button {
-    padding-inline: 6px;
-  }
-
   .headerControls.fallbackRow .checkRemote,
   .headerControls.fallbackRow .checkRemote .actionLabel {
     min-width: 0;

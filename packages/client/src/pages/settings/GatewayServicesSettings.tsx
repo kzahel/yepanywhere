@@ -1079,6 +1079,7 @@ export function GatewayServicesSettings({
                   </label>
 
                   <Button
+                    variant="danger-outline"
                     onClick={() =>
                       replaceServices(
                         draft.current.services.filter(

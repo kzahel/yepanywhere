@@ -551,9 +551,6 @@ describe("GitDiffBody", () => {
     const toggle = screen.getByRole("button", {
       name: "gitStatusIgnoreWhitespaceActive",
     });
-    expect(toggle.getAttribute("title")).toBe(
-      "gitStatusIgnoreWhitespaceActive",
-    );
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
   });
 

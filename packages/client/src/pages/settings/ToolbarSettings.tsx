@@ -790,7 +790,6 @@ export function ToolbarSettings() {
 
           <div className="settings-item-actions">
             <Button
-              variant="outline"
               onClick={() => {
                 resetPresence();
               }}

@@ -2,24 +2,4 @@
   position: absolute;
   z-index: 3;
   right: 6px;
-  display: grid;
-  width: 26px;
-  height: 20px;
-  place-items: center;
-  padding: 0;
-  color: var(--text-secondary, #8b949e);
-  line-height: 1;
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
-  cursor: pointer;
-}
-
-.menuTrigger:hover,
-.menuTrigger:focus-visible {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover);
-  border-color: var(--accent-color);
-  outline: none;
 }

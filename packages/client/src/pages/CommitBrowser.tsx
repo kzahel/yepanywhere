@@ -13,6 +13,7 @@ import {
 } from "react";
 import { ResizableSourceColumns } from "../components/ResizableSourceColumns";
 import { SourceFileHeaderActions } from "../components/SourceFileHeaderActions";
+import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { useCommitReadWatermark } from "../hooks/useCommitReadWatermark";
 import { useProjectReviewComments } from "../hooks/useProjectReviewComments";
@@ -686,9 +687,8 @@ function RevisionJump({
 }) {
   return (
     <span className="source-detail-jump">
-      <button
-        type="button"
-        className="commit-jump-btn"
+      <Button
+        size="small"
         title={t("sourceNewerCommit")}
         aria-label={t("sourceNewerCommit")}
         disabled={!newerKey}
@@ -700,10 +700,9 @@ function RevisionJump({
         <span className="commit-jump-touch-label">
           {t("sourceNewerCommit")}
         </span>
-      </button>
-      <button
-        type="button"
-        className="commit-jump-btn"
+      </Button>
+      <Button
+        size="small"
         title={t("sourceOlderCommit")}
         aria-label={t("sourceOlderCommit")}
         disabled={!olderKey}
@@ -715,7 +714,7 @@ function RevisionJump({
         <span className="commit-jump-touch-label">
           {t("sourceOlderCommit")}
         </span>
-      </button>
+      </Button>
     </span>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import { NewSessionForm } from "../components/NewSessionForm";
 import { ProjectAppViewer } from "../components/ProjectAppViewer";
+import { Button } from "../components/ui/Button";
 import type { VoiceInputButtonRef } from "../components/VoiceInputButton";
 import type { ProjectAppTarget } from "../api/projectApp";
 import { useProject } from "../hooks/useProjects";
@@ -50,14 +51,13 @@ function ProjectAppWorkspace({ projectId }: { projectId: string }) {
         <div
           className={`${styles.composer} ${!composing || (!isWideScreen && showApp) ? styles.concealed : ""}`}
         >
-          <button
-            type="button"
+          <Button
             onClick={() => {
               setShowApp(true);
             }}
           >
             {t("projectAppLabel")}
-          </button>
+          </Button>
           <NewSessionForm
             projectId={projectId}
             selectedProject={project}

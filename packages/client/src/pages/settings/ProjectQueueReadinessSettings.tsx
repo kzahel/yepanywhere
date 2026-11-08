@@ -114,6 +114,7 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
           </p>
         )}
         <Button
+          variant="primary"
           type="submit"
           className={styles.save}
           disabled={!dirty || saving}

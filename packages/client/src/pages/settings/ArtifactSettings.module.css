@@ -233,7 +233,7 @@
 .table .oauthBlocked > td {
   background: color-mix(in srgb, var(--error-color, #c44343) 12%, transparent);
 }
-.table .oauthBlocked button,
+.table .oauthBlocked .blockedToggle,
 .table .oauthBlocked small {
   color: var(--error-color, #c44343);
 }
@@ -257,7 +257,6 @@
 }
 
 @media (width <= 640px) {
-  .fields button,
   .fields .toggle {
     min-height: 44px;
   }

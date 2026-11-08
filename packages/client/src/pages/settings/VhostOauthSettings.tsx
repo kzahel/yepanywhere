@@ -294,6 +294,7 @@ function ProviderEditor({
         <p>{t("vhostOauthIpHint")}</p>
         {!status.locked && (
           <Button
+            variant="primary"
             onClick={async () => {
               setBusy(true);
               setMessage("");
@@ -322,6 +323,7 @@ function ProviderEditor({
       </fieldset>
       {id && id !== "default" && status.secretConfigured && (
         <Button
+          variant="danger-outline"
           disabled={busy}
           onClick={async () => {
             setBusy(true);

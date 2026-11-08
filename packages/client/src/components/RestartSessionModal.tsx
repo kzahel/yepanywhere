@@ -17,6 +17,7 @@ import { type SessionOptions, api } from "../api/client";
 import { useI18n } from "../i18n";
 import type { PermissionMode, Project } from "../types";
 import { NewSessionForm } from "./NewSessionForm";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 interface RestartSessionModalProps {
@@ -306,13 +307,7 @@ export function RestartSessionModal({
         </label>
 
         <div className="model-switch-actions">
-          <button
-            type="button"
-            className="settings-button settings-button-secondary"
-            onClick={onClose}
-          >
-            {t("modalCancel")}
-          </button>
+          <Button onClick={onClose}>{t("modalCancel")}</Button>
         </div>
       </div>
     </Modal>

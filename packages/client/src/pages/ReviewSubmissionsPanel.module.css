@@ -34,7 +34,6 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle, #21262d);
   border-radius: var(--radius-sm, 4px);
-  cursor: pointer;
 }
 
 .submissionButton > span:first-child {
@@ -51,11 +50,6 @@
 
 .loadMore {
   width: 100%;
-  padding: var(--space-2, 8px);
-  color: var(--link-color);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
 }
 
 .unread {
@@ -100,20 +94,6 @@
 
 .detailActions {
   justify-content: flex-end;
-}
-
-.detailActions button {
-  padding: 4px 8px;
-  color: var(--text-secondary, #8b949e);
-  cursor: pointer;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
-}
-
-.detailActions button:disabled {
-  cursor: default;
-  opacity: 0.6;
 }
 
 .responseNotice {

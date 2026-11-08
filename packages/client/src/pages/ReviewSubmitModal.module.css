@@ -109,18 +109,6 @@
   max-width: 25rem;
 }
 
-.go {
-  padding: var(--space-1, 4px) var(--space-3, 12px);
-  color: var(--accent-contrast);
-  background: var(--accent-color);
-  border: none;
-  border-radius: var(--radius-sm, 4px);
-}
-
-.go:disabled {
-  opacity: 0.5;
-}
-
 @media (width <= 600px) {
   .modal {
     min-width: 0;

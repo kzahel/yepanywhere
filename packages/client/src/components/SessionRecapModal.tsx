@@ -13,6 +13,7 @@ import { useProviders } from "../hooks/useProviders";
 import { useI18n } from "../i18n";
 import { getRecapModeDescription } from "../lib/recapModes";
 import { RecapAfterSecondsControl } from "./RecapAfterSecondsControl";
+import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 interface SessionRecapModalProps {
@@ -247,22 +248,16 @@ export function SessionRecapModal({
         {error && <p className="settings-warning">{error}</p>}
 
         <div className="model-switch-actions">
-          <button
-            type="button"
-            className="settings-button settings-button-secondary"
-            onClick={onClose}
-            disabled={isSaving}
-          >
+          <Button onClick={onClose} disabled={isSaving}>
             {t("modalCancel")}
-          </button>
-          <button
-            type="button"
-            className="settings-button"
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => void save()}
             disabled={isLoading || isSaving || !modeAvailability[recapMode]}
           >
             {isSaving ? t("providersSaving") : t("sessionRecapSave")}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

@@ -18,7 +18,7 @@
 
 .controls input,
 .controls select,
-.unknown button {
+.unknownWord {
   min-height: 44px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -62,16 +62,12 @@
 .word {
   width: 100%;
   min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: var(--text-primary);
-  font: inherit;
+  font-size: inherit;
   text-align: left;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  cursor: pointer;
 }
 
 .value {
@@ -105,12 +101,12 @@
 
 .table tr[data-selected="true"],
 .table tbody tr:hover,
-.unknown button[aria-pressed="true"] {
+.unknownWord[aria-pressed="true"] {
   background: var(--bg-primary);
 }
 
 .word:focus-visible,
-.unknown button:focus-visible {
+.unknownWord:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 4px;
 }

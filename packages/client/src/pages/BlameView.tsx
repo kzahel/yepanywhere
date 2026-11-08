@@ -19,6 +19,7 @@ import {
 import { api } from "../api/client";
 import { CopyButton } from "../components/CopyButton";
 import { FileRevisionLink } from "../components/FileRevisionLink";
+import { ButtonBase, IconButton } from "../components/ui/Button";
 import { InnerHtml } from "../components/ui/InnerHtml";
 import {
   type SourceContextMenuAction,
@@ -328,8 +329,7 @@ export function BlameView({
                     ·····
                   </span>
                 ) : line ? (
-                  <button
-                    type="button"
+                  <ButtonBase
                     className={`${styles.gutter} ${styles.commitLink} ${
                       authorSlot === undefined ? "" : styles.authorColored
                     }`}
@@ -343,7 +343,7 @@ export function BlameView({
                     )}
                   >
                     {line.shortSha.slice(0, 5)}
-                  </button>
+                  </ButtonBase>
                 ) : (
                   <span
                     className={`${styles.gutter} ${styles.gutterLoading}`}
@@ -353,15 +353,14 @@ export function BlameView({
                     ·····
                   </span>
                 )}
-                <button
-                  type="button"
+                <ButtonBase
                   className={styles.lineNumber}
                   data-blame-lineno=""
                   disabled={!line}
                   onClick={() => openAt(index)}
                 >
                   {lineNumber}
-                </button>
+                </ButtonBase>
                 <BlameCodeCell
                   content={content}
                   highlightedHtml={codeLines?.[index]}
@@ -433,7 +432,7 @@ export function BlameView({
           <CopyButton
             value={path}
             title={t("sourceCopyPath")}
-            className={`source-detail-action source-detail-icon-action ${styles.pathCopy}`}
+            className={styles.pathCopy}
             icon="path"
           />
         </span>
@@ -445,16 +444,14 @@ export function BlameView({
           uncommittedLabel={t("fileRevisionUncommitted" as never)}
         />
         {onToggleBlame && (
-          <button
-            type="button"
-            className="source-detail-action source-detail-icon-action active"
-            title={t("sourceToggleBlame")}
-            aria-label={t("sourceToggleBlame")}
+          <IconButton
+            label={t("sourceToggleBlame")}
+            size="small"
             aria-pressed="true"
             onClick={onToggleBlame}
           >
             <BlameToggleIcon />
-          </button>
+          </IconButton>
         )}
         {blameLoading && (
           <span className={styles.provenanceStatus} role="status">
@@ -464,7 +461,6 @@ export function BlameView({
         <CopyButton
           value={file?.content ?? ""}
           title={t("sourceCopyRawContent")}
-          className="source-detail-action source-detail-icon-action"
           disabled={file?.content === undefined || !file.metadata.isText}
           icon="content"
         />

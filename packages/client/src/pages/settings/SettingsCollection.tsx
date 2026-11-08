@@ -5,9 +5,26 @@ import {
   useId,
   useRef,
 } from "react";
-import { IconButton } from "../../components/ui/Button";
+import {
+  ButtonBase,
+  type ButtonBaseProps,
+  IconButton,
+} from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import styles from "./SettingsCollection.module.css";
+
+/** A collection row's expand toggle: the row's name as one button. */
+export function SettingsCollectionToggle({
+  className,
+  ...props
+}: ButtonBaseProps) {
+  return (
+    <ButtonBase
+      {...props}
+      className={className ? `${styles.toggle} ${className}` : styles.toggle}
+    />
+  );
+}
 
 /**
  * Props that make a whole table row the click target for its expand toggle.

@@ -15,6 +15,12 @@ import { useLongPress } from "../hooks/useLongPress";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
+import {
+  Button,
+  ButtonBase,
+  buttonClassName,
+  IconButton,
+} from "../components/ui/Button";
 import { MainContent, useNavigationLayout } from "../layouts";
 import { useSourceContextMenu } from "../components/SourceContextMenu";
 import { IssueSessionRow } from "./IssueSessionRow";
@@ -282,11 +288,10 @@ function IssueBrowser() {
             setOffset(0);
           }}
         />
-        <button
+        <IconButton
           className={styles.toolbarIcon}
-          type="button"
-          aria-label={t("issuesRefresh")}
-          title={supportsContent ? t("issuesRefreshHint") : t("issuesRefresh")}
+          label={t("issuesRefresh")}
+          tooltip={supportsContent ? t("issuesRefreshHint") : undefined}
           disabled={busy || refreshing}
           {...refreshPress.handlers}
           onClick={refreshPress.click(() => refresh(false))}
@@ -314,9 +319,13 @@ function IssueBrowser() {
             <path d="M20 7v5h-5M4 17v-5h5" />
             <path d="M6.1 7a7 7 0 0 1 11.6-2L20 8M4 16l2.3 3A7 7 0 0 0 17.9 17" />
           </svg>
-        </button>
+        </IconButton>
         <Link
-          className={styles.toolbarIcon}
+          className={buttonClassName({
+            variant: "ghost",
+            icon: true,
+            className: styles.toolbarIcon,
+          })}
           to={`${base}/settings/issues`}
           aria-label={t("issuesSettings")}
           title={t("issuesSettings")}
@@ -432,8 +441,7 @@ function IssueBrowser() {
               className={`${styles.item} ${selected?.id === item.id ? styles.selected : ""}`}
             >
               <div className={styles.itemRow}>
-                <button
-                  type="button"
+                <ButtonBase
                   className={styles.itemSelect}
                   aria-pressed={selected?.id === item.id}
                   onClick={() => select(item)}
@@ -461,11 +469,10 @@ function IssueBrowser() {
                     )}
                   </span>
                   {item.unresolved && <small>{t("issuesUnresolved")}</small>}
-                </button>
-                <button
-                  type="button"
+                </ButtonBase>
+                <IconButton
                   className={styles.iconButton}
-                  aria-label={t("issuesItemMenu", { key: item.key })}
+                  label={t("issuesItemMenu", { key: item.key })}
                   onClick={(e) =>
                     menu.openFromButton(e, [
                       {
@@ -485,7 +492,7 @@ function IssueBrowser() {
                   }
                 >
                   ⋯
-                </button>
+                </IconButton>
               </div>
               {editing?.item.id === item.id && (
                 <form
@@ -522,8 +529,8 @@ function IssueBrowser() {
                     </>
                   )}
                   <div className={styles.actions}>
-                    <button
-                      className={styles.button}
+                    <Button
+                      variant={editing.kind === "delete" ? "danger" : "primary"}
                       disabled={
                         busy ||
                         (editing.kind === "url" && !detail?.sessions.length)
@@ -537,14 +544,10 @@ function IssueBrowser() {
                             ? "issuesResolve"
                             : "issuesDeleteConfirm",
                       )}
-                    </button>
-                    <button
-                      className={styles.button}
-                      type="button"
-                      onClick={() => setEditing(undefined)}
-                    >
+                    </Button>
+                    <Button onClick={() => setEditing(undefined)}>
                       {t("issuesCancel")}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
@@ -552,22 +555,14 @@ function IssueBrowser() {
           ))}
           <div className={styles.actions}>
             {offset > 0 && (
-              <button
-                className={styles.button}
-                type="button"
-                onClick={() => setOffset(Math.max(0, offset - 50))}
-              >
+              <Button onClick={() => setOffset(Math.max(0, offset - 50))}>
                 {t("issuesPrevious")}
-              </button>
+              </Button>
             )}
             {result?.nextOffset != null && (
-              <button
-                className={styles.button}
-                type="button"
-                onClick={() => setOffset(result.nextOffset!)}
-              >
+              <Button onClick={() => setOffset(result.nextOffset!)}>
                 {t("issuesNext")}
-              </button>
+              </Button>
             )}
           </div>
         </section>
@@ -578,14 +573,12 @@ function IssueBrowser() {
           >
             <div className={styles.actions}>
               <h2>{selected.title ?? selected.key}</h2>
-              <button
-                type="button"
-                className={styles.iconButton}
-                aria-label={t("issuesClose")}
+              <IconButton
+                label={t("issuesClose")}
                 onClick={() => setSelected(undefined)}
               >
                 ×
-              </button>
+              </IconButton>
             </div>
             {selected.url && (
               <a
@@ -636,24 +629,18 @@ function IssueBrowser() {
             ))}
             <div className={styles.actions}>
               {sessionOffset > 0 && (
-                <button
-                  className={styles.button}
-                  type="button"
+                <Button
                   onClick={() =>
                     setSessionOffset(Math.max(0, sessionOffset - 50))
                   }
                 >
                   {t("issuesPreviousSessions")}
-                </button>
+                </Button>
               )}
               {detail?.nextOffset != null && (
-                <button
-                  className={styles.button}
-                  type="button"
-                  onClick={() => setSessionOffset(detail.nextOffset!)}
-                >
+                <Button onClick={() => setSessionOffset(detail.nextOffset!)}>
                   {t("issuesNextSessions")}
-                </button>
+                </Button>
               )}
             </div>
           </section>

@@ -1,6 +1,7 @@
 import type { PublicSessionShareMode } from "@yep-anywhere/shared";
 import type { ReactNode } from "react";
 import styles from "./PublicShareInventory.module.css";
+import { IconButton } from "./ui/Button";
 
 export interface PublicShareRowAction {
   disabled?: boolean;
@@ -72,38 +73,37 @@ export function PublicShareInventoryRow({
         >
           <PublicShareFilterIcon kind={mode} />
         </span>
-        <button
-          type="button"
-          className={styles.iconButton}
+        <IconButton
+          label={copyAction.label}
+          variant="outline"
+          size="small"
           disabled={copyAction.disabled}
           onClick={copyAction.onClick}
-          title={copyAction.label}
-          aria-label={copyAction.label}
         >
           {copyAction.working ? "…" : <CopyIcon />}
-        </button>
+        </IconButton>
         {freezeAction && (
-          <button
-            type="button"
-            className={`${styles.iconButton} ${styles.iconButtonFreeze}`}
+          <IconButton
+            label={freezeAction.label}
+            variant="secondary"
+            size="small"
+            className={styles.iconButtonFreeze}
             disabled={freezeAction.disabled}
             onClick={freezeAction.onClick}
-            title={freezeAction.label}
-            aria-label={freezeAction.label}
           >
             {freezeAction.working ? "…" : <PublicShareFreezeIcon />}
-          </button>
+          </IconButton>
         )}
-        <button
-          type="button"
-          className={`${styles.iconButton} ${styles.iconButtonDanger}`}
+        <IconButton
+          label={revokeAction.label}
+          variant="danger-outline"
+          size="small"
+          className={styles.iconButtonDanger}
           disabled={revokeAction.disabled}
           onClick={revokeAction.onClick}
-          title={revokeAction.label}
-          aria-label={revokeAction.label}
         >
           {revokeAction.working ? "…" : <PublicShareRevokeIcon />}
-        </button>
+        </IconButton>
       </div>
     </div>
   );

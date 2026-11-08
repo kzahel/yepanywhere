@@ -112,6 +112,7 @@ export function LimitedUserBrowserDefaults() {
           {t("usersBrowserDefaultsLoad")}
         </Button>
         <Button
+          variant="primary"
           disabled={operation !== null || !dirty}
           onClick={() => void save()}
         >

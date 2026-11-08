@@ -13,6 +13,7 @@ import {
   BangCommandDisplayObject,
 } from "../components/BangCommandDisplayObject";
 import { PageHeader } from "../components/PageHeader";
+import { IconButton } from "../components/ui/Button";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
 import { MainContent, useNavigationLayout } from "../layouts";
@@ -51,11 +52,9 @@ function BangHistoryEntryActions({
   const sessionPath = `${basePath}/projects/${projectId}/sessions/${sessionId}`;
   return (
     <span className={styles.entryActions}>
-      <button
-        type="button"
-        className={styles.entryAction}
-        aria-label={t("bangHistoryActionEdit")}
-        title={t("bangHistoryActionEdit")}
+      <IconButton
+        label={t("bangHistoryActionEdit")}
+        size="small"
         onClick={() =>
           navigate(sessionPath, {
             state: createSessionNavigationState({
@@ -77,12 +76,10 @@ function BangHistoryEntryActions({
         >
           <path d="M11 2.5l2.5 2.5L6 12.5 3 13l.5-3z" />
         </svg>
-      </button>
-      <button
-        type="button"
-        className={styles.entryAction}
-        aria-label={t("bangHistoryActionNew")}
-        title={t("bangHistoryActionNew")}
+      </IconButton>
+      <IconButton
+        label={t("bangHistoryActionNew")}
+        size="small"
         onClick={() =>
           navigate(sessionPath, {
             state: createSessionNavigationState({ focusComposer: true }),
@@ -102,12 +99,10 @@ function BangHistoryEntryActions({
         >
           <path d="M8 3.5v9M3.5 8h9" />
         </svg>
-      </button>
-      <button
-        type="button"
-        className={styles.entryAction}
-        aria-label={t("bangHistoryActionJump")}
-        title={t("bangHistoryActionJump")}
+      </IconButton>
+      <IconButton
+        label={t("bangHistoryActionJump")}
+        size="small"
         onClick={() =>
           navigate(sessionPath, {
             state: createSessionNavigationState({
@@ -129,7 +124,7 @@ function BangHistoryEntryActions({
         >
           <path d="M8 2.5v7M4.5 6l3.5 3.5L11.5 6M3 13h10" />
         </svg>
-      </button>
+      </IconButton>
     </span>
   );
 }

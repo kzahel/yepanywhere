@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { NewSessionForm } from "../components/NewSessionForm";
 import { PageHeader } from "../components/PageHeader";
+import { Button } from "../components/ui/Button";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useVersion } from "../hooks/useVersion";
 import { useIncomingShareFiles } from "../hooks/useIncomingShareFiles";
@@ -173,9 +174,8 @@ export function NewSessionPage() {
     setAppWorkspace((workspace) => workspace && { ...workspace, open: false });
   const projectAppButton =
     appEnabled && projectId ? (
-      <button
-        type="button"
-        className={`btn-secondary ${styles.appButton}`}
+      <Button
+        variant="ghost"
         title={t("projectAppWhileComposing")}
         aria-pressed={appOpen}
         onClick={() => {
@@ -184,7 +184,7 @@ export function NewSessionPage() {
         }}
       >
         {t("projectAppLabel")}
-      </button>
+      </Button>
     ) : undefined;
 
   // Update browser tab title (must be called unconditionally before any early returns)
