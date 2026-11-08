@@ -1,14 +1,179 @@
 /* Playground shell. Specimen content brings its own styles; the shell only
    frames it, using the app's tokens so it reads in the same type and colors. */
 
-.page {
-  box-sizing: border-box;
+/* Sidebar beside the page; a drawer behind a "Pages" button on phones. */
+.shell {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
   min-height: 100dvh;
-  padding: var(--space-4) var(--space-4) 48px;
   background: var(--bg-surface);
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--font-size-base);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  box-sizing: border-box;
+  height: 100dvh;
+  padding: var(--space-3) var(--space-2) var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.main {
+  min-width: 0;
+}
+
+.navBrand {
+  display: block;
+  margin-bottom: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.navGroup + .navGroup {
+  margin-top: var(--space-3);
+}
+
+.navGroupTitle {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.navList,
+.navStates {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navStates {
+  margin: 2px 0 var(--space-1) var(--space-3);
+  padding-left: var(--space-1);
+  border-left: 1px solid var(--border-color);
+}
+
+.navLink {
+  display: block;
+  padding: 5px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.navLink:hover,
+.navBrand:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.navLink[aria-current="page"],
+.navBrand[aria-current="page"] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.navLink:focus-visible,
+.navBrand:focus-visible,
+.menuButton:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: -2px;
+}
+
+.mobileBar,
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .mobileBar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+  }
+
+  .menuButton {
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .mobileTitle {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    display: block;
+    background: var(--bg-overlay);
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 4;
+    width: min(18rem, 85vw);
+    height: 100dvh;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition:
+      transform 0.2s ease,
+      visibility 0.2s;
+  }
+
+  .sidebarOpen {
+    visibility: visible;
+    transform: none;
+  }
+
+  /* Finger-sized rows in the drawer. */
+  .navLink,
+  .navBrand {
+    padding-block: 9px;
+  }
+}
+
+.page {
+  box-sizing: border-box;
+  padding: var(--space-4) var(--space-4) 48px;
 }
 
 .page a {
@@ -191,4 +356,12 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   font-size: var(--font-size-sm);
+}
+
+/* One theme per row: three columns do not fit a phone. After the base
+   .themes rule so it wins at equal specificity. */
+@media (max-width: 760px) {
+  .themes {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

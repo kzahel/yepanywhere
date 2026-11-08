@@ -321,6 +321,134 @@ function IndexPage() {
   );
 }
 
+/** Layers → specimens; the active specimen's states expand beneath it. */
+function Sidebar({
+  route,
+  activeSpecimen,
+}: {
+  route: DesignRoute;
+  activeSpecimen: LoadedSpecimen | undefined;
+}) {
+  // Moving between pages keeps the chosen theme filter and width.
+  const view = { theme: route.theme, phone: route.phone };
+  return (
+    <>
+      <a
+        className={styles.navBrand}
+        href="#/"
+        aria-current={route.target ? undefined : "page"}
+      >
+        YA design playground
+      </a>
+      {DESIGN_LAYERS.map((layer) => {
+        const group = specimens.filter(
+          (specimen) => specimen.parameters.layer === layer,
+        );
+        if (!group.length) return null;
+        return (
+          <section key={layer} className={styles.navGroup}>
+            <h2 className={styles.navGroupTitle}>{LAYER_LABELS[layer]}</h2>
+            <ul className={styles.navList}>
+              {group.map((specimen) => (
+                <li key={specimen.id}>
+                  <a
+                    className={styles.navLink}
+                    href={routeHref(specimen.id, view)}
+                    aria-current={
+                      route.target === specimen.id ? "page" : undefined
+                    }
+                  >
+                    {specimen.title}
+                  </a>
+                  {specimen === activeSpecimen ? (
+                    <ul className={styles.navStates}>
+                      {specimen.states.map((state) => (
+                        <li key={state.id}>
+                          <a
+                            className={styles.navLink}
+                            href={routeHref(state.id, view)}
+                            aria-current={
+                              route.target === state.id ? "page" : undefined
+                            }
+                          >
+                            {state.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Persistent sidebar beside every page except isolated states. On narrow
+ * screens it becomes a drawer behind a "Pages" button that closes on
+ * navigation, on Escape and on a tap outside it.
+ */
+function Shell({
+  route,
+  activeSpecimen,
+  heading,
+  children,
+}: {
+  route: DesignRoute;
+  activeSpecimen: LoadedSpecimen | undefined;
+  heading: string;
+  children: ReactNode;
+}) {
+  // Open for one page only: following a link changes the target, which
+  // closes the drawer without an effect.
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn === route.target;
+  const setOpen = (value: boolean) => setOpenOn(value ? route.target : null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenOn(null);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [open]);
+  return (
+    <div className={styles.shell}>
+      <div className={styles.mobileBar}>
+        <button
+          type="button"
+          className={styles.menuButton}
+          aria-expanded={open}
+          aria-controls="design-nav"
+          onClick={() => setOpen(!open)}
+        >
+          Pages
+        </button>
+        <span className={styles.mobileTitle}>{heading}</span>
+      </div>
+      {open ? (
+        <div
+          className={styles.backdrop}
+          aria-hidden="true"
+          onClick={() => setOpen(false)}
+        />
+      ) : null}
+      <nav
+        id="design-nav"
+        className={`${styles.sidebar} ${open ? styles.sidebarOpen : ""}`}
+        aria-label="Playground pages"
+      >
+        <Sidebar route={route} activeSpecimen={activeSpecimen} />
+      </nav>
+      <div className={styles.main}>{children}</div>
+    </div>
+  );
+}
+
 function NotFound({ target }: { target: string }) {
   return (
     <div className={styles.page}>
@@ -339,10 +467,8 @@ export function DesignApp() {
   useLayoutEffect(() => {
     if (!route.iso) document.documentElement.dataset.theme = "dark";
   }, [route.iso]);
-  if (!route.target) return <IndexPage />;
-  const found = findTarget(route.target);
-  if (!found) return <NotFound target={route.target} />;
-  if (route.iso && found.state)
+  const found = route.target ? findTarget(route.target) : undefined;
+  if (route.iso && found?.state)
     return (
       <IsolatedState
         specimen={found.specimen}
@@ -350,7 +476,20 @@ export function DesignApp() {
         theme={route.theme ?? "dark"}
       />
     );
+  const heading = !route.target
+    ? "Index"
+    : found
+      ? (found.state?.name ?? found.specimen.title)
+      : "Not found";
   return (
-    <GridPage specimen={found.specimen} only={found.state} route={route} />
+    <Shell route={route} activeSpecimen={found?.specimen} heading={heading}>
+      {!route.target ? (
+        <IndexPage />
+      ) : found ? (
+        <GridPage specimen={found.specimen} only={found.state} route={route} />
+      ) : (
+        <NotFound target={route.target} />
+      )}
+    </Shell>
   );
 }

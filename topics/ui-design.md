@@ -102,6 +102,11 @@ is `census-buttons`, and its `LegacyByVariant` state is
 | `…?phone` | Grid cells as 375 px frames, so media queries respond |
 | `#/<state-id>?iso&theme=light` | The state alone on a bare page, for capture |
 
+Every page except an isolated state has a sidebar listing the layers and
+their specimens, with the current specimen's states expanded beneath it; its
+links keep the chosen theme filter and width. Below 760 px wide the sidebar
+becomes a drawer behind a **Pages** button, which closes on following a link,
+Escape or a tap outside it, and the theme columns stack.
 Each grid cell carries its own `data-theme`, so theme tokens resolve per cell.
 An isolated page marks `[data-design-ready]` once fonts load; a state still
 loading data marks an element `data-design-pending`, and capture waits for it
