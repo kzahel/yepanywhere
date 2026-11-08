@@ -847,6 +847,15 @@ describe("MessageInput", () => {
     }
   });
 
+  it("keeps the voice auto-send callback while a saved answer becomes unsavable", () => {
+    const textarea = renderMessageInput(vi.fn(), {
+      questionAside: { canAsk: false, onAsk: vi.fn(), onSave: vi.fn() },
+    });
+    const before = voicePropsState.current?.onTranscript;
+    fireEvent.change(textarea, { target: { value: "a" } });
+    expect(voicePropsState.current?.onTranscript).toBe(before);
+  });
+
   it("routes a terminal question aside before trimming and preserves the space escape", () => {
     const onAsk = vi.fn(() => true);
     const onSend = vi.fn();
@@ -1563,6 +1572,82 @@ describe("MessageInput", () => {
     expect(onSubmitWithoutSummary).toHaveBeenCalledWith("  branch text  ");
     expect(onSubmit).not.toHaveBeenCalled();
     expect(textarea.value).toBe("");
+  });
+
+  it("never sends a bare speech prefix for an emptied no-summary fork", () => {
+    window.localStorage.setItem(UI_KEYS.speechAsrAttributionMs, "1000");
+    const onSubmitWithoutSummary = vi.fn();
+    const textarea = renderMessageInput(vi.fn(), {
+      forkSummaryMode: {
+        title: "Fork after selected turn",
+        description: "Fork without retaining later turns.",
+        placeholder: "Optional summary instructions",
+        submitLabel: "Fork with summary",
+        tooltip: "Fork with generated summary",
+        icon: "⑂",
+        noSummarySubmitLabel: "Fork without summary",
+        onCancel: vi.fn(),
+        onSubmit: vi.fn(),
+        onSubmitWithoutSummary,
+      },
+    }) as HTMLTextAreaElement;
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onTranscript?.("Spoken words.");
+    });
+    expect(textarea.value).toBe("Spoken words.");
+    fireEvent.change(textarea, { target: { value: "" } });
+
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+
+    expect(onSubmitWithoutSummary).toHaveBeenCalledWith("");
+  });
+
+  it("delivers only fork routes in fork mode", () => {
+    // Queue as the main action shows both Queue and Steer outside fork mode.
+    versionState.version = {
+      ...versionState.version,
+      clientDefaults: { busyComposerDefaultAction: "queue" },
+    };
+    const onSubmit = vi.fn();
+    const onQueue = vi.fn();
+    const onDismiss = vi.fn();
+    const onSave = vi.fn();
+    const textarea = renderMessageInput(vi.fn(), {
+      onQueue,
+      supportsSteering: true,
+      questionAside: { canAsk: false, onAsk: vi.fn(), onDismiss, onSave },
+      forkSummaryMode: {
+        title: "Fork after selected turn",
+        description: "Generate a summary before forking.",
+        placeholder: "Optional summary instructions",
+        submitLabel: "Fork with summary",
+        tooltip: "Fork with generated summary",
+        icon: "⑂",
+        onCancel: vi.fn(),
+        onSubmit,
+      },
+    }) as HTMLTextAreaElement;
+
+    // A busy session's Queue and Steer buttons would deliver nothing here.
+    expect(screen.queryByLabelText(/^toolbarQueueLabel/)).toBeNull();
+    expect(screen.queryByLabelText(/^toolbarSteerTooltip/)).toBeNull();
+    // An empty box forks with the default summary; it does not save Q+A.
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledWith("");
+    onSubmit.mockClear();
+    onDismiss.mockClear();
+
+    fireEvent.change(textarea, { target: { value: "keep the tests" } });
+    // Without a no-summary fork, Ctrl+Enter used to queue the instructions.
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+    expect(onQueue).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("keep the tests");
+
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    expect(onSubmit).toHaveBeenCalledWith("keep the tests");
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 
   it("dispatches a command-only speech fork-summary as a typed action", async () => {
@@ -3422,9 +3507,9 @@ describe("MessageInput", () => {
       },
       press: () =>
         fireEvent.click(screen.getByLabelText("toolbarTopicShiftLabel")),
-      // Today the replay forgets the topic shift and queues plainly.
       target: "onQueue",
-      intent: "deferred",
+      intent: "patient",
+      extra: { patientSource: "topic-shift", compactAboveContextPercent: 60 },
     },
     {
       name: "Project Queue",
@@ -3543,6 +3628,194 @@ describe("MessageInput", () => {
       expect(textarea.value).toBe("next turn draft");
     });
   }
+
+  it("puts a dictated send back when it can no longer deliver at settlement", () => {
+    const onSend = vi.fn();
+    const view = (disabled: boolean) => (
+      <MessageInput
+        onSend={onSend}
+        draftKey="test-draft"
+        placeholder="Message"
+        supportsPermissionMode={false}
+        supportsThinkingToggle={false}
+        disabled={disabled}
+      />
+    );
+    const { rerender } = render(view(false));
+    const textarea = screen.getByPlaceholderText(
+      "Message",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "keep this send" } });
+    voiceButtonState.isListening = true;
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onPendingSpeechChange?.("listening");
+    });
+    fireEvent.click(screen.getByLabelText(/^toolbarSend/));
+    expect(textarea.value).toBe("");
+
+    rerender(view(true));
+    act(() => {
+      voiceButtonState.isListening = false;
+      voicePropsState.current?.onPendingSpeechChange?.(null, "completed");
+    });
+
+    expect(onSend).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("keep this send");
+  });
+
+  it("does not set a dictated draft aside for a route that cannot deliver", () => {
+    const onSend = vi.fn();
+    const textarea = renderMessageInput(vi.fn(), {
+      onSend,
+      disabled: true,
+    }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "keep this draft" } });
+    voiceButtonState.isListening = true;
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onPendingSpeechChange?.("listening");
+    });
+
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    expect(mockVoiceStopAndFinalize).not.toHaveBeenCalled();
+    expect(onSend).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("keep this draft");
+  });
+
+  it("sends a voice auto-send by the main action's route", async () => {
+    const onSend = vi.fn();
+    const onQueue = vi.fn();
+    renderMessageInput(vi.fn(), {
+      onSend,
+      onQueue,
+      primaryActionKind: "queue",
+    });
+
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onTranscript?.("Later please.");
+      voicePropsState.current?.onTranscript?.("", {
+        smartTurnCommand: "send",
+      });
+    });
+
+    await waitFor(() =>
+      expectSubmission(onQueue, "[ASR] Later please.", "deferred"),
+    );
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("reports a voice auto-send its route refuses as unhandled", () => {
+    const onSend = vi.fn();
+    renderMessageInput(vi.fn(), {
+      onSend,
+      bangSupport: {
+        onRun: vi.fn(),
+        fetchCompletions: vi.fn(async () => ({ completions: [], history: [] })),
+        history: [],
+      },
+    });
+
+    act(() => {
+      voicePropsState.current?.onTranscript?.("!!", {
+        smartTurnCommand: "send",
+      });
+    });
+
+    expect(onSend).not.toHaveBeenCalled();
+    expect(mockVoiceContinueAfterSpeechSend).not.toHaveBeenCalled();
+  });
+
+  it("puts a dictated send back when its delivery throws at settlement", () => {
+    const onSend = vi.fn(() => {
+      throw new Error("send failed");
+    });
+    const textarea = renderMessageInput(vi.fn(), {
+      onSend,
+    }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "recover this send" } });
+    voiceButtonState.isListening = true;
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onPendingSpeechChange?.("listening");
+    });
+    fireEvent.click(screen.getByLabelText(/^toolbarSend/));
+    expect(textarea.value).toBe("");
+
+    let thrown: unknown;
+    act(() => {
+      try {
+        voiceButtonState.isListening = false;
+        voicePropsState.current?.onPendingSpeechChange?.(null, "completed");
+      } catch (error) {
+        thrown = error;
+      }
+    });
+    expect(thrown).toEqual(new Error("send failed"));
+    expect(onSend).toHaveBeenCalledOnce();
+    expect(textarea.value).toBe("recover this send");
+  });
+
+  it("shows a speech cue only on deliveries that will carry the prefix", () => {
+    window.localStorage.setItem(UI_KEYS.speechAsrAttributionMs, "1000");
+    versionState.version = {
+      ...versionState.version,
+      clientDefaults: { busyComposerDefaultAction: "queue" },
+    };
+    const onSend = vi.fn();
+    const onQueue = vi.fn();
+    const onRun = vi.fn();
+    const textarea = renderMessageInput(vi.fn(), {
+      onSend,
+      onQueue,
+      onProjectQueue: vi.fn(),
+      supportsSteering: true,
+      bangSupport: {
+        onRun,
+        fetchCompletions: vi.fn(async () => ({ completions: [], history: [] })),
+        history: [],
+      },
+    }) as HTMLTextAreaElement;
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onTranscript?.("Spoken words.");
+    });
+    // Send, Steer, Queue and Project Queue all show the cue.
+    const cues = () => document.body.textContent?.match(/ASR/g)?.length ?? 0;
+    expect(cues()).toBeGreaterThanOrEqual(3);
+
+    // `!!` runs locally from each of them, so none carries the prefix.
+    fireEvent.change(textarea, { target: { value: "!!git status" } });
+    expect(cues()).toBe(0);
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    expect(onQueue).not.toHaveBeenCalled();
+    expect(onRun).toHaveBeenCalledWith("git status");
+
+    // Nor does empty text, as an attachment-only send.
+    cleanup();
+    const onAttachmentSend = vi.fn();
+    renderMessageInput(vi.fn(), {
+      onSend: onAttachmentSend,
+      attachments: [TEST_ATTACHMENT],
+    });
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onTranscript?.("Spoken words.");
+    });
+    const textareaWithAttachment = screen.getByPlaceholderText(
+      "Message",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textareaWithAttachment, { target: { value: "" } });
+    const send = screen.getByLabelText(/^toolbarSend/);
+    expect(send.textContent).not.toContain("ASR");
+    fireEvent.click(send);
+    expect(onAttachmentSend).toHaveBeenCalledWith(
+      "",
+      expect.objectContaining({ deliveryIntent: "direct" }),
+    );
+  });
 
   it("restores a detached speech draft without replacing newer text", () => {
     const onSend = vi.fn();
@@ -6902,6 +7175,31 @@ describe("MessageInput bang commands", () => {
     await waitFor(() =>
       expect((textarea as HTMLTextAreaElement).value).toBe(""),
     );
+  });
+
+  it("runs !! from Queue and Project Queue instead of queueing the text", async () => {
+    const onQueue = vi.fn();
+    const onProjectQueue = vi.fn();
+    const support = bangSupport();
+    const textarea = renderMessageInput(undefined, {
+      onQueue,
+      onProjectQueue,
+      supportsSteering: true,
+      bangSupport: support,
+    }) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "!!git status" } });
+    fireEvent.click(screen.getByLabelText(/^toolbarQueueLabel/));
+    expect(support.onRun).toHaveBeenCalledWith("git status");
+    await waitFor(() => expect(textarea.value).toBe(""));
+
+    fireEvent.change(textarea, { target: { value: "!!pnpm test" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Queue for Project Queue/ }),
+    );
+    expect(support.onRun).toHaveBeenLastCalledWith("pnpm test");
+    expect(onQueue).not.toHaveBeenCalled();
+    expect(onProjectQueue).not.toHaveBeenCalled();
   });
 
   it("sends an attachment-only draft when bang commands are available", () => {

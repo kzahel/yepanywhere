@@ -314,8 +314,9 @@ delivery press may still send the retained draft. The rest of this contract
 applies to both composers and to mic-button or keyboard-shortcut invocation of
 the same action. Action eligibility is checked before speech ownership
 transfers and again before a deferred typed action runs. The pending intent
-keeps recovery ownership of its detached draft until the typed action accepts;
-rejection or an exception restores that draft. A Smart Turn send rejected by
+is released when its typed action runs, so a repeated settlement cannot send
+it twice, and keeps a copy of its detached draft until that action accepts;
+rejection or an exception restores the draft. A Smart Turn send rejected by
 its typed action settles as unhandled and does not arm follow-up listening.
 Generated-summary and no-summary forks are typed delivery intents under the
 same settlement owner: command-only generated-summary speech may invoke its

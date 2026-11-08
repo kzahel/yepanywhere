@@ -50,7 +50,7 @@ shared, and how risky it is to touch today.
    move menu into hooks
    ([plan 182](182-session-page-header-and-footer.md)) on 2026-11-08.
    [Plan 184](184-message-box-send-routes.md) gives the message box one
-   send route (in progress). Moving small
+   send route (slice 2.42, 2026-11-08; in progress). Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session
@@ -318,6 +318,7 @@ and props stable.
 | 2.39 | Done 2026-11-08 | `SessionPage.tsx` pop-ups | Move the page's five pop-ups into a component ([plan 182](182-session-page-header-and-footer.md) slice 3). | Move-only: the project defaults, recap, long-context warning, model and info, and handoff pop-ups move verbatim into `components/SessionPageModals.tsx`, rendered where they stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged. Budget `SessionPage.tsx` 4,930 -> 4,813; the component is 296 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.40 | Done 2026-11-08 | `SessionPage.tsx` header | Move the page's `<header>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 4). | Move-only: the header element and the `SidebarIcon` it renders move verbatim into `components/SessionHeader.tsx`, rendered where the header stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and one trailing comma the formatter dropped. The component calls only `useI18n`, so the page's hook order is unchanged; `SidebarIcon` is still defined during render. Budget `SessionPage.tsx` 4,813 -> 4,262; the component is 991 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.41 | Done 2026-11-08 | `SessionPage.tsx` composer footer | Move the page's `<footer>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 5). | Move-only: the footer element moves verbatim into `components/SessionComposerFooter.tsx`, rendered where it stood, with the composer's `lazy()` wrapper, its only user; the shared module fallback moves to `components/SessionRouteModuleFallback.tsx`. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and two trailing commas the formatter dropped. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged; the composer stays in its own lazy chunk. Budget `SessionPage.tsx` 4,262 -> 3,909; the component is 799 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.42 | Done 2026-11-08 | `MessageInput.tsx` send routes | Give the message box one send route ([plan 184](184-message-box-send-routes.md) slice 1). | Not move-only, under plan 184: the eight send functions become one synchronous `deliver(route)`, with its decisions in `lib/composerDelivery.ts` (unit-tested), and the differences between the copies that had no reason behind them unified (plan 184 C1 to C9: fork mode delivers only forks; a press that cannot deliver sets nothing aside; `!!` runs from every route but the forks and a bare `!!` does nothing; empty text is never prefixed; a dictated draft keeps its whole route and comes back if refused; voice auto-send takes the main action's route). Budget `MessageInput.tsx` 4,023 -> 3,616; the decisions module is 200 lines. Tier 3, plus plan 184's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -458,6 +459,66 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.42 — Message Box Send Routes (Landed 2026-11-08, this commit)
+
+Not move-only. [Plan 184](184-message-box-send-routes.md) slice 1, at
+the maintainer's direction (2026-11-08) to unify differences between the
+copies that had no reason behind them.
+
+Replaced in `packages/client/src/components/MessageInput.tsx`:
+- `handleSubmit`, `handleQueue`, `handleForkSummarySubmit`,
+  `handleForkWithoutSummary`, `handleSyntheticDoneSubmission`,
+  `submitToProjectQueue`, `handleProjectQueue`, `queueNewSessionAt`,
+  `handleProjectQueueNewSession` and `submitPrimaryAction` -> one
+  synchronous `deliver(route, options)` that returns whether the press
+  was taken; the key handler, the touch delivery handlers, voice
+  auto-send, the file view completion and the dictation replay call it
+  with the route they called a function for.
+- The decisions -> new `packages/client/src/lib/composerDelivery.ts`
+  (`resolvePrimaryDeliveryRoute`, `canDeliverOnRoute`,
+  `routeTriesQuestionAside`, `planComposerDelivery`), 200 lines, with
+  `lib/__tests__/composerDelivery.test.ts`.
+- The set-aside dictated draft stores its route; the replay releases it
+  before delivering and restores the released copy on refusal or a throw.
+  `dispatchingSettledSpeechDeliveryRef` is gone: every replay passes its
+  text, so nothing can be set aside during one.
+- Voice auto-send is read through a ref assigned during render, like the
+  replay, so the voice button's callbacks keep their identity.
+- `MessageInput.tsx` 4,023 -> 3,616 lines.
+
+Behavior changes (plan 184 C1 to C9, each with a unit test but C6):
+- C1: fork mode delivers only on the fork routes, not while a fork is
+  submitting; a busy session's Queue and Steer buttons are hidden in it,
+  and an empty box there does not offer to save the Q+A.
+- C2: a press that cannot deliver sets no dictated draft aside.
+- C3: `!!` runs locally from every route but the forks; C9: a bare `!!`
+  does nothing there. No speech cue shows a prefix for either.
+- C4: empty text is never prefixed.
+- C5: every delivery closes the question aside.
+- C6: queue reads the speech attribution before clearing, like the rest.
+- C7: a dictated draft keeps its whole route (a topic shift used to come
+  back as a plain queue) and comes back if refused or throwing.
+- C8: voice auto-send takes the main action's route and reports exactly
+  whether it was taken.
+- `topics/mic-button-speech-ui.md` now says the pending intent is released
+  when its action runs and keeps a copy of the draft until it accepts.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 2 failed:
+  `artifact-viewer.spec.ts:136`, the known failure recorded in the
+  artifact viewer gap, and `session-page-fork-paths.spec.ts:349`, a
+  checkbox click that timed out while another worktree's Tier 2 ran
+  alongside; that spec passed 42 of 42 run alone three times.
+- The slice 0 pins pass; the topic shift pin now expects the patient
+  intent with its source and threshold.
+
+Follow-ups recorded:
+- Plan 184 lists one open question (a Project Queue new session aimed at
+  another project runs a `!!` draft in this session's project) and K4 (a
+  set-aside `!!` command that fails is not restored).
 
 ### Slice 4.1 — Codex App-Server Client (Landed 2026-11-08, this commit)
 

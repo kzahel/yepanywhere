@@ -121,6 +121,13 @@ import { createClientSpeechTurnId } from "../lib/speechTargets";
 import { handleVoiceInputShortcutKeyDown } from "../lib/voiceInputShortcut";
 
 import { hasComposerDraftContent } from "../lib/sessionComposerSubmission";
+import {
+  type ComposerDeliveryRoute,
+  canDeliverOnRoute,
+  planComposerDelivery,
+  resolvePrimaryDeliveryRoute,
+  routeTriesQuestionAside,
+} from "../lib/composerDelivery";
 import type {
   ContextUsage,
   PermissionMode,
@@ -175,25 +182,6 @@ export interface FullPaneComposerControls {
 
 export type { MessageSubmissionMetadata } from "../types/messageSubmission";
 
-type PendingSpeechDeliveryIntent =
-  | {
-      kind: "submit";
-      actionOverride?: "send" | "steer" | "queue";
-      focusAfterSubmit: boolean;
-    }
-  | { kind: "queue"; focusAfterSubmit: boolean }
-  | {
-      kind: "project-queue";
-      newSession: boolean;
-      newSessionTarget?: ChosenNewSessionQueueTarget;
-      focusAfterSubmit: boolean;
-    }
-  | {
-      kind: "fork-summary";
-      focusAfterSubmit: boolean;
-    }
-  | { kind: "fork-without-summary"; focusAfterSubmit: boolean };
-
 interface SubmissionCompositionSnapshot {
   typingStartedAt: string | null;
   lastEditedAt: string | null;
@@ -202,7 +190,8 @@ interface SubmissionCompositionSnapshot {
 }
 
 interface PendingSpeechDelivery {
-  intent: PendingSpeechDeliveryIntent;
+  route: ComposerDeliveryRoute;
+  focusAfterSubmit: boolean;
   draft: string;
   composition: SubmissionCompositionSnapshot;
   speechInsertionRangeRef: { current: SpeechInsertionRange | null };
@@ -542,8 +531,8 @@ export function MessageInput({
   const newSessionOptionsFormRef = useRef<HTMLFormElement>(null);
   const pendingSpeechDeliveryRef = useRef<PendingSpeechDelivery | null>(null);
   const pendingSpeechDeliverySettledRef = useRef(false);
-  const dispatchingSettledSpeechDeliveryRef = useRef(false);
   const runPendingSpeechDeliveryRef = useRef<() => void>(() => {});
+  const smartTurnSendRef = useRef<(text: string) => boolean>(() => false);
   const { asrAttributionMs, speechMessagePrefix } = useSpeechCaptureSettings();
   const {
     active: speechAttributionActive,
@@ -584,6 +573,7 @@ export function MessageInput({
     !text.trimStart().startsWith("!!");
   const canSaveQuestionAside =
     !!questionAside?.onSave &&
+    !forkSummaryMode &&
     text.length === 0 &&
     !hasNonTextComposerContent &&
     !isComposing &&
@@ -1067,8 +1057,10 @@ export function MessageInput({
     text,
     textarea: textareaRef,
     replace: replaceDraftRangeUndoably,
-    // Called from a key handler, after `handleSubmit` below is initialized.
-    submit: (draft) => void handleSubmit(draft),
+    // Called from a key handler, after `deliver` below is initialized.
+    submit: (draft) => {
+      deliver({ kind: "send" }, { text: draft });
+    },
     open: fileViewCommand?.open,
     enterInsertsNewline: fullPane,
     items: completionRenderItems,
@@ -1203,8 +1195,7 @@ export function MessageInput({
   }, [canSubmit]);
 
   const deferSpeechDelivery = useCallback(
-    (intent: PendingSpeechDeliveryIntent) => {
-      if (dispatchingSettledSpeechDeliveryRef.current) return false;
+    (route: ComposerDeliveryRoute, focusAfterSubmit: boolean) => {
       const voice = voiceButtonRef.current;
       if (pendingSpeechDeliveryRef.current) {
         if (voice?.isListening) voice.stopAndFinalize();
@@ -1226,7 +1217,8 @@ export function MessageInput({
       // successful settlement authorizes sending it with the speech prefix.
       const draft = controls.getDraft();
       pendingSpeechDeliveryRef.current = {
-        intent,
+        route,
+        focusAfterSubmit,
         draft,
         composition: {
           typingStartedAt: typingStartedAtRef.current,
@@ -1263,171 +1255,6 @@ export function MessageInput({
     [controls, resetCompositionMetadata],
   );
 
-  const handleForkSummarySubmit = useCallback(
-    (
-      messageOverride?: unknown,
-      focusAfterSubmit = true,
-      speechTriggered = false,
-      preserveComposer = false,
-    ) => {
-      if (
-        !forkSummaryMode ||
-        disabled ||
-        attachments.length > 0 ||
-        uploadProgress.length > 0
-      ) {
-        return false;
-      }
-      const override =
-        typeof messageOverride === "string" ? messageOverride : undefined;
-      if (
-        override === undefined &&
-        deferSpeechDelivery({
-          kind: "fork-summary",
-          focusAfterSubmit,
-        })
-      ) {
-        return true;
-      }
-
-      const instructions = (override ?? controls.getDraft()).trim();
-      const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
-        configuredPrefix: speechMessagePrefix,
-        speechTriggered,
-        recentSpeech: isRecentSpeechAttribution(),
-      });
-      if (!preserveComposer) {
-        controls.clearInput();
-        resetCompositionMetadata();
-        setInterimTranscript("");
-      }
-      forkSummaryMode.onSubmit(
-        instructions
-          ? prependSpeechMessagePrefix(instructions, deliverySpeechPrefix)
-          : instructions,
-      );
-      consumeSpeechAttribution();
-      if (focusAfterSubmit) {
-        programmaticFocus(textareaRef.current);
-      } else {
-        textareaRef.current?.blur();
-      }
-      return true;
-    },
-    [
-      attachments.length,
-      consumeSpeechAttribution,
-      controls,
-      deferSpeechDelivery,
-      disabled,
-      forkSummaryMode,
-      isRecentSpeechAttribution,
-      resetCompositionMetadata,
-      speechMessagePrefix,
-      uploadProgress.length,
-    ],
-  );
-
-  const handleForkWithoutSummary = useCallback(
-    (
-      messageOverride?: unknown,
-      focusAfterSubmit = true,
-      preserveComposer = false,
-      speechTriggered = false,
-    ) => {
-      if (
-        !forkSummaryMode?.onSubmitWithoutSummary ||
-        disabled ||
-        attachments.length > 0 ||
-        uploadProgress.length > 0
-      ) {
-        return false;
-      }
-      const override =
-        typeof messageOverride === "string" ? messageOverride : undefined;
-      if (
-        override === undefined &&
-        deferSpeechDelivery({ kind: "fork-without-summary", focusAfterSubmit })
-      ) {
-        return true;
-      }
-
-      const finalText = override ?? controls.getDraft();
-      const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
-        configuredPrefix: speechMessagePrefix,
-        speechTriggered,
-        recentSpeech: isRecentSpeechAttribution(),
-      });
-      if (!preserveComposer) {
-        controls.clearInput();
-        resetCompositionMetadata();
-        setInterimTranscript("");
-      }
-      forkSummaryMode.onSubmitWithoutSummary(
-        deliverySpeechPrefix
-          ? prependSpeechMessagePrefix(finalText, deliverySpeechPrefix)
-          : finalText,
-      );
-      consumeSpeechAttribution();
-      if (focusAfterSubmit) {
-        programmaticFocus(textareaRef.current);
-      } else {
-        textareaRef.current?.blur();
-      }
-      return true;
-    },
-    [
-      attachments.length,
-      consumeSpeechAttribution,
-      controls,
-      deferSpeechDelivery,
-      disabled,
-      forkSummaryMode,
-      isRecentSpeechAttribution,
-      resetCompositionMetadata,
-      speechMessagePrefix,
-      uploadProgress.length,
-    ],
-  );
-
-  const handleSyntheticDoneSubmission = useCallback(
-    (
-      finalText: string,
-      preserveComposer = false,
-      focusAfterSubmit = true,
-    ): boolean => {
-      if (
-        !onDone ||
-        disabled ||
-        finalText.trim() !== "/done" ||
-        attachments.length > 0 ||
-        uploadProgress.length > 0
-      ) {
-        return false;
-      }
-      if (!preserveComposer) {
-        controls.clearInput();
-        resetCompositionMetadata();
-        setInterimTranscript("");
-      }
-      onDone();
-      if (focusAfterSubmit) {
-        programmaticFocus(textareaRef.current);
-      } else {
-        textareaRef.current?.blur();
-      }
-      return true;
-    },
-    [
-      attachments.length,
-      controls,
-      disabled,
-      onDone,
-      resetCompositionMetadata,
-      uploadProgress.length,
-    ],
-  );
-
   const handleQuestionAsideSubmission = useCallback(
     (rawText: string) => {
       if (disabled || isComposing) return false;
@@ -1460,374 +1287,217 @@ export function MessageInput({
     ],
   );
 
-  const handleSubmit = useCallback(
-    async (
-      messageOverride?: unknown,
-      actionOverride?: "send" | "steer" | "queue",
-      focusAfterSubmit = true,
-      speechTriggered = false,
-      submissionSnapshot?: SubmissionCompositionSnapshot,
-      preserveComposer = false,
-    ) => {
-      const override =
-        typeof messageOverride === "string" ? messageOverride : undefined;
+  const queueHandler =
+    onQueue ?? (effectivePrimaryActionKind === "queue" ? onSend : undefined);
+  const forkMode = !!forkSummaryMode;
+  const primaryRoute = useMemo(
+    () =>
+      resolvePrimaryDeliveryRoute({
+        forkMode,
+        primaryActionKind: effectivePrimaryActionKind,
+      }),
+    [effectivePrimaryActionKind, forkMode],
+  );
+
+  // Every press of the message box delivers through this one function
+  // (docs/tactical/184-message-box-send-routes.md). `text` is given only
+  // when the draft does not come from the box: voice auto-send, the file
+  // viewer, and a dictated draft set aside until speech settled
+  // (`setAside`), which must leave the box, holding the user's next
+  // message, untouched. Returns whether the press was taken.
+  const deliver = useCallback(
+    (
+      route: ComposerDeliveryRoute,
+      {
+        text: override,
+        snapshot,
+        focusAfterSubmit = true,
+        speechTriggered = false,
+        setAside = false,
+      }: {
+        text?: string;
+        snapshot?: SubmissionCompositionSnapshot;
+        focusAfterSubmit?: boolean;
+        speechTriggered?: boolean;
+        setAside?: boolean;
+      } = {},
+    ): boolean => {
       if (
-        override === undefined &&
-        deferSpeechDelivery({
-          kind: "submit",
-          actionOverride,
-          focusAfterSubmit,
+        !canDeliverOnRoute(route, {
+          disabled: !!disabled,
+          forkMode: !!forkSummaryMode,
+          forkSubmitting: !!forkSummaryMode?.submitting,
+          forkWithoutSummary: !!forkSummaryMode?.onSubmitWithoutSummary,
+          nonTextContentCount: attachments.length + uploadProgress.length,
+          canQueue: !!queueHandler,
+          canProjectQueue: !!onProjectQueue,
+          canProjectQueueNewSession: !!onProjectQueueNewSession,
         })
       ) {
-        return;
+        return false;
+      }
+      if (
+        override === undefined &&
+        deferSpeechDelivery(route, focusAfterSubmit)
+      ) {
+        return true;
       }
 
       const rawText = override ?? controls.getDraft();
+      // Saving an answer takes an empty box, not an empty voice auto-send.
       if (
-        !actionOverride &&
-        !preserveComposer &&
+        !setAside &&
+        routeTriesQuestionAside(route) &&
+        (override === undefined || rawText !== "") &&
         handleQuestionAsideSubmission(rawText)
-      )
-        return;
-      let finalText = rawText.trimEnd();
+      ) {
+        return true;
+      }
+      const plan = planComposerDelivery(route, rawText, {
+        attachmentCount: attachments.length,
+        uploadCount: uploadProgress.length,
+        doneAvailable: !!onDone,
+        bangAvailable: !!bangSupport,
+        primaryActionKind: effectivePrimaryActionKind,
+        patientQueueEnabled,
+        topicShiftSupported,
+        topicShiftCompactPercent,
+        patientQueueCompactPercent,
+      });
+      if (plan.kind === "ignore") return false;
+
+      // A set-aside draft owns its own text; the box may already hold the
+      // next turn and must remain untouched.
+      const clearComposer = () => {
+        if (setAside) return;
+        controls.clearInput();
+        resetCompositionMetadata();
+        setInterimTranscript("");
+      };
+      // Refocus the box so the user can keep typing, unless a settled
+      // speech delivery finds the user in an embedded app.
+      const settleFocus = () => {
+        if (focusAfterSubmit) {
+          programmaticFocus(textareaRef.current);
+        } else {
+          textareaRef.current?.blur();
+        }
+      };
+
+      if (plan.kind === "done") {
+        clearComposer();
+        onDone?.();
+        settleFocus();
+        return true;
+      }
+      if (plan.kind === "bang") {
+        // Empty the composer before the request, as Send does, so keys typed
+        // while the command starts begin the next draft instead of being
+        // cleared with the command. Storage keeps the command until the
+        // outcome is known.
+        clearComposer();
+        const run = async () => {
+          try {
+            await bangSupport?.onRun(plan.command);
+            if (!setAside) controls.confirmInputClear();
+          } catch {
+            // The owner surfaces the run failure. Bring the command back for
+            // retry unless a newer draft has taken its place.
+            if (!setAside) controls.restoreFromStorage();
+          }
+          // The command ran across an await; the user may be in the app now.
+          settleFocus();
+        };
+        void run();
+        return true;
+      }
+
       const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
         configuredPrefix: speechMessagePrefix,
         speechTriggered,
         recentSpeech: isRecentSpeechAttribution(),
       });
-
-      if (forkSummaryMode) return;
-
-      if (
-        handleSyntheticDoneSubmission(
-          finalText,
-          preserveComposer,
-          focusAfterSubmit,
-        )
-      ) {
-        return;
-      }
-
-      if (bangSupport) {
-        const bangDraft = resolveComposerBangDraft(finalText);
-        if (
-          bangDraft.kind === "empty" &&
-          !hasComposerDraftContent(finalText, attachments.length)
-        ) {
-          return;
-        }
-        if (bangDraft.kind === "bang" && !disabled) {
-          // Empty the composer before the request, as Send does, so keys typed
-          // while the command starts begin the next draft instead of being
-          // cleared with the command. Storage keeps the command until the
-          // outcome is known.
-          if (!preserveComposer) {
-            controls.clearInput();
-            resetCompositionMetadata();
-            setInterimTranscript("");
-          }
-          try {
-            await bangSupport.onRun(bangDraft.command);
-            if (!preserveComposer) {
-              controls.confirmInputClear();
-            }
-          } catch {
-            // The owner surfaces the run failure. Bring the command back for
-            // retry unless a newer draft has taken its place.
-            if (!preserveComposer) {
-              controls.restoreFromStorage();
-            }
-          }
-          // The command ran across an await; the user may be in the app now.
-          if (focusAfterSubmit) {
-            programmaticFocus(textareaRef.current);
-          } else {
-            textareaRef.current?.blur();
-          }
-          return;
-        }
-        if (bangDraft.kind === "escaped") {
-          finalText = bangDraft.text;
+      const message =
+        deliverySpeechPrefix && plan.text.trim()
+          ? prependSpeechMessagePrefix(plan.text, deliverySpeechPrefix)
+          : plan.text;
+      let metadata: MessageSubmissionMetadata | undefined;
+      if (plan.intent) {
+        metadata = buildSubmissionMetadata(plan.intent, snapshot);
+        if (plan.patientSource) metadata.patientSource = plan.patientSource;
+        if (plan.compactAboveContextPercent !== undefined) {
+          metadata.compactAboveContextPercent = plan.compactAboveContextPercent;
         }
       }
-
-      const hasContent = hasComposerDraftContent(finalText, attachments.length);
-      if (hasContent && !disabled) {
-        const message = prependSpeechMessagePrefix(
-          finalText,
-          deliverySpeechPrefix,
-        );
-        const actionKind = actionOverride ?? effectivePrimaryActionKind;
-        const deliveryIntent =
-          actionKind === "steer"
-            ? "steer"
-            : actionKind === "queue"
-              ? "deferred"
-              : "direct";
-        const metadata = buildSubmissionMetadata(
-          deliveryIntent,
-          submissionSnapshot,
-        );
-        // A settled speech delivery owns its detached draft. The live composer
-        // may already contain the next turn and must remain untouched.
-        if (!preserveComposer) {
-          controls.clearInput();
-          resetCompositionMetadata();
-          setInterimTranscript("");
-        }
-        questionAside?.onDismiss?.();
-        onSend(message, metadata);
-        consumeSpeechAttribution();
-        if (focusAfterSubmit) {
-          // Refocus the textarea so user can continue typing, unless a
-          // settled speech delivery finds the user in an embedded app.
-          programmaticFocus(textareaRef.current);
-        } else {
-          textareaRef.current?.blur();
-        }
+      clearComposer();
+      questionAside?.onDismiss?.();
+      switch (route.kind) {
+        case "send":
+          onSend(message, metadata);
+          break;
+        case "queue":
+          queueHandler?.(message, metadata);
+          break;
+        case "project-queue":
+          if (!route.newSession) onProjectQueue?.(message, metadata);
+          else if (route.newSessionTarget)
+            onProjectQueueNewSession?.(
+              message,
+              metadata,
+              route.newSessionTarget,
+            );
+          else onProjectQueueNewSession?.(message, metadata);
+          break;
+        case "fork-summary":
+          forkSummaryMode?.onSubmit(message);
+          break;
+        case "fork-without-summary":
+          forkSummaryMode?.onSubmitWithoutSummary?.(message);
+          break;
       }
+      consumeSpeechAttribution();
+      settleFocus();
+      return true;
     },
     [
-      disabled,
-      controls,
-      onSend,
-      questionAside,
-      handleQuestionAsideSubmission,
       attachments.length,
-      effectivePrimaryActionKind,
-      buildSubmissionMetadata,
-      resetCompositionMetadata,
-      forkSummaryMode,
-      handleSyntheticDoneSubmission,
       bangSupport,
+      buildSubmissionMetadata,
       consumeSpeechAttribution,
-      deferSpeechDelivery,
-      isRecentSpeechAttribution,
-      speechMessagePrefix,
-    ],
-  );
-
-  const handleQueue = useCallback(
-    (
-      messageOverride?: unknown,
-      submissionSnapshot?: SubmissionCompositionSnapshot,
-      preserveComposer = false,
-      focusAfterSubmit = true,
-      topicShift = false,
-      speechTriggered = false,
-    ) => {
-      const override =
-        typeof messageOverride === "string" ? messageOverride : undefined;
-      const queueHandler =
-        onQueue ??
-        (effectivePrimaryActionKind === "queue" ? onSend : undefined);
-      if (
-        override === undefined &&
-        deferSpeechDelivery({ kind: "queue", focusAfterSubmit })
-      ) {
-        return;
-      }
-
-      const rawText = override ?? controls.getDraft();
-      if (!preserveComposer && handleQuestionAsideSubmission(rawText)) return;
-      const finalText = rawText.trimEnd();
-
-      if (
-        handleSyntheticDoneSubmission(
-          finalText,
-          preserveComposer,
-          focusAfterSubmit,
-        )
-      ) {
-        return;
-      }
-
-      const hasContent = hasComposerDraftContent(finalText, attachments.length);
-      if (hasContent && !disabled && queueHandler) {
-        const patientSource = topicShift
-          ? "topic-shift"
-          : patientQueueEnabled
-            ? "patient-default"
-            : null;
-        const metadata = buildSubmissionMetadata(
-          patientSource ? "patient" : "deferred",
-          submissionSnapshot,
-        );
-        if (patientSource && topicShiftSupported) {
-          const compactPercent =
-            patientSource === "topic-shift"
-              ? topicShiftCompactPercent
-              : patientQueueCompactPercent;
-          metadata.patientSource = patientSource;
-          if (compactPercent !== undefined) {
-            metadata.compactAboveContextPercent = compactPercent;
-          }
-        }
-        if (!preserveComposer) {
-          controls.clearInput();
-          resetCompositionMetadata();
-          setInterimTranscript("");
-        }
-        const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
-          configuredPrefix: speechMessagePrefix,
-          speechTriggered,
-          recentSpeech: isRecentSpeechAttribution(),
-        });
-        questionAside?.onDismiss?.();
-        queueHandler(
-          prependSpeechMessagePrefix(finalText, deliverySpeechPrefix),
-          metadata,
-        );
-        consumeSpeechAttribution();
-        if (focusAfterSubmit) {
-          programmaticFocus(textareaRef.current);
-        } else {
-          textareaRef.current?.blur();
-        }
-      }
-    },
-    [
-      disabled,
       controls,
-      onQueue,
-      questionAside,
-      handleQuestionAsideSubmission,
-      onSend,
+      deferSpeechDelivery,
+      disabled,
       effectivePrimaryActionKind,
-      handleSyntheticDoneSubmission,
-      patientQueueEnabled,
-      topicShiftSupported,
-      topicShiftCompactPercent,
+      forkSummaryMode,
+      handleQuestionAsideSubmission,
+      isRecentSpeechAttribution,
+      onDone,
+      onProjectQueue,
+      onProjectQueueNewSession,
+      onSend,
       patientQueueCompactPercent,
-      attachments.length,
-      buildSubmissionMetadata,
-      consumeSpeechAttribution,
-      deferSpeechDelivery,
-      isRecentSpeechAttribution,
-      resetCompositionMetadata,
-      speechMessagePrefix,
-    ],
-  );
-
-  const submitToProjectQueue = useCallback(
-    (
-      submit:
-        | ((text: string, metadata?: MessageSubmissionMetadata) => void)
-        | undefined,
-      messageOverride?: string,
-      submissionSnapshot?: SubmissionCompositionSnapshot,
-      preserveComposer = false,
-      focusAfterSubmit = true,
-      speechTriggered = false,
-    ) => {
-      if (!submit) return;
-      const finalText = (messageOverride ?? controls.getDraft()).trimEnd();
-
-      if (
-        handleSyntheticDoneSubmission(
-          finalText,
-          preserveComposer,
-          focusAfterSubmit,
-        )
-      ) {
-        return;
-      }
-
-      const hasContent = hasComposerDraftContent(finalText, attachments.length);
-      if (hasContent && !disabled) {
-        const metadata = buildSubmissionMetadata(
-          "deferred",
-          submissionSnapshot,
-        );
-        const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
-          configuredPrefix: speechMessagePrefix,
-          speechTriggered,
-          recentSpeech: isRecentSpeechAttribution(),
-        });
-        if (!preserveComposer) {
-          controls.clearInput();
-          resetCompositionMetadata();
-          setInterimTranscript("");
-        }
-        questionAside?.onDismiss?.();
-        submit(
-          prependSpeechMessagePrefix(finalText, deliverySpeechPrefix),
-          metadata,
-        );
-        consumeSpeechAttribution();
-        if (focusAfterSubmit) {
-          programmaticFocus(textareaRef.current);
-        } else {
-          textareaRef.current?.blur();
-        }
-      }
-    },
-    [
-      attachments.length,
-      buildSubmissionMetadata,
-      controls,
-      consumeSpeechAttribution,
-      disabled,
-      handleSyntheticDoneSubmission,
-      isRecentSpeechAttribution,
-      resetCompositionMetadata,
-      speechMessagePrefix,
+      patientQueueEnabled,
+      queueHandler,
       questionAside,
+      resetCompositionMetadata,
+      speechMessagePrefix,
+      topicShiftCompactPercent,
+      topicShiftSupported,
+      uploadProgress.length,
     ],
   );
 
-  const handleProjectQueue = useCallback(
-    (focusAfterSubmit = true) => {
-      if (
-        deferSpeechDelivery({
-          kind: "project-queue",
-          newSession: false,
-          focusAfterSubmit,
-        })
-      ) {
-        return;
+  // A set-aside draft goes back in front of whatever the user typed since.
+  const restoreSetAsideDraft = useCallback(
+    (pending: PendingSpeechDelivery) => {
+      const liveDraft = controls.getDraft();
+      if (pending.draft.trim()) {
+        controls.setDraft(
+          liveDraft ? `${pending.draft}\n\n${liveDraft}` : pending.draft,
+        );
       }
-      submitToProjectQueue(
-        onProjectQueue,
-        undefined,
-        undefined,
-        false,
-        focusAfterSubmit,
-      );
     },
-    [deferSpeechDelivery, onProjectQueue, submitToProjectQueue],
-  );
-
-  const queueNewSessionAt = useCallback(
-    (target: ChosenNewSessionQueueTarget | undefined) =>
-      onProjectQueueNewSession && target
-        ? (text: string, metadata?: MessageSubmissionMetadata) =>
-            onProjectQueueNewSession(text, metadata, target)
-        : onProjectQueueNewSession,
-    [onProjectQueueNewSession],
-  );
-
-  const handleProjectQueueNewSession = useCallback(
-    (focusAfterSubmit = true, target?: ChosenNewSessionQueueTarget) => {
-      if (
-        deferSpeechDelivery({
-          kind: "project-queue",
-          newSession: true,
-          newSessionTarget: target,
-          focusAfterSubmit,
-        })
-      ) {
-        return;
-      }
-      submitToProjectQueue(
-        queueNewSessionAt(target),
-        undefined,
-        undefined,
-        false,
-        focusAfterSubmit,
-      );
-    },
-    [deferSpeechDelivery, queueNewSessionAt, submitToProjectQueue],
+    [controls],
   );
 
   const restorePendingSpeechDeliveryDraft = useCallback(() => {
@@ -1835,15 +1505,9 @@ export function MessageInput({
     if (!pending) return false;
     pendingSpeechDeliveryRef.current = null;
     pendingSpeechDeliverySettledRef.current = false;
-    const pendingDraft = pending.draft;
-    const liveDraft = controls.getDraft();
-    if (pendingDraft) {
-      controls.setDraft(
-        liveDraft ? `${pendingDraft}\n\n${liveDraft}` : pendingDraft,
-      );
-    }
+    restoreSetAsideDraft(pending);
     return true;
-  }, [controls]);
+  }, [restoreSetAsideDraft]);
 
   const runPendingSpeechDelivery = useCallback(() => {
     if (
@@ -1855,86 +1519,23 @@ export function MessageInput({
     if (!pendingSpeechDeliverySettledRef.current) return;
     const pending = pendingSpeechDeliveryRef.current;
     if (!pending) return;
-    const typedForkPending =
-      pending.intent.kind === "fork-summary" ||
-      pending.intent.kind === "fork-without-summary";
-    const clearPendingOwner = () => {
-      pendingSpeechDeliveryRef.current = null;
-      pendingSpeechDeliverySettledRef.current = false;
-    };
-    if (!typedForkPending) clearPendingOwner();
-    dispatchingSettledSpeechDeliveryRef.current = true;
+    // Release the set-aside draft before delivering it, so a settlement
+    // reported again during delivery cannot send it twice.
+    pendingSpeechDeliveryRef.current = null;
+    pendingSpeechDeliverySettledRef.current = false;
+    let delivered = false;
     try {
-      if (pending.intent.kind === "queue") {
-        handleQueue(
-          pending.draft,
-          pending.composition,
-          true,
-          pending.intent.focusAfterSubmit,
-          false,
-          true,
-        );
-        return;
-      }
-      if (pending.intent.kind === "project-queue") {
-        submitToProjectQueue(
-          pending.intent.newSession
-            ? queueNewSessionAt(pending.intent.newSessionTarget)
-            : onProjectQueue,
-          pending.draft,
-          pending.composition,
-          true,
-          pending.intent.focusAfterSubmit,
-          true,
-        );
-        return;
-      }
-      if (pending.intent.kind === "fork-summary") {
-        const accepted = handleForkSummarySubmit(
-          pending.draft,
-          pending.intent.focusAfterSubmit,
-          true,
-          true,
-        );
-        if (accepted) clearPendingOwner();
-        else restorePendingSpeechDeliveryDraft();
-        return;
-      }
-      if (pending.intent.kind === "fork-without-summary") {
-        const accepted = handleForkWithoutSummary(
-          pending.draft,
-          pending.intent.focusAfterSubmit,
-          true,
-          true,
-        );
-        if (accepted) clearPendingOwner();
-        else restorePendingSpeechDeliveryDraft();
-        return;
-      }
-      void handleSubmit(
-        pending.draft,
-        pending.intent.actionOverride,
-        pending.intent.focusAfterSubmit,
-        true,
-        pending.composition,
-        true,
-      );
-    } catch (error) {
-      if (typedForkPending) restorePendingSpeechDeliveryDraft();
-      throw error;
+      delivered = deliver(pending.route, {
+        text: pending.draft,
+        snapshot: pending.composition,
+        focusAfterSubmit: pending.focusAfterSubmit,
+        speechTriggered: true,
+        setAside: true,
+      });
     } finally {
-      dispatchingSettledSpeechDeliveryRef.current = false;
+      if (!delivered) restoreSetAsideDraft(pending);
     }
-  }, [
-    handleForkSummarySubmit,
-    handleForkWithoutSummary,
-    handleQueue,
-    handleSubmit,
-    onProjectQueue,
-    queueNewSessionAt,
-    restorePendingSpeechDeliveryDraft,
-    submitToProjectQueue,
-  ]);
+  }, [deliver, restoreSetAsideDraft]);
   runPendingSpeechDeliveryRef.current = runPendingSpeechDelivery;
 
   const maybeRunPendingSpeechDelivery = useCallback(() => {
@@ -1957,11 +1558,6 @@ export function MessageInput({
     textareaRef.current?.focus();
   }, [controls, disabled, onBtwShortcut, resetCompositionMetadata]);
 
-  const submitPrimaryAction = forkSummaryMode
-    ? handleForkSummarySubmit
-    : effectivePrimaryActionKind === "queue"
-      ? handleQueue
-      : handleSubmit;
   const runComposerPointerDelivery = useCallback(
     (deliver: (focusAfterSubmit: boolean) => void) => {
       if (!hasCoarsePointer()) {
@@ -1998,45 +1594,37 @@ export function MessageInput({
     },
     [keepMobileKeyboardOpenAfterDelivery],
   );
-  const handlePrimaryPointerDelivery = useCallback(() => {
-    runComposerPointerDelivery((focusAfterSubmit) => {
-      if (forkSummaryMode) {
-        handleForkSummarySubmit(undefined, focusAfterSubmit);
-      } else if (effectivePrimaryActionKind === "queue") {
-        handleQueue(undefined, undefined, false, focusAfterSubmit);
-      } else {
-        void handleSubmit(undefined, undefined, focusAfterSubmit);
-      }
-    });
-  }, [
-    effectivePrimaryActionKind,
-    forkSummaryMode,
-    handleForkSummarySubmit,
-    handleQueue,
-    handleSubmit,
-    runComposerPointerDelivery,
-  ]);
-  const handleQueuePointerDelivery = useCallback(() => {
-    runComposerPointerDelivery((focusAfterSubmit) => {
-      handleQueue(undefined, undefined, false, focusAfterSubmit);
-    });
-  }, [handleQueue, runComposerPointerDelivery]);
-  const handleSteerPointerDelivery = useCallback(() => {
-    runComposerPointerDelivery((focusAfterSubmit) => {
-      void handleSubmit(undefined, "steer", focusAfterSubmit);
-    });
-  }, [handleSubmit, runComposerPointerDelivery]);
-  const handleTopicShiftPointerDelivery = useCallback(() => {
-    runComposerPointerDelivery((focusAfterSubmit) => {
-      handleQueue(undefined, undefined, false, focusAfterSubmit, true);
-    });
-  }, [handleQueue, runComposerPointerDelivery]);
-  const handleProjectQueuePointerDelivery = useCallback(() => {
-    runComposerPointerDelivery(handleProjectQueue);
-  }, [handleProjectQueue, runComposerPointerDelivery]);
-  const handleProjectQueueNewSessionPointerDelivery = useCallback(() => {
-    runComposerPointerDelivery(handleProjectQueueNewSession);
-  }, [handleProjectQueueNewSession, runComposerPointerDelivery]);
+  const deliverFromPointer = useCallback(
+    (route: ComposerDeliveryRoute) =>
+      runComposerPointerDelivery((focusAfterSubmit) => {
+        deliver(route, { focusAfterSubmit });
+      }),
+    [deliver, runComposerPointerDelivery],
+  );
+  const handlePrimaryPointerDelivery = useCallback(
+    () => deliverFromPointer(primaryRoute),
+    [deliverFromPointer, primaryRoute],
+  );
+  const handleQueuePointerDelivery = useCallback(
+    () => deliverFromPointer({ kind: "queue" }),
+    [deliverFromPointer],
+  );
+  const handleSteerPointerDelivery = useCallback(
+    () => deliverFromPointer({ kind: "send", action: "steer" }),
+    [deliverFromPointer],
+  );
+  const handleTopicShiftPointerDelivery = useCallback(
+    () => deliverFromPointer({ kind: "queue", topicShift: true }),
+    [deliverFromPointer],
+  );
+  const handleProjectQueuePointerDelivery = useCallback(
+    () => deliverFromPointer({ kind: "project-queue", newSession: false }),
+    [deliverFromPointer],
+  );
+  const handleProjectQueueNewSessionPointerDelivery = useCallback(
+    () => deliverFromPointer({ kind: "project-queue", newSession: true }),
+    [deliverFromPointer],
+  );
   const openNewSessionOptions = useCallback(
     () => setNewSessionOptionsMode("patient"),
     [],
@@ -2052,35 +1640,39 @@ export function MessageInput({
   const queueNewSessionAtChosenTarget = useCallback(
     (target: ChosenNewSessionQueueTarget) => {
       setNewSessionOptionsMode(null);
-      runComposerPointerDelivery((focusAfterSubmit) =>
-        handleProjectQueueNewSession(focusAfterSubmit, target),
-      );
+      deliverFromPointer({
+        kind: "project-queue",
+        newSession: true,
+        newSessionTarget: target,
+      });
     },
-    [handleProjectQueueNewSession, runComposerPointerDelivery],
+    [deliverFromPointer],
   );
-  const handleForkWithoutSummaryPointerDelivery = useCallback(() => {
-    runComposerPointerDelivery((focusAfterSubmit) => {
-      handleForkWithoutSummary(undefined, focusAfterSubmit);
-    });
-  }, [handleForkWithoutSummary, runComposerPointerDelivery]);
+  const handleForkWithoutSummaryPointerDelivery = useCallback(
+    () => deliverFromPointer({ kind: "fork-without-summary" }),
+    [deliverFromPointer],
+  );
   const visibleDeliveryDraft = getSpeechVisibleDraftText(
     controls.getDraft(),
     interimTranscript,
     speechInsertionRangeRef.current,
   );
-  const primaryRunsLocalBang =
+  // Every delivery cue follows `deliver`'s prefix rule: `!!` runs locally
+  // (and a bare `!!` does nothing) on every route but the forks, and empty
+  // text is never prefixed.
+  const deliveryBangKind = resolveComposerBangDraft(visibleDeliveryDraft).kind;
+  const deliveryHandledAsBang =
+    !forkSummaryMode &&
     !!bangSupport &&
-    resolveComposerBangDraft(visibleDeliveryDraft).kind === "bang";
+    (deliveryBangKind === "bang" || deliveryBangKind === "empty");
   const manualDeliverySpeechPrefix =
     speechMessagePrefix &&
-    (speechAttributionActive ||
-      speechPending !== null ||
-      pendingSpeechDeliveryRef.current !== null)
+    !deliveryHandledAsBang &&
+    (speechPending !== null ||
+      pendingSpeechDeliveryRef.current !== null ||
+      (speechAttributionActive && visibleDeliveryDraft.trim() !== ""))
       ? speechMessagePrefix
       : null;
-  const primaryDeliverySpeechPrefix = primaryRunsLocalBang
-    ? null
-    : manualDeliverySpeechPrefix;
   const describePrefixedDelivery = (
     action: string,
     prefix = manualDeliverySpeechPrefix,
@@ -2465,11 +2057,11 @@ export function MessageInput({
       if (e.nativeEvent.isComposing) return;
       if (e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
         e.preventDefault();
-        if (forkSummaryMode) {
-          handleForkSummarySubmit();
-        } else {
-          void handleSubmit(undefined, "send");
-        }
+        deliver(
+          forkSummaryMode
+            ? { kind: "fork-summary" }
+            : { kind: "send", action: "send" },
+        );
       }
       return;
     }
@@ -2835,7 +2427,7 @@ export function MessageInput({
         !e.altKey
       ) {
         e.preventDefault();
-        handleForkWithoutSummary();
+        deliver({ kind: "fork-without-summary" });
         return;
       }
 
@@ -2847,7 +2439,7 @@ export function MessageInput({
         !e.altKey
       ) {
         e.preventDefault();
-        handleProjectQueue();
+        deliver({ kind: "project-queue", newSession: false });
         return;
       }
 
@@ -2860,9 +2452,9 @@ export function MessageInput({
       ) {
         e.preventDefault();
         if (hasActiveDualActions && effectivePrimaryActionKind === "queue") {
-          handleSubmit(undefined, "steer");
+          deliver({ kind: "send", action: "steer" });
         } else {
-          handleQueue();
+          deliver({ kind: "queue" });
         }
         return;
       }
@@ -2870,13 +2462,13 @@ export function MessageInput({
       // If voice recording is active, Enter submits (on any device)
       if (voiceButtonRef.current?.isListening) {
         e.preventDefault();
-        submitPrimaryAction();
+        deliver(primaryRoute);
         return;
       }
 
       if (isComposerEnterSend(e)) {
         e.preventDefault();
-        submitPrimaryAction();
+        deliver(primaryRoute);
       }
     }
   };
@@ -2894,27 +2486,24 @@ export function MessageInput({
   };
 
   // Voice input handlers
+  // Read through a ref, like the set-aside replay, so the voice button's
+  // callbacks keep their identity while the delivery state changes.
+  smartTurnSendRef.current = (text: string) => {
+    if (
+      !deliver(primaryRoute, {
+        text,
+        focusAfterSubmit: !hasCoarsePointer(),
+        speechTriggered: true,
+      })
+    ) {
+      return false;
+    }
+    voiceButtonRef.current?.continueAfterSpeechSend();
+    return true;
+  };
   const handleSmartTurnSend = useCallback(
-    (text: string) => {
-      if (forkSummaryMode) {
-        if (!handleForkSummarySubmit(text, !hasCoarsePointer(), true)) {
-          return false;
-        }
-      } else {
-        if (!hasComposerDraftContent(text, attachments.length) || disabled)
-          return false;
-        void handleSubmit(text, undefined, !hasCoarsePointer(), true);
-      }
-      voiceButtonRef.current?.continueAfterSpeechSend();
-      return true;
-    },
-    [
-      attachments.length,
-      disabled,
-      forkSummaryMode,
-      handleForkSummarySubmit,
-      handleSubmit,
-    ],
+    (text: string) => smartTurnSendRef.current(text),
+    [],
   );
 
   const getDetachedSpeechTransaction = useCallback(
@@ -3098,7 +2687,8 @@ export function MessageInput({
         ? openImmediateNewSessionOptions
         : undefined,
     hidePrimaryDeliveryActions: newSessionOptionsMode !== null,
-    onQueue: onQueue ? handleQueuePointerDelivery : undefined,
+    onQueue:
+      onQueue && !forkSummaryMode ? handleQueuePointerDelivery : undefined,
     onTopicShift:
       onQueue &&
       topicShiftSupported &&
@@ -3120,7 +2710,10 @@ export function MessageInput({
       !forkSummaryMode
         ? openNewSessionOptions
         : undefined,
-    onSteer: hasActiveDualActions ? handleSteerPointerDelivery : undefined,
+    onSteer:
+      hasActiveDualActions && !forkSummaryMode
+        ? handleSteerPointerDelivery
+        : undefined,
     primaryActionKind: effectivePrimaryActionKind,
     sendOverride: questionActionLabel
       ? { label: questionActionLabel, tooltip: questionActionLabel, icon: "↑" }
@@ -3146,7 +2739,7 @@ export function MessageInput({
     canForkAfterSummary: !!onForkSummaryShortcut,
     canSend: canSubmit,
     speechMessagePrefix: manualDeliverySpeechPrefix,
-    primarySpeechMessagePrefix: primaryDeliverySpeechPrefix,
+    primarySpeechMessagePrefix: manualDeliverySpeechPrefix,
     disabled,
   };
   const showMobileKeyboardCompact = mobileKeyboardOpen && canSubmit;
@@ -3940,11 +3533,11 @@ export function MessageInput({
                 disabled={disabled}
                 aria-label={describePrefixedDelivery(
                   mobileKeyboardActionLabel,
-                  primaryDeliverySpeechPrefix,
+                  manualDeliverySpeechPrefix,
                 )}
                 title={describePrefixedTooltip(
                   mobileKeyboardActionLabel,
-                  primaryDeliverySpeechPrefix,
+                  manualDeliverySpeechPrefix,
                 )}
               >
                 {mobileKeyboardActionDisplayLabel && (
@@ -3955,8 +3548,8 @@ export function MessageInput({
                 <DeliveryGlyph className="message-input-keyboard-primary-icon">
                   {mobileKeyboardActionIcon}
                 </DeliveryGlyph>
-                {primaryDeliverySpeechPrefix && (
-                  <SpeechPrefixActionCue prefix={primaryDeliverySpeechPrefix} />
+                {manualDeliverySpeechPrefix && (
+                  <SpeechPrefixActionCue prefix={manualDeliverySpeechPrefix} />
                 )}
               </button>
             </div>
