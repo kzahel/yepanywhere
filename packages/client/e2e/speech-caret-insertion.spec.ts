@@ -12,6 +12,7 @@ const speechSessionIds = {
   sendInterim: "speech-caret-003",
   stopInterim: "speech-caret-004",
   typingInterim: "speech-caret-005",
+  heldSend: "speech-caret-006",
 } as const;
 test.use({ draftSessionIds: [speechSessionIds.typingInterim] });
 const sessionPath = (sessionId: string) =>
@@ -69,14 +70,22 @@ async function installFakeSpeechRecognition(page: Page) {
       }
 
       stop() {
-        queueMicrotask(() => {
+        const finish = () => {
           const finalText = (
             window as unknown as { finalSpeechOnStop?: string }
           ).finalSpeechOnStop;
           if (finalText)
             this.emit([{ transcript: finalText, isFinal: true }], 0);
           this.onend?.call(this, new Event("end"));
-        });
+        };
+        const held = window as unknown as {
+          holdSpeechStop?: boolean;
+          releaseSpeechStop?: () => void;
+        };
+        // A held stop keeps the recognizer finalizing until the test
+        // releases it, as a slow transcription backend would.
+        if (held.holdSpeechStop) held.releaseSpeechStop = finish;
+        else queueMicrotask(finish);
       }
 
       abort() {}
@@ -287,6 +296,93 @@ test("sends the final ASR wording with its prefix when Send is pressed", async (
     .poll(() => submitted?.message)
     .toBe("🎤 final wording alpha omega");
   await expect(textarea).toHaveValue("");
+});
+
+// Send pressed while dictation is finalizing sets the draft aside and
+// empties the box (docs/tactical/184-message-box-send-routes.md slice 0).
+// The user types the next message while the transcript is still pending;
+// the transcript lands halfway through and typing goes straight on, so
+// later keys overlap the set-aside draft's delivery. Every key must show
+// within 100 ms, and none may join the sent message.
+test("keeps keys typed while a dictated Send settles", async ({
+  page,
+  baseURL,
+}) => {
+  let submitted: { message: string } | undefined;
+  await page.route("**/api/projects/*/sessions/*/resume", (route) => {
+    submitted = route.request().postDataJSON();
+    return route.fulfill({
+      json: { processId: "speech-held-send", permissionMode: "default" },
+    });
+  });
+  const textarea = await openBrowserSpeechComposer(
+    page,
+    baseURL,
+    sessionPath(speechSessionIds.heldSend),
+    "set aside draft",
+  );
+  await emitSpeechResults(page, [{ transcript: "spoken", isFinal: false }]);
+  await expect(page.locator(".speech-interim-inline")).toHaveText("spoken");
+  await page.evaluate(() => {
+    Object.assign(window, {
+      holdSpeechStop: true,
+      finalSpeechOnStop: "spoken words",
+    });
+  });
+  await page.getByRole("button", { name: /^Send/ }).click();
+  await expect(textarea).toHaveValue("");
+  expect(submitted).toBeUndefined();
+  await textarea.focus();
+
+  await textarea.evaluate((element) => {
+    const field = element as HTMLTextAreaElement & {
+      acks: { value: string; latency: number }[];
+    };
+    field.acks = [];
+    field.addEventListener("keydown", (event) =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          field.acks.push({
+            value: field.value,
+            latency: performance.now() - event.timeStamp,
+          }),
+        ),
+      ),
+    );
+  });
+  const acksOf = () =>
+    textarea.evaluate(async (element) => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+      return (
+        element as HTMLTextAreaElement & {
+          acks: { value: string; latency: number }[];
+        }
+      ).acks;
+    });
+
+  const keys = "next message";
+  for (const [index, character] of [...keys].entries()) {
+    if (index === 4) {
+      await page.evaluate(() =>
+        (
+          window as unknown as { releaseSpeechStop: () => void }
+        ).releaseSpeechStop(),
+      );
+    }
+    await page.keyboard.type(character);
+    await expect.poll(async () => (await acksOf()).length).toBe(index + 1);
+  }
+  await expect
+    .poll(() => submitted?.message)
+    .toBe("🎤 set aside draft spoken words");
+  const acks = await acksOf();
+  expect(acks.map((ack) => ack.value)).toEqual(
+    [...keys].map((_, index) => keys.slice(0, index + 1)),
+  );
+  expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThan(100);
+  await expect(textarea).toHaveValue(keys);
 });
 
 test("commits the interim text visible when Stop is pressed", async ({

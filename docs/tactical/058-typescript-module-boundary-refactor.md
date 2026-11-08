@@ -48,7 +48,9 @@ shared, and how risky it is to touch today.
    on 2026-11-08. Slices 2.37 to 2.41 move the page's header, composer
    footer and pop-ups into components and its header actions and project
    move menu into hooks
-   ([plan 182](182-session-page-header-and-footer.md)) on 2026-11-08. Moving small
+   ([plan 182](182-session-page-header-and-footer.md)) on 2026-11-08.
+   [Plan 184](184-message-box-send-routes.md) gives the message box one
+   send route (in progress). Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session

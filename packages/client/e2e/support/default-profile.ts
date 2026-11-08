@@ -271,6 +271,7 @@ export async function seedDefaultProfile(directory: string) {
     "speech-caret-002",
     "speech-caret-003",
     "speech-caret-004",
+    "speech-caret-006",
   ]) {
     writeFileSync(
       join(mockSessionDir, `${speechSessionId}.jsonl`),

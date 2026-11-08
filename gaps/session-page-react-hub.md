@@ -85,6 +85,12 @@ its own commit with a test, and one a user could see is asked about. Proposals
    header, composer footer and pop-ups are components, and the header's
    actions and project move menu are hooks. `SessionPage.tsx` went from
    5,157 to 3,909 lines.
+8. **The message box's send routes.** Not move-only. The message box's
+   eight send functions become one route-driven `deliver`, with its
+   decisions as plain tested functions and its effects in a hook, and the
+   differences between the copies that had no reason behind them unified.
+   In progress in
+   [plan 184](../docs/tactical/184-message-box-send-routes.md).
 
 Ownership and slice rows: [doc 058](../docs/tactical/058-typescript-module-boundary-refactor.md),
 priority-queue item 2. The broader hub-growth record is

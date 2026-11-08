@@ -3383,6 +3383,167 @@ describe("MessageInput", () => {
     expect(onQueue).toHaveBeenCalledOnce();
   });
 
+  // Every delivery pressed while dictation is still settling sets the draft
+  // aside and sends it, with its speech prefix, once the transcript lands,
+  // leaving what the user typed meanwhile in the box
+  // (docs/tactical/184-message-box-send-routes.md slice 0).
+  const dictatedRoutes: {
+    name: string;
+    props: () => Partial<ComponentProps<typeof MessageInput>>;
+    press: (textarea: HTMLElement) => void;
+    target: keyof ComponentProps<typeof MessageInput>;
+    intent: string;
+    extra?: Record<string, unknown>;
+    targetArgument?: unknown;
+  }[] = [
+    {
+      name: "steer (Enter while the agent works)",
+      props: () => ({
+        onSend: vi.fn(),
+        onQueue: vi.fn(),
+        supportsSteering: true,
+      }),
+      press: (textarea) => fireEvent.keyDown(textarea, { key: "Enter" }),
+      target: "onSend",
+      intent: "steer",
+    },
+    {
+      name: "topic shift",
+      props: () => {
+        versionState.version = {
+          ...versionState.version,
+          capabilities: [
+            ...(versionState.version?.capabilities ?? []),
+            PATIENT_TOPIC_SHIFT_CAPABILITY,
+          ],
+          clientDefaults: { topicShiftCompactAtPercent: 60 },
+        };
+        return { onQueue: vi.fn() };
+      },
+      press: () =>
+        fireEvent.click(screen.getByLabelText("toolbarTopicShiftLabel")),
+      // Today the replay forgets the topic shift and queues plainly.
+      target: "onQueue",
+      intent: "deferred",
+    },
+    {
+      name: "Project Queue",
+      props: () => ({ onProjectQueue: vi.fn() }),
+      press: () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: /^Queue for Project Queue/ }),
+        ),
+      target: "onProjectQueue",
+      intent: "deferred",
+    },
+    {
+      name: "Project Queue new session",
+      props: () => ({
+        onProjectQueue: vi.fn(),
+        onProjectQueueNewSession: vi.fn(),
+      }),
+      press: () =>
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: /^Queue as new session for Project Queue/,
+          }),
+        ),
+      target: "onProjectQueueNewSession",
+      intent: "deferred",
+    },
+    {
+      name: "Steer (Ctrl+Enter while Queue is the main action)",
+      props: () => {
+        versionState.version = {
+          ...versionState.version,
+          clientDefaults: { busyComposerDefaultAction: "queue" },
+        };
+        return { onSend: vi.fn(), onQueue: vi.fn(), supportsSteering: true };
+      },
+      press: (textarea) =>
+        fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true }),
+      target: "onSend",
+      intent: "steer",
+    },
+    {
+      name: "Project Queue new session in a chosen project",
+      props: () => ({
+        onProjectQueueNewSession: vi.fn(),
+        projectQueueNewSessionTarget: {
+          projectId: "project-1",
+          provider: "claude",
+          model: "test-model",
+        },
+      }),
+      press: () => {
+        fireEvent.contextMenu(
+          screen.getByRole("button", {
+            name: /^Queue as new session for Project Queue/,
+          }),
+        );
+        fireEvent.change(
+          screen.getByLabelText("newSessionQueueOptionsProject"),
+          { target: { value: "project-2" } },
+        );
+        fireEvent.click(
+          screen.getByRole("button", { name: "newSessionQueueOptionsSubmit" }),
+        );
+      },
+      target: "onProjectQueueNewSession",
+      intent: "deferred",
+      targetArgument: {
+        projectId: "project-2",
+        provider: "claude",
+        model: "test-model",
+        projectName: "Elsewhere",
+      },
+    },
+  ];
+  for (const route of dictatedRoutes) {
+    it(`sends a dictated draft by ${route.name} once speech settles`, async () => {
+      const props = route.props();
+      const textarea = renderMessageInput(vi.fn(), {
+        ...props,
+      }) as HTMLTextAreaElement;
+      const target = props[route.target] as ReturnType<typeof vi.fn>;
+      fireEvent.change(textarea, { target: { value: "typed words" } });
+
+      voiceButtonState.isListening = true;
+      act(() => {
+        voicePropsState.current?.onListeningStart?.();
+        voicePropsState.current?.onPendingSpeechChange?.("listening");
+      });
+      route.press(textarea);
+      expect(mockVoiceStopAndFinalize).toHaveBeenCalledOnce();
+      expect(target).not.toHaveBeenCalled();
+      expect(textarea.value).toBe("");
+      fireEvent.change(textarea, { target: { value: "next turn draft" } });
+
+      act(() => {
+        voiceButtonState.isListening = false;
+        voicePropsState.current?.onPendingSpeechChange?.("finalizing");
+        voicePropsState.current?.onTranscript?.("spoken words");
+        voicePropsState.current?.onPendingSpeechChange?.(null, "completed");
+      });
+
+      await waitFor(() => {
+        expectSubmission(
+          target,
+          "[ASR] typed words spoken words",
+          route.intent,
+        );
+      });
+      if (route.extra) {
+        expect(target.mock.calls.at(-1)?.[1]).toMatchObject(route.extra);
+      }
+      if (route.targetArgument) {
+        expect(target.mock.calls.at(-1)?.[2]).toEqual(route.targetArgument);
+      }
+      expect(target).toHaveBeenCalledOnce();
+      expect(textarea.value).toBe("next turn draft");
+    });
+  }
+
   it("restores a detached speech draft without replacing newer text", () => {
     const onSend = vi.fn();
     const textarea = renderMessageInput(vi.fn(), {
