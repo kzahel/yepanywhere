@@ -70,11 +70,14 @@ export function UsageCount({ className }: { className: string | undefined }) {
 
 export function CensusRow({
   sample,
+  becomes,
   label,
   counted,
   note,
 }: {
   sample: ReactNode;
+  /** What the legacy sample turns into, shown after an arrow. */
+  becomes?: ReactNode;
   label: string;
   counted?: string;
   note?: string;
@@ -82,6 +85,12 @@ export function CensusRow({
   return (
     <div className={styles.row}>
       <div className={styles.sample}>{sample}</div>
+      {becomes ? (
+        <div className={styles.becomes}>
+          <span aria-hidden="true">→</span>
+          {becomes}
+        </div>
+      ) : null}
       <div className={styles.meta}>
         <code>{label}</code>
         <UsageCount className={counted} />

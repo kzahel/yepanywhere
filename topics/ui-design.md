@@ -166,11 +166,14 @@ The playground's pages:
   how many reads lack a fallback, and their CSS sites.
 - **Controls/Button:** every variant, size and state of the shared button
   family.
-- **Census/Buttons** and **Census/Switches and segmented controls:** the
-  canonical variants (the shared `Button` for buttons; census prototypes in
-  `design/census/` for switches and segmented controls), the mapped legacy
-  styles grouped by the variant they become, every unmapped global class,
-  and every matching CSS Module class, each rendered standalone. Global class counts are static whole-token
+- **Census/Buttons:** every global and CSS Module button class, grouped by
+  its destination in `design/census/mapping.ts` (a shared variant,
+  `ButtonBase`, a later family, composer-excluded, or dead), each legacy
+  sample beside the shared control it becomes; and an **Unmapped** state
+  listing any button class the census finds without a row.
+- **Census/Switches and segmented controls:** the census prototypes in
+  `design/census/` beside the mapped legacy styles, every unmapped global
+  class and every matching CSS Module class, each rendered standalone. Global class counts are static whole-token
   counts in production TypeScript, served by a dev-only Vite plugin and
   refreshed when sources change; classes built at runtime are not seen.
 

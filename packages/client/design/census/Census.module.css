@@ -60,6 +60,14 @@
   min-width: 0;
 }
 
+.becomes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 8rem;
+  color: var(--text-muted);
+}
+
 .meta {
   flex: 1 1 16rem;
   display: grid;

@@ -5,7 +5,7 @@ Topic: ui-design
 Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census
 and the shared `Button`/`IconButton`/`ButtonBase` have landed. Next: the
-rest of the button slice (mapping, screen tour, batches). Composer controls
+rest of the button slice (screen tour, batches). Composer controls
 are excluded from it and get their own later pass.
 
 ## Why
@@ -81,6 +81,9 @@ of slightly different styles.
 - **Shared buttons** (`src/components/ui/Button.tsx`, Controls/Button page):
   `Button`, `IconButton`, `ButtonBase` and `buttonClassName`, built from the
   census prototypes, which the button census now renders instead.
+- **Button mapping:** every global (54) and CSS Module (80) button class
+  has a destination in `design/census/mapping.ts`; Census/Buttons shows
+  each beside what it becomes, and its Unmapped state is empty.
 - **Button and switch census:** proposed canonical variants beside every
   mapped legacy style, unmapped global classes with live use counts from a
   dev-only Vite plugin, and every matching CSS Module class. Proposed
