@@ -56,12 +56,12 @@ shared, and how risky it is to touch today.
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
-   easier to verify. Phase 4 below holds the slice rows. Slice 4.4 moved live
-   event conversion out on 2026-11-08 (`codex.ts` 8,235 -> 6,060 lines). The
-   remaining move-only rows are 4.7 (failure trace), 4.8 (approvals) and 4.1
-   (app-server client). Row 4.9 is the higher-value lifecycle change and
-   needs its own plan: most of the file's recent churn sits in the session
-   controls and the turn loop, not in the code that moves.
+   easier to verify. Phase 4 below holds the slice rows. On 2026-11-08
+   slices 4.4 (live event conversion), 4.7 (failure trace), 4.8 (approvals)
+   and 4.1 (app-server client) took `codex.ts` from 8,235 to 4,621 lines.
+   Row 4.9 is the higher-value lifecycle change and needs its own plan: most
+   of the file's recent churn sits in the session controls and the turn
+   loop, not in the code that moved.
 4. **Supervisor and Process** (server). Both are about 6,500-7,000 lines and
    load-bearing. They come after item 1 because the launch service moves
    launch assembly out of their callers first, which shows where their own
@@ -387,7 +387,7 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 
 | Slice | Status | Target | Intent | Tripwires / Notes |
 |---|---|---|---|---|
-| 4.1 | Not started | `sdk/providers/codex.ts` app-server client | Move `CodexAppServerClient`, JSON-RPC queueing, process termination, and raw request helpers into focused modules. | Tripwire matrix: Codex row. Run Codex provider tests and server E2E. The JSON-RPC wire types already live in `codex-json-rpc.ts` (slice 4.4) and the `log` wrapper in `codex-log.ts` (slice 4.8). Moves with `AsyncQueue`, `CodexNotificationReceipt` and the `terminateChildProcess` helpers. The provider-wide termination copies are recorded in `gaps/process-group-signalling-copies.md`; this row keeps Codex's own sequence unchanged. |
+| 4.1 | Done 2026-11-08 | `sdk/providers/codex.ts` app-server client | Move `CodexAppServerClient`, JSON-RPC queueing and process termination into `codex-app-server-client.ts`. | Tripwire matrix: Codex row. Run Codex provider tests and server E2E. The JSON-RPC wire types already live in `codex-json-rpc.ts` (slice 4.4) and the `log` wrapper in `codex-log.ts` (slice 4.8). Moved with `AsyncQueue`, `CodexNotificationReceipt`, the `terminateChildProcess` helpers and their three timing constants (580 lines). The model-list probe's raw requests and their request-id constants stay in `codex.ts`, which imports `terminateChildProcess` for that probe. The provider-wide termination copies are recorded in `gaps/process-group-signalling-copies.md`; this row keeps Codex's own sequence unchanged. |
 | 4.2 | Done 2026-07-06 | Codex model catalog helpers | Move fallback model data, semver parsing, model sorting, and model metadata normalization. | App-server process/query/cache ownership stayed in `codex.ts`; focused catalog tests pin fallback selection and normalized ordering. |
 | 4.3 | Done 2026-07-06 | Codex notification guards | Move `as*Notification` guards and raw notification classifiers into a protocol module. | Guard-only extraction; approval request param guards stay in `codex.ts`. Focused guard tests and existing Codex provider fixtures preserve stream/persisted conversion behavior. |
 | 4.4 | Done 2026-11-08 | Codex live event conversion | Move the stateless conversion: item normalization and item-to-SDK conversion to `codex-item-conversion.ts`; notification/raw-response conversion, live streaming state and builders, turn usage and error request-id extraction to `codex-live-event-conversion.ts`; JSON-RPC wire types to `codex-json-rpc.ts`. | Re-scoped from "live turn state": the per-turn runtime state, live-delta suppression and replay stay in `runSession`. The two conversion modules are split because one would exceed the 1,500-line new-file ceiling, and the live module imports the item module, never the reverse. The live, durable and Codex OSS copies of the conversion disagree; see `gaps/codex-conversion-three-copies.md`. |
@@ -456,6 +456,55 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.1 — Codex App-Server Client (Landed 2026-11-08, this commit)
+
+Moved:
+- App-server process IO -> new
+  `packages/server/src/sdk/providers/codex-app-server-client.ts`:
+  `CodexAppServerClient`, `AsyncQueue`, `AppServerRequestHandler`,
+  `CodexNotificationReceipt`, `isProcessTargetRunning`,
+  `waitForProcessTargetExit`, `terminateChildProcess`, and the termination
+  timings `APP_SERVER_SHUTDOWN_GRACE_MS`, `APP_SERVER_FORCE_KILL_WAIT_MS` and
+  `APP_SERVER_EXIT_POLL_MS`.
+- These were module-level declarations, so nothing was dedented or
+  rewrapped. Only `CodexAppServerClient` and `terminateChildProcess` gained
+  `export`. `codex.ts` uses the client throughout and calls
+  `terminateChildProcess` from the model-list probe, which keeps its raw
+  requests and the `APP_SERVER_INIT_REQUEST_ID` and
+  `APP_SERVER_MODEL_LIST_REQUEST_ID` constants.
+- The module imports the JSON-RPC types, `codex-log.ts` (slice 4.8) and the
+  session sandbox type, never `codex.ts`. `codex.ts` went from 5,187 to 4,621
+  lines.
+
+Signature conversions:
+- None. A whitespace-insensitive comparison of every moved declaration with
+  its original matches once `export` is ignored.
+
+Behavior changes:
+- None. Spawn options, the process-group termination sequence and its
+  timings, queue close and abort handling, and log lines are unchanged.
+  `gaps/process-group-signalling-copies.md` still records how other
+  providers differ.
+
+Verification:
+- Tier 1: server `tsc --noEmit` (`tsconfig.json`,
+  `tsconfig.tool-display-tests.json`); `tsconfig.test.json` shows no errors
+  in the touched files; file-scoped `node scripts/biome.cjs check`;
+  `git diff --check`; the slice 4.7 focused `vitest` set: 71 files, 1,080
+  passed, 10 skipped.
+- Also ran `pnpm lint`, `pnpm format:check` and `pnpm typecheck`: passed.
+- Tier 3 (tripwire: Codex row and server E2E): `pnpm test:e2e:sdk` passed (8
+  files, 80 tests, 4 skipped). Its real-provider `/btw` fork smoke needs
+  `BTW_ASIDE_PROVIDER_SMOKE=true` and returned early in that run.
+  `pnpm test:providers` passed (6 files, 22 tests, 1 skipped). Its 11
+  Codex cases run the client against the pinned `@openai/codex` executable
+  and the suite's local model server: cancel, cold resume, queued compact,
+  steering, children and retry.
+- `pnpm source:budgets --record` lowered `codex.ts` to 4,621.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 4.8 — Codex Approvals (Landed 2026-11-08, this commit)
 

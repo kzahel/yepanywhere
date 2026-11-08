@@ -115,7 +115,7 @@
       "maxLines": 1615
     },
     "packages/server/src/sdk/providers/codex.ts": {
-      "maxLines": 5187
+      "maxLines": 4621
     },
     "packages/server/src/sdk/providers/grok-acp.ts": {
       "maxLines": 1854
