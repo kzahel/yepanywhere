@@ -325,6 +325,7 @@ and props stable.
 | 2.42 | Done 2026-11-08 | `MessageInput.tsx` send routes | Give the message box one send route ([plan 184](184-message-box-send-routes.md) slice 1). | Not move-only, under plan 184: the eight send functions become one synchronous `deliver(route)`, with its decisions in `lib/composerDelivery.ts` (unit-tested), and the differences between the copies that had no reason behind them unified (plan 184 C1 to C9: fork mode delivers only forks; a press that cannot deliver sets nothing aside; `!!` runs from every route but the forks and a bare `!!` does nothing; empty text is never prefixed; a dictated draft keeps its whole route and comes back if refused; voice auto-send takes the main action's route). Budget `MessageInput.tsx` 4,023 -> 3,616; the decisions module is 200 lines. Tier 3, plus plan 184's slice 0 pins. |
 | 2.43 | Done 2026-11-08 | `MessageInput.tsx` delivery hook | Move the message box's delivery into a feature hook ([plan 184](184-message-box-send-routes.md) slice 2). | Move-only apart from parameters: `deliver`, setting a dictated draft aside and replaying or restoring it, the question aside submission, the touch delivery handlers and voice auto-send move into `hooks/useComposerDelivery.ts`, called where the delivery stood, before `useComposerSpeechHandlers`. The five refs only delivery uses move with it; 42 box values become inputs of the same names. Dependency lists gain only refs and setters that became inputs. Budget `MessageInput.tsx` 3,616 -> 3,185; the hook is 675 lines. Tier 3, plus plan 184's slice 0 pins. |
 | 2.44 | Done 2026-11-08 | `SessionPage.tsx` attachment state | Move the page's composer attachment state into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 1). | Move-only: the attachment list and its ref, upload progress, the in-flight uploads, the draft batch and hydration refs, the edit blocker, the navigation guard, the draft write, `setComposerAttachments`, the unmount preview cleanup, `ensureDraftAttachmentBatchId` and `materializeComposerAttachments` move verbatim into `hooks/useSessionComposerAttachments.ts`, called where the edit blocker stood, so the effects keep their order. The state moves later in the hook order; nothing between reads it. Two input refs joined three dependency lists, and a `biome.json` `stableResult` entry keeps the page's lists as they were. Budget `SessionPage.tsx` 3,903 -> 3,803; the hook is 179 lines. Tier 3, plus plan 187's slice 0 pins. |
+| 2.45 | Done 2026-11-08 | `SessionPage.tsx` correction draft | Move the page's correction draft into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 2). | Move-only apart from two effect splits: the correction state and its set-aside draft ref, Cancel, the two correction effects, Edit latest message and the recall move verbatim into `hooks/useSessionCorrectionDraft.ts`, called where Cancel stood, right after the session reset. The set-aside draft's unmount cleanup and the reset's `setCorrectionDraft(null)` become the hook's own effects; the page is keyed by session, so the reset runs only on mount (see the landing note). The state moves later and the recall earlier in the hook order. Three input refs joined four dependency lists. Budget `SessionPage.tsx` 3,803 -> 3,714; the hook is 182 lines. Tier 3, plus plan 187's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -467,6 +468,70 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.45 — Session Page Correction Draft (Landed 2026-11-08, this commit)
+
+Move-only apart from two effect splits.
+[Plan 187](187-session-page-draft-hooks.md) slice 2.
+
+Moved to new `packages/client/src/hooks/useSessionCorrectionDraft.ts`, as
+`useSessionCorrectionDraft`, called where `handleCancelCorrection` stood,
+right after the page's session reset effect:
+- `correctionDraft` and `preCorrectionDraftRef`. They moved later in the
+  hook order, past everything up to the call; the only readers in between
+  were the two lines split out below.
+- `handleCancelCorrection`, the effect that drops the set-aside draft when
+  a correction ends, the effect that cancels an untouched recalled
+  correction on a parked page, and `handleCorrectLatestUserMessage`.
+- `handleRecallLastSubmission`, from after `useSessionQueuedMessageActions`;
+  it is a `useCallback`, and its inputs are declared long before.
+- `SessionPage.tsx` 3,803 -> 3,714 lines; the hook is 182.
+
+Effect splits (each half verbatim):
+- The unmount cleanup in `useSessionComposerAttachments` revoked the
+  composer's previews and then the set-aside draft's. The second call is
+  now this hook's own unmount-only effect, so the attachment hook drops
+  its `preCorrectionDraftRef` input and dependency. React runs unmount
+  cleanups in declaration order, so the composer's previews are still
+  revoked first.
+- The session reset's first line, `setCorrectionDraft(null)`, is now this
+  hook's reset effect, right after its unmount cleanup, keyed on
+  `sessionId` and running right after the page's reset in the same commit.
+  `SessionPageContent` is keyed by `sessionId`, so both run only on mount
+  (and StrictMode's development re-run), when the correction is already
+  `null`; the original effect's other dependencies are stable, so the new
+  one runs exactly as often.
+
+Signature conversions (closure -> parameter):
+- The hook takes `attachmentsRef`, `deferredMessages`, `draftControlsRef`,
+  `isDomLingerParked`, `lastComposerSubmissionRef`, `sessionId` and
+  `setComposerAttachments`; `t` and `showToast` come from the context
+  hooks inside. It returns `correctionDraft`, `setCorrectionDraft` (the
+  send module and the queued-message actions end a correction),
+  `handleCancelCorrection`, `handleCorrectLatestUserMessage` and
+  `handleRecallLastSubmission`.
+- Dependency lists gain only input refs: `draftControlsRef` in
+  `handleCancelCorrection`; `draftControlsRef` and `attachmentsRef` in the
+  parked-cancel effect and `handleCorrectLatestUserMessage`; and those two
+  with `lastComposerSubmissionRef` in `handleRecallLastSubmission`. Refs
+  keep their identity, so nothing is rebuilt or re-run more often.
+- `biome.json` declares `setCorrectionDraft` stable for the new hook.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 580 passed, 13 skipped, 5 failed:
+  `artifact-viewer.spec.ts:136`, the known failure, and the three that
+  fail at `558f978dd` without this plan (see slice 2.44); and
+  `provider-steering.spec.ts:12`, which passed 3 of 3 run alone at this
+  commit and passed in the next slice's full run. Plan 187's
+  pins pass at this commit.
+- A script compared the moved lines, in order, with the hook's body,
+  whitespace aside: the only differences are the two effect wrappers and
+  the dependency entries above.
 
 ### Slice 2.44 — Session Page Attachment State (Landed 2026-11-08, this commit)
 

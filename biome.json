@@ -154,6 +154,10 @@
           "options": {
             "hooks": [
               {
+                "name": "useSessionCorrectionDraft",
+                "stableResult": ["setCorrectionDraft"]
+              },
+              {
                 "name": "useSessionComposerAttachments",
                 "stableResult": [
                   "attachmentsRef",

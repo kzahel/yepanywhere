@@ -21,6 +21,7 @@ import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
 import { useSessionComposerAttachments } from "../hooks/useSessionComposerAttachments";
+import { useSessionCorrectionDraft } from "../hooks/useSessionCorrectionDraft";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
 import { useSessionHeaderActions } from "../hooks/useSessionHeaderActions";
@@ -217,9 +218,7 @@ import {
 import { parseThinkingConfig } from "../lib/sourceControlNavigationState";
 import type { MessageSubmissionMetadata } from "../types/messageSubmission";
 import {
-  type ComposerAttachment,
   isComposerStagedAttachment,
-  revokeAttachmentPreviewUrls,
   toPersistedStagedAttachmentRef,
 } from "../lib/sessionComposerAttachments";
 import {
@@ -1011,15 +1010,6 @@ function SessionPageContent({
       !(projectAppEnabled && projectAppOpen),
     draftControlsRef,
   );
-  const [correctionDraft, setCorrectionDraft] = useState<{
-    messageId: string;
-    originalText: string;
-    recalled?: boolean;
-  } | null>(null);
-  const preCorrectionDraftRef = useRef<{
-    text: string;
-    attachments: ComposerAttachment[];
-  } | null>(null);
   const { questionAsidesEnabled } = useQuestionAsideSetting();
   const questionSourceApi = useMemo(
     () =>
@@ -1083,7 +1073,6 @@ function SessionPageContent({
   } = useSessionComposerAttachments({
     composerEditAvailabilityStore,
     draftControlsRef,
-    preCorrectionDraftRef,
     projectId,
     sessionId,
     sourceTransport,
@@ -1602,7 +1591,6 @@ function SessionPageContent({
 
   useEffect(() => {
     void sessionId;
-    setCorrectionDraft(null);
     setComposerAttachments([], {
       persistDraft: false,
       revokeRemovedPreviewUrls: true,
@@ -1614,57 +1602,21 @@ function SessionPageContent({
     draftAttachmentHydrationRef.current += 1;
   }, [resetBtwAsides, sessionId, setComposerAttachments]);
 
-  const handleCancelCorrection = useCallback(() => {
-    const previous = preCorrectionDraftRef.current;
-    preCorrectionDraftRef.current = null;
-    setCorrectionDraft(null);
-    draftControlsRef.current?.setDraft(previous?.text ?? "");
-    setComposerAttachments(previous?.attachments ?? [], {
-      revokeRemovedPreviewUrls: true,
-    });
-  }, [setComposerAttachments]);
-
-  useEffect(() => {
-    if (!correctionDraft && preCorrectionDraftRef.current) {
-      revokeAttachmentPreviewUrls(preCorrectionDraftRef.current.attachments);
-      preCorrectionDraftRef.current = null;
-    }
-  }, [correctionDraft]);
-
-  useEffect(() => {
-    if (
-      isDomLingerParked &&
-      correctionDraft?.recalled &&
-      draftControlsRef.current?.getDraft() === correctionDraft.originalText &&
-      attachmentsRef.current.length === 0
-    ) {
-      handleCancelCorrection();
-    }
-  }, [isDomLingerParked, correctionDraft, handleCancelCorrection]);
-
-  const handleCorrectLatestUserMessage = useCallback(
-    (messageId: string, content: string) => {
-      const draftControls = draftControlsRef.current;
-      if (!draftControls) {
-        showToast(
-          t("sessionCorrectionEditFailed", {
-            message: "Composer is not available",
-          }),
-          "error",
-        );
-        return;
-      }
-
-      preCorrectionDraftRef.current ??= {
-        text: draftControls.getDraft(),
-        attachments: [...attachmentsRef.current],
-      };
-      draftControls.setDraft(content);
-      setComposerAttachments([]);
-      setCorrectionDraft({ messageId, originalText: content });
-    },
-    [setComposerAttachments, showToast, t],
-  );
+  const {
+    correctionDraft,
+    setCorrectionDraft,
+    handleCancelCorrection,
+    handleCorrectLatestUserMessage,
+    handleRecallLastSubmission,
+  } = useSessionCorrectionDraft({
+    attachmentsRef,
+    deferredMessages,
+    draftControlsRef,
+    isDomLingerParked,
+    lastComposerSubmissionRef,
+    sessionId,
+    setComposerAttachments,
+  });
 
   // Approval panel collapsed state (separate from message input collapse)
   const [approvalCollapsed, setApprovalCollapsed] = useState(false);
@@ -2051,47 +2003,6 @@ function SessionPageContent({
     setComposerAttachments,
     setCorrectionDraft,
   });
-
-  const handleRecallLastSubmission = useCallback((): boolean => {
-    const lastSubmission = lastComposerSubmissionRef.current;
-    if (!lastSubmission?.text.trim()) {
-      return false;
-    }
-
-    const draftControls = draftControlsRef.current;
-    if (!draftControls) {
-      return false;
-    }
-
-    // A still-queued message is left alone. Submitting leaves focus in the
-    // empty composer, so ↑ meant to scroll would otherwise unqueue it; the
-    // chip's Edit and cancel controls are the explicit ways to change it
-    // (topics/queued-messages.md).
-    if (
-      lastSubmission.kind === "queued" &&
-      deferredMessages.some(
-        (message) => message.tempId === lastSubmission.tempId,
-      )
-    ) {
-      return false;
-    }
-
-    preCorrectionDraftRef.current ??= {
-      text: draftControls.getDraft(),
-      attachments: [...attachmentsRef.current],
-    };
-    draftControls.setDraft(lastSubmission.text);
-    setComposerAttachments([], { revokeRemovedPreviewUrls: true });
-    setCorrectionDraft({
-      messageId:
-        lastSubmission.kind === "sent"
-          ? lastSubmission.id
-          : lastSubmission.tempId,
-      originalText: lastSubmission.text,
-      recalled: true,
-    });
-    return true;
-  }, [deferredMessages, setComposerAttachments]);
 
   const handleModelChanged = useCallback(
     (next: {

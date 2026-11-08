@@ -37,17 +37,12 @@ import type { DraftControls } from "./useDraftPersistence";
 export function useSessionComposerAttachments({
   composerEditAvailabilityStore,
   draftControlsRef,
-  preCorrectionDraftRef,
   projectId,
   sessionId,
   sourceTransport,
 }: {
   composerEditAvailabilityStore: ComposerEditAvailabilityStore;
   draftControlsRef: RefObject<DraftControls | null>;
-  preCorrectionDraftRef: RefObject<{
-    text: string;
-    attachments: ComposerAttachment[];
-  } | null>;
   projectId: string;
   sessionId: string;
   sourceTransport: ReturnType<typeof useCurrentSourceRuntime>["transport"];
@@ -131,11 +126,8 @@ export function useSessionComposerAttachments({
   useEffect(() => {
     return () => {
       revokeAttachmentPreviewUrls(attachmentsRef.current);
-      revokeAttachmentPreviewUrls(
-        preCorrectionDraftRef.current?.attachments ?? [],
-      );
     };
-  }, [preCorrectionDraftRef]);
+  }, []);
 
   const ensureDraftAttachmentBatchId = useCallback(() => {
     const existing =
