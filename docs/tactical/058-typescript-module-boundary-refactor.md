@@ -296,6 +296,7 @@ and props stable.
 | 2.30 | Done 2026-11-07 | `NewSessionForm.tsx` start module | Move the New Session start's and Project Queue's bodies into a plain start module ([plan 180](180-new-session-options-and-start.md) slice 5). | Move-only apart from turning closure reads into deps objects and moving three types the module needs: the bodies of `handleStartSession` and `handleQueueProjectSession` move verbatim into `startNewSession` and `queueNewSessionForProject` in new `lib/newSessionStart.ts`. The form keeps `handleStartSession` as a `useCallback` with its dependency list unchanged and `handleQueueProjectSession` as a plain arrow. No behavior change. Budget `NewSessionForm.tsx` 3,628 -> 3,135; the module is 953 lines. Tier 3, plus plan 180's slice 0 pins. |
 | 2.31 | Done 2026-11-08 | `SessionPage.tsx` fork, clone, handoff and copy | Move the page's fork, clone, handoff and copy actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 1). | Move-only: the fork-summary draft and its refs, the fork, clone, fork-summary and handoff callbacks, the auto-open effect, `copyUserMessage` and the `messageKey` helper move verbatim into `hooks/useSessionForkActions.ts`, called right after `activityRenderItems`. The draft state moves later in the hook order; no effect changes order. `draftControlsRef` joined four dependency lists (a ref). Budget `SessionPage.tsx` 6,560 -> 6,142; the hook is 575 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.32 | Done 2026-11-08 | `SessionPage.tsx` queued-message actions | Move the page's actions on deferred, recovered and Project Queue messages into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 2). | Move-only: the thirteen handlers, `restoreQueuedMessageToComposer` and the `isMissingDeferredQueueEntryError` helper move verbatim into `hooks/useSessionQueuedMessageActions.ts`, called where they stood. Callbacks only, so no order change. Five refs and `setCorrectionDraft` joined dependency lists (see the landing note). Budget `SessionPage.tsx` 6,142 -> 5,819; the hook is 493 lines. Tier 3, plus plan 181's slice 0 pins. |
+| 2.33 | Done 2026-11-08 | `SessionPage.tsx` title editing | Move the page's rename field, generated retitle and `/title` command into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 3). | Move-only: the editing state and refs, `attachTitleInput`, the retitle ref sync effect, the title handlers, the two Escape and parked-cancel effects and the `TitleEditMode` and `GeneratedRetitleState` types move verbatim into `hooks/useSessionTitleEditing.ts`, called where the handlers began. The state and the ref sync effect move later in the hook order; the ref sync is not observable (see the landing note). No dependency list changed. Budget `SessionPage.tsx` 5,819 -> 5,546; the hook is 379 lines. Tier 3, plus plan 181's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -429,6 +430,64 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.33 — Session Page Title Editing (Landed 2026-11-08, this commit)
+
+Moved:
+- The title editing state (`isEditingTitle`, `renamePresentation`,
+  `titleEditMode`, `renameValue`, `isRenaming`, `generatedRetitle`), its
+  refs, `attachTitleInput`, the `generatedRetitleRef` sync effect,
+  `setRetitleState`, `invalidateGeneratedRetitle`,
+  `focusAndSelectTitleInput`, `captureGeneratedRetitleInsertion`,
+  `saveTitleValue`, `handleStartEditingTitle`, `handleStartRetitleTitle`,
+  `handleGenerateAndApplyTitle`, `handleLocalTitleCommand`,
+  `handleCancelEditingTitle` and its ref, `handleTitleBlur`,
+  `handleSaveTitle`, `handleAcceptGeneratedRetitle`, `handleTitleKeyDown`,
+  the parked-cancel and window Escape effects, and the `TitleEditMode` and
+  `GeneratedRetitleState` types -> `useSessionTitleEditing` in new
+  `packages/client/src/hooks/useSessionTitleEditing.ts`. It returns the
+  state the markup reads, `saveTitleValue` and the handlers.
+- Stays in the page: the optimistic metadata (`localCustomTitle` and its
+  siblings), `quoteFromTranscript`, the `/v` command and the title
+  markup.
+
+Signature conversions (closure -> parameter):
+- The hook takes `projectId`, `sessionId`, `displayTitle`,
+  `condensedHeader`, `titleRowRef`, `setShowRecentSessions`,
+  `supportsTitleGeneration`, `routedSession`, `generatedTitleLength`,
+  `draftControlsRef`, `setLocalCustomTitle` and `isDomLingerParked`, all
+  declared before the call, and reads `t` and `showToast` from their
+  contexts. The handlers stay plain functions, so their identity changes
+  every render, as before.
+- The `/title` wrapper given to the send module still calls
+  `handleLocalTitleCommand` when it runs, now the hook's.
+- Order: the state moves from before the recent-sessions state to the
+  call, and the `generatedRetitleRef` sync effect moves after the effects
+  declared between. It only copies state into a ref that `setRetitleState`
+  (the only caller of `setGeneratedRetitle`) also writes synchronously, and
+  the ref is read only by the retitle response and the accept handler, so
+  the move is not observable. The two Escape and parked-cancel effects keep
+  their order.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 553 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136` (below). `session-header-responsive.spec.ts`
+  covers rename typing during live updates. `artifact-viewer.spec.ts:136`
+  fails the same way in a full run at `e770fca38` (517 passed, 13 skipped, 1
+  failed) and passes alone; it is recorded in the artifact viewer gap. Tier
+  3 ran before review folded pin and doc fixes into slice 0; the source at
+  this slice is unchanged by them, and plan 181's slice 0 pins (37 cases)
+  pass at this commit.
+- `pnpm i18n:scan` reports nothing in the new hook. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `e770fca38` (from `5e86a07b3`).
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.32 — Session Page Queued-Message Actions (Landed 2026-11-08, this commit)
 
