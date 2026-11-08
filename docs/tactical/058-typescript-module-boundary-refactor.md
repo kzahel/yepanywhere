@@ -393,7 +393,7 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 | 4.4 | Done 2026-11-08 | Codex live event conversion | Move the stateless conversion: item normalization and item-to-SDK conversion to `codex-item-conversion.ts`; notification/raw-response conversion, live streaming state and builders, turn usage and error request-id extraction to `codex-live-event-conversion.ts`; JSON-RPC wire types to `codex-json-rpc.ts`. | Re-scoped from "live turn state": the per-turn runtime state, live-delta suppression and replay stay in `runSession`. The two conversion modules are split because one would exceed the 1,500-line new-file ceiling, and the live module imports the item module, never the reverse. The live, durable and Codex OSS copies of the conversion disagree; see `gaps/codex-conversion-three-copies.md`. |
 | 4.5 | Done 2026-07-06 | Codex recap/summary helpers | Move recap prompts, fork-backed summary prompt/params, retitle prompt, helper model selection, text cleanup, and summary capture helpers. | App-server orchestration and non-turn request decline behavior stayed in `codex.ts`; focused helper/provider/render-parity tests preserve provider-visible prompts and summary output behavior. |
 | 4.6 | Done 2026-07-06 | OpenCode provider model helpers | Move OpenCode model selection, local-GLM model descriptions, and verbose variant parsing. | Provider process/HTTP/SSE orchestration and message conversion stayed in `opencode.ts`; no Claude/OpenCode shared abstraction introduced. |
-| 4.7 | Not started | Codex failure trace | Move the failure-trace recorder, snapshot/format helpers and the notification/SDK-message trace descriptions (`recordCodexFailureTraceEvent` through `previewTraceString`) into `codex-failure-trace.ts`. | About 370 lines. They use no provider state; besides each other, the trace constants and interfaces that move with them, and the `codex-notification-guards.ts` guards, they read only the conversion modules' `getOptionalString`, `normalizeStatus`, `extractErrorRecord`, `extractOpenAIRequestId` and `stringifyTraceValue`. Move-only, Tier 1 plus the Codex provider tests. |
+| 4.7 | Done 2026-11-08 | Codex failure trace | Move the failure-trace recorder, snapshot/format helpers and the notification/SDK-message trace descriptions (`recordCodexFailureTraceEvent` through `previewTraceString`) into `codex-failure-trace.ts`. | 368 lines. They use no provider state; besides each other, the trace constants and interfaces that move with them, and the `codex-notification-guards.ts` guards, they read only the conversion modules' `getOptionalString`, `normalizeStatus`, `extractErrorRecord`, `extractOpenAIRequestId` and `stringifyTraceValue`. `runSession` imports the recorder, snapshot, format and describe functions and the `CodexFailureTrace` type. Move-only, Tier 1 plus the Codex provider tests. |
 | 4.8 | Not started | Codex approvals | Move `handleServerRequestApproval`, the approval decision/permission-response helpers and the approval request param guards (`as*RequestApprovalParams`, `asToolRequestUserInputParams`) into `codex-approvals.ts`. | About 500 lines. `normalizePermissionMode` becomes an explicit dependency (the permitted dependency-parameter conversion). The guards were left out of slice 4.3 on purpose and belong here. The Codex approval tests pin the decisions. |
 | 4.9 | Needs plan | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). Tier 3. |
 
@@ -456,6 +456,54 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.7 — Codex Failure Trace (Landed 2026-11-08, this commit)
+
+Moved:
+- Failure trace -> new
+  `packages/server/src/sdk/providers/codex-failure-trace.ts`:
+  `CODEX_FAILURE_TRACE_LIMIT`, `CODEX_FAILURE_PREVIEW_CHARS`,
+  `CodexFailureTraceEvent`, `CodexFailureTrace`,
+  `recordCodexFailureTraceEvent`, `snapshotCodexFailureTrace`,
+  `formatCodexFailureTrace`, `formatCodexTraceEvent`,
+  `describeNotificationForFailureTrace`, `describeSDKMessageForFailureTrace`,
+  `inferTraceItemTypeFromDeltaEvent`, `normalizeCodexItemType`,
+  `getTraceToolName`, `getTraceCommandFromInput` and `previewTraceString`.
+- The module imports the item and live conversion modules, the notification
+  guards and the JSON-RPC types, never `codex.ts`. `codex.ts` went from
+  6,060 to 5,711 lines.
+
+Signature conversions:
+- The 11 moved private `CodexProvider` methods became module functions:
+  `private name(` -> `function name(`, and `this.name(`/`provider.name(`
+  -> `name(`. The parameters did not change. `runSession` imports the five it
+  calls and the `CodexFailureTrace` type; the other six are module-private.
+- No test reached these methods directly, so no test changed. The
+  `codexFailureTrace` assertion in `codex.test.ts` exercises them through
+  `runSession`.
+- A whitespace-insensitive comparison of every moved block with its original
+  matches once `this.`, `private`, `export`, `function` and formatter
+  trailing commas are ignored.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 1: server `tsc --noEmit` (`tsconfig.json`,
+  `tsconfig.tool-display-tests.json`); `tsconfig.test.json` shows no errors
+  in the touched files; file-scoped `node scripts/biome.cjs check`;
+  `git diff --check`; focused `vitest run test/sdk/providers/
+  test/render-parity.test.ts test/codex-dynamic-results.test.ts test/codex/
+  test/captured-provider.test.ts test/simple-client-*.test.ts
+  test/tool-display-native.test.ts`: 71 files, 1,080 passed, 10 skipped.
+- Also ran `pnpm lint`, `pnpm format:check` and `pnpm typecheck`: passed.
+- `pnpm source:budgets --record` lowered `codex.ts` to 5,711. It also
+  lowered four budgets to the committed lengths that earlier commits had not
+  recorded: `NewSessionForm.tsx` 3,123, `app.ts` 4,624,
+  `ProjectQueueService.ts` 1,532 and `shared/src/app-types.ts` 1,504.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 4.4 — Codex Live Event Conversion (Landed 2026-11-08, this commit)
 

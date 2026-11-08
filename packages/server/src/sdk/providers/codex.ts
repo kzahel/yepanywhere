@@ -158,6 +158,14 @@ import {
   isCodexLiveDeltaSuppressionEnabled,
   readCodexTurnErrorDetail,
 } from "./codex-notification-guards.js";
+import {
+  type CodexFailureTrace,
+  describeNotificationForFailureTrace,
+  describeSDKMessageForFailureTrace,
+  formatCodexFailureTrace,
+  recordCodexFailureTraceEvent,
+  snapshotCodexFailureTrace,
+} from "./codex-failure-trace.js";
 import { CodexProviderWorkTracker } from "./codex-provider-work.js";
 import {
   captureCodexSummaryTextFromNotification,
@@ -193,7 +201,6 @@ import {
   getOptionalString,
   isResultBackedThreadItem,
   logSdkCorrelationDebug,
-  normalizeStatus,
   normalizeThreadItem,
   withCodexTimestamp,
 } from "./codex-item-conversion.js";
@@ -201,10 +208,8 @@ import {
   type TokenUsageSnapshot,
   convertNotificationToSDKMessages,
   createLiveEventState,
-  extractErrorRecord,
   extractOpenAIRequestId,
   extractTurnUsage,
-  stringifyTraceValue,
 } from "./codex-live-event-conversion.js";
 import type {
   JsonRpcError,
@@ -253,8 +258,6 @@ const APP_SERVER_MODEL_LIST_REQUEST_ID = 2;
 const APP_SERVER_SHUTDOWN_GRACE_MS = 1500;
 const APP_SERVER_FORCE_KILL_WAIT_MS = 1000;
 const APP_SERVER_EXIT_POLL_MS = 25;
-const CODEX_FAILURE_TRACE_LIMIT = 12;
-const CODEX_FAILURE_PREVIEW_CHARS = 240;
 const CODEX_SERVER_OVERLOAD_RETRY_LIMIT = 16;
 const CODEX_SERVER_OVERLOAD_RETRY_SCALE_MS = 5000;
 const CODEX_SERVER_OVERLOAD_RETRY_MAX_DELAY_MS = 180_000;
@@ -683,36 +686,6 @@ async function terminateChildProcess(
   ) {
     throw new Error(`Failed to terminate Codex app-server PID ${pid}`);
   }
-}
-
-interface CodexFailureTraceEvent {
-  at: string;
-  sourceEvent: string;
-  turnId?: string;
-  itemId?: string;
-  itemType?: string;
-  status?: string;
-  phase?: string;
-  toolName?: string;
-  command?: string;
-  deltaChars?: number;
-  outputChars?: number;
-  errorMessage?: string;
-  codexErrorInfo?: unknown;
-  additionalDetails?: string | null;
-  openaiRequestId?: string;
-}
-
-interface CodexFailureTrace {
-  sessionId?: string;
-  activeTurnId?: string | null;
-  lastUserMessage?: {
-    uuid?: string;
-    chars: number;
-  };
-  lastNotification?: CodexFailureTraceEvent;
-  lastEmittedMessage?: CodexFailureTraceEvent;
-  recentNotifications: CodexFailureTraceEvent[];
 }
 
 /**
@@ -3390,9 +3363,9 @@ export class CodexProvider implements AgentProvider {
             }
           }
           provider.updateBackgroundProcessTracking(notification, runtimeState);
-          provider.recordCodexFailureTraceEvent(
+          recordCodexFailureTraceEvent(
             failureTrace,
-            provider.describeNotificationForFailureTrace(notification),
+            describeNotificationForFailureTrace(notification),
           );
 
           // Resume replays token usage for the last persisted turn, possibly
@@ -3455,10 +3428,8 @@ export class CodexProvider implements AgentProvider {
               rawMsg.type === "error"
                 ? ({
                     ...rawMsg,
-                    codexFailureTrace:
-                      provider.snapshotCodexFailureTrace(failureTrace),
-                    codexFailureSummary:
-                      provider.formatCodexFailureTrace(failureTrace),
+                    codexFailureTrace: snapshotCodexFailureTrace(failureTrace),
+                    codexFailureSummary: formatCodexFailureTrace(failureTrace),
                   } as SDKMessage)
                 : rawMsg;
             if (retryableKind && msg.type === "error") {
@@ -3477,7 +3448,7 @@ export class CodexProvider implements AgentProvider {
               msg._codexOwnedCommand = true;
             }
             failureTrace.lastEmittedMessage =
-              provider.describeSDKMessageForFailureTrace(msg);
+              describeSDKMessageForFailureTrace(msg);
             yield msg;
           }
 
@@ -3525,8 +3496,8 @@ export class CodexProvider implements AgentProvider {
             codexAdditionalDetails: readCodexTurnErrorDetail(turn.error),
             codexWillRetry: false,
             codexTurnId: turn.id,
-            codexFailureTrace: provider.snapshotCodexFailureTrace(failureTrace),
-            codexFailureSummary: provider.formatCodexFailureTrace(failureTrace),
+            codexFailureTrace: snapshotCodexFailureTrace(failureTrace),
+            codexFailureSummary: formatCodexFailureTrace(failureTrace),
             codexRequestId: extractOpenAIRequestId(
               turn.error,
               turn.error.additionalDetails,
@@ -3953,7 +3924,7 @@ export class CodexProvider implements AgentProvider {
         await messageGen.return?.();
       }
     } catch (error) {
-      const codexFailureTrace = this.snapshotCodexFailureTrace(failureTrace);
+      const codexFailureTrace = snapshotCodexFailureTrace(failureTrace);
       if (!signal.aborted) {
         log.error(
           { error, codexFailureTrace },
@@ -3969,7 +3940,7 @@ export class CodexProvider implements AgentProvider {
           session_id: sessionId,
           error: error instanceof Error ? error.message : String(error),
           codexFailureTrace,
-          codexFailureSummary: this.formatCodexFailureTrace(codexFailureTrace),
+          codexFailureSummary: formatCodexFailureTrace(codexFailureTrace),
         } as SDKMessage;
       }
     } finally {
@@ -5161,326 +5132,6 @@ export class CodexProvider implements AgentProvider {
     effort: string | null | undefined,
   ): string | null {
     return effort ? `effort ${effort}` : null;
-  }
-
-  private recordCodexFailureTraceEvent(
-    trace: CodexFailureTrace,
-    event: CodexFailureTraceEvent,
-  ): void {
-    trace.lastNotification = event;
-    trace.recentNotifications.push(event);
-    if (trace.recentNotifications.length > CODEX_FAILURE_TRACE_LIMIT) {
-      trace.recentNotifications.splice(
-        0,
-        trace.recentNotifications.length - CODEX_FAILURE_TRACE_LIMIT,
-      );
-    }
-  }
-
-  private snapshotCodexFailureTrace(
-    trace: CodexFailureTrace,
-  ): CodexFailureTrace {
-    return {
-      sessionId: trace.sessionId,
-      activeTurnId: trace.activeTurnId,
-      lastUserMessage: trace.lastUserMessage
-        ? { ...trace.lastUserMessage }
-        : undefined,
-      lastNotification: trace.lastNotification
-        ? { ...trace.lastNotification }
-        : undefined,
-      lastEmittedMessage: trace.lastEmittedMessage
-        ? { ...trace.lastEmittedMessage }
-        : undefined,
-      recentNotifications: trace.recentNotifications.map((event) => ({
-        ...event,
-      })),
-    };
-  }
-
-  private formatCodexFailureTrace(trace: CodexFailureTrace): string {
-    const lastNotification = trace.lastNotification
-      ? this.formatCodexTraceEvent(trace.lastNotification)
-      : "none";
-    const lastEmitted = trace.lastEmittedMessage
-      ? this.formatCodexTraceEvent(trace.lastEmittedMessage)
-      : "none";
-    return `last notification: ${lastNotification}; last emitted SDK message: ${lastEmitted}`;
-  }
-
-  private formatCodexTraceEvent(event: CodexFailureTraceEvent): string {
-    const details = [
-      event.sourceEvent,
-      event.itemType,
-      event.toolName,
-      event.status,
-      event.phase,
-      event.command ? `command=${event.command}` : undefined,
-      event.errorMessage ? `error=${event.errorMessage}` : undefined,
-      event.openaiRequestId ? `requestId=${event.openaiRequestId}` : undefined,
-    ].filter(Boolean);
-    return details.join(" ");
-  }
-
-  private describeNotificationForFailureTrace(
-    notification: JsonRpcNotification,
-  ): CodexFailureTraceEvent {
-    const base = (event: Omit<CodexFailureTraceEvent, "at">) => ({
-      at: new Date().toISOString(),
-      ...event,
-    });
-
-    switch (notification.method) {
-      case "item/started":
-      case "item/completed": {
-        const params =
-          notification.method === "item/started"
-            ? asCodexItemStartedNotification(notification.params)
-            : asCodexItemCompletedNotification(notification.params);
-        const item =
-          params?.item && typeof params.item === "object"
-            ? (params.item as Record<string, unknown>)
-            : null;
-        return base({
-          sourceEvent: notification.method,
-          turnId: params?.turnId,
-          itemId:
-            getOptionalString(item?.id) ??
-            getOptionalString((item as { call_id?: unknown })?.call_id) ??
-            undefined,
-          itemType: this.normalizeCodexItemType(getOptionalString(item?.type)),
-          status: normalizeStatus(item?.status),
-          phase:
-            notification.method === "item/completed" ? "completed" : "started",
-          toolName: this.getTraceToolName(item) ?? undefined,
-          command: this.previewTraceString(
-            getOptionalString(item?.command) ??
-              getOptionalString(item?.aggregated_output) ??
-              getOptionalString(item?.aggregatedOutput),
-          ),
-        });
-      }
-
-      case "item/agentMessage/delta":
-      case "item/plan/delta":
-      case "item/reasoning/summaryTextDelta":
-      case "item/commandExecution/outputDelta":
-      case "item/fileChange/outputDelta": {
-        const params =
-          notification.params && typeof notification.params === "object"
-            ? (notification.params as Record<string, unknown>)
-            : null;
-        const delta = getOptionalString(params?.delta);
-        return base({
-          sourceEvent: notification.method,
-          turnId: getOptionalString(params?.turnId) ?? undefined,
-          itemId: getOptionalString(params?.itemId) ?? undefined,
-          itemType: this.inferTraceItemTypeFromDeltaEvent(notification.method),
-          phase: "delta",
-          deltaChars: delta?.length,
-          outputChars: delta?.length,
-        });
-      }
-
-      case "rawResponseItem/completed": {
-        const params = asCodexRawResponseItemCompletedNotification(
-          notification.params,
-        );
-        const item =
-          params?.item && typeof params.item === "object"
-            ? (params.item as Record<string, unknown>)
-            : null;
-        return base({
-          sourceEvent: notification.method,
-          turnId: params?.turnId,
-          itemId:
-            getOptionalString(item?.id) ??
-            getOptionalString(item?.call_id) ??
-            undefined,
-          itemType: this.normalizeCodexItemType(getOptionalString(item?.type)),
-          phase: "completed",
-          toolName: this.getTraceToolName(item) ?? undefined,
-        });
-      }
-
-      case "thread/tokenUsage/updated": {
-        const params =
-          notification.params && typeof notification.params === "object"
-            ? (notification.params as Record<string, unknown>)
-            : null;
-        return base({
-          sourceEvent: notification.method,
-          turnId: getOptionalString(params?.turnId) ?? undefined,
-          phase: "usage",
-        });
-      }
-
-      case "turn/completed": {
-        const params = asCodexTurnCompletedNotification(notification.params);
-        return base({
-          sourceEvent: notification.method,
-          turnId: params?.turn.id,
-          status: params?.turn.status,
-          phase: "completed",
-          errorMessage: params?.turn.error?.message,
-          codexErrorInfo: params?.turn.error?.codexErrorInfo ?? undefined,
-          additionalDetails:
-            readCodexTurnErrorDetail(params?.turn.error) ?? undefined,
-          openaiRequestId: extractOpenAIRequestId(
-            params?.turn.error,
-            params?.turn.error?.additionalDetails,
-            params?.turn.error?.message,
-          ),
-        });
-      }
-
-      case "error": {
-        const params = asCodexErrorNotification(notification.params);
-        const fallbackError = extractErrorRecord(notification.params);
-        const rawParams =
-          notification.params && typeof notification.params === "object"
-            ? (notification.params as Record<string, unknown>)
-            : null;
-        const willRetry =
-          params?.willRetry ??
-          (typeof rawParams?.willRetry === "boolean"
-            ? rawParams.willRetry
-            : false);
-        const errorMessage =
-          params?.error.message ??
-          getOptionalString(fallbackError?.message) ??
-          "Codex turn failed";
-        return base({
-          sourceEvent: notification.method,
-          turnId: params?.turnId,
-          phase: willRetry ? "retrying" : "terminal",
-          errorMessage,
-          codexErrorInfo:
-            params?.error.codexErrorInfo ??
-            fallbackError?.codexErrorInfo ??
-            undefined,
-          additionalDetails:
-            readCodexTurnErrorDetail(params?.error) ??
-            getOptionalString(fallbackError?.additionalDetails) ??
-            undefined,
-          openaiRequestId: extractOpenAIRequestId(
-            notification.params,
-            fallbackError,
-            errorMessage,
-          ),
-        });
-      }
-
-      default:
-        return base({ sourceEvent: notification.method });
-    }
-  }
-
-  private describeSDKMessageForFailureTrace(
-    message: SDKMessage,
-  ): CodexFailureTraceEvent {
-    const event: CodexFailureTraceEvent = {
-      at: new Date().toISOString(),
-      sourceEvent: `sdk:${message.type}`,
-      phase: typeof message.subtype === "string" ? message.subtype : undefined,
-    };
-
-    if (message.error !== undefined) {
-      event.errorMessage = this.previewTraceString(
-        typeof message.error === "string"
-          ? message.error
-          : stringifyTraceValue(message.error),
-      );
-      event.openaiRequestId = extractOpenAIRequestId(message.error);
-    }
-
-    const content = message.message?.content;
-    if (typeof content === "string") {
-      event.outputChars = content.length;
-      return event;
-    }
-    if (!Array.isArray(content)) {
-      return event;
-    }
-
-    const interestingBlock = content.find(
-      (block) =>
-        block.type === "tool_use" ||
-        block.type === "tool_result" ||
-        block.type === "thinking",
-    );
-    if (!interestingBlock) {
-      return event;
-    }
-
-    event.itemType = interestingBlock.type;
-    if (interestingBlock.type === "tool_use") {
-      event.itemId = interestingBlock.id;
-      event.toolName = interestingBlock.name;
-      event.command = this.previewTraceString(
-        this.getTraceCommandFromInput(interestingBlock.input),
-      );
-    } else if (interestingBlock.type === "tool_result") {
-      event.itemId = interestingBlock.tool_use_id;
-      event.outputChars = interestingBlock.content?.length;
-    } else if (interestingBlock.type === "thinking") {
-      event.outputChars = interestingBlock.thinking?.length;
-    }
-
-    return event;
-  }
-
-  private inferTraceItemTypeFromDeltaEvent(method: string): string | undefined {
-    if (method.includes("commandExecution")) return "command_execution";
-    if (method.includes("fileChange")) return "file_change";
-    if (method.includes("reasoning")) return "reasoning";
-    if (method.includes("plan")) return "plan";
-    if (method.includes("agentMessage")) return "agent_message";
-    return undefined;
-  }
-
-  private normalizeCodexItemType(type: string | null): string | undefined {
-    return type?.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-  }
-
-  private getTraceToolName(
-    item: Record<string, unknown> | null,
-  ): string | null {
-    if (!item) return null;
-    const type = this.normalizeCodexItemType(getOptionalString(item.type));
-    if (type === "command_execution") return "Bash";
-    if (type === "file_change") return "Edit";
-    if (type === "web_search") return "WebSearch";
-    if (type === "mcp_tool_call") {
-      const server = getOptionalString(item.server);
-      const tool = getOptionalString(item.tool);
-      return server && tool ? `${server}:${tool}` : (tool ?? null);
-    }
-    if (type === "dynamic_tool_call") {
-      const namespace = getOptionalString(item.namespace);
-      const tool = getOptionalString(item.tool);
-      return namespace && tool ? `${namespace}:${tool}` : (tool ?? null);
-    }
-    return getOptionalString(item.name);
-  }
-
-  private getTraceCommandFromInput(input: unknown): string | null {
-    if (!input || typeof input !== "object") return null;
-    const record = input as Record<string, unknown>;
-    return (
-      getOptionalString(record.command) ?? getOptionalString(record.cmd) ?? null
-    );
-  }
-
-  private previewTraceString(
-    value: string | null | undefined,
-  ): string | undefined {
-    if (!value) return undefined;
-    const trimmed = value.replace(/\s+/g, " ").trim();
-    if (trimmed.length <= CODEX_FAILURE_PREVIEW_CHARS) {
-      return trimmed;
-    }
-    return `${trimmed.slice(0, CODEX_FAILURE_PREVIEW_CHARS)}...`;
   }
 
   private async handleServerRequestApproval(
