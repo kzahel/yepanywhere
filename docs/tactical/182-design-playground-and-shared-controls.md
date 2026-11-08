@@ -93,7 +93,8 @@ of slightly different styles.
   594 raw buttons to swap and 129 left for later families (30 menu, 36
   option, 13 switch, 3 tab, 47 composer).
 - **Button family done (2026-11-08):** every button outside the composer
-  is on `Button`, `IconButton`, `ButtonBase` or `buttonClassName`: the
+  and the allowlisted later-family controls is on `Button`, `IconButton`,
+  `ButtonBase` or `buttonClassName`: the
   settings batch, then modals and other pages, the session view and other
   components, and renderers, blocks and the extension side panel (about 600
   buttons in 190 files). Variants follow one rule (topic, "Buttons"), also
@@ -102,10 +103,14 @@ of slightly different styles.
   `copy-button`, `login-button`, `load-older-button`, the share, revoke,
   queue and commit-browser buttons, …, about 700 lines), and rules on
   classes kept for layout lost their look properties. `IconButton` gained
-  `tooltip` for tooltips that say more than the name. `pnpm buttons:check`
-  in `pnpm lint` is the ban; its allowlist holds the menu, tab, option and
-  segmented buttons and module rules that later families own, the
-  composer's, and the crash fallback page.
+  `tooltip` for tooltips that say more than the name, and the controls a
+  `dense` size for transcript rows. `pnpm buttons:check` in `pnpm lint` is
+  the ban; its allowlist holds the menu, tab, option and segmented buttons
+  and rules that later families own, the composer's, the crash fallback
+  page and 15 pre-existing `role="button"` elements. A second review
+  (Opus, 2026-11-08) found no blockers; its fixes covered dense rows, touch
+  overflow, specificity ties, the ban's gaps and these docs. The screen
+  tour gained a touch-phone pass.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

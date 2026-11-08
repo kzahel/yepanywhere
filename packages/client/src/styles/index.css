@@ -1336,12 +1336,15 @@ body.session-transcript-selection-active .reload-banner * {
   user-select: none;
 }
 
-/* Sidebar Toggle Button (replaces back button) */
+/* Sidebar toggle: layout for all; the look only for the <a> launchers. */
 .sidebar-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+a.sidebar-toggle {
   color: var(--text-muted);
   padding: var(--space-1);
   border-radius: var(--radius-sm);
@@ -1353,7 +1356,7 @@ body.session-transcript-selection-active .reload-banner * {
     background 0.15s;
 }
 
-.sidebar-toggle:hover {
+a.sidebar-toggle:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
@@ -2920,9 +2923,8 @@ a.sidebar-nav-item {
   pointer-events: none;
 }
 
-/* Block-level flex so margin-left: auto right-aligns the button inside the
-   block .text-block while keeping the control's centered content. */
-.show-more-btn {
+/* Parent-scoped to outrank .button; block flex lets margin right-align. */
+.text-block > .show-more-btn {
   display: flex;
   margin-left: auto;
   margin-top: 0.25rem;
@@ -7631,7 +7633,8 @@ a.sidebar-nav-item {
   padding-left: var(--space-4);
 }
 
-.providers-additional-models-trigger {
+/* Row-scoped so it outranks the shared .button rule. */
+.providers-additional-models-setting .providers-additional-models-trigger {
   display: inline-flex;
   min-width: 9rem;
   align-items: center;
@@ -8520,17 +8523,13 @@ a.sidebar-nav-item {
   font-size: var(--font-size-base);
 }
 
-.settings-search-pane-title button {
-  border: none;
-  background: transparent;
-  padding: 0;
-  font: inherit;
+.settings-search-pane-link {
+  font-size: inherit;
   font-weight: 600;
   color: var(--text-secondary);
-  cursor: pointer;
 }
 
-.settings-search-pane-title button:hover {
+.settings-search-pane-link:hover {
   color: var(--text-primary);
 }
 

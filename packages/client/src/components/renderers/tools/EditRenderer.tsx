@@ -934,7 +934,7 @@ function DiffModalContent({
           <span className="diff-context-path">{displayPath}</span>
         )}
         {canExpandContext && (
-          <Button onClick={handleToggle} disabled={loading}>
+          <Button onClick={handleToggle} busy={loading}>
             {loading
               ? "Loading..."
               : showFullContext

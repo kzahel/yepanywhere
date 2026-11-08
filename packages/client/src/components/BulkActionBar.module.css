@@ -47,8 +47,12 @@
     gap: var(--space-1);
   }
 
-  .actionButton {
+  /* Stacked icon and label are taller than the control's 32 px minimum;
+     give them padding and let the button grow. Doubled so it outranks the
+     shared .button padding regardless of stylesheet order. */
+  .actionButton.actionButton {
     flex-direction: column;
+    padding-block: var(--space-1);
   }
 
   .actionButton svg {

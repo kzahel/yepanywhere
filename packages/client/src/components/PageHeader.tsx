@@ -64,7 +64,11 @@ export function PageHeader({
       >
         <div className="session-header-left">
           {showBack && onBack ? (
-            <IconButton label={t("actionBack")} onClick={onBack}>
+            <IconButton
+              label={t("actionBack")}
+              className="sidebar-toggle"
+              onClick={onBack}
+            >
               <BackIcon />
             </IconButton>
           ) : (

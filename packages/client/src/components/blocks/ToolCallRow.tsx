@@ -1930,7 +1930,7 @@ function ToolHeaderCopyButton({
   return (
     <IconButton
       variant="outline"
-      size="small"
+      size="dense"
       className={`tool-header-copy ${copied ? "copied" : ""}`}
       onClick={(event) => {
         event.preventDefault();

@@ -2,25 +2,30 @@
  * The button ban (plan 182, family 1, step 5). Rejects, in the client's
  * production sources:
  *
- * 1. a legacy button class from design/census/mapping.ts that no global
- *    stylesheet styles any more (its rules were deleted when its uses
- *    reached zero, or it never had any), in TS/TSX or a CSS Module;
- * 2. a raw `<button>` outside src/components/ui/, unless it belongs to a
- *    later family (a menu, tab, option or radio role, an option-picker or
- *    switch class, the composer's files) or its file is in the allowlist
- *    with at least that many;
- * 3. a CSS Module rule whose selector reaches a bare `button` element
- *    (`.panel button`, not `button.own`) and sets
- *    look properties (background, border, color, padding, font, radius,
- *    height, shadow). Such a rule outranks ButtonBase's zero-specificity
- *    reset and ties with Button's variants, so a shared control under it
- *    loses its look. Modules of src/components/ui/ and the composer are
- *    exempt; others need an allowlist entry.
+ * 1. a banned legacy button class in TS/TSX or a CSS Module: every class
+ *    from design/census/mapping.ts that no global stylesheet styles, plus
+ *    the classes recorded in the allowlist's `bannedClasses`, so restoring
+ *    a deleted rule does not lift the ban;
+ * 2. a raw `<button>` outside src/components/ui/Button.tsx, unless it
+ *    belongs to a later family (a menu, tab, option or radio role, a named
+ *    option-picker or switch class, the composer's files) or its file is
+ *    in the allowlist with at least that many;
+ * 3. an element with `role="button"` beyond the allowlist: a real button
+ *    (ButtonBase) gets keyboard and focus behavior for free;
+ * 4. a CSS rule, in a CSS Module or a global stylesheet, whose selector
+ *    reaches a bare `button` element (`.panel button`, not `button.own`)
+ *    and sets look or size properties (background, border, color, padding,
+ *    font, radius, width, height, outline, shadow). Such a rule outranks
+ *    ButtonBase's zero-specificity reset and ties with Button's variants,
+ *    so a shared control under it loses its look, size or focus ring.
+ *    Button.module.css and the composer's modules are exempt.
  *
  * The allowlist (design/census/button-allowlist.json) gives each entry a
- * count and a reason. A count may only fall: `--record` lowers counts to
- * what the scan finds and drops entries that reach zero; it never raises
- * one or adds a file.
+ * count and a reason; a later family inherits the entries that name it.
+ * A count may only fall: `--record` lowers counts to what the scan finds,
+ * drops entries that reach zero and adds newly rule-less legacy classes to
+ * `bannedClasses`; it never raises a count or adds a file. Counts are per
+ * file, so a file may trade one allowed button for another.
  *
  *   pnpm -s buttons:check            check
  *   pnpm -s buttons:check --record   lower the allowlist after a swap
@@ -36,11 +41,11 @@ import { clientRoot } from "./design-index";
 
 const help = `Usage: pnpm -s buttons:check [--record]
 
-Reject legacy button classes whose global rules are gone, raw <button>s
-outside src/components/ui/ and the later families, and CSS Module rules
-that style a button element's look. Exceptions live in
-packages/client/design/census/button-allowlist.json with a count and a
-reason; --record lowers those counts to the current scan.`;
+Reject banned legacy button classes, raw <button>s outside
+src/components/ui/Button.tsx and the later families, role="button"
+elements, and CSS rules that style a bare button element's look. Exceptions
+live in packages/client/design/census/button-allowlist.json with a count
+and a reason; --record lowers those counts to the current scan.`;
 
 const { values } = parseArgs({
   options: {
@@ -60,13 +65,19 @@ interface AllowEntry {
   count: number;
   reason: string;
 }
-interface Allowlist {
-  rawButtons: Record<string, AllowEntry>;
-  moduleButtonLooks: Record<string, AllowEntry>;
+type AllowSection = "rawButtons" | "roleButtons" | "buttonLookRules";
+interface Allowlist extends Record<AllowSection, Record<string, AllowEntry>> {
+  bannedClasses: string[];
 }
 
+const GLOBAL_STYLESHEETS = [
+  "styles/index.css",
+  "styles/renderers.css",
+  "styles/tool-rows.css",
+];
+
 const LOOK_PROPERTY =
-  /^(?:background(?:-color|-image)?|border(?:-[a-z-]+)?|color|padding(?:-[a-z-]+)?|font(?:-[a-z-]+)?|min-height|height|box-shadow|appearance)$/;
+  /^(?:background(?:-color|-image)?|border(?:-[a-z-]+)?|color|padding(?:-[a-z-]+)?|font(?:-[a-z-]+)?|(?:min-)?(?:height|width)|outline(?:-[a-z-]+)?|box-shadow|appearance)$/;
 /**
  * A bare `button` type selector (`.panel button`, `button:hover`), not a
  * class or id that contains the word. `button.own` is the owner styling its
@@ -95,15 +106,20 @@ function lineAt(text: string, index: number) {
 
 const problems: string[] = [];
 
-// 1. Legacy classes without rules.
+const allowlist = JSON.parse(
+  await readFile(allowlistPath, "utf8"),
+) as Allowlist;
+
+// 1. Banned legacy classes: rule-less now, or recorded as banned before.
 const declared = await collectDesignData(srcDir);
 const banned = [
-  ...new Set(
-    LEGACY_BUTTONS.flatMap((row) => row.classes.split(/\s+/)).filter(
+  ...new Set([
+    ...allowlist.bannedClasses,
+    ...LEGACY_BUTTONS.flatMap((row) => row.classes.split(/\s+/)).filter(
       (name) => !declared[name],
     ),
-  ),
-];
+  ]),
+].sort();
 const bannedPattern = new RegExp(
   `(?<![\\w-])(?:${banned.map((name) => name.replace(/[-]/g, "\\-")).join("|")})(?![\\w-])`,
   "g",
@@ -123,34 +139,40 @@ if (banned.length) {
       const before = text.slice(lineStart, index);
       // Comments and test ids may name a class; only class lists count.
       if (
-        /^\s*(?:\/\/|\/?\*)/.test(before) ||
+        /^\s*(?:\/\/|\/?\*|\{\/\*)/.test(before) ||
         /data-testid=["'`]$/.test(before)
       )
         continue;
       problems.push(
-        `${srcPath(path)}:${lineAt(text, index)}: legacy button class "${match[0]}" has no rules; use the shared Button controls`,
+        `${srcPath(path)}:${lineAt(text, index)}: legacy button class "${match[0]}" is banned; use the shared Button controls`,
       );
     }
   }
 }
 
-// 2. Raw buttons.
-const allowlist = JSON.parse(
-  await readFile(allowlistPath, "utf8"),
-) as Allowlist;
+// 2 and 3. Raw buttons and role="button" elements.
 const rawCounts = new Map<string, number>();
+const roleCounts = new Map<string, number>();
 for (const row of await scanButtonElements(srcDir)) {
-  if (row.kind !== "raw" || row.file.startsWith("components/ui/")) continue;
+  if (row.kind === "role-button") {
+    roleCounts.set(row.file, (roleCounts.get(row.file) ?? 0) + 1);
+    continue;
+  }
+  if (row.kind !== "raw" || row.file === "components/ui/Button.tsx") continue;
   if (rawButtonFamily(row)) continue;
   rawCounts.set(row.file, (rawCounts.get(row.file) ?? 0) + 1);
 }
 
-// 3. Module rules that style a button element.
+// 4. CSS rules that style a bare button element.
 const lookCounts = new Map<string, number>();
 const lookSites = new Map<string, string[]>();
-for (const path of sources.filter((file) => file.endsWith(".module.css"))) {
+const stylesheets = [
+  ...GLOBAL_STYLESHEETS.map((file) => join(srcDir, file)),
+  ...sources.filter((file) => file.endsWith(".module.css")),
+];
+for (const path of stylesheets) {
   const file = srcPath(path);
-  if (file.startsWith("components/ui/")) continue;
+  if (file === "components/ui/Button.module.css") continue;
   if (COMPOSER_FILE.test(file.replace(/\.module\.css$/, ".tsx"))) continue;
   const text = (await readFile(path, "utf8")).replace(
     /\/\*[\s\S]*?\*\//g,
@@ -158,7 +180,9 @@ for (const path of sources.filter((file) => file.endsWith(".module.css"))) {
   );
   for (const rule of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = (rule[1] ?? "").trim();
-    if (selector.startsWith("@") || !BUTTON_ELEMENT.test(selector)) continue;
+    // `:not(button)` excludes buttons rather than reaching them.
+    const reaching = selector.replace(/:not\([^()]*\)/g, "");
+    if (selector.startsWith("@") || !BUTTON_ELEMENT.test(reaching)) continue;
     const looks = (rule[2] ?? "")
       .split(";")
       .map((declaration) => declaration.split(":")[0]?.trim() ?? "")
@@ -173,7 +197,7 @@ for (const path of sources.filter((file) => file.endsWith(".module.css"))) {
 }
 
 function ratchet(
-  kind: "rawButtons" | "moduleButtonLooks",
+  kind: AllowSection,
   counts: Map<string, number>,
   describe: (file: string, count: number, allowed: number) => string[],
 ) {
@@ -206,12 +230,16 @@ function ratchet(
 ratchet("rawButtons", rawCounts, (file, count, allowed) => [
   `${file}: ${count} raw <button>${count === 1 ? "" : "s"}, ${allowed} allowed; use Button, IconButton or ButtonBase from components/ui/Button (list them: the Census/Buttons "Button elements" page)`,
 ]);
-ratchet("moduleButtonLooks", lookCounts, (file, count, allowed) => [
+ratchet("roleButtons", roleCounts, (file, count, allowed) => [
+  `${file}: ${count} role="button" element${count === 1 ? "" : "s"}, ${allowed} allowed; use ButtonBase, which brings keyboard activation and focus`,
+]);
+ratchet("buttonLookRules", lookCounts, (file, count, allowed) => [
   ...(lookSites.get(file) ?? []),
   `${file}: ${count} rule${count === 1 ? "" : "s"} styling a button element, ${allowed} allowed; style the element through its own class, or ButtonBase`,
 ]);
 
 if (values.record) {
+  allowlist.bannedClasses = banned;
   await writeFile(allowlistPath, `${JSON.stringify(allowlist, null, 2)}\n`);
 }
 if (problems.length) {

@@ -118,13 +118,14 @@ not carry a migration queue.
   runtime class into ASCII word fragments.
 - `pnpm lint` runs `pnpm buttons:check`, the button family's ban
   ([UI design](ui-design.md#shared-controls-and-the-design-playground)). It
-  rejects a legacy button class from `design/census/mapping.ts` that no global
-  stylesheet styles any more, a raw `<button>` outside `src/components/ui/`
-  and the later families (menus, tabs, option pickers, switches, the
-  composer), and a CSS Module rule whose selector reaches a bare `button`
-  element (`.panel button`, `button:hover`) and sets look properties. Such a
-  rule outranks `ButtonBase`'s zero-specificity reset and ties with
-  `Button`'s variants. Exceptions sit in
+  rejects a banned legacy button class (rule-less in `design/census/mapping.ts`
+  or recorded as banned), a raw `<button>` outside `ui/Button.tsx` and the
+  later families (menus, tabs, option pickers, switches, the composer), a new
+  `role="button"` element, and a CSS rule, in a module or a global
+  stylesheet, whose selector reaches a bare `button` element (`.panel
+  button`, `button:hover`) and sets look or size properties. Such a rule
+  outranks `ButtonBase`'s zero-specificity reset and ties with `Button`'s
+  variants. Exceptions sit in
   `packages/client/design/census/button-allowlist.json` with a count and a
   reason; counts only fall, and `--record` lowers them.
 - `pnpm css:unused` remains the investigative global-and-module report. Its
@@ -137,10 +138,10 @@ not carry a migration queue.
 | Command | Role | Exit/write contract |
 |---|---|---|
 | `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
-| `pnpm buttons:check` | Hard button-family ban | Exits 1 for a rule-less legacy button class, a raw `<button>` or a module `button` look rule beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts and drops entries at zero. |
+| `pnpm buttons:check` | Hard button-family ban | Exits 1 for a banned legacy button class, a raw `<button>`, a `role="button"` element or a `button` look rule beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |
-| `pnpm lint` | Combined repository gate | Runs containment, module contracts, CSS lint, and Biome; any child failure fails lint. |
+| `pnpm lint` | Combined repository gate | Runs containment, module contracts, the button ban, CSS lint, and Biome; any child failure fails lint. |
 | `pnpm css:touched` | Advisory feature-diff prompt | Exits 0 for opportunity, deferral, or no matching owner; exits 2 for invalid arguments or a failed git comparison. It never edits files. |
 | `pnpm css:inventory` | Advisory ownership drill-down | A valid report exits 0 and never edits files; invalid arguments exit 2. |
 | `pnpm css:unused` | Advisory dead-code investigation | Exits 1 while potential global dead code or a module contract issue remains. `--dry-run` previews; explicit `--remove` may delete only reviewed global rules, never module selectors. |

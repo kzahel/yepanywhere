@@ -667,8 +667,7 @@ function SourcePublicShareManagerModal({
                       });
                   return (
                     <div className={styles.scopeRow} key={scopeOption}>
-                      <button
-                        type="button"
+                      <ButtonBase
                         className={`${styles.filterButton} ${
                           scope === scopeOption ? styles.filterButtonActive : ""
                         }`}
@@ -680,7 +679,7 @@ function SourcePublicShareManagerModal({
                           <PublicShareFilterIcon kind={scopeOption} />
                         </span>
                         <span>{optionLabel}</span>
-                      </button>
+                      </ButtonBase>
                       <IconButton
                         label={revokeLabel}
                         variant="danger-outline"

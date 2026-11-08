@@ -893,7 +893,11 @@ export function ProjectQueueSection({
                           )}
                           {canPromote && !isEditing && (
                             <Button
+                              variant={forceStart ? "outline" : "secondary"}
                               size="small"
+                              className={
+                                forceStart ? styles.forceStart : undefined
+                              }
                               onClick={() =>
                                 onPromoteNow(item.projectId, item.id, {
                                   force: forceStart,

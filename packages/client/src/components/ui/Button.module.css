@@ -73,6 +73,18 @@
   font-size: var(--font-size-xs);
 }
 
+.dense {
+  min-height: 22px;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+/* Zero specificity: a dense control that its owner positions absolutely
+   (a corner copy button) keeps that position. */
+:where(.dense) {
+  position: relative;
+}
+
 /* Text glyphs (×, ↑) used as icons read at a larger size than labels. */
 .icon {
   width: 32px;
@@ -84,6 +96,11 @@
 .icon.small {
   width: 26px;
   font-size: calc(var(--font-size-base) + 4px);
+}
+
+.icon.dense {
+  width: 22px;
+  font-size: var(--font-size-base);
 }
 
 /* Fingers, not cursors: coarse pointers get a larger hit area. */
@@ -102,6 +119,22 @@
 
   .icon.small {
     width: 36px;
+  }
+
+  /* Dense controls keep their drawn size so their row does not grow; the
+     hit area extends invisibly around them instead. */
+  .dense {
+    min-height: 22px;
+  }
+
+  .icon.dense {
+    width: 22px;
+  }
+
+  .dense::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
   }
 }
 

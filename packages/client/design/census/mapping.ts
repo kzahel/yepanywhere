@@ -75,6 +75,12 @@ export interface ModuleButton {
 
 export const LEGACY_BUTTONS: readonly LegacyButton[] = [
   {
+    classes: "modal-close",
+    counted: "modal-close",
+    to: "base",
+    note: "Modal close and minimize: ButtonBase keeping the global glyph look.",
+  },
+  {
     classes: "btn-primary",
     counted: "btn-primary",
     to: "primary",

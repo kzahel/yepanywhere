@@ -296,7 +296,7 @@ function DiffCommentLayer({
         <IconButton
           label={t("sourceMoreActions")}
           variant="secondary"
-          size="small"
+          size="dense"
           className={styles.menuTrigger}
           style={{ top: activeLine.top }}
           onClick={(event) => {

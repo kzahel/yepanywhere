@@ -619,6 +619,7 @@ export function SidePanel() {
                   </Button>
                 )}
                 <Button
+                  className={styles.startSession}
                   onClick={(event) =>
                     openNewSession(
                       hostPath(target, "new-session"),

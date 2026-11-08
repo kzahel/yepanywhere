@@ -34,7 +34,10 @@ import {
 } from "../../contexts/RenderModeContext";
 import { useOptionalSessionMetadata } from "../../contexts/SessionMetadataContext";
 import { useRemoteBasePath } from "../../hooks/useRemoteBasePath";
-import { useTooltipMode } from "../../hooks/useTooltipAppearance";
+import {
+  getTextTooltipAttributes,
+  useTooltipMode,
+} from "../../hooks/useTooltipAppearance";
 import { toBrowserAppHref } from "../../lib/appHref";
 import { profileRenderWork } from "../../lib/diagnostics/renderProfiler";
 import { annotateGlossaryHtml } from "../../lib/glossary/annotateGlossaryHtml";
@@ -49,6 +52,7 @@ import { makeDisplayPath } from "../../lib/text";
 import { presentToolOutput } from "../../lib/toolOutputPresentation";
 import { FileViewerModal } from "../FilePathLink";
 import { createPublicShareFileViewerSource } from "../publicShareFileViewerSource";
+import { ButtonBase } from "./Button";
 import { RenderModeGlyph } from "./RenderModeGlyph";
 
 interface FixedFontMathToggleProps {
@@ -1305,17 +1309,19 @@ export function FixedFontMathToggle({
         sourceView
       )}
       {rendered.changed && (
-        <button
+        <ButtonBase
           ref={toggleBtnRef}
-          type="button"
           className={`fixed-font-render-toggle__button ${showRendered ? "is-rendered" : ""}`}
           onClick={handleToggleClick}
           aria-label={showRendered ? "Show source" : "Show rendered view"}
-          title={showRendered ? "Show source" : "Show rendered view"}
+          {...getTextTooltipAttributes(
+            showRendered ? "Show source" : "Show rendered view",
+            tooltipMode,
+          )}
           aria-pressed={showRendered}
         >
           <RenderModeGlyph />
-        </button>
+        </ButtonBase>
       )}
       {viewerLink && viewerProjectId !== "" && (
         <FileViewerModal

@@ -1,6 +1,8 @@
 /**
  * Screen tour (plan 182): the main screens in dark and light at desktop and
- * phone sizes, against the isolated E2E server and its fixture profile.
+ * phone sizes, plus a dark touch-phone pass (`isMobile`, `hasTouch`, so
+ * `(pointer: coarse)` rules and their larger hit areas apply), against the
+ * isolated E2E server and its fixture profile.
  *
  * Run before and after a control-family swap batch to review the fallout
  * side by side. On demand only: the `.tour.ts` suffix keeps it out of the
@@ -70,6 +72,8 @@ interface Screen {
 }
 
 const TALL = { name: "tall", width: 1000, height: 2400 } as const;
+/** A phone as a phone: touch input, so coarse-pointer sizing applies. */
+const TOUCH = { name: "touch", width: 375, height: 812 } as const;
 
 const SCREENS: Screen[] = [
   {
@@ -120,8 +124,28 @@ const SCREENS: Screen[] = [
 
 test.use({ serviceWorkers: "block" });
 
+async function capture(
+  page: Page,
+  screen: Screen,
+  url: string,
+  name: string,
+  viewport: { width: number; height: number },
+) {
+  await page.goto(url);
+  await screen.ready(page);
+  // Best effort: settings sections load their data after first paint.
+  await page
+    .waitForLoadState("networkidle", { timeout: 5_000 })
+    .catch(() => {});
+  await page.evaluate(() => document.fonts.ready);
+  // Park the pointer so no hover state or tooltip lands in the shot.
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(300);
+  await recordUiCapture(page, name, viewport);
+}
+
 for (const screen of SCREENS) {
-  test(screen.name, async ({ page, baseURL }) => {
+  test(screen.name, async ({ page, browser, baseURL }) => {
     test.setTimeout(90_000);
     const shots: {
       theme: (typeof THEMES)[number];
@@ -137,21 +161,37 @@ for (const screen of SCREENS) {
         [UI_KEYS.theme, theme] as const,
       );
       await page.setViewportSize(viewport);
-      await page.goto(`${baseURL}${screen.path}`);
-      await screen.ready(page);
-      // Best effort: settings sections load their data after first paint.
-      await page
-        .waitForLoadState("networkidle", { timeout: 5_000 })
-        .catch(() => {});
-      await page.evaluate(() => document.fonts.ready);
-      // Park the pointer so no hover state or tooltip lands in the shot.
-      await page.mouse.move(0, 0);
-      await page.waitForTimeout(300);
-      await recordUiCapture(
+      await capture(
         page,
+        screen,
+        `${baseURL}${screen.path}`,
         `${screen.name}-${theme}-${viewport.name}`,
         viewport,
       );
+    }
+    // Touch emulation is fixed per browser context, so the touch pass gets
+    // its own.
+    const touch = await browser.newContext({
+      viewport: { width: TOUCH.width, height: TOUCH.height },
+      isMobile: true,
+      hasTouch: true,
+      serviceWorkers: "block",
+    });
+    try {
+      const touchPage = await touch.newPage();
+      await touchPage.addInitScript(
+        ([key, value]) => localStorage.setItem(key, value),
+        [UI_KEYS.theme, "dark"] as const,
+      );
+      await capture(
+        touchPage,
+        screen,
+        `${baseURL}${screen.path}`,
+        `${screen.name}-dark-${TOUCH.name}`,
+        TOUCH,
+      );
+    } finally {
+      await touch.close();
     }
   });
 }

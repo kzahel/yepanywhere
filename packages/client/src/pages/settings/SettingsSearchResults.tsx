@@ -213,7 +213,10 @@ function SettingsSearchPane({
   return (
     <section className="settings-search-pane" data-category={category.id}>
       <h3 className="settings-search-pane-title">
-        <ButtonBase onClick={() => onOpenCategory(category.id)}>
+        <ButtonBase
+          className="settings-search-pane-link"
+          onClick={() => onOpenCategory(category.id)}
+        >
           {category.label} ›
         </ButtonBase>
       </h3>

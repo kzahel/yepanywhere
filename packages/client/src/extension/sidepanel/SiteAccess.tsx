@@ -144,7 +144,7 @@ function SiteAccessRequest({
           <Button
             variant="primary"
             onClick={requestSite}
-            disabled={request === "waiting"}
+            busy={request === "waiting"}
           >
             {t("extensionPanelAllowNamedSite", { site })}
           </Button>

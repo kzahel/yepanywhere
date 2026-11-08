@@ -79,10 +79,10 @@ function classify(
 ): ButtonElementKind | undefined {
   if (tag === "button") return "raw";
   if (SHARED_TAGS.has(tag)) return "shared";
+  if (className?.includes("buttonClassName(") && LINK_TAGS.has(tag))
+    return "shared";
   if (role === "button") return "role-button";
   if (!className) return undefined;
-  if (className.includes("buttonClassName(") && LINK_TAGS.has(tag))
-    return "shared";
   if (!BUTTONISH.test(className)) return undefined;
   if (LINK_TAGS.has(tag)) return "link";
   if (tag === "label") return "label";

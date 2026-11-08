@@ -199,6 +199,15 @@
   }
 }
 
+/* Touch screens of any width get the 36 px small controls; the tracks must
+   hold them or the arrows overlap. */
+@media (width <= 600px), (pointer: coarse) {
+  .navigation {
+    grid-template-columns: 44px 48px;
+    grid-template-rows: repeat(2, 36px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .boundary {
     animation: none;
@@ -234,8 +243,6 @@
   }
 
   .navigation {
-    grid-template-columns: 44px 48px;
-    grid-template-rows: repeat(2, 36px);
     margin-left: auto;
   }
 

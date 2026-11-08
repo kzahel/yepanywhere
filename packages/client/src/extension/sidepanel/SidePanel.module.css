@@ -170,6 +170,15 @@
 .newSession button {
   flex: 1 1 auto;
 }
+/* "+ New session on {host}" must wrap in the narrow panel rather than
+   overflow; parent-scoped so it outranks the shared nowrap regardless of
+   stylesheet order. */
+.newSession .startSession {
+  padding-block: 4px;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
 .groupHeading {
   margin: 0 0 2px;
 }
@@ -238,6 +247,7 @@
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   text-align: left;
   font-size: 12px;

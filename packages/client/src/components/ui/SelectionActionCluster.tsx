@@ -4,6 +4,8 @@ import type {
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from "react";
+import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
+import { ButtonBase } from "./Button";
 import styles from "./SelectionActionCluster.module.css";
 
 export const SELECTION_ACTION_BUTTON_SIZE_PX = 30;
@@ -69,6 +71,7 @@ export function SelectionActionButton({
   specimen = false,
 }: SelectionActionButtonProps) {
   const className = `${styles.button} ${KIND_STYLES[kind]} ${specimen ? styles.specimen : ""}`;
+  const tooltip = useTextTooltipAttributes(label);
   if (specimen) {
     return (
       <span
@@ -82,8 +85,8 @@ export function SelectionActionButton({
   }
 
   return (
-    <button
-      type="button"
+    <ButtonBase
+      {...tooltip}
       className={className}
       onMouseDown={(event) => event.preventDefault()}
       onPointerDown={(event) => {
@@ -93,10 +96,9 @@ export function SelectionActionButton({
       onPointerUp={onPointerUp}
       onClick={onClick}
       aria-label={label}
-      title={label}
     >
       {GLYPHS[kind]}
-    </button>
+    </ButtonBase>
   );
 }
 

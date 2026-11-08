@@ -36,7 +36,12 @@ export const BUTTON_VARIANTS = [
   "danger-outline",
 ] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
-export type ButtonSize = "default" | "small";
+/**
+ * `dense` is for controls inside dense rows (transcript tool rows, code
+ * lines, hover-revealed copy actions): 22 px drawn, with a larger invisible
+ * hit area on coarse pointers so the row keeps its height.
+ */
+export type ButtonSize = "default" | "small" | "dense";
 
 const VARIANT_CLASS: Record<ButtonVariant, string | undefined> = {
   primary: styles.primary,
@@ -66,6 +71,7 @@ export function buttonClassName({
     styles.button,
     VARIANT_CLASS[variant],
     size === "small" && styles.small,
+    size === "dense" && styles.dense,
     icon && styles.icon,
     className,
   );

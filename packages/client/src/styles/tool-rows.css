@@ -106,10 +106,6 @@
   box-shadow: 0 0 0 1px var(--border-color, #444);
 }
 
-.timeline-dot-btn:focus-visible {
-  box-shadow: 0 0 0 2px var(--focus-border, #007acc);
-}
-
 /* ==========================================================================
    Tool Call Rows - VS Code Style
    ========================================================================== */

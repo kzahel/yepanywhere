@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import { writeClipboardText } from "../../lib/clipboard";
+import { ButtonBase } from "./Button";
 import styles from "./CopyTextButton.module.css";
 
 interface Props {
@@ -62,19 +64,19 @@ export const CopyTextButton = memo(function CopyTextButton({
     [label, onClick, text],
   );
 
+  const tooltip = useTextTooltipAttributes(copied ? copiedLabel : label);
   return (
-    <button
-      type="button"
+    <ButtonBase
+      {...tooltip}
       className={`${className}${copied ? ` ${copiedClassName}` : ""}`}
       onClick={handleCopy}
       aria-label={copied ? copiedLabel : label}
-      title={copied ? copiedLabel : label}
     >
       {copied ? <CheckIcon /> : <CopyIcon />}
       {showTextLabel && (
         <span className={styles.label}>{copied ? "Copied" : "Copy"}</span>
       )}
-    </button>
+    </ButtonBase>
   );
 });
 

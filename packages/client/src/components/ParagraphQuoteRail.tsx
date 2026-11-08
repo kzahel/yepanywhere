@@ -303,7 +303,7 @@ export function ParagraphQuoteRail({
         paragraphTargets.map((target, index) => (
           <IconButton
             key={target.blockIndex}
-            size="small"
+            size="dense"
             className={`text-block-quote text-block-quote-paragraph ${alwaysShowQuoteCircle ? "always-visible" : ""}`}
             style={{ top: `${target.top + target.height}px` }}
             onClick={() => quoteParagraph(index)}
@@ -314,7 +314,7 @@ export function ParagraphQuoteRail({
         ))
       ) : (
         <IconButton
-          size="small"
+          size="dense"
           className={`text-block-quote text-block-quote-fallback ${alwaysShowQuoteCircle ? "always-visible" : ""}`}
           onClick={handleQuoteBlock}
           label={t("sessionQuoteBlock")}

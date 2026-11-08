@@ -295,7 +295,7 @@
   font-size: var(--font-size-xs);
   font-weight: 400;
   padding: 0.1rem 0.3rem;
-  /* Theme-agnostic translucent chip (reads on both the outline Cancel and the
+  /* Theme-agnostic translucent chip (reads on both the secondary Cancel and the
      solid Submit), de-emphasized so the shortcut hint stays subordinate. */
   background: rgba(127, 127, 127, 0.22);
   border-radius: var(--radius-sm);

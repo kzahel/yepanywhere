@@ -432,7 +432,7 @@ export const TextBlock = memo(function TextBlock({
         {canToggleRendered && (
           <IconButton
             variant="outline"
-            size="small"
+            size="dense"
             className={`text-block-toggle ${showRendered ? "is-rendered" : ""}`}
             onClick={toggleLocalMode}
             label={showRendered ? "Show source" : "Show rendered"}
@@ -443,7 +443,7 @@ export const TextBlock = memo(function TextBlock({
         )}
         <IconButton
           variant="outline"
-          size="small"
+          size="dense"
           className={`text-block-copy ${copied ? "copied" : ""}`}
           onClick={handleCopy}
           label={copied ? "Copied!" : "Copy markdown"}

@@ -327,7 +327,7 @@ export function ReloadBanner({
       </span>
       <span className={styles.actions}>
         <Button
-          variant={showWarning ? "danger" : "primary"}
+          variant={showWarning ? "secondary" : "primary"}
           className={`${styles.button} ${styles.buttonPrimary}`}
           onClick={handleImmediateReloadClick}
           aria-label={primaryReloadLabel}
@@ -365,6 +365,7 @@ export function ReloadBanner({
         )}
         <IconButton
           label={t("reloadBannerDismiss")}
+          className={styles.dismiss}
           onClick={handleDismissClick}
         >
           ×

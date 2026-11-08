@@ -216,7 +216,7 @@ export function ActivityPage() {
             fontSize: "1rem",
           }}
         />
-        <Button onClick={togglePause}>
+        <Button variant="ghost" aria-pressed={paused} onClick={togglePause}>
           {paused ? t("activityResume" as never) : t("activityPause" as never)}
         </Button>
         <Button onClick={clearEvents}>{t("activityClear" as never)}</Button>

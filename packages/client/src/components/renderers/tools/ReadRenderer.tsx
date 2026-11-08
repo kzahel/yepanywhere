@@ -15,6 +15,7 @@ import { useI18n } from "../../../i18n";
 import { useInlineMedia } from "../../../hooks/useInlineMedia";
 import { useQuoteableTextSource } from "../../../hooks/useQuoteableTextSource";
 import { useRemoteImage } from "../../../hooks/useRemoteImage";
+import { useTextTooltipAttributes } from "../../../hooks/useTooltipAppearance";
 import { isMarkdownLikeFile } from "../../../lib/markdownFiles";
 import { useScrollPreservingToggle } from "../../../lib/scrollAnchor";
 import { getPathBasename, makeDisplayPath } from "../../../lib/text";
@@ -39,7 +40,7 @@ import {
   renderFixedFontRichContent,
 } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
-import { ButtonBase, IconButton } from "../../ui/Button";
+import { ButtonBase } from "../../ui/Button";
 import { RenderModeGlyph } from "../../ui/RenderModeGlyph";
 import type {
   ImageFile,
@@ -255,6 +256,8 @@ function FileModalContent({
   const [showMath, setShowMath] = useState(false);
   const { btnRef: mathBtnRef, handleClick: handleMathToggle } =
     useScrollPreservingToggle(showMath, () => setShowMath((v) => !v));
+  const mathToggleLabel = showMath ? "Show source" : "Render math (LaTeX)";
+  const mathToggleTooltip = useTextTooltipAttributes(mathToggleLabel);
 
   const lines = file.content.length > 0 ? file.content.split("\n") : [];
 
@@ -335,17 +338,16 @@ function FileModalContent({
       {showSigma ? (
         <div className="fixed-font-render-toggle">
           {content}
-          <IconButton
+          <ButtonBase
             ref={mathBtnRef}
-            variant="outline"
-            size="small"
             className={`fixed-font-render-toggle__button ${showMath ? "is-rendered" : ""}`}
             onClick={handleMathToggle}
-            label={showMath ? "Show source" : "Render math (LaTeX)"}
+            aria-label={mathToggleLabel}
+            {...mathToggleTooltip}
             aria-pressed={showMath}
           >
             <RenderModeGlyph />
-          </IconButton>
+          </ButtonBase>
         </div>
       ) : (
         content

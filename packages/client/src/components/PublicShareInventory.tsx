@@ -75,7 +75,7 @@ export function PublicShareInventoryRow({
         </span>
         <IconButton
           label={copyAction.label}
-          variant="outline"
+          variant="secondary"
           size="small"
           disabled={copyAction.disabled}
           onClick={copyAction.onClick}

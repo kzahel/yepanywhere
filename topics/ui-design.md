@@ -43,8 +43,11 @@ the reference.
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
 - `Button`: variants `primary` (brand green), `secondary` (the default),
-  `outline`, `ghost`, `danger` and `danger-outline`; sizes `default` and
-  `small`.
+  `outline`, `ghost`, `danger` and `danger-outline`; sizes `default`,
+  `small` and `dense`. `dense` (22 px) is for controls inside dense rows
+  (tool rows, code lines, hover-revealed copy actions): on coarse pointers
+  it keeps its drawn size and extends its hit area invisibly, so the row
+  does not grow.
 - `IconButton`: icon-only; its required `label` is the accessible name and
   the tooltip, following the user's tooltip setting (`data-tooltip` for
   `TooltipLayer` when themed, `title` when native). `tooltip` replaces the
@@ -64,7 +67,7 @@ All of them default `type` to `button`, so none submits a form unless asked,
 pass ordinary button attributes through (including `data-testid`) and take
 `ref`. `busy` shows a spinner, sets `aria-busy` and ignores clicks and form
 submission while keeping focus. Coarse pointers get 44 px (default and
-icon) and 36 px (small) hit areas. A text glyph used as an icon (×, ↑)
+icon) and 36 px (small) controls. A text glyph used as an icon (×, ↑)
 renders larger than label text. A caller's `className` adds layout only
 (margins, flex placement, width); the control owns colors, borders,
 padding, size and type. A caller rule that must override the control's look is compounded
@@ -79,17 +82,28 @@ more", "Copy", "Edit") is `ghost` `small`; an icon-only button is an
 `IconButton`. `outline` remains for the few places that must differ from a
 neighbouring secondary.
 
-Every client button outside the composer is on the shared controls, except
-menu items, tabs, option pickers and switches, which belong to later
-families. `pnpm buttons:check` (part of `pnpm lint`) keeps it so: it rejects
-a legacy button class from `design/census/mapping.ts` whose global rules are
-gone, a raw `<button>` outside `src/components/ui/` and those families, and
-a CSS Module rule that styles a bare `button` element's look
-(`.panel button { background: … }`), which would outrank `ButtonBase`'s
-reset and tie with `Button`'s variants. Remaining exceptions sit in
-`design/census/button-allowlist.json`, each with a count and a reason; counts
-only fall (`--record`). The Census/Buttons "Button elements" state lists what
-is left.
+Client buttons are on the shared controls except those the allowlist
+below names: menu items, tabs, option pickers and switches (later
+families), the composer's controls, the crash fallback page, and 15
+pre-existing `role="button"` elements. `pnpm buttons:check` (part of
+`pnpm lint`) keeps it so. It rejects:
+
+- a banned legacy button class: any class from `design/census/mapping.ts`
+  without global rules, plus those recorded in the allowlist's
+  `bannedClasses`, so restoring a deleted rule does not lift the ban;
+- a raw `<button>` outside `ui/Button.tsx`, unless it has a menu, tab,
+  option, radio or switch role, a named option-picker or switch class, or
+  sits in a composer file;
+- a new `role="button"` element (use `ButtonBase`);
+- a CSS rule, module or global, whose selector reaches a bare `button`
+  element and sets look or size properties (`.panel button { background:
+  …; min-height: … }`), which would outrank `ButtonBase`'s reset and tie
+  with `Button`'s variants.
+
+Exceptions sit in `design/census/button-allowlist.json`, each with a count
+and a reason; counts only fall (`--record`), and a later family inherits
+the entries that name it. The Census/Buttons "Button elements" state lists
+what is left.
 
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
@@ -236,7 +250,10 @@ presented by the suite's teardown. `--grep settings` limits it to matching
 screens; an existing label directory is refused (exit 2) and a failed screen
 exits 3. Settings sections also get a dark 1000×2400 capture, because their
 panes scroll inside the page where a full-page screenshot cannot reach
-controls below the fold. The `.tour.ts` suffix keeps it out of the ordinary E2E run and CI.
+controls below the fold, and every screen gets a dark touch-phone capture
+(375×812 with `isMobile` and `hasTouch`) so coarse-pointer sizing shows; the
+plain phone captures are a narrow desktop viewport. The `.tour.ts` suffix
+keeps it out of the ordinary E2E run and CI.
 A control-family batch runs it before and after its swap to review the
 fallout side by side.
 

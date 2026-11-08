@@ -431,7 +431,6 @@ export function QuestionAnswerPanel({
           {/* Actions */}
           <div className={styles.actions}>
             <Button
-              variant="outline"
               className={styles.btn}
               onClick={handleDeny}
               disabled={submitting}

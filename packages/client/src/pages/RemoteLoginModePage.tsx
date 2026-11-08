@@ -7,6 +7,7 @@
  */
 
 import { useNavigate } from "react-router-dom";
+import { ButtonBase } from "../components/ui/Button";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useI18n } from "../i18n";
@@ -42,8 +43,7 @@ export function RemoteLoginModePage() {
         <p className="login-subtitle">{t("hostPickerHowToConnect")}</p>
 
         <div className="login-mode-options">
-          <button
-            type="button"
+          <ButtonBase
             className="login-mode-option"
             onClick={() => navigate("/relay")}
             data-testid="relay-mode-button"
@@ -54,10 +54,9 @@ export function RemoteLoginModePage() {
             <span className="login-mode-option-desc">
               {t("hostPickerRelayDescription")}
             </span>
-          </button>
+          </ButtonBase>
 
-          <button
-            type="button"
+          <ButtonBase
             className="login-mode-option login-mode-option-secondary"
             onClick={() => navigate("/direct")}
             data-testid="direct-mode-button"
@@ -68,7 +67,7 @@ export function RemoteLoginModePage() {
             <span className="login-mode-option-desc">
               {t("hostPickerDirectDescription")}
             </span>
-          </button>
+          </ButtonBase>
         </div>
 
         <p className="login-hint">{t("hostPickerEmptyHint")}</p>

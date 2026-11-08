@@ -306,8 +306,7 @@ export function HostPickerPage() {
         )}
 
         <div className="login-mode-options">
-          <button
-            type="button"
+          <ButtonBase
             className="login-mode-option"
             onClick={() => navigate("/login/relay")}
             data-testid="relay-mode-button"
@@ -318,10 +317,9 @@ export function HostPickerPage() {
             <span className="login-mode-option-desc">
               {t("hostPickerRelayDescription")}
             </span>
-          </button>
+          </ButtonBase>
 
-          <button
-            type="button"
+          <ButtonBase
             className="login-mode-option login-mode-option-secondary"
             onClick={() => navigate("/login/direct")}
             data-testid="direct-mode-button"
@@ -332,7 +330,7 @@ export function HostPickerPage() {
             <span className="login-mode-option-desc">
               {t("hostPickerDirectDescription")}
             </span>
-          </button>
+          </ButtonBase>
         </div>
 
         <p className="login-hint">

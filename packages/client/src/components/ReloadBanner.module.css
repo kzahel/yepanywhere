@@ -106,6 +106,13 @@
   transform: translateY(1px);
 }
 
+/* The ghost dismiss takes the banner's dark text: the control's muted
+   ghost color is unreadable on the amber and red fills. Compound so it
+   outranks the shared variant regardless of stylesheet order. */
+.banner .dismiss {
+  color: inherit;
+}
+
 /* Warning state for unsafe restart */
 .warning {
   background: var(--error-color);

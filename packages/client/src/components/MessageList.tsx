@@ -1211,12 +1211,7 @@ function QueuedMessageActions({
         onClick={(event) => event.stopPropagation()}
       />
       {onResume ? (
-        <Button
-          size="small"
-          disabled={disabled}
-          onClick={onResume}
-          aria-label={t("projectQueueResume")}
-        >
+        <Button size="small" disabled={disabled} onClick={onResume}>
           <PlayIcon />
           <span>{t("projectQueueResume")}</span>
         </Button>
@@ -1247,6 +1242,7 @@ function QueuedMessageActions({
       ) : null}
       {onCancel ? (
         <Button
+          variant="danger-outline"
           size="small"
           disabled={disabled}
           onClick={onCancel}
@@ -5600,6 +5596,7 @@ export const MessageList = memo(function MessageList({
                         recoveredQueueId &&
                         onDeleteRecoveredDeferred ? (
                           <Button
+                            variant="danger-outline"
                             size="small"
                             onClick={() =>
                               onDeleteRecoveredDeferred(recoveredQueueId)

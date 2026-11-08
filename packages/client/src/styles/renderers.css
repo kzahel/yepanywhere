@@ -50,7 +50,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   opacity: 0;
   pointer-events: none;
@@ -2699,7 +2698,8 @@ details[open] .collapsible__icon {
    Buttons
    ========================================================================== */
 
-.expand-button {
+/* Doubled to outrank the shared .button rule's margin: 0. */
+.expand-button.expand-button {
   margin-top: 0.5rem;
 }
 

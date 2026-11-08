@@ -1,4 +1,32 @@
 {
+  "bannedClasses": [
+    "btn-primary",
+    "btn-secondary",
+    "commit-jump-btn",
+    "copy-button",
+    "diff-toolbar-icon-button",
+    "file-viewer-download-btn",
+    "filter-clear-button",
+    "filter-search-button",
+    "git-status-action-button",
+    "global-sessions-load-more-button",
+    "global-sessions-project-cta__button",
+    "inbox-refresh-button",
+    "load-older-button",
+    "login-button",
+    "qr-toggle-button",
+    "revoke-all-button",
+    "revoke-button",
+    "session-share-icon-button",
+    "session-share-icon-button-danger",
+    "session-share-revoke-button",
+    "session-share-small-button",
+    "session-title-edit-button",
+    "settings-button",
+    "settings-button-danger",
+    "settings-button-danger-subtle",
+    "settings-button-secondary"
+  ],
   "rawButtons": {
     "components/ErrorBoundary.tsx": {
       "count": 3,
@@ -18,15 +46,11 @@
     },
     "components/NewSessionQueueOptions.tsx": {
       "count": 1,
-      "reason": "Model option row in the queue options list: option family."
+      "reason": "The now/patient send pair that submits the queued message: a composer control, excluded until the composer pass."
     },
     "components/ProjectSelector.tsx": {
       "count": 1,
       "reason": "Project option rows inside the selector dropdown: menu family."
-    },
-    "components/PublicShareManagerModal.tsx": {
-      "count": 1,
-      "reason": "Scope filter that picks one of three scopes: segmented family."
     },
     "components/QuestionAnswerPanel.tsx": {
       "count": 3,
@@ -65,7 +89,69 @@
       "reason": "Host identity icon preset picker (aria-pressed, one of several): option family."
     }
   },
-  "moduleButtonLooks": {
+  "roleButtons": {
+    "components/blocks/ToolCallRow.tsx": {
+      "count": 1,
+      "reason": "Inline text that toggles in place (a <span> inside running text), with its own Enter/Space handling; predates the button family."
+    },
+    "components/ContextThresholdQuickEdit.tsx": {
+      "count": 1,
+      "reason": "Inline text that toggles in place (a <span> inside running text), with its own Enter/Space handling; predates the button family."
+    },
+    "components/NewSessionForm.tsx": {
+      "count": 1,
+      "reason": "A <details> summary whose disclosure behavior is native; predates the button family."
+    },
+    "components/PathBreadcrumbs.tsx": {
+      "count": 1,
+      "reason": "Inline text that toggles in place (a <span> inside running text), with its own Enter/Space handling; predates the button family."
+    },
+    "components/ProcessingIndicator.tsx": {
+      "count": 1,
+      "reason": "Inline text that toggles in place (a <span> inside running text), with its own Enter/Space handling; predates the button family."
+    },
+    "components/renderers/tools/BashRenderer.tsx": {
+      "count": 1,
+      "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
+    },
+    "components/renderers/tools/EditRenderer.tsx": {
+      "count": 1,
+      "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
+    },
+    "components/renderers/tools/WebRenderer.tsx": {
+      "count": 1,
+      "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
+    },
+    "components/SchemaWarning.tsx": {
+      "count": 1,
+      "reason": "Inline text that toggles in place (a <span> inside running text), with its own Enter/Space handling; predates the button family."
+    },
+    "components/SessionToolbarPreview.tsx": {
+      "count": 1,
+      "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
+    },
+    "components/Sidebar.tsx": {
+      "count": 1,
+      "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
+    },
+    "components/SidebarLauncher.tsx": {
+      "count": 1,
+      "reason": "A link that also acts on click (role=button for its tap behavior) and keeps its href; predates the button family."
+    },
+    "components/ViewerModeToggle.tsx": {
+      "count": 1,
+      "reason": "A link that also acts on click (role=button for its tap behavior) and keeps its href; predates the button family."
+    },
+    "layouts/NavigationLayout.tsx": {
+      "count": 1,
+      "reason": "A router link that also acts on click and keeps its href; predates the button family."
+    },
+    "pages/CommitFilesPane.tsx": {
+      "count": 1,
+      "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
+    }
+  },
+  "buttonLookRules": {
     "components/AsyncQuestions.module.css": {
       "count": 1,
       "reason": "Row menu items: menu family."
@@ -113,6 +199,10 @@
     "pages/BlameBrowser.module.css": {
       "count": 2,
       "reason": "Contents/Blame segmented pair: segmented family."
+    },
+    "styles/index.css": {
+      "count": 1,
+      "reason": "The base form-control font reset (`button, input, select, textarea { font-family }`), which every control inherits deliberately."
     }
   }
 }
