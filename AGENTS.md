@@ -3,6 +3,13 @@
 If `AGENTS.local.md` exists, read it before acting. Its machine-local
 instructions take precedence over this file.
 
+Core contributors are two different people; do not conflate them when
+attributing history:
+
+- Kyle Graehl: `kgraehl@gmail.com`, `kzahel@users.noreply.github.com`.
+- Jonathan Graehl: `graehl@gmail.com` (commits as `graehl`),
+  `99024+graehl@users.noreply.github.com`.
+
 Before implementation planning or repository changes, read and follow
 [DEVELOPMENT.md](DEVELOPMENT.md). Follow its task-reading triggers for applicable
 development guides and topic documents before choosing an approach; recheck
