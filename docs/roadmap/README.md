@@ -1171,8 +1171,10 @@ API-created-session defaults remain deferred. Since 2026-11-08
 ([plan 183](../tactical/183-launch-paths-respect-router-selection.md)),
 Project Queue, templates, the composer's New session, Agent API children of
 routed sessions and Source Review sessions carry the pool or account, or
-refuse; none falls back to the direct login. Switching a session's account
-is frozen. YA respects router-owned pool grants and exposes read-only
+refuse; none falls back to the direct login. Since 2026-11-08
+([plan 185](../tactical/185-switch-session-router-account.md)) the session
+header's account chip moves an existing session to another pool account or
+to Direct (no automatic failover). YA respects router-owned pool grants and exposes read-only
 management guidance; legacy routers retain their scoped editor. Advanced
 balancing, clone/helper inheritance, Windows and constrained sandbox support
 remain later work. On 2026-10-03 the maintainer deferred the next

@@ -1233,13 +1233,11 @@ export class SessionMetadataService {
     await this.flushPendingWrites();
   }
 
-  /**
-   * Update metadata for a session (title, archived, starred).
-   */
+  /** Update a session's metadata; a null `routerBinding` removes the pin. */
   async updateMetadata(
     sessionId: string,
     updates: {
-      routerBinding?: SessionMetadata["routerBinding"];
+      routerBinding?: SessionMetadata["routerBinding"] | null;
       title?: string;
       archived?: boolean;
       starred?: boolean;
@@ -1260,7 +1258,8 @@ export class SessionMetadataService {
   ): Promise<void> {
     this.updateSessionMetadata(sessionId, (metadata) => {
       const result = { ...metadata };
-      if (updates.routerBinding) result.routerBinding = updates.routerBinding;
+      if (updates.routerBinding !== undefined)
+        result.routerBinding = updates.routerBinding ?? undefined;
 
       // Handle title
       if (updates.title !== undefined) {

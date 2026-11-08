@@ -5,8 +5,15 @@ import {
   RouterUnavailable,
 } from "../services/AgentAuthRouter.js";
 import { registerAgentAuthRouterRecoveryRoutes } from "./agent-auth-router-recovery.js";
+import {
+  registerAgentAuthRouterSessionSwitchRoute,
+  type SessionSwitchSupervisor,
+} from "./agent-auth-router-session-switch.js";
 /** Existing /api authorization denies this administration namespace to limited users. */
-export function createAgentAuthRouterRoutes(router: AgentAuthRouter) {
+export function createAgentAuthRouterRoutes(
+  router: AgentAuthRouter,
+  sessions?: SessionSwitchSupervisor,
+) {
   const routes = new Hono();
   routes.onError((error, c) =>
     c.json(
@@ -25,6 +32,8 @@ export function createAgentAuthRouterRoutes(router: AgentAuthRouter) {
   );
   registerAgentAuthRouterRecoveryRoutes(routes, router);
   registerAgentAuthRouterPoolRoutes(routes, router);
+  if (sessions)
+    registerAgentAuthRouterSessionSwitchRoute(routes, router, sessions);
   routes.post("/agent-auth-router/connect", async (c) => {
     const body = await c.req.json<{ socketPath?: unknown }>();
     if (

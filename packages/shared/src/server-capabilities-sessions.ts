@@ -297,6 +297,33 @@ export const SESSIONS_SERVER_CAPABILITIES = {
         "No current client gate remains. Retain the advertisement for older clients; runtime AAR support belongs to scoped responses.",
     },
   },
+  agentAuthRouterSessionSwitch: {
+    id: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterSessionSwitch.id,
+    name: "agent-auth-router-session-switch",
+    introducedIn: "0.11.1",
+    kind: "permanent",
+    area: "sessions",
+    lifecycle: {
+      kind: "permanent",
+      reason: "Optional local router integration.",
+    },
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterSessionSwitch.id,
+    },
+    description:
+      "Moves an existing Claude or Codex session to another router pool account or to Direct: the new pin is prepared and committed first, then the provider process is killed so the next message resumes on it.",
+    clientFallback:
+      "Keep the session header's router chip read-only; a session stays on its pin for life.",
+    serverContract: {
+      routes: ["POST /api/agent-auth-router/sessions/:sessionId/switch"],
+      routeModules: [
+        "packages/server/src/routes/agent-auth-router-session-switch.ts",
+      ],
+      requestFields: ["routerPoolId", "routerAccountId", "direct"],
+      responseFields: ["routerBinding"],
+    },
+  },
   agentAuthRouterMostRemaining: {
     id: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterMostRemaining.id,
     name: "agent-auth-router-most-remaining",

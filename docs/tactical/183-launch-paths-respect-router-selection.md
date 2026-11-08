@@ -2,9 +2,8 @@
 
 Topic: agent-auth-router
 
-Status: implemented 2026-11-08. Account switching for existing sessions is
-frozen (pins stay fixed for a session's life); see
-[the switching gap](../../gaps/routed-session-cannot-switch-account.md).
+Status: implemented 2026-11-08. Switching an existing session's account
+followed in [plan 185](185-switch-session-router-account.md).
 
 ## Goal
 

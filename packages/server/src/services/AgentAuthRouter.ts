@@ -5,6 +5,7 @@ import http from "node:http";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
+  resolveRouterModel,
   routerModelSupportsThinking,
   routerModelSupportsServiceTier,
   sanitizeRouterCliModels,
@@ -96,6 +97,26 @@ export interface RouterAccount {
 export type RouterModel = ModelInfo;
 
 export type RouterBindingRef = NonNullable<SessionMetadata["routerBinding"]>;
+
+/** AAR's answer to a prepare: the account a pool picked, and why. */
+interface PreparedPin {
+  accountId: string;
+  poolId?: string;
+  policy?: AgentAuthRouterPoolPolicy;
+  reason?: string;
+  observedAt?: string;
+}
+
+function thinkingOption(settings?: {
+  thinking?: ThinkingConfig;
+  effort?: EffortLevel;
+}): ThinkingOption {
+  return settings?.thinking?.type === "disabled"
+    ? "off"
+    : settings?.effort
+      ? `on:${settings.effort}`
+      : "auto";
+}
 
 /**
  * The launch selection for a new session derived from a routed session
@@ -348,7 +369,7 @@ export class AgentAuthRouter {
   private tail: Promise<unknown> = Promise.resolve();
   constructor(
     dataDir: string,
-    private readonly metadata?: SessionMetadataService,
+    readonly metadata?: SessionMetadataService,
     /** This computer's claude.ai login, read without inference; null without one. */
     private readonly claudeAiLogin?: () => Promise<{ email?: string } | null>,
   ) {
@@ -725,7 +746,7 @@ export class AgentAuthRouter {
     return this.serialize(async () => {
       const ref = this.metadata?.getMetadata(sessionId)?.routerBinding;
       const allocation = ref && this.state.allocations[ref.id];
-      if (!allocation) return;
+      if (!allocation || this.switchedInIds.has(allocation.id)) return;
       await this.save({
         ...this.state,
         allocations: {
@@ -860,32 +881,304 @@ export class AgentAuthRouter {
         "Update AAR to select a speed tier.",
         "unsupported",
       );
-    const { models } = await this.catalog(binding.accountId);
-    const thinking: ThinkingOption =
-      settings?.thinking?.type === "disabled"
-        ? "off"
-        : settings?.effort
-          ? `on:${settings.effort}`
-          : "auto";
-    if (
-      !routerModelSupportsThinking(
-        models.find((m) => m.id === (model ?? allocation.model)),
-        thinking,
-      )
-    )
+    await this.servedCatalog(
+      binding.accountId,
+      model ?? allocation.model,
+      thinkingOption(settings),
+      settings?.serviceTier,
+    );
+  }
+  /** The account's catalog, refusing a model, thinking or tier it cannot serve. */
+  private async servedCatalog(
+    accountId: string,
+    model: string,
+    thinking: ThinkingOption,
+    serviceTier: string | undefined,
+  ): Promise<ModelInfo[]> {
+    const { models } = await this.catalog(accountId);
+    const row = models.find((m) => m.id === model);
+    if (!routerModelSupportsThinking(row, thinking))
       throw new RouterUnavailable(
         409,
         "The pinned account does not support the selected model and thinking level",
       );
-    if (
-      !routerModelSupportsServiceTier(
-        models.find((m) => m.id === (model ?? allocation.model)),
-        settings?.serviceTier,
-      )
-    )
+    if (!routerModelSupportsServiceTier(row, serviceTier))
       throw new RouterUnavailable(
         409,
         "The pinned account does not support the selected speed tier",
+      );
+    return models;
+  }
+  /** Reserve an allocation in AAR; a pool reservation names its account. */
+  private preparePin(
+    c: Connection,
+    info: Info,
+    allocation: Allocation,
+  ): Promise<PreparedPin> {
+    return routerRequest<PreparedPin>(
+      c.socketPath,
+      allocation.poolId ? "/v1/pools/prepare" : "/v1/bindings/prepare",
+      c.token,
+      {
+        id: allocation.id,
+        provider: allocation.provider,
+        ...(allocation.poolId
+          ? {
+              poolId: allocation.poolId,
+              // Routers before 2026-10-11 admit only policies a client lists.
+              supportedPolicies: info.supportedPolicies ?? [
+                "manual",
+                "round-robin",
+              ],
+              policy: allocation.policy,
+              accountId: allocation.requestedAccountId,
+            }
+          : { accountId: allocation.accountId }),
+        model: allocation.model,
+        thinking: allocation.thinking,
+        ...(allocation.serviceTier
+          ? { serviceTier: allocation.serviceTier }
+          : {}),
+        tokenHash: hash(allocation.token),
+      },
+    );
+  }
+  /** The session record of a prepared pool pin. */
+  private async poolBinding(
+    c: Connection,
+    info: Info,
+    allocation: Allocation & { poolId: string },
+    selected: PreparedPin,
+    names: { account?: string; pool?: string },
+  ): Promise<RouterBindingRef> {
+    return {
+      id: allocation.id,
+      routerId: c.routerId,
+      accountId: selected.accountId,
+      accountDisplayName: names.account,
+      provider: allocation.provider,
+      poolId: allocation.poolId,
+      poolName: names.pool ?? (await this.poolLabel(c, allocation.poolId)),
+      policy: selected.policy,
+      policyLabel: routerLabel(
+        info.policies?.find((p) => p.id === selected.policy)?.label,
+      ),
+      reason: selected.reason,
+      observedAt: selected.observedAt,
+      ...(allocation.claudeAiConnectors ? { claudeAiConnectors: true } : {}),
+    };
+  }
+  /** A fresh allocation the router refused: nothing ran on it, so cancel it. */
+  private async discardRefused(
+    c: Connection,
+    allocation: Allocation,
+  ): Promise<void> {
+    await this.save({
+      ...this.state,
+      allocations: {
+        ...this.state.allocations,
+        [allocation.id]: {
+          ...allocation,
+          cancelled: true,
+          refusedBeforeCommit: true,
+        },
+      },
+    });
+    try {
+      await this.flushCancellations(c);
+    } catch {
+      /* Durable cleanup remains available in Settings. */
+    }
+  }
+  /** Cancel a replaced allocation; failed cleanup stays retryable in Settings. */
+  private retire(id: string): Promise<void> {
+    return this.serialize(async () => {
+      const allocation = this.state.allocations[id];
+      if (!allocation || allocation.cancelled) return;
+      await this.save({
+        ...this.state,
+        allocations: {
+          ...this.state.allocations,
+          [id]: { ...allocation, cancelled: true },
+        },
+      });
+      try {
+        const c = this.connection();
+        await this.info(c);
+        await this.flushCancellations(c);
+      } catch {
+        /* Durable cleanup remains available in Settings. */
+      }
+    });
+  }
+  /**
+   * Move a session to a pool account, or to Direct with a null target
+   * (docs/tactical/185-switch-session-router-account.md). The new pin is
+   * prepared, checked against the session's model and committed before
+   * anything changes, so a refusal leaves the pin and process alone. Then the
+   * binding is saved, `stop` kills the provider process that holds the old
+   * credential (the next message resumes on the new pin), and the old
+   * allocation is cancelled.
+   */
+  async switchBinding(
+    sessionId: string,
+    target: { poolId: string; accountId: string } | null,
+    session: {
+      provider: "claude" | "codex";
+      /** The session's model ids, preferred first; aliases resolve here. */
+      models: (string | undefined)[];
+      thinking?: ThinkingConfig;
+      effort?: EffortLevel;
+      serviceTier?: string;
+    },
+    stop: () => Promise<unknown>,
+  ): Promise<{ routerBinding: RouterBindingRef | null; model?: string }> {
+    const { previous, next, model } = await this.serialize(async () => {
+      const metadata = this.metadata;
+      if (!metadata)
+        throw new RouterUnavailable(409, "Router metadata unavailable");
+      const previous = metadata.getMetadata(sessionId)?.routerBinding;
+      let next: RouterBindingRef | undefined;
+      let model: string | undefined;
+      if (target) {
+        const c = this.connection(),
+          info = await this.info(c);
+        if (!info.capabilities.includes("pools-v1"))
+          throw new RouterUnavailable(
+            409,
+            "Update AAR to use pools.",
+            "unsupported",
+          );
+        if (
+          session.serviceTier &&
+          !info.capabilities.includes("service-tiers-v1")
+        )
+          throw new RouterUnavailable(
+            409,
+            "Update AAR to select a speed tier.",
+            "unsupported",
+          );
+        await this.flushCancellations(c);
+        const { accounts } = await routerRequest<{
+          accounts: RouterAccount[];
+        }>(c.socketPath, "/v1/accounts", c.token);
+        const account = accounts.find(
+          (a) =>
+            a.id === target.accountId &&
+            a.provider === session.provider &&
+            a.enabled,
+        );
+        if (!account)
+          throw new RouterUnavailable(
+            409,
+            "That router account is disabled, removed, or no longer granted.",
+            "account-unavailable",
+          );
+        const accountName = routerLabel(account.displayName);
+        // A routed session falls back to its current pin's model.
+        const candidates = [
+          ...session.models,
+          previous && this.state.allocations[previous.id]?.model,
+        ].filter((id): id is string => !!id);
+        if (!candidates.length)
+          throw new RouterUnavailable(
+            409,
+            "YA does not know this session's model yet. Send a message first, then switch accounts.",
+          );
+        const { models } = await this.catalog(target.accountId);
+        model = candidates
+          .map((id) => resolveRouterModel(id, models))
+          .find(Boolean);
+        if (!model)
+          throw new RouterUnavailable(
+            409,
+            `${accountName ?? "That account"} does not serve this session's model (${candidates[0]}).`,
+          );
+        const thinking = thinkingOption(session);
+        const allocation = {
+          id: randomUUID(),
+          connectionId: c.id,
+          accountId: target.accountId,
+          poolId: target.poolId,
+          policy: "manual",
+          requestedAccountId: target.accountId,
+          provider: session.provider,
+          model,
+          thinking,
+          ...(session.serviceTier ? { serviceTier: session.serviceTier } : {}),
+          ...(session.provider === "claude" && previous?.claudeAiConnectors
+            ? { claudeAiConnectors: true }
+            : {}),
+          token: token("aar_"),
+        } satisfies Allocation;
+        await this.save({
+          ...this.state,
+          allocations: {
+            ...this.state.allocations,
+            [allocation.id]: allocation,
+          },
+        });
+        try {
+          const selected = await this.preparePin(c, info, allocation);
+          if (selected.accountId !== target.accountId)
+            throw new RouterUnavailable(
+              409,
+              "Router returned a conflicting account pin",
+            );
+          await this.servedCatalog(
+            target.accountId,
+            model,
+            thinking,
+            session.serviceTier,
+          );
+          await routerRequest(c.socketPath, "/v1/bindings/commit", c.token, {
+            id: allocation.id,
+          });
+          next = await this.poolBinding(c, info, allocation, selected, {
+            account: accountName,
+          });
+        } catch (error) {
+          // No session names this allocation yet, so whatever failed (a
+          // refusal or a lost reply), cancel it rather than orphan it.
+          await this.discardRefused(c, allocation);
+          if (error instanceof RouterUnavailable && error.loginRequired)
+            throw routerLoginRequired(accountName);
+          throw error;
+        }
+      }
+      await metadata.updateMetadata(sessionId, { routerBinding: next ?? null });
+      // Synchronously with the save: a process that started on the old pin
+      // and registers after `stop` is refused at registration.
+      if (previous) this.switchedAwayIds.add(previous.id);
+      if (next) this.switchedInIds.add(next.id);
+      return { previous, next, model };
+    });
+    try {
+      await stop();
+    } catch (error) {
+      throw new RouterUnavailable(
+        409,
+        `The account was switched, but the old provider process did not stop (${error instanceof Error ? error.message : String(error)}). Terminate the session before sending.`,
+      );
+    } finally {
+      if (previous) await this.retire(previous.id);
+    }
+    return { routerBinding: next ?? null, model };
+  }
+  private readonly switchedAwayIds = new Set<string>();
+  /** Pins a switch installed: never a failed fresh launch to cancel. */
+  private readonly switchedInIds = new Set<string>();
+  /**
+   * The refusal for a process whose pin was switched away while it started,
+   * checked just before the Supervisor registers it; undefined otherwise.
+   */
+  switchedAway(
+    launch: { bindingId: string } | undefined,
+  ): RouterUnavailable | undefined {
+    if (launch && this.switchedAwayIds.has(launch.bindingId))
+      return new RouterUnavailable(
+        409,
+        "This session switched router accounts while it was starting. Send the message again.",
       );
   }
   async launch(
@@ -993,12 +1286,7 @@ export class AgentAuthRouter {
         await this.metadata.updateMetadata(sessionId, {
           routerBinding: { ...existing, accountDisplayName: currentName },
         });
-      const requestedThinking: ThinkingOption =
-        settings?.thinking?.type === "disabled"
-          ? "off"
-          : settings?.effort
-            ? `on:${settings.effort}`
-            : "auto";
+      const requestedThinking = thinkingOption(settings);
       if (!allocation) {
         if (!model || (!accountId && !poolId))
           throw new RouterUnavailable(
@@ -1045,39 +1333,7 @@ export class AgentAuthRouter {
       }
       let accountModels: ModelInfo[] = [];
       try {
-        const selected = await routerRequest<{
-          accountId: string;
-          poolId?: string;
-          policy?: AgentAuthRouterPoolPolicy;
-          reason?: string;
-          observedAt?: string;
-        }>(
-          c.socketPath,
-          allocation.poolId ? "/v1/pools/prepare" : "/v1/bindings/prepare",
-          c.token,
-          {
-            id: allocation.id,
-            provider,
-            ...(allocation.poolId
-              ? {
-                  poolId: allocation.poolId,
-                  // Routers before 2026-10-11 admit only policies a client lists.
-                  supportedPolicies: info.supportedPolicies ?? [
-                    "manual",
-                    "round-robin",
-                  ],
-                  policy: allocation.policy,
-                  accountId: allocation.requestedAccountId,
-                }
-              : { accountId: allocation.accountId }),
-            model: allocation.model,
-            thinking: allocation.thinking,
-            ...(allocation.serviceTier
-              ? { serviceTier: allocation.serviceTier }
-              : {}),
-            tokenHash: hash(allocation.token),
-          },
-        );
+        const selected = await this.preparePin(c, info, allocation);
         const pinnedPoolId = allocation.poolId;
         if (pinnedPoolId) {
           if (
@@ -1098,50 +1354,26 @@ export class AgentAuthRouter {
             },
           });
           await this.metadata.updateMetadata(sessionId, {
-            routerBinding: {
-              id: allocation.id,
-              routerId: c.routerId,
-              accountId: selected.accountId,
-              accountDisplayName:
-                accountName(selected.accountId) ?? existing?.accountDisplayName,
-              provider,
-              poolId: pinnedPoolId,
-              poolName:
-                existing?.poolName ?? (await this.poolLabel(c, pinnedPoolId)),
-              policy: selected.policy,
-              policyLabel: routerLabel(
-                info.policies?.find((p) => p.id === selected.policy)?.label,
-              ),
-              reason: selected.reason,
-              observedAt: selected.observedAt,
-              ...(allocation.claudeAiConnectors
-                ? { claudeAiConnectors: true }
-                : {}),
-            },
+            routerBinding: await this.poolBinding(
+              c,
+              info,
+              { ...allocation, poolId: pinnedPoolId },
+              selected,
+              {
+                account:
+                  accountName(selected.accountId) ??
+                  existing?.accountDisplayName,
+                pool: existing?.poolName,
+              },
+            ),
           });
         }
-        accountModels = (await this.catalog(allocation.accountId)).models;
-        const requestedModel = model ?? allocation.model;
-        if (
-          !routerModelSupportsThinking(
-            accountModels.find((m) => m.id === requestedModel),
-            requestedThinking,
-          )
-        )
-          throw new RouterUnavailable(
-            409,
-            "The pinned account does not support the selected model and thinking level",
-          );
-        if (
-          !routerModelSupportsServiceTier(
-            accountModels.find((m) => m.id === requestedModel),
-            settings?.serviceTier,
-          )
-        )
-          throw new RouterUnavailable(
-            409,
-            "The pinned account does not support the selected speed tier",
-          );
+        accountModels = await this.servedCatalog(
+          allocation.accountId,
+          model ?? allocation.model,
+          requestedThinking,
+          settings?.serviceTier,
+        );
         await routerRequest(c.socketPath, "/v1/bindings/commit", c.token, {
           id: allocation.id,
         });
@@ -1153,24 +1385,8 @@ export class AgentAuthRouter {
           !existing &&
           error instanceof RouterUnavailable &&
           [400, 404, 409].includes(error.status)
-        ) {
-          await this.save({
-            ...this.state,
-            allocations: {
-              ...this.state.allocations,
-              [allocation.id]: {
-                ...allocation,
-                cancelled: true,
-                refusedBeforeCommit: true,
-              },
-            },
-          });
-          try {
-            await this.flushCancellations(c);
-          } catch {
-            /* Durable cleanup remains available in Settings. */
-          }
-        }
+        )
+          await this.discardRefused(c, allocation);
         if (error instanceof RouterUnavailable && error.loginRequired)
           throw routerLoginRequired(
             accountName(allocation.accountId) ?? existing?.accountDisplayName,

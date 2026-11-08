@@ -1,4 +1,5 @@
 import type {
+  AppSessionSummary,
   ProviderName,
   ProviderRuntimeStatus,
   PromptSuggestionMode,
@@ -102,6 +103,19 @@ export function createSessionApi(fetchJSON: typeof FetchJson) {
     getSessionMetadata: (projectId: string, sessionId: string) =>
       fetchJSON<SessionMetadataResponse>(
         `/projects/${projectId}/sessions/${sessionId}/metadata`,
+      ),
+
+    /** Move a session to a pool account, or to Direct; kills its process. */
+    switchSessionRouterAccount: (
+      sessionId: string,
+      target: { routerPoolId: string; routerAccountId: string } | null,
+    ) =>
+      fetchJSON<{ routerBinding: AppSessionSummary["routerBinding"] | null }>(
+        `/agent-auth-router/sessions/${encodeURIComponent(sessionId)}/switch`,
+        {
+          method: "POST",
+          body: JSON.stringify(target ?? { direct: true }),
+        },
       ),
 
     resumeSession: (

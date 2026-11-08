@@ -2485,15 +2485,13 @@ export function createApp(options: AppOptions): AppResult {
             : undefined,
       })
     : undefined;
-  // Session metadata is initialized before createApp; loops left running by
-  // a previous server process are closed out here.
+  // Close out loops a previous server process left running.
   void clearloopService?.reconcileAfterRestart();
   const getClearloopBadge: ClearloopBadgeResolver | undefined = clearloopService
     ? (sessionId) => clearloopService.getBadge(sessionId)
     : undefined;
 
-  // Every server surface names a project the same way: its chosen name, else
-  // its path's (topics/project-names.md).
+  // Every surface names a project the same way (topics/project-names.md).
   const projectMetadataForNames = options.projectMetadataService;
   const projectDisplayName: ProjectDisplayNameResolver = projectMetadataForNames
     ? (projectPath) =>
@@ -2505,7 +2503,10 @@ export function createApp(options: AppOptions): AppResult {
     options.sessionMetadataService,
     readClaudeAiLogin,
   );
-  app.route("/api", createAgentAuthRouterRoutes(agentAuthRouter));
+  app.route(
+    "/api",
+    createAgentAuthRouterRoutes(agentAuthRouter, () => supervisor),
+  );
 
   const readAgentApi: ApiReadPort = async (operation, caller, input) => {
     if (
@@ -2540,8 +2541,7 @@ export function createApp(options: AppOptions): AppResult {
         options.serverSettingsService,
       ),
     onProcessInventoryChanged: () => {
-      // Gateway services that opted into auto-stop need to know when their
-      // last session goes away; the live process list is that answer.
+      // Auto-stopping gateway services watch the live process list.
       noteGatewayServiceUsage(gatewayServiceUsage(supervisor));
     },
     provider:

@@ -528,6 +528,7 @@ it("router administration and metadata are denied to limited users", () => {
     ["POST", "/api/agent-auth-router/pools/remove"],
     ["GET", "/api/agent-auth-router/accounts/a/catalog"],
     ["GET", "/api/agent-auth-router/accounts/a/quotas"],
+    ["POST", "/api/agent-auth-router/sessions/s/switch"],
   ]) {
     expect(decideLimitedRoute({ method: method!, path: path! })).toEqual({
       kind: "deny",

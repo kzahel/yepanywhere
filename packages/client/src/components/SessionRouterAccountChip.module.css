@@ -1,0 +1,27 @@
+/* Same overlay and menu surface as the file-link context menu. */
+.overlay {
+  composes: overlay from "./FileResourceActions.module.css";
+}
+
+.menu {
+  composes: menu from "./FileResourceActions.module.css";
+}
+
+.menu [role="group"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu button[aria-checked="true"]::before {
+  content: "✓ ";
+}
+
+.heading {
+  padding: 0.3rem 0.6rem;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.separator {
+  composes: separator from "./FileResourceActions.module.css";
+}

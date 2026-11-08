@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  agentAuthRouterSessionSwitch: {
+    id: 155,
+    direction: "server",
+    name: "agent-auth-router-session-switch",
+    introducedIn: "0.11.1",
+  },
   projectQueueRouterSelection: {
     id: 154,
     direction: "server",

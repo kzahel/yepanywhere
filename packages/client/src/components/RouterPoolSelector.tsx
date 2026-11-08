@@ -118,6 +118,9 @@ export type RouterBinding = NonNullable<AppSessionSummary["routerBinding"]>;
 export function routerBindingChip(
   t: Translate,
   binding: RouterBinding,
+  action:
+    | "routerChipTooltipOpen"
+    | "routerChipTooltipSwitch" = "routerChipTooltipOpen",
 ): { label: string; tooltip: string } {
   const policy = binding.policyLabel ?? binding.policy;
   const names = [binding.poolName, binding.accountDisplayName].filter(Boolean);
@@ -132,7 +135,7 @@ export function routerBindingChip(
       }),
       policy && t("routerChipTooltipPolicy", { policy }),
       binding.reason,
-      t("routerChipTooltipOpen"),
+      t(action),
     ]
       .filter(Boolean)
       .join("\n"),

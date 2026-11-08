@@ -129,14 +129,45 @@ editor; this fallback grants no global administration authority. In New Session,
 model, and optionally another router policy or an account. The session header shows a
 compact chip with the pin's saved pool and account names, never the raw account
 id; it falls back to the policy (AAR's label captured at launch, else its id) for
-pins saved without names and is hidden on narrow screens. Its tooltip lists pool, account, policy and reason, and it opens
-Session Info, whose Router section lists the names with the pool, account,
-binding and router ids. The pin keeps AAR's names as display labels captured at
+pins saved without names and is hidden on narrow screens. Its tooltip lists pool, account, policy and reason. With
+`agent-auth-router-session-switch` the chip opens an account menu (direct
+Claude and Codex sessions show a "Direct" chip while a router is connected);
+otherwise it opens Session Info, whose Router section lists the names with the
+pool, account, binding and router ids. The pin keeps AAR's names as display labels captured at
 launch, so an AAR outage or removed account still shows which account to restore;
 a resume refreshes a renamed account and backfills a missing pool name, and the
 unavailable-account error names the saved account. Identity remains the ids.
 Pool selection is only for new owner sessions;
 continuation, remote executors, limited users and sandboxes cannot change a pin.
+
+**Switching an existing session's account**
+([plan 185](../docs/tactical/185-switch-session-router-account.md)). The
+chip menu lists the provider's pool accounts, then Direct and Session info.
+Picking one calls `POST /api/agent-auth-router/sessions/:id/switch`
+(`{routerPoolId, routerAccountId}` or `{direct: true}`), which:
+
+1. allocates, prepares (policy `manual`, the picked account) and commits the
+   new pin, after resolving the session's model against that account's
+   catalog and checking its thinking and tier. A refusal returns the
+   router's message and changes nothing;
+2. saves the new binding, or removes it for Direct; a router pick saves the
+   concrete model as the requested model, since the router refuses aliases;
+3. kills the provider process whatever its state, as Kill does (not
+   `/terminate`), because it holds the old credential;
+4. cancels the old allocation (best effort; cleanup stays retryable).
+
+A process that obtained the old token just before the switch and registers
+after the kill is refused at registration ("send the message again"). A
+failed switch cancels its new allocation whatever the failure, including a
+lost reply. A session whose hosted runtime has not reattached yet is refused
+until it has. With no live process, the model falls back to the saved
+requested model, then the current pin's model.
+
+The next message resumes the same transcript on the new account; only the
+prompt cache is lost. Claude accepts thinking signatures from another account
+on resume (tested 2026-11-08). The page reloads after a switch. Remote
+executors, project-write sandboxes and other providers are refused; limited
+users cannot reach the route. There is no automatic failover.
 
 The overview shows each account's windows, usage bars, remaining percentages,
 reset times, observation freshness and model/policy-specific eligibility reasons.
@@ -520,7 +551,8 @@ New accounts remain unassigned until the owner grants them directly or adds them
 to a granted pool. Direct-account allocation requires a direct grant; pool use
 does not authorize bypassing pool membership. Shared pool allocation state
 arbitrates across integrations. Disconnect/revocation leaves router pools and
-other integrations intact. Existing pins cannot switch accounts; revoking a
+other integrations intact. A pin never switches accounts on its own; only
+the owner's explicit switch above replaces it. Revoking a
 grant blocks subsequent requests while accepted streams may finish.
 
 

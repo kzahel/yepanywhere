@@ -3107,7 +3107,6 @@ export class Supervisor {
         sandboxStateKey: sessionSandbox?.stateKey,
         sandboxProjectPath: sessionSandbox?.projectPath,
       };
-
       const process = new Process(iterator, options);
       processHolder.process = process;
       this.holdAgentServerAccess(process, agentServerAccess);
@@ -3127,15 +3126,11 @@ export class Supervisor {
         );
       }
 
-      // Public identity is already final. Wait only when this operation
-      // explicitly needs native identity/input evidence. Empty preparation
-      // must expose its incumbent without waiting for a first turn.
-      if (!resumeSessionId && requireProviderSessionId) {
+      // Public identity is final; wait for native identity only when needed
+      // (empty preparation exposes its incumbent without a first turn).
+      if (queueBeforeProviderSettlement)
         await this.settleProviderSessionId(process);
-      }
-      if (sessionSandbox) {
-        await this.persistProcessSandboxOrAbort(process);
-      }
+      if (sessionSandbox) await this.persistProcessSandboxOrAbort(process);
 
       if (!queueBeforeProviderSettlement && message) {
         await this.queueInitialProcessMessage(
@@ -3148,8 +3143,13 @@ export class Supervisor {
       await this.activationCoordinator.persistSuccessfulSessionBoundaryOrAbort(
         process,
       );
+      // Plan 185: an account switch while this started retired its token.
+      const switched = this.agentAuthRouter?.switchedAway(routerLaunch);
+      if (switched) {
+        await process.terminateAndWait("router account switched");
+        throw switched;
+      }
       this.registerProcess(process, !resumeSessionId);
-
       return process;
     } catch (error) {
       if (managedIdentity) {

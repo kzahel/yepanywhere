@@ -7,7 +7,6 @@ import { ProjectAppIcon } from "./ProjectAppIcon";
 import { ProviderBadge } from "./ProviderBadge";
 import { ProviderChildSessionControl } from "./ProviderChildSessionControl";
 import { RecentSessionsDropdown } from "./RecentSessionsDropdown";
-import { routerBindingChip } from "./RouterPoolSelector";
 import sessionHeaderStyles from "./SessionHeader.module.css";
 import { SessionIssuesLink } from "./SessionIssuesLink";
 import { SessionMenu } from "./SessionMenu";
@@ -16,6 +15,7 @@ import {
   SessionShareMenuLabel,
 } from "./SessionPublicShareControls";
 import { SessionRenameEditor } from "./SessionRenameEditor";
+import { SessionRouterAccountChip } from "./SessionRouterAccountChip";
 import { SessionAppAction } from "./SessionRightPane";
 import { ButtonBase, IconButton } from "./ui/Button";
 import {
@@ -676,27 +676,37 @@ export function SessionHeader({
                     />
                   )}
                 </ButtonBase>
-                {session?.routerBinding &&
-                  serverHasCapability(
-                    versionInfo,
-                    SERVER_CAPABILITIES.agentAuthRouter.name,
-                  ) &&
-                  (() => {
-                    const chip = routerBindingChip(t, session.routerBinding);
-                    return (
-                      <ButtonBase
-                        className={sessionHeaderStyles.routerAccount}
-                        title={chip.tooltip}
-                        aria-label={chip.tooltip}
-                        onClick={() => {
-                          setModelPanelInitialTab("info");
-                          setShowModelSwitchModal(true);
-                        }}
-                      >
-                        {chip.label}
-                      </ButtonBase>
-                    );
-                  })()}
+                {serverHasCapability(
+                  versionInfo,
+                  SERVER_CAPABILITIES.agentAuthRouter.name,
+                ) && (
+                  <SessionRouterAccountChip
+                    sessionId={actualSessionId}
+                    binding={session?.routerBinding}
+                    provider={effectiveProvider}
+                    canSwitch={
+                      serverHasCapability(
+                        versionInfo,
+                        SERVER_CAPABILITIES.agentAuthRouterSessionSwitch.name,
+                      ) &&
+                      (effectiveProvider === "claude" ||
+                        effectiveProvider === "codex") &&
+                      !session?.executor &&
+                      session?.sandboxLevel !== "project-write"
+                    }
+                    className={sessionHeaderStyles.routerAccount}
+                    onDetails={() => {
+                      setModelPanelInitialTab("info");
+                      setShowModelSwitchModal(true);
+                    }}
+                    onSwitched={() => {
+                      // The binding and process are server-owned; reload
+                      // them as Restart provider does.
+                      draftControlsRef.current?.flushDraft();
+                      window.location.reload();
+                    }}
+                  />
+                )}
                 {currentGoal && (
                   <GoalFlag
                     objective={currentGoal}

@@ -62,6 +62,11 @@ export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
     index: CAPABILITY_ID_ALLOCATIONS.rendezCompose.id,
     introducedIn: "0.11.1",
   },
+  agentAuthRouterSessionSwitch: {
+    name: "agent-auth-router-session-switch",
+    index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterSessionSwitch.id,
+    introducedIn: "0.11.1",
+  },
   agentAuthRouterMostRemaining: {
     name: "agent-auth-router-most-remaining",
     index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterMostRemaining.id,
