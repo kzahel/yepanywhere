@@ -44,6 +44,14 @@ export function routeHref(
   return `#/${target}${query ? `?${query}` : ""}`;
 }
 
+/**
+ * A link that keeps the page's view settings (theme filter and width), so
+ * the choice made once in the sidebar holds while navigating.
+ */
+export function viewHref(target: string, route: DesignRoute): string {
+  return routeHref(target, { theme: route.theme, phone: route.phone });
+}
+
 function subscribe(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
   return () => window.removeEventListener("hashchange", onChange);

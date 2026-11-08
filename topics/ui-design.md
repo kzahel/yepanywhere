@@ -103,8 +103,13 @@ is `census-buttons`, and its `LegacyByVariant` state is
 | `#/<state-id>?iso&theme=light` | The state alone on a bare page, for capture |
 
 Every page except an isolated state has a sidebar listing the layers and
-their specimens, with the current specimen's states expanded beneath it; its
-links keep the chosen theme filter and width. Below 760 px wide the sidebar
+their specimens, with the current specimen's states expanded beneath it. Its
+top holds the global view settings: themes shown (all, or one of the three)
+and width (natural or phone). They live in the URL (`?theme=light`,
+`?phone`), and every playground link carries them, so a choice holds while
+navigating. With one theme chosen the whole page, sidebar included, takes
+that theme; with all three, each cell carries its own and the shell stays
+dark. Below 760 px wide the sidebar
 becomes a drawer behind a **Pages** button, which closes on following a link,
 Escape or a tap outside it, and the theme columns stack. Specimens with
 `parameters.width: "fill"` (census and token pages) always stack their themes,

@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import styles from "./Design.module.css";
-import { type DesignRoute, routeHref, useDesignRoute } from "./route";
+import { type DesignRoute, routeHref, useDesignRoute, viewHref } from "./route";
 import {
   DESIGN_LAYERS,
   DESIGN_THEMES,
@@ -167,39 +167,50 @@ function ThemeCell({
   );
 }
 
-function Toolbar({ route, target }: { route: DesignRoute; target: string }) {
+const THEME_LABELS: Record<DesignTheme, string> = {
+  verydark: "Very dark",
+  dark: "Dark",
+  light: "Light",
+};
+
+/** Global view settings, kept in the URL and carried by every link. */
+function ViewControls({ route }: { route: DesignRoute }) {
+  const { target } = route;
+  const option = (label: string, href: string, current: boolean): ReactNode => (
+    <a
+      key={label}
+      className={styles.viewOption}
+      href={href}
+      aria-current={current ? "true" : undefined}
+    >
+      {label}
+    </a>
+  );
   return (
-    <nav className={styles.toolbar} aria-label="View">
-      <span className={styles.toolbarLabel}>Theme</span>
-      <a
-        href={routeHref(target, { phone: route.phone })}
-        aria-current={route.theme ? undefined : "page"}
-      >
-        all
-      </a>
-      {DESIGN_THEMES.map((theme) => (
-        <a
-          key={theme}
-          href={routeHref(target, { phone: route.phone, theme })}
-          aria-current={route.theme === theme ? "page" : undefined}
-        >
-          {theme}
-        </a>
-      ))}
-      <span className={styles.toolbarLabel}>Width</span>
-      <a
-        href={routeHref(target, { theme: route.theme })}
-        aria-current={route.phone ? undefined : "page"}
-      >
-        natural
-      </a>
-      <a
-        href={routeHref(target, { phone: true, theme: route.theme })}
-        aria-current={route.phone ? "page" : undefined}
-      >
-        phone
-      </a>
-    </nav>
+    <div className={styles.viewControls}>
+      <div className={styles.viewGroup} role="group" aria-label="Themes shown">
+        {option("All", routeHref(target, { phone: route.phone }), !route.theme)}
+        {DESIGN_THEMES.map((theme) =>
+          option(
+            THEME_LABELS[theme],
+            routeHref(target, { phone: route.phone, theme }),
+            route.theme === theme,
+          ),
+        )}
+      </div>
+      <div className={styles.viewGroup} role="group" aria-label="Width">
+        {option(
+          "Natural",
+          routeHref(target, { theme: route.theme }),
+          !route.phone,
+        )}
+        {option(
+          "Phone",
+          routeHref(target, { phone: true, theme: route.theme }),
+          route.phone,
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -219,12 +230,12 @@ function GridPage({
     <div className={styles.page} data-design-ready={ready ? "" : undefined}>
       <header className={styles.pageHeader}>
         <p className={styles.crumbs}>
-          <a href="#/">Playground</a> /{" "}
+          <a href={viewHref("", route)}>Playground</a> /{" "}
           {LAYER_LABELS[specimen.parameters.layer]}
           {only ? (
             <>
               {" / "}
-              <a href={routeHref(specimen.id)}>{specimen.title}</a>
+              <a href={viewHref(specimen.id, route)}>{specimen.title}</a>
             </>
           ) : null}
         </p>
@@ -237,7 +248,6 @@ function GridPage({
         <p className={styles.source}>
           <code>{specimen.file}</code>
         </p>
-        <Toolbar route={route} target={only ? only.id : specimen.id} />
       </header>
       <div
         className={styles.grid}
@@ -253,7 +263,7 @@ function GridPage({
         {states.map((state) => (
           <section key={state.id} className={styles.row}>
             <h2 className={styles.stateHeading}>
-              <a href={routeHref(state.id)}>{state.name}</a>{" "}
+              <a href={viewHref(state.id, route)}>{state.name}</a>{" "}
               <a
                 className={styles.isoLink}
                 href={routeHref(state.id, { iso: true, theme: themes[0] })}
@@ -281,7 +291,7 @@ function GridPage({
   );
 }
 
-function IndexPage() {
+function IndexPage({ route }: { route: DesignRoute }) {
   const ready = useFontsReady();
   return (
     <div className={styles.page} data-design-ready={ready ? "" : undefined}>
@@ -305,7 +315,7 @@ function IndexPage() {
             <ul className={styles.indexList}>
               {group.map((specimen) => (
                 <li key={specimen.id}>
-                  <a href={routeHref(specimen.id)}>{specimen.title}</a>
+                  <a href={viewHref(specimen.id, route)}>{specimen.title}</a>
                   {specimen.parameters.description ? (
                     <span className={styles.indexNote}>
                       {specimen.parameters.description}
@@ -313,7 +323,7 @@ function IndexPage() {
                   ) : null}
                   <span className={styles.indexStates}>
                     {specimen.states.map((state) => (
-                      <a key={state.id} href={routeHref(state.id)}>
+                      <a key={state.id} href={viewHref(state.id, route)}>
                         {state.name}
                       </a>
                     ))}
@@ -336,17 +346,16 @@ function Sidebar({
   route: DesignRoute;
   activeSpecimen: LoadedSpecimen | undefined;
 }) {
-  // Moving between pages keeps the chosen theme filter and width.
-  const view = { theme: route.theme, phone: route.phone };
   return (
     <>
       <a
         className={styles.navBrand}
-        href="#/"
+        href={viewHref("", route)}
         aria-current={route.target ? undefined : "page"}
       >
         YA design playground
       </a>
+      <ViewControls route={route} />
       {DESIGN_LAYERS.map((layer) => {
         const group = specimens.filter(
           (specimen) => specimen.parameters.layer === layer,
@@ -360,7 +369,7 @@ function Sidebar({
                 <li key={specimen.id}>
                   <a
                     className={styles.navLink}
-                    href={routeHref(specimen.id, view)}
+                    href={viewHref(specimen.id, route)}
                     aria-current={
                       route.target === specimen.id ? "page" : undefined
                     }
@@ -373,7 +382,7 @@ function Sidebar({
                         <li key={state.id}>
                           <a
                             className={styles.navLink}
-                            href={routeHref(state.id, view)}
+                            href={viewHref(state.id, route)}
                             aria-current={
                               route.target === state.id ? "page" : undefined
                             }
@@ -469,11 +478,12 @@ function NotFound({ target }: { target: string }) {
 
 export function DesignApp() {
   const route = useDesignRoute();
-  // Pages outside isolation show every theme in their own cells; the
-  // document itself stays dark so the shell reads the same everywhere.
+  // With one theme chosen the whole page, shell included, takes it; with
+  // all three, each cell carries its own and the shell stays dark.
+  const shellTheme = route.theme ?? "dark";
   useLayoutEffect(() => {
-    if (!route.iso) document.documentElement.dataset.theme = "dark";
-  }, [route.iso]);
+    if (!route.iso) document.documentElement.dataset.theme = shellTheme;
+  }, [route.iso, shellTheme]);
   const found = route.target ? findTarget(route.target) : undefined;
   if (route.iso && found?.state)
     return (
@@ -491,7 +501,7 @@ export function DesignApp() {
   return (
     <Shell route={route} activeSpecimen={found?.specimen} heading={heading}>
       {!route.target ? (
-        <IndexPage />
+        <IndexPage route={route} />
       ) : found ? (
         <GridPage specimen={found.specimen} only={found.state} route={route} />
       ) : (

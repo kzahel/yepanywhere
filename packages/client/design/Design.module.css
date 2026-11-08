@@ -39,6 +39,49 @@
   text-decoration: none;
 }
 
+/* Global view settings at the top of the sidebar. */
+.viewControls {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--space-1);
+}
+
+.viewGroup {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.viewOption {
+  flex: 1 1 auto;
+  padding: 4px 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.viewOption:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.viewOption[aria-current="true"] {
+  background: var(--app-yep-green);
+  color: #fff;
+}
+
+.viewOption:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: -2px;
+}
+
 .navGroup + .navGroup {
   margin-top: var(--space-3);
 }
@@ -169,6 +212,10 @@
   .navBrand {
     padding-block: 9px;
   }
+
+  .viewOption {
+    padding-block: 9px;
+  }
 }
 
 .page {
@@ -206,35 +253,6 @@
   margin: 0 0 var(--space-3);
   color: var(--text-muted);
   font-size: var(--font-size-sm);
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  font-size: var(--font-size-sm);
-}
-
-.toolbar a {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-}
-
-.toolbar a[aria-current="page"] {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.toolbarLabel {
-  margin-left: var(--space-2);
-  color: var(--text-muted);
-}
-
-.toolbarLabel:first-child {
-  margin-left: 0;
 }
 
 .grid {
