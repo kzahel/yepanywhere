@@ -298,6 +298,7 @@ and props stable.
 | 2.32 | Done 2026-11-08 | `SessionPage.tsx` queued-message actions | Move the page's actions on deferred, recovered and Project Queue messages into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 2). | Move-only: the thirteen handlers, `restoreQueuedMessageToComposer` and the `isMissingDeferredQueueEntryError` helper move verbatim into `hooks/useSessionQueuedMessageActions.ts`, called where they stood. Callbacks only, so no order change. Five refs and `setCorrectionDraft` joined dependency lists (see the landing note). Budget `SessionPage.tsx` 6,142 -> 5,819; the hook is 493 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.33 | Done 2026-11-08 | `SessionPage.tsx` title editing | Move the page's rename field, generated retitle and `/title` command into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 3). | Move-only: the editing state and refs, `attachTitleInput`, the retitle ref sync effect, the title handlers, the two Escape and parked-cancel effects and the `TitleEditMode` and `GeneratedRetitleState` types move verbatim into `hooks/useSessionTitleEditing.ts`, called where the handlers began. The state and the ref sync effect move later in the hook order; the ref sync is not observable (see the landing note). No dependency list changed. Budget `SessionPage.tsx` 5,819 -> 5,546; the hook is 379 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.34 | Done 2026-11-08 | `SessionPage.tsx` attachment upload | Move the page's attachment upload, incoming share and remove step into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 4). | Move-only: `uploadAttachedFiles`, `handleAttach`, the `useIncomingShareFiles` call and `handleRemoveAttachment` move verbatim into `hooks/useSessionAttachmentUploads.ts`, called where they stood, so the share hook's effects keep their place. Two refs and `setUploadProgress` joined dependency lists. Budget `SessionPage.tsx` 5,546 -> 5,383; the hook is 261 lines. Tier 3, plus plan 181's slice 0 pins. |
+| 2.35 | Done 2026-11-08 | `SessionPage.tsx` recall and navigation actions | Move the page's recall entries, scroll-to-turn requests and navigation-state actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 5). | Move-only: the turn and command recall, the scroll-to-turn request, the search-match and non-human-turn navigation hooks and the navigation-state actions with their early-typing effects move verbatim into `hooks/useSessionTranscriptJumps.ts`, called where they stood, so no effect changes order. Three early-typing refs joined dependency lists, including the unmount-only effect's. Budget `SessionPage.tsx` 5,383 -> 5,231; the hook is 260 lines. Tier 3, plus plan 181's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -349,10 +350,11 @@ owning behavior:
   rewrites around `mergeRemappedSessionRecords` form a candidate remap module.
   It extends slice 3.2 only if the reducer update stays behavior-identical and
   the full remap fixture matrix moves with it.
-- `SessionPage.tsx`: recall wiring and navigation-state consumption are the
-  remaining named candidates after the landed pure-helper, `/btw`, attachment,
-  sticky-card and bang-command slices. Choose one feature boundary per
-  follow-up rather than another general page-helper module.
+- `SessionPage.tsx`: recall wiring and navigation-state consumption moved
+  in slice 2.35 (plan 181). The correction draft, the attachment state and
+  draft hydration, and the title markup remain as possible follow-ups; choose
+  one feature boundary per follow-up rather than another general page-helper
+  module.
 
 Remove a candidate from this section when its slice lands or fresh inspection
 shows the seam is no longer coherent. Delete the gap only when all four
@@ -431,6 +433,56 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.35 — Session Page Transcript Jumps (Landed 2026-11-08, this commit)
+
+Moved:
+- The composer turn recall cache and entries, `useSessionCommandRecall`,
+  `scrollToTurnRequest` and `handleGoToRecallTurn`, the
+  `useSessionMessageNavigation` and `useNonHumanUserTurnNavigation` calls,
+  `composerTurnRecall`, and the navigation-state actions (prefill, focus,
+  scroll) with their early-typing effects -> `useSessionTranscriptJumps`
+  in new `packages/client/src/hooks/useSessionTranscriptJumps.ts`, which
+  returns `composerTurnRecall`, `recordCommandRecall` and
+  `scrollToTurnRequest`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `sessionId`, `actualSessionId`, `messages`, `location`,
+  `navigate`, `loading`, `loadingOlder`, `isDomLingerParked`,
+  `pagination`, `loadOlderMessages`, `navState`, the four seed fields it
+  preserves (`initialStatus`, `initialTitle`, `initialModel`,
+  `initialProvider`), the early-typing refs and `flushEarlyComposerTyping`,
+  and reads `t` and `showToast` from their contexts. `location` is the
+  page's (`routeLocation` under route retention), not the router's.
+- `earlyComposerTypingRef` and `earlyComposerTypingKeyRef` joined the
+  early-typing effect's dependency list, `earlyComposerTypingRef` the
+  unmount-only cleanup's (which therefore still runs only on unmount), and
+  `pendingEarlyComposerPrefillRef` the navigation-action effect's, as lint
+  requires of parameters; refs never change identity.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 551 passed, 13 skipped, 3 failed:
+  `artifact-viewer.spec.ts:136` (below); `async-questions-jump.spec.ts:11`,
+  whose temporary directory cleanup failed (`ENOTEMPTY`) after the case; and
+  `rendez-compose.spec.ts:8`, a New Session draft case. Both pass rerun at
+  this slice. `artifact-viewer.spec.ts:136` fails the same way in a full run
+  at `e770fca38` (517 passed, 13 skipped, 1 failed) and passes alone; it is
+  recorded in the artifact viewer gap. Tier 3 ran before review folded pin
+  and doc fixes into slice 0; the source at this slice is unchanged by them,
+  and plan 181's slice 0 pins (37 cases) pass at this commit.
+- `pnpm i18n:scan` reports nothing in the new hook. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `e770fca38` (from `5e86a07b3`).
+- No pin uses route retention, so that the hook reads the page's `location`
+  rather than the router's is checked by review and by `rg
+  "useLocation|useNavigate"` over the new hooks, which finds nothing.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.34 — Session Page Attachment Uploads (Landed 2026-11-08, this commit)
 
