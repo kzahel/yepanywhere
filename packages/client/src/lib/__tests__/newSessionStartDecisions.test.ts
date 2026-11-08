@@ -286,8 +286,12 @@ describe("Project Queue decisions", () => {
     input: Partial<Parameters<typeof projectQueueRefusalBeforeDefer>[0]> = {},
   ) =>
     projectQueueRefusalBeforeDefer({
-      routed: false,
-      routerSelectionCustomized: false,
+      routedSourceKey: null,
+      sourceKey: "host:a",
+      routerCapable: true,
+      queueRouterCapable: true,
+      launchLimited: false,
+      effectiveSandboxLevel: "none",
       machineControlSelected: false,
       machineControlEligible: false,
       creatingTemplateProject: false,
@@ -295,14 +299,24 @@ describe("Project Queue decisions", () => {
       ...input,
     });
 
-  it("refuses a chosen pool but queues a restored one directly (N1)", () => {
-    expect(refusal({ routed: true, routerSelectionCustomized: true })).toEqual({
-      kind: "refuse",
-      toastKey: "routerQueueUnsupported",
-    });
-    expect(refusal({ routed: true })).toBeNull();
-    // Choosing Direct explicitly is a customized choice that queues.
-    expect(refusal({ routerSelectionCustomized: true })).toBeNull();
+  it("queues a shown pool on a capable server and never drops it on an older one", () => {
+    expect(refusal({ routedSourceKey: "host:a" })).toBeNull();
+    // Restored or chosen alike: an older server would launch it direct.
+    expect(
+      refusal({ routedSourceKey: "host:a", queueRouterCapable: false }),
+    ).toEqual({ kind: "refuse", toastKey: "routerQueueUnsupported" });
+    for (const unlaunchable of [
+      { sourceKey: "host:b" },
+      { routerCapable: false },
+      { launchLimited: true },
+      { effectiveSandboxLevel: "project-write" as const },
+    ])
+      expect(refusal({ routedSourceKey: "host:a", ...unlaunchable })).toEqual({
+        kind: "refuse",
+        toastKey: "routerLaunchUnsupported",
+      });
+    // Direct queues on any server.
+    expect(refusal({ queueRouterCapable: false })).toBeNull();
   });
 
   it("returns without a toast for machine control and a template (N3)", () => {
@@ -325,7 +339,7 @@ describe("Project Queue decisions", () => {
         isStarting: false,
         displayDefaultsPending: false,
         projectPending: false,
-        hasDirectProviderModel: true,
+        hasSelectedProviderModel: true,
         ...input,
       });
     expect(queue()).toEqual({ text: "queued" });
@@ -338,7 +352,7 @@ describe("Project Queue decisions", () => {
       { isStarting: true },
       { displayDefaultsPending: true },
       { projectPending: true },
-      { hasDirectProviderModel: false },
+      { hasSelectedProviderModel: false },
     ]) {
       expect(queue(notReady)).toBeNull();
     }
@@ -413,6 +427,45 @@ describe("Project Queue decisions", () => {
       provider: "codex",
       model: "gpt-6",
       thinking: "on:medium",
+    });
+    // A pool queues its selection with the routed model, thinking and tier,
+    // not the direct catalog's resolution.
+    expect(
+      target({
+        routed: { poolId: "pool" },
+        routedModel: "claude-opus-4-8",
+        routerPolicy: "round-robin",
+        routerThinking: "on:low",
+        routedServiceTier: null,
+      }),
+    ).toEqual({
+      thinking: "on:low",
+      target: {
+        type: "new-session",
+        mode: "plan",
+        model: "claude-opus-4-8",
+        thinking: "on:low",
+        showThinking: "default",
+        provider: "claude",
+        routerPoolId: "pool",
+        routerPolicy: "round-robin",
+        title: "queued",
+      },
+    });
+    expect(
+      target({
+        routed: {},
+        routedModel: "opus",
+        routerAccountId: "acct",
+        routerClaudeAiConnectors: true,
+        routerThinking: "auto",
+        routedServiceTier: "priority",
+      }).target,
+    ).toMatchObject({
+      routerAccountId: "acct",
+      routerClaudeAiConnectors: true,
+      serviceTier: "priority",
+      thinking: "auto",
     });
   });
 });

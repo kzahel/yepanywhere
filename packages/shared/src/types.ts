@@ -635,6 +635,17 @@ export const ALL_PERMISSION_MODES: readonly PermissionMode[] = [
  */
 export type SessionSandboxLevel = "none" | "project-write";
 
+/**
+ * A session's YA sandbox as its summary reports it, so a session derived from
+ * it can keep the same boundary (plan 183).
+ */
+export interface SessionSandboxSummary {
+  /** Absent means unsandboxed, or a server that predates this field. */
+  sandboxLevel?: SessionSandboxLevel;
+  /** With `project-write`: absent or true means the network firewall is on. */
+  sandboxNetworkFirewall?: boolean;
+}
+
 export const SESSION_SANDBOX_LEVELS: readonly SessionSandboxLevel[] = [
   "none",
   "project-write",

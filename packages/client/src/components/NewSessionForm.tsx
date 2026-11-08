@@ -71,6 +71,7 @@ import {
   queueNewSessionForProject,
   startNewSession,
 } from "../lib/newSessionStart";
+import { templateSessionSettings } from "../lib/templateSessionSettings";
 import { NewSessionOptionsPanel } from "./NewSessionOptionsPanel";
 import {
   getAttachmentUploadProfile,
@@ -98,11 +99,6 @@ import {
   revokePendingFilePreviewUrls,
   toPersistedStagedAttachmentRef,
 } from "../lib/newSessionAttachments";
-import {
-  resolvePromptSuggestionMode,
-  resolveRecapMode,
-  toThinkingOption,
-} from "../lib/newSessionOptions";
 import {
   PROJECT_SUGGESTION_COUNT,
   QUICK_PROJECT_COUNT,
@@ -474,7 +470,6 @@ export function NewSessionForm({
     effectiveSandboxNetworkFirewall,
     effectiveServiceTier,
     effectiveThinkingMode,
-    hasDirectProviderModel,
     hasSelectedProviderModel,
     helperSideModel,
     machineControlEligible,
@@ -486,7 +481,6 @@ export function NewSessionForm({
     routerClaudeAiConnectors,
     routerPolicy,
     routerSelection,
-    routerSelectionCustomized,
     routerThinking,
     selectedEffortLevel,
     selectedModel,
@@ -1918,7 +1912,8 @@ export function NewSessionForm({
         effectivePermissionMode,
         effectiveSandboxLevel,
         effectiveSandboxNetworkFirewall,
-        hasDirectProviderModel,
+        effectiveServiceTier,
+        hasSelectedProviderModel,
         isRecentSpeechAttribution,
         isStarting,
         launchLock,
@@ -1929,8 +1924,12 @@ export function NewSessionForm({
         projectInput,
         projectPending,
         resolveProjectIdForSubmission,
+        routedModel,
+        routerAccountId,
+        routerClaudeAiConnectors,
+        routerPolicy,
         routerSelection,
-        routerSelectionCustomized,
+        routerThinking,
         selectedEffortLevel,
         selectedModel,
         selectedProvider,
@@ -1947,6 +1946,7 @@ export function NewSessionForm({
         supportsSessionSandboxing,
         t,
         templateProjectBusy,
+        versionInfo,
       },
       messageOverride,
     );
@@ -2188,7 +2188,13 @@ export function NewSessionForm({
       (message.trim() || speechPending !== null || interimTranscript) &&
       pendingFilesReadyForProjectQueue &&
       hasProjectQueueTargetProject &&
-      hasDirectProviderModel,
+      // A pool the server cannot queue stays pressable so Queue says why.
+      (hasSelectedProviderModel ||
+        (Boolean(routerSelection) &&
+          !serverHasCapability(
+            versionInfo,
+            SERVER_CAPABILITIES.projectQueueRouterSelection.name,
+          ))),
   );
   const projectQueueNewSessionTitle =
     machineControlSelected && machineControlEligible
@@ -3077,28 +3083,10 @@ export function NewSessionForm({
                       ? t("templateSelectProvider")
                       : undefined
               }
-              sessionSettings={{
-                mode: effectivePermissionMode,
-                provider: selectedProvider ?? undefined,
-                model: selectedModel ?? undefined,
-                thinking: toThinkingOption(
-                  effectiveThinkingMode,
-                  effectiveEffortLevel,
-                ),
-                showThinking: getShowThinkingSetting(),
-                sandboxLevel: effectiveSandboxLevel,
-                sandboxNetworkFirewall: effectiveSandboxNetworkFirewall,
-                recapMode: resolveRecapMode(
-                  selectedProviderInfo,
-                  selectedRecapMode,
-                ),
-                recapAfterSeconds,
-                promptSuggestionMode: resolvePromptSuggestionMode(
-                  selectedProviderInfo,
-                  selectedPromptSuggestionMode,
-                ),
-                helperSideModel,
-              }}
+              sessionSettings={templateSessionSettings(
+                newSessionOptions,
+                getShowThinkingSetting(),
+              )}
               onStarted={(createdProjectId, sessionId) => {
                 if (historyScope)
                   void rememberComposerPrompt(historyScope, message).catch(

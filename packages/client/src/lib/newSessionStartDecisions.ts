@@ -164,6 +164,36 @@ export function planNewSessionStart(input: {
   };
 }
 
+/** The router selection a start or a queued start sends. */
+export function routerLaunchFields(input: {
+  routed: { poolId?: string } | null;
+  routerAccountId: string | undefined;
+  routerPolicy: string | undefined;
+  routerClaudeAiConnectors: boolean;
+}): {
+  routerAccountId?: string;
+  routerPoolId?: string;
+  routerPolicy?: string;
+  routerClaudeAiConnectors?: true;
+} {
+  const { routed } = input;
+  if (!routed) return {};
+  return {
+    ...(input.routerAccountId
+      ? { routerAccountId: input.routerAccountId }
+      : {}),
+    ...(routed.poolId
+      ? {
+          routerPoolId: routed.poolId,
+          ...(input.routerPolicy ? { routerPolicy: input.routerPolicy } : {}),
+        }
+      : {}),
+    ...(input.routerClaudeAiConnectors
+      ? { routerClaudeAiConnectors: true as const }
+      : {}),
+  };
+}
+
 /** The session options a start sends, with the lock's overrides last. */
 export function buildNewSessionStartOptions(input: {
   creationProvenance: SessionOptions["creationProvenance"];
@@ -204,22 +234,7 @@ export function buildNewSessionStartOptions(input: {
 
     mode: input.mode,
     model: routed ? input.routedModel : input.selectedModel || undefined,
-    ...(routed && input.routerCapable
-      ? {
-          routerAccountId: input.routerAccountId,
-          ...(routed.poolId
-            ? {
-                routerPoolId: routed.poolId,
-                ...(input.routerPolicy
-                  ? { routerPolicy: input.routerPolicy }
-                  : {}),
-              }
-            : {}),
-          ...(input.routerClaudeAiConnectors
-            ? { routerClaudeAiConnectors: true }
-            : {}),
-        }
-      : {}),
+    ...(routed && input.routerCapable ? routerLaunchFields(input) : {}),
     thinking: routed ? input.routerThinking : input.thinking,
     showThinking: input.showThinking,
     ...(input.effectiveServiceTier
@@ -248,22 +263,41 @@ export function buildNewSessionStartOptions(input: {
 
 /**
  * Project Queue's refusals before a pending dictation can defer the press: a
- * chosen pool (Queue never routes), machine control (immediate launches
+ * pool or account the server cannot queue or launch (never dropped, so the
+ * item cannot run on the direct login), machine control (immediate launches
  * only), and a template being made.
  */
 export function projectQueueRefusalBeforeDefer(input: {
-  routed: boolean;
-  routerSelectionCustomized: boolean;
+  /** The shown router selection's source, restored or chosen; null for Direct. */
+  routedSourceKey: string | null;
+  sourceKey: string;
+  routerCapable: boolean;
+  queueRouterCapable: boolean;
+  launchLimited: boolean;
+  effectiveSandboxLevel: SessionSandboxLevel;
   machineControlSelected: boolean;
   machineControlEligible: boolean;
   creatingTemplateProject: boolean;
   templateProjectBusy: boolean;
 }):
-  | { kind: "refuse"; toastKey: "routerQueueUnsupported" }
+  | {
+      kind: "refuse";
+      toastKey: "routerQueueUnsupported" | "routerLaunchUnsupported";
+    }
   | { kind: "silent" }
   | null {
-  if (input.routed && input.routerSelectionCustomized) {
-    return { kind: "refuse", toastKey: "routerQueueUnsupported" };
+  if (input.routedSourceKey !== null) {
+    if (!input.queueRouterCapable) {
+      return { kind: "refuse", toastKey: "routerQueueUnsupported" };
+    }
+    if (
+      input.routedSourceKey !== input.sourceKey ||
+      !input.routerCapable ||
+      input.launchLimited ||
+      input.effectiveSandboxLevel !== "none"
+    ) {
+      return { kind: "refuse", toastKey: "routerLaunchUnsupported" };
+    }
   }
   if (input.machineControlSelected && input.machineControlEligible) {
     return { kind: "silent" };
@@ -286,7 +320,8 @@ export function planNewSessionProjectQueue(input: {
   isStarting: boolean;
   displayDefaultsPending: boolean;
   projectPending: boolean;
-  hasDirectProviderModel: boolean;
+  /** The selected model is ready: direct, or routed once the pool restored. */
+  hasSelectedProviderModel: boolean;
 }): { text: string } | null {
   const rawTrimmedMessage = input.finalMessage.trim();
   const text = rawTrimmedMessage
@@ -300,7 +335,7 @@ export function planNewSessionProjectQueue(input: {
     input.isStarting ||
     input.displayDefaultsPending ||
     input.projectPending ||
-    !input.hasDirectProviderModel
+    !input.hasSelectedProviderModel
   ) {
     return null;
   }
@@ -308,9 +343,11 @@ export function planNewSessionProjectQueue(input: {
 }
 
 /**
- * The queued session's settings. Queue does not route, so a restored pool
- * preference is ignored and thinking, effort and tier resolve against the
- * selected provider's direct catalog.
+ * The queued session's settings. A routed selection queues like a routed
+ * start: its pool or account, with model, thinking and tier resolved against
+ * the routed catalog; the router allocates the pin when the item dispatches.
+ * Otherwise thinking, effort and tier resolve against the selected provider's
+ * direct catalog.
  */
 export function buildProjectQueueNewSessionTarget(input: {
   providerInfo: ProviderInfo | undefined;
@@ -327,7 +364,50 @@ export function buildProjectQueueNewSessionTarget(input: {
   launchLock: LaunchLock;
   title: string;
   t: Translate;
+  routed?: { poolId?: string } | null;
+  routedModel?: string;
+  routerAccountId?: string;
+  routerPolicy?: string;
+  routerClaudeAiConnectors?: boolean;
+  routerThinking?: ThinkingOption;
+  /** The tier resolved against the routed catalog. */
+  routedServiceTier?: string | null;
 }) {
+  const sandbox = input.supportsSessionSandboxing
+    ? {
+        sandboxLevel: input.effectiveSandboxLevel,
+        ...(input.effectiveSandboxLevel === "project-write"
+          ? {
+              sandboxNetworkFirewall: input.effectiveSandboxNetworkFirewall,
+            }
+          : {}),
+      }
+    : {};
+  if (input.routed && input.routerThinking) {
+    const thinking = input.routerThinking;
+    return {
+      thinking,
+      target: {
+        type: "new-session" as const,
+        mode: input.mode,
+        model: input.routedModel,
+        ...(input.routedServiceTier
+          ? { serviceTier: input.routedServiceTier }
+          : {}),
+        thinking,
+        showThinking: input.showThinking,
+        provider: input.selectedProvider ?? undefined,
+        ...routerLaunchFields({
+          routed: input.routed,
+          routerAccountId: input.routerAccountId,
+          routerPolicy: input.routerPolicy,
+          routerClaudeAiConnectors: input.routerClaudeAiConnectors === true,
+        }),
+        ...sandbox,
+        title: input.title,
+      },
+    };
+  }
   const directModel = input.providerInfo?.models?.find(
     (model) => model.id === input.selectedModel,
   );
@@ -360,16 +440,7 @@ export function buildProjectQueueNewSessionTarget(input: {
       thinking,
       showThinking: input.showThinking,
       provider: input.selectedProvider ?? undefined,
-      ...(input.supportsSessionSandboxing
-        ? {
-            sandboxLevel: input.effectiveSandboxLevel,
-            ...(input.effectiveSandboxLevel === "project-write"
-              ? {
-                  sandboxNetworkFirewall: input.effectiveSandboxNetworkFirewall,
-                }
-              : {}),
-          }
-        : {}),
+      ...sandbox,
       ...launchLockOverrides(input.launchLock),
       title: input.title,
     },

@@ -6,6 +6,7 @@ import { useId } from "react";
 import { useI18n } from "../i18n";
 import { ProviderBadge } from "./ProviderBadge";
 import styles from "./NewSessionProjectQueue.module.css";
+import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
 
 type Translate = ReturnType<typeof useI18n>["t"];
 
@@ -92,6 +93,7 @@ export function NewSessionProjectQueue({
       <ul className={styles.list}>
         {items.map((item) => {
           const title = itemTitle(item, t);
+          const routerLabel = projectQueueRouterLabel(item.target, t);
           return (
             <li
               key={item.id}
@@ -120,6 +122,11 @@ export function NewSessionProjectQueue({
                       model={item.target.model}
                       className={styles.provider}
                     />
+                  )}
+                  {routerLabel && (
+                    <span className={styles.provider} title={routerLabel.title}>
+                      {routerLabel.label}
+                    </span>
                   )}
                 </span>
                 {item.lastError && (

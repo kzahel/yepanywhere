@@ -663,6 +663,13 @@ New-session derivatives must not silently weaken confinement:
 - an explicit transcript fork, clone (including a `/btw` aside),
   fork-after-summary target, retitle helper, recap fork, handoff, or
   restart-as-new flow inherits the source level;
+- a new session started from a session's composer (start now or Project
+  Queue) and a Source Review session opened from a session carry the
+  source's level and firewall, which session payloads report as
+  `sandboxLevel`/`sandboxNetworkFirewall`; from the composer the sandbox
+  follows to another provider that can run inside it and is refused for one
+  that cannot, and the composer refuses while the source has not loaded
+  (plan 183);
 - an explicit fork cannot override the source level;
 - a separately created New Session settles its own visible pre-launch choice;
   and

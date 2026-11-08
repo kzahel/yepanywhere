@@ -390,6 +390,8 @@ export function registerSessionDetailSubresourceRoutes(
           deps.signal,
         ),
         routerBinding: metadata?.routerBinding,
+        sandboxLevel: metadata?.sandboxLevel,
+        sandboxNetworkFirewall: metadata?.sandboxNetworkFirewall,
         initialPrompt:
           metadata?.initialPrompt ?? sessionSummary?.fullTitle ?? undefined,
         nativeSessionId: storedIdentityFor(sessionId)?.native?.id,

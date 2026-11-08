@@ -149,6 +149,12 @@ export interface ReviewNewSessionOptions {
   thinking?: ThinkingConfig;
   /** Reasoning effort copied from the session that opened Source Control. */
   effort?: EffortLevel;
+  /**
+   * The session that opened Source Control. The server carries its router
+   * pool or account (as a new pin), YA sandbox and service tier to the
+   * review session; older servers ignore it.
+   */
+  sourceSessionId?: string;
 }
 
 export interface ReviewCommentsFile {

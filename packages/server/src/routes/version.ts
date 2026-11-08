@@ -511,6 +511,7 @@ export const RESUME_PROTOCOL_VERSION = 3;
 export const REMOTE_COMPATIBILITY_LEVEL = 10;
 
 const BASE_CAPABILITIES: string[] = [
+  SERVER_CAPABILITIES.projectQueueRouterSelection.name,
   SERVER_CAPABILITIES.connectionSafeSettings.name,
   SERVER_CAPABILITIES.providerSteeringModes.name,
   SERVER_CAPABILITIES.providerSteerNowDefaults.name,

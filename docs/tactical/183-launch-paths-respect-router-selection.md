@@ -2,7 +2,7 @@
 
 Topic: agent-auth-router
 
-Status: approved 2026-11-08, in progress. Account switching for existing sessions is
+Status: implemented 2026-11-08. Account switching for existing sessions is
 frozen (pins stay fixed for a session's life); see
 [the switching gap](../../gaps/routed-session-cannot-switch-account.md).
 
@@ -25,12 +25,11 @@ visible refusal. Direct is chosen only explicitly.
   closed on router refusal. Resumes reuse the stored `routerBinding`, so
   existing-session queue items are already routed. The gaps are all in
   callers that never pass those fields.
-- Gaps covered: [project-queue-drops-router-pool](../../gaps/project-queue-drops-router-pool.md),
-  [composer-new-session-drops-source-sandbox-and-routing](../../gaps/composer-new-session-drops-source-sandbox-and-routing.md),
-  template launch (N9 in
-  [new-session-start-and-queue-differences](../../gaps/new-session-start-and-queue-differences.md)),
-  [agent-api-create-session-ignores-caller-router-binding](../../gaps/agent-api-create-session-ignores-caller-router-binding.md),
-  and the router part of
+- Gaps covered (deleted as fixed): project-queue-drops-router-pool,
+  composer-new-session-drops-source-sandbox-and-routing, template launch (N9
+  in [new-session-start-and-queue-differences](../../gaps/new-session-start-and-queue-differences.md)),
+  agent-api-create-session-ignores-caller-router-binding, and the router,
+  sandbox, tier, instructions and compaction parts of
   [source-review-launch-drops-session-settings](../../gaps/source-review-launch-drops-session-settings.md).
 
 ## Steps
@@ -99,11 +98,13 @@ creation. Folds into the N9 fix.
 
 ### 4 — Agent API and Source Review inherit or refuse for routed callers
 
-- Agent API `createSession` from a routed session: inherit the caller's pin
-  with a child binding (`Supervisor.inheritRouterBinding`), as clone does, or
-  refuse with a message. Never Direct.
-- Source Review new session from a routed session: the same inheritance.
-  Its sandbox, tier and global-instructions drops stay in their gap.
+- Agent API `createSession` from a routed session: the caller's selection per
+  decision 1, with the caller's model when the request names none. Another
+  provider is refused with a message. Never Direct.
+- Source Review new session: the client sends the opening session's id
+  (`newSession.sourceSessionId`); the server applies decision 1 and the
+  opening session's sandbox and tier, plus global instructions and compact
+  settings (decision 3).
 
 ### 5 — contracts and retirement
 
@@ -126,6 +127,22 @@ resolved. Delete each gap in the commit that fixes it.
 3. All steps are in scope now. Source Review also carries the source
    session's sandbox level/firewall and service tier, and receives global
    instructions and compact settings as ordinary creation does.
+
+## As implemented
+
+- The composer's New session needed the source session's YA sandbox, which
+  the client could not see: session payloads now carry `sandboxLevel` and
+  `sandboxNetworkFirewall`. The sandbox follows the new session even to
+  another provider that can run sandboxed, and is refused for one that
+  cannot; router selection and tier apply only on the same provider.
+  Routing and sandbox landed together, since one builder carries both.
+- A pool refusal cancels the fresh allocation, which made every retry of the
+  same admitted creation fail with "this failed launch was cancelled". AAR
+  allocations refused before commit are now marked so a retried creation that
+  names its selection again allocates afresh.
+- Template preparation also sends the routed tier; its other N9 differences
+  (sandbox field rule, lock overrides) remain in
+  [the gap](../../gaps/new-session-start-and-queue-differences.md).
 
 ## Out of scope
 

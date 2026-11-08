@@ -7,6 +7,11 @@ import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { Process } from "../supervisor/Process.js";
 import type { SessionCommandOwner } from "./session-commands.js";
 import { CoreApiError } from "./errors.js";
+import {
+  RouterRefusedBeforeProvider,
+  type RouterBindingRef,
+  routerSelectionFromBinding,
+} from "../services/AgentAuthRouter.js";
 
 /** Uses incumbent native ownership. Monitoring is shared per process, not caller. */
 export function nativeSessionCommandOwner(deps: {
@@ -16,6 +21,13 @@ export function nativeSessionCommandOwner(deps: {
   >;
   globalInstructions: () => string | undefined;
   creations?: SessionCreationStore;
+  /**
+   * The calling session's router pin and model, so a child of a routed
+   * session runs on the router rather than the owner's direct login.
+   */
+  callerLaunch?: (
+    sessionId: string,
+  ) => { routerBinding?: RouterBindingRef; model?: string } | undefined;
 }): SessionCommandOwner {
   type Watch = {
     pending: Map<string, { consumed: () => void; ended: () => void }>;
@@ -183,58 +195,91 @@ export function nativeSessionCommandOwner(deps: {
       const thinking = request.thinking
         ? thinkingOptionToConfig(request.thinking)
         : { thinking: undefined, effort: undefined };
-      const result = await deps.supervisor.startSession(
-        project.path,
-        {
-          text: request.message,
-          uuid: receipt.id,
-          tempId: receipt.id,
-          metadata: {
-            apiSubmissionId: receipt.id,
-            origin: "coordination",
-            sourceSessionId:
-              receipt.creator.principal.kind === "peer"
-                ? undefined
-                : (receipt.creator.sessionId ?? undefined),
-            serverReceivedAt: receipt.createdAt,
-          },
-        },
-        request.permissionMode,
-        {
-          providerName: request.provider,
-          model: request.model === "default" ? undefined : request.model,
-          requestedModel: request.model,
-          ...thinking,
-          serviceTier: request.serviceTier,
-          globalInstructions: deps.globalInstructions(),
-          recapMode: "off",
-          promptSuggestionMode: "off",
-        },
-        {
-          projectId: project.id as UrlProjectId,
-          creation: {
-            requestId: receipt.id,
-            nativeReceiptId: receipt.id,
-            context: {
-              owner: { kind: "superuser" },
-              source: { kind: "request", provenance: { surface: "api" } },
+      const callerId =
+        receipt.creator.principal.kind === "peer"
+          ? undefined
+          : (receipt.creator.sessionId ?? undefined);
+      const caller = callerId ? deps.callerLaunch?.(callerId) : undefined;
+      // A routed caller's child gets a fresh pick from the caller's pool, or
+      // its explicit account through a new pin (plan 183); never Direct.
+      const routed = caller?.routerBinding;
+      let model = request.model === "default" ? undefined : request.model;
+      if (routed) {
+        if (routed.provider !== request.provider)
+          return {
+            rejected: true,
+            message: `This session runs on an Agent Auth Router ${routed.provider} account, so it can start only ${routed.provider} sessions, which use the same router pool or account.`,
+          };
+        model ??= caller.model;
+        if (!model)
+          return {
+            rejected: true,
+            message:
+              "Name a model: a session started from a router session needs one its router account offers.",
+          };
+      }
+      let result: Awaited<ReturnType<Supervisor["startSession"]>>;
+      try {
+        result = await deps.supervisor.startSession(
+          project.path,
+          {
+            text: request.message,
+            uuid: receipt.id,
+            tempId: receipt.id,
+            metadata: {
+              apiSubmissionId: receipt.id,
+              origin: "coordination",
+              sourceSessionId:
+                receipt.creator.principal.kind === "peer"
+                  ? undefined
+                  : (receipt.creator.sessionId ?? undefined),
+              serverReceivedAt: receipt.createdAt,
             },
-            authorize,
-            onAccepted: (saved) => admitted(saved.sessionId),
           },
-          requireProviderSessionId: true,
-          onStarted: (id, process) => {
-            settled(id);
-            try {
-              watch(process, receipt.id, consumed, failed);
-            } catch {
-              failed();
-            }
+          request.permissionMode,
+          {
+            providerName: request.provider,
+            model,
+            requestedModel: request.model ?? model,
+            ...thinking,
+            ...(routed ? routerSelectionFromBinding(routed) : {}),
+            serviceTier: request.serviceTier,
+            globalInstructions: deps.globalInstructions(),
+            recapMode: "off",
+            promptSuggestionMode: "off",
           },
-          onFailed: failed,
-          onRetryableFailure: failed,
-        },
-      );
+          {
+            projectId: project.id as UrlProjectId,
+            creation: {
+              requestId: receipt.id,
+              nativeReceiptId: receipt.id,
+              context: {
+                owner: { kind: "superuser" },
+                source: { kind: "request", provenance: { surface: "api" } },
+              },
+              authorize,
+              onAccepted: (saved) => admitted(saved.sessionId),
+            },
+            requireProviderSessionId: true,
+            onStarted: (id, process) => {
+              settled(id);
+              try {
+                watch(process, receipt.id, consumed, failed);
+              } catch {
+                failed();
+              }
+            },
+            onFailed: failed,
+            onRetryableFailure: failed,
+          },
+        );
+      } catch (error) {
+        // A router refusal precedes any provider start: a known rejection,
+        // not an uncertain launch.
+        if (error instanceof RouterRefusedBeforeProvider)
+          return { rejected: true, message: error.message };
+        throw error;
+      }
       if ("error" in result) return { rejected: true };
       if ("queued" in result) return { queueId: result.queueId };
       return { sessionId: result.sessionId };

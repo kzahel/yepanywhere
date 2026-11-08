@@ -118,6 +118,19 @@ export function parseSourceControlNavigationState(
   };
 }
 
+/**
+ * The new-session settings a review submits from the default session. The
+ * server carries that session's router selection, sandbox and tier to the
+ * review session it starts (plan 183).
+ */
+export function reviewNewSessionFromDefault(
+  defaultSession: SourceReviewDefaultSession | null | undefined,
+): ReviewNewSessionOptions | undefined {
+  return defaultSession
+    ? { ...defaultSession.newSession, sourceSessionId: defaultSession.id }
+    : undefined;
+}
+
 export function createSourceControlNavigationState(
   defaultSession: SourceReviewDefaultSession,
 ): SourceControlNavigationState {

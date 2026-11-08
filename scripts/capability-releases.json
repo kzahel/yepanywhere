@@ -25,6 +25,7 @@
     "provider-steering-modes": "2026-11-03",
     "provider-steer-now-defaults": "2026-11-06",
     "project-app-start-command": "2026-11-04",
-    "connection-safe-settings": "2026-11-08"
+    "connection-safe-settings": "2026-11-08",
+    "project-queue-router-selection": "2026-11-08"
   }
 }

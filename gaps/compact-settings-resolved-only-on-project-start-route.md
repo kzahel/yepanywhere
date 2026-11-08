@@ -10,13 +10,15 @@ defaults, so these launches run without the configured compaction behaviour:
 - Detached session creation (same file, sibling handler).
 - Project Queue new-session and existing-session items
   (`ProjectQueueScheduler.toModelSettings`).
-- Source Review launches (`review/reviewSessionLauncher.ts`).
 - Agent API createSession (`core-api/native-session-commands.ts`).
 
 Project Queue items also drop recap, prompt-suggestion and helper-model
 settings (already noted as N2 in
 [new-session-start-and-queue-differences](new-session-start-and-queue-differences.md)),
 and wake/review follow-up resumes drop them plus `globalInstructions`.
+
+Source Review new sessions resolve them since plan 183
+(`sessions/derived-launch-sources.ts`).
 
 Fix: resolve compact (and helper) settings in one place every launch passes
 through, rather than per route.

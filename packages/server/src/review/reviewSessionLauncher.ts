@@ -14,7 +14,33 @@ import type {
  */
 
 import type { ReviewNewSessionOptions } from "@yep-anywhere/shared";
-import type { Supervisor } from "../supervisor/Supervisor.js";
+import type { ModelSettings, Supervisor } from "../supervisor/Supervisor.js";
+import {
+  RouterRefusedBeforeProvider,
+  type RouterBindingRef,
+  routerSelectionFromBinding,
+} from "../services/AgentAuthRouter.js";
+
+/**
+ * What a review session's launch takes from the server and from the session
+ * that opened Source Control, as ordinary creation does (plan 183).
+ */
+export interface ReviewLaunchDefaults {
+  globalInstructions: () => string | undefined;
+  compactSettings: (
+    provider: ModelSettings["providerName"],
+    model: string | undefined,
+  ) => Partial<ModelSettings>;
+  sourceLaunch: (sessionId: string) =>
+    | {
+        provider?: ModelSettings["providerName"];
+        routerBinding?: RouterBindingRef;
+        sandboxLevel?: ModelSettings["sandboxLevel"];
+        sandboxNetworkFirewall?: boolean;
+        serviceTier?: string | null;
+      }
+    | undefined;
+}
 
 export type ReviewLaunchResult =
   | { status: "started"; sessionId: string }
@@ -63,6 +89,7 @@ export function createSupervisorReviewLauncher(
     acceptance: ReviewDeliveryAcceptance,
   ) => void | Promise<void>,
   creations?: SessionCreationStore,
+  defaults?: ReviewLaunchDefaults,
 ): ReviewSessionLauncher {
   const followUps = new Map<string, Promise<ReviewFollowUpResult>>();
   return {
@@ -106,14 +133,7 @@ export function createSupervisorReviewLauncher(
     suppliedCreation?: NonNullable<SessionLaunchOptions["creation"]>,
   ): Promise<ReviewLaunchResult> {
     // projectId derives from projectPath inside startSession.
-    const modelSettings = options
-      ? {
-          providerName: options.provider,
-          model: options.model,
-          thinking: options.thinking,
-          effort: options.effort,
-        }
-      : undefined;
+    const modelSettings = reviewModelSettings(options, defaults);
     const creation = suppliedCreation ?? {
       context: {
         owner: { kind: "superuser" as const },
@@ -182,6 +202,10 @@ export function createSupervisorReviewLauncher(
           },
         );
       } catch (error) {
+        // A router refusal precedes any provider start: report it rather
+        // than a queued delivery that will never run (plan 183).
+        if (error instanceof RouterRefusedBeforeProvider)
+          throw new HttpError(409, error.message);
         if (accepted && submissionId)
           return { status: "queued", sessionId: accepted.sessionId };
         throw error;
@@ -248,6 +272,50 @@ export function createSupervisorReviewLauncher(
     }
     return { status: "delivered" };
   }
+}
+
+/**
+ * A review session keeps the opening session's router selection (a fresh
+ * pick from its pool, or its account through a new pin; never its pin),
+ * sandbox and tier, and gets global instructions and compaction settings.
+ */
+function reviewModelSettings(
+  options: ReviewNewSessionOptions | undefined,
+  defaults: ReviewLaunchDefaults | undefined,
+): ModelSettings | undefined {
+  if (!options && !defaults) return undefined;
+  const source = options?.sourceSessionId
+    ? defaults?.sourceLaunch(options.sourceSessionId)
+    : undefined;
+  const provider = options?.provider ?? source?.provider;
+  const binding = source?.routerBinding;
+  if (binding && binding.provider !== provider)
+    throw new HttpError(
+      409,
+      `The opening session runs on an Agent Auth Router ${binding.provider} account, so its review must use ${binding.provider}.`,
+    );
+  const globalInstructions = defaults?.globalInstructions();
+  return {
+    providerName: provider,
+    model: options?.model,
+    requestedModel: options?.model,
+    thinking: options?.thinking,
+    effort: options?.effort,
+    // A tier is provider-specific; the sandbox is a host boundary that
+    // Supervisor refuses for a provider that cannot run inside it.
+    ...(source?.serviceTier && source.provider === provider
+      ? { serviceTier: source.serviceTier }
+      : {}),
+    ...(binding ? routerSelectionFromBinding(binding) : {}),
+    ...(!binding && source?.sandboxLevel === "project-write"
+      ? {
+          sandboxLevel: "project-write" as const,
+          sandboxNetworkFirewall: source.sandboxNetworkFirewall !== false,
+        }
+      : {}),
+    ...(globalInstructions ? { globalInstructions } : {}),
+    ...defaults?.compactSettings(provider, options?.model),
+  };
 }
 
 function reviewMessage(text: string, submissionId?: string) {

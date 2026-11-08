@@ -22,6 +22,7 @@ import {
   useDiffLineInteractions,
 } from "./useDiffLineInteractions";
 import type { TranslationFn } from "../i18n";
+import { reviewNewSessionFromDefault } from "../lib/sourceControlNavigationState";
 
 /**
  * Source-review commenting over a rendered diff (topic:
@@ -130,7 +131,9 @@ export function DiffCommentController({
         handleSubmit(
           text,
           target,
-          target === "new" ? defaultSession?.newSession : undefined,
+          target === "new"
+            ? reviewNewSessionFromDefault(defaultSession)
+            : undefined,
         )
       }
       t={t}

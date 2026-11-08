@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  projectQueueRouterSelection: {
+    id: 154,
+    direction: "server",
+    name: "project-queue-router-selection",
+    introducedIn: "0.11.1",
+  },
   connectionSafeSettings: {
     id: 153,
     direction: "server",

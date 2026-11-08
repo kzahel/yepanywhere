@@ -334,8 +334,25 @@ an isolation boundary against that user's own local files.
   pool; Codex copies follow the same path, and `thread/fork` itself needs no
   network, though see
   [`gaps/routed-codex-calls-chatgpt-with-direct-login.md`](../gaps/routed-codex-calls-chatgpt-with-direct-login.md).
-- Restart/handoff, fork with summary, YA recap/title helper sessions and
-  project queue selection are refused for routed sessions in this slice,
+- A launch whose selection, saved default or source session names a pool or
+  account produces a routed session or a visible refusal, never a silent
+  Direct launch (plan 183). Project Queue new-session items carry the
+  selection (`project-queue-router-selection`) and allocate when they
+  dispatch, so a pool picks against quota at that time; a router refusal
+  retries and then pauses the item, and the retry allocates afresh on the
+  same admitted session because a fresh allocation refused before commit
+  never ran. Template preparation sessions send the form's selection with
+  the routed model. A new session derived from a routed session (the session
+  composer's New session, Agent API `createSession`, a Source Review
+  session) gets a fresh policy pick from the source binding's pool with its
+  policy (a Manual pool pin names its account), or the source's explicit
+  account through a new pin; it never shares the source's allocation or
+  token. Such a derived session on another provider is refused for the
+  Agent API and Source Review; the composer starts it Direct only when the
+  user explicitly picks another provider. Older servers that would drop the
+  selection are refused client-side.
+- Restart/handoff, fork with summary and YA recap/title helper sessions
+  are refused for routed sessions in this slice,
   because they start a fresh session, or call the provider directly as the
   fork summary's generator does, without the pin, on the owner's direct login.
   The restart, stale-handoff, fork-summary and retitle routes return 409 with
@@ -597,10 +614,10 @@ or specialized fixed launches. The saved preference remains intact. A model
 known only to the router is not sent directly on fallback. Explicit pool picks
 keep the existing launch refusals when they cannot be used.
 
-Project Queue ignores a restored router preference and resolves its launch
-settings against the direct provider catalog; an explicitly picked pool keeps
-the existing unsupported-queue behavior. Template creation uses its own launch
-path and does not submit these routing defaults.
+Project Queue and template creation submit a restored or picked selection
+with the routed model, thinking and tier, as a direct start does (plan 183,
+replacing plan 147 § 6). A server without `project-queue-router-selection`
+is refused Queue while a pool is shown, restored or picked.
 
 The maintainer explicitly approved silent compatibility without a new
 capability or explanatory note. The existing settings route receives the

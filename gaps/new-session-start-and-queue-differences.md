@@ -17,21 +17,18 @@ plan's "Decisions for the maintainer" section has the evidence.
   `planNewSessionProjectQueue` the same way, with start's refusals.
 - **Composer history** (N5, Q2). A started prompt is saved to New Session's
   prompt history (`rememberComposerPrompt`); a queued one is not.
-- **Template launch settings** (N9, Q3). `TemplateProjectForm`'s
-  `sessionSettings` (in `NewSessionForm.tsx`) send raw thinking and effort
-  even under a restored pool, omit the tier and the lock overrides, and send
-  sandbox fields to servers without sandboxing (and the firewall when the
-  level is `none`). Cheap fix: reuse `buildProjectQueueNewSessionTarget`'s
-  direct-catalog resolution and start's sandbox field rule; machine control
-  stays out, as for Queue. **Higher severity than it reads:** the template
-  launch also drops the restored router pool/account/policy and sends
-  `selectedModel` rather than the routed model, so it runs on the owner's
-  direct login while the form shows the pool; `disabledReason` does not
-  refuse because `hasSelectedProviderModel` is true for routed selections.
-  `routes/project-templates.ts` forwards `sessionSettings` unchanged to
-  session creation, so sending the router fields would work; the
-  direct-catalog fix alone would make the drop permanent (2026-11-08 audit,
-  see [project-queue-drops-router-pool](project-queue-drops-router-pool.md)).
+- **Template launch settings** (N9, Q3). `templateSessionSettings`
+  (`packages/client/src/lib/templateSessionSettings.ts`) sends a shown pool
+  or account with the routed model, thinking and tier since plan 183, but
+  still omits the lock overrides and sends sandbox fields to servers without
+  sandboxing (and the firewall when the level is `none`). Cheap fix: reuse
+  start's sandbox field rule and `launchLockOverrides`; machine control
+  stays out, as for Queue.
+
+- **Queue row router chip** (plan 183). Project Queue rows label a routed
+  item "Router pool"/"Router account" with the raw pool or account id in the
+  tooltip (`lib/projectQueueRouterLabel.ts`); names would need router
+  discovery on the queue surfaces or display names saved on the target.
 
 Two related remainders, larger than the above:
 

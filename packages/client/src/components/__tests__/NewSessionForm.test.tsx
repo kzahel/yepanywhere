@@ -3401,14 +3401,18 @@ describe("NewSessionForm", () => {
     });
   });
 
-  it("uses Ctrl+Enter to queue directly despite a restored pool preference", async () => {
+  it("uses Ctrl+Enter to queue a restored pool preference with its pool", async () => {
     toolbarVisibilityState.projectQueue = true;
     inboxState.active = [
       { sessionId: "session-active", projectId: "project-1" },
     ];
     serverSettingsState.isLoading = false;
     versionState.version = {
-      capabilities: [PROJECT_QUEUE_CAPABILITY, "agent-auth-router"],
+      capabilities: [
+        PROJECT_QUEUE_CAPABILITY,
+        "agent-auth-router",
+        "project-queue-router-selection",
+      ],
     };
     serverSettingsState.settings = {
       newSessionDefaults: {
@@ -3473,7 +3477,7 @@ describe("NewSessionForm", () => {
     expect(mockStartSession).not.toHaveBeenCalled();
     expect(
       mockCreateProjectQueueItem.mock.calls[0]![1].target.routerPoolId,
-    ).toBeUndefined();
+    ).toBe("work");
   });
 
   it("expands for long-form editing and makes Ctrl+Enter start", async () => {
@@ -5695,7 +5699,7 @@ describe("NewSessionForm", () => {
       );
     });
 
-    it("refuses to queue a chosen pool", async () => {
+    it("refuses to queue a chosen pool on a server that would drop it", async () => {
       showProjectQueue();
       versionState.version = {
         capabilities: [PROJECT_QUEUE_CAPABILITY, "agent-auth-router"],
@@ -5860,10 +5864,14 @@ describe("NewSessionForm", () => {
       );
     });
 
-    it("queues a restored pool's draft with the direct catalog's settings", async () => {
+    it("queues a restored pool's draft with the routed catalog's settings", async () => {
       showProjectQueue();
       versionState.version = {
-        capabilities: [PROJECT_QUEUE_CAPABILITY, "agent-auth-router"],
+        capabilities: [
+          PROJECT_QUEUE_CAPABILITY,
+          "agent-auth-router",
+          "project-queue-router-selection",
+        ],
       };
       providersState.providers[0]!.models = [
         { id: "default", name: "Default" },
@@ -5932,16 +5940,64 @@ describe("NewSessionForm", () => {
       await waitFor(() =>
         expect(mockCreateProjectQueueItem).toHaveBeenCalledTimes(1),
       );
+      // The routed account offers the saved "low" but no speed tiers.
       expect(mockCreateProjectQueueItem.mock.calls[0]![1].target).toEqual({
         type: "new-session",
         mode: "plan",
         model: "opus",
-        serviceTier: "priority",
-        thinking: "on:medium",
+        thinking: "on:low",
         showThinking: "default",
         provider: "claude",
+        routerPoolId: "work",
         title: "queued under a pool",
       });
+    });
+
+    it("refuses to queue a restored pool on a server that would drop it", async () => {
+      showProjectQueue();
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "agent-auth-router"],
+      };
+      serverSettingsState.settings = {
+        newSessionDefaults: {
+          provider: "claude",
+          providers: { claude: { model: "opus", routerPoolId: "work" } },
+        },
+      };
+      vi.mocked(api.routerSelection).mockResolvedValueOnce({
+        accounts: [
+          {
+            id: "routed-account",
+            provider: "claude",
+            enabled: true,
+            models: [{ id: "opus", name: "Opus 4.8" }],
+          },
+        ],
+        pools: [
+          {
+            id: "work",
+            name: "Work",
+            provider: "claude",
+            accountIds: ["routed-account"],
+            policy: "round-robin",
+          },
+        ],
+      } as never);
+      renderForm();
+      openAdvancedOptions();
+      await waitFor(() =>
+        expect(selectedDropdownValue("routerPool")).toBe("work"),
+      );
+      typeDraft("not on the direct login");
+      fireEvent.keyDown(composer(), { key: "Enter", ctrlKey: true });
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "routerQueueUnsupported",
+          "error",
+        ),
+      );
+      expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
     });
 
     it("throws from a memo start that is refused and resolves one that starts", async () => {

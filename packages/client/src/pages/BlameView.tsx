@@ -41,6 +41,7 @@ import {
   getBlameAuthorKey,
   groupConsecutiveBlameRows,
 } from "./blamePresentation";
+import { reviewNewSessionFromDefault } from "../lib/sourceControlNavigationState";
 
 interface OpenBlameComment {
   /** Index into `blame.lines` of the clicked line. */
@@ -397,7 +398,9 @@ export function BlameView({
             text,
             target,
             t("sourceReviewSubmitQueued"),
-            target === "new" ? defaultSession?.newSession : undefined,
+            target === "new"
+              ? reviewNewSessionFromDefault(defaultSession)
+              : undefined,
           );
           if (outcome === "navigated") setOpen(null);
         }}

@@ -221,7 +221,7 @@ export interface NewSessionQueueDeps {
   effectivePermissionMode: NewSessionOptions["effectivePermissionMode"];
   effectiveSandboxLevel: NewSessionOptions["effectiveSandboxLevel"];
   effectiveSandboxNetworkFirewall: NewSessionOptions["effectiveSandboxNetworkFirewall"];
-  hasDirectProviderModel: NewSessionOptions["hasDirectProviderModel"];
+  hasSelectedProviderModel: NewSessionOptions["hasSelectedProviderModel"];
   isRecentSpeechAttribution: RecentSpeechAttribution["isRecent"];
   isStarting: boolean;
   launchLock: LaunchLock;
@@ -235,8 +235,13 @@ export interface NewSessionQueueDeps {
     trimmedProjectInput: string,
     ownsSubmission?: () => boolean,
   ) => Promise<string | null>;
+  effectiveServiceTier: NewSessionOptions["effectiveServiceTier"];
+  routedModel: NewSessionOptions["routedModel"];
+  routerAccountId: NewSessionOptions["routerAccountId"];
+  routerClaudeAiConnectors: NewSessionOptions["routerClaudeAiConnectors"];
+  routerPolicy: NewSessionOptions["routerPolicy"];
   routerSelection: NewSessionOptions["routerSelection"];
-  routerSelectionCustomized: NewSessionOptions["routerSelectionCustomized"];
+  routerThinking: NewSessionOptions["routerThinking"];
   selectedEffortLevel: NewSessionOptions["selectedEffortLevel"];
   selectedModel: NewSessionOptions["selectedModel"];
   selectedProvider: NewSessionOptions["selectedProvider"];
@@ -262,6 +267,7 @@ export interface NewSessionQueueDeps {
   supportsSessionSandboxing: NewSessionOptions["supportsSessionSandboxing"];
   t: ReturnType<typeof useI18n>["t"];
   templateProjectBusy: boolean;
+  versionInfo: ReturnType<typeof useVersion>["version"];
 }
 
 /**
@@ -765,7 +771,8 @@ export async function queueNewSessionForProject(
     effectivePermissionMode,
     effectiveSandboxLevel,
     effectiveSandboxNetworkFirewall,
-    hasDirectProviderModel,
+    effectiveServiceTier,
+    hasSelectedProviderModel,
     isRecentSpeechAttribution,
     isStarting,
     launchLock,
@@ -776,8 +783,12 @@ export async function queueNewSessionForProject(
     projectInput,
     projectPending,
     resolveProjectIdForSubmission,
+    routedModel,
+    routerAccountId,
+    routerClaudeAiConnectors,
+    routerPolicy,
     routerSelection,
-    routerSelectionCustomized,
+    routerThinking,
     selectedEffortLevel,
     selectedModel,
     selectedProvider,
@@ -794,10 +805,21 @@ export async function queueNewSessionForProject(
     supportsSessionSandboxing,
     t,
     templateProjectBusy,
+    versionInfo,
   } = deps;
   const refusal = projectQueueRefusalBeforeDefer({
-    routed: Boolean(routerSelection),
-    routerSelectionCustomized,
+    routedSourceKey: routerSelection ? routerSelection.sourceKey : null,
+    sourceKey: clientSummarySourceKey,
+    routerCapable: serverHasCapability(
+      versionInfo,
+      SERVER_CAPABILITIES.agentAuthRouter.name,
+    ),
+    queueRouterCapable: serverHasCapability(
+      versionInfo,
+      SERVER_CAPABILITIES.projectQueueRouterSelection.name,
+    ),
+    launchLimited: launchLock.limited,
+    effectiveSandboxLevel,
     machineControlSelected,
     machineControlEligible,
     creatingTemplateProject,
@@ -831,7 +853,7 @@ export async function queueNewSessionForProject(
     isStarting,
     displayDefaultsPending,
     projectPending,
-    hasDirectProviderModel,
+    hasSelectedProviderModel,
   });
   if (!planned) return;
   const trimmedMessage = planned.text;
@@ -875,8 +897,8 @@ export async function queueNewSessionForProject(
     }
 
     const sessionMode = effectivePermissionMode;
-    // Queue does not support routing. A restored preference is only for
-    // immediate creation; resolve this launch against the direct catalog.
+    // A shown pool or account queues with the item; the router allocates
+    // when it dispatches (topics/project-queue.md).
     const showThinking = getShowThinkingSetting();
     const { target, thinking } = buildProjectQueueNewSessionTarget({
       providerInfo: selectedProviderInfo,
@@ -893,6 +915,13 @@ export async function queueNewSessionForProject(
       launchLock,
       title: trimmedMessage,
       t,
+      routed: routerSelection,
+      routedModel,
+      routerAccountId,
+      routerPolicy,
+      routerClaudeAiConnectors,
+      routerThinking,
+      routedServiceTier: effectiveServiceTier,
     });
 
     if (!stillOwnsForm()) return;

@@ -150,6 +150,12 @@ in [cross-host delegation](cross-host-delegation.md). A created session need not
 be a child task. Creation does not imply automatic result delivery, parent
 wakeups, cancellation propagation, repository transfer or managed worktrees.
 Session migration remains the distinct [super-session proposal](federated-super-sessions.md).
+A session created by a session routed through the
+[Agent Auth Router](agent-auth-router.md) runs on the caller's pool (a fresh
+pick with the caller's policy) or explicit account (a new pin), with the
+caller's model when the request names none; another provider is refused with
+`admission_rejected` and the reason. It never falls back to the owner's
+direct login (plan 183).
 Scheduling remains valuable separate work under [Yacron](yacron.md), using the
 same supported session operations when implemented.
 

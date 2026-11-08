@@ -22,6 +22,7 @@ import type { Project } from "../types";
 import { ProjectQueueAttachmentEditor } from "./ProjectQueueAttachmentEditor";
 import { ProviderBadge } from "./ProviderBadge";
 import styles from "./ProjectQueueSection.module.css";
+import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
 
 type Translate = ReturnType<typeof useI18n>["t"];
 
@@ -705,6 +706,7 @@ export function ProjectQueueSection({
                   const isPromoting = mutatingPromoteItemId === item.id;
                   const isDispatching = item.status === "dispatching";
                   const isEditing = editingItemId === item.id;
+                  const routerLabel = projectQueueRouterLabel(item.target, t);
                   const isHighlighted = highlightedItemId === item.id;
                   const canEdit =
                     !item.creationSessionId &&
@@ -789,6 +791,14 @@ export function ProjectQueueSection({
                               model={item.target.model}
                               className={styles.itemProvider}
                             />
+                          )}
+                          {routerLabel && (
+                            <span
+                              className={styles.itemProvider}
+                              title={routerLabel.title}
+                            >
+                              {routerLabel.label}
+                            </span>
                           )}
                           <span className={styles.itemAge}>
                             {formatRelativeTime(item.createdAt, t)}

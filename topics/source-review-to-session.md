@@ -667,7 +667,12 @@ not yet available.
   that exact existing session. It does not consult recent sessions or prior
   review batches.
 - **Submit to new session** starts a separate session using the default
-  session's provider, model, thinking mode, and effort. When Source Control was
+  session's provider, model, thinking mode, and effort. It also names that
+  session (`newSession.sourceSessionId`), so the server gives the review
+  session its router pool or account (a fresh pick or a new pin, never the
+  source's pin; another provider is refused), YA sandbox and service tier,
+  plus Global Instructions and compact settings as ordinary creation does
+  (plan 183). When Source Control was
   not opened from a session Edit link, the default-session action is absent and
   the new session uses the normal launch defaults.
 

@@ -15,6 +15,7 @@ import {
   type ProjectQueueItem,
   type ProjectQueueProjectStatus,
   type ProjectQueuePromoteNowResult,
+  type ProjectQueueTarget,
   type ProviderName,
   type QueuedYaCommand,
   type SessionSandboxLevel,
@@ -31,6 +32,7 @@ import {
 import { levelFor } from "../auth/limitedUserPolicy.js";
 import { getLogger } from "../logging/logger.js";
 import type { UserMessage } from "../sdk/types.js";
+import { RouterRefusedBeforeProvider } from "./AgentAuthRouter.js";
 import type { BusEvent, EventBus } from "../watcher/EventBus.js";
 import {
   RetryableSessionLaunchError,
@@ -927,9 +929,17 @@ export class ProjectQueueScheduler {
       };
     } catch (error) {
       const message = errorMessage(error);
+      // A router refusal (no usable pool account, login required, revoked
+      // grant, router offline) fails the creation before any provider
+      // starts, so the item retries and then pauses like a startup failure.
+      // It never re-dispatches without its router selection.
+      const routerRefused =
+        error instanceof RouterRefusedBeforeProvider &&
+        item?.target.type === "new-session";
       const retryable =
-        error instanceof RetryableSessionLaunchError &&
-        item?.target.type === "existing-session";
+        routerRefused ||
+        (error instanceof RetryableSessionLaunchError &&
+          item?.target.type === "existing-session");
       let retryScheduled = false;
       if (item && retryable) {
         const updated =
@@ -937,6 +947,7 @@ export class ProjectQueueScheduler {
             projectId,
             item.id,
             message,
+            { renewCreationRetry: routerRefused },
           );
         retryScheduled = updated?.status === "queued";
         retryBlockedProject = retryScheduled;
@@ -1358,6 +1369,23 @@ export class ProjectQueueScheduler {
           }
         : {}),
       ...(globalInstructions ? { globalInstructions } : {}),
+      // Allocated by Supervisor at dispatch; an existing session keeps its pin.
+      ...(target.type === "new-session" ? routerSelection(target) : {}),
     };
   }
+}
+
+function routerSelection(
+  target: Extract<ProjectQueueTarget, { type: "new-session" }>,
+): Partial<ModelSettings> {
+  return {
+    ...(target.routerPoolId ? { routerPoolId: target.routerPoolId } : {}),
+    ...(target.routerAccountId
+      ? { routerAccountId: target.routerAccountId }
+      : {}),
+    ...(target.routerPolicy ? { routerPolicy: target.routerPolicy } : {}),
+    ...(target.routerClaudeAiConnectors !== undefined
+      ? { routerClaudeAiConnectors: target.routerClaudeAiConnectors }
+      : {}),
+  };
 }

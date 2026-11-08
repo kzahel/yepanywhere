@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSupervisorReviewLauncher } from "../../src/review/reviewSessionLauncher.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
+import {
+  RouterRefusedBeforeProvider,
+  RouterUnavailable,
+} from "../../src/services/AgentAuthRouter.js";
 
 describe("createSupervisorReviewLauncher.startReviewSession", () => {
   it("starts with the origin session's provider, model, thinking, and effort", async () => {
@@ -24,6 +28,7 @@ describe("createSupervisorReviewLauncher.startReviewSession", () => {
       {
         providerName: "codex",
         model: "gpt-5.4",
+        requestedModel: "gpt-5.4",
         thinking: { type: "adaptive", display: "summarized" },
         effort: "high",
       },
@@ -36,6 +41,103 @@ describe("createSupervisorReviewLauncher.startReviewSession", () => {
         }),
       }),
     );
+  });
+
+  it("keeps the opening session's router selection, sandbox and tier, with server instructions and compaction", async () => {
+    const startSession = vi.fn(async () => ({ sessionId: "new-session" }));
+    const supervisor = { startSession } as unknown as Supervisor;
+    const sources: Record<string, object> = {
+      routed: {
+        provider: "claude",
+        routerBinding: {
+          id: "pin",
+          routerId: "router",
+          accountId: "acct",
+          provider: "claude",
+          poolId: "pool",
+          policy: "round-robin",
+        },
+        serviceTier: "priority",
+      },
+      sandboxed: {
+        provider: "codex",
+        sandboxLevel: "project-write",
+        sandboxNetworkFirewall: false,
+      },
+    };
+    const launcher = createSupervisorReviewLauncher(
+      supervisor,
+      undefined,
+      undefined,
+      {
+        globalInstructions: () => "be kind",
+        compactSettings: () => ({ compactAtContextPercent: 80 }),
+        sourceLaunch: (id) => sources[id],
+      },
+    );
+    const settings = async (
+      options: Parameters<typeof launcher.startReviewSession>[2],
+    ) => {
+      startSession.mockClear();
+      await launcher.startReviewSession("/repo", "turn", options);
+      return (startSession.mock.calls[0] as unknown[])[3];
+    };
+
+    // A fresh pick from the pool, never the opening session's pin.
+    expect(
+      await settings({
+        provider: "claude",
+        model: "claude-opus-4-8",
+        sourceSessionId: "routed",
+      }),
+    ).toEqual({
+      providerName: "claude",
+      model: "claude-opus-4-8",
+      requestedModel: "claude-opus-4-8",
+      thinking: undefined,
+      effort: undefined,
+      serviceTier: "priority",
+      routerPoolId: "pool",
+      routerPolicy: "round-robin",
+      globalInstructions: "be kind",
+      compactAtContextPercent: 80,
+    });
+    expect(
+      await settings({ provider: "codex", sourceSessionId: "sandboxed" }),
+    ).toMatchObject({
+      sandboxLevel: "project-write",
+      sandboxNetworkFirewall: false,
+    });
+    await expect(
+      launcher.startReviewSession("/repo", "turn", {
+        provider: "codex",
+        sourceSessionId: "routed",
+      }),
+    ).rejects.toThrow("its review must use claude");
+  });
+
+  it("reports a router refusal after acceptance instead of a queued delivery", async () => {
+    const startSession = vi.fn(async (...args: unknown[]) => {
+      const launch = args[4] as {
+        creation: { onAccepted: (saved: unknown) => Promise<void> };
+      };
+      await launch.creation.onAccepted({ sessionId: "admitted" });
+      throw new RouterRefusedBeforeProvider(
+        new RouterUnavailable(409, "no eligible pool account"),
+      );
+    });
+    const supervisor = { startSession } as unknown as Supervisor;
+    await expect(
+      createSupervisorReviewLauncher(supervisor, vi.fn()).startReviewSession(
+        "/repo",
+        "turn",
+        undefined,
+        "submission-1",
+      ),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "no eligible pool account",
+    });
   });
 
   it("records queue acceptance before returning a keyed queued launch", async () => {

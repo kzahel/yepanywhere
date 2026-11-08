@@ -4,10 +4,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
-  ALL_PERMISSION_MODES,
-  ALL_PROVIDERS,
   type CreateProjectQueueItemRequest,
-  type PermissionMode,
   type ProjectQueueChangedEvent,
   type ProjectQueueCreatedFrom,
   type ProjectQueueDispatchPauseReason,
@@ -18,14 +15,11 @@ import {
   type ProjectQueueResponse,
   type ProjectQueueStagedAttachments,
   type ProjectQueueTarget,
-  type ProviderName,
   QUEUEABLE_YA_COMMANDS,
   type QueuedYaCommand,
   type QueuedYaCommandProblem,
-  type ShowThinking,
   type SessionCreationProvenance,
   type StagedAttachmentRef,
-  type ThinkingOption,
   type UpdateProjectQueueItemRequest,
   type UploadedFile,
   type UrlProjectId,
@@ -38,6 +32,15 @@ import type {
   PreparedQueueAttachmentTransfer,
 } from "../uploads/AttachmentStagingService.js";
 import type { EventBus } from "../watcher/EventBus.js";
+import {
+  isRecord,
+  normalizeTarget,
+  optionalPermissionMode,
+  optionalString,
+  ProjectQueueValidationError,
+} from "./project-queue-target.js";
+
+export { ProjectQueueValidationError } from "./project-queue-target.js";
 
 const CURRENT_VERSION = 3;
 const MAX_MESSAGE_PREVIEW_LENGTH = 180;
@@ -65,13 +68,6 @@ export interface ProjectQueueServiceOptions {
   dataDir: string;
   eventBus?: EventBus;
   attachmentStagingService?: AttachmentStagingService;
-}
-
-export class ProjectQueueValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ProjectQueueValidationError";
-  }
 }
 
 /** A well-formed item the queuing user's launch policy does not allow. */
@@ -110,19 +106,6 @@ function applyLaunchPolicy(
 ): void {
   const refusal = policy?.(draft);
   if (refusal) throw new ProjectQueueLaunchRefusedError(refusal);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function optionalString(value: unknown, field: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string") {
-    throw new ProjectQueueValidationError(`${field} must be a string`);
-  }
-  const trimmed = value.trim();
-  return trimmed || undefined;
 }
 
 function optionalNonNegativeInteger(value: unknown): number | undefined {
@@ -165,72 +148,6 @@ function normalizeDispatchState(
     reason: "restart",
     pausedAt: new Date().toISOString(),
   };
-}
-
-function optionalProvider(value: unknown): ProviderName | undefined {
-  if (value === undefined) return undefined;
-  if (
-    typeof value !== "string" ||
-    !ALL_PROVIDERS.includes(value as ProviderName)
-  ) {
-    throw new ProjectQueueValidationError("target.provider is invalid");
-  }
-  return value as ProviderName;
-}
-
-function optionalPermissionMode(value: unknown): PermissionMode | undefined {
-  if (value === undefined) return undefined;
-  if (
-    typeof value !== "string" ||
-    !ALL_PERMISSION_MODES.includes(value as PermissionMode)
-  ) {
-    throw new ProjectQueueValidationError("mode is invalid");
-  }
-  return value as PermissionMode;
-}
-
-function optionalThinking(value: unknown): ThinkingOption | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string" || !value.trim()) {
-    throw new ProjectQueueValidationError("target.thinking is invalid");
-  }
-  return value.trim() as ThinkingOption;
-}
-
-function optionalShowThinking(value: unknown): ShowThinking | undefined {
-  if (value === undefined) return undefined;
-  if (value !== "default" && value !== "on" && value !== "off") {
-    throw new ProjectQueueValidationError("target.showThinking is invalid");
-  }
-  return value;
-}
-
-function optionalSandboxLevel(
-  value: unknown,
-): "none" | "project-write" | undefined {
-  if (value === undefined) return undefined;
-  if (value !== "none" && value !== "project-write") {
-    throw new ProjectQueueValidationError("target.sandboxLevel is invalid");
-  }
-  return value;
-}
-
-function optionalSandboxNetworkFirewall(
-  value: unknown,
-  sandboxLevel: "none" | "project-write" | undefined,
-): boolean | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "boolean") {
-    throw new ProjectQueueValidationError(
-      "target.sandboxNetworkFirewall is invalid",
-    );
-  }
-  if (value && sandboxLevel !== "project-write") {
-    throw new ProjectQueueValidationError(
-      "target.sandboxNetworkFirewall requires project-write sandboxing",
-    );
-  }
-  return sandboxLevel === "project-write" ? value : undefined;
 }
 
 function normalizeUploadedFile(value: unknown, index: number): UploadedFile {
@@ -537,50 +454,6 @@ function withDerivedYaCommand(
 ): ProjectQueueMessage {
   const yaCommand = queuedYaCommandToRun({ target, message });
   return yaCommand ? { ...message, yaCommand } : message;
-}
-
-function normalizeTarget(raw: unknown): ProjectQueueTarget {
-  if (!isRecord(raw)) {
-    throw new ProjectQueueValidationError("target must be an object");
-  }
-
-  const common = {
-    provider: optionalProvider(raw.provider),
-    mode: optionalPermissionMode(raw.mode),
-    model: optionalString(raw.model, "target.model"),
-    serviceTier: optionalString(raw.serviceTier, "target.serviceTier"),
-    executor: optionalString(raw.executor, "target.executor"),
-    thinking: optionalThinking(raw.thinking),
-    showThinking: optionalShowThinking(raw.showThinking),
-  };
-
-  if (raw.type === "existing-session") {
-    const sessionId = optionalString(raw.sessionId, "target.sessionId");
-    if (!sessionId) {
-      throw new ProjectQueueValidationError("target.sessionId is required");
-    }
-    return {
-      type: "existing-session",
-      sessionId,
-      ...common,
-    };
-  }
-
-  if (raw.type === "new-session") {
-    const sandboxLevel = optionalSandboxLevel(raw.sandboxLevel);
-    return {
-      type: "new-session",
-      title: optionalString(raw.title, "target.title"),
-      sandboxLevel,
-      sandboxNetworkFirewall: optionalSandboxNetworkFirewall(
-        raw.sandboxNetworkFirewall,
-        sandboxLevel,
-      ),
-      ...common,
-    };
-  }
-
-  throw new ProjectQueueValidationError("target.type is invalid");
 }
 
 function normalizeCreatedFrom(
@@ -1274,10 +1147,18 @@ export class ProjectQueueService {
     });
   }
 
+  /**
+   * Requeue an item whose launch failed before reaching the provider, or
+   * mark it failed after repeated failures. `renewCreationRetry` is for a
+   * new-session item whose durable creation failed before any provider
+   * started (a router refusal): the automatic retry needs its own retry
+   * identity, which is safe because nothing was delivered.
+   */
   async recordRetryableStartupFailure(
     projectId: UrlProjectId,
     itemId: string,
     error: string,
+    options: { renewCreationRetry?: boolean } = {},
   ): Promise<ProjectQueueItemSummary | null> {
     return this.withMutation(async () => {
       this.ensureInitialized();
@@ -1300,6 +1181,9 @@ export class ProjectQueueService {
         lastAttemptAt: now,
         startupFailureCount,
         updatedAt: now,
+        ...(options.renewCreationRetry && status === "queued"
+          ? { creationRetryId: randomUUID() }
+          : {}),
       };
 
       const projectIndexes = this.getProjectItemIndexes(projectId);

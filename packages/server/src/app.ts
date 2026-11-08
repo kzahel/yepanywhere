@@ -1,3 +1,8 @@
+import {
+  agentApiCallerLaunch,
+  effectiveGlobalInstructions,
+  reviewLaunchDefaults,
+} from "./sessions/derived-launch-sources.js";
 import { AuthorizedRelationshipSource } from "./sessions/authorized-relationship-source.js";
 import { createSessionRelationshipRead } from "./sessions/session-relationship-read.js";
 import { createSessionRelationshipRoutes } from "./routes/session-relationships.js";
@@ -108,7 +113,6 @@ import {
 } from "@yep-anywhere/shared";
 import {
   DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,
-  buildEffectiveAgentContext,
   clampProjectQueueQuietSeconds,
   DEFAULT_ISSUE_SETTINGS,
   DEFAULT_PROMPT_CACHE_KEEPALIVE_INACTIVITY_MINUTES,
@@ -2962,11 +2966,7 @@ export function createApp(options: AppOptions): AppResult {
         options.sessionMetadataService?.getMetadata(process.sessionId)
           ?.workingProjectId ?? process.projectId,
       getGlobalInstructions: () =>
-        buildEffectiveAgentContext({
-          globalInstructions:
-            options.serverSettingsService?.getSetting("globalInstructions"),
-          hints: options.serverSettingsService?.getSetting("agentContextHints"),
-        }),
+        effectiveGlobalInstructions(options.serverSettingsService),
       isSessionAutomationPaused: (sessionId) =>
         options.sessionMetadataService?.getMetadata(sessionId)
           ?.automationPausedUntilUserTurn === true,
@@ -3887,12 +3887,9 @@ export function createApp(options: AppOptions): AppResult {
     nativeSessionCommandOwner({
       supervisor,
       creations: options.sessionMetadataService?.creations,
+      callerLaunch: agentApiCallerLaunch(options, supervisor),
       globalInstructions: () =>
-        buildEffectiveAgentContext({
-          globalInstructions:
-            options.serverSettingsService?.getSetting("globalInstructions"),
-          hints: options.serverSettingsService?.getSetting("agentContextHints"),
-        }),
+        effectiveGlobalInstructions(options.serverSettingsService),
     }),
     () =>
       options.serverSettingsService?.getSetting("agentApiManagementEnabled") ===
@@ -4207,6 +4204,7 @@ export function createApp(options: AppOptions): AppResult {
             throw new Error("Review submission association is unavailable");
         },
         options.sessionMetadataService?.creations,
+        reviewLaunchDefaults(options),
       ),
       isSubmissionsEnabled: sourceReviewSubmissionsEnabled,
       getResponseTurnLimit: () =>

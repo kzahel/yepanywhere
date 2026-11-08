@@ -33,6 +33,35 @@ export const PROJECT_QUEUE_SERVER_CAPABILITIES = {
         "The fixed contract remains advertised for older clients; current clients use the supported v0.8.0 baseline.",
     },
   },
+  projectQueueRouterSelection: {
+    id: CAPABILITY_ID_ALLOCATIONS.projectQueueRouterSelection.id,
+    name: "project-queue-router-selection",
+    kind: "permanent",
+    area: "projectQueue",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "New-session Project Queue items carry an Agent Auth Router pool or account selection, allocated when the item dispatches; a router refusal retries and then pauses the item, never launching on the direct login.",
+    clientFallback:
+      "Refuse to queue a new session while a router pool or account is selected, restored or inherited, so it cannot run on the direct login.",
+    serverContract: {
+      routes: [
+        "POST /api/projects/:projectId/queue",
+        "PATCH /api/projects/:projectId/queue/:itemId",
+      ],
+      requestFields: [
+        "target.routerPoolId",
+        "target.routerAccountId",
+        "target.routerPolicy",
+        "target.routerClaudeAiConnectors",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Older servers drop the router fields from queued items and launch them on the direct login.",
+    },
+  },
   projectQueueReadinessCheck: {
     id: CAPABILITY_ID_ALLOCATIONS.projectQueueReadinessCheck.id,
     name: "project-queue-readiness-check",

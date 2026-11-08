@@ -1,4 +1,5 @@
 import {
+  type AppSessionSummary,
   classifyQueuedYaCommand,
   type ProviderName,
   type QueuedYaCommand,
@@ -15,6 +16,7 @@ import {
 import type { MessageSubmissionMetadata } from "../types/messageSubmission";
 import { requiresAttachmentOnlyServerUpdate } from "./attachmentSubmission";
 import { buildCorrectionText } from "./correctionText";
+import { providerSupportsLocalSessionSandbox } from "./providerCapabilities";
 import {
   hasComposerDraftContent,
   type PreparedComposerSubmission,
@@ -652,6 +654,103 @@ export function planProjectQueue<Provider>({
         SERVER_CAPABILITIES.sessionCreationAdmission.name,
       ),
   };
+}
+
+/** Launch fields a composer New session keeps from its source session. */
+export interface DerivedNewSessionSettings {
+  routerPoolId?: string;
+  routerAccountId?: string;
+  routerPolicy?: string;
+  routerClaudeAiConnectors?: true;
+  sandboxLevel?: "project-write";
+  sandboxNetworkFirewall?: boolean;
+  serviceTier?: string;
+}
+
+/**
+ * What a new session started from a session's composer keeps from that
+ * session (plan 183): its YA sandbox always, and on the same provider its
+ * router selection and service tier. A pool-routed source gives
+ * a fresh pick from its pool with its policy (a Manual pin keeps its
+ * account); an account-pinned source gives that account. Neither shares the
+ * source's pin. A selection the server cannot carry is refused, never
+ * dropped, so the session cannot fall back to the direct login.
+ */
+export function deriveComposerNewSessionSettings({
+  session,
+  keepsProvider,
+  newSessionProvider,
+  queued,
+  version,
+}: {
+  session:
+    | (Pick<
+        AppSessionSummary,
+        "routerBinding" | "sandboxLevel" | "sandboxNetworkFirewall" | "provider"
+      > & {
+        effectiveLaunchSettings?: { serviceTier: string | null };
+      })
+    | null
+    | undefined;
+  keepsProvider: boolean;
+  newSessionProvider: ProviderName | null | undefined;
+  queued: boolean;
+  version: ServerCapabilitySource | null | undefined;
+}):
+  | {
+      refuse:
+        | "routerQueueUnsupported"
+        | "routerLaunchUnsupported"
+        | "composerNewSessionSandboxUnsupported"
+        | "composerNewSessionSourceLoading";
+    }
+  | { settings: DerivedNewSessionSettings } {
+  // Until the source loads, its pin and sandbox are unknown: refuse rather
+  // than start Direct or unsandboxed.
+  if (!session) return { refuse: "composerNewSessionSourceLoading" };
+  const sandbox: DerivedNewSessionSettings =
+    session.sandboxLevel === "project-write"
+      ? {
+          sandboxLevel: "project-write",
+          sandboxNetworkFirewall: session.sandboxNetworkFirewall !== false,
+        }
+      : {};
+  // The sandbox is a host boundary, not a provider setting: it follows the
+  // session to any provider that can run inside it, and refuses the rest.
+  if (!keepsProvider) {
+    if (
+      sandbox.sandboxLevel &&
+      !providerSupportsLocalSessionSandbox(newSessionProvider)
+    )
+      return { refuse: "composerNewSessionSandboxUnsupported" };
+    return { settings: sandbox };
+  }
+  const settings: DerivedNewSessionSettings = {};
+  const binding = session.routerBinding;
+  if (binding) {
+    if (
+      queued &&
+      !serverHasCapability(
+        version,
+        SERVER_CAPABILITIES.projectQueueRouterSelection.name,
+      )
+    )
+      return { refuse: "routerQueueUnsupported" };
+    if (!serverHasCapability(version, SERVER_CAPABILITIES.agentAuthRouter.name))
+      return { refuse: "routerLaunchUnsupported" };
+    if (binding.poolId) {
+      settings.routerPoolId = binding.poolId;
+      if (binding.policy) settings.routerPolicy = binding.policy;
+      // A Manual pool pin names its account; any other policy picks afresh.
+      if (binding.policy === "manual")
+        settings.routerAccountId = binding.accountId;
+    } else settings.routerAccountId = binding.accountId;
+    if (binding.claudeAiConnectors && session.provider === "claude")
+      settings.routerClaudeAiConnectors = true;
+  } else Object.assign(settings, sandbox);
+  const serviceTier = session.effectiveLaunchSettings?.serviceTier;
+  if (serviceTier) settings.serviceTier = serviceTier;
+  return { settings };
 }
 
 /** The toast after a Project Queue item is created. */

@@ -41,7 +41,20 @@ idle predicate; standalone yacron is explicitly ineligible.
   whose deferred validation failure it cannot observe.
 - An existing-session item resumes its session inside the sandbox the session
   was created with, as `/resume` does; a queued turn never asks for a
-  different boundary.
+  different boundary. It likewise keeps its session's router pin, and router
+  fields on an existing-session target are refused.
+- A new-session item may carry an Agent Auth Router pool or account
+  (`routerPoolId`, `routerAccountId`, `routerPolicy`,
+  `routerClaudeAiConnectors`, advertised as `project-queue-router-selection`),
+  validated at enqueue with Supervisor's shape rules and refused with a
+  sandbox or remote executor. The pin is allocated at dispatch, not enqueue.
+  A router refusal before provider start (no usable pool account, login
+  required, revoked grant, router offline) counts as a startup failure: the
+  item retries and then pauses as `failed` with the router's message. The
+  automatic retry gets a fresh creation retry identity, because the refused
+  attempt delivered nothing; it never re-dispatches without the selection.
+  Limited users cannot queue router fields. Plan 183,
+  [agent-auth-router](agent-auth-router.md).
 - An item records the limited user who queued it, if any. That user's launch
   policy applies when the item is queued or edited and again at dispatch from
   their grants at that time, and the turn and any new session are attributed
@@ -362,7 +375,8 @@ feature do not encounter a new empty-state concept. An initial read failure is
 still rendered even when no stale items exist; failure must not masquerade as a
 confirmed empty queue.
 Each ordinary Project Queue row shows the provider/model badge saved on its
-target before dispatch. Older items without a saved provider omit the badge;
+target before dispatch, and a "Router pool" or "Router account" chip when
+the item names one. Older items without a saved provider omit the badge;
 the display is informative and does not replace launch-time provider catalog
 validation.
 An active session composer's additional "queue as new session" action has

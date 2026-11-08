@@ -471,6 +471,15 @@ function parseNewSessionOptions(
     }
     options.effort = record.effort as EffortLevel;
   }
+  if (record.sourceSessionId !== undefined) {
+    if (
+      typeof record.sourceSessionId !== "string" ||
+      !/^[A-Za-z0-9_-]{1,200}$/.test(record.sourceSessionId)
+    ) {
+      return null;
+    }
+    options.sourceSessionId = record.sourceSessionId;
+  }
   return options;
 }
 

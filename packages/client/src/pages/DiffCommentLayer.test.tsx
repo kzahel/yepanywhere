@@ -262,6 +262,8 @@ describe("DiffCommentLayer", () => {
         model: "gpt-5.4",
         thinking: { type: "adaptive", display: "summarized" },
         effort: "high",
+        // The server carries the opening session's router, sandbox and tier.
+        sourceSessionId: "sess-default",
       }),
     );
     expect(navigateSpy).toHaveBeenCalledWith("/projects/proj1/sessions/sess-9");

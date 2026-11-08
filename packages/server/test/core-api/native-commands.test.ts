@@ -487,3 +487,82 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     database.close();
   }
 });
+
+it("starts a routed caller's child on the caller's pool or account, never Direct", async () => {
+  const database = openSqliteOrThrow(":memory:");
+  migrateDiscoveryDatabase(database);
+  const store = new ApiReceiptStore(database);
+  const startSession = vi.fn(async (..._args: unknown[]) => ({
+    sessionId: "child",
+  }));
+  const owner = nativeSessionCommandOwner({
+    supervisor: {
+      startSession,
+      getAllProcesses: () => [],
+      getProcessForSession: () => undefined,
+    } as never,
+    globalInstructions: () => undefined,
+    callerLaunch: (id) =>
+      id === "parent"
+        ? {
+            model: "claude-opus-4-8",
+            routerBinding: {
+              id: "parent-pin",
+              routerId: "router",
+              accountId: "acct",
+              provider: "claude",
+              poolId: "pool",
+              policy: "weekly-pace",
+            },
+          }
+        : undefined,
+  });
+  const commands = new SessionCommands("A", store, owner, () => true);
+  const project = { id: "p", name: "Fixture", path: "/fixture" };
+  const launch = {
+    id: "parent",
+    launchId: "launch",
+    management: true as const,
+  };
+  try {
+    const create = async (requestId: string, provider: "claude" | "codex") => {
+      const receipt = commands.create(
+        project,
+        createSessionRequest.parse({
+          requestId,
+          projectId: project.id,
+          provider,
+          message: "child work",
+        }),
+        launch,
+      );
+      await commands.idle();
+      return store.get(receipt.id);
+    };
+    expect(await create("routed-child", "claude")).toMatchObject({
+      state: "accepted",
+      sessionId: "child",
+    });
+    // A fresh pick from the caller's pool with its policy and model.
+    expect(startSession.mock.calls[0]![3]).toMatchObject({
+      providerName: "claude",
+      model: "claude-opus-4-8",
+      routerPoolId: "pool",
+      routerPolicy: "weekly-pace",
+    });
+    expect(startSession.mock.calls[0]![3]).not.toHaveProperty(
+      "routerAccountId",
+    );
+    expect(await create("other-provider", "codex")).toMatchObject({
+      state: "failed",
+      failure: {
+        code: "admission_rejected",
+        message: expect.stringContaining("can start only claude sessions"),
+      },
+    });
+    expect(startSession).toHaveBeenCalledTimes(1);
+  } finally {
+    store.close();
+    database.close();
+  }
+});

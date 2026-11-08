@@ -3,6 +3,7 @@ import { buildCorrectionText } from "../correctionText";
 import {
   CLAUDE_HANDOFF_REQUIRED_MESSAGE,
   type ComposerSubmissionContext,
+  deriveComposerNewSessionSettings,
   finalFailureNotice,
   firstSendFailureStep,
   planProjectQueue,
@@ -673,5 +674,122 @@ describe("Project Queue decisions", () => {
         queueProjectId: "here",
       }),
     ).toBe("t:projectQueueSessionQueuedToast");
+  });
+});
+
+describe("deriveComposerNewSessionSettings", () => {
+  const capable = {
+    capabilities: ["agent-auth-router", "project-queue-router-selection"],
+  };
+  const binding = {
+    id: "pin",
+    routerId: "router",
+    accountId: "acct",
+    provider: "claude" as const,
+  };
+  const derive = (
+    session: Parameters<typeof deriveComposerNewSessionSettings>[0]["session"],
+    input: Partial<Parameters<typeof deriveComposerNewSessionSettings>[0]> = {},
+  ) =>
+    deriveComposerNewSessionSettings({
+      session,
+      keepsProvider: true,
+      newSessionProvider: "claude",
+      queued: false,
+      version: capable,
+      ...input,
+    });
+
+  it("picks afresh from a pool-routed source's pool, never sharing its pin", () => {
+    expect(
+      derive({
+        provider: "claude",
+        routerBinding: {
+          ...binding,
+          poolId: "pool",
+          policy: "round-robin",
+          claudeAiConnectors: true,
+        },
+        effectiveLaunchSettings: { serviceTier: "priority" },
+      }),
+    ).toEqual({
+      settings: {
+        routerPoolId: "pool",
+        routerPolicy: "round-robin",
+        routerClaudeAiConnectors: true,
+        serviceTier: "priority",
+      },
+    });
+    // A Manual pool pin and an account pin keep their account.
+    expect(
+      derive({
+        provider: "claude",
+        routerBinding: { ...binding, poolId: "pool", policy: "manual" },
+      }),
+    ).toEqual({
+      settings: {
+        routerPoolId: "pool",
+        routerPolicy: "manual",
+        routerAccountId: "acct",
+      },
+    });
+    expect(derive({ provider: "claude", routerBinding: binding })).toEqual({
+      settings: { routerAccountId: "acct" },
+    });
+  });
+
+  it("keeps a sandboxed source's boundary and firewall", () => {
+    expect(
+      derive({ provider: "codex", sandboxLevel: "project-write" }),
+    ).toEqual({
+      settings: { sandboxLevel: "project-write", sandboxNetworkFirewall: true },
+    });
+    expect(
+      derive({
+        provider: "codex",
+        sandboxLevel: "project-write",
+        sandboxNetworkFirewall: false,
+      }),
+    ).toEqual({
+      settings: {
+        sandboxLevel: "project-write",
+        sandboxNetworkFirewall: false,
+      },
+    });
+  });
+
+  it("refuses while the source session is still loading", () => {
+    expect(derive(null)).toEqual({ refuse: "composerNewSessionSourceLoading" });
+  });
+
+  it("refuses a routed source the server cannot carry and keeps nothing across providers", () => {
+    const routed = { provider: "claude" as const, routerBinding: binding };
+    expect(
+      derive(routed, {
+        queued: true,
+        version: { capabilities: ["agent-auth-router"] },
+      }),
+    ).toEqual({ refuse: "routerQueueUnsupported" });
+    expect(derive(routed, { version: { capabilities: [] } })).toEqual({
+      refuse: "routerLaunchUnsupported",
+    });
+    // Another provider gets no pin or tier, but keeps the sandbox or refuses.
+    expect(
+      derive(routed, { keepsProvider: false, newSessionProvider: "codex" }),
+    ).toEqual({ settings: {} });
+    expect(
+      derive(
+        { provider: "claude", sandboxLevel: "project-write" },
+        { keepsProvider: false, newSessionProvider: "codex" },
+      ),
+    ).toEqual({
+      settings: { sandboxLevel: "project-write", sandboxNetworkFirewall: true },
+    });
+    expect(
+      derive(
+        { provider: "claude", sandboxLevel: "project-write" },
+        { keepsProvider: false, newSessionProvider: "gemini" },
+      ),
+    ).toEqual({ refuse: "composerNewSessionSandboxUnsupported" });
   });
 });

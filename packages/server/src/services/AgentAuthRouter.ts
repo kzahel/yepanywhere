@@ -59,6 +59,11 @@ interface Allocation {
   requestedAccountId?: string;
   claudeAiConnectors?: boolean;
   cancelled?: boolean;
+  /**
+   * The router refused this fresh allocation before it was committed, so no
+   * provider ever ran on its token. A retried creation may replace it.
+   */
+  refusedBeforeCommit?: boolean;
   cancellationAcknowledged?: boolean;
   id: string;
   connectionId: string;
@@ -89,6 +94,37 @@ export interface RouterAccount {
   renewal: string;
 }
 export type RouterModel = ModelInfo;
+
+export type RouterBindingRef = NonNullable<SessionMetadata["routerBinding"]>;
+
+/**
+ * The launch selection for a new session derived from a routed session
+ * (plan 183): a fresh pick from the source's pool with the source's policy
+ * (a Manual pool pin names its account), or the source's explicit account.
+ * It never names the source's allocation, so the new session gets its own
+ * pin and token. Forks and clones use `inheritBinding` instead.
+ */
+export function routerSelectionFromBinding(binding: RouterBindingRef): {
+  routerPoolId?: string;
+  routerAccountId?: string;
+  routerPolicy?: string;
+  routerClaudeAiConnectors?: true;
+} {
+  return {
+    ...(binding.poolId
+      ? {
+          routerPoolId: binding.poolId,
+          ...(binding.policy ? { routerPolicy: binding.policy } : {}),
+          ...(binding.policy === "manual"
+            ? { routerAccountId: binding.accountId }
+            : {}),
+        }
+      : { routerAccountId: binding.accountId }),
+    ...(binding.claudeAiConnectors && binding.provider === "claude"
+      ? { routerClaudeAiConnectors: true as const }
+      : {}),
+  };
+}
 
 export class RouterUnavailable extends Error {
   constructor(
@@ -867,7 +903,16 @@ export class AgentAuthRouter {
     },
   ): Promise<RouterLaunch | undefined> {
     return this.serialize(async () => {
-      const existing = this.metadata?.getMetadata(sessionId)?.routerBinding;
+      let existing = this.metadata?.getMetadata(sessionId)?.routerBinding;
+      // A retried creation names its selection again. When the router refused
+      // the previous attempt's fresh allocation before commit, nothing ran on
+      // it, so the retry allocates afresh instead of staying refused.
+      if (
+        existing &&
+        (accountId || poolId) &&
+        this.state.allocations[existing.id]?.refusedBeforeCommit
+      )
+        existing = undefined;
       if (!existing && !accountId && !poolId) return undefined;
       if (!this.metadata || (provider !== "claude" && provider !== "codex"))
         throw new RouterUnavailable(
@@ -1113,7 +1158,11 @@ export class AgentAuthRouter {
             ...this.state,
             allocations: {
               ...this.state.allocations,
-              [allocation.id]: { ...allocation, cancelled: true },
+              [allocation.id]: {
+                ...allocation,
+                cancelled: true,
+                refusedBeforeCommit: true,
+              },
             },
           });
           try {

@@ -39,6 +39,7 @@ import {
 } from "./sessionComposerAttachments";
 import {
   buildResumeOptions,
+  deriveComposerNewSessionSettings,
   type ComposerSubmissionFallback,
   finalFailureNotice,
   firstSendFailureStep,
@@ -970,6 +971,22 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
       draftControlsRef.current?.restoreFromStorage();
       return;
     }
+    const derived =
+      targetType === "new-session"
+        ? deriveComposerNewSessionSettings({
+            session,
+            keepsProvider,
+            newSessionProvider,
+            queued: !plan.startsNow,
+            version: versionInfo,
+          })
+        : { settings: {} };
+    if ("refuse" in derived) {
+      draftControlsRef.current?.setDraft(text);
+      showToast(t(derived.refuse), "error");
+      return;
+    }
+    const derivedSettings = derived.settings;
     const creationView = captureCreationView();
     let acceptedInput = canonicalCreation
       ? draftControlsRef.current?.captureSubmission?.()
@@ -1027,6 +1044,7 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
           showThinking,
           provider: newSessionProvider,
           executor: keepsProvider ? session?.executor : undefined,
+          ...derivedSettings,
         };
         const messageMetadata = {
           ...metadata,
@@ -1155,6 +1173,7 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
                 showThinking,
                 provider: newSessionProvider,
                 executor: keepsProvider ? session?.executor : undefined,
+                ...derivedSettings,
                 title: outgoingText,
               }
             : {

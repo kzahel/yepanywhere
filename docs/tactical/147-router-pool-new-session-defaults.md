@@ -165,6 +165,11 @@ a restored pool falls back to Direct.
 Project queue, templates and fixed launches either gain pool support or ignore
 a restored pool. A restored pool must not make queueing fail.
 
+Resolved 2026-11-08 by
+[plan 183](183-launch-paths-respect-router-selection.md): ignoring the pool
+launched those items on the direct login. Queue and templates now carry the
+selection; a server that cannot is refused rather than silently Direct.
+
 ### 7 — Explain hidden pools
 
 Replace hiding with a reason when sandboxing, a remote executor or a limited

@@ -26,6 +26,7 @@ import type {
   PromptSuggestionMode,
   ProviderName,
   RecapMode,
+  SessionSandboxSummary,
   SlashCommand,
   ThinkingConfig,
 } from "./types.js";
@@ -643,7 +644,7 @@ export interface SessionCreationProvenance {
 }
 
 /** Session summary for list views, without full message content. */
-export interface AppSessionSummary {
+export interface AppSessionSummary extends SessionSandboxSummary {
   /** null clears a known receipt; omission preserves unknown older-server state. */
   nonHumanUserTurn?: NonHumanUserTurn | null;
   /** Bounded recent question previews; absence means this projection is unknown. */
@@ -751,9 +752,7 @@ export interface AppSessionSummary {
   providerChildren?: ProviderChildSessionSummary[];
 }
 
-/**
- * Full session with messages.
- */
+/** Full session with messages. */
 export interface AppSession extends AppSessionSummary {
   messages: AppMessage[];
 }

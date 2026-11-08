@@ -33,7 +33,11 @@ export interface SessionCommandOwner {
     consumed?: () => void,
     admitted?: (sessionId: string) => void,
     authorize?: () => Promise<void>,
-  ): Promise<{ sessionId: string } | { queueId: string } | { rejected: true }>;
+  ): Promise<
+    | { sessionId: string }
+    | { queueId: string }
+    | { rejected: true; message?: string }
+  >;
 }
 /** Native launch admission plus durable retry identity; no HTTP or workflow policy. */
 export class SessionCommands {
@@ -180,7 +184,9 @@ export class SessionCommands {
             state: "failed",
             failure: {
               code: "admission_rejected",
-              message: "Native admission rejected this request before dispatch",
+              message:
+                ("message" in result ? result.message : undefined) ??
+                "Native admission rejected this request before dispatch",
             },
           });
       }, failed)
