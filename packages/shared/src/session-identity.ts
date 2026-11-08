@@ -35,12 +35,13 @@ function isOpaqueSessionId(value: unknown): value is string {
   );
 }
 
+// Every native address is validated on each catalog read, so this stays a
+// single regex pass rather than a per-character iterator.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Native addresses must reject ASCII control bytes.
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
+
 function hasControlCharacters(value: string): boolean {
-  for (const character of value) {
-    const code = character.charCodeAt(0);
-    if (code < 32 || code === 127) return true;
-  }
-  return false;
+  return CONTROL_CHARACTER.test(value);
 }
 
 export function isYaSessionId(value: unknown): value is YaSessionId {

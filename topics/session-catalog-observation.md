@@ -484,6 +484,9 @@ owns grouping, sharding, and persistence. Three rules keep families joinable:
   the adapter/store/native-id key or physical file location. Public collection
   and access projections use the profile identity owner to adopt Claude/Codex
   rows in one transaction and return an already bound YA id/launch variant.
+  Existing bindings are found with one indexed read per provider store for
+  just the projected ids, and only rows without a consistent binding enter that
+  transaction; nothing is retained between projections.
   Old rows without that evidence are reread at the new format; they are not
   adopted by guessing a merged root. Other native families retain their existing
   projection until their scoped reader/adoption migration is qualified.

@@ -41,6 +41,8 @@ import {
   openSqliteOrThrow,
   type SqliteDatabase,
 } from "../../src/storage/sqlite.js";
+import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
+import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { createApp } from "../setup/create-app.js";
 
 const createdAt = "2026-11-01T00:00:00.000Z";
@@ -195,6 +197,77 @@ describe("scoped durable session identity", () => {
       ]),
     ).toThrow(SessionIdentityConflict);
     expect(store.lookupNative(beforeConflict)).toBeUndefined();
+  });
+
+  it("projects a publication's bound rows directly and adopts only the rest", async () => {
+    const { database, store } = fixture();
+    managedRow(database, "public-a", "same-native", "/fixture/a");
+    managedRow(database, "public-b", "same-native", "/fixture/b");
+    const row = (
+      scope: string,
+      sessionId: string,
+      project = projectId,
+      provider = "claude",
+    ) =>
+      ({
+        catalogFamily: "claude",
+        storeKey: scope,
+        sessionId,
+        nativeStorageScope: scope,
+        provider,
+        projectId: project,
+        projectPath: "/fixture/project",
+        projectIdentityKey: "/fixture/project",
+        updatedAt: createdAt,
+      }) as unknown as SessionCatalogRow;
+    const metadata = {
+      identities: store,
+      getMetadata: () => undefined,
+    } as unknown as SessionMetadataService;
+    const adopt = vi.spyOn(store, "adoptDiscoveredBatch");
+    const projected = await projectCatalogIdentities(
+      [
+        row("/fixture/a", "same-native"),
+        row("/fixture/b", "same-native"),
+        row("/fixture/b", "legacy-native"),
+      ],
+      metadata,
+    );
+    expect(projected.map((r) => [r.sessionId, r.nativeSessionId])).toEqual([
+      ["public-a", "same-native"],
+      ["public-b", "same-native"],
+      ["legacy-native", "legacy-native"],
+    ]);
+    expect(adopt.mock.calls[0]![0].map((c) => c.native.id)).toEqual([
+      "legacy-native",
+    ]);
+
+    // A binding that disagrees still reaches adoption, which rejects the
+    // whole publication without adopting its other rows.
+    await expect(
+      projectCatalogIdentities(
+        [
+          row("/fixture/a", "unseen-native"),
+          row("/fixture/a", "same-native", toUrlProjectId("/wrong/project")),
+        ],
+        metadata,
+      ),
+    ).rejects.toThrow(SessionIdentityConflict);
+    await expect(
+      projectCatalogIdentities(
+        [row("/fixture/a", "same-native", projectId, "codex")],
+        metadata,
+      ),
+    ).rejects.toThrow(SessionIdentityConflict);
+    expect(
+      store.lookupNative(
+        nativeSessionRef(
+          "claude",
+          "/fixture/a",
+          parseNativeSessionId("unseen-native"),
+        ),
+      ),
+    ).toBeUndefined();
   });
 
   it("rejects partial bindings and preserves surrounding writes on transaction failure", () => {

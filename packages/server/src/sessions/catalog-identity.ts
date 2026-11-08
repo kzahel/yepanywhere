@@ -1,13 +1,18 @@
 import { realpath } from "node:fs/promises";
 import {
   isYaSessionId,
+  nativeSessionFamily,
   nativeSessionRef,
   parseNativeSessionId,
   fromUrlProjectId,
+  type NativeSessionRef,
 } from "@yep-anywhere/shared";
 import { getProjectIdentityKey } from "../projects/paths.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
-import type { DiscoveredSessionIdentity } from "./SessionIdentityStore.js";
+import type {
+  DiscoveredSessionIdentity,
+  SessionIdentity,
+} from "./SessionIdentityStore.js";
 import type { SessionCatalogRow } from "./catalog-types.js";
 
 /** Compact native rows name their actual store; absent scope is not ambient. */
@@ -62,26 +67,56 @@ export async function projectCatalogIdentities(
   const identities = metadata?.identities;
   if (identities) {
     // Retained catalogue rows and physical locations stay native. This is the
-    // public projection boundary, using one transaction for the publication.
+    // public projection boundary: one indexed read per provider store finds
+    // existing bindings, and only rows without one enter the publication's
+    // single adoption transaction.
     const physicalProjects = new Map<string, Promise<string>>();
-    const candidates: DiscoveredSessionIdentity[] = [];
-    const positions: number[] = [];
+    const pendingFamilies = new Map<string, boolean>();
+    const scoped: Array<{ position: number; native: NativeSessionRef }> = [];
     for (const [position, row] of nativeRows.entries()) {
-      if (signal?.aborted) return [];
-      if (
-        !row.nativeStorageScope &&
-        identities.hasPendingNativeFamily(row.catalogFamily)
-      ) {
-        excluded.add(position);
+      if (row.nativeStorageScope) {
+        scoped.push({
+          position,
+          native: nativeSessionRef(
+            row.catalogFamily,
+            row.nativeStorageScope,
+            parseNativeSessionId(row.sessionId),
+          ),
+        });
         continue;
       }
-      if (!row.nativeStorageScope) continue;
-      const native = nativeSessionRef(
-        row.catalogFamily,
-        row.nativeStorageScope,
-        parseNativeSessionId(row.sessionId),
-      );
-      const bound = identities.lookupNative(native);
+      let pending = pendingFamilies.get(row.catalogFamily);
+      if (pending === undefined) {
+        pending = identities.hasPendingNativeFamily(row.catalogFamily);
+        pendingFamilies.set(row.catalogFamily, pending);
+      }
+      if (pending) excluded.add(position);
+    }
+    const boundIdentities = identities.lookupNativeBatch(
+      scoped.map(({ native }) => native),
+    );
+    const project = (position: number, identity: SessionIdentity) => {
+      const projectPath = fromUrlProjectId(identity.projectId);
+      rows[position] = {
+        ...rows[position]!,
+        sessionId: identity.sessionId,
+        provider: identity.provider,
+        projectId: identity.projectId,
+        projectPath,
+        projectIdentityKey: getProjectIdentityKey(projectPath),
+      };
+    };
+    const candidates: DiscoveredSessionIdentity[] = [];
+    const positions: number[] = [];
+    // After an await, a binding may have landed since the batch read; later
+    // rows read their own, as each row did before batching.
+    let yielded = false;
+    for (const [index, { position, native }] of scoped.entries()) {
+      if (signal?.aborted) return [];
+      const row = nativeRows[position]!;
+      const bound = yielded
+        ? identities.lookupNative(native)
+        : boundIdentities[index];
       let projectId = row.projectId;
       if (
         row.catalogFamily === "opencode" &&
@@ -100,14 +135,26 @@ export async function projectCatalogIdentities(
             physical = realpath(original).catch(() => original);
             physicalProjects.set(original, physical);
           }
+          yielded = true;
           matches = getProjectIdentityKey(await physical) === directoryKey;
           if (signal?.aborted) return [];
         }
         if (matches) projectId = bound.projectId;
       }
+      const provider = row.provider ?? row.catalogFamily;
+      // Bindings are permanent, so a consistent one needs no adoption. A
+      // conflicting one still goes through adoption, which rejects it.
+      if (
+        bound &&
+        bound.projectId === projectId &&
+        nativeSessionFamily(provider) === native.family
+      ) {
+        project(position, bound);
+        continue;
+      }
       candidates.push({
         native,
-        provider: row.provider ?? row.catalogFamily,
+        provider,
         legacyProvider: metadata?.getMetadata(row.sessionId)?.provider,
         projectId,
         createdAt: row.createdAt ?? row.updatedAt,
@@ -119,20 +166,8 @@ export async function projectCatalogIdentities(
       .adoptDiscoveredBatch(candidates)
       .entries()) {
       const position = positions[index]!;
-      if (!identity) {
-        excluded.add(position);
-        continue;
-      }
-      rows[position] = {
-        ...rows[position]!,
-        sessionId: identity.sessionId,
-        provider: identity.provider,
-        projectId: identity.projectId,
-        projectPath: fromUrlProjectId(identity.projectId),
-        projectIdentityKey: getProjectIdentityKey(
-          fromUrlProjectId(identity.projectId),
-        ),
-      };
+      if (identity) project(position, identity);
+      else excluded.add(position);
     }
   }
   return rows.filter((_, index) => !excluded.has(index));

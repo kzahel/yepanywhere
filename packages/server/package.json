@@ -9,6 +9,7 @@
     "benchmark:single-flight": "tsx --conditions source scripts/benchmark-source-versioned-single-flight.ts",
     "benchmark:provider-watch-startup": "tsx --conditions source scripts/benchmark-provider-watch-startup.ts",
     "benchmark:session-catalog": "tsx --conditions source scripts/benchmark-session-catalog.ts",
+    "benchmark:catalog-identity": "tsx --conditions source scripts/benchmark-catalog-identity.ts",
     "benchmark:provider-catalog-adapters": "tsx --conditions source scripts/benchmark-provider-catalog-adapters.ts",
     "benchmark:provider-model-route": "tsx --conditions source scripts/benchmark-provider-model-route.ts",
     "benchmark:review-inbox": "tsx --conditions source scripts/benchmark-review-inbox.ts",

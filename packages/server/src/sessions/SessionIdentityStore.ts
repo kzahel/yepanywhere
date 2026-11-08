@@ -141,9 +141,10 @@ function decode(row: IdentityRow | undefined): SessionIdentity | undefined {
 
 /** Profile-owned indexed identity lookup, with no per-session cache or timers. */
 export class SessionIdentityStore {
-  // Six fixed statements, released with this owner or the database.
+  // Seven fixed statements, released with this owner or the database.
   private readonly byPublicId: SqliteStatement;
   private readonly byNativeRef: SqliteStatement;
+  private readonly byNativeIds: SqliteStatement;
   private readonly insert: SqliteStatement;
   private readonly bind: SqliteStatement;
   private readonly pendingScope: SqliteStatement;
@@ -161,6 +162,9 @@ export class SessionIdentityStore {
     );
     this.byNativeRef = database.prepare(
       "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id = ?",
+    );
+    this.byNativeIds = database.prepare(
+      "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id IN (SELECT value FROM json_each(?))",
     );
     this.bind = database.prepare(
       "UPDATE session_identities SET native_family = ?, native_scope = ?, native_id = ? WHERE session_id = ? AND native_id IS NULL",
@@ -182,6 +186,41 @@ export class SessionIdentityStore {
         native.storageScope,
         native.id,
       ),
+    );
+  }
+
+  /**
+   * `lookupNative` for a whole publication: one indexed read per provider store
+   * instead of one per session, returning only the requested bindings. Nothing
+   * outlives the call.
+   */
+  lookupNativeBatch(
+    natives: readonly NativeSessionRef[],
+  ): Array<SessionIdentity | undefined> {
+    // Grouped per store; a family name never contains NUL.
+    const storeKey = (native: NativeSessionRef) =>
+      `${native.family}\0${native.storageScope}`;
+    const stores = new Map<
+      string,
+      { native: NativeSessionRef; ids: Set<string> }
+    >();
+    for (const native of natives) {
+      validateNative(native);
+      const key = storeKey(native);
+      const store = stores.get(key);
+      if (store) store.ids.add(native.id);
+      else stores.set(key, { native, ids: new Set([native.id]) });
+    }
+    const found = new Map<string, SessionIdentity>();
+    for (const [key, { native, ids }] of stores)
+      for (const row of this.byNativeIds.all<IdentityRow>(
+        native.family,
+        native.storageScope,
+        JSON.stringify([...ids]),
+      ))
+        found.set(`${key}\0${row.native_id}`, decode(row)!);
+    return natives.map((native) =>
+      found.get(`${storeKey(native)}\0${native.id}`),
     );
   }
 
@@ -310,6 +349,7 @@ export class SessionIdentityStore {
   close(): void {
     this.byPublicId.finalize();
     this.byNativeRef.finalize();
+    this.byNativeIds.finalize();
     this.insert.finalize();
     this.bind.finalize();
     this.pendingScope.finalize();
