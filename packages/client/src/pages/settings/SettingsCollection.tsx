@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
 } from "react";
+import { IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import styles from "./SettingsCollection.module.css";
 
@@ -68,15 +69,13 @@ export function SettingsCollection({
             <div className={styles.heading}>
               <h4 id={titleId}>{title}</h4>
               {actions}
-              <button
+              <IconButton
                 ref={close}
-                type="button"
                 onClick={dismiss}
-                aria-label={t("settingsCollectionMinimize")}
-                title={t("settingsCollectionMinimize")}
+                label={t("settingsCollectionMinimize")}
               >
                 <span aria-hidden="true">_</span>
-              </button>
+              </IconButton>
             </div>
             {detail}
           </section>

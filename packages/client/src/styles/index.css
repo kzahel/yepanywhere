@@ -8282,29 +8282,6 @@ a.sidebar-nav-item {
   font-size: var(--font-size-sm);
 }
 
-/* Compact reset affordance (a small ×) in place of a full Reset button. */
-.settings-inline-x {
-  flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.settings-inline-x:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
 .push-test-status {
   min-height: 2.6em;
 }
@@ -8350,21 +8327,6 @@ a.sidebar-nav-item {
   font-size: var(--font-size-sm);
 }
 
-.provider-deprecation-notice__dismiss {
-  flex: 0 0 auto;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  cursor: pointer;
-}
-
-.provider-deprecation-notice__dismiss:hover,
-.provider-deprecation-notice__dismiss:focus-visible {
-  color: var(--text-primary);
-}
-
 .settings-version-item {
   align-items: stretch;
   flex-direction: column;
@@ -8376,12 +8338,6 @@ a.sidebar-nav-item {
   justify-content: space-between;
   gap: var(--space-4);
   width: 100%;
-}
-
-.settings-button-danger {
-  background: var(--error-color);
-  border-color: var(--error-color);
-  color: #fff;
 }
 
 /* Toggle switch */
@@ -8434,11 +8390,6 @@ a.sidebar-nav-item {
 .toggle-switch input:disabled + .toggle-slider {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.settings-button-danger:hover {
-  background: var(--error-hover, #b91c1c);
-  border-color: var(--error-hover, #b91c1c);
 }
 
 .settings-button-secondary {
@@ -9294,27 +9245,6 @@ a.sidebar-nav-item {
   border-right: none;
 }
 
-.filter-search-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-left: none;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.filter-search-button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
 .global-sessions-project-cta {
   display: flex;
   align-items: center;
@@ -9356,32 +9286,6 @@ a.sidebar-nav-item {
   font-size: 0.92em;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.global-sessions-project-cta__button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.filter-clear-button {
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.filter-clear-button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 .filter-dropdowns {
@@ -9846,23 +9750,9 @@ a.sidebar-nav-item {
     display: contents;
   }
 
-  /* FilterDropdown stretches itself at this width; see its module. */
-  .filter-clear-button {
-    width: 100%;
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   .global-sessions-project-cta {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .global-sessions-project-cta__button {
-    width: 100%;
-    justify-content: center;
   }
 }
 
@@ -11332,25 +11222,6 @@ a.sidebar-nav-item {
   display: flex;
   justify-content: center;
   padding: var(--space-4);
-}
-
-.global-sessions-load-more-button {
-  padding: var(--space-2) var(--space-4);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.global-sessions-load-more-button:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.global-sessions-load-more-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* ==========================================================================
@@ -13323,17 +13194,6 @@ a.sidebar-nav-item {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   margin-top: var(--space-1);
-}
-
-.settings-button-danger-subtle {
-  background: transparent;
-  border-color: var(--error-color);
-  color: var(--error-color);
-}
-
-.settings-button-danger-subtle:hover {
-  background: var(--error-color);
-  color: #fff;
 }
 
 /* Info box for explaining things like "SW disabled only affects this device" */

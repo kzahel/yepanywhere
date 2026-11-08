@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ButtonBase } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { SettingsCategoryItem } from "./SettingsCategoryItem";
 import { SettingsPane } from "./SettingsPane";
@@ -212,9 +213,9 @@ function SettingsSearchPane({
   return (
     <section className="settings-search-pane" data-category={category.id}>
       <h3 className="settings-search-pane-title">
-        <button type="button" onClick={() => onOpenCategory(category.id)}>
+        <ButtonBase onClick={() => onOpenCategory(category.id)}>
           {category.label} ›
-        </button>
+        </ButtonBase>
       </h3>
       <SettingsSearchScopeProvider value={scope}>
         <SettingsSearchPaneMount Component={Component} />

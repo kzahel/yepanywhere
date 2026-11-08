@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSchemaValidationContext } from "../../contexts/SchemaValidationContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
 import { useReloadNotifications } from "../../hooks/useReloadNotifications";
 import { useSchemaValidation } from "../../hooks/useSchemaValidation";
@@ -197,13 +198,9 @@ export function DevelopmentSettings() {
               </>
             }
           >
-            <button
-              type="button"
-              className="settings-button settings-button-secondary"
-              onClick={clearIgnoredTools}
-            >
+            <Button variant="outline" onClick={clearIgnoredTools}>
               {t("developmentClearIgnored")}
-            </button>
+            </Button>
           </SettingsItem>
         )}
         {relayMonitorUrl && (
@@ -212,7 +209,7 @@ export function DevelopmentSettings() {
             description={t("developmentRelayMonitorDescription")}
           >
             <a
-              className="settings-button settings-button-secondary"
+              className={buttonClassName({ variant: "outline" })}
               href={relayMonitorUrl}
               target="_blank"
               rel="noreferrer"
@@ -368,9 +365,8 @@ export function DevelopmentSettings() {
               </>
             }
           >
-            <button
-              type="button"
-              className={`settings-button ${unsafeToRestart ? "settings-button-danger" : ""}`}
+            <Button
+              variant={unsafeToRestart ? "danger" : "secondary"}
               onClick={handleRestartServer}
               disabled={restarting}
             >
@@ -379,7 +375,7 @@ export function DevelopmentSettings() {
                 : unsafeToRestart
                   ? t("developmentRestartAnyway")
                   : t("developmentRestart")}
-            </button>
+            </Button>
           </SettingsItem>
         </div>
       )}

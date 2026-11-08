@@ -6,7 +6,10 @@
  */
 
 /* ButtonBase: a reset for clickable rows, cards, disclosures and chips. The
-   :where() keeps it at zero specificity, so the owner's styles always win. */
+   :where() keeps it at zero specificity, so the owner's styles always win.
+   Font size is the base token rather than inherited: raw buttons render at
+   the browser's ~13 px default, and every legacy row was designed at that
+   size, so a swapped row keeps its text size unless its owner sets one. */
 :where(.base) {
   box-sizing: border-box;
   margin: 0;
@@ -15,6 +18,7 @@
   background: none;
   color: inherit;
   font: inherit;
+  font-size: var(--font-size-base);
   text-align: inherit;
   cursor: pointer;
 }
@@ -69,13 +73,17 @@
   font-size: var(--font-size-xs);
 }
 
+/* Text glyphs (×, ↑) used as icons read at a larger size than labels. */
 .icon {
   width: 32px;
   padding: 0;
+  font-size: calc(var(--font-size-lg) + 4px);
+  line-height: 1;
 }
 
 .icon.small {
   width: 26px;
+  font-size: calc(var(--font-size-base) + 4px);
 }
 
 /* Fingers, not cursors: coarse pointers get a larger hit area. */

@@ -1,3 +1,4 @@
+import { ButtonBase } from "../../components/ui/Button";
 import { SettingsCategoryIcon } from "./SettingsCategoryIcons";
 import { renderSettingsSearchHighlight } from "./SettingsSearchContext";
 import type { SettingsCategory } from "./types";
@@ -17,8 +18,7 @@ export function SettingsCategoryItem({
   highlightQuery,
 }: SettingsCategoryItemProps) {
   return (
-    <button
-      type="button"
+    <ButtonBase
       className={`settings-category-item ${isActive ? "active" : ""}`}
       onClick={onClick}
     >
@@ -39,6 +39,6 @@ export function SettingsCategoryItem({
         </span>
       </div>
       <span className="settings-category-chevron">›</span>
-    </button>
+    </ButtonBase>
   );
 }

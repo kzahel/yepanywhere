@@ -43,6 +43,11 @@ import {
   serverHasCapability,
 } from "@yep-anywhere/shared";
 import type { ServerSettings } from "../../api/client";
+import {
+  Button,
+  buttonClassName,
+  IconButton,
+} from "../../components/ui/Button";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import { Modal, type ModalAnchorRect } from "../../components/ui/Modal";
 import { useToastContext } from "../../contexts/ToastContext";
@@ -191,16 +196,11 @@ function CodexUpdatePanel() {
             })}
           </span>
         )}
-        <button
-          type="button"
-          className="settings-button"
-          onClick={() => void refresh(true)}
-          disabled={isChecking}
-        >
+        <Button onClick={() => void refresh(true)} disabled={isChecking}>
           {isChecking
             ? t("providersCodexUpdateChecking")
             : t("providersCodexUpdateCheckNow")}
-        </button>
+        </Button>
         {status.releaseUrl && updateAvailable && (
           <a
             href={status.releaseUrl}
@@ -279,16 +279,11 @@ function CodexUpdatePanel() {
           }}
         >
           {status.updateMethod === "npm" ? (
-            <button
-              type="button"
-              className="settings-button"
-              onClick={() => void install()}
-              disabled={isInstalling}
-            >
+            <Button onClick={() => void install()} disabled={isInstalling}>
               {isInstalling
                 ? t("providersCodexUpdateInstalling")
                 : t("providersCodexUpdateNow")}
-            </button>
+            </Button>
           ) : status.manualInstallCommand ? (
             <span className="settings-hint">
               {t("providersCodexUpdateWithInstaller")}
@@ -306,13 +301,13 @@ function CodexUpdatePanel() {
               >
                 {status.manualInstallCommand}
               </code>
-              <button
-                type="button"
-                className="settings-button"
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => void copy(status.manualInstallCommand ?? "")}
               >
                 {t("remoteSetupCopy")}
-              </button>
+              </Button>
             </>
           ) : status.updateMethod === "manual" ? (
             <span className="settings-hint">
@@ -565,13 +560,9 @@ function ClaudeGatewaySettings({
             placeholder={exampleUrl}
             aria-label={t("providersClaudeGatewayUrlAria")}
           />
-          <button
-            type="submit"
-            className="settings-button"
-            disabled={!hasChanges || isSaving}
-          >
+          <Button type="submit" disabled={!hasChanges || isSaving}>
             {isSaving ? t("providersSaving") : t("providersSave")}
-          </button>
+          </Button>
         </div>
 
         <label className="claude-gateway-start-command">
@@ -652,13 +643,9 @@ function ProviderLoginCommandPanel({
       >
         <code>{command}</code>
       </div>
-      <button
-        type="button"
-        className="settings-button"
-        onClick={() => onCopy(command)}
-      >
+      <Button onClick={() => onCopy(command)}>
         {t("providersLoginCommandCopy", { provider })}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -856,16 +843,16 @@ function ClaudeAdditionalModelsSettings({
         valueText={summary}
         className="providers-additional-models-setting"
       >
-        <button
+        <Button
           ref={triggerRef}
-          type="button"
-          className="settings-button settings-button-secondary providers-additional-models-trigger"
+          variant="outline"
+          className="providers-additional-models-trigger"
           onClick={openEditor}
           aria-haspopup="dialog"
         >
           <span>{summary}</span>
           <span aria-hidden="true">▾</span>
-        </button>
+        </Button>
       </SettingsItem>
       {open && (
         <Modal
@@ -920,14 +907,12 @@ function ClaudeAdditionalModelsSettings({
                     }
                   }}
                 />
-                <button
-                  type="button"
-                  className="settings-button"
+                <Button
                   disabled={isSaving || !customId.trim()}
                   onClick={addCustomModel}
                 >
                   {t("providersAdditionalModelsAdd")}
-                </button>
+                </Button>
               </div>
             </details>
             {isSaving && (
@@ -1156,6 +1141,7 @@ export function ProvidersSettings() {
           .map((provider) => (
             <Link
               key={provider.name}
+              className={buttonClassName({ variant: "outline" })}
               to={`${signInBasePath}/provider-sign-in/${provider.name}`}
             >
               {t("providersSignIn", { provider: provider.displayName })}
@@ -1305,16 +1291,14 @@ export function ProvidersSettings() {
                   showClaudeOllamaDeprecation ? (
                     <div className="provider-deprecation-notice" role="status">
                       <span>{t("providersClaudeOllamaDeprecationNotice")}</span>
-                      <button
-                        type="button"
-                        className="provider-deprecation-notice__dismiss"
-                        aria-label={t(
-                          "providersClaudeOllamaDeprecationDismissAria",
-                        )}
+                      <IconButton
+                        size="small"
+                        className={styles.deprecationDismiss}
+                        label={t("providersClaudeOllamaDeprecationDismissAria")}
                         onClick={dismissClaudeOllamaDeprecation}
                       >
                         ×
-                      </button>
+                      </IconButton>
                     </div>
                   ) : undefined}
                 </>
@@ -1436,16 +1420,14 @@ export function ProvidersSettings() {
                   {provider.id === "codex" && provider.installed && (
                     <>
                       <div style={{ marginTop: "var(--space-2)" }}>
-                        <button
-                          type="button"
-                          className="settings-button"
+                        <Button
                           disabled={providersLoading}
                           onClick={() => void reloadProviders()}
                         >
                           {providersLoading
                             ? t("providersModelsRefreshing")
                             : t("providersModelsRefresh")}
-                        </button>
+                        </Button>
                         {providersError && (
                           <p className="settings-hint" role="alert">
                             {t("providersModelsRefreshFailed")}

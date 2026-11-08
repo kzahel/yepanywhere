@@ -61,7 +61,15 @@ interface Screen {
   path: string;
   /** Visible once the screen has its data. */
   ready: (page: Page) => Promise<void>;
+  /**
+   * Also capture a dark 1000×2400 view. Settings panes scroll inside the
+   * page, so a full-page screenshot cannot reach controls below the fold;
+   * a tall viewport can.
+   */
+  tall?: boolean;
 }
+
+const TALL = { name: "tall", width: 1000, height: 2400 } as const;
 
 const SCREENS: Screen[] = [
   {
@@ -105,6 +113,7 @@ const SCREENS: Screen[] = [
       path: `/settings/${category}`,
       ready: (page) =>
         expect(page.locator(".page-scroll-container").first()).toBeVisible(),
+      tall: true,
     }),
   ),
 ];
@@ -114,29 +123,35 @@ test.use({ serviceWorkers: "block" });
 for (const screen of SCREENS) {
   test(screen.name, async ({ page, baseURL }) => {
     test.setTimeout(90_000);
-    for (const theme of THEMES) {
+    const shots: {
+      theme: (typeof THEMES)[number];
+      viewport: { name: string; width: number; height: number };
+    }[] = THEMES.flatMap((theme) =>
+      VIEWPORTS.map((viewport) => ({ theme, viewport })),
+    );
+    if (screen.tall) shots.push({ theme: "dark", viewport: TALL });
+    for (const { theme, viewport } of shots) {
+      // Init scripts run in the order added, so the latest theme wins.
       await page.addInitScript(
         ([key, value]) => localStorage.setItem(key, value),
         [UI_KEYS.theme, theme] as const,
       );
-      for (const viewport of VIEWPORTS) {
-        await page.setViewportSize(viewport);
-        await page.goto(`${baseURL}${screen.path}`);
-        await screen.ready(page);
-        // Best effort: settings sections load their data after first paint.
-        await page
-          .waitForLoadState("networkidle", { timeout: 5_000 })
-          .catch(() => {});
-        await page.evaluate(() => document.fonts.ready);
-        // Park the pointer so no hover state or tooltip lands in the shot.
-        await page.mouse.move(0, 0);
-        await page.waitForTimeout(300);
-        await recordUiCapture(
-          page,
-          `${screen.name}-${theme}-${viewport.name}`,
-          viewport,
-        );
-      }
+      await page.setViewportSize(viewport);
+      await page.goto(`${baseURL}${screen.path}`);
+      await screen.ready(page);
+      // Best effort: settings sections load their data after first paint.
+      await page
+        .waitForLoadState("networkidle", { timeout: 5_000 })
+        .catch(() => {});
+      await page.evaluate(() => document.fonts.ready);
+      // Park the pointer so no hover state or tooltip lands in the shot.
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await recordUiCapture(
+        page,
+        `${screen.name}-${theme}-${viewport.name}`,
+        viewport,
+      );
     }
   });
 }

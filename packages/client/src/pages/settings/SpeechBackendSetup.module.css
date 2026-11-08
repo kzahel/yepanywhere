@@ -62,11 +62,7 @@
 }
 .modelLink {
   min-height: 44px;
-  border: 0;
-  background: none;
   color: var(--link-color);
-  font: inherit;
-  cursor: pointer;
 }
 .access {
   display: grid;
@@ -84,24 +80,6 @@
   margin-top: 4px;
   color: var(--text-secondary);
   font-size: 12px;
-}
-
-.install,
-.restart {
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-}
-
-.install:disabled,
-.restart:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .consoleLabel {

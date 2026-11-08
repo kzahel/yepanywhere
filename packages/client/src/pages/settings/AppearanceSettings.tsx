@@ -2,6 +2,7 @@ import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThinkingText } from "../../components/ThinkingText";
+import { Button, IconButton } from "../../components/ui/Button";
 import tooltipStyles from "../../components/ui/TooltipLayer.module.css";
 import { renderFixedFontMath } from "../../components/ui/FixedFontMathToggle";
 import {
@@ -730,18 +731,16 @@ export function AppearanceSettings() {
               />
               {t("appearanceContentWidthUnit")}
             </span>
-            <button
-              type="button"
-              className="settings-inline-x"
+            <IconButton
+              size="small"
+              label={t("appearanceContentWidthReset")}
               onClick={() => {
                 setContentMaxWidth(DEFAULT_CONTENT_MAX_WIDTH_PX);
                 setContentMaxWidthDraft(String(DEFAULT_CONTENT_MAX_WIDTH_PX));
               }}
-              aria-label={t("appearanceContentWidthReset")}
-              title={t("appearanceContentWidthReset")}
             >
               ×
-            </button>
+            </IconButton>
           </div>
         </SettingsItem>
         <SettingsItem
@@ -1052,20 +1051,18 @@ export function AppearanceSettings() {
                   />
                   {t("appearanceGeneratedTitleLengthUnit")}
                 </span>
-                <button
-                  type="button"
-                  className="settings-inline-x"
+                <IconButton
+                  size="small"
+                  label={t("appearanceGeneratedTitleLengthReset")}
                   onClick={() => {
                     setGeneratedTitleLength(DEFAULT_GENERATED_TITLE_LENGTH);
                     setGeneratedTitleLengthDraft(
                       String(DEFAULT_GENERATED_TITLE_LENGTH),
                     );
                   }}
-                  aria-label={t("appearanceGeneratedTitleLengthReset")}
-                  title={t("appearanceGeneratedTitleLengthReset")}
                 >
                   ×
-                </button>
+                </IconButton>
               </div>
             </div>
           )}
@@ -1146,17 +1143,15 @@ export function AppearanceSettings() {
               onEdit={() => setTooltipMode("themed")}
               onCommit={setTooltipDelayMs}
             />
-            <button
-              type="button"
-              className="settings-inline-x"
+            <IconButton
+              size="small"
+              label={t("appearanceTooltipReset")}
               onClick={() => {
                 setTooltipDelayMs(DEFAULT_TOOLTIP_DELAY_MS);
               }}
-              aria-label={t("appearanceTooltipReset")}
-              title={t("appearanceTooltipReset")}
             >
               ×
-            </button>
+            </IconButton>
           </div>
         </SettingsItem>
         <SettingsItem
@@ -1201,20 +1196,18 @@ export function AppearanceSettings() {
                 : t("appearanceHoverCardLinesUnit")}
               )
             </span>
-            <button
-              type="button"
-              className="settings-inline-x"
+            <IconButton
+              size="small"
+              label={t("appearanceHoverCardReset")}
               onClick={() => {
                 setHoverCardMaxHeightPx(DEFAULT_HOVERCARD_MAX_HEIGHT_PX);
                 setHoverCardHeightDraft(
                   String(DEFAULT_HOVERCARD_MAX_HEIGHT_PX),
                 );
               }}
-              aria-label={t("appearanceHoverCardReset")}
-              title={t("appearanceHoverCardReset")}
             >
               ×
-            </button>
+            </IconButton>
           </div>
         </SettingsItem>
         <SettingsItem
@@ -1550,13 +1543,9 @@ export function AppearanceSettings() {
           description={t("appearanceToolbarSettingsShortcutDescription")}
         >
           <div className="settings-item-actions">
-            <button
-              type="button"
-              className="settings-button"
-              onClick={() => navigate(`${basePath}/settings/toolbar`)}
-            >
+            <Button onClick={() => navigate(`${basePath}/settings/toolbar`)}>
               {t("appearanceToolbarSettingsShortcutAction")}
-            </button>
+            </Button>
           </div>
         </SettingsItem>
         <SettingsItem
@@ -1984,13 +1973,9 @@ export function AppearanceSettings() {
                 <span className="output-appearance-specimen-label">
                   {t("appearanceOutputSpecimenLabel")}
                 </span>
-                <button
-                  type="button"
-                  className="settings-button settings-button-secondary"
-                  onClick={resetOutputAppearance}
-                >
+                <Button variant="outline" onClick={resetOutputAppearance}>
                   {t("appearanceOutputTypographyReset")}
-                </button>
+                </Button>
               </div>
               <div
                 className="output-appearance-preview"

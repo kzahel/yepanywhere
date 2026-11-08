@@ -15,6 +15,7 @@ import {
 } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
+import { ButtonBase } from "../../components/ui/Button";
 import { useRemoteBasePath } from "../../hooks/useRemoteBasePath";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
 import { useVersion } from "../../hooks/useVersion";
@@ -478,13 +479,12 @@ export function SettingsLayout() {
   // instead of just "Settings".
   const settingsBreadcrumb = (
     <span className="settings-breadcrumb">
-      <button
-        type="button"
+      <ButtonBase
         className="session-title settings-breadcrumb-root"
         onClick={handleSettingsTitleClick}
       >
         {t("pageTitleSettings")}
-      </button>
+      </ButtonBase>
       <span className="settings-breadcrumb-sep" aria-hidden="true">
         ›
       </span>

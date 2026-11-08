@@ -6,6 +6,7 @@ import {
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { limitedUserDefaultsApi } from "../../api/limitedUserDefaultsClient";
+import { Button, IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { portableBrowserSettings } from "../../lib/limitedUserBrowserDefaults";
 import styles from "./LimitedUserBrowserDefaults.module.css";
@@ -101,9 +102,7 @@ export function LimitedUserBrowserDefaults() {
       <h3>{t("usersBrowserDefaultsTitle")}</h3>
       <p className={styles.hint}>{t("usersBrowserDefaultsDescription")}</p>
       <div className={styles.actions}>
-        <button
-          type="button"
-          className="settings-button"
+        <Button
           disabled={operation !== null || !backup}
           title={t("usersBrowserDefaultsLoadTooltip")}
           onClick={() => {
@@ -111,17 +110,15 @@ export function LimitedUserBrowserDefaults() {
           }}
         >
           {t("usersBrowserDefaultsLoad")}
-        </button>
-        <button
-          type="button"
-          className="settings-button"
+        </Button>
+        <Button
           disabled={operation !== null || !dirty}
           onClick={() => void save()}
         >
           {operation === "saving"
             ? t("usersBrowserDefaultsSaving")
             : t("usersBrowserDefaultsSave")}
-        </button>
+        </Button>
       </div>
       {operation === null && !backup && !error && (
         <p className={styles.hint}>{t("usersBrowserDefaultsNoBackup")}</p>
@@ -160,18 +157,16 @@ export function LimitedUserBrowserDefaults() {
                       edit({ ...draft, [key]: event.target.value })
                     }
                   />
-                  <button
-                    type="button"
-                    className={styles.remove}
+                  <IconButton
                     disabled={operation !== null}
-                    aria-label={t("usersBrowserDefaultsRemove", { key: label })}
+                    label={t("usersBrowserDefaultsRemove", { key: label })}
                     onClick={() => {
                       const { [key]: _removed, ...rest } = draft;
                       edit(rest);
                     }}
                   >
                     ×
-                  </button>
+                  </IconButton>
                 </li>
               );
             })}

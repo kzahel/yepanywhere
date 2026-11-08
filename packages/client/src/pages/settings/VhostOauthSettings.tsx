@@ -6,6 +6,7 @@ import {
   type VhostOauthLogEntry,
   type VhostOauthStatus,
 } from "@yep-anywhere/shared";
+import { Button, IconButton } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
@@ -86,20 +87,17 @@ export function VhostOauthProviderSettings({
             update={update}
             id={newId}
           />
-          <button type="button" onClick={() => setNewId(undefined)}>
-            {t("cancel")}
-          </button>
+          <Button onClick={() => setNewId(undefined)}>{t("cancel")}</Button>
         </section>
       ) : (
         entries.length < 8 && (
-          <button
-            type="button"
+          <Button
             onClick={() =>
               setNewId(entries.length ? generateUUID() : "default")
             }
           >
             {t("vhostOauthAddProvider")}
-          </button>
+          </Button>
         )
       )}
     </div>
@@ -295,8 +293,7 @@ function ProviderEditor({
         </label>
         <p>{t("vhostOauthIpHint")}</p>
         {!status.locked && (
-          <button
-            type="button"
+          <Button
             onClick={async () => {
               setBusy(true);
               setMessage("");
@@ -320,12 +317,11 @@ function ProviderEditor({
             }}
           >
             {t("vhostOauthConfigure")}
-          </button>
+          </Button>
         )}
       </fieldset>
       {id && id !== "default" && status.secretConfigured && (
-        <button
-          type="button"
+        <Button
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -344,7 +340,7 @@ function ProviderEditor({
           }}
         >
           {t("vhostOauthRemoveProvider")}
-        </button>
+        </Button>
       )}
       {message && <p role="status">{message}</p>}
     </div>
@@ -466,10 +462,9 @@ export function VhostOauthEmails({
                       }
                     }}
                   />
-                  <button
-                    type="button"
+                  <IconButton
                     disabled={disabled}
-                    aria-label={t("vhostOauthRemoveEmail", {
+                    label={t("vhostOauthRemoveEmail", {
                       number: index + 1,
                     })}
                     onClick={() => {
@@ -479,7 +474,7 @@ export function VhostOauthEmails({
                     }}
                   >
                     −
-                  </button>
+                  </IconButton>
                 </div>
                 {redundant && (
                   <small className={styles.redundantHint}>
@@ -489,8 +484,7 @@ export function VhostOauthEmails({
               </div>
             );
           })}
-          <button
-            type="button"
+          <Button
             disabled={disabled || rows.length >= 32}
             onClick={() =>
               setRows((current) => [
@@ -500,7 +494,7 @@ export function VhostOauthEmails({
             }
           >
             {t("vhostOauthAddEmail")}
-          </button>
+          </Button>
           {rows.length === 0 && <p>{t("vhostOauthNobody")}</p>}
         </>
       )}
@@ -545,15 +539,14 @@ export function VhostOauthLogs({
       title={host ?? t("vhostOauthAllLogs")}
       onClose={onClose}
       actions={
-        <button type="button" onClick={() => setRevision((value) => value + 1)}>
+        <Button onClick={() => setRevision((value) => value + 1)}>
           {t("vhostOauthRefresh")}
-        </button>
+        </Button>
       }
     >
       <div className={styles.settings}>
         <p>{t("vhostOauthLogHint")}</p>
-        <button
-          type="button"
+        <Button
           disabled={!entries?.length}
           onClick={() =>
             downloadBlob(
@@ -569,7 +562,7 @@ export function VhostOauthLogs({
           }
         >
           {t("vhostOauthDownload")}
-        </button>
+        </Button>
         {error && <p role="alert">{error}</p>}
         {entries?.length === 0 && <p>{t("vhostOauthNoLogs")}</p>}
         <div className={styles.logEntries}>

@@ -47,14 +47,6 @@
 
 .fields button {
   align-self: flex-start;
-  min-height: 36px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  font: inherit;
-  cursor: pointer;
 }
 
 .provider {
@@ -191,19 +183,7 @@
   flex: 1 1 auto;
 }
 .linkIcon {
-  display: inline-flex;
   flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
 }
 .linkIconLabel {
   position: absolute;
@@ -213,11 +193,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-.linkIcon:hover,
-.linkIcon:focus-visible {
-  color: var(--accent-color);
-  background: var(--bg-hover);
 }
 @container settings-collection (max-width: 560px) {
   .linkIcon {
@@ -244,7 +219,9 @@
    the word letter by letter. */
 .accessButton {
   max-width: 100%;
-  padding-inline: 6px;
+}
+.accessLabel {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -2,6 +2,7 @@ import { useClientSummarySourceKey } from "../../lib/clientSummaryStore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fetchJSON, type VersionInfo } from "../../api/client";
 import { RemoteCompatibilityNoticeCard } from "../../components/RemoteCompatibilityNotices";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { useRemoteCompatibilityNoticeDismissals } from "../../hooks/useRemoteCompatibilityNoticeDismissals";
 import { useOnboarding } from "../../hooks/useOnboarding";
@@ -172,13 +173,7 @@ export function AboutSettings() {
                 {t("aboutInstalled")}
               </span>
             ) : (
-              <button
-                type="button"
-                className="settings-button"
-                onClick={install}
-              >
-                {t("aboutInstall")}
-              </button>
+              <Button onClick={install}>{t("aboutInstall")}</Button>
             )}
           </SettingsItem>
         )}
@@ -282,14 +277,12 @@ export function AboutSettings() {
                   )}
               </div>
               <div className="settings-item-actions">
-                <button
-                  type="button"
-                  className="settings-button"
+                <Button
                   onClick={() => void handleCheckUpdates()}
                   disabled={versionLoading}
                 >
                   {versionLoading ? t("aboutChecking") : t("aboutCheckUpdates")}
-                </button>
+                </Button>
               </div>
             </div>
             {inlineRemoteCompatibilityNotice && (
@@ -324,9 +317,8 @@ export function AboutSettings() {
             </>
           }
         >
-          <button
-            type="button"
-            className={`settings-button ${interruptibleSessionCount > 0 ? "settings-button-danger" : ""}`}
+          <Button
+            variant={interruptibleSessionCount > 0 ? "danger" : "secondary"}
             onClick={handleRestart}
             disabled={restarting}
           >
@@ -335,7 +327,7 @@ export function AboutSettings() {
               : interruptibleSessionCount > 0
                 ? t("developmentRestartAnyway")
                 : t("developmentRestart")}
-          </button>
+          </Button>
         </SettingsItem>
         <SettingsItem
           label={t("aboutReportBugTitle")}
@@ -345,7 +337,7 @@ export function AboutSettings() {
             href="https://github.com/kzahel/yepanywhere/issues"
             target="_blank"
             rel="noopener noreferrer"
-            className="settings-button"
+            className={buttonClassName()}
           >
             {t("aboutReportBug")}
           </a>
@@ -354,13 +346,7 @@ export function AboutSettings() {
           label={t("aboutSetupWizardTitle")}
           description={t("aboutSetupWizardDescription")}
         >
-          <button
-            type="button"
-            className="settings-button"
-            onClick={resetOnboarding}
-          >
-            {t("aboutLaunchWizard")}
-          </button>
+          <Button onClick={resetOnboarding}>{t("aboutLaunchWizard")}</Button>
         </SettingsItem>
       </div>
     </SettingsSection>

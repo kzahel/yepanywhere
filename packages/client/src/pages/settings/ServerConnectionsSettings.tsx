@@ -27,6 +27,7 @@ import {
 } from "../../api/peerConnections";
 import { useI18n } from "../../i18n";
 import { SettingsSection } from "./SettingsSection";
+import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import styles from "./ServerConnectionsSettings.module.css";
 
@@ -364,9 +365,8 @@ export function ServerConnectionsSettings() {
             <span>{data.identity.hostname}</span>
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           ref={addButtonRef}
           disabled={
             busy || !supportsRefresh || data.environmentOverride === false
@@ -374,7 +374,7 @@ export function ServerConnectionsSettings() {
           onClick={() => openForm()}
         >
           {t("connectionsAdd")}
-        </button>
+        </Button>
       </header>
       {!data.enabled && (
         <div className={styles.feedback}>
@@ -516,7 +516,7 @@ export function ServerConnectionsSettings() {
           )}
           <p className={styles.muted}>{t("connectionsOwnerSessionHint")}</p>
           <div className={styles.actions}>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy
                 ? t("connectionsConnecting")
                 : reverseOnly
@@ -524,10 +524,8 @@ export function ServerConnectionsSettings() {
                   : renew
                     ? t("connectionsRenew")
                     : t("connectionsConnect")}
-            </button>
-            <button
-              type="button"
-              className="btn"
+            </Button>
+            <Button
               disabled={busy}
               onClick={() => {
                 setForm(false);
@@ -535,7 +533,7 @@ export function ServerConnectionsSettings() {
               }}
             >
               {t("cancel")}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -583,8 +581,7 @@ export function ServerConnectionsSettings() {
                     return (
                       <li key={peer.serverId} className={styles.deviceRow}>
                         <div className={styles.deviceContent}>
-                          <button
-                            type="button"
+                          <ButtonBase
                             className={styles.deviceName}
                             disabled={busy}
                             aria-label={t("connectionsViewDevice", {
@@ -601,11 +598,10 @@ export function ServerConnectionsSettings() {
                             ) : (
                               <strong>{nameOf(peer)}</strong>
                             )}
-                          </button>
+                          </ButtonBase>
                           {needsSignIn && !unselected ? (
-                            <button
-                              type="button"
-                              className={`btn ${styles.signIn}`}
+                            <Button
+                              className={styles.signIn}
                               disabled={
                                 busy ||
                                 !supportsRefresh ||
@@ -616,17 +612,16 @@ export function ServerConnectionsSettings() {
                               }
                             >
                               {t("connectionsSignInAgain")}
-                            </button>
+                            </Button>
                           ) : problem ? (
                             <p className={styles.problem}>{problem}</p>
                           ) : null}
                         </div>
                         {manual && !managed ? (
-                          <button
-                            type="button"
+                          <IconButton
                             className={styles.remove}
                             disabled={busy}
-                            aria-label={
+                            label={
                               direction === "incoming"
                                 ? t("connectionsRemoveIncomingLabel", {
                                     name: nameOf(peer),
@@ -640,7 +635,7 @@ export function ServerConnectionsSettings() {
                             }
                           >
                             ×
-                          </button>
+                          </IconButton>
                         ) : (
                           <span className={styles.managed}>
                             {t("connectionsManaged")}
@@ -665,24 +660,14 @@ export function ServerConnectionsSettings() {
       })}
       <div className={styles.actions}>
         {cursor !== "0" && (
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => setCursor("0")}
-          >
+          <Button disabled={busy} onClick={() => setCursor("0")}>
             {t("connectionsFirstPage")}
-          </button>
+          </Button>
         )}
         {data.nextCursor && (
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => setCursor(data.nextCursor!)}
-          >
+          <Button disabled={busy} onClick={() => setCursor(data.nextCursor!)}>
             {t("connectionsMore")}
-          </button>
+          </Button>
         )}
       </div>
       <details className={styles.settings}>
@@ -690,16 +675,14 @@ export function ServerConnectionsSettings() {
         <p className={styles.muted}>
           {t("settingsServerConnectionsDescription")}
         </p>
-        <button
-          type="button"
-          className="btn"
+        <Button
           disabled={busy}
           onClick={() =>
             void load().catch(() => setError(t("connectionsLoadError")))
           }
         >
           {t("connectionsRefresh")}
-        </button>
+        </Button>
       </details>
       {selectedPeer && (
         <ConnectionDialog
@@ -744,9 +727,9 @@ export function ServerConnectionsSettings() {
                   disabled={busy}
                 />
               </label>
-              <button type="submit" className="btn" disabled={busy}>
+              <Button type="submit" disabled={busy}>
                 {t("connectionsSave")}
-              </button>
+              </Button>
             </form>
             {(["outgoing", "incoming"] as const).map((direction) =>
               selectedPeer[direction].map((credential) => (
@@ -815,9 +798,7 @@ export function ServerConnectionsSettings() {
                     </p>
                   )}
                   {credential.origin === "manual" && (
-                    <button
-                      type="button"
-                      className="btn"
+                    <Button
                       disabled={busy}
                       onClick={() =>
                         requestRemoval(selectedPeer, direction, credential)
@@ -826,14 +807,12 @@ export function ServerConnectionsSettings() {
                       {direction === "incoming"
                         ? t("connectionsRevoke")
                         : t("connectionsStop")}
-                    </button>
+                    </Button>
                   )}
                 </div>
               )),
             )}
-            <button
-              type="button"
-              className="btn"
+            <Button
               disabled={busy || !selectedPeer.outgoing.some((p) => p.active)}
               onClick={() =>
                 void act(
@@ -843,27 +822,23 @@ export function ServerConnectionsSettings() {
               }
             >
               {t("connectionsTest")}
-            </button>
-            <button
-              type="button"
-              className="btn"
+            </Button>
+            <Button
               disabled={
                 busy || !supportsRefresh || data.environmentOverride === false
               }
               onClick={() => openForm(selectedPeer)}
             >
               {t("connectionsRenew")}
-            </button>
-            <button
-              type="button"
-              className="btn"
+            </Button>
+            <Button
               disabled={
                 busy || !supportsRefresh || data.environmentOverride === false
               }
               onClick={() => openForm(selectedPeer, true)}
             >
               {t("connectionsReverse")}
-            </button>
+            </Button>
             <h4>{t("connectionsSessions")}</h4>
             {activityError ? (
               <p role="alert">{t("connectionsActivityError")}</p>
@@ -994,24 +969,18 @@ export function ServerConnectionsSettings() {
               </p>
             )}
             <div className={styles.confirmActions}>
-              <button
-                type="button"
-                className="btn"
-                disabled={busy}
-                onClick={() => setRemoving(undefined)}
-              >
+              <Button disabled={busy} onClick={() => setRemoving(undefined)}>
                 {t("cancel")}
-              </button>
-              <button
-                type="button"
-                className={`btn ${styles.destructive}`}
+              </Button>
+              <Button
+                variant="danger"
                 disabled={busy}
                 onClick={() => void remove()}
               >
                 {removing.direction === "incoming"
                   ? t("connectionsRemoveIncomingAction")
                   : t("connectionsRemoveOutgoingAction")}
-              </button>
+              </Button>
             </div>
           </div>
         </ConnectionDialog>

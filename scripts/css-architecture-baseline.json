@@ -5,7 +5,7 @@
       "reason": "Device stream video vocabulary produced by EmulatorStream."
     },
     "packages/client/src/styles/index.css": {
-      "maxLines": 14595,
+      "maxLines": 14300,
       "reason": "Legacy application shell plus global tokens, themes, and base rules."
     },
     "packages/client/src/styles/provider-colors.css": {
@@ -21,7 +21,7 @@
       "reason": "Shared tool-row state and generated renderer composition."
     }
   },
-  "updated": "2026-11-05",
+  "updated": "2026-11-08",
   "note": "Chapter 11 containment baseline for authored non-module CSS under packages/client/src. Limits may only ratchet downward. New client stylesheets must be CSS Modules unless a reviewed generated-content or truly global exception is added here with a reason.",
   "undefinedCustomProperties": {
     "--accent-danger": 7,
@@ -45,7 +45,7 @@
     "--bg-elevated": 12,
     "--bg-error": 21,
     "--bg-muted": 2,
-    "--bg-primary": 68,
+    "--bg-primary": 65,
     "--bg-selected": 5,
     "--bg-subtle": 2,
     "--bg-success": 1,
@@ -62,7 +62,6 @@
     "--conversation-thinking-height": 3,
     "--danger": 1,
     "--error-bg-subtle": 1,
-    "--error-hover": 2,
     "--focus-color": 1,
     "--focus-ring": 7,
     "--font-size-md": 2,

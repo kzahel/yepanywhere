@@ -15,6 +15,7 @@ import {
   instructionBlocksError,
 } from "@yep-anywhere/shared";
 import { api } from "../../api/client";
+import { Button, IconButton } from "../../components/ui/Button";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
 import { useProjects } from "../../hooks/useProjects";
 import { useProviders } from "../../hooks/useProviders";
@@ -394,10 +395,9 @@ export function UsersSettings() {
               selection?.kind === "edit" &&
               selection.username === user.username;
             return (
-              <button
+              <Button
                 key={user.username}
-                type="button"
-                className={`settings-button ${styles.userChip} ${user.disabled ? styles.userChipDisabled : ""}`}
+                className={`${styles.userChip} ${user.disabled ? styles.userChipDisabled : ""}`}
                 aria-pressed={selected}
                 title={user.disabled ? t("usersDisabledTitle") : undefined}
                 onClick={() =>
@@ -407,12 +407,11 @@ export function UsersSettings() {
                 }
               >
                 {user.username}
-              </button>
+              </Button>
             );
           })}
-          <button
-            type="button"
-            className={`settings-button ${styles.userChip}`}
+          <Button
+            className={styles.userChip}
             aria-pressed={selection?.kind === "create"}
             disabled={busy}
             onClick={() =>
@@ -422,7 +421,7 @@ export function UsersSettings() {
             }
           >
             + {t("usersAddUser")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -530,14 +529,9 @@ function LimitedUserView({
             </>
           )}
         </dl>
-        <button
-          type="button"
-          className="settings-button"
-          disabled={busy}
-          onClick={onLogout}
-        >
+        <Button disabled={busy} onClick={onLogout}>
           {principal.switched ? t("usersReturnToSuperuser") : t("usersLogout")}
-        </button>
+        </Button>
       </div>
     </SettingsSection>
   );
@@ -583,13 +577,9 @@ function ProjectRootField({
             onChange={(event) => onChange(event.target.value, false)}
           />
           {suggestion && (
-            <button
-              type="button"
-              className="settings-button"
-              onClick={() => onChange(suggestion, true)}
-            >
+            <Button onClick={() => onChange(suggestion, true)}>
               {t("usersProjectRootUseSuggestion", { path: suggestion })}
-            </button>
+            </Button>
           )}
         </span>
       </label>
@@ -668,16 +658,15 @@ function ProjectAccessList({
         </ul>
       )}
       {(expanded || hiddenCount > 0) && (
-        <button
-          type="button"
-          className={`settings-button ${styles.projectExpand}`}
+        <Button
+          className={styles.projectExpand}
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
           {expanded
             ? t("usersProjectsHideNoAccess")
             : t("usersProjectsShowNoAccess", { count: hiddenCount })}
-        </button>
+        </Button>
       )}
     </>
   );
@@ -745,10 +734,8 @@ function DirectoryAccessList({
                   {t("usersAccessNewSession")}
                 </option>
               </select>
-              <button
-                type="button"
-                className="settings-button"
-                aria-label={t("usersDirectoryRemove", { path: grant.path })}
+              <IconButton
+                label={t("usersDirectoryRemove", { path: grant.path })}
                 onClick={() =>
                   onChange(
                     grants.filter((_, i) => i !== index),
@@ -757,21 +744,19 @@ function DirectoryAccessList({
                 }
               >
                 ×
-              </button>
+              </IconButton>
             </li>
           ))}
         </ul>
       )}
       <span className={styles.inputRow}>
-        <button
-          type="button"
-          className="settings-button"
+        <Button
           onClick={() =>
             onChange([...grants, { path: "", level: "view" }], false)
           }
         >
           {t("usersDirectoryAdd")}
-        </button>
+        </Button>
         {roots.length > 0 && (
           <select
             className={styles.select}
@@ -845,21 +830,12 @@ function CreateUserForm({
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className={styles.editorActions}>
-        <button
-          type="submit"
-          className="settings-button settings-button-primary"
-          disabled={busy}
-        >
+        <Button type="submit" variant="primary" disabled={busy}>
           {t("usersCreateUser")}
-        </button>
-        <button
-          type="button"
-          className="settings-button"
-          disabled={busy}
-          onClick={onCancel}
-        >
+        </Button>
+        <Button disabled={busy} onClick={onCancel}>
           {t("usersCancel")}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -1007,22 +983,12 @@ function UserEditor({
             />
             {t("usersEnabledLabel")}
           </label>
-          <button
-            type="button"
-            className="settings-button"
-            disabled={busy || !draft.enabled}
-            onClick={onActAs}
-          >
+          <Button disabled={busy || !draft.enabled} onClick={onActAs}>
             {t("usersActAs")}
-          </button>
-          <button
-            type="button"
-            className="settings-button settings-button-danger-subtle"
-            disabled={busy}
-            onClick={onDelete}
-          >
+          </Button>
+          <Button variant="danger-outline" disabled={busy} onClick={onDelete}>
             {t("usersDelete")}
-          </button>
+          </Button>
         </div>
       </div>
       {saveError && (

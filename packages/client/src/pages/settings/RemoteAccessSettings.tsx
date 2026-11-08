@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import type { PublicShareStatusResponse } from "../../api/client";
 import { PublicShareManagerModal } from "../../components/PublicShareManagerModal";
 import { RemoteAccessSetup } from "../../components/RemoteAccessSetup";
+import { Button } from "../../components/ui/Button";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { usePublicShareStatus } from "../../hooks/usePublicShareStatus";
 import { useHostAwakeStatus } from "../../hooks/useHostAwakeStatus";
@@ -137,9 +138,8 @@ function HostIdentitySettings({
             }}
           />
           {currentIcon && (
-            <button
-              type="button"
-              className="settings-button settings-button-secondary"
+            <Button
+              variant="outline"
               data-host-identity-clear
               disabled={disabled || saving}
               onClick={() => {
@@ -148,7 +148,7 @@ function HostIdentitySettings({
               }}
             >
               {t("hostIdentityClear")}
-            </button>
+            </Button>
           )}
         </form>
         {draftInvalid && (
@@ -263,14 +263,13 @@ function HostAwakeSettings({
               </p>
             )}
             {!enabled && (
-              <button
-                type="button"
-                className="settings-button settings-button-secondary"
+              <Button
+                variant="outline"
                 disabled={statusLoading || saving}
                 onClick={() => void onRefresh()}
               >
                 {t("hostAwakeRefresh")}
-              </button>
+              </Button>
             )}
           </>
         }
@@ -325,15 +324,14 @@ function HostAwakeSettings({
                 onChange={(event) => setFloorDraft(event.target.value)}
               />
               <span aria-hidden="true">%</span>
-              <button
+              <Button
                 type="submit"
-                className="settings-button"
                 disabled={
                   saving || !validFloor || parsedFloor === batteryFloorPercent
                 }
               >
                 {t("hostAwakeBatteryFloorSave")}
-              </button>
+              </Button>
             </form>
             {!validFloor && (
               <p className="settings-warning">
@@ -530,13 +528,12 @@ export function RemoteAccessSettings() {
             "viewer",
           ]}
         >
-          <button
-            type="button"
-            className="settings-button settings-button-secondary"
+          <Button
+            variant="outline"
             onClick={() => setShowPublicShareManagement(true)}
           >
             {t("advancedPublicShareManageButton")}
-          </button>
+          </Button>
         </SettingsItem>
       )}
 
@@ -632,13 +629,7 @@ export function RemoteAccessSettings() {
         }
       >
         <div className="settings-item-actions">
-          <button
-            type="button"
-            className="settings-button"
-            onClick={handleSwitchHost}
-          >
-            {t("sidebarSwitchHost")}
-          </button>
+          <Button onClick={handleSwitchHost}>{t("sidebarSwitchHost")}</Button>
         </div>
       </SettingsItem>
       {currentHost?.relayUrl && (
@@ -653,13 +644,9 @@ export function RemoteAccessSettings() {
         label={t("remoteAccessLogoutTitle")}
         description={t("remoteAccessLogoutDescription")}
       >
-        <button
-          type="button"
-          className="settings-button settings-button-danger"
-          onClick={() => remoteConnection.disconnect()}
-        >
+        <Button variant="danger" onClick={() => remoteConnection.disconnect()}>
           {t("remoteAccessLogout")}
-        </button>
+        </Button>
       </SettingsItem>
     </div>
   );

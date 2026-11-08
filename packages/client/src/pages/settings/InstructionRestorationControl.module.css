@@ -24,9 +24,6 @@
 .controls > label > input {
   min-height: 2.5rem;
 }
-.controls > button {
-  min-height: 2.5rem;
-}
 .controls details {
   overflow-wrap: anywhere;
 }

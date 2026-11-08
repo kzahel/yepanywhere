@@ -24,8 +24,7 @@
   font-size: var(--font-size-xs);
 }
 .control,
-.days,
-.action {
+.days {
   box-sizing: border-box;
   min-height: 36px;
   min-width: 0;
@@ -44,18 +43,13 @@
 .days {
   width: 80px;
 }
-.action {
-  min-height: 44px;
-}
 .control:focus-visible,
-.days:focus-visible,
-.action:focus-visible {
+.days:focus-visible {
   outline: 2px solid var(--focus-border);
   outline-offset: 2px;
 }
 .control:disabled,
-.days:disabled,
-.action:disabled {
+.days:disabled {
   opacity: 0.5;
 }
 /* Scope guidance stays above its control in both narrow settings panes and phones. */

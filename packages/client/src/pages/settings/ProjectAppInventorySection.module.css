@@ -26,7 +26,11 @@
   flex: 1;
   overflow-wrap: anywhere;
 }
-.inventory button {
+/* The look for raw buttons nested from ProjectAppViewer and
+   SettingsCollection. This section's own buttons are on the shared Button
+   family and opt out with .sharedButton; :where() keeps the 0-1-1
+   specificity those nested buttons were styled against. */
+.inventory button:where(:not(.sharedButton)) {
   min-height: 36px;
   padding: 6px 12px;
   border: 1px solid var(--border-color);
@@ -60,7 +64,7 @@
   justify-self: start;
 }
 @media (width <= 640px) {
-  .inventory button {
+  .inventory button:where(:not(.sharedButton)) {
     min-height: 44px;
   }
 }

@@ -3,6 +3,7 @@ import {
   LATEX_MATH_RENDERING_CLIENT_CAPABILITY,
   buildEffectiveAgentContext,
 } from "@yep-anywhere/shared";
+import { Button } from "../../components/ui/Button";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 import { SettingsItem } from "./SettingsItem";
@@ -172,13 +173,9 @@ export function AgentContextSettings() {
                 max: MAX_LENGTH.toLocaleString(),
               })}
             </span>
-            <button
-              type="submit"
-              className="settings-button"
-              disabled={!hasChanges || isSaving}
-            >
+            <Button type="submit" disabled={!hasChanges || isSaving}>
               {isSaving ? t("providersSaving") : t("providersSave")}
-            </button>
+            </Button>
           </div>
         </SettingsItem>
 

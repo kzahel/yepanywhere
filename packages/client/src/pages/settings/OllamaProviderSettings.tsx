@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 
@@ -54,13 +55,9 @@ function OllamaUrlInput() {
           placeholder="http://localhost:11434"
           style={{ flex: 1 }}
         />
-        <button
-          type="submit"
-          className="settings-button"
-          disabled={!hasChanges || isSaving}
-        >
+        <Button type="submit" disabled={!hasChanges || isSaving}>
           {isSaving ? t("providersSaving") : t("providersSave")}
-        </button>
+        </Button>
       </div>
       <span className="settings-hint">{t("providersOllamaUrlHint")}</span>
     </form>
@@ -145,14 +142,9 @@ function OllamaSystemPromptInput() {
         }}
       >
         <span className="settings-hint">{t("providersOllamaPromptHint")}</span>
-        <button
-          type="button"
-          className="settings-button"
-          disabled={!hasChanges || isSaving}
-          onClick={handleSave}
-        >
+        <Button disabled={!hasChanges || isSaving} onClick={handleSave}>
           {isSaving ? t("providersSaving") : t("providersSave")}
-        </button>
+        </Button>
       </div>
     </div>
   );

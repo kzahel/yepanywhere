@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/Button";
 import { useBrowserProfiles } from "../../hooks/useBrowserProfiles";
 import { useConnectedDevices } from "../../hooks/useConnectedDevices";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
@@ -138,14 +139,13 @@ export function DevicesSettings() {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      className="settings-button settings-button-danger-subtle"
+                    <Button
+                      variant="danger-outline"
                       onClick={() => deleteProfile(profile.browserProfileId)}
                       title={t("devicesForgetThisDevice")}
                     >
                       {t("devicesForget")}
-                    </button>
+                    </Button>
                   </div>
                 );
               })}

@@ -27,11 +27,6 @@
   margin-bottom: var(--space-4);
 }
 
-.signInShortcuts a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+.deprecationDismiss {
+  flex: 0 0 auto;
 }

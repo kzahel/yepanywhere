@@ -11,6 +11,7 @@ import {
   type IssueSettings as Settings,
 } from "@yep-anywhere/shared";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useVersion } from "../../hooks/useVersion";
 import { useServerSettings } from "../../hooks/useServerSettings";
@@ -468,9 +469,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             label={t("issuesGithubCache")}
             description={t("issuesGithubCacheHelp")}
           >
-            <button
-              type="button"
-              className={styles.action}
+            <Button
               disabled={busy || !!saving}
               onClick={() => {
                 setSaving("cache");
@@ -482,7 +481,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
               }}
             >
               {t("issuesGithubCacheClear")}
-            </button>
+            </Button>
           </SettingsItem>
         </>
       )}
@@ -604,23 +603,21 @@ function CredentialControl({
           onChange={(e) => setKey(e.target.value)}
         />
       </label>
-      <button
-        type="button"
+      <Button
         disabled={busy || !key.trim()}
         onClick={() => {
           void store(credential.provider, key.trim()).then(() => setKey(""));
         }}
       >
         {t("issuesCredentialSave")}
-      </button>
+      </Button>
       {stored?.present && (
-        <button
-          type="button"
+        <Button
           disabled={busy}
           onClick={() => void store(credential.provider, "")}
         >
           {t("issuesCredentialClear")}
-        </button>
+        </Button>
       )}
     </fieldset>
   );

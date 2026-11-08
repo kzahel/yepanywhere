@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Button } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import type { SettingsUndoRegistration } from "./SettingsUndoContext";
 
@@ -70,9 +71,7 @@ export function SettingsUndoButton({
   }, [canUndo, registration]);
 
   return (
-    <button
-      type="button"
-      className="settings-button"
+    <Button
       onClick={() => void registration?.undo()}
       title={canUndo ? tooltip : undefined}
       aria-label={canUndo ? tooltip : t("settingsUndoChanges")}
@@ -82,6 +81,6 @@ export function SettingsUndoButton({
       style={{ visibility: canUndo ? "visible" : "hidden" }}
     >
       {t("settingsUndoChanges")}
-    </button>
+    </Button>
   );
 }

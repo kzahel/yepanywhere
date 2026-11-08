@@ -6,6 +6,7 @@ import {
   getQualityLabel,
   useEmulatorSettings,
 } from "../../hooks/useEmulatorSettings";
+import { Button } from "../../components/ui/Button";
 import { useEmulators } from "../../hooks/useEmulators";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
@@ -260,13 +261,9 @@ export function EmulatorSettings() {
                   value={hostInput}
                   onChange={(event) => setHostInput(event.target.value)}
                 />
-                <button
-                  type="submit"
-                  className="settings-button"
-                  disabled={settingsLoading}
-                >
+                <Button type="submit" disabled={settingsLoading}>
                   {t("projectsAddConfirm")}
-                </button>
+                </Button>
               </form>
             </SettingsItem>
 
@@ -290,16 +287,14 @@ export function EmulatorSettings() {
                       </span>
                     </div>
                     <div className="settings-item-action">
-                      <button
-                        type="button"
-                        className="settings-button"
+                      <Button
                         onClick={() => {
                           void removeHost(host);
                         }}
                         disabled={settingsLoading}
                       >
                         {t("emulatorRemove")}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))
@@ -336,25 +331,17 @@ export function EmulatorSettings() {
                       device.state,
                       device.actions,
                     ) ? (
-                      <button
-                        type="button"
-                        className="settings-button"
-                        onClick={() => stopEmulator(device.id)}
-                      >
+                      <Button onClick={() => stopEmulator(device.id)}>
                         {t("emulatorStop")}
-                      </button>
+                      </Button>
                     ) : canStartDevice(
                         device.type,
                         device.state,
                         device.actions,
                       ) ? (
-                      <button
-                        type="button"
-                        className="settings-button"
-                        onClick={() => startEmulator(device.id)}
-                      >
+                      <Button onClick={() => startEmulator(device.id)}>
                         {t("emulatorStart")}
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>

@@ -15,6 +15,7 @@ import {
   SessionToolbarPreview,
   ToolbarControlPreview,
 } from "../../components/SessionToolbarPreview";
+import { Button } from "../../components/ui/Button";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import {
@@ -788,15 +789,14 @@ export function ToolbarSettings() {
           </div>
 
           <div className="settings-item-actions">
-            <button
-              type="button"
-              className="settings-button settings-button-secondary"
+            <Button
+              variant="outline"
               onClick={() => {
                 resetPresence();
               }}
             >
               {t("appearanceSessionToolbarReset")}
-            </button>
+            </Button>
           </div>
         </SettingsItem>
         {error && <p className="settings-warning">{error}</p>}

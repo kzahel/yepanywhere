@@ -6,6 +6,7 @@ import {
   type ProjectTemplateSourcesConfig,
 } from "@yep-anywhere/shared";
 import { fetchJSON } from "../../api/sourceApiFetch";
+import { Button } from "../../components/ui/Button";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
 import { useI18n } from "../../i18n";
 import { generateUUID } from "../../lib/uuid";
@@ -264,9 +265,7 @@ export function ProjectTemplatesSettings() {
               </label>
             ))}
             <div className={styles.actions}>
-              <button
-                className="settings-button"
-                type="button"
+              <Button
                 disabled={index === 0 || busy}
                 onClick={() =>
                   setDraft((previous) => {
@@ -280,10 +279,8 @@ export function ProjectTemplatesSettings() {
                 }
               >
                 {t("templatesMoveUp")}
-              </button>
-              <button
-                className="settings-button"
-                type="button"
+              </Button>
+              <Button
                 disabled={draft.sources.length === 1 || busy}
                 onClick={() =>
                   setDraft((previous) => ({
@@ -295,23 +292,19 @@ export function ProjectTemplatesSettings() {
                 }
               >
                 {t("templatesRemoveSource")}
-              </button>
+              </Button>
               {draft.enabled && !isLocalLocation(source.location) && (
-                <button
-                  className="settings-button"
-                  type="button"
+                <Button
                   disabled={busy || !state}
                   onClick={() => void save(source.id)}
                 >
                   {t("templatesUpdateHead")}
-                </button>
+                </Button>
               )}
             </div>
           </fieldset>
         ))}
-        <button
-          className="settings-button"
-          type="button"
+        <Button
           disabled={!state || busy || draft.sources.length >= 20}
           onClick={() =>
             setDraft((previous) => ({
@@ -330,16 +323,12 @@ export function ProjectTemplatesSettings() {
           }
         >
           {t("templatesAddSource")}
-        </button>
+        </Button>
         <p>{t("templatesFetchHelp")}</p>
         <div className={styles.actions}>
-          <button
-            className="settings-button"
-            type="submit"
-            disabled={busy || !state}
-          >
+          <Button type="submit" disabled={busy || !state}>
             {draft.enabled ? t("templatesFetch") : t("templatesSave")}
-          </button>
+          </Button>
         </div>
       </form>
       <div className={styles.status} role="status">

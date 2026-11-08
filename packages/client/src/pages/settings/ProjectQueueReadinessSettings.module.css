@@ -49,17 +49,6 @@
 
 .save {
   align-self: flex-start;
-  padding: 8px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.save:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .error {

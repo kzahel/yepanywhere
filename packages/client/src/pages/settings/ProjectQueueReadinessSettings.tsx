@@ -3,6 +3,7 @@ import {
   isProjectQueueReadinessCommand,
 } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { SettingsDocLink } from "./SettingsDocLink";
 import { SettingsItem } from "./SettingsItem";
@@ -112,7 +113,7 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
             {error}
           </p>
         )}
-        <button
+        <Button
           type="submit"
           className={styles.save}
           disabled={!dirty || saving}
@@ -122,7 +123,7 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
               ? "projectQueueReadinessSaving"
               : "projectQueueReadinessSave",
           )}
-        </button>
+        </Button>
       </form>
     </SettingsItem>
   );

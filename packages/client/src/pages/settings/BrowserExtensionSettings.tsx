@@ -3,6 +3,7 @@ import {
   FilterDropdown,
   type FilterOption,
 } from "../../components/FilterDropdown";
+import { Button } from "../../components/ui/Button";
 import { getChrome } from "../../extension/chrome";
 import { activeHosts, defaultHost } from "../../extension/savedHosts";
 import {
@@ -229,8 +230,7 @@ export function BrowserExtensionSettings() {
                 <strong>{site}</strong>
                 <span>{t("extensionSettingsSiteGranted")}</span>
               </span>
-              <button
-                type="button"
+              <Button
                 onClick={() =>
                   void getChrome()?.permissions.remove({
                     origins: [`https://${site}/*`],
@@ -238,7 +238,7 @@ export function BrowserExtensionSettings() {
                 }
               >
                 {t("extensionSettingsRemoveAccess")}
-              </button>
+              </Button>
             </li>
           ))}
           <li className={styles.addSite}>
@@ -251,13 +251,9 @@ export function BrowserExtensionSettings() {
                 if (event.key === "Enter") grantSite();
               }}
             />
-            <button
-              type="button"
-              disabled={!newSite.trim()}
-              onClick={grantSite}
-            >
+            <Button disabled={!newSite.trim()} onClick={grantSite}>
               {t("extensionSettingsGrantAccess")}
-            </button>
+            </Button>
           </li>
         </ul>
         {siteError && (

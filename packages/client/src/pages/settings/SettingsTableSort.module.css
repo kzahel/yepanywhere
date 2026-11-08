@@ -6,13 +6,7 @@
   inline-size: 100%;
   min-block-size: 44px;
   padding: 4px 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
   text-align: start;
-  cursor: pointer;
   overflow-wrap: normal;
 }
 .button span {

@@ -1,6 +1,7 @@
 import { RENDEZ_DELIVERIES, type RendezDelivery } from "@yep-anywhere/shared";
 import { useState } from "react";
 import type { ServerSettings } from "../../api/client";
+import { ButtonBase } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { shortenPath } from "../../lib/text";
 import { SettingsItem } from "./SettingsItem";
@@ -209,15 +210,14 @@ export function RendezSettings({
       <div
         className={`${styles.footer} ${shown.length === 0 ? styles.footerAlone : ""}`}
       >
-        <button
-          type="button"
+        <ButtonBase
           className={styles.link}
           onClick={() => setShowAll((current) => !current)}
         >
           {showAll
             ? t("rendezShowOverrides")
             : t("rendezShowAll", { count: rows.length })}
-        </button>
+        </ButtonBase>
         <span className={styles.count}>
           {t("rendezWatchedCount", {
             watched: watchedCount,
@@ -225,8 +225,7 @@ export function RendezSettings({
           })}
         </span>
         {overrideCount > 0 && (
-          <button
-            type="button"
+          <ButtonBase
             className={styles.link}
             disabled={saving}
             onClick={() => {
@@ -235,7 +234,7 @@ export function RendezSettings({
             }}
           >
             {t("rendezAllInherit")}
-          </button>
+          </ButtonBase>
         )}
       </div>
     </div>

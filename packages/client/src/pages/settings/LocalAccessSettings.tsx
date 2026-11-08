@@ -12,6 +12,7 @@ import {
   type FileAccessSettings,
 } from "../../api/client";
 import { FilterDropdown } from "../../components/FilterDropdown";
+import { Button } from "../../components/ui/Button";
 import { isConnectionImpactDeclined } from "../../api/connectionImpact";
 import { useOptionalAuth } from "../../contexts/AuthContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
@@ -657,9 +658,8 @@ export function LocalAccessSettings() {
                       if (customFoldersChanged) void saveFileAccess(fileAccess);
                     }}
                   />
-                  <button
-                    type="button"
-                    className={`${styles.customFoldersButton} settings-button`}
+                  <Button
+                    className={styles.customFoldersButton}
                     disabled={!customFoldersChanged || fileAccessSaving}
                     onClick={() => void saveFileAccess(fileAccess)}
                   >
@@ -668,7 +668,7 @@ export function LocalAccessSettings() {
                       : customFoldersChanged
                         ? t("fileAccessCustomSave")
                         : t("fileAccessCustomSaved")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1371,13 +1371,11 @@ export function LocalAccessSettings() {
                             : "")}
                   </p>
                   {(enablingAuth || changingPassword || disablingAuth) && (
-                    <button
-                      type="button"
-                      className={`settings-button ${
-                        disablingAuth
-                          ? "settings-button-danger"
-                          : styles.passwordApply
-                      }`}
+                    <Button
+                      variant={disablingAuth ? "danger" : "primary"}
+                      className={
+                        disablingAuth ? undefined : styles.passwordApply
+                      }
                       disabled={
                         isApplying ||
                         applying ||
@@ -1390,7 +1388,7 @@ export function LocalAccessSettings() {
                         : enablingAuth
                           ? t("localAccessPasswordEnableAction")
                           : t("localAccessPasswordChangeAction")}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {!localAuth.authEnabled && requirePassword && (
@@ -1443,15 +1441,14 @@ export function LocalAccessSettings() {
         <HideInSettingsSearch>
           <div className="settings-item">
             {formError && <p className="form-error">{formError}</p>}
-            <button
+            <Button
               type="submit"
-              className="settings-button"
               disabled={!hasChanges || isApplying || applying}
             >
               {isApplying || applying
                 ? t("localAccessApplying")
                 : t("localAccessApply")}
-            </button>
+            </Button>
           </div>
         </HideInSettingsSearch>
       </form>
@@ -1466,13 +1463,9 @@ export function LocalAccessSettings() {
             label={t("remoteAccessLogoutTitle")}
             description={t("localAccessLogoutDescription")}
           >
-            <button
-              type="button"
-              className="settings-button settings-button-danger"
-              onClick={auth.logout}
-            >
+            <Button variant="danger" onClick={auth.logout}>
               {t("remoteAccessLogout")}
-            </button>
+            </Button>
           </SettingsItem>
         </div>
       )}
@@ -1483,13 +1476,12 @@ export function LocalAccessSettings() {
             label={t("remoteAccessLogoutTitle")}
             description={t("localAccessRemoteLogoutDescription")}
           >
-            <button
-              type="button"
-              className="settings-button settings-button-danger"
+            <Button
+              variant="danger"
               onClick={() => remoteConnection.disconnect()}
             >
               {t("remoteAccessLogout")}
-            </button>
+            </Button>
           </SettingsItem>
         </div>
       )}

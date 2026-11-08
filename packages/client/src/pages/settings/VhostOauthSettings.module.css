@@ -50,14 +50,6 @@
   font: inherit;
 }
 .settings button {
-  min-height: 44px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
   justify-self: start;
 }
 .settings .toggle {

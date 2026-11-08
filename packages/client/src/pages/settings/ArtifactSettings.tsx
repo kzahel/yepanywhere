@@ -7,6 +7,12 @@ import type {
 } from "@yep-anywhere/shared";
 import { useEffect, useId, useRef, useState } from "react";
 import { vhostOauthPolicy } from "@yep-anywhere/shared";
+import {
+  Button,
+  ButtonBase,
+  buttonClassName,
+  IconButton,
+} from "../../components/ui/Button";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useVersion } from "../../hooks/useVersion";
@@ -149,7 +155,11 @@ function LinkIcon({
   return (
     <>
       <a
-        className={styles.linkIcon}
+        className={buttonClassName({
+          variant: "ghost",
+          icon: true,
+          className: styles.linkIcon,
+        })}
         href={url}
         target="_blank"
         rel="noopener noreferrer"
@@ -584,9 +594,9 @@ function ArtifactSettingsForm({
                 {t("artifactVhostTableTitle")}
               </h3>
               {oauth.status && (
-                <button type="button" onClick={() => setLogHost("")}>
+                <Button onClick={() => setLogHost("")}>
                   {t("vhostOauthAllLogs")}
-                </button>
+                </Button>
               )}
             </div>
             <div className={styles.vhostIntro}>
@@ -740,8 +750,7 @@ function ArtifactSettingsForm({
                           </label>
                         </>
                       )}
-                      <button
-                        type="button"
+                      <Button
                         onClick={() => {
                           const next = vhosts.filter((_, i) => i !== index);
                           setVhosts(next);
@@ -750,7 +759,7 @@ function ArtifactSettingsForm({
                         }}
                       >
                         {t("artifactVhostRemove")}
-                      </button>
+                      </Button>
                       {oauth.status && savedRow(status, row) && (
                         <VhostOauthEmails
                           key={row.name}
@@ -822,8 +831,7 @@ function ArtifactSettingsForm({
                                 />
                               </label>
                               {row.passwordProtected && (
-                                <button
-                                  type="button"
+                                <Button
                                   onClick={() => {
                                     const next = vhosts.map((item, i) =>
                                       i === index && item.kind === "files"
@@ -835,7 +843,7 @@ function ArtifactSettingsForm({
                                   }}
                                 >
                                   {t("artifactVhostPasswordClear")}
-                                </button>
+                                </Button>
                               )}
                               <p>
                                 {t(
@@ -848,8 +856,7 @@ function ArtifactSettingsForm({
                           )}
                           {savedRow(status, row) && (
                             <>
-                              <button
-                                type="button"
+                              <Button
                                 disabled={!access.config}
                                 onClick={async () => {
                                   const url = rowUrl(row);
@@ -859,9 +866,8 @@ function ArtifactSettingsForm({
                                 }}
                               >
                                 {t("appAccessCopy")}
-                              </button>
-                              <button
-                                type="button"
+                              </Button>
+                              <Button
                                 disabled={saving}
                                 onClick={async () => {
                                   setSaving(true);
@@ -884,7 +890,7 @@ function ArtifactSettingsForm({
                                 }}
                               >
                                 {t("appAccessRevoke")}
-                              </button>
+                              </Button>
                             </>
                           )}
                         </div>
@@ -942,8 +948,7 @@ function ArtifactSettingsForm({
                         {...expandableRowProps(toggle)}
                       >
                         <td>
-                          <button
-                            type="button"
+                          <ButtonBase
                             aria-expanded={selectedId === row.id}
                             onClick={toggle}
                           >
@@ -961,7 +966,7 @@ function ArtifactSettingsForm({
                                 .{vhostPublicRoot || "localhost"}
                               </small>
                             )}
-                          </button>
+                          </ButtonBase>
                         </td>
                         <td>
                           {row.kind === "files" && row.path ? (
@@ -1000,34 +1005,33 @@ function ArtifactSettingsForm({
                               />
                             )}
                             {oauth.status?.accessedHosts.includes(logHost) && (
-                              <button
-                                type="button"
+                              <IconButton
                                 className={styles.linkIcon}
-                                title={t("vhostOauthHostLogs", {
-                                  name: row.name,
-                                })}
-                                aria-label={t("vhostOauthHostLogs", {
+                                label={t("vhostOauthHostLogs", {
                                   name: row.name,
                                 })}
                                 onClick={() => setLogHost(logHost)}
                               >
                                 ◷
-                              </button>
+                              </IconButton>
                             )}
                           </div>
                         </td>
                         {access.supported && (
                           <td>
-                            <button
-                              type="button"
+                            <Button
+                              variant="outline"
+                              size="small"
                               className={styles.accessButton}
                               onClick={() => {
                                 setSelectedId(row.id);
                                 setOauthFocus((value) => value + 1);
                               }}
                             >
-                              {accessLabel(row)}
-                            </button>
+                              <span className={styles.accessLabel}>
+                                {accessLabel(row)}
+                              </span>
+                            </Button>
                             {oauthBlocked(row) && (
                               <small>{t("vhostOauthBlocked")}</small>
                             )}
@@ -1039,8 +1043,7 @@ function ArtifactSettingsForm({
                 </tbody>
               </table>
             </SettingsCollection>
-            <button
-              type="button"
+            <Button
               disabled={status.locked}
               onClick={() => {
                 const id = nextRowId.current++;
@@ -1052,7 +1055,7 @@ function ArtifactSettingsForm({
               }}
             >
               {t("artifactVhostAdd")}
-            </button>
+            </Button>
           </div>
         </div>
       )}

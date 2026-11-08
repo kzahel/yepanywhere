@@ -23,6 +23,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ServerSettings } from "../../api/client";
+import { Button, IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import styles from "./GatewayServicesSettings.module.css";
@@ -628,24 +629,22 @@ export function GatewayServicesSettings({
                   aria-label={t("providersGatewayServiceIdAria")}
                 />
                 <span className={styles.reorder}>
-                  <button
-                    type="button"
+                  <IconButton
+                    size="small"
                     disabled={index === 0}
-                    title={t("providersGatewayServiceMoveUp")}
-                    aria-label={t("providersGatewayServiceMoveUp")}
+                    label={t("providersGatewayServiceMoveUp")}
                     onClick={() => moveService(index, -1)}
                   >
                     ↑
-                  </button>
-                  <button
-                    type="button"
+                  </IconButton>
+                  <IconButton
+                    size="small"
                     disabled={index === services.length - 1}
-                    title={t("providersGatewayServiceMoveDown")}
-                    aria-label={t("providersGatewayServiceMoveDown")}
+                    label={t("providersGatewayServiceMoveDown")}
                     onClick={() => moveService(index, 1)}
                   >
                     ↓
-                  </button>
+                  </IconButton>
                 </span>
               </legend>
 
@@ -1079,9 +1078,7 @@ export function GatewayServicesSettings({
                     </select>
                   </label>
 
-                  <button
-                    type="button"
-                    className="settings-button"
+                  <Button
                     onClick={() =>
                       replaceServices(
                         draft.current.services.filter(
@@ -1091,7 +1088,7 @@ export function GatewayServicesSettings({
                     }
                   >
                     {t("providersGatewayServiceRemove")}
-                  </button>
+                  </Button>
                 </div>
               </details>
             </fieldset>
@@ -1099,9 +1096,7 @@ export function GatewayServicesSettings({
         })}
 
         <div className={styles.actions}>
-          <button
-            type="button"
-            className="settings-button"
+          <Button
             disabled={services.length >= MAX_GATEWAY_SERVICES}
             onClick={() => {
               const added = newService(
@@ -1112,7 +1107,7 @@ export function GatewayServicesSettings({
             }}
           >
             {t("providersGatewayServiceAdd")}
-          </button>
+          </Button>
           {/* Each field writes itself when it loses focus, so this reports
               rather than commands: a Save button at the foot of a list this
               tall is scrolled out of sight exactly when it matters. */}

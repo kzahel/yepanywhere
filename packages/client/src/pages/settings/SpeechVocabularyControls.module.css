@@ -37,8 +37,7 @@
   min-height: 32px;
 }
 
-.hours input[type="number"],
-.actions button {
+.hours input[type="number"] {
   min-height: 44px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -52,22 +51,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.actions button:disabled {
-  opacity: 0.5;
-}
-
-.actions .scan {
-  color: var(--success-color);
-  border-color: var(--success-color);
-  background: color-mix(in srgb, var(--success-color) 12%, var(--bg-secondary));
-}
-
-.actions .reset {
-  color: var(--error-color);
-  border-color: var(--error-color);
-  background: color-mix(in srgb, var(--error-color) 12%, var(--bg-secondary));
 }
 
 .exploration {
@@ -89,24 +72,4 @@
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-}
-
-.close {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.close:hover {
-  background: var(--bg-primary);
-  color: var(--text-primary);
 }

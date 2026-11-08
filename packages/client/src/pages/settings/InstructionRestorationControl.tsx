@@ -5,6 +5,7 @@ import type {
 } from "@yep-anywhere/shared";
 import { useI18n } from "../../i18n";
 import { api } from "../../api/client";
+import { Button } from "../../components/ui/Button";
 import { SettingsItem } from "./SettingsItem";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import styles from "./InstructionRestorationControl.module.css";
@@ -78,9 +79,7 @@ export function InstructionRestorationControl({
           />
         </label>
         <p>{t("instructionRestorationBoundary")}</p>
-        <button
-          className="settings-button"
-          type="button"
+        <Button
           onClick={async () => {
             setError("");
             try {
@@ -91,7 +90,7 @@ export function InstructionRestorationControl({
           }}
         >
           {t("instructionRestorationPreview")}
-        </button>
+        </Button>
         {preview && (
           <details open>
             <summary>{preview.prefix}</summary>
@@ -138,9 +137,9 @@ export function InstructionRestorationControl({
           ))}
         </div>
         <p>{t("instructionRestorationCompanion")}</p>
-        <button className="settings-button" type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving}>
           {t("instructionRestorationSave")}
-        </button>
+        </Button>
         {error && <p role="alert">{error}</p>}
         {saved && <p role="status">{t("instructionRestorationSaved")}</p>}
       </form>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 import { SettingsItem } from "./SettingsItem";
@@ -239,13 +240,9 @@ export function LifecycleWebhooksSettings() {
           className="settings-item"
           style={{ justifyContent: "flex-end", gap: "var(--space-2)" }}
         >
-          <button
-            type="submit"
-            className="settings-button"
-            disabled={!hasChanges || isSaving}
-          >
+          <Button type="submit" disabled={!hasChanges || isSaving}>
             {isSaving ? t("providersSaving") : t("providersSave")}
-          </button>
+          </Button>
         </div>
 
         {(saveError || error) && (

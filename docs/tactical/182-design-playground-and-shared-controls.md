@@ -3,10 +3,11 @@
 Topic: ui-design
 
 Status: rewritten 2026-11-08 around one control family at a time. The
-playground, token page, undefined-property limit, button and switch census
-and the shared `Button`/`IconButton`/`ButtonBase` have landed. Next: the
-button batches, starting with settings. Composer controls
-are excluded from it and get their own later pass.
+playground, token page, undefined-property limit, button and switch census,
+the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
+settings button batch have landed. Next: the remaining button batches
+(modals, other pages, session view, …). Composer controls are excluded
+and get their own later pass.
 
 ## Why
 
@@ -84,6 +85,16 @@ of slightly different styles.
 - **Button mapping:** every global (54) and CSS Module (80) button class
   has a destination in `design/census/mapping.ts`; Census/Buttons shows
   each beside what it becomes, and its Unmapped state is empty.
+- **Settings batch:** every button in `pages/settings/` (45 files) is on
+  `Button`, `IconButton`, `ButtonBase` or `buttonClassName`, except option
+  pickers and switches left for family 3. Legacy rules that reached zero
+  uses are deleted (`settings-button-danger`, `-danger-subtle`,
+  `settings-inline-x`, `provider-deprecation-notice__dismiss`, and four
+  classes the mapping found dead). `settings-button`,
+  `settings-button-secondary`, `btn-primary` and `btn-secondary` remain for
+  the later batches. `ProjectAppInventorySection.module.css` keeps a
+  `.sharedButton` opt-out until `ProjectAppViewer` and `SettingsCollection`
+  are swapped.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

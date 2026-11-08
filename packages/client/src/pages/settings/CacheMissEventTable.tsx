@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { MessageAge } from "../../components/MessageAge";
+import { ButtonBase } from "../../components/ui/Button";
 import {
   type CacheMissEventOutcomeFilter,
   useCacheMissEventOutcomeFilter,
@@ -361,8 +362,7 @@ export function CacheMissEventTable({
                 <tbody key={group.key}>
                   <tr className={styles.groupRow}>
                     <th scope="rowgroup">
-                      <button
-                        type="button"
+                      <ButtonBase
                         className={styles.groupButton}
                         aria-expanded={!collapsed}
                         aria-label={t(
@@ -375,7 +375,7 @@ export function CacheMissEventTable({
                       >
                         <span aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
                         <span>{group.tuple}</span>
-                      </button>
+                      </ButtonBase>
                     </th>
                     <td colSpan={7} className={styles.groupSummary}>
                       {t("cacheMissEventGroupSummary", {
@@ -468,8 +468,7 @@ export function CacheMissEventTable({
                               aria-hidden="true"
                             />
                             {previousEventId ? (
-                              <button
-                                type="button"
+                              <ButtonBase
                                 className={styles.messageJump}
                                 title={referenceTitle || undefined}
                                 aria-label={navigationTitle}
@@ -478,7 +477,7 @@ export function CacheMissEventTable({
                                 }
                               >
                                 {eventMessageReference(event)}
-                              </button>
+                              </ButtonBase>
                             ) : (
                               <span title={referenceTitle || undefined}>
                                 {eventMessageReference(event)}

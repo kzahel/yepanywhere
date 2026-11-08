@@ -192,13 +192,7 @@
 .deviceName {
   display: block;
   width: 100%;
-  padding: 0;
-  border: 0;
   text-align: left;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
 }
 .deviceName .host {
   margin: 0;
@@ -222,34 +216,14 @@
   overflow-wrap: anywhere;
 }
 .remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 44px;
   height: 44px;
   flex: 0 0 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 27px;
-  line-height: 1;
-  cursor: pointer;
 }
-.deviceName:focus-visible,
-.remove:focus-visible {
+.deviceName:focus-visible {
   outline: 2px solid var(--link-color);
   outline-offset: 3px;
   border-radius: 4px;
-}
-.remove:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-.remove:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 .managed {
   font-size: 12px;
@@ -283,15 +257,6 @@
 }
 .confirmActions button {
   min-height: 44px;
-}
-.destructive {
-  background: #b42318;
-  color: #fff;
-  border: 1px solid #b42318;
-  border-radius: 4px;
-}
-.destructive:hover:not(:disabled) {
-  background: #912018;
 }
 :global(.modal):has(.confirmation) {
   width: min(440px, calc(100dvw - 32px));

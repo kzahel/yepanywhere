@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { NativeNotificationStatus } from "../../components/NativeNotificationStatus";
 import { PushNotificationToggle } from "../../components/PushNotificationToggle";
+import { Button } from "../../components/ui/Button";
 import { useConnectedDevices } from "../../hooks/useConnectedDevices";
 import {
   type NotificationSettings,
@@ -585,9 +586,7 @@ export function NotificationsSettings() {
                     {/* Only show remove button for subscribed devices */}
                     {device.isSubscribed && (
                       <div className="device-list-actions">
-                        <button
-                          type="button"
-                          className="settings-button"
+                        <Button
                           onClick={() => sendTestToDevice(device)}
                           disabled={testingDeviceIds.has(
                             device.browserProfileId,
@@ -595,10 +594,9 @@ export function NotificationsSettings() {
                           title={t("notificationsTestDevice")}
                         >
                           {t("notificationsTest")}
-                        </button>
-                        <button
-                          type="button"
-                          className="settings-button settings-button-danger-subtle"
+                        </Button>
+                        <Button
+                          variant="danger-outline"
                           onClick={() => removeSubscribedDevice(device)}
                           title={
                             device.isCurrentDevice
@@ -607,7 +605,7 @@ export function NotificationsSettings() {
                           }
                         >
                           {t("notificationsRemove")}
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -687,9 +685,7 @@ export function NotificationsSettings() {
                           {t("pushDeliveryVeryLow")}
                         </option>
                       </select>
-                      <button
-                        type="button"
-                        className="settings-button"
+                      <Button
                         onClick={sendTestToMobileDevices}
                         disabled={
                           mobilePushDevices.length === 0 ||
@@ -706,7 +702,7 @@ export function NotificationsSettings() {
                         {t("notificationsSendToMobileDevices", {
                           count: mobilePushDevices.length,
                         })}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>

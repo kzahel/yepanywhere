@@ -106,14 +106,9 @@
 
 .link {
   min-height: 32px;
-  padding: 0;
   color: var(--accent-color);
-  background: none;
-  border: 0;
-  font: inherit;
   font-size: var(--font-size-sm);
   white-space: nowrap;
-  cursor: pointer;
 }
 
 .link:disabled {

@@ -4,6 +4,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Button } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import {
   applyBrowserSettingsBackup,
@@ -84,9 +85,7 @@ export function SettingsBackupActions() {
       <span className={styles.title}>{t("settingsBackupTitle")}</span>
       <span className={styles.status}>{t("settingsBackupDescription")}</span>
       <div className={styles.buttons}>
-        <button
-          type="button"
-          className="settings-button"
+        <Button
           onClick={() => void handleSave()}
           disabled={operation !== null}
           title={t("settingsBackupSaveTooltip")}
@@ -94,10 +93,8 @@ export function SettingsBackupActions() {
           {operation === "saving"
             ? t("settingsBackupSaving")
             : t("settingsBackupSave")}
-        </button>
-        <button
-          type="button"
-          className="settings-button"
+        </Button>
+        <Button
           onClick={handleLoad}
           disabled={operation !== null || !backup}
           title={t("settingsBackupLoadTooltip")}
@@ -105,7 +102,7 @@ export function SettingsBackupActions() {
           {operation === "loading"
             ? t("settingsBackupLoading")
             : t("settingsBackupLoad")}
-        </button>
+        </Button>
       </div>
       <span
         className={`${styles.status} ${error ? styles.error : ""}`}

@@ -35,17 +35,6 @@
   top: 50%;
   right: var(--space-1);
   transform: translateY(-50%);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  padding: var(--space-1);
-  cursor: pointer;
-}
-
-.clear:hover {
-  color: var(--text-primary);
 }
 
 .valuesToggle {

@@ -1,4 +1,5 @@
 import { MAX_INSTRUCTION_BLOCKS } from "@yep-anywhere/shared";
+import { Button, IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { generateUUID } from "../../lib/uuid";
 import styles from "./InstructionBlocks.module.css";
@@ -54,48 +55,42 @@ export function InstructionBlocks({
             }
           />
           <div className={styles.tools}>
-            <button
-              type="button"
-              className={styles.remove}
+            <IconButton
               disabled={disabled}
-              aria-label={t("usersInstructionRemove", { number: index + 1 })}
+              label={t("usersInstructionRemove", { number: index + 1 })}
               onClick={() =>
                 onChange(value.filter((item) => item.id !== block.id))
               }
             >
               ×
-            </button>
+            </IconButton>
             {value.length > 1 && (
               <>
-                <button
-                  type="button"
+                <IconButton
                   disabled={disabled || index === 0}
-                  aria-label={t("usersInstructionUp", { number: index + 1 })}
+                  label={t("usersInstructionUp", { number: index + 1 })}
                   onClick={() => move(index, -1)}
                 >
                   ↑
-                </button>
-                <button
-                  type="button"
+                </IconButton>
+                <IconButton
                   disabled={disabled || index === value.length - 1}
-                  aria-label={t("usersInstructionDown", { number: index + 1 })}
+                  label={t("usersInstructionDown", { number: index + 1 })}
                   onClick={() => move(index, 1)}
                 >
                   ↓
-                </button>
+                </IconButton>
               </>
             )}
           </div>
         </div>
       ))}
-      <button
-        type="button"
-        className="settings-button"
+      <Button
         disabled={disabled || value.length >= MAX_INSTRUCTION_BLOCKS}
         onClick={() => onChange([...value, ...instructionBlockDrafts([""])])}
       >
         {t("usersInstructionAdd")}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { IconButton } from "../../components/ui/Button";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import { useI18n } from "../../i18n";
 import { UI_KEYS } from "../../lib/storageKeys";
@@ -68,14 +69,14 @@ export function SettingsSearchBar({
           }}
         />
         {query !== "" && (
-          <button
-            type="button"
+          <IconButton
+            size="small"
             className={styles.clear}
-            aria-label={t("settingsSearchClear")}
+            label={t("settingsSearchClear")}
             onClick={() => onQueryChange("")}
           >
             ×
-          </button>
+          </IconButton>
         )}
       </div>
       {searching && (

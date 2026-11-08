@@ -49,7 +49,9 @@ the reference.
   the tooltip (through `TooltipLayer`). Defaults to `ghost`.
 - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
   arrows and chips. Its reset has zero specificity, so the owner's styles
-  always win; it keeps the focus ring.
+  always win; it keeps the focus ring. Its text is `--font-size-base`
+  rather than inherited, the size raw buttons had, so a swapped row keeps
+  its text size unless its owner sets one.
 - `buttonClassName()`: the same look for an `<a>` or router `Link` that is a
   button-shaped navigation target.
 
@@ -57,8 +59,12 @@ All of them default `type` to `button`, so none submits a form unless asked,
 pass ordinary button attributes through (including `data-testid`) and take
 `ref`. `busy` shows a spinner, sets `aria-busy` and ignores clicks and form
 submission while keeping focus. Coarse pointers get 40 px (default) and
-32 px (small) hit areas. A caller's `className` adds layout only (margins,
-flex placement, width); the control owns colors, borders, padding and type.
+32 px (small) hit areas. A text glyph used as an icon (×, ↑) renders larger
+than label text. A caller's `className` adds layout only (margins, flex
+placement, width); the control owns colors, borders, padding and type.
+
+Swapped so far: every button in `pages/settings/` except the option
+pickers and switches that belong to later families.
 
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
@@ -190,7 +196,9 @@ relay is not started. Each capture is the viewport as a user first sees it,
 written through `recordUiCapture` into `.artifacts/design-tour/<label>/` and
 presented by the suite's teardown. `--grep settings` limits it to matching
 screens; an existing label directory is refused (exit 2) and a failed screen
-exits 3. The `.tour.ts` suffix keeps it out of the ordinary E2E run and CI.
+exits 3. Settings sections also get a dark 1000×2400 capture, because their
+panes scroll inside the page where a full-page screenshot cannot reach
+controls below the fold. The `.tour.ts` suffix keeps it out of the ordinary E2E run and CI.
 A control-family batch runs it before and after its swap to review the
 fallout side by side.
 

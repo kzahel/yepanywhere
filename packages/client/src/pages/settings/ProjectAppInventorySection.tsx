@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { projectAppApi } from "../../api/projectApp";
 import { api } from "../../api/client";
 import { ProjectAppViewer } from "../../components/ProjectAppViewer";
+import { Button, ButtonBase } from "../../components/ui/Button";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
 import styles from "./ProjectAppInventorySection.module.css";
@@ -158,8 +159,8 @@ export function ProjectAppInventorySection() {
       <div className={styles.heading}>
         <h3>{t("projectAppInventoryTitle")}</h3>
         {supported && (
-          <button
-            type="button"
+          <Button
+            className={styles.sharedButton}
             disabled={loading || busy}
             onClick={() => {
               setError("");
@@ -167,7 +168,7 @@ export function ProjectAppInventorySection() {
             }}
           >
             {t("projectAppInventoryRefresh")}
-          </button>
+          </Button>
         )}
       </div>
       <p>
@@ -193,22 +194,22 @@ export function ProjectAppInventorySection() {
             actions={
               selected && canDelete ? (
                 <span className={styles.deleteActions}>
-                  <button
-                    type="button"
+                  <Button
+                    className={styles.sharedButton}
                     disabled={busy}
                     title={t("projectAppDeleteAppTitle")}
                     onClick={() => void deleteSelected(false)}
                   >
                     {t("projectAppDeleteApp")}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    className={styles.sharedButton}
                     disabled={busy}
                     title={t("projectAppDeleteProject")}
                     onClick={() => void deleteSelected(true)}
                   >
                     {t("projectAppDeleteProject")}
-                  </button>
+                  </Button>
                 </span>
               ) : undefined
             }
@@ -229,13 +230,13 @@ export function ProjectAppInventorySection() {
                             {address.name}.{address.namespace}
                           </strong>
                           {!version?.artifactViewer?.vhostPublicRoot && (
-                            <button
-                              type="button"
+                            <Button
+                              className={styles.sharedButton}
                               disabled={busy}
                               onClick={() => void releaseAddress(address)}
                             >
                               {t("projectAppRelease")}
-                            </button>
+                            </Button>
                           )}
                         </p>
                       ))}
@@ -329,8 +330,7 @@ export function ProjectAppInventorySection() {
                     >
                       <td>
                         {row.project ? (
-                          <button
-                            type="button"
+                          <ButtonBase
                             aria-expanded={expanded === row.project.projectId}
                             onClick={toggle}
                           >
@@ -340,7 +340,7 @@ export function ProjectAppInventorySection() {
                                 : "▸"}{" "}
                             </span>
                             {row.name}
-                          </button>
+                          </ButtonBase>
                         ) : (
                           row.name
                         )}
@@ -355,15 +355,15 @@ export function ProjectAppInventorySection() {
                       </td>
                       <td>
                         {row.retained ? (
-                          <button
-                            type="button"
+                          <Button
+                            className={styles.sharedButton}
                             disabled={busy}
                             onClick={() =>
                               row.retained && void releaseAddress(row.retained)
                             }
                           >
                             {t("projectAppRelease")}
-                          </button>
+                          </Button>
                         ) : (
                           row.status
                         )}

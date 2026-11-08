@@ -94,9 +94,6 @@ input.inputInvalid:focus {
 
 .passwordApply {
   flex: 0 0 auto;
-  border-color: var(--accent-color);
-  background: var(--accent-color);
-  color: var(--bg-primary);
 }
 
 @media (width < 700px) {

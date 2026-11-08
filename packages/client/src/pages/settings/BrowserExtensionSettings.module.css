@@ -80,7 +80,6 @@
   color: var(--text-muted);
   font-size: 12px;
 }
-.siteList button,
 .addSite input {
   min-height: 36px;
   padding: 6px 10px;
@@ -89,21 +88,11 @@
   background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
-}
-.siteList button {
-  background: var(--bg-surface);
-  cursor: pointer;
-}
-.siteList button:disabled {
-  opacity: 0.4;
-  cursor: default;
+  flex: 1;
+  min-width: 0;
 }
 .siteList .addSite {
   border-style: dashed;
-}
-.addSite input {
-  flex: 1;
-  min-width: 0;
 }
 .allowlist textarea {
   padding: 8px 10px;

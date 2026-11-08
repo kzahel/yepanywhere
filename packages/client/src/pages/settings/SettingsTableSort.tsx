@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ButtonBase } from "../../components/ui/Button";
 import styles from "./SettingsTableSort.module.css";
 
 type TableSort<Key extends string> = {
@@ -56,11 +57,7 @@ export function SettingsSortHeader<Key extends string>({
   const direction = sort?.column === column ? sort.direction : "none";
   return (
     <th className={styles.header} scope="col" aria-sort={direction}>
-      <button
-        type="button"
-        className={styles.button}
-        onClick={() => onSort(column)}
-      >
+      <ButtonBase className={styles.button} onClick={() => onSort(column)}>
         {label}
         <span aria-hidden="true">
           {direction === "ascending"
@@ -69,7 +66,7 @@ export function SettingsSortHeader<Key extends string>({
               ? "↓"
               : "↕"}
         </span>
-      </button>
+      </ButtonBase>
     </th>
   );
 }
