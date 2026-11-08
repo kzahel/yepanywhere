@@ -47,6 +47,7 @@ import {
   formatCodexLoginCommand,
   isCodexCyberAccessDenial,
 } from "../../../src/sdk/providers/codex.js";
+import * as codexApprovals from "../../../src/sdk/providers/codex-approvals.js";
 import * as codexItemConversion from "../../../src/sdk/providers/codex-item-conversion.js";
 import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
 import {
@@ -8278,7 +8279,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("grants requested permissions for only the requesting bypass turn", async () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexApprovals as unknown as {
       handleServerRequestApproval: (
         request: { method: string; id: number; params?: unknown },
         options: { permissionMode?: string },
@@ -8335,7 +8336,7 @@ describe("CodexProvider Event Normalization", () => {
     const onToolApproval = vi.fn(async () => ({
       behavior: "deny" as const,
     }));
-    const provider = createTestProvider() as unknown as {
+    const provider = codexApprovals as unknown as {
       handleServerRequestApproval: (
         request: { method: string; id: number; params?: unknown },
         options: {
@@ -8389,7 +8390,7 @@ describe("CodexProvider Event Normalization", () => {
         },
       }),
     );
-    const provider = createTestProvider() as unknown as {
+    const provider = codexApprovals as unknown as {
       handleServerRequestApproval: (
         request: { method: string; id: number; params?: unknown },
         options: {
@@ -8471,7 +8472,7 @@ describe("CodexProvider Event Normalization", () => {
       behavior: "allow" as const,
       updatedInput: { answers: { "question-1": "Answer" } },
     }));
-    const provider = createTestProvider() as unknown as {
+    const provider = codexApprovals as unknown as {
       handleServerRequestApproval: (
         request: { method: string; id: number; params?: unknown },
         options: { onToolApproval?: typeof onToolApproval },

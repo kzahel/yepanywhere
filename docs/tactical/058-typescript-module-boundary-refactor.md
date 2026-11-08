@@ -387,14 +387,14 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 
 | Slice | Status | Target | Intent | Tripwires / Notes |
 |---|---|---|---|---|
-| 4.1 | Not started | `sdk/providers/codex.ts` app-server client | Move `CodexAppServerClient`, JSON-RPC queueing, process termination, and raw request helpers into focused modules. | Tripwire matrix: Codex row. Run Codex provider tests and server E2E. The JSON-RPC wire types already live in `codex-json-rpc.ts` (slice 4.4). Moves with `AsyncQueue`, `CodexNotificationReceipt` and the `terminateChildProcess` helpers. The provider-wide termination copies are recorded in `gaps/process-group-signalling-copies.md`; this row keeps Codex's own sequence unchanged. |
+| 4.1 | Not started | `sdk/providers/codex.ts` app-server client | Move `CodexAppServerClient`, JSON-RPC queueing, process termination, and raw request helpers into focused modules. | Tripwire matrix: Codex row. Run Codex provider tests and server E2E. The JSON-RPC wire types already live in `codex-json-rpc.ts` (slice 4.4) and the `log` wrapper in `codex-log.ts` (slice 4.8). Moves with `AsyncQueue`, `CodexNotificationReceipt` and the `terminateChildProcess` helpers. The provider-wide termination copies are recorded in `gaps/process-group-signalling-copies.md`; this row keeps Codex's own sequence unchanged. |
 | 4.2 | Done 2026-07-06 | Codex model catalog helpers | Move fallback model data, semver parsing, model sorting, and model metadata normalization. | App-server process/query/cache ownership stayed in `codex.ts`; focused catalog tests pin fallback selection and normalized ordering. |
 | 4.3 | Done 2026-07-06 | Codex notification guards | Move `as*Notification` guards and raw notification classifiers into a protocol module. | Guard-only extraction; approval request param guards stay in `codex.ts`. Focused guard tests and existing Codex provider fixtures preserve stream/persisted conversion behavior. |
 | 4.4 | Done 2026-11-08 | Codex live event conversion | Move the stateless conversion: item normalization and item-to-SDK conversion to `codex-item-conversion.ts`; notification/raw-response conversion, live streaming state and builders, turn usage and error request-id extraction to `codex-live-event-conversion.ts`; JSON-RPC wire types to `codex-json-rpc.ts`. | Re-scoped from "live turn state": the per-turn runtime state, live-delta suppression and replay stay in `runSession`. The two conversion modules are split because one would exceed the 1,500-line new-file ceiling, and the live module imports the item module, never the reverse. The live, durable and Codex OSS copies of the conversion disagree; see `gaps/codex-conversion-three-copies.md`. |
 | 4.5 | Done 2026-07-06 | Codex recap/summary helpers | Move recap prompts, fork-backed summary prompt/params, retitle prompt, helper model selection, text cleanup, and summary capture helpers. | App-server orchestration and non-turn request decline behavior stayed in `codex.ts`; focused helper/provider/render-parity tests preserve provider-visible prompts and summary output behavior. |
 | 4.6 | Done 2026-07-06 | OpenCode provider model helpers | Move OpenCode model selection, local-GLM model descriptions, and verbose variant parsing. | Provider process/HTTP/SSE orchestration and message conversion stayed in `opencode.ts`; no Claude/OpenCode shared abstraction introduced. |
 | 4.7 | Done 2026-11-08 | Codex failure trace | Move the failure-trace recorder, snapshot/format helpers and the notification/SDK-message trace descriptions (`recordCodexFailureTraceEvent` through `previewTraceString`) into `codex-failure-trace.ts`. | 368 lines. They use no provider state; besides each other, the trace constants and interfaces that move with them, and the `codex-notification-guards.ts` guards, they read only the conversion modules' `getOptionalString`, `normalizeStatus`, `extractErrorRecord`, `extractOpenAIRequestId` and `stringifyTraceValue`. `runSession` imports the recorder, snapshot, format and describe functions and the `CodexFailureTrace` type. Move-only, Tier 1 plus the Codex provider tests. |
-| 4.8 | Not started | Codex approvals | Move `handleServerRequestApproval`, the approval decision/permission-response helpers and the approval request param guards (`as*RequestApprovalParams`, `asToolRequestUserInputParams`) into `codex-approvals.ts`. | About 500 lines. `normalizePermissionMode` becomes an explicit dependency (the permitted dependency-parameter conversion). The guards were left out of slice 4.3 on purpose and belong here. The Codex approval tests pin the decisions. |
+| 4.8 | Done 2026-11-08 | Codex approvals | Move `handleServerRequestApproval`, the approval decision/permission-response helpers and the approval request param guards (`as*RequestApprovalParams`, `asToolRequestUserInputParams`) into `codex-approvals.ts`. | 519 lines. `normalizePermissionMode` stays in `codex.ts`; the `permissionMode` default that called it became a required parameter (the permitted dependency-parameter conversion), since every caller already passed it. The `codex.ts` `log` wrapper moved verbatim to `codex-log.ts` so both modules log as `codex-provider`. The guards were left out of slice 4.3 on purpose and belong here. The Codex approval tests pin the decisions. |
 | 4.9 | Needs plan | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). Tier 3. |
 
 ## Phase 5: Load-Bearing Supervisor And Process Files
@@ -456,6 +456,64 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.8 — Codex Approvals (Landed 2026-11-08, this commit)
+
+Moved:
+- Server-request approval handling -> new
+  `packages/server/src/sdk/providers/codex-approvals.ts`:
+  `handleServerRequestApproval`, `resolveApprovalDecision`,
+  `resolveToolApprovalResult`, `resolvePermissionRequestApproval`,
+  `createGrantedPermissionResponse`, `createDeclinedPermissionResponse`, and
+  the approval request param guards `asCommandExecutionRequestApprovalParams`,
+  `asFileChangeRequestApprovalParams`, `asPermissionsRequestApprovalParams`
+  and `asToolRequestUserInputParams`.
+- The module-level `log` wrapper (component `codex-provider`) -> new
+  `codex-log.ts`, unchanged. The approval code logs through it, and copying
+  it would not be a move. `codex.ts` imports it, and slice 4.1's client will
+  too.
+- `codex-approvals.ts` imports the item conversion module (for
+  `getOptionalString`), `codex-log.ts`, the JSON-RPC and protocol types, and
+  never `codex.ts`. `codex.ts` went from 5,711 to 5,187 lines.
+
+Signature conversions:
+- `handleServerRequestApproval(request, options, signal, permissionMode =
+  this.normalizePermissionMode(options.permissionMode))` now takes
+  `permissionMode: PermissionMode` as a required parameter.
+  `normalizePermissionMode` stays in `codex.ts`, because turn parameters and
+  runtime state also use it. The default was dead: `runSession` passes
+  `runtimeState.activePermissionMode`, and all four approval tests pass the
+  mode explicitly.
+- The 10 moved private methods became module functions: `private name(` ->
+  `function name(`, and `this.name(` -> `name(`. Nothing else changed.
+  `codex.ts` imports `handleServerRequestApproval` for `runSession`, and
+  `createDeclinedPermissionResponse` and `asToolRequestUserInputParams` for
+  `handleNonTurnServerRequest`, which declines fork and recap requests and
+  stays in `codex.ts`.
+- The four approval tests in `codex.test.ts` that cast a `CodexProvider` to
+  reach `handleServerRequestApproval` now cast the `codexApprovals` module
+  namespace. The cast types and every assertion are unchanged.
+- A whitespace-insensitive comparison of every moved block with its original
+  matches once `this.`, `private`, `export`, `function` and formatter
+  trailing commas are ignored, apart from the `permissionMode` parameter
+  line above.
+
+Behavior changes:
+- None. Log lines keep the `codex-provider` component and their messages.
+
+Verification:
+- Tier 1: server `tsc --noEmit` (`tsconfig.json`,
+  `tsconfig.tool-display-tests.json`); `tsconfig.test.json` shows no errors
+  in the new modules or `codex.ts`. It reports two existing errors in
+  `codex.test.ts` (`processEnvWakeToken`, `CodexProviderConfig.timeout`) that
+  are unrelated to approvals. File-scoped `node scripts/biome.cjs` lint and
+  format; `git diff --check`; the slice 4.7 focused `vitest` set: 71 files,
+  1,080 passed, 10 skipped.
+- Also ran `pnpm lint`, `pnpm format:check` and `pnpm typecheck`: passed.
+- `pnpm source:budgets --record` lowered `codex.ts` to 5,187.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 4.7 — Codex Failure Trace (Landed 2026-11-08, this commit)
 

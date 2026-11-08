@@ -52,7 +52,7 @@ import {
   type ThinkingOption,
 } from "@yep-anywhere/shared";
 import { isCodexBackgroundProcessOutput } from "../../codex/normalization.js";
-import { getLogger } from "../../logging/logger.js";
+import { log } from "./codex-log.js";
 import { formatExecutableInvocation } from "../../utils/executableInvocation.js";
 import {
   CODEX_INSTALLATION_FAMILY,
@@ -74,11 +74,8 @@ import type {
   SDKMessage,
   UserMessage,
 } from "../types.js";
-import type { ToolApprovalResult } from "../types.js";
 import type {
   AskForApproval as CodexAskForApproval,
-  PermissionsRequestApprovalParams,
-  PermissionsRequestApprovalResponse,
   SandboxMode as CodexSandboxMode,
   SkillMetadata,
   SkillsListParams,
@@ -103,15 +100,10 @@ import type {
   ThreadItem as CodexThreadItem,
   ThreadCompactStartParams,
   ThreadCompactStartResponse,
-  CommandExecutionApprovalDecision,
-  CommandExecutionRequestApprovalParams,
-  FileChangeApprovalDecision,
-  FileChangeRequestApprovalParams,
   ThreadResumeParams,
   ThreadResumeResponse,
   ThreadStartParams,
   ThreadStartResponse,
-  ToolRequestUserInputParams,
   ToolRequestUserInputResponse,
   TurnInterruptParams,
   TurnInterruptResponse,
@@ -158,6 +150,11 @@ import {
   isCodexLiveDeltaSuppressionEnabled,
   readCodexTurnErrorDetail,
 } from "./codex-notification-guards.js";
+import {
+  asToolRequestUserInputParams,
+  createDeclinedPermissionResponse,
+  handleServerRequestApproval,
+} from "./codex-approvals.js";
 import {
   type CodexFailureTrace,
   describeNotificationForFailureTrace,
@@ -221,20 +218,6 @@ import type {
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
 
-const log = {
-  debug(bindings: Record<string, unknown>, message: string): void {
-    getLogger().debug({ component: "codex-provider", ...bindings }, message);
-  },
-  info(bindings: Record<string, unknown>, message: string): void {
-    getLogger().info({ component: "codex-provider", ...bindings }, message);
-  },
-  warn(bindings: Record<string, unknown>, message: string): void {
-    getLogger().warn({ component: "codex-provider", ...bindings }, message);
-  },
-  error(bindings: Record<string, unknown>, message: string): void {
-    getLogger().error({ component: "codex-provider", ...bindings }, message);
-  },
-};
 const CODEX_DESKTOP_BROWSER_SKILL_NAME = "browser:control-in-app-browser";
 
 function formatCodexGoalStatus(
@@ -3023,7 +3006,7 @@ export class CodexProvider implements AgentProvider {
     };
 
     appServer.setServerRequestHandler(async (request) => {
-      return await this.handleServerRequestApproval(
+      return await handleServerRequestApproval(
         request,
         options,
         signal,
@@ -5072,9 +5055,9 @@ export class CodexProvider implements AgentProvider {
       case "item/fileChange/requestApproval":
         return Promise.resolve({ decision: "decline" });
       case "item/permissions/requestApproval":
-        return Promise.resolve(this.createDeclinedPermissionResponse());
+        return Promise.resolve(createDeclinedPermissionResponse());
       case "item/tool/requestUserInput": {
-        const requestInput = this.asToolRequestUserInputParams(request.params);
+        const requestInput = asToolRequestUserInputParams(request.params);
         const answers: ToolRequestUserInputResponse["answers"] = {};
         for (const question of requestInput?.questions ?? []) {
           answers[question.id] = { answers: [] };
@@ -5132,513 +5115,6 @@ export class CodexProvider implements AgentProvider {
     effort: string | null | undefined,
   ): string | null {
     return effort ? `effort ${effort}` : null;
-  }
-
-  private async handleServerRequestApproval(
-    request: JsonRpcServerRequest,
-    options: StartSessionOptions,
-    signal: AbortSignal,
-    permissionMode = this.normalizePermissionMode(options.permissionMode),
-  ): Promise<unknown> {
-    log.info(
-      {
-        method: request.method,
-        requestId: request.id,
-        permissionMode,
-      },
-      "Codex app-server sent server request",
-    );
-
-    const params =
-      request.params && typeof request.params === "object"
-        ? (request.params as Record<string, unknown>)
-        : {};
-
-    switch (request.method) {
-      case "item/tool/call":
-        return {
-          success: false,
-          contentItems: [
-            {
-              type: "inputText",
-              text: "No dynamic tool is registered for this session",
-            },
-          ],
-        };
-      case "item/commandExecution/requestApproval": {
-        const commandParams = this.asCommandExecutionRequestApprovalParams(
-          request.params,
-        );
-        if (!commandParams) {
-          log.warn(
-            {
-              method: request.method,
-              requestId: request.id,
-            },
-            "Codex command approval params invalid; declining",
-          );
-          return { decision: "decline" as CommandExecutionApprovalDecision };
-        }
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            threadId: commandParams.threadId,
-            turnId: commandParams.turnId,
-            itemId: commandParams.itemId,
-            command: commandParams.command,
-            cwd: commandParams.cwd,
-          },
-          "Handling Codex command approval request",
-        );
-        const toolInput = {
-          command: commandParams.command,
-          cwd: commandParams.cwd,
-          reason: commandParams.reason,
-          commandActions: commandParams.commandActions ?? [],
-          proposedExecpolicyAmendment:
-            commandParams.proposedExecpolicyAmendment ?? null,
-          threadId: commandParams.threadId,
-          turnId: commandParams.turnId,
-          itemId: commandParams.itemId,
-        };
-        const decision: CommandExecutionApprovalDecision =
-          await this.resolveApprovalDecision(
-            options,
-            "Bash",
-            toolInput,
-            signal,
-            "accept",
-            "decline",
-            permissionMode,
-          );
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            threadId: commandParams.threadId,
-            turnId: commandParams.turnId,
-            itemId: commandParams.itemId,
-            decision,
-          },
-          "Resolved Codex command approval request",
-        );
-        return { decision };
-      }
-
-      case "item/fileChange/requestApproval": {
-        const fileParams = this.asFileChangeRequestApprovalParams(
-          request.params,
-        );
-        if (!fileParams) {
-          log.warn(
-            {
-              method: request.method,
-              requestId: request.id,
-            },
-            "Codex file-change approval params invalid; declining",
-          );
-          return { decision: "decline" as FileChangeApprovalDecision };
-        }
-        const grantRoot = fileParams.grantRoot ?? null;
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            threadId: fileParams.threadId,
-            turnId: fileParams.turnId,
-            itemId: fileParams.itemId,
-            grantRoot,
-          },
-          "Handling Codex file-change approval request",
-        );
-        const toolInput = {
-          file_path: grantRoot ?? undefined,
-          reason: fileParams.reason ?? null,
-          grantRoot,
-          threadId: fileParams.threadId,
-          turnId: fileParams.turnId,
-          itemId: fileParams.itemId,
-        };
-        const decision: FileChangeApprovalDecision =
-          await this.resolveApprovalDecision(
-            options,
-            "Edit",
-            toolInput,
-            signal,
-            "accept",
-            "decline",
-            permissionMode,
-          );
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            threadId: fileParams.threadId,
-            turnId: fileParams.turnId,
-            itemId: fileParams.itemId,
-            decision,
-          },
-          "Resolved Codex file-change approval request",
-        );
-        return { decision };
-      }
-
-      // Backward-compatible protocol variants.
-      case "execCommandApproval": {
-        const commandParts = Array.isArray(params.command)
-          ? params.command.filter(
-              (part): part is string => typeof part === "string",
-            )
-          : [];
-        const toolInput = {
-          command: commandParts.join(" "),
-          cwd: getOptionalString(params.cwd),
-          reason: getOptionalString(params.reason),
-          parsedCmd: Array.isArray(params.parsedCmd) ? params.parsedCmd : [],
-          callId: getOptionalString(params.callId),
-        };
-        const decision = await this.resolveApprovalDecision(
-          options,
-          "Bash",
-          toolInput,
-          signal,
-          "approved",
-          "denied",
-          permissionMode,
-        );
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            decision,
-            command: toolInput.command,
-            cwd: toolInput.cwd,
-          },
-          "Resolved legacy Codex command approval request",
-        );
-        return { decision };
-      }
-
-      case "applyPatchApproval": {
-        const fileChanges =
-          params.fileChanges && typeof params.fileChanges === "object"
-            ? (params.fileChanges as Record<string, unknown>)
-            : {};
-        const paths = Object.keys(fileChanges);
-        const toolInput = {
-          changes: paths.map((path) => ({ path, kind: "update" })),
-          reason: getOptionalString(params.reason),
-          grantRoot: getOptionalString(params.grantRoot),
-          callId: getOptionalString(params.callId),
-        };
-        const decision = await this.resolveApprovalDecision(
-          options,
-          "Edit",
-          toolInput,
-          signal,
-          "approved",
-          "denied",
-          permissionMode,
-        );
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            decision,
-            changedPathCount: paths.length,
-            grantRoot: toolInput.grantRoot,
-          },
-          "Resolved legacy Codex apply-patch approval request",
-        );
-        return { decision };
-      }
-
-      case "item/permissions/requestApproval": {
-        const permissionParams = this.asPermissionsRequestApprovalParams(
-          request.params,
-        );
-        if (!permissionParams) {
-          log.warn(
-            {
-              method: request.method,
-              requestId: request.id,
-            },
-            "Codex permission approval params invalid; declining",
-          );
-          return this.createDeclinedPermissionResponse();
-        }
-
-        return await this.resolvePermissionRequestApproval(
-          options,
-          permissionParams,
-          signal,
-          permissionMode,
-        );
-      }
-
-      case "item/tool/requestUserInput": {
-        const requestInput = this.asToolRequestUserInputParams(request.params);
-        if (!requestInput) {
-          log.warn(
-            {
-              method: request.method,
-              requestId: request.id,
-            },
-            "Codex tool user-input params invalid; returning no answers",
-          );
-          return { answers: {} } satisfies ToolRequestUserInputResponse;
-        }
-
-        const toolInput = {
-          questions: requestInput.questions.map((question) => ({
-            id: question.id,
-            header: question.header,
-            question: question.question,
-            options: question.options ?? [],
-            multiSelect: false,
-            isOther: question.isOther,
-            isSecret: question.isSecret,
-          })),
-          isBlocking: requestInput.isBlocking,
-          autoResolutionMs: requestInput.autoResolutionMs,
-          threadId: requestInput.threadId,
-          turnId: requestInput.turnId,
-          itemId: requestInput.itemId,
-        };
-        const result = await this.resolveToolApprovalResult(
-          options,
-          "AskUserQuestion",
-          toolInput,
-          signal,
-          permissionMode,
-        );
-        const updatedInput =
-          result.behavior === "allow" &&
-          result.updatedInput &&
-          typeof result.updatedInput === "object"
-            ? (result.updatedInput as {
-                answers?: Record<string, string | string[]>;
-              })
-            : null;
-        const submittedAnswers = updatedInput?.answers ?? {};
-        const answers: ToolRequestUserInputResponse["answers"] = {};
-        for (const question of requestInput.questions) {
-          const submitted =
-            submittedAnswers[question.id] ??
-            submittedAnswers[question.question];
-          answers[question.id] = {
-            answers: Array.isArray(submitted)
-              ? submitted.filter(
-                  (answer): answer is string => typeof answer === "string",
-                )
-              : typeof submitted === "string"
-                ? [submitted]
-                : [],
-          };
-        }
-        log.info(
-          {
-            method: request.method,
-            requestId: request.id,
-            questionCount: requestInput.questions.length,
-            threadId: requestInput.threadId,
-            turnId: requestInput.turnId,
-            itemId: requestInput.itemId,
-            behavior: result.behavior,
-          },
-          "Resolved Codex tool user-input request",
-        );
-        const response: ToolRequestUserInputResponse = { answers };
-        return response;
-      }
-
-      default: {
-        log.warn(
-          { method: request.method, requestId: request.id },
-          "Unhandled codex server request",
-        );
-        return {};
-      }
-    }
-  }
-
-  private async resolveApprovalDecision<TDecision extends string>(
-    options: StartSessionOptions,
-    toolName: string,
-    toolInput: unknown,
-    signal: AbortSignal,
-    allowDecision: TDecision,
-    denyDecision: TDecision,
-    permissionMode: PermissionMode,
-  ): Promise<TDecision> {
-    const result = await this.resolveToolApprovalResult(
-      options,
-      toolName,
-      toolInput,
-      signal,
-      permissionMode,
-    );
-    return result.behavior === "allow" ? allowDecision : denyDecision;
-  }
-
-  private async resolveToolApprovalResult(
-    options: StartSessionOptions,
-    toolName: string,
-    toolInput: unknown,
-    signal: AbortSignal,
-    permissionMode: PermissionMode,
-  ): Promise<ToolApprovalResult> {
-    if (!options.onToolApproval) {
-      log.warn(
-        { toolName },
-        "No onToolApproval handler available; denying Codex approval request",
-      );
-      return { behavior: "deny" };
-    }
-
-    let result: ToolApprovalResult;
-    try {
-      result = await options.onToolApproval(toolName, toolInput, {
-        signal,
-        permissionMode,
-      });
-    } catch (error) {
-      log.warn(
-        { toolName, error },
-        "onToolApproval threw; denying Codex approval request",
-      );
-      return { behavior: "deny" };
-    }
-
-    log.info(
-      { toolName, behavior: result.behavior },
-      "Resolved tool approval callback result",
-    );
-
-    return result;
-  }
-
-  private async resolvePermissionRequestApproval(
-    options: StartSessionOptions,
-    params: PermissionsRequestApprovalParams,
-    signal: AbortSignal,
-    permissionMode: PermissionMode,
-  ): Promise<PermissionsRequestApprovalResponse> {
-    if (permissionMode === "bypassPermissions") {
-      return this.createGrantedPermissionResponse(params, "turn");
-    }
-
-    const toolInput = {
-      cwd: params.cwd,
-      reason: params.reason,
-      permissions: params.permissions,
-      threadId: params.threadId,
-      turnId: params.turnId,
-      itemId: params.itemId,
-    };
-    const decision = await this.resolveApprovalDecision(
-      options,
-      "Permissions",
-      toolInput,
-      signal,
-      "accept",
-      "decline",
-      permissionMode,
-    );
-    return decision === "accept"
-      ? this.createGrantedPermissionResponse(params, "turn")
-      : this.createDeclinedPermissionResponse();
-  }
-
-  private createGrantedPermissionResponse(
-    params: PermissionsRequestApprovalParams,
-    scope: PermissionsRequestApprovalResponse["scope"],
-  ): PermissionsRequestApprovalResponse {
-    const permissions: PermissionsRequestApprovalResponse["permissions"] = {};
-    if (params.permissions.network) {
-      permissions.network = params.permissions.network;
-    }
-    if (params.permissions.fileSystem) {
-      permissions.fileSystem = params.permissions.fileSystem;
-    }
-    return { permissions, scope };
-  }
-
-  private createDeclinedPermissionResponse(): PermissionsRequestApprovalResponse {
-    return { permissions: {}, scope: "turn" };
-  }
-
-  private asCommandExecutionRequestApprovalParams(
-    params: unknown,
-  ): CommandExecutionRequestApprovalParams | null {
-    if (!params || typeof params !== "object") return null;
-    const record = params as Record<string, unknown>;
-    if (
-      typeof record.threadId !== "string" ||
-      typeof record.turnId !== "string" ||
-      typeof record.itemId !== "string"
-    ) {
-      return null;
-    }
-    return params as CommandExecutionRequestApprovalParams;
-  }
-
-  private asFileChangeRequestApprovalParams(
-    params: unknown,
-  ): FileChangeRequestApprovalParams | null {
-    if (!params || typeof params !== "object") return null;
-    const record = params as Record<string, unknown>;
-    if (
-      typeof record.threadId !== "string" ||
-      typeof record.turnId !== "string" ||
-      typeof record.itemId !== "string"
-    ) {
-      return null;
-    }
-    return params as FileChangeRequestApprovalParams;
-  }
-
-  private asPermissionsRequestApprovalParams(
-    params: unknown,
-  ): PermissionsRequestApprovalParams | null {
-    if (!params || typeof params !== "object") return null;
-    const record = params as Record<string, unknown>;
-    if (
-      typeof record.threadId !== "string" ||
-      typeof record.turnId !== "string" ||
-      typeof record.itemId !== "string" ||
-      typeof record.cwd !== "string" ||
-      !record.permissions ||
-      typeof record.permissions !== "object"
-    ) {
-      return null;
-    }
-    return params as PermissionsRequestApprovalParams;
-  }
-
-  private asToolRequestUserInputParams(
-    params: unknown,
-  ): ToolRequestUserInputParams | null {
-    if (!params || typeof params !== "object") return null;
-    const record = params as Record<string, unknown>;
-    if (
-      typeof record.threadId !== "string" ||
-      typeof record.turnId !== "string" ||
-      typeof record.itemId !== "string" ||
-      !Array.isArray(record.questions) ||
-      (record.isBlocking !== undefined &&
-        typeof record.isBlocking !== "boolean")
-    ) {
-      return null;
-    }
-    return {
-      ...(params as ToolRequestUserInputParams),
-      // Codex 0.147 made this field required. Older app-server releases omit
-      // it and defined those requests as blocking.
-      isBlocking:
-        typeof record.isBlocking === "boolean" ? record.isBlocking : true,
-    };
   }
 
   private getPermissionModeFromMessage(
