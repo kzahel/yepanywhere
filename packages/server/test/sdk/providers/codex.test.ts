@@ -42,13 +42,17 @@ import { getLogger } from "../../../src/logging/logger.js";
 import { getCodexCommonPaths } from "../../../src/sdk/cli-detection.js";
 import { logSDKMessage } from "../../../src/sdk/messageLogger.js";
 import {
-  CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS,
-  CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS,
   CodexProvider,
   type CodexProviderConfig,
   formatCodexLoginCommand,
   isCodexCyberAccessDenial,
 } from "../../../src/sdk/providers/codex.js";
+import * as codexItemConversion from "../../../src/sdk/providers/codex-item-conversion.js";
+import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
+import {
+  CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS,
+  CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS,
+} from "../../../src/sdk/providers/codex-live-event-conversion.js";
 import {
   prepareSessionSandbox,
   probeSessionSandboxAvailability,
@@ -5891,7 +5895,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes command execution tool_use and tool_result to Read shape", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -5945,7 +5949,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes shell-launcher wrapped command execution to Read shape", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -5990,7 +5994,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes PowerShell Get-Content command execution to Read shape", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -6035,7 +6039,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("derives command display actions from command and cwd", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -6101,7 +6105,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes heredoc command execution as Write with structured file result", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -6160,7 +6164,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("marks a declined file change as an error result", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -6196,7 +6200,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes no-match ripgrep exit code as non-error Grep result", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -6245,7 +6249,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("prefers reasoning summaries over raw reasoning content", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       normalizeThreadItem: (item: unknown) => Record<string, unknown> | null;
       convertItemToSDKMessages: (
         item: unknown,
@@ -6282,7 +6286,7 @@ describe("CodexProvider Event Normalization", () => {
     "send_user_message_async",
     "send_message_to_user_async",
   ])("keeps live %s calls distinct from their async messages", (name) => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -6340,7 +6344,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("renders asynchronously delivered agent messages", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       normalizeThreadItem: (item: unknown) => Record<string, unknown> | null;
       convertItemToSDKMessages: (
         item: unknown,
@@ -6396,7 +6400,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("shows live standalone function outputs without inventing a call", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       normalizeThreadItem: (item: unknown) => Record<string, unknown> | null;
       convertItemToSDKMessages: (
         item: unknown,
@@ -6440,7 +6444,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("surfaces subagent activity items as visible system messages", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       normalizeThreadItem: (item: unknown) => Record<string, unknown> | null;
       convertItemToSDKMessages: (
         item: unknown,
@@ -6534,7 +6538,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("carries an MCP tool's declared view beside its unchanged arguments", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       normalizeThreadItem: (item: Record<string, unknown>) => unknown;
       convertItemToSDKMessages: (
         item: unknown,
@@ -7328,7 +7332,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("accumulates agent message deltas into a stable streaming assistant message", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7361,7 +7365,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("shows a live content-filter block under its durable message id", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7413,7 +7417,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("bounds live command-output snapshots to a head and tail window", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7467,7 +7471,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("surfaces Codex context compaction thread items", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7499,7 +7503,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("surfaces raw Codex compaction response items as compact boundaries", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7521,7 +7525,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("surfaces interrupted live Codex turns as visible system boundaries", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7553,7 +7557,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes raw response function calls and outputs into tool messages", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7585,7 +7589,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("surfaces live Codex checklist updates as completed plan tools", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7666,7 +7670,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("marks live result-backed tools incomplete when a turn completes first", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7773,7 +7777,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("keeps Codex background process handles from reviving orphaned work", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7878,7 +7882,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("does not mark completed live result-backed tools orphaned", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -7964,7 +7968,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("normalizes dynamic tool calls with namespace and output content", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexItemConversion as unknown as {
       convertItemToSDKMessages: (
         item: unknown,
         sessionId: string,
@@ -8014,7 +8018,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("does not emit rate limit errors when hasCredits is false but usage is below 100%", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -8049,7 +8053,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("does not emit synthetic errors for exhausted usage snapshots", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -8084,7 +8088,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("emits errors from codex error notifications", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -8126,7 +8130,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("preserves automatic retry details from codex error notifications", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -8168,7 +8172,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("surfaces a misalignment explanation as the codex error detail", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,
@@ -8214,7 +8218,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("preserves synthetic app-server process exit errors without turn ids", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,

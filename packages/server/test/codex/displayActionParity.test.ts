@@ -7,7 +7,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message as ClientMessage } from "../../../client/src/types.js";
-import { CodexProvider } from "../../src/sdk/providers/codex.js";
+import * as codexItemConversion from "../../src/sdk/providers/codex-item-conversion.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import type { LoadedSession } from "../../src/sessions/types.js";
 
@@ -105,7 +105,7 @@ describe("Codex display-action propagation parity", () => {
       ]),
     ).messages as unknown as Array<Record<string, unknown>>;
 
-    const provider = new CodexProvider() as unknown as CodexProviderBridge;
+    const provider = codexItemConversion as unknown as CodexProviderBridge;
     const liveMessages = provider.convertItemToSDKMessages(
       {
         id: liveItemId,

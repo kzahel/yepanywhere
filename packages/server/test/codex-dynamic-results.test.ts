@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { CodexProvider } from "../src/sdk/providers/codex.js";
+import * as codexItemConversion from "../src/sdk/providers/codex-item-conversion.js";
 import { TOOL_RESULT_MEDIA_CANDIDATES } from "../src/media/inlineImageData.js";
 import { normalizeCodexToolOutputWithContext } from "../src/codex/normalization.js";
 import {
@@ -12,7 +13,7 @@ import {
 
 // Exercises the actual pinned adapter seams without provider credentials.
 function adapter() {
-  return new CodexProvider() as unknown as {
+  return codexItemConversion as unknown as {
     convertItemToSDKMessages(
       item: unknown,
       sessionId: string,

@@ -6,9 +6,7 @@ import {
   MCP_APP_EXTENSION_ID,
   MCP_APP_EXTENSION_SETTINGS,
   type McpAppProviderRequest,
-  type McpAppToolCall,
   formatMcpAppModelContext,
-  mcpAppToolCallFromCodexItem,
   PROVIDER_WORK_ITEM_LIMIT,
   routerModelSupportsThinking,
 } from "@yep-anywhere/shared";
@@ -29,9 +27,7 @@ import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import {
-  CODEX_TOOL_CORRELATION_FIELD,
   getCodexToolCorrelation,
-  type CodexAsyncUserInputQuestion,
   type CodexCyberAccessProgram,
   type CodexPlanToolMode,
   DEFAULT_CODEX_CYBER_ACCESS_PROGRAM,
@@ -40,14 +36,12 @@ import {
   codexCyberAccessProgramWireValue,
   canonicalInvocationName,
   canonicalizeSkillInvocations,
-  createCodexToolCorrelation,
   type CodexReasoningSummary,
   type EffortLevel,
   type EffectiveSessionLaunchSettings,
   hasInvocationCandidate,
   type ModelCatalogStatus,
   type ModelInfo,
-  normalizeCodexAsyncUserInputQuestions,
   type PermissionMode,
   type ProviderSubscriptionUsage,
   type SlashCommand,
@@ -57,30 +51,8 @@ import {
   thinkingOptionToConfig,
   type ThinkingOption,
 } from "@yep-anywhere/shared";
-import {
-  isCodexCorrelationDebugEnabled,
-  logCodexCorrelationDebug,
-  summarizeCodexNormalizedMessage,
-} from "../../codex/correlationDebugLogger.js";
-import {
-  canonicalizeCodexToolName,
-  codexToolMessageId,
-  isCodexBackgroundProcessOutput,
-  isCodexInterruptedToolOutput,
-  type CodexToolCallContext,
-  normalizeCodexCommandExecutionOutput,
-  normalizeCodexCustomToolInvocation,
-  normalizeCodexToolInvocation,
-  normalizeCodexToolOutputWithContext,
-  parseCodexToolArguments,
-} from "../../codex/normalization.js";
-import {
-  CODEX_CONTENT_FILTER_BLOCK_SUBTYPE,
-  codexContentFilterGuidance,
-} from "../../codex/contentFilterBlock.js";
-import { formatCodexSubagentActivity } from "../../codex/subagentActivity.js";
+import { isCodexBackgroundProcessOutput } from "../../codex/normalization.js";
 import { getLogger } from "../../logging/logger.js";
-import { attachToolResultMediaCandidates } from "../../media/inlineImageData.js";
 import { formatExecutableInvocation } from "../../utils/executableInvocation.js";
 import {
   CODEX_INSTALLATION_FAMILY,
@@ -95,16 +67,11 @@ import {
 import { logSDKMessage } from "../messageLogger.js";
 import { MessageQueue } from "../messageQueue.js";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
-import {
-  type LiveToolOutput,
-  renderLiveToolOutput,
-} from "./live-tool-output.js";
 import type {
   ProviderActivitySnapshot,
   ProviderCommandResult,
   ProviderLivenessProbeResult,
   SDKMessage,
-  TimestampedSDKMessage,
   UserMessage,
 } from "../types.js";
 import type { ToolApprovalResult } from "../types.js";
@@ -112,7 +79,6 @@ import type {
   AskForApproval as CodexAskForApproval,
   PermissionsRequestApprovalParams,
   PermissionsRequestApprovalResponse,
-  RawResponseItemCompletedNotification,
   SandboxMode as CodexSandboxMode,
   SkillMetadata,
   SkillsListParams,
@@ -183,18 +149,11 @@ import {
   modelCatalogError,
 } from "./model-catalog-status.js";
 import {
-  asCodexAgentMessageDeltaNotification,
-  asCodexCommandExecutionOutputDeltaNotification,
   asCodexErrorNotification,
-  asCodexFileChangeOutputDeltaNotification,
   asCodexItemCompletedNotification,
   asCodexItemStartedNotification,
-  asCodexPlanDeltaNotification,
   asCodexRawResponseItemCompletedNotification,
-  asCodexReasoningSummaryTextDeltaNotification,
-  asCodexThreadTokenUsageUpdatedNotification,
   asCodexTurnCompletedNotification,
-  asCodexTurnPlanUpdatedNotification,
   isCodexLiveDeltaNotificationMethod,
   isCodexLiveDeltaSuppressionEnabled,
   readCodexTurnErrorDetail,
@@ -230,6 +189,30 @@ import {
   agentApiEnvironmentFor,
   inactiveProviderSessionOptionsResult,
 } from "./types.js";
+import {
+  getOptionalString,
+  isResultBackedThreadItem,
+  logSdkCorrelationDebug,
+  normalizeStatus,
+  normalizeThreadItem,
+  withCodexTimestamp,
+} from "./codex-item-conversion.js";
+import {
+  type TokenUsageSnapshot,
+  convertNotificationToSDKMessages,
+  createLiveEventState,
+  extractErrorRecord,
+  extractOpenAIRequestId,
+  extractTurnUsage,
+  stringifyTraceValue,
+} from "./codex-live-event-conversion.js";
+import type {
+  JsonRpcError,
+  JsonRpcId,
+  JsonRpcNotification,
+  JsonRpcResponse,
+  JsonRpcServerRequest,
+} from "./codex-json-rpc.js";
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
 
@@ -259,55 +242,6 @@ function formatCodexGoalStatus(
       return "Goal budget limited";
     default:
       return `Goal ${status}`;
-  }
-}
-
-function logSdkCorrelationDebug(
-  sessionId: string,
-  message: SDKMessage,
-  metadata: {
-    eventKind?: string;
-    turnId?: string;
-    itemId?: string;
-    callId?: string;
-    phase?: string;
-    sourceEvent?: string;
-    status?: string;
-  } = {},
-): void {
-  if (!isCodexCorrelationDebugEnabled()) return;
-  logCodexCorrelationDebug({
-    sessionId,
-    channel: "sdk",
-    authority: "transient",
-    ...metadata,
-    ...summarizeCodexNormalizedMessage(message),
-  });
-}
-
-function withCodexTimestamp<T extends SDKMessage>(
-  message: T,
-  timestamp = new Date().toISOString(),
-): TimestampedSDKMessage<T> {
-  if (
-    typeof message.timestamp === "string" &&
-    message.timestamp.trim().length > 0
-  ) {
-    return message as TimestampedSDKMessage<T>;
-  }
-  return {
-    ...message,
-    timestamp,
-  } as TimestampedSDKMessage<T>;
-}
-
-function stringifyTraceValue(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
   }
 }
 
@@ -476,42 +410,11 @@ export function formatCodexLoginCommand(
 }
 const YEP_ANYWHERE_ORIGINATOR = "yep-anywhere";
 
-type JsonRpcId = string | number;
-
-interface JsonRpcError {
-  message?: string;
-  code?: number;
-  data?: unknown;
-}
-
-interface JsonRpcResponse {
-  id?: JsonRpcId;
-  result?: unknown;
-  error?: JsonRpcError;
-}
-
-interface JsonRpcNotification {
-  method: string;
-  params?: unknown;
-}
-
 interface CodexNotificationReceipt {
   sequence: number;
   receivedAtMs: number;
   queuedAhead: number;
   source: "provider" | "synthetic";
-}
-
-interface JsonRpcServerRequest extends JsonRpcNotification {
-  id: JsonRpcId;
-}
-
-interface TokenUsageSnapshot {
-  totalTokens: number;
-  inputTokens: number;
-  outputTokens: number;
-  cachedInputTokens: number;
-  contextWindow?: number;
 }
 
 interface CodexTurnRuntimeState {
@@ -782,54 +685,6 @@ async function terminateChildProcess(
   }
 }
 
-interface NormalizedFileChange {
-  path: string;
-  kind: "add" | "delete" | "update";
-  diff?: string;
-}
-
-interface CodexLiveEventState {
-  streamingTextByItemKey: Map<string, string>;
-  streamingReasoningSummaryByItemKey: Map<string, string[]>;
-  streamingToolOutputByItemKey: Map<string, CodexLiveToolOutput>;
-  toolCallContexts: Map<string, CodexToolCallContext>;
-  resultBackedToolItemsByTurnId: Map<string, Set<string>>;
-  planUpdateCountByTurnId: Map<string, number>;
-}
-
-/**
- * Each live tool-output message is a cumulative snapshot that replaces the
- * previous one, so an unbounded snapshot makes a long output cost quadratic
- * bytes across provider replay, fan-out, and relay. The live preview keeps the
- * head (collapsed rows show leading lines) and the tail (progress); the
- * completed item carries the full output.
- */
-export const CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS = 32 * 1024;
-export const CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS = 32 * 1024;
-
-export type CodexLiveToolOutput = LiveToolOutput;
-
-export function appendCodexLiveToolOutput(
-  output: CodexLiveToolOutput | undefined,
-  delta: string,
-): CodexLiveToolOutput {
-  let head = output?.head ?? "";
-  let tail = output?.tail ?? "";
-  let omittedChars = output?.omittedChars ?? 0;
-  const headRoom = CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS - head.length;
-  let rest = delta;
-  if (headRoom > 0) {
-    head += rest.slice(0, headRoom);
-    rest = rest.slice(headRoom);
-  }
-  tail += rest;
-  if (tail.length > CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS) {
-    omittedChars += tail.length - CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS;
-    tail = tail.slice(-CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS);
-  }
-  return { head, tail, omittedChars };
-}
-
 interface CodexFailureTraceEvent {
   at: string;
   sourceEvent: string;
@@ -859,78 +714,6 @@ interface CodexFailureTrace {
   lastEmittedMessage?: CodexFailureTraceEvent;
   recentNotifications: CodexFailureTraceEvent[];
 }
-
-type NormalizedThreadItem =
-  | { id: string; type: "reasoning"; text: string }
-  | {
-      id: string;
-      type: "agent_message";
-      text: string;
-      delivery?: "async";
-      questions?: CodexAsyncUserInputQuestion[];
-    }
-  | {
-      id: string;
-      type: "command_execution";
-      command: string;
-      aggregated_output: string;
-      exit_code?: number;
-      durationMs?: number;
-      status: string;
-      cwd?: string;
-      commandActions?: unknown[];
-    }
-  | {
-      id: string;
-      type: "file_change";
-      changes: NormalizedFileChange[];
-      status: string;
-    }
-  | {
-      id: string;
-      type: "mcp_tool_call";
-      server: string;
-      tool: string;
-      arguments: unknown;
-      mcpApp?: McpAppToolCall;
-      result?: unknown;
-      error?: { message: string };
-      status: string;
-    }
-  | {
-      id: string;
-      type: "dynamic_tool_call";
-      namespace?: string | null;
-      tool: string;
-      arguments: unknown;
-      status: string;
-      content_items?: unknown[] | null;
-      success?: boolean | null;
-    }
-  | {
-      id: string;
-      type: "function_call_output";
-      name: string;
-      namespace?: string | null;
-      output: unknown;
-    }
-  | { id: string; type: "web_search"; query: string }
-  | {
-      id: string;
-      type: "todo_list";
-      items: Array<{ text: string; completed: boolean }>;
-    }
-  | {
-      id: string;
-      type: "subagent_activity";
-      kind: string;
-      agentThreadId: string;
-      agentPath: string;
-      text: string;
-    }
-  | { id: string; type: "context_compaction" }
-  | { id: string; type: "error"; message: string }
-  | { id: string; type: "image_view"; path: string };
 
 /**
  * Configuration for Codex provider.
@@ -3378,7 +3161,7 @@ export class CodexProvider implements AgentProvider {
         yield withCodexTimestamp(sessionConfigAck);
       }
 
-      const liveEventState = this.createLiveEventState();
+      const liveEventState = createLiveEventState();
       const observeCommands = async (
         notification: JsonRpcNotification,
       ): Promise<SDKMessage | null> => {
@@ -3600,7 +3383,7 @@ export class CodexProvider implements AgentProvider {
           failureTrace.activeTurnId = currentActiveTurnId;
 
           if (notification.method === "thread/tokenUsage/updated") {
-            const usage = provider.extractTurnUsage(notification.params);
+            const usage = extractTurnUsage(notification.params);
             if (usage) {
               usageByTurnId.set(usage.turnId, usage.snapshot);
               runtimeState.latestTokenUsage = usage.total;
@@ -3645,7 +3428,7 @@ export class CodexProvider implements AgentProvider {
           const effectiveActiveTurnId =
             runtimeState.activeTurnId ?? currentActiveTurnId;
 
-          const messages = provider.convertNotificationToSDKMessages(
+          const messages = convertNotificationToSDKMessages(
             notification,
             sessionId,
             usageByTurnId,
@@ -3744,7 +3527,7 @@ export class CodexProvider implements AgentProvider {
             codexTurnId: turn.id,
             codexFailureTrace: provider.snapshotCodexFailureTrace(failureTrace),
             codexFailureSummary: provider.formatCodexFailureTrace(failureTrace),
-            codexRequestId: provider.extractOpenAIRequestId(
+            codexRequestId: extractOpenAIRequestId(
               turn.error,
               turn.error.additionalDetails,
               turn.error.message,
@@ -4287,9 +4070,9 @@ export class CodexProvider implements AgentProvider {
         params?.item && typeof params.item === "object"
           ? (params.item as Record<string, unknown>)
           : null;
-      const itemType = this.getOptionalString(item?.type);
+      const itemType = getOptionalString(item?.type);
       if (itemType === "function_call" || itemType === "custom_tool_call") {
-        const callId = this.getOptionalString(item?.call_id);
+        const callId = getOptionalString(item?.call_id);
         if (callId) {
           runtimeState.activeToolCallIds.add(callId);
         }
@@ -4299,7 +4082,7 @@ export class CodexProvider implements AgentProvider {
         itemType === "function_call_output" ||
         itemType === "custom_tool_call_output"
       ) {
-        const callId = this.getOptionalString(item?.call_id);
+        const callId = getOptionalString(item?.call_id);
         if (!callId) return;
         if (isCodexBackgroundProcessOutput(item?.output)) {
           runtimeState.backgroundToolCallIds.add(callId);
@@ -4314,7 +4097,7 @@ export class CodexProvider implements AgentProvider {
     if (notification.method === "item/completed") {
       const params = asCodexItemCompletedNotification(notification.params);
       if (!params) return;
-      const normalized = this.normalizeThreadItem(params.item);
+      const normalized = normalizeThreadItem(params.item);
       if (normalized?.type === "command_execution") {
         runtimeState.activeToolCallIds.delete(normalized.id);
         runtimeState.backgroundToolCallIds.delete(normalized.id);
@@ -4325,8 +4108,8 @@ export class CodexProvider implements AgentProvider {
     if (notification.method === "item/started") {
       const params = asCodexItemStartedNotification(notification.params);
       if (!params) return;
-      const normalized = this.normalizeThreadItem(params.item);
-      if (normalized && this.isResultBackedThreadItem(normalized)) {
+      const normalized = normalizeThreadItem(params.item);
+      if (normalized && isResultBackedThreadItem(normalized)) {
         runtimeState.activeToolCallIds.add(normalized.id);
       }
     }
@@ -4627,7 +4410,7 @@ export class CodexProvider implements AgentProvider {
     candidates.add(`${item.id}-result`);
 
     const itemRecord = item as Record<string, unknown>;
-    const clientId = this.getOptionalString(itemRecord.clientId);
+    const clientId = getOptionalString(itemRecord.clientId);
     if (clientId) {
       candidates.add(clientId);
       candidates.add(`${clientId}-${turnId}`);
@@ -5059,7 +4842,6 @@ export class CodexProvider implements AgentProvider {
       );
 
       const textByItemId = new Map<string, string>();
-      const normalizeThreadItem = this.normalizeThreadItem.bind(this);
       captureCodexSummaryTextFromTurnItems(
         turnResult.turn.items,
         textByItemId,
@@ -5210,7 +4992,6 @@ export class CodexProvider implements AgentProvider {
       );
 
       const textByItemId = new Map<string, string>();
-      const normalizeThreadItem = this.normalizeThreadItem.bind(this);
       captureCodexSummaryTextFromTurnItems(
         turnResult.turn.items,
         textByItemId,
@@ -5382,17 +5163,6 @@ export class CodexProvider implements AgentProvider {
     return effort ? `effort ${effort}` : null;
   }
 
-  private createLiveEventState(): CodexLiveEventState {
-    return {
-      streamingTextByItemKey: new Map(),
-      streamingReasoningSummaryByItemKey: new Map(),
-      streamingToolOutputByItemKey: new Map(),
-      toolCallContexts: new Map(),
-      resultBackedToolItemsByTurnId: new Map(),
-      planUpdateCountByTurnId: new Map(),
-    };
-  }
-
   private recordCodexFailureTraceEvent(
     trace: CodexFailureTrace,
     event: CodexFailureTraceEvent,
@@ -5475,20 +5245,18 @@ export class CodexProvider implements AgentProvider {
           sourceEvent: notification.method,
           turnId: params?.turnId,
           itemId:
-            this.getOptionalString(item?.id) ??
-            this.getOptionalString((item as { call_id?: unknown })?.call_id) ??
+            getOptionalString(item?.id) ??
+            getOptionalString((item as { call_id?: unknown })?.call_id) ??
             undefined,
-          itemType: this.normalizeCodexItemType(
-            this.getOptionalString(item?.type),
-          ),
-          status: this.normalizeStatus(item?.status),
+          itemType: this.normalizeCodexItemType(getOptionalString(item?.type)),
+          status: normalizeStatus(item?.status),
           phase:
             notification.method === "item/completed" ? "completed" : "started",
           toolName: this.getTraceToolName(item) ?? undefined,
           command: this.previewTraceString(
-            this.getOptionalString(item?.command) ??
-              this.getOptionalString(item?.aggregated_output) ??
-              this.getOptionalString(item?.aggregatedOutput),
+            getOptionalString(item?.command) ??
+              getOptionalString(item?.aggregated_output) ??
+              getOptionalString(item?.aggregatedOutput),
           ),
         });
       }
@@ -5502,11 +5270,11 @@ export class CodexProvider implements AgentProvider {
           notification.params && typeof notification.params === "object"
             ? (notification.params as Record<string, unknown>)
             : null;
-        const delta = this.getOptionalString(params?.delta);
+        const delta = getOptionalString(params?.delta);
         return base({
           sourceEvent: notification.method,
-          turnId: this.getOptionalString(params?.turnId) ?? undefined,
-          itemId: this.getOptionalString(params?.itemId) ?? undefined,
+          turnId: getOptionalString(params?.turnId) ?? undefined,
+          itemId: getOptionalString(params?.itemId) ?? undefined,
           itemType: this.inferTraceItemTypeFromDeltaEvent(notification.method),
           phase: "delta",
           deltaChars: delta?.length,
@@ -5526,12 +5294,10 @@ export class CodexProvider implements AgentProvider {
           sourceEvent: notification.method,
           turnId: params?.turnId,
           itemId:
-            this.getOptionalString(item?.id) ??
-            this.getOptionalString(item?.call_id) ??
+            getOptionalString(item?.id) ??
+            getOptionalString(item?.call_id) ??
             undefined,
-          itemType: this.normalizeCodexItemType(
-            this.getOptionalString(item?.type),
-          ),
+          itemType: this.normalizeCodexItemType(getOptionalString(item?.type)),
           phase: "completed",
           toolName: this.getTraceToolName(item) ?? undefined,
         });
@@ -5544,7 +5310,7 @@ export class CodexProvider implements AgentProvider {
             : null;
         return base({
           sourceEvent: notification.method,
-          turnId: this.getOptionalString(params?.turnId) ?? undefined,
+          turnId: getOptionalString(params?.turnId) ?? undefined,
           phase: "usage",
         });
       }
@@ -5560,7 +5326,7 @@ export class CodexProvider implements AgentProvider {
           codexErrorInfo: params?.turn.error?.codexErrorInfo ?? undefined,
           additionalDetails:
             readCodexTurnErrorDetail(params?.turn.error) ?? undefined,
-          openaiRequestId: this.extractOpenAIRequestId(
+          openaiRequestId: extractOpenAIRequestId(
             params?.turn.error,
             params?.turn.error?.additionalDetails,
             params?.turn.error?.message,
@@ -5570,7 +5336,7 @@ export class CodexProvider implements AgentProvider {
 
       case "error": {
         const params = asCodexErrorNotification(notification.params);
-        const fallbackError = this.extractErrorRecord(notification.params);
+        const fallbackError = extractErrorRecord(notification.params);
         const rawParams =
           notification.params && typeof notification.params === "object"
             ? (notification.params as Record<string, unknown>)
@@ -5582,7 +5348,7 @@ export class CodexProvider implements AgentProvider {
             : false);
         const errorMessage =
           params?.error.message ??
-          this.getOptionalString(fallbackError?.message) ??
+          getOptionalString(fallbackError?.message) ??
           "Codex turn failed";
         return base({
           sourceEvent: notification.method,
@@ -5595,9 +5361,9 @@ export class CodexProvider implements AgentProvider {
             undefined,
           additionalDetails:
             readCodexTurnErrorDetail(params?.error) ??
-            this.getOptionalString(fallbackError?.additionalDetails) ??
+            getOptionalString(fallbackError?.additionalDetails) ??
             undefined,
-          openaiRequestId: this.extractOpenAIRequestId(
+          openaiRequestId: extractOpenAIRequestId(
             notification.params,
             fallbackError,
             errorMessage,
@@ -5625,7 +5391,7 @@ export class CodexProvider implements AgentProvider {
           ? message.error
           : stringifyTraceValue(message.error),
       );
-      event.openaiRequestId = this.extractOpenAIRequestId(message.error);
+      event.openaiRequestId = extractOpenAIRequestId(message.error);
     }
 
     const content = message.message?.content;
@@ -5681,73 +5447,29 @@ export class CodexProvider implements AgentProvider {
     item: Record<string, unknown> | null,
   ): string | null {
     if (!item) return null;
-    const type = this.normalizeCodexItemType(this.getOptionalString(item.type));
+    const type = this.normalizeCodexItemType(getOptionalString(item.type));
     if (type === "command_execution") return "Bash";
     if (type === "file_change") return "Edit";
     if (type === "web_search") return "WebSearch";
     if (type === "mcp_tool_call") {
-      const server = this.getOptionalString(item.server);
-      const tool = this.getOptionalString(item.tool);
+      const server = getOptionalString(item.server);
+      const tool = getOptionalString(item.tool);
       return server && tool ? `${server}:${tool}` : (tool ?? null);
     }
     if (type === "dynamic_tool_call") {
-      const namespace = this.getOptionalString(item.namespace);
-      const tool = this.getOptionalString(item.tool);
+      const namespace = getOptionalString(item.namespace);
+      const tool = getOptionalString(item.tool);
       return namespace && tool ? `${namespace}:${tool}` : (tool ?? null);
     }
-    return this.getOptionalString(item.name);
+    return getOptionalString(item.name);
   }
 
   private getTraceCommandFromInput(input: unknown): string | null {
     if (!input || typeof input !== "object") return null;
     const record = input as Record<string, unknown>;
     return (
-      this.getOptionalString(record.command) ??
-      this.getOptionalString(record.cmd) ??
-      null
+      getOptionalString(record.command) ?? getOptionalString(record.cmd) ?? null
     );
-  }
-
-  private extractErrorRecord(value: unknown): Record<string, unknown> | null {
-    if (!value || typeof value !== "object") return null;
-    const record = value as Record<string, unknown>;
-    if (record.error && typeof record.error === "object") {
-      return record.error as Record<string, unknown>;
-    }
-    return record;
-  }
-
-  private extractOpenAIRequestId(...values: unknown[]): string | undefined {
-    for (const value of values) {
-      const direct = this.findRequestIdInValue(value, 0);
-      if (direct) return direct;
-      const text =
-        typeof value === "string" ? value : stringifyTraceValue(value);
-      const match =
-        /request\s*id[:\s]+([0-9a-f]{8}-[0-9a-f-]{20,})/i.exec(text) ??
-        /request[_-]?id["'\s:=]+([0-9a-f]{8}-[0-9a-f-]{20,})/i.exec(text);
-      if (match?.[1]) {
-        return match[1];
-      }
-    }
-    return undefined;
-  }
-
-  private findRequestIdInValue(value: unknown, depth: number): string | null {
-    if (!value || typeof value !== "object" || depth > 3) return null;
-    const record = value as Record<string, unknown>;
-    for (const [key, entry] of Object.entries(record)) {
-      if (
-        /^(request[_-]?id|x-request-id)$/i.test(key) &&
-        typeof entry === "string" &&
-        entry.trim()
-      ) {
-        return entry.trim();
-      }
-      const nested = this.findRequestIdInValue(entry, depth + 1);
-      if (nested) return nested;
-    }
-    return null;
   }
 
   private previewTraceString(
@@ -5759,39 +5481,6 @@ export class CodexProvider implements AgentProvider {
       return trimmed;
     }
     return `${trimmed.slice(0, CODEX_FAILURE_PREVIEW_CHARS)}...`;
-  }
-
-  private extractTurnUsage(params: unknown): {
-    turnId: string;
-    snapshot: TokenUsageSnapshot;
-    total: TokenUsageSnapshot;
-  } | null {
-    const notification = asCodexThreadTokenUsageUpdatedNotification(params);
-    if (!notification) return null;
-
-    return {
-      turnId: notification.turnId,
-      snapshot: {
-        totalTokens: notification.tokenUsage.last.totalTokens,
-        inputTokens: notification.tokenUsage.last.inputTokens,
-        outputTokens: notification.tokenUsage.last.outputTokens,
-        cachedInputTokens: notification.tokenUsage.last.cachedInputTokens,
-        contextWindow:
-          typeof notification.tokenUsage.modelContextWindow === "number"
-            ? notification.tokenUsage.modelContextWindow
-            : undefined,
-      },
-      total: {
-        totalTokens: notification.tokenUsage.total.totalTokens,
-        inputTokens: notification.tokenUsage.total.inputTokens,
-        outputTokens: notification.tokenUsage.total.outputTokens,
-        cachedInputTokens: notification.tokenUsage.total.cachedInputTokens,
-        contextWindow:
-          typeof notification.tokenUsage.modelContextWindow === "number"
-            ? notification.tokenUsage.modelContextWindow
-            : undefined,
-      },
-    };
   }
 
   private async handleServerRequestApproval(
@@ -5953,10 +5642,10 @@ export class CodexProvider implements AgentProvider {
           : [];
         const toolInput = {
           command: commandParts.join(" "),
-          cwd: this.getOptionalString(params.cwd),
-          reason: this.getOptionalString(params.reason),
+          cwd: getOptionalString(params.cwd),
+          reason: getOptionalString(params.reason),
           parsedCmd: Array.isArray(params.parsedCmd) ? params.parsedCmd : [],
-          callId: this.getOptionalString(params.callId),
+          callId: getOptionalString(params.callId),
         };
         const decision = await this.resolveApprovalDecision(
           options,
@@ -5988,9 +5677,9 @@ export class CodexProvider implements AgentProvider {
         const paths = Object.keys(fileChanges);
         const toolInput = {
           changes: paths.map((path) => ({ path, kind: "update" })),
-          reason: this.getOptionalString(params.reason),
-          grantRoot: this.getOptionalString(params.grantRoot),
-          callId: this.getOptionalString(params.callId),
+          reason: getOptionalString(params.reason),
+          grantRoot: getOptionalString(params.grantRoot),
+          callId: getOptionalString(params.callId),
         };
         const decision = await this.resolveApprovalDecision(
           options,
@@ -6229,686 +5918,6 @@ export class CodexProvider implements AgentProvider {
     return { permissions: {}, scope: "turn" };
   }
 
-  private convertNotificationToSDKMessages(
-    notification: JsonRpcNotification,
-    sessionId: string,
-    usageByTurnId: Map<string, TokenUsageSnapshot>,
-    liveEventState: CodexLiveEventState,
-  ): SDKMessage[] {
-    switch (notification.method) {
-      case "thread/tokenUsage/updated": {
-        const usage = this.extractTurnUsage(notification.params);
-        if (!usage) {
-          return [];
-        }
-
-        const message = withCodexTimestamp({
-          type: "system",
-          subtype: "token_usage",
-          session_id: sessionId,
-          turnId: usage.turnId,
-          isSynthetic: true,
-          usage: {
-            input_tokens: usage.snapshot.inputTokens,
-            output_tokens: usage.snapshot.outputTokens,
-            cached_input_tokens: usage.snapshot.cachedInputTokens,
-          },
-          ...(usage.snapshot.contextWindow && usage.snapshot.contextWindow > 0
-            ? { model_context_window: usage.snapshot.contextWindow }
-            : {}),
-        } as SDKMessage);
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "token_usage",
-          turnId: usage.turnId,
-          phase: "usage_updated",
-          sourceEvent: notification.method,
-        });
-        return [message];
-      }
-
-      case "turn/plan/updated": {
-        const params = asCodexTurnPlanUpdatedNotification(notification.params);
-        if (!params) return [];
-
-        const sequence =
-          (liveEventState.planUpdateCountByTurnId.get(params.turnId) ?? 0) + 1;
-        liveEventState.planUpdateCountByTurnId.set(params.turnId, sequence);
-        const callId = `codex-plan-${params.turnId}-${sequence}`;
-        const observedAt = new Date().toISOString();
-        const input = {
-          ...(params.explanation ? { explanation: params.explanation } : {}),
-          plan: params.plan.map(({ status, step }) => ({
-            step,
-            status: status === "inProgress" ? "in_progress" : status,
-          })),
-        };
-        const toolUse = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid: this.buildItemToolUuid(callId),
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "plan_update",
-              params.turnId,
-              callId,
-              observedAt,
-            ),
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: callId,
-                  name: "UpdatePlan",
-                  input,
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        const toolResult = withCodexTimestamp(
-          {
-            type: "user",
-            session_id: sessionId,
-            uuid: this.buildItemResultUuid(callId),
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "plan_update",
-              params.turnId,
-              callId,
-              observedAt,
-            ),
-            message: {
-              role: "user",
-              content: [
-                {
-                  type: "tool_result",
-                  tool_use_id: callId,
-                  content: "Plan updated",
-                },
-              ],
-            },
-            toolUseResult: { message: "Plan updated" },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, toolUse, {
-          eventKind: "plan_update",
-          turnId: params.turnId,
-          itemId: callId,
-          callId,
-          phase: "completed",
-          sourceEvent: notification.method,
-        });
-        logSdkCorrelationDebug(sessionId, toolResult, {
-          eventKind: "tool_result",
-          turnId: params.turnId,
-          itemId: callId,
-          callId,
-          phase: "completed",
-          sourceEvent: notification.method,
-        });
-        return [toolUse, toolResult];
-      }
-
-      case "turn/completed": {
-        const params = asCodexTurnCompletedNotification(notification.params);
-        const turnId = params?.turn.id ?? null;
-        const turnStatus = params?.turn.status;
-        const usage = turnId ? usageByTurnId.get(turnId) : undefined;
-        const usagePayload = usage
-          ? {
-              input_tokens: usage.inputTokens,
-              output_tokens: usage.outputTokens,
-              cached_input_tokens: usage.cachedInputTokens,
-            }
-          : undefined;
-        const messages: SDKMessage[] = [];
-        if (turnId) {
-          liveEventState.planUpdateCountByTurnId.delete(turnId);
-        }
-        const orphanedToolUseIds = turnId
-          ? this.consumeLiveResultBackedToolItems(liveEventState, turnId)
-          : [];
-        if (turnId && orphanedToolUseIds.length > 0) {
-          const orphanMarker = withCodexTimestamp({
-            type: "system",
-            subtype: "codex_tool_orphans",
-            session_id: sessionId,
-            uuid: `codex-tool-orphans-${turnId}`,
-            isSynthetic: true,
-            orphanedToolUseIds,
-          } as SDKMessage);
-          logSdkCorrelationDebug(sessionId, orphanMarker, {
-            eventKind: "tool_orphans",
-            turnId,
-            phase: "completed",
-            sourceEvent: notification.method,
-          });
-          messages.push(orphanMarker);
-        }
-
-        if (params?.turn.status === "interrupted") {
-          const completedAt =
-            typeof params.turn.completedAt === "number" &&
-            Number.isFinite(params.turn.completedAt)
-              ? new Date(params.turn.completedAt * 1000).toISOString()
-              : undefined;
-          const message = withCodexTimestamp(
-            {
-              type: "system",
-              subtype: "turn_aborted",
-              session_id: sessionId,
-              uuid: `codex-turn-interrupted-${params.turn.id}`,
-              content: params.turn.error?.message || "Conversation interrupted",
-              reason: "interrupted",
-              isSynthetic: true,
-              sourceEvent: notification.method,
-              codexThreadId: params.threadId,
-              codexTurnId: turnId,
-              codexTurnStatus: params.turn.status,
-              usage: usagePayload,
-            } as SDKMessage,
-            completedAt,
-          );
-          logSdkCorrelationDebug(sessionId, message, {
-            eventKind: "turn_interrupted",
-            ...(turnId ? { turnId } : {}),
-            status: turnStatus,
-            phase: "completed",
-            sourceEvent: notification.method,
-          });
-          messages.push(message);
-          return messages;
-        }
-
-        const message = withCodexTimestamp({
-          type: "system",
-          subtype: "turn_complete",
-          session_id: sessionId,
-          usage: usagePayload,
-        } as SDKMessage);
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "turn_complete",
-          ...(turnId ? { turnId } : {}),
-          phase: "completed",
-          sourceEvent: notification.method,
-        });
-        messages.push(message);
-        return messages;
-      }
-
-      case "error": {
-        const params = asCodexErrorNotification(notification.params);
-        const rawParams =
-          notification.params && typeof notification.params === "object"
-            ? (notification.params as Record<string, unknown>)
-            : null;
-        const fallbackError = this.extractErrorRecord(notification.params);
-        const errorMessage =
-          params?.error.message ??
-          this.getOptionalString(fallbackError?.message);
-        const willRetry =
-          params?.willRetry ??
-          (typeof rawParams?.willRetry === "boolean"
-            ? rawParams.willRetry
-            : false);
-        const isProcessExit = rawParams?.codexProcessExit === true;
-        const message =
-          (typeof errorMessage === "string" && errorMessage) ||
-          (typeof rawParams?.message === "string"
-            ? rawParams.message
-            : "Codex turn failed");
-
-        const errorEvent = {
-          type: "error",
-          uuid: params?.turnId
-            ? `codex-error-${params.turnId}`
-            : `codex-error-${sessionId}-${Date.now()}`,
-          session_id: sessionId,
-          error: message,
-          codexErrorInfo:
-            params?.error.codexErrorInfo ??
-            fallbackError?.codexErrorInfo ??
-            null,
-          codexAdditionalDetails:
-            readCodexTurnErrorDetail(params?.error) ??
-            this.getOptionalString(fallbackError?.additionalDetails) ??
-            null,
-          codexWillRetry: willRetry,
-          codexErrorScope: isProcessExit ? "app_server_process" : "turn",
-          codexThreadId: params?.threadId,
-          codexTurnId: params?.turnId,
-          codexRequestId: this.extractOpenAIRequestId(
-            notification.params,
-            params?.error,
-            message,
-          ),
-        } as SDKMessage;
-        logSdkCorrelationDebug(sessionId, errorEvent, {
-          eventKind: "error",
-          phase: "emitted",
-          sourceEvent: notification.method,
-        });
-        return [errorEvent];
-      }
-
-      case "item/started":
-      case "item/completed": {
-        const params =
-          notification.method === "item/started"
-            ? asCodexItemStartedNotification(notification.params)
-            : asCodexItemCompletedNotification(notification.params);
-        if (!params) return [];
-
-        const normalized = this.normalizeThreadItem(params.item);
-        if (!normalized) {
-          return [];
-        }
-
-        const turnId = params.turnId;
-        if (
-          notification.method === "item/started" &&
-          this.isResultBackedThreadItem(normalized)
-        ) {
-          this.recordLiveResultBackedToolItem(
-            liveEventState,
-            turnId,
-            normalized.id,
-          );
-        }
-        const messages = this.convertItemToSDKMessages(
-          normalized,
-          sessionId,
-          turnId,
-          notification.method,
-        );
-        if (notification.method === "item/completed") {
-          this.clearLiveResultBackedToolItem(
-            liveEventState,
-            turnId,
-            normalized.id,
-          );
-          this.clearLiveEventStateForItem(
-            liveEventState,
-            turnId,
-            normalized.id,
-          );
-        }
-        return messages;
-      }
-
-      case "item/agentMessage/delta": {
-        const params = asCodexAgentMessageDeltaNotification(
-          notification.params,
-        );
-        if (!params?.delta) return [];
-        return [
-          this.buildStreamingAssistantMessage(
-            sessionId,
-            params.turnId,
-            params.itemId,
-            params.delta,
-            "agent_message_delta",
-            liveEventState,
-          ),
-        ];
-      }
-
-      case "item/plan/delta": {
-        const params = asCodexPlanDeltaNotification(notification.params);
-        if (!params?.delta) return [];
-        return [
-          this.buildStreamingAssistantMessage(
-            sessionId,
-            params.turnId,
-            params.itemId,
-            params.delta,
-            "plan_delta",
-            liveEventState,
-          ),
-        ];
-      }
-
-      case "item/reasoning/summaryTextDelta": {
-        const params = asCodexReasoningSummaryTextDeltaNotification(
-          notification.params,
-        );
-        if (!params?.delta) return [];
-        return [
-          this.buildStreamingReasoningSummaryMessage(
-            sessionId,
-            params.turnId,
-            params.itemId,
-            params.summaryIndex,
-            params.delta,
-            liveEventState,
-          ),
-        ];
-      }
-
-      case "item/commandExecution/outputDelta": {
-        const params = asCodexCommandExecutionOutputDeltaNotification(
-          notification.params,
-        );
-        if (!params?.delta) return [];
-        return [
-          this.buildStreamingToolResultMessage(
-            sessionId,
-            params.turnId,
-            params.itemId,
-            params.delta,
-            "command_output_delta",
-            liveEventState,
-          ),
-        ];
-      }
-
-      case "item/fileChange/outputDelta": {
-        const params = asCodexFileChangeOutputDeltaNotification(
-          notification.params,
-        );
-        if (!params?.delta) return [];
-        return [
-          this.buildStreamingToolResultMessage(
-            sessionId,
-            params.turnId,
-            params.itemId,
-            params.delta,
-            "file_change_output_delta",
-            liveEventState,
-          ),
-        ];
-      }
-
-      case "rawResponseItem/completed": {
-        const params = asCodexRawResponseItemCompletedNotification(
-          notification.params,
-        );
-        if (!params) return [];
-        return this.convertRawResponseItemToSDKMessages(
-          params,
-          sessionId,
-          liveEventState,
-        );
-      }
-
-      case "account/rateLimits/updated": {
-        // account/rateLimits/updated is telemetry, not a terminal turn error.
-        // Real usage-limit/quota failures arrive via the `error` notification.
-        return [];
-      }
-
-      default:
-        return [];
-    }
-  }
-
-  private normalizeThreadItem(
-    item: CodexThreadItem | Record<string, unknown>,
-  ): NormalizedThreadItem | null {
-    const itemRecord = item as Record<string, unknown>;
-    const id = this.getOptionalString(itemRecord.id);
-    const type = this.getOptionalString(itemRecord.type);
-    if (!id || !type) {
-      return null;
-    }
-
-    const normalizedType = type.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-
-    switch (normalizedType) {
-      case "reasoning": {
-        const text = this.getReasoningText(itemRecord);
-        if (!text) return null;
-        return { id, type: "reasoning", text };
-      }
-
-      case "agent_message":
-      case "plan": {
-        const text = this.getOptionalString(itemRecord.text) ?? "";
-        const delivery = itemRecord.delivery === "async" ? "async" : undefined;
-        const questions = delivery
-          ? normalizeCodexAsyncUserInputQuestions(itemRecord.questions)
-          : undefined;
-        return {
-          id,
-          type: "agent_message",
-          text,
-          ...(delivery ? { delivery } : {}),
-          ...(questions ? { questions } : {}),
-        };
-      }
-
-      case "function_call_output": {
-        const name = this.getOptionalString(itemRecord.name);
-        if (!name) return null;
-        return {
-          id,
-          type: "function_call_output",
-          name,
-          namespace: this.getOptionalString(itemRecord.namespace),
-          output: itemRecord.output,
-        };
-      }
-
-      case "command_execution": {
-        const commandActions =
-          (Array.isArray(itemRecord.commandActions)
-            ? itemRecord.commandActions
-            : Array.isArray(itemRecord.command_actions)
-              ? itemRecord.command_actions
-              : undefined) ?? undefined;
-        const cwd = this.getOptionalString(itemRecord.cwd);
-        return {
-          id,
-          type: "command_execution",
-          command: this.getOptionalString(itemRecord.command) ?? "",
-          aggregated_output:
-            this.getOptionalString(itemRecord.aggregated_output) ??
-            this.getOptionalString(itemRecord.aggregatedOutput) ??
-            "",
-          exit_code:
-            this.getOptionalNumber(itemRecord.exit_code) ??
-            this.getOptionalNumber(itemRecord.exitCode) ??
-            undefined,
-          durationMs:
-            this.getOptionalNumber(itemRecord.duration_ms) ??
-            this.getOptionalNumber(itemRecord.durationMs) ??
-            undefined,
-          status: this.normalizeStatus(itemRecord.status),
-          ...(cwd ? { cwd } : {}),
-          ...(commandActions ? { commandActions } : {}),
-        };
-      }
-
-      case "file_change": {
-        const changesRaw = Array.isArray(itemRecord.changes)
-          ? itemRecord.changes
-          : [];
-        const changes: NormalizedFileChange[] = [];
-        for (const change of changesRaw) {
-          if (!change || typeof change !== "object") continue;
-          const record = change as Record<string, unknown>;
-          const path = this.getOptionalString(record.path);
-          if (!path) continue;
-
-          let kind: "add" | "delete" | "update" = "update";
-          const rawKind = record.kind;
-          if (typeof rawKind === "string") {
-            if (
-              rawKind === "add" ||
-              rawKind === "delete" ||
-              rawKind === "update"
-            ) {
-              kind = rawKind;
-            }
-          } else if (rawKind && typeof rawKind === "object") {
-            const rawType = this.getOptionalString(
-              (rawKind as Record<string, unknown>).type,
-            );
-            if (
-              rawType === "add" ||
-              rawType === "delete" ||
-              rawType === "update"
-            ) {
-              kind = rawType;
-            }
-          }
-
-          const diff = this.getOptionalString(record.diff) ?? undefined;
-          changes.push({
-            path,
-            kind,
-            ...(diff ? { diff } : {}),
-          });
-        }
-
-        return {
-          id,
-          type: "file_change",
-          changes,
-          status: this.normalizeStatus(itemRecord.status),
-        };
-      }
-
-      case "mcp_tool_call": {
-        const errorObj =
-          itemRecord.error && typeof itemRecord.error === "object"
-            ? (itemRecord.error as Record<string, unknown>)
-            : null;
-
-        const server = this.getOptionalString(itemRecord.server) ?? "unknown";
-        const tool = this.getOptionalString(itemRecord.tool) ?? "unknown";
-        return {
-          id,
-          type: "mcp_tool_call",
-          server,
-          tool,
-          arguments: itemRecord.arguments,
-          mcpApp: mcpAppToolCallFromCodexItem(itemRecord, server, tool),
-          result: itemRecord.result,
-          error:
-            this.getOptionalString(errorObj?.message) !== null
-              ? { message: this.getOptionalString(errorObj?.message) ?? "" }
-              : undefined,
-          status: this.normalizeStatus(itemRecord.status),
-        };
-      }
-
-      case "dynamic_tool_call": {
-        return {
-          id,
-          type: "dynamic_tool_call",
-          namespace: this.getOptionalString(itemRecord.namespace),
-          tool: this.getOptionalString(itemRecord.tool) ?? "unknown",
-          arguments: itemRecord.arguments,
-          status: this.normalizeStatus(itemRecord.status),
-          content_items: Array.isArray(itemRecord.contentItems)
-            ? itemRecord.contentItems
-            : null,
-          success:
-            typeof itemRecord.success === "boolean" ? itemRecord.success : null,
-        };
-      }
-
-      case "web_search": {
-        return {
-          id,
-          type: "web_search",
-          query: this.getOptionalString(itemRecord.query) ?? "",
-        };
-      }
-
-      case "todo_list": {
-        const items = Array.isArray(itemRecord.items)
-          ? itemRecord.items
-              .map((entry: unknown) => {
-                if (!entry || typeof entry !== "object") return null;
-                const record = entry as Record<string, unknown>;
-                const text = this.getOptionalString(record.text);
-                if (!text) return null;
-                return {
-                  text,
-                  completed: record.completed === true,
-                };
-              })
-              .filter(
-                (
-                  entry: unknown,
-                ): entry is { text: string; completed: boolean } =>
-                  entry !== null,
-              )
-          : [];
-        return {
-          id,
-          type: "todo_list",
-          items,
-        };
-      }
-
-      case "sub_agent_activity": {
-        const kind = this.getOptionalString(itemRecord.kind) ?? "updated";
-        const agentPath = this.getOptionalString(itemRecord.agentPath) ?? "";
-        return {
-          id,
-          type: "subagent_activity",
-          kind,
-          agentThreadId: this.getOptionalString(itemRecord.agentThreadId) ?? "",
-          agentPath,
-          text: formatCodexSubagentActivity(kind, agentPath),
-        };
-      }
-
-      case "context_compaction":
-        return { id, type: "context_compaction" };
-
-      case "image_view": {
-        const imagePath = this.getOptionalString(itemRecord.path) ?? "";
-        if (!imagePath) return null;
-        return { id, type: "image_view", path: imagePath };
-      }
-
-      case "error": {
-        const message =
-          this.getOptionalString(itemRecord.message) ?? "Codex error";
-        return {
-          id,
-          type: "error",
-          message,
-        };
-      }
-
-      default:
-        return null;
-    }
-  }
-
-  private getReasoningText(item: Record<string, unknown>): string {
-    const text = this.getOptionalString(item.text);
-    if (text) return text;
-
-    const summary = Array.isArray(item.summary)
-      ? item.summary.filter((part): part is string => typeof part === "string")
-      : [];
-    if (summary.length > 0) {
-      return summary.join("\n");
-    }
-
-    const content = Array.isArray(item.content)
-      ? item.content.filter((part): part is string => typeof part === "string")
-      : [];
-    if (content.length > 0) {
-      return content.join("\n");
-    }
-
-    return "";
-  }
-
-  private normalizeStatus(status: unknown): string {
-    if (typeof status !== "string") return "unknown";
-    return status.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-  }
-
   private asCommandExecutionRequestApprovalParams(
     params: unknown,
   ): CommandExecutionRequestApprovalParams | null {
@@ -6981,1182 +5990,6 @@ export class CodexProvider implements AgentProvider {
     };
   }
 
-  private buildItemEventKey(turnId: string, itemId: string): string {
-    return `${turnId}:${itemId}`;
-  }
-
-  private buildItemMessageUuid(itemId: string): string {
-    return itemId;
-  }
-
-  // Native tool thread items carry Codex's globally-unique call_id as item.id,
-  // so this uuid aligns directly with the durable response item. A code-mode
-  // commandExecution instead carries an inner exec-* id while rollout stores
-  // the outer call_* id; the client reconciles that scoped exception via
-  // _codexToolCorrelation. See topics/stream-durable-id-dedup.md.
-  private buildItemToolUuid(callId: string, toolName = ""): string {
-    return codexToolMessageId(callId, toolName);
-  }
-
-  private buildItemResultUuid(callId: string): string {
-    return `${callId}-result`;
-  }
-
-  private isResultBackedThreadItem(item: NormalizedThreadItem): boolean {
-    return (
-      item.type === "command_execution" ||
-      item.type === "file_change" ||
-      item.type === "mcp_tool_call" ||
-      item.type === "dynamic_tool_call" ||
-      item.type === "image_view"
-    );
-  }
-
-  // Thread items whose rendered uuid keys on call_id (item.id) so the streamed
-  // message matches its durable backfill row. web_search emits a tool_use but is
-  // not result-backed, so it is not covered by isResultBackedThreadItem.
-  private isToolBackedThreadItem(item: NormalizedThreadItem): boolean {
-    return this.isResultBackedThreadItem(item) || item.type === "web_search";
-  }
-
-  private recordLiveResultBackedToolItem(
-    liveEventState: CodexLiveEventState,
-    turnId: string,
-    itemId: string,
-  ): void {
-    const items =
-      liveEventState.resultBackedToolItemsByTurnId.get(turnId) ?? new Set();
-    items.add(itemId);
-    liveEventState.resultBackedToolItemsByTurnId.set(turnId, items);
-  }
-
-  private clearLiveResultBackedToolItem(
-    liveEventState: CodexLiveEventState,
-    turnId: string,
-    itemId: string,
-  ): void {
-    const items = liveEventState.resultBackedToolItemsByTurnId.get(turnId);
-    if (!items) return;
-    items.delete(itemId);
-    if (items.size === 0) {
-      liveEventState.resultBackedToolItemsByTurnId.delete(turnId);
-    }
-  }
-
-  private consumeLiveResultBackedToolItems(
-    liveEventState: CodexLiveEventState,
-    turnId: string,
-  ): string[] {
-    const items = liveEventState.resultBackedToolItemsByTurnId.get(turnId);
-    if (!items) return [];
-    liveEventState.resultBackedToolItemsByTurnId.delete(turnId);
-    return [...items];
-  }
-
-  private buildStreamingAssistantMessage(
-    sessionId: string,
-    turnId: string,
-    itemId: string,
-    delta: string,
-    sourceEvent: string,
-    liveEventState: CodexLiveEventState,
-  ): SDKMessage {
-    const key = this.buildItemEventKey(turnId, itemId);
-    const text = `${liveEventState.streamingTextByItemKey.get(key) ?? ""}${delta}`;
-    liveEventState.streamingTextByItemKey.set(key, text);
-
-    const message = withCodexTimestamp({
-      type: "assistant",
-      session_id: sessionId,
-      uuid: this.buildItemMessageUuid(itemId),
-      _isStreaming: true,
-      message: {
-        role: "assistant",
-        content: text,
-      },
-    } as SDKMessage);
-    logSdkCorrelationDebug(sessionId, message, {
-      eventKind: sourceEvent,
-      turnId,
-      itemId,
-      phase: "delta",
-      sourceEvent,
-    });
-    return message;
-  }
-
-  private buildStreamingReasoningSummaryMessage(
-    sessionId: string,
-    turnId: string,
-    itemId: string,
-    summaryIndex: number,
-    delta: string,
-    liveEventState: CodexLiveEventState,
-  ): SDKMessage {
-    const key = this.buildItemEventKey(turnId, itemId);
-    const parts =
-      liveEventState.streamingReasoningSummaryByItemKey.get(key) ?? [];
-    parts[summaryIndex] = `${parts[summaryIndex] ?? ""}${delta}`;
-    liveEventState.streamingReasoningSummaryByItemKey.set(key, parts);
-
-    const thinking = parts.filter(Boolean).join("\n");
-    const message = withCodexTimestamp({
-      type: "assistant",
-      session_id: sessionId,
-      uuid: this.buildItemMessageUuid(itemId),
-      _isStreaming: true,
-      message: {
-        role: "assistant",
-        content: [{ type: "thinking", thinking }],
-      },
-    } as SDKMessage);
-    logSdkCorrelationDebug(sessionId, message, {
-      eventKind: "reasoning_summary_delta",
-      turnId,
-      itemId,
-      phase: "delta",
-      sourceEvent: "item/reasoning/summaryTextDelta",
-    });
-    return message;
-  }
-
-  private buildStreamingToolResultMessage(
-    sessionId: string,
-    turnId: string,
-    itemId: string,
-    delta: string,
-    sourceEvent: string,
-    liveEventState: CodexLiveEventState,
-  ): SDKMessage {
-    const key = this.buildItemEventKey(turnId, itemId);
-    const output = appendCodexLiveToolOutput(
-      liveEventState.streamingToolOutputByItemKey.get(key),
-      delta,
-    );
-    liveEventState.streamingToolOutputByItemKey.set(key, output);
-    const content = renderLiveToolOutput(output);
-
-    const message = withCodexTimestamp({
-      type: "user",
-      session_id: sessionId,
-      uuid: this.buildItemResultUuid(itemId),
-      _isStreaming: true,
-      ...(sourceEvent === "command_output_delta"
-        ? {
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "command_execution",
-              turnId,
-              itemId,
-            ),
-          }
-        : {}),
-      message: {
-        role: "user",
-        content: [
-          {
-            type: "tool_result",
-            tool_use_id: itemId,
-            content,
-          },
-        ],
-      },
-    } as SDKMessage);
-    logSdkCorrelationDebug(sessionId, message, {
-      eventKind: "tool_result",
-      turnId,
-      itemId,
-      callId: itemId,
-      phase: "delta",
-      sourceEvent,
-    });
-    return message;
-  }
-
-  private clearLiveEventStateForItem(
-    liveEventState: CodexLiveEventState,
-    turnId: string,
-    itemId: string,
-  ): void {
-    const key = this.buildItemEventKey(turnId, itemId);
-    liveEventState.streamingTextByItemKey.delete(key);
-    liveEventState.streamingReasoningSummaryByItemKey.delete(key);
-    liveEventState.streamingToolOutputByItemKey.delete(key);
-  }
-
-  private convertRawResponseItemToSDKMessages(
-    params: RawResponseItemCompletedNotification,
-    sessionId: string,
-    liveEventState: CodexLiveEventState,
-  ): SDKMessage[] {
-    const item = params.item as Record<string, unknown>;
-    const itemType = this.getOptionalString(item.type);
-    if (!itemType) return [];
-
-    const observedAt = new Date().toISOString();
-
-    switch (itemType) {
-      case "function_call": {
-        const callId = this.getOptionalString(item.call_id);
-        const rawToolName = this.getOptionalString(item.name);
-        const argumentsText = this.getOptionalString(item.arguments);
-        if (!callId || !rawToolName) return [];
-
-        const normalizedInvocation = normalizeCodexToolInvocation(
-          canonicalizeCodexToolName(rawToolName),
-          parseCodexToolArguments(argumentsText ?? undefined),
-        );
-        liveEventState.toolCallContexts.set(callId, {
-          toolName: normalizedInvocation.toolName,
-          input: normalizedInvocation.input,
-          readShellInfo: normalizedInvocation.readShellInfo,
-          writeShellInfo: normalizedInvocation.writeShellInfo,
-        });
-        this.recordLiveResultBackedToolItem(
-          liveEventState,
-          params.turnId,
-          callId,
-        );
-
-        const message = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid: this.buildItemToolUuid(callId, rawToolName),
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: callId,
-                  name: normalizedInvocation.toolName,
-                  input: normalizedInvocation.input,
-                  ...(normalizedInvocation.displayActions
-                    ? { _displayActions: normalizedInvocation.displayActions }
-                    : {}),
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "function_call",
-          turnId: params.turnId,
-          itemId: callId,
-          callId,
-          phase: "completed",
-          sourceEvent: "rawResponseItem/completed",
-        });
-        return [message];
-      }
-
-      case "function_call_output": {
-        const callId = this.getOptionalString(item.call_id);
-        if (!callId) return [];
-        const normalized = normalizeCodexToolOutputWithContext(
-          item.output,
-          liveEventState.toolCallContexts.get(callId),
-        );
-        if (
-          !isCodexBackgroundProcessOutput(item.output) &&
-          !isCodexInterruptedToolOutput(item.output)
-        ) {
-          liveEventState.toolCallContexts.delete(callId);
-          this.clearLiveResultBackedToolItem(
-            liveEventState,
-            params.turnId,
-            callId,
-          );
-        }
-
-        const toolResult: {
-          type: "tool_result";
-          tool_use_id: string;
-          content: string;
-          is_error?: boolean;
-        } = {
-          type: "tool_result",
-          tool_use_id: callId,
-          content: normalized.content,
-        };
-        if (normalized.isError) {
-          toolResult.is_error = true;
-        }
-
-        const message = withCodexTimestamp(
-          {
-            type: "user",
-            session_id: sessionId,
-            uuid: this.buildItemResultUuid(callId),
-            message: {
-              role: "user",
-              content: [toolResult],
-            },
-            ...(normalized.structured !== undefined
-              ? { toolUseResult: normalized.structured }
-              : {}),
-          } as SDKMessage,
-          observedAt,
-        );
-        attachToolResultMediaCandidates(message, normalized.mediaCandidates);
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "tool_result",
-          turnId: params.turnId,
-          itemId: callId,
-          callId,
-          phase: "completed",
-          sourceEvent: "rawResponseItem/completed",
-        });
-        return [message];
-      }
-
-      case "custom_tool_call": {
-        const callId = this.getOptionalString(item.call_id);
-        const rawToolName = this.getOptionalString(item.name);
-        const input = this.getOptionalString(item.input);
-        if (!callId || !rawToolName) return [];
-
-        const normalizedInvocation = normalizeCodexCustomToolInvocation(
-          rawToolName,
-          input ?? "",
-        );
-        liveEventState.toolCallContexts.set(callId, {
-          toolName: normalizedInvocation.toolName,
-          input: normalizedInvocation.input,
-          readShellInfo: normalizedInvocation.readShellInfo,
-          writeShellInfo: normalizedInvocation.writeShellInfo,
-        });
-        this.recordLiveResultBackedToolItem(
-          liveEventState,
-          params.turnId,
-          callId,
-        );
-
-        const message = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid: this.buildItemToolUuid(callId),
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "custom_tool_call",
-              params.turnId,
-              callId,
-            ),
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: callId,
-                  name: normalizedInvocation.toolName,
-                  input: normalizedInvocation.input,
-                  ...(normalizedInvocation.displayActions
-                    ? { _displayActions: normalizedInvocation.displayActions }
-                    : {}),
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "custom_tool_call",
-          turnId: params.turnId,
-          itemId: callId,
-          callId,
-          phase: "completed",
-          sourceEvent: "rawResponseItem/completed",
-        });
-        return [message];
-      }
-
-      case "custom_tool_call_output": {
-        const callId = this.getOptionalString(item.call_id);
-        if (!callId) return [];
-        const normalized = normalizeCodexToolOutputWithContext(
-          item.output,
-          liveEventState.toolCallContexts.get(callId),
-        );
-        if (
-          !isCodexBackgroundProcessOutput(item.output) &&
-          !isCodexInterruptedToolOutput(item.output)
-        ) {
-          liveEventState.toolCallContexts.delete(callId);
-          this.clearLiveResultBackedToolItem(
-            liveEventState,
-            params.turnId,
-            callId,
-          );
-        }
-
-        const toolResult: {
-          type: "tool_result";
-          tool_use_id: string;
-          content: string;
-          is_error?: boolean;
-        } = {
-          type: "tool_result",
-          tool_use_id: callId,
-          content: normalized.content,
-        };
-        if (normalized.isError) {
-          toolResult.is_error = true;
-        }
-
-        const message = withCodexTimestamp(
-          {
-            type: "user",
-            session_id: sessionId,
-            uuid: this.buildItemResultUuid(callId),
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "custom_tool_call",
-              params.turnId,
-              callId,
-            ),
-            message: {
-              role: "user",
-              content: [toolResult],
-            },
-            ...(normalized.structured !== undefined
-              ? { toolUseResult: normalized.structured }
-              : {}),
-          } as SDKMessage,
-          observedAt,
-        );
-        attachToolResultMediaCandidates(message, normalized.mediaCandidates);
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "tool_result",
-          turnId: params.turnId,
-          itemId: callId,
-          callId,
-          phase: "completed",
-          sourceEvent: "rawResponseItem/completed",
-        });
-        return [message];
-      }
-
-      case "message": {
-        const guidance = codexContentFilterGuidance(item);
-        const itemId = this.getOptionalString(item.id);
-        if (guidance === null || !itemId) return [];
-        const message = withCodexTimestamp(
-          {
-            type: "system",
-            subtype: CODEX_CONTENT_FILTER_BLOCK_SUBTYPE,
-            session_id: sessionId,
-            uuid: itemId,
-            content: guidance,
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "content_filter_block",
-          turnId: params.turnId,
-          itemId,
-          phase: "completed",
-          sourceEvent: "rawResponseItem/completed",
-        });
-        return [message];
-      }
-
-      case "compaction": {
-        const message = withCodexTimestamp(
-          {
-            type: "system",
-            subtype: "compact_boundary",
-            session_id: sessionId,
-            uuid: `codex-compaction-${params.turnId}`,
-            content: "Context compacted",
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "context_compaction",
-          turnId: params.turnId,
-          itemId: `codex-compaction-${params.turnId}`,
-          phase: "completed",
-          sourceEvent: "rawResponseItem/completed",
-        });
-        return [message];
-      }
-
-      default:
-        return [];
-    }
-  }
-
-  /**
-   * Convert a normalized thread item to SDKMessage(s).
-   */
-  private convertItemToSDKMessages(
-    item: NormalizedThreadItem,
-    sessionId: string,
-    turnId: string,
-    sourceEvent: "item/started" | "item/completed",
-  ): SDKMessage[] {
-    const isComplete = sourceEvent === "item/completed";
-    const observedAt = new Date().toISOString();
-    // Native tool items key the uuid on call_id (item.id). Nested code-mode
-    // commands and image views temporarily key on their inner item id and
-    // carry correlation metadata for adoption of the outer durable call_* id.
-    // Message/reasoning item ids are the provider ids persisted in rollout.
-    const uuid = this.isToolBackedThreadItem(item)
-      ? this.buildItemToolUuid(
-          item.id,
-          item.type === "dynamic_tool_call" ? item.tool : "",
-        )
-      : item.type === "agent_message" ||
-          item.type === "reasoning" ||
-          item.type === "function_call_output"
-        ? item.id
-        : `${item.id}-${turnId}`;
-
-    switch (item.type) {
-      case "reasoning": {
-        const message = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "thinking",
-                  thinking: item.text,
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "reasoning",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "agent_message": {
-        const message = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            // item/started is a live snapshot, not a final message. Otherwise
-            // delayed same-id enrichment can overwrite newer streamed text.
-            ...(!isComplete ? { _isStreaming: true } : {}),
-            message: {
-              role: "assistant",
-              content: item.text,
-            },
-            ...(item.delivery
-              ? { codexAgentMessageDelivery: item.delivery }
-              : {}),
-            ...(item.questions ? { codexAsyncQuestions: item.questions } : {}),
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "agent_message",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "function_call_output": {
-        if (!isComplete) return [];
-        const normalized = normalizeCodexToolOutputWithContext(item.output);
-        const message = withCodexTimestamp(
-          {
-            type: "system",
-            subtype: "tool_output",
-            session_id: sessionId,
-            uuid,
-            content: normalized.content,
-            codexToolName: item.name,
-            ...(item.namespace ? { codexToolNamespace: item.namespace } : {}),
-            ...(normalized.structured !== undefined
-              ? { toolUseResult: normalized.structured }
-              : {}),
-          } as SDKMessage,
-          observedAt,
-        );
-        attachToolResultMediaCandidates(message, normalized.mediaCandidates);
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "tool_result",
-          turnId,
-          itemId: item.id,
-          phase: "completed",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "command_execution": {
-        const messages: SDKMessage[] = [];
-        const correlationStartedAt =
-          item.durationMs !== undefined
-            ? new Date(
-                Date.parse(observedAt) - Math.max(0, item.durationMs),
-              ).toISOString()
-            : observedAt;
-        const normalizedInvocation = normalizeCodexToolInvocation("Bash", {
-          command: item.command,
-          ...(item.cwd ? { cwd: item.cwd } : {}),
-        });
-        const toolContext: CodexToolCallContext = {
-          toolName: normalizedInvocation.toolName,
-          input: normalizedInvocation.input,
-          readShellInfo: normalizedInvocation.readShellInfo,
-          writeShellInfo: normalizedInvocation.writeShellInfo,
-        };
-
-        // Emit tool_use for the command
-        const toolUseMessage = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "command_execution",
-              turnId,
-              item.id,
-              correlationStartedAt,
-            ),
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: item.id,
-                  name: normalizedInvocation.toolName,
-                  input: normalizedInvocation.input,
-                  ...(normalizedInvocation.displayActions
-                    ? { _displayActions: normalizedInvocation.displayActions }
-                    : {}),
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, toolUseMessage, {
-          eventKind: "command_execution",
-          turnId,
-          itemId: item.id,
-          callId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-          status: item.status,
-        });
-        messages.push(toolUseMessage);
-
-        // If completed, emit tool_result
-        if (isComplete && item.status !== "in_progress") {
-          const normalizedResult = normalizeCodexCommandExecutionOutput(
-            {
-              aggregatedOutput: item.aggregated_output,
-              exitCode: item.exit_code,
-              status: item.status,
-            },
-            toolContext,
-          );
-          const toolResultBlock: {
-            type: "tool_result";
-            tool_use_id: string;
-            content: string;
-            is_error?: boolean;
-          } = {
-            type: "tool_result",
-            tool_use_id: item.id,
-            content: normalizedResult.content,
-          };
-          if (normalizedResult.isError) {
-            toolResultBlock.is_error = true;
-          }
-
-          const toolResultMessage = withCodexTimestamp(
-            {
-              type: "user",
-              session_id: sessionId,
-              uuid: `${uuid}-result`,
-              [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-                "command_execution",
-                turnId,
-                item.id,
-                correlationStartedAt,
-              ),
-              message: {
-                role: "user",
-                content: [toolResultBlock],
-              },
-              ...(normalizedResult.structured !== undefined
-                ? { toolUseResult: normalizedResult.structured }
-                : {}),
-            } as SDKMessage,
-            observedAt,
-          );
-          logSdkCorrelationDebug(sessionId, toolResultMessage, {
-            eventKind: "tool_result",
-            turnId,
-            itemId: item.id,
-            callId: item.id,
-            phase: "completed",
-            sourceEvent,
-            status: item.status,
-          });
-          messages.push(toolResultMessage);
-        }
-
-        return messages;
-      }
-
-      case "file_change": {
-        const changesSummary = item.changes
-          .map((c) => `${c.kind}: ${c.path}`)
-          .join("\n");
-        const editInput: Record<string, unknown> = {
-          changes: item.changes,
-        };
-        const singlePath = item.changes[0]?.path;
-        if (singlePath && item.changes.length === 1) {
-          editInput.file_path = singlePath;
-        }
-
-        const toolUseMessage = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: item.id,
-                  name: "Edit",
-                  input: editInput,
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, toolUseMessage, {
-          eventKind: "file_change",
-          turnId,
-          itemId: item.id,
-          callId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-          status: item.status,
-        });
-
-        const messages = [toolUseMessage];
-
-        if (isComplete) {
-          const toolResultMessage = withCodexTimestamp(
-            {
-              type: "user",
-              session_id: sessionId,
-              uuid: `${uuid}-result`,
-              message: {
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: item.id,
-                    ...(item.status !== "completed" ? { is_error: true } : {}),
-                    content:
-                      item.status === "completed"
-                        ? `File changes applied:\n${changesSummary}`
-                        : item.status === "declined"
-                          ? `File changes declined:\n${changesSummary}`
-                          : `File changes failed:\n${changesSummary}`,
-                  },
-                ],
-              },
-            } as SDKMessage,
-            observedAt,
-          );
-          logSdkCorrelationDebug(sessionId, toolResultMessage, {
-            eventKind: "tool_result",
-            turnId,
-            itemId: item.id,
-            callId: item.id,
-            phase: "completed",
-            sourceEvent,
-            status: item.status,
-          });
-          messages.push(toolResultMessage);
-        }
-
-        return messages;
-      }
-
-      case "mcp_tool_call": {
-        const messages: SDKMessage[] = [];
-        const toolUseMessage = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: item.id,
-                  name: `${item.server}:${item.tool}`,
-                  input: item.arguments,
-                  ...(item.mcpApp ? { _mcpApp: item.mcpApp } : {}),
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, toolUseMessage, {
-          eventKind: "mcp_tool_call",
-          turnId,
-          itemId: item.id,
-          callId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-          status: item.status,
-        });
-        messages.push(toolUseMessage);
-
-        if (isComplete && item.status !== "in_progress") {
-          const toolResultMessage = withCodexTimestamp(
-            {
-              type: "user",
-              session_id: sessionId,
-              uuid: `${uuid}-result`,
-              message: {
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: item.id,
-                    content:
-                      item.status === "completed"
-                        ? JSON.stringify(item.result)
-                        : item.error?.message || "MCP tool call failed",
-                  },
-                ],
-              },
-            } as SDKMessage,
-            observedAt,
-          );
-          logSdkCorrelationDebug(sessionId, toolResultMessage, {
-            eventKind: "tool_result",
-            turnId,
-            itemId: item.id,
-            callId: item.id,
-            phase: "completed",
-            sourceEvent,
-            status: item.status,
-          });
-          messages.push(toolResultMessage);
-        }
-
-        return messages;
-      }
-
-      case "dynamic_tool_call": {
-        const messages: SDKMessage[] = [];
-        const toolName = item.namespace
-          ? `${item.namespace}:${item.tool}`
-          : canonicalizeCodexToolName(item.tool);
-
-        const toolUseMessage = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: item.id,
-                  name: toolName,
-                  input: item.arguments,
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, toolUseMessage, {
-          eventKind: "dynamic_tool_call",
-          turnId,
-          itemId: item.id,
-          callId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-          status: item.status,
-        });
-        messages.push(toolUseMessage);
-
-        if (isComplete && item.status !== "in_progress") {
-          const isError = item.success === false || item.status === "failed";
-          const normalized = normalizeCodexToolOutputWithContext(
-            item.content_items,
-          );
-          const toolResultBlock: {
-            type: "tool_result";
-            tool_use_id: string;
-            content: string;
-            is_error?: boolean;
-          } = {
-            type: "tool_result",
-            tool_use_id: item.id,
-            content: normalized.content,
-          };
-          if (isError) {
-            toolResultBlock.is_error = true;
-          }
-
-          const toolResultMessage = withCodexTimestamp(
-            {
-              type: "user",
-              session_id: sessionId,
-              uuid: `${uuid}-result`,
-              message: {
-                role: "user",
-                content: [toolResultBlock],
-              },
-            } as SDKMessage,
-            observedAt,
-          );
-          attachToolResultMediaCandidates(
-            toolResultMessage,
-            normalized.mediaCandidates,
-          );
-          logSdkCorrelationDebug(sessionId, toolResultMessage, {
-            eventKind: "tool_result",
-            turnId,
-            itemId: item.id,
-            callId: item.id,
-            phase: "completed",
-            sourceEvent,
-            status: item.status,
-          });
-          messages.push(toolResultMessage);
-        }
-
-        return messages;
-      }
-
-      case "web_search": {
-        const message = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: item.id,
-                  name: "WebSearch",
-                  input: { query: item.query },
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "web_search",
-          turnId,
-          itemId: item.id,
-          callId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "todo_list": {
-        const message = withCodexTimestamp(
-          {
-            type: "system",
-            subtype: "todo_list",
-            session_id: sessionId,
-            uuid,
-            items: item.items,
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "todo_list",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "subagent_activity": {
-        const message = withCodexTimestamp(
-          {
-            type: "system",
-            subtype: "subagent_activity",
-            session_id: sessionId,
-            uuid,
-            content: item.text,
-            codexSubagentKind: item.kind,
-            codexSubagentThreadId: item.agentThreadId,
-            codexSubagentPath: item.agentPath,
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "subagent_activity",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "context_compaction": {
-        const message = withCodexTimestamp(
-          {
-            type: "system",
-            subtype: isComplete ? "compact_boundary" : "status",
-            session_id: sessionId,
-            uuid,
-            ...(isComplete
-              ? { content: "Context compacted" }
-              : { status: "compacting", content: "Compacting context..." }),
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "context_compaction",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      case "image_view": {
-        // Represent as a ViewImage tool_use + tool_result pair
-        const toolUseMessage = withCodexTimestamp(
-          {
-            type: "assistant",
-            session_id: sessionId,
-            uuid,
-            [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-              "image_view",
-              turnId,
-              item.id,
-            ),
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: item.id,
-                  name: "ViewImage",
-                  input: { path: item.path },
-                },
-              ],
-            },
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, toolUseMessage, {
-          eventKind: "image_view",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        const messages: SDKMessage[] = [toolUseMessage];
-
-        if (isComplete) {
-          const toolResultMessage = withCodexTimestamp(
-            {
-              type: "user",
-              session_id: sessionId,
-              uuid: `${uuid}-result`,
-              [CODEX_TOOL_CORRELATION_FIELD]: createCodexToolCorrelation(
-                "image_view",
-                turnId,
-                item.id,
-              ),
-              message: {
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result",
-                    tool_use_id: item.id,
-                    content: `Viewed image: ${item.path}`,
-                  },
-                ],
-              },
-            } as SDKMessage,
-            observedAt,
-          );
-          attachToolResultMediaCandidates(toolResultMessage, [
-            { originalPath: item.path },
-          ]);
-          logSdkCorrelationDebug(sessionId, toolResultMessage, {
-            eventKind: "tool_result",
-            turnId,
-            itemId: item.id,
-            callId: item.id,
-            phase: "completed",
-            sourceEvent,
-          });
-          messages.push(toolResultMessage);
-        }
-
-        return messages;
-      }
-
-      case "error": {
-        const message = withCodexTimestamp(
-          {
-            type: "error",
-            session_id: sessionId,
-            uuid,
-            error: item.message,
-          } as SDKMessage,
-          observedAt,
-        );
-        logSdkCorrelationDebug(sessionId, message, {
-          eventKind: "error",
-          turnId,
-          itemId: item.id,
-          phase: isComplete ? "completed" : "started",
-          sourceEvent,
-        });
-        return [message];
-      }
-
-      default:
-        return [];
-    }
-  }
-
   private getPermissionModeFromMessage(
     message: unknown,
   ): StartSessionOptions["permissionMode"] | undefined {
@@ -8218,14 +6051,6 @@ export class CodexProvider implements AgentProvider {
     }
 
     return "";
-  }
-
-  private getOptionalString(value: unknown): string | null {
-    return typeof value === "string" ? value : null;
-  }
-
-  private getOptionalNumber(value: unknown): number | null {
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
   }
 }
 

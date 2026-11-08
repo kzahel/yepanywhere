@@ -56,7 +56,12 @@ shared, and how risky it is to touch today.
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
-   easier to verify. Phase 4 below holds the slice rows.
+   easier to verify. Phase 4 below holds the slice rows. Slice 4.4 moved live
+   event conversion out on 2026-11-08 (`codex.ts` 8,235 -> 6,060 lines). The
+   remaining move-only rows are 4.7 (failure trace), 4.8 (approvals) and 4.1
+   (app-server client). Row 4.9 is the higher-value lifecycle change and
+   needs its own plan: most of the file's recent churn sits in the session
+   controls and the turn loop, not in the code that moves.
 4. **Supervisor and Process** (server). Both are about 6,500-7,000 lines and
    load-bearing. They come after item 1 because the launch service moves
    launch assembly out of their callers first, which shows where their own
@@ -382,12 +387,15 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 
 | Slice | Status | Target | Intent | Tripwires / Notes |
 |---|---|---|---|---|
-| 4.1 | Not started | `sdk/providers/codex.ts` app-server client | Move `CodexAppServerClient`, JSON-RPC queueing, process termination, and raw request helpers into focused modules. | Tripwire matrix: Codex row. Run Codex provider tests and server E2E. |
+| 4.1 | Not started | `sdk/providers/codex.ts` app-server client | Move `CodexAppServerClient`, JSON-RPC queueing, process termination, and raw request helpers into focused modules. | Tripwire matrix: Codex row. Run Codex provider tests and server E2E. The JSON-RPC wire types already live in `codex-json-rpc.ts` (slice 4.4). Moves with `AsyncQueue`, `CodexNotificationReceipt` and the `terminateChildProcess` helpers. The provider-wide termination copies are recorded in `gaps/process-group-signalling-copies.md`; this row keeps Codex's own sequence unchanged. |
 | 4.2 | Done 2026-07-06 | Codex model catalog helpers | Move fallback model data, semver parsing, model sorting, and model metadata normalization. | App-server process/query/cache ownership stayed in `codex.ts`; focused catalog tests pin fallback selection and normalized ordering. |
 | 4.3 | Done 2026-07-06 | Codex notification guards | Move `as*Notification` guards and raw notification classifiers into a protocol module. | Guard-only extraction; approval request param guards stay in `codex.ts`. Focused guard tests and existing Codex provider fixtures preserve stream/persisted conversion behavior. |
-| 4.4 | Not started | Codex live event conversion | Move live turn state, streaming message construction, and item-to-SDK conversion. | Higher risk; preserve live-delta suppression and replay behavior. Tier 3. |
+| 4.4 | Done 2026-11-08 | Codex live event conversion | Move the stateless conversion: item normalization and item-to-SDK conversion to `codex-item-conversion.ts`; notification/raw-response conversion, live streaming state and builders, turn usage and error request-id extraction to `codex-live-event-conversion.ts`; JSON-RPC wire types to `codex-json-rpc.ts`. | Re-scoped from "live turn state": the per-turn runtime state, live-delta suppression and replay stay in `runSession`. The two conversion modules are split because one would exceed the 1,500-line new-file ceiling, and the live module imports the item module, never the reverse. The live, durable and Codex OSS copies of the conversion disagree; see `gaps/codex-conversion-three-copies.md`. |
 | 4.5 | Done 2026-07-06 | Codex recap/summary helpers | Move recap prompts, fork-backed summary prompt/params, retitle prompt, helper model selection, text cleanup, and summary capture helpers. | App-server orchestration and non-turn request decline behavior stayed in `codex.ts`; focused helper/provider/render-parity tests preserve provider-visible prompts and summary output behavior. |
 | 4.6 | Done 2026-07-06 | OpenCode provider model helpers | Move OpenCode model selection, local-GLM model descriptions, and verbose variant parsing. | Provider process/HTTP/SSE orchestration and message conversion stayed in `opencode.ts`; no Claude/OpenCode shared abstraction introduced. |
+| 4.7 | Not started | Codex failure trace | Move the failure-trace recorder, snapshot/format helpers and the notification/SDK-message trace descriptions (`recordCodexFailureTraceEvent` through `previewTraceString`) into `codex-failure-trace.ts`. | About 370 lines. They use no provider state; besides each other, the trace constants and interfaces that move with them, and the `codex-notification-guards.ts` guards, they read only the conversion modules' `getOptionalString`, `normalizeStatus`, `extractErrorRecord`, `extractOpenAIRequestId` and `stringifyTraceValue`. Move-only, Tier 1 plus the Codex provider tests. |
+| 4.8 | Not started | Codex approvals | Move `handleServerRequestApproval`, the approval decision/permission-response helpers and the approval request param guards (`as*RequestApprovalParams`, `asToolRequestUserInputParams`) into `codex-approvals.ts`. | About 500 lines. `normalizePermissionMode` becomes an explicit dependency (the permitted dependency-parameter conversion). The guards were left out of slice 4.3 on purpose and belong here. The Codex approval tests pin the decisions. |
+| 4.9 | Needs plan | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). Tier 3. |
 
 ## Phase 5: Load-Bearing Supervisor And Process Files
 
@@ -448,6 +456,94 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.4 — Codex Live Event Conversion (Landed 2026-11-08, this commit)
+
+Moved:
+- Item normalization and item-to-SDK conversion -> new
+  `packages/server/src/sdk/providers/codex-item-conversion.ts`:
+  `NormalizedFileChange`, `NormalizedThreadItem`, `normalizeThreadItem`,
+  `getReasoningText`, `normalizeStatus`, the item uuid builders
+  (`buildItemEventKey`, `buildItemMessageUuid`, `buildItemToolUuid`,
+  `buildItemResultUuid`), `isResultBackedThreadItem`,
+  `isToolBackedThreadItem`, `convertItemToSDKMessages`,
+  `getOptionalString`, `getOptionalNumber`, and the module-level
+  `logSdkCorrelationDebug` and `withCodexTimestamp`.
+- Live notification conversion -> new `codex-live-event-conversion.ts`:
+  `TokenUsageSnapshot`, `CodexLiveEventState`, the live tool-output preview
+  (`CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS`/`TAIL_CHARS`, `CodexLiveToolOutput`,
+  `appendCodexLiveToolOutput`), `createLiveEventState`,
+  `convertNotificationToSDKMessages`, `convertRawResponseItemToSDKMessages`,
+  the streaming builders (`buildStreamingAssistantMessage`,
+  `buildStreamingReasoningSummaryMessage`, `buildStreamingToolResultMessage`),
+  the result-backed live tracking (`recordLiveResultBackedToolItem`,
+  `clearLiveResultBackedToolItem`, `consumeLiveResultBackedToolItems`),
+  `clearLiveEventStateForItem`, `extractTurnUsage`, and the error request-id
+  helpers (`extractErrorRecord`, `extractOpenAIRequestId`,
+  `findRequestIdInValue`, module-level `stringifyTraceValue`).
+- `JsonRpcId`, `JsonRpcError`, `JsonRpcResponse`, `JsonRpcNotification` and
+  `JsonRpcServerRequest` -> new type-only `codex-json-rpc.ts`. The live module
+  needs `JsonRpcNotification` and may not import `codex.ts`; slice 4.1 will
+  share these types with the app-server client.
+- One module would have been about 2,150 lines, over the new-file ceiling, so
+  the conversion is split along its call graph. The live module imports the
+  item module; the item module imports neither the live module nor
+  `codex.ts`. `codex.ts` went from 8,235 to 6,060 lines.
+
+Signature conversions:
+- The 26 moved private `CodexProvider` methods became module functions:
+  `private name(` -> `function name(`, and `this.name(`/`provider.name(`
+  -> `name(`. The parameters did not change. The functions read no provider
+  state. Callers that still use them import them from the new modules.
+- `generateSideSessionRecap` and `generateForkBackedSummary` dropped
+  `const normalizeThreadItem = this.normalizeThreadItem.bind(this);`; the
+  following uses now refer to the imported function, which needs no `this`.
+- Tests that reached the private methods through
+  `new CodexProvider() as unknown as {...}` or `provider["..."]` now cast the
+  module namespace (`codexItemConversion`, `codexLiveEventConversion`) or call
+  the imported function. The casts' member lists and every assertion are
+  unchanged. A cast in `codex-dynamic-results.test.ts` that spies on real
+  provider methods still uses `CodexProvider`.
+- The formatter rewrapped lines that fit once one indent level and `this.`
+  were gone. A whitespace-insensitive comparison of every moved method with
+  its original matches once `this.`, `private`, `export`, `function` and the
+  trailing commas the formatter added or dropped are ignored.
+
+Behavior changes:
+- None. Live-delta suppression, the per-turn runtime state, replay and the
+  turn loop stay in `codex.ts`.
+
+Verification:
+- Tier 1: `pnpm --filter @yep-anywhere/shared build`; server `tsc --noEmit`
+  (`tsconfig.json`, `tsconfig.tool-display-tests.json`); `tsconfig.test.json`
+  shows no new errors in the touched files; file-scoped
+  `node scripts/biome.cjs lint` and `format`; `git diff --check`; focused
+  `vitest run test/sdk/providers/ test/render-parity.test.ts
+  test/codex-dynamic-results.test.ts test/codex/
+  test/captured-provider.test.ts test/simple-client-*.test.ts
+  test/tool-display-native.test.ts`: 67 files, 1,011 passed, 10 skipped.
+- Tier 2: `pnpm lint`, `pnpm format:check` and `pnpm typecheck` passed.
+  In `pnpm test`, shared, relay, push-broker and client passed; the server
+  had 7,178 passed, 94 skipped and 2 failed, both in
+  `test/supervisor.test.ts` (`probes provider status for long-silent active
+  sessions`, `retains its public id when native init follows the startup
+  wait`). Run alone twice, that file passed 124 of 124 both times. These are
+  the timer-sensitive supervisor tests already recorded in
+  `gaps/full-suite-timing-and-diagnostics.md`, and they do not use the
+  moved code.
+- Tier 3: `pnpm test:e2e:sdk` passed (8 files, 80 tests, 4 skipped); the
+  Codex provider and render-parity tests ran in the focused Tier 1 set.
+- `pnpm source:budgets --record` lowered `codex.ts` to 6,060. It also lowered
+  `packages/client/src/pages/settings/ProvidersSettings.tsx` from 1,687 to
+  its committed length of 1,522, which an earlier commit had not recorded.
+
+Follow-ups recorded:
+- `gaps/codex-conversion-three-copies.md`: the live, durable and Codex OSS
+  conversions are separate copies that already disagree.
+- `gaps/process-group-signalling-copies.md` (extended): how providers stop
+  their child processes.
+- Rows 4.7 (failure trace), 4.8 (approvals) and 4.9 (session lifecycle plan)
+  were added to Phase 4.
 
 ### Slice 2.41 — Session Page Composer Footer (Landed 2026-11-08, this commit)
 

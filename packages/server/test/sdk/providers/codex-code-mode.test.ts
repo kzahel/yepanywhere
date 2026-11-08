@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  type CodexLiveToolOutput,
-  CodexProvider,
-} from "../../../src/sdk/providers/codex.js";
+import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
+import type { CodexLiveToolOutput } from "../../../src/sdk/providers/codex-live-event-conversion.js";
 
 function createLiveEventState() {
   return {
@@ -16,7 +14,7 @@ function createLiveEventState() {
 
 describe("CodexProvider live code-mode normalization", () => {
   it("matches persisted Read normalization for an exec wrapper", () => {
-    const provider = new CodexProvider() as unknown as {
+    const provider = codexLiveEventConversion as unknown as {
       convertNotificationToSDKMessages: (
         notification: { method: string; params?: unknown },
         sessionId: string,

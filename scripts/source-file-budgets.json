@@ -73,7 +73,7 @@
       "maxLines": 2071
     },
     "packages/client/src/pages/settings/ProvidersSettings.tsx": {
-      "maxLines": 1687
+      "maxLines": 1522
     },
     "packages/client/src/pages/WorkingTreeBrowser.tsx": {
       "maxLines": 1548
@@ -115,7 +115,7 @@
       "maxLines": 1615
     },
     "packages/server/src/sdk/providers/codex.ts": {
-      "maxLines": 8235
+      "maxLines": 6060
     },
     "packages/server/src/sdk/providers/grok-acp.ts": {
       "maxLines": 1854

@@ -1,4 +1,4 @@
-import type { CodexLiveToolOutput } from "../../../src/sdk/providers/codex.js";
+import type { CodexLiveToolOutput } from "../../../src/sdk/providers/codex-live-event-conversion.js";
 
 type CodexNotificationFixture = {
   method: string;

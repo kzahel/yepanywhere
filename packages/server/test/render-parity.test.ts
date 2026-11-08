@@ -12,7 +12,7 @@ import {
 import { reconcileCodexToolMessages } from "../../client/src/lib/codexToolReconciliation.ts";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message as ClientMessage } from "../../client/src/types.ts";
-import { CodexProvider } from "../src/sdk/providers/codex.js";
+import * as codexItemConversion from "../src/sdk/providers/codex-item-conversion.js";
 import { normalizeSession } from "../src/sessions/normalization.js";
 import type { LoadedSession } from "../src/sessions/types.js";
 import {
@@ -257,7 +257,7 @@ const CODEX_PERSISTED_ID_ALIASES = {
 } as const;
 
 function codexStreamMessages(): Array<Record<string, unknown>> {
-  const provider = new CodexProvider() as unknown as CodexProviderBridge;
+  const provider = codexItemConversion as unknown as CodexProviderBridge;
   const sessionId = "codex-render-parity-stream";
   const turnId = "turn-parity-1";
 
@@ -939,7 +939,7 @@ describe("Render Parity Harness", () => {
   });
 
   it("renders one Codex code-mode image view live and persisted", () => {
-    const provider = new CodexProvider() as unknown as CodexProviderBridge;
+    const provider = codexItemConversion as unknown as CodexProviderBridge;
     const turnId = "turn-image-view";
     const callId = "call_image_view";
     const itemId = "item-image-view";

@@ -20,7 +20,10 @@ import {
 import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
 import { CodexOSSProvider } from "../../src/sdk/providers/codex-oss.js";
-import { CodexProvider } from "../../src/sdk/providers/codex.js";
+import {
+  convertNotificationToSDKMessages,
+  createLiveEventState,
+} from "../../src/sdk/providers/codex-live-event-conversion.js";
 import type { LoadedSession } from "../../src/sessions/types.js";
 import {
   runPersistedPipeline,
@@ -222,8 +225,7 @@ export async function runNativeDisplayCase(fixture: NativeDisplayCase) {
   if (fixture.provider === "opencode") return runOpenCodePair(fixture);
   if (fixture.provider === "grok") return runGrokPair(fixture);
   if (fixture.provider === "pi") return runPiPair(fixture);
-  const provider = new CodexProvider();
-  const state = provider["createLiveEventState"]();
+  const state = createLiveEventState();
   const name = fixture.nativeName ?? fixture.tool;
   const use = fixture.custom
     ? {
@@ -265,7 +267,7 @@ export async function runNativeDisplayCase(fixture: NativeDisplayCase) {
           true,
         )
       : fixture.commandItem
-        ? provider["convertNotificationToSDKMessages"](
+        ? convertNotificationToSDKMessages(
             {
               method: "item/completed",
               params: {
@@ -287,7 +289,7 @@ export async function runNativeDisplayCase(fixture: NativeDisplayCase) {
             state,
           )
         : [use, result].flatMap((item) =>
-            provider["convertNotificationToSDKMessages"](
+            convertNotificationToSDKMessages(
               {
                 method: "rawResponseItem/completed",
                 params: {

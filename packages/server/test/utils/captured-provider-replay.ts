@@ -12,7 +12,10 @@ import { fileURLToPath } from "node:url";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { z } from "zod";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
-import { CodexProvider } from "../../src/sdk/providers/codex.js";
+import {
+  convertNotificationToSDKMessages,
+  createLiveEventState,
+} from "../../src/sdk/providers/codex-live-event-conversion.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import {
@@ -157,14 +160,11 @@ export async function replayLive(capture: Capture, end = capture.live.length) {
       ),
     );
   }
-  const provider = new CodexProvider();
-  // biome-ignore lint/complexity/useLiteralKeys: Reuse the private production state initializer, not a reconstructed test state.
-  const state = provider["createLiveEventState"]();
+  const state = createLiveEventState();
   const usage = new Map();
   return await runStreamPipeline(
     rows.flatMap((row) =>
-      // biome-ignore lint/complexity/useLiteralKeys: Exercise the private production conversion seam without making it public.
-      provider["convertNotificationToSDKMessages"](
+      convertNotificationToSDKMessages(
         z
           .object({ method: z.string(), params: z.unknown().optional() })
           .parse(row),
