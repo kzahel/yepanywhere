@@ -36,10 +36,12 @@ const projections = [
           'entryId', json_extract(payload_json, '$.copy.boundary.entryId'))) ELSE NULL END,
     'lineage', json_object('asideOf', json_extract(payload_json, '$.lineage.asideOf'),
       'continuedFrom', json_extract(payload_json, '$.lineage.continuedFrom')))`,
+  // A value stays in `extra` when its column could not hold it (migration 031).
+  // No writer stores a key in both; the column is checked first here.
   `json_object('sessionId', session_id,
-    'parentSessionId', json_extract(metadata, '$.parentSessionId'),
-    'parentSessionKind', json_extract(metadata, '$.parentSessionKind'),
-    'forkedFromSessionId', json_extract(metadata, '$.forkedFromSessionId'))`,
+    'parentSessionId', coalesce(parent_session_id, json_extract(extra, '$.parentSessionId')),
+    'parentSessionKind', coalesce(parent_session_kind, json_extract(extra, '$.parentSessionKind')),
+    'forkedFromSessionId', coalesce(forked_from_session_id, json_extract(extra, '$.forkedFromSessionId')))`,
   receiptRelationshipJson,
   `json_object('id', id, 'operation', json_extract(record_json, '$.operation'),
     'state', json_extract(record_json, '$.state'),

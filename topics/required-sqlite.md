@@ -242,7 +242,8 @@ last column (`full_title`, NULL for a null title) and the rest of the summary
 as JSON. A title holding a lone surrogate or a NUL stays in the JSON, because
 a text column would replace the surrogate and node:sqlite cuts text at a NUL.
 Rows that are not JSON objects, or whose scope is gone, are not carried
-over; the cache rebuilds them from transcripts.
+over; the cache rebuilds them from transcripts. Version 31 gives
+[session metadata](#session-metadata) its queried columns.
 
 One statically registered, consecutive migration sequence owns `user_version`.
 Historical SQL lives in frozen named modules; released migrations are append-only.
@@ -303,6 +304,38 @@ Migration 10 adds `session_metadata`, one row per session keyed by session id,
 holding that session's metadata object as JSON, and `session_metadata_import`,
 a single row recording that the legacy file was handled.
 
+Migration 31 rebuilds `session_metadata` as a rowid table with a unique
+`session_id`. Queried keys are columns: `provider`, `working_project_id`,
+`is_archived` and `is_starred` (0/1), `custom_title`, `sidebar_category`,
+`parent_session_id`, `parent_session_kind`, `forked_from_session_id`,
+`executor`, `sandbox_level`, and `initial_prompt` last. Everything else stays
+JSON in `extra`.
+
+- **Columns hold only what they store exactly.** A key moves to its column
+  only when its value has the column's type (a string; `true`/`false` for the
+  0/1 columns) and, for text, holds no lone surrogate or NUL, which SQLite
+  would replace or node:sqlite would cut. Otherwise it stays in `extra`, and a
+  key present in `extra` wins over its column on read. Rows that are not JSON
+  objects are carried over in `extra` unchanged and still fail the loader.
+  `metadata/session-metadata-rows.ts` is the runtime codec; the migration
+  freezes its own key list.
+- **Same objects.** Loading reassembles each object with equal values; only
+  top-level key order changes (column keys come after `extra`'s), which no
+  reader observes. Encoding is deterministic, so a loaded object compares equal
+  to its row and is not rewritten. The exception is a string holding a
+  literal backslash before `ud8…` or `u0000`: the migration's GLOB matches it
+  and keeps it in `extra`, while the codec would give it its column, so the
+  first save of that session writes the row once. This profile has none.
+- **Point queries.** Recorded providers, the `claude-ollama` check and
+  `project-write` sandbox sessions are indexed queries (partial indexes on
+  `provider` and `sandbox_level = 'project-write'`; each query repeats the
+  indexed condition); the debug counts scan the narrow columns. The partial
+  index on `working_project_id` is for plan 189 step 7's project pages.
+  Sessions with uncommitted changes are excluded from the SQL and answered from
+  memory, so a pending or failed save never makes an answer stale. SQL readers
+  of a column fall back to `extra` (`coalesce(column, json_extract(extra, …))`)
+  so a value kept there reads as before.
+
 - **One-time import.** On first start after the upgrade, YA imports
   `{dataDir}/session-metadata.json` in one transaction and records the import.
   Pre-version-3 lineage fields are converted on the way in. A missing file
@@ -326,7 +359,8 @@ a single row recording that the legacy file was handled.
 - **Concurrent first start.** The import re-checks its marker inside its
   transaction, so two connections initializing together import once.
 - **Maintenance scripts.** `scripts/prune-stale-index-entries.ts` edits rows
-  directly and refuses until the server has imported; stop the server before
+  directly through the codec and refuses until the server has imported and
+  migrated them to version 31; stop the server before
   running it, because a running server keeps its own copy and writes it back.
 - **Restart recovery.** Fork-summary jobs left `generating` and bang commands
   left `running` load as interrupted errors, as before.

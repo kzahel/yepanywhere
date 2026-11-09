@@ -19,6 +19,11 @@ import * as fs from "node:fs/promises";
 import { homedir } from "node:os";
 import * as path from "node:path";
 import {
+  encodeMetadata,
+  readStoredMetadata,
+  SessionMetadataRows as StoredMetadataRows,
+} from "../packages/server/src/metadata/session-metadata-rows.js";
+import {
   loadSqliteDriver,
   type SqliteDatabase,
 } from "../packages/server/src/storage/sqlite.js";
@@ -64,11 +69,8 @@ class SessionMetadataRows {
   readonly rows = new Map<string, SessionMetadataRow>();
 
   private constructor(private readonly database: SqliteDatabase) {
-    for (const row of database
-      .prepare("SELECT session_id, metadata FROM session_metadata")
-      .all<{ session_id: string; metadata: string }>()) {
-      this.rows.set(row.session_id, JSON.parse(row.metadata));
-    }
+    for (const [sessionId, metadata] of readStoredMetadata(database))
+      this.rows.set(sessionId, metadata as SessionMetadataRow);
   }
 
   static open(dataDir: string): SessionMetadataRows | null {
@@ -86,10 +88,15 @@ class SessionMetadataRows {
         .get();
       if (
         !imported ||
-        !database.prepare("SELECT 1 FROM session_metadata_import").get()
+        !database.prepare("SELECT 1 FROM session_metadata_import").get() ||
+        !database
+          .prepare(
+            "SELECT 1 FROM pragma_table_info('session_metadata') WHERE name = 'extra'",
+          )
+          .get()
       ) {
         throw new Error(
-          "Session metadata has not been imported into discovery.sqlite yet. Start the upgraded server once, stop it, and rerun.",
+          "Session metadata has not been imported into or migrated in discovery.sqlite yet. Start the upgraded server once, stop it, and rerun.",
         );
       }
       return new SessionMetadataRows(database);
@@ -109,15 +116,17 @@ class SessionMetadataRows {
   }
 
   archive(sessionIds: Iterable<string>): void {
-    const statement = this.database.prepare(
-      "INSERT INTO session_metadata (session_id, metadata) VALUES (?, ?) ON CONFLICT (session_id) DO UPDATE SET metadata = excluded.metadata",
-    );
-    this.database.transaction(() => {
-      for (const sessionId of sessionIds) {
-        const row = { ...this.rows.get(sessionId), isArchived: true };
-        statement.run(sessionId, JSON.stringify(row));
-      }
-    });
+    const rows = new StoredMetadataRows(this.database);
+    try {
+      this.database.transaction(() => {
+        for (const sessionId of sessionIds) {
+          const row = { ...this.rows.get(sessionId), isArchived: true };
+          rows.write(sessionId, encodeMetadata(row));
+        }
+      });
+    } finally {
+      rows.dispose();
+    }
   }
 
   close(): void {

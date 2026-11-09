@@ -339,7 +339,8 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
 
 ## Current implementation
 
-- SQLite is required. Migration 10 stores metadata JSON keyed by `session_id`;
+- SQLite is required. Migration 10 stores metadata JSON keyed by `session_id`
+  (migration 31 moves its queried keys into columns);
   it does not supply the general indexed provider/native-id relationship or
   durable startup-attempt state described here. See
   [session metadata](required-sqlite.md#session-metadata).

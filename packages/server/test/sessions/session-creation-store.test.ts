@@ -601,9 +601,12 @@ it("upgrades the actual identity schema without adopting or modifying existing n
     "INSERT INTO session_metadata VALUES ('legacy', '{\"customTitle\":\"keep\"}')",
   );
   migrateDiscoveryDatabase(database);
-  expect(rows(database, "SELECT * FROM session_metadata")).toMatchObject([
-    { session_id: "legacy", metadata: '{"customTitle":"keep"}' },
-  ]);
+  expect(
+    rows(
+      database,
+      "SELECT session_id, custom_title, extra FROM session_metadata",
+    ),
+  ).toEqual([{ session_id: "legacy", custom_title: "keep", extra: "{}" }]);
   expect(rows(database, "SELECT * FROM session_creations")).toEqual([]);
 });
 

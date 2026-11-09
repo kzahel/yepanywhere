@@ -40,6 +40,11 @@ const { SqliteSessionSummaryIndex } = await import(
   pathToFileURL(resolve(storageDir, "../indexes/SqliteSessionSummaryIndex.js"))
     .href
 );
+const { encodeMetadata, readStoredMetadata, SessionMetadataRows } =
+  await import(
+    pathToFileURL(resolve(storageDir, "../metadata/session-metadata-rows.js"))
+      .href
+  );
 const { ApiReceiptStore } = await import(
   pathToFileURL(resolve(storageDir, "../core-api/receipt-store.js")).href
 );
@@ -196,7 +201,7 @@ async function relationshipWriterContract(dataDir) {
   );
   assert.equal(receipts.get(receipt.id).sessionId, null);
   const legacy = database.prepare(
-    "INSERT INTO session_metadata(session_id, metadata) VALUES (?, ?)",
+    "INSERT INTO session_metadata(session_id, forked_from_session_id, extra) VALUES (?, ?, '{}')",
   );
   try {
     database.transaction(() => {
@@ -208,7 +213,7 @@ async function relationshipWriterContract(dataDir) {
         "\uE000",
         "\u{10000}",
       ])
-        legacy.run(id, '{"forkedFromSessionId":"origin"}');
+        legacy.run(id, "origin");
     });
   } finally {
     legacy.finalize();
@@ -472,9 +477,108 @@ function summaryTitleMigrationContract() {
     database.close();
   }
 }
+/**
+ * Migration 031 on this driver's SQLite: typed values move to columns, the
+ * rest stays in `extra` exactly, and every row encodes back unchanged.
+ */
+function metadataColumnsMigrationContract() {
+  const database = loadSqliteDriver().open(":memory:");
+  try {
+    migrateDiscoveryDatabase(database, DISCOVERY_MIGRATIONS.slice(0, 30));
+    const odd = 'a"b\\c\u2028d\u0001e😀/\t';
+    const written = {
+      plain: {
+        provider: "codex",
+        workingProjectId: "L3RtcA",
+        isArchived: true,
+        isStarred: false,
+        customTitle: odd,
+        initialPrompt: odd.repeat(500),
+        effectiveLaunchSettings: { revision: 2, ratio: 0.6170000000000001 },
+        sizes: [1.5, 1e21, 12345678901234567000, 0.1, -5e-7],
+        nested: { text: odd },
+      },
+      lone: { customTitle: "cut \ud83d", sandboxLevel: "project-write" },
+      nul: { initialPrompt: "before\u0000after", executor: "host" },
+      mistyped: { provider: 7, isArchived: "yes", customTitle: null },
+    };
+    const insert = database.prepare(
+      "INSERT INTO session_metadata (session_id, metadata) VALUES (?, ?)",
+    );
+    for (const [id, metadata] of Object.entries(written))
+      insert.run(id, JSON.stringify(metadata));
+    insert.finalize();
+    migrateDiscoveryDatabase(database);
+    assert.deepEqual(
+      database
+        .prepare(
+          "SELECT session_id, provider, is_archived, is_starred, custom_title IS NOT NULL AS title, initial_prompt IS NOT NULL AS prompt, sandbox_level FROM session_metadata ORDER BY session_id",
+        )
+        .all()
+        .map((row) => ({ ...row })),
+      [
+        {
+          session_id: "lone",
+          provider: null,
+          is_archived: null,
+          is_starred: null,
+          title: 0,
+          prompt: 0,
+          sandbox_level: "project-write",
+        },
+        {
+          session_id: "mistyped",
+          provider: null,
+          is_archived: null,
+          is_starred: null,
+          title: 0,
+          prompt: 0,
+          sandbox_level: null,
+        },
+        {
+          session_id: "nul",
+          provider: null,
+          is_archived: null,
+          is_starred: null,
+          title: 0,
+          prompt: 0,
+          sandbox_level: null,
+        },
+        {
+          session_id: "plain",
+          provider: "codex",
+          is_archived: 1,
+          is_starred: 0,
+          title: 1,
+          prompt: 1,
+          sandbox_level: null,
+        },
+      ],
+    );
+    const stored = readStoredMetadata(database);
+    const rows = new SessionMetadataRows(database);
+    try {
+      for (const [id, metadata] of Object.entries(written)) {
+        assert.deepEqual(stored.get(id), metadata);
+        assert.ok(rows.matches(id, encodeMetadata(stored.get(id))), id);
+        // The writer stores what the migration stored, on this driver too.
+        rows.write(`${id}-written`, encodeMetadata(metadata));
+        assert.deepEqual(
+          readStoredMetadata(database).get(`${id}-written`),
+          metadata,
+        );
+      }
+    } finally {
+      rows.dispose();
+    }
+  } finally {
+    database.close();
+  }
+}
 try {
   issueJobMigrationContract();
   summaryTitleMigrationContract();
+  metadataColumnsMigrationContract();
   const catalog = openService(join(temporary, "catalog"));
   catalogContract(catalog.getDatabase());
   // A transaction larger than the page cache must fail fast, not stall, while

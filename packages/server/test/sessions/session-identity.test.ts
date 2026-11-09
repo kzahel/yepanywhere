@@ -102,24 +102,22 @@ describe("scoped durable session identity", () => {
       ]),
     ).toThrow();
     const version = database.prepare("PRAGMA user_version");
-    const metadata = database.prepare(
-      "SELECT metadata FROM session_metadata WHERE session_id = ?",
-    );
     try {
       expect(version.get()).toMatchObject({ user_version: 16 });
       migrateDiscoveryDatabase(database);
       expect(version.get()).toMatchObject({
         user_version: DISCOVERY_MIGRATIONS.length,
       });
-      expect(metadata.get("ses_existing")).toEqual({
-        metadata: '{"customTitle":"keep","provider":"opencode"}',
-      });
+      expect(
+        database
+          .prepare("SELECT provider, custom_title, extra FROM session_metadata")
+          .all(),
+      ).toEqual([{ provider: "opencode", custom_title: "keep", extra: "{}" }]);
       expect(() =>
         migrateDiscoveryDatabase(database, discoveryMigrationPrefix(16)),
       ).toThrow(/newer/);
     } finally {
       version.finalize();
-      metadata.finalize();
     }
   });
 
@@ -273,22 +271,22 @@ describe("scoped durable session identity", () => {
   it("rejects partial bindings and preserves surrounding writes on transaction failure", () => {
     const { database, store } = fixture();
     database.exec(
-      `INSERT INTO session_metadata VALUES ('keep', '{"customTitle":"before"}')`,
+      `INSERT INTO session_metadata (session_id, custom_title, extra) VALUES ('keep', 'before', '{}')`,
     );
     expect(() =>
       database.transaction(() => {
-        database.exec(
-          `UPDATE session_metadata SET metadata = '{"customTitle":"after"}'`,
-        );
+        database.exec(`UPDATE session_metadata SET custom_title = 'after'`);
         database.exec(
           `INSERT INTO session_identities VALUES ('partial', 'claude', 'cA', '${createdAt}', 'claude', NULL, 'native')`,
         );
       }),
     ).toThrow();
     expect(store.resolveYa(parseYaSessionId("partial"))).toBeUndefined();
-    const select = database.prepare("SELECT metadata FROM session_metadata");
+    const select = database.prepare(
+      "SELECT custom_title FROM session_metadata",
+    );
     try {
-      expect(select.get()).toEqual({ metadata: '{"customTitle":"before"}' });
+      expect(select.get()).toEqual({ custom_title: "before" });
     } finally {
       select.finalize();
     }

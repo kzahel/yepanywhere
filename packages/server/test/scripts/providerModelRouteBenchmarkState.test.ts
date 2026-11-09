@@ -16,6 +16,7 @@ import {
 import {
   closeTestDiscoveryDatabases,
   openTestDiscoveryDatabase,
+  writeStoredMetadata,
 } from "../utils/session-metadata-database.js";
 
 describe("provider model route benchmark state", () => {
@@ -87,9 +88,7 @@ describe("provider model route benchmark state", () => {
       persistedMetadataIncludesProvider(dataDir, "claude-ollama"),
     ).resolves.toBe(false);
     database
-      .prepare(
-        "INSERT INTO session_metadata (session_id, metadata) VALUES (?, ?)",
-      )
+      .prepare("INSERT INTO session_metadata (session_id, extra) VALUES (?, ?)")
       .run("broken", "42");
     await expect(
       persistedMetadataIncludesProvider(dataDir, "claude-ollama"),
@@ -97,11 +96,10 @@ describe("provider model route benchmark state", () => {
   });
 
   it("recognizes a provider only from valid metadata", async () => {
-    const insert = importedDatabase().prepare(
-      "INSERT INTO session_metadata (session_id, metadata) VALUES (?, ?)",
-    );
-    insert.run("claude", JSON.stringify({ provider: "claude" }));
-    insert.run("ollama", JSON.stringify({ provider: "claude-ollama" }));
+    writeStoredMetadata(importedDatabase(), {
+      claude: { provider: "claude" },
+      ollama: { provider: "claude-ollama" },
+    });
 
     await expect(
       persistedMetadataIncludesProvider(dataDir, "claude-ollama"),

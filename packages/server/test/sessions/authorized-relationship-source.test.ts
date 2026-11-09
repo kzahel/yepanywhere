@@ -15,6 +15,7 @@ import {
 import { migrateDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
 import { openSqliteOrThrow } from "../../src/storage/sqlite.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
+import { writeStoredMetadata } from "../utils/session-metadata-database.js";
 
 const visible = encodeProjectId("/visible"),
   hidden = encodeProjectId("/hidden");
@@ -158,14 +159,7 @@ describe("SQL-authorized relationship selection", () => {
     expect(await f.read()).toEqual({ relationships: [], nextCursor: null });
     // The identity's original project stays hidden; its existing overlay is the
     // current grant resource, exactly as ordinary session routing uses it.
-    const update = f.db.prepare(
-      "INSERT INTO session_metadata(session_id,metadata) VALUES (?,?)",
-    );
-    try {
-      update.run("child-2099", JSON.stringify({ workingProjectId: visible }));
-    } finally {
-      update.finalize();
-    }
+    writeStoredMetadata(f.db, { "child-2099": { workingProjectId: visible } });
     const page = await f.read();
     expect(page.relationships.map((r) => r.target)).toEqual(["child-2099"]);
     expect(page.nextCursor).toBeNull();

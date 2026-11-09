@@ -1,4 +1,11 @@
-import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import {
+  type SessionMetadata,
+  SessionMetadataService,
+} from "../../src/metadata/SessionMetadataService.js";
+import {
+  encodeMetadata,
+  SessionMetadataRows,
+} from "../../src/metadata/session-metadata-rows.js";
 import { openDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
 import type { SqliteDatabase } from "../../src/storage/sqlite.js";
 
@@ -27,6 +34,20 @@ export function createTestSessionMetadataService(
     dataDir,
     database: openTestDiscoveryDatabase(dataDir),
   });
+}
+
+/** Store metadata rows as the server does, without starting a service. */
+export function writeStoredMetadata(
+  database: SqliteDatabase,
+  sessions: Record<string, unknown>,
+): void {
+  const rows = new SessionMetadataRows(database);
+  try {
+    for (const [sessionId, metadata] of Object.entries(sessions))
+      rows.write(sessionId, encodeMetadata(metadata as SessionMetadata));
+  } finally {
+    rows.dispose();
+  }
 }
 
 export function closeTestDiscoveryDatabases(): void {

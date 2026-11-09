@@ -8,6 +8,7 @@ import {
   type ProviderInfo,
 } from "@yep-anywhere/shared";
 import { loadConfig } from "../src/config.js";
+import { readStoredMetadata } from "../src/metadata/session-metadata-rows.js";
 import { initLogger } from "../src/logging/logger.js";
 import { createProvidersRoutes } from "../src/routes/providers.js";
 import { ClaudeGatewayProvider } from "../src/sdk/providers/claude-gateway.js";
@@ -156,11 +157,8 @@ export async function persistedMetadataIncludesProvider(
     ) {
       throw new Error("session metadata not imported yet");
     }
-    const rows = database
-      .prepare("SELECT metadata FROM session_metadata")
-      .all<{ metadata: string }>();
-    return rows.some((row) => {
-      const metadata = JSON.parse(row.metadata) as unknown;
+    return [...readStoredMetadata(database).values()].some((record) => {
+      const metadata = record as unknown;
       if (
         !metadata ||
         typeof metadata !== "object" ||

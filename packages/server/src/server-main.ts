@@ -916,9 +916,7 @@ async function startServer() {
     ClaudeOllamaProvider.isExplicitlyConfigured() ||
     savedOllamaSystemPrompt ||
     savedOllamaUseFullSystemPrompt ||
-    Object.values(sessionMetadataService.getAllMetadata()).some(
-      (metadata) => metadata.provider === "claude-ollama",
-    )
+    sessionMetadataService.hasRecordedProvider("claude-ollama")
   ) {
     modelInfoService.warmProvider("claude-ollama").catch(() => {});
   }

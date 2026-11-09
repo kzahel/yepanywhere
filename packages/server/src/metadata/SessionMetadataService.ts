@@ -39,6 +39,13 @@ import {
   type SessionRelationshipWriter,
 } from "../sessions/SessionRelationshipWriter.js";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
+import {
+  encodeMetadata,
+  type EncodedMetadata,
+  type MetadataCounts,
+  type PendingMetadata,
+  SessionMetadataRows,
+} from "./session-metadata-rows.js";
 
 export type { EffectiveSessionLaunchSettings } from "@yep-anywhere/shared";
 
@@ -281,8 +288,7 @@ export class SessionMetadataService {
     this.assertProfileConnection(database);
     if (this.state.sessions[sessionId])
       throw new Error("Creation cannot replace existing session metadata");
-    const text = JSON.stringify(metadata);
-    const snapshot: SessionMetadata = JSON.parse(text);
+    const snapshot: SessionMetadata = JSON.parse(JSON.stringify(metadata));
     const relationships = this.relationships;
     const result = this.database.transaction(() => {
       const value = write();
@@ -292,12 +298,11 @@ export class SessionMetadataService {
         "then" in value
       )
         throw new Error("Creation transaction requires synchronous writes");
-      this.statements.upsert.run(sessionId, text);
+      this.rows.write(sessionId, encodeMetadata(snapshot));
       relationships.metadataWithinTransaction(sessionId, snapshot);
       return value;
     });
     this.state.sessions[sessionId] = snapshot;
-    this.revision += 1;
     return result;
   }
 
@@ -308,18 +313,14 @@ export class SessionMetadataService {
   private readonly statements: {
     selectImport: SqliteStatement;
     insertImport: SqliteStatement;
-    selectAll: SqliteStatement;
-    selectOne: SqliteStatement;
-    upsert: SqliteStatement;
-    remove: SqliteStatement;
   };
+  /** Column storage and indexed point queries (plan 189 step 6). */
+  private readonly rows: SessionMetadataRows;
   /** Pending mutations only; cleared after a successful synchronous commit. */
   private dirtySessionIds = new Set<string>();
   private unsavedGoalObservations = new Set<string>();
   private metadataSaver = createCoalescingSaver(() => this.doSave());
   private save = this.metadataSaver.flush;
-  /** Advances on every change to `state.sessions`; see `getRevision`. */
-  private revision = 0;
 
   constructor(options: SessionMetadataServiceOptions) {
     this.dataDir =
@@ -337,19 +338,8 @@ export class SessionMetadataService {
       insertImport: this.database.prepare(
         "INSERT INTO session_metadata_import (id, imported_at, source) VALUES (1, ?, ?)",
       ),
-      selectAll: this.database.prepare(
-        "SELECT session_id, metadata FROM session_metadata",
-      ),
-      selectOne: this.database.prepare(
-        "SELECT metadata FROM session_metadata WHERE session_id = ?",
-      ),
-      upsert: this.database.prepare(
-        "INSERT INTO session_metadata (session_id, metadata) VALUES (?, ?) ON CONFLICT (session_id) DO UPDATE SET metadata = excluded.metadata",
-      ),
-      remove: this.database.prepare(
-        "DELETE FROM session_metadata WHERE session_id = ?",
-      ),
     };
+    this.rows = new SessionMetadataRows(this.database);
     this.state = { sessions: {} };
   }
 
@@ -362,14 +352,8 @@ export class SessionMetadataService {
     if (!marker) await this.importLegacyFile();
     else if (marker.source === "json")
       await fs.rm(this.legacyFilePath, { force: true }).catch(() => undefined);
-    for (const row of this.statements.selectAll.all<{
-      session_id: string;
-      metadata: string;
-    }>()) {
-      this.state.sessions[row.session_id] = JSON.parse(
-        row.metadata,
-      ) as SessionMetadata;
-    }
+    for (const [sessionId, metadata] of this.rows.all())
+      this.state.sessions[sessionId] = metadata;
     console.log(
       `[SessionMetadataService] Loaded ${Object.keys(this.state.sessions).length} sessions from the database`,
     );
@@ -407,7 +391,6 @@ export class SessionMetadataService {
         changed = true;
       }
     }
-    this.revision += 1;
     if (changed) {
       await this.save();
     }
@@ -455,7 +438,7 @@ export class SessionMetadataService {
       // Another connection may have imported while the file was being read.
       if (this.statements.selectImport.get()) return false;
       for (const [sessionId, metadata] of Object.entries(sessions)) {
-        this.statements.upsert.run(sessionId, JSON.stringify(metadata));
+        this.rows.write(sessionId, encodeMetadata(metadata));
       }
       this.statements.insertImport.run(
         new Date().toISOString(),
@@ -484,22 +467,32 @@ export class SessionMetadataService {
     return { ...this.state.sessions };
   }
 
-  /**
-   * Changes whenever session metadata does, so callers can memoize
-   * projections of `getAllMetadata` instead of rescanning every session.
-   */
-  getRevision(): number {
-    return this.revision;
+  /** Uncommitted sessions, which the indexed queries answer from memory. */
+  private pending(): PendingMetadata {
+    return new Map(
+      [...this.dirtySessionIds].map((id) => [id, this.state.sessions[id]]),
+    );
   }
 
   /** Distinct providers persisted by prior successful YA session boundaries. */
   getRecordedProviders(): ProviderName[] {
-    const providers = new Set<ProviderName>();
-    for (const sessionId in this.state.sessions) {
-      const metadata = this.state.sessions[sessionId];
-      if (metadata?.provider) providers.add(metadata.provider);
-    }
-    return [...providers];
+    return this.rows.providers(this.pending()) as ProviderName[];
+  }
+
+  hasRecordedProvider(provider: ProviderName): boolean {
+    return this.rows.hasProvider(provider, this.pending());
+  }
+
+  /** Sessions launched with a `project-write` sandbox. */
+  getProjectWriteSandboxSessions(): SessionMetadata[] {
+    return this.rows
+      .sandboxedSessionIds(this.pending())
+      .flatMap((id) => this.state.sessions[id] ?? []);
+  }
+
+  /** Session, star and archive counts, for diagnostics. */
+  getCounts(): MetadataCounts {
+    return this.rows.counts(this.pending());
   }
 
   getPendingNonHumanUserTurn(sessionId: string): NonHumanUserTurn | undefined {
@@ -1363,7 +1356,6 @@ export class SessionMetadataService {
     const resolvedSessionId = sessionId;
     const existing = this.state.sessions[resolvedSessionId] ?? {};
     const updated = updater(existing);
-    this.revision += 1;
     this.dirtySessionIds.add(resolvedSessionId);
 
     // Remove undefined values and check if entry should be deleted
@@ -1501,25 +1493,19 @@ export class SessionMetadataService {
     if (this.state.sessions[resolvedSessionId]) {
       delete this.state.sessions[resolvedSessionId];
       this.dirtySessionIds.add(resolvedSessionId);
-      this.revision += 1;
       await this.save();
     }
   }
 
   private async doSave(): Promise<void> {
-    const changed = new Map<string, string>();
+    const changed = new Map<string, [SessionMetadata, EncodedMetadata]>();
     const removed: string[] = [];
     for (const sessionId of this.dirtySessionIds) {
       const metadata = this.state.sessions[sessionId];
-      if (!metadata) {
-        removed.push(sessionId);
-        continue;
-      }
-      const text = JSON.stringify(metadata);
-      const persisted = this.statements.selectOne.get<{ metadata: string }>(
-        sessionId,
-      );
-      if (persisted?.metadata !== text) changed.set(sessionId, text);
+      const encoded = metadata && encodeMetadata(metadata);
+      if (!encoded) removed.push(sessionId);
+      else if (!this.rows.matches(sessionId, encoded))
+        changed.set(sessionId, [metadata, encoded]);
     }
     if (changed.size === 0 && removed.length === 0) {
       this.dirtySessionIds.clear();
@@ -1528,13 +1514,11 @@ export class SessionMetadataService {
     try {
       const relationships = this.relationships;
       this.database.transaction(() => {
-        for (const [sessionId, text] of changed) {
-          this.statements.upsert.run(sessionId, text);
-          relationships.metadataWithinTransaction(sessionId, JSON.parse(text));
+        for (const [sessionId, [metadata, encoded]] of changed) {
+          this.rows.write(sessionId, encoded);
+          relationships.metadataWithinTransaction(sessionId, metadata);
         }
-        for (const sessionId of removed) {
-          this.statements.remove.run(sessionId);
-        }
+        for (const sessionId of removed) this.rows.remove(sessionId);
       });
     } catch (error) {
       console.error("[SessionMetadataService] Failed to save state:", error);

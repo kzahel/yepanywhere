@@ -324,11 +324,11 @@ describe("SessionMetadataService", () => {
       await service.setTitle("session-1", "My Custom Title");
 
       const row = openTestDiscoveryDatabase(testDir)
-        .prepare("SELECT metadata FROM session_metadata WHERE session_id = ?")
-        .get<{ metadata: string }>("session-1");
-      expect(JSON.parse(row?.metadata ?? "{}").customTitle).toBe(
-        "My Custom Title",
-      );
+        .prepare(
+          "SELECT custom_title, extra FROM session_metadata WHERE session_id = ?",
+        )
+        .get("session-1");
+      expect(row).toEqual({ custom_title: "My Custom Title", extra: "{}" });
       await expect(
         readFile(join(testDir, "session-metadata.json"), "utf-8"),
       ).rejects.toMatchObject({ code: "ENOENT" });
@@ -603,9 +603,9 @@ describe("SessionMetadataService", () => {
       await service.setProvider("session-2", "codex");
       await service.setProvider("session-3", "claude-gateway");
 
-      expect(service.getRecordedProviders()).toEqual([
-        "codex",
+      expect(service.getRecordedProviders().sort()).toEqual([
         "claude-gateway",
+        "codex",
       ]);
     });
   });

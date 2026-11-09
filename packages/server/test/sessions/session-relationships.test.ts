@@ -113,10 +113,10 @@ describe("durable structural relationship evidence", () => {
         );
         expect(accepted.checkpoint("codex-child", "unknown-parent")).toBeNull();
         const check = reopened.prepare(
-          "SELECT metadata FROM session_metadata WHERE session_id = 'preserved'",
+          "SELECT custom_title, extra FROM session_metadata WHERE session_id = 'preserved'",
         );
         try {
-          expect(check.get()).toEqual({ metadata: '{"customTitle":"keep"}' });
+          expect(check.get()).toEqual({ custom_title: "keep", extra: "{}" });
         } finally {
           check.finalize();
         }

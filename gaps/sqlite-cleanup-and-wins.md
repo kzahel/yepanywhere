@@ -45,7 +45,12 @@ summary migration 25.
    `FILE_WATCHER: rescan complete` (`watcher/FileWatcher.ts:927`). Add
    size-based rotation and demote or sample those two lines. Not a SQLite
    change, but the largest disk cost found.
-3. **Whole-table metadata scans answer point questions.** Replace with SQL:
+3. Fixed 2026-11-09 by plan 189 step 6 (migration 031): recorded providers,
+   the `claude-ollama` checks and both sandbox scans are indexed queries on
+   the new columns (the debug counts scan the narrow columns), with
+   uncommitted sessions answered from memory; the Claude memo is gone. On a copy of this profile the four
+   queries take 1.7 ms together. Original finding:
+   **Whole-table metadata scans answer point questions.** Replace with SQL:
    - `app.ts:732` scans every session for `provider === "claude-ollama"` on
      each `getAllProviders()` call (per request via `routes/providers.ts:93`);
      `server-main.ts:994` repeats it at startup. Use
@@ -157,8 +162,8 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
     bang-command and cache-miss billing lists (`bang-commands.ts:142`,
     `:379`; `settings.ts:299`). Pin dirty entries until commit (`:1514`,
     `:1540`), distinguish absent from deleted (`:282`, `:1488`, `:1502`),
-    and keep reference-equality callers (`:706`) correct. Consider moving
-    `initialPrompt` to its own column so a cache miss does not parse it.
+    and keep reference-equality callers (`:706`) correct. `initialPrompt`
+    has its own column since plan 189 step 6, and item 3's queries are done.
 13. Done 2026-11-09 by plan 189 step 3. **Catalog rows in SQLite.** Now owned by
     [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md),
     which gives the table shape and the defects to fix first.
@@ -310,7 +315,13 @@ overflow pages are about half empty: 10.1 MB of 19.7 MB for summaries,
     `read()` parses a whole scope (`SqliteSessionSummaryIndex.ts:51-56`);
     the largest scope is 2.5 MB. Callers look up by scope or
     (scope, session) only, so no new indexes are needed.
-23. **`session_metadata` should be a rowid table with `initial_prompt`
+23. Fixed 2026-11-09 by plan 189 step 6 (migration 031): a rowid table with
+    `initial_prompt` last, `provider`, `working_project_id` and nine more
+    columns, the rest in `extra`; relationship visibility reads the column.
+    Every one of the 4,695 rows here round-trips; 031 takes 68 ms. The 379
+    rows without an identity are still not pruned (no rule yet). Original
+    finding:
+    **`session_metadata` should be a rowid table with `initial_prompt`
     and `working_project_id` columns.**
     - `initialPrompt` is 2.53 MB of 4.19 MB of metadata JSON.
     - `goalCommand` stores 1,103 copies of 15 distinct descriptors
@@ -413,8 +424,8 @@ catalog table:
     walks every row about once a minute per process, behind a 60 s
     correlation cache (`host-process-catalog.ts:40-55`,
     `HostAgentProcessService.ts:18`); `getRecordedProviders` runs about
-    five times per `scanner.getProject` and
-    `getAllMetadata()` copies the whole map per call (add both to item 3);
+    five times per `scanner.getProject` (an indexed query since plan 189
+    step 6) and `getAllMetadata()` copies the whole map per call;
     limited-user grants expand every creation projection per request and
     per event (`app.ts:969-1031`, `:4570-4580`; off here).
 

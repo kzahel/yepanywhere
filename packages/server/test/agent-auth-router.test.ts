@@ -264,9 +264,9 @@ describe.skipIf(process.platform === "win32")(
       );
       expect(JSON.stringify(f.connector.summary())).not.toContain(first!.token);
       const persistedMetadata = openTestDiscoveryDatabase(f.root)
-        .prepare("SELECT metadata FROM session_metadata")
-        .all<{ metadata: string }>()
-        .map((row) => row.metadata)
+        .prepare("SELECT extra FROM session_metadata")
+        .all<{ extra: string }>()
+        .map((row) => row.extra)
         .join("\n");
       expect(persistedMetadata).toContain('"accountId":"account"');
       expect(persistedMetadata).not.toContain(first!.token);

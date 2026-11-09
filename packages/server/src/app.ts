@@ -729,9 +729,8 @@ export function createApp(options: AppOptions): AppResult {
             "ollamaUseFullSystemPrompt",
           ),
       ) ||
-      Object.values(
-        options.sessionMetadataService?.getAllMetadata() ?? {},
-      ).some((metadata) => metadata.provider === "claude-ollama"),
+      options.sessionMetadataService?.hasRecordedProvider("claude-ollama") ===
+        true,
     getProviderRuntimeSnapshot: () => ({
       steeringModes: options.serverSettingsService?.getSetting("steeringModes"),
       codexCliPath: options.codexCliPath,
@@ -1228,30 +1227,11 @@ export function createApp(options: AppOptions): AppResult {
   // Sandboxed Claude sessions write their transcripts under the project's
   // private provider root (topics/session-sandboxing.md); every reader and
   // list of a project must include those directories.
-  // Every project lookup asks, so the scan over all session metadata runs
-  // once per metadata revision.
-  let sandboxSessionDirsMemo:
-    | {
-        revision: number;
-        byProject: ReadonlyMap<string, readonly string[]>;
-      }
-    | undefined;
-  const claudeSandboxSessionDirs = (): ReadonlyMap<
-    string,
-    readonly string[]
-  > => {
-    const revision = options.sessionMetadataService?.getRevision() ?? 0;
-    if (sandboxSessionDirsMemo?.revision === revision)
-      return sandboxSessionDirsMemo.byProject;
-    const byProject = scanClaudeSandboxSessionDirs();
-    sandboxSessionDirsMemo = { revision, byProject };
-    return byProject;
-  };
-  const scanClaudeSandboxSessionDirs = (): Map<string, string[]> => {
+  // Every project lookup asks; an indexed query finds those sessions.
+  const claudeSandboxSessionDirs = (): Map<string, string[]> => {
     const byProject = new Map<string, string[]>();
-    for (const metadata of Object.values(
-      options.sessionMetadataService?.getAllMetadata() ?? {},
-    )) {
+    for (const metadata of options.sessionMetadataService?.getProjectWriteSandboxSessions() ??
+      []) {
       if (
         !metadata.provider ||
         !isClaudeProviderName(metadata.provider) ||
@@ -2055,8 +2035,9 @@ export function createApp(options: AppOptions): AppResult {
       case "codex": {
         const sandboxSessionRoots = [
           ...new Map(
-            Object.values(
-              options.sessionMetadataService?.getAllMetadata() ?? {},
+            (
+              options.sessionMetadataService?.getProjectWriteSandboxSessions() ??
+              []
             ).flatMap((metadata) => {
               if (
                 metadata.provider !== "codex" ||

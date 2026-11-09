@@ -123,22 +123,15 @@ export function registerSessionMetadataRoutes(
       );
     }
 
-    const allMetadata = deps.sessionMetadataService.getAllMetadata();
-    const sessionCount = Object.keys(allMetadata).length;
-    const starredCount = Object.values(allMetadata).filter(
-      (m) => m.isStarred,
-    ).length;
-    const archivedCount = Object.values(allMetadata).filter(
-      (m) => m.isArchived,
-    ).length;
+    const counts = deps.sessionMetadataService.getCounts();
     const filePath = deps.sessionMetadataService.getFilePath();
 
     return c.json({
       available: true,
       filePath,
-      sessionCount,
-      starredCount,
-      archivedCount,
+      sessionCount: counts.sessions,
+      starredCount: counts.starred,
+      archivedCount: counts.archived,
     });
   });
 

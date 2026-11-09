@@ -21,6 +21,7 @@ import {
   openSqliteOrThrow,
   type SqliteDatabase,
 } from "../../src/storage/sqlite.js";
+import { writeStoredMetadata } from "../utils/session-metadata-database.js";
 
 const roots: string[] = [],
   databases: SqliteDatabase[] = [];
@@ -512,24 +513,21 @@ it("resumes bounded SQL-only reconciliation after interruption and imports old r
   });
   const incoming = f.reserve();
   f.receipts.update(incoming.receipt.id, { sessionId: "receipt-child" });
-  const insert = f.database.prepare(
-    "INSERT INTO session_metadata(session_id, metadata) VALUES (?, ?)",
-  );
-  try {
-    f.database.transaction(() => {
-      for (let i = 0; i < 205; i++)
-        insert.run(
+  f.database.transaction(() =>
+    writeStoredMetadata(
+      f.database,
+      Object.fromEntries(
+        Array.from({ length: 205 }, (_, i) => [
           `legacy-${String(i).padStart(3, "0")}`,
-          JSON.stringify({
+          {
             forkedFromSessionId: "old-source",
             creationProvenance: { surface: "api" },
             initialPrompt: "SECRET-PROMPT",
-          }),
-        );
-    });
-  } finally {
-    insert.finalize();
-  }
+          },
+        ]),
+      ),
+    ),
+  );
   // Simulate existing authoritative owners at the additive migration boundary.
   f.database.exec(
     "DELETE FROM session_relationship_evidence; DELETE FROM session_relationship_edges; DELETE FROM session_relationship_checkpoints;",
@@ -655,7 +653,7 @@ it("resolves only local historical aliases during import and ignores unrepresent
     insert.finalize();
   }
   f.database.exec(
-    `INSERT INTO session_metadata VALUES ('legacy-invalid', '{"forkedFromSessionId":{"bad":"value"}}'); DELETE FROM session_relationship_evidence; DELETE FROM session_relationship_edges; DELETE FROM session_relationship_checkpoints;`,
+    `INSERT INTO session_metadata (session_id, extra) VALUES ('legacy-invalid', '{"forkedFromSessionId":{"bad":"value"}}'); DELETE FROM session_relationship_evidence; DELETE FROM session_relationship_edges; DELETE FROM session_relationship_checkpoints;`,
   );
   await reconcileSessionRelationships(
     f.database,
@@ -683,7 +681,7 @@ it("resolves only local historical aliases during import and ignores unrepresent
 it("pages opaque Unicode session keys in SQLite order without skipping a frontier row", async () => {
   const f = await fixture();
   const insert = f.database.prepare(
-    "INSERT INTO session_metadata(session_id, metadata) VALUES (?, ?)",
+    "INSERT INTO session_metadata(session_id, forked_from_session_id, extra) VALUES (?, ?, '{}')",
   );
   try {
     f.database.transaction(() => {
@@ -697,7 +695,7 @@ it("pages opaque Unicode session keys in SQLite order without skipping a frontie
         "\uE000",
         "\u{10000}",
       ])
-        insert.run(id, '{"forkedFromSessionId":"origin"}');
+        insert.run(id, "origin");
     });
   } finally {
     insert.finalize();

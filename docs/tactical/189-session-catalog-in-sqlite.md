@@ -3,10 +3,11 @@
 Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
-`db161ab3c` and the maintainer's profile the same day. Steps 1–5 done
+`db161ab3c` and the maintainer's profile the same day. Steps 1–6 done
 2026-11-09: the catalog lives in `discovery.sqlite`, the `session-catalog/`
 files are imported once and deleted, its server consumers read what
-changed, and summary rows keep the full title in a column.
+changed, summary rows keep the full title in a column, and session metadata
+keeps its queried fields in columns.
 
 ## Goal
 
@@ -823,6 +824,63 @@ Done 2026-11-09:
   caller), and archived sessions whose files are gone keep theirs. Report
   first and decide a rule separately.
 
+Done 2026-11-09 (migration 031):
+- **Table.** Rowid table, `session_id` unique; the twelve columns above, then
+  `extra`, then `initial_prompt`. Partial indexes on `provider`,
+  `working_project_id` and `sandbox_level = 'project-write'`.
+- **What moves.** A key moves only when its value has the column's type and,
+  for text, no lone surrogate or NUL (per-value GLOB on `metadata -> '$.key'`
+  in the migration, `isWellFormed` and a NUL check in the writer); otherwise
+  it stays in `extra`, which wins on read. `json_remove` with a NULL path
+  returns NULL on both drivers, so a kept key passes `$[0]`, a no-op on an
+  object. Non-object rows are carried over unchanged in `extra`, and invalid
+  JSON still stops the loader as before.
+- **Codec.** `metadata/session-metadata-rows.ts` encodes and decodes rows and
+  owns the statements. `doSave` compares the encoded row (columns plus
+  `extra`) with the stored one. Reassembled objects equal the originals; top
+  level key order changes (column keys last), which no response exposes.
+- **Item 3.** `getRecordedProviders`, `hasRecordedProvider` (the
+  `claude-ollama` checks in `app.ts` and `server-main.ts`),
+  `getProjectWriteSandboxSessions` (the Claude and Codex sandbox roots,
+  sorted; the Claude memo and the metadata revision counter are gone) are
+  indexed queries, and `getCounts` (debug route) scans the narrow columns.
+  Sessions with uncommitted changes are left out of the SQL and answered
+  from memory. The `working_project_id` index waits for step 7's project
+  pages.
+- **Raw readers.** Relationship reconciliation and authorized relationship
+  visibility read the columns, falling back to `extra`
+  (`coalesce(column, json_extract(extra, …))`; `coalesce` keeps the JSON
+  subtype on both drivers). The prune script writes through the codec and
+  requires version 31; the provider benchmark reads either layout.
+- **Gate.** `VACUUM INTO` backup of the real `discovery.sqlite`
+  (4,695 rows, 4.25 MB of JSON, version 27), migrated on a copy
+  (`/tmp/plan189-scripts/roundtrip-031.mjs`):
+  - every row deep-equal to its original JSON on Node 25.8.2 and on
+    Bun 1.3.14 (2,156 byte-identical, 2,539 differing only in key order);
+  - every row encodes back unchanged; marking all 4,695 dirty and saving
+    writes 0 rows;
+  - the old and new relationship and visibility projections are equal for
+    every row;
+  - integrity and foreign keys clean.
+- **Measurements** (that copy): migration 031 68 ms (028–030 99 ms); load of
+  all rows 19 ms; all-dirty compare 40 ms; the four point queries 1.7 ms
+  together. Columns filled: provider 4,309, project 1,529, archived 374,
+  starred 46, title 407, prompt 2,359 (2.57 M characters); `extra` is
+  1.36 M characters and `{}` for 2,311 rows. No row here has a lone
+  surrogate or NUL.
+- **Live parity.** Old build (A) and new build (B) as passive servers on identical
+  profile copies at version 27 (`/tmp/plan189-scripts/prep-gate8.sh`,
+  `start-gate8.sh`; the old build compiled from `HEAD` outside the tree).
+  After warm-up, 437 of 437 responses identical in two passes. The same four
+  edits on both (an emoji title, a lone-surrogate title, star with category,
+  archive) read back identically; the lone-surrogate title stayed in
+  `extra`, the rest went to columns. After restarting both, the edits and
+  debug counts (4,695 sessions, 47 starred, 375 archived) matched and two of
+  four passes were 437/437; the others differed only in a live session's
+  message count and in `providerChildren` while child resolution caught up.
+  No errors; integrity and foreign keys clean.
+- **Pruning** stays undecided (above); 379 rows still have no identity.
+
 ### 7 — list pages as queries
 
 Depends on steps 3 and 6, and on step 5 for the project page.
@@ -934,7 +992,8 @@ Two tools serve these gates:
   view version. Decided: it stays in the version; `projects-changed` names
   only the projects that changed (step 4).
 - Step 6: a pruning rule for metadata with no identity that keeps user
-  curation and remote-executor sessions. Also where item 11 gets the
+  curation and remote-executor sessions. Still open after step 6, which
+  prunes nothing. Also where item 11 gets the
   creation surface and the latest recap time; no server code reads
   `creationProvenance.surface` today.
 - Whether a second server on a copied profile can stay passive. Answered
