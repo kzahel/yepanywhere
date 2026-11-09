@@ -4436,29 +4436,6 @@ a.sidebar-nav-item {
   letter-spacing: 0;
 }
 
-.patient-queue-switch-option {
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  font-size: 10px;
-  font-weight: 650;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.patient-queue-switch-option--regular {
-  color: color-mix(in srgb, var(--attention-color) 92%, var(--text-primary));
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.patient-queue-switch-option--patient {
-  color: color-mix(in srgb, var(--warning-color) 82%, var(--text-muted));
-  font-size: 9px;
-}
-
 .patient-queue-ack {
   position: absolute;
   right: 0;
@@ -7616,6 +7593,12 @@ a.sidebar-nav-item {
     justify-content: flex-end;
     width: fit-content;
     max-width: min(100%, 16rem);
+  }
+
+  /* A picker keeps its options on one line where they fit. */
+  .settings-item--wide-control
+  > .settings-item-actions:has(> [role="radiogroup"]) {
+    max-width: 100%;
   }
 
   .settings-item--wide-control > .tooltip-settings-actions {

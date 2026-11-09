@@ -977,7 +977,7 @@ export const LEGACY_SWITCHES: readonly LegacySwitch[] = [
     name: "patient-queue-switch",
     counted: "patient-queue-switch",
     classes:
-      "patient-queue-switch patient-queue-switch-wrap patient-queue-switch-track patient-queue-switch-thumb",
+      "patient-queue-switch patient-queue-switch-wrap patient-queue-switch-track patient-queue-switch-thumb patient-queue-switch-option",
     to: "segmented",
     note: "A two-option track (regular / patient) with no remaining use; its rules were deleted.",
   },
@@ -1005,9 +1005,9 @@ export const LEGACY_SWITCHES: readonly LegacySwitch[] = [
     name: "provider-option, mode-option, new-session-helper-option",
     counted: "provider-option",
     classes:
-      "provider-options provider-option new-session-helper-options new-session-helper-option",
+      "provider-options provider-option provider-option-content provider-option-label provider-option-status mode-options mode-option mode-option-content mode-option-label mode-option-desc new-session-helper-options new-session-helper-option",
     to: "segmented",
-    note: "Bordered option cards with a colored dot: SegmentedControl's cards look. mode-option also styles the host picker's navigation cards, which stay.",
+    note: "Bordered option cards with a colored dot: SegmentedControl's cards look. The dots (provider-option-dot, mode-option-dot) stay as option icons.",
   },
   {
     name: "host-identity-preset",
@@ -1019,7 +1019,8 @@ export const LEGACY_SWITCHES: readonly LegacySwitch[] = [
   {
     name: "settings-icon-style-option, output-font-option, onboarding-theme-option",
     counted: "onboarding-theme-option",
-    classes: "settings-icon-style-option onboarding-theme-option",
+    classes:
+      "settings-icon-style-option output-font-option onboarding-theme-grid onboarding-theme-option onboarding-theme-label",
     to: "segmented",
   },
   {

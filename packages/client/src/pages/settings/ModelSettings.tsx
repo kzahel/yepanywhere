@@ -612,6 +612,7 @@ export function ModelSettings() {
             className="new-session-provider-section session-default-provider-section settings-item--session-default-block settings-item--wide-control"
           >
             <SegmentedControl
+              activation="manual"
               variant="cards"
               aria-label={
                 sessionDefaultCopy.provider.settings?.title ??
@@ -711,6 +712,7 @@ export function ModelSettings() {
               className="new-session-mode-section session-default-mode-section settings-item--session-default-block settings-item--wide-control"
             >
               <SegmentedControl
+                activation="manual"
                 variant="cards"
                 aria-label={sessionDefaultCopy.permission.title}
                 options={permissionModeOptions.map((modeValue) => ({
@@ -838,6 +840,7 @@ export function ModelSettings() {
               className="new-session-helper-section session-default-suggestions-section settings-item--session-default-block settings-item--wide-control"
             >
               <SegmentedControl
+                activation="manual"
                 variant="cards"
                 aria-label={sessionDefaultCopy.suggestions.title}
                 options={availablePromptSuggestionModes.map((modeValue) => ({
@@ -889,6 +892,7 @@ export function ModelSettings() {
             }
           >
             <SegmentedControl
+              activation="manual"
               variant="cards"
               aria-label={sessionDefaultCopy.recap.title}
               options={availableRecapModes.map((modeValue) => ({
@@ -1050,6 +1054,7 @@ export function ModelSettings() {
             >
               <div className="session-default-cache-keepalive-controls">
                 <SegmentedControl
+                  activation="manual"
                   variant="cards"
                   aria-label={t("promptCacheKeepaliveTitle")}
                   options={PROMPT_CACHE_KEEPALIVE_MODE_ORDER.map(

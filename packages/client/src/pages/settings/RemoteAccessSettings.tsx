@@ -89,6 +89,7 @@ function HostIdentitySettings({
     >
       <div className="host-identity-controls">
         <SegmentedControl
+          activation="manual"
           variant="cards"
           aria-label={t("hostIdentityPresetsAria")}
           options={HOST_IDENTITY_PRESETS.map((icon) => ({

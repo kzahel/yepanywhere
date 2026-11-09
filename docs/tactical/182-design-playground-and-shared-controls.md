@@ -163,7 +163,13 @@ of slightly different styles.
   menu, the thinking choices shared with the composer's popover, the
   model list, the question panel's answers, and one native radio group
   for the fields family). The onboarding theme picker became a stacked
-  list of cards, and a few option cards lost their "current" tint.
+  list of cards. An Opus review (2026-11-09) found the font pickers had
+  lost their typeface previews (an option's `className` now lands on its
+  label), arrow keys saving on every press (groups that save use
+  `activation="manual"`) and dropping focus while saving (options are
+  `aria-disabled`), the model switch modal's lost "current" marker (now
+  a "Current" line), a wrapping icon-style picker and gaps in the ban;
+  all were fixed.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

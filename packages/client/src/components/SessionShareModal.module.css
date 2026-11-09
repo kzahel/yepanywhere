@@ -173,7 +173,8 @@
   width: 17px;
 }
 
-.filterButtonActive .filterIcon {
+.filterButtonActive .filterIcon,
+.scopeOptions [aria-checked="true"] .filterIcon {
   background: color-mix(in srgb, var(--app-yep-green) 68%, #111827);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, #fff 28%, var(--app-yep-green)),

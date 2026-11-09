@@ -660,7 +660,7 @@ describe("SessionShareModal", () => {
     });
 
     fireEvent.click(createButton);
-    expect(scopeFilter).toHaveProperty("disabled", true);
+    expect(scopeFilter.getAttribute("aria-disabled")).toBe("true");
     expect(copy).toHaveProperty("disabled", true);
     expect(prepare).toHaveProperty("disabled", true);
     fireEvent.click(scopeFilter);
@@ -1046,7 +1046,7 @@ describe("SessionShareModal", () => {
       name: "Copy public link",
     })[0];
     if (!copy) throw new Error("Expected a managed-link copy control");
-    expect(scopeFilter).toHaveProperty("disabled", true);
+    expect(scopeFilter.getAttribute("aria-disabled")).toBe("true");
     expect(copy).toHaveProperty("disabled", true);
     fireEvent.click(scopeFilter);
     fireEvent.click(copy);

@@ -6,7 +6,13 @@
  * `role="radio"` button with `aria-checked`. The group is one tab stop (the
  * selected option, or the first enabled one when nothing is selected);
  * arrow keys, Home and End move focus and select, skipping disabled
- * options, as in the WAI-ARIA radio group pattern.
+ * options, as in the WAI-ARIA radio group pattern. When selecting has a
+ * cost (it saves to the server), `activation="manual"` makes arrows move
+ * focus only, and Space or Enter selects.
+ *
+ * Disabled options are `aria-disabled`, not natively disabled: a group a
+ * caller disables while it saves keeps keyboard focus on the option the
+ * user is on, rather than dropping it to the page.
  *
  * Two looks, one behavior:
  * - `segmented` (default): options inside one track, the selected one
@@ -20,10 +26,20 @@
  * Name the group with `aria-label` or `aria-labelledby`. An option whose
  * label is not text (an icon, a swatch) needs `ariaLabel`. `tooltip` shows
  * through TooltipLayer like IconButton's. A caller's `className` adds layout
- * to the group only; an option's `className` hooks it for content styling
- * (a font preview), not for its frame.
+ * to the group only; an option's `className` lands on its label text, for
+ * content styling such as a font preview, never on its frame. A
+ * `description` is a second line that describes the option
+ * (`aria-describedby`) rather than adding to its name.
  */
-import { type KeyboardEvent, type ReactNode, type Ref, useRef } from "react";
+import {
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import styles from "./SegmentedControl.module.css";
 
@@ -41,7 +57,7 @@ export interface SegmentedOption<T extends SegmentedValue> {
   ariaLabel?: string;
   /** Tooltip text, shown through TooltipLayer or `title` per the setting. */
   tooltip?: string;
-  /** Content styling hook for this option (not its frame). */
+  /** Content styling hook for this option's label text (not its frame). */
   className?: string;
   "data-testid"?: string;
 }
@@ -54,6 +70,11 @@ export interface SegmentedControlProps<T extends SegmentedValue> {
   variant?: "segmented" | "cards";
   layout?: "inline" | "fill" | "stack";
   size?: "default" | "small";
+  /**
+   * `automatic` (default): arrow keys select. `manual`: arrow keys move
+   * focus and Space or Enter selects, for groups whose change saves.
+   */
+  activation?: "automatic" | "manual";
   disabled?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -84,18 +105,25 @@ export function SegmentedControl<T extends SegmentedValue>({
   variant = "segmented",
   layout = "inline",
   size = "default",
+  activation = "automatic",
   disabled = false,
   className,
   ref,
   ...rest
 }: SegmentedControlProps<T>) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const idPrefix = useId();
+  // Manual activation: the focused option, which holds the tab stop until
+  // focus leaves the group.
+  const [focused, setFocused] = useState<number | null>(null);
   const enabled = (index: number) => !disabled && !options[index]?.disabled;
   const selectedIndex = options.findIndex((option) => option.value === value);
   const tabStop =
-    selectedIndex >= 0 && enabled(selectedIndex)
-      ? selectedIndex
-      : options.findIndex((_, index) => enabled(index));
+    activation === "manual" && focused !== null && enabled(focused)
+      ? focused
+      : selectedIndex >= 0 && enabled(selectedIndex)
+        ? selectedIndex
+        : options.findIndex((_, index) => enabled(index));
 
   const cards = variant === "cards";
   const optionClass = joinClasses(
@@ -119,7 +147,13 @@ export function SegmentedControl<T extends SegmentedValue>({
     const option = options[next];
     if (!option || !enabled(next)) return;
     buttons.current[next]?.focus();
-    if (option.value !== value) onChange(option.value);
+    if (activation === "manual") setFocused(next);
+    else if (option.value !== value) onChange(option.value);
+  };
+
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+      setFocused(null);
   };
 
   return (
@@ -128,6 +162,7 @@ export function SegmentedControl<T extends SegmentedValue>({
       ref={ref}
       role="radiogroup"
       aria-disabled={disabled || undefined}
+      onBlur={activation === "manual" ? handleBlur : undefined}
       className={joinClasses(
         styles.group,
         cards ? styles.cards : styles.segmented,
@@ -140,6 +175,7 @@ export function SegmentedControl<T extends SegmentedValue>({
         <Segment
           key={String(option.value)}
           option={option}
+          descriptionId={`${idPrefix}-${index}`}
           className={optionClass}
           checked={index === selectedIndex}
           disabled={!enabled(index)}
@@ -148,6 +184,8 @@ export function SegmentedControl<T extends SegmentedValue>({
             buttons.current[index] = element;
           }}
           onSelect={() => {
+            if (!enabled(index)) return;
+            if (activation === "manual") setFocused(index);
             if (option.value !== value) onChange(option.value);
           }}
           onKeyDown={(event) => handleKeyDown(event, index)}
@@ -159,6 +197,7 @@ export function SegmentedControl<T extends SegmentedValue>({
 
 function Segment<T extends SegmentedValue>({
   option,
+  descriptionId,
   className,
   checked,
   disabled,
@@ -168,6 +207,7 @@ function Segment<T extends SegmentedValue>({
   onKeyDown,
 }: {
   option: SegmentedOption<T>;
+  descriptionId: string;
   className: string;
   checked: boolean;
   disabled: boolean;
@@ -177,6 +217,7 @@ function Segment<T extends SegmentedValue>({
   onKeyDown: (event: KeyboardEvent) => void;
 }) {
   const tooltipAttributes = useTextTooltipAttributes(option.tooltip);
+  const label = joinClasses(styles.label, option.className);
   return (
     <button
       {...tooltipAttributes}
@@ -185,10 +226,16 @@ function Segment<T extends SegmentedValue>({
       role="radio"
       aria-checked={checked}
       aria-label={option.ariaLabel}
+      aria-labelledby={
+        option.description && !option.ariaLabel
+          ? `${descriptionId}-label`
+          : undefined
+      }
+      aria-describedby={option.description ? descriptionId : undefined}
+      aria-disabled={disabled || undefined}
       tabIndex={tabIndex}
-      disabled={disabled}
       data-testid={option["data-testid"]}
-      className={joinClasses(styles.option, className, option.className)}
+      className={joinClasses(styles.option, className)}
       onClick={onSelect}
       onKeyDown={onKeyDown}
     >
@@ -199,11 +246,15 @@ function Segment<T extends SegmentedValue>({
       ) : null}
       {option.description ? (
         <span className={styles.text}>
-          <span className={styles.label}>{option.label}</span>
-          <span className={styles.description}>{option.description}</span>
+          <span id={`${descriptionId}-label`} className={label}>
+            {option.label}
+          </span>
+          <span id={descriptionId} className={styles.description}>
+            {option.description}
+          </span>
         </span>
       ) : (
-        <span className={styles.label}>{option.label}</span>
+        <span className={label}>{option.label}</span>
       )}
     </button>
   );

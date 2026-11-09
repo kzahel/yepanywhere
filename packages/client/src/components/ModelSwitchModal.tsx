@@ -604,6 +604,11 @@ export function ModelSwitchModal({
                           : mode === "auto"
                             ? t("modelSettingsThinkingAutoLabel")
                             : t("modelSettingsThinkingOnLabel"),
+                      // The setting the session runs with, beside the pending pick.
+                      description:
+                        currentThinkingMode === mode
+                          ? t("modelSwitchCurrent")
+                          : undefined,
                     }))}
                     value={effectiveThinkingMode}
                     onChange={(mode) => {
@@ -637,6 +642,11 @@ export function ModelSwitchModal({
                       ),
                       label: option.label,
                       tooltip: option.description,
+                      description:
+                        currentThinkingMode === "on" &&
+                        currentEffortLevel === option.value
+                          ? t("modelSwitchCurrent")
+                          : undefined,
                     }))}
                     value={
                       effectiveThinkingMode === "on"
@@ -663,6 +673,7 @@ export function ModelSwitchModal({
                   <strong>{t("modelSwitchSpeedLabel")}</strong>
                 </div>
                 <SegmentedControl
+                  activation="manual"
                   aria-label={t("modelSwitchSpeedLabel")}
                   options={[
                     {

@@ -37,8 +37,8 @@ Status: direction selected 2026-11-08.
 [Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
 sequences the work. The playground, its token page, the undefined-property
 limit, the button and switch census, the shared button family and the
-shared switch and segmented control have landed. For controls without a shared version yet, the owners above remain
-the reference.
+shared switch and segmented control have landed. For controls without a
+shared version yet, the owners above remain the reference.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
@@ -84,8 +84,8 @@ neighbouring secondary.
 
 Client buttons are on the shared controls except those the allowlist
 below names: menu items and tabs (later families), the composer's controls,
-the crash fallback page, and 15 pre-existing `role="button"` elements. `pnpm buttons:check` (part of
-`pnpm lint`) keeps it so. It rejects:
+the crash fallback page, and 15 pre-existing `role="button"` elements.
+`pnpm buttons:check` (part of `pnpm lint`) keeps it so. It rejects:
 
 - a banned legacy class: any button, switch or option class from
   `design/census/mapping.ts` without global rules (`toggle-switch`,
@@ -98,8 +98,11 @@ the crash fallback page, and 15 pre-existing `role="button"` elements. `pnpm but
   element and sets look or size properties (`.panel button { background:
   …; min-height: … }`), which would outrank `ButtonBase`'s reset and tie
   with `Button`'s variants;
-- a `role="switch"`, `role="radio"` or `role="radiogroup"` outside
-  `ui/Switch.tsx` and `ui/SegmentedControl.tsx`.
+- a `role="switch"`, `role="radio"` or `role="radiogroup"` (as an
+  attribute, in a conditional, or as a `role:` prop) outside
+  `ui/Switch.tsx` and `ui/SegmentedControl.tsx`. A `role="option"` button
+  counts with the menu family (a listbox in a dropdown), so a one-of-many
+  picker built from options is a review matter, not a lint one.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
@@ -126,8 +129,14 @@ swatch or a description line. `layout` is `inline`, `fill` (equal widths
 across the row) or `stack` (one option per row); `size` is `default` or
 `small`. Options take `icon`, `description`, `disabled`, `ariaLabel` (for an
 icon-only option), `tooltip` (through `TooltipLayer`, as on `IconButton`)
-and a `className` for content styling such as a font preview. Name the
-group with `aria-label` or `aria-labelledby`.
+and a `className` that lands on the label text, for content styling such
+as a font preview; a `description` describes its option rather than
+adding to its name. Name the group with `aria-label` or
+`aria-labelledby`. A group whose change saves to the server sets
+`activation="manual"`: arrows move focus, Space or Enter selects, so
+arrowing across options does not send a write per key. Disabled options
+are `aria-disabled` rather than natively disabled, so a group disabled
+while it saves keeps keyboard focus.
 
 Which control: one setting on or off is a `Switch`; one of several values
 is a `SegmentedControl`; one thing on or off in a toolbar stays an

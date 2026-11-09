@@ -226,14 +226,15 @@ for (const path of stylesheets) {
 }
 
 // 5. Switch and radio roles outside the shared controls.
-// An attribute, not a `[role="radio"]` inside a selector string.
+// An attribute (`role="radio"`, `role={on ? "radio" : …}`) or an object
+// prop (`role: "switch"`), not a `[role="radio"]` inside a selector string.
 const SELECTION_ROLE =
-  /(?<![\w[-])role=\{?["'`](?:switch|radio|radiogroup)["'`]/g;
+  /(?<![\w[-])role(?:=\{?[^}\n]*?|:\s*)["'`](?:switch|radio|radiogroup)["'`]/g;
 const selectionCounts = new Map<string, number>();
 const selectionSites = new Map<string, string[]>();
 for (const path of sources) {
   const file = srcPath(path);
-  if (!file.endsWith(".tsx") || SELECTION_CONTROLS.has(file)) continue;
+  if (!/\.tsx?$/.test(file) || SELECTION_CONTROLS.has(file)) continue;
   const text = await readFile(path, "utf8");
   for (const match of text.matchAll(SELECTION_ROLE)) {
     selectionCounts.set(file, (selectionCounts.get(file) ?? 0) + 1);

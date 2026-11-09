@@ -80,6 +80,76 @@ describe("SegmentedControl", () => {
     expect(radio("Huge").getAttribute("aria-checked")).toBe("true");
   });
 
+  it("with manual activation, arrows move focus and Space or Enter selects", () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        aria-label="Provider"
+        activation="manual"
+        options={OPTIONS}
+        value="small"
+        onChange={onChange}
+      />,
+    );
+    radio("Small").focus();
+    fireEvent.keyDown(radio("Small"), { key: "ArrowRight" });
+    expect(document.activeElement).toBe(radio("Large"));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(radio("Large").tabIndex).toBe(0);
+    fireEvent.click(radio("Large"));
+    expect(onChange).toHaveBeenCalledWith("large");
+  });
+
+  it("keeps focus on an option when the group is disabled while it saves", () => {
+    const { rerender } = render(
+      <SegmentedControl
+        aria-label="Font size"
+        options={OPTIONS}
+        value="small"
+        onChange={() => {}}
+      />,
+    );
+    radio("Small").focus();
+    rerender(
+      <SegmentedControl
+        aria-label="Font size"
+        options={OPTIONS}
+        value="small"
+        onChange={() => {}}
+        disabled
+      />,
+    );
+    expect(document.activeElement).toBe(radio("Small"));
+    expect(radio("Small").getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("describes an option by its description rather than naming it", () => {
+    render(
+      <SegmentedControl
+        aria-label="Mode"
+        options={[{ value: "ask", label: "Ask", description: "Every time" }]}
+        value="ask"
+        onChange={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("radio", { name: "Ask", description: "Every time" }),
+    ).toBeTruthy();
+  });
+
+  it("puts an option's className on its label, not its frame", () => {
+    render(
+      <SegmentedControl
+        aria-label="Font"
+        options={[{ value: "mono", label: "Mono", className: "preview" }]}
+        value="mono"
+        onChange={() => {}}
+      />,
+    );
+    expect(radio("Mono").classList.contains("preview")).toBe(false);
+    expect(screen.getByText("Mono").classList.contains("preview")).toBe(true);
+  });
+
   it("accepts numeric values", () => {
     const onChange = vi.fn();
     render(

@@ -128,7 +128,7 @@
   flex-shrink: 0;
 }
 
-.option:disabled {
+.option[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -151,12 +151,12 @@
   box-shadow: inset 0 0 0 1px var(--app-yep-green);
 }
 
-.segment:hover:not(:disabled, [aria-checked="true"]) {
+.segment:hover:not([aria-disabled="true"], [aria-checked="true"]) {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.card:hover:not(:disabled, [aria-checked="true"]) {
+.card:hover:not([aria-disabled="true"], [aria-checked="true"]) {
   border-color: var(--text-dimmed);
   background: var(--bg-hover);
 }
