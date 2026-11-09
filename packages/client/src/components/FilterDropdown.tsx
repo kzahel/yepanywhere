@@ -6,6 +6,7 @@ import {
   Menu,
   MenuGroup,
   MenuItem,
+  type MenuSelectionStyle,
   MenuSeparator,
   useMenuTrigger,
 } from "./ui/Menu";
@@ -63,6 +64,11 @@ export interface FilterDropdownProps<T extends string> {
   triggerVariant?: "default" | "chip";
   /** "model" top-aligns option rows for badge + description layout. */
   panelVariant?: "default" | "model";
+  /**
+   * How the chosen option is shown. Defaults to a tinted row for
+   * single-select, as a select's list does, and a check for multi-select.
+   */
+  selection?: MenuSelectionStyle;
   /** Caller-owned class for the trigger button, for caller-specific sizing. */
   triggerClassName?: string;
   /** Caller-owned class for the container around the trigger. */
@@ -78,7 +84,7 @@ interface OptionSegment<T extends string> {
  * Select or multi-select filter: a trigger chip that opens a shared `Menu`,
  * anchored below the trigger, or a bottom sheet on phones. Multi-select
  * options are checkboxes that keep the menu open; single-select options are
- * radios that close it. An outside press or Escape closes it.
+ * radios that close it, the chosen one shown as a tinted row. An outside press or Escape closes it.
  */
 export function FilterDropdown<T extends string>({
   label,
@@ -94,6 +100,7 @@ export function FilterDropdown<T extends string>({
   fullWidth = false,
   triggerVariant = "default",
   panelVariant = "default",
+  selection = multiSelect ? "mark" : "highlight",
   triggerClassName,
   className = "",
 }: FilterDropdownProps<T>) {
@@ -238,6 +245,7 @@ export function FilterDropdown<T extends string>({
         anchorRef={menu.anchorRef}
         placement={align === "right" ? "bottom-end" : "bottom-start"}
         phoneSheet
+        selection={selection}
         maxHeight="min(60vh, 480px)"
         aria-label={menuLabel}
         className={isModelPanel ? styles.modelMenu : undefined}

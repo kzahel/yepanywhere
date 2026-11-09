@@ -11,6 +11,8 @@
  *   handler calls `event.preventDefault()`. `checked` makes it a
  *   `menuitemradio` (`kind="radio"`) or `menuitemcheckbox`. Disabled items
  *   stay focusable (`aria-disabled`) so their tooltip still explains why.
+ * - `selection` on `Menu` says how checked items look: a leading dot or
+ *   check (`mark`, the default) or a tinted row (`highlight`).
  * - `useMenuTrigger` wires a trigger button: ref, `aria-haspopup`,
  *   `aria-expanded`, toggle on click, and ArrowDown to open.
  */
@@ -36,8 +38,17 @@ import { Popover, type PopoverCloseReason, type PopoverProps } from "./Popover";
 
 export type MenuCloseReason = PopoverCloseReason | "tab";
 
+/**
+ * How a checked item shows that it is checked: `mark` puts a dot (radio) or
+ * check (checkbox) in a leading column; `highlight` tints the row instead,
+ * as a select's list does, for rows that already lead with their own dots
+ * or badges.
+ */
+export type MenuSelectionStyle = "mark" | "highlight";
+
 interface MenuContextValue {
   close: (reason: MenuCloseReason) => void;
+  selection: MenuSelectionStyle;
 }
 
 const MenuContext = createContext<MenuContextValue | null>(null);
@@ -96,12 +107,15 @@ export interface MenuProps
   onClose: (reason: MenuCloseReason) => void;
   /** Focus the first enabled item on open. Default true. */
   autoFocus?: boolean;
+  /** How checked items are shown. Default `mark`. */
+  selection?: MenuSelectionStyle;
 }
 
 export function Menu({
   open,
   onClose,
   autoFocus = true,
+  selection = "mark",
   onKeyDown,
   className,
   children,
@@ -111,8 +125,8 @@ export function Menu({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const context = useMemo<MenuContextValue>(
-    () => ({ close: (reason) => onCloseRef.current(reason) }),
-    [],
+    () => ({ close: (reason) => onCloseRef.current(reason), selection }),
+    [selection],
   );
 
   useLayoutEffect(() => {
@@ -265,6 +279,7 @@ export function MenuItem({
   const tooltipAttributes = useTextTooltipAttributes(tooltip);
   const descriptionId = useId();
   const checkable = checked !== undefined;
+  const highlight = checkable && menu?.selection === "highlight";
   const role = checkable
     ? kind === "radio"
       ? "menuitemradio"
@@ -287,6 +302,7 @@ export function MenuItem({
       className={[
         styles.item,
         tone === "danger" ? styles.danger : undefined,
+        highlight && checked ? styles.selected : undefined,
         className,
       ]
         .filter(Boolean)
@@ -301,7 +317,7 @@ export function MenuItem({
         if (!keepOpen && !event.defaultPrevented) menu?.close("select");
       }}
     >
-      {checkable ? (
+      {checkable && !highlight ? (
         <span className={styles.check} aria-hidden="true">
           {checked ? (kind === "radio" ? "●" : "✓") : ""}
         </span>

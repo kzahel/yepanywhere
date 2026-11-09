@@ -30,6 +30,9 @@
   text-align: left;
   text-decoration: none;
   cursor: pointer;
+  /* The menu is a height-capped flex column; without this, the explicit
+   * min-height lets rows shrink to it and two-line rows overlap. */
+  flex-shrink: 0;
 }
 
 /* A two-line item keeps its check and icon beside the label line. */
@@ -105,6 +108,20 @@
 
 .item:focus-visible {
   box-shadow: inset 0 0 0 2px var(--focus-border);
+}
+
+/* A checked item in a `selection="highlight"` menu. It stays tinted under
+ * the pointer so the choice does not disappear while hovering it. */
+.item.selected,
+.item.selected:hover {
+  background: var(--bg-selected);
+}
+
+@media (forced-colors: active) {
+  .item.selected {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
 }
 
 .separator {

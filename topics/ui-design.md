@@ -197,7 +197,11 @@ focusable, `aria-disabled`, so its tooltip can say why) and `checked` with
 unless `keepOpen` or the handler calls `preventDefault()`. `MenuLinkItem`
 is an item that is a link (`href`, with `onNavigate` to route in-app), so
 copying the link and modifier or middle clicks work as on any link and
-keep the menu open. A radio menu opens on its checked item. `MenuGroup`
+keep the menu open. A radio menu opens on its checked item. `Menu`'s
+`selection` says how checked items look: `mark` (default) puts a dot or
+check in a leading column; `highlight` tints the checked row instead, for
+select-style lists whose rows lead with their own dots or badges.
+`FilterDropdown` uses `highlight` for single-select. `MenuGroup`
 labels a group and `MenuSeparator` divides. `useMenuTrigger()` wires the
 trigger: `aria-haspopup="menu"`, `aria-expanded`, toggle on click,
 ArrowDown to open.
