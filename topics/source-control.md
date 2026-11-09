@@ -420,9 +420,12 @@ lifecycles; hidden or unfocused tabs do not multiply the safety cadence.
 The project-keyed cache lives below the configured YA data directory under
 `indexes/git-untracked/`; browsing does not create `.yep`, edit Git excludes, or
 otherwise write selected-project state. Git remains authoritative for
-`.gitignore`, `.git/info/exclude`, and the user's global excludes. Cached HEAD
-and index sets remove newly committed or staged paths immediately and force
-reconciliation when those sets change. Full filesystem reconciliation defaults
+`.gitignore`, `.git/info/exclude`, and the user's global excludes. Each query
+reads the index; newly committed or staged paths leave the list immediately,
+and a moved HEAD or a path leaving the index forces reconciliation. The cache
+file stores the HEAD sha and a digest of the index listing, never the tracked
+tree; after a reload, a changed digest forces reconciliation because the
+previous index is unknown. Full filesystem reconciliation defaults
 to hourly; a stale selected path is checked at most hourly, and a root query
 does not stat every nested child. Persisted paths must remain canonical
 repository-relative paths, bounds and truncation are explicit, and concurrent

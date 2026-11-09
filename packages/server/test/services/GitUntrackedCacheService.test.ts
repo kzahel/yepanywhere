@@ -139,6 +139,70 @@ describe("GitUntrackedCacheService", () => {
     ]);
   });
 
+  it("persists the HEAD sha and an index digest, not the tracked tree", async () => {
+    await writeFile(join(projectPath, "loose.txt"), "loose\n");
+    const options = { dataDir, fullRefreshIntervalMs: 24 * 60 * 60 * 1000 };
+    await new GitUntrackedCacheService(options).query(projectPath);
+    const cacheDir = join(dataDir, "indexes", "git-untracked");
+    const [cacheName] = await readdir(cacheDir);
+    if (!cacheName) throw new Error("Persisted cache was not created");
+    const persisted = JSON.parse(
+      await readFile(join(cacheDir, cacheName), "utf8"),
+    ) as Record<string, unknown>;
+    expect(persisted).toMatchObject({
+      version: 2,
+      headSha: expect.stringMatching(/^[0-9a-f]{40,64}$/),
+      indexDigest: expect.stringMatching(/^[0-9a-f]{64}$/),
+      files: ["loose.txt"],
+    });
+    expect(persisted).not.toHaveProperty("headPaths");
+    expect(persisted).not.toHaveProperty("indexPaths");
+
+    // After a reload the previous index is unknown, so a path leaving it
+    // must still force reconciliation.
+    await mkdir(join(projectPath, "new"));
+    await writeFile(join(projectPath, "new", "staged.txt"), "new\n");
+    await git("add", "new/staged.txt");
+    const staged = new GitUntrackedCacheService(options);
+    expect((await staged.query(projectPath, { q: "staged" })).files).toEqual(
+      [],
+    );
+    await git("reset", "--", "new/staged.txt");
+    const reopened = new GitUntrackedCacheService(options);
+    expect((await reopened.query(projectPath, { q: "staged" })).files).toEqual([
+      "new/staged.txt",
+    ]);
+  });
+
+  it("refreshes over a version 1 cache file instead of trusting it", async () => {
+    await writeFile(join(projectPath, "real.txt"), "real\n");
+    const options = { dataDir, fullRefreshIntervalMs: 24 * 60 * 60 * 1000 };
+    await new GitUntrackedCacheService(options).query(projectPath);
+    const cacheDir = join(dataDir, "indexes", "git-untracked");
+    const [cacheName] = await readdir(cacheDir);
+    if (!cacheName) throw new Error("Persisted cache was not created");
+    await writeFile(
+      join(cacheDir, cacheName),
+      `${JSON.stringify({
+        version: 1,
+        projectPath,
+        headSha: null,
+        headPaths: [],
+        indexPaths: [],
+        files: ["phantom.txt"],
+        checkedAt: { "phantom.txt": Date.now() },
+        refreshedAt: Date.now(),
+        truncated: false,
+      })}\n`,
+    );
+    const reopened = new GitUntrackedCacheService(options);
+    expect((await reopened.query(projectPath)).files).toEqual(["real.txt"]);
+    const rewritten = JSON.parse(
+      await readFile(join(cacheDir, cacheName), "utf8"),
+    ) as Record<string, unknown>;
+    expect(rewritten.version).toBe(2);
+  });
+
   it("keeps HEAD paths out after the index stops tracking them", async () => {
     const service = new GitUntrackedCacheService({ dataDir });
     await service.query(projectPath);

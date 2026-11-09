@@ -15,7 +15,7 @@ import { createLruMap, refreshLruMap } from "../lib/lruCollections.js";
 import { getLogger } from "../logging/logger.js";
 import { repositoryRelativePath } from "../review/repositoryPath.js";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const FULL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const FILE_RECHECK_INTERVAL_MS = 60 * 60 * 1000;
 const CACHE_FILE_LIMIT = 50_000;
@@ -26,21 +26,32 @@ const GIT_LIST_MAX_BUFFER = 64 * 1024 * 1024;
 
 interface GitTreeState {
   headSha: string | null;
-  headPaths: string[];
+  /** SHA-256 of `git ls-files -z --cached`. */
+  indexDigest: string;
   indexPaths: string[];
 }
 
-interface UntrackedSnapshot extends GitTreeState {
+interface UntrackedSnapshot {
   projectPath: string;
+  headSha: string | null;
+  indexDigest: string;
+  /**
+   * The index paths this snapshot was reconciled against, kept in memory
+   * only. Null after a reload from disk: the persisted digest then tells
+   * whether the index changed, and a changed index forces a full refresh
+   * because a removed path could have become untracked.
+   */
+  indexPaths: string[] | null;
   files: string[];
   checkedAt: Record<string, number>;
   refreshedAt: number;
   truncated: boolean;
 }
 
-interface PersistedUntrackedSnapshot extends UntrackedSnapshot {
+/** The tracked tree is not persisted; Git recomputes it on refresh. */
+type PersistedUntrackedSnapshot = Omit<UntrackedSnapshot, "indexPaths"> & {
   version: typeof CACHE_VERSION;
-}
+};
 
 interface ProjectCacheState {
   snapshot: UntrackedSnapshot | null;
@@ -258,12 +269,15 @@ export class GitUntrackedCacheService {
     projectPath: string,
   ): Promise<UntrackedSnapshot> {
     const snapshot = state.snapshot;
-    const tree = await readTreeState(projectPath, snapshot);
+    const tree = await readTreeState(projectPath);
     const currentIndexPaths = new Set(tree.indexPaths);
     const headMoved = snapshot?.headSha !== tree.headSha;
-    const indexRemovedPath = snapshot
-      ? snapshot.indexPaths.some((path) => !currentIndexPaths.has(path))
-      : true;
+    const indexChanged = snapshot?.indexDigest !== tree.indexDigest;
+    const indexRemovedPath =
+      !snapshot ||
+      (indexChanged &&
+        (!snapshot.indexPaths ||
+          snapshot.indexPaths.some((path) => !currentIndexPaths.has(path))));
     const stale =
       !snapshot ||
       this.now() - snapshot.refreshedAt >= this.fullRefreshIntervalMs;
@@ -282,12 +296,15 @@ export class GitUntrackedCacheService {
         files.map((path) => [path, snapshot.checkedAt[path] ?? 0]),
       );
       current = { ...snapshot, ...tree, files, checkedAt };
-    } else if (!samePaths(snapshot.indexPaths, tree.indexPaths)) {
+    } else if (indexChanged) {
       current = { ...snapshot, ...tree };
     }
     if (current !== snapshot) {
       state.snapshot = current;
       await this.persist(state, current);
+    } else if (!snapshot.indexPaths) {
+      current = { ...snapshot, indexPaths: tree.indexPaths };
+      state.snapshot = current;
     }
 
     return current;
@@ -297,8 +314,11 @@ export class GitUntrackedCacheService {
     projectPath: string,
     tree: GitTreeState,
   ): Promise<UntrackedSnapshot> {
-    const ignored = await readIgnoredPaths(projectPath);
-    const trackedPaths = new Set([...tree.headPaths, ...tree.indexPaths]);
+    const [ignored, headPaths] = await Promise.all([
+      readIgnoredPaths(projectPath),
+      readHeadPaths(projectPath, tree.headSha),
+    ]);
+    const trackedPaths = new Set([...headPaths, ...tree.indexPaths]);
     const walked = await walkCandidateFiles(
       projectPath,
       ignored,
@@ -397,9 +417,10 @@ export class GitUntrackedCacheService {
     await mkdir(this.cacheDir, { recursive: true });
     const target = this.cachePath(snapshot.projectPath);
     const temporary = `${target}.${process.pid}.tmp`;
+    const { indexPaths: _, ...persisted } = snapshot;
     const payload: PersistedUntrackedSnapshot = {
       version: CACHE_VERSION,
-      ...snapshot,
+      ...persisted,
     };
     try {
       await writeFile(temporary, `${JSON.stringify(payload)}\n`, "utf8");
@@ -416,35 +437,32 @@ export class GitUntrackedCacheService {
   }
 }
 
-async function readTreeState(
-  projectPath: string,
-  previous: UntrackedSnapshot | null,
-): Promise<GitTreeState> {
+async function readTreeState(projectPath: string): Promise<GitTreeState> {
   const [headSha, index] = await Promise.all([
     readHeadSha(projectPath),
     runGit(projectPath, ["ls-files", "-z", "--cached"], {
       maxBuffer: GIT_LIST_MAX_BUFFER,
     }),
   ]);
-  let headPaths = previous?.headPaths ?? [];
-  if (headSha !== previous?.headSha) {
-    headPaths = headSha
-      ? splitNullPaths(
-          (
-            await runGit(
-              projectPath,
-              ["ls-tree", "-r", "-z", "--name-only", headSha],
-              { maxBuffer: GIT_LIST_MAX_BUFFER },
-            )
-          ).stdout,
-        )
-      : [];
-  }
   return {
     headSha,
-    headPaths,
+    indexDigest: createHash("sha256").update(index.stdout).digest("hex"),
     indexPaths: splitNullPaths(index.stdout),
   };
+}
+
+/** HEAD paths stay excluded after `git rm --cached`; read only on refresh. */
+async function readHeadPaths(
+  projectPath: string,
+  headSha: string | null,
+): Promise<string[]> {
+  if (!headSha) return [];
+  const result = await runGit(
+    projectPath,
+    ["ls-tree", "-r", "-z", "--name-only", headSha],
+    { maxBuffer: GIT_LIST_MAX_BUFFER },
+  );
+  return splitNullPaths(result.stdout);
 }
 
 async function readHeadSha(projectPath: string): Promise<string | null> {
@@ -568,8 +586,7 @@ function parsePersistedSnapshot(
     candidate.version !== CACHE_VERSION ||
     candidate.projectPath !== projectPath ||
     (candidate.headSha !== null && typeof candidate.headSha !== "string") ||
-    !isRepositoryRelativePathArray(candidate.headPaths) ||
-    !isRepositoryRelativePathArray(candidate.indexPaths) ||
+    typeof candidate.indexDigest !== "string" ||
     !isRepositoryRelativePathArray(candidate.files) ||
     !candidate.checkedAt ||
     typeof candidate.checkedAt !== "object" ||
@@ -586,8 +603,8 @@ function parsePersistedSnapshot(
   return {
     projectPath,
     headSha: candidate.headSha,
-    headPaths: candidate.headPaths,
-    indexPaths: candidate.indexPaths,
+    indexDigest: candidate.indexDigest,
+    indexPaths: null,
     files: candidate.files,
     checkedAt,
     refreshedAt: candidate.refreshedAt,
@@ -610,11 +627,6 @@ function isRepositoryRelativePathArray(value: unknown): value is string[] {
       return false;
     }
   });
-}
-
-function samePaths(left: readonly string[], right: readonly string[]): boolean {
-  if (left.length !== right.length) return false;
-  return left.every((path, index) => path === right[index]);
 }
 
 function isExitCode(error: unknown, code: number): boolean {
