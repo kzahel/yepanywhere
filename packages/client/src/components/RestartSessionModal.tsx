@@ -19,6 +19,8 @@ import type { PermissionMode, Project } from "../types";
 import { NewSessionForm } from "./NewSessionForm";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
+import { SegmentedControl } from "./ui/SegmentedControl";
+import { Switch } from "./ui/Switch";
 
 interface RestartSessionModalProps {
   projectId: string;
@@ -222,24 +224,23 @@ export function RestartSessionModal({
             <div className="model-switch-section-header">
               <strong>{t("sessionRestartModeTitle")}</strong>
             </div>
-            <div className="model-switch-chip-group">
-              <button
-                type="button"
-                className={`model-switch-chip ${!isFork ? "active" : ""}`}
-                onClick={() => setRestartMode("handoff")}
-                title={t("sessionRestartModeHandoffDescription")}
-              >
-                <span>{t("sessionRestartModeHandoff")}</span>
-              </button>
-              <button
-                type="button"
-                className={`model-switch-chip ${isFork ? "active" : ""}`}
-                onClick={() => setRestartMode("fork")}
-                title={t("sessionRestartModeForkDescription")}
-              >
-                <span>{t("sessionRestartModeFork")}</span>
-              </button>
-            </div>
+            <SegmentedControl
+              aria-label={t("sessionRestartModeTitle")}
+              options={[
+                {
+                  value: "handoff",
+                  label: t("sessionRestartModeHandoff"),
+                  tooltip: t("sessionRestartModeHandoffDescription"),
+                },
+                {
+                  value: "fork",
+                  label: t("sessionRestartModeFork"),
+                  tooltip: t("sessionRestartModeForkDescription"),
+                },
+              ]}
+              value={isFork ? "fork" : "handoff"}
+              onChange={setRestartMode}
+            />
             {isFork && (
               <div className="model-switch-section-note">
                 {t("sessionRestartForkKeepsProvider", {
@@ -295,16 +296,11 @@ export function RestartSessionModal({
           />
         </div>
 
-        <label className="model-switch-chip">
-          <input
-            type="checkbox"
-            checked={openInNewWindow}
-            onChange={(event) =>
-              setOpenInNewWindow(event.currentTarget.checked)
-            }
-          />
-          <span>{t("sessionRestartOpenNewWindow")}</span>
-        </label>
+        <Switch
+          checked={openInNewWindow}
+          onCheckedChange={setOpenInNewWindow}
+          label={t("sessionRestartOpenNewWindow")}
+        />
 
         <div className="model-switch-actions">
           <Button onClick={onClose}>{t("modalCancel")}</Button>

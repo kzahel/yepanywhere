@@ -74,25 +74,3 @@
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
 }
-
-.detailModes button {
-  padding: 3px 8px;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.74rem;
-  background: transparent;
-  border: 0;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.detailModes button:hover,
-.detailModes button:focus-visible {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.detailModes .activeMode {
-  color: var(--text-primary);
-  background: var(--bg-selected);
-}

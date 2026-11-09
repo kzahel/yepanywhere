@@ -10,7 +10,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
-import { Button, buttonClassName, IconButton } from "./ui/Button";
+import { buttonClassName, IconButton } from "./ui/Button";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import styles from "./ImageViewer.module.css";
 
 interface ImageDimensions {
@@ -447,20 +448,21 @@ export function ImageViewer({
       role="toolbar"
       aria-label={t("imageViewerControls")}
     >
-      <Button
-        variant="ghost"
-        aria-pressed={viewMode === "fit"}
-        onClick={fitImage}
-      >
-        {t("imageViewerFit")}
-      </Button>
-      <Button
-        variant="ghost"
-        aria-pressed={viewMode === "zoom" && scale === 1}
-        onClick={() => zoomAt(1)}
-      >
-        {t("imageViewerActualSize")}
-      </Button>
+      <SegmentedControl
+        aria-label={t("imageViewerScale")}
+        options={[
+          { value: "fit", label: t("imageViewerFit") },
+          { value: "actual", label: t("imageViewerActualSize") },
+        ]}
+        value={
+          viewMode === "fit"
+            ? "fit"
+            : viewMode === "zoom" && scale === 1
+              ? "actual"
+              : null
+        }
+        onChange={(value) => (value === "fit" ? fitImage() : zoomAt(1))}
+      />
       <IconButton
         label={t("imageViewerZoomOut")}
         onClick={() => zoomAt(getCurrentScale() / IMAGE_ZOOM_STEP)}

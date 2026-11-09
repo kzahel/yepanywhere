@@ -28,6 +28,7 @@ import {
 } from "./PublicShareInventory";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import styles from "./SessionShareModal.module.css";
 
 export interface PublicShareCreationIdentity {
@@ -46,6 +47,12 @@ interface PublicShareManagerModalProps {
 }
 
 type PublicShareManagementScope = "all" | "project" | "session";
+
+const SCOPE_OPTIONS: readonly PublicShareManagementScope[] = [
+  "all",
+  "project",
+  "session",
+];
 
 type InventoryFilter = {
   projectId?: string;
@@ -392,12 +399,13 @@ function SourcePublicShareManagerModal({
     }
   };
 
-  const scopeLabel =
-    scope === "session"
+  const scopeOptionLabel = (option: PublicShareManagementScope) =>
+    option === "session"
       ? t("publicShareManagementScopeSession")
-      : scope === "project"
+      : option === "project"
         ? t("publicShareManagementScopeProject")
         : t("publicShareManagementScopeAll");
+  const scopeLabel = scopeOptionLabel(scope);
 
   const categoryConfirmLabel = (
     pending: PendingCategoryAction,
@@ -641,19 +649,28 @@ function SourcePublicShareManagerModal({
         <div className={styles.managerLayout}>
           <aside className={styles.managerSidebar}>
             {creationIdentity && (
-              <div
-                className={styles.filterGroup}
-                role="group"
-                aria-label={t("publicShareManagementScopeFilter")}
-              >
+              <div className={`${styles.filterGroup} ${styles.scopeGroup}`}>
                 <span>{t("publicShareManagementScopeFilter")}</span>
-                {(["all", "project", "session"] as const).map((scopeOption) => {
-                  const optionLabel =
-                    scopeOption === "all"
-                      ? t("publicShareManagementScopeAll")
-                      : scopeOption === "project"
-                        ? t("publicShareManagementScopeProject")
-                        : t("publicShareManagementScopeSession");
+                <SegmentedControl
+                  variant="cards"
+                  layout="stack"
+                  className={styles.scopeOptions}
+                  aria-label={t("publicShareManagementScopeFilter")}
+                  options={SCOPE_OPTIONS.map((scopeOption) => ({
+                    value: scopeOption,
+                    icon: (
+                      <span className={styles.filterIcon}>
+                        <PublicShareFilterIcon kind={scopeOption} />
+                      </span>
+                    ),
+                    label: scopeOptionLabel(scopeOption),
+                  }))}
+                  value={scope}
+                  onChange={setScopeFilter}
+                  disabled={operationInvalidationDisabled}
+                />
+                {SCOPE_OPTIONS.map((scopeOption) => {
+                  const optionLabel = scopeOptionLabel(scopeOption);
                   const categoryKey = `scope:${scopeOption}` as const;
                   const pending =
                     pendingCategoryAction?.action === "revoke" &&
@@ -666,46 +683,32 @@ function SourcePublicShareManagerModal({
                         scope: optionLabel,
                       });
                   return (
-                    <div className={styles.scopeRow} key={scopeOption}>
-                      <ButtonBase
-                        className={`${styles.filterButton} ${
-                          scope === scopeOption ? styles.filterButtonActive : ""
-                        }`}
-                        aria-pressed={scope === scopeOption}
-                        disabled={operationInvalidationDisabled}
-                        onClick={() => setScopeFilter(scopeOption)}
-                      >
-                        <span className={styles.filterIcon}>
-                          <PublicShareFilterIcon kind={scopeOption} />
-                        </span>
-                        <span>{optionLabel}</span>
-                      </ButtonBase>
-                      <IconButton
-                        label={revokeLabel}
-                        variant="danger-outline"
-                        size="small"
-                        className={styles.revokeTypeButton}
-                        disabled={mutationsDisabled}
-                        onClick={() =>
-                          void (pending
-                            ? confirmCategoryAction()
-                            : prepareCategoryAction({
-                                action: "revoke",
-                                key: categoryKey,
-                                scope: scopeOption,
-                                scopeLabel: optionLabel,
-                              }))
-                        }
-                      >
-                        {operationWorking?.endsWith(categoryKey) ? (
-                          "…"
-                        ) : pending ? (
-                          <PublicShareConfirmIcon />
-                        ) : (
-                          <PublicShareRevokeIcon />
-                        )}
-                      </IconButton>
-                    </div>
+                    <IconButton
+                      key={scopeOption}
+                      label={revokeLabel}
+                      variant="danger-outline"
+                      size="small"
+                      className={styles.revokeTypeButton}
+                      disabled={mutationsDisabled}
+                      onClick={() =>
+                        void (pending
+                          ? confirmCategoryAction()
+                          : prepareCategoryAction({
+                              action: "revoke",
+                              key: categoryKey,
+                              scope: scopeOption,
+                              scopeLabel: optionLabel,
+                            }))
+                      }
+                    >
+                      {operationWorking?.endsWith(categoryKey) ? (
+                        "…"
+                      ) : pending ? (
+                        <PublicShareConfirmIcon />
+                      ) : (
+                        <PublicShareRevokeIcon />
+                      )}
+                    </IconButton>
                   );
                 })}
               </div>

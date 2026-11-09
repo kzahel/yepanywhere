@@ -36,6 +36,7 @@ import {
 } from "../components/SourceFileRow";
 import { Button, ButtonBase } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { useProjectReviewComments } from "../hooks/useProjectReviewComments";
 import { useProjectWorktree } from "../hooks/useProjectWorktree";
 import {
@@ -796,27 +797,18 @@ function WorkingTreeFileDetail({
   return (
     <section className={styles.detail}>
       {tracked && (
-        <fieldset
-          className={styles.detailModes}
-          aria-label={t("sourceViewMode")}
-        >
-          <button
-            type="button"
-            className={effectiveMode === "contents" ? styles.activeMode : ""}
-            aria-pressed={effectiveMode === "contents"}
-            onClick={() => onModeChange("contents")}
-          >
-            {t("sourceViewContents")}
-          </button>
-          <button
-            type="button"
-            className={effectiveMode === "blame" ? styles.activeMode : ""}
-            aria-pressed={effectiveMode === "blame"}
-            onClick={() => onModeChange("blame")}
-          >
-            {t("sourceViewBlame")}
-          </button>
-        </fieldset>
+        <div className={styles.detailModes}>
+          <SegmentedControl
+            size="small"
+            aria-label={t("sourceViewMode")}
+            options={[
+              { value: "contents", label: t("sourceViewContents") },
+              { value: "blame", label: t("sourceViewBlame") },
+            ]}
+            value={effectiveMode}
+            onChange={onModeChange}
+          />
+        </div>
       )}
       {effectiveMode === "blame" ? (
         <BlameView

@@ -721,12 +721,10 @@ describe("GlobalSessionsPage", () => {
     renderPage("/sessions?q=opening");
     expect(screen.getByTestId("session-renamed")).toBeDefined();
     expect(
-      screen
-        .getByRole("button", { name: "Last activity" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+      screen.getByRole("radio", { name: "Last activity", checked: true }),
+    ).toBeDefined();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /^Turns$/ }));
+      fireEvent.click(screen.getByRole("radio", { name: /^Turns$/ }));
     });
     await act(async () => {
       fireEvent.change(screen.getByRole("textbox", { name: /^Maximum age/ }), {
@@ -741,11 +739,11 @@ describe("GlobalSessionsPage", () => {
     });
     expect(screen.getByTestId("session-renamed")).toBeDefined();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Created" }));
+      fireEvent.click(screen.getByRole("radio", { name: "Created" }));
     });
     expect(screen.queryByTestId("session-renamed")).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Last activity" }));
+      fireEvent.click(screen.getByRole("radio", { name: "Last activity" }));
     });
     expect(screen.getByTestId("session-renamed")).toBeDefined();
     await act(async () => {

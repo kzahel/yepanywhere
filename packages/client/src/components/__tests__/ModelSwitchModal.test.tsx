@@ -188,7 +188,7 @@ describe("ModelSwitchModal", () => {
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /effortLevelMaxLabel/ }),
+      await screen.findByRole("radio", { name: /effortLevelMaxLabel/ }),
     );
     const saveButtons = await screen.findAllByRole("button", {
       name: /modelSwitchSaveAll/,
@@ -229,9 +229,7 @@ describe("ModelSwitchModal", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: /Other/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /effortLevelMaxLabel/ }),
-    );
+    fireEvent.click(screen.getByRole("radio", { name: /effortLevelMaxLabel/ }));
     const saveButtons = await screen.findAllByRole("button", {
       name: /modelSwitchSaveAll/,
     });
@@ -351,19 +349,13 @@ describe("ModelSwitchModal", () => {
       const onClose = vi.fn();
       renderModal(onClose);
 
-      const standard = await screen.findByRole("button", {
+      await screen.findByRole("radio", {
         name: "serviceTierStandardLabel",
+        checked: true,
       });
-      expect(standard.getAttribute("aria-pressed")).toBe("true");
-      fireEvent.click(screen.getByRole("button", { name: "Fast" }));
+      fireEvent.click(screen.getByRole("radio", { name: "Fast" }));
 
-      await waitFor(() => {
-        expect(
-          screen
-            .getByRole("button", { name: "Fast" })
-            .getAttribute("aria-pressed"),
-        ).toBe("true");
-      });
+      await screen.findByRole("radio", { name: "Fast", checked: true });
       expect(mockSetProcessConfig).toHaveBeenCalledWith("process-1", {
         serviceTier: "priority",
       });
@@ -387,12 +379,12 @@ describe("ModelSwitchModal", () => {
       });
       renderModal();
 
-      const ultra = await screen.findByRole("button", {
+      await screen.findByRole("radio", {
         name: "serviceTierUltraFastLabel",
+        checked: true,
       });
-      expect(ultra.getAttribute("aria-pressed")).toBe("true");
       fireEvent.click(
-        screen.getByRole("button", { name: "serviceTierStandardLabel" }),
+        screen.getByRole("radio", { name: "serviceTierStandardLabel" }),
       );
       await waitFor(() => {
         expect(mockSetProcessConfig).toHaveBeenCalledWith("process-1", {
@@ -412,7 +404,7 @@ describe("ModelSwitchModal", () => {
         renderModal(vi.fn(), true);
         await screen.findByText("GPT-5.6-Luna");
         if (supported) {
-          fireEvent.click(screen.getByRole("button", { name: "Fast" }));
+          fireEvent.click(screen.getByRole("radio", { name: "Fast" }));
           await waitFor(() =>
             expect(mockSetProcessConfig).toHaveBeenCalledWith("process-1", {
               serviceTier: "priority",

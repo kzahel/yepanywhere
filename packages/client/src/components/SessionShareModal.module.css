@@ -57,17 +57,13 @@
   text-align: left;
 }
 
-.filterRow,
-.scopeRow {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
 /* The trailing columns hold small icon buttons, which widen on coarse
    pointers; auto columns follow them. */
 .filterRow {
+  display: grid;
+  gap: 4px;
   grid-template-columns: minmax(0, 1fr) auto auto;
+  min-width: 0;
 }
 
 .filterRowNoCreate {
@@ -82,10 +78,6 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
-.scopeRow {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
 .addButton,
 .freezeTypeButton,
 .revokeTypeButton {
@@ -98,6 +90,29 @@
   display: block;
   height: 16px;
   width: 16px;
+}
+
+/* Scope options stack in the first column on the parent's rows (subgrid),
+   so each revoke button sits beside its option. */
+.scopeGroup {
+  column-gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.scopeGroup > span {
+  grid-column: 1 / -1;
+}
+
+.filterGroup .scopeOptions {
+  display: grid;
+  grid-column: 1;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: normal;
+}
+
+.scopeGroup .revokeTypeButton {
+  grid-column: 2;
 }
 
 .freezeConfirmationBanner,

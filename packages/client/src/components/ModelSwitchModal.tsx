@@ -51,6 +51,7 @@ import { ProviderBadge } from "./ProviderBadge";
 import { ModelSubscriptionUsage } from "./ModelSubscriptionUsage";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
+import { SegmentedControl } from "./ui/SegmentedControl";
 
 interface ModelSwitchModalProps {
   /** Session uses an AAR account pin. */
@@ -93,6 +94,8 @@ interface ModelSwitchModalProps {
 }
 
 type ThinkingMode = "off" | "auto" | "on";
+/** Speed picker value for Standard (null tier); never a selectable tier id. */
+const STANDARD_SERVICE_TIER = "default";
 type DirtySection = "thinking" | "effort" | "model" | null;
 
 function toThinkingOption(
@@ -579,46 +582,39 @@ export function ModelSwitchModal({
                   <strong>{t("newSessionThinkingMode")}</strong>
                 </div>
                 <div className="model-switch-chip-group">
-                  {thinkingModeOptions.map((mode) => {
-                    const isCurrent = currentThinkingMode === mode;
-                    const isSelected = effectiveThinkingMode === mode;
-                    const showInlineSave =
-                      dirty && lastTouchedSection === "thinking" && isSelected;
-                    return (
-                      <Fragment key={mode}>
-                        <button
-                          type="button"
-                          className={`model-switch-chip ${isCurrent ? "current" : ""} ${isSelected ? "active" : ""}`}
-                          onClick={() => {
-                            if (effectiveThinkingMode !== mode) {
-                              setLastTouchedSection("thinking");
-                            }
-                            setThinkingModeState(mode);
-                          }}
-                          disabled={switching}
-                        >
-                          <span
-                            className={`model-switch-indicator-dot tone-${
-                              mode === "off"
-                                ? "off"
-                                : mode === "auto"
-                                  ? "auto"
-                                  : effectiveEffortLevel
-                            }`}
-                            aria-hidden="true"
-                          />
-                          <span>
-                            {mode === "off"
-                              ? t("modelSettingsThinkingOffLabel")
+                  <SegmentedControl
+                    variant="cards"
+                    aria-label={t("newSessionThinkingMode")}
+                    options={thinkingModeOptions.map((mode) => ({
+                      value: mode,
+                      icon: (
+                        <span
+                          className={`model-switch-indicator-dot tone-${
+                            mode === "off"
+                              ? "off"
                               : mode === "auto"
-                                ? t("modelSettingsThinkingAutoLabel")
-                                : t("modelSettingsThinkingOnLabel")}
-                          </span>
-                        </button>
-                        {showInlineSave && renderInlineSave()}
-                      </Fragment>
-                    );
-                  })}
+                                ? "auto"
+                                : effectiveEffortLevel
+                          }`}
+                        />
+                      ),
+                      label:
+                        mode === "off"
+                          ? t("modelSettingsThinkingOffLabel")
+                          : mode === "auto"
+                            ? t("modelSettingsThinkingAutoLabel")
+                            : t("modelSettingsThinkingOnLabel"),
+                    }))}
+                    value={effectiveThinkingMode}
+                    onChange={(mode) => {
+                      setLastTouchedSection("thinking");
+                      setThinkingModeState(mode);
+                    }}
+                    disabled={switching}
+                  />
+                  {dirty &&
+                    lastTouchedSection === "thinking" &&
+                    renderInlineSave()}
                 </div>
               </section>
             )}
@@ -629,43 +625,34 @@ export function ModelSwitchModal({
                   <strong>{t("modelSettingsEffortTitle")}</strong>
                 </div>
                 <div className="model-switch-chip-group">
-                  {effortOptions.map((option) => {
-                    const isCurrent =
-                      currentThinkingMode === "on" &&
-                      currentEffortLevel === option.value;
-                    const isSelected =
-                      effectiveThinkingMode === "on" &&
-                      effectiveEffortLevel === option.value;
-                    const showInlineSave =
-                      dirty && lastTouchedSection === "effort" && isSelected;
-                    return (
-                      <Fragment key={option.value}>
-                        <button
-                          type="button"
-                          className={`model-switch-chip ${isCurrent ? "current" : ""} ${isSelected ? "active" : ""}`}
-                          onClick={() => {
-                            if (
-                              effectiveThinkingMode !== "on" ||
-                              effortLevel !== option.value
-                            ) {
-                              setLastTouchedSection("effort");
-                            }
-                            setEffortLevelState(option.value);
-                            setThinkingModeState("on");
-                          }}
-                          disabled={switching}
-                          title={option.description}
-                        >
-                          <span
-                            className={`model-switch-indicator-dot tone-${option.value}`}
-                            aria-hidden="true"
-                          />
-                          <span>{option.label}</span>
-                        </button>
-                        {showInlineSave && renderInlineSave()}
-                      </Fragment>
-                    );
-                  })}
+                  <SegmentedControl
+                    variant="cards"
+                    aria-label={t("modelSettingsEffortTitle")}
+                    options={effortOptions.map((option) => ({
+                      value: option.value,
+                      icon: (
+                        <span
+                          className={`model-switch-indicator-dot tone-${option.value}`}
+                        />
+                      ),
+                      label: option.label,
+                      tooltip: option.description,
+                    }))}
+                    value={
+                      effectiveThinkingMode === "on"
+                        ? effectiveEffortLevel
+                        : null
+                    }
+                    onChange={(value) => {
+                      setLastTouchedSection("effort");
+                      setEffortLevelState(value);
+                      setThinkingModeState("on");
+                    }}
+                    disabled={switching}
+                  />
+                  {dirty &&
+                    lastTouchedSection === "effort" &&
+                    renderInlineSave()}
                 </div>
               </section>
             )}
@@ -675,31 +662,28 @@ export function ModelSwitchModal({
                 <div className="model-switch-section-header">
                   <strong>{t("modelSwitchSpeedLabel")}</strong>
                 </div>
-                <div className="model-switch-chip-group">
-                  {[
+                <SegmentedControl
+                  aria-label={t("modelSwitchSpeedLabel")}
+                  options={[
                     {
-                      id: null,
-                      name: t("serviceTierStandardLabel"),
-                      description: t("serviceTierStandardDescription"),
+                      value: STANDARD_SERVICE_TIER,
+                      label: t("serviceTierStandardLabel"),
+                      tooltip: t("serviceTierStandardDescription"),
                     },
-                    ...serviceTierOptions,
-                  ].map((tier) => {
-                    const isCurrent = currentServiceTier === tier.id;
-                    return (
-                      <button
-                        key={tier.id ?? "standard"}
-                        type="button"
-                        className={`model-switch-chip ${isCurrent ? "current active" : ""}`}
-                        aria-pressed={isCurrent}
-                        onClick={() => void applyServiceTier(tier.id)}
-                        disabled={switching || savingServiceTier}
-                        title={tier.description}
-                      >
-                        <span>{tier.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                    ...serviceTierOptions.map((tier) => ({
+                      value: tier.id,
+                      label: tier.name,
+                      tooltip: tier.description,
+                    })),
+                  ]}
+                  value={currentServiceTier ?? STANDARD_SERVICE_TIER}
+                  onChange={(value) =>
+                    void applyServiceTier(
+                      value === STANDARD_SERVICE_TIER ? null : value,
+                    )
+                  }
+                  disabled={switching || savingServiceTier}
+                />
                 <div className="model-switch-section-note">
                   {t("modelSwitchSpeedLiveHint")}
                 </div>

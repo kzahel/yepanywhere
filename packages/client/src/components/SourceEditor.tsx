@@ -16,6 +16,7 @@ import {
 import { generateUUID } from "../lib/uuid";
 import { Button } from "./ui/Button";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import styles from "./SourceEditor.module.css";
 import { ViewerModeToggle } from "./ViewerModeToggle";
 
@@ -684,22 +685,17 @@ export function SourceEditor({
         </div>
       )}
       {preview && (
-        <nav className={styles.tabs} aria-label={t("sourceEditorViews")}>
-          <button
-            type="button"
-            aria-pressed={!showPreview}
-            onClick={() => setShowPreview(false)}
-          >
-            {t("sourceEditorSource")}
-          </button>
-          <button
-            type="button"
-            aria-pressed={showPreview}
-            onClick={() => setShowPreview(true)}
-          >
-            {t("sourceEditorPreview")}
-          </button>
-        </nav>
+        <div className={styles.tabs}>
+          <SegmentedControl
+            aria-label={t("sourceEditorViews")}
+            options={[
+              { value: "source", label: t("sourceEditorSource") },
+              { value: "preview", label: t("sourceEditorPreview") },
+            ]}
+            value={showPreview ? "preview" : "source"}
+            onChange={(view) => setShowPreview(view === "preview")}
+          />
+        </div>
       )}
       <div className={styles.panes} data-preview={showPreview}>
         <div className={styles.sourcePane}>

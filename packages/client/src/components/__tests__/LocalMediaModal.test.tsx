@@ -608,9 +608,9 @@ describe("LocalMediaModal", () => {
       .querySelector<HTMLElement>(`.${imageViewerStyles.stage}`);
     expect(imageSurface).toBeTruthy();
     if (!imageSurface) return;
-    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    fireEvent.click(screen.getByRole("radio", { name: "100%" }));
     expect(hasClass(imageSurface, imageViewerStyles.zoom)).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Fit" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Fit" }));
     expect(hasClass(imageSurface, imageViewerStyles.fit)).toBe(true);
 
     const image = screen.getByRole("img", { name: "plot.png" });
@@ -673,7 +673,7 @@ describe("LocalMediaModal", () => {
 
     dispatchTouchPointer("pointerup", 1, 300);
     dispatchTouchPointer("pointerup", 2, 700);
-    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    fireEvent.click(screen.getByRole("radio", { name: "100%" }));
     await act(
       () =>
         new Promise<void>((resolve) => {
@@ -931,7 +931,7 @@ describe("LocalMediaModal", () => {
     );
 
     await screen.findByRole("img", { name: "plot.png" });
-    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    fireEvent.click(screen.getByRole("radio", { name: "100%" }));
     const stage = screen
       .getByRole("dialog")
       .querySelector<HTMLElement>(`.${imageViewerStyles.stage}`);

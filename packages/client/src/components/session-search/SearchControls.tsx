@@ -14,6 +14,7 @@ import {
   type TimeBasis,
 } from "./model";
 import { Button, ButtonBase, IconButton } from "../ui/Button";
+import { SegmentedControl } from "../ui/SegmentedControl";
 import styles from "./SessionSearch.module.css";
 
 export function CheckIcon({ size = 18 }: { size?: number }) {
@@ -345,19 +346,17 @@ export function SearchFilters({
   return (
     <div className={styles.filterRow}>
       <div className={styles.range}>
-        <div className={styles.basis}>
-          {(["activity", "turns", "created"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={basis === value}
-              title={t(`sessionSearchTimeHelp_${value}`)}
-              onClick={() => onBasis(value)}
-            >
-              {t(`sessionSearchTime_${value}`)}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="small"
+          aria-label={t("sessionSearchTimeBasis")}
+          options={(["activity", "turns", "created"] as const).map((value) => ({
+            value,
+            label: t(`sessionSearchTime_${value}`),
+            tooltip: t(`sessionSearchTimeHelp_${value}`),
+          }))}
+          value={basis}
+          onChange={onBasis}
+        />
         <div className={styles.age}>
           <RangeField
             label={t("sessionSearchFrom")}

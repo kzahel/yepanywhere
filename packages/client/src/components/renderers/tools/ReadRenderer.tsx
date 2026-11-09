@@ -42,6 +42,7 @@ import {
 import { InnerHtml } from "../../ui/InnerHtml";
 import { ButtonBase } from "../../ui/Button";
 import { RenderModeGlyph } from "../../ui/RenderModeGlyph";
+import { SegmentedControl } from "../../ui/SegmentedControl";
 import type {
   ImageFile,
   PdfFile,
@@ -50,6 +51,11 @@ import type {
   TextFile,
 } from "./types";
 import styles from "./ReadRenderer.module.css";
+
+const MARKDOWN_VIEW_OPTIONS = [
+  { value: "source", label: "Source" },
+  { value: "preview", label: "Preview" },
+] as const;
 
 /** Extended result type with server-rendered syntax highlighting */
 type ReadResultWithAugment = ReadResult;
@@ -226,6 +232,7 @@ function FileModalContent({
   highlightedTruncated?: boolean;
   renderedMarkdownHtml?: string;
 }) {
+  const { t } = useI18n();
   const isMarkdown = isMarkdownLikeFile(file.filePath);
   const clientMarkdownPreview = useMemo(() => {
     if (!isMarkdown || renderedMarkdownHtml) {
@@ -314,20 +321,13 @@ function FileModalContent({
 
   const toggleButton = hasMarkdownPreview && (
     <div className="markdown-view-toggle">
-      <button
-        type="button"
-        className={`toggle-btn ${!showPreview ? "active" : ""}`}
-        onClick={() => setShowPreview(false)}
-      >
-        Source
-      </button>
-      <button
-        type="button"
-        className={`toggle-btn ${showPreview ? "active" : ""}`}
-        onClick={() => setShowPreview(true)}
-      >
-        Preview
-      </button>
+      <SegmentedControl
+        size="small"
+        aria-label={t("sourceViewMode")}
+        options={MARKDOWN_VIEW_OPTIONS}
+        value={showPreview ? "preview" : "source"}
+        onChange={(view) => setShowPreview(view === "preview")}
+      />
     </div>
   );
   const showSigma = !hasMarkdownPreview && hasMathToggle;

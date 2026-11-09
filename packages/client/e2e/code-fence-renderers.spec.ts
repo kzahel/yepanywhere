@@ -229,7 +229,7 @@ test("renders a mermaid fence at phone width", async ({ page, baseURL }) => {
     .poll(() => stage.evaluate((node) => node.scrollLeft))
     .toBeGreaterThan(beforePan + 40);
   await recordUiCapture(page, "mermaid-viewer-phone-zoomed-375x812");
-  await viewer.getByRole("button", { name: "Fit", exact: true }).click();
+  await viewer.getByRole("radio", { name: "Fit", exact: true }).click();
   await recordUiCapture(page, "mermaid-viewer-phone-fit-375x812");
   await page.goBack();
   await expect(viewer).toBeHidden();

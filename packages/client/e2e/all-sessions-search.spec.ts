@@ -37,8 +37,8 @@ for (const viewport of [
     const search = page.getByRole("searchbox", { name: "Search sessions..." });
     await expect(page.getByRole("checkbox", { name: "CSV AND" })).toBeChecked();
     await expect(
-      page.getByRole("button", { name: "Last activity", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+      page.getByRole("radio", { name: "Last activity", exact: true }),
+    ).toBeChecked();
     await page.getByRole("checkbox", { name: /^User/ }).check();
     const rows = page.locator(".session-list-item--card");
     await expect(rows).toHaveCount(2, { timeout: 30000 });
@@ -300,7 +300,7 @@ test("All Sessions preserves copying and returns to the query end only when typi
   await page.keyboard.type("2");
   await expect(age).toHaveValue("12");
   await expect(search).toHaveValue(`${query}z`);
-  await page.getByRole("button", { name: "Turns", exact: true }).click();
+  await page.getByRole("radio", { name: "Turns", exact: true }).click();
   await expect(search).not.toBeFocused();
   await page.keyboard.press("Backspace");
   await expect(search).toHaveValue(query);

@@ -11,16 +11,6 @@
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-/* The Source/Preview choice stays raw until the segmented-control family. */
-.tabs button {
-  min-height: 36px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  cursor: pointer;
-}
 .header {
   display: flex;
   gap: 8px;
@@ -159,11 +149,7 @@
   }
   .tabs {
     display: flex;
-    gap: 8px;
     padding: 6px 12px;
-  }
-  .tabs button[aria-pressed="true"] {
-    border-color: var(--text-primary);
   }
   .panes[data-preview="true"] .sourcePane {
     display: none;

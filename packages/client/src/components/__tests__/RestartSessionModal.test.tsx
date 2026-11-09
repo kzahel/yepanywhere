@@ -204,7 +204,7 @@ describe("RestartSessionModal", () => {
     await screen.findByTestId("new-session-form");
 
     fireEvent.click(
-      screen.getByRole("button", { name: "sessionRestartModeFork" }),
+      screen.getByRole("radio", { name: "sessionRestartModeFork" }),
     );
 
     await waitFor(() => {
@@ -238,7 +238,7 @@ describe("RestartSessionModal", () => {
     await screen.findByTestId("new-session-form");
 
     expect(
-      screen.queryByRole("button", { name: "sessionRestartModeFork" }),
+      screen.queryByRole("radio", { name: "sessionRestartModeFork" }),
     ).toBeNull();
   });
 
@@ -261,7 +261,7 @@ describe("RestartSessionModal", () => {
     // Forking replays the whole transcript into the same limit, so the option
     // is withheld rather than offered and failed.
     expect(
-      screen.queryByRole("button", { name: "sessionRestartModeFork" }),
+      screen.queryByRole("radio", { name: "sessionRestartModeFork" }),
     ).toBeNull();
     expect(screen.getByText(/sessionRestartForkRateLimitedUntil/)).toBeTruthy();
     // Handoff remains available: its bounded summary is the way out.

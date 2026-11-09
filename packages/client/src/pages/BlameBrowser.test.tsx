@@ -407,7 +407,7 @@ describe("BlameBrowser", () => {
     expect(await screen.findByText("contents:README.md")).toBeDefined();
     expect(getGitBlame).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "sourceViewBlame" }));
+    fireEvent.click(screen.getByRole("radio", { name: "sourceViewBlame" }));
     await waitFor(() =>
       expect(getGitBlame).toHaveBeenCalledWith("p1", "README.md"),
     );

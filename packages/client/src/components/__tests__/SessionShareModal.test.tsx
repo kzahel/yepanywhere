@@ -524,10 +524,10 @@ describe("SessionShareModal", () => {
       sessionId: "session-1",
       mode: undefined,
     });
-    const scope = screen.getByRole("group", { name: "Show" });
-    expect(
-      scope.querySelector('button[aria-pressed="true"]')?.textContent,
-    ).toBe("This session");
+    const scope = screen.getByRole("radiogroup", { name: "Show" });
+    expect(scope.querySelector('[aria-checked="true"]')?.textContent).toBe(
+      "This session",
+    );
     expect(
       screen.queryByRole("button", { name: "Share This Session" }),
     ).toBeNull();
@@ -540,7 +540,7 @@ describe("SessionShareModal", () => {
     expect(api.createPublicSessionShare).not.toHaveBeenCalled();
     expect(screen.getByText(/could not snapshot linked files/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "All projects" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All projects" }));
     await waitFor(() => {
       expect(api.getPublicShares).toHaveBeenLastCalledWith({
         projectId: undefined,
@@ -653,9 +653,7 @@ describe("SessionShareModal", () => {
     const createButton = screen.getByRole("button", {
       name: "Create and copy Frozen link",
     });
-    const scopeFilter = screen.getByRole("button", {
-      name: /^All projects$/,
-    });
+    const scopeFilter = screen.getByRole("radio", { name: /^All projects$/ });
     const copy = screen.getByRole("button", { name: "Copy public link" });
     const prepare = screen.getByRole("button", {
       name: "Review all Frozen share links in This session for revocation",
@@ -1043,9 +1041,7 @@ describe("SessionShareModal", () => {
       }),
     );
 
-    const scopeFilter = screen.getByRole("button", {
-      name: /^All projects$/,
-    });
+    const scopeFilter = screen.getByRole("radio", { name: /^All projects$/ });
     const copy = screen.getAllByRole("button", {
       name: "Copy public link",
     })[0];
@@ -1171,7 +1167,7 @@ describe("SessionShareModal", () => {
       name: "Confirm: revoke 1 Frozen share link(s) in This session (0 active client(s))",
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^All projects$/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /^All projects$/ }));
     await waitFor(() => {
       expect(api.getPublicShares).toHaveBeenLastCalledWith({
         projectId: undefined,
@@ -1400,7 +1396,7 @@ describe("SessionShareModal", () => {
         name: "Review all Frozen share links in This session for revocation",
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "All projects" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All projects" }));
     preparation.resolve({
       items: [managedItem("share-1", "Build logs")],
       nextCursor: null,
@@ -1510,10 +1506,8 @@ describe("SessionShareModal", () => {
       ).toBeTruthy();
     });
     expect(
-      screen
-        .getByRole("button", { name: /^This project$/ })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+      screen.getByRole("radio", { name: /^This project$/, checked: true }),
+    ).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "Frozen" })

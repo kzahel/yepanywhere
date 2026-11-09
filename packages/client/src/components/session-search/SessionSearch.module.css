@@ -179,33 +179,6 @@
 .range {
   flex-wrap: wrap;
 }
-.basis {
-  display: inline-flex;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  overflow: hidden;
-}
-.basis button {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  border: 0;
-  border-right: 1px solid var(--border-color);
-  padding: 6px 8px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.basis button:last-child {
-  border-right: 0;
-}
-.basis button[aria-pressed="true"] {
-  color: var(--text-primary);
-  background: color-mix(
-    in srgb,
-    var(--accent-primary) 24%,
-    var(--bg-secondary)
-  );
-  box-shadow: inset 0 -2px var(--accent-primary);
-}
 .age {
   gap: 4px;
   font:
@@ -425,9 +398,6 @@
   .range {
     width: 100%;
     justify-content: space-between;
-  }
-  .basis button {
-    padding: 7px 8px;
   }
   .ageField {
     height: 32px;
