@@ -2,10 +2,10 @@
    width rather than widening it. */
 .heading {
   box-sizing: border-box;
+  display: block;
   width: 0;
   min-width: 100%;
   overflow: hidden;
-  padding: var(--space-1) var(--space-2);
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);

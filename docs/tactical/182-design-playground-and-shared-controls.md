@@ -181,7 +181,8 @@ of slightly different styles.
   light dismiss races React state; popovers instead join `Modal`'s layer
   stack (`useModalLayer` can now decline an Escape), and `Modal` stays a
   portal `div`. A census (Census/Menus and popovers, `LEGACY_MENUS`) found
-  24 hand-rolled surfaces in scope; all moved: the session menu (no roles,
+  23 hand-rolled surfaces in scope (plus the anchored `Modal`, kept); all
+  moved: the session menu (no roles,
   Escape or focus handling before), the account chip, the project
   reclassify menu, recent sessions, the issues menu (rows are real links),
   the fork-turn, notch, source and file context menus (with a nested
@@ -197,6 +198,21 @@ of slightly different styles.
   pointer listeners outside `Popover`, and counts menu and listbox buttons
   as raw buttons; the allowlist names what is left (the composer's
   surfaces and gesture or link-routing listeners that are not dismissals).
+  An Opus review (2026-11-09) found three blockers, all fixed: a check
+  failing on intermediate commits (regrouped), the dismissing press also
+  clicking what lay underneath (the click is now swallowed, as the old
+  overlays did) and menus inside a `Modal` landing outside its
+  `aria-modal` dialog (they now portal into it). Its other fixes: a
+  default type size and a roomier `card` surface for text popovers, hover
+  reveals keyed on `:focus-visible` so focus returned after a mouse pick
+  leaves no trigger painted, popovers closing when their trigger is
+  parked or scrolled away, the Escape order taken at open, typeahead on
+  labels only, menus opened by pointer leaving focus where it was (moving
+  it into the menu pulled it out of the composer, whose layout change
+  stopped the transcript following new output; a header E2E spec had
+  turned flaky), the switch-host menu anchored to its button, model badges
+  in the icon slot, wider ban patterns, a heading made a group label, and
+  a dead composer popover deleted.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

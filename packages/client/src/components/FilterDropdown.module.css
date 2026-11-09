@@ -101,7 +101,9 @@
  * consistent gutter so model names line up, and widen the desktop menu so
  * descriptions wrap to one or two lines instead of three or four.
  */
-.optionIcon.model {
+/* Model badges share one column so the names after them line up. */
+.modelBadge {
+  display: inline-flex;
   justify-content: flex-start;
   min-width: 96px;
 }

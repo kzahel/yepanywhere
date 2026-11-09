@@ -1070,7 +1070,7 @@ toggle is the shared `Switch`, one-of-many pickers are `SegmentedControl`
 radio groups, and lint bans the old classes and roles. Menus and popovers
 landed the same day: a shared `Popover` (portal, script placement, outside
 press and layered Escape, focus return, phone sheet) and `Menu` replace
-about 24 hand-rolled menus, dropdowns and panels, with a `--z-modal`/
+23 hand-rolled menus, dropdowns and panels, with a `--z-modal`/
 `--z-popover`/`--z-tooltip` layer scale, and lint bans menu roles and
 document pointer listeners outside them. Fields are next.
 

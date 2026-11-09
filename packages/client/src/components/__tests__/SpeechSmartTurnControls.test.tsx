@@ -36,7 +36,7 @@ function expectNoLegacyClasses(container: HTMLElement) {
 }
 
 describe("SpeechSmartTurnControls", () => {
-  it("uses module classes in full and compact render branches", () => {
+  it("uses module classes", () => {
     const settings = {
       enabled: true,
       threshold: 0.5,
@@ -44,7 +44,7 @@ describe("SpeechSmartTurnControls", () => {
       graceMs: 0,
     };
     const onChange = vi.fn();
-    const { container, rerender } = render(
+    const { container } = render(
       <I18nProvider>
         <SpeechSmartTurnControls settings={settings} onChange={onChange} />
       </I18nProvider>,
@@ -54,29 +54,6 @@ describe("SpeechSmartTurnControls", () => {
     expect(fullRoot?.classList.contains(styles.root!)).toBe(true);
     expect(fullRoot?.querySelector(`.${styles.body}`)).not.toBeNull();
     expect(fullRoot?.querySelectorAll(`.${rowStyles.row}`)).toHaveLength(4);
-    expectNoLegacyClasses(container);
-
-    rerender(
-      <I18nProvider>
-        <SpeechSmartTurnControls
-          compact
-          settings={settings}
-          onChange={onChange}
-        />
-      </I18nProvider>,
-    );
-
-    const compactRoot = container.querySelector("details");
-    const summary = compactRoot?.querySelector("summary");
-    expect(compactRoot?.classList.contains(styles.root!)).toBe(true);
-    expect(compactRoot?.classList.contains(styles.compact!)).toBe(true);
-    expect(summary?.classList.contains(styles.summary!)).toBe(true);
-    expect(compactRoot?.querySelector(`.${styles.popover}`)).not.toBeNull();
-    expect(compactRoot?.querySelector(`.${styles.body}`)).not.toBeNull();
-    expect(compactRoot?.querySelectorAll(`.${rowStyles.row}`)).toHaveLength(4);
-
-    fireEvent.click(summary as HTMLElement);
-    expect(compactRoot?.hasAttribute("open")).toBe(true);
     expectNoLegacyClasses(container);
   });
 

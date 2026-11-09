@@ -51,6 +51,8 @@ function session(
 
 function triggerRef() {
   const element = document.createElement("button");
+  // A popover closes when its trigger leaves the page, so it is on one.
+  document.body.append(element);
   element.getBoundingClientRect = () =>
     ({
       bottom: 48,

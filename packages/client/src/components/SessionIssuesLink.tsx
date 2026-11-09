@@ -397,6 +397,7 @@ export function SessionIssuesLink({
         onClose={menu.close}
         anchorRef={menu.anchorRef}
         placement="bottom-end"
+        maxHeight="min(60vh, 520px)"
         aria-label={label}
       >
         {shown === 0 ? (

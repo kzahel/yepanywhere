@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useI18n } from "../i18n";
 import { loadSavedHosts, type SavedHost } from "../lib/hostStorage";
 import { Menu, MenuGroup, MenuItem, MenuSeparator } from "./ui/Menu";
@@ -36,19 +37,22 @@ export function SwitchHostMenu({
   onShowAll,
   onClose,
 }: {
-  anchor: DOMRect;
+  /** The Switch Host button: anchors the menu and gets focus back. */
+  anchor: HTMLElement;
   hosts: SwitchableRelayHost[];
   onPick: (host: SwitchableRelayHost) => void;
   onShowAll: () => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const anchorRef = useRef(anchor);
+  anchorRef.current = anchor;
 
   return (
     <Menu
       open
       onClose={onClose}
-      anchorRect={anchor}
+      anchorRef={anchorRef}
       // Open beside the button; the sidebar sits at the left edge.
       placement="right-start"
       aria-label={t("sidebarSwitchHostMenuLabel")}

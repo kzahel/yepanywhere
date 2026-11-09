@@ -127,8 +127,9 @@ not carry a migration queue.
   outside `ui/Button.tsx` and the later families (tabs, the composer), a
   `role="switch"`, `"radio"` or `"radiogroup"` outside `ui/Switch.tsx` and
   `ui/SegmentedControl.tsx`, a menu role outside `ui/Menu.tsx`, a
-  `mousedown`/`pointerdown`/`touchstart`/`click` listener on `document` or
-  `window` (hand-rolled outside-press dismissal) outside `ui/Popover.tsx`,
+  `mousedown`/`pointerdown`/`touchstart`/`click`/`focusin` listener on the
+  document, its body or the window (hand-rolled outside dismissal) outside
+  `ui/Popover.tsx`,
   a new `role="button"`
   element, and a CSS rule, in a module or a global
   stylesheet, whose selector reaches a bare `button` element (`.panel

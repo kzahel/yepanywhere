@@ -1071,7 +1071,7 @@ export const LEGACY_MENUS: readonly LegacyMenu[] = [
   },
   {
     name: "Move session to project",
-    file: "hooks/useProjectReclassifyMenu.ts",
+    file: "components/SessionHeader.tsx",
     to: "menu",
     note: "Right-click on the project breadcrumb; global .project-reclassify-* rules deleted.",
   },

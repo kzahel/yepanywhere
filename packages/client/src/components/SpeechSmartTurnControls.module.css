@@ -2,52 +2,6 @@
   min-width: 0;
 }
 
-.compact {
-  position: relative;
-  flex: 0 0 auto;
-}
-
-.compact > .summary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--composer-control-size);
-  min-width: 3rem;
-  padding: 0 0.55rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  background: transparent;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.compact > .summary::-webkit-details-marker {
-  display: none;
-}
-
-.compact[open] > .summary,
-.compact > .summary:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-input);
-  color: var(--text-primary);
-}
-
-.popover {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 0.35rem);
-  z-index: 20;
-  width: min(21rem, calc(100dvw - 2rem));
-  padding: 0.65rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-lg);
-}
-
 .body {
   display: grid;
   gap: 0.28rem;

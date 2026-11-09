@@ -25,9 +25,9 @@ export interface ButtonElement {
 }
 
 /**
- * Families of raw buttons (plan 182). Menu, tab and composer buttons wait
- * for their own pass; option and switch buttons are swept (family 3), so
- * the button ban counts them.
+ * Families of raw buttons (plan 182). Tab and composer buttons wait for
+ * their own pass; option, switch and menu buttons (menu items and listbox
+ * options) are swept (families 2 and 3), so the button ban counts them.
  */
 export type RawButtonFamily = "menu" | "tab" | "option" | "switch" | "composer";
 

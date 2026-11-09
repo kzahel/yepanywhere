@@ -62,6 +62,7 @@
 }
 
 /* Project names can be long; give the menu room for them. */
-.menu {
+/* Compound: beats the shared menu's own min-width whichever loads first. */
+.menu[role="menu"] {
   min-width: min(480px, calc(100dvw - 16px));
 }

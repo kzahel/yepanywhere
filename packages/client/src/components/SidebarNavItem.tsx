@@ -284,7 +284,7 @@ export interface SidebarNavButtonProps {
   /** Extra class names appended to sidebar-nav-item */
   className?: string;
   /** Secondary action on right-click or a held press, given the button's rect */
-  onLongPress?: (anchor: DOMRect) => void;
+  onLongPress?: (anchor: HTMLElement) => void;
 }
 
 /**
@@ -305,7 +305,7 @@ export function SidebarNavButton({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const press = useLongPress(() => {
     const button = buttonRef.current;
-    if (button) onLongPress?.(button.getBoundingClientRect());
+    if (button) onLongPress?.(button);
   });
   return (
     <ButtonBase

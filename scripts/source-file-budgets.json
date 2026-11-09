@@ -12,7 +12,7 @@
       "maxLines": 2709
     },
     "packages/client/src/components/LocalMediaModal.tsx": {
-      "maxLines": 1904
+      "maxLines": 1901
     },
     "packages/client/src/components/MessageInput.tsx": {
       "maxLines": 3185

@@ -165,6 +165,13 @@ export function FilterDropdown<T extends string>({
         disabled={option.disabled}
         keepOpen={multiSelect && !option.clearSelection}
         description={option.description}
+        // A model's provider badge leads the row, so the name and its
+        // description line up after it.
+        icon={
+          isModelPanel && option.icon ? (
+            <span className={styles.modelBadge}>{option.icon}</span>
+          ) : undefined
+        }
         onSelect={() => handleOptionSelect(option)}
       >
         <span className={styles.optionRow}>
@@ -175,11 +182,8 @@ export function FilterDropdown<T extends string>({
               aria-hidden="true"
             />
           )}
-          {option.icon && (
-            <span
-              className={cx(styles.optionIcon, isModelPanel && styles.model)}
-              aria-hidden="true"
-            >
+          {option.icon && !isModelPanel && (
+            <span className={styles.optionIcon} aria-hidden="true">
               {option.icon}
             </span>
           )}
@@ -234,12 +238,13 @@ export function FilterDropdown<T extends string>({
         anchorRef={menu.anchorRef}
         placement={align === "right" ? "bottom-end" : "bottom-start"}
         phoneSheet
+        maxHeight="min(60vh, 480px)"
         aria-label={menuLabel}
         className={isModelPanel ? styles.modelMenu : undefined}
       >
         {multiSelect && selected.length > 0 && !hasClearSelectionOption && (
           <>
-            <MenuItem keepOpen onSelect={() => onChange([])}>
+            <MenuItem onSelect={() => onChange([])}>
               {t("filterClearAll")}
             </MenuItem>
             <MenuSeparator />

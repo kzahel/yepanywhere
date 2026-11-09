@@ -144,6 +144,7 @@ export function QuestionAsideCard({
           placement="top-end"
           offset={8}
           id={helpId}
+          surface="card"
           className={styles.helpContent}
           role="tooltip"
         >

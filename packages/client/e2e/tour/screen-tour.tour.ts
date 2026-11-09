@@ -170,7 +170,10 @@ async function capture(
   await page.evaluate(() => document.fonts.ready);
   // Park the pointer so no hover state or tooltip lands in the shot.
   await page.mouse.move(0, 0);
-  await screen.open?.(page);
+  if (screen.open) {
+    await screen.open(page);
+    await page.mouse.move(0, 0);
+  }
   await page.waitForTimeout(300);
   await recordUiCapture(page, name, viewport);
 }

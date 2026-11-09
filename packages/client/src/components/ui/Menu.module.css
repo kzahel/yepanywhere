@@ -32,6 +32,11 @@
   cursor: pointer;
 }
 
+/* A two-line item keeps its check and icon beside the label line. */
+.item:has(> .text > .description) {
+  align-items: flex-start;
+}
+
 .danger {
   color: var(--error-color);
 }
@@ -42,7 +47,7 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 16px;
+  min-width: 16px;
   color: var(--text-secondary);
 }
 
@@ -92,6 +97,7 @@
 }
 
 .item:hover:not([aria-disabled="true"]),
+.item[aria-expanded="true"],
 .item:focus-visible {
   background: var(--bg-hover);
   outline: none;

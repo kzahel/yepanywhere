@@ -42,7 +42,13 @@ export type PopoverPlacement =
   | PopoverSide
   | `${PopoverSide}-${"start" | "end"}`;
 
-export type PopoverCloseReason = "outside" | "escape" | "back" | "select";
+export type PopoverCloseReason =
+  | "outside"
+  | "escape"
+  | "back"
+  | "select"
+  /** The anchor was hidden (a parked page) or scrolled out of view. */
+  | "hidden";
 
 export interface PopoverPoint {
   x: number;
@@ -81,8 +87,16 @@ export interface PopoverProps
    * page scroll locked, instead of anchored. For long pickers.
    */
   phoneSheet?: boolean;
-  /** Surface padding and frame. `plain` leaves both to the content. */
-  surface?: "panel" | "plain";
+  /**
+   * A cap below the room left in the viewport, as a CSS length
+   * (`min(60vh, 480px)`), for long lists.
+   */
+  maxHeight?: string;
+  /**
+   * Frame and padding: `panel` (menus, 4 px), `card` (text and small forms,
+   * roomier), `plain` (the content draws its own).
+   */
+  surface?: "panel" | "card" | "plain";
   ref?: RefObject<HTMLDivElement | null>;
   children: ReactNode;
 }
@@ -94,6 +108,95 @@ const PHONE_SHEET_QUERY = "(max-width: 768px)";
  * opened from a menu) is not outside an earlier one.
  */
 let popoverLayerSequence = 0;
+
+/**
+ * Swallow the click that ends the press which closed a popover, as the old
+ * dismiss overlays did: the press that dismisses a menu must not also press
+ * what lay under it (a row, a link, a Modal's backdrop). Expires so a press
+ * that never becomes a click (a scroll) cannot eat a later one.
+ */
+function swallowNextClick(
+  press: "mousedown" | "touchstart",
+  pressed: Node | null,
+): void {
+  const swallow = (event: MouseEvent) => {
+    const target = event.target;
+    // The click that ends the same press targets the pressed element or an
+    // ancestor it shares with the release point. With no pressed element (a
+    // backdrop that left with the popover), whatever is under the finger.
+    if (pressed && target instanceof Node && !target.contains(pressed)) {
+      stop();
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    stop();
+  };
+  const stop = () => {
+    clearTimeout(timer);
+    document.removeEventListener("click", swallow, true);
+    document.removeEventListener("pointerdown", stop, true);
+    document.removeEventListener(press, stop, true);
+  };
+  const timer = setTimeout(stop, 1000);
+  document.addEventListener("click", swallow, true);
+  // The press that closed the popover fired its pointerdown already, so the
+  // next press of either kind is a new one, which must reach its target. (A
+  // touch's compatibility mousedown belongs to the same press, hence the
+  // press kind rather than mousedown always.)
+  document.addEventListener("pointerdown", stop, true);
+  document.addEventListener(press, stop, true);
+}
+
+/** A dialog the anchor sits in: the popover portals inside it, or assistive technology would treat it as outside the modal dialog. */
+function portalContainer(anchor: Element | null): HTMLElement {
+  return anchor?.closest<HTMLElement>('[aria-modal="true"]') ?? document.body;
+}
+
+function anchorIsHidden(anchor: HTMLElement): boolean {
+  if (!anchor.isConnected) return true;
+  if (typeof anchor.checkVisibility === "function") {
+    return !anchor.checkVisibility({ visibilityProperty: true });
+  }
+  const style = getComputedStyle(anchor);
+  return style.visibility === "hidden" || style.display === "none";
+}
+
+/** Whether the anchor is scrolled out of the viewport or a clipping ancestor. */
+function anchorIsClipped(anchor: HTMLElement): boolean {
+  const rect = anchor.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return false;
+  const outside = (box: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  }) =>
+    rect.bottom <= box.top ||
+    rect.top >= box.bottom ||
+    rect.right <= box.left ||
+    rect.left >= box.right;
+  if (
+    outside({
+      top: 0,
+      left: 0,
+      bottom: window.innerHeight,
+      right: window.innerWidth,
+    })
+  ) {
+    return true;
+  }
+  for (
+    let ancestor = anchor.parentElement;
+    ancestor && ancestor !== document.body;
+    ancestor = ancestor.parentElement
+  ) {
+    const { overflowX, overflowY } = getComputedStyle(ancestor);
+    if (overflowX === "visible" && overflowY === "visible") continue;
+    if (outside(ancestor.getBoundingClientRect())) return true;
+  }
+  return false;
+}
 
 function splitPlacement(placement: PopoverPlacement): {
   side: PopoverSide;
@@ -224,6 +327,7 @@ export function Popover({
   returnFocus = true,
   surface = "panel",
   phoneSheet = false,
+  maxHeight,
   className,
   style,
   ref,
@@ -251,6 +355,24 @@ export function Popover({
     layerRef.current = 0;
   }
   const sheet = usePhoneSheet(phoneSheet && open);
+  const containerRef = useRef<HTMLElement | null>(null);
+  if (open && !containerRef.current && typeof document !== "undefined") {
+    const anchorElement =
+      anchorRef?.current ??
+      (typeof document.elementFromPoint !== "function"
+        ? null
+        : anchorPoint
+          ? document.elementFromPoint(anchorPoint.x, anchorPoint.y)
+          : anchorRect
+            ? document.elementFromPoint(
+                anchorRect.left + anchorRect.width / 2,
+                anchorRect.top + anchorRect.height / 2,
+              )
+            : null);
+    containerRef.current = portalContainer(anchorElement);
+  } else if (!open) {
+    containerRef.current = null;
+  }
 
   const setSurfaceRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -293,6 +415,12 @@ export function Popover({
           ? target.closest<HTMLElement>("[data-popover-layer]")
           : null;
       if (Number(layer?.dataset.popoverLayer) > layerRef.current) return;
+      swallowNextClick(
+        event.type === "touchstart" ? "touchstart" : "mousedown",
+        target instanceof Element && target.closest("[data-popover-backdrop]")
+          ? null
+          : target,
+      );
       onCloseRef.current("outside");
     };
     document.addEventListener("mousedown", onPointerDown, true);
@@ -320,7 +448,18 @@ export function Popover({
     if (themed && themed !== document.documentElement) {
       element.dataset.theme = themed.dataset.theme;
     }
+    // An anchor on a page that was parked or hidden, or scrolled out of
+    // view, takes its popover with it.
+    const anchorGone = () => {
+      if (!anchorElement || sheet) return false;
+      if (!anchorIsHidden(anchorElement) && !anchorIsClipped(anchorElement)) {
+        return false;
+      }
+      onCloseRef.current("hidden");
+      return true;
+    };
     const place = () => {
+      if (anchorGone()) return;
       if (sheet) {
         element.style.removeProperty("top");
         element.style.removeProperty("left");
@@ -379,12 +518,28 @@ export function Popover({
         : new ResizeObserver(schedule);
     observer?.observe(element);
     if (anchorElement) observer?.observe(anchorElement);
+    // Parking a page hides it by a class or style on an ancestor.
+    const ancestry =
+      anchorElement && typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => anchorGone())
+        : null;
+    for (
+      let ancestor = anchorElement?.parentElement;
+      ancestry && ancestor && ancestor !== document.body;
+      ancestor = ancestor.parentElement
+    ) {
+      ancestry.observe(ancestor, {
+        attributes: true,
+        attributeFilter: ["class", "style", "hidden"],
+      });
+    }
     window.addEventListener("resize", schedule);
     window.addEventListener("scroll", schedule, true);
     window.visualViewport?.addEventListener("resize", schedule);
     return () => {
       cancelAnimationFrame(frame);
       observer?.disconnect();
+      ancestry?.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
       window.visualViewport?.removeEventListener("resize", schedule);
@@ -419,10 +574,24 @@ export function Popover({
 
   if (!open || typeof document === "undefined") return null;
 
-  const surfaceStyle: CSSProperties = { visibility: "hidden", ...style };
+  const surfaceStyle: CSSProperties = {
+    visibility: "hidden",
+    ...(maxHeight
+      ? {
+          maxHeight: `min(var(--popover-available-height, 100dvh), ${maxHeight})`,
+        }
+      : null),
+    ...style,
+  };
   return createPortal(
     <>
-      {sheet ? <div className={styles.backdrop} aria-hidden="true" /> : null}
+      {sheet ? (
+        <div
+          className={styles.backdrop}
+          aria-hidden="true"
+          data-popover-backdrop=""
+        />
+      ) : null}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: focus tracking only; callers pass the surface's role (menu, dialog, listbox) */}
       <div
         {...rest}
@@ -430,7 +599,8 @@ export function Popover({
         data-popover-layer={layerRef.current}
         className={[
           styles.popover,
-          surface === "panel" ? styles.panel : undefined,
+          surface === "plain" ? undefined : styles.panel,
+          surface === "card" ? styles.card : undefined,
           sheet ? styles.sheet : undefined,
           className,
         ]
@@ -451,6 +621,6 @@ export function Popover({
         {children}
       </div>
     </>,
-    document.body,
+    containerRef.current ?? document.body,
   );
 }

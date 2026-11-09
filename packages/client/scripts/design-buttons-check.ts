@@ -6,10 +6,11 @@
  *    from design/census/mapping.ts that no global stylesheet styles, plus
  *    the classes recorded in the allowlist's `bannedClasses`, so restoring
  *    a deleted rule does not lift the ban;
- * 2. a raw `<button>` outside src/components/ui/Button.tsx, unless it
- *    belongs to a later family (a menu or tab role, the composer's files)
- *    or its file is in the allowlist with at least that many. Option
- *    pickers and switches are swept (family 3): their raw buttons count;
+ * 2. a raw `<button>` outside src/components/ui/Button.tsx and the shared
+ *    selection and menu controls, unless it belongs to a later family (a
+ *    tab role, the composer's files) or its file is in the allowlist with
+ *    at least that many. Option pickers, switches, menu items and listbox
+ *    options are swept (families 2 and 3): their raw buttons count;
  * 3. an element with `role="button"` beyond the allowlist: a real button
  *    (ButtonBase) gets keyboard and focus behavior for free;
  * 4. a CSS rule, in a CSS Module or a global stylesheet, whose selector
@@ -25,9 +26,10 @@
  *    3). Their legacy classes (`toggle-switch`, `font-size-option`, …)
  *    are banned under 1 once their global rules are gone;
  * 6. a menu role (`menu`, `menuitem`, `menuitemradio`, `menuitemcheckbox`,
- *    `menubar`) outside src/components/ui/Menu.tsx, and a pointer listener
- *    on `document` or `window` (`mousedown`, `pointerdown`, `touchstart`,
- *    `click`: hand-rolled outside-press dismissal) outside
+ *    `menubar`) outside src/components/ui/Menu.tsx, and a press or focus
+ *    listener (`mousedown`, `pointerdown`, `touchstart`, `click`, `focusin`)
+ *    on the document, its body or the window (hand-rolled outside
+ *    dismissal) outside
  *    src/components/ui/Popover.tsx: menus use Menu and floating panels
  *    Popover (family 2). Menu buttons are swept, so their raw buttons count
  *    under 2.
@@ -242,7 +244,7 @@ for (const path of stylesheets) {
 // An attribute (`role="radio"`, `role={on ? "radio" : …}`) or an object
 // prop (`role: "switch"`), not a `[role="radio"]` inside a selector string.
 const SELECTION_ROLE =
-  /(?<![\w[-])role(?:=\{?[^}\n]*?|:\s*)["'`](?:switch|radio|radiogroup)["'`]/g;
+  /(?<![\w[-])role(?:=(?:\{[^}\n]*?)?|:\s*)["'`](?:switch|radio|radiogroup)["'`]/g;
 const selectionCounts = new Map<string, number>();
 const selectionSites = new Map<string, string[]>();
 for (const path of sources) {
@@ -260,10 +262,14 @@ for (const path of sources) {
 
 // 6. Menu roles outside the shared Menu, and document or window pointer
 // listeners (outside-press dismissal) outside the shared Popover.
+// `role="menu"` or `role={x ? "menu" : …}`, not a later attribute's value.
 const MENU_ROLE =
-  /(?<![\w[-])role(?:=\{?[^}\n]*?|:\s*)["'`](?:menu|menubar|menuitem|menuitemradio|menuitemcheckbox)["'`]/g;
+  /(?<![\w[-])role(?:=(?:\{[^}\n]*?)?|:\s*)["'`](?:menu|menubar|menuitem|menuitemradio|menuitemcheckbox)["'`]/g;
+// A listener on the document, its body or the window (also through an
+// ownerDocument or a `doc`/`*Document` variable) for a press or a focus
+// move: the shapes a hand-rolled outside dismissal takes.
 const OUTSIDE_PRESS =
-  /\b(?:document|window|ownerDocument)\??\.addEventListener\(\s*["'`](?:mousedown|pointerdown|touchstart|click)["'`]/g;
+  /\b(?:document(?:\.body)?|window|globalThis|\w*[dD]ocument|doc)\??\.addEventListener\(\s*["'`](?:mousedown|pointerdown|touchstart|click|focusin)["'`]/g;
 function countMatches(
   pattern: RegExp,
   exempt: ReadonlySet<string>,
@@ -291,9 +297,11 @@ const [menuCounts, menuSites] = await countMatches(
   MENU_ROLE,
   new Set(["components/ui/Menu.tsx"]),
 );
+// Popover owns outside dismissal; Menu tracks whether the latest input
+// was a key, to decide where focus goes when a menu opens.
 const [pressCounts, pressSites] = await countMatches(
   OUTSIDE_PRESS,
-  new Set(["components/ui/Popover.tsx"]),
+  new Set(["components/ui/Popover.tsx", "components/ui/Menu.tsx"]),
 );
 
 function ratchet(

@@ -544,6 +544,7 @@ function DeliveryStateMarker({
         anchorRef={markerRef}
         placement="bottom-end"
         role="status"
+        surface="card"
         style={{ maxWidth: "min(340px, 85dvw)" }}
       >
         {t("userPromptDeliverySentDetail")}

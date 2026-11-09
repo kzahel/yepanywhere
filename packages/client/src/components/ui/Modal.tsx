@@ -131,9 +131,14 @@ export function useModalLayer(
   const onCloseRef = useRef(onClose);
   const ownerIdRef = useRef<number | null>(null);
   onCloseRef.current = onClose;
-  if (ownerIdRef.current === null) {
+  // The place in the Escape order is taken when the layer opens, not when
+  // its component mounts: a menu mounted early but opened later is on top.
+  // Taken during render, so a parent opening with its child stays below it.
+  if (enabled && ownerIdRef.current === null) {
     modalLayerOwnerSequence += 1;
     ownerIdRef.current = modalLayerOwnerSequence;
+  } else if (!enabled) {
+    ownerIdRef.current = null;
   }
 
   useEffect(() => {

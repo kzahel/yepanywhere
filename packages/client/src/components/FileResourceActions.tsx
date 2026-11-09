@@ -37,7 +37,7 @@ import {
   stashNewSessionPrefillToken,
   type NewSessionPrefillCaret,
 } from "../lib/newSessionPrefill";
-import { Menu, MenuItem, MenuSeparator } from "./ui/Menu";
+import { Menu, MenuGroup, MenuItem, MenuSeparator } from "./ui/Menu";
 import styles from "./FileResourceActions.module.css";
 
 export type FileViewPresentation = "preview" | "source";
@@ -494,17 +494,8 @@ export function ResourceContextMenu({
     </>
   );
 
-  const rootItems = (
+  const rootActions = (
     <>
-      {heading ? (
-        <>
-          <div className={styles.heading} title={heading}>
-            {/* Elide from the left; the path itself stays left-to-right. */}
-            <bdi dir="ltr">{heading}</bdi>
-          </div>
-          <MenuSeparator />
-        </>
-      ) : null}
       <MenuItem
         ref={openItemRef}
         keepOpen={hasPresentationChoice}
@@ -694,6 +685,22 @@ export function ResourceContextMenu({
         </MenuItem>
       ) : null}
     </>
+  );
+  // The path names the actions below it: a labelled group, since a menu
+  // holds only items, groups and separators.
+  const rootItems = heading ? (
+    <MenuGroup
+      label={
+        <span className={styles.heading} title={heading}>
+          {/* Elide from the left; the path itself stays left-to-right. */}
+          <bdi dir="ltr">{heading}</bdi>
+        </span>
+      }
+    >
+      {rootActions}
+    </MenuGroup>
+  ) : (
+    rootActions
   );
 
   return (

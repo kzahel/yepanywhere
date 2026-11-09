@@ -2,7 +2,8 @@
  * The shared action menu (plan 182, family 2): a `Popover` holding
  * `role="menu"` with roving focus.
  *
- * - Opening focuses the first enabled item; ArrowUp/ArrowDown wrap,
+ * - Opening from the keyboard focuses the first enabled item (a pointer
+ *   open leaves focus alone until an arrow key); ArrowUp/ArrowDown wrap,
  *   Home/End jump, a printable key jumps to the next item starting with it,
  *   Tab closes and moves on from the trigger. Keys typed in a field inside
  *   the menu stay with the field.
@@ -52,6 +53,35 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
+/**
+ * Whether the latest input was a key. A menu opened by pointer leaves focus
+ * where it was, as menus here always did: moving it would take it from the
+ * composer (collapsing its layout, or a phone's keyboard) for a click.
+ */
+let keyboardModality = false;
+if (typeof document !== "undefined") {
+  const fromKeyboard = () => {
+    keyboardModality = true;
+  };
+  document.addEventListener("keydown", fromKeyboard, true);
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      keyboardModality = false;
+    },
+    true,
+  );
+  // A click with no pointer detail came from Enter, Space or assistive
+  // technology.
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (event.detail === 0) fromKeyboard();
+    },
+    true,
+  );
+}
+
 function menuItems(menu: HTMLElement | null): HTMLElement[] {
   if (!menu) return [];
   return Array.from(menu.querySelectorAll<HTMLElement>(ITEM_SELECTOR));
@@ -86,14 +116,47 @@ export function Menu({
   );
 
   useLayoutEffect(() => {
-    if (!open || !autoFocus) return;
-    const first = menuItems(menuRef.current).find(isEnabled);
-    first?.focus({ preventScroll: true });
+    if (!open || !autoFocus || !keyboardModality) return;
+    const items = menuItems(menuRef.current).filter(isEnabled);
+    // A one-of-several menu opens on its current choice.
+    const checked = items.find(
+      (item) =>
+        item.getAttribute("role") === "menuitemradio" &&
+        item.getAttribute("aria-checked") === "true",
+    );
+    (checked ?? items[0])?.focus({ preventScroll: true });
   }, [open, autoFocus]);
+
+  // Opened by pointer, the menu does not hold focus; the first arrow key
+  // (outside a text field) brings it in.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const menuElement = menuRef.current;
+      if (!menuElement || menuElement.contains(document.activeElement)) return;
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      if (isEditable(event.target)) return;
+      const items = menuItems(menuElement).filter(isEnabled);
+      const item =
+        event.key === "ArrowUp" || event.key === "End"
+          ? items.at(-1)
+          : items[0];
+      if (!item) return;
+      event.preventDefault();
+      item.focus({ preventScroll: true });
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(event);
-    if (event.defaultPrevented || isEditable(event.target)) return;
+    if (event.defaultPrevented) return;
+    if (event.key === "Tab") {
+      onCloseRef.current("tab");
+      return;
+    }
+    if (isEditable(event.target)) return;
     const items = menuItems(menuRef.current);
     if (items.length === 0) return;
     const current = items.indexOf(document.activeElement as HTMLElement);
@@ -118,9 +181,6 @@ export function Menu({
         event.preventDefault();
         focusAt(items.length - 1);
         return;
-      case "Tab":
-        onCloseRef.current("tab");
-        return;
     }
     if (
       event.key.length === 1 &&
@@ -132,7 +192,14 @@ export function Menu({
       const key = event.key.toLocaleLowerCase();
       for (let step = 1; step <= items.length; step += 1) {
         const index = (Math.max(current, 0) + step) % items.length;
-        const text = items[index]?.textContent?.trim().toLocaleLowerCase();
+        // The label, not the check glyph or a leading badge.
+        const item = items[index];
+        const text = (
+          item?.querySelector(`.${styles.label}`)?.textContent ??
+          item?.textContent
+        )
+          ?.trim()
+          .toLocaleLowerCase();
         if (text?.startsWith(key)) {
           event.preventDefault();
           focusAt(index);
@@ -297,7 +364,6 @@ export function MenuLinkItem({
   const tooltipAttributes = useTextTooltipAttributes(tooltip);
   const descriptionId = useId();
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: Enter on a focused link fires click
     <a
       {...tooltipAttributes}
       {...rest}
@@ -309,6 +375,14 @@ export function MenuLinkItem({
           : rest["aria-describedby"]
       }
       className={[styles.item, className].filter(Boolean).join(" ")}
+      onKeyDown={(event) => {
+        rest.onKeyDown?.(event);
+        // Space activates a menu item, link or not.
+        if (event.key === " " && !event.defaultPrevented) {
+          event.preventDefault();
+          event.currentTarget.click();
+        }
+      }}
       // biome-ignore lint/a11y/useValidAnchor: a real href; the click only closes the menu or routes in-app
       onClick={(event) => {
         onClick?.(event);

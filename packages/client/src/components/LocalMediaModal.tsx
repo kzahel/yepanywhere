@@ -739,19 +739,16 @@ function LocalMediaModalView({
       if (event.altKey || event.ctrlKey || event.metaKey) {
         return;
       }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        event.stopPropagation();
-        imageNavigationInputRef.current = "keyboard";
-        setKeyboardNavigationSequence((value) => value + 1);
-        imageNavigationRef.current?.onPrevious();
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        event.stopPropagation();
-        imageNavigationInputRef.current = "keyboard";
-        setKeyboardNavigationSequence((value) => value + 1);
-        imageNavigationRef.current?.onNext();
-      }
+      // Arrows inside an open menu move through it, not between images.
+      if ((event.target as Element | null)?.closest?.('[role="menu"]')) return;
+      const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      event.stopPropagation();
+      imageNavigationInputRef.current = "keyboard";
+      setKeyboardNavigationSequence((value) => value + 1);
+      if (step < 0) imageNavigationRef.current?.onPrevious();
+      else imageNavigationRef.current?.onNext();
     };
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);

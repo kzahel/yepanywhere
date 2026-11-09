@@ -197,33 +197,57 @@
       "count": 1,
       "reason": "The composer toolbar's context-usage popover: composer pass."
     },
+    "components/FileViewer.tsx": {
+      "count": 1,
+      "reason": "Tracks a pointer selection in the viewed document before offering a selection comment; not a dismissal."
+    },
     "components/MessageList.tsx": {
       "count": 1,
-      "reason": "A window click that opens incremental search from a search match row; not a dismissal."
+      "reason": "A window click on a search match row accepts the match and closes incremental search; it acts on the row, not as an outside dismissal."
     },
     "components/NewSessionForm.tsx": {
-      "count": 1,
-      "reason": "The new-session project chooser, a combobox driven by its search field: composer pass."
+      "count": 2,
+      "reason": "The new-session project chooser, a combobox driven by its search field (press and focus leaving it): composer pass."
     },
     "components/SpeechControlMenu.tsx": {
       "count": 1,
       "reason": "The voice button's speech settings popover (composer and new-session form): composer pass."
     },
     "components/ui/TooltipLayer.tsx": {
-      "count": 4,
-      "reason": "The tooltip layer's own hover, press and pin tracking (document capture); tooltips are not popovers."
+      "count": 6,
+      "reason": "The tooltip layer's own hover, press, focus and pin tracking (document capture); tooltips are not popovers."
     },
     "contexts/AsyncQuestionsContext.tsx": {
-      "count": 1,
-      "reason": "Notes that the reader moved on while a reply was submitting; not a dismissal."
+      "count": 2,
+      "reason": "Notes that the reader moved on (a press or a focus move) while a reply was submitting; not a dismissal."
     },
     "hooks/useBottomOverscrollReload.ts": {
       "count": 1,
       "reason": "Overscroll-to-reload gesture tracking; not a dismissal."
     },
+    "hooks/useComposerBeacon.ts": {
+      "count": 1,
+      "reason": "Records which element holds focus for the composer beacon; not a dismissal."
+    },
     "hooks/useNativePullToRefresh.ts": {
       "count": 1,
       "reason": "Pull-to-refresh gesture tracking; not a dismissal."
+    },
+    "hooks/useSelectionActionCapture.ts": {
+      "count": 2,
+      "reason": "Clears a stale transcript text selection on a new press; selection plumbing, not a dismissal."
+    },
+    "hooks/useTranscriptDragSelection.ts": {
+      "count": 1,
+      "reason": "Starts a transcript drag selection; gesture plumbing, not a dismissal."
+    },
+    "hooks/useViewerFind.ts": {
+      "count": 1,
+      "reason": "Find-in-viewer shortcuts read the press target's selection; not a dismissal."
+    },
+    "layouts/NavigationLayout.tsx": {
+      "count": 1,
+      "reason": "Keeps a focused field clear of the on-screen keyboard; not a dismissal."
     },
     "lib/artifactSourceTargets.ts": {
       "count": 1,

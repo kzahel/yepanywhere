@@ -298,6 +298,7 @@ export function AsyncQuestionsButton({
         placement={inventory ? "bottom-end" : "top-end"}
         offset={6}
         ref={panel}
+        surface="card"
         className={styles.menu}
         style={{ maxHeight: "min(400px, var(--popover-available-height))" }}
         role="dialog"

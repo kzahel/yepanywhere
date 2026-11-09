@@ -106,11 +106,12 @@ elements.
   (a listbox in a dropdown) counts as a raw button;
 - a menu role (`menu`, `menuitem`, `menuitemradio`, `menuitemcheckbox`,
   `menubar`) outside `ui/Menu.tsx`;
-- a pointer listener (`mousedown`, `pointerdown`, `touchstart`, `click`) on
-  `document` or `window` outside `ui/Popover.tsx`: the mark of a
-  hand-rolled outside-press dismissal. Gesture plumbing that needs one
-  (drag selection, pull to refresh, the tooltip layer) is allowlisted with
-  its reason.
+- a press or focus listener (`mousedown`, `pointerdown`, `touchstart`,
+  `click`, `focusin`) on the document, its body or the window (also
+  through a `doc` or `*Document` variable) outside `ui/Popover.tsx`: the
+  mark of a hand-rolled outside dismissal. Plumbing that needs one (drag
+  and text selection, pull to refresh, the tooltip layer, link routing in
+  share frames) is allowlisted with its reason.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
@@ -162,28 +163,40 @@ flips to the side with more room, shifts to stay in the viewport, caps its
 height to the room left, and follows scrolling, resizing and its own size.
 It closes on a press outside the surface and its trigger (document capture
 phase, so a row or `Modal` that stops its own events cannot hide the
-press), on Escape, and optionally on the phone back gesture
-(`closeOnBackGesture`). Escape goes through `Modal`'s layer stack
+press), and the click that ends that press is swallowed, as the old
+dismiss overlays did, so dismissing a menu never also presses what lay
+under it (a row, a link, a dialog's backdrop). It also closes on Escape,
+when its trigger is hidden (a parked page) or scrolled out of view, and
+optionally on the phone back gesture (`closeOnBackGesture`). Inside a
+`Modal` it portals into the dialog element, so assistive technology does
+not treat it as outside the modal dialog. Escape goes through `Modal`'s layer stack
 (`useModalLayer`), so inside a dialog the popover closes first; a field
 inside it can keep Escape for itself through `onEscapeKeyDown`. Focus inside
 the surface returns to the trigger when it closes. A popover opened from
 another (a submenu) is nested: presses inside it are not outside its parent.
 `phoneSheet` presents a long picker as a bottom sheet over a backdrop on
-phones (≤768 px).
+phones (≤768 px), and `maxHeight` caps a long list below the room left.
+`surface` is `panel` (menus: 4 px padding, small type), `card` (help text
+and small forms: roomier padding) or `plain` (the content frames itself).
 
-`src/components/ui/Menu.tsx` puts `role="menu"` on a `Popover`: opening
-focuses the first item, arrows wrap, Home and End jump, a letter jumps to
-the next item starting with it, Tab closes. `MenuItem` takes `icon`,
+`src/components/ui/Menu.tsx` puts `role="menu"` on a `Popover`. Opened
+from the keyboard it focuses the first item (a radio menu its checked
+one); opened by pointer it leaves focus where it was, as menus here
+always did, so a click never pulls focus out of the composer, and the
+first arrow key brings focus in. Arrows wrap, Home and End jump, a letter
+jumps to the next item whose label starts with it, Tab closes. `MenuItem` takes `icon`,
 `description`, `shortcut`, `tone="danger"`, `tooltip` (a disabled item stays
 focusable, `aria-disabled`, so its tooltip can say why) and `checked` with
 `kind` (`menuitemcheckbox` or `menuitemradio`); selecting closes the menu
-unless `keepOpen` or the handler calls `preventDefault()`. `MenuGroup`
+unless `keepOpen` or the handler calls `preventDefault()`. `MenuLinkItem`
+is an item that is a link (`href`, with `onNavigate` to route in-app), so
+copying the link and modifier or middle clicks work as on any link and
+keep the menu open. A radio menu opens on its checked item. `MenuGroup`
 labels a group and `MenuSeparator` divides. `useMenuTrigger()` wires the
 trigger: `aria-haspopup="menu"`, `aria-expanded`, toggle on click,
 ArrowDown to open.
 
-Why not the Popover API's top layer: it would cover the tooltip layer and
-toasts; `Modal`'s capture-phase Escape handler cancels the key before a
+Why not the Popover API's top layer: it would cover the tooltip layer; `Modal`'s capture-phase Escape handler cancels the key before a
 popover's close request, so popovers need the layer stack anyway; and
 `popover="auto"`'s light dismiss races React-owned open state on the
 trigger's own click. CSS anchor positioning is missing from older iOS
@@ -204,8 +217,10 @@ depend on a higher one:
 
 1. **Tokens:** the theme custom properties in `src/styles/index.css`
    (color, spacing, radius, type, shadow and the layer scale `--z-modal`,
-   `--z-popover`, `--z-tooltip`; page bars and panels keep their own lower
-   values). A token used in client CSS must be defined in every client
+   `--z-popover`, `--z-tooltip`). Other fixed surfaces still carry their
+   own numbers, some above `--z-modal` (the source editor, the fullscreen
+   file viewer and its toolbar, the prompt history rail); popovers stay
+   above them, and moving them onto the scale is open. A token used in client CSS must be defined in every client
    theme, and `pnpm css:check` rejects a read of a property no client source
    defines ([CSS architecture](css-architecture.md#contract)). Surfaces are
    `--bg-surface` (the page), `--bg-secondary`/`--bg-tertiary` (panels),

@@ -127,6 +127,7 @@ function ContextBullet({
         placement="bottom-start"
         offset={6}
         id={id}
+        surface="card"
         className={styles.context}
         role="dialog"
         aria-label={t("acliCommentaryContext")}

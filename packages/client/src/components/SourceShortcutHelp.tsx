@@ -67,6 +67,7 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
         insideRefs={[rootRef]}
         placement="bottom-end"
         role="tooltip"
+        surface="card"
         className={styles.popover}
       >
         <span className={styles.popoverTitle}>{t("sourceShortcutHelp")}</span>

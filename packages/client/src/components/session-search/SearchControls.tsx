@@ -272,6 +272,7 @@ export function SearchHeader({
             onClose={() => setStatusOpen(false)}
             anchorRef={statusButton}
             placement="bottom-end"
+            surface="card"
             className={styles.statusDetails}
             role="status"
           >

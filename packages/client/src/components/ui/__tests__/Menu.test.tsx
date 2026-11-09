@@ -84,6 +84,17 @@ describe("Menu", () => {
     expect(document.activeElement).toBe(item("Captions"));
   });
 
+  it("opened by pointer leaves focus alone until an arrow key", () => {
+    render(<Harness />);
+    trigger().focus();
+    fireEvent.pointerDown(trigger());
+    fireEvent.click(trigger(), { detail: 1 });
+    expect(screen.getByRole("menu")).toBeTruthy();
+    expect(document.activeElement).toBe(trigger());
+    fireEvent.keyDown(trigger(), { key: "ArrowDown" });
+    expect(document.activeElement).toBe(item("Rename"));
+  });
+
   it("selects, closes and returns focus to the trigger", () => {
     const onRename = vi.fn();
     render(<Harness onRename={onRename} />);
@@ -116,8 +127,16 @@ describe("Menu", () => {
     fireEvent.click(trigger());
     fireEvent.mouseDown(trigger());
     expect(screen.getByRole("menu")).toBeTruthy();
-    fireEvent.mouseDown(screen.getByRole("button", { name: "Elsewhere" }));
+    const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+    const pressed = vi.fn();
+    elsewhere.addEventListener("click", pressed);
+    fireEvent.mouseDown(elsewhere);
     expect(screen.queryByRole("menu")).toBeNull();
+    // The press that dismissed the menu does not also press what was under it.
+    fireEvent.click(elsewhere);
+    expect(pressed).not.toHaveBeenCalled();
+    fireEvent.click(elsewhere);
+    expect(pressed).toHaveBeenCalledTimes(1);
   });
 
   it("lets a field inside decline Escape", () => {
@@ -179,6 +198,27 @@ function Nested() {
     </>
   );
 }
+
+describe("inside a Modal", () => {
+  it("renders inside the dialog, and an outside press closes only the menu", () => {
+    const onCloseModal = vi.fn();
+    render(
+      <I18nProvider>
+        <Modal title="Dialog" onClose={onCloseModal}>
+          <Harness />
+        </Modal>
+      </I18nProvider>,
+    );
+    fireEvent.click(trigger());
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.contains(screen.getByRole("menu"))).toBe(true);
+    const overlay = dialog.parentElement as HTMLElement;
+    fireEvent.mouseDown(overlay);
+    fireEvent.click(overlay);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onCloseModal).not.toHaveBeenCalled();
+  });
+});
 
 describe("nested popovers", () => {
   it("a press inside a submenu is not outside its parent", () => {

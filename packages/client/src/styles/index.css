@@ -438,7 +438,8 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.32);
 
   /* Layers: modals, then popovers and menus (which open from them), then
-     tooltips. Page bars and panels keep their own lower values. */
+     tooltips. Other fixed surfaces still use their own numbers, some above
+     --z-modal (topics/ui-design.md, Layers). */
   --z-modal: 9999;
   --z-popover: 10010;
   --z-tooltip: 2147483647;
@@ -2594,7 +2595,7 @@ a.sidebar-nav-item {
 }
 
 .user-prompt-container:hover .user-prompt-actions,
-.user-prompt-container:focus-within .user-prompt-actions {
+.user-prompt-container:has(:focus-visible) .user-prompt-actions {
   opacity: 1;
 }
 
@@ -11348,8 +11349,10 @@ a.sidebar-nav-item {
   background: linear-gradient(to right, transparent, var(--bg-surface) 60%);
 }
 
+/* :focus-visible, not :focus-within: a menu returns focus to its trigger
+   after a mouse pick, which must not leave the trigger painted. */
 .session-list-item__link:focus-visible ~ .session-list-item__menu,
-.session-list-item__menu:focus-within,
+.session-list-item__menu:has(:focus-visible),
 .session-list-item__menu.is-open {
   opacity: 1;
 }
@@ -11413,11 +11416,6 @@ a.sidebar-nav-item {
    filter-bar trigger sizing passed through triggerClassName, and the usage
    badge ModelSubscriptionUsage renders as option meta.
    ========================================================================== */
-
-/*
- * Scoped to the filter bar so these keep winning over the component's own
- * narrow-width rule, as they did when they were descendant overrides.
- */
 
 .status-filter-placeholder {
   display: inline-flex;

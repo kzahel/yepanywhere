@@ -729,13 +729,13 @@ export function Sidebar({
   // Browser relay connections list recent hosts on right-click/hold; the
   // native shell owns its own host list behind switchHost.
   const [switchHostMenu, setSwitchHostMenu] = useState<{
-    anchor: DOMRect;
+    anchor: HTMLElement;
     hosts: SwitchableRelayHost[];
   } | null>(null);
   const currentRelayUsername = remoteConnection?.currentRelayUsername ?? null;
   const handleOpenSwitchHostMenu =
     currentRelayUsername && !remoteConnection?.switchHost
-      ? (anchor: DOMRect) =>
+      ? (anchor: HTMLElement) =>
           setSwitchHostMenu({
             anchor,
             hosts: recentRelayHosts(currentRelayUsername),
