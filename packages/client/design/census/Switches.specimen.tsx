@@ -1,7 +1,10 @@
-import { type ReactElement, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { classUsage } from "virtual:ya-design-data";
-import { AttachmentQualityToggle } from "../../src/components/AttachmentQualityToggle";
-import type { AttachmentUploadQuality } from "../../src/hooks/useAttachmentUploadQuality";
+import {
+  SegmentedControl,
+  type SegmentedOption,
+} from "../../src/components/ui/SegmentedControl";
+import { Switch } from "../../src/components/ui/Switch";
 import type { SpecimenMeta } from "../specimen";
 import styles from "./Census.module.css";
 import { CensusRow, useModuleClasses } from "./censusParts";
@@ -10,7 +13,6 @@ import {
   LEGACY_SWITCHES,
   type SwitchDisposition,
 } from "./mapping";
-import { ProposedSegmented, ProposedSwitch } from "./ProposedControls";
 
 export default {
   title: "Census/Switches and segmented controls",
@@ -18,130 +20,79 @@ export default {
     layer: "census",
     width: "fill",
     description:
-      "On/off switches and one-of-many choices: the legacy markup beside the proposed Switch and SegmentedControl. Mapping is a proposal until confirmed.",
+      "On/off switches and one-of-many choices. The family is swept: every legacy row became the shared Switch or SegmentedControl, and lint bans the old classes. The page stays as a regression view.",
   },
 } satisfies SpecimenMeta;
 
-export function Proposed() {
+function SampleSwitch({ initial, label }: { initial: boolean; label: string }) {
+  const [checked, setChecked] = useState(initial);
+  return (
+    <Switch label={label} checked={checked} onCheckedChange={setChecked} />
+  );
+}
+
+function SampleSegmented({
+  label,
+  options,
+  initial,
+  variant,
+}: {
+  label: string;
+  options: readonly string[];
+  initial: string;
+  variant?: "segmented" | "cards";
+}) {
+  const [value, setValue] = useState(initial);
+  const choices: SegmentedOption<string>[] = options.map((option) => ({
+    value: option,
+    label: option,
+  }));
+  return (
+    <SegmentedControl
+      aria-label={label}
+      variant={variant}
+      options={choices}
+      value={value}
+      onChange={setValue}
+    />
+  );
+}
+
+export function Shared() {
   return (
     <div className={styles.census}>
       <div className={styles.variants}>
-        <ProposedSwitch label="Notifications" />
-        <ProposedSwitch label="Live output" initial />
-        <ProposedSwitch label="Disabled" disabled />
-        <ProposedSwitch label="Disabled, on" initial disabled />
+        <SampleSwitch label="Notifications" initial={false} />
+        <SampleSwitch label="Live output" initial />
       </div>
       <div className={styles.variants}>
-        <ProposedSegmented
+        <SampleSegmented
           label="Font size"
           options={["Small", "Medium", "Large"]}
           initial="Medium"
         />
-        <ProposedSegmented
-          label="Upload quality"
-          options={["SD", "HD"]}
-          initial="SD"
-        />
-        <ProposedSegmented
-          label="Disabled"
-          options={["One", "Two"]}
-          initial="One"
-          disabled
+        <SampleSegmented
+          label="Provider"
+          options={["Claude", "Codex", "Gemini"]}
+          initial="Codex"
+          variant="cards"
         />
       </div>
     </div>
   );
 }
-Proposed.storyName = "Proposed Switch and SegmentedControl";
+Shared.storyName = "Shared Switch and SegmentedControl";
 
-/** The pasted settings markup, exactly as the settings pages write it. */
-function LegacyToggle({
-  initial,
-  disabled,
-}: {
-  initial: boolean;
-  disabled?: boolean;
-}) {
-  const [checked, setChecked] = useState(initial);
-  return (
-    <label className="toggle-switch">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => setChecked(event.target.checked)}
-      />
-      <span className="toggle-slider" />
-    </label>
-  );
-}
-
-function LegacyOptions({
-  options,
-  initial,
-  group,
-  option,
-}: {
-  options: string[];
-  initial: string;
-  group: string;
-  option: string;
-}) {
-  const [value, setValue] = useState(initial);
-  return (
-    <div className={group}>
-      {options.map((entry) => (
-        <button
-          key={entry}
-          type="button"
-          className={`${option} ${entry === value ? "active" : ""}`}
-          onClick={() => setValue(entry)}
-        >
-          {entry}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function AttachmentQualitySample() {
-  const [quality, setQuality] = useState<AttachmentUploadQuality>("sd");
-  return <AttachmentQualityToggle quality={quality} onChange={setQuality} />;
-}
-
-const SAMPLES: Record<string, () => ReactElement> = {
-  "toggle-switch + toggle-slider": () => (
-    <>
-      <LegacyToggle initial={false} />
-      <LegacyToggle initial />
-      <LegacyToggle initial disabled />
-    </>
-  ),
-  "font-size-selector + font-size-option": () => (
-    <LegacyOptions
-      options={["Small", "Medium", "Large"]}
-      initial="Medium"
-      group="font-size-selector"
-      option="font-size-option"
+const BECOMES: Record<SwitchDisposition, () => ReactNode> = {
+  switch: () => <SampleSwitch label="Switch" initial />,
+  segmented: () => (
+    <SampleSegmented
+      label="SegmentedControl"
+      options={["One", "Two", "Three"]}
+      initial="Two"
     />
   ),
-  "model-settings-chip-group": () => (
-    <LegacyOptions
-      options={["Off", "Brief", "Full"]}
-      initial="Brief"
-      group="font-size-selector model-settings-chip-group"
-      option="font-size-option"
-    />
-  ),
-  "model-switch-chip-group + model-switch-chip": () => (
-    <LegacyOptions
-      options={["Low", "Medium", "High"]}
-      initial="Medium"
-      group="model-switch-chip-group"
-      option="model-switch-chip"
-    />
-  ),
-  AttachmentQualityToggle: () => <AttachmentQualitySample />,
+  keep: () => <span>Not a switch; listed so the census accounts for it.</span>,
 };
 
 const DISPOSITIONS: readonly SwitchDisposition[] = [
@@ -156,41 +107,23 @@ export function LegacyByProposal() {
       {DISPOSITIONS.map((disposition) => {
         const rows = LEGACY_SWITCHES.filter((row) => row.to === disposition);
         if (!rows.length) return null;
+        const Becomes = BECOMES[disposition];
         return (
           <section key={disposition} className={styles.group}>
             <header className={styles.groupHeader}>
               <h3 className={styles.groupTitle}>{disposition}</h3>
-              {disposition === "switch" ? (
-                <ProposedSwitch label="Proposed" initial />
-              ) : disposition === "segmented" ? (
-                <ProposedSegmented
-                  label="Proposed"
-                  options={["One", "Two", "Three"]}
-                  initial="Two"
-                />
-              ) : (
-                <span>Not a switch; listed so the census accounts for it.</span>
-              )}
+              <Becomes />
             </header>
             <div className={styles.rows}>
-              {rows.map((row) => {
-                const Sample = SAMPLES[row.name];
-                return (
-                  <CensusRow
-                    key={row.name}
-                    label={row.name}
-                    counted={row.counted}
-                    note={row.note}
-                    sample={
-                      Sample ? (
-                        <Sample />
-                      ) : (
-                        <span className={styles.loading}>No markup sample</span>
-                      )
-                    }
-                  />
-                );
-              })}
+              {rows.map((row) => (
+                <CensusRow
+                  key={row.name}
+                  label={row.name}
+                  counted={row.counted}
+                  note={row.note}
+                  sample={<span className={styles.loading}>Swept</span>}
+                />
+              ))}
             </div>
           </section>
         );
@@ -198,7 +131,7 @@ export function LegacyByProposal() {
     </div>
   );
 }
-LegacyByProposal.storyName = "Legacy, by proposed control";
+LegacyByProposal.storyName = "Legacy, by shared control";
 
 export function GlobalUnmapped() {
   const mapped = new Set(LEGACY_SWITCHES.map((row) => row.counted));

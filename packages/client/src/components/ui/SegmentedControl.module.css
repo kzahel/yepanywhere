@@ -1,0 +1,191 @@
+/*
+ * The shared one-of-many picker (plan 182, family 3). The segmented look
+ * keeps the font-size selector's track; the cards look keeps the provider
+ * and mode pickers' bordered options. The selected fill is the primary
+ * button's green, which carries white text at AA contrast in every theme.
+ * Each option carries its look's class (.segment or .card) rather than
+ * being styled through the group, so every rule stays one or two classes.
+ */
+
+.group {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.segmented {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.cards {
+  gap: var(--space-2);
+}
+
+.fill {
+  display: flex;
+  width: 100%;
+}
+
+.stack {
+  display: flex;
+  flex-flow: column nowrap;
+  width: 100%;
+}
+
+.option {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+/* Segmented: one track, the selected option filled. */
+.segment {
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.segmentSmall {
+  min-height: 22px;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+/* Cards: each option framed, the selected one outlined in the accent. */
+.card {
+  justify-content: flex-start;
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.cardSmall {
+  min-height: 26px;
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.fillOption {
+  flex: 1 1 0;
+}
+
+.stackOption {
+  justify-content: flex-start;
+  width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  min-width: 0;
+}
+
+.description {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: normal;
+}
+
+.icon svg {
+  flex-shrink: 0;
+}
+
+.option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.option:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
+.segment[aria-checked="true"] {
+  background: var(--app-yep-green-dark);
+  color: #fff;
+}
+
+.card[aria-checked="true"] {
+  border-color: var(--app-yep-green);
+  background: color-mix(in srgb, var(--app-yep-green) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--app-yep-green);
+}
+
+.segment:hover:not(:disabled, [aria-checked="true"]) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.card:hover:not(:disabled, [aria-checked="true"]) {
+  border-color: var(--text-dimmed);
+  background: var(--bg-hover);
+}
+
+.segment[aria-checked="true"] .description {
+  color: inherit;
+}
+
+/* Fingers, not cursors. */
+@media (pointer: coarse) {
+  .segment {
+    min-height: 36px;
+  }
+
+  .segmentSmall {
+    min-height: 32px;
+  }
+
+  .card {
+    min-height: 44px;
+  }
+
+  .cardSmall {
+    min-height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .option {
+    transition: none;
+  }
+}
