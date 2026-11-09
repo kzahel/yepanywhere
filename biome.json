@@ -207,7 +207,18 @@
         "useTemplate": "off"
       },
       "a11y": {
-        "noLabelWithoutControl": "warn",
+        "noLabelWithoutControl": {
+          "level": "warn",
+          "options": {
+            "inputComponents": [
+              "TextInput",
+              "Textarea",
+              "Select",
+              "Checkbox",
+              "Radio"
+            ]
+          }
+        },
         "noStaticElementInteractions": "warn",
         "useAriaPropsForRole": "warn",
         "useAriaPropsSupportedByRole": "warn",

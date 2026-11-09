@@ -1231,3 +1231,111 @@ export const LEGACY_MENUS: readonly LegacyMenu[] = [
     note: "The composer pass.",
   },
 ];
+
+/** Family 4 (fields): where each legacy field class went. */
+export type FieldDisposition =
+  | "text"
+  | "select"
+  | "textarea"
+  | "field"
+  | "checkbox"
+  | "keep"
+  | "composer";
+
+export interface LegacyField {
+  name: string;
+  /** Class whose use count represents the row. */
+  counted?: string;
+  /**
+   * Every global class the row covers. The ban (pnpm buttons:check) rejects
+   * each one once no global stylesheet styles it.
+   */
+  classes?: string;
+  to: FieldDisposition;
+  note?: string;
+}
+
+export const LEGACY_FIELDS: readonly LegacyField[] = [
+  {
+    name: "settings-input, settings-input-small",
+    counted: "settings-input",
+    classes: "settings-input settings-input-small",
+    to: "text",
+    note: "The settings text box (a hover-colored fill, 12 px type, green focus border); the small one a 96 px number box.",
+  },
+  {
+    name: "settings-input-unit",
+    counted: "settings-input-unit",
+    classes: "settings-input-unit",
+    to: "text",
+    note: "A number box with its unit; TextInput's unit prop.",
+  },
+  {
+    name: "output-appearance-number",
+    counted: "output-appearance-number",
+    classes: "output-appearance-number",
+    to: "text",
+    note: "The narrow number box beside appearance sliders.",
+  },
+  {
+    name: "settings-select",
+    counted: "settings-select",
+    classes: "settings-select",
+    to: "select",
+  },
+  {
+    name: "form-select",
+    counted: "form-select",
+    classes: "form-select",
+    to: "select",
+    note: "Remote access setup's select, a second select look.",
+  },
+  {
+    name: "settings-textarea",
+    counted: "settings-textarea",
+    classes: "settings-textarea",
+    to: "textarea",
+  },
+  {
+    name: "form-field",
+    counted: "form-field",
+    classes: "form-field",
+    to: "field",
+    note: "Label above input in remote access setup.",
+  },
+  {
+    name: "login-field, login-checkbox-label",
+    counted: "login-field",
+    classes: "login-field login-checkbox-label",
+    to: "field",
+    note: "The login forms' label-above-input and remember-me checkbox.",
+  },
+  {
+    name: "Feature text fields",
+    counted: "session-rename-input",
+    classes:
+      "session-rename-input session-share-url-field changeset-file-filter-input claude-gateway-start-command output-appearance-number-wrap output-appearance-unit login-field-hint",
+    to: "text",
+    note: "One-off boxes: the sidebar rename, the share URL, the changeset filter, the gateway start command and the appearance number wraps.",
+  },
+  {
+    name: "Feature checkboxes",
+    counted: "codex-update-prompt__checkbox",
+    classes:
+      "codex-update-prompt__checkbox codex-update-prompt__checkbox-label session-list-item__checkbox session-list-header__select-all login-field-checkbox",
+    to: "checkbox",
+    note: "Hand-drawn or resized checkboxes: the Codex update prompt's custom box, list selection boxes, the login remember-me row.",
+  },
+  {
+    name: "Composer fields",
+    counted: "new-session-form-textarea",
+    to: "composer",
+    note: "The session input's and new-session form's textareas, queue options and speech controls: the composer pass (allowlisted).",
+  },
+  {
+    name: "Chromeless editors",
+    counted: "session-title-input",
+    to: "keep",
+    note: "The header title editor, the source editor's code textarea, the find bar and transcript search scope, the vhost address and search age fields: frames drawn by their owners (allowlisted with reasons).",
+  },
+];

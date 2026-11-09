@@ -1,0 +1,207 @@
+/*
+ * The shared text fields (plan 182, family 4): one box for inputs,
+ * textareas and selects. Layout defaults (width, margin) sit in :where()
+ * rules with zero specificity, so a caller's single layout class always
+ * wins; the look sits on the class.
+ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.required {
+  color: var(--error-color);
+}
+
+.hint,
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.hint {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--error-color);
+}
+
+:where(.input, .textarea, .select) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+/* A select sizes to its longest option, like the native one, so a select
+   in a settings row does not squeeze the row's text. */
+:where(.select) {
+  width: auto;
+  max-width: 100%;
+}
+
+.input,
+.textarea,
+.select {
+  box-sizing: border-box;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.input,
+.select {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+}
+
+.textarea {
+  min-height: 5.5em;
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.select {
+  /* A chevron drawn in the text color, so it follows the theme. */
+  padding-right: calc(var(--space-3) + 14px);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right 15px center,
+    right 10px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  appearance: none;
+}
+
+.small.input,
+.small.select {
+  min-height: 26px;
+  padding-inline: var(--space-2);
+}
+
+.small.select {
+  padding-right: calc(var(--space-2) + 14px);
+}
+
+.small.textarea {
+  padding: var(--space-1) var(--space-2);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.input:hover:not(:disabled, :focus),
+.textarea:hover:not(:disabled, :focus),
+.select:hover:not(:disabled, :focus) {
+  border-color: var(--text-muted);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--app-yep-green);
+  box-shadow: 0 0 0 1px var(--app-yep-green);
+  outline: none;
+}
+
+.input[aria-invalid="true"],
+.textarea[aria-invalid="true"],
+.select[aria-invalid="true"] {
+  border-color: var(--error-color);
+}
+
+.input[aria-invalid="true"]:focus,
+.textarea[aria-invalid="true"]:focus,
+.select[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 1px var(--error-color);
+}
+
+.input:disabled,
+.textarea:disabled,
+.select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.input:read-only:not(:disabled) {
+  background: var(--bg-secondary);
+}
+
+/* A number with its unit: one wrap unit, the unit muted after the box. */
+.unit {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+:where(.unitInput) {
+  width: 4.5rem;
+}
+
+.unitInput {
+  appearance: textfield;
+}
+
+.unitInput::-webkit-inner-spin-button,
+.unitInput::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.unitText {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+/* Fingers, not cursors: the same heights as Button on coarse pointers. */
+@media (pointer: coarse) {
+  .input,
+  .select {
+    min-height: 44px;
+  }
+
+  .small.input,
+  .small.select {
+    min-height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input,
+  .textarea,
+  .select {
+    transition: none;
+  }
+}

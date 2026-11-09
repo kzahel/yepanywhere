@@ -1,0 +1,82 @@
+/*
+ * The shared checkbox and radio (plan 182, family 4): native inputs in the
+ * accent color, the label beside the box and an optional description line
+ * under it.
+ */
+
+.root {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+label.root {
+  cursor: pointer;
+}
+
+label.root.disabled {
+  cursor: not-allowed;
+}
+
+.box {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  /* Centre the box on the first line of a 1.4 line-height label. */
+  margin: calc((1.4em - 16px) / 2) 0 0;
+  accent-color: var(--app-yep-green);
+  cursor: inherit;
+}
+
+.bare .box {
+  margin: 0;
+}
+
+.box:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  overflow-wrap: anywhere;
+}
+
+.description {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.disabled .box,
+.disabled .text {
+  opacity: 0.55;
+}
+
+/* Fingers, not cursors: a larger box, still inside the row's height. */
+@media (pointer: coarse) {
+  .box {
+    width: 20px;
+    height: 20px;
+    margin-top: calc((1.4em - 20px) / 2);
+  }
+
+  label.root {
+    min-height: 32px;
+    align-items: center;
+  }
+
+  label.root:has(.description) {
+    align-items: flex-start;
+  }
+}
