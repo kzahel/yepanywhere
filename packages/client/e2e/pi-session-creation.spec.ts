@@ -1,7 +1,5 @@
-import { resolve } from "node:path";
 import { test, expect } from "@playwright/test";
 import { createPiCreationFixture } from "./support/pi-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture.js";
 
 test.setTimeout(90000);
@@ -14,28 +12,20 @@ for (const hosted of [false, true])
   test(`Pi ${hosted ? "hosted" : "local"} preserves public identity through native preflight, history and cold continuation`, async ({
     browser,
   }) => {
-    const owned = await createPiCreationFixture(hosted);
+    const owned = await createPiCreationFixture(
+      hosted,
+      {},
+      {
+        serveBuiltClient: true,
+      },
+    );
     const context = await browser.newContext({
       serviceWorkers: "block",
       viewport: { width: 1000, height: 600 },
     });
     const page = await context.newPage();
-    let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
     try {
-      vite = await createTestViteServer({
-        configFile: resolve("vite.config.ts"),
-        root: process.cwd(),
-        server: {
-          host: "127.0.0.1",
-          hmr: false,
-          proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-        },
-      });
-      await vite.listen();
-      const address = vite.httpServer!.address();
-      if (!address || typeof address === "string")
-        throw Error("Missing owned Vite listener");
-      const origin = `http://127.0.0.1:${address.port}`;
+      const origin = owned.server.baseUrl;
       await page.goto(
         `${origin}/new-session?projectId=${owned.projectId}&provider=pi&model=owned%2Ffixture`,
       );
@@ -128,7 +118,6 @@ for (const hosted of [false, true])
       }
     } finally {
       await context.close();
-      await vite?.close();
       await owned.close();
     }
   });

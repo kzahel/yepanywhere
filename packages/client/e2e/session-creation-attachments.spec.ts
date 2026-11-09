@@ -1,8 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture.js";
 
 test.setTimeout(90000);
@@ -16,31 +14,22 @@ for (const hosted of [false, true])
   test(`staged ${hosted ? "hosted" : "local"} creation retains input and newer typing before native acknowledgement`, async ({
     browser,
   }) => {
-    const owned = await createCodexCreationFixture(hosted);
+    const owned = await createCodexCreationFixture(
+      hosted,
+      false,
+      {},
+      { serveBuiltClient: true },
+    );
     const context = await browser.newContext({
       serviceWorkers: "block",
       viewport: { width: 1000, height: 600 },
     });
-    let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
     let release!: () => void;
     const held = new Promise<void>((yes) => {
       release = yes;
     });
     try {
-      vite = await createTestViteServer({
-        configFile: resolve("vite.config.ts"),
-        root: process.cwd(),
-        server: {
-          host: "127.0.0.1",
-          hmr: false,
-          proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-        },
-      });
-      await vite.listen();
-      const address = vite.httpServer!.address();
-      if (!address || typeof address === "string")
-        throw Error("Missing owned listener");
-      const origin = `http://127.0.0.1:${address.port}`;
+      const origin = owned.server.baseUrl;
       const page = await context.newPage();
       const requests: string[] = [];
       page.on("request", (req) => {
@@ -209,7 +198,6 @@ for (const hosted of [false, true])
     } finally {
       release();
       await context.close();
-      await vite?.close();
       await owned.close();
     }
   });
@@ -217,24 +205,15 @@ for (const hosted of [false, true])
 test("definitive attachment refusals preserve the draft and allow corrected input with a fresh operation", async ({
   browser,
 }) => {
-  const owned = await createCodexCreationFixture(false);
+  const owned = await createCodexCreationFixture(
+    false,
+    false,
+    {},
+    { serveBuiltClient: true },
+  );
   const context = await browser.newContext({ serviceWorkers: "block" });
-  let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
   try {
-    vite = await createTestViteServer({
-      configFile: resolve("vite.config.ts"),
-      root: process.cwd(),
-      server: {
-        host: "127.0.0.1",
-        hmr: false,
-        proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-      },
-    });
-    await vite.listen();
-    const address = vite.httpServer!.address();
-    if (!address || typeof address === "string")
-      throw Error("Missing owned listener");
-    const origin = `http://127.0.0.1:${address.port}`;
+    const origin = owned.server.baseUrl;
     const page = await context.newPage();
     await page.goto(
       `${origin}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
@@ -321,7 +300,6 @@ test("definitive attachment refusals preserve the draft and allow corrected inpu
     ).toHaveLength(1);
   } finally {
     await context.close();
-    await vite?.close();
     await owned.close();
   }
 });

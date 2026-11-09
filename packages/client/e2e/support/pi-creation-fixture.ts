@@ -6,12 +6,14 @@ import {
   startYaServerProcess,
   restartYaServerProcess,
   disposeYaServerProcess,
+  type StartYaServerProcessOptions,
 } from "./ya-server-process.js";
 
 /** Isolated native RPC, JSONL storage, controller and optional host ownership. */
 export async function createPiCreationFixture(
   hosted = false,
   inputs: NodeJS.ProcessEnv = {},
+  options: Pick<StartYaServerProcessOptions, "serveBuiltClient"> = {},
 ) {
   let projectId = "",
     gate = "",
@@ -23,6 +25,7 @@ export async function createPiCreationFixture(
   };
   let server = await startYaServerProcess({
     label: "owned Pi creation",
+    serveBuiltClient: options.serveBuiltClient,
     standalone: { providerHostEnabled: hosted },
     serverExecutable: process.env.YA_STANDALONE_TEST_RUNTIME,
     env,

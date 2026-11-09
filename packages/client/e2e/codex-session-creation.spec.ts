@@ -1,9 +1,8 @@
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { InstallService } from "../../server/src/services/InstallService.js";
 import { toUrlProjectId } from "../../shared/src/index.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import {
   startYaServerProcess,
   restartYaServerProcess,
@@ -22,7 +21,6 @@ for (const hosted of [false, true])
     browser,
   }) => {
     let server: Awaited<ReturnType<typeof startYaServerProcess>> | undefined;
-    let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
     let detailPath = "";
     let projectId = "",
       requestsFile = "",
@@ -53,6 +51,7 @@ for (const hosted of [false, true])
       server = await startYaServerProcess({
         label: "owned Codex creation",
         standalone: { providerHostEnabled: hosted },
+        serveBuiltClient: true,
         env,
         async setupProfile(paths) {
           const cwd = join(paths.profileDir, "project");
@@ -96,23 +95,8 @@ for (const hosted of [false, true])
         expect(response.status, path).toBe(200);
         return response.json();
       };
-      vite = await createTestViteServer({
-        configFile: resolve("vite.config.ts"),
-        root: process.cwd(),
-        server: {
-          host: "127.0.0.1",
-          hmr: false,
-          proxy: {
-            "/api": { target: server.baseUrl, ws: true },
-            "/ws": { target: server.baseUrl, ws: true },
-          },
-        },
-      });
-      await vite.listen();
-      const address = vite.httpServer!.address();
-      if (!address || typeof address === "string")
-        throw new Error("Missing owned Vite listener");
-      const origin = `http://127.0.0.1:${address.port}`;
+      // The immutable invocation build avoids a cold Vite route graph.
+      const origin = server.baseUrl;
       await page.goto(
         `${origin}/new-session?projectId=${projectId}&provider=codex&model=gpt-6.1-sol`,
       );
@@ -244,7 +228,6 @@ for (const hosted of [false, true])
         await writeFile(`${gate}.reply`, "release").catch(() => {});
       }
       await context.close();
-      await vite?.close();
       if (server) await disposeYaServerProcess(server);
     }
   });

@@ -1,7 +1,5 @@
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 
 test.setTimeout(90_000);
 test.skip(
@@ -47,24 +45,16 @@ async function admit(
 test("lost HTTP acceptance reply recovers read-only and submits the initial prompt once", async ({
   browser,
 }) => {
-  const owned = await createCodexCreationFixture(false);
-  let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
+  // The immutable invocation build avoids a cold Vite route graph per case.
+  const owned = await createCodexCreationFixture(
+    false,
+    false,
+    {},
+    { serveBuiltClient: true },
+  );
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
-    vite = await createTestViteServer({
-      configFile: resolve("vite.config.ts"),
-      root: process.cwd(),
-      server: {
-        host: "127.0.0.1",
-        hmr: false,
-        proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-      },
-    });
-    await vite.listen();
-    const address = vite.httpServer!.address();
-    if (!address || typeof address === "string")
-      throw new Error("Missing owned listener");
-    const origin = `http://127.0.0.1:${address.port}`;
+    const origin = owned.server.baseUrl;
     const page = await context.newPage();
     let posts = 0,
       recoveryReads = 0,
@@ -114,7 +104,6 @@ test("lost HTTP acceptance reply recovers read-only and submits the initial prom
     ).toHaveLength(1);
   } finally {
     await context.close();
-    await vite?.close();
     await owned.close();
   }
 });

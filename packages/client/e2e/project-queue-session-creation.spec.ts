@@ -1,8 +1,6 @@
-import { resolve } from "node:path";
 import { unlink } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture.js";
 
 test.setTimeout(90000);
@@ -72,8 +70,12 @@ for (const hosted of [false, true])
 test("failed Queue creation links to its saved session and does not expose an edit that would change admitted input", async ({
   browser,
 }) => {
-  const owned = await createCodexCreationFixture(false);
-  let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
+  const owned = await createCodexCreationFixture(
+    false,
+    false,
+    {},
+    { serveBuiltClient: true },
+  );
   const context = await browser.newContext({
     serviceWorkers: "block",
     viewport: { width: 1000, height: 600 },
@@ -100,19 +102,7 @@ test("failed Queue creation links to its saved session and does not expose an ed
       await (await owned.request(`/projects/${owned.projectId}/queue`)).json()
     ).items[0];
     expect(failed.creationSessionId).toBeTruthy();
-    vite = await createTestViteServer({
-      configFile: resolve("vite.config.ts"),
-      root: process.cwd(),
-      server: {
-        host: "127.0.0.1",
-        hmr: false,
-        proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-      },
-    });
-    await vite.listen();
-    const a = vite.httpServer!.address();
-    if (!a || typeof a === "string") throw Error("Missing owned listener");
-    const origin = `http://127.0.0.1:${a.port}`;
+    const origin = owned.server.baseUrl;
     await page.goto(origin + `/projects?queueItem=${item.id}`);
     const row = page.locator(`[data-project-queue-item-id="${item.id}"]`);
     await expect(row).toBeVisible();
@@ -138,7 +128,6 @@ test("failed Queue creation links to its saved session and does not expose an ed
     ).toBeVisible();
   } finally {
     await context.close();
-    await vite?.close();
     await owned.close();
   }
 });
