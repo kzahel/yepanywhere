@@ -330,7 +330,10 @@ export function BrowserExtensionSettings() {
             onChange={(badge) => update({ badge })}
           />
         </SettingsItem>
-        <SettingsItem label={t("extensionSettingsFallback")}>
+        <SettingsItem
+          label={t("extensionSettingsFallback")}
+          description={t("extensionSettingsFallbackDescription")}
+        >
           <Choice
             label={t("extensionSettingsFallback")}
             value={settings.panelFallback}

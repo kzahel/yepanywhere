@@ -227,12 +227,18 @@ cannot inject into or debug its pages, and its storage belongs to it alone.
   route names, and says so when no active host matches; opening one opens
   the tracker page in a new tab. The app tab publishes its route to
   `chrome.storage.session` for this, since the panel cannot read its
-  address, and withdraws it when the page goes away. Elsewhere the panel
+  address, and withdraws it when the page goes away. A page context with
+  nothing to list shrinks to one line. Below it, on every page, the panel
   lists sessions needing input, running, held by background work, and
-  recent. These are the [Inbox](inbox.md#server-tiering) sections, split
+  recent, unless the session-list setting narrows that to recent or turns
+  it off. These are the [Inbox](inbox.md#server-tiering) sections, split
   as the Inbox page splits them; a running session waiting on work or held
   by background work names that work as the Inbox row does instead of
-  showing Thinking. Each group collapses
+  showing Thinking. One `/inbox` request per host serves both the groups
+  and the live state of an issue's sessions. The panel reloads when its
+  inputs change, on Refresh, when it becomes visible, and every 30 seconds
+  while visible; a new page clears only the page context, so the groups
+  stay on screen while they reload. Each group collapses
   from its heading, and collapsed groups stay collapsed across panel opens
   (extension-origin `localStorage`). The top of the panel always has a
   "+ New session" button, which opens the default host's new-session page

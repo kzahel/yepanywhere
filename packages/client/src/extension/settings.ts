@@ -28,6 +28,10 @@ export interface ExtensionSettings {
   collapseMergedPrs: boolean;
   toolbarAction: "side-panel" | "app-tab";
   badge: "page" | "off";
+  /**
+   * The session groups the side panel lists on every page, below the page's
+   * own context. The name predates showing them on issue and session pages.
+   */
   panelFallback: "attention" | "recent" | "none";
   openSessionsIn: "existing-tab" | "new-tab";
   /** What a newly opened YA page is: a browser tab or a popup window. */

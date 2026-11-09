@@ -100,6 +100,38 @@ function answerFor(host: SavedHost, error: unknown): HostAnswer {
   };
 }
 
+/**
+ * Each host's `/inbox`, requested once so the views one panel refresh loads
+ * read the same answer.
+ */
+export type HostInboxes = ReadonlyMap<string, Promise<InboxResponse>>;
+
+function fetchInbox(
+  host: SavedHost,
+  credentials: SavedHostCredentials,
+): Promise<InboxResponse> {
+  return withHost(
+    host,
+    (connection) => connection.fetch<InboxResponse>("/inbox"),
+    credentials,
+  );
+}
+
+export function fetchInboxes(
+  hosts: SavedHost[],
+  credentials: SavedHostCredentials = documentSavedHostCredentials,
+): HostInboxes {
+  return new Map(
+    hosts.map((host) => {
+      const inbox = fetchInbox(host, credentials);
+      // Each reader handles a failure; this keeps one that no view ends up
+      // reading from surfacing as an unhandled rejection.
+      inbox.catch(() => {});
+      return [host.id, inbox];
+    }),
+  );
+}
+
 function inboxSession(host: SavedHost, item: InboxItem): PanelSession {
   return {
     host,
@@ -120,6 +152,8 @@ export async function lookupIssue(
   options: {
     includeDismissed?: boolean;
     credentials?: SavedHostCredentials;
+    /** Inboxes already requested for this refresh, reused for live state. */
+    inboxes?: HostInboxes;
   } = {},
 ): Promise<IssueLookup | null> {
   const reference = issueLookupUrl(url);
@@ -148,7 +182,9 @@ export async function lookupIssue(
               issues.sessions(item.id, {
                 dismissed: options.includeDismissed,
               }),
-              connection.fetch<InboxResponse>("/inbox").catch(() => null),
+              (
+                options.inboxes?.get(host.id) ?? fetchInbox(host, credentials)
+              ).catch(() => null),
             ]);
             // Live input and phase state come from the host's inbox rows.
             const live = new Map(
@@ -237,16 +273,13 @@ export async function countIssueSessions(
  */
 export async function loadAttention(
   hosts: SavedHost[],
-  credentials: SavedHostCredentials = documentSavedHostCredentials,
+  inboxes: HostInboxes = fetchInboxes(hosts),
 ): Promise<AttentionView> {
   const answers = await Promise.all(
     hosts.map(async (host) => {
       try {
-        const inbox = await withHost(
-          host,
-          (connection) => connection.fetch<InboxResponse>("/inbox"),
-          credentials,
-        );
+        const inbox = await inboxes.get(host.id);
+        if (!inbox) throw new Error("No inbox was requested for this host");
         return {
           answer: { host, status: "ok" as const },
           sections: splitInboxSections(inbox),

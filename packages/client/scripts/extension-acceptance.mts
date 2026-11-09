@@ -503,10 +503,15 @@ Review restart persistence, provider-native resume and archive behavior on suppo
     await panel.goto(
       `${origin}/sidepanel.html?url=${encodeURIComponent(storeAssets ? reference : `${reference}/files`)}`,
     );
-    const rows = panel.getByRole("button", { name: /^Open (?!Yep Anywhere$)/ });
+    // The session groups below can list the same sessions, so scope to the
+    // PR's own list.
+    const prSessions = panel.getByRole("list", {
+      name: /^Sessions mentioning /,
+    });
+    const rows = prSessions.getByRole("button", { name: /^Open / });
     await expect(rows).toHaveCount(2, { timeout: 60_000 });
-    await expect(panel.getByText(implementationTitle)).toBeVisible();
-    await expect(panel.getByText(/Look at/)).toHaveCount(0);
+    await expect(prSessions.getByText(implementationTitle)).toBeVisible();
+    await expect(prSessions.getByText(/Look at/)).toHaveCount(0);
     await expect(panel.getByText("2 sessions")).toBeVisible();
     const shots = storeAssets
       ? join(repoRoot, "docs/distribution/chrome-extension/screenshots")
@@ -523,7 +528,7 @@ Review restart persistence, provider-native resume and archive behavior on suppo
 
     // Opening a row navigates the existing app tab in place.
     const before = await app.evaluate(() => performance.timeOrigin);
-    await panel
+    await prSessions
       .getByRole("button", { name: `Open ${implementationTitle}` })
       .click();
     await app.waitForURL(`**/sessions/accept-impl`, { timeout: 30_000 });
@@ -551,7 +556,7 @@ Review restart persistence, provider-native resume and archive behavior on suppo
         await local.set({ [key]: { ...current, appWindow: "popup" } });
       });
       const opened = context.waitForEvent("page");
-      await panel
+      await prSessions
         .getByRole("button", { name: `Open ${implementationTitle}` })
         .click({ modifiers: ["ControlOrMeta"] });
       const popup = await opened;
@@ -698,6 +703,10 @@ Review restart persistence, provider-native resume and archive behavior on suppo
           .first(),
       ).toBeVisible({ timeout: 30_000 });
       await expect(panel.getByText(/ in this session$/)).toBeVisible();
+      // The session groups follow the page's own context.
+      await expect(
+        panel.getByRole("region", { name: "Recent" }).getByRole("listitem"),
+      ).not.toHaveCount(0, { timeout: 30_000 });
     }
     const sessionShot = join(rawShots, "panel-session.png");
     await panel.screenshot({ path: sessionShot });
@@ -997,7 +1006,7 @@ Review restart persistence, provider-native resume and archive behavior on suppo
     // The app's own dropdown, not a native select: pick Off, then back.
     const badgeChoice = app.getByRole("button", { name: "Toolbar badge" });
     await badgeChoice.click();
-    await app.getByRole("button", { name: "Off", exact: true }).click();
+    await app.getByRole("menuitemradio", { name: "Off", exact: true }).click();
     await expect.poll(async () => (await storedSettings())?.badge).toBe("off");
     await badgeChoice.click();
     const settingsShot = join(
@@ -1007,7 +1016,10 @@ Review restart persistence, provider-native resume and archive behavior on suppo
     if (!storeAssets)
       await app.screenshot({ path: settingsShot, fullPage: true });
     await app
-      .getByRole("button", { name: "Sessions for this page", exact: true })
+      .getByRole("menuitemradio", {
+        name: "Sessions for this page",
+        exact: true,
+      })
       .click();
     await expect.poll(async () => (await storedSettings())?.badge).toBe("page");
 

@@ -23,9 +23,10 @@ to your own hosts; your agents and code stay on those machines.
   this** to open a new-session window with the item's address already in the
   composer. For GitHub, a project matching the repository is selected when
   available. Review your prompt and send it when ready.
-- **Keep an eye on agents while browsing.** Away from a recognized ticket, the
-  panel can show sessions needing input, running sessions, sessions waiting on
-  background work, and recent work.
+- **Keep an eye on agents while browsing.** On every page, below anything it
+  finds for that page, the panel shows sessions needing input, running
+  sessions, sessions waiting on background work, and recent work. Narrow it to
+  recent sessions or turn it off in **Settings → Browser extension**.
   Open a conversation in the extension's app tab to read output and respond.
 - **Move between machines in one workspace.** Save more than one host and use
   the packaged client to browse projects and conversations, follow output, and
