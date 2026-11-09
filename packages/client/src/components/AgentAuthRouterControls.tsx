@@ -13,6 +13,7 @@ import { useI18n } from "../i18n";
 import { SettingsDocLink } from "../pages/settings/SettingsDocLink";
 import styles from "./AgentAuthRouterControls.module.css";
 import { Button } from "./ui/Button";
+import { Field, TextInput } from "./ui/Field";
 
 type Account = Awaited<
   ReturnType<typeof api.routerAccounts>
@@ -184,9 +185,8 @@ function RouterSettingsForSource() {
         )}
       </div>
       {showSocket && (
-        <label>
-          {t("routerSocket")}
-          <input
+        <Field label={t("routerSocket")}>
+          <TextInput
             value={path}
             onChange={(event) => setPath(event.target.value)}
             placeholder={
@@ -195,7 +195,7 @@ function RouterSettingsForSource() {
                 : t("routerSavedSocket")
             }
           />
-        </label>
+        </Field>
       )}
       <div className={styles.actions}>
         {showSocket && (

@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { prewarmYaServerSpeechBackend } from "../lib/speechProviders/YaServerProvider";
 import { englishModelWer } from "../lib/speechProviders/englishModelWer";
 import styles from "./WhisperModelControls.module.css";
+import { Select, TextInput } from "./ui/Field";
 
 const PRESETS = [
   ["distil-large-v3.5", "Distil large v3.5 English · 756M parameters"],
@@ -36,8 +37,7 @@ export function WhisperModelControls({
   };
   return (
     <div className={styles.controls}>
-      <select
-        className={styles.input}
+      <Select
         aria-label={t("speechSettingsWhisperModelTitle")}
         value={
           !model
@@ -61,9 +61,8 @@ export function WhisperModelControls({
           </option>
         ))}
         <option value="custom">{t("speechSettingsParakeetCustomModel")}</option>
-      </select>
-      <input
-        className={styles.input}
+      </Select>
+      <TextInput
         aria-label={t("speechSettingsWhisperModelInputLabel")}
         value={model}
         placeholder="distil-large-v3.5"

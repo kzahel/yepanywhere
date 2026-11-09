@@ -9,6 +9,8 @@ import { mutateResumeCredentials } from "../lib/rejectedResumeStorage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button, ButtonBase } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
+import { Field, TextInput } from "../components/ui/Field";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useSignInRequiredNotice } from "../hooks/useSignInRequiredNotice";
@@ -301,10 +303,12 @@ export function RelayLoginPage() {
         >
           {/* Keep the computer name as the saved login's username, including
               when Advanced exposes the optional limited-user override. */}
-          <div className="login-field">
-            <label htmlFor="relayUsername">{t("relayLoginServerName")}</label>
-            <input
-              id="relayUsername"
+          <Field
+            id="relayUsername"
+            label={t("relayLoginServerName")}
+            hint={t("relayLoginServerNameHint")}
+          >
+            <TextInput
               name="username"
               type="text"
               value={relayUsername}
@@ -316,13 +320,10 @@ export function RelayLoginPage() {
               spellCheck={false}
               data-testid="relay-username-input"
             />
-            <p className="login-field-hint">{t("relayLoginServerNameHint")}</p>
-          </div>
+          </Field>
 
-          <div className="login-field">
-            <label htmlFor="srpPassword">{t("relayLoginPassword")}</label>
-            <input
-              id="srpPassword"
+          <Field id="srpPassword" label={t("relayLoginPassword")}>
+            <TextInput
               name="password"
               type="password"
               value={srpPassword}
@@ -332,20 +333,15 @@ export function RelayLoginPage() {
               autoComplete="current-password"
               data-testid="srp-password-input"
             />
-          </div>
+          </Field>
 
-          <div className="login-field login-field-checkbox">
-            <label className="login-checkbox-label">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isConnecting}
-                data-testid="remember-me-checkbox"
-              />
-              <span>{t("relayLoginRememberMe")}</span>
-            </label>
-          </div>
+          <Checkbox
+            label={t("relayLoginRememberMe")}
+            checked={rememberMe}
+            onCheckedChange={setRememberMe}
+            disabled={isConnecting}
+            data-testid="remember-me-checkbox"
+          />
 
           <ButtonBase
             className="login-advanced-toggle"
@@ -358,12 +354,12 @@ export function RelayLoginPage() {
           </ButtonBase>
 
           {showAdvanced && (
-            <div className="login-field">
-              <label htmlFor="limitedUsername">
-                {t("relayLoginLimitedUsername")}
-              </label>
-              <input
-                id="limitedUsername"
+            <Field
+              id="limitedUsername"
+              label={t("relayLoginLimitedUsername")}
+              hint={t("relayLoginLimitedUsernameHint")}
+            >
+              <TextInput
                 name="limited-user"
                 type="text"
                 value={limitedUsername}
@@ -375,19 +371,16 @@ export function RelayLoginPage() {
                 spellCheck={false}
                 data-testid="relay-limited-username-input"
               />
-              <p className="login-field-hint">
-                {t("relayLoginLimitedUsernameHint")}
-              </p>
-            </div>
+            </Field>
           )}
 
           {showAdvanced && (
-            <div className="login-field">
-              <label htmlFor="customRelayUrl">
-                {t("relayLoginCustomRelayUrl")}
-              </label>
-              <input
-                id="customRelayUrl"
+            <Field
+              id="customRelayUrl"
+              label={t("relayLoginCustomRelayUrl")}
+              hint={t("relayLoginCustomRelayUrlHint")}
+            >
+              <TextInput
                 type="text"
                 value={customRelayUrl}
                 onChange={(e) => setCustomRelayUrl(e.target.value)}
@@ -395,10 +388,7 @@ export function RelayLoginPage() {
                 disabled={isConnecting}
                 data-testid="custom-relay-url-input"
               />
-              <p className="login-field-hint">
-                {t("relayLoginCustomRelayUrlHint")}
-              </p>
-            </div>
+            </Field>
           )}
 
           {previewRelayHost && (

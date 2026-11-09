@@ -145,21 +145,6 @@
 
 .feedbackInput {
   flex: 1;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-}
-
-.feedbackInput:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-.feedbackInput::placeholder {
-  color: var(--text-muted);
 }
 
 /* Mobile adjustments */

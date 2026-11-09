@@ -79,17 +79,6 @@
 .input {
   width: min(260px, 38vw);
   min-width: 120px;
-  padding: 3px 5px;
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--focus-border);
 }
 
 .count,

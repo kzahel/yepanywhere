@@ -1241,7 +1241,7 @@ test("edits OAuth email rows without losing sequential input during updates", as
   ]) {
     await page.setViewportSize(viewport);
     await secret.evaluate((input) =>
-      input.closest("label")!.scrollIntoView({ block: "start" }),
+      input.parentElement!.scrollIntoView({ block: "start" }),
     );
     await recordUiCapture(page, `vhost-provider-${viewport.width}`, viewport);
   }

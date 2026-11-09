@@ -5,12 +5,13 @@ import {
   defaultProjectNameForPath,
   normalizeProjectCodeName,
 } from "@yep-anywhere/shared";
-import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import { pathForProjectName, settlePathEntry } from "../lib/newProjectPath";
 import type { Project } from "../types";
 import styles from "./AddProjectForm.module.css";
 import { Button } from "./ui/Button";
+import { Field, TextInput } from "./ui/Field";
 
 export interface AddProjectRequest {
   path: string;
@@ -69,7 +70,6 @@ export function AddProjectForm({
   onTypedChange,
 }: AddProjectFormProps) {
   const { t } = useI18n();
-  const id = useId();
   // Null while the path follows the name; a string once typed into.
   const [pathDraft, setPathDraft] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
@@ -156,9 +156,8 @@ export function AddProjectForm({
 
   return (
     <form onSubmit={submit} className={styles.form}>
-      <input
-        type="text"
-        className={styles.input}
+      <TextInput
+        mono
         aria-label={t("projectsAddPathLabel")}
         value={path}
         onChange={(event) => setPathDraft(event.target.value)}
@@ -168,36 +167,28 @@ export function AddProjectForm({
       />
       {chooseName && (
         <div className={styles.fields}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor={`${id}-name`}>
-              {t("projectsAddNameLabel")}
-            </label>
-            <input
-              id={`${id}-name`}
-              type="text"
-              className={`${styles.input} ${styles.text}`}
-              aria-describedby={`${id}-name-hint`}
+          <Field
+            label={t("projectsAddNameLabel")}
+            hint={t("projectsAddNameHint")}
+            className={styles.field}
+          >
+            <TextInput
               maxLength={MAX_PROJECT_NAME_LENGTH}
               value={nameDraft ?? defaultName}
               onChange={(event) => setNameDraft(event.target.value)}
               onBlur={() => setNameDraft(chosenDraft)}
               disabled={adding}
             />
-            <span id={`${id}-name-hint`} className={styles.hint}>
-              {t("projectsAddNameHint")}
-            </span>
-          </div>
+          </Field>
           {chooseCodeName && (
-            <div className={`${styles.field} ${styles.codeField}`}>
-              <label className={styles.label} htmlFor={`${id}-code`}>
-                {t("projectsAddCodeNameLabel")}
-              </label>
-              <input
-                id={`${id}-code`}
-                type="text"
-                className={styles.input}
-                aria-describedby={`${id}-code-hint`}
-                aria-invalid={codeError ? true : undefined}
+            <Field
+              label={t("projectsAddCodeNameLabel")}
+              hint={codeError ? undefined : t("projectsAddCodeNameHint")}
+              error={codeError}
+              className={styles.codeField}
+            >
+              <TextInput
+                mono
                 maxLength={MAX_PROJECT_CODE_NAME_LENGTH}
                 value={codeDraft ?? defaultCode}
                 onChange={(event) => {
@@ -207,10 +198,7 @@ export function AddProjectForm({
                 onBlur={() => setCodeDraft(chosenDraft)}
                 disabled={adding}
               />
-              <span id={`${id}-code-hint`} className={styles.hint}>
-                {codeError ?? t("projectsAddCodeNameHint")}
-              </span>
-            </div>
+            </Field>
           )}
         </div>
       )}

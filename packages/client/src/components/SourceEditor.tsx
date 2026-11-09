@@ -15,6 +15,8 @@ import {
 } from "../lib/artifactSourceTargets";
 import { generateUUID } from "../lib/uuid";
 import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
+import { Field, Select } from "./ui/Field";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import styles from "./SourceEditor.module.css";
@@ -641,20 +643,14 @@ export function SourceEditor({
                 )}
               </Button>
               {preview.regenerate.registered && preview.regenerate.matches && (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={autoRebuild}
-                    onChange={(event) => {
-                      setAutoRebuild(event.currentTarget.checked);
-                      writeAutoRebuild(
-                        preview.path,
-                        event.currentTarget.checked,
-                      );
-                    }}
-                  />
-                  {t("sourceEditorRebuildAuto")}
-                </label>
+                <Checkbox
+                  label={t("sourceEditorRebuildAuto")}
+                  checked={autoRebuild}
+                  onCheckedChange={(checked) => {
+                    setAutoRebuild(checked);
+                    writeAutoRebuild(preview.path, checked);
+                  }}
+                />
               )}
             </span>
           )}
@@ -701,6 +697,7 @@ export function SourceEditor({
         <div className={styles.sourcePane}>
           <textarea
             ref={editor}
+            className={styles.code}
             aria-label={t("sourceEditorSource")}
             value={draft}
             disabled={!snapshot?.editable || busy}
@@ -745,9 +742,11 @@ export function SourceEditor({
                     )}
                   </div>
                 )}
-                <label className={styles.targetPicker}>
-                  {t("sourceEditorChooseTarget")}
-                  <select
+                <Field
+                  label={t("sourceEditorChooseTarget")}
+                  className={styles.targetPicker}
+                >
+                  <Select
                     value=""
                     onChange={(event) => {
                       const target = mapping.value.targets.find(
@@ -763,8 +762,8 @@ export function SourceEditor({
                         {target.sourceRange[0][0] + 1}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+                </Field>
                 {mapping.value.targets.length === 0 && (
                   <p>{t("sourceEditorNoTargets")}</p>
                 )}

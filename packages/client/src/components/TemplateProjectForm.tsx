@@ -28,6 +28,8 @@ import { useToastContext } from "../contexts/ToastContext";
 import { generateUUID } from "../lib/uuid";
 import { TemplateCreationProgress } from "./TemplateCreationProgress";
 import { Button, IconButton } from "./ui/Button";
+import { Field, Textarea, TextInput } from "./ui/Field";
+import { SegmentedControl } from "./ui/SegmentedControl";
 
 /** One radio in a project's starting-point palette. */
 export interface ProjectStartChoice {
@@ -47,6 +49,7 @@ export function ProjectStartPalette({
   disabled,
   children,
 }: {
+  /** The radio group's id. */
   name: string;
   legend: string;
   choices: readonly ProjectStartChoice[];
@@ -55,26 +58,31 @@ export function ProjectStartPalette({
   disabled?: boolean;
   children?: ReactNode;
 }) {
+  const legendId = useId();
   return (
-    <fieldset className={styles.palette} disabled={disabled}>
-      <legend>{legend}</legend>
-      {choices.map((item) => (
-        <label className={styles.choice} key={item.key}>
-          <input
-            type="radio"
-            name={name}
-            checked={selected === item.key}
-            onChange={() => onSelect(item.key)}
-          />
-          {item.icon && <img className={styles.icon} src={item.icon} alt="" />}
-          <span>
-            <strong>{item.title}</strong>
-            {item.description && <small>{item.description}</small>}
-          </span>
-        </label>
-      ))}
+    <div className={styles.palette}>
+      <span id={legendId} className={styles.legend}>
+        {legend}
+      </span>
+      <SegmentedControl
+        variant="cards"
+        layout="stack"
+        id={name}
+        aria-labelledby={legendId}
+        disabled={disabled}
+        options={choices.map((item) => ({
+          value: item.key,
+          label: item.title,
+          description: item.description,
+          icon: item.icon ? (
+            <img className={styles.icon} src={item.icon} alt="" />
+          ) : undefined,
+        }))}
+        value={selected}
+        onChange={onSelect}
+      />
       {children}
-    </fieldset>
+    </div>
   );
 }
 
@@ -361,9 +369,8 @@ export function TemplateProjectForm({
         />
       )}
       {!chosen && (
-        <label className={styles.field}>
-          {t("projectsAddNameLabel")}
-          <input
+        <Field label={t("projectsAddNameLabel")}>
+          <TextInput
             value={name}
             onChange={(e) => {
               setNameEdited(true);
@@ -372,7 +379,7 @@ export function TemplateProjectForm({
             disabled={locked}
             placeholder={t("templateNameExample")}
           />
-        </label>
+        </Field>
       )}
       {intent === undefined && (
         <div>
@@ -385,17 +392,13 @@ export function TemplateProjectForm({
             onUploadsClose={() => setRecentUploadsOpen(false)}
             onBrowse={() => fileInput.current?.click()}
           />
-          <label className={styles.field} htmlFor={`${id}-intent`}>
-            {t("templateIntent")}
-          </label>
-          <PromptHistoryRail
-            scope={historyScope}
-            textareaRef={textareaRef}
-            onChange={setDescription}
-          >
-            <div className={styles.field}>
-              <textarea
-                id={`${id}-intent`}
+          <Field label={t("templateIntent")}>
+            <PromptHistoryRail
+              scope={historyScope}
+              textareaRef={textareaRef}
+              onChange={setDescription}
+            >
+              <Textarea
                 ref={textareaRef}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -410,80 +413,79 @@ export function TemplateProjectForm({
                 rows={3}
                 placeholder={t("templateIntentExample")}
               />
-            </div>
-            <input
-              ref={fileInput}
-              type="file"
-              multiple
-              hidden
-              onChange={(event) => {
-                void attachFiles(Array.from(event.target.files ?? []));
-                event.target.value = "";
-              }}
-            />
-            <Button
-              disabled={locked || !resolved || !attachmentsSupported}
-              onClick={() => {
-                if (attachGesture.current.swiped) {
-                  attachGesture.current.swiped = false;
-                  return;
-                }
-                fileInput.current?.click();
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                setRecentUploadsOpen(true);
-              }}
-              onTouchStart={(event) => {
-                attachGesture.current = {
-                  y: event.touches[0]?.clientY ?? 0,
-                  swiped: false,
-                };
-              }}
-              onTouchEnd={(event) => {
-                if (
-                  (event.changedTouches[0]?.clientY ?? 0) -
-                    attachGesture.current.y >
-                  25
-                ) {
-                  attachGesture.current.swiped = true;
-                  setRecentUploadsOpen(true);
-                }
-              }}
-              title="Choose files; right-click or swipe down for recent uploads"
-            >
-              Attach files
-            </Button>
-            {uploading > 0 && <p role="status">Uploading attachments…</p>}
-            {localAttachments.map((file) => (
-              <span key={file.id} className={styles.attachment}>
-                {file.originalName}
-                <IconButton
-                  size="small"
-                  label={`Remove ${file.originalName}`}
-                  disabled={locked}
-                  onClick={() =>
-                    setLocalAttachments((items) =>
-                      items.filter((item) => item.id !== file.id),
-                    )
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(event) => {
+                  void attachFiles(Array.from(event.target.files ?? []));
+                  event.target.value = "";
+                }}
+              />
+              <Button
+                disabled={locked || !resolved || !attachmentsSupported}
+                onClick={() => {
+                  if (attachGesture.current.swiped) {
+                    attachGesture.current.swiped = false;
+                    return;
                   }
-                >
-                  ×
-                </IconButton>
-              </span>
-            ))}
-          </PromptHistoryRail>
+                  fileInput.current?.click();
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setRecentUploadsOpen(true);
+                }}
+                onTouchStart={(event) => {
+                  attachGesture.current = {
+                    y: event.touches[0]?.clientY ?? 0,
+                    swiped: false,
+                  };
+                }}
+                onTouchEnd={(event) => {
+                  if (
+                    (event.changedTouches[0]?.clientY ?? 0) -
+                      attachGesture.current.y >
+                    25
+                  ) {
+                    attachGesture.current.swiped = true;
+                    setRecentUploadsOpen(true);
+                  }
+                }}
+                title="Choose files; right-click or swipe down for recent uploads"
+              >
+                Attach files
+              </Button>
+              {uploading > 0 && <p role="status">Uploading attachments…</p>}
+              {localAttachments.map((file) => (
+                <span key={file.id} className={styles.attachment}>
+                  {file.originalName}
+                  <IconButton
+                    size="small"
+                    label={`Remove ${file.originalName}`}
+                    disabled={locked}
+                    onClick={() =>
+                      setLocalAttachments((items) =>
+                        items.filter((item) => item.id !== file.id),
+                      )
+                    }
+                  >
+                    ×
+                  </IconButton>
+                </span>
+              ))}
+            </PromptHistoryRail>
+          </Field>
         </div>
       )}
       {!limited && !chosen && (
-        <label className={styles.field}>
-          {t("templateParent")}
-          <input
+        <Field label={t("templateParent")}>
+          <TextInput
             value={parent}
             onChange={(e) => setParent(e.target.value)}
             disabled={locked}
           />
-        </label>
+        </Field>
       )}
       {path && !chosen && <small className={styles.path}>{path}</small>}
       <Button

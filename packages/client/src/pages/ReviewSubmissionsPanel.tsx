@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { Button, ButtonBase } from "../components/ui/Button";
+import { Field, Select, Textarea } from "../components/ui/Field";
 import type { TranslationFn } from "../i18n";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
 import styles from "./ReviewSubmissionsPanel.module.css";
@@ -204,19 +205,20 @@ export function ReviewSubmissionsPanel({
         )}
       </ul>
 
-      <label className={styles.mobileSelector}>
-        <span>{t("sourceReviewSelectSubmission")}</span>
-        <select
-          value={selected.id}
-          onChange={(event) => setSelectedId(event.target.value)}
-        >
-          {submissions.map((submission) => (
-            <option key={submission.id} value={submission.id}>
-              {submissionLabel(submission, t)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className={styles.mobileSelector}>
+        <Field label={t("sourceReviewSelectSubmission")}>
+          <Select
+            value={selected.id}
+            onChange={(event) => setSelectedId(event.target.value)}
+          >
+            {submissions.map((submission) => (
+              <option key={submission.id} value={submission.id}>
+                {submissionLabel(submission, t)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
 
       <article className={styles.detail}>
         {error && <div className={styles.error}>{error}</div>}
@@ -470,7 +472,7 @@ function ReviewSiteCard({
       {error && <div className={styles.error}>{error}</div>}
       {!hasPending && (
         <div className={styles.followUp}>
-          <textarea
+          <Textarea
             aria-label={t("sourceReviewFollowUp")}
             value={followUp}
             maxLength={20_000}

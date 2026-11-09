@@ -14,6 +14,7 @@ import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import styles from "./SessionMenu.module.css";
 import { IconButton } from "./ui/Button";
+import { TextInput } from "./ui/Field";
 import { Menu, MenuGroup, MenuItem, useMenuTrigger } from "./ui/Menu";
 
 export interface SessionMenuProps {
@@ -413,11 +414,11 @@ export function SessionMenu({
                           handleAction(() => onSetSidebarCategory(name));
                       }}
                     >
-                      <input
+                      <TextInput
                         ref={newCategoryInputRef}
-                        // biome-ignore lint/a11y/noAutofocus: The reader just asked to type a name here.
+                        size="small"
+                        className={styles.newCategoryInput}
                         autoFocus
-                        type="text"
                         value={newCategoryDraft}
                         maxLength={MAX_SIDEBAR_CATEGORY_LENGTH}
                         placeholder={t("sessionMenuNewCategoryPlaceholder")}

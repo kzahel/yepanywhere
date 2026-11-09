@@ -56,11 +56,6 @@
   align-items: center;
   gap: 8px 12px;
 }
-.rebuildControls label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 .buildLog {
   padding: 4px 12px;
   font-size: 12px;
@@ -95,7 +90,8 @@
   display: flex;
   flex-direction: column;
 }
-.sourcePane textarea {
+/* The code textarea is chromeless: the pane draws the frame. */
+.code {
   flex: 1;
   min-height: 0;
   width: 100%;
@@ -127,15 +123,7 @@
   font-size: 13px;
 }
 .targetPicker {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   padding: 8px;
-  font-size: 13px;
-}
-.targetPicker select {
-  width: 100%;
-  min-height: 36px;
 }
 .tabs {
   display: none;

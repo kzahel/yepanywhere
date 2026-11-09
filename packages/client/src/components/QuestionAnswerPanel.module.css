@@ -252,25 +252,6 @@
   margin-top: var(--space-2);
 }
 
-.otherInput input {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-}
-
-.otherInput input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-.otherInput input::placeholder {
-  color: var(--text-muted);
-}
-
 /* Actions */
 .actions {
   /* Pin to the bottom of the scrolling panel so Cancel/Submit stay reachable

@@ -17,14 +17,6 @@
   padding: var(--space-1) var(--space-2);
 }
 
-.newCategoryForm input {
-  box-sizing: border-box;
-  width: 100%;
+.newCategoryInput {
   min-width: 12rem;
-  padding: var(--space-1) var(--space-2);
-  background: var(--bg-input);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
 }

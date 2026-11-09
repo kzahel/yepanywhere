@@ -87,27 +87,6 @@
   width: 17px;
 }
 
-.manualCopy {
-  display: grid;
-  font-size: 0.76rem;
-  gap: 5px;
-}
-
-.manualCopy span {
-  color: var(--text-secondary);
-}
-
-.manualCopy input {
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  min-width: 0;
-  padding: 7px 8px;
-  width: 100%;
-}
-
 .inventory {
   display: grid;
   gap: 8px;

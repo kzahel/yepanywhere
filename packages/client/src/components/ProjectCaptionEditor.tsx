@@ -8,6 +8,7 @@ import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectCaptionEditor.module.css";
 import { IconButton } from "./ui/Button";
+import { TextInput } from "./ui/Field";
 
 interface ProjectCaptionEditorProps {
   project: Project;
@@ -122,8 +123,9 @@ export function ProjectCaptionEditor({
     return (
       <div className={styles.slot}>
         <div className={styles.editor}>
-          <input
+          <TextInput
             ref={attachInput}
+            size="small"
             aria-label={t("projectCaptionLabel")}
             aria-invalid={error ? true : undefined}
             className={styles.input}

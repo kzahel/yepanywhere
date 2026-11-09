@@ -20,6 +20,7 @@ import {
   PublicShareInventoryRow,
 } from "./PublicShareInventory";
 import { Button } from "./ui/Button";
+import { Field, TextInput } from "./ui/Field";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
 import styles from "./PublicFileShareModal.module.css";
 
@@ -222,10 +223,9 @@ export function PublicFileShareModal({
         )}
 
         {manualUrl && (
-          <label className={styles.manualCopy}>
-            <span>{t("publicFileShareUrlLabel")}</span>
-            <input ref={manualUrlRef} readOnly value={manualUrl} />
-          </label>
+          <Field label={t("publicFileShareUrlLabel")}>
+            <TextInput mono ref={manualUrlRef} readOnly value={manualUrl} />
+          </Field>
         )}
         {error && (
           <PublicShareFeedback tone="error">{error}</PublicShareFeedback>

@@ -20,6 +20,7 @@ import { toolRegistry } from "./renderers/tools";
 import type { RenderContext } from "./renderers/types";
 import { getToolSummary } from "./tools/summaries";
 import { Button, ButtonBase } from "./ui/Button";
+import { TextInput } from "./ui/Field";
 import { Modal } from "./ui/Modal";
 import styles from "./ToolApprovalPanel.module.css";
 
@@ -407,9 +408,8 @@ export function ToolApprovalPanel({
 
             {onDenyWithFeedback && showFeedback && (
               <div className={styles.feedback}>
-                <input
+                <TextInput
                   ref={feedbackInputRef}
-                  type="text"
                   placeholder={t("toolApprovalFeedbackPlaceholder")}
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}

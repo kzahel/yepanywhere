@@ -78,16 +78,6 @@
   margin-top: var(--space-2, 8px);
 }
 
-.editor textarea {
-  min-height: 6rem;
-  padding: var(--space-2, 8px);
-  color: var(--text-primary, #e6edf3);
-  resize: vertical;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
-}
-
 .editorActions {
   display: flex;
   justify-content: flex-end;

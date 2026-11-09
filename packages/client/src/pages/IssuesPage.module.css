@@ -11,8 +11,7 @@
   line-height: 1.5;
 }
 .controls,
-.actions,
-.choice {
+.actions {
   display: flex;
   gap: var(--space-2);
   align-items: center;
@@ -21,22 +20,9 @@
 .controls {
   margin-bottom: var(--space-2);
 }
-.controls input {
+.search {
   flex: 1;
   min-width: 160px;
-}
-.page input:not([type="checkbox"]),
-.page select {
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  min-height: 36px;
-  max-width: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  font-size: var(--font-size-sm);
 }
 .iconButton {
   flex-shrink: 0;
@@ -53,7 +39,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
 }
-.page :is(input, select, a, summary):focus-visible {
+.page :is(a, summary):focus-visible {
   outline: 2px solid var(--focus-border);
   outline-offset: 2px;
 }
@@ -70,11 +56,7 @@
   margin: var(--space-2) 0;
 }
 .choice {
-  min-height: 36px;
-  cursor: pointer;
-}
-.choice input {
-  accent-color: var(--accent-primary);
+  margin: var(--space-2) 0;
 }
 .columns {
   display: grid;
@@ -141,8 +123,7 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-.issueSort select {
-  min-width: 0;
+.issueSortSelect {
   flex: 1;
   max-width: 260px;
 }
@@ -190,8 +171,8 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
-.sessionHeading select {
-  font-size: var(--font-size-xs);
+.sortSelect {
+  width: auto;
 }
 .session {
   border-top: 1px solid var(--border-subtle);
@@ -269,10 +250,5 @@
   .page,
   .detail {
     padding: var(--space-3);
-  }
-  .choice,
-  .page input:not([type="checkbox"]),
-  .page select {
-    min-height: 44px;
   }
 }

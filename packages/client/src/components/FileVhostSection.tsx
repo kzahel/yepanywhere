@@ -3,6 +3,8 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
+import { Select, TextInput } from "./ui/Field";
 import styles from "./FileVhostSection.module.css";
 
 /** The requests the section makes; the File Viewer binds them to its source. */
@@ -193,6 +195,7 @@ export function FileVhostSection({
             <span className={styles.scheme}>https://</span>
             <input
               id={`${id}-name`}
+              className={styles.nameInput}
               aria-label={t("fileVhostName")}
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -205,7 +208,9 @@ export function FileVhostSection({
           </label>
           <label className={styles.access}>
             {t("fileVhostAccess")}
-            <select
+            <Select
+              size="small"
+              className={styles.accessControl}
               value={access}
               onChange={(event) =>
                 setAccess(event.target.value as typeof access)
@@ -217,13 +222,15 @@ export function FileVhostSection({
               {service.canUsePrivateLinks !== false && (
                 <option value="link">{t("fileVhostAccessLink")}</option>
               )}
-            </select>
+            </Select>
           </label>
           {access === "password" && (
             <label className={styles.access}>
               {t("fileVhostPassword")}
-              <input
+              <TextInput
                 type="password"
+                size="small"
+                className={styles.passwordInput}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="new-password"
@@ -232,15 +239,13 @@ export function FileVhostSection({
             </label>
           )}
           {service.canReplace && (
-            <label className={styles.replace}>
-              <input
-                type="checkbox"
-                checked={replace}
-                onChange={(event) => setReplace(event.target.checked)}
-                disabled={working}
-              />
-              {t("fileVhostReplace")}
-            </label>
+            <Checkbox
+              className={styles.replace}
+              label={t("fileVhostReplace")}
+              checked={replace}
+              onCheckedChange={setReplace}
+              disabled={working}
+            />
           )}
           <Button
             variant="primary"

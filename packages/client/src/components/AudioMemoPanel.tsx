@@ -10,6 +10,7 @@ import {
 } from "../lib/speechWaveform";
 import { SpeechWaveform } from "./SpeechWaveform";
 import { Button, ButtonBase } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
 import styles from "./AudioMemoPanel.module.css";
 
 const TRANSCRIPT_KEY = "yep-anywhere-audio-memo-transcript";
@@ -253,15 +254,12 @@ export function AudioMemoPanel({
         <span className={styles.detail}>{t("audioMemoFormat")}</span>
       </ButtonBase>
       <div className={styles.options}>
-        <label>
-          <input
-            type="checkbox"
-            checked={includeTranscript}
-            disabled={status === "sending"}
-            onChange={toggleTranscript}
-          />
-          {t("audioMemoTranscript")}
-        </label>
+        <Checkbox
+          label={t("audioMemoTranscript")}
+          checked={includeTranscript}
+          disabled={status === "sending"}
+          onCheckedChange={toggleTranscript}
+        />
         {includeTranscript && (
           <span className={styles.detail}>
             {transcriptError ||

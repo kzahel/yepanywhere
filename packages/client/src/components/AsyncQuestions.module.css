@@ -146,18 +146,6 @@
 .replyForm {
   margin-block-start: 8px;
 }
-.replyForm textarea {
-  box-sizing: border-box;
-  inline-size: 100%;
-  min-block-size: 4lh;
-  resize: vertical;
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  padding: 8px;
-  font: inherit;
-}
 .replyActions {
   display: flex;
   justify-content: space-between;

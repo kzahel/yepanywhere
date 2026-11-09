@@ -28,25 +28,9 @@
   opacity: 0.5;
 }
 
-.select,
-.textInput {
-  width: 100%;
-  min-height: 2.25rem;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.4rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font: inherit;
-}
-
-.select:focus-visible,
-.textInput:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 1px;
-}
-
-.selectWithIcon {
+/* Room for the microphone icon drawn over the select's leading edge; the
+   compound selector outranks the control's own padding. */
+.selectShell .selectWithIcon {
   padding-left: 1.9rem;
 }
 

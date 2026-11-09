@@ -34,6 +34,7 @@ import { generateUUID } from "../lib/uuid";
 import { AttachmentChip } from "./AttachmentChip";
 import styles from "./ProjectQueueSection.module.css";
 import { Button } from "./ui/Button";
+import { Textarea } from "./ui/Field";
 
 interface UploadingAttachment {
   id: string;
@@ -322,7 +323,7 @@ export function ProjectQueueAttachmentEditor({
 
   return (
     <form className={styles.itemEdit} onSubmit={handleSubmit}>
-      <textarea
+      <Textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
         onPaste={handlePaste}

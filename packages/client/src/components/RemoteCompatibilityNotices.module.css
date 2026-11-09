@@ -96,24 +96,13 @@
 .commandField {
   display: flex;
   align-items: stretch;
+  gap: var(--space-1);
   width: min(100%, 640px);
   max-width: 100%;
 }
 
 .commandInput {
   flex: 1;
-  min-width: 0;
-  padding: 4px 7px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-code) 82%, transparent);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-}
-
-.commandInputMulti {
-  resize: none;
 }
 
 .copyButton {
@@ -122,8 +111,7 @@
   justify-content: center;
   width: 30px;
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--bg-hover) 70%, transparent);
   color: var(--text-primary);
   cursor: pointer;

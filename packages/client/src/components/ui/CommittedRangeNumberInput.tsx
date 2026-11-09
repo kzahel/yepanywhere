@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { CommittedRangeInput } from "./CommittedRangeInput";
+import { TextInput } from "./Field";
 
 interface CommittedRangeNumberInputBaseProps {
   id?: string;
@@ -179,34 +180,33 @@ export function CommittedRangeNumberInput(
         }}
         onCommit={commit}
       />
-      <span className="output-appearance-number-wrap">
-        <input
-          id={id ? `${id}-number` : undefined}
-          type="number"
-          className="settings-input-small output-appearance-number"
-          min={numberMin}
-          max={numberMax}
-          step={snapTextToStep ? step : "any"}
-          value={textDraft}
-          disabled={disabled}
-          aria-label={ariaLabel}
-          onChange={(event) => {
-            const nextText = event.currentTarget.value;
-            setTextDraft(nextText);
-            if (nextText.trim() === "") {
-              if (unsetSliderValue !== undefined) onEdit?.();
-              return;
-            }
-            const parsed = Number(nextText);
-            if (!Number.isFinite(parsed)) return;
-            setRangeValue(clamp(parsed, min, max));
-            onEdit?.();
-          }}
-          onBlur={commitText}
-          onKeyDown={handleTextKeyDown}
-        />
-        {unit && <span className="output-appearance-unit">{unit}</span>}
-      </span>
+      <TextInput
+        id={id ? `${id}-number` : undefined}
+        type="number"
+        size="small"
+        unit={unit || undefined}
+        className={unit ? undefined : "output-appearance-number"}
+        min={numberMin}
+        max={numberMax}
+        step={snapTextToStep ? step : "any"}
+        value={textDraft}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        onChange={(event) => {
+          const nextText = event.currentTarget.value;
+          setTextDraft(nextText);
+          if (nextText.trim() === "") {
+            if (unsetSliderValue !== undefined) onEdit?.();
+            return;
+          }
+          const parsed = Number(nextText);
+          if (!Number.isFinite(parsed)) return;
+          setRangeValue(clamp(parsed, min, max));
+          onEdit?.();
+        }}
+        onBlur={commitText}
+        onKeyDown={handleTextKeyDown}
+      />
     </span>
   );
 }

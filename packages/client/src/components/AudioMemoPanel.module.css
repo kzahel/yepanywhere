@@ -54,18 +54,6 @@
   flex-direction: column;
   gap: 6px;
 }
-.options label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  cursor: pointer;
-}
-.options input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-color);
-}
 .actions {
   display: flex;
   gap: 12px;

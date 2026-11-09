@@ -289,16 +289,6 @@
   margin-top: var(--space-3, 12px);
 }
 
-.followUp textarea {
-  min-height: 5rem;
-  padding: var(--space-2, 8px);
-  color: var(--text-primary, #e6edf3);
-  resize: vertical;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
-}
-
 .siteActions {
   justify-content: flex-end;
 }
@@ -313,10 +303,7 @@
   }
 
   .mobileSelector {
-    display: grid;
-    gap: 2px;
+    display: block;
     margin-bottom: var(--space-3, 12px);
-    color: var(--text-secondary, #8b949e);
-    font-size: 0.8rem;
   }
 }

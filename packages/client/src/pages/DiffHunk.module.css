@@ -109,7 +109,7 @@
   white-space: nowrap;
 }
 
-.control input {
+.control input[type="range"] {
   width: 6rem;
   height: var(--source-code-line-height);
   font: inherit;
@@ -127,7 +127,7 @@
   padding-inline: 0.25rem;
 }
 
-.tall .control input {
+.tall .control input[type="range"] {
   width: 4rem;
 }
 
@@ -137,7 +137,7 @@
     --diff-run-control-height: 2.75rem;
   }
 
-  .control input {
+  .control input[type="range"] {
     min-height: 2.75rem;
   }
 }

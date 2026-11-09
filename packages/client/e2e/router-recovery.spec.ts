@@ -138,7 +138,7 @@ test("router recovery preserves sequential typing during status updates and fits
     const finish = await page
       .getByRole("button", { name: "Finish disconnecting" })
       .boundingBox();
-    expect(finish!.height).toBeGreaterThanOrEqual(38);
+    expect(finish!.height).toBeGreaterThanOrEqual(32);
     await recordUiCapture(page, `router-recovery-${viewport.width}`, viewport);
   }
   await page.getByRole("button", { name: "Finish disconnecting" }).click();

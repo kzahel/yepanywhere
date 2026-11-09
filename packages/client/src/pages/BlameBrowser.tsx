@@ -35,6 +35,7 @@ import {
   SourceFileStatusBadge,
 } from "../components/SourceFileRow";
 import { Button, ButtonBase } from "../components/ui/Button";
+import { TextInput } from "../components/ui/Field";
 import { Modal } from "../components/ui/Modal";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { useProjectReviewComments } from "../hooks/useProjectReviewComments";
@@ -554,9 +555,10 @@ function WorkingTreeFilter({
   };
   return (
     <div className="source-search-field">
-      <input
+      <TextInput
         ref={inputRef}
         type="search"
+        size="small"
         className="source-search-input"
         value={value}
         placeholder={t("sourceFilterFiles")}

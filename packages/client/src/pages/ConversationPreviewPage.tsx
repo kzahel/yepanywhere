@@ -2,6 +2,8 @@ import type { Content } from "@yep-anywhere/shared/experimental/simple-client.ge
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button, ButtonBase, buttonClassName } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
+import { Select } from "../components/ui/Field";
 import { type MessageKey, useI18n } from "../i18n";
 import { loadSavedHosts } from "../lib/hostStorage";
 import { previewFullClientPath } from "../lib/experimental/previewLinks";
@@ -165,16 +167,14 @@ function Preview({
                 {local ? (
                   <strong>{item.host.displayName}</strong>
                 ) : (
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={item.status !== "excluded"}
-                      onChange={(event) =>
-                        include(item.host.id, event.target.checked)
-                      }
-                    />
-                    <span>{item.host.displayName}</span>
-                  </label>
+                  <Checkbox
+                    className={styles.sourceChoice}
+                    label={item.host.displayName}
+                    checked={item.status !== "excluded"}
+                    onCheckedChange={(checked) =>
+                      include(item.host.id, checked)
+                    }
+                  />
                 )}
                 <div className={styles.sourceDetail}>
                   <span>{t(statusKeys[item.status])}</span>
@@ -236,9 +236,11 @@ function Preview({
               </div>
             ))}
           </section>
-          <label className={styles.groupControl}>
-            {t("preview.groupBy")}
-            <select
+          <div className={styles.groupControl}>
+            <label htmlFor="preview-grouping">{t("preview.groupBy")}</label>
+            <Select
+              id="preview-grouping"
+              className={styles.groupSelect}
               value={grouping}
               onChange={(event) =>
                 setGrouping(event.target.value as PreviewGrouping)
@@ -250,8 +252,8 @@ function Preview({
               )}
               <option value="project">{t("preview.byProject")}</option>
               <option value="issue">{t("preview.byIssue")}</option>
-            </select>
-          </label>
+            </Select>
+          </div>
           <nav aria-label={t("preview.sessions")} className={styles.groups}>
             {groups.length === 0 && (
               <p className={styles.muted}>{t("preview.noSessions")}</p>

@@ -12,6 +12,8 @@ import { generateUUID } from "../lib/uuid";
 import styles from "./AgentAuthRouterPools.module.css";
 import { routerPolicyLabel } from "./RouterPoolSelector";
 import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
+import { Field, Select, TextInput } from "./ui/Field";
 
 const reasonKeys = {
   eligible: "routerPoolEligible",
@@ -163,9 +165,8 @@ export function AgentAuthRouterPools({
       {error && <p role="alert">{error}</p>}
       {data && !canManage && <p>{t("routerPoolManagedByRouter")}</p>}
       <div className={styles.toolbar}>
-        <label>
-          {t("routerPool")}
-          <select
+        <Field label={t("routerPool")} className={styles.toolbarField}>
+          <Select
             value={poolId}
             disabled={busy}
             onChange={(e) => {
@@ -179,12 +180,11 @@ export function AgentAuthRouterPools({
                 {p.name} · {p.provider}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         {pool && (
-          <label>
-            {t("routerModel")}
-            <select
+          <Field label={t("routerModel")} className={styles.toolbarField}>
+            <Select
               value={model}
               disabled={busy}
               onChange={(e) => setModel(e.target.value)}
@@ -195,8 +195,8 @@ export function AgentAuthRouterPools({
                   {m.name}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
       </div>
       {pool && (
@@ -245,17 +245,15 @@ export function AgentAuthRouterPools({
       )}
       {canManage && draft && (
         <div className={styles.editor}>
-          <label>
-            {t("routerPoolName")}
-            <input
+          <Field label={t("routerPoolName")}>
+            <TextInput
               value={draft.name}
               maxLength={80}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
-          </label>
-          <label>
-            {t("routerPoolProvider")}
-            <select
+          </Field>
+          <Field label={t("routerPoolProvider")}>
+            <Select
               value={draft.provider}
               disabled={draft.revision > 0 || busy}
               onChange={(e) =>
@@ -268,11 +266,10 @@ export function AgentAuthRouterPools({
             >
               <option value="codex">Codex</option>
               <option value="claude">Claude</option>
-            </select>
-          </label>
-          <label>
-            {t("routerPoolPolicy")}
-            <select
+            </Select>
+          </Field>
+          <Field label={t("routerPoolPolicy")}>
+            <Select
               value={draft.policy}
               disabled={busy}
               onChange={(e) =>
@@ -289,29 +286,26 @@ export function AgentAuthRouterPools({
                   </option>
                 ),
               )}
-            </select>
-          </label>
+            </Select>
+          </Field>
           <fieldset disabled={busy}>
             <legend>{t("routerPoolMembers")}</legend>
             {data?.accounts
               .filter((a) => a.provider === draft.provider)
               .map((a) => (
-                <label className={styles.member} key={a.id}>
-                  <input
-                    type="checkbox"
-                    checked={draft.accountIds.includes(a.id)}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        accountIds: e.target.checked
-                          ? [...draft.accountIds, a.id]
-                          : draft.accountIds.filter((id) => id !== a.id),
-                      })
-                    }
-                  />
-                  {a.id}
-                  {!a.enabled ? ` · ${t("routerAccountDisabledLabel")}` : ""}
-                </label>
+                <Checkbox
+                  key={a.id}
+                  label={`${a.id}${a.enabled ? "" : ` · ${t("routerAccountDisabledLabel")}`}`}
+                  checked={draft.accountIds.includes(a.id)}
+                  onCheckedChange={(checked) =>
+                    setDraft({
+                      ...draft,
+                      accountIds: checked
+                        ? [...draft.accountIds, a.id]
+                        : draft.accountIds.filter((id) => id !== a.id),
+                    })
+                  }
+                />
               ))}
           </fieldset>
           <p>{t("routerPoolEditWarning")}</p>

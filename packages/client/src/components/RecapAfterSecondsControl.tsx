@@ -17,6 +17,7 @@ import {
 } from "react";
 import { useI18n } from "../i18n";
 import { CommittedRangeInput } from "./ui/CommittedRangeInput";
+import { TextInput } from "./ui/Field";
 
 interface RecapAfterSecondsControlProps {
   value?: number;
@@ -139,24 +140,20 @@ export function RecapAfterSecondsControl({
           onDraftChange={updateSliderDraft}
           onCommit={commitSlider}
         />
-        <span className="output-appearance-number-wrap">
-          <input
-            type="number"
-            className="settings-input-small output-appearance-number"
-            min={MIN_RECAP_AFTER_SECONDS}
-            max={MAX_RECAP_AFTER_SECONDS}
-            step={1}
-            value={draftText}
-            disabled={disabled}
-            aria-label={t("recapAfterSecondsAria")}
-            onChange={(event) => updateTextDraft(event.currentTarget.value)}
-            onBlur={handleTextBlur}
-            onKeyDown={handleKeyDown}
-          />
-          <span className="output-appearance-unit">
-            {t("recapAfterSecondsUnit")}
-          </span>
-        </span>
+        <TextInput
+          type="number"
+          size="small"
+          unit={t("recapAfterSecondsUnit")}
+          min={MIN_RECAP_AFTER_SECONDS}
+          max={MAX_RECAP_AFTER_SECONDS}
+          step={1}
+          value={draftText}
+          disabled={disabled}
+          aria-label={t("recapAfterSecondsAria")}
+          onChange={(event) => updateTextDraft(event.currentTarget.value)}
+          onBlur={handleTextBlur}
+          onKeyDown={handleKeyDown}
+        />
       </span>
     </div>
   );

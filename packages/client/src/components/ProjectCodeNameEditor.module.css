@@ -40,20 +40,7 @@ button.codeName:hover {
 }
 
 .input {
-  width: 12ch;
+  width: 14ch;
   max-width: calc(100% - 1.5rem);
   min-width: 5ch;
-  padding: 1px 3px;
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  font-weight: 400;
-  line-height: 1.25;
-}
-
-.input[aria-invalid="true"] {
-  border-color: var(--error-color);
 }

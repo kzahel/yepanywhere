@@ -11,6 +11,7 @@ import type { AsyncQuestion } from "../lib/asyncQuestions";
 import styles from "./AsyncQuestions.module.css";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Textarea } from "./ui/Field";
 import { renderFixedFontRichContent } from "./ui/FixedFontMathToggle";
 
 function InlineQuestion({
@@ -137,7 +138,7 @@ function InlineQuestion({
                 void send(record?.draft ?? "");
               }}
             >
-              <textarea
+              <Textarea
                 rows={3}
                 value={record?.draft ?? ""}
                 aria-label={t("asyncQuestionReplyTo", {

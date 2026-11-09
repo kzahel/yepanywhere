@@ -65,6 +65,8 @@ import {
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import styles from "./SessionListItem.module.css";
 import { ButtonBase } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
+import { TextInput } from "./ui/Field";
 import { useSessionHasApp } from "../lib/sessionApps";
 
 export interface SessionNavigationIntent {
@@ -482,9 +484,12 @@ export function SessionListItem({
     }
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCheckboxChange = (
+    checked: boolean,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     e.stopPropagation();
-    onSelect?.(sessionId, e.target.checked);
+    onSelect?.(sessionId, checked);
   };
 
   // Activity indicator for compact mode
@@ -848,20 +853,18 @@ export function SessionListItem({
       {/* Checkbox for multi-select (only shown when onSelect is provided) */}
       {onSelect && searchPreviews !== undefined && (
         <label className={styles.searchSelection}>
-          <input
-            type="checkbox"
+          <Checkbox
+            className={styles.searchCheckbox}
             checked={isSelected}
-            onChange={handleCheckboxChange}
+            onCheckedChange={handleCheckboxChange}
             aria-label={t("sessionSearchSelect", { title: displayTitle })}
           />
         </label>
       )}
       {onSelect && searchPreviews === undefined && (
-        <input
-          type="checkbox"
-          className="session-list-item__checkbox"
+        <Checkbox
           checked={isSelected}
-          onChange={handleCheckboxChange}
+          onCheckedChange={handleCheckboxChange}
           onClick={(e) => e.stopPropagation()}
           aria-label={`Select ${displayTitle}`}
         />
@@ -892,10 +895,10 @@ export function SessionListItem({
 
       <div className={styles.body}>
         {isEditing ? (
-          <input
+          <TextInput
             ref={attachRenameInput}
-            type="text"
-            className="session-rename-input"
+            size="small"
+            aria-label={t("sessionRenameTitleLabel")}
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onBlur={handleRenameBlur}

@@ -13,7 +13,9 @@ import { useProviders } from "../hooks/useProviders";
 import { useI18n } from "../i18n";
 import { getRecapModeDescription } from "../lib/recapModes";
 import { RecapAfterSecondsControl } from "./RecapAfterSecondsControl";
+import styles from "./SessionRecapModal.module.css";
 import { Button } from "./ui/Button";
+import { Select } from "./ui/Field";
 import { Modal } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
 
@@ -227,8 +229,8 @@ export function SessionRecapModal({
               <strong>{t("helperSideModelTitle")}</strong>
               <p>{t("helperSideModelDescription")}</p>
             </div>
-            <select
-              className="settings-select"
+            <Select
+              className={styles.modelSelect}
               value={effectiveHelperSideModel}
               onChange={(event) => setHelperSideModel(event.target.value)}
               disabled={isLoading || isSaving}
@@ -238,7 +240,7 @@ export function SessionRecapModal({
                   {model.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
 

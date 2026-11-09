@@ -6,6 +6,7 @@ import {
   useSpeechCaptureSettings,
 } from "../hooks/useSpeechCaptureSettings";
 import { useI18n } from "../i18n";
+import { Select, TextInput } from "./ui/Field";
 import { RangeNumberRow } from "./ui/RangeNumberRow";
 import { MicrophoneIcon } from "./MicrophoneIcon";
 import styles from "./SpeechMessagePrefixControls.module.css";
@@ -48,13 +49,13 @@ export function SpeechMessagePrefixControls({
           {speechMessagePrefixMode === "microphone" && (
             <MicrophoneIcon className={styles.selectIcon} />
           )}
-          <select
+          <Select
             id={`${id}-prefix`}
-            className={`${styles.select} ${
+            className={
               speechMessagePrefixMode === "microphone"
                 ? styles.selectWithIcon
-                : ""
-            }`}
+                : undefined
+            }
             value={speechMessagePrefixMode}
             disabled={disabled}
             aria-label={t("speechSettingsMessagePrefixTitle")}
@@ -70,12 +71,10 @@ export function SpeechMessagePrefixControls({
             <option value="custom">
               {t("speechSettingsMessagePrefixCustom")}
             </option>
-          </select>
+          </Select>
         </div>
         {speechMessagePrefixMode === "custom" && (
-          <input
-            className={styles.textInput}
-            type="text"
+          <TextInput
             value={speechMessageCustomPrefix}
             maxLength={MAX_SPEECH_MESSAGE_CUSTOM_PREFIX_LENGTH}
             disabled={disabled}

@@ -16,6 +16,7 @@ import {
 import { SearchMatchText } from "../components/SearchMatchText";
 import { SourceShortcutHelp } from "../components/SourceShortcutHelp";
 import { Button } from "../components/ui/Button";
+import { TextInput } from "../components/ui/Field";
 import {
   handleSourceListKeyDown,
   suppressSourceKeyboardTooltips,
@@ -199,9 +200,10 @@ export function CommitRevisionPane({
     <>
       <div className="commit-list-column">
         <div className="source-search-field">
-          <input
+          <TextInput
             ref={searchInputRef}
             type="search"
+            size="small"
             className="source-search-input"
             value={searchQuery}
             placeholder={t("sourceSearchCommits")}

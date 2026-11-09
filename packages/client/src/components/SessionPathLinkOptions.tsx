@@ -2,6 +2,7 @@ import { useProjectPathLinkSettings } from "../contexts/ProjectPathLinkSettingsC
 import { useI18n } from "../i18n";
 import { useGlobalProjectPathLinkSettings } from "../lib/projectPathLinkPreferences";
 import styles from "./SessionPathLinkOptions.module.css";
+import { Select } from "./ui/Field";
 
 const OPTIONS = [
   ["projectPaths", "appearanceProjectPathLinksTitle"],
@@ -20,7 +21,8 @@ export function SessionPathLinkOptions() {
       {OPTIONS.map(([key, label]) => (
         <label className={styles.row} key={key}>
           <span>{t(label)}</span>
-          <select
+          <Select
+            className={styles.select}
             aria-label={t(label)}
             disabled={key !== "projectPaths" && !projectPaths}
             value={
@@ -46,7 +48,7 @@ export function SessionPathLinkOptions() {
             </option>
             <option value="true">{t("sessionPathLinkOn")}</option>
             <option value="false">{t("sessionPathLinkOff")}</option>
-          </select>
+          </Select>
         </label>
       ))}
     </fieldset>

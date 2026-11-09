@@ -107,32 +107,18 @@
   border-inline-start: 3px solid var(--warning-color);
   color: var(--warning-color);
 }
-.details label {
-  display: block;
+.field {
   margin-block: 12px;
 }
-/* A wrapped checkbox label continues under its text, not under the box. */
-.details label.checkLabel {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+/* Its own row, not beside the button before it. */
+.checkLabel {
+  width: 100%;
+  margin-block: 12px;
 }
 .details button {
   margin: 4px;
   /* Icon-and-text buttons sit level with plain ones in a row. */
   vertical-align: middle;
-}
-.details input:not([type="checkbox"]) {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px;
-  margin-top: 6px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
 }
 .details fieldset {
   min-width: 0;
@@ -152,23 +138,8 @@
 .details .commandEdit {
   margin-inline-start: 8px;
 }
-.commandEditor label {
+.commandField {
   margin-block: 4px;
-  color: var(--text-secondary);
-}
-.commandEditor textarea {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 6px;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: var(--font-mono, monospace);
-  font-size: 0.9em;
-  resize: vertical;
 }
 .commandEditor > div button:first-child {
   margin-inline-start: 0;

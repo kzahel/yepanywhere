@@ -9,6 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { Button, buttonClassName, IconButton } from "./ui/Button";
+import { Field, Textarea } from "./ui/Field";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
@@ -164,17 +165,15 @@ export function GoalPanel({
         </div>
         <div className={styles.body}>
           {editing ? (
-            <label className={styles.editorLabel}>
-              {t("goalPanelObjective")}
-              <textarea
+            <Field label={t("goalPanelObjective")}>
+              <Textarea
                 ref={editorRef}
-                className={styles.editor}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 disabled={pending}
                 rows={8}
               />
-            </label>
+            </Field>
           ) : (
             <div className={styles.objective}>
               <LinkifiedText text={objective} />

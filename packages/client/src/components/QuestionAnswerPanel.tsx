@@ -11,6 +11,7 @@ import type { InputRequest, UserQuestionAnswers } from "../types";
 import type { AskUserQuestionInput, Question } from "./renderers/tools/types";
 import styles from "./QuestionAnswerPanel.module.css";
 import { Button, ButtonBase } from "./ui/Button";
+import { TextInput } from "./ui/Field";
 
 const OTHER_ANSWER = "__other__";
 
@@ -415,7 +416,7 @@ export function QuestionAnswerPanel({
                 {/* Other text input */}
                 {isOtherSelected && (
                   <div className={styles.otherInput}>
-                    <input
+                    <TextInput
                       ref={otherInputRef}
                       type={currentQuestion.isSecret ? "password" : "text"}
                       placeholder={t("questionPanelTypeAnswer")}

@@ -27,17 +27,6 @@
   white-space: pre;
 }
 
-.input {
-  width: 100%;
-  resize: vertical;
-  padding: var(--space-2, 8px);
-  border: 1px solid var(--border-color, #30363d);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg-input);
-  color: var(--text-primary, #e6edf3);
-  font: inherit;
-}
-
 .error {
   color: var(--error-color);
   font-size: var(--font-size-sm, 0.85em);
@@ -60,17 +49,7 @@
 }
 
 .destination {
-  display: grid;
   flex: 1 1 220px;
-  gap: 2px;
-  min-width: 0;
-  color: var(--text-secondary, #8b949e);
-  font-size: var(--font-size-sm, 0.85em);
-}
-
-.destination select {
-  min-width: 0;
-  width: 100%;
 }
 
 .destinationError {

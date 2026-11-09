@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ReviewPreviewItem } from "../api/reviewClient";
 import { Button } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
+import { Field, Select, TextInput } from "../components/ui/Field";
 import { Modal } from "../components/ui/Modal";
 import { useProjectReviewSessions } from "../hooks/useProjectReviewSessions";
 import {
@@ -213,9 +215,8 @@ export function ReviewSubmitModal({
 
         {items && items.length > 0 && (
           <div className={styles.destination}>
-            <label className={styles.field}>
-              <span>{t("sourceReviewTargetLegend")}</span>
-              <select
+            <Field label={t("sourceReviewTargetLegend")}>
+              <Select
                 value={targetSessionId}
                 onChange={(event) => {
                   targetTouchedRef.current = true;
@@ -242,8 +243,8 @@ export function ReviewSubmitModal({
                     )}
                   </option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
             {sessionsError && (
               <div className={styles.targetError}>
@@ -253,9 +254,8 @@ export function ReviewSubmitModal({
 
             {targetSessionId === "new" && (
               <div className={styles.newSession}>
-                <label className={styles.field}>
-                  <span>{t("sourceReviewProvider")}</span>
-                  <select
+                <Field label={t("sourceReviewProvider")}>
+                  <Select
                     value={providerName}
                     disabled={
                       providersLoading || availableProviders.length === 0
@@ -270,11 +270,10 @@ export function ReviewSubmitModal({
                         {provider.displayName}
                       </option>
                     ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span>{t("sourceReviewModel")}</span>
-                  <select
+                  </Select>
+                </Field>
+                <Field label={t("sourceReviewModel")}>
+                  <Select
                     value={model}
                     disabled={!selectedProvider}
                     onChange={(event) => setModel(event.target.value)}
@@ -285,8 +284,8 @@ export function ReviewSubmitModal({
                         {providerModel.name}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+                </Field>
               </div>
             )}
           </div>
@@ -294,15 +293,17 @@ export function ReviewSubmitModal({
 
         <div className={styles.actions}>
           {submissionsEnabled && (
-            <label className={`${styles.field} ${styles.name}`}>
-              <span>{t("sourceReviewSubmissionName")}</span>
-              <input
+            <Field
+              label={t("sourceReviewSubmissionName")}
+              className={styles.name}
+            >
+              <TextInput
                 value={name}
                 maxLength={120}
                 placeholder={derivedName}
                 onChange={(event) => setName(event.target.value)}
               />
-            </label>
+            </Field>
           )}
           <Button onClick={onClose} disabled={busy}>
             {t("cancel")}
@@ -340,16 +341,25 @@ function ReviewPreviewRow({
 
   return (
     <li className={`${styles.row} ${gone ? styles.stale : ""}`}>
-      <label className={styles.rowHead}>
-        <input type="checkbox" checked={checked} onChange={onToggle} />
-        <span className={styles.location}>{location}</span>
-        {gone && (
-          <span className={styles.staleLabel}>{t("sourceReviewStale")}</span>
-        )}
-        {!gone && item.relocation.moved && (
-          <span className={styles.movedLabel}>{t("sourceReviewMoved")}</span>
-        )}
-      </label>
+      <Checkbox
+        checked={checked}
+        onCheckedChange={onToggle}
+        label={
+          <>
+            <span className={styles.location}>{location}</span>
+            {gone && (
+              <span className={styles.staleLabel}>
+                {t("sourceReviewStale")}
+              </span>
+            )}
+            {!gone && item.relocation.moved && (
+              <span className={styles.movedLabel}>
+                {t("sourceReviewMoved")}
+              </span>
+            )}
+          </>
+        }
+      />
       <div className={styles.rowText}>{item.comment.text}</div>
     </li>
   );

@@ -35,14 +35,10 @@
 .searchRow:has([data-search-previews]) :global(.session-list-item__meta) {
   padding-right: 94px;
 }
-.searchSelection input {
+.searchCheckbox {
   position: absolute;
   left: 3px;
   top: 11px;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent-primary);
 }
 .searchPreviews {
   flex-basis: 100%;

@@ -10,22 +10,6 @@
 .panel p {
   margin: 0;
 }
-.panel label {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-}
-.panel select,
-.panel input:not([type="checkbox"]) {
-  min-width: 0;
-  width: 100%;
-  min-height: 38px;
-  padding: 0.4rem;
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-}
 .toolbar {
   display: flex;
   gap: 0.75rem;
@@ -33,7 +17,7 @@
   justify-content: space-between;
   align-items: center;
 }
-.toolbar > label {
+.toolbarField {
   flex: 1 1 12rem;
 }
 .grid {
@@ -73,15 +57,11 @@
   border-radius: 8px;
 }
 .editor fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
   max-height: 16rem;
   overflow: auto;
   border: 1px solid var(--border-color);
-}
-.editor .member {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  min-height: 38px;
-  overflow-wrap: anywhere;
 }

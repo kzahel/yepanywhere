@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CommittedRangeInput } from "./CommittedRangeInput";
+import { TextInput } from "./Field";
 import styles from "./RangeNumberRow.module.css";
 
 interface RangeNumberRowProps {
@@ -54,22 +55,22 @@ export function RangeNumberRow({
         onCommit={onCommit}
         aria-describedby={hintId}
       />
-      <span className={styles.numberWrap}>
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          disabled={disabled}
-          onFocus={onActivate}
-          onPointerDown={onActivate}
-          onChange={(event) => onCommit(Number(event.target.value))}
-          aria-describedby={hintId}
-          aria-label={numberAriaLabel}
-        />
-        {unit && <span className={styles.unit}>{unit}</span>}
-      </span>
+      <TextInput
+        type="number"
+        size="small"
+        unit={unit || undefined}
+        className={unit ? undefined : styles.number}
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onFocus={onActivate}
+        onPointerDown={onActivate}
+        onChange={(event) => onCommit(Number(event.target.value))}
+        aria-describedby={hintId}
+        aria-label={numberAriaLabel}
+      />
       {hint && (
         <span id={hintId} className={styles.hint}>
           {hint}

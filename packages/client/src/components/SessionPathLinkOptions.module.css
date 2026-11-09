@@ -25,11 +25,6 @@
   min-inline-size: 0;
 }
 
-.row select {
-  min-block-size: 44px;
+.select {
   max-inline-size: 130px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
 }

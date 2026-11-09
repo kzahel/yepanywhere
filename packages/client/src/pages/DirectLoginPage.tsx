@@ -10,6 +10,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { Button } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
+import { Field, TextInput } from "../components/ui/Field";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useSignInRequiredNotice } from "../hooks/useSignInRequiredNotice";
 import { useI18n } from "../i18n";
@@ -155,10 +157,12 @@ export function DirectLoginPage() {
           className="login-form"
           data-testid="login-form"
         >
-          <div className="login-field">
-            <label htmlFor="serverUrl">{t("directLoginServerUrl")}</label>
-            <input
-              id="serverUrl"
+          <Field
+            id="serverUrl"
+            label={t("directLoginServerUrl")}
+            hint={t("directLoginServerUrlHint")}
+          >
+            <TextInput
               type="text"
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
@@ -167,13 +171,10 @@ export function DirectLoginPage() {
               autoComplete="url"
               data-testid="ws-url-input"
             />
-            <p className="login-field-hint">{t("directLoginServerUrlHint")}</p>
-          </div>
+          </Field>
 
-          <div className="login-field">
-            <label htmlFor="username">{t("directLoginUsername")}</label>
-            <input
-              id="username"
+          <Field id="username" label={t("directLoginUsername")}>
+            <TextInput
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -182,12 +183,10 @@ export function DirectLoginPage() {
               autoComplete="username"
               data-testid="username-input"
             />
-          </div>
+          </Field>
 
-          <div className="login-field">
-            <label htmlFor="password">{t("directLoginPassword")}</label>
-            <input
-              id="password"
+          <Field id="password" label={t("directLoginPassword")}>
+            <TextInput
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -196,25 +195,20 @@ export function DirectLoginPage() {
               autoComplete="current-password"
               data-testid="password-input"
             />
-          </div>
+          </Field>
 
-          <div className="login-field login-field-checkbox">
-            <label className="login-checkbox-label">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isConnecting}
-                data-testid="remember-me-checkbox"
-              />
-              <span>{t("directLoginRememberMe")}</span>
-            </label>
-            <p className="login-field-hint">
-              {hasStoredSession
+          <Checkbox
+            label={t("directLoginRememberMe")}
+            description={
+              hasStoredSession
                 ? t("directLoginResumeHint")
-                : t("directLoginStayLoggedIn")}
-            </p>
-          </div>
+                : t("directLoginStayLoggedIn")
+            }
+            checked={rememberMe}
+            onCheckedChange={setRememberMe}
+            disabled={isConnecting}
+            data-testid="remember-me-checkbox"
+          />
 
           {displayError && (
             <div className="login-error" data-testid="login-error">

@@ -2,6 +2,7 @@ import type { ForkSummaryTranscriptDisplayObject } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
 
 function formatElapsed(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -50,14 +51,12 @@ export function ForkSummaryDisplayObject({
         <span className="fork-summary-display-object-elapsed">
           {formatElapsed(now - Date.parse(object.createdAt))}
         </span>
-        <label className="fork-summary-display-object-autoopen">
-          <input
-            type="checkbox"
-            checked={object.autoOpenWhenReady ?? false}
-            onChange={(e) => onToggleAutoOpen(e.target.checked)}
-          />
-          {t("forkSummaryAutoOpenToggle")}
-        </label>
+        <Checkbox
+          className="fork-summary-display-object-autoopen"
+          label={t("forkSummaryAutoOpenToggle")}
+          checked={object.autoOpenWhenReady ?? false}
+          onCheckedChange={(checked) => onToggleAutoOpen(checked)}
+        />
         <Button
           size="small"
           className="fork-summary-display-object-cancel"

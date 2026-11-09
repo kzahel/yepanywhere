@@ -347,27 +347,6 @@
   margin-top: 0.35rem;
 }
 
-.itemEdit textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 4.75rem;
-  padding: 0.45rem 0.55rem;
-  resize: vertical;
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: 1.35;
-}
-
-.itemEdit textarea:focus-visible {
-  outline: 2px solid
-    color-mix(in srgb, var(--project-queue-action-bg) 35%, transparent);
-  outline-offset: 1px;
-}
-
 .itemEditAttachments {
   display: flex;
   flex-wrap: wrap;

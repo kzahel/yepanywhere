@@ -9,6 +9,7 @@ import {
 } from "../lib/remoteCompatibilityNotices";
 import { Button, buttonClassName } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
+import { Textarea, TextInput } from "./ui/Field";
 import styles from "./RemoteCompatibilityNotices.module.css";
 
 const placementClassNames: Record<
@@ -135,8 +136,10 @@ export function RemoteCompatibilityNoticeCard({
         {commandField && (
           <div className={styles.commandField!}>
             {commandField.lines > 1 ? (
-              <textarea
-                className={`${styles.commandInput!} ${styles.commandInputMulti!}`}
+              <Textarea
+                className={styles.commandInput!}
+                size="small"
+                mono
                 value={commandField.command}
                 readOnly
                 rows={Math.min(commandField.lines, 4)}
@@ -144,8 +147,10 @@ export function RemoteCompatibilityNoticeCard({
                 onFocus={(event) => event.currentTarget.select()}
               />
             ) : (
-              <input
+              <TextInput
                 className={styles.commandInput!}
+                size="small"
+                mono
                 value={commandField.command}
                 readOnly
                 aria-label={`${commandField.label} text`}

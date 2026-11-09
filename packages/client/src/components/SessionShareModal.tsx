@@ -14,6 +14,7 @@ import {
   type PublicShareCreationIdentity,
 } from "./PublicShareManagerModal";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Field, TextInput } from "./ui/Field";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
 import { ViewerCountIndicator } from "./ViewerCountIndicator";
 
@@ -310,15 +311,15 @@ export function LegacySessionShareModal({
         )}
 
         {url && (
-          <label className="session-share-url-field">
-            <span>{t("sessionShareUrlLabel")}</span>
-            <input
+          <Field label={t("sessionShareUrlLabel")}>
+            <TextInput
               ref={urlInputRef}
+              mono
               readOnly
               value={url}
               onFocus={(event) => event.currentTarget.select()}
             />
-          </label>
+          </Field>
         )}
 
         {error && <div className="session-share-error">{error}</div>}

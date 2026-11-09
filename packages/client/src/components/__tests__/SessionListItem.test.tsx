@@ -322,10 +322,9 @@ describe("SessionListItem links", () => {
 
     // No timer flush: asking to rename means the next keystroke is the new
     // title, so focus cannot wait for a later turn of the event loop.
-    const input = document.querySelector<HTMLInputElement>(
-      "input.session-rename-input",
-    );
-    if (!input) throw new Error("expected the rename input");
+    const input = screen.getByRole<HTMLInputElement>("textbox", {
+      name: "Session title",
+    });
     expect(document.activeElement).toBe(input);
     expect([input.selectionStart, input.selectionEnd]).toEqual([
       0,

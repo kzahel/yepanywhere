@@ -36,6 +36,8 @@ import { AppViewerToolbar } from "./AppViewerToolbar";
 import { LastViewIcon } from "./LastViewIcon";
 import { ProjectAppIcon } from "./ProjectAppIcon";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
+import { Field, Textarea, TextInput } from "./ui/Field";
 import actions from "./ViewerWindowActions.module.css";
 import styles from "./ProjectAppViewer.module.css";
 import { useI18n } from "../i18n";
@@ -1053,9 +1055,12 @@ export function ProjectAppViewer({
                                 void saveCommand(declaredArgv, commandDraft);
                               }}
                             >
-                              <label>
-                                {t("projectAppCommandHint")}
-                                <textarea
+                              <Field
+                                label={t("projectAppCommandHint")}
+                                className={styles.commandField}
+                              >
+                                <Textarea
+                                  mono
                                   value={commandDraft}
                                   rows={Math.min(
                                     12,
@@ -1066,7 +1071,7 @@ export function ProjectAppViewer({
                                     setCommandDraft(event.target.value)
                                   }
                                 />
-                              </label>
+                              </Field>
                               <div>
                                 <Button
                                   variant="primary"
@@ -1244,17 +1249,13 @@ export function ProjectAppViewer({
                             {row.privateOnly ? (
                               <p>{t("projectAppPrivateOnly")}</p>
                             ) : (
-                              <label className={styles.checkLabel}>
-                                <input
-                                  type="checkbox"
-                                  checked={publicAccess ?? row.public}
-                                  disabled={busy}
-                                  onChange={(event) =>
-                                    setPublicAccess(event.target.checked)
-                                  }
-                                />
-                                {t("projectAppPublic")}
-                              </label>
+                              <Checkbox
+                                className={styles.checkLabel}
+                                label={t("projectAppPublic")}
+                                checked={publicAccess ?? row.public}
+                                disabled={busy}
+                                onCheckedChange={setPublicAccess}
+                              />
                             )}
                             {!row.privateOnly &&
                               publicAccess !== undefined &&
@@ -1319,32 +1320,29 @@ export function ProjectAppViewer({
                                 SERVER_CAPABILITIES.projectAppAutoStart.name,
                               ) && (
                                 <>
-                                  <label className={styles.checkLabel}>
-                                    <input
-                                      type="checkbox"
-                                      checked={
-                                        autoStartChoice ??
-                                        addresses.autoStart.enabled
-                                      }
-                                      disabled={busy}
-                                      onChange={(event) => {
-                                        // Show the choice at once; the refreshed
-                                        // addresses then confirm or revert it.
-                                        const enabled = event.target.checked;
-                                        setAutoStartChoice(enabled);
-                                        void perform(() =>
-                                          projectAppApi.addressAction(
-                                            projectId,
-                                            "auto-start",
-                                            { enabled },
-                                          ),
-                                        ).finally(() =>
-                                          setAutoStartChoice(undefined),
-                                        );
-                                      }}
-                                    />
-                                    {t("projectAppAutoStart")}
-                                  </label>
+                                  <Checkbox
+                                    className={styles.checkLabel}
+                                    label={t("projectAppAutoStart")}
+                                    checked={
+                                      autoStartChoice ??
+                                      addresses.autoStart.enabled
+                                    }
+                                    disabled={busy}
+                                    onCheckedChange={(enabled) => {
+                                      // Show the choice at once; the refreshed
+                                      // addresses then confirm or revert it.
+                                      setAutoStartChoice(enabled);
+                                      void perform(() =>
+                                        projectAppApi.addressAction(
+                                          projectId,
+                                          "auto-start",
+                                          { enabled },
+                                        ),
+                                      ).finally(() =>
+                                        setAutoStartChoice(undefined),
+                                      );
+                                    }}
+                                  />
                                   {addresses.autoStart.paused && (
                                     <p role="status">
                                       {t("projectAppAutoStartPaused", {
@@ -1389,14 +1387,16 @@ export function ProjectAppViewer({
                 ) &&
                   addresses.canReserve && (
                     <>
-                      <label>
-                        {t("projectAppName")}
-                        <input
+                      <Field
+                        label={t("projectAppName")}
+                        className={styles.field}
+                      >
+                        <TextInput
                           value={name}
                           placeholder={`${addresses.requiredPrefix}canvas`}
                           onChange={(event) => setName(event.target.value)}
                         />
-                      </label>
+                      </Field>
                       <Button
                         variant="primary"
                         disabled={busy || !name.trim()}

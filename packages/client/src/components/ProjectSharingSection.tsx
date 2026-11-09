@@ -10,6 +10,7 @@ import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import styles from "./ProjectSessionDefaultsModal.module.css";
+import { Select } from "./ui/Field";
 
 /**
  * Sharing this project with limited users, for the superuser or the limited
@@ -80,7 +81,7 @@ export function ProjectSharingSection({
           {users.map((entry) => (
             <li key={entry.username} className={styles.sharingRow}>
               <span>{entry.username}</span>
-              <select
+              <Select
                 value={entry.level}
                 aria-label={entry.username}
                 disabled={saving === entry.username}
@@ -97,7 +98,7 @@ export function ProjectSharingSection({
                 <option value="new-session">
                   {t("usersAccessNewSession")}
                 </option>
-              </select>
+              </Select>
               {entry.directoryLevel !== "none" && (
                 <span className={styles.sharingNote}>
                   {t("projectSharingViaDirectory", {

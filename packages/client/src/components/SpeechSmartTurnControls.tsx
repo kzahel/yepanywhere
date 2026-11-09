@@ -10,6 +10,7 @@ import {
   MAX_SPEECH_SMART_TURN_TIMEOUT_MS,
   type SpeechSmartTurnSettings,
 } from "../lib/speechProviders/SpeechProvider";
+import { Checkbox } from "./ui/Checkbox";
 import { RangeNumberRow } from "./ui/RangeNumberRow";
 import styles from "./SpeechSmartTurnControls.module.css";
 
@@ -38,15 +39,12 @@ export function SpeechSmartTurnControls({
   };
   const body = (
     <div className={styles.body}>
-      <label className={styles.toggle}>
-        <input
-          type="checkbox"
-          checked={clean.enabled}
-          disabled={disabled}
-          onChange={(event) => update({ enabled: event.target.checked })}
-        />
-        <span>Smart Turn</span>
-      </label>
+      <Checkbox
+        label="Smart Turn"
+        checked={clean.enabled}
+        disabled={disabled}
+        onCheckedChange={(enabled) => update({ enabled })}
+      />
       <RangeNumberRow
         id={`${id}-threshold`}
         label="Threshold"

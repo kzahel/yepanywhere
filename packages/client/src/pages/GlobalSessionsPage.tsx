@@ -64,6 +64,7 @@ import { useServerSettings } from "../hooks/useServerSettings";
 import { useSessionRightPaneSetting } from "../hooks/useSessionRightPaneSetting";
 import { useVersion } from "../hooks/useVersion";
 import { Button } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
 import { useModalBackGesture } from "../components/ui/Modal";
 import { useI18n } from "../i18n";
 import { MainContent, useNavigationLayout } from "../layouts";
@@ -979,33 +980,34 @@ function SessionSearchPage() {
                       turnSearchProviders.has(session.provider),
                   )
                   .map((session) => (
-                    <label key={session.id}>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(session.id)}
-                        onChange={(e) => select(session.id, e.target.checked)}
-                      />
-                      <span>
-                        {getSessionDisplayTitle(session)}{" "}
-                        <small>· {session.provider}</small>{" "}
-                        {!shownIds.has(session.id) && (
-                          <small>
-                            {exclusions.get(session.id)?.join("; ") ||
-                              (invalidRange
-                                ? t("sessionSearchInvalidRange")
-                                : !effectiveFields.length
-                                  ? t("sessionSearchChooseField")
-                                  : (scan.partial.get(session.id) ??
-                                    scan.error ??
-                                    t(
-                                      scan.running
-                                        ? "sessionSearchNotFoundYet"
-                                        : "sessionSearchNoTextMatch",
-                                    )))}
-                          </small>
-                        )}
-                      </span>
-                    </label>
+                    <Checkbox
+                      key={session.id}
+                      className={styles.managerChoice}
+                      checked={selected.has(session.id)}
+                      onCheckedChange={(checked) => select(session.id, checked)}
+                      label={
+                        <>
+                          {getSessionDisplayTitle(session)}{" "}
+                          <small>· {session.provider}</small>{" "}
+                          {!shownIds.has(session.id) && (
+                            <small>
+                              {exclusions.get(session.id)?.join("; ") ||
+                                (invalidRange
+                                  ? t("sessionSearchInvalidRange")
+                                  : !effectiveFields.length
+                                    ? t("sessionSearchChooseField")
+                                    : (scan.partial.get(session.id) ??
+                                      scan.error ??
+                                      t(
+                                        scan.running
+                                          ? "sessionSearchNotFoundYet"
+                                          : "sessionSearchNoTextMatch",
+                                      )))}
+                            </small>
+                          )}
+                        </>
+                      }
+                    />
                   ))}
               </section>
             )}

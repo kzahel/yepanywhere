@@ -2,6 +2,7 @@ import type { ReviewComment } from "@yep-anywhere/shared";
 import { useState } from "react";
 import { api } from "../api/client";
 import { Button, ButtonBase } from "../components/ui/Button";
+import { Textarea } from "../components/ui/Field";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
 import type { TranslationFn } from "../i18n";
 import styles from "./ReviewCommentsPanel.module.css";
@@ -129,7 +130,7 @@ export function ReviewCommentsPanel({
             </div>
             {editId === comment.id ? (
               <div className={styles.editor}>
-                <textarea
+                <Textarea
                   aria-label={t("sourceReviewEditComment")}
                   value={editText}
                   maxLength={20_000}

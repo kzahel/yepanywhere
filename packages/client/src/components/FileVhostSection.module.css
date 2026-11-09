@@ -49,7 +49,7 @@
   border-color: var(--accent-color);
 }
 
-.nameField input {
+.nameInput {
   background: transparent;
   border: 0;
   color: var(--text-primary);
@@ -78,35 +78,18 @@
   display: inline-flex;
   font-size: 0.8rem;
   gap: 6px;
-  min-height: 36px;
+}
+
+.accessControl {
+  width: auto;
+}
+
+.passwordInput {
+  width: 10rem;
 }
 
 .replace {
-  align-items: center;
-  display: flex;
   flex: 1 1 100%;
-  font-size: 0.8rem;
-  gap: 8px;
-  min-height: 44px;
-}
-
-.replace input {
-  margin: 0;
-}
-
-.access select,
-.access input {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font: inherit;
-  min-height: 32px;
-  padding: 4px 6px;
-}
-
-.access input {
-  width: 10rem;
 }
 
 .submit {
@@ -162,10 +145,4 @@
   display: flex;
   gap: 6px;
   margin-left: auto;
-}
-
-@media (width < 600px) {
-  .access {
-    min-height: 44px;
-  }
 }

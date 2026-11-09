@@ -81,26 +81,6 @@
   border-top: 1px solid var(--border-color);
 }
 
-.editorLabel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.editor {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 180px;
-  padding: 10px;
-  resize: vertical;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font: inherit;
-  line-height: 1.5;
-}
-
 @media (width <= 600px) {
   .panel {
     inset: auto 0 0;

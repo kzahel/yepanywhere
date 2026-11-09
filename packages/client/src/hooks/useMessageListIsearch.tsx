@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Button, ButtonBase, IconButton } from "../components/ui/Button";
+import { TextInput } from "../components/ui/Field";
 import {
   type EarlyTypingHandoff,
   startEarlyTypingHandoff,
@@ -1212,8 +1213,9 @@ export function useMessageListIsearch({
                 </option>
               ))}
             </select>
-            <input
+            <TextInput
               ref={attachSearchInput}
+              size="small"
               className={styles.input}
               value={userTurnSearch.query}
               onChange={(event) => handleQueryChange(event.target.value)}

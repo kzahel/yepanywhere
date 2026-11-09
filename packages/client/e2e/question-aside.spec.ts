@@ -342,10 +342,15 @@ test("question cards use existing forks, keep main typing, and save on empty", a
         )
         .toBeLessThan(3);
       await recordUiCapture(page, `aside-${viewport.name}-answer`);
-      await card
-        .getByRole("button", { name: "Quick answer", exact: true })
-        .click();
-      await expect(card.getByRole("tooltip")).toBeVisible();
+      const help = card.getByRole("button", {
+        name: "Quick answer",
+        exact: true,
+      });
+      await help.click();
+      // The help is a Popover, portalled out of the card.
+      await expect(
+        page.locator(`[id="${await help.getAttribute("aria-controls")}"]`),
+      ).toBeVisible();
       await card
         .getByRole("button", { name: "Quick answer", exact: true })
         .click();

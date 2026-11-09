@@ -1,0 +1,5 @@
+/* The helper model picker sits beside its description in a settings row. */
+.modelSelect {
+  width: auto;
+  min-width: 160px;
+}

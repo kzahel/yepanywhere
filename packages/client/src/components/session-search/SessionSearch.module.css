@@ -6,13 +6,6 @@
   align-items: center;
   gap: 8px 14px;
 }
-.intersection {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-}
 .quickAge {
   display: flex;
   gap: 4px;
@@ -46,19 +39,9 @@
   align-items: center;
   gap: 10px;
 }
-.fields label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.field {
   min-height: 28px;
-  font-size: 12px;
   white-space: nowrap;
-}
-.fields input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent-primary);
 }
 .fields kbd {
   font:
@@ -76,13 +59,6 @@
 .search {
   flex: 0 1 340px;
   min-width: 160px;
-  height: 32px;
-  border: 1px solid var(--accent-primary);
-  border-radius: 5px;
-  padding: 0 8px;
-  color: var(--text-primary);
-  background: var(--bg-input);
-  font-size: 14px;
 }
 .needleRow {
   display: flex;
@@ -182,14 +158,8 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.limit input {
-  width: 36px;
-  min-height: 28px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  padding: 2px 4px;
+.limitInput {
+  width: 3.5rem;
 }
 .ageField {
   position: relative;
@@ -202,7 +172,7 @@
   border-radius: 4px;
 }
 .ageField > span,
-.ageField > input {
+.ageInput {
   grid-area: 1 / 1;
   font: inherit;
 }
@@ -210,7 +180,8 @@
   visibility: hidden;
   white-space: pre;
 }
-.ageField > input {
+/* Chromeless: the frame above draws the box and sizes it to the text. */
+.ageInput {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -224,7 +195,7 @@
   color: var(--text-primary);
   text-align: left;
 }
-.ageField:first-child input {
+.ageField:first-child .ageInput {
   text-align: right;
 }
 .ageField:focus-within {
@@ -334,12 +305,8 @@
     overflow: auto;
   }
 }
-.manager label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  font-size: 12px;
+.managerChoice {
+  padding-block: 7px;
 }
 .manager small {
   color: var(--text-secondary);
@@ -368,15 +335,13 @@
   .fields kbd {
     display: none;
   }
-  .fields label {
+  .field {
     min-height: 30px;
   }
   .search {
     flex: 1;
     width: 0;
     min-width: 0;
-    height: 36px;
-    font-size: 16px;
   }
   .needleRow {
     flex-basis: 100%;

@@ -12,31 +12,12 @@
   accent-color: var(--app-yep-green);
 }
 
-.row input[type="number"] {
-  width: 4.4rem;
-  min-width: 0;
-  padding: 0.18rem 0.3rem;
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  background: var(--bg-input);
-  font-size: var(--font-size-sm);
-}
-
-.numberWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.unit {
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
-
-.row input:disabled {
+.row input[type="range"]:disabled {
   opacity: 0.55;
+}
+
+.number {
+  width: 4.5rem;
 }
 
 .hint {

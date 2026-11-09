@@ -7,6 +7,7 @@ import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectCodeNameEditor.module.css";
 import { ButtonBase, IconButton } from "./ui/Button";
+import { TextInput } from "./ui/Field";
 
 interface ProjectCodeNameEditorProps {
   project: Project;
@@ -106,8 +107,9 @@ export function ProjectCodeNameEditor({
     <div className={styles.slot}>
       {editing && onUpdateCodeName ? (
         <div className={styles.editor}>
-          <input
+          <TextInput
             ref={attachInput}
+            size="small"
             aria-label={t("projectCodeNameLabel")}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : undefined}

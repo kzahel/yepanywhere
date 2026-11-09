@@ -46,20 +46,7 @@
 }
 
 .input {
-  min-width: 0;
-  width: 100%;
   flex: 1;
-  padding: var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font: inherit;
-}
-
-.input:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
 }
 
 .inline .input {

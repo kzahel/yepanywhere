@@ -23,6 +23,7 @@ import { ProjectQueueAttachmentEditor } from "./ProjectQueueAttachmentEditor";
 import { ProviderBadge } from "./ProviderBadge";
 import styles from "./ProjectQueueSection.module.css";
 import { Button } from "./ui/Button";
+import { Textarea } from "./ui/Field";
 import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
 
 type Translate = ReturnType<typeof useI18n>["t"];
@@ -824,7 +825,7 @@ export function ProjectQueueSection({
                             className={styles.itemEdit}
                             onSubmit={handleEditSubmit}
                           >
-                            <textarea
+                            <Textarea
                               value={editText}
                               onChange={(event) =>
                                 setEditText(event.target.value)

@@ -3938,12 +3938,10 @@ describe("NewSessionForm", () => {
       within(newProject).queryByLabelText("newProjectEntryLabel"),
     ).toBeNull();
     expect(
-      (
-        within(newProject).getByRole("radio", {
-          name: /newProjectEmptyFolder/,
-        }) as HTMLInputElement
-      ).checked,
-    ).toBe(true);
+      within(newProject)
+        .getByRole("radio", { name: /newProjectEmptyFolder/ })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
   });
 
   it("adds a typed existing folder as it is, offering no starting point", async () => {

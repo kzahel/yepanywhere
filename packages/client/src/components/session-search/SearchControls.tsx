@@ -14,6 +14,8 @@ import {
   type TimeBasis,
 } from "./model";
 import { Button, ButtonBase, IconButton } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
+import { TextInput } from "../ui/Field";
 import { Popover } from "../ui/Popover";
 import { SegmentedControl } from "../ui/SegmentedControl";
 import styles from "./SessionSearch.module.css";
@@ -193,7 +195,7 @@ export function SearchHeader({
       <div className={styles.fields}>
         <span className={styles.searchIn}>{t("sessionSearchIn")}</span>
         {(["title", "assistant", "user"] as const).map((field) => (
-          <label
+          <span
             key={field}
             title={
               field !== "title" && !supported
@@ -203,39 +205,40 @@ export function SearchHeader({
                   : undefined
             }
           >
-            <input
-              type="checkbox"
+            <Checkbox
+              className={styles.field}
+              label={
+                <>
+                  {t(`sessionSearchField_${field}`)}
+                  {field !== "title" && (
+                    <kbd>{field === "assistant" ? "C-s" : "C-r"}</kbd>
+                  )}
+                </>
+              }
               checked={fields.includes(field)}
               disabled={field !== "title" && !supported}
-              onChange={(e) => {
-                const next = e.target.checked
+              onCheckedChange={(checked) => {
+                const next = checked
                   ? [...fields, field]
                   : fields.filter((f) => f !== field);
                 onFields(field !== "title" && !next.length ? ["title"] : next);
               }}
             />
-            {t(`sessionSearchField_${field}`)}
-            {field !== "title" && (
-              <kbd>{field === "assistant" ? "C-s" : "C-r"}</kbd>
-            )}
-          </label>
+          </span>
         ))}
         {onIntersection && (
-          <label
-            className={styles.intersection}
-            title={t("sessionSearchIntersectionHelp")}
-          >
-            <input
-              type="checkbox"
+          <span title={t("sessionSearchIntersectionHelp")}>
+            <Checkbox
+              className={styles.field}
+              label={t("sessionSearchIntersection")}
               checked={intersection}
-              onChange={(event) => onIntersection(event.target.checked)}
+              onCheckedChange={onIntersection}
             />
-            {t("sessionSearchIntersection")}
-          </label>
+          </span>
         )}
       </div>
       <div className={styles.needleRow}>
-        <input
+        <TextInput
           ref={input}
           className={styles.search}
           type="search"
@@ -303,6 +306,7 @@ function RangeField({
         {(value || placeholder).padEnd(reservation, "0")}
       </span>
       <input
+        className={styles.ageInput}
         aria-label={label}
         title={t("sessionSearchAgeHelp")}
         placeholder={placeholder}
@@ -403,7 +407,9 @@ export function SearchFilters({
         {showLimit && (
           <label className={styles.limit} title={t("sessionSearchLimitHelp")}>
             {t("sessionSearchLimit")}
-            <input
+            <TextInput
+              size="small"
+              className={styles.limitInput}
               inputMode="numeric"
               placeholder="∞"
               value={limit}

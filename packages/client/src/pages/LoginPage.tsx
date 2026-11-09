@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
+import { Field, TextInput } from "../components/ui/Field";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useAuth } from "../contexts/AuthContext";
 import { useI18n } from "../i18n";
@@ -110,22 +111,18 @@ export function LoginPage() {
               before limited users existed. The field exists only while the
               feature is on (topics/limited-users.md). */}
           {!isSetupMode && limitedUsersEnabled && (
-            <div className="login-field">
-              <label htmlFor="username">{t("loginUsernameOptional")}</label>
-              <input
-                id="username"
+            <Field id="username" label={t("loginUsernameOptional")}>
+              <TextInput
                 type="text"
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isSubmitting}
               />
-            </div>
+            </Field>
           )}
-          <div className="login-field">
-            <label htmlFor="password">{t("loginPasswordLabel")}</label>
-            <input
-              id="password"
+          <Field id="password" label={t("loginPasswordLabel")}>
+            <TextInput
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -136,22 +133,18 @@ export function LoginPage() {
               }
               disabled={isSubmitting}
             />
-          </div>
+          </Field>
 
           {isSetupMode && (
-            <div className="login-field">
-              <label htmlFor="confirmPassword">
-                {t("loginConfirmPasswordLabel")}
-              </label>
-              <input
-                id="confirmPassword"
+            <Field id="confirmPassword" label={t("loginConfirmPasswordLabel")}>
+              <TextInput
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t("loginConfirmPasswordPlaceholder")}
                 disabled={isSubmitting}
               />
-            </div>
+            </Field>
           )}
 
           {error && <div className="login-error">{error}</div>}

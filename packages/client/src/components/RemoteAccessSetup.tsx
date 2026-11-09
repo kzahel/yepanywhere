@@ -19,6 +19,7 @@ import { useI18n } from "../i18n";
 import { parseUserAgent } from "../lib/deviceDetection";
 import { QRCode } from "./QRCode";
 import { Button } from "./ui/Button";
+import { Field, Select, TextInput } from "./ui/Field";
 import { Switch } from "./ui/Switch";
 
 export interface RemoteAccessSetupProps {
@@ -518,12 +519,8 @@ export function RemoteAccessSetup({
       </div>
 
       <form onSubmit={handleSave} className="remote-access-form">
-        <div className="form-field">
-          <label htmlFor="remote-username">
-            {t("remoteSetupUsername" as never)}
-          </label>
-          <input
-            id="remote-username"
+        <Field id="remote-username" label={t("remoteSetupUsername" as never)}>
+          <TextInput
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value.toLowerCase())}
@@ -535,16 +532,17 @@ export function RemoteAccessSetup({
             autoComplete="username"
             disabled={isSaving}
           />
-        </div>
+        </Field>
 
-        <div className="form-field">
-          <label htmlFor="remote-password">
-            {hasCredentials
+        <Field
+          id="remote-password"
+          label={
+            hasCredentials
               ? t("remoteSetupNewPassword" as never)
-              : t("remoteSetupPassword" as never)}
-          </label>
-          <input
-            id="remote-password"
+              : t("remoteSetupPassword" as never)
+          }
+        >
+          <TextInput
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -553,15 +551,14 @@ export function RemoteAccessSetup({
             autoComplete="new-password"
             disabled={isSaving}
           />
-        </div>
+        </Field>
 
         {password && (
-          <div className="form-field">
-            <label htmlFor="remote-confirm">
-              {t("remoteSetupConfirmPassword" as never)}
-            </label>
-            <input
-              id="remote-confirm"
+          <Field
+            id="remote-confirm"
+            label={t("remoteSetupConfirmPassword" as never)}
+          >
+            <TextInput
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -569,19 +566,14 @@ export function RemoteAccessSetup({
               autoComplete="new-password"
               disabled={isSaving}
             />
-          </div>
+          </Field>
         )}
 
-        <div className="form-field">
-          <label htmlFor="relay-select">
-            {t("remoteSetupRelayServer" as never)}
-          </label>
-          <select
-            id="relay-select"
+        <Field id="relay-select" label={t("remoteSetupRelayServer" as never)}>
+          <Select
             value={relayOption}
             onChange={(e) => setRelayOption(e.target.value as RelayOption)}
             disabled={isSaving}
-            className="form-select"
           >
             <option value="default">
               {t("remoteSetupRelayDefault" as never)}
@@ -589,37 +581,31 @@ export function RemoteAccessSetup({
             <option value="custom">
               {t("remoteSetupRelayCustom" as never)}
             </option>
-          </select>
-        </div>
+          </Select>
+        </Field>
 
         {relayOption === "custom" && (
-          <div className="form-field">
-            <label htmlFor="custom-relay-url">
-              {t("remoteSetupCustomRelayUrl" as never)}
-            </label>
-            <input
-              id="custom-relay-url"
+          <Field
+            id="custom-relay-url"
+            label={t("remoteSetupCustomRelayUrl" as never)}
+          >
+            <TextInput
               type="text"
               value={customRelayUrl}
               onChange={(e) => setCustomRelayUrl(e.target.value)}
               placeholder={t("remoteSetupCustomRelayPlaceholder" as never)}
               disabled={isSaving}
             />
-          </div>
+          </Field>
         )}
 
-        <div className="form-field">
-          <label htmlFor="ya-client-select">
-            {t("remoteSetupYaClient" as never)}
-          </label>
-          <select
-            id="ya-client-select"
+        <Field id="ya-client-select" label={t("remoteSetupYaClient" as never)}>
+          <Select
             value={yaClientOption}
             onChange={(e) =>
               setYaClientOption(e.target.value as YaClientOption)
             }
             disabled={isSaving}
-            className="form-select"
           >
             <option value="default">
               {t("remoteSetupYaClientDefault" as never)}
@@ -627,23 +613,22 @@ export function RemoteAccessSetup({
             <option value="custom">
               {t("remoteSetupYaClientCustom" as never)}
             </option>
-          </select>
-        </div>
+          </Select>
+        </Field>
 
         {yaClientOption === "custom" && (
-          <div className="form-field">
-            <label htmlFor="custom-ya-client-url">
-              {t("remoteSetupCustomYaClientUrl" as never)}
-            </label>
-            <input
-              id="custom-ya-client-url"
+          <Field
+            id="custom-ya-client-url"
+            label={t("remoteSetupCustomYaClientUrl" as never)}
+          >
+            <TextInput
               type="text"
               value={customYaClientUrl}
               onChange={(e) => setCustomYaClientUrl(e.target.value)}
               placeholder={t("remoteSetupCustomYaClientPlaceholder" as never)}
               disabled={isSaving}
             />
-          </div>
+          </Field>
         )}
 
         {yaClientInfo}

@@ -21,6 +21,8 @@ import {
   buttonClassName,
   IconButton,
 } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
+import { Field, Select, TextInput } from "../components/ui/Field";
 import { MainContent, useNavigationLayout } from "../layouts";
 import { useSourceContextMenu } from "../components/SourceContextMenu";
 import { IssueSessionRow } from "./IssueSessionRow";
@@ -277,7 +279,8 @@ function IssueBrowser() {
   return (
     <main className={styles.page}>
       <div className={styles.controls}>
-        <input
+        <TextInput
+          className={styles.search}
           type="search"
           aria-label={t("issuesSearch")}
           placeholder={t("issuesSearch")}
@@ -383,18 +386,16 @@ function IssueBrowser() {
             </span>
           ))}
         </div>
-        <label className={styles.choice}>
-          <input
-            type="checkbox"
-            checked={dismissed}
-            onChange={(e) => {
-              setDismissed(e.target.checked);
-              setOffset(0);
-              setSessionOffset(0);
-            }}
-          />
-          {t("issuesShowDismissed")}
-        </label>
+        <Checkbox
+          className={styles.choice}
+          label={t("issuesShowDismissed")}
+          checked={dismissed}
+          onCheckedChange={(checked) => {
+            setDismissed(checked);
+            setOffset(0);
+            setSessionOffset(0);
+          }}
+        />
       </details>
       {sessionId && (
         <p>
@@ -410,10 +411,12 @@ function IssueBrowser() {
         >
           <div className={styles.listHeading}>
             {supportedIssueSort ? (
-              <label className={styles.issueSort}>
-                {t("issuesSortLabel")}
-                <select
-                  aria-label={t("issuesSortLabel")}
+              <div className={styles.issueSort}>
+                <label htmlFor="issues-sort">{t("issuesSortLabel")}</label>
+                <Select
+                  id="issues-sort"
+                  className={styles.issueSortSelect}
+                  size="small"
                   value={issueSort}
                   onChange={(e) => {
                     setIssueSort(e.target.value as IssueSort);
@@ -425,8 +428,8 @@ function IssueBrowser() {
                       {t(`issuesSort_${value}`)}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </div>
             ) : (
               t("issuesKeyOrder")
             )}
@@ -504,16 +507,15 @@ function IssueBrowser() {
                   {editing.kind === "delete" ? (
                     <p>{t("issuesDeleteHelp")}</p>
                   ) : (
-                    <>
-                      <label htmlFor="issue-edit-value">
-                        {t(
-                          editing.kind === "title"
-                            ? "issuesTitleOverride"
-                            : "issuesResolveHelp",
-                        )}
-                      </label>
-                      <input
-                        id="issue-edit-value"
+                    <Field
+                      id="issue-edit-value"
+                      label={t(
+                        editing.kind === "title"
+                          ? "issuesTitleOverride"
+                          : "issuesResolveHelp",
+                      )}
+                    >
+                      <TextInput
                         aria-label={t(
                           editing.kind === "title"
                             ? "issuesTitleOverride"
@@ -525,7 +527,7 @@ function IssueBrowser() {
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
                       />
-                    </>
+                    </Field>
                   )}
                   <div className={styles.actions}>
                     <Button
@@ -597,7 +599,9 @@ function IssueBrowser() {
             )}
             <div className={styles.sessionHeading}>
               <h3>{t("issuesAssociatedSessions")}</h3>
-              <select
+              <Select
+                className={styles.sortSelect}
+                size="small"
                 aria-label={t("issuesSessionSort")}
                 value={sort}
                 onChange={(e) => {
@@ -607,7 +611,7 @@ function IssueBrowser() {
               >
                 <option value="activity">{t("issuesActivityNewest")}</option>
                 <option value="oldest">{t("issuesActivityOldest")}</option>
-              </select>
+              </Select>
             </div>
             {!detail && (
               <p className={styles.muted}>{t("issuesLoadingSessions")}</p>

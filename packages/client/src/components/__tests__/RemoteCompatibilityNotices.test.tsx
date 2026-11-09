@@ -162,7 +162,6 @@ describe("RemoteCompatibilityNotices", () => {
     expect(root.querySelector(`.${styles.guidance!}`)).toBeTruthy();
     expect(root.querySelector(`.${styles.commandField!}`)).toBeTruthy();
     expect(textarea.classList.contains(styles.commandInput!)).toBe(true);
-    expect(textarea.classList.contains(styles.commandInputMulti!)).toBe(true);
     expect(textarea.value).toBe(command);
     expect(copyButton.classList.contains(styles.copyButton!)).toBe(true);
     expect(copyButton.classList.contains(styles.copied!)).toBe(false);

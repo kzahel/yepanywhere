@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
+import { TextInput } from "../components/ui/Field";
 import {
   type FileChangeEvent,
   type FileType,
@@ -200,21 +201,12 @@ export function ActivityPage() {
           flexWrap: "wrap",
         }}
       >
-        <input
+        <TextInput
           type="text"
           value={pathFilter}
           onChange={(e) => setPathFilter(e.target.value)}
           placeholder={t("activityPathPlaceholder" as never)}
-          style={{
-            flex: 1,
-            minWidth: "200px",
-            padding: "0.75rem",
-            background: "#2a2a2a",
-            border: "1px solid #444",
-            borderRadius: "8px",
-            color: "inherit",
-            fontSize: "1rem",
-          }}
+          style={{ flex: 1, minWidth: "200px" }}
         />
         <Button variant="ghost" aria-pressed={paused} onClick={togglePause}>
           {paused ? t("activityResume" as never) : t("activityPause" as never)}

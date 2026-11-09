@@ -5,6 +5,7 @@ import { useProviders } from "../hooks/useProviders";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
 import { Modal } from "./ui/Modal";
 
 const STORAGE_KEY = "codex-update-seen-tag";
@@ -184,16 +185,12 @@ export function CodexUpdatePrompt() {
         )}
 
         {canInstall && (
-          <label className="codex-update-prompt__checkbox-label">
-            <input
-              type="checkbox"
-              className="codex-update-prompt__checkbox"
-              checked={autoUpdate}
-              onChange={(e) => setAutoUpdate(e.target.checked)}
-              disabled={isInstalling || installSucceeded === true}
-            />
-            <span>{t("codexUpdateAutoFutureVersions")}</span>
-          </label>
+          <Checkbox
+            label={t("codexUpdateAutoFutureVersions")}
+            checked={autoUpdate}
+            onCheckedChange={setAutoUpdate}
+            disabled={isInstalling || installSucceeded === true}
+          />
         )}
 
         {isInstalling && (
