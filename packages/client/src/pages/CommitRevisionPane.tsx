@@ -207,6 +207,7 @@ export function CommitRevisionPane({
             className="source-search-input"
             value={searchQuery}
             placeholder={t("sourceSearchCommits")}
+            aria-label={t("sourceShortcutSearch")}
             aria-keyshortcuts="/"
             onFocus={onSearchIndexRequested}
             onKeyDown={(event) => {

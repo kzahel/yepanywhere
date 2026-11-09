@@ -28,6 +28,11 @@
   opacity: 0.5;
 }
 
+/* As wide as the custom-prefix box below it. */
+.select {
+  width: 100%;
+}
+
 /* Room for the microphone icon drawn over the select's leading edge; the
    compound selector outranks the control's own padding. */
 .selectShell .selectWithIcon {

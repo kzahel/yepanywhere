@@ -71,7 +71,7 @@ test("Gateway drafts wait for metadata and survive concurrent settings updates w
     // This differs from the loading default, proving settings have reached
     // React while version metadata is still held.
     await expect(
-      page.getByRole("checkbox", { name: "Disable plan mode", exact: true }),
+      page.getByRole("switch", { name: "Disable plan mode", exact: true }),
     ).not.toBeChecked();
     const url = page.getByRole("textbox", {
       name: "Claude gateway endpoint URL",
@@ -118,7 +118,7 @@ test("Gateway drafts wait for metadata and survive concurrent settings updates w
       await expect(url).toHaveValue(typed, { timeout: 100 });
     }
     await expect(
-      page.getByRole("checkbox", { name: "Disable Agent tool", exact: true }),
+      page.getByRole("switch", { name: "Disable Agent tool", exact: true }),
     ).not.toBeChecked();
     await expect
       .poll(() =>

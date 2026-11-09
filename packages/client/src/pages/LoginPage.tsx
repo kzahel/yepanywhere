@@ -124,6 +124,7 @@ export function LoginPage() {
           <Field id="password" label={t("loginPasswordLabel")}>
             <TextInput
               type="password"
+              autoComplete={isSetupMode ? "new-password" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={
@@ -139,6 +140,7 @@ export function LoginPage() {
             <Field id="confirmPassword" label={t("loginConfirmPasswordLabel")}>
               <TextInput
                 type="password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t("loginConfirmPasswordPlaceholder")}

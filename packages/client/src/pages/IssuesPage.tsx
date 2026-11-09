@@ -512,18 +512,18 @@ function IssueBrowser() {
                       label={t(
                         editing.kind === "title"
                           ? "issuesTitleOverride"
-                          : "issuesResolveHelp",
+                          : "issuesResolveUrl",
                       )}
+                      hint={
+                        editing.kind === "url"
+                          ? t("issuesResolveHelp")
+                          : undefined
+                      }
+                      required={editing.kind === "url"}
                     >
                       <TextInput
-                        aria-label={t(
-                          editing.kind === "title"
-                            ? "issuesTitleOverride"
-                            : "issuesResolveUrl",
-                        )}
                         type={editing.kind === "title" ? "text" : "url"}
                         maxLength={editing.kind === "title" ? 512 : 4096}
-                        required={editing.kind === "url"}
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
                       />

@@ -181,27 +181,27 @@ describe("Settings → Users", () => {
     fireEvent.click(await screen.findByRole("button", { name: "alice" }));
     expect(
       (
-        screen.getByRole("checkbox", {
+        screen.getByRole("switch", {
           name: "usersAllowNoProject",
         }) as HTMLInputElement
       ).checked,
     ).toBe(false);
     expect(
       (
-        screen.getByRole("checkbox", {
+        screen.getByRole("switch", {
           name: "usersAllowPublicApps",
         }) as HTMLInputElement
       ).checked,
     ).toBe(false);
     expect(
       (
-        screen.getByRole("checkbox", {
+        screen.getByRole("switch", {
           name: "usersAllowPrivateAppLinks",
         }) as HTMLInputElement
       ).checked,
     ).toBe(true);
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "usersAllowNoProject" }),
+      screen.getByRole("switch", { name: "usersAllowNoProject" }),
     );
     await waitFor(() =>
       expect(mockUpdateUser).toHaveBeenCalledWith(
@@ -220,13 +220,13 @@ describe("Settings → Users", () => {
     render(<UsersSettings />);
     fireEvent.click(await screen.findByRole("button", { name: "alice" }));
     expect(
-      screen.queryByRole("checkbox", { name: "usersAllowNoProject" }),
+      screen.queryByRole("switch", { name: "usersAllowNoProject" }),
     ).toBeNull();
     expect(
-      screen.queryByRole("checkbox", { name: "usersAllowPublicApps" }),
+      screen.queryByRole("switch", { name: "usersAllowPublicApps" }),
     ).toBeNull();
     expect(
-      screen.queryByRole("checkbox", { name: "usersAllowPrivateAppLinks" }),
+      screen.queryByRole("switch", { name: "usersAllowPrivateAppLinks" }),
     ).toBeNull();
     fireEvent.change(screen.getByLabelText("Alpha"), {
       target: { value: "view" },
@@ -416,9 +416,7 @@ describe("Settings → Users", () => {
     const confirm = vi.spyOn(window, "confirm");
     render(<UsersSettings />);
     fireEvent.click(await screen.findByRole("button", { name: "alice" }));
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: "usersEnabledLabel" }),
-    );
+    fireEvent.click(screen.getByRole("switch", { name: "usersEnabledLabel" }));
 
     await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
     expect(mockUpdateUser.mock.calls[0]).toEqual([

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, TextInput } from "../../components/ui/Field";
+import { Switch } from "../../components/ui/Switch";
 import { useRelativeNow } from "../../hooks/useRelativeNow";
 import { useRemoteBasePath } from "../../hooks/useRemoteBasePath";
 import { useServerSettings } from "../../hooks/useServerSettings";
@@ -245,7 +246,7 @@ export function CacheMissBillingSettings() {
             label={t("cacheMissBillingEnableTitle")}
             description={t("cacheMissBillingEnableDescription")}
           >
-            <Checkbox
+            <Switch
               checked={effective.enabled}
               onCheckedChange={(enabled) =>
                 void updateCacheMissBilling({ enabled })
@@ -259,7 +260,7 @@ export function CacheMissBillingSettings() {
             label={t("cacheMissBillingToastTitle")}
             description={t("cacheMissBillingToastDescription")}
           >
-            <Checkbox
+            <Switch
               checked={effective.showToasts}
               disabled={!effective.enabled}
               onCheckedChange={(showToasts) =>

@@ -9,7 +9,7 @@
   min-width: 0;
 }
 
-.fields p {
+.fields > p {
   margin: -4px 0 4px;
   color: var(--text-secondary);
   font-size: 13px;
@@ -67,6 +67,12 @@
 .vhostIntro p {
   margin: 0;
   line-height: 1.5;
+}
+
+.vhostIntro p,
+.password p {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .vhostRow {

@@ -1,5 +1,5 @@
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
-import { Checkbox } from "../../components/ui/Checkbox";
+import { Switch } from "../../components/ui/Switch";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
@@ -22,7 +22,7 @@ export function McpAppViewsSettings() {
       doc="topics/mcp-apps.md#enablement"
       keywords={["MCP", "MCP Apps", "Codex"]}
     >
-      <Checkbox
+      <Switch
         label={t("mcpAppViewsSettingTitle")}
         checked={settings.mcpAppViews === true}
         onCheckedChange={(checked) => updateSetting("mcpAppViews", checked)}

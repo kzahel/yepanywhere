@@ -105,6 +105,13 @@
   flex: 1;
 }
 
+/* A read-only command: fixed at its rows, which the compound selector lets
+   win over the shared textarea's minimum height. */
+.commandField .commandInputMulti {
+  min-height: 0;
+  resize: none;
+}
+
 .copyButton {
   display: inline-flex;
   align-items: center;

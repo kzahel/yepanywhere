@@ -73,7 +73,7 @@ describe("SpeechBackendSetup", () => {
         <SpeechBackendSetup />
       </I18nProvider>,
     );
-    const gpu = await screen.findByRole("checkbox", { name: "GPU" });
+    const gpu = await screen.findByRole("switch", { name: "GPU" });
     fireEvent.click(gpu);
     await waitFor(() => expect((gpu as HTMLInputElement).checked).toBe(true));
     expect(transport.fetch).toHaveBeenCalledWith(
@@ -85,7 +85,7 @@ describe("SpeechBackendSetup", () => {
       },
     );
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "Enable Qwen3 ASR STT" }),
+      screen.getByRole("switch", { name: "Enable Qwen3 ASR STT" }),
     );
     await waitFor(() =>
       expect(settingsState.updateSettings).toHaveBeenCalledWith({
@@ -108,8 +108,8 @@ describe("SpeechBackendSetup", () => {
         <SpeechBackendSetup />
       </I18nProvider>,
     );
-    await screen.findByRole("checkbox", { name: "Enable Whisper STT" });
-    expect(screen.queryByRole("checkbox", { name: "GPU" })).toBeNull();
+    await screen.findByRole("switch", { name: "Enable Whisper STT" });
+    expect(screen.queryByRole("switch", { name: "GPU" })).toBeNull();
   });
   it("does not request setup routes on older servers", async () => {
     versionState.current = "0.8.1";
@@ -179,12 +179,12 @@ describe("SpeechBackendSetup", () => {
         </I18nProvider>,
       );
 
-      const granite = await screen.findByRole("checkbox", {
+      const granite = await screen.findByRole("switch", {
         name: "Enable Granite Speech STT",
       });
       expect(
         screen
-          .getByRole("checkbox", {
+          .getByRole("switch", {
             name: "Enable Whisper STT",
           })
           .hasAttribute("disabled"),

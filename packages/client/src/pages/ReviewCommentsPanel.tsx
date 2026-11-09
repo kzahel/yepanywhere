@@ -132,6 +132,7 @@ export function ReviewCommentsPanel({
               <div className={styles.editor}>
                 <Textarea
                   aria-label={t("sourceReviewEditComment")}
+                  rows={4}
                   value={editText}
                   maxLength={20_000}
                   onChange={(event) => setEditText(event.target.value)}

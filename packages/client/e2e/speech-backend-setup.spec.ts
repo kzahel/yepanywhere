@@ -21,16 +21,16 @@ for (const viewport of [
       setup.getByRole("button", { name: "Get / install this model" }),
     ).toHaveCount(5);
     await expect(
-      setup.getByRole("checkbox", { name: "GPU", exact: true }),
+      setup.getByRole("switch", { name: "GPU", exact: true }),
     ).toBeVisible();
     await expect(
-      setup.getByRole("checkbox", {
+      setup.getByRole("switch", {
         name: "Enable Qwen3 ASR STT",
         exact: true,
       }),
     ).toBeVisible();
     await expect(
-      setup.getByRole("checkbox", {
+      setup.getByRole("switch", {
         name: "Enable Granite Speech STT",
         exact: true,
       }),

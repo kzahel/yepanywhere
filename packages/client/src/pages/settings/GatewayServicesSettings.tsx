@@ -21,12 +21,20 @@ import {
   type EffortLevel,
   type GatewayService,
 } from "@yep-anywhere/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { api, type ServerSettings } from "../../api/client";
 import { Button, IconButton } from "../../components/ui/Button";
 import { Checkbox, Radio } from "../../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { Switch } from "../../components/ui/Switch";
 import { useI18n } from "../../i18n";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import styles from "./GatewayServicesSettings.module.css";
@@ -187,6 +195,8 @@ export function GatewayServicesSettings({
   reloadProviders: () => Promise<void>;
 }) {
   const { t } = useI18n();
+  const exportHintId = useId();
+  const effortDetectionHintId = useId();
   const { settings, updateSetting, updateSettings } = useServerSettings();
   const exportEnabled = settings?.gatewayServiceExportEnabled ?? false;
   const exportPaths = settings?.gatewayServiceExportPaths;
@@ -560,26 +570,34 @@ export function GatewayServicesSettings({
       {services.length > 1 && (
         <p className="settings-hint">{t("providersGatewayServiceOrderHint")}</p>
       )}
-      <Checkbox
-        className={styles.setting}
-        label={<strong>{t("providersGatewayServiceExportTitle")}</strong>}
-        description={t("providersGatewayServiceExportDescription")}
-        checked={exportEnabled}
-        onCheckedChange={(checked) =>
-          void updateSetting("gatewayServiceExportEnabled", checked)
-        }
-      />
-      <Checkbox
-        className={styles.setting}
-        label={
-          <strong>{t("providersGatewayServiceEffortDetectionTitle")}</strong>
-        }
-        description={t("providersGatewayServiceEffortDetectionDescription")}
-        checked={effortDetectionEnabled}
-        onCheckedChange={(checked) =>
-          void updateSetting("gatewayServiceEffortDetection", checked)
-        }
-      />
+      <div className={styles.setting}>
+        <Switch
+          label={<strong>{t("providersGatewayServiceExportTitle")}</strong>}
+          aria-describedby={exportHintId}
+          checked={exportEnabled}
+          onCheckedChange={(checked) =>
+            void updateSetting("gatewayServiceExportEnabled", checked)
+          }
+        />
+        <p id={exportHintId} className={styles.hint}>
+          {t("providersGatewayServiceExportDescription")}
+        </p>
+      </div>
+      <div className={styles.setting}>
+        <Switch
+          label={
+            <strong>{t("providersGatewayServiceEffortDetectionTitle")}</strong>
+          }
+          aria-describedby={effortDetectionHintId}
+          checked={effortDetectionEnabled}
+          onCheckedChange={(checked) =>
+            void updateSetting("gatewayServiceEffortDetection", checked)
+          }
+        />
+        <p id={effortDetectionHintId} className={styles.hint}>
+          {t("providersGatewayServiceEffortDetectionDescription")}
+        </p>
+      </div>
       <form
         className={styles.form}
         onSubmit={(event) => {
@@ -655,7 +673,6 @@ export function GatewayServicesSettings({
                     updateService(index, { url: event.target.value })
                   }
                   onBlur={() => leaveEndpointField(index)}
-                  aria-label={t("providersGatewayServiceUrlAria")}
                 />
               </Field>
 
@@ -673,7 +690,6 @@ export function GatewayServicesSettings({
                     })
                   }
                   onBlur={() => void save()}
-                  aria-label={t("providersGatewayServiceShortNameAria")}
                 />
               </Field>
 
@@ -717,7 +733,6 @@ export function GatewayServicesSettings({
                     })
                   }
                   onBlur={() => void save()}
-                  aria-label={t("providersGatewayServiceContextAria")}
                 />
               </Field>
               <Field label={t("providersGatewayServiceOutputLabel")}>
@@ -731,7 +746,6 @@ export function GatewayServicesSettings({
                     })
                   }
                   onBlur={() => void save()}
-                  aria-label={t("providersGatewayServiceOutputAria")}
                 />
               </Field>
               <p className={`${styles.hint} ${styles.wide}`}>
@@ -760,7 +774,6 @@ export function GatewayServicesSettings({
                         })
                       }
                       onBlur={() => void save()}
-                      aria-label={t("providersGatewayServiceLabelAria")}
                     />
                   </Field>
 
@@ -787,43 +800,35 @@ export function GatewayServicesSettings({
                         })
                       }
                       onBlur={() => void save()}
-                      aria-label={t("providersGatewayServiceCommandAria")}
                     />
                   </Field>
 
-                  <div className={`${styles.row} ${styles.wide}`}>
-                    <Checkbox
-                      label={t("providersGatewayServiceAutoStop")}
-                      checked={service.autoStop}
-                      disabled={!loopback || !service.serviceCommand}
-                      onCheckedChange={(autoStop) =>
-                        updateService(index, { autoStop }, { save: true })
+                  <Checkbox
+                    className={styles.wide}
+                    label={t("providersGatewayServiceAutoStop")}
+                    description={t("providersGatewayServiceAutoStopHint")}
+                    checked={service.autoStop}
+                    disabled={!loopback || !service.serviceCommand}
+                    onCheckedChange={(autoStop) =>
+                      updateService(index, { autoStop }, { save: true })
+                    }
+                  />
+                  <Field label={t("providersGatewayServiceAutoStopAfter")}>
+                    <TextInput
+                      type="number"
+                      min={0}
+                      className={styles.delay}
+                      value={service.autoStopAfterSeconds}
+                      disabled={!service.autoStop}
+                      onChange={(event) =>
+                        updateService(index, {
+                          autoStopAfterSeconds:
+                            parseNumberField(event.target.value) ?? 0,
+                        })
                       }
+                      onBlur={() => void save()}
                     />
-                    <label className={`${styles.field} ${styles.inline}`}>
-                      <span>{t("providersGatewayServiceAutoStopAfter")}</span>
-                      <TextInput
-                        type="number"
-                        min={0}
-                        className={styles.delay}
-                        value={service.autoStopAfterSeconds}
-                        disabled={!service.autoStop}
-                        onChange={(event) =>
-                          updateService(index, {
-                            autoStopAfterSeconds:
-                              parseNumberField(event.target.value) ?? 0,
-                          })
-                        }
-                        onBlur={() => void save()}
-                        aria-label={t(
-                          "providersGatewayServiceAutoStopAfterAria",
-                        )}
-                      />
-                    </label>
-                    <p className={styles.hint}>
-                      {t("providersGatewayServiceAutoStopHint")}
-                    </p>
-                  </div>
+                  </Field>
 
                   <Field label={t("providersGatewayServiceMaxModelsLabel")}>
                     <TextInput
@@ -836,7 +841,6 @@ export function GatewayServicesSettings({
                         })
                       }
                       onBlur={() => void save()}
-                      aria-label={t("providersGatewayServiceMaxModelsAria")}
                     />
                   </Field>
 

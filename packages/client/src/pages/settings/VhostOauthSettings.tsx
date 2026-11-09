@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   redundantVhostEmail,
   vhostOauthPolicy,
@@ -7,9 +7,9 @@ import {
   type VhostOauthStatus,
 } from "@yep-anywhere/shared";
 import { Button, IconButton } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal } from "../../components/ui/Modal";
+import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
 import { downloadBlob } from "../../lib/imageActions";
@@ -121,7 +121,7 @@ function ProviderToggle({
   const [error, setError] = useState("");
   return (
     <div>
-      <Checkbox
+      <Switch
         label={label}
         checked={pending ?? enabled}
         disabled={pending !== undefined}
@@ -157,6 +157,7 @@ function ProviderEditor({
   const [pendingEnabled, setPendingEnabled] = useState<boolean>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const enabledHintId = useId();
   const hasSavedSecret =
     status.secretConfigured &&
     provider.kind === status.provider.kind &&
@@ -166,9 +167,9 @@ function ProviderEditor({
   return (
     <div className={styles.settings}>
       {status.enabled !== undefined && (
-        <Checkbox
+        <Switch
           label={t("vhostOauthEnabled")}
-          description={t("vhostOauthEnabledHint")}
+          aria-describedby={enabledHintId}
           checked={pendingEnabled ?? status.enabled}
           disabled={busy}
           onCheckedChange={async (enabled) => {
@@ -185,6 +186,9 @@ function ProviderEditor({
             }
           }}
         />
+      )}
+      {status.enabled !== undefined && (
+        <p id={enabledHintId}>{t("vhostOauthEnabledHint")}</p>
       )}
       <p>
         {t(status.locked ? "vhostOauthEnvironment" : "vhostOauthProviderHint")}
@@ -356,6 +360,7 @@ export function VhostOauthEmails({
   const first = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const hintId = useId();
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusRequest reselects the first email when the host's access label is clicked again.
   useEffect(() => {
     if (!enabled) return;
@@ -381,8 +386,9 @@ export function VhostOauthEmails({
   }
   return (
     <div className={styles.settings}>
-      <Checkbox
+      <Switch
         label={t("vhostOauthRequired")}
+        aria-describedby={`${hintId}-required`}
         checked={enabled}
         disabled={
           disabled ||
@@ -398,7 +404,7 @@ export function VhostOauthEmails({
             });
         }}
       />
-      <p>
+      <p id={`${hintId}-required`}>
         {t(
           enabled && (!status.configured || status.enabled === false)
             ? "vhostOauthBlocked"
@@ -420,8 +426,10 @@ export function VhostOauthEmails({
                 <div className={styles.emailRow}>
                   <TextInput
                     ref={index === 0 ? first : undefined}
-                    invalid={Boolean(redundant)}
                     aria-label={t("vhostOauthEmail", { number: index + 1 })}
+                    aria-describedby={
+                      redundant ? `${hintId}-redundant-${row.id}` : undefined
+                    }
                     value={row.value}
                     autoComplete="off"
                     spellCheck={false}
@@ -458,7 +466,10 @@ export function VhostOauthEmails({
                   </IconButton>
                 </div>
                 {redundant && (
-                  <small className={styles.redundantHint}>
+                  <small
+                    id={`${hintId}-redundant-${row.id}`}
+                    className={styles.redundantHint}
+                  >
                     {t("vhostOauthRedundant", { email: redundant })}
                   </small>
                 )}

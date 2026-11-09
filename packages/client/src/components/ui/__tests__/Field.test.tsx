@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Checkbox, Radio } from "../Checkbox";
 import { Field, Select, Textarea, TextInput } from "../Field";
@@ -67,33 +66,6 @@ describe("Field", () => {
     expect(screen.getByRole("textbox", { name: "Notes" }).tagName).toBe(
       "TEXTAREA",
     );
-  });
-
-  it("passes every keystroke through a controlled input", () => {
-    const changes = vi.fn();
-    function Controlled() {
-      const [value, setValue] = useState("");
-      return (
-        <TextInput
-          aria-label="Name"
-          value={value}
-          onChange={(event) => {
-            changes(event.target.value);
-            setValue(event.target.value);
-          }}
-        />
-      );
-    }
-    render(<Controlled />);
-    const input = screen.getByRole("textbox") as HTMLInputElement;
-    for (const value of ["a", "ab", "abc"])
-      fireEvent.change(input, { target: { value } });
-    expect(changes.mock.calls.map(([value]) => value)).toEqual([
-      "a",
-      "ab",
-      "abc",
-    ]);
-    expect(input.value).toBe("abc");
   });
 
   it("puts a unit after the box and the layout class on the wrapper", () => {

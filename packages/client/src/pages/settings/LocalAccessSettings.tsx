@@ -1055,6 +1055,7 @@ export function LocalAccessSettings() {
                   min={1}
                   max={65535}
                   autoComplete="off"
+                  aria-label={t("localAccessListeningPortTitle")}
                 />
               )}
             </SettingsItem>
@@ -1131,6 +1132,7 @@ export function LocalAccessSettings() {
               <TextInput
                 className={styles.inlineField}
                 placeholder="192.168.1.100"
+                aria-label={t("localAccessCustomIpTitle")}
                 value={customIp}
                 onChange={(e) => setCustomIp(e.target.value)}
               />
@@ -1160,6 +1162,7 @@ export function LocalAccessSettings() {
             <TextInput
               className={styles.inlineField}
               placeholder={t("localAccessAllowedHostsPlaceholder")}
+              aria-label={t("localAccessAllowedHostsTitle")}
               value={allowedHostsText}
               onChange={(e) => {
                 setAllowedHostsText(e.target.value);
@@ -1255,6 +1258,11 @@ export function LocalAccessSettings() {
                     <TextInput
                       type="password"
                       className={styles.inlineField}
+                      aria-label={
+                        localAuth.authEnabled
+                          ? t("localAccessPasswordNewTitle")
+                          : t("localAccessPasswordTitle")
+                      }
                       value={authPassword}
                       onChange={(e) => {
                         setAuthPassword(e.target.value);
@@ -1278,6 +1286,7 @@ export function LocalAccessSettings() {
                         type="password"
                         className={styles.inlineField}
                         invalid={feedback?.kind === "mismatch"}
+                        aria-label={t("localAccessConfirmPasswordTitle")}
                         aria-describedby="local-access-password-feedback"
                         value={authPasswordConfirm}
                         onChange={(e) => {

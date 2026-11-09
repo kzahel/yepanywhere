@@ -257,3 +257,14 @@
 .usageUser {
   overflow-wrap: normal;
 }
+
+/* A switch with its muted help line under it. */
+.switchWithHint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.switchWithHint > p {
+  margin: 0;
+}

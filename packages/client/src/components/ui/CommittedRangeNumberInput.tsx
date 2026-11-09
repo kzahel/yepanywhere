@@ -186,6 +186,7 @@ export function CommittedRangeNumberInput(
         size="small"
         unit={unit || undefined}
         className={unit ? undefined : "output-appearance-number"}
+        inputClassName="output-appearance-number"
         min={numberMin}
         max={numberMax}
         step={snapTextToStep ? step : "any"}

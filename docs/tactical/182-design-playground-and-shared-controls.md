@@ -228,7 +228,7 @@ of slightly different styles.
   The controls are stateless pass-throughs, so typing costs nothing beyond
   the caller's render; the per-key 100 ms E2E checks over the instruction
   path, the gateway URL and the template revision fields cover the swap.
-  Settings rows whose checkbox applied at once became `Switch`es; the
+  Every checkbox that saved on click became a `Switch`; the
   remaining native radio groups (Codex update policy, storage locations,
   template grants, the gateway effort mode, the project start palette)
   became `SegmentedControl`s; radios spread across rows (the default
@@ -239,7 +239,19 @@ of slightly different styles.
   `form-select`, `login-field*`, the Codex prompt's hand-drawn checkbox,
   about 400 lines of global CSS). `pnpm buttons:check` now also bans raw
   field elements and rules that style a bare `input`, `select` or
-  `textarea`; Biome's label rule knows the shared controls.
+  `textarea`; Biome's label rule knows the shared controls. An Opus
+  review (2026-11-09) found no blockers. Its fixes: about 25 save-on-click
+  boxes that one area had left as checkboxes became switches, the theme
+  colors of the open select list (a fix the swap had dropped) moved into
+  `Select`, the source search boxes regained room for their shortcut
+  overlay, deliberate 44 px touch rows came back, narrow number boxes kept
+  their widths (`inputClassName`), warnings stopped marking fields invalid
+  and were linked instead, hints became `Field` hints, a Field's id now
+  wins over its control's, required markers moved onto `Field`, fields
+  share the `--focus-border` ring, selects keep their arrow in forced
+  colors, unnamed fields got names, and the ban now reads `:is()` and
+  `:where()` subjects, rules after `@layer`/`@import` statements and
+  `max-` sizes.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

@@ -222,10 +222,13 @@ listboxes, and hover cards stay with `TooltipLayer`'s timing.
 `TextInput` (a single-line `<input>` of any text type, number included),
 `Textarea` and `Select` (a native `<select>` with a chevron drawn in the
 text color). They share one box: `--bg-input` with an `--border-input`
-border, 32 px tall (44 px on coarse pointers), small type, a green focus
-ring, a red border while `aria-invalid`, and `size="small"` (26 px) for
-dense rows. `mono` sets the code font for commands, paths, tokens and ids;
-`unit` puts a muted unit after a narrow number box without spinners. They
+border, 32 px tall (44 px on coarse pointers), small type, the
+`--focus-border` ring every control uses, a red border while
+`aria-invalid`, and `size="small"` (26 px) for dense rows. `mono` sets the
+code font for commands, paths, tokens and ids; `unit` puts a muted unit
+after a narrow number box without spinners (`inputClassName` then sizes
+the box). Inputs and textareas fill their container, selects size to
+their options, and the open option list is pinned to the theme's colors. They
 are plain elements with no state of their own, so the caller's `value` and
 `onChange` reach the element untouched and typing costs nothing beyond the
 caller's render (the 100 ms rule in [AGENTS.md](../AGENTS.md)). Width
@@ -237,7 +240,7 @@ below: it names the control with `<label htmlFor>`, links the hint and
 error through `aria-describedby`, marks the control `aria-invalid` while
 `error` is set and `required` when asked. The control picks these up from
 context, so `<Field label="URL" hint="…"><TextInput … /></Field>` needs no
-ids. A settings row whose own title names its control passes `aria-label`
+ids; inside a `Field` the Field's id wins over the control's. A settings row whose own title names its control passes `aria-label`
 instead.
 
 `src/components/ui/Checkbox.tsx` has `Checkbox` and `Radio`: native inputs

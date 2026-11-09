@@ -56,14 +56,13 @@
   }
 }
 
-/* A hint belonging to one field sits inside that field's cell, so a card of
-   short inputs stays two columns instead of alternating input and full-width
-   explanation down a single column. */
+/* Hints that span several fields, drawn as the shared Field hint so the card
+   has one hint style. A hint for one field is that Field's own `hint`. */
 .hint {
   margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  opacity: 0.7;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
 .status {
@@ -87,15 +86,12 @@
   min-width: 0;
 }
 
+/* The effort group's heading, drawn as a shared Field label. */
 .field > span {
-  font-size: 0.85rem;
-  opacity: 0.85;
-}
-
-.inline {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 /* Wide enough for the largest accepted delay (86400) plus the spinner. */
@@ -112,6 +108,9 @@
 
 /* A list-wide setting takes its own line, its description under it. */
 .setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   width: 100%;
   margin: var(--space-2) 0;
 }

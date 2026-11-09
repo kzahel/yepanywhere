@@ -419,6 +419,7 @@ export function QuestionAnswerPanel({
                     <TextInput
                       ref={otherInputRef}
                       type={currentQuestion.isSecret ? "password" : "text"}
+                      aria-label={t("questionPanelOther")}
                       placeholder={t("questionPanelTypeAnswer")}
                       value={getQuestionOtherText(currentQuestion)}
                       onChange={(e) => handleOtherTextChange(e.target.value)}

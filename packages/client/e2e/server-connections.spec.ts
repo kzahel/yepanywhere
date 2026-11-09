@@ -239,10 +239,10 @@ test("server connections keeps drafts responsive during populated-list updates a
     .scrollIntoViewIfNeeded();
   await recordUiCapture(page, "server-connections-desktop-form");
   await page
-    .getByLabel("Remote Access username", { exact: true })
+    .getByRole("textbox", { name: "Remote Access username", exact: true })
     .pressSequentially("build-owner");
   await page
-    .getByLabel("Remote Access password", { exact: true })
+    .getByLabel(/^Remote Access password(?: \*)?$/)
     .pressSequentially("test-owner-password");
   await page.getByRole("button", { name: "Connect", exact: true }).click();
   await expect(
@@ -279,10 +279,10 @@ test("server connections keeps drafts responsive during populated-list updates a
     })
     .click();
   await expect(
-    page.getByLabel("Remote Access username", { exact: true }),
+    page.getByRole("textbox", { name: "Remote Access username", exact: true }),
   ).toHaveValue("build-owner");
   await page
-    .getByLabel("Remote Access password", { exact: true })
+    .getByLabel(/^Remote Access password(?: \*)?$/)
     .pressSequentially("test-owner-password");
   await page
     .getByRole("button", {
@@ -422,9 +422,9 @@ test("refresh status keeps the saved host visible and an older source cannot cre
   await page
     .getByRole("button", { name: "Sign in again", exact: true })
     .click();
-  await expect(
-    page.getByLabel("Remote Access password", { exact: true }),
-  ).toHaveValue("");
+  await expect(page.getByLabel(/^Remote Access password(?: \*)?$/)).toHaveValue(
+    "",
+  );
   await expect(
     page.getByLabel("Automatic sign-in", { exact: true }),
   ).toBeChecked();
@@ -753,7 +753,7 @@ test("an empty installation can connect immediately and an environment kill swit
     .getByRole("button", { name: "Connect a server", exact: true })
     .click();
   await expect(
-    page.getByLabel("Remote Access password", { exact: true }),
+    page.getByLabel(/^Remote Access password(?: \*)?$/),
   ).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.setViewportSize({ width: 375, height: 812 });

@@ -438,6 +438,7 @@ export function ServerConnectionsSettings() {
                 ? t("connectionsRelayUrl")
                 : t("connectionsServerAddress")
             }
+            required
           >
             <TextInput
               value={address}
@@ -448,16 +449,14 @@ export function ServerConnectionsSettings() {
                   : "http://192.168.1.20:3400"
               }
               maxLength={2048}
-              required
               disabled={busy}
               autoComplete="off"
             />
           </Field>
-          <Field label={t("connectionsUsername")}>
+          <Field label={t("connectionsUsername")} required>
             <TextInput
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              required
               maxLength={128}
               disabled={busy}
               autoComplete="off"
@@ -465,12 +464,11 @@ export function ServerConnectionsSettings() {
               spellCheck={false}
             />
           </Field>
-          <Field label={t("connectionsPassword")}>
+          <Field label={t("connectionsPassword")} required>
             <TextInput
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
               maxLength={4096}
               disabled={busy}
               autoComplete="off"
@@ -499,12 +497,12 @@ export function ServerConnectionsSettings() {
             <Field
               label={t("connectionsReturnAddress")}
               hint={t("connectionsReturnHint")}
+              required
             >
               <TextInput
                 value={returnAddress}
                 onChange={(e) => setReturnAddress(e.target.value)}
                 placeholder="ws://192.168.1.10:3400/peer/ws"
-                required
                 disabled={busy}
               />
             </Field>

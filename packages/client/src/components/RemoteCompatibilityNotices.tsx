@@ -137,7 +137,7 @@ export function RemoteCompatibilityNoticeCard({
           <div className={styles.commandField!}>
             {commandField.lines > 1 ? (
               <Textarea
-                className={styles.commandInput!}
+                className={`${styles.commandInput!} ${styles.commandInputMulti!}`}
                 size="small"
                 mono
                 value={commandField.command}

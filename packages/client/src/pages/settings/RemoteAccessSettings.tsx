@@ -12,7 +12,7 @@ import {
   normalizeHostIdentityIcon,
   serverHasCapability,
 } from "@yep-anywhere/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { PublicShareStatusResponse } from "../../api/client";
 import { PublicShareManagerModal } from "../../components/PublicShareManagerModal";
 import { RemoteAccessSetup } from "../../components/RemoteAccessSetup";
@@ -67,6 +67,7 @@ function HostIdentitySettings({
   const [saving, setSaving] = useState(false);
   const normalizedDraft = normalizeHostIdentityIcon(draft);
   const draftInvalid = draft.trim().length > 0 && normalizedDraft === null;
+  const invalidId = useId();
 
   useEffect(() => setDraft(currentIcon), [currentIcon]);
 
@@ -118,6 +119,7 @@ function HostIdentitySettings({
             className="host-identity-input"
             value={draft}
             invalid={draftInvalid}
+            aria-describedby={draftInvalid ? invalidId : undefined}
             maxLength={MAX_HOST_IDENTITY_ICON_CODE_UNITS}
             aria-label={t("hostIdentityCustomLabel")}
             placeholder={t("hostIdentityCustomPlaceholder")}
@@ -150,7 +152,10 @@ function HostIdentitySettings({
           )}
         </form>
         {draftInvalid && (
-          <p className="settings-warning host-identity-validation">
+          <p
+            id={invalidId}
+            className="settings-warning host-identity-validation"
+          >
             {t("hostIdentityInvalid")}
           </p>
         )}
@@ -186,6 +191,7 @@ function HostAwakeSettings({
   const { t } = useI18n();
   const [floorDraft, setFloorDraft] = useState(String(batteryFloorPercent));
   const [saving, setSaving] = useState(false);
+  const floorInvalidId = useId();
   const enabled = mode !== "off";
   const unavailable =
     status?.state === "unsupported" ||
@@ -310,6 +316,7 @@ function HostAwakeSettings({
                 type="number"
                 unit="%"
                 invalid={!validFloor}
+                aria-describedby={validFloor ? undefined : floorInvalidId}
                 min={1}
                 max={100}
                 step={1}
@@ -329,7 +336,7 @@ function HostAwakeSettings({
               </Button>
             </form>
             {!validFloor && (
-              <p className="settings-warning">
+              <p id={floorInvalidId} className="settings-warning">
                 {t("hostAwakeBatteryFloorInvalid")}
               </p>
             )}

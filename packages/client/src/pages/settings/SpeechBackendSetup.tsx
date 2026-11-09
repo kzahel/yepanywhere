@@ -7,7 +7,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonBase } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
+import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
 import { useServerSettings } from "../../hooks/useServerSettings";
@@ -232,7 +232,7 @@ export function SpeechBackendSetup() {
               key={row.id}
               aria-label={t(BACKEND_LABEL_KEYS[row.id])}
             >
-              <Checkbox
+              <Switch
                 label={<strong>{t(BACKEND_LABEL_KEYS[row.id])}</strong>}
                 checked={
                   pendingToggle?.id === row.id
@@ -270,13 +270,18 @@ export function SpeechBackendSetup() {
               )}
               {row.id === "ya-whisper" &&
                 typeof status?.whisperGpu === "boolean" && (
-                  <Checkbox
-                    label={t("speechBackendSetupWhisperGpu")}
-                    description={t("speechBackendSetupWhisperGpuHelp")}
-                    checked={pendingWhisperGpu ?? status.whisperGpu}
-                    disabled={saving || (!row.enabled && !row.advertised)}
-                    onCheckedChange={(checked) => void setWhisperGpu(checked)}
-                  />
+                  <div className={styles.gpu}>
+                    <Switch
+                      label={t("speechBackendSetupWhisperGpu")}
+                      aria-describedby={`${row.id}-gpu-help`}
+                      checked={pendingWhisperGpu ?? status.whisperGpu}
+                      disabled={saving || (!row.enabled && !row.advertised)}
+                      onCheckedChange={(checked) => void setWhisperGpu(checked)}
+                    />
+                    <p className="settings-hint" id={`${row.id}-gpu-help`}>
+                      {t("speechBackendSetupWhisperGpuHelp")}
+                    </p>
+                  </div>
                 )}
               {row.defaultModel === "distil-large-v3.5" && (
                 <span className="settings-hint">756M parameters</span>

@@ -19,6 +19,13 @@
   margin-top: var(--space-2);
 }
 
+/* The muted line under a Switch, linked to it through aria-describedby. */
+.switchHint {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
 .gatewayUrl,
 .customModelId {
   flex: 1;

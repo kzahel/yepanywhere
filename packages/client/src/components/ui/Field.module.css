@@ -74,7 +74,6 @@
 }
 
 .textarea {
-  min-height: 5.5em;
   padding: var(--space-2) var(--space-3);
   line-height: 1.5;
   resize: vertical;
@@ -93,6 +92,19 @@
   background-repeat: no-repeat;
   cursor: pointer;
   appearance: none;
+}
+
+/* The open list takes the OS color scheme and its own defaults, not the
+   closed control's colors: under the "auto" theme on a light desktop that
+   was a white popup with grey text under a dark control. Naming the
+   option colors pins every theme to YA's palette. */
+.select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.select option:disabled {
+  color: var(--text-muted);
 }
 
 .small.input,
@@ -128,8 +140,8 @@
 .input:focus,
 .textarea:focus,
 .select:focus {
-  border-color: var(--app-yep-green);
-  box-shadow: 0 0 0 1px var(--app-yep-green);
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 1px var(--focus-border);
   outline: none;
 }
 
@@ -152,7 +164,8 @@
   cursor: not-allowed;
 }
 
-.input:read-only:not(:disabled) {
+.input:read-only:not(:disabled),
+.textarea:read-only:not(:disabled) {
   background: var(--bg-secondary);
 }
 
@@ -195,6 +208,14 @@
   .small.input,
   .small.select {
     min-height: 36px;
+  }
+}
+
+/* Windows High Contrast drops background images: keep the native arrow. */
+@media (forced-colors: active) {
+  .select {
+    background-image: none;
+    appearance: auto;
   }
 }
 

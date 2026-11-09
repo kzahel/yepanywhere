@@ -18,10 +18,12 @@
  * keystroke costs nothing beyond the caller's own render (AGENTS.md, the
  * 100 ms typing rule). They take `ref` and every native attribute. A
  * caller's `className` adds layout (width, margins, flex placement); the
- * control owns the box, border, colors, padding and type. Width defaults to
- * the container's (zero specificity, so any caller class wins).
+ * control owns the box, border, colors, padding and type. Inputs and
+ * textareas fill the container and selects size to their options, at zero
+ * specificity, so any caller class wins.
  * `size="small"` is the compact box for dense rows and narrow numbers;
- * `mono` sets the code font for commands, paths and tokens.
+ * `mono` sets the code font for commands, paths and tokens. A Textarea is
+ * three rows tall unless `rows` says otherwise.
  */
 import {
   createContext,
@@ -135,7 +137,8 @@ function useFieldProps(props: {
     props["aria-invalid"] === true ||
     props["aria-invalid"] === "true";
   return {
-    id: props.id ?? field?.id,
+    // Inside a Field the Field's id wins, so its label always names it.
+    id: field?.id ?? props.id,
     required: props.required ?? field?.required,
     "aria-describedby": describedBy,
     "aria-invalid": invalid ? true : props["aria-invalid"],
@@ -163,6 +166,8 @@ export interface TextInputProps
     SharedProps {
   /** A unit after the box (`px`, `s`, `%`); the box narrows to a number. */
   unit?: ReactNode;
+  /** With `unit`, `className` lays out the wrapper; this sizes the box. */
+  inputClassName?: string;
   ref?: Ref<HTMLInputElement>;
 }
 
@@ -171,6 +176,7 @@ export function TextInput({
   mono,
   invalid,
   unit,
+  inputClassName,
   className,
   type = "text",
   ref,
@@ -187,7 +193,9 @@ export function TextInput({
         styles.input,
         size,
         mono,
-        unit === undefined ? className : styles.unitInput,
+        unit === undefined
+          ? className
+          : [styles.unitInput, inputClassName].filter(Boolean).join(" "),
       )}
     />
   );
@@ -211,6 +219,7 @@ export function Textarea({
   mono,
   invalid,
   className,
+  rows = 3,
   ref,
   ...rest
 }: TextareaProps) {
@@ -218,6 +227,7 @@ export function Textarea({
   return (
     <textarea
       {...rest}
+      rows={rows}
       {...field}
       ref={ref}
       className={classes(styles.textarea, size, mono, className)}

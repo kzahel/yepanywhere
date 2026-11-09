@@ -5135,9 +5135,9 @@ pre.code-highlighter-plain,
   margin-bottom: var(--space-2, 8px);
 }
 
-/* Room for the shortcut and help overlay drawn over the field's end;
-   compounded so it outranks the shared field's padding. */
-.source-search-field .source-search-input {
+/* Room for the shortcut and help overlay over the field's end; three
+   parts, so it outranks `.small.input` padding in any stylesheet order. */
+.source-search-field .source-search-input[type="search"] {
   padding-right: 58px;
 }
 
@@ -5256,7 +5256,7 @@ pre.code-highlighter-plain,
     border-bottom: 1px solid var(--border-subtle, #21262d);
   }
 
-  .source-search-field .source-search-input {
+  .source-search-field .source-search-input[type="search"] {
     padding-right: var(--space-2);
   }
 

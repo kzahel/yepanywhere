@@ -2,8 +2,9 @@ import { RENDEZ_DELIVERIES, type RendezDelivery } from "@yep-anywhere/shared";
 import { useState } from "react";
 import type { ServerSettings } from "../../api/client";
 import { ButtonBase } from "../../components/ui/Button";
-import { Checkbox, Radio } from "../../components/ui/Checkbox";
+import { Radio } from "../../components/ui/Checkbox";
 import { Select } from "../../components/ui/Field";
+import { Switch } from "../../components/ui/Switch";
 import { useI18n } from "../../i18n";
 import { shortenPath } from "../../lib/text";
 import { SettingsItem } from "./SettingsItem";
@@ -110,7 +111,7 @@ export function RendezSettings({
           "watch",
         ]}
       >
-        <Checkbox
+        <Switch
           checked={value.enabled}
           disabled={saving}
           aria-label={t("rendezDefaultTitle")}

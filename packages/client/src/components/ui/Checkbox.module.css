@@ -33,6 +33,10 @@ label.root.disabled {
   cursor: inherit;
 }
 
+.bare {
+  flex-shrink: 0;
+}
+
 .bare .box {
   margin: 0;
 }
@@ -69,6 +73,12 @@ label.root.disabled {
     width: 20px;
     height: 20px;
     margin-top: calc((1.4em - 20px) / 2);
+  }
+
+  /* A box with no label to tap is the whole target: 24 px (WCAG 2.5.8). */
+  .bare .box {
+    width: 24px;
+    height: 24px;
   }
 
   label.root {

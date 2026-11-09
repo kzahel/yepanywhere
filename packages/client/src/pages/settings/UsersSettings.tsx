@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   LimitedUserSummary,
   PathGrant,
@@ -16,7 +23,6 @@ import {
 } from "@yep-anywhere/shared";
 import { api } from "../../api/client";
 import { Button, IconButton } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
@@ -934,6 +940,7 @@ function UserEditor({
     return provider?.models ?? [];
   }, [providers, draft.provider]);
   const lock = lockSummary(user);
+  const noProjectHintId = useId();
 
   return (
     <div
@@ -959,7 +966,7 @@ function UserEditor({
           </span>
         </div>
         <div className={styles.userActions}>
-          <Checkbox
+          <Switch
             label={t("usersEnabledLabel")}
             checked={draft.enabled}
             onCheckedChange={(enabled) => change({ ...draft, enabled }, true)}
@@ -995,25 +1002,30 @@ function UserEditor({
 
           <p className={styles.subhead}>{t("usersProjectRootHeading")}</p>
           {support.noProject && (
-            <Checkbox
-              label={t("usersAllowNoProject")}
-              description={t("usersAllowNoProjectHint")}
-              checked={draft.allowNoProjectSessions}
-              onCheckedChange={(allowNoProjectSessions) =>
-                change({ ...draft, allowNoProjectSessions }, true)
-              }
-            />
+            <div className={styles.switchWithHint}>
+              <Switch
+                label={t("usersAllowNoProject")}
+                aria-describedby={noProjectHintId}
+                checked={draft.allowNoProjectSessions}
+                onCheckedChange={(allowNoProjectSessions) =>
+                  change({ ...draft, allowNoProjectSessions }, true)
+                }
+              />
+              <p id={noProjectHintId} className="settings-hint">
+                {t("usersAllowNoProjectHint")}
+              </p>
+            </div>
           )}
           {support.appLinks && (
             <>
-              <Checkbox
+              <Switch
                 label={t("usersAllowPublicApps")}
                 checked={draft.allowPublicApps}
                 onCheckedChange={(allowPublicApps) =>
                   change({ ...draft, allowPublicApps }, true)
                 }
               />
-              <Checkbox
+              <Switch
                 label={t("usersAllowPrivateAppLinks")}
                 checked={draft.allowPrivateAppLinks}
                 onCheckedChange={(allowPrivateAppLinks) =>

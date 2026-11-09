@@ -28,6 +28,16 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
+/* The GPU switch with its help line under it. */
+.gpu {
+  display: grid;
+  gap: 4px;
+}
+
+.gpu > p {
+  margin: 0;
+}
+
 .environmentLock {
   padding: 8px;
   border-left: 3px solid var(--border-color);

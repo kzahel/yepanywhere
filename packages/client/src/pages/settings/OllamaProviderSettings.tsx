@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
 import { Textarea, TextInput } from "../../components/ui/Field";
+import { Switch } from "../../components/ui/Switch";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 
@@ -53,6 +53,7 @@ function OllamaUrlInput() {
             setHasChanges(e.target.value !== serverValue);
           }}
           placeholder="http://localhost:11434"
+          aria-label={t("providersOllamaUrlLabel")}
           style={{ flex: 1 }}
         />
         <Button
@@ -72,17 +73,25 @@ function OllamaUseFullSystemPrompt() {
   const { t } = useI18n();
   const { settings, updateSetting } = useServerSettings();
   const enabled = settings?.ollamaUseFullSystemPrompt ?? false;
+  const hintId = useId();
 
   return (
     <div style={{ marginTop: "var(--space-2)" }}>
-      <Checkbox
+      <Switch
         label={t("providersUseFullPrompt")}
-        description={t("providersUseFullPromptHint")}
+        aria-describedby={hintId}
         checked={enabled}
         onCheckedChange={(checked) =>
           updateSetting("ollamaUseFullSystemPrompt", checked)
         }
       />
+      <p
+        id={hintId}
+        className="settings-hint"
+        style={{ margin: "var(--space-1) 0 0" }}
+      >
+        {t("providersUseFullPromptHint")}
+      </p>
     </div>
   );
 }
@@ -124,6 +133,7 @@ function OllamaSystemPromptInput() {
           setHasChanges(e.target.value !== serverValue);
         }}
         placeholder={DEFAULT_OLLAMA_SYSTEM_PROMPT}
+        aria-label={t("providersOllamaPromptLabel")}
         rows={4}
       />
       <div

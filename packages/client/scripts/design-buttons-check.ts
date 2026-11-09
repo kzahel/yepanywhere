@@ -122,7 +122,7 @@ const GLOBAL_STYLESHEETS = [
 ];
 
 const LOOK_PROPERTY =
-  /^(?:background(?:-color|-image)?|border(?:-[a-z-]+)?|color|padding(?:-[a-z-]+)?|font(?:-[a-z-]+)?|(?:min-)?(?:height|width)|outline(?:-[a-z-]+)?|box-shadow|appearance)$/;
+  /^(?:background(?:-color|-image)?|border(?:-[a-z-]+)?|color|padding(?:-[a-z-]+)?|font(?:-[a-z-]+)?|(?:min-|max-)?(?:height|width)|outline(?:-[a-z-]+)?|box-shadow|appearance)$/;
 /**
  * A bare `button` type selector (`.panel button`, `button:hover`), not a
  * class or id that contains the word. `button.own` is the owner styling its
@@ -231,19 +231,48 @@ for (const row of await scanButtonElements(srcDir)) {
  * not fields.
  */
 const FIELD_ELEMENT = /^(?:input|select|textarea)(?![\w-])/;
-/** The element a selector styles: its last compound, outside :has()/:not(). */
-function subjectOf(selector: string) {
+/**
+ * The compounds a selector styles: its last compound, with :has() and
+ * :not() dropped (they filter, they do not change the subject) and each
+ * alternative of an :is()/:where() subject expanded.
+ */
+function subjectsOf(selector: string): string[] {
   let flat = selector;
   for (let previous = ""; previous !== flat; ) {
     previous = flat;
-    flat = flat.replace(/:(?:has|not|is|where)\([^()]*\)/g, "");
+    flat = flat.replace(/:(?:has|not)\([^()]*\)/g, "");
   }
-  return (
-    flat
-      .trim()
-      .split(/\s*[\s>+~]\s*/)
-      .pop() ?? ""
-  );
+  // The last compound: split on combinators outside parentheses.
+  let depth = 0;
+  let start = 0;
+  const trimmed = flat.trim();
+  for (let index = 0; index < trimmed.length; index++) {
+    const character = trimmed[index] ?? "";
+    if (character === "(" || character === "[") depth++;
+    else if (character === ")" || character === "]") depth--;
+    else if (depth === 0 && /[\s>+~]/.test(character)) start = index + 1;
+  }
+  const subject = trimmed.slice(start);
+  const nested = /:(?:is|where)\(([^()]*)\)/.exec(subject);
+  if (!nested) return [subject];
+  const rest = subject.replace(nested[0], "");
+  return (nested[1] ?? "").split(",").map((part) => part.trim() + rest);
+}
+
+/** A selector list's members, split on commas outside parentheses. */
+function splitSelectorList(selector: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const character of selector) {
+    if (character === "(" || character === "[") depth++;
+    else if (character === ")" || character === "]") depth--;
+    if (character === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else current += character;
+  }
+  return [...parts, current];
 }
 const NOT_FIELD_SELECTOR =
   /\[type=["']?(?:range|file|color|hidden)["']?\]|::-(?:webkit-slider|moz-range|webkit-file|webkit-color)/;
@@ -272,10 +301,11 @@ function tally(
 for (const path of stylesheets) {
   const file = srcPath(path);
   if (COMPOSER_FILE.test(file.replace(/\.module\.css$/, ".tsx"))) continue;
-  const text = (await readFile(path, "utf8")).replace(
-    /\/\*[\s\S]*?\*\//g,
-    (c) => c.replace(/[^\n]/g, " "),
-  );
+  // Comments and statement at-rules (`@import …;`, `@layer a, b;`) are
+  // blanked, keeping line numbers, so the next rule's selector is clean.
+  const text = (await readFile(path, "utf8"))
+    .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "))
+    .replace(/@[a-z-]+[^{};]*;/g, (c) => c.replace(/[^\n]/g, " "));
   for (const rule of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = (rule[1] ?? "").trim();
     if (selector.startsWith("@")) continue;
@@ -294,10 +324,12 @@ for (const path of stylesheets) {
       tally(lookCounts, lookSites, file, site);
     if (
       !FIELD_CONTROL_STYLES.has(file) &&
-      selector.split(",").some((part) => {
-        const subject = subjectOf(part);
-        return FIELD_ELEMENT.test(subject) && !NOT_FIELD_SELECTOR.test(subject);
-      })
+      splitSelectorList(selector).some((part) =>
+        subjectsOf(part).some(
+          (subject) =>
+            FIELD_ELEMENT.test(subject) && !NOT_FIELD_SELECTOR.test(subject),
+        ),
+      )
     )
       tally(fieldLookCounts, fieldLookSites, file, site);
   }

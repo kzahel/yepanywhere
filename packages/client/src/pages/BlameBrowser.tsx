@@ -562,6 +562,7 @@ function WorkingTreeFilter({
         className="source-search-input"
         value={value}
         placeholder={t("sourceFilterFiles")}
+        aria-label={t("sourceFilterFiles")}
         aria-keyshortcuts="/"
         onKeyDown={(event) => {
           if (event.key === "Escape" && value) {

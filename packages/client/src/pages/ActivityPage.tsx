@@ -206,6 +206,7 @@ export function ActivityPage() {
           value={pathFilter}
           onChange={(e) => setPathFilter(e.target.value)}
           placeholder={t("activityPathPlaceholder" as never)}
+          aria-label={t("activityPathPlaceholder" as never)}
           style={{ flex: 1, minWidth: "200px" }}
         />
         <Button variant="ghost" aria-pressed={paused} onClick={togglePause}>

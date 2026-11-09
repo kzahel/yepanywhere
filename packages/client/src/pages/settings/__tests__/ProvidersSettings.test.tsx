@@ -721,7 +721,7 @@ describe("ProvidersSettings additional models", () => {
     // There is no Save button here: a typed field writes itself when it loses
     // focus and a checkbox writes itself as it is clicked.
     const contextInput = screen.getByRole("spinbutton", {
-      name: "providersGatewayServiceContextAria",
+      name: "providersGatewayServiceContextLabel",
     });
     fireEvent.change(contextInput, { target: { value: "252000" } });
     fireEvent.blur(contextInput);
@@ -873,7 +873,7 @@ describe("ProvidersSettings additional models", () => {
     expect(screen.queryByText("codex -p ya-vllm")).toBeNull();
 
     fireEvent.click(
-      screen.getByRole("checkbox", {
+      screen.getByRole("switch", {
         name: /providersGatewayServiceExportTitle/u,
       }),
     );
@@ -896,7 +896,7 @@ describe("ProvidersSettings additional models", () => {
     // Nothing is saved until the new entry names an endpoint.
     expect(mockUpdateSettings).not.toHaveBeenCalled();
     const url = screen.getByRole("textbox", {
-      name: "providersGatewayServiceUrlAria",
+      name: "providersGatewayServiceUrlLabel",
     });
     fireEvent.change(url, { target: { value: "http://127.0.0.1:8001" } });
     fireEvent.blur(url);
@@ -925,7 +925,7 @@ describe("ProvidersSettings additional models", () => {
     ];
     render(<ProvidersSettings />);
 
-    const checkbox = screen.getByRole("checkbox", {
+    const checkbox = screen.getByRole("switch", {
       name: "providersClaudeGatewayDisableAgentTitle",
     });
     expect(checkbox).toHaveProperty("checked", true);
@@ -945,7 +945,7 @@ describe("ProvidersSettings additional models", () => {
     ];
     render(<ProvidersSettings />);
 
-    const checkbox = screen.getByRole("checkbox", {
+    const checkbox = screen.getByRole("switch", {
       name: "providersClaudeGatewayDisablePlanModeTitle",
     });
     expect(checkbox).toHaveProperty("checked", true);

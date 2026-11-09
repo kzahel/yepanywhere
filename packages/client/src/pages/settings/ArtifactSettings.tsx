@@ -15,6 +15,7 @@ import {
 import { Checkbox } from "../../components/ui/Checkbox";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import { Field, Select, TextInput } from "../../components/ui/Field";
+import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
@@ -250,6 +251,7 @@ function ArtifactSettingsForm({
   const [logHost, setLogHost] = useState<string | null>(null);
   const [oauthFocus, setOauthFocus] = useState(0);
   const expiryId = useId();
+  const rewriteHintId = useId();
   const [localEnabled, setLocalEnabled] = useState(!!status.localOrigin);
   const [localOrigin, setLocalOrigin] = useState(
     status.localOrigin ?? status.defaultLocalOrigin,
@@ -455,7 +457,7 @@ function ArtifactSettingsForm({
     >
       <p>{t("appsSettingsAutosave")}</p>
       <fieldset className={styles.fields} disabled={status.locked}>
-        <Checkbox
+        <Switch
           label={t("artifactLocalEnabled")}
           checked={localEnabled}
           onCheckedChange={(checked) => {
@@ -473,7 +475,7 @@ function ArtifactSettingsForm({
             />
           </Field>
         )}
-        <Field label={t("artifactPublicOrigin")}>
+        <Field label={t("artifactPublicOrigin")} hint={t("artifactPublicHint")}>
           <TextInput
             type="url"
             value={publicOrigin}
@@ -481,8 +483,7 @@ function ArtifactSettingsForm({
             onChange={(e) => setPublicOrigin(e.target.value)}
           />
         </Field>
-        <p>{t("artifactPublicHint")}</p>
-        <Field label={t("artifactPort")}>
+        <Field label={t("artifactPort")} hint={t("artifactPortHint")}>
           <TextInput
             type="number"
             min={1}
@@ -492,7 +493,6 @@ function ArtifactSettingsForm({
             onChange={(e) => setPort(e.target.value)}
           />
         </Field>
-        <p>{t("artifactPortHint")}</p>
         {expiryDays !== undefined ? (
           <>
             <div className={styles.expiry}>
@@ -539,7 +539,10 @@ function ArtifactSettingsForm({
         )}
         {vhostsSupported && (
           <>
-            <Field label={t("artifactVhostPublicRoot")}>
+            <Field
+              label={t("artifactVhostPublicRoot")}
+              hint={t("artifactVhostPublicRootHint", { port })}
+            >
               <TextInput
                 value={vhostPublicRoot}
                 onBlur={() => void save()}
@@ -548,16 +551,16 @@ function ArtifactSettingsForm({
                 onChange={(e) => setVhostPublicRoot(e.target.value)}
               />
             </Field>
-            <p>{t("artifactVhostPublicRootHint", { port })}</p>
-            <Checkbox
+            <Switch
               label={t("artifactAlwaysRewriteVhostLinks")}
+              aria-describedby={rewriteHintId}
               checked={alwaysRewriteVhostLinks}
               onCheckedChange={(checked) => {
                 setAlwaysRewriteVhostLinks(checked);
                 void save({ alwaysRewriteVhostLinks: checked });
               }}
             />
-            <p>{t("artifactAlwaysRewriteVhostLinksHint")}</p>
+            <p id={rewriteHintId}>{t("artifactAlwaysRewriteVhostLinksHint")}</p>
           </>
         )}
       </fieldset>

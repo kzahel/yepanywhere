@@ -1,8 +1,8 @@
 import type { SpeechVocabularyStatus } from "@yep-anywhere/shared";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, IconButton } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
 import { TextInput } from "../../components/ui/Field";
+import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
 import styles from "./SpeechVocabularyControls.module.css";
@@ -134,7 +134,7 @@ export function SpeechVocabularyControls() {
     <section className={styles.panel} aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>{t("speechVocabularyTitle")}</h3>
       <p>{t("speechVocabularyDescription")}</p>
-      <Checkbox
+      <Switch
         label={t("speechVocabularyLearn")}
         checked={status?.enabled ?? false}
         disabled={!status || busy || !validHours}
@@ -249,7 +249,7 @@ export function SpeechVocabularyControls() {
             )
           : t("speechVocabularyLoading")}
       </p>
-      <Checkbox
+      <Switch
         label={t("speechVocabularyBiasing")}
         checked={status?.biasing ?? false}
         disabled={!status || busy || !validHours}

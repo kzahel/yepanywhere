@@ -111,7 +111,7 @@ describe("GatewayServicesSettings saving", () => {
     render(<GatewayServicesSettings reloadProviders={reloadProviders} />);
 
     const shortName = screen.getByRole("textbox", {
-      name: "providersGatewayServiceShortNameAria",
+      name: "providersGatewayServiceShortNameLabel",
     });
     typeSequentially(shortName, "gpu");
     fireEvent.blur(shortName);
@@ -119,7 +119,7 @@ describe("GatewayServicesSettings saving", () => {
 
     // Tab on and keep typing while that save is still out.
     const context = screen.getByRole("spinbutton", {
-      name: "providersGatewayServiceContextAria",
+      name: "providersGatewayServiceContextLabel",
     });
     typeSequentially(context, "252");
     fireEvent.blur(context);
@@ -148,7 +148,7 @@ describe("GatewayServicesSettings saving", () => {
     render(<GatewayServicesSettings reloadProviders={reloadProviders} />);
 
     const shortName = screen.getByRole("textbox", {
-      name: "providersGatewayServiceShortNameAria",
+      name: "providersGatewayServiceShortNameLabel",
     });
     typeSequentially(shortName, "gp");
     fireEvent.blur(shortName);
@@ -165,7 +165,7 @@ describe("GatewayServicesSettings saving", () => {
     render(<GatewayServicesSettings reloadProviders={reloadProviders} />);
 
     const url = screen.getByRole("textbox", {
-      name: "providersGatewayServiceUrlAria",
+      name: "providersGatewayServiceUrlLabel",
     });
     fireEvent.change(url, { target: { value: "http://127.0.0.1:8002/" } });
     fireEvent.blur(url);
@@ -190,7 +190,7 @@ describe("GatewayServicesSettings saving", () => {
       screen.getByRole("button", { name: "providersGatewayServiceAdd" }),
     );
     const url = screen.getAllByRole("textbox", {
-      name: "providersGatewayServiceUrlAria",
+      name: "providersGatewayServiceUrlLabel",
     })[1]!;
     expect(url).toHaveProperty("value", "");
     expect(store.pending).toHaveLength(0);
@@ -203,7 +203,7 @@ describe("GatewayServicesSettings saving", () => {
     );
     expect(store.pending).toHaveLength(0);
     const shortName = screen.getAllByRole("textbox", {
-      name: "providersGatewayServiceShortNameAria",
+      name: "providersGatewayServiceShortNameLabel",
     })[0]!;
     typeSequentially(shortName, "gpu");
     fireEvent.blur(shortName);
@@ -251,7 +251,7 @@ describe("GatewayServicesSettings saving", () => {
     expect(store.pending).toHaveLength(0);
     expect(
       screen.getAllByRole("textbox", {
-        name: "providersGatewayServiceUrlAria",
+        name: "providersGatewayServiceUrlLabel",
       }),
     ).toHaveLength(1);
     expect(screen.getByText("providersGatewayServiceAutoSaved")).toBeTruthy();
@@ -272,7 +272,7 @@ describe("GatewayServicesSettings saving", () => {
 
     expect(
       screen.getAllByRole("textbox", {
-        name: "providersGatewayServiceUrlAria",
+        name: "providersGatewayServiceUrlLabel",
       }),
     ).toHaveLength(2);
   });

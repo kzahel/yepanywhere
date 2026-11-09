@@ -5,6 +5,7 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -53,6 +54,7 @@ import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNum
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal, type ModalAnchorRect } from "../../components/ui/Modal";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { Switch } from "../../components/ui/Switch";
 import { useToastContext } from "../../contexts/ToastContext";
 import { useCodexUpdateStatus } from "../../hooks/useCodexUpdateStatus";
 import { useProviders } from "../../hooks/useProviders";
@@ -113,17 +115,22 @@ function GrokBuildApiKeySettings() {
   const { t } = useI18n();
   const { settings, updateSetting } = useServerSettings();
   const enabled = settings?.grokBuildUseXaiApiKey ?? false;
+  const hintId = useId();
 
   return (
-    <Checkbox
-      className={styles.grokApiKey}
-      label={t("providersGrokUseXaiApiKey")}
-      description={t("providersGrokUseXaiApiKeyHint")}
-      checked={enabled}
-      onCheckedChange={(checked) =>
-        updateSetting("grokBuildUseXaiApiKey", checked)
-      }
-    />
+    <div className={styles.grokApiKey}>
+      <Switch
+        label={t("providersGrokUseXaiApiKey")}
+        aria-describedby={hintId}
+        checked={enabled}
+        onCheckedChange={(checked) =>
+          updateSetting("grokBuildUseXaiApiKey", checked)
+        }
+      />
+      <p id={hintId} className={styles.switchHint}>
+        {t("providersGrokUseXaiApiKeyHint")}
+      </p>
+    </div>
   );
 }
 
@@ -564,15 +571,19 @@ function ClaudeGatewayToggleSetting({
 }: ClaudeGatewayToggleSettingProps) {
   const { settings, updateSetting } = useServerSettings();
   const enabled = settings?.[setting] ?? true;
+  const hintId = useId();
 
   return (
     <div id={id} className="settings-subsection">
-      <Checkbox
+      <Switch
         label={title}
-        description={description}
+        aria-describedby={hintId}
         checked={enabled}
         onCheckedChange={(checked) => void updateSetting(setting, checked)}
       />
+      <p id={hintId} className={styles.switchHint}>
+        {description}
+      </p>
     </div>
   );
 }

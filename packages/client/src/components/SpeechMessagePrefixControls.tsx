@@ -53,8 +53,8 @@ export function SpeechMessagePrefixControls({
             id={`${id}-prefix`}
             className={
               speechMessagePrefixMode === "microphone"
-                ? styles.selectWithIcon
-                : undefined
+                ? `${styles.select} ${styles.selectWithIcon}`
+                : styles.select
             }
             value={speechMessagePrefixMode}
             disabled={disabled}

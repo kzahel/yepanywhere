@@ -54,6 +54,13 @@
   flex-direction: column;
   gap: 6px;
 }
+/* A finger-sized row on touch; compounded to outrank the checkbox's own
+   coarse-pointer row height. */
+@media (pointer: coarse) {
+  .options .transcript {
+    min-height: 44px;
+  }
+}
 .actions {
   display: flex;
   gap: 12px;

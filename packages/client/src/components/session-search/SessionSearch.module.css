@@ -39,7 +39,10 @@
   align-items: center;
   gap: 10px;
 }
-.field {
+/* Compounded to outrank the checkbox's own top alignment, so the box sits
+   centered in the row. */
+.fields .field {
+  align-items: center;
   min-height: 28px;
   white-space: nowrap;
 }
@@ -335,7 +338,7 @@
   .fields kbd {
     display: none;
   }
-  .field {
+  .fields .field {
     min-height: 30px;
   }
   .search {
