@@ -90,16 +90,8 @@
   line-height: 1.25;
 }
 
-.recoveredCount,
-.recoveredStatus {
+.recoveredBadge {
   flex-shrink: 0;
-  min-width: max-content;
-  padding: 0.16rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--warning-color) 14%, var(--bg-surface));
-  color: var(--warning-color);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
 }
 
 .recoveredGroups,

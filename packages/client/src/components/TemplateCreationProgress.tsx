@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { TemplateCreationOperation } from "../api/projectTemplatesClient";
 import { useI18n } from "../i18n";
 import styles from "./TemplateCreationProgress.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 
 /** Progress remains mounted while operation snapshots arrive; disclosure state
@@ -44,7 +45,11 @@ export function TemplateCreationProgress({
         </small>
       </div>
       {active && <progress className={styles.activity} aria-label={phase} />}
-      {operation?.error && <p role="alert">{operation.error}</p>}
+      {operation?.error && (
+        <Banner tone="error" compact>
+          {operation.error}
+        </Banner>
+      )}
       <Button
         className={styles.toggle}
         aria-expanded={expanded}

@@ -71,10 +71,10 @@ const TIER_CONFIGS: TierConfig[] = [
     colorClass: styles.tierAttention ?? "",
     getBadge: (item) => {
       if (item.pendingInputType === "tool-approval") {
-        return { label: "inboxBadgeApproval", tone: "warning" };
+        return { label: "inboxBadgeApproval", tone: "info" };
       }
       if (item.pendingInputType === "user-question") {
-        return { label: "inboxBadgeQuestion", tone: "warning" };
+        return { label: "inboxBadgeQuestion", tone: "info" };
       }
       return null;
     },
@@ -228,6 +228,8 @@ function InboxProjectQueueItem({
           </Badge>
           <Badge
             size="small"
+            role="img"
+            aria-label={t("projectQueueSidebarBadge")}
             tooltip={t("projectQueueSidebarBadge")}
             className={styles.queueItemBadge}
           >
@@ -323,7 +325,9 @@ function InboxSection({
     >
       <h2 className={styles.sectionHeader}>
         {t(config.titleKey as never)}
-        <span className={styles.sectionCount}>{sectionCount}</span>
+        <Badge shape="count" size="small" className={styles.sectionCount}>
+          {sectionCount}
+        </Badge>
         {config.helpKey && (
           <InboxSectionHelp
             title={t(config.titleKey as never)}
@@ -408,7 +412,9 @@ function ReviewOutcomeSection({
     <section className={`${styles.section} ${styles.tierReviews}`}>
       <h2 className={styles.sectionHeader}>
         {t("inboxTierReviewOutcomes")}
-        <span className={styles.sectionCount}>{outcomes.length}</span>
+        <Badge shape="count" size="small" className={styles.sectionCount}>
+          {outcomes.length}
+        </Badge>
       </h2>
       <ul className={styles.reviewOutcomeList}>
         {outcomes.map(({ item, outcome }) => {

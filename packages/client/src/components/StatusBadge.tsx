@@ -35,13 +35,13 @@ interface NotificationBadgeProps {
 /**
  * Notification badge indicating action needed or unread content, sized for
  * the session rows it sits in.
- * - "needs-input" (warning): Tool approval or user question pending
+ * - "needs-input" (info, the attention blue): Tool approval or user question pending
  * - "unread" (info): New content since last viewed
  */
 export function NotificationBadge({ variant, label }: NotificationBadgeProps) {
   const needsInput = variant === "needs-input";
   return (
-    <Badge tone={needsInput ? "warning" : "info"} size="small">
+    <Badge tone="info" size="small">
       {label ?? (needsInput ? "Input Needed" : "New")}
     </Badge>
   );

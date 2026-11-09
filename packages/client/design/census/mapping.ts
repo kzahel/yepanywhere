@@ -1391,7 +1391,7 @@ export const LEGACY_STATUS: readonly LegacyStatus[] = [
     name: "Feature notices",
     counted: "provider-deprecation-notice",
     classes:
-      "provider-deprecation-notice desktop-provider-notice source-projection-notice source-detail-banner public-share-error public-share-error--inline public-share-notice session-share-error btw-aside-error project-queue-inline-message-error file-access-settings-warning git-integration-options-warning external-session-warning",
+      "provider-deprecation-notice desktop-provider-notice source-projection-notice source-detail-banner public-share-error public-share-error--inline public-share-notice session-share-error btw-aside-error project-queue-inline-message-error file-access-settings-warning git-integration-options-warning external-session-warning model-switch-error",
     to: "banner",
     note: "One-off notice boxes and error lines, each with its own tint, border and padding.",
   },

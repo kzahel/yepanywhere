@@ -36,15 +36,9 @@
   line-height: 1;
 }
 
-.count,
-.groupCount,
-.ignored,
-.kind {
-  font-size: var(--font-size-xs);
-}
-
 .count {
   min-width: 1ch;
+  font-size: var(--font-size-xs);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -84,25 +78,6 @@
   overflow-wrap: anywhere;
 }
 
-.groupCount,
-.ignored,
-.kind {
-  padding: 0.125rem 0.375rem;
-  border-radius: 999px;
-  font-weight: 600;
-}
-
-.groupCount {
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-
-.ignored {
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
-}
-
 .issueList {
   display: grid;
   gap: var(--space-2);
@@ -117,15 +92,6 @@
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-}
-
-.kind {
-  color: var(--warning-color);
-  background: color-mix(in srgb, currentColor 12%, transparent);
-}
-
-.kind[data-kind="invalid"] {
-  color: var(--error-color);
 }
 
 .path {

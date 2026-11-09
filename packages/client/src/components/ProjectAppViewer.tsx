@@ -35,6 +35,7 @@ import { ComposerMicAction } from "./ComposerMicAction";
 import { AppViewerToolbar } from "./AppViewerToolbar";
 import { LastViewIcon } from "./LastViewIcon";
 import { ProjectAppIcon } from "./ProjectAppIcon";
+import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { Field, Textarea, TextInput } from "./ui/Field";
@@ -946,7 +947,11 @@ export function ProjectAppViewer({
           <p>{t("projectAppUpdateRequired")}</p>
         ) : (
           <>
-            {error && <p role="alert">{error}</p>}
+            {error && (
+              <Banner tone="error" compact>
+                {error}
+              </Banner>
+            )}
             {(!view || settings) && (
               <>
                 <p>

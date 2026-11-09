@@ -4,7 +4,7 @@ import {
   agentApiBootstrapInstructions,
   serverHasCapability,
 } from "@yep-anywhere/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   api,
   DEFAULT_FILE_ACCESS,
@@ -120,6 +120,7 @@ function isWholeDiskPath(line: string): boolean {
 export function LocalAccessSettings() {
   const { t } = useI18n();
   useSettingsPaneTitle(t("settingsLocalAccessTitle"));
+  const wholeDiskWarningId = useId();
   // Direct (cookie) and Remote Access clients see the same controls; only the
   // session's own logout differs (topics/connection-safe-settings.md).
   const auth = useOptionalAuth();
@@ -632,6 +633,9 @@ export function LocalAccessSettings() {
                     className={styles.customFoldersInput}
                     rows={3}
                     aria-label={t("fileAccessCustomTitle")}
+                    aria-describedby={
+                      hasWholeDiskCustomPath ? wholeDiskWarningId : undefined
+                    }
                     value={fileAccess.customText}
                     placeholder={t("fileAccessCustomPlaceholder")}
                     onChange={(e) =>
@@ -661,7 +665,14 @@ export function LocalAccessSettings() {
             </div>
             {fileAccessError && <Banner tone="error">{fileAccessError}</Banner>}
             {hasWholeDiskCustomPath && (
-              <Banner tone="warning">{t("fileAccessWholeDiskWarning")}</Banner>
+              <Banner
+                id={wholeDiskWarningId}
+                tone="warning"
+                role="none"
+                compact
+              >
+                {t("fileAccessWholeDiskWarning")}
+              </Banner>
             )}
           </>
         )}

@@ -2217,16 +2217,11 @@ details[open] .collapsible__icon {
   color: var(--text-muted);
 }
 
-.model-switch-loading,
-.model-switch-error {
+.model-switch-loading {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
   padding: 1rem;
   text-align: center;
-}
-
-.model-switch-error {
-  color: var(--error-color);
 }
 
 .model-switch-status {
@@ -2490,9 +2485,6 @@ details[open] .collapsible__icon {
 .model-switch-action-label {
   font-weight: 600;
 }
-
-/* Inherit the variant's text color so the badge reads on the green primary
-   as well as the neutral secondary; opacity keeps it subordinate. */
 
 .model-switch-action-badge-main {
   min-width: 0;
@@ -4548,12 +4540,6 @@ pre.code-highlighter-plain,
   padding-inline: 1px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-.git-diff-preview-body > .diff-context-error {
-  padding: 5px var(--space-3, 12px);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
 }
 
 .source-control-action-row {

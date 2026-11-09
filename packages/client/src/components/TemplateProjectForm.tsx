@@ -27,6 +27,7 @@ import { useVersion } from "../hooks/useVersion";
 import { useToastContext } from "../contexts/ToastContext";
 import { generateUUID } from "../lib/uuid";
 import { TemplateCreationProgress } from "./TemplateCreationProgress";
+import { Banner } from "./ui/Banner";
 import { Button, IconButton } from "./ui/Button";
 import { Field, Textarea, TextInput } from "./ui/Field";
 import { SegmentedControl } from "./ui/SegmentedControl";
@@ -513,7 +514,7 @@ export function TemplateProjectForm({
       {(pending || operation) && (
         <TemplateCreationProgress operation={operation} />
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
       {operation && ["failed", "interrupted"].includes(operation.phase) && (
         <Button
           onClick={() => {

@@ -13,7 +13,12 @@
  *
  * An error banner is `role="alert"`, the others `role="status"`, so a
  * banner that appears after an action is announced. A banner that is part
- * of the page from the start and need not interrupt passes `role="none"`.
+ * of the page from the start and need not interrupt passes `role="none"`
+ * (or `"note"` for an aside). A live region announces changes to content
+ * already on the page: to announce a result that replaces an earlier one,
+ * keep one region mounted and change its text, rather than mounting a new
+ * status banner per result. A validation error under one field is that
+ * `Field`'s `error`, never an alert that fires per keystroke.
  *
  * An error that belongs to one field is that `Field`'s `error`, not a
  * banner. A caller's `className` adds layout (margins, placement) only.
@@ -35,7 +40,7 @@ export type BannerProps = Dismiss & {
   /** Buttons or links acting on the message. */
   actions?: ReactNode;
   /** Default: `alert` for errors, `status` otherwise. */
-  role?: "alert" | "status" | "none";
+  role?: "alert" | "status" | "note" | "none";
   /** Tighter padding for a banner inside a row or small panel. */
   compact?: boolean;
   className?: string;

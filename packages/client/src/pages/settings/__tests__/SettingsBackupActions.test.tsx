@@ -98,4 +98,31 @@ describe("SettingsBackupActions", () => {
       await screen.findByText(/Settings saved to the server slot /),
     ).toBeTruthy();
   });
+
+  it("announces a retry's result in the status region mounted before it", async () => {
+    getBrowserSettingsBackup.mockResolvedValue({ backup: null });
+    saveBrowserSettingsBackup
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        backup: {
+          version: BROWSER_SETTINGS_BACKUP_VERSION,
+          savedAt: "2026-07-19T12:00:00.000Z",
+          values: {},
+        },
+      });
+    renderActions();
+    await screen.findByText("The server settings slot is empty");
+    const status = screen.getByRole("status");
+    const save = screen.getByRole("button", { name: "Save from this browser" });
+
+    fireEvent.click(save);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("status")).toBe(status);
+
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(status.textContent).toMatch(/Settings saved to the server slot /),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

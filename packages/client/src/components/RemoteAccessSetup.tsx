@@ -655,7 +655,7 @@ export function RemoteAccessSetup({
         </div>
 
         {relayStatus?.error && (
-          <Banner tone="error" compact>
+          <Banner tone="error" role="none" compact>
             {relayStatus.error}
           </Banner>
         )}

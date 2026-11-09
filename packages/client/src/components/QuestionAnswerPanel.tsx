@@ -306,16 +306,22 @@ export function QuestionAnswerPanel({
               aria-label={t("asyncQuestionsTitle")}
               value={String(currentTab)}
               onChange={(value) => setCurrentTab(Number(value))}
-              tabs={questions.map((q, idx) => ({
-                value: String(idx),
-                label: q.header,
-                icon: isQuestionAnswered(
+              tabs={questions.map((q, idx) => {
+                const answered = isQuestionAnswered(
                   getSelections(answers, getQuestionKey(q)),
                   getQuestionOtherText(q),
-                )
-                  ? "✓"
-                  : undefined,
-              }))}
+                );
+                return {
+                  value: String(idx),
+                  label: q.header,
+                  icon: answered ? (
+                    <span className={styles.answeredCheck}>✓</span>
+                  ) : undefined,
+                  ariaLabel: answered
+                    ? t("questionPanelTabAnswered", { header: q.header })
+                    : undefined,
+                };
+              })}
             />
           )}
 

@@ -21,6 +21,7 @@ import {
   getRemoteCompatibilityNotices,
 } from "../../lib/remoteCompatibilityNotices";
 import styles from "../RemoteCompatibilityNotices.module.css";
+import bannerStyles from "../ui/Banner.module.css";
 import {
   RemoteCompatibilityNoticeCard,
   RemoteCompatibilityNotices,
@@ -97,17 +98,17 @@ describe("RemoteCompatibilityNotices", () => {
   });
 
   it.each([
-    ["floating", "security", "alert", styles.floating!],
-    ["floating", "blocking", "alert", styles.floating!],
-    ["floating", "recommended", "status", styles.floating!],
-    ["floating", "info", "status", styles.floating!],
-    ["inline", "security", "alert", styles.inline!],
-    ["inline", "blocking", "alert", styles.inline!],
-    ["inline", "recommended", "status", styles.inline!],
-    ["inline", "info", "status", styles.inline!],
+    ["floating", "security", "alert", styles.floating!, "error"],
+    ["floating", "blocking", "alert", styles.floating!, "error"],
+    ["floating", "recommended", "status", styles.floating!, "warning"],
+    ["floating", "info", "status", styles.floating!, "info"],
+    ["inline", "security", "alert", styles.inline!, "error"],
+    ["inline", "blocking", "alert", styles.inline!, "error"],
+    ["inline", "recommended", "status", styles.inline!, "warning"],
+    ["inline", "info", "status", styles.inline!, "info"],
   ] as const)(
     "places %s %s notices with the %s role",
-    (placement, severity, role, placementClass) => {
+    (placement, severity, role, placementClass, tone) => {
       const { container } = render(
         <RemoteCompatibilityNoticeCard
           notice={notice({ severity })}
@@ -118,6 +119,15 @@ describe("RemoteCompatibilityNotices", () => {
       const root = screen.getByTestId("remote-compatibility-notice");
       expect(root.getAttribute("role")).toBe(role);
       expect(root.classList.contains(placementClass)).toBe(true);
+      // Severity maps to the Banner tone, and only that one.
+      const toneClasses = {
+        info: bannerStyles.info!,
+        warning: bannerStyles.warning!,
+        error: bannerStyles.error!,
+      };
+      for (const [each, className] of Object.entries(toneClasses)) {
+        expect(root.classList.contains(className)).toBe(each === tone);
+      }
       expectNoLegacyNoticeClasses(container);
     },
   );

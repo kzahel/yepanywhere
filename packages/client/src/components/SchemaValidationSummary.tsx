@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "../i18n";
+import { Badge } from "./ui/Badge";
 import { ButtonBase } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import styles from "./SchemaValidationSummary.module.css";
@@ -83,13 +84,18 @@ export function SchemaValidationSummary({
                 <section className={styles.group} key={group.toolName}>
                   <h3 className={styles.heading}>
                     <code>{group.toolName}</code>
-                    <span className={styles.groupCount}>
+                    <Badge
+                      shape="count"
+                      size="small"
+                      role="img"
+                      aria-label={t("schemaGapSummaryToolCount", {
+                        count: group.gaps.length,
+                      })}
+                    >
                       {group.gaps.length}
-                    </span>
+                    </Badge>
                     {ignoredTools.includes(group.toolName) && (
-                      <span className={styles.ignored}>
-                        {t("schemaGapSummaryIgnored")}
-                      </span>
+                      <Badge size="small">{t("schemaGapSummaryIgnored")}</Badge>
                     )}
                   </h3>
                   <ul className={styles.issueList}>
@@ -98,11 +104,14 @@ export function SchemaValidationSummary({
                         className={styles.issue}
                         key={`${gap.path}\u0000${gap.code}\u0000${gap.message}`}
                       >
-                        <span className={styles.kind} data-kind={gap.kind}>
+                        <Badge
+                          size="small"
+                          tone={gap.kind === "missing" ? "warning" : "danger"}
+                        >
                           {gap.kind === "missing"
                             ? t("schemaWarningMissing")
                             : t("schemaWarningInvalid")}
-                        </span>
+                        </Badge>
                         <code className={styles.path}>{gap.path}</code>
                         <span className={styles.message}>{gap.message}</span>
                       </li>

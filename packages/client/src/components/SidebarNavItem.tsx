@@ -263,6 +263,8 @@ export function SidebarNavItem({
           size="small"
           tone={badgeVariant === "projectQueue" ? "neutral" : "accent"}
           emphasis={badgeVariant === "projectQueue" ? "soft" : "solid"}
+          role={badgeTitle ? "img" : undefined}
+          aria-label={badgeTitle}
           tooltip={badgeTitle}
           className={styles.badge}
           data-testid={`sidebar-nav-badge-${badgeVariant}`}

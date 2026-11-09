@@ -16,8 +16,12 @@
  * Two looks, one behavior: `underline` (default; tabs on a rule, the
  * selected one underlined in the accent) heads a pane, a dialog or a panel;
  * `pill` (tabs in a sunken track, the selected one raised) sits inside a
- * toolbar or page header. `layout="fill"` spreads tabs across the row.
- * A tab takes `icon`, `count` (a count badge) and `ariaLabel`. A caller's
+ * toolbar or page header. `layout="fill"` spreads tabs across the row in
+ * equal columns whose labels wrap, `fill-phone` only on narrow screens.
+ * Underline strips wrap onto a second row rather than scroll. A tab takes
+ * `icon` (decorative: a state it shows, such as answered, also goes in
+ * `ariaLabel`), `count` (a count badge, part of the name unless `ariaLabel`
+ * replaces it) and `ariaLabel`. A caller's
  * `className` adds layout (margins, placement) to the strip only.
  */
 import {
@@ -49,7 +53,8 @@ export interface TabsProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   variant?: "underline" | "pill";
-  layout?: "inline" | "fill";
+  /** `fill`: equal columns; `fill-phone`: equal columns at ≤760 px only. */
+  layout?: "inline" | "fill" | "fill-phone";
   activation?: "automatic" | "manual";
   /** Base id; tabs become `<id>-tab-<value>`, panels `<id>-panel-<value>`. */
   id?: string;
@@ -138,6 +143,7 @@ export function Tabs<T extends string>({
         styles.tabs,
         pill ? styles.pillTabs : styles.underlineTabs,
         layout === "fill" && styles.fill,
+        layout === "fill-phone" && styles.fillPhone,
         className,
       )}
     >
@@ -163,7 +169,7 @@ export function Tabs<T extends string>({
             className={joinClasses(
               styles.tab,
               pill ? styles.pill : styles.underline,
-              layout === "fill" && styles.fillTab,
+              layout !== "inline" && styles.fillTab,
             )}
             onClick={() => {
               if (activation === "manual") setFocused(index);

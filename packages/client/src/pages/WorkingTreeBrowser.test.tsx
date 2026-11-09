@@ -107,6 +107,56 @@ describe("WorkingTreeBrowser", () => {
     sessionRecords.clear();
   });
 
+  it("names the changed-file count when embedded in history", async () => {
+    listReviewComments.mockResolvedValue({
+      comments: [],
+      batches: [],
+      pendingCount: 0,
+    });
+    const detailedT = (key: string, vars?: Record<string, string | number>) =>
+      vars ? `${key} ${JSON.stringify(vars)}` : key;
+
+    render(
+      <MemoryRouter>
+        <WorkingTreeBrowser
+          projectId="p1"
+          embeddedInHistory
+          status={{
+            isGitRepo: true,
+            branch: "main",
+            upstream: null,
+            ahead: 0,
+            behind: 0,
+            isClean: false,
+            files: [
+              {
+                path: "src/a.ts",
+                status: "M",
+                staged: false,
+                linesAdded: 1,
+                linesDeleted: 0,
+              },
+              {
+                path: "src/b.ts",
+                status: "M",
+                staged: false,
+                linesAdded: 1,
+                linesDeleted: 0,
+              },
+            ],
+          }}
+          isWideScreen={false}
+          t={detailedT}
+        />
+      </MemoryRouter>,
+    );
+
+    const count = await screen.findByRole("img", {
+      name: 'sourceChangedFileCount {"count":2}',
+    });
+    expect(count.textContent).toBe("2");
+  });
+
   it("keeps a clean working tree as the Changes landing", async () => {
     const onBrowseHistory = vi.fn();
     listReviewComments.mockResolvedValue({

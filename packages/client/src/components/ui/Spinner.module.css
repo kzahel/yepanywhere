@@ -1,4 +1,5 @@
 .spinner {
+  position: relative;
   display: inline-block;
   flex-shrink: 0;
   box-sizing: border-box;
@@ -23,6 +24,15 @@
   width: 32px;
   height: 32px;
   border-width: 3px;
+}
+
+.label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @keyframes spin {

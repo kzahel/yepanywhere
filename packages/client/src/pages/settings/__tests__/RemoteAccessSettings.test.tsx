@@ -209,7 +209,12 @@ describe("RemoteAccessSettings host identity", () => {
     });
 
     fireEvent.change(input, { target: { value: "two" } });
-    expect(screen.getByText("hostIdentityInvalid")).toBeTruthy();
+    const error = screen.getByText("hostIdentityInvalid");
+    // A field's error is described by the input, not announced per keystroke.
+    expect(input.getAttribute("aria-describedby")).toBe(
+      error.closest("[id]")?.id,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
     fireEvent.blur(input);
     expect(mockUpdateSetting).not.toHaveBeenCalled();
 

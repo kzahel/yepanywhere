@@ -261,7 +261,7 @@ of slightly different styles.
   `form-error`, `form-warning`, `login-error`), a dozen one-off notice
   boxes, 13 notice components and many module error and notice classes;
   the renderers' `.badge` family (~70 uses) and about 45 named badge
-  classes; eight spinner classes with fourteen rotate keyframe sets (four
+  classes; eight spinner classes with fourteen rotate keyframe sets (five
   of them a global `spin` overriding each other); and three tab strips,
   one with roving focus. About 270 files moved, area by area: messages
   became `Banner`s in the matching tone (notice components keep their
@@ -275,7 +275,20 @@ of slightly different styles.
   `pnpm buttons:check` now also bans tab roles outside `Tabs`, rotating
   keyframes outside `Spinner` (the new-session submit's spinner is
   allowlisted for the composer) and the legacy status classes, and tab
-  buttons lost their exemption.
+  buttons lost their exemption. An Opus review (2026-11-09) found two blockers, both
+  fixed: equal-width source control tabs cut their labels (fill tabs now
+  wrap, and `fill-phone` keeps equal columns to narrow screens), and
+  single-field validation errors had become alerts that interrupted
+  typing (they are role-less again, still linked to their fields). Its
+  other fixes: badge text mixed toward the text color and darker solid
+  fills for 4.5:1 contrast, source tabs with manual activation (arrowing
+  had pushed history entries), notices from polled or initial state no
+  longer announced, one mounted status region kept where saved and failed
+  results alternate, labelled spinners holding their text, answered
+  question tabs named as such, floating banners' shadows back, the
+  attention badges blue again, unnamed count badges named, about ten
+  missed error lines and count pills swapped, and weakened tests
+  restored.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

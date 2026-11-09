@@ -1210,11 +1210,15 @@ function GitIntegrationOptionsPanel({
   t: TranslationFn;
 }) {
   if (loading) {
-    return <Banner>{t("gitStatusAutoOptionsChecking")}</Banner>;
+    return <Banner role="none">{t("gitStatusAutoOptionsChecking")}</Banner>;
   }
 
   if (error) {
-    return <Banner tone="warning">{error}</Banner>;
+    return (
+      <Banner tone="warning" role="none">
+        {error}
+      </Banner>
+    );
   }
 
   if (!options) {
@@ -1223,7 +1227,7 @@ function GitIntegrationOptionsPanel({
 
   if (options.status === "available") {
     return (
-      <Banner actions={<GitIntegrationOptionsHelp t={t} />}>
+      <Banner role="none" actions={<GitIntegrationOptionsHelp t={t} />}>
         <span className="git-integration-options-label">
           {t("gitStatusAutoOptionsLabel")}
         </span>{" "}
@@ -1238,7 +1242,11 @@ function GitIntegrationOptionsPanel({
   }
 
   return (
-    <Banner tone="warning" actions={<GitIntegrationOptionsHelp t={t} />}>
+    <Banner
+      tone="warning"
+      role="none"
+      actions={<GitIntegrationOptionsHelp t={t} />}
+    >
       {t("gitStatusAutoOptionsUnavailable", {
         reason: getIntegrationUnavailableReason(options.reasons, t),
       })}

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
+import { Banner } from "./ui/Banner";
 import { Button, buttonClassName, IconButton } from "./ui/Button";
 import { Field, Textarea } from "./ui/Field";
 import { LinkifiedText } from "./ui/LinkifiedText";
@@ -188,7 +189,11 @@ export function GoalPanel({
               )}
             </p>
           )}
-          {failed && <p role="alert">{t("goalPanelFailed")}</p>}
+          {failed && (
+            <Banner tone="error" compact>
+              {t("goalPanelFailed")}
+            </Banner>
+          )}
         </div>
         {onCommand && (
           <div className={styles.actions}>

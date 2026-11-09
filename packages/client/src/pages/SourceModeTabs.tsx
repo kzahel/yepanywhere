@@ -36,8 +36,12 @@ export function SourceModeTabs({
   return (
     <Tabs
       variant="pill"
-      layout={variant === "stacked" ? "fill" : "inline"}
+      // Equal columns only on phones; a desktop header keeps tabs content-sized.
+      layout={variant === "stacked" ? "fill-phone" : "inline"}
       className={variant === "stacked" ? styles.stacked : undefined}
+      aria-label={t("gitStatusTitle")}
+      // Switching mounts a heavy pane and pushes history: arrows only move focus.
+      activation="manual"
       value={tab}
       onChange={onSelect}
       tabs={tabs.map((key) => ({

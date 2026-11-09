@@ -41,12 +41,12 @@
   min-width: 0;
 }
 
-.body > :first-child {
-  margin-top: 0;
+.body > :where(p, ul, ol) {
+  margin: 0;
 }
 
-.body > :last-child {
-  margin-bottom: 0;
+.body > :where(p, ul, ol) + :where(p, ul, ol) {
+  margin-top: var(--space-1);
 }
 
 .title {

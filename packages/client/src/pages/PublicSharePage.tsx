@@ -583,12 +583,12 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
       </header>
       <section className="public-share-scroll">
         {cautionLabel && (
-          <Banner tone="warning" role="none" className="public-share-caution">
+          <Banner tone="warning" role="note" className="public-share-caution">
             {cautionLabel}
           </Banner>
         )}
         {mode === "frozen" && linkedFileMode === "live" && (
-          <Banner tone="warning" role="none" className="public-share-caution">
+          <Banner tone="warning" role="note" className="public-share-caution">
             {t("publicShareFrozenLinkedFilesLiveWarning")}
           </Banner>
         )}

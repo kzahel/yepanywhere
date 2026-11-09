@@ -9,8 +9,11 @@
   padding: 0 6px;
   border-radius: var(--radius-sm);
   background: var(--badge-soft);
-  color: var(--badge-color);
+  /* Mixed toward the text color so small type stays above 4.5:1 on the
+     tint in every theme, keeping the tone's hue. */
+  color: color-mix(in srgb, var(--badge-color) 60%, var(--text-primary));
   font-family: inherit;
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -59,6 +62,12 @@
   color: var(--badge-on);
 }
 
+/* White text needs a darker fill than the tone's own color. */
+.accent.solid,
+.danger.solid {
+  background: color-mix(in srgb, var(--badge-color) 78%, #000);
+}
+
 .small {
   min-height: 15px;
   padding: 0 4px;
@@ -69,7 +78,6 @@
   justify-content: center;
   min-width: 18px;
   border-radius: var(--radius-full);
-  font-variant-numeric: tabular-nums;
 }
 
 .count.small {

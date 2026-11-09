@@ -335,7 +335,7 @@ export function SpeechBackendSetup() {
               {row.disabledReason && (
                 <Banner
                   tone="warning"
-                  role="alert"
+                  role="none"
                   compact
                   className={styles.reason}
                 >

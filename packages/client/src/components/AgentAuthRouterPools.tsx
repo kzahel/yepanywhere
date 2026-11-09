@@ -11,6 +11,7 @@ import { useI18n } from "../i18n";
 import { generateUUID } from "../lib/uuid";
 import styles from "./AgentAuthRouterPools.module.css";
 import { routerPolicyLabel } from "./RouterPoolSelector";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { Field, Select, TextInput } from "./ui/Field";
@@ -162,7 +163,11 @@ export function AgentAuthRouterPools({
         </Button>
       </div>
       <p className={styles.muted}>{t("routerPoolOverviewHelp")}</p>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <Banner tone="error" compact>
+          {error}
+        </Banner>
+      )}
       {data && !canManage && <p>{t("routerPoolManagedByRouter")}</p>}
       <div className={styles.toolbar}>
         <Field label={t("routerPool")} className={styles.toolbarField}>

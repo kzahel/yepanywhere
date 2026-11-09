@@ -19,16 +19,7 @@
 }
 
 .folderCount {
-  min-width: 1.5rem;
   flex: 0 0 auto;
-  padding: 0 5px;
-  color: var(--text-muted);
-  font-family: var(--font-mono, monospace);
-  font-size: 0.68rem;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-  border-radius: 999px;
 }
 
 .folderChildren {

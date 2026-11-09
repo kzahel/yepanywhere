@@ -45,7 +45,16 @@ export function QueuedEffortBadge({
       ? t("turnEffortOff")
       : getEffortLevelLabel(level as EffortLevel, context.provider, t);
   return (
-    <Badge size="small" tooltip={`/${modifier}`} data-turn-effort={level}>
+    <Badge
+      size="small"
+      role="img"
+      aria-label={t("turnEffortQueuedBadge", {
+        level: label,
+        command: modifier,
+      })}
+      tooltip={`/${modifier}`}
+      data-turn-effort={level}
+    >
       {label}
     </Badge>
   );

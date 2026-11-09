@@ -131,6 +131,8 @@ const GLOBAL_STYLESHEETS = [
   "styles/index.css",
   "styles/renderers.css",
   "styles/tool-rows.css",
+  "styles/emulator.css",
+  "styles/provider-colors.css",
 ];
 
 const LOOK_PROPERTY =

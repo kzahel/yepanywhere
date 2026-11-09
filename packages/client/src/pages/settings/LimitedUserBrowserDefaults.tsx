@@ -86,7 +86,7 @@ export function LimitedUserBrowserDefaults() {
 
   const entries = Object.entries(draft).sort(([a], [b]) => a.localeCompare(b));
   const status = error
-    ? error
+    ? null
     : operation === "fetching"
       ? t("loading")
       : published
@@ -126,16 +126,16 @@ export function LimitedUserBrowserDefaults() {
       {operation === null && !backup && !error && (
         <p className={styles.hint}>{t("usersBrowserDefaultsNoBackup")}</p>
       )}
-      {error ? (
+      {/* Always mounted, so a result after a failed try is announced. */}
+      <span className={styles.status} role="status">
+        {status}
+        {status && dirty && ` · ${t("usersBrowserDefaultsUnsaved")}`}
+      </span>
+      {error && (
         <Banner tone="error" compact>
-          {status}
+          {error}
           {dirty && ` · ${t("usersBrowserDefaultsUnsaved")}`}
         </Banner>
-      ) : (
-        <span className={styles.status} role="status">
-          {status}
-          {dirty && ` · ${t("usersBrowserDefaultsUnsaved")}`}
-        </span>
       )}
       {entries.length > 0 && (
         <details>

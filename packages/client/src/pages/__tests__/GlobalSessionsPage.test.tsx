@@ -755,7 +755,9 @@ describe("GlobalSessionsPage", () => {
         target: { value: "25h" },
       });
     });
-    expect(screen.getByRole("alert").textContent).toContain("valid range");
+    // Shown under the filters, not announced per keystroke.
+    expect(screen.getByText(/valid range/)).toBeDefined();
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByTestId("session-renamed")).toBeNull();
     expect(runtime.transport.fetch).not.toHaveBeenCalled();
   });

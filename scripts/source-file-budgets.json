@@ -73,7 +73,7 @@
       "maxLines": 1823
     },
     "packages/client/src/pages/WorkingTreeBrowser.tsx": {
-      "maxLines": 1545
+      "maxLines": 1542
     },
     "packages/server/src/app.ts": {
       "maxLines": 4594

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import { ReloadBanner, ReloadBannerStack } from "../ReloadBanner";
 import styles from "../ReloadBanner.module.css";
+import bannerStyles from "../ui/Banner.module.css";
 
 function rect(
   left: number,
@@ -181,6 +182,10 @@ describe("ReloadBanner", () => {
     renderBanner({ onDismiss });
 
     expect(screen.getByText("Server changed")).toBeTruthy();
+    // A safe reload is the plain warning.
+    expect(
+      screen.getByRole("status").className.includes(bannerStyles.warning!),
+    ).toBe(true);
     const dismiss = screen.getByRole("button", { name: "Dismiss" });
     expect(dismiss.textContent).toBe("×");
 
@@ -211,6 +216,9 @@ describe("ReloadBanner", () => {
     const banner = screen.getByRole("status");
     expect(banner.classList.contains("reload-banner")).toBe(true);
     expect(banner.className).toContain(styles.banner);
+    // An unsafe backend restart reads as an error, not the plain warning.
+    expect(banner.className.includes(bannerStyles.error!)).toBe(true);
+    expect(banner.className.includes(bannerStyles.warning!)).toBe(false);
 
     const stack = document.querySelector(".reload-banner-stack");
     expect(stack?.className).toContain(styles.stack);

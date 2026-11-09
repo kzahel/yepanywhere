@@ -468,8 +468,7 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Queued project work")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
     expect(
-      document.querySelector('[data-tooltip="Project Queue items: 1"]')
-        ?.textContent,
+      screen.getByRole("img", { name: "Project Queue items: 1" }).textContent,
     ).toBe("1");
   });
 
@@ -485,8 +484,7 @@ describe("ProjectsPage", () => {
     );
 
     expect(
-      document.querySelector('[data-tooltip="Project Queue items: 1"]')
-        ?.textContent,
+      screen.getByRole("img", { name: "Project Queue items: 1" }).textContent,
     ).toBe("1");
     expect(
       screen.getByLabelText(

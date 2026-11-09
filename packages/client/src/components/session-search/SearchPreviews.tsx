@@ -11,6 +11,7 @@ import { useI18n } from "../../i18n";
 import { getSessionDisplayTitle } from "../../utils";
 import { SearchDetail } from "./SearchDetail";
 import { renderHighlightedText } from "../SearchPreview";
+import { Banner } from "../ui/Banner";
 import { IconButton } from "../ui/Button";
 import { Menu, MenuItem, MenuLinkItem, useMenuTrigger } from "../ui/Menu";
 import type { PopoverPoint } from "../ui/Popover";
@@ -511,7 +512,7 @@ export function SearchZoomPreview({
     >
       <div className={styles.zoom}>
         {error ? (
-          <p role="alert">{error}</p>
+          <Banner tone="error">{error}</Banner>
         ) : (
           <p ref={turn}>
             {text === undefined

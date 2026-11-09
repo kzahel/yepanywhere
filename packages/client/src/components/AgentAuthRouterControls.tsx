@@ -12,6 +12,7 @@ import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import { SettingsDocLink } from "../pages/settings/SettingsDocLink";
 import styles from "./AgentAuthRouterControls.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Field, TextInput } from "./ui/Field";
 
@@ -240,7 +241,9 @@ function RouterSettingsForSource() {
         )}
       </div>
       {error && error !== recovery?.issue?.message && (
-        <p role="alert">{error}</p>
+        <Banner tone="error" compact>
+          {error}
+        </Banner>
       )}
       {pending > 0 && (
         <div className={styles.status}>

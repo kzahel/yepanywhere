@@ -857,7 +857,9 @@ function SessionSearchPage() {
             </div>
           )}
           {invalidRange && (
-            <Banner tone="error">{t("sessionSearchInvalidRange")}</Banner>
+            <Banner tone="error" role="none" compact>
+              {t("sessionSearchInvalidRange")}
+            </Banner>
           )}
           {!effectiveFields.length && query.trim() && (
             <p role="status" className={styles.progress}>
@@ -865,7 +867,9 @@ function SessionSearchPage() {
             </p>
           )}
           {invalidLimit && (
-            <Banner tone="error">{t("sessionSearchInvalidLimit")}</Banner>
+            <Banner tone="error" role="none" compact>
+              {t("sessionSearchInvalidLimit")}
+            </Banner>
           )}
           {(feed.error || scan.error || actionError) && (
             <Banner tone="error">

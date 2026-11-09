@@ -239,14 +239,14 @@ export function SettingsClipboardTransfer() {
           </div>
         </>
       )}
-      {error ? (
+      {/* Always mounted, so a result after a failed try is announced. */}
+      <span className={styles.status} role="status">
+        {error ? null : status}
+      </span>
+      {error && (
         <Banner tone="error" compact>
           {error}
         </Banner>
-      ) : (
-        <span className={styles.status} role="status">
-          {status}
-        </span>
       )}
     </section>
   );

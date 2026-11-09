@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import styles from "./QuestionAsideCard.module.css";
+import { Banner } from "./ui/Banner";
 import { Button, IconButton } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 
@@ -72,9 +73,9 @@ export function QuestionAsideCard({
           </div>
         )}
         {error && (
-          <div className={styles.status} role="alert">
+          <Banner tone="error" compact>
             {error}
-          </div>
+          </Banner>
         )}
       </div>
       <footer className={styles.actions}>

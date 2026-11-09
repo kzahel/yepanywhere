@@ -17,6 +17,7 @@ import { type SessionOptions, api } from "../api/client";
 import { useI18n } from "../i18n";
 import type { PermissionMode, Project } from "../types";
 import { NewSessionForm } from "./NewSessionForm";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
@@ -214,9 +215,15 @@ export function RestartSessionModal({
   return (
     <Modal title={t("sessionRestartTitle")} onClose={onClose}>
       <div className="model-switch-content">
-        {error && <div className="model-switch-error">{error}</div>}
+        {error && (
+          <Banner tone="error" compact>
+            {error}
+          </Banner>
+        )}
         {draftError && !isFork && (
-          <div className="model-switch-error">{draftError}</div>
+          <Banner tone="error" compact>
+            {draftError}
+          </Banner>
         )}
 
         {canFork && (

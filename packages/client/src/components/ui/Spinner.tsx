@@ -10,8 +10,13 @@
  * says what is happening ("Loading…", a busy button). With `label` it is the
  * announcement itself: `role="status"` named by the label.
  *
- * The animation honours `--ya-activity-play` (lib/viewportActivityAnimation):
- * a transcript row scrolled out of view pauses its spinner.
+ * The label names the region and is also visually hidden text inside it,
+ * so screen readers announce it (a name alone on an empty live region is
+ * often not read).
+ *
+ * The animation honours `--ya-activity-play` (lib/viewportActivityAnimation)
+ * where an ancestor sets it: a tool row scrolled out of view pauses its
+ * spinner. Elsewhere it runs.
  */
 import type { CSSProperties } from "react";
 import styles from "./Spinner.module.css";
@@ -50,7 +55,9 @@ export function Spinner({
       role="status"
       aria-label={label}
       data-testid={testId}
-    />
+    >
+      <span className={styles.label}>{label}</span>
+    </span>
   ) : (
     <span
       className={classes}

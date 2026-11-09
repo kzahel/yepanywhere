@@ -127,13 +127,10 @@
   font-size: var(--font-size-sm);
 }
 
-.sectionCount {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  background: var(--bg-secondary);
-  color: inherit;
+/* The count Badge takes its tier's color; compounded so it outranks the
+   Badge's tone class. */
+.sectionHeader .sectionCount {
+  --badge-color: currentColor;
 }
 
 /* Inherits the tier color, like the count. */

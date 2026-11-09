@@ -3,7 +3,8 @@
 }
 
 /* GitHub's merged purple, which no Badge tone carries; compounded so it
-   outranks the Badge's own tone class. */
+   outranks the Badge's own tone class. White text keeps it above 4.5:1. */
 .badge.merged {
   --badge-color: #8250df;
+  --badge-on: #fff;
 }

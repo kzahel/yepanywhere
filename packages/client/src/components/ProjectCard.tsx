@@ -197,6 +197,8 @@ export function ProjectCard({
               {queueCount > 0 && (
                 <Badge
                   shape="count"
+                  role="img"
+                  aria-label={t("projectCardQueueCount", { count: queueCount })}
                   tooltip={t("projectCardQueueCount", { count: queueCount })}
                 >
                   {queueCount}

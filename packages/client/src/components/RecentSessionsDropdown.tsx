@@ -100,7 +100,7 @@ function StatusIndicator({ session }: { session: GlobalSessionItem }) {
   if (session.pendingInputType) {
     const label = session.pendingInputType === "tool-approval" ? "Appr" : "Q";
     return (
-      <Badge tone="warning" size="small">
+      <Badge tone="info" size="small">
         {label}
       </Badge>
     );

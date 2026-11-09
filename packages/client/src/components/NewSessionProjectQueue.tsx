@@ -133,10 +133,12 @@ export function NewSessionProjectQueue({
                     </span>
                   )}
                 </span>
-                {item.lastError && (
-                  <span className={styles.itemError}>{item.lastError}</span>
-                )}
               </ButtonBase>
+              {item.lastError && (
+                <Banner tone="error" compact role="none">
+                  {item.lastError}
+                </Banner>
+              )}
             </li>
           );
         })}

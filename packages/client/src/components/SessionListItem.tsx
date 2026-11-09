@@ -504,7 +504,7 @@ export function SessionListItem({
     if (pendingInputType) {
       const label = pendingInputType === "tool-approval" ? "Appr" : "Q";
       return (
-        <Badge tone="warning" size="small">
+        <Badge tone="info" size="small">
           {label}
         </Badge>
       );
@@ -959,7 +959,12 @@ export function SessionListItem({
                     </Badge>
                   )}
                   {hasProjectQueue && (
-                    <Badge size="small" tooltip={t("projectQueueSidebarBadge")}>
+                    <Badge
+                      size="small"
+                      role="img"
+                      aria-label={t("projectQueueSidebarBadge")}
+                      tooltip={t("projectQueueSidebarBadge")}
+                    >
                       Q
                     </Badge>
                   )}
@@ -1107,7 +1112,12 @@ export function SessionListItem({
                   </Badge>
                 )}
                 {hasProjectQueue && (
-                  <Badge size="small" tooltip={t("projectQueueSidebarBadge")}>
+                  <Badge
+                    size="small"
+                    role="img"
+                    aria-label={t("projectQueueSidebarBadge")}
+                    tooltip={t("projectQueueSidebarBadge")}
+                  >
                     Q
                   </Badge>
                 )}

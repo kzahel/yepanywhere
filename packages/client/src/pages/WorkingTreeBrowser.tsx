@@ -24,6 +24,7 @@ import { ResizableSourceColumns } from "../components/ResizableSourceColumns";
 import {
   SourceFileOutline,
   SourceFileSectionDivider,
+  SourceFolderCount,
   type SourceOutlinePathProps,
 } from "../components/SourceFileOutline";
 import { SourceFileHeaderActions } from "../components/SourceFileHeaderActions";
@@ -1033,6 +1034,10 @@ export function WorkingTreeBrowser({
                   <Badge
                     shape="count"
                     size="small"
+                    role="img"
+                    aria-label={t("sourceChangedFileCount", {
+                      count: files.length,
+                    })}
                     tooltip={t("sourceChangedFileCount", {
                       count: files.length,
                     })}
@@ -1205,23 +1210,15 @@ export function WorkingTreeBrowser({
                             >
                               {entry.path}
                             </SourceFilePath>
-                            {(cachedFolderCounts.get(entry.path) ??
-                              entry.info?.files.length) !== undefined && (
-                              <span
-                                className={styles.folderCount}
-                                title={
-                                  entry.info?.truncated
-                                    ? t("sourceUntrackedFolderTruncated", {
-                                        count: entry.info.files.length,
-                                      })
-                                    : undefined
-                                }
-                              >
-                                {cachedFolderCounts.get(entry.path) ??
-                                  entry.info?.files.length}
-                                {entry.info?.truncated ? "+" : ""}
-                              </span>
-                            )}
+                            <SourceFolderCount
+                              className={styles.folderCount}
+                              count={
+                                cachedFolderCounts.get(entry.path) ??
+                                entry.info?.files.length
+                              }
+                              truncated={entry.info?.truncated}
+                              t={t}
+                            />
                           </SourceFileRowButton>
                         </div>
                         {entry.children.length > 0 && (

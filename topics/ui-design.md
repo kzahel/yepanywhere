@@ -270,9 +270,15 @@ first line, `actions` hold its buttons (they wrap under the text when the
 banner is narrow), and `onDismiss` with a `dismissLabel` adds a close
 button (the caller's translated label; the control takes no i18n
 context). An error banner is `role="alert"`, the
-others `role="status"`; a notice that is part of the page from the start
-passes `role="none"`. `compact` tightens it for a row or small panel. An
-error that belongs to one field is that `Field`'s `error` instead. Toasts,
+others `role="status"`; a notice that is part of the page from the start,
+or comes from polled state, passes `role="none"` (`"note"` for an aside),
+so it is not read out on load or on every poll. A live region announces
+changes to content already on the page, so a result that replaces an
+earlier one (saved, then failed, then saved) keeps one mounted status
+element and changes its text, with an error banner beside it. `compact`
+tightens it for a row or small panel. An error or warning that belongs to
+one field is that `Field`'s `error` or `hint`, never an alert that fires
+as the user types. Toasts,
 tool output error text in the transcript, system message rows and empty
 states are not banners.
 
@@ -282,27 +288,38 @@ state, a kind or a count. `tone` is `neutral`, `info`, `success`,
 "live"); `emphasis="soft"` is a tint with colored text and `solid` a filled
 chip for counts that ask for attention; `shape="count"` is a pill with
 tabular figures; `size="small"` fits dense rows; `mono` sets the code font.
-A component whose color comes from data (a provider's brand color) sets
-`--badge-color` and `--badge-soft` on a class it passes. A clickable chip is
-a button, not a badge. Only a badge with a `tooltip` subscribes to the
+Soft text is the tone mixed toward the text color, and the accent and danger
+solid fills are darkened, so 10–11 px type stays above 4.5:1 in every
+theme. A component whose color comes from data (a provider's brand color)
+sets `--badge-color` and `--badge-soft` (and `--badge-on` for solid text)
+on a compounded class it passes (`.badge.claude`), never `color` or
+`background`. A count or a state its text does not say needs `role="img"`
+with an `aria-label`; `tooltip` is visual and names nothing. A clickable
+chip is a button, not a badge. Only a badge with a `tooltip` subscribes to the
 tooltip setting, so badges cost nothing extra in the transcript.
 
 `src/components/ui/Spinner.tsx` is the one busy indicator: a ring in the
 current text color with one gap, `small` (0.9em, inline with text and in
 `Button`'s `busy` state), `default` (16 px) and `large` (32 px, page-level
 loading), slower under reduced motion. Without `label` it is decoration
-beside text that says what is happening; with `label` it is a named
-`role="status"`. It reads `--ya-activity-play`, so a transcript row
-scrolled out of view pauses its spinner. Its keyframes are the client's
+beside text that says what is happening; with `label` it is a
+`role="status"` named by the label, which it also holds as visually hidden
+text so screen readers announce it. It reads `--ya-activity-play` where an
+ancestor sets it, so a tool row scrolled out of view pauses its spinner;
+elsewhere it runs. Its keyframes are the client's
 only rotating set.
 
 `src/components/ui/Tabs.tsx` is a tab strip: `role="tablist"` with
 `role="tab"` buttons, one tab stop, Left/Right, Home and End that move and
 select (`activation="manual"` to move focus only), disabled tabs skipped.
-`variant="underline"` (default) heads a pane, dialog or panel;
-`variant="pill"` sits in a toolbar or page header. A tab takes `icon` (a
-state mark such as answered ✓), `count` (a small count badge, part of its
-name) and `ariaLabel`. Given an `id`, the selected tab points at the
+`variant="underline"` (default) heads a pane, dialog or panel and wraps
+onto a second row rather than scrolling tabs out of sight;
+`variant="pill"` sits in a toolbar or page header. `layout="fill"` gives
+equal columns whose labels wrap, `fill-phone` only at ≤760 px. A tab takes
+`icon` (decorative, so a state it shows, such as answered ✓, also goes in
+`ariaLabel`), `count` (a small count badge, part of its name unless
+`ariaLabel` replaces it) and `ariaLabel`. Tabs whose switch is costly (a
+route change, heavy panes) use `activation="manual"`. Given an `id`, the selected tab points at the
 `<TabPanel tabsId={id} value={tab}>` holding its pane, which is labelled
 by the tab.
 

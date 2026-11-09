@@ -5,6 +5,7 @@
   z-index: 195;
   width: min(920px, calc(100dvw - 24px));
   transform: translateX(-50%);
+  box-shadow: var(--shadow-lg);
 }
 
 .belowHeader {

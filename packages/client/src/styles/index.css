@@ -7782,8 +7782,6 @@ a.sidebar-nav-item {
   vertical-align: middle;
 }
 
-/* Archived badge */
-
 /* Rename modal */
 
 .rename-input {
@@ -9405,12 +9403,6 @@ a.sidebar-nav-item {
   margin-left: 0;
 }
 
-/* Sidebar badge for active agent count */
-
-.sidebar-nav-badge--projectQueue {
-  background: var(--project-queue-action-bg);
-}
-
 /* ==========================================================================
    Inbox Page
    ========================================================================== */
@@ -10368,10 +10360,6 @@ a.sidebar-nav-item {
   flex-shrink: 0;
   color: var(--warning-color);
 }
-
-/* Draft badge */
-
-/* Archived badge */
 
 /* Session badges (Ext, Appr, Q) */
 .session-badge {

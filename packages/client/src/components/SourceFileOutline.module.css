@@ -53,14 +53,7 @@
 }
 
 .groupCount {
-  min-width: 22px;
-  padding: 1px 5px;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  background: var(--bg-tertiary);
-  border-radius: 999px;
+  flex: 0 0 auto;
 }
 
 .children {

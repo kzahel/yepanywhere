@@ -9,6 +9,14 @@ const sourceModeTabsStylesheetUrl = new URL(
   "../../pages/SourceModeTabs.module.css",
   import.meta.url,
 );
+const tabsStylesheetUrl = new URL(
+  "../../components/ui/Tabs.module.css",
+  import.meta.url,
+);
+const sourceModeTabsSourceUrl = new URL(
+  "../../pages/SourceModeTabs.tsx",
+  import.meta.url,
+);
 const blameViewStylesheetUrl = new URL(
   "../../pages/BlameView.module.css",
   import.meta.url,
@@ -253,18 +261,30 @@ describe("Source Control workbench layout CSS contract", () => {
     const [
       indexCss,
       sourceModeTabsCss,
+      tabsCss,
+      sourceModeTabsSource,
       commitHistoryParentLinkCss,
       gitStatusPageCss,
     ] = await Promise.all([
       readFile(indexStylesheetUrl, "utf8"),
       readFile(sourceModeTabsStylesheetUrl, "utf8"),
+      readFile(tabsStylesheetUrl, "utf8"),
+      readFile(sourceModeTabsSourceUrl, "utf8"),
       readFile(commitHistoryParentLinkStylesheetUrl, "utf8"),
       readFile(gitStatusPageStylesheetUrl, "utf8"),
     ]);
-    // `SourceModeTabs` owns the stacked phone layout as a module variant (the
-    // shared Tabs `fill` layout plus a full-width row); the page only chooses
-    // it with `variant="stacked"`.
+    // `SourceModeTabs` owns the stacked phone layout: `variant="stacked"`
+    // picks the shared Tabs `fill-phone` layout (equal, wrapping columns at
+    // phone width only; content-sized tabs on desktop) plus a full-width row.
     const mobileTabs = getLastRuleDeclarations(sourceModeTabsCss, ".stacked");
+    const phoneMedia = tabsCss.match(
+      /@media\s*\(width\s*<=\s*760px\)\s*\{([\s\S]*?\})\s*\}/,
+    )?.[1];
+    const phoneTab = getLastRuleDeclarations(
+      phoneMedia ?? "",
+      ".fillPhone > .fillTab",
+    );
+    const desktopTabs = tabsCss.replace(phoneMedia ?? "", "");
     const historyParentLink = getLastRuleDeclarations(
       commitHistoryParentLinkCss,
       ".link",
@@ -283,7 +303,18 @@ describe("Source Control workbench layout CSS contract", () => {
       "text-overflow",
     );
 
+    expect(sourceModeTabsSource).toMatch(
+      /layout=\{variant === "stacked" \? "fill-phone" : "inline"\}/,
+    );
+    expect(mobileTabs).toMatch(/box-sizing:\s*border-box\s*;/);
     expect(mobileTabs).toMatch(/width:\s*100%\s*;/);
+    expect(phoneTab).toMatch(/flex:\s*1 1 0\s*;/);
+    expect(phoneTab).toMatch(/min-width:\s*0\s*;/);
+    expect(phoneTab).toMatch(/white-space:\s*normal\s*;/);
+    expect(desktopTabs).not.toMatch(/\.fillPhone/);
+    expect(getLastRuleDeclarations(tabsCss, ".label")).not.toMatch(
+      /text-overflow/,
+    );
     expect(actionGroup).not.toMatch(/1fr/);
     expect(checkRemote).toMatch(/min-width:\s*0\s*;/);
     expect(checkRemote).toMatch(/text-overflow:\s*ellipsis\s*;/);

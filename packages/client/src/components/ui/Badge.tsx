@@ -11,7 +11,11 @@
  * ids). `tooltip` shows through TooltipLayer like IconButton's.
  *
  * A badge is text, not a control: put the click on the row or button around
- * it. A caller's `className` adds layout (margins, alignment) only.
+ * it. A caller's `className` adds layout (margins, alignment); a color that
+ * comes from data (a provider's brand color) is set as `--badge-color` and
+ * `--badge-soft` on a compounded caller selector (`.badge.claude`), never
+ * as `color` or `background`. A count or state the text does not name
+ * needs `role="img"` with an `aria-label`.
  */
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";

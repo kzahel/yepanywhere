@@ -153,7 +153,7 @@ function HostIdentitySettings({
           )}
         </form>
         {draftInvalid && (
-          <Banner id={invalidId} tone="error" compact>
+          <Banner id={invalidId} tone="error" role="none" compact>
             {t("hostIdentityInvalid")}
           </Banner>
         )}
@@ -332,7 +332,7 @@ function HostAwakeSettings({
               </Button>
             </form>
             {!validFloor && (
-              <Banner id={floorInvalidId} tone="error" compact>
+              <Banner id={floorInvalidId} tone="error" role="none" compact>
                 {t("hostAwakeBatteryFloorInvalid")}
               </Banner>
             )}

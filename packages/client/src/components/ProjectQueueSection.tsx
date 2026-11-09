@@ -612,9 +612,14 @@ export function ProjectQueueSection({
         <div className={styles.recovered}>
           <div className={styles.recoveredHeader}>
             <h3>{t("projectQueueRecoveredTitle")}</h3>
-            <span className={styles.recoveredCount}>
+            <Badge
+              tone="warning"
+              size="small"
+              shape="count"
+              className={styles.recoveredBadge}
+            >
               {t("projectQueueRecoveredCount", { count: recoveredCount })}
-            </span>
+            </Badge>
           </div>
           <ul className={styles.recoveredGroups}>
             {recoveredGroups.map((group) => {
@@ -637,9 +642,13 @@ export function ProjectQueueSection({
                     >
                       {label}
                     </Link>
-                    <span className={styles.recoveredStatus}>
+                    <Badge
+                      tone="warning"
+                      size="small"
+                      className={styles.recoveredBadge}
+                    >
                       {t("sessionRecoveredQueuedPaused")}
-                    </span>
+                    </Badge>
                   </div>
                   <ul className={styles.recoveredMessages}>
                     {group.items.map((item) => {

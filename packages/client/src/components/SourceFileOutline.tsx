@@ -11,6 +11,7 @@ import type { TranslationFn } from "../i18n";
 import { suppressSourceKeyboardTooltips } from "../hooks/useSourceKeyboard";
 import styles from "./SourceFileOutline.module.css";
 import { SourceFileStatusBadge } from "./SourceFileRow";
+import { Badge } from "./ui/Badge";
 import { ButtonBase } from "./ui/Button";
 
 const FALLBACK_VISIBLE_ROWS = 14;
@@ -511,19 +512,12 @@ function renderEntries<T>(
             </span>
           )}
           {!entry.directory?.pending && (
-            <span
+            <SourceFolderCount
               className={styles.groupCount}
-              title={
-                entry.directory?.truncated
-                  ? t("sourceUntrackedFolderTruncated", {
-                      count: entry.count,
-                    })
-                  : undefined
-              }
-            >
-              {entry.count}
-              {entry.directory?.truncated ? "+" : ""}
-            </span>
+              count={entry.count}
+              truncated={entry.directory?.truncated}
+              t={t}
+            />
           )}
         </ButtonBase>
         {expanded && entry.children.length > 0 && (
@@ -543,6 +537,34 @@ function renderEntries<T>(
       </li>
     );
   });
+}
+
+/** A folder's file count; `+` and a tooltip when its listing was cut. */
+export function SourceFolderCount({
+  count,
+  truncated,
+  className,
+  t,
+}: {
+  count: number | undefined;
+  truncated?: boolean;
+  className?: string;
+  t: TranslationFn;
+}) {
+  if (count === undefined) return null;
+  return (
+    <Badge
+      shape="count"
+      size="small"
+      className={className}
+      tooltip={
+        truncated ? t("sourceUntrackedFolderTruncated", { count }) : undefined
+      }
+    >
+      {count}
+      {truncated ? "+" : ""}
+    </Badge>
+  );
 }
 
 function findScrollViewport(element: HTMLElement): HTMLElement | null {

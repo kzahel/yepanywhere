@@ -74,7 +74,7 @@ export function SettingsBackupActions() {
   };
 
   const status = error
-    ? error
+    ? null
     : operation === "fetching"
       ? t("settingsBackupChecking")
       : backup
@@ -105,14 +105,14 @@ export function SettingsBackupActions() {
             : t("settingsBackupLoad")}
         </Button>
       </div>
-      {error ? (
+      {/* Always mounted, so a result after a failed try is announced. */}
+      <span className={styles.status} role="status">
+        {status}
+      </span>
+      {error && (
         <Banner tone="error" compact>
-          {status}
+          {error}
         </Banner>
-      ) : (
-        <span className={styles.status} role="status">
-          {status}
-        </span>
       )}
     </section>
   );

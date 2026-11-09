@@ -500,8 +500,7 @@ describe("ProjectCard", () => {
     );
 
     expect(
-      document.querySelector('[data-tooltip="Project Queue items: 2"]')
-        ?.textContent,
+      screen.getByRole("img", { name: "Project Queue items: 2" }).textContent,
     ).toBe("2");
   });
 
@@ -521,8 +520,7 @@ describe("ProjectCard", () => {
     );
 
     expect(
-      document.querySelector('[data-tooltip="Project Queue items: 1"]')
-        ?.textContent,
+      screen.getByRole("img", { name: "Project Queue items: 1" }).textContent,
     ).toBe("1");
     expect(
       screen.getByLabelText(

@@ -1065,7 +1065,7 @@ export function ProvidersSettings() {
                   showClaudeOllamaDeprecation ? (
                     <Banner
                       tone="warning"
-                      role="status"
+                      role="none"
                       className={styles.deprecationSpacing}
                       onDismiss={dismissClaudeOllamaDeprecation}
                       dismissLabel={t(
