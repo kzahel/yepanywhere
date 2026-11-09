@@ -473,6 +473,69 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Follow-up to 4.9.3 — Codex requests wait for the ready thread (Landed 2026-11-09, this commit)
+
+Behaviour fix, not a refactor slice. Closes
+`gaps/codex-commands-before-initialize.md`, which
+[plan 186](186-codex-session-lifecycle.md) left for this commit.
+
+Problem: the session loop published its app-server client before
+`connect()`, and that one publish both released the command latch and
+opened every control to requests. A `/goal`, `/status` or `/usage` waiting
+on the latch, or any control called during setup, could write to the new
+process before `initialize`, and for a resumed thread before
+`thread/resume`. Codex refuses those with "Not initialized": `/goal`
+returned that error, `/status` dropped its account sections, `/usage`
+reported no token activity, and `setServiceTier` threw without recording
+the selection. `Process.runProviderCommand` itself does not wait for the
+session to start, but the messages and resume routes reach it through
+`dispatchProviderCommand`, which waits for the provider session id (the
+`init` message, after the thread is ready), so typed commands were
+unaffected. The controls that do not wait reached the window:
+`setServiceTier` during session activation, `probeLiveness` from the
+supervisor, and `supportedCommands`, whose refused `skills/list` and
+`thread/goal/get` were caught and left the stale list. So could any direct
+`AgentSession` caller.
+
+Fix:
+- `CodexSession` keeps two handles. `appServer` is published at spawn, as
+  before; abort closes it, and `isProcessAlive`, `pid`, provider activity
+  and the provider-work observer read it. `client` is published by a new
+  `markThreadReady` callback, which `runSession` calls once `initialize`
+  and the thread start or resume have completed and the runtime state
+  holds the thread id, before it yields `init`. Every request goes
+  through `client`, and the command latch settles there.
+- Before the thread is ready, controls take their existing not-ready
+  paths: `/goal`, `/status` and `/usage` wait, `/compact` and history
+  insertion report not ready, `steer`/`interrupt` return false, model,
+  effort and service-tier selections are kept for the next turn, and
+  `probeLiveness` reports `unavailable` ("Codex thread is not ready yet")
+  instead of a refused `thread/read`.
+- `runSession` takes `markThreadReady` as an eighth argument;
+  `codex-dynamic-results.test.ts` passes a no-op. The provider's
+  `sessionHost.runSession` now forwards its arguments as a rest list,
+  which is still late-bound and offsets the added lines.
+
+Tests:
+- The `codex.test.ts` fake app-server and `fixtures/codex/native-commands.mjs`
+  now refuse every request before `initialize`, as Codex does, and the
+  fake answers `thread/resume`. All existing tests pass against them.
+- New: `/goal` and `/status` sent before a resumed session starts wait for
+  the thread and succeed. With `initialize` held, `/status` waits,
+  `setServiceTier` resolves without a request, `probeLiveness` reports not
+  ready, and `isProcessAlive` and `pid` already read the process. Both
+  failed before the fix ("Not initialized").
+
+Verification:
+- Tier 3: server `tsc` (`tsconfig.test.json` has no new errors in the
+  touched files), the Codex-focused vitest set (75 files, 1,134 passed),
+  `pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test:providers` (22 passed, 1 skipped), `pnpm test:e2e:sdk` (80
+  passed, 4 skipped; run before the rest-list change, which is
+  type-level only), `git diff --check`. Both new tests failed against
+  the previous commit.
+- Budget: `codex.ts` 2,710 -> 2,696.
+
 ### Slice 4.9.3 — Codex session object for the controls (Landed 2026-11-09, this commit)
 
 [Plan 186](186-codex-session-lifecycle.md) slice 3.
@@ -536,9 +599,8 @@ Tests:
   late binding is held by construction, not by a test.
 
 Behavior changes:
-- None. The pre-initialize command window
-  ([gap](../../gaps/codex-commands-before-initialize.md)) is unchanged here
-  and handled in its own commit.
+- None. The pre-initialize command window is unchanged here and fixed in
+  the next commit.
 
 Verification:
 - Tier 3: server `tsc` (main and tool-display configs; `tsconfig.test.json`
@@ -685,10 +747,11 @@ Behavior changes:
 - None.
 
 Follow-ups recorded:
-- `gaps/codex-commands-before-initialize.md`: `/goal`, `/status` and
-  `/usage` can reach the app-server before `initialize`, which Codex
-  refuses. Whether any caller hits that window is not established.
-  Slice 4.9.3 moves the latch involved.
+- `gaps/codex-commands-before-initialize.md` (since closed by the
+  "Codex requests wait for the ready thread" follow-up): `/goal`,
+  `/status` and `/usage` can reach the app-server before `initialize`,
+  which Codex refuses. Whether any caller hits that window is not
+  established. Slice 4.9.3 moves the latch involved.
 
 ### Slice 2.47 — Starting a Correction (Landed 2026-11-08, this commit)
 

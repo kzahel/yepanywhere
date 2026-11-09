@@ -21,6 +21,8 @@ let goal = JSON.parse(
 );
 let threadId = "compact-session";
 let sequence = 0;
+// Like Codex, refuse every request until initialize has been handled.
+let initialized = false;
 const send = (value) =>
   console.log(JSON.stringify({ jsonrpc: "2.0", ...value }));
 const notify = (method, params) => send({ method, params });
@@ -78,8 +80,16 @@ for await (const line of createInterface({ input: process.stdin })) {
   appendFileSync(logPath, `${JSON.stringify(request)}\n`);
   if (request.id === undefined) continue;
   const reply = (result) => send({ id: request.id, result });
+  if (request.method !== "initialize" && !initialized) {
+    send({
+      id: request.id,
+      error: { code: -32600, message: "Not initialized" },
+    });
+    continue;
+  }
   switch (request.method) {
     case "initialize":
+      initialized = true;
       reply({ userAgent: "native-commands-fixture" });
       break;
     case "skills/list":

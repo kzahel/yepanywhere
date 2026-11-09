@@ -973,6 +973,110 @@ describe("CodexProvider", () => {
       }
     });
 
+    it("holds provider commands sent before start until the resumed thread is ready", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-early-commands-"));
+      const logPath = join(tempDir, "fake-codex-requests.jsonl");
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "fake-codex-early-commands",
+        buildFakeCodexAppServer(logPath),
+      );
+      const testProvider = new CodexProvider({ codexPath });
+      const session = await testProvider.startSession({
+        cwd: tempDir,
+        resumeSessionId: "thread-1",
+      });
+
+      try {
+        // Both wait on the client latch; the session loop has not run yet.
+        const goal = session.runProviderCommand?.("goal");
+        const status = session.runProviderCommand?.("status");
+        await session.iterator.next();
+
+        await expect(goal).resolves.toEqual({
+          handled: true,
+          output: { summary: "/goal", details: ["No goal set"] },
+        });
+        await expect(status).resolves.toMatchObject({
+          handled: true,
+          output: {
+            details: expect.arrayContaining([
+              expect.stringContaining("Account: ChatGPT (plus)"),
+            ]),
+          },
+        });
+        const methods = readFakeCodexRequests(logPath).map((r) => r.method);
+        const ready = methods.indexOf("thread/resume");
+        expect(ready).toBeGreaterThan(-1);
+        expect(methods.indexOf("thread/goal/get")).toBeGreaterThan(ready);
+        expect(methods.indexOf("account/read")).toBeGreaterThan(ready);
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("sends no session request while initialize is still pending", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-pending-initialize-"));
+      const logPath = join(tempDir, "fake-codex-requests.jsonl");
+      const releasePath = join(tempDir, "release-initialize");
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "fake-codex-pending-initialize",
+        buildFakeCodexAppServer(
+          logPath,
+          "chatgpt",
+          undefined,
+          false,
+          undefined,
+          undefined,
+          releasePath,
+        ),
+      );
+      const testProvider = new CodexProvider({ codexPath });
+      const session = await testProvider.startSession({
+        cwd: tempDir,
+        resumeSessionId: "thread-1",
+      });
+
+      try {
+        const init = session.iterator.next();
+        await waitForFakeCodexRequest(logPath, "initialize");
+        expect(session.isProcessAlive?.()).toBe(true);
+        expect(
+          typeof session.pid === "function" ? session.pid() : session.pid,
+        ).toEqual(expect.any(Number));
+
+        const status = session.runProviderCommand?.("status");
+        await expect(session.setServiceTier?.("fast")).resolves.toBeUndefined();
+        await expect(session.probeLiveness?.()).resolves.toMatchObject({
+          status: "unavailable",
+          detail: "Codex thread is not ready yet",
+        });
+
+        writeFileSync(releasePath, "");
+        await init;
+        await expect(status).resolves.toMatchObject({
+          handled: true,
+          output: {
+            details: expect.arrayContaining([
+              expect.stringContaining("Account: ChatGPT (plus)"),
+            ]),
+          },
+        });
+        const methods = readFakeCodexRequests(logPath).map((r) => r.method);
+        const early = methods.slice(0, methods.indexOf("thread/resume"));
+        expect(early).not.toContain("account/read");
+        expect(early).not.toContain("thread/settings/update");
+        expect(early).not.toContain("thread/read");
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
     it("reports that /usage requires ChatGPT subscription auth", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "codex-api-key-usage-"));
       const logPath = join(tempDir, "fake-codex-requests.jsonl");
@@ -4143,6 +4247,7 @@ function buildFakeCodexAppServer(
   goalStartsTurn = false,
   modelList?: unknown,
   turnStartReleasePath?: string,
+  initializeReleasePath?: string,
 ): string {
   return `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
@@ -4155,9 +4260,13 @@ const goalStartsTurn = ${JSON.stringify(goalStartsTurn)};
 const modelList = ${JSON.stringify(modelList ?? null)};
 // When set, turn/start replies only once this file exists.
 const turnStartReleasePath = ${JSON.stringify(turnStartReleasePath ?? null)};
+// When set, initialize replies only once this file exists.
+const initializeReleasePath = ${JSON.stringify(initializeReleasePath ?? null)};
 let buffer = "";
 let goal = null;
 let activeTurn = false;
+// Like Codex, refuse every request until initialize has been handled.
+let initialized = false;
 
 function write(payload) {
   process.stdout.write(JSON.stringify({ jsonrpc: "2.0", ...payload }) + "\\n");
@@ -4186,11 +4295,28 @@ function handleMessage(message) {
   if (!message || typeof message !== "object") return;
   logRequest(message);
   if (message.id === undefined) return;
+  if (message.method !== "initialize" && !initialized) {
+    write({ id: message.id, error: { code: -32600, message: "Not initialized" } });
+    return;
+  }
 
   switch (message.method) {
-    case "initialize":
-      respond(message.id, { userAgent: "fake-codex" });
+    case "initialize": {
+      const reply = () => {
+        initialized = true;
+        respond(message.id, { userAgent: "fake-codex" });
+      };
+      if (!initializeReleasePath) {
+        reply();
+        break;
+      }
+      const release = setInterval(() => {
+        if (!existsSync(initializeReleasePath)) return;
+        clearInterval(release);
+        reply();
+      }, 10);
       break;
+    }
     case "skills/list":
       respond(message.id, {
         data: [{
@@ -4207,6 +4333,7 @@ function handleMessage(message) {
       });
       break;
     case "thread/start":
+    case "thread/resume":
       respond(message.id, {
         thread: { id: "thread-1" },
         model: "gpt-5.4-mini",

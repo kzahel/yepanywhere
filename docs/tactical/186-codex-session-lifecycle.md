@@ -162,9 +162,9 @@ reviewer checks them against the list below.
 ### 0. Tripwires first (tests only)
 
 Landed 2026-11-09 as 058 slice 4.9.0. Two of the four items below were
-already covered; the other two are new tests. Writing them found
-[a pre-initialize command window](../../gaps/codex-commands-before-initialize.md)
-that slice 3 has to decide about.
+already covered; the other two are new tests. Writing them found a
+pre-initialize command window, fixed in its own commit after slice 3 (see
+058's "Codex requests wait for the ready thread" note).
 
 The coverage the later slices need:
 
@@ -172,7 +172,7 @@ The coverage the later slices need:
   closed the former `codex-compact-start-window-untested` gap.
 - Two concurrent `/goal <objective>` calls are serialised (already
   covered). A `/goal` sent before connect was not pinned: against real
-  Codex it may fail (see the gap above), so slice 3 decides its behaviour.
+  Codex it failed, and the fix after slice 3 now pins it.
 - The `AgentSession` surface is pinned: which optional members exist with
   MCP App views on and off, `effortUpdatesActiveTurn`, and `pid` read after
   connect. One table-style test.

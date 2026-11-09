@@ -495,24 +495,7 @@ export class CodexProvider implements AgentProvider {
     refreshCodexSkills: (appServer, cwd, inventory, forceReload) =>
       this.refreshCodexSkills(appServer, cwd, inventory, forceReload),
     extractTextFromMessage: (message) => this.extractTextFromMessage(message),
-    runSession: (
-      options,
-      queue,
-      signal,
-      runtimeState,
-      setActiveClient,
-      setAgentctlSessionEnvBridge,
-      skillInventory,
-    ) =>
-      this.runSession(
-        options,
-        queue,
-        signal,
-        runtimeState,
-        setActiveClient,
-        setAgentctlSessionEnvBridge,
-        skillInventory,
-      ),
+    runSession: (...args) => this.runSession(...args),
   };
 
   constructor(config: CodexProviderConfig = {}) {
@@ -1192,6 +1175,7 @@ export class CodexProvider implements AgentProvider {
       bridge: AgentctlSessionEnvBridge | null,
     ) => void,
     skillInventory: CodexSessionSkillInventory,
+    markThreadReady: () => void,
   ): AsyncIterableIterator<SDKMessage> {
     const codexCommand = await this.resolveCodexCommand();
     const {
@@ -1322,6 +1306,8 @@ export class CodexProvider implements AgentProvider {
       if (threadResult.sandbox?.type === "workspaceWrite") {
         runtimeState.workspaceWriteSandboxPolicy = threadResult.sandbox;
       }
+      // Codex refuses requests before initialize; controls wait for this.
+      markThreadReady();
       failureTrace.sessionId = sessionId;
       log.info(
         {

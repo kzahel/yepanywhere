@@ -65,6 +65,7 @@ describe("Codex dynamic results and terminal startup", () => {
       },
       () => {},
       { skills: [], stale: true },
+      () => {},
     );
     const process = new Process(iterator, {
       queue: new MessageQueue(),

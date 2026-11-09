@@ -33,9 +33,9 @@ import type { StartSessionOptions } from "./types.js";
 export interface CodexCommandSession {
   readonly options: StartSessionOptions;
   readonly runtimeState: CodexTurnRuntimeState;
-  /** The connected client, or null before connect and after close. */
+  /** The client for requests: null until the thread is ready. */
   readonly activeClient: CodexAppServerClient | null;
-  /** The first connected client, or null if the session ends first. */
+  /** The client once the thread is ready, or null if the session ends first. */
   readonly initialActiveClient: Promise<CodexAppServerClient | null>;
 }
 

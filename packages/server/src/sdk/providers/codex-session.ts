@@ -85,7 +85,11 @@ export interface CodexSessionHost {
     forceReload: boolean,
   ): Promise<void>;
   extractTextFromMessage(message: unknown): string;
-  /** The provider's session loop, which publishes the client it connects. */
+  /**
+   * The provider's session loop. It publishes the app-server it spawns
+   * before connecting, and marks the thread ready once `initialize` and the
+   * thread start or resume have completed.
+   */
   runSession(
     options: StartSessionOptions,
     queue: MessageQueue,
@@ -96,6 +100,7 @@ export interface CodexSessionHost {
       bridge: AgentctlSessionEnvBridge | null,
     ) => void,
     skillInventory: CodexSessionSkillInventory,
+    markThreadReady: () => void,
   ): AsyncIterableIterator<SDKMessage>;
 }
 
@@ -114,13 +119,23 @@ export class CodexSession {
   readonly options: StartSessionOptions;
   readonly runtimeState: CodexTurnRuntimeState;
   readonly queue: MessageQueue;
-  /** Resolves with the first published client, or null if the session ends first. */
+  /** Resolves with the client once the thread is ready, or null if the session ends first. */
   readonly initialActiveClient: Promise<CodexAppServerClient | null>;
   private readonly host: CodexSessionHost;
   private readonly installationLease: ProviderInstallationLease;
   private readonly abortController: AbortController;
   private readonly providerWork: CodexProviderWorkTracker;
   private readonly iterator: AsyncIterableIterator<SDKMessage>;
+  /**
+   * The spawned app-server, published before it connects: abort closes it,
+   * and liveness, pid and provider work read it.
+   */
+  private appServer: CodexAppServerClient | null = null;
+  /**
+   * The client for requests, published once `initialize` and the thread
+   * start or resume have completed. Codex refuses requests before
+   * `initialize`, so no control sends through the app-server earlier.
+   */
   private client: CodexAppServerClient | null = null;
   private goalCommandTail: Promise<void> = Promise.resolve();
   private resolveInitialActiveClient:
@@ -195,16 +210,17 @@ export class CodexSession {
       this.queue,
       this.abortController.signal,
       this.runtimeState,
-      (client) => this.publishClient(client),
+      (appServer) => this.publishAppServer(appServer),
       (bridge) => {
         this.agentctlSessionEnvBridge = bridge;
       },
       this.skillInventory,
+      () => this.markThreadReady(),
     );
     this.iterator = this.releaseAfter(sessionIterator);
   }
 
-  /** The connected client, or null before connect and after close. */
+  /** The client for requests: null until the thread is ready. */
   get activeClient(): CodexAppServerClient | null {
     return this.client;
   }
@@ -220,7 +236,7 @@ export class CodexSession {
       getProviderRetention: () => this.providerWork.getSnapshot(),
       getProviderActivity: () => this.getProviderActivity(),
       get pid() {
-        return session.client?.pid;
+        return session.appServer?.pid;
       },
       probeLiveness: () => this.probeLiveness(),
       publishAgentctlSessionId: (sessionId, browserDebugEnvironment) =>
@@ -257,19 +273,26 @@ export class CodexSession {
   }
 
   /**
-   * Adopt the client the session loop connected. A replacement client takes
-   * over provider-work observation from the previous one.
+   * Adopt the app-server the session loop spawned. A replacement takes over
+   * provider-work observation from the previous one, and requests wait
+   * until its thread is ready.
    */
-  private publishClient(client: CodexAppServerClient): void {
-    if (client !== this.client) {
-      this.client?.setNotificationObserver(null);
+  private publishAppServer(appServer: CodexAppServerClient): void {
+    if (appServer !== this.appServer) {
+      this.appServer?.setNotificationObserver(null);
       this.providerWork.reset();
-      client.setNotificationObserver((notification) =>
+      appServer.setNotificationObserver((notification) =>
         this.providerWork.observe(notification, this.runtimeState.threadId),
       );
+      this.client = null;
     }
-    this.client = client;
-    this.settleInitialActiveClient(client);
+    this.appServer = appServer;
+  }
+
+  /** Open the app-server to requests and release commands waiting for it. */
+  private markThreadReady(): void {
+    this.client = this.appServer;
+    this.settleInitialActiveClient(this.client);
   }
 
   private async *releaseAfter(
@@ -332,17 +355,17 @@ export class CodexSession {
       });
     }
     this.abortController.abort();
-    await this.client?.close();
+    await this.appServer?.close();
     await this.installationLease.release();
   }
 
   isProcessAlive(): boolean {
-    return this.client?.isAlive() ?? false;
+    return this.appServer?.isAlive() ?? false;
   }
 
   getProviderActivity(): ProviderActivitySnapshot {
     return (
-      this.client?.getProviderActivity() ?? {
+      this.appServer?.getProviderActivity() ?? {
         lastRawProviderEventAt: null,
         lastRawProviderEventSource: null,
       }
@@ -354,7 +377,7 @@ export class CodexSession {
     const checkedAt = new Date();
     const source = "codex:thread/read";
 
-    if (!activeClient?.isAlive()) {
+    if (!this.appServer?.isAlive()) {
       return {
         status: "unavailable",
         source,
@@ -368,6 +391,14 @@ export class CodexSession {
         source,
         checkedAt,
         detail: "No Codex thread id is available",
+      };
+    }
+    if (!activeClient) {
+      return {
+        status: "unavailable",
+        source,
+        checkedAt,
+        detail: "Codex thread is not ready yet",
       };
     }
 
