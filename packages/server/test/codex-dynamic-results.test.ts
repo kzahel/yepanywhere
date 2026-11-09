@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { CodexProvider } from "../src/sdk/providers/codex.js";
+import { CodexAppServerClient } from "../src/sdk/providers/codex-app-server-client.js";
+import {
+  CodexSession,
+  type CodexSessionHost,
+} from "../src/sdk/providers/codex-session.js";
 import * as codexItemConversion from "../src/sdk/providers/codex-item-conversion.js";
 import { TOOL_RESULT_MEDIA_CANDIDATES } from "../src/media/inlineImageData.js";
 import { normalizeCodexToolOutputWithContext } from "../src/codex/normalization.js";
 import {
   MessageQueue,
   Process,
-  type SDKMessage,
   type UrlProjectId,
   getLogger,
 } from "./process.test-support.js";
@@ -24,50 +28,55 @@ function adapter() {
 }
 describe("Codex dynamic results and terminal startup", () => {
   it("marks a rejected thread/start terminal even while app-server is still alive", async () => {
-    const provider = new CodexProvider() as unknown as {
+    const provider = new CodexProvider();
+    const providerMethods = provider as unknown as {
       resolveCodexCommand(): Promise<string>;
       getCodexEnv(): NodeJS.ProcessEnv;
       refreshCodexSkills(): Promise<void>;
-      runSession(...args: unknown[]): AsyncIterableIterator<SDKMessage>;
+      sessionHost: CodexSessionHost;
     };
-    vi.spyOn(provider, "resolveCodexCommand").mockResolvedValue("unused-codex");
-    vi.spyOn(provider, "getCodexEnv").mockReturnValue({});
-    vi.spyOn(provider, "refreshCodexSkills").mockResolvedValue();
+    const session = new CodexSession({
+      host: providerMethods.sessionHost,
+      options: { cwd: "." },
+      steeringMode: undefined,
+      mcpAppViews: false,
+      installationLease: {
+        family: "codex",
+        kind: "runtime",
+        release: async () => {},
+      },
+    });
+    // Spies installed after the session exists: the host must call the
+    // provider when used, not capture its methods at construction.
+    const resolveCommand = vi
+      .spyOn(providerMethods, "resolveCodexCommand")
+      .mockResolvedValue("unused-codex");
+    vi.spyOn(providerMethods, "getCodexEnv").mockReturnValue({});
+    const refreshSkills = vi
+      .spyOn(providerMethods, "refreshCodexSkills")
+      .mockResolvedValue();
     const errorLog = vi
       .spyOn(getLogger(), "error")
       .mockImplementation(() => {});
     const close = vi.fn(async () => {});
     const requested: string[] = [];
-    const iterator = provider.runSession(
-      { cwd: "." },
-      new MessageQueue(),
-      new AbortController().signal,
-      { activeTurnId: null, activePermissionMode: "default" },
-      (client: {
-        isClosed: boolean;
-        connect(): Promise<void>;
-        close(): Promise<void>;
-        notify(): void;
-        request(method: string): Promise<unknown>;
-      }) => {
-        expect(client.isClosed).toBe(false);
-        vi.spyOn(client, "connect").mockResolvedValue();
-        vi.spyOn(client, "notify").mockImplementation(() => {});
-        vi.spyOn(client, "close").mockImplementation(close);
-        vi.spyOn(client, "request").mockImplementation(async (method) => {
-          requested.push(method);
-          if (method === "thread/start")
-            throw new Error(
-              "deferred dynamic tool must include a namespace: computer_control",
-            );
-          return {};
-        });
-      },
-      () => {},
-      { skills: [], stale: true },
-      () => {},
-    );
-    const process = new Process(iterator, {
+    const client = CodexAppServerClient.prototype;
+    vi.spyOn(client, "connect").mockImplementation(async function (
+      this: CodexAppServerClient,
+    ) {
+      expect(this.isClosed).toBe(false);
+    });
+    vi.spyOn(client, "notify").mockImplementation(() => {});
+    vi.spyOn(client, "close").mockImplementation(close);
+    vi.spyOn(client, "request").mockImplementation(async (method) => {
+      requested.push(method);
+      if (method === "thread/start")
+        throw new Error(
+          "deferred dynamic tool must include a namespace: computer_control",
+        );
+      return {};
+    });
+    const process = new Process(session.toAgentSession().iterator, {
       queue: new MessageQueue(),
       projectPath: ".",
       projectId: "probe" as UrlProjectId,
@@ -78,8 +87,9 @@ describe("Codex dynamic results and terminal startup", () => {
     });
     try {
       await vi.waitFor(() => expect(close).toHaveBeenCalledOnce());
-      expect(requested).toContain("thread/start");
-      expect(requested).not.toContain("turn/start");
+      expect(resolveCommand).toHaveBeenCalledOnce();
+      expect(refreshSkills).toHaveBeenCalledOnce();
+      expect(requested).toEqual(["initialize", "thread/start"]);
       expect(process.getInfo().providerRuntimeStatus).toMatchObject({
         kind: "terminal",
         scope: "provider_process",

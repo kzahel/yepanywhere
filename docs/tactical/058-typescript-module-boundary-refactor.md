@@ -68,8 +68,10 @@ shared, and how risky it is to touch today.
    took `codex.ts` from 8,235 to 4,321 lines.
    Row 4.9 is the higher-value lifecycle change: most of the file's recent
    churn sits in the session controls and the turn loop, not in the code
-   that moved. [Plan 186](186-codex-session-lifecycle.md) splits it into
-   slices 4.9.0 to 4.9.5, starting 2026-11-09.
+   that moved. [Plan 186](186-codex-session-lifecycle.md) split it into
+   slices 4.9.0 to 4.9.5, all landed on 2026-11-09, which took `codex.ts`
+   from 4,321 to 1,032 lines and gave the live session its own
+   `CodexSession` object.
 4. **Supervisor and Process** (server). Both are about 6,500-7,000 lines and
    load-bearing. They come after item 1 because the launch service moves
    launch assembly out of their callers first, which shows where their own
@@ -410,7 +412,7 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 | 4.6 | Done 2026-07-06 | OpenCode provider model helpers | Move OpenCode model selection, local-GLM model descriptions, and verbose variant parsing. | Provider process/HTTP/SSE orchestration and message conversion stayed in `opencode.ts`; no Claude/OpenCode shared abstraction introduced. |
 | 4.7 | Done 2026-11-08 | Codex failure trace | Move the failure-trace recorder, snapshot/format helpers and the notification/SDK-message trace descriptions (`recordCodexFailureTraceEvent` through `previewTraceString`) into `codex-failure-trace.ts`. | 368 lines. They use no provider state; besides each other, the trace constants and interfaces that move with them, and the `codex-notification-guards.ts` guards, they read only the conversion modules' `getOptionalString`, `normalizeStatus`, `extractErrorRecord`, `extractOpenAIRequestId` and `stringifyTraceValue`. `runSession` imports the recorder, snapshot, format and describe functions and the `CodexFailureTrace` type. Move-only, Tier 1 plus the Codex provider tests. |
 | 4.8 | Done 2026-11-08 | Codex approvals | Move `handleServerRequestApproval`, the approval decision/permission-response helpers and the approval request param guards (`as*RequestApprovalParams`, `asToolRequestUserInputParams`) into `codex-approvals.ts`. | 519 lines. `normalizePermissionMode` stays in `codex.ts`; the `permissionMode` default that called it became a required parameter (the permitted dependency-parameter conversion), since every caller already passed it. The `codex.ts` `log` wrapper moved verbatim to `codex-log.ts` so both modules log as `codex-provider`. The guards were left out of slice 4.3 on purpose and belong here. The Codex approval tests pin the decisions. |
-| 4.9 | In progress ([plan 186](186-codex-session-lifecycle.md)) | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). The config-dependent thread and turn param builders (`buildThreadConfigOverrides`, `createThreadStartParams`/`ResumeParams`/`ForkParams`, `createTurnStartParams`) and the recap/fork-summary helpers stayed in `codex.ts` after slice 4.10 because they read provider configuration getters, the model cache and the provider's own app-server setup; the session object should own that configuration. Tier 3. |
+| 4.9 | Done 2026-11-09 ([plan 186](186-codex-session-lifecycle.md)) | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). The config-dependent thread and turn param builders (`buildThreadConfigOverrides`, `createThreadStartParams`/`ResumeParams`/`ForkParams`, `createTurnStartParams`) and the recap/fork-summary helpers stayed in `codex.ts` after slice 4.10 because they read provider configuration getters, the model cache and the provider's own app-server setup; the session object should own that configuration. Tier 3. Landed as slices 4.9.0 to 4.9.5 plus one behaviour fix (requests wait for the ready thread); `codex.ts` is 1,032 lines and no longer budgeted. |
 | 4.10 | Done 2026-11-08 | Codex thread policy and skill input | Move the pure thread/turn policy helpers and fork-anchor resolution to `codex-thread-params.ts`, and slash-command and skill-input assembly to `codex-skill-inputs.ts`. | 223 and 102 lines. They read no provider state. `refreshCodexSkills` stays because `codex-dynamic-results.test.ts` stubs it on the provider; `startOrResumeThread` and `createInitializeParams` stay with the app-server setup. Move-only, Tier 1 plus the Codex provider tests. |
 
 ## Phase 5: Load-Bearing Supervisor And Process Files
@@ -472,6 +474,102 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.9.5 — Codex setup and message loop on the session (Landed 2026-11-09, this commit)
+
+[Plan 186](186-codex-session-lifecycle.md) slice 5, the last one.
+
+Moved:
+- `runSession` -> `CodexSession.run()` in `codex-session.ts`, in three
+  steps: `run()` spawns the app-server and owns the error report and
+  teardown, `connect()` initializes, starts or resumes the thread and
+  yields `init` and the config ack, and `runMessageLoop()` holds the idle
+  wait and the queue. The constructor calls `this.run()` where it called
+  `host.runSession(...)`.
+- Turn start for one queued message -> `startCodexUserTurn(context,
+  message, prompt)` in new `codex-turn-start.ts`: prompt assembly,
+  permission, cyber access, the per-message effort, MCP model context,
+  the `pendingTurnStart` latch, `turn/start` and the retry loop. It went
+  to its own file because `codex-session.ts` would otherwise pass 1,500
+  lines.
+- To `codex-turn-start.ts`, as module functions: `flushMcpAppModelContext`,
+  `resolveTurnCyberAccess`, `readCyberAccessAccountKey`,
+  `getPermissionModeFromMessage` and `extractTextFromMessage` (exported;
+  `steer` uses it too).
+- To `codex-session.ts`, as module functions: `startOrResumeThread`,
+  `createSessionConfigAckMessage`,
+  `describeAcknowledgedSessionReasoningEffort` and `resolveCodexSteering`.
+  `codexSteerLaneArguments` stays exported from `codex.ts` and calls it.
+- `MODEL_LIST_TIMEOUT_MS` -> `codex-session-state.ts`, shared by the
+  provider's model list and the cyber access check.
+
+Signature conversions:
+- `runSession`'s eight arguments became session state. The two setter
+  callbacks and `markThreadReady` are now direct field writes and method
+  calls; `options`, `queue`, `runtimeState` and `skillInventory` are read
+  from the session.
+- The locals that setup, loop and teardown share (`appServer`, the
+  agentctl bridge, steering, `sessionId`, `failureTrace`) are one
+  `CodexSessionConnection` record. `sessionId` stays mutable on it, so
+  the error report and the final `result` still see the thread id once
+  it is known.
+- `usageByTurnId` and the `logRawNotification` closure are created at the
+  start of the message loop instead of at spawn. Neither is used before
+  the thread starts, and by then `sessionId` is final.
+- Prompt state across messages (`isFirstMessage`,
+  `agentApiInstructions`, the global context) is a `CodexPromptState`
+  object that the loop passes to each turn start. The turn start's
+  `continue` for an empty prompt became `return`.
+- `CodexTurnStartContext` extends `CodexTurnContext` with the host, the
+  skill inventory and the thread's reasoning effort.
+- `CodexSessionHost` now extends `CodexProviderHost` (command, env,
+  initialize, models) and a new `CodexTurnStartHost`: `configSource`,
+  `refreshCodexSkills`, `cyberAccessProgram()` (read every turn) and
+  `cyberAccessDenials` (the provider's set, by reference). It also has
+  `overloadRetryWait`, which reads `config.overloadRetryWait` on each
+  call. `extractTextFromMessage` and `runSession` left the host. The
+  provider builds it by spreading its existing host and adding
+  late-bound arrows.
+
+Tests:
+- `codex-dynamic-results.test.ts` builds a `CodexSession` from the
+  provider's session host and only then spies on `resolveCodexCommand`,
+  `getCodexEnv` and `refreshCodexSkills`. It now asserts each spy was
+  called and that the app-server saw exactly `initialize` and
+  `thread/start`, which pins late binding: binding either method at
+  construction fails the test (checked by mutation). The app-server
+  client is stubbed on its prototype, since the setter callback it used
+  is gone.
+- `codex.test.ts` imports `codex-turn-consumer.ts` once (4.9.4 review
+  nit).
+
+Behavior changes:
+- None. The generator order is unchanged: `init` before the ack;
+  teardown closes the app-server, cleans up the bridge, then yields the
+  final `result`; the process error is reported only when not aborted.
+  Errors from `connect()` and the loop reach the same `catch` through
+  `yield*`, and an early `return()` runs the loop's `finally` before
+  `run()`'s.
+
+Verification:
+- Tier 3: server `tsc` (main and tool-display configs; `tsconfig.test.json`
+  has no new errors in the touched files), the Codex-focused vitest set
+  (75 files, 1,134 passed), `pnpm lint`, `pnpm format:check`,
+  `pnpm typecheck`, `pnpm test:providers` (22 passed, 1 skipped; all 11
+  Codex cases ran), `pnpm test:e2e:sdk` (80 passed, 4 skipped),
+  `git diff --check`, and a normalized check that every moved range of
+  HEAD appears in its new file once the declared substitutions are undone
+  (30 checks).
+- Budget: `codex.ts` 2,038 -> 1,032, under the 1,500-line threshold, so
+  its budget entry is retired. `codex-session.ts` 883 -> 1,449 and
+  `codex-turn-start.ts` 551.
+
+Follow-ups recorded:
+- `codex-session.ts` is 51 lines under the threshold. The next growth
+  there should move a group out (the controls or `connect()`), not raise
+  a budget.
+- `topics/session-ownership.md` now points `startOrResumeThread` at
+  `codex-session.ts`.
 
 ### Slice 4.9.4 — Codex turn consumer (Landed 2026-11-09, this commit)
 

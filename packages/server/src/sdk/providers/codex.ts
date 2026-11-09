@@ -5,12 +5,7 @@ import { assertProviderForkSource } from "./types.js";
 import {
   MCP_APP_EXTENSION_ID,
   MCP_APP_EXTENSION_SETTINGS,
-  formatMcpAppModelContext,
 } from "@yep-anywhere/shared";
-import {
-  codexRouterArguments,
-  codexRouterEnvironment,
-} from "./router-transport.js";
 import { startAgentSelfSession } from "./agent-self.js";
 /**
  * Codex Provider implementation using codex app-server JSON-RPC.
@@ -20,7 +15,7 @@ import { startAgentSelfSession } from "./agent-self.js";
  */
 
 import { spawn } from "node:child_process";
-import { readFile, realpath } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import {
@@ -29,16 +24,11 @@ import {
   DEFAULT_CODEX_CYBER_ACCESS_PROGRAM,
   DEFAULT_CODEX_REASONING_SUMMARY,
   DEFAULT_SUBAGENT_MAX_DEPTH,
-  codexCyberAccessProgramWireValue,
   type CodexReasoningSummary,
-  hasInvocationCandidate,
   type ModelCatalogStatus,
   type ModelInfo,
   type ProviderSubscriptionUsage,
   type SubagentMaxDepth,
-  resolveTurnEffort,
-  thinkingOptionToConfig,
-  type ThinkingOption,
 } from "@yep-anywhere/shared";
 import { log } from "./codex-log.js";
 import { formatExecutableInvocation } from "../../utils/executableInvocation.js";
@@ -52,27 +42,13 @@ import {
   getCodexCliVersion,
   isCodexCliAuthenticated,
 } from "../cli-detection.js";
-import type { MessageQueue } from "../messageQueue.js";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
-import type { SDKMessage, UserMessage } from "../types.js";
 import type {
   SkillsListParams,
   SkillsListResponse,
   ThreadForkResponse,
-  ThreadGoalSetResponse,
   InitializeCapabilities,
-  ThreadCompactStartParams,
-  ThreadCompactStartResponse,
-  ThreadResumeResponse,
-  ThreadStartParams,
-  ThreadStartResponse,
-  TurnStartResponse,
 } from "./codex-protocol/index.js";
-import type { CyberAccessProgram } from "./codex-protocol/generated/v2/CyberAccessProgram.js";
-import {
-  createLaunchAgentctlSessionEnvBridge,
-  type AgentctlSessionEnvBridge,
-} from "./agentctl-session-env.js";
 import {
   type AppServerModel,
   getFallbackCodexModelsForCliVersion,
@@ -85,58 +61,38 @@ import {
   liveModelCatalog,
   modelCatalogError,
 } from "./model-catalog-status.js";
-import { asCodexTurnCompletedNotification } from "./codex-notification-guards.js";
-import { handleServerRequestApproval } from "./codex-approvals.js";
 import {
   CodexAppServerClient,
   terminateChildProcess,
 } from "./codex-app-server-client.js";
 import {
-  CODEX_POLICY_OVERRIDES,
   mapPermissionModeToThreadPolicy,
-  normalizePermissionMode,
   resolveCodexForkLastTurnId,
 } from "./codex-thread-params.js";
-import {
-  createCodexSlashCommands,
-  createCodexUserInputs,
-} from "./codex-skill-inputs.js";
-import {
-  type CodexFailureTrace,
-  formatCodexFailureTrace,
-  snapshotCodexFailureTrace,
-} from "./codex-failure-trace.js";
 import {
   generateForkBackedSummary,
   generateSideSessionRecap,
   handleForkServerRequest,
 } from "./codex-helper-threads.js";
 import type { CodexProviderHost } from "./codex-provider-host.js";
-import { CodexSession, type CodexSessionHost } from "./codex-session.js";
+import {
+  CodexSession,
+  type CodexSessionHost,
+  resolveCodexSteering,
+} from "./codex-session.js";
 import {
   type CodexOverloadRetryWait,
-  CodexNotificationReader,
-  type CodexTurnContext,
-  consumeCodexTurn,
-  logRawCodexNotification,
-  prepareCodexOverloadRetry,
-  shouldSuppressLiveDeltaNotification,
   waitForCodexOverloadRetry,
 } from "./codex-turn-consumer.js";
 import {
   ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
+  MODEL_LIST_TIMEOUT_MS,
   type CodexSessionSkillInventory,
-  type CodexTurnRuntimeState,
   withCodexTimeout,
 } from "./codex-session-state.js";
 import {
   type CodexConfigSource,
-  type CodexThreadResumeParamsForRequest,
   createThreadForkParams,
-  createThreadResumeParams,
-  createThreadStartParams,
-  createTurnStartParams,
-  mapEffortToReasoningEffort,
 } from "./codex-session-config.js";
 import type {
   AgentProvider,
@@ -149,20 +105,9 @@ import type {
   SummaryGenerationRequest,
   SummaryGenerationResult,
 } from "./types.js";
-import { agentServerEnvironmentFor, agentApiEnvironmentFor } from "./types.js";
-import {
-  logSdkCorrelationDebug,
-  withCodexTimestamp,
-} from "./codex-item-conversion.js";
-import {
-  type TokenUsageSnapshot,
-  createLiveEventState,
-} from "./codex-live-event-conversion.js";
-import type { JsonRpcNotification, JsonRpcResponse } from "./codex-json-rpc.js";
-import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
+import type { JsonRpcResponse } from "./codex-json-rpc.js";
 
 const MODEL_CACHE_TTL_MS = 60 * 60 * 1000;
-const MODEL_LIST_TIMEOUT_MS = 8000;
 const APP_SERVER_INIT_REQUEST_ID = 1;
 const APP_SERVER_MODEL_LIST_REQUEST_ID = 2;
 
@@ -180,36 +125,6 @@ export async function codexSteerLaneArguments(
   mode?: import("@yep-anywhere/shared").SteeringMode,
 ): Promise<string[]> {
   return (await resolveCodexSteering(env, mode)).args;
-}
-
-async function resolveCodexSteering(
-  env: NodeJS.ProcessEnv,
-  mode?: import("@yep-anywhere/shared").SteeringMode,
-): Promise<{
-  args: string[];
-  state: import("@yep-anywhere/shared").ProviderSteeringState;
-}> {
-  const configPath = join(
-    env.CODEX_HOME ?? join(homedir(), ".codex"),
-    "config.toml",
-  );
-  try {
-    const config = await readFile(configPath, "utf8");
-    if (/\binstant_interrupt\b/.test(config))
-      return {
-        args: [],
-        state: { mode: "native-config", source: "native-config" },
-      };
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-  return {
-    args: ["-c", `features.instant_interrupt=${mode === "immediate"}`],
-    state: {
-      mode: mode ?? "gentle",
-      source: mode ? "ya-setting" : "ya-default",
-    },
-  };
 }
 
 /**
@@ -316,12 +231,17 @@ export class CodexProvider implements AgentProvider {
    * settings setters and test spies still take effect.
    */
   private readonly sessionHost: CodexSessionHost = {
+    ...this.host,
     configSource: this.configSource,
-    getAvailableModels: () => this.getAvailableModels(),
     refreshCodexSkills: (appServer, cwd, inventory, forceReload) =>
       this.refreshCodexSkills(appServer, cwd, inventory, forceReload),
-    extractTextFromMessage: (message) => this.extractTextFromMessage(message),
-    runSession: (...args) => this.runSession(...args),
+    cyberAccessProgram: () => this.getConfiguredCyberAccessProgram(),
+    cyberAccessDenials: this.cyberAccessDenials,
+    overloadRetryWait: (delayMs, signal) =>
+      (this.config.overloadRetryWait ?? waitForCodexOverloadRetry)(
+        delayMs,
+        signal,
+      ),
   };
 
   constructor(config: CodexProviderConfig = {}) {
@@ -988,711 +908,6 @@ export class CodexProvider implements AgentProvider {
     }
   }
 
-  /**
-   * Main session loop using codex app-server.
-   */
-  private async *runSession(
-    options: StartSessionOptions,
-    queue: MessageQueue,
-    signal: AbortSignal,
-    runtimeState: CodexTurnRuntimeState,
-    setActiveClient: (client: CodexAppServerClient) => void,
-    setAgentctlSessionEnvBridge: (
-      bridge: AgentctlSessionEnvBridge | null,
-    ) => void,
-    skillInventory: CodexSessionSkillInventory,
-    markThreadReady: () => void,
-  ): AsyncIterableIterator<SDKMessage> {
-    const codexCommand = await this.resolveCodexCommand();
-    const {
-      bridge: agentctlSessionEnvBridge,
-      // Spawns must use this runtime: it also mounts the bridge directory.
-      sessionSandbox,
-    } = createLaunchAgentctlSessionEnvBridge({
-      initialSessionId: options.publicSessionId ?? options.resumeSessionId,
-      getSessionEnv: options.getSessionChildEnv,
-      sessionSandbox: options.sessionSandbox,
-    });
-    setAgentctlSessionEnvBridge(agentctlSessionEnvBridge);
-    const codexEnv = agentctlSessionEnvBridge.extendEnv({
-      ...this.getCodexEnv(),
-      ...options.agentEnvironment,
-      // Never minted for a sandboxed launch; refuse here too.
-      ...agentServerEnvironmentFor(options),
-      ...agentApiEnvironmentFor(options),
-    });
-    const publicSessionId = options.publicSessionId ?? options.resumeSessionId;
-    if (publicSessionId) {
-      // The bridge only reaches bash tool shells that source BASH_ENV, which
-      // codex's sandbox may strip. For resume the id is known at spawn, so set
-      // it directly in the app-server env too; every shell codex launches
-      // inherits it regardless of BASH_ENV. New sessions (id unknown until
-      // thread/start) stay on the bridge alone.
-      codexEnv.AGENTCTL_SESSION_ID = publicSessionId;
-      Object.assign(codexEnv, options.getSessionChildEnv?.(publicSessionId));
-    }
-    const steering = await resolveCodexSteering(
-      codexEnv,
-      runtimeState.steeringMode,
-    );
-    const appServer = new CodexAppServerClient(
-      codexCommand,
-      options.cwd,
-      options.routerLaunch
-        ? codexRouterEnvironment(codexEnv, options.routerLaunch)
-        : codexEnv,
-      (notification) =>
-        shouldSuppressLiveDeltaNotification(notification, options),
-      sessionSandbox,
-      [
-        ...(options.routerLaunch
-          ? codexRouterArguments(options.routerLaunch)
-          : []),
-        ...steering.args,
-      ],
-    );
-    setActiveClient(appServer);
-
-    let sessionId = options.resumeSessionId ?? "";
-    const usageByTurnId = new Map<string, TokenUsageSnapshot>();
-    const failureTrace: CodexFailureTrace = {
-      sessionId: sessionId || undefined,
-      activeTurnId: null,
-      recentNotifications: [],
-    };
-    const logRawNotification = (notification: JsonRpcNotification): void => {
-      logRawCodexNotification(sessionId || "unknown", notification);
-    };
-
-    appServer.setServerRequestHandler(async (request) => {
-      return await handleServerRequestApproval(
-        request,
-        options,
-        signal,
-        runtimeState.activePermissionMode,
-      );
-    });
-
-    try {
-      await appServer.connect();
-
-      const experimentalApiEnabled = await this.initializeAppServer(
-        appServer,
-        options.clientName,
-        runtimeState.mcpAppViews,
-      );
-      appServer.notify("initialized");
-      await this.refreshCodexSkills(
-        appServer,
-        options.cwd,
-        skillInventory,
-        false,
-      );
-
-      const initialPermissionMode = normalizePermissionMode(
-        options.permissionMode,
-      );
-      const policy = mapPermissionModeToThreadPolicy(initialPermissionMode);
-
-      if (options.nativeResumeSource && !experimentalApiEnabled)
-        throw new Error(
-          "Codex continuation requires native rollout path support",
-        );
-      const threadResumeParams = createThreadResumeParams(
-        this.configSource,
-        options,
-        sessionId,
-        policy,
-        experimentalApiEnabled,
-      );
-      const threadStartParams = createThreadStartParams(
-        this.configSource,
-        options,
-        policy,
-      );
-      const threadResult = await this.startOrResumeThread(
-        appServer,
-        options,
-        threadStartParams,
-        threadResumeParams,
-      );
-      options.onPermissionModeApplied?.(initialPermissionMode);
-
-      if (
-        options.nativeResumeSource &&
-        threadResult.thread.id !== options.nativeResumeSource.native.id
-      )
-        throw new Error("Codex resumed a different native thread");
-      sessionId = threadResult.thread.id;
-      agentctlSessionEnvBridge.publishSessionId(
-        options.publicSessionId ?? sessionId,
-      );
-      runtimeState.threadId = sessionId;
-      runtimeState.resolvedModel = threadResult.model;
-      if (threadResult.sandbox?.type === "workspaceWrite") {
-        runtimeState.workspaceWriteSandboxPolicy = threadResult.sandbox;
-      }
-      // Codex refuses requests before initialize; controls wait for this.
-      markThreadReady();
-      failureTrace.sessionId = sessionId;
-      log.info(
-        {
-          sessionId,
-          permissionMode: initialPermissionMode,
-          approvalPolicy: policy.approvalPolicy,
-          sandbox: policy.sandbox,
-          policyOverrides: {
-            approvalPolicy: CODEX_POLICY_OVERRIDES.approvalPolicy,
-            sandbox: CODEX_POLICY_OVERRIDES.sandbox,
-          },
-          model: options.model ?? null,
-          ...(options.routerLaunch ? { modelProvider: "aar" } : {}),
-        },
-        "Started Codex app-server session thread",
-      );
-
-      // Emit init immediately with the real session ID.
-      yield withCodexTimestamp({
-        type: "system",
-        subtype: "init",
-        steering: steering.state,
-        session_id: sessionId,
-        cwd: options.cwd,
-        slash_command_inventory: createCodexSlashCommands(
-          skillInventory.skills,
-          skillInventory.stale ? "stale" : "current",
-        ),
-      } as SDKMessage);
-
-      const requestedReasoningEffort = mapEffortToReasoningEffort(
-        this.configSource,
-        options.effort,
-        options.thinking,
-        options.model,
-        options.routerLaunch?.models,
-      );
-      const sessionConfigAck = this.createSessionConfigAckMessage(
-        sessionId,
-        threadResult.model,
-        options.model,
-        threadResult.reasoningEffort,
-        requestedReasoningEffort,
-      );
-      if (sessionConfigAck) {
-        yield withCodexTimestamp(sessionConfigAck);
-      }
-
-      const liveEventState = createLiveEventState();
-      const observeCommands = async (
-        notification: JsonRpcNotification,
-      ): Promise<SDKMessage | null> => {
-        if (notification.method === "skills/changed") {
-          skillInventory.stale = true;
-          await this.refreshCodexSkills(
-            appServer,
-            options.cwd,
-            skillInventory,
-            true,
-          );
-          return withCodexTimestamp({
-            type: "system",
-            subtype: "commands_changed",
-            session_id: sessionId,
-            slash_command_inventory: createCodexSlashCommands(
-              skillInventory.skills,
-              skillInventory.stale ? "stale" : "current",
-              runtimeState.goalObjective,
-              runtimeState.goalStatus,
-            ),
-          } as SDKMessage);
-        }
-        const params = notification.params as
-          | {
-              threadId?: string;
-              goal?: ThreadGoalSetResponse["goal"];
-            }
-          | undefined;
-        if (
-          params?.threadId !== sessionId ||
-          (notification.method !== "thread/goal/updated" &&
-            notification.method !== "thread/goal/cleared")
-        )
-          return null;
-        const objective =
-          notification.method === "thread/goal/cleared"
-            ? null
-            : params.goal?.objective;
-        if (objective !== null && typeof objective !== "string") return null;
-        const goalStatus =
-          notification.method === "thread/goal/cleared"
-            ? null
-            : params.goal?.status;
-        if (
-          objective === runtimeState.goalObjective &&
-          goalStatus === runtimeState.goalStatus
-        )
-          return null;
-        runtimeState.goalObjective = objective;
-        runtimeState.goalStatus = goalStatus;
-        return withCodexTimestamp({
-          type: "system",
-          subtype: "commands_changed",
-          session_id: sessionId,
-          slash_command_inventory: createCodexSlashCommands(
-            skillInventory.skills,
-            skillInventory.stale ? "stale" : "current",
-            objective,
-            goalStatus,
-          ),
-        } as SDKMessage);
-      };
-      const reader = new CodexNotificationReader(appServer, signal);
-      const turnContext: CodexTurnContext = {
-        appServer,
-        reader,
-        options,
-        signal,
-        sessionId,
-        runtimeState,
-        failureTrace,
-        usageByTurnId,
-        liveEventState,
-        observeCommands,
-        logRawNotification,
-        overloadRetryWait:
-          this.config.overloadRetryWait ?? waitForCodexOverloadRetry,
-      };
-
-      const messageGen = queue[Symbol.asyncIterator]();
-      const stopMessageWait = () => {
-        void messageGen.return?.();
-      };
-      signal.addEventListener("abort", stopMessageWait, { once: true });
-      let isFirstMessage = !options.resumeSessionId;
-      let agentApiInstructions = options.agentApiInstructions;
-      const globalContext = withSessionSandboxAgentContext(
-        options.sessionSandbox?.instructions?.startFromDefault === false
-          ? undefined
-          : options.globalInstructions,
-        options.sessionSandbox,
-      );
-
-      try {
-        while (!signal.aborted) {
-          let releaseQueueListener = () => {};
-          const inputReady = new Promise<"input">((resolve) => {
-            releaseQueueListener = queue.subscribeDepth((depth) => {
-              if (depth > 0) resolve("input");
-            });
-          });
-          let next: "input" | JsonRpcNotification;
-          try {
-            next = await Promise.race([reader.peek(), inputReady]);
-            if (
-              next === "input" &&
-              runtimeState.pendingCompaction &&
-              (await runtimeState.pendingCompaction.requestAccepted)
-            ) {
-              next = await reader.peek();
-            }
-          } finally {
-            releaseQueueListener();
-          }
-          if (next !== "input") {
-            reader.takePeeked();
-            logRawNotification(next);
-            const goalCommands = await observeCommands(next);
-            if (goalCommands) yield goalCommands;
-            if (next.method === "turn/started") {
-              const params = asCodexTurnCompletedNotification(next.params);
-              if (params?.threadId === sessionId) {
-                // A turn YA did not start requested no cyber access program,
-                // so only an overload can come back as retryable here.
-                const { retryableError } = yield* consumeCodexTurn(
-                  turnContext,
-                  params.turn,
-                  0,
-                );
-                const overloadError = retryableError?.message;
-                if (overloadError) {
-                  const compaction = runtimeState.pendingCompaction;
-                  if (compaction) {
-                    const retryReady = yield* prepareCodexOverloadRetry(
-                      turnContext,
-                      overloadError,
-                      ++compaction.retryAttempt,
-                    );
-                    if (retryReady) {
-                      await appServer.request<ThreadCompactStartResponse>(
-                        "thread/compact/start",
-                        {
-                          threadId: sessionId,
-                        } satisfies ThreadCompactStartParams,
-                      );
-                      continue;
-                    }
-                    runtimeState.pendingCompaction = undefined;
-                  } else {
-                    yield overloadError;
-                  }
-                  yield { type: "result", session_id: sessionId } as SDKMessage;
-                }
-              }
-            } else if (appServer.isClosed) {
-              throw new Error("Codex app-server closed while awaiting work");
-            }
-            continue;
-          }
-          const queued = await messageGen.next();
-          if (queued.done) break;
-          const message = queued.value;
-          if (signal.aborted) {
-            break;
-          }
-
-          let userPrompt = this.extractTextFromMessage(message);
-          if (!userPrompt) {
-            continue;
-          }
-
-          // Prepend global instructions to the first message of new sessions
-          if (agentApiInstructions) {
-            userPrompt = `${agentApiInstructions}\n\n${userPrompt}`;
-            agentApiInstructions = undefined;
-          }
-          if (isFirstMessage && globalContext) {
-            userPrompt = `[Global context]\n${globalContext}\n\n---\n\n${userPrompt}`;
-            isFirstMessage = false;
-          } else {
-            isFirstMessage = false;
-          }
-
-          if (hasInvocationCandidate(userPrompt)) {
-            await this.refreshCodexSkills(
-              appServer,
-              options.cwd,
-              skillInventory,
-              true,
-            );
-          }
-          const preparedInput = createCodexUserInputs(
-            userPrompt,
-            skillInventory.skills,
-            skillInventory.stale ? "stale" : "current",
-          );
-          userPrompt = preparedInput.text;
-
-          // Emit user message with UUID from queue to enable deduplication.
-          const userMessage = withCodexTimestamp({
-            type: "user",
-            uuid: message.uuid,
-            session_id: sessionId,
-            message: {
-              role: "user",
-              content: userPrompt,
-            },
-          } as SDKMessage);
-          logSdkCorrelationDebug(sessionId, userMessage, {
-            eventKind: "user_message",
-            phase: "submitted",
-            sourceEvent: "queued_input",
-          });
-          failureTrace.lastUserMessage = {
-            uuid: message.uuid,
-            chars: userPrompt.length,
-          };
-          yield userMessage;
-
-          const turnPermissionMode = normalizePermissionMode(
-            this.getPermissionModeFromMessage(message) ??
-              options.permissionMode,
-          );
-          const turnPolicy =
-            mapPermissionModeToThreadPolicy(turnPermissionMode);
-          runtimeState.activePermissionMode = turnPermissionMode;
-          const cyberAccess = await this.resolveTurnCyberAccess(
-            appServer,
-            runtimeState,
-            sessionId,
-            runtimeState.turnModelOverride ?? runtimeState.resolvedModel,
-          );
-          const turnStartParams = createTurnStartParams(
-            this.configSource,
-            sessionId,
-            preparedInput.input,
-            options,
-            turnPolicy,
-            runtimeState.workspaceWriteSandboxPolicy,
-            runtimeState.turnModelOverride,
-            runtimeState.turnEffortOverride,
-            message.uuid,
-            cyberAccess.program,
-            runtimeState.serviceTier,
-          );
-          let restoreThreadEffort: (() => Promise<unknown>) | undefined;
-          if (message.turnEffort) {
-            const modelId =
-              runtimeState.turnModelOverride ?? runtimeState.resolvedModel;
-            const model = (
-              options.routerLaunch
-                ? (options.routerLaunch.models ?? [])
-                : await this.getAvailableModels()
-            ).find((candidate) => candidate.id === modelId);
-            if (!model)
-              throw new Error(`No effort catalog for model ${modelId}`);
-            const normal: ThinkingOption =
-              options.thinking?.type === "disabled"
-                ? "off"
-                : runtimeState.turnEffortOverride
-                  ? `on:${runtimeState.turnEffortOverride}`
-                  : "auto";
-            const selected = thinkingOptionToConfig(
-              resolveTurnEffort(message.turnEffort, normal, model),
-            );
-            const baseline =
-              turnStartParams.effort ??
-              model.defaultReasoningEffort ??
-              threadResult.reasoningEffort;
-            if (!baseline)
-              throw new Error(
-                "Cannot restore the model's unknown normal effort",
-              );
-            turnStartParams.effort = mapEffortToReasoningEffort(
-              this.configSource,
-              selected.effort,
-              selected.thinking,
-              modelId,
-              options.routerLaunch?.models,
-            );
-            runtimeState.activeTurnHasEffortOverride = true;
-            restoreThreadEffort = () =>
-              appServer.request("thread/settings/update", {
-                threadId: sessionId,
-                effort:
-                  mapEffortToReasoningEffort(
-                    this.configSource,
-                    runtimeState.turnEffortOverride ?? undefined,
-                    options.thinking,
-                    modelId,
-                    options.routerLaunch?.models,
-                  ) ??
-                  model.defaultReasoningEffort ??
-                  threadResult.reasoningEffort ??
-                  baseline,
-              });
-          }
-          await this.flushMcpAppModelContext(
-            appServer,
-            runtimeState,
-            sessionId,
-          );
-          let notificationBarrierSequence =
-            appServer.lastNotificationReceiptSequence;
-          let settlePendingTurnStart: (turnId: string | null) => void =
-            () => {};
-          const pendingTurnStart = new Promise<string | null>((resolve) => {
-            settlePendingTurnStart = resolve;
-          });
-          runtimeState.pendingTurnStart = pendingTurnStart;
-          let turnResult: TurnStartResponse;
-          try {
-            turnResult = await appServer.request<TurnStartResponse>(
-              "turn/start",
-              turnStartParams,
-            );
-            runtimeState.activeTurnId = turnResult.turn.id;
-            if (message.uuid)
-              options.onNativeInputConsumed?.(sessionId, message.uuid);
-            await restoreThreadEffort?.();
-            settlePendingTurnStart(turnResult.turn.id);
-          } catch (error) {
-            settlePendingTurnStart(null);
-            throw error;
-          } finally {
-            if (runtimeState.pendingTurnStart === pendingTurnStart) {
-              runtimeState.pendingTurnStart = null;
-            }
-          }
-          options.onPermissionModeApplied?.(turnPermissionMode);
-
-          log.info(
-            {
-              sessionId,
-              turnId: turnResult.turn.id,
-              turnStatus: turnResult.turn.status,
-              permissionMode: turnPermissionMode,
-              approvalPolicy: turnPolicy.approvalPolicy,
-              sandboxPolicy: turnStartParams.sandboxPolicy,
-            },
-            "Started Codex app-server turn",
-          );
-          let overloadRetryAttempt = 0;
-          let cyberAccessProgram = cyberAccess.program;
-          while (!signal.aborted) {
-            const { retryableError } = yield* consumeCodexTurn(
-              turnContext,
-              turnResult.turn,
-              notificationBarrierSequence,
-              cyberAccessProgram !== null,
-            );
-            if (!retryableError) break;
-
-            if (retryableError.kind === "cyberAccessDenied") {
-              // The refusal happens before any model output, so the turn
-              // reruns at once without the program. Later turns for this
-              // account and model omit it from the start.
-              if (cyberAccess.scope) {
-                this.cyberAccessDenials.add(cyberAccess.scope);
-              }
-              cyberAccessProgram = null;
-              yield {
-                ...retryableError.message,
-                codexWillRetry: true,
-                codexCyberAccessRetry: true,
-              } as SDKMessage;
-              log.info(
-                {
-                  sessionId,
-                  turnId: retryableError.message.codexTurnId,
-                  model:
-                    runtimeState.turnModelOverride ??
-                    runtimeState.resolvedModel,
-                  cyberAccessProgram: cyberAccess.program,
-                },
-                "Codex account is not authorized for the cyber access program; retrying without it",
-              );
-            } else {
-              overloadRetryAttempt += 1;
-              const retryReady = yield* prepareCodexOverloadRetry(
-                turnContext,
-                retryableError.message,
-                overloadRetryAttempt,
-              );
-              if (!retryReady) {
-                yield {
-                  type: "result",
-                  session_id: sessionId,
-                } as SDKMessage;
-                break;
-              }
-            }
-
-            const retryTurnStartParams = createTurnStartParams(
-              this.configSource,
-              sessionId,
-              [],
-              options,
-              turnPolicy,
-              runtimeState.workspaceWriteSandboxPolicy,
-              runtimeState.turnModelOverride,
-              runtimeState.turnEffortOverride,
-              undefined,
-              cyberAccessProgram,
-              runtimeState.serviceTier,
-            );
-            if (message.turnEffort)
-              retryTurnStartParams.effort = turnStartParams.effort;
-            notificationBarrierSequence =
-              appServer.lastNotificationReceiptSequence;
-            turnResult = await appServer.request<TurnStartResponse>(
-              "turn/start",
-              retryTurnStartParams,
-            );
-            await restoreThreadEffort?.();
-            log.info(
-              {
-                sessionId,
-                turnId: turnResult.turn.id,
-                turnStatus: turnResult.turn.status,
-                model: retryTurnStartParams.model ?? runtimeState.resolvedModel,
-                retryAttempt: overloadRetryAttempt,
-                approvalPolicy: turnPolicy.approvalPolicy,
-                sandboxPolicy: retryTurnStartParams.sandboxPolicy,
-              },
-              "Retried failed Codex turn without resending user input",
-            );
-          }
-          runtimeState.activeTurnHasEffortOverride = false;
-        }
-      } finally {
-        signal.removeEventListener("abort", stopMessageWait);
-        await messageGen.return?.();
-      }
-    } catch (error) {
-      const codexFailureTrace = snapshotCodexFailureTrace(failureTrace);
-      if (!signal.aborted) {
-        log.error(
-          { error, codexFailureTrace },
-          "Error in codex app-server session",
-        );
-        yield {
-          type: "error",
-          // This catch exits the session loop and closes app-server below,
-          // including a rejected thread/start while the RPC process is alive.
-          uuid: `codex-error-${sessionId || "unknown"}-process-exit`,
-          codexWillRetry: false,
-          codexErrorScope: "app_server_process",
-          session_id: sessionId,
-          error: error instanceof Error ? error.message : String(error),
-          codexFailureTrace,
-          codexFailureSummary: formatCodexFailureTrace(codexFailureTrace),
-        } as SDKMessage;
-      }
-    } finally {
-      runtimeState.activeTurnId = null;
-      try {
-        await appServer.close();
-      } finally {
-        agentctlSessionEnvBridge.cleanup();
-        setAgentctlSessionEnvBridge(null);
-      }
-    }
-
-    yield {
-      type: "result",
-      session_id: sessionId,
-    } as SDKMessage;
-  }
-
-  /**
-   * Deliver each MCP App view's latest model context as hidden history ahead
-   * of the user turn it informs. A failed insertion is logged and the context
-   * stays held for the next turn.
-   */
-  private async flushMcpAppModelContext(
-    appServer: CodexAppServerClient,
-    runtimeState: CodexTurnRuntimeState,
-    threadId: string,
-  ): Promise<void> {
-    if (runtimeState.mcpAppModelContext.size === 0) return;
-    const held = [...runtimeState.mcpAppModelContext.values()];
-    try {
-      await appServer.request("thread/inject_items", {
-        threadId,
-        items: held.map(({ server, tool, text }) => ({
-          type: "message",
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: formatMcpAppModelContext(server, tool, text),
-            },
-          ],
-        })),
-      });
-      runtimeState.mcpAppModelContext.clear();
-    } catch (error) {
-      log.warn(
-        {
-          event: "codex_mcp_app_context_inject_failed",
-          threadId,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        "Could not deliver MCP App model context before the turn",
-      );
-    }
-  }
-
   private createInitializeParams(
     experimentalApiEnabled: boolean,
     clientName?: string,
@@ -1754,23 +969,6 @@ export class CodexProvider implements AgentProvider {
     }
   }
 
-  private async startOrResumeThread(
-    appServer: CodexAppServerClient,
-    options: StartSessionOptions,
-    threadStartParams: ThreadStartParams,
-    threadResumeParams: CodexThreadResumeParamsForRequest,
-  ): Promise<ThreadStartResponse | ThreadResumeResponse> {
-    return options.resumeSessionId
-      ? await appServer.request<ThreadResumeResponse>(
-          "thread/resume",
-          threadResumeParams,
-        )
-      : await appServer.request<ThreadStartResponse>(
-          "thread/start",
-          threadStartParams,
-        );
-  }
-
   private async refreshCodexSkills(
     appServer: CodexAppServerClient,
     cwd: string,
@@ -1800,101 +998,6 @@ export class CodexProvider implements AgentProvider {
   }
 
   /**
-   * Codex resolves the access program per turn and forgets it afterward, so
-   * every user turn carries the current selection. Omitting the field keeps
-   * Codex's automatic choice, which is what the default does. YA-internal
-   * helper turns such as the recap thread never send it.
-   *
-   * Enrollment belongs to the ChatGPT account and model, not to YA's
-   * server-wide setting, so a selection the backend already refused for this
-   * account and model is omitted rather than failing every turn. `scope` is
-   * null when no program is configured; it names the denial to record if the
-   * backend refuses the requested one.
-   */
-  private async resolveTurnCyberAccess(
-    appServer: CodexAppServerClient,
-    runtimeState: CodexTurnRuntimeState,
-    sessionId: string,
-    model: string | null,
-  ): Promise<{ program: CyberAccessProgram | null; scope: string | null }> {
-    const program = codexCyberAccessProgramWireValue(
-      this.getConfiguredCyberAccessProgram(),
-    );
-    if (!program) return { program: null, scope: null };
-    if (model) {
-      let cursor: string | null | undefined;
-      do {
-        const page = await withCodexTimeout(
-          appServer.request<{
-            data: AppServerModel[];
-            nextCursor?: string | null;
-          }>("model/list", { limit: 100, includeHidden: true, cursor }),
-          MODEL_LIST_TIMEOUT_MS,
-          "Codex model access programs",
-        );
-        const entry = page.data.find(
-          (entry) => (entry.model || entry.id) === model,
-        );
-        if (entry) {
-          const programs = entry.availableAccessPrograms?.cyber;
-          if (programs?.length && !programs.includes(program)) {
-            return { program: null, scope: null };
-          }
-          break;
-        }
-        cursor = page.nextCursor;
-      } while (cursor);
-    }
-    runtimeState.cyberAccessAccountKey ??= await this.readCyberAccessAccountKey(
-      appServer,
-      sessionId,
-    );
-    const scope = JSON.stringify([
-      runtimeState.cyberAccessAccountKey,
-      model,
-      program,
-    ]);
-    return {
-      program: this.cyberAccessDenials.has(scope) ? null : program,
-      scope,
-    };
-  }
-
-  /**
-   * Identify the signed-in account for cyber access denials. An account
-   * switch replaces the app-server process, so one read per session suffices.
-   * When the account cannot be read, a denial stays confined to this session.
-   */
-  private async readCyberAccessAccountKey(
-    appServer: CodexAppServerClient,
-    sessionId: string,
-  ): Promise<string> {
-    try {
-      const response = await withCodexTimeout(
-        appServer.request<unknown>("account/read", { refreshToken: false }),
-        ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
-        "Codex account status",
-      );
-      const account =
-        response && typeof response === "object"
-          ? (response as { account?: { type?: unknown; email?: unknown } })
-              .account
-          : undefined;
-      if (typeof account?.type === "string") {
-        return typeof account.email === "string" && account.email
-          ? `${account.type}:${account.email}`
-          : account.type;
-      }
-    } catch (error) {
-      log.warn(
-        { sessionId, error },
-        "Could not read Codex account for cyber access program scoping",
-      );
-    }
-    return `session:${sessionId}`;
-  }
-
-  /**
    * Synthesize a short on-return recap through a separate ephemeral Codex
    * thread. This is intentionally separate from prompt suggestions: Codex does
    * not natively emit prompt_suggestion messages, but it can still run the YA
@@ -1920,115 +1023,6 @@ export class CodexProvider implements AgentProvider {
         }
       },
     );
-  }
-
-  private createSessionConfigAckMessage(
-    sessionId: string,
-    model?: string | null,
-    requestedModel?: string | null,
-    reasoningEffort?: string | null,
-    requestedReasoningEffort?: string,
-  ): SDKMessage | null {
-    const parts: string[] = [];
-    const normalizedModel = typeof model === "string" ? model.trim() : "";
-    const normalizedRequestedModel =
-      typeof requestedModel === "string" ? requestedModel.trim() : "";
-    if (normalizedModel) {
-      parts.push(normalizedModel);
-    }
-    const effortLabel =
-      this.describeAcknowledgedSessionReasoningEffort(reasoningEffort);
-    const configMismatch =
-      (normalizedRequestedModel.length > 0 &&
-        normalizedRequestedModel !== normalizedModel) ||
-      (requestedReasoningEffort !== undefined &&
-        requestedReasoningEffort !== reasoningEffort);
-    if (effortLabel) {
-      parts.push(effortLabel);
-    }
-    if (parts.length === 0) {
-      return null;
-    }
-    return {
-      type: "system",
-      subtype: "config_ack",
-      session_id: sessionId,
-      content: `Codex acknowledged config: ${parts.join(" · ")}`,
-      isSynthetic: true,
-      configScope: "session",
-      configMismatch,
-      ...(normalizedModel ? { configModel: normalizedModel } : {}),
-      ...(effortLabel ? { configThinking: effortLabel } : {}),
-    } as SDKMessage;
-  }
-
-  private describeAcknowledgedSessionReasoningEffort(
-    effort: string | null | undefined,
-  ): string | null {
-    return effort ? `effort ${effort}` : null;
-  }
-
-  private getPermissionModeFromMessage(
-    message: unknown,
-  ): StartSessionOptions["permissionMode"] | undefined {
-    if (!message || typeof message !== "object") return undefined;
-    const mode = (message as { mode?: unknown }).mode;
-    switch (mode) {
-      case "default":
-      case "acceptEdits":
-      case "plan":
-      case "bypassPermissions":
-      case "auto":
-        return mode;
-      default:
-        return undefined;
-    }
-  }
-
-  /**
-   * Extract text content from a user message.
-   */
-  private extractTextFromMessage(message: unknown): string {
-    if (!message || typeof message !== "object") {
-      return "";
-    }
-
-    // Handle UserMessage format
-    const userMsg = message as UserMessage;
-    if (typeof userMsg.text === "string") {
-      return userMsg.text;
-    }
-
-    // Handle SDK message format
-    const sdkMsg = message as {
-      message?: { content?: string | unknown[] };
-    };
-    const content = sdkMsg.message?.content;
-
-    if (typeof content === "string") {
-      return content;
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((block: unknown) => {
-          if (typeof block === "string") return block;
-          if (
-            typeof block === "object" &&
-            block !== null &&
-            "type" in block &&
-            (block as { type: string }).type === "text" &&
-            "text" in block
-          ) {
-            return (block as { text: string }).text;
-          }
-          return "";
-        })
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    return "";
   }
 }
 

@@ -51,7 +51,6 @@ import * as codexItemConversion from "../../../src/sdk/providers/codex-item-conv
 import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
 import * as codexThreadParams from "../../../src/sdk/providers/codex-thread-params.js";
 import * as codexTurnConsumer from "../../../src/sdk/providers/codex-turn-consumer.js";
-import { isCodexCyberAccessDenial } from "../../../src/sdk/providers/codex-turn-consumer.js";
 import {
   CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS,
   CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS,
@@ -69,6 +68,8 @@ import {
   createLiveEventState,
 } from "./codex-event-fixtures.js";
 import { codexConfigBuilders } from "./codex-config-source.js";
+
+const { isCodexCyberAccessDenial } = codexTurnConsumer;
 
 vi.mock("../../../src/sdk/messageLogger.js", () => ({
   logSDKMessage: vi.fn(),

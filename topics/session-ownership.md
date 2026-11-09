@@ -88,7 +88,7 @@ stores sessions as *linear* (non-DAG) `rollout-*.jsonl` under
 `~/.codex/sessions/YYYY/MM/DD/`
 (`packages/server/src/sessions/codex-reader.ts`), and YA drives Codex through
 the app-server thread-resume protocol, not by appending to the file itself
-(`packages/server/src/sdk/providers/codex.ts`, `startOrResumeThread` /
+(`packages/server/src/sdk/providers/codex-session.ts`, `startOrResumeThread` /
 `ThreadResumeParams`). **Unverified and consequential:**
 
 - Does Codex take any lock on the rollout file? (Assume not until checked.)

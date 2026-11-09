@@ -1,9 +1,13 @@
 /**
- * A live Codex session: the state a running thread shares between the
- * session loop and the `AgentSession` controls, the client latch, and the
- * controls themselves.
+ * A live Codex session: the session loop (connect, message loop, teardown),
+ * the state it shares with the `AgentSession` controls, the client latch,
+ * and the controls themselves. Starting each user turn lives in
+ * `codex-turn-start.ts`.
  */
 
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   type ConversationContextTurn,
   type EffortLevel,
@@ -15,6 +19,7 @@ import {
   type SlashCommand,
 } from "@yep-anywhere/shared";
 import type { ProviderInstallationLease } from "../../services/ProviderInstallationCoordinator.js";
+import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
 import { MessageQueue } from "../messageQueue.js";
 import type {
   ProviderActivitySnapshot,
@@ -23,9 +28,25 @@ import type {
   SDKMessage,
   UserMessage,
 } from "../types.js";
-import type { AgentctlSessionEnvBridge } from "./agentctl-session-env.js";
-import type { CodexAppServerClient } from "./codex-app-server-client.js";
+import {
+  type AgentctlSessionEnvBridge,
+  createLaunchAgentctlSessionEnvBridge,
+} from "./agentctl-session-env.js";
+import { CodexAppServerClient } from "./codex-app-server-client.js";
+import { handleServerRequestApproval } from "./codex-approvals.js";
+import {
+  type CodexFailureTrace,
+  formatCodexFailureTrace,
+  snapshotCodexFailureTrace,
+} from "./codex-failure-trace.js";
+import { withCodexTimestamp } from "./codex-item-conversion.js";
+import type { JsonRpcNotification } from "./codex-json-rpc.js";
+import {
+  type TokenUsageSnapshot,
+  createLiveEventState,
+} from "./codex-live-event-conversion.js";
 import { log } from "./codex-log.js";
+import { asCodexTurnCompletedNotification } from "./codex-notification-guards.js";
 import type {
   ListMcpServerStatusParams,
   ListMcpServerStatusResponse,
@@ -33,10 +54,16 @@ import type {
   McpResourceReadResponse,
   McpServerToolCallParams,
   McpServerToolCallResponse,
+  ThreadCompactStartParams,
+  ThreadCompactStartResponse,
   ThreadGoalGetParams,
   ThreadGoalGetResponse,
+  ThreadGoalSetResponse,
   ThreadReadParams,
   ThreadReadResponse,
+  ThreadResumeResponse,
+  ThreadStartParams,
+  ThreadStartResponse,
   TurnInterruptParams,
   TurnInterruptResponse,
   TurnSettingsUpdateParams,
@@ -44,9 +71,12 @@ import type {
   TurnSteerParams,
   TurnSteerResponse,
 } from "./codex-protocol/index.js";
+import type { CodexProviderHost } from "./codex-provider-host.js";
 import { CodexProviderWorkTracker } from "./codex-provider-work.js";
 import {
-  type CodexConfigSource,
+  type CodexThreadResumeParamsForRequest,
+  createThreadResumeParams,
+  createThreadStartParams,
   mapEffortToReasoningEffort,
 } from "./codex-session-config.js";
 import {
@@ -63,9 +93,34 @@ import {
   createCodexSlashCommands,
   createCodexUserInputs,
 } from "./codex-skill-inputs.js";
-import { normalizePermissionMode } from "./codex-thread-params.js";
+import {
+  CODEX_POLICY_OVERRIDES,
+  mapPermissionModeToThreadPolicy,
+  normalizePermissionMode,
+} from "./codex-thread-params.js";
+import {
+  type CodexOverloadRetryWait,
+  CodexNotificationReader,
+  consumeCodexTurn,
+  logRawCodexNotification,
+  prepareCodexOverloadRetry,
+  shouldSuppressLiveDeltaNotification,
+} from "./codex-turn-consumer.js";
+import {
+  type CodexPromptState,
+  type CodexTurnStartContext,
+  type CodexTurnStartHost,
+  extractTextFromMessage,
+  startCodexUserTurn,
+} from "./codex-turn-start.js";
+import {
+  codexRouterArguments,
+  codexRouterEnvironment,
+} from "./router-transport.js";
 import {
   type AgentSession,
+  agentApiEnvironmentFor,
+  agentServerEnvironmentFor,
   inactiveProviderSessionOptionsResult,
   type StartSessionOptions,
 } from "./types.js";
@@ -75,33 +130,21 @@ import {
  * functions that call its own methods when invoked, so a setter or a test
  * spy applied after construction still takes effect.
  */
-export interface CodexSessionHost {
-  readonly configSource: CodexConfigSource;
-  getAvailableModels(): Promise<ModelInfo[]>;
-  refreshCodexSkills(
-    appServer: CodexAppServerClient,
-    cwd: string,
-    inventory: CodexSessionSkillInventory,
-    forceReload: boolean,
-  ): Promise<void>;
-  extractTextFromMessage(message: unknown): string;
-  /**
-   * The provider's session loop. It publishes the app-server it spawns
-   * before connecting, and marks the thread ready once `initialize` and the
-   * thread start or resume have completed.
-   */
-  runSession(
-    options: StartSessionOptions,
-    queue: MessageQueue,
-    signal: AbortSignal,
-    runtimeState: CodexTurnRuntimeState,
-    setActiveClient: (client: CodexAppServerClient) => void,
-    setAgentctlSessionEnvBridge: (
-      bridge: AgentctlSessionEnvBridge | null,
-    ) => void,
-    skillInventory: CodexSessionSkillInventory,
-    markThreadReady: () => void,
-  ): AsyncIterableIterator<SDKMessage>;
+export interface CodexSessionHost
+  extends CodexProviderHost,
+    CodexTurnStartHost {
+  /** Overload retry timer (a test hook). */
+  overloadRetryWait: CodexOverloadRetryWait;
+}
+
+/** What the session loop's steps share about its app-server connection. */
+interface CodexSessionConnection {
+  readonly appServer: CodexAppServerClient;
+  readonly agentctlSessionEnvBridge: AgentctlSessionEnvBridge;
+  readonly steering: CodexSteering;
+  /** The resume id until the thread starts, then the thread id. */
+  sessionId: string;
+  readonly failureTrace: CodexFailureTrace;
 }
 
 export interface CodexSessionInit {
@@ -205,19 +248,7 @@ export class CodexSession {
         this.resolveInitialActiveClient = resolve;
       },
     );
-    const sessionIterator = host.runSession(
-      options,
-      this.queue,
-      this.abortController.signal,
-      this.runtimeState,
-      (appServer) => this.publishAppServer(appServer),
-      (bridge) => {
-        this.agentctlSessionEnvBridge = bridge;
-      },
-      this.skillInventory,
-      () => this.markThreadReady(),
-    );
-    this.iterator = this.releaseAfter(sessionIterator);
+    this.iterator = this.releaseAfter(this.run());
   }
 
   /** The client for requests: null until the thread is ready. */
@@ -293,6 +324,445 @@ export class CodexSession {
   private markThreadReady(): void {
     this.client = this.appServer;
     this.settleInitialActiveClient(this.client);
+  }
+
+  /**
+   * The session loop: spawn the app-server, connect, run queued messages as
+   * turns, then tear down. Teardown closes the app-server, cleans up the
+   * agentctl bridge, and yields the final `result`.
+   */
+  private async *run(): AsyncIterableIterator<SDKMessage> {
+    const { options, runtimeState } = this;
+    const signal = this.abortController.signal;
+    const codexCommand = await this.host.resolveCodexCommand();
+    const {
+      bridge: agentctlSessionEnvBridge,
+      // Spawns must use this runtime: it also mounts the bridge directory.
+      sessionSandbox,
+    } = createLaunchAgentctlSessionEnvBridge({
+      initialSessionId: options.publicSessionId ?? options.resumeSessionId,
+      getSessionEnv: options.getSessionChildEnv,
+      sessionSandbox: options.sessionSandbox,
+    });
+    this.agentctlSessionEnvBridge = agentctlSessionEnvBridge;
+    const codexEnv = agentctlSessionEnvBridge.extendEnv({
+      ...this.host.getCodexEnv(),
+      ...options.agentEnvironment,
+      // Never minted for a sandboxed launch; refuse here too.
+      ...agentServerEnvironmentFor(options),
+      ...agentApiEnvironmentFor(options),
+    });
+    const publicSessionId = options.publicSessionId ?? options.resumeSessionId;
+    if (publicSessionId) {
+      // The bridge only reaches bash tool shells that source BASH_ENV, which
+      // codex's sandbox may strip. For resume the id is known at spawn, so set
+      // it directly in the app-server env too; every shell codex launches
+      // inherits it regardless of BASH_ENV. New sessions (id unknown until
+      // thread/start) stay on the bridge alone.
+      codexEnv.AGENTCTL_SESSION_ID = publicSessionId;
+      Object.assign(codexEnv, options.getSessionChildEnv?.(publicSessionId));
+    }
+    const steering = await resolveCodexSteering(
+      codexEnv,
+      runtimeState.steeringMode,
+    );
+    const appServer = new CodexAppServerClient(
+      codexCommand,
+      options.cwd,
+      options.routerLaunch
+        ? codexRouterEnvironment(codexEnv, options.routerLaunch)
+        : codexEnv,
+      (notification) =>
+        shouldSuppressLiveDeltaNotification(notification, options),
+      sessionSandbox,
+      [
+        ...(options.routerLaunch
+          ? codexRouterArguments(options.routerLaunch)
+          : []),
+        ...steering.args,
+      ],
+    );
+    this.publishAppServer(appServer);
+
+    const connection: CodexSessionConnection = {
+      appServer,
+      agentctlSessionEnvBridge,
+      steering,
+      sessionId: options.resumeSessionId ?? "",
+      failureTrace: {
+        sessionId: options.resumeSessionId || undefined,
+        activeTurnId: null,
+        recentNotifications: [],
+      },
+    };
+
+    appServer.setServerRequestHandler(async (request) => {
+      return await handleServerRequestApproval(
+        request,
+        options,
+        signal,
+        runtimeState.activePermissionMode,
+      );
+    });
+
+    try {
+      const threadResult = yield* this.connect(connection);
+      yield* this.runMessageLoop(connection, threadResult);
+    } catch (error) {
+      const codexFailureTrace = snapshotCodexFailureTrace(
+        connection.failureTrace,
+      );
+      if (!signal.aborted) {
+        log.error(
+          { error, codexFailureTrace },
+          "Error in codex app-server session",
+        );
+        yield {
+          type: "error",
+          // This catch exits the session loop and closes app-server below,
+          // including a rejected thread/start while the RPC process is alive.
+          uuid: `codex-error-${connection.sessionId || "unknown"}-process-exit`,
+          codexWillRetry: false,
+          codexErrorScope: "app_server_process",
+          session_id: connection.sessionId,
+          error: error instanceof Error ? error.message : String(error),
+          codexFailureTrace,
+          codexFailureSummary: formatCodexFailureTrace(codexFailureTrace),
+        } as SDKMessage;
+      }
+    } finally {
+      runtimeState.activeTurnId = null;
+      try {
+        await appServer.close();
+      } finally {
+        agentctlSessionEnvBridge.cleanup();
+        this.agentctlSessionEnvBridge = null;
+      }
+    }
+
+    yield {
+      type: "result",
+      session_id: connection.sessionId,
+    } as SDKMessage;
+  }
+
+  /**
+   * Initialize the app-server, load skills, start or resume the thread and
+   * open the session to requests, then yield `init` and the config ack.
+   */
+  private async *connect(
+    connection: CodexSessionConnection,
+  ): AsyncGenerator<
+    SDKMessage,
+    ThreadStartResponse | ThreadResumeResponse,
+    void
+  > {
+    const { options, runtimeState, skillInventory } = this;
+    const { appServer, agentctlSessionEnvBridge, steering, failureTrace } =
+      connection;
+    await appServer.connect();
+
+    const experimentalApiEnabled = await this.host.initializeAppServer(
+      appServer,
+      options.clientName,
+      runtimeState.mcpAppViews,
+    );
+    appServer.notify("initialized");
+    await this.host.refreshCodexSkills(
+      appServer,
+      options.cwd,
+      skillInventory,
+      false,
+    );
+
+    const initialPermissionMode = normalizePermissionMode(
+      options.permissionMode,
+    );
+    const policy = mapPermissionModeToThreadPolicy(initialPermissionMode);
+
+    if (options.nativeResumeSource && !experimentalApiEnabled)
+      throw new Error(
+        "Codex continuation requires native rollout path support",
+      );
+    const threadResumeParams = createThreadResumeParams(
+      this.host.configSource,
+      options,
+      connection.sessionId,
+      policy,
+      experimentalApiEnabled,
+    );
+    const threadStartParams = createThreadStartParams(
+      this.host.configSource,
+      options,
+      policy,
+    );
+    const threadResult = await startOrResumeThread(
+      appServer,
+      options,
+      threadStartParams,
+      threadResumeParams,
+    );
+    options.onPermissionModeApplied?.(initialPermissionMode);
+
+    if (
+      options.nativeResumeSource &&
+      threadResult.thread.id !== options.nativeResumeSource.native.id
+    )
+      throw new Error("Codex resumed a different native thread");
+    const sessionId = threadResult.thread.id;
+    connection.sessionId = sessionId;
+    agentctlSessionEnvBridge.publishSessionId(
+      options.publicSessionId ?? sessionId,
+    );
+    runtimeState.threadId = sessionId;
+    runtimeState.resolvedModel = threadResult.model;
+    if (threadResult.sandbox?.type === "workspaceWrite") {
+      runtimeState.workspaceWriteSandboxPolicy = threadResult.sandbox;
+    }
+    // Codex refuses requests before initialize; controls wait for this.
+    this.markThreadReady();
+    failureTrace.sessionId = sessionId;
+    log.info(
+      {
+        sessionId,
+        permissionMode: initialPermissionMode,
+        approvalPolicy: policy.approvalPolicy,
+        sandbox: policy.sandbox,
+        policyOverrides: {
+          approvalPolicy: CODEX_POLICY_OVERRIDES.approvalPolicy,
+          sandbox: CODEX_POLICY_OVERRIDES.sandbox,
+        },
+        model: options.model ?? null,
+        ...(options.routerLaunch ? { modelProvider: "aar" } : {}),
+      },
+      "Started Codex app-server session thread",
+    );
+
+    // Emit init immediately with the real session ID.
+    yield withCodexTimestamp({
+      type: "system",
+      subtype: "init",
+      steering: steering.state,
+      session_id: sessionId,
+      cwd: options.cwd,
+      slash_command_inventory: createCodexSlashCommands(
+        skillInventory.skills,
+        skillInventory.stale ? "stale" : "current",
+      ),
+    } as SDKMessage);
+
+    const requestedReasoningEffort = mapEffortToReasoningEffort(
+      this.host.configSource,
+      options.effort,
+      options.thinking,
+      options.model,
+      options.routerLaunch?.models,
+    );
+    const sessionConfigAck = createSessionConfigAckMessage(
+      sessionId,
+      threadResult.model,
+      options.model,
+      threadResult.reasoningEffort,
+      requestedReasoningEffort,
+    );
+    if (sessionConfigAck) {
+      yield withCodexTimestamp(sessionConfigAck);
+    }
+    return threadResult;
+  }
+
+  /**
+   * Run queued messages as turns, and consume turns Codex starts on its own,
+   * such as a compaction, until the session is aborted or the queue ends.
+   */
+  private async *runMessageLoop(
+    connection: CodexSessionConnection,
+    threadResult: ThreadStartResponse | ThreadResumeResponse,
+  ): AsyncGenerator<SDKMessage, void, void> {
+    const { options, queue, runtimeState, skillInventory } = this;
+    const signal = this.abortController.signal;
+    const { appServer, failureTrace, sessionId } = connection;
+    const usageByTurnId = new Map<string, TokenUsageSnapshot>();
+    const logRawNotification = (notification: JsonRpcNotification): void => {
+      logRawCodexNotification(sessionId || "unknown", notification);
+    };
+    const liveEventState = createLiveEventState();
+    const observeCommands = async (
+      notification: JsonRpcNotification,
+    ): Promise<SDKMessage | null> => {
+      if (notification.method === "skills/changed") {
+        skillInventory.stale = true;
+        await this.host.refreshCodexSkills(
+          appServer,
+          options.cwd,
+          skillInventory,
+          true,
+        );
+        return withCodexTimestamp({
+          type: "system",
+          subtype: "commands_changed",
+          session_id: sessionId,
+          slash_command_inventory: createCodexSlashCommands(
+            skillInventory.skills,
+            skillInventory.stale ? "stale" : "current",
+            runtimeState.goalObjective,
+            runtimeState.goalStatus,
+          ),
+        } as SDKMessage);
+      }
+      const params = notification.params as
+        | {
+            threadId?: string;
+            goal?: ThreadGoalSetResponse["goal"];
+          }
+        | undefined;
+      if (
+        params?.threadId !== sessionId ||
+        (notification.method !== "thread/goal/updated" &&
+          notification.method !== "thread/goal/cleared")
+      )
+        return null;
+      const objective =
+        notification.method === "thread/goal/cleared"
+          ? null
+          : params.goal?.objective;
+      if (objective !== null && typeof objective !== "string") return null;
+      const goalStatus =
+        notification.method === "thread/goal/cleared"
+          ? null
+          : params.goal?.status;
+      if (
+        objective === runtimeState.goalObjective &&
+        goalStatus === runtimeState.goalStatus
+      )
+        return null;
+      runtimeState.goalObjective = objective;
+      runtimeState.goalStatus = goalStatus;
+      return withCodexTimestamp({
+        type: "system",
+        subtype: "commands_changed",
+        session_id: sessionId,
+        slash_command_inventory: createCodexSlashCommands(
+          skillInventory.skills,
+          skillInventory.stale ? "stale" : "current",
+          objective,
+          goalStatus,
+        ),
+      } as SDKMessage);
+    };
+    const reader = new CodexNotificationReader(appServer, signal);
+    const turnContext: CodexTurnStartContext = {
+      appServer,
+      reader,
+      options,
+      signal,
+      sessionId,
+      runtimeState,
+      failureTrace,
+      usageByTurnId,
+      liveEventState,
+      observeCommands,
+      logRawNotification,
+      overloadRetryWait: this.host.overloadRetryWait,
+      host: this.host,
+      skillInventory,
+      threadReasoningEffort: threadResult.reasoningEffort,
+    };
+
+    const messageGen = queue[Symbol.asyncIterator]();
+    const stopMessageWait = () => {
+      void messageGen.return?.();
+    };
+    signal.addEventListener("abort", stopMessageWait, { once: true });
+    const prompt: CodexPromptState = {
+      isFirstMessage: !options.resumeSessionId,
+      agentApiInstructions: options.agentApiInstructions,
+      globalContext: withSessionSandboxAgentContext(
+        options.sessionSandbox?.instructions?.startFromDefault === false
+          ? undefined
+          : options.globalInstructions,
+        options.sessionSandbox,
+      ),
+    };
+
+    try {
+      while (!signal.aborted) {
+        let releaseQueueListener = () => {};
+        const inputReady = new Promise<"input">((resolve) => {
+          releaseQueueListener = queue.subscribeDepth((depth) => {
+            if (depth > 0) resolve("input");
+          });
+        });
+        let next: "input" | JsonRpcNotification;
+        try {
+          next = await Promise.race([reader.peek(), inputReady]);
+          if (
+            next === "input" &&
+            runtimeState.pendingCompaction &&
+            (await runtimeState.pendingCompaction.requestAccepted)
+          ) {
+            next = await reader.peek();
+          }
+        } finally {
+          releaseQueueListener();
+        }
+        if (next !== "input") {
+          reader.takePeeked();
+          logRawNotification(next);
+          const goalCommands = await observeCommands(next);
+          if (goalCommands) yield goalCommands;
+          if (next.method === "turn/started") {
+            const params = asCodexTurnCompletedNotification(next.params);
+            if (params?.threadId === sessionId) {
+              // A turn YA did not start requested no cyber access program,
+              // so only an overload can come back as retryable here.
+              const { retryableError } = yield* consumeCodexTurn(
+                turnContext,
+                params.turn,
+                0,
+              );
+              const overloadError = retryableError?.message;
+              if (overloadError) {
+                const compaction = runtimeState.pendingCompaction;
+                if (compaction) {
+                  const retryReady = yield* prepareCodexOverloadRetry(
+                    turnContext,
+                    overloadError,
+                    ++compaction.retryAttempt,
+                  );
+                  if (retryReady) {
+                    await appServer.request<ThreadCompactStartResponse>(
+                      "thread/compact/start",
+                      {
+                        threadId: sessionId,
+                      } satisfies ThreadCompactStartParams,
+                    );
+                    continue;
+                  }
+                  runtimeState.pendingCompaction = undefined;
+                } else {
+                  yield overloadError;
+                }
+                yield { type: "result", session_id: sessionId } as SDKMessage;
+              }
+            }
+          } else if (appServer.isClosed) {
+            throw new Error("Codex app-server closed while awaiting work");
+          }
+          continue;
+        }
+        const queued = await messageGen.next();
+        if (queued.done) break;
+        const message = queued.value;
+        if (signal.aborted) {
+          break;
+        }
+        yield* startCodexUserTurn(turnContext, message, prompt);
+      }
+    } finally {
+      signal.removeEventListener("abort", stopMessageWait);
+      await messageGen.return?.();
+    }
   }
 
   private async *releaseAfter(
@@ -690,7 +1160,7 @@ export class CodexSession {
     if (!this.runtimeState.threadId || !this.runtimeState.activeTurnId)
       return false;
 
-    let userPrompt = this.host.extractTextFromMessage(message);
+    let userPrompt = extractTextFromMessage(message);
     if (!userPrompt) return true;
 
     try {
@@ -880,4 +1350,100 @@ function formatCodexThreadStatusProbeDetail(
   return activeFlags.length > 0
     ? `thread.status:${statusType} flags:${activeFlags.join(",")}`
     : `thread.status:${statusType}`;
+}
+
+/** The steering launch arguments and the state reported with `init`. */
+export interface CodexSteering {
+  args: string[];
+  state: import("@yep-anywhere/shared").ProviderSteeringState;
+}
+
+export async function resolveCodexSteering(
+  env: NodeJS.ProcessEnv,
+  mode?: import("@yep-anywhere/shared").SteeringMode,
+): Promise<CodexSteering> {
+  const configPath = join(
+    env.CODEX_HOME ?? join(homedir(), ".codex"),
+    "config.toml",
+  );
+  try {
+    const config = await readFile(configPath, "utf8");
+    if (/\binstant_interrupt\b/.test(config))
+      return {
+        args: [],
+        state: { mode: "native-config", source: "native-config" },
+      };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  return {
+    args: ["-c", `features.instant_interrupt=${mode === "immediate"}`],
+    state: {
+      mode: mode ?? "gentle",
+      source: mode ? "ya-setting" : "ya-default",
+    },
+  };
+}
+
+async function startOrResumeThread(
+  appServer: CodexAppServerClient,
+  options: StartSessionOptions,
+  threadStartParams: ThreadStartParams,
+  threadResumeParams: CodexThreadResumeParamsForRequest,
+): Promise<ThreadStartResponse | ThreadResumeResponse> {
+  return options.resumeSessionId
+    ? await appServer.request<ThreadResumeResponse>(
+        "thread/resume",
+        threadResumeParams,
+      )
+    : await appServer.request<ThreadStartResponse>(
+        "thread/start",
+        threadStartParams,
+      );
+}
+
+function createSessionConfigAckMessage(
+  sessionId: string,
+  model?: string | null,
+  requestedModel?: string | null,
+  reasoningEffort?: string | null,
+  requestedReasoningEffort?: string,
+): SDKMessage | null {
+  const parts: string[] = [];
+  const normalizedModel = typeof model === "string" ? model.trim() : "";
+  const normalizedRequestedModel =
+    typeof requestedModel === "string" ? requestedModel.trim() : "";
+  if (normalizedModel) {
+    parts.push(normalizedModel);
+  }
+  const effortLabel =
+    describeAcknowledgedSessionReasoningEffort(reasoningEffort);
+  const configMismatch =
+    (normalizedRequestedModel.length > 0 &&
+      normalizedRequestedModel !== normalizedModel) ||
+    (requestedReasoningEffort !== undefined &&
+      requestedReasoningEffort !== reasoningEffort);
+  if (effortLabel) {
+    parts.push(effortLabel);
+  }
+  if (parts.length === 0) {
+    return null;
+  }
+  return {
+    type: "system",
+    subtype: "config_ack",
+    session_id: sessionId,
+    content: `Codex acknowledged config: ${parts.join(" · ")}`,
+    isSynthetic: true,
+    configScope: "session",
+    configMismatch,
+    ...(normalizedModel ? { configModel: normalizedModel } : {}),
+    ...(effortLabel ? { configThinking: effortLabel } : {}),
+  } as SDKMessage;
+}
+
+function describeAcknowledgedSessionReasoningEffort(
+  effort: string | null | undefined,
+): string | null {
+  return effort ? `effort ${effort}` : null;
 }

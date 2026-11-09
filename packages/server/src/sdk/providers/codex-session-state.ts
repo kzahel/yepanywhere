@@ -1,6 +1,6 @@
 /**
- * Codex session state shared by the provider's session loop, the session
- * object and the provider commands.
+ * Codex session state shared by the session loop, the turn start, the
+ * session controls and the provider commands.
  */
 
 import type { EffortLevel, PermissionMode } from "@yep-anywhere/shared";
@@ -12,6 +12,7 @@ import type { SandboxPolicy as CodexSandboxPolicy } from "./codex-protocol/gener
 import type { TokenUsageSnapshot } from "./codex-live-event-conversion.js";
 
 export const ACCOUNT_RATE_LIMITS_TIMEOUT_MS = 8000;
+export const MODEL_LIST_TIMEOUT_MS = 8000;
 
 export async function withCodexTimeout<T>(
   promise: Promise<T>,

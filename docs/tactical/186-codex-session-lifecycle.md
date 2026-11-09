@@ -2,9 +2,10 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: approved 2026-11-09; in progress. Plans row 4.9 of
-[058](058-typescript-module-boundary-refactor.md). Progress is recorded in the
-Slices section.
+Status: approved 2026-11-09; done 2026-11-09. Plans row 4.9 of
+[058](058-typescript-module-boundary-refactor.md). All six slices landed;
+each records its outcome in the Slices section. `codex.ts` went from 4,321
+to 1,032 lines.
 
 ## Goal
 
@@ -251,6 +252,13 @@ and the reader is a small class.
 - `codex.ts`: about −900 lines.
 
 ### 5. Setup and message loop on the session
+
+Landed 2026-11-09 as 058 slice 4.9.5. `codex.ts` went from 2,038 to
+1,032 lines, `codex-session.ts` to 1,449 and the new
+`codex-turn-start.ts` is 551. Turn start went to its own file. The locals
+that setup, loop and teardown share became one connection record, and the
+host gained the cyber access setting, the shared denial set and the
+overload timer.
 
 - `runSession` becomes `CodexSession.run()`, in three steps: `connect()`
   (setup, yielding `init` and the ack), the message loop, and teardown.
