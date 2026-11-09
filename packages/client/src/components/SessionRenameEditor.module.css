@@ -15,23 +15,6 @@
   flex-direction: column;
 }
 
-:global(.modal):has(.dialog) {
-  width: min(28rem, calc(100dvw - 24px));
-  height: auto;
-  max-height: calc(88dvh - 12px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-
-:global(.modal-overlay):has(.dialog) {
-  align-items: flex-start;
-  padding: 12dvh 12px 12px;
-}
-
-:global(.modal-content):has(.dialog) {
-  padding: var(--space-3);
-}
-
 .label {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);

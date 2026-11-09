@@ -8,19 +8,8 @@ import type { OnboardingStepProps } from "../types";
  * Onboarding step explaining remote access.
  * Provides info and option to configure remote access in settings.
  */
-export function RemoteAccessStep({
-  onNext,
-  onSkip,
-  isLastStep,
-}: OnboardingStepProps) {
+export function RemoteAccessStep() {
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const basePath = useRemoteBasePath();
-
-  const handleGoToSettings = () => {
-    onNext(); // Complete onboarding first
-    navigate(`${basePath}/settings/remote`);
-  };
 
   return (
     <div className="onboarding-step-content">
@@ -38,15 +27,29 @@ export function RemoteAccessStep({
       </div>
 
       <p className="onboarding-step-hint">{t("onboardingRemoteHint")}</p>
-
-      <div className="onboarding-step-actions">
-        <Button onClick={onSkip}>
-          {isLastStep ? "Skip & Finish" : "Skip"}
-        </Button>
-        <Button variant="primary" onClick={handleGoToSettings}>
-          Set Up Remote Access
-        </Button>
-      </div>
     </div>
+  );
+}
+
+export function RemoteAccessStepActions({
+  onNext,
+  onSkip,
+  isLastStep,
+}: OnboardingStepProps) {
+  const navigate = useNavigate();
+  const basePath = useRemoteBasePath();
+
+  const handleGoToSettings = () => {
+    onNext(); // Complete onboarding first
+    navigate(`${basePath}/settings/remote`);
+  };
+
+  return (
+    <>
+      <Button onClick={onSkip}>{isLastStep ? "Skip & Finish" : "Skip"}</Button>
+      <Button variant="primary" onClick={handleGoToSettings}>
+        Set Up Remote Access
+      </Button>
+    </>
   );
 }

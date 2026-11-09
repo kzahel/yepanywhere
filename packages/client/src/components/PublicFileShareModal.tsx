@@ -22,8 +22,10 @@ import {
 import { Badge } from "./ui/Badge";
 import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
+import { confirmDialog } from "./ui/ConfirmDialog";
+import { Dialog } from "./ui/Dialog";
 import { Field, TextInput } from "./ui/Field";
-import { Modal, type ModalAnchorRect } from "./ui/Modal";
+import type { ModalAnchorRect } from "./ui/Modal";
 import styles from "./PublicFileShareModal.module.css";
 
 interface PublicFileShareModalProps {
@@ -142,7 +144,13 @@ export function PublicFileShareModal({
   };
 
   const revokeShare = async (item: PublicFileShareManagementItem) => {
-    if (!window.confirm(t("publicShareManagementRevokeOneConfirm"))) return;
+    const confirmed = await confirmDialog({
+      title: t("publicShareManagementRevokeOneConfirmTitle"),
+      message: t("publicShareManagementRevokeOneConfirm"),
+      confirmLabel: t("publicShareManagementRevokeOne"),
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setWorking(`revoke:${item.shareId}`);
     setError(null);
     setNotice(null);
@@ -164,136 +172,131 @@ export function PublicFileShareModal({
   };
 
   return (
-    <Modal
+    <Dialog
+      size="large"
       anchorRect={anchorRect}
       title={t("publicFileShareTitle")}
+      description={t("publicFileShareDescription")}
       onClose={onClose}
     >
-      <div className={styles.modal}>
-        <div className={styles.fileIdentity} title={filePath}>
-          <FileIcon />
-          <span>{filePath}</span>
-          <Badge tone="accent" size="small" className={styles.liveBadge}>
-            {t("publicShareLiveBadge")}
-          </Badge>
-        </div>
-        <p className={styles.description}>{t("publicFileShareDescription")}</p>
-        {projectAppLink && (
-          <section className={styles.inventory}>
-            <p className={styles.description}>{t("projectFileLinkAccess")}</p>
-            <a href={projectAppLink} target="_blank" rel="noopener noreferrer">
-              {new URL(projectAppLink).host}
-            </a>
-            <Button
-              className={styles.createButton}
-              onClick={() => {
-                void writeClipboardTextLater(
-                  Promise.resolve(projectAppLink),
-                ).then((copied) => {
-                  setNotice(
-                    t(
-                      copied
-                        ? "publicFileShareCopied"
-                        : "publicFileShareManualCopy",
-                    ),
-                  );
-                  if (!copied) setManualUrl(projectAppLink);
-                });
-              }}
-            >
-              {t("projectFileLinkCopy")}
-            </Button>
-          </section>
-        )}
-        {playLinks && (
-          <p className={styles.description}>{t("publicFileSharePlayLinks")}</p>
-        )}
-        <Banner tone="warning" role="none">
-          {t("publicFileShareWarning")}
-        </Banner>
-        {canUseBearerGrants && (
-          <Button
-            variant="primary"
-            className={styles.createButton}
-            disabled={working !== null}
-            onClick={() => void createAndCopyShare()}
-          >
-            <LinkIcon />
-            {working === "create"
-              ? t("publicFileShareCreating")
-              : t("publicFileShareCreate")}
-          </Button>
-        )}
-
-        {manualUrl && (
-          <Field label={t("publicFileShareUrlLabel")}>
-            <TextInput mono ref={manualUrlRef} readOnly value={manualUrl} />
-          </Field>
-        )}
-        {error && (
-          <PublicShareFeedback tone="error">{error}</PublicShareFeedback>
-        )}
-        {notice && (
-          <PublicShareFeedback tone="notice">{notice}</PublicShareFeedback>
-        )}
-
-        {canUseBearerGrants && (
-          <div className={styles.inventory}>
-            <div className={styles.inventoryHeading}>
-              <strong>{t("publicFileShareExisting")}</strong>
-            </div>
-            {loading ? (
-              <PublicShareInventoryEmpty loading>
-                {t("publicFileShareLoading")}
-              </PublicShareInventoryEmpty>
-            ) : items.length === 0 ? (
-              <PublicShareInventoryEmpty>
-                {t("publicFileShareEmpty")}
-              </PublicShareInventoryEmpty>
-            ) : (
-              <PublicShareInventoryList compact>
-                {items.map((item) => {
-                  const revoking = working === `revoke:${item.shareId}`;
-                  return (
-                    <PublicShareInventoryRow
-                      key={item.shareId}
-                      title={
-                        item.title || filePath.split("/").at(-1) || filePath
-                      }
-                      mode="live"
-                      modeLabel={t("publicShareLiveBadge")}
-                      copyAction={{
-                        label: t("publicFileShareCopy"),
-                        disabled: working !== null,
-                        onClick: () => void copyShare(item),
-                      }}
-                      revokeAction={{
-                        label: t("publicFileShareRevoke"),
-                        disabled: working !== null,
-                        working: revoking,
-                        onClick: () => void revokeShare(item),
-                      }}
-                    >
-                      <PublicShareInventoryMeta>
-                        {new Date(item.createdAt).toLocaleString()}
-                      </PublicShareInventoryMeta>
-                    </PublicShareInventoryRow>
-                  );
-                })}
-              </PublicShareInventoryList>
-            )}
-            {!loading && (
-              <PublicShareInventoryCount>
-                {t("publicFileShareCount", { count: items.length })}
-              </PublicShareInventoryCount>
-            )}
-          </div>
-        )}
-        {vhostService && (
-          <FileVhostSection filePath={filePath} service={vhostService} />
-        )}
+      <div className={styles.fileIdentity} title={filePath}>
+        <FileIcon />
+        <span>{filePath}</span>
+        <Badge tone="accent" size="small" className={styles.liveBadge}>
+          {t("publicShareLiveBadge")}
+        </Badge>
       </div>
-    </Modal>
+      {projectAppLink && (
+        <section className={styles.inventory}>
+          <p className={styles.description}>{t("projectFileLinkAccess")}</p>
+          <a href={projectAppLink} target="_blank" rel="noopener noreferrer">
+            {new URL(projectAppLink).host}
+          </a>
+          <Button
+            className={styles.createButton}
+            onClick={() => {
+              void writeClipboardTextLater(
+                Promise.resolve(projectAppLink),
+              ).then((copied) => {
+                setNotice(
+                  t(
+                    copied
+                      ? "publicFileShareCopied"
+                      : "publicFileShareManualCopy",
+                  ),
+                );
+                if (!copied) setManualUrl(projectAppLink);
+              });
+            }}
+          >
+            {t("projectFileLinkCopy")}
+          </Button>
+        </section>
+      )}
+      {playLinks && (
+        <p className={styles.description}>{t("publicFileSharePlayLinks")}</p>
+      )}
+      <Banner tone="warning" role="none">
+        {t("publicFileShareWarning")}
+      </Banner>
+      {canUseBearerGrants && (
+        <Button
+          variant="primary"
+          className={styles.createButton}
+          disabled={working !== null}
+          onClick={() => void createAndCopyShare()}
+        >
+          <LinkIcon />
+          {working === "create"
+            ? t("publicFileShareCreating")
+            : t("publicFileShareCreate")}
+        </Button>
+      )}
+
+      {manualUrl && (
+        <Field label={t("publicFileShareUrlLabel")}>
+          <TextInput mono ref={manualUrlRef} readOnly value={manualUrl} />
+        </Field>
+      )}
+      {error && <PublicShareFeedback tone="error">{error}</PublicShareFeedback>}
+      {notice && (
+        <PublicShareFeedback tone="notice">{notice}</PublicShareFeedback>
+      )}
+
+      {canUseBearerGrants && (
+        <div className={styles.inventory}>
+          <div className={styles.inventoryHeading}>
+            <strong>{t("publicFileShareExisting")}</strong>
+          </div>
+          {loading ? (
+            <PublicShareInventoryEmpty loading>
+              {t("publicFileShareLoading")}
+            </PublicShareInventoryEmpty>
+          ) : items.length === 0 ? (
+            <PublicShareInventoryEmpty>
+              {t("publicFileShareEmpty")}
+            </PublicShareInventoryEmpty>
+          ) : (
+            <PublicShareInventoryList compact>
+              {items.map((item) => {
+                const revoking = working === `revoke:${item.shareId}`;
+                return (
+                  <PublicShareInventoryRow
+                    key={item.shareId}
+                    title={item.title || filePath.split("/").at(-1) || filePath}
+                    mode="live"
+                    modeLabel={t("publicShareLiveBadge")}
+                    copyAction={{
+                      label: t("publicFileShareCopy"),
+                      disabled: working !== null,
+                      onClick: () => void copyShare(item),
+                    }}
+                    revokeAction={{
+                      label: t("publicFileShareRevoke"),
+                      disabled: working !== null,
+                      working: revoking,
+                      onClick: () => void revokeShare(item),
+                    }}
+                  >
+                    <PublicShareInventoryMeta>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </PublicShareInventoryMeta>
+                  </PublicShareInventoryRow>
+                );
+              })}
+            </PublicShareInventoryList>
+          )}
+          {!loading && (
+            <PublicShareInventoryCount>
+              {t("publicFileShareCount", { count: items.length })}
+            </PublicShareInventoryCount>
+          )}
+        </div>
+      )}
+      {vhostService && (
+        <FileVhostSection filePath={filePath} service={vhostService} />
+      )}
+    </Dialog>
   );
 }
 

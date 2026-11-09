@@ -15,8 +15,9 @@ import {
 } from "./PublicShareManagerModal";
 import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Dialog } from "./ui/Dialog";
 import { Field, TextInput } from "./ui/Field";
-import { Modal, type ModalAnchorRect } from "./ui/Modal";
+import type { ModalAnchorRect } from "./ui/Modal";
 import { Spinner } from "./ui/Spinner";
 import { ViewerCountIndicator } from "./ViewerCountIndicator";
 
@@ -266,191 +267,185 @@ export function LegacySessionShareModal({
   });
 
   return (
-    <Modal
+    <Dialog
       anchorRect={anchorRect}
       title={t("sessionShareTitle")}
+      description={t("sessionShareReadOnlyNote")}
       onClose={onClose}
     >
-      <div className="session-share-modal">
+      {canCreateShares ? (
+        <div className="session-share-actions">
+          <ButtonBase
+            className="session-share-action"
+            onClick={() => void createAndCopyShare("frozen")}
+            disabled={isWorking !== null}
+          >
+            <span className="session-share-option-title">
+              {isWorking === "frozen"
+                ? t("sessionShareCopying")
+                : t("sessionShareCopyFrozenReadOnly")}
+            </span>
+            <span className="session-share-option-description">
+              {t("sessionShareFrozenDescription")}
+            </span>
+          </ButtonBase>
+          <ButtonBase
+            className="session-share-action"
+            onClick={() => void createAndCopyShare("live")}
+            disabled={isWorking !== null}
+          >
+            <span className="session-share-option-title">
+              {isWorking === "live"
+                ? t("sessionShareCopying")
+                : t("sessionShareCopyLiveReadOnly")}
+            </span>
+            <span className="session-share-option-description">
+              {t("sessionShareLiveDescription")}
+            </span>
+          </ButtonBase>
+        </div>
+      ) : (
         <p className="session-share-readonly-note">
-          {t("sessionShareReadOnlyNote")}
+          {t("sessionShareDisabledInSettings")}
         </p>
-        {canCreateShares ? (
-          <div className="session-share-actions">
-            <ButtonBase
-              className="session-share-action"
-              onClick={() => void createAndCopyShare("frozen")}
-              disabled={isWorking !== null}
-            >
-              <span className="session-share-option-title">
-                {isWorking === "frozen"
-                  ? t("sessionShareCopying")
-                  : t("sessionShareCopyFrozenReadOnly")}
-              </span>
-              <span className="session-share-option-description">
-                {t("sessionShareFrozenDescription")}
-              </span>
-            </ButtonBase>
-            <ButtonBase
-              className="session-share-action"
-              onClick={() => void createAndCopyShare("live")}
-              disabled={isWorking !== null}
-            >
-              <span className="session-share-option-title">
-                {isWorking === "live"
-                  ? t("sessionShareCopying")
-                  : t("sessionShareCopyLiveReadOnly")}
-              </span>
-              <span className="session-share-option-description">
-                {t("sessionShareLiveDescription")}
-              </span>
-            </ButtonBase>
-          </div>
-        ) : (
-          <p className="session-share-readonly-note">
-            {t("sessionShareDisabledInSettings")}
-          </p>
-        )}
+      )}
 
-        {url && (
-          <Field label={t("sessionShareUrlLabel")}>
-            <TextInput
-              ref={urlInputRef}
-              mono
-              readOnly
-              value={url}
-              onFocus={(event) => event.currentTarget.select()}
+      {url && (
+        <Field label={t("sessionShareUrlLabel")}>
+          <TextInput
+            ref={urlInputRef}
+            mono
+            readOnly
+            value={url}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        </Field>
+      )}
+
+      {error && <Banner tone="error">{error}</Banner>}
+      {result && <Banner tone="success">{result}</Banner>}
+      {createdLinkedFileMode === "live" && (
+        <Banner tone="warning" role="none">
+          {t("publicShareFrozenLinkedFilesLiveWarning")}
+        </Banner>
+      )}
+
+      {statusLoading && (
+        <div role="status">
+          <Spinner size="small" /> {t("publicShareManagementLoadingExisting")}
+        </div>
+      )}
+      {statusError && <Banner tone="error">{statusError}</Banner>}
+      {onManage && (
+        <Button size="small" onClick={onManage}>
+          {t("publicShareManagementManageSession")}
+        </Button>
+      )}
+
+      {hasActiveShares && (
+        <div className="session-share-management">
+          <div className="session-share-management-header">
+            <ViewerCountIndicator
+              className="session-share-viewer-count"
+              count={activeViewerCount}
+              label={viewerSummary}
             />
-          </Field>
-        )}
-
-        {error && <Banner tone="error">{error}</Banner>}
-        {result && <Banner tone="success">{result}</Banner>}
-        {createdLinkedFileMode === "live" && (
-          <Banner tone="warning" role="none">
-            {t("publicShareFrozenLinkedFilesLiveWarning")}
-          </Banner>
-        )}
-
-        {statusLoading && (
-          <div role="status">
-            <Spinner size="small" /> {t("publicShareManagementLoadingExisting")}
-          </div>
-        )}
-        {statusError && <Banner tone="error">{statusError}</Banner>}
-        {onManage && (
-          <Button size="small" onClick={onManage}>
-            {t("publicShareManagementManageSession")}
-          </Button>
-        )}
-
-        {hasActiveShares && (
-          <div className="session-share-management">
-            <div className="session-share-management-header">
-              <ViewerCountIndicator
-                className="session-share-viewer-count"
-                count={activeViewerCount}
-                label={viewerSummary}
-              />
-              <div className="session-share-global-controls">
-                <Button
-                  size="small"
-                  onClick={() => void freezeAllLive()}
-                  disabled={
-                    isWorking !== null || (status?.liveCount ?? 0) === 0
-                  }
-                  title={t("sessionShareFreezeLiveTitle")}
-                >
-                  {isWorking === "freeze-all"
-                    ? t("sessionShareFreezing")
-                    : t("sessionShareFreezeLive")}
-                </Button>
-                <Button
-                  variant="danger-outline"
-                  size="small"
-                  onClick={() => void revokeAll()}
-                  disabled={isWorking !== null}
-                  title={t("sessionShareRevokeAllTitle")}
-                >
-                  {isWorking === "revoke"
-                    ? t("sessionShareRevoking")
-                    : t("sessionShareRevokeAll")}
-                </Button>
-              </div>
+            <div className="session-share-global-controls">
+              <Button
+                size="small"
+                onClick={() => void freezeAllLive()}
+                disabled={isWorking !== null || (status?.liveCount ?? 0) === 0}
+                title={t("sessionShareFreezeLiveTitle")}
+              >
+                {isWorking === "freeze-all"
+                  ? t("sessionShareFreezing")
+                  : t("sessionShareFreezeLive")}
+              </Button>
+              <Button
+                variant="danger-outline"
+                size="small"
+                onClick={() => void revokeAll()}
+                disabled={isWorking !== null}
+                title={t("sessionShareRevokeAllTitle")}
+              >
+                {isWorking === "revoke"
+                  ? t("sessionShareRevoking")
+                  : t("sessionShareRevokeAll")}
+              </Button>
             </div>
-            {viewers.length > 0 && (
-              <>
-                <p className="session-share-readonly-note">
-                  {t("sessionShareViewerOperationalWarning")}
-                </p>
-                <div
-                  className="session-share-viewer-list"
-                  role="list"
-                  aria-label={t("sessionShareViewerList")}
-                >
-                  {viewers.map((viewer) => (
-                    <div
-                      className="session-share-viewer-row"
-                      key={viewer.viewerId}
-                    >
-                      <div className="session-share-viewer-main">
-                        <span className="session-share-viewer-token">
-                          {viewer.shortId}
-                        </span>
-                        <span className="session-share-viewer-meta">
-                          {t("sessionShareViewerMeta", {
-                            count: viewer.accessCount,
-                            time: new Date(viewer.lastSeenAt).toLocaleString(),
-                          })}
-                        </span>
-                      </div>
-                      <div className="session-share-viewer-state">
-                        {viewer.disconnected
-                          ? t("sessionShareViewerDisconnectedState")
-                          : viewer.frozen
-                            ? t("sessionShareViewerFrozenState")
-                            : viewer.active
-                              ? t("sessionShareViewerActiveState")
-                              : t("sessionShareViewerInactiveState")}
-                      </div>
-                      <div className="session-share-viewer-actions">
-                        <IconButton
-                          label={t("sessionShareFreezeViewerTitle", {
-                            token: viewer.shortId,
-                          })}
-                          variant="secondary"
-                          size="small"
-                          onClick={() => void freezeViewerToken(viewer)}
-                          disabled={
-                            isWorking !== null ||
-                            viewer.disconnected ||
-                            viewer.frozen ||
-                            (status?.liveCount ?? 0) === 0
-                          }
-                        >
-                          |||
-                        </IconButton>
-                        <IconButton
-                          label={t("sessionShareDisconnectViewerTitle", {
-                            token: viewer.shortId,
-                          })}
-                          variant="danger-outline"
-                          size="small"
-                          onClick={() => void disconnectViewerToken(viewer)}
-                          disabled={isWorking !== null || viewer.disconnected}
-                        >
-                          x
-                        </IconButton>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
-        )}
-      </div>
-    </Modal>
+          {viewers.length > 0 && (
+            <>
+              <p className="session-share-readonly-note">
+                {t("sessionShareViewerOperationalWarning")}
+              </p>
+              <div
+                className="session-share-viewer-list"
+                role="list"
+                aria-label={t("sessionShareViewerList")}
+              >
+                {viewers.map((viewer) => (
+                  <div
+                    className="session-share-viewer-row"
+                    key={viewer.viewerId}
+                  >
+                    <div className="session-share-viewer-main">
+                      <span className="session-share-viewer-token">
+                        {viewer.shortId}
+                      </span>
+                      <span className="session-share-viewer-meta">
+                        {t("sessionShareViewerMeta", {
+                          count: viewer.accessCount,
+                          time: new Date(viewer.lastSeenAt).toLocaleString(),
+                        })}
+                      </span>
+                    </div>
+                    <div className="session-share-viewer-state">
+                      {viewer.disconnected
+                        ? t("sessionShareViewerDisconnectedState")
+                        : viewer.frozen
+                          ? t("sessionShareViewerFrozenState")
+                          : viewer.active
+                            ? t("sessionShareViewerActiveState")
+                            : t("sessionShareViewerInactiveState")}
+                    </div>
+                    <div className="session-share-viewer-actions">
+                      <IconButton
+                        label={t("sessionShareFreezeViewerTitle", {
+                          token: viewer.shortId,
+                        })}
+                        variant="secondary"
+                        size="small"
+                        onClick={() => void freezeViewerToken(viewer)}
+                        disabled={
+                          isWorking !== null ||
+                          viewer.disconnected ||
+                          viewer.frozen ||
+                          (status?.liveCount ?? 0) === 0
+                        }
+                      >
+                        |||
+                      </IconButton>
+                      <IconButton
+                        label={t("sessionShareDisconnectViewerTitle", {
+                          token: viewer.shortId,
+                        })}
+                        variant="danger-outline"
+                        size="small"
+                        onClick={() => void disconnectViewerToken(viewer)}
+                        disabled={isWorking !== null || viewer.disconnected}
+                      >
+                        x
+                      </IconButton>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </Dialog>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useI18n } from "../i18n";
 import { Button } from "./ui/Button";
-import { Modal } from "./ui/Modal";
+import { Dialog } from "./ui/Dialog";
 
 export type LongContextEffortWarningChoice = "apply" | "fork" | "cancel";
 
@@ -31,50 +31,38 @@ export function LongContextEffortWarningModal({
   const { t } = useI18n();
   const tokens = contextTokens.toLocaleString();
   return (
-    <Modal
+    <Dialog
       title={t("longContextEffortWarningTitle")}
+      description={t("longContextEffortWarningBody", {
+        tokens,
+        from: currentEffortLabel,
+        to: nextEffortLabel,
+      })}
+      size="medium"
       onClose={() => onChoose("cancel")}
-    >
-      <div className="long-context-effort-warning">
-        <p>
-          {t("longContextEffortWarningBody", {
-            tokens,
-            from: currentEffortLabel,
-            to: nextEffortLabel,
-          })}
-        </p>
-        {canFork && (
-          <p className="settings-hint">
-            {t("longContextEffortWarningForkHint")}
-          </p>
-        )}
-        <div className="model-switch-actions">
-          <Button
-            className="model-switch-action-button"
-            onClick={() => onChoose("cancel")}
-            disabled={busy}
-          >
+      footer={
+        <>
+          <Button onClick={() => onChoose("cancel")} disabled={busy}>
             {t("modalCancel")}
           </Button>
           {canFork && (
-            <Button
-              className="model-switch-action-button"
-              onClick={() => onChoose("fork")}
-              disabled={busy}
-            >
+            <Button onClick={() => onChoose("fork")} disabled={busy}>
               {t("longContextEffortWarningFork", { to: nextEffortLabel })}
             </Button>
           )}
           <Button
             variant="primary"
-            className="model-switch-action-button"
             onClick={() => onChoose("apply")}
             disabled={busy}
           >
             {t("longContextEffortWarningApply")}
           </Button>
-        </div>
-      </div>
-    </Modal>
+        </>
+      }
+    >
+      {canFork && (
+        <p className="settings-hint">{t("longContextEffortWarningForkHint")}</p>
+      )}
+    </Dialog>
   );
 }

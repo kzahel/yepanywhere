@@ -1,10 +1,3 @@
-.modal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 12px);
-  min-width: min(560px, 90vw);
-}
-
 .list {
   display: flex;
   flex-direction: column;
@@ -67,33 +60,8 @@
   gap: var(--space-2, 8px);
 }
 
-.actions {
-  display: flex;
-  align-items: end;
-  justify-content: flex-end;
-  gap: var(--space-2, 8px);
-}
-
-.name {
-  flex: 1;
-  max-width: 25rem;
-}
-
 @media (width <= 600px) {
-  .modal {
-    min-width: 0;
-  }
-
   .newSession {
     grid-template-columns: 1fr;
-  }
-
-  .actions {
-    flex-wrap: wrap;
-  }
-
-  .name {
-    flex-basis: 100%;
-    max-width: none;
   }
 }

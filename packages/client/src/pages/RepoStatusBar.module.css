@@ -116,14 +116,8 @@
   text-decoration: underline;
 }
 
-.incomingDialog {
-  width: min(42rem, 80vw);
-}
-
-.incomingIntro,
 .incomingState,
 .incomingTruncated {
-  margin: 0;
   color: var(--text-secondary, #8b949e);
 }
 
@@ -131,7 +125,7 @@
   display: grid;
   gap: var(--space-2, 8px);
   padding: 0;
-  margin: var(--space-3, 12px) 0 0;
+  margin: 0;
   list-style: none;
 }
 
@@ -166,15 +160,7 @@
   font-size: 0.8rem;
 }
 
-.incomingTruncated {
-  margin-top: var(--space-3, 12px);
-}
-
 @media (width <= 600px) {
-  .incomingDialog {
-    width: auto;
-  }
-
   .incomingCommitHeader {
     align-items: flex-start;
     flex-direction: column;

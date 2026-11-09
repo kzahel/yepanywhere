@@ -43,21 +43,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.content {
-  width: min(42rem, calc(100dvw - 3rem));
-  max-width: 100%;
-}
-
-.intro {
-  margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-}
-
-.groups {
-  display: grid;
-  gap: var(--space-3);
-}
-
 .group {
   min-width: 0;
   padding: var(--space-3);
@@ -105,10 +90,6 @@
 }
 
 @media (width <= 600px) {
-  .content {
-    width: 100%;
-  }
-
   .issue {
     grid-template-columns: max-content minmax(0, 1fr);
   }

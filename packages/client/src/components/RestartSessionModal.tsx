@@ -19,7 +19,7 @@ import type { PermissionMode, Project } from "../types";
 import { NewSessionForm } from "./NewSessionForm";
 import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
-import { Modal } from "./ui/Modal";
+import { Dialog } from "./ui/Dialog";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { Switch } from "./ui/Switch";
 
@@ -213,106 +213,105 @@ export function RestartSessionModal({
   );
 
   return (
-    <Modal title={t("sessionRestartTitle")} onClose={onClose}>
-      <div className="model-switch-content">
-        {error && (
-          <Banner tone="error" compact>
-            {error}
-          </Banner>
-        )}
-        {draftError && !isFork && (
-          <Banner tone="error" compact>
-            {draftError}
-          </Banner>
-        )}
+    <Dialog
+      title={t("sessionRestartTitle")}
+      size="large"
+      onClose={onClose}
+      footer={<Button onClick={onClose}>{t("modalCancel")}</Button>}
+    >
+      {error && (
+        <Banner tone="error" compact>
+          {error}
+        </Banner>
+      )}
+      {draftError && !isFork && (
+        <Banner tone="error" compact>
+          {draftError}
+        </Banner>
+      )}
 
-        {canFork && (
-          <section className="model-switch-section">
-            <div className="model-switch-section-header">
-              <strong>{t("sessionRestartModeTitle")}</strong>
-            </div>
-            <SegmentedControl
-              aria-label={t("sessionRestartModeTitle")}
-              options={[
-                {
-                  value: "handoff",
-                  label: t("sessionRestartModeHandoff"),
-                  tooltip: t("sessionRestartModeHandoffDescription"),
-                },
-                {
-                  value: "fork",
-                  label: t("sessionRestartModeFork"),
-                  tooltip: t("sessionRestartModeForkDescription"),
-                },
-              ]}
-              value={isFork ? "fork" : "handoff"}
-              onChange={setRestartMode}
-            />
-            {isFork && (
-              <div className="model-switch-section-note">
-                {t("sessionRestartForkKeepsProvider", {
-                  provider:
-                    sourceProviderInfo?.displayName ??
-                    providerDisplayName ??
-                    provider,
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
-        {isRateLimited && sourceProviderInfo?.supportsForkSession === true && (
-          <div className="model-switch-section-note">
-            {forkRetryAt
-              ? t("sessionRestartForkRateLimitedUntil", { time: forkRetryAt })
-              : t("sessionRestartForkRateLimited")}
+      {canFork && (
+        <section className="model-switch-section">
+          <div className="model-switch-section-header">
+            <strong>{t("sessionRestartModeTitle")}</strong>
           </div>
-        )}
-
-        {/* Remounting on mode change re-seeds every control, which is how fork
-            pins itself to the source session's provider and model. */}
-        <div
-          onClickCapture={claimTargetWindow}
-          onAuxClickCapture={claimTargetWindow}
-        >
-          <NewSessionForm
-            key={isFork ? "fork" : "handoff"}
-            projectId={projectId}
-            selectedProject={project ?? null}
-            autoFocus={!isFork}
-            preferredProvider={provider}
-            preferredModel={currentModel}
-            preferredThinking={thinking}
-            preferredPermissionMode={mode}
-            launch={{
-              draftKey: `draft-handoff:${sessionId}`,
-              initialMessage: draft ?? "",
-              fixedProject: true,
-              allowAttachments: false,
-              allowProjectQueue: false,
-              composer: isFork ? "muted" : "editable",
-              fixedProviderModel: isFork,
-              startLabel: isFork
-                ? t("sessionRestartStartFork")
-                : t("sessionRestartStart"),
-              startingLabel: isFork
-                ? t("sessionRestartForking")
-                : t("sessionRestarting"),
-              submit,
-            }}
+          <SegmentedControl
+            aria-label={t("sessionRestartModeTitle")}
+            options={[
+              {
+                value: "handoff",
+                label: t("sessionRestartModeHandoff"),
+                tooltip: t("sessionRestartModeHandoffDescription"),
+              },
+              {
+                value: "fork",
+                label: t("sessionRestartModeFork"),
+                tooltip: t("sessionRestartModeForkDescription"),
+              },
+            ]}
+            value={isFork ? "fork" : "handoff"}
+            onChange={setRestartMode}
           />
-        </div>
+          {isFork && (
+            <div className="model-switch-section-note">
+              {t("sessionRestartForkKeepsProvider", {
+                provider:
+                  sourceProviderInfo?.displayName ??
+                  providerDisplayName ??
+                  provider,
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
-        <Switch
-          checked={openInNewWindow}
-          onCheckedChange={setOpenInNewWindow}
-          label={t("sessionRestartOpenNewWindow")}
+      {isRateLimited && sourceProviderInfo?.supportsForkSession === true && (
+        <div className="model-switch-section-note">
+          {forkRetryAt
+            ? t("sessionRestartForkRateLimitedUntil", { time: forkRetryAt })
+            : t("sessionRestartForkRateLimited")}
+        </div>
+      )}
+
+      {/* Remounting on mode change re-seeds every control, which is how fork
+            pins itself to the source session's provider and model. */}
+      <div
+        onClickCapture={claimTargetWindow}
+        onAuxClickCapture={claimTargetWindow}
+      >
+        <NewSessionForm
+          key={isFork ? "fork" : "handoff"}
+          projectId={projectId}
+          selectedProject={project ?? null}
+          autoFocus={!isFork}
+          preferredProvider={provider}
+          preferredModel={currentModel}
+          preferredThinking={thinking}
+          preferredPermissionMode={mode}
+          launch={{
+            draftKey: `draft-handoff:${sessionId}`,
+            initialMessage: draft ?? "",
+            fixedProject: true,
+            allowAttachments: false,
+            allowProjectQueue: false,
+            composer: isFork ? "muted" : "editable",
+            fixedProviderModel: isFork,
+            startLabel: isFork
+              ? t("sessionRestartStartFork")
+              : t("sessionRestartStart"),
+            startingLabel: isFork
+              ? t("sessionRestartForking")
+              : t("sessionRestarting"),
+            submit,
+          }}
         />
-
-        <div className="model-switch-actions">
-          <Button onClick={onClose}>{t("modalCancel")}</Button>
-        </div>
       </div>
-    </Modal>
+
+      <Switch
+        checked={openInNewWindow}
+        onCheckedChange={setOpenInNewWindow}
+        label={t("sessionRestartOpenNewWindow")}
+      />
+    </Dialog>
   );
 }

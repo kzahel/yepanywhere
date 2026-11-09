@@ -8,7 +8,7 @@ import type { OnboardingStepProps } from "../types";
  * Onboarding step for selecting a theme.
  * Shows visual previews of each theme option.
  */
-export function ThemeStep({ onNext, onSkip, isLastStep }: OnboardingStepProps) {
+export function ThemeStep() {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
 
@@ -34,13 +34,21 @@ export function ThemeStep({ onNext, onSkip, isLastStep }: OnboardingStepProps) {
         value={theme}
         onChange={setTheme}
       />
-
-      <div className="onboarding-step-actions">
-        <Button onClick={onSkip}>Skip</Button>
-        <Button variant="primary" onClick={onNext}>
-          {isLastStep ? "Finish" : "Next"}
-        </Button>
-      </div>
     </div>
+  );
+}
+
+export function ThemeStepActions({
+  onNext,
+  onSkip,
+  isLastStep,
+}: OnboardingStepProps) {
+  return (
+    <>
+      <Button onClick={onSkip}>Skip</Button>
+      <Button variant="primary" onClick={onNext}>
+        {isLastStep ? "Finish" : "Next"}
+      </Button>
+    </>
   );
 }

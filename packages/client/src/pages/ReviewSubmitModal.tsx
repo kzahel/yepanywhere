@@ -10,7 +10,7 @@ import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../components/ui/Field";
-import { Modal } from "../components/ui/Modal";
+import { Dialog } from "../components/ui/Dialog";
 import { useProjectReviewSessions } from "../hooks/useProjectReviewSessions";
 import {
   getAvailableProviders,
@@ -192,134 +192,134 @@ export function ReviewSubmitModal({
   ]);
 
   return (
-    <Modal title={t("sourceReviewSubmitTitle")} onClose={onClose}>
-      <div className={styles.modal}>
-        {error && <Banner tone="error">{error}</Banner>}
-        {notice && <Banner tone="success">{notice}</Banner>}
-        {items === null ? (
-          <div>{t("loading")}</div>
-        ) : items.length === 0 ? (
-          <div>{t("sourceReviewNoPending")}</div>
-        ) : (
-          <ul className={styles.list}>
-            {items.map((item) => (
-              <ReviewPreviewRow
-                key={item.comment.id}
-                item={item}
-                checked={included.has(item.comment.id)}
-                onToggle={() => toggle(item.comment.id)}
-                t={t}
-              />
-            ))}
-          </ul>
-        )}
-
-        {items && items.length > 0 && (
-          <div className={styles.destination}>
-            <Field
-              label={t("sourceReviewTargetLegend")}
-              error={
-                sessionsError
-                  ? `${t("sourceReviewSessionsUnavailable")}: ${sessionsError}`
-                  : undefined
-              }
-            >
-              <Select
-                value={targetSessionId}
-                onChange={(event) => {
-                  targetTouchedRef.current = true;
-                  setTargetSessionId(event.target.value);
-                }}
-              >
-                <option value="new">{t("sourceReviewTargetNew")}</option>
-                {recentReviewSessionId &&
-                  !sessions?.some(
-                    (session) => session.id === recentReviewSessionId,
-                  ) && (
-                    <option value={recentReviewSessionId}>
-                      {t("sourceReviewTargetRecent")} ·{" "}
-                      {recentReviewSessionId.slice(0, 8)}
-                    </option>
-                  )}
-                {sessions?.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {reviewSessionLabel(
-                      session,
-                      session.id === recentReviewSessionId
-                        ? t("sourceReviewRecentSuffix")
-                        : undefined,
-                    )}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            {targetSessionId === "new" && (
-              <div className={styles.newSession}>
-                <Field label={t("sourceReviewProvider")}>
-                  <Select
-                    value={providerName}
-                    disabled={
-                      providersLoading || availableProviders.length === 0
-                    }
-                    onChange={(event) => {
-                      setProviderName(event.target.value as ProviderName);
-                      setModel("");
-                    }}
-                  >
-                    {availableProviders.map((provider) => (
-                      <option key={provider.name} value={provider.name}>
-                        {provider.displayName}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label={t("sourceReviewModel")}>
-                  <Select
-                    value={model}
-                    disabled={!selectedProvider}
-                    onChange={(event) => setModel(event.target.value)}
-                  >
-                    <option value="">{t("sourceReviewModelDefault")}</option>
-                    {selectedProvider?.models?.map((providerModel) => (
-                      <option key={providerModel.id} value={providerModel.id}>
-                        {providerModel.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className={styles.actions}>
-          {submissionsEnabled && (
-            <Field
-              label={t("sourceReviewSubmissionName")}
-              className={styles.name}
-            >
-              <TextInput
-                value={name}
-                maxLength={120}
-                placeholder={derivedName}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </Field>
-          )}
+    <Dialog
+      title={t("sourceReviewSubmitTitle")}
+      size="large"
+      onClose={onClose}
+      footer={
+        <>
           <Button onClick={onClose} disabled={busy}>
             {t("cancel")}
           </Button>
           <Button
             variant="primary"
             onClick={submit}
-            disabled={busy || queued || included.size === 0}
+            busy={busy}
+            disabled={queued || included.size === 0}
           >
             {t("sourceReviewSubmitReview", { count: included.size })}
           </Button>
+        </>
+      }
+    >
+      {error && <Banner tone="error">{error}</Banner>}
+      {notice && <Banner tone="success">{notice}</Banner>}
+      {items === null ? (
+        <div>{t("loading")}</div>
+      ) : items.length === 0 ? (
+        <div>{t("sourceReviewNoPending")}</div>
+      ) : (
+        <ul className={styles.list}>
+          {items.map((item) => (
+            <ReviewPreviewRow
+              key={item.comment.id}
+              item={item}
+              checked={included.has(item.comment.id)}
+              onToggle={() => toggle(item.comment.id)}
+              t={t}
+            />
+          ))}
+        </ul>
+      )}
+
+      {items && items.length > 0 && (
+        <div className={styles.destination}>
+          <Field
+            label={t("sourceReviewTargetLegend")}
+            error={
+              sessionsError
+                ? `${t("sourceReviewSessionsUnavailable")}: ${sessionsError}`
+                : undefined
+            }
+          >
+            <Select
+              value={targetSessionId}
+              onChange={(event) => {
+                targetTouchedRef.current = true;
+                setTargetSessionId(event.target.value);
+              }}
+            >
+              <option value="new">{t("sourceReviewTargetNew")}</option>
+              {recentReviewSessionId &&
+                !sessions?.some(
+                  (session) => session.id === recentReviewSessionId,
+                ) && (
+                  <option value={recentReviewSessionId}>
+                    {t("sourceReviewTargetRecent")} ·{" "}
+                    {recentReviewSessionId.slice(0, 8)}
+                  </option>
+                )}
+              {sessions?.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {reviewSessionLabel(
+                    session,
+                    session.id === recentReviewSessionId
+                      ? t("sourceReviewRecentSuffix")
+                      : undefined,
+                  )}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          {targetSessionId === "new" && (
+            <div className={styles.newSession}>
+              <Field label={t("sourceReviewProvider")}>
+                <Select
+                  value={providerName}
+                  disabled={providersLoading || availableProviders.length === 0}
+                  onChange={(event) => {
+                    setProviderName(event.target.value as ProviderName);
+                    setModel("");
+                  }}
+                >
+                  {availableProviders.map((provider) => (
+                    <option key={provider.name} value={provider.name}>
+                      {provider.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t("sourceReviewModel")}>
+                <Select
+                  value={model}
+                  disabled={!selectedProvider}
+                  onChange={(event) => setModel(event.target.value)}
+                >
+                  <option value="">{t("sourceReviewModelDefault")}</option>
+                  {selectedProvider?.models?.map((providerModel) => (
+                    <option key={providerModel.id} value={providerModel.id}>
+                      {providerModel.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          )}
         </div>
-      </div>
-    </Modal>
+      )}
+
+      {submissionsEnabled && (
+        <Field label={t("sourceReviewSubmissionName")}>
+          <TextInput
+            value={name}
+            maxLength={120}
+            placeholder={derivedName}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+      )}
+    </Dialog>
   );
 }
 

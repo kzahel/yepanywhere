@@ -31,7 +31,7 @@ import { Banner } from "../../components/ui/Banner";
 import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../../components/ui/Field";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, type DialogSize } from "../../components/ui/Dialog";
 import styles from "./ServerConnectionsSettings.module.css";
 
 // Retain the existing wire discriminator for account-managed credentials.
@@ -40,16 +40,24 @@ const IDENTITY_SERVICE_CREDENTIAL_ORIGIN = "fleet";
 // These owner dialogs keep keyboard navigation within the current action.
 function ConnectionDialog({
   title,
+  description,
+  size,
+  footer,
+  bodyClassName,
   onClose,
   fallbackFocusRef,
   returnFocusRef,
   children,
 }: {
   title: string;
+  description?: ReactNode;
+  size: DialogSize;
+  footer: ReactNode;
+  bodyClassName?: string;
   onClose: () => void;
   fallbackFocusRef: RefObject<HTMLButtonElement | null>;
   returnFocusRef: RefObject<HTMLElement | null>;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -91,9 +99,17 @@ function ConnectionDialog({
     };
   }, [fallbackFocusRef, returnFocusRef]);
   return (
-    <Modal title={title} onClose={onClose} contentRef={contentRef}>
+    <Dialog
+      title={title}
+      description={description}
+      size={size}
+      footer={footer}
+      bodyClassName={bodyClassName}
+      onClose={onClose}
+      contentRef={contentRef}
+    >
       {children}
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -677,211 +693,208 @@ export function ServerConnectionsSettings() {
           fallbackFocusRef={addButtonRef}
           returnFocusRef={dialogReturnFocusRef}
           title={nameOf(selectedPeer)}
+          size="large"
+          bodyClassName={styles.detail}
           onClose={() => {
             setDetails(undefined);
             detailRequest.current = undefined;
           }}
-        >
-          <div className={styles.detail}>
-            {error && <Banner tone="error">{error}</Banner>}
-            {notice && <Banner tone="info">{notice}</Banner>}
-            <div className={styles.identifier}>
-              <span>{t("connectionsServerId")}</span>
-              <code>{selectedPeer.serverId}</code>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void act(() =>
-                  peerConnectionsApi.label(selectedPeer.serverId, newLabel),
-                );
-              }}
-            >
-              <Field
-                label={t("connectionsLabel")}
-                className={styles.labelField}
+          footer={
+            <>
+              <Button
+                disabled={busy || !selectedPeer.outgoing.some((p) => p.active)}
+                onClick={() =>
+                  void act(
+                    () => peerConnectionsApi.test(selectedPeer.serverId),
+                    t("connectionsTestPassed"),
+                  )
+                }
               >
-                <TextInput
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  required
-                  maxLength={128}
-                  disabled={busy}
-                />
-              </Field>
-              <Button variant="primary" type="submit" disabled={busy}>
-                {t("connectionsSave")}
+                {t("connectionsTest")}
               </Button>
-            </form>
-            {(["outgoing", "incoming"] as const).map((direction) =>
-              selectedPeer[direction].map((credential) => (
-                <div
-                  className={styles.credential}
-                  key={credential.credentialId}
-                >
-                  <strong>
-                    {direction === "outgoing"
-                      ? t("connectionsOutgoing")
-                      : t("connectionsIncoming")}
-                  </strong>
-                  <p className={styles.muted}>
-                    {credential.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN
-                      ? t("connectionsAccountCredential")
-                      : credential.allProjects
-                        ? t("connectionsTrustedControl")
-                        : t("connectionsScoped")}{" "}
-                    ·{" "}
-                    {credential.authentication?.mode === "automatic"
-                      ? t("connectionsAutomatic")
-                      : t("connectionsExpires", {
+              <Button
+                disabled={
+                  busy || !supportsRefresh || data.environmentOverride === false
+                }
+                onClick={() => openForm(selectedPeer)}
+              >
+                {t("connectionsRenew")}
+              </Button>
+              <Button
+                disabled={
+                  busy || !supportsRefresh || data.environmentOverride === false
+                }
+                onClick={() => openForm(selectedPeer, true)}
+              >
+                {t("connectionsReverse")}
+              </Button>
+            </>
+          }
+        >
+          {error && <Banner tone="error">{error}</Banner>}
+          {notice && <Banner tone="info">{notice}</Banner>}
+          <div className={styles.identifier}>
+            <span>{t("connectionsServerId")}</span>
+            <code>{selectedPeer.serverId}</code>
+          </div>
+          <form
+            className={styles.labelForm}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act(() =>
+                peerConnectionsApi.label(selectedPeer.serverId, newLabel),
+              );
+            }}
+          >
+            <Field label={t("connectionsLabel")} className={styles.labelField}>
+              <TextInput
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                required
+                maxLength={128}
+                disabled={busy}
+              />
+            </Field>
+            <Button variant="primary" type="submit" disabled={busy}>
+              {t("connectionsSave")}
+            </Button>
+          </form>
+          {(["outgoing", "incoming"] as const).map((direction) =>
+            selectedPeer[direction].map((credential) => (
+              <div className={styles.credential} key={credential.credentialId}>
+                <strong>
+                  {direction === "outgoing"
+                    ? t("connectionsOutgoing")
+                    : t("connectionsIncoming")}
+                </strong>
+                <p className={styles.muted}>
+                  {credential.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN
+                    ? t("connectionsAccountCredential")
+                    : credential.allProjects
+                      ? t("connectionsTrustedControl")
+                      : t("connectionsScoped")}{" "}
+                  ·{" "}
+                  {credential.authentication?.mode === "automatic"
+                    ? t("connectionsAutomatic")
+                    : t("connectionsExpires", {
+                        date: new Date(credential.expiresAt).toLocaleString(),
+                      })}
+                </p>
+                {credential.authentication && (
+                  <>
+                    {credential.authentication.status !== "ready" && (
+                      <p>{authenticationText(credential)}</p>
+                    )}
+                    {credential.authentication.lastRefreshedAt && (
+                      <p className={styles.muted}>
+                        {t("connectionsLastSignIn", {
+                          date: new Date(
+                            credential.authentication.lastRefreshedAt,
+                          ).toLocaleString(),
+                        })}
+                      </p>
+                    )}
+                    {credential.authentication.mode === "automatic" && (
+                      <p className={styles.muted}>
+                        {t("connectionsIdleDeadline", {
                           date: new Date(credential.expiresAt).toLocaleString(),
                         })}
+                      </p>
+                    )}
+                    {credential.authentication.nextAttemptAt && (
+                      <p className={styles.muted}>
+                        {t("connectionsNextSignIn", {
+                          date: new Date(
+                            credential.authentication.nextAttemptAt,
+                          ).toLocaleString(),
+                        })}
+                      </p>
+                    )}
+                  </>
+                )}
+                {credential.route && (
+                  <p className={styles.muted}>
+                    {credential.route.kind === "relay"
+                      ? `${credential.route.username} · `
+                      : ""}
+                    {credential.route.url}
                   </p>
-                  {credential.authentication && (
-                    <>
-                      {credential.authentication.status !== "ready" && (
-                        <p>{authenticationText(credential)}</p>
-                      )}
-                      {credential.authentication.lastRefreshedAt && (
-                        <p className={styles.muted}>
-                          {t("connectionsLastSignIn", {
-                            date: new Date(
-                              credential.authentication.lastRefreshedAt,
-                            ).toLocaleString(),
-                          })}
-                        </p>
-                      )}
-                      {credential.authentication.mode === "automatic" && (
-                        <p className={styles.muted}>
-                          {t("connectionsIdleDeadline", {
-                            date: new Date(
-                              credential.expiresAt,
-                            ).toLocaleString(),
-                          })}
-                        </p>
-                      )}
-                      {credential.authentication.nextAttemptAt && (
-                        <p className={styles.muted}>
-                          {t("connectionsNextSignIn", {
-                            date: new Date(
-                              credential.authentication.nextAttemptAt,
-                            ).toLocaleString(),
-                          })}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {credential.route && (
-                    <p className={styles.muted}>
-                      {credential.route.kind === "relay"
-                        ? `${credential.route.username} · `
-                        : ""}
-                      {credential.route.url}
-                    </p>
-                  )}
-                  {credential.origin === "manual" && (
-                    <Button
-                      variant="danger-outline"
-                      disabled={busy}
-                      onClick={() =>
-                        requestRemoval(selectedPeer, direction, credential)
-                      }
-                    >
-                      {direction === "incoming"
-                        ? t("connectionsRevoke")
-                        : t("connectionsStop")}
-                    </Button>
-                  )}
-                </div>
-              )),
-            )}
-            <Button
-              disabled={busy || !selectedPeer.outgoing.some((p) => p.active)}
-              onClick={() =>
-                void act(
-                  () => peerConnectionsApi.test(selectedPeer.serverId),
-                  t("connectionsTestPassed"),
-                )
-              }
-            >
-              {t("connectionsTest")}
-            </Button>
-            <Button
-              disabled={
-                busy || !supportsRefresh || data.environmentOverride === false
-              }
-              onClick={() => openForm(selectedPeer)}
-            >
-              {t("connectionsRenew")}
-            </Button>
-            <Button
-              disabled={
-                busy || !supportsRefresh || data.environmentOverride === false
-              }
-              onClick={() => openForm(selectedPeer, true)}
-            >
-              {t("connectionsReverse")}
-            </Button>
-            <h4>{t("connectionsSessions")}</h4>
-            {activityError ? (
-              <Banner tone="error">{t("connectionsActivityError")}</Banner>
-            ) : !activity ? (
-              <p>{t("loading")}</p>
-            ) : (
-              <>
-                {!activity.incoming.length && !activity.outgoing.length && (
-                  <p className={styles.muted}>{t("connectionsNoSessions")}</p>
                 )}
-                {(["incoming", "outgoing"] as const).map((direction) =>
-                  activity[direction].map((item) => (
-                    <p className={styles.muted} key={item.id}>
-                      {direction === "incoming"
-                        ? t("connectionsIncoming")
-                        : t("connectionsOutgoing")}{" "}
-                      ·{" "}
-                      {direction === "incoming" &&
-                      item.projectId &&
-                      item.sessionId ? (
-                        <Link
-                          to={`${basePath}/projects/${encodeURIComponent(item.projectId)}/sessions/${encodeURIComponent(item.sessionId)}`}
-                        >
-                          {item.sessionId}
-                        </Link>
-                      ) : (
-                        (item.sessionId ?? t("connectionsPendingSession"))
-                      )}{" "}
-                      · {item.state}
-                    </p>
-                  )),
+                {credential.origin === "manual" && (
+                  <Button
+                    variant="danger-outline"
+                    disabled={busy}
+                    onClick={() =>
+                      requestRemoval(selectedPeer, direction, credential)
+                    }
+                  >
+                    {direction === "incoming"
+                      ? t("connectionsRevoke")
+                      : t("connectionsStop")}
+                  </Button>
                 )}
-              </>
-            )}
-            <h4>{t("connectionsAudit")}</h4>
-            {data.audit
-              .filter((event) => event.serverId === selectedPeer.serverId)
-              .map((event) => (
-                <p className={styles.muted} key={event.id}>
-                  {new Date(event.at).toLocaleString()} ·{" "}
-                  {(
-                    {
-                      "pair-started": t("connectionsAuditStarted"),
-                      "incoming-issued": t("connectionsAuditIncoming"),
-                      "outgoing-imported": t("connectionsAuditOutgoing"),
-                      "incoming-revoked": t("connectionsAuditRevoked"),
-                      "outgoing-removed": t("connectionsAuditRemoved"),
-                      verified: t("connectionsAuditVerified"),
-                      "pair-completed": t("connectionsAuditCompleted"),
-                      "pair-partial": t("connectionsPartialShort"),
-                      "pair-uncertain": t("connectionsUncertainShort"),
-                      "pair-failed": t("connectionsAuditFailed"),
-                      "label-changed": t("connectionsAuditLabel"),
-                      enabled: t("connectionsAuditEnabled"),
-                      disabled: t("connectionsAuditDisabled"),
-                    } as Record<string, string>
-                  )[event.action] ?? t("connectionsAuditUpdated")}
-                </p>
-              ))}
-          </div>
+              </div>
+            )),
+          )}
+          <h4>{t("connectionsSessions")}</h4>
+          {activityError ? (
+            <Banner tone="error">{t("connectionsActivityError")}</Banner>
+          ) : !activity ? (
+            <p>{t("loading")}</p>
+          ) : (
+            <>
+              {!activity.incoming.length && !activity.outgoing.length && (
+                <p className={styles.muted}>{t("connectionsNoSessions")}</p>
+              )}
+              {(["incoming", "outgoing"] as const).map((direction) =>
+                activity[direction].map((item) => (
+                  <p className={styles.muted} key={item.id}>
+                    {direction === "incoming"
+                      ? t("connectionsIncoming")
+                      : t("connectionsOutgoing")}{" "}
+                    ·{" "}
+                    {direction === "incoming" &&
+                    item.projectId &&
+                    item.sessionId ? (
+                      <Link
+                        to={`${basePath}/projects/${encodeURIComponent(item.projectId)}/sessions/${encodeURIComponent(item.sessionId)}`}
+                      >
+                        {item.sessionId}
+                      </Link>
+                    ) : (
+                      (item.sessionId ?? t("connectionsPendingSession"))
+                    )}{" "}
+                    · {item.state}
+                  </p>
+                )),
+              )}
+            </>
+          )}
+          <h4>{t("connectionsAudit")}</h4>
+          {data.audit
+            .filter((event) => event.serverId === selectedPeer.serverId)
+            .map((event) => (
+              <p className={styles.muted} key={event.id}>
+                {new Date(event.at).toLocaleString()} ·{" "}
+                {(
+                  {
+                    "pair-started": t("connectionsAuditStarted"),
+                    "incoming-issued": t("connectionsAuditIncoming"),
+                    "outgoing-imported": t("connectionsAuditOutgoing"),
+                    "incoming-revoked": t("connectionsAuditRevoked"),
+                    "outgoing-removed": t("connectionsAuditRemoved"),
+                    verified: t("connectionsAuditVerified"),
+                    "pair-completed": t("connectionsAuditCompleted"),
+                    "pair-partial": t("connectionsPartialShort"),
+                    "pair-uncertain": t("connectionsUncertainShort"),
+                    "pair-failed": t("connectionsAuditFailed"),
+                    "label-changed": t("connectionsAuditLabel"),
+                    enabled: t("connectionsAuditEnabled"),
+                    disabled: t("connectionsAuditDisabled"),
+                  } as Record<string, string>
+                )[event.action] ?? t("connectionsAuditUpdated")}
+              </p>
+            ))}
         </ConnectionDialog>
       )}
       {removing && (
@@ -893,61 +906,29 @@ export function ServerConnectionsSettings() {
               ? t("connectionsRemoveIncomingTitle")
               : t("connectionsRemoveOutgoingTitle")
           }
+          size="small"
+          description={
+            removing.peer[removing.direction].some(
+              (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
+            )
+              ? t("connectionsRemoveManualConfirm", {
+                  name: nameOf(removing.peer),
+                })
+              : removing.direction === "incoming"
+                ? t("connectionsRemoveIncomingConfirm", {
+                    name: nameOf(removing.peer),
+                    server: data.identity.hostname,
+                  })
+                : t("connectionsRemoveOutgoingConfirm", {
+                    name: nameOf(removing.peer),
+                    server: data.identity.hostname,
+                  })
+          }
           onClose={() => {
             if (!busy) setRemoving(undefined);
           }}
-        >
-          <div className={styles.confirmation}>
-            <p>
-              {removing.peer[removing.direction].some(
-                (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
-              )
-                ? t("connectionsRemoveManualConfirm", {
-                    name: nameOf(removing.peer),
-                  })
-                : removing.direction === "incoming"
-                  ? t("connectionsRemoveIncomingConfirm", {
-                      name: nameOf(removing.peer),
-                      server: data.identity.hostname,
-                    })
-                  : t("connectionsRemoveOutgoingConfirm", {
-                      name: nameOf(removing.peer),
-                      server: data.identity.hostname,
-                    })}
-            </p>
-            {removing.direction === "outgoing" &&
-              removing.peer.outgoing.some(
-                (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
-              ) && (
-                <p className={styles.muted}>
-                  {t("connectionsRemoteGrantRemains")}
-                </p>
-              )}
-            {removing.direction === "incoming" &&
-              removing.peer.outgoing.length > 0 && (
-                <p className={styles.muted}>
-                  {t("connectionsKeepOutgoing", {
-                    name: nameOf(removing.peer),
-                  })}
-                </p>
-              )}
-            {removing.direction === "outgoing" &&
-              removing.peer.incoming.length > 0 && (
-                <p className={styles.muted}>
-                  {t("connectionsKeepIncoming", {
-                    name: nameOf(removing.peer),
-                  })}
-                </p>
-              )}
-            {removing.peer[removing.direction].some(
-              (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
-            ) && (
-              <p className={styles.muted}>
-                {t("connectionsKeepAccountAccess")}
-              </p>
-            )}
-            {removalError && <Banner tone="error">{removalError}</Banner>}
-            <div className={styles.confirmActions}>
+          footer={
+            <>
               <Button disabled={busy} onClick={() => setRemoving(undefined)}>
                 {t("cancel")}
               </Button>
@@ -960,8 +941,39 @@ export function ServerConnectionsSettings() {
                   ? t("connectionsRemoveIncomingAction")
                   : t("connectionsRemoveOutgoingAction")}
               </Button>
-            </div>
-          </div>
+            </>
+          }
+        >
+          {removalError && <Banner tone="error">{removalError}</Banner>}
+          {removing.direction === "outgoing" &&
+            removing.peer.outgoing.some(
+              (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
+            ) && (
+              <p className={styles.muted}>
+                {t("connectionsRemoteGrantRemains")}
+              </p>
+            )}
+          {removing.direction === "incoming" &&
+            removing.peer.outgoing.length > 0 && (
+              <p className={styles.muted}>
+                {t("connectionsKeepOutgoing", {
+                  name: nameOf(removing.peer),
+                })}
+              </p>
+            )}
+          {removing.direction === "outgoing" &&
+            removing.peer.incoming.length > 0 && (
+              <p className={styles.muted}>
+                {t("connectionsKeepIncoming", {
+                  name: nameOf(removing.peer),
+                })}
+              </p>
+            )}
+          {removing.peer[removing.direction].some(
+            (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
+          ) && (
+            <p className={styles.muted}>{t("connectionsKeepAccountAccess")}</p>
+          )}
         </ConnectionDialog>
       )}
     </div>

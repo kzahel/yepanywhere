@@ -16,7 +16,7 @@ import type {
 import { useI18n } from "../i18n";
 import styles from "./HostOfflineModal.module.css";
 import { Button } from "./ui/Button";
-import { Modal } from "./ui/Modal";
+import { Dialog } from "./ui/Dialog";
 
 type Translate = ReturnType<typeof useI18n>["t"];
 
@@ -104,48 +104,50 @@ export function HostOfflineModal({
   const message = getErrorMessage(error, t);
 
   return (
-    <Modal title={title} onClose={onDismiss}>
-      <div className={styles.content}>
-        <p className={styles.message}>{message}</p>
-
-        {(requiresResumeLogin(error.reason) ||
-          error.reason === "resume_verification") && (
-          <p className={styles.detail}>{error.message}</p>
-        )}
-
-        {error.relayUsername && (
-          <p className={styles.detail}>
-            <strong>{t("relayLoginServerName")}:</strong> {error.relayUsername}
-          </p>
-        )}
-
-        {error.serverUrl && (
-          <p className={styles.detail}>
-            <strong>{t("relayLoginCustomRelayUrl")}:</strong> {error.serverUrl}
-          </p>
-        )}
-
-        <p className={styles.hint}>
-          {error.reason === "auth_failed"
-            ? t("hostOfflineHintResumeRejected")
-            : error.reason === "resume_incompatible"
-              ? t("hostOfflineHintResumeIncompatible")
-              : error.reason === "resume_verification"
-                ? t("hostOfflineHintResumeVerification")
-                : error.mode === "relay"
-                  ? t("hostOfflineHintRelay")
-                  : t("hostOfflineHintDirect")}
-        </p>
-
-        <div className={styles.actions}>
+    <Dialog
+      title={title}
+      description={message}
+      size="medium"
+      onClose={onDismiss}
+      footer={
+        <>
           <Button onClick={onGoToLogin}>{t("hostOfflineGoToLogin")}</Button>
           {canRetryResume(error.reason) && (
             <Button variant="primary" onClick={onRetry}>
               {t("hostOfflineRetry")}
             </Button>
           )}
-        </div>
-      </div>
-    </Modal>
+        </>
+      }
+    >
+      {(requiresResumeLogin(error.reason) ||
+        error.reason === "resume_verification") && (
+        <p className={styles.detail}>{error.message}</p>
+      )}
+
+      {error.relayUsername && (
+        <p className={styles.detail}>
+          <strong>{t("relayLoginServerName")}:</strong> {error.relayUsername}
+        </p>
+      )}
+
+      {error.serverUrl && (
+        <p className={styles.detail}>
+          <strong>{t("relayLoginCustomRelayUrl")}:</strong> {error.serverUrl}
+        </p>
+      )}
+
+      <p className={styles.hint}>
+        {error.reason === "auth_failed"
+          ? t("hostOfflineHintResumeRejected")
+          : error.reason === "resume_incompatible"
+            ? t("hostOfflineHintResumeIncompatible")
+            : error.reason === "resume_verification"
+              ? t("hostOfflineHintResumeVerification")
+              : error.mode === "relay"
+                ? t("hostOfflineHintRelay")
+                : t("hostOfflineHintDirect")}
+      </p>
+    </Dialog>
   );
 }

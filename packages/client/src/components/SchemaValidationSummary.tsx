@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import { Badge } from "./ui/Badge";
 import { ButtonBase } from "./ui/Button";
-import { Modal } from "./ui/Modal";
+import { Dialog } from "./ui/Dialog";
 import styles from "./SchemaValidationSummary.module.css";
 
 export interface SchemaValidationGap {
@@ -68,60 +68,55 @@ export function SchemaValidationSummary({
         <span className={styles.count}>{gaps.length}</span>
       </ButtonBase>
       {isOpen && (
-        <Modal
+        <Dialog
           title={t("schemaGapSummaryTitle")}
+          description={t("schemaGapSummaryIntro", {
+            count: gaps.length,
+            tools: groups.length,
+          })}
+          size="large"
           onClose={() => setIsOpen(false)}
         >
-          <div className={styles.content}>
-            <p className={styles.intro}>
-              {t("schemaGapSummaryIntro", {
-                count: gaps.length,
-                tools: groups.length,
-              })}
-            </p>
-            <div className={styles.groups}>
-              {groups.map((group) => (
-                <section className={styles.group} key={group.toolName}>
-                  <h3 className={styles.heading}>
-                    <code>{group.toolName}</code>
+          {groups.map((group) => (
+            <section className={styles.group} key={group.toolName}>
+              <h3 className={styles.heading}>
+                <code>{group.toolName}</code>
+                <Badge
+                  shape="count"
+                  size="small"
+                  role="img"
+                  aria-label={t("schemaGapSummaryToolCount", {
+                    count: group.gaps.length,
+                  })}
+                >
+                  {group.gaps.length}
+                </Badge>
+                {ignoredTools.includes(group.toolName) && (
+                  <Badge size="small">{t("schemaGapSummaryIgnored")}</Badge>
+                )}
+              </h3>
+              <ul className={styles.issueList}>
+                {group.gaps.map((gap) => (
+                  <li
+                    className={styles.issue}
+                    key={`${gap.path}\u0000${gap.code}\u0000${gap.message}`}
+                  >
                     <Badge
-                      shape="count"
                       size="small"
-                      role="img"
-                      aria-label={t("schemaGapSummaryToolCount", {
-                        count: group.gaps.length,
-                      })}
+                      tone={gap.kind === "missing" ? "warning" : "danger"}
                     >
-                      {group.gaps.length}
+                      {gap.kind === "missing"
+                        ? t("schemaWarningMissing")
+                        : t("schemaWarningInvalid")}
                     </Badge>
-                    {ignoredTools.includes(group.toolName) && (
-                      <Badge size="small">{t("schemaGapSummaryIgnored")}</Badge>
-                    )}
-                  </h3>
-                  <ul className={styles.issueList}>
-                    {group.gaps.map((gap) => (
-                      <li
-                        className={styles.issue}
-                        key={`${gap.path}\u0000${gap.code}\u0000${gap.message}`}
-                      >
-                        <Badge
-                          size="small"
-                          tone={gap.kind === "missing" ? "warning" : "danger"}
-                        >
-                          {gap.kind === "missing"
-                            ? t("schemaWarningMissing")
-                            : t("schemaWarningInvalid")}
-                        </Badge>
-                        <code className={styles.path}>{gap.path}</code>
-                        <span className={styles.message}>{gap.message}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          </div>
-        </Modal>
+                    <code className={styles.path}>{gap.path}</code>
+                    <span className={styles.message}>{gap.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </Dialog>
       )}
     </>
   );

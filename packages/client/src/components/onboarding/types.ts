@@ -21,6 +21,8 @@ export interface OnboardingStepConfig {
   id: string;
   /** Title displayed at the top of the step */
   title: string;
-  /** The step component to render */
-  component: ComponentType<OnboardingStepProps>;
+  /** The step's content, in the dialog body */
+  component: ComponentType;
+  /** The step's own actions (Skip, Next), in the dialog footer */
+  actions: ComponentType<OnboardingStepProps>;
 }

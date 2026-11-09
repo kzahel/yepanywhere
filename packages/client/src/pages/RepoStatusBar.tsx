@@ -8,7 +8,7 @@ import { CopyButton } from "../components/CopyButton";
 import { Badge } from "../components/ui/Badge";
 import { Banner } from "../components/ui/Banner";
 import { ButtonBase } from "../components/ui/Button";
-import { Modal } from "../components/ui/Modal";
+import { Dialog } from "../components/ui/Dialog";
 import type { TranslationFn } from "../i18n";
 import { formatCommitDateTime } from "./CommitFilesPane";
 import styles from "./RepoStatusBar.module.css";
@@ -201,47 +201,47 @@ function IncomingCommitsDialog({
   }, [projectId]);
 
   return (
-    <Modal title={t("sourceIncomingCommitsTitle")} onClose={onClose}>
-      <div className={styles.incomingDialog}>
-        <p className={styles.incomingIntro}>
-          {t("sourceIncomingCommitsDescription")}
+    <Dialog
+      title={t("sourceIncomingCommitsTitle")}
+      description={t("sourceIncomingCommitsDescription")}
+      size="large"
+      onClose={onClose}
+    >
+      {error ? (
+        <Banner tone="error">{t("sourceIncomingCommitsError")}</Banner>
+      ) : result === null ? (
+        <p className={styles.incomingState}>
+          {t("sourceIncomingCommitsLoading")}
         </p>
-        {error ? (
-          <Banner tone="error">{t("sourceIncomingCommitsError")}</Banner>
-        ) : result === null ? (
-          <p className={styles.incomingState}>
-            {t("sourceIncomingCommitsLoading")}
-          </p>
-        ) : result.commits.length === 0 ? (
-          <p className={styles.incomingState}>
-            {t("sourceIncomingCommitsEmpty", { upstream: result.upstream })}
-          </p>
-        ) : (
-          <>
-            <ul className={styles.incomingList}>
-              {result.commits.map((commit) => (
-                <li key={commit.hash} className={styles.incomingCommit}>
-                  <span className={styles.incomingCommitHeader}>
-                    <code title={commit.hash}>{commit.shortHash}</code>
-                    <strong className={styles.incomingSubject}>
-                      {commit.subject}
-                    </strong>
-                  </span>
-                  <span className={styles.incomingMeta}>
-                    {commit.authorName} ·{" "}
-                    {formatCommitDateTime(commit.authorDate)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {result.truncated && (
-              <p className={styles.incomingTruncated}>
-                {t("sourceIncomingCommitsTruncated", { count: result.limit })}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-    </Modal>
+      ) : result.commits.length === 0 ? (
+        <p className={styles.incomingState}>
+          {t("sourceIncomingCommitsEmpty", { upstream: result.upstream })}
+        </p>
+      ) : (
+        <>
+          <ul className={styles.incomingList}>
+            {result.commits.map((commit) => (
+              <li key={commit.hash} className={styles.incomingCommit}>
+                <span className={styles.incomingCommitHeader}>
+                  <code title={commit.hash}>{commit.shortHash}</code>
+                  <strong className={styles.incomingSubject}>
+                    {commit.subject}
+                  </strong>
+                </span>
+                <span className={styles.incomingMeta}>
+                  {commit.authorName} ·{" "}
+                  {formatCommitDateTime(commit.authorDate)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {result.truncated && (
+            <p className={styles.incomingTruncated}>
+              {t("sourceIncomingCommitsTruncated", { count: result.limit })}
+            </p>
+          )}
+        </>
+      )}
+    </Dialog>
   );
 }

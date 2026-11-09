@@ -318,18 +318,18 @@
   max-height: calc(100dvh - 1.5rem);
 }
 
-:global(.model-switch-content):has(.fullPane) {
+:global(.modal-content) > :has(.fullPane) {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
 }
 
-:global(.model-switch-content):has(.fullPane) > :not(:has(.fullPane)) {
+:global(.modal-content) > :has(.fullPane) > :not(:has(.fullPane)) {
   display: none;
 }
 
-:global(.model-switch-content):has(.fullPane) > :has(.fullPane) {
+:global(.modal-content) > :has(.fullPane) > :has(.fullPane) {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -382,7 +382,7 @@
   max-width: none;
 }
 
-:global(.model-switch-content):has(.fullPaneWide) {
+:global(.modal-content) > :has(.fullPaneWide) {
   width: 100%;
   max-width: none;
 }

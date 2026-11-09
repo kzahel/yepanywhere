@@ -1,22 +1,3 @@
-:global(.modal):has(.body) {
-  width: min(44rem, calc(100dvw - 1.5rem));
-  max-width: min(44rem, calc(100dvw - 1.5rem));
-  height: auto;
-}
-
-.body {
-  box-sizing: border-box;
-  display: grid;
-  gap: var(--space-4);
-  min-width: 0;
-  padding: var(--space-2);
-}
-.column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
 .sectionTitle {
   display: flex;
   align-items: baseline;
@@ -35,38 +16,6 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
-}
-
-.actions {
-  grid-column: 1 / -1;
-  position: sticky;
-  bottom: calc(-1 * var(--space-2));
-  padding-block: var(--space-3);
-  background: var(--bg-surface);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-@media (width <= 600px) {
-  :global(.modal):has(.body) {
-    width: 100dvw;
-    max-width: 100dvw;
-    height: 100dvh;
-  }
-
-  .body {
-    min-width: 0;
-  }
-}
-@media (width >= 900px) {
-  :global(.modal):has(.body) {
-    width: min(64rem, calc(100dvw - 3rem));
-    max-width: min(64rem, calc(100dvw - 3rem));
-  }
-  .body {
-    align-items: start;
-  }
 }
 
 /* Project sharing: one row per limited user, its level beside the name. */

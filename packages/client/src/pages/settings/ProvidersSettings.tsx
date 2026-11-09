@@ -50,7 +50,8 @@ import { Button, buttonClassName } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import { Field, Select, TextInput } from "../../components/ui/Field";
-import { Modal, type ModalAnchorRect } from "../../components/ui/Modal";
+import { Dialog } from "../../components/ui/Dialog";
+import type { ModalAnchorRect } from "../../components/ui/Modal";
 import { Switch } from "../../components/ui/Switch";
 import { useToastContext } from "../../contexts/ToastContext";
 import { useProviders } from "../../hooks/useProviders";
@@ -637,66 +638,61 @@ function ClaudeAdditionalModelsSettings({
         </Button>
       </SettingsItem>
       {open && (
-        <Modal
+        <Dialog
           title={t("providersAdditionalModelsTitle")}
+          description={t("providersAdditionalModelsEditorDescription")}
+          size="medium"
           onClose={() => setOpen(false)}
           anchorRect={anchorRect}
         >
-          <div className="providers-additional-models-editor">
-            <p className="settings-hint">
-              {t("providersAdditionalModelsEditorDescription")}
-            </p>
-            <div className="providers-additional-models-list">
-              {choices.map((model) => (
-                <Checkbox
-                  key={model.id}
-                  className="providers-additional-model-option"
-                  label={
-                    <>
-                      <strong>{model.name}</strong> <code>{model.id}</code>
-                    </>
-                  }
-                  description={model.description || undefined}
-                  checked={selectedIds.has(model.id)}
-                  disabled={isSaving}
-                  onCheckedChange={() => toggleModel(model)}
-                />
-              ))}
-            </div>
-            <details className="providers-additional-models-custom">
-              <summary>{t("providersAdditionalModelsCustomTitle")}</summary>
-              <p className="settings-hint">
-                {t("providersAdditionalModelsCustomHint")}
-              </p>
-              <div className="providers-additional-models-custom-row">
-                <TextInput
-                  className={styles.customModelId}
-                  value={customId}
-                  maxLength={MAX_CLAUDE_ADDITIONAL_MODEL_ID_LENGTH}
-                  placeholder={t("providersAdditionalModelsCustomPlaceholder")}
-                  aria-label={t("providersAdditionalModelsCustomInputAria")}
-                  onChange={(event) => setCustomId(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addCustomModel();
-                    }
-                  }}
-                />
-                <Button
-                  disabled={isSaving || !customId.trim()}
-                  onClick={addCustomModel}
-                >
-                  {t("providersAdditionalModelsAdd")}
-                </Button>
-              </div>
-            </details>
-            {isSaving && (
-              <p className="settings-hint">{t("providersSaving")}</p>
-            )}
-            {error && <Banner tone="error">{error}</Banner>}
+          {error && <Banner tone="error">{error}</Banner>}
+          <div className="providers-additional-models-list">
+            {choices.map((model) => (
+              <Checkbox
+                key={model.id}
+                className="providers-additional-model-option"
+                label={
+                  <>
+                    <strong>{model.name}</strong> <code>{model.id}</code>
+                  </>
+                }
+                description={model.description || undefined}
+                checked={selectedIds.has(model.id)}
+                disabled={isSaving}
+                onCheckedChange={() => toggleModel(model)}
+              />
+            ))}
           </div>
-        </Modal>
+          <details className="providers-additional-models-custom">
+            <summary>{t("providersAdditionalModelsCustomTitle")}</summary>
+            <p className="settings-hint">
+              {t("providersAdditionalModelsCustomHint")}
+            </p>
+            <div className="providers-additional-models-custom-row">
+              <TextInput
+                className={styles.customModelId}
+                value={customId}
+                maxLength={MAX_CLAUDE_ADDITIONAL_MODEL_ID_LENGTH}
+                placeholder={t("providersAdditionalModelsCustomPlaceholder")}
+                aria-label={t("providersAdditionalModelsCustomInputAria")}
+                onChange={(event) => setCustomId(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addCustomModel();
+                  }
+                }}
+              />
+              <Button
+                disabled={isSaving || !customId.trim()}
+                onClick={addCustomModel}
+              >
+                {t("providersAdditionalModelsAdd")}
+              </Button>
+            </div>
+          </details>
+          {isSaving && <p className="settings-hint">{t("providersSaving")}</p>}
+        </Dialog>
       )}
     </>
   );

@@ -13,7 +13,7 @@ import {
 import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
-import { Modal } from "./ui/Modal";
+import { Dialog } from "./ui/Dialog";
 
 /**
  * Interrupts only for a known incompatibility: the installed Codex CLI is
@@ -128,113 +128,109 @@ export function CodexUpdatePrompt() {
         : null);
 
   return (
-    <Modal title={t("codexUpdateRequiredTitle")} onClose={handleModalClose}>
-      <div className={`settings-group ${styles.root}`}>
-        <p className={styles.summary}>
-          {installSucceeded
-            ? t("codexUpdateInstalledSummary", {
-                version: status.installed ?? activeMinimum,
-              })
-            : t("codexUpdateBelowMinimum", {
-                installed: status.installed ?? "unknown",
-                minimum: activeMinimum,
-              })}
-        </p>
-
-        <CodexDetectedInstall status={status} />
-
-        {status.releaseUrl && (
-          <a
-            href={status.releaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`settings-link ${styles.releaseLink}`}
-          >
-            {t("providersCodexUpdateReleaseNotes")}
-          </a>
-        )}
-
-        {installCommand && (
-          <div className={styles.commandBlock}>
-            <span className="settings-hint">
-              {canInstall
-                ? t("codexUpdateWillRunCommand")
-                : t("providersCodexUpdateWithInstaller")}
-            </span>
-            <code className={styles.command}>{installCommand}</code>
-          </div>
-        )}
-
-        {manualHint && <p className="settings-hint">{t(manualHint)}</p>}
-
-        {canInstall && (
-          <Checkbox
-            label={t("codexUpdateAutoFutureVersions")}
-            checked={autoUpdate}
-            onCheckedChange={setAutoUpdate}
-            disabled={isInstalling || installSucceeded === true}
-          />
-        )}
-
-        {isInstalling && (
-          <p className={`settings-hint ${styles.progress}`}>
-            {t("codexUpdateProgress")}
-          </p>
-        )}
-
-        {installAttempted && installSucceeded === true && (
-          <Banner tone="success">{t("codexUpdateSucceeded")}</Banner>
-        )}
-
-        {installAttempted && installSucceeded === false && error && (
-          <Banner tone="error">{error}</Banner>
-        )}
-
-        {policyError && <Banner tone="error">{policyError}</Banner>}
-
-        {(isInstalling || installAttempted) && rawOutput && (
-          <div className={styles.outputBlock}>
-            <div className={styles.outputHeader}>
-              <strong className={styles.outputTitle}>
-                {t("codexUpdateRawOutput")}
-              </strong>
-              {installCommand && (
-                <code className={styles.outputCommand}>{installCommand}</code>
-              )}
-            </div>
-            <pre className={styles.output}>{rawOutput}</pre>
-          </div>
-        )}
-
-        {installSucceeded === null && !isInstalling && (
-          <p className="settings-hint">{t("codexUpdateDismissHint")}</p>
-        )}
-
-        <div className={styles.actions}>
-          {installSucceeded === true ? (
-            <Button onClick={close}>{t("codexUpdateDone")}</Button>
-          ) : (
-            <>
-              <Button onClick={close} disabled={isInstalling}>
-                {t("codexUpdateDismiss")}
+    <Dialog
+      title={t("codexUpdateRequiredTitle")}
+      description={
+        installSucceeded
+          ? t("codexUpdateInstalledSummary", {
+              version: status.installed ?? activeMinimum,
+            })
+          : t("codexUpdateBelowMinimum", {
+              installed: status.installed ?? "unknown",
+              minimum: activeMinimum,
+            })
+      }
+      size="medium"
+      onClose={handleModalClose}
+      footer={
+        installSucceeded === true ? (
+          <Button onClick={close}>{t("codexUpdateDone")}</Button>
+        ) : (
+          <>
+            <Button onClick={close} disabled={isInstalling}>
+              {t("codexUpdateDismiss")}
+            </Button>
+            {canInstall && (
+              <Button
+                variant="primary"
+                onClick={() => void handleUpdate()}
+                busy={isInstalling}
+              >
+                {installAttempted
+                  ? t("codexUpdateRetry")
+                  : t("providersCodexUpdateNow")}
               </Button>
-              {canInstall && (
-                <Button
-                  variant="primary"
-                  onClick={() => void handleUpdate()}
-                  disabled={isInstalling}
-                >
-                  {isInstalling
-                    ? t("providersCodexUpdateInstalling")
-                    : installAttempted
-                      ? t("codexUpdateRetry")
-                      : t("providersCodexUpdateNow")}
-                </Button>
-              )}
-            </>
-          )}
+            )}
+          </>
+        )
+      }
+    >
+      <CodexDetectedInstall status={status} />
+
+      {status.releaseUrl && (
+        <a
+          href={status.releaseUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`settings-link ${styles.releaseLink}`}
+        >
+          {t("providersCodexUpdateReleaseNotes")}
+        </a>
+      )}
+
+      {installCommand && (
+        <div className={styles.commandBlock}>
+          <span className="settings-hint">
+            {canInstall
+              ? t("codexUpdateWillRunCommand")
+              : t("providersCodexUpdateWithInstaller")}
+          </span>
+          <code className={styles.command}>{installCommand}</code>
         </div>
-      </div>
-    </Modal>
+      )}
+
+      {manualHint && <p className="settings-hint">{t(manualHint)}</p>}
+
+      {canInstall && (
+        <Checkbox
+          label={t("codexUpdateAutoFutureVersions")}
+          checked={autoUpdate}
+          onCheckedChange={setAutoUpdate}
+          disabled={isInstalling || installSucceeded === true}
+        />
+      )}
+
+      {isInstalling && (
+        <p className="settings-hint">{t("codexUpdateProgress")}</p>
+      )}
+
+      {installAttempted && installSucceeded === true && (
+        <Banner tone="success">{t("codexUpdateSucceeded")}</Banner>
+      )}
+
+      {installAttempted && installSucceeded === false && error && (
+        <Banner tone="error">{error}</Banner>
+      )}
+
+      {policyError && <Banner tone="error">{policyError}</Banner>}
+
+      {(isInstalling || installAttempted) && rawOutput && (
+        <div className={styles.outputBlock}>
+          <div className={styles.outputHeader}>
+            <strong className={styles.outputTitle}>
+              {t("codexUpdateRawOutput")}
+            </strong>
+            {installCommand && (
+              <code className={styles.outputCommand}>{installCommand}</code>
+            )}
+          </div>
+          <pre className={styles.output}>{rawOutput}</pre>
+        </div>
+      )}
+
+      {installSucceeded === null && !isInstalling && (
+        <p className="settings-hint">{t("codexUpdateDismissHint")}</p>
+      )}
+    </Dialog>
   );
 }

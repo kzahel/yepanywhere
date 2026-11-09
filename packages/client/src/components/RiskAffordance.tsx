@@ -2,7 +2,7 @@ import { type ReactNode, useState } from "react";
 import { useTooltipTrigger } from "../hooks/useTooltipTrigger";
 import styles from "./RiskAffordance.module.css";
 import { ButtonBase } from "./ui/Button";
-import { Modal } from "./ui/Modal";
+import { Dialog } from "./ui/Dialog";
 
 /**
  * The "what's the risk?" affordance shared by the external-session (amber) and
@@ -57,9 +57,13 @@ export function RiskAffordance({
         </div>
       )}
       {showModal && (
-        <Modal title={modalTitle} onClose={() => setShowModal(false)}>
+        <Dialog
+          title={modalTitle}
+          size="medium"
+          onClose={() => setShowModal(false)}
+        >
           {explanation}
-        </Modal>
+        </Dialog>
       )}
     </span>
   );

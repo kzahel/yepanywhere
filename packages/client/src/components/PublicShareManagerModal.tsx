@@ -28,7 +28,9 @@ import {
 } from "./PublicShareInventory";
 import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
-import { Modal, type ModalAnchorRect } from "./ui/Modal";
+import { confirmDialog } from "./ui/ConfirmDialog";
+import { Dialog } from "./ui/Dialog";
+import type { ModalAnchorRect } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import styles from "./SessionShareModal.module.css";
 
@@ -354,7 +356,13 @@ function SourcePublicShareManagerModal({
 
   const revokeManagedShare = async (item: PublicShareManagementItem) => {
     if (!cancelExclusiveOperation()) return;
-    if (!window.confirm(t("publicShareManagementRevokeOneConfirm"))) return;
+    const confirmed = await confirmDialog({
+      title: t("publicShareManagementRevokeOneConfirmTitle"),
+      message: t("publicShareManagementRevokeOneConfirm"),
+      confirmLabel: t("publicShareManagementRevokeOne"),
+      tone: "danger",
+    });
+    if (!confirmed) return;
     const generation = beginExclusiveOperation(`revoke:${item.shareId}`, true);
     if (generation === null) return;
     try {
@@ -375,7 +383,12 @@ function SourcePublicShareManagerModal({
 
   const freezeManagedShare = async (item: PublicShareManagementItem) => {
     if (item.mode !== "live" || !cancelExclusiveOperation()) return;
-    if (!window.confirm(t("publicShareManagementFreezeOneConfirm"))) return;
+    const confirmed = await confirmDialog({
+      title: t("publicShareManagementFreezeOneConfirmTitle"),
+      message: t("publicShareManagementFreezeOneConfirm"),
+      confirmLabel: t("publicShareManagementFreezeOne"),
+    });
+    if (!confirmed) return;
     const generation = beginExclusiveOperation(`freeze:${item.shareId}`, true);
     if (generation === null) return;
     try {
@@ -640,337 +653,334 @@ function SourcePublicShareManagerModal({
   const creationControlsVisible = !!creationIdentity && creationReady;
 
   return (
-    <Modal
+    <Dialog
+      size="large"
       anchorRect={anchorRect}
       anchorAtAnyWidth
       title={t("publicShareManagementTitle")}
       onClose={onClose}
     >
-      <div className={`session-share-modal ${styles.manager}`}>
-        <div className={styles.managerLayout}>
-          <aside className={styles.managerSidebar}>
-            {creationIdentity && (
-              <div className={`${styles.filterGroup} ${styles.scopeGroup}`}>
-                <span>{t("publicShareManagementScopeFilter")}</span>
-                <SegmentedControl
-                  variant="cards"
-                  layout="stack"
-                  className={styles.scopeOptions}
-                  aria-label={t("publicShareManagementScopeFilter")}
-                  options={SCOPE_OPTIONS.map((scopeOption) => ({
-                    value: scopeOption,
-                    icon: (
-                      <span className={styles.filterIcon}>
-                        <PublicShareFilterIcon kind={scopeOption} />
-                      </span>
-                    ),
-                    label: scopeOptionLabel(scopeOption),
-                  }))}
-                  value={scope}
-                  onChange={setScopeFilter}
-                  disabled={operationInvalidationDisabled}
-                />
-                {SCOPE_OPTIONS.map((scopeOption) => {
-                  const optionLabel = scopeOptionLabel(scopeOption);
-                  const categoryKey = `scope:${scopeOption}` as const;
-                  const pending =
-                    pendingCategoryAction?.action === "revoke" &&
-                    pendingCategoryAction.key === categoryKey
-                      ? pendingCategoryAction
-                      : null;
-                  const revokeLabel = pending
-                    ? categoryConfirmLabel(pending, false)
-                    : t("publicShareManagementRevokeScope", {
-                        scope: optionLabel,
-                      });
-                  return (
-                    <IconButton
-                      key={scopeOption}
-                      label={revokeLabel}
-                      variant="danger-outline"
-                      size="small"
-                      className={styles.revokeTypeButton}
-                      disabled={mutationsDisabled}
-                      onClick={() =>
-                        void (pending
-                          ? confirmCategoryAction()
-                          : prepareCategoryAction({
-                              action: "revoke",
-                              key: categoryKey,
-                              scope: scopeOption,
-                              scopeLabel: optionLabel,
-                            }))
-                      }
-                    >
-                      {operationWorking?.endsWith(categoryKey) ? (
-                        "…"
-                      ) : pending ? (
-                        <PublicShareConfirmIcon />
-                      ) : (
-                        <PublicShareRevokeIcon />
-                      )}
-                    </IconButton>
-                  );
-                })}
-              </div>
-            )}
-            <div
-              className={styles.filterGroup}
-              role="group"
-              aria-label={t("publicShareManagementModeFilter")}
-            >
-              <span>{t("publicShareManagementModeFilter")}</span>
-              {(["frozen", "live"] as const).map((modeOption) => {
-                const selected =
-                  modeOption === "frozen" ? showFrozenShares : showLiveShares;
-                const pendingRevoke =
+      <div className={styles.managerLayout}>
+        <aside className={styles.managerSidebar}>
+          {creationIdentity && (
+            <div className={`${styles.filterGroup} ${styles.scopeGroup}`}>
+              <span>{t("publicShareManagementScopeFilter")}</span>
+              <SegmentedControl
+                variant="cards"
+                layout="stack"
+                className={styles.scopeOptions}
+                aria-label={t("publicShareManagementScopeFilter")}
+                options={SCOPE_OPTIONS.map((scopeOption) => ({
+                  value: scopeOption,
+                  icon: (
+                    <span className={styles.filterIcon}>
+                      <PublicShareFilterIcon kind={scopeOption} />
+                    </span>
+                  ),
+                  label: scopeOptionLabel(scopeOption),
+                }))}
+                value={scope}
+                onChange={setScopeFilter}
+                disabled={operationInvalidationDisabled}
+              />
+              {SCOPE_OPTIONS.map((scopeOption) => {
+                const optionLabel = scopeOptionLabel(scopeOption);
+                const categoryKey = `scope:${scopeOption}` as const;
+                const pending =
                   pendingCategoryAction?.action === "revoke" &&
-                  pendingCategoryAction.key === `mode:${modeOption}` &&
-                  pendingCategoryAction.scope === scope
+                  pendingCategoryAction.key === categoryKey
                     ? pendingCategoryAction
                     : null;
-                const pendingFreeze =
-                  pendingCategoryAction?.action === "freeze" &&
-                  pendingCategoryAction.key === "mode:live" &&
-                  pendingCategoryAction.scope === scope
-                    ? pendingCategoryAction
-                    : null;
-                const typeLabel =
-                  modeOption === "live"
-                    ? t("publicShareLiveBadge")
-                    : t("publicShareManagementModeReadOnly");
-                const revokeLabel = pendingRevoke
-                  ? categoryConfirmLabel(pendingRevoke, false)
-                  : t("publicShareManagementRevokeType", {
-                      type: typeLabel,
-                      scope: scopeLabel,
+                const revokeLabel = pending
+                  ? categoryConfirmLabel(pending, false)
+                  : t("publicShareManagementRevokeScope", {
+                      scope: optionLabel,
                     });
-                const freezeLabel = pendingFreeze
-                  ? categoryConfirmLabel(pendingFreeze, false)
-                  : t("publicShareManagementFreeze", { scope: scopeLabel });
-                const freezeWorking =
-                  operationWorking?.includes("-freeze:") === true &&
-                  operationWorking.endsWith("mode:live");
-                const revokeWorking =
-                  operationWorking?.includes("-revoke:") === true &&
-                  operationWorking.endsWith(`mode:${modeOption}`);
                 return (
-                  <div
-                    className={`${styles.filterRow} ${
-                      creationControlsVisible ? "" : styles.filterRowNoCreate
-                    } ${
-                      modeOption === "live" && selectiveFreezeAvailable
-                        ? styles.filterRowWithFreeze
-                        : ""
-                    }`}
-                    key={modeOption}
+                  <IconButton
+                    key={scopeOption}
+                    label={revokeLabel}
+                    variant="danger-outline"
+                    size="small"
+                    className={styles.revokeTypeButton}
+                    disabled={mutationsDisabled}
+                    onClick={() =>
+                      void (pending
+                        ? confirmCategoryAction()
+                        : prepareCategoryAction({
+                            action: "revoke",
+                            key: categoryKey,
+                            scope: scopeOption,
+                            scopeLabel: optionLabel,
+                          }))
+                    }
                   >
-                    <ButtonBase
-                      className={`${styles.filterButton} ${
-                        selected ? styles.filterButtonActive : ""
-                      }`}
-                      aria-pressed={selected}
-                      disabled={operationInvalidationDisabled}
-                      onClick={() => toggleModeFilter(modeOption)}
-                    >
-                      <span className={styles.filterIcon}>
-                        <PublicShareFilterIcon kind={modeOption} />
-                      </span>
-                      <span>{typeLabel}</span>
-                    </ButtonBase>
-                    {creationControlsVisible && (
-                      <IconButton
-                        label={t("publicShareManagementCreate", {
-                          type: typeLabel,
-                        })}
-                        variant="primary"
-                        size="small"
-                        className={styles.addButton}
-                        disabled={mutationsDisabled}
-                        onClick={() => void createManagedShare(modeOption)}
-                      >
-                        <PublicSharePlusIcon />
-                      </IconButton>
+                    {operationWorking?.endsWith(categoryKey) ? (
+                      "…"
+                    ) : pending ? (
+                      <PublicShareConfirmIcon />
+                    ) : (
+                      <PublicShareRevokeIcon />
                     )}
-                    {modeOption === "live" && selectiveFreezeAvailable && (
-                      <IconButton
-                        label={freezeLabel}
-                        variant="secondary"
-                        size="small"
-                        className={styles.freezeTypeButton}
-                        disabled={mutationsDisabled}
-                        onClick={() =>
-                          void (pendingFreeze
-                            ? confirmCategoryAction()
-                            : prepareCategoryAction({
-                                action: "freeze",
-                                key: "mode:live",
-                                mode: "live",
-                                scope,
-                                scopeLabel,
-                                typeLabel,
-                              }))
-                        }
-                      >
-                        {freezeWorking ? (
-                          "…"
-                        ) : pendingFreeze ? (
-                          <PublicShareConfirmIcon />
-                        ) : (
-                          <PublicShareFreezeIcon />
-                        )}
-                      </IconButton>
-                    )}
+                  </IconButton>
+                );
+              })}
+            </div>
+          )}
+          <div
+            className={styles.filterGroup}
+            role="group"
+            aria-label={t("publicShareManagementModeFilter")}
+          >
+            <span>{t("publicShareManagementModeFilter")}</span>
+            {(["frozen", "live"] as const).map((modeOption) => {
+              const selected =
+                modeOption === "frozen" ? showFrozenShares : showLiveShares;
+              const pendingRevoke =
+                pendingCategoryAction?.action === "revoke" &&
+                pendingCategoryAction.key === `mode:${modeOption}` &&
+                pendingCategoryAction.scope === scope
+                  ? pendingCategoryAction
+                  : null;
+              const pendingFreeze =
+                pendingCategoryAction?.action === "freeze" &&
+                pendingCategoryAction.key === "mode:live" &&
+                pendingCategoryAction.scope === scope
+                  ? pendingCategoryAction
+                  : null;
+              const typeLabel =
+                modeOption === "live"
+                  ? t("publicShareLiveBadge")
+                  : t("publicShareManagementModeReadOnly");
+              const revokeLabel = pendingRevoke
+                ? categoryConfirmLabel(pendingRevoke, false)
+                : t("publicShareManagementRevokeType", {
+                    type: typeLabel,
+                    scope: scopeLabel,
+                  });
+              const freezeLabel = pendingFreeze
+                ? categoryConfirmLabel(pendingFreeze, false)
+                : t("publicShareManagementFreeze", { scope: scopeLabel });
+              const freezeWorking =
+                operationWorking?.includes("-freeze:") === true &&
+                operationWorking.endsWith("mode:live");
+              const revokeWorking =
+                operationWorking?.includes("-revoke:") === true &&
+                operationWorking.endsWith(`mode:${modeOption}`);
+              return (
+                <div
+                  className={`${styles.filterRow} ${
+                    creationControlsVisible ? "" : styles.filterRowNoCreate
+                  } ${
+                    modeOption === "live" && selectiveFreezeAvailable
+                      ? styles.filterRowWithFreeze
+                      : ""
+                  }`}
+                  key={modeOption}
+                >
+                  <ButtonBase
+                    className={`${styles.filterButton} ${
+                      selected ? styles.filterButtonActive : ""
+                    }`}
+                    aria-pressed={selected}
+                    disabled={operationInvalidationDisabled}
+                    onClick={() => toggleModeFilter(modeOption)}
+                  >
+                    <span className={styles.filterIcon}>
+                      <PublicShareFilterIcon kind={modeOption} />
+                    </span>
+                    <span>{typeLabel}</span>
+                  </ButtonBase>
+                  {creationControlsVisible && (
                     <IconButton
-                      label={revokeLabel}
-                      variant="danger-outline"
+                      label={t("publicShareManagementCreate", {
+                        type: typeLabel,
+                      })}
+                      variant="primary"
                       size="small"
-                      className={styles.revokeTypeButton}
+                      className={styles.addButton}
+                      disabled={mutationsDisabled}
+                      onClick={() => void createManagedShare(modeOption)}
+                    >
+                      <PublicSharePlusIcon />
+                    </IconButton>
+                  )}
+                  {modeOption === "live" && selectiveFreezeAvailable && (
+                    <IconButton
+                      label={freezeLabel}
+                      variant="secondary"
+                      size="small"
+                      className={styles.freezeTypeButton}
                       disabled={mutationsDisabled}
                       onClick={() =>
-                        void (pendingRevoke
+                        void (pendingFreeze
                           ? confirmCategoryAction()
                           : prepareCategoryAction({
-                              action: "revoke",
-                              key: `mode:${modeOption}`,
-                              mode: modeOption,
+                              action: "freeze",
+                              key: "mode:live",
+                              mode: "live",
                               scope,
                               scopeLabel,
                               typeLabel,
                             }))
                       }
                     >
-                      {revokeWorking ? (
+                      {freezeWorking ? (
                         "…"
-                      ) : pendingRevoke ? (
+                      ) : pendingFreeze ? (
                         <PublicShareConfirmIcon />
                       ) : (
-                        <PublicShareRevokeIcon />
+                        <PublicShareFreezeIcon />
                       )}
                     </IconButton>
-                  </div>
+                  )}
+                  <IconButton
+                    label={revokeLabel}
+                    variant="danger-outline"
+                    size="small"
+                    className={styles.revokeTypeButton}
+                    disabled={mutationsDisabled}
+                    onClick={() =>
+                      void (pendingRevoke
+                        ? confirmCategoryAction()
+                        : prepareCategoryAction({
+                            action: "revoke",
+                            key: `mode:${modeOption}`,
+                            mode: modeOption,
+                            scope,
+                            scopeLabel,
+                            typeLabel,
+                          }))
+                    }
+                  >
+                    {revokeWorking ? (
+                      "…"
+                    ) : pendingRevoke ? (
+                      <PublicShareConfirmIcon />
+                    ) : (
+                      <PublicShareRevokeIcon />
+                    )}
+                  </IconButton>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+
+        <div className={styles.managerMain}>
+          {operationError && (
+            <PublicShareFeedback tone="error">
+              {operationError}
+            </PublicShareFeedback>
+          )}
+          {notice && (
+            <PublicShareFeedback tone="notice">{notice}</PublicShareFeedback>
+          )}
+          {inventoryError ? (
+            <PublicShareFeedback tone="error">
+              {inventoryError}
+            </PublicShareFeedback>
+          ) : inventoryLoading && items.length === 0 ? (
+            <PublicShareInventoryEmpty loading>
+              {t("publicShareManagementLoading")}
+            </PublicShareInventoryEmpty>
+          ) : items.length === 0 ? (
+            <PublicShareInventoryEmpty>
+              {t("publicShareManagementEmpty")}
+            </PublicShareInventoryEmpty>
+          ) : (
+            <PublicShareInventoryList>
+              {items.map((item) => {
+                const bytes = formatShareBytes(item.snapshotBytes);
+                const modeLabel =
+                  item.mode === "live"
+                    ? t("publicShareLiveBadge")
+                    : t("publicShareFrozenBadge");
+                const modeIconLabel =
+                  item.mode === "live"
+                    ? t("publicShareLiveBadge")
+                    : t("publicShareManagementModeReadOnly");
+                return (
+                  <PublicShareInventoryRow
+                    key={item.shareId}
+                    title={item.title ?? t("publicShareUntitled")}
+                    mode={item.mode}
+                    modeLabel={modeIconLabel}
+                    highlighted={highlightedShareId === item.shareId}
+                    warning={
+                      item.mode === "frozen" && item.linkedFileMode === "live"
+                        ? t("publicShareFrozenLinkedFilesLiveWarning")
+                        : undefined
+                    }
+                    copyAction={{
+                      label: item.url
+                        ? t("publicShareManagementCopy")
+                        : t("publicShareManagementCopyUnavailable"),
+                      disabled: !item.url || operationInvalidationDisabled,
+                      onClick: () => void copyManagedShare(item),
+                    }}
+                    freezeAction={
+                      item.mode === "live" && selectiveFreezeAvailable
+                        ? {
+                            label: t("publicShareManagementFreezeOne"),
+                            disabled: mutationsDisabled,
+                            working:
+                              operationWorking === `freeze:${item.shareId}`,
+                            onClick: () => void freezeManagedShare(item),
+                          }
+                        : undefined
+                    }
+                    revokeAction={{
+                      label: t("publicShareManagementRevokeOne"),
+                      disabled: mutationsDisabled,
+                      working: operationWorking === `revoke:${item.shareId}`,
+                      onClick: () => void revokeManagedShare(item),
+                    }}
+                  >
+                    <PublicShareInventoryMeta>
+                      {item.projectName ??
+                        t("publicShareManagementUnknownProject")}
+                      {` · ${modeLabel}`}
+                      {bytes ? ` · ${bytes}` : ""}
+                    </PublicShareInventoryMeta>
+                    <PublicShareInventoryMeta>
+                      {new Date(item.createdAt).toLocaleString()}
+                      {` · ${t("publicShareActiveViewers", {
+                        count: item.activeViewerCount,
+                      })}`}
+                    </PublicShareInventoryMeta>
+                  </PublicShareInventoryRow>
                 );
               })}
-            </div>
-          </aside>
+            </PublicShareInventoryList>
+          )}
 
-          <div className={styles.managerMain}>
-            {operationError && (
-              <PublicShareFeedback tone="error">
-                {operationError}
-              </PublicShareFeedback>
-            )}
-            {notice && (
-              <PublicShareFeedback tone="notice">{notice}</PublicShareFeedback>
-            )}
-            {inventoryError ? (
-              <PublicShareFeedback tone="error">
-                {inventoryError}
-              </PublicShareFeedback>
-            ) : inventoryLoading && items.length === 0 ? (
-              <PublicShareInventoryEmpty loading>
-                {t("publicShareManagementLoading")}
-              </PublicShareInventoryEmpty>
-            ) : items.length === 0 ? (
-              <PublicShareInventoryEmpty>
-                {t("publicShareManagementEmpty")}
-              </PublicShareInventoryEmpty>
-            ) : (
-              <PublicShareInventoryList>
-                {items.map((item) => {
-                  const bytes = formatShareBytes(item.snapshotBytes);
-                  const modeLabel =
-                    item.mode === "live"
-                      ? t("publicShareLiveBadge")
-                      : t("publicShareFrozenBadge");
-                  const modeIconLabel =
-                    item.mode === "live"
-                      ? t("publicShareLiveBadge")
-                      : t("publicShareManagementModeReadOnly");
-                  return (
-                    <PublicShareInventoryRow
-                      key={item.shareId}
-                      title={item.title ?? t("publicShareUntitled")}
-                      mode={item.mode}
-                      modeLabel={modeIconLabel}
-                      highlighted={highlightedShareId === item.shareId}
-                      warning={
-                        item.mode === "frozen" && item.linkedFileMode === "live"
-                          ? t("publicShareFrozenLinkedFilesLiveWarning")
-                          : undefined
-                      }
-                      copyAction={{
-                        label: item.url
-                          ? t("publicShareManagementCopy")
-                          : t("publicShareManagementCopyUnavailable"),
-                        disabled: !item.url || operationInvalidationDisabled,
-                        onClick: () => void copyManagedShare(item),
-                      }}
-                      freezeAction={
-                        item.mode === "live" && selectiveFreezeAvailable
-                          ? {
-                              label: t("publicShareManagementFreezeOne"),
-                              disabled: mutationsDisabled,
-                              working:
-                                operationWorking === `freeze:${item.shareId}`,
-                              onClick: () => void freezeManagedShare(item),
-                            }
-                          : undefined
-                      }
-                      revokeAction={{
-                        label: t("publicShareManagementRevokeOne"),
-                        disabled: mutationsDisabled,
-                        working: operationWorking === `revoke:${item.shareId}`,
-                        onClick: () => void revokeManagedShare(item),
-                      }}
-                    >
-                      <PublicShareInventoryMeta>
-                        {item.projectName ??
-                          t("publicShareManagementUnknownProject")}
-                        {` · ${modeLabel}`}
-                        {bytes ? ` · ${bytes}` : ""}
-                      </PublicShareInventoryMeta>
-                      <PublicShareInventoryMeta>
-                        {new Date(item.createdAt).toLocaleString()}
-                        {` · ${t("publicShareActiveViewers", {
-                          count: item.activeViewerCount,
-                        })}`}
-                      </PublicShareInventoryMeta>
-                    </PublicShareInventoryRow>
-                  );
-                })}
-              </PublicShareInventoryList>
-            )}
-
-            {!inventoryError && cursor && (
-              <Button
-                disabled={inventoryLoading || mutationsDisabled}
-                onClick={() => void loadMore()}
-              >
-                {inventoryLoading
-                  ? t("publicShareManagementLoading")
-                  : t("publicShareManagementLoadMore")}
-              </Button>
-            )}
-            {!inventoryError && (
-              <PublicShareInventoryCount>
-                {t("publicShareManagementCount", { count: total })}
-              </PublicShareInventoryCount>
-            )}
-          </div>
+          {!inventoryError && cursor && (
+            <Button
+              disabled={inventoryLoading || mutationsDisabled}
+              onClick={() => void loadMore()}
+            >
+              {inventoryLoading
+                ? t("publicShareManagementLoading")
+                : t("publicShareManagementLoadMore")}
+            </Button>
+          )}
+          {!inventoryError && (
+            <PublicShareInventoryCount>
+              {t("publicShareManagementCount", { count: total })}
+            </PublicShareInventoryCount>
+          )}
         </div>
-        {pendingCategoryAction && (
-          <Banner
-            tone={
-              pendingCategoryAction.action === "freeze" ? "warning" : "error"
-            }
-            role="status"
-            compact
-          >
-            {categoryConfirmLabel(pendingCategoryAction, true)}
-          </Banner>
-        )}
       </div>
-    </Modal>
+      {pendingCategoryAction && (
+        <Banner
+          tone={pendingCategoryAction.action === "freeze" ? "warning" : "error"}
+          role="status"
+          compact
+        >
+          {categoryConfirmLabel(pendingCategoryAction, true)}
+        </Banner>
+      )}
+    </Dialog>
   );
 }
