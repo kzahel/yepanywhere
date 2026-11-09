@@ -377,17 +377,10 @@ catalog table:
 
 **Missing retention.**
 
-33. **Session creation has a lifetime ceiling.** `session_creation_capacity`
-    counts operations up to 10,000 (`SessionCreationStore.ts:189`, `:823`)
-    and nothing decrements it, including deletion; the payload, attempt
-    and attachment budgets beside it are never released either. This host
-    is at 234 since 2026-11-04, about 43 a day, so every YA-created session
-    would be refused from about mid-2027, sooner under automation.
-    [Session identity](../topics/session-identity.md) deliberately counts
-    deleted tombstones, which keep retry identity so a replay cannot
-    launch twice. Decided 2026-11-09: remove the lifetime totals entirely,
-    keeping only per-request and per-attempt checks; step 1 of
-    [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md).
+33. Fixed 2026-11-09 by [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md)
+    step 1: session creation no longer counts lifetime totals. Per-request,
+    per-attempt and per-operation bounds remain, including 2 GiB of
+    attachments per operation.
 34. Unbounded logs and caches: `logs/sdk-raw.jsonl` (747 MB, opt-in
     `LOG_SDK_MESSAGES`, about 37 MB/h, no rotation,
     `sdk/messageLogger.ts:28-41`); client logs written with
@@ -426,9 +419,9 @@ though it already has SQLite.
 
 Planned in [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md).
 
-1. Remove the item 33 ceiling; it is a dated outage.
+1. Remove the item 33 ceiling (done, plan 189 step 1).
 2. Cheap deletions and caps with no schema work: items 25, 27, 34, 14 and
-   19. Items 26 and 33 need a retention rule first.
+   19. Item 26 needs a retention rule first.
 3. The catalog table
    ([session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md)),
    designed together with items 22–24 so titles and prompts are stored

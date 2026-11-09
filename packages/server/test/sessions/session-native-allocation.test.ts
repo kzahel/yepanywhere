@@ -104,13 +104,8 @@ it("commits namespace quarantine with dispatch, retaining unknown effects throug
         storageScope: "/" + "界".repeat(3000),
       }),
     ).toThrow(SessionCreationCapacityError);
-    db.exec("UPDATE session_creation_capacity SET attempt_bytes = 67108864");
-    expect(() => store.beginDispatch(a.attempt, native)).toThrow(
-      SessionCreationCapacityError,
-    );
     expect(ids.isNativeNamespacePending(native)).toBe(false);
     expect(store.getForSession(a.sessionId)?.attempt.state).toBe("saved");
-    db.exec("UPDATE session_creation_capacity SET attempt_bytes = 4");
     const activeA = store.beginDispatch(a.attempt, native),
       activeB = store.beginDispatch(b.attempt, native);
     expect(ids.canDiscoverNative(native)).toBe(false);

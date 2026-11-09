@@ -41,6 +41,17 @@ export interface CreationAttachmentSnapshot {
   files: SavedFile[];
 }
 const hashPattern = /^[a-f0-9]{64}$/;
+/**
+ * Each operation copies its files into a sealed bundle, so its bytes are
+ * bounded per operation. There is no profile-wide total (plan 189 step 1).
+ */
+export const MAX_OPERATION_ATTACHMENT_BYTES = 2 * 1024 ** 3;
+function exceedsOperationBytes(files: readonly { size: number }[]): boolean {
+  return (
+    files.reduce((sum, file) => sum + file.size, 0) >
+    MAX_OPERATION_ATTACHMENT_BYTES
+  );
+}
 export function snapshotCreationAttachments(
   value: CreationAttachmentSnapshot,
 ): CreationAttachmentSnapshot {
@@ -83,6 +94,8 @@ export function snapshotCreationAttachments(
       ...(f.height !== undefined ? { height: f.height } : {}),
     };
   });
+  if (exceedsOperationBytes(files))
+    throw new Error("Saved creation attachments exceed the operation bound");
   return { groupId: value.groupId, files };
 }
 async function digest(path: string): Promise<string> {
@@ -173,9 +186,9 @@ export class CreationAttachments {
         throw new Error("Initial uploaded file is missing or changed");
       records.push({ ...file, path });
     }
-    this.store.assertAttachmentCapacity(
-      records.reduce((sum, ref) => sum + ref.size, 0),
-    );
+    // Refuse before copying; the snapshot repeats this with inline images.
+    if (exceedsOperationBytes(records))
+      throw new Error("Creation attachments exceed the operation bound");
     const temp = join(this.root, `${randomUUID()}.partial`);
     await mkdir(temp, { recursive: true });
     try {
@@ -240,9 +253,6 @@ export class CreationAttachments {
         await writeFile(join(temp, name), bytes);
         files.push(file);
       }
-      this.store.assertAttachmentCapacity(
-        files.reduce((sum, file) => sum + file.size, 0),
-      );
       const groupId = createHash("sha256")
         .update(JSON.stringify({ owner, requestId, files }))
         .digest("hex");

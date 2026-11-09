@@ -865,8 +865,9 @@ launch input or being restarted.
 
 Legacy raw files and inline images are sealed by the same immutable digest/claim
 owner as staged attachments. Inline images have a 32 MiB combined decoded limit;
-64 files/images per operation and 64 MiB per ordinary file remain bounded by
-the existing 2 GiB profile claim budget. Limited raw paths must resolve to that
+each operation carries at most 64 files/images, each legacy raw file at most
+64 MiB, and at most 2 GiB in all. There is no profile-wide claim total.
+Limited raw paths must resolve to that
 account's staged draft. Literal document references retain their original text
 semantics. Native adapters that cannot carry inline images save a failed
 resource before effects instead of dropping them. The initial native input
@@ -1055,23 +1056,27 @@ and resolved launch facts, retaining committed router references in their
 existing private store. A bounded internal-reason enum covers retained helper
 purposes; explicit legacy adoption handles old unknowns, never a fresh default.
 
-**Bounds and retention.** Retain at most 10,000 creation operations and 512 MiB
-of serialized saved creation payload per profile; a normalized request may be
-at most 256 KiB. Refuse excess before launch with a recoverable draft. Existing
-v0 receipt capacity remains independently authoritative. Reads and identical
-replays work at capacity. No silent receipt expiry or automatic failed-attempt
+**Bounds and retention.** Bounds are per item, never lifetime totals: a
+normalized request may be at most 256 KiB, and an oversized one is refused
+before launch with a recoverable draft. There is no profile-wide ceiling on
+the number of creation operations or their saved bytes, because a total that
+deletion barely releases would eventually stop session creation for good. The
+`session_creation_capacity` row keeps only its `generation` change stamp; its
+old `operations`, `payload_bytes`, `attempt_bytes` and `attachment_bytes`
+columns are frozen at their last values and unread. Existing v0 receipt
+capacity remains independently authoritative. No silent receipt expiry or automatic failed-attempt
 deletion. An explicit session deletion may release payload/attachments but
 retains retry identity/hash and a deleted tombstone; replay cannot launch again.
 Keep at most 16 outstanding native admission promises, using incumbent worker
 capacity and bounded shared dispatch, not a timer per attempt.
 
 Each operation retains at most 64 attempts. Serialized attempt/error/evidence
-data is capped at 8 KiB per attempt and 64 MiB per profile; safe error text is
-at most 1 KiB and evidence uses bounded structured fields, never raw stderr.
-Account and refuse before reserving another attempt or calling router/provider
-effects. Existing payload/status and identical replays remain available. No
-automatic attempt eviction is selected; deleted tombstones still consume the
-10,000-operation budget. Capacity refusal cannot mutate the current attempt.
+data is capped at 8 KiB per attempt; safe error text is at most 1 KiB and
+evidence uses bounded structured fields, never raw stderr. Refuse before
+inserting another attempt or calling router/provider effects. Existing
+payload/status and identical replays remain available. No automatic attempt
+eviction is selected; deleted tombstones are retained. A bound refusal cannot
+mutate the current attempt.
 
 **Attempts and retry.** Persist a dispatching marker before external startup.
 After restart, saved/queued work with proof of no dispatch can be re-admitted
@@ -1117,19 +1122,22 @@ non-acceptance. Draft acknowledgement checks the captured live file selection,
 including unfinished uploads, in addition to persisted text/attachment state;
 a newer paste stays on the form and continues uploading. Retain
 claimed bytes until explicit deletion or a documented confirmed-delivery release
-under existing media-preservation policy. Cap claimed bytes at 2 GiB per profile
-and references at 64 per creation, in addition to the configured upload limit;
-capacity refusal preserves staged files and drafts. No project-local write is
-authorized by these decisions. Queue items retain original source at enqueue;
-first promotion admits the session under the item's stable operation key.
+under existing media-preservation policy. Cap references at 64 and claimed
+bytes at 2 GiB per creation (`MAX_OPERATION_ATTACHMENT_BYTES`); a staged file
+is otherwise bounded only by the configured upload limit. There is no
+per-profile claimed-byte total. A bound refusal preserves staged
+files and drafts. No project-local write is authorized by these decisions.
+Queue items retain original source at enqueue; first promotion admits the
+session under the item's stable operation key.
 
-Reserve byte/reference capacity durably before sealing, not only after a claim
-succeeds. Reservations, sealed-unclaimed objects and accepted claims count
-together against 2 GiB and 65,536 per-profile reference slots. Unclaimed
-reservations/sealed copies expire after 24 hours and are reclaimed in bounded
-batches of at most 64 through shared maintenance; accepted claims do not expire
-by that rule. Their original draft staging keeps its existing retention policy.
-Crash cleanup verifies no accepted claim before releasing a reservation/object.
+Sealed copies are written before the claim commits. Once per process, the
+first seal scans for partial copies and for sealed copies older than seven
+days that no live operation claims, and removes them (`creation-attachments.ts`
+`cleanup`). A deleted or refused operation's copy is therefore removed by the
+first scan after it is seven days old, which on a long-running server means
+the next restart. No per-profile byte or reference total applies; plan 189 step 1
+removed the 2 GiB lifetime claim total. Original draft staging keeps its
+existing retention policy.
 
 **Public web contract.** Introduce `POST /api/session-creations` with a caller
 `requestId`, project/detached selection, exact initial text, existing launch
@@ -1287,9 +1295,9 @@ claim. The current attempt/generation and canonical provider family/store scope
 commit in the same transaction as dispatch. The scope comes from trusted launch
 configuration, including the actual account/sandbox store; it is never a client
 hint or an id-format inference. The private namespace evidence remains in the
-attempt's existing 8 KiB/64 MiB budgets. Oversized or over-capacity evidence
-refuses dispatch and rolls back the claim. Claims are bounded by the profile's
-10,000 operations; they have no timers or automatic expiry.
+attempt's 8 KiB detail bound. Oversized evidence refuses dispatch and rolls
+back the claim. There is at most one claim per creation operation; claims have
+no timers or automatic expiry.
 
 While a claim exists, unknown native discoveries in that namespace cannot be
 adopted or exposed as another public session. Existing reverse bindings stay
@@ -1334,7 +1342,7 @@ machine-control choice and selected global instructions. Permission patterns
 and nested data are copied; unknown option fields, actor hints, environment
 objects and desktop-control credential proof are excluded. Retired execution
 and resume-only options cannot enter this new-session snapshot. The serialized
-snapshot shares the existing 256 KiB request and 512 MiB profile payload bounds.
+snapshot shares the existing 256 KiB request bound.
 Changed saved choices conflict on request-key reuse; identical choices replay.
 
 These are submitted choices, not current authorization or proof that a provider

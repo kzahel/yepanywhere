@@ -414,10 +414,8 @@ it("rolls every row, counter and metadata mirror back when the final metadata wr
   ])
     expect(rows(database, `SELECT * FROM ${table}`)).toEqual([]);
   expect(
-    rows(database, "SELECT * FROM session_creation_capacity"),
-  ).toMatchObject([
-    { operations: 0, payload_bytes: 0, attempt_bytes: 0, generation: 1 },
-  ]);
+    rows(database, "SELECT generation FROM session_creation_capacity"),
+  ).toEqual([{ generation: 1 }]);
   expect(rows(database, "SELECT * FROM session_metadata")).toHaveLength(1);
   expect(metadata.getMetadata("existing")?.customTitle).toBe(
     "keep unrelated metadata",
@@ -532,7 +530,7 @@ it("fails a router refusal before provider start as retryable, never once a nati
   ).toThrow(SessionCreationConflict);
 });
 
-it("replays retries before mutable checks, retains historical results, and refuses stale or over-capacity recovery", async () => {
+it("replays retries before mutable checks, retains historical results, and refuses stale recovery or a 65th attempt", async () => {
   const { store, database } = await fixture();
   const a = store.admit({ requestId: "request_0001", context, request });
   store.failBeforeEffects(a.attempt, "startup-unavailable");
@@ -557,35 +555,39 @@ it("replays retries before mutable checks, retains historical results, and refus
     store.retry(context.owner, a.requestId, "retry_00002", a.attempt.attemptId),
   ).toThrow(SessionCreationConflict);
   store.failBeforeEffects(retry, "launch-refused");
-  const actualUsage = rows(
-    database,
-    "SELECT * FROM session_creation_capacity",
-  )[0]!;
+  // A profile whose old lifetime totals reached their ceilings still creates
+  // and retries; nothing reads or moves those counters any more.
+  const exhausted = {
+    operations: 10_000,
+    payload_bytes: 536_870_912,
+    attempt_bytes: 67_108_864,
+    attachment_bytes: 2 * 1024 ** 3,
+  };
   database.exec(
-    "UPDATE session_creation_capacity SET operations = 10000, payload_bytes = 536870912, attempt_bytes = 67108864",
+    `UPDATE session_creation_capacity SET operations = ${exhausted.operations}, payload_bytes = ${exhausted.payload_bytes}, attempt_bytes = ${exhausted.attempt_bytes}, attachment_bytes = ${exhausted.attachment_bytes}`,
   );
   expect(
-    store.admit({ requestId: a.requestId, context, request }).sessionId,
-  ).toBe(a.sessionId);
-  expect(
-    store.retry(context.owner, a.requestId, "retry_00001", a.attempt.attemptId),
-  ).toMatchObject({ attemptId: retry.attemptId });
-  expect(() =>
-    store.admit({ requestId: "request_0002", context, request }),
-  ).toThrow(SessionCreationCapacityError);
-  expect(() =>
-    store.retry(context.owner, a.requestId, "retry_00002", retry.attemptId),
-  ).toThrow(SessionCreationCapacityError);
-  expect(store.get(context.owner, a.requestId)?.attempt.attemptId).toBe(
+    store.admit({ requestId: "request_0002", context, request }).sessionId,
+  ).not.toBe(a.sessionId);
+  const second = store.retry(
+    context.owner,
+    a.requestId,
+    "retry_00002",
     retry.attemptId,
   );
-  database.exec(
-    `UPDATE session_creation_capacity SET attempt_bytes = ${actualUsage.attempt_bytes}, payload_bytes = ${actualUsage.payload_bytes}; UPDATE session_creations SET attempt_count = 64`,
+  expect(store.get(context.owner, a.requestId)?.attempt.attemptId).toBe(
+    second.attemptId,
   );
+  expect(
+    rows(database, "SELECT * FROM session_creation_capacity"),
+  ).toMatchObject([exhausted]);
+  store.failBeforeEffects(second, "launch-refused");
+  // The per-creation attempt bound still holds.
+  database.exec("UPDATE session_creations SET attempt_count = 64");
   expect(() =>
-    store.retry(context.owner, a.requestId, "retry_00003", retry.attemptId),
+    store.retry(context.owner, a.requestId, "retry_00003", second.attemptId),
   ).toThrow(SessionCreationCapacityError);
-  store.delete(retry);
+  store.delete(second);
   expect(
     store.retry(context.owner, a.requestId, "retry_00001", a.attempt.attemptId)
       .attemptId,
@@ -819,7 +821,7 @@ it("recovers lost controllers without input replay and accepts only scoped curre
   expect(store.generation).toBe(generation);
 });
 
-it("accounts attachment claims transactionally, rejects profile overflow and releases only the deleted operation", async () => {
+it("claims attachments with a per-operation bound but no profile-wide total, and releases only the deleted operation", async () => {
   const { database, store } = await fixture();
   const attachments = {
     groupId: "a".repeat(64),
@@ -835,7 +837,7 @@ it("accounts attachment claims transactionally, rejects profile overflow and rel
     ],
   };
   const saved = store.admit({
-    requestId: "owned-attachments-quota",
+    requestId: "owned-attachments-first",
     context,
     request: { ...request, attachments },
   });
@@ -849,32 +851,52 @@ it("accounts attachment claims transactionally, rejects profile overflow and rel
       request: { ...request, attachments },
     }).sessionId,
   ).toBe(saved.sessionId);
+  // Past the old 2 GiB lifetime total.
+  const more = store.admit({
+    requestId: "owned-attachments-more",
+    context,
+    request: {
+      ...request,
+      attachments: { ...attachments, groupId: "c".repeat(64) },
+    },
+  });
+  // One operation is still bounded at 2 GiB, and a refusal saves nothing.
   expect(() =>
     store.admit({
-      requestId: "owned-attachments-overflow",
+      requestId: "owned-attachments-oversized",
       context,
       request: {
         ...request,
         attachments: {
-          ...attachments,
-          files: [{ ...attachments.files[0]!, size: 1 }],
+          groupId: "d".repeat(64),
+          files: [
+            attachments.files[0]!,
+            {
+              ...attachments.files[0]!,
+              id: "extra",
+              name: "extra.txt",
+              size: 1,
+            },
+          ],
         },
       },
     }),
+  ).toThrow("exceed the operation bound");
+  // The 256 KiB request bound is the only bound on saved payload bytes.
+  expect(() =>
+    store.admit({
+      requestId: "owned-request-oversized",
+      context,
+      request: { ...request, message: "x".repeat(256 * 1024) },
+    }),
   ).toThrow(SessionCreationCapacityError);
-  expect(
-    rows(
-      database,
-      "SELECT operations, attachment_bytes FROM session_creation_capacity",
-    ),
-  ).toEqual([{ operations: 1, attachment_bytes: 2 * 1024 ** 3 }]);
   store.delete(saved.attempt);
   expect(
     store.getAttachmentGroupId(context.owner, saved.requestId),
   ).toBeUndefined();
-  expect(
-    rows(database, "SELECT attachment_bytes FROM session_creation_capacity"),
-  ).toEqual([{ attachment_bytes: 0 }]);
+  expect(store.getAttachmentGroupId(context.owner, more.requestId)).toBe(
+    "c".repeat(64),
+  );
   database.exec(
     "CREATE TRIGGER refuse_attachment_claim BEFORE INSERT ON session_creation_attempts BEGIN SELECT RAISE(ABORT, 'owned refusal'); END",
   );
@@ -888,9 +910,12 @@ it("accounts attachment claims transactionally, rejects profile overflow and rel
   expect(
     rows(
       database,
-      "SELECT operations, attachment_bytes FROM session_creation_capacity",
+      "SELECT request_key, deleted FROM session_creations ORDER BY request_key",
     ),
-  ).toEqual([{ operations: 1, attachment_bytes: 0 }]);
+  ).toEqual([
+    { request_key: "owned-attachments-first", deleted: 1 },
+    { request_key: "owned-attachments-more", deleted: 0 },
+  ]);
 });
 
 it("reads creation status and admitted birth without returning saved payloads across the real SQLite boundary", async () => {

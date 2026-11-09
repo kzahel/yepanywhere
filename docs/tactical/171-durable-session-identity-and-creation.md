@@ -270,8 +270,9 @@ separate from that adjacent watcher gap.
 
 The attachment slice seals canonical account-owned inputs outside draft/Queue
 staging, commits their path-free digest claim with the prompt and materializes
-under the saved YA id before dispatch. SQLite migration 22 accounts the 2 GiB
-profile claim budget; at most 64 files belong to one operation. Explicit safe
+under the saved YA id before dispatch. SQLite migration 22 accounted a 2 GiB
+profile claim budget; plan 189 step 1 replaced it with 2 GiB per operation.
+At most 64 files belong to one operation. Explicit safe
 retry survives deletion of staging originals, changed final bytes refuse, and
 expired unclaimed preparation is reclaimed without deleting accepted claims.
 The provider text capabilities retain their meanings; optional bit 146 gates

@@ -186,11 +186,13 @@ interface RetryRow {
   failed_attempt: string;
   result_attempt: string;
 }
-const MAX_OPERATIONS = 10_000,
-  MAX_PAYLOAD = 512 * 1024 * 1024,
-  MAX_REQUEST = 256 * 1024,
-  MAX_ATTEMPTS = 64,
-  MAX_ATTEMPT_BYTES = 64 * 1024 * 1024;
+/**
+ * Per-item bounds only. There is no lifetime total: saved creations are rows
+ * in the profile database, and a ceiling on their count or bytes would stop
+ * session creation for good once reached.
+ */
+const MAX_REQUEST = 256 * 1024,
+  MAX_ATTEMPTS = 64;
 const keyPattern = /^[A-Za-z0-9_-]{8,128}$/;
 function key(value: string): string {
   if (typeof value !== "string" || !keyPattern.test(value))
@@ -447,7 +449,7 @@ export class SessionCreationStore {
   private readonly listeners = new Set<
     (sessionId: YaSessionId, creation: SessionCreationStatus) => void
   >();
-  /** Exists only during one synchronous transaction, bounded by creation capacity. */
+  /** Exists only during one synchronous transaction; holds the creations it touched. */
   private transactionChanges?: Set<string>;
 
   subscribeChanges(
@@ -500,8 +502,7 @@ export class SessionCreationStore {
     | "bySession"
     | "attempt"
     | "retry"
-    | "capacity"
-    | "reserve"
+    | "generation"
     | "insert"
     | "insertAttempt"
     | "updateAttempt"
@@ -550,11 +551,8 @@ export class SessionCreationStore {
       retry: database.prepare(
         "SELECT * FROM session_creation_retries WHERE creation_id = ? AND retry_key = ?",
       ),
-      capacity: database.prepare(
-        "SELECT * FROM session_creation_capacity WHERE id = 1",
-      ),
-      reserve: database.prepare(
-        "UPDATE session_creation_capacity SET operations = operations + ?, payload_bytes = payload_bytes + ?, attempt_bytes = attempt_bytes + ?, attachment_bytes = attachment_bytes + ? WHERE id = 1",
+      generation: database.prepare(
+        "SELECT generation FROM session_creation_capacity WHERE id = 1",
       ),
       insert: database.prepare(
         "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id, input_expected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
@@ -578,7 +576,7 @@ export class SessionCreationStore {
   }
   /** One fixed-size scalar read; no per-session scan or timer. */
   get generation(): number {
-    return this.statements.capacity.get<{ generation: number }>()!.generation;
+    return this.statements.generation.get<{ generation: number }>()!.generation;
   }
 
   /** Once per Hono startup: compact control rows only, never saved prompts. */
@@ -798,36 +796,6 @@ export class SessionCreationStore {
         : {}),
     };
   }
-  assertAttachmentCapacity(bytes: number): void {
-    const usage = this.statements.capacity.get<{ attachment_bytes: number }>()!;
-    if (
-      !Number.isSafeInteger(bytes) ||
-      bytes < 0 ||
-      usage.attachment_bytes + bytes > 2 * 1024 ** 3
-    )
-      throw new SessionCreationCapacityError();
-  }
-  private reserve(
-    operations: number,
-    payload: number,
-    attempts: number,
-    attachments = 0,
-  ): void {
-    const usage = this.statements.capacity.get<{
-      operations: number;
-      payload_bytes: number;
-      attempt_bytes: number;
-      attachment_bytes: number;
-    }>()!;
-    if (
-      usage.operations + operations > MAX_OPERATIONS ||
-      usage.payload_bytes + payload > MAX_PAYLOAD ||
-      usage.attempt_bytes + attempts > MAX_ATTEMPT_BYTES ||
-      usage.attachment_bytes + attachments > 2 * 1024 ** 3
-    )
-      throw new SessionCreationCapacityError();
-    this.statements.reserve.run(operations, payload, attempts, attachments);
-  }
   /** No provider effects. The exact initial text and normalized facts commit together. */
   admit(input: {
     requestId: string;
@@ -935,12 +903,6 @@ export class SessionCreationStore {
         () => {
           if (this.statements.byKey.get(ownerKey(context.owner), requestId))
             throw new SessionCreationConflict();
-          this.reserve(
-            1,
-            bytes,
-            detailBytes,
-            request.attachments?.files.reduce((sum, f) => sum + f.size, 0) ?? 0,
-          );
           this.metadata.identities.allocateWithinTransaction({
             sessionId,
             provider: request.provider,
@@ -1054,7 +1016,6 @@ export class SessionCreationStore {
       }),
       size = Buffer.byteLength(detail);
     if (size > 8192) throw new SessionCreationCapacityError();
-    this.reserve(0, 0, size - previous.detail_bytes);
     this.statements.updateAttempt.run(
       generation,
       state,
@@ -1359,7 +1320,6 @@ export class SessionCreationStore {
         ...(current.request?.intent === "copy" ? { kind: "copy" } : {}),
       });
       const detailBytes = Buffer.byteLength(detail);
-      this.reserve(0, 0, detailBytes);
       const attempt = randomUUID();
       this.statements.insertAttempt.run(
         attempt,
@@ -1383,8 +1343,7 @@ export class SessionCreationStore {
   /** Tombstones retain request/hash and retry results; replay can never relaunch. */
   delete(fence: CreationAttemptFence): void {
     this.transaction(() => {
-      const current = this.assertCurrent(fence),
-        row = this.statements.byId.get<OperationRow>(current.id)!;
+      const current = this.assertCurrent(fence);
       this.update(
         fence,
         "deleted",
@@ -1393,17 +1352,6 @@ export class SessionCreationStore {
         fence.generation + 1,
       );
       this.statements.removePayload.run(current.id);
-      this.reserve(
-        0,
-        -row.payload_bytes,
-        0,
-        -(
-          current.request?.attachments?.files.reduce(
-            (sum, f) => sum + f.size,
-            0,
-          ) ?? 0
-        ),
-      );
     });
   }
   close(): void {

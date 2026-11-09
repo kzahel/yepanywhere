@@ -2,8 +2,9 @@
 
 Topic: catalog-identity-projection-cost
 
-Status: proposed 2026-11-09. Not started. Checked against the code at
-`db161ab3c` and the maintainer's profile the same day.
+Status: in progress. Proposed 2026-11-09 and checked against the code at
+`db161ab3c` and the maintainer's profile the same day. Step 1 done
+2026-11-09.
 
 ## Goal
 
@@ -208,8 +209,9 @@ Downgrade is unsupported, as for every migration since required SQLite
   - 8 KiB per attempt record (`:1056`);
   - 64 attempts per creation (`:192`, `:1355`);
   - 16 outstanding admissions (`supervisor/Supervisor.ts:1585-1586`);
-  - 64 attachments per operation and 64 MiB per file
-    (`creation-attachments.ts:52`, `:171`).
+  - 64 attachments per operation (`creation-attachments.ts:52`) and
+    64 MiB per legacy raw file (`:171`); see the outcome below for the
+    per-operation byte bound added in review.
 - Keep the table's `generation` counter. It is the creation list's change
   stamp: `getCatalogVersion` (`app.ts:1007`), the status `revision`
   (`:681`) and the project queue (`ProjectQueueService.ts:619`) read it. The
@@ -239,6 +241,20 @@ Downgrade is unsupported, as for every migration since required SQLite
   `:1289-1292` and `:1337`.
 
 Independent of the catalog; can land first.
+
+Done 2026-11-09. `reserve`, `assertAttachmentCapacity` and the counter SQL
+are gone; the store reads only `generation` from the capacity row. The
+regression tests set the old counters to their ceilings and still admit,
+retry and claim past 2 GiB of attachments; both fail on the old code.
+Deletion still clears `payload_json` for tombstones, as before.
+
+Review found that the 2 GiB lifetime total had been the only bound on staged
+attachment bytes: the 64 MiB check covers legacy raw paths only, and staged
+files are bounded by the upload limit (100 MiB by default, none when 0).
+Each operation now carries at most 2 GiB of attachments
+(`MAX_OPERATION_ATTACHMENT_BYTES`, checked before copying and in the saved
+snapshot). Follow-up, not done: every creation copies its staged files, so
+one staged upload referenced by many creations is stored many times.
 
 ### 2 — cleanup with no schema change
 
