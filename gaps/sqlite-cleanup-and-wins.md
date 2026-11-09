@@ -266,6 +266,150 @@ the fixed-`.tmp` writers in
 stale. SecurityClientService is now `:1741`, ProjectQueueService `:1311`
 and DirtyFileEditorService `:598`.
 
+## Third sweep, 2026-11-09: by pattern
+
+Read at `036500d47` against the same data dir: every server-side store,
+every table in `discovery.sqlite`, whole-corpus memory, and client storage.
+It confirms item 14's diagnosis of `indexes/*.json`: 356 files written after
+the import came from the older `9dc9183b5` build, which still wrote JSON
+(244 of them in one minute on 2026-11-05). Since 2026-11-06 only
+`project-scanner-cache.json` changes there. The holdover shows up in five
+patterns.
+
+**JSON-blob tables.** Two tables ported from JSON files keep one blob per
+key in `WITHOUT ROWID` tables. Rows over about 1 KB overflow, and the
+overflow pages are about half empty: 9.7 MB of 18.8 MB for summaries,
+3.3 MB of 6.1 MB for metadata (`dbstat`).
+
+22. **`session_summary_index` should be a rowid table with `full_title` in
+    a column.** `fullTitle` is 8.57 MB of the 13.15 MB of summary JSON,
+    uncapped (max 28,525 characters; the catalog caps at 16,384).
+    `read()` parses a whole scope (`SqliteSessionSummaryIndex.ts:51-56`);
+    the largest scope is 2.5 MB. Callers look up by scope or
+    (scope, session) only, so no new indexes are needed.
+23. **`session_metadata` should be a rowid table with `initial_prompt`
+    and `working_project_id` columns.**
+    - `initialPrompt` is 2.53 MB of 4.19 MB of metadata JSON.
+    - `goalCommand` stores 1,103 copies of 15 distinct descriptors
+      (449 KB).
+    - `provider` equals `session_identities.provider` in every joined row,
+      and 1,519 rows hold nothing else, so item 3's provider scans should
+      use `session_identities` rather than an expression index.
+    - 379 rows (405 KB) have neither an identity nor a summary and are
+      never pruned.
+    - Relationship visibility parses the whole blob for
+      `$.workingProjectId` (`authorized-relationship-source.ts:32-37`).
+24. **`issue_index_jobs.source_json` is a whole catalog row.** 6.14 MB for
+    2,043 jobs, 72% of it titles (`IssueIndexer.ts:188`). Every catalog
+    generation loads all of them (`IssueStore.ts:306-320`) and compares
+    full JSON strings to detect change (`IssueIndexer.ts:188-198`). Store a
+    digest and the locator fields only. No path deletes a job: 371
+    describe sessions idle since before 2026-10-10 and 64 `/tmp` projects.
+
+The same prompt text is now stored about five times: catalog titles
+(8.6 MB), summary `fullTitle` (8.57 MB), issue job titles (4.42 MB),
+metadata `initialPrompt` (2.53 MB) and creation payloads (620 KB). Items
+22–24 remove most of it without a new design.
+
+**Whole-file stores.**
+
+25. **`indexes/git-untracked/` persists the tracked tree.** The tilefun
+    file is 4.6 MB with zero untracked files: 33,267 `headPaths` plus the
+    same 33,267 `indexPaths`. It is rewritten on HEAD or index changes,
+    hourly, and when a queried path is due its recheck
+    (`GitUntrackedCacheService.ts:270-290`, `:359`, `:397-409`). Persist
+    the HEAD sha and an index digest instead; this needs no table.
+26. **`agent-auth-router/private.json` never deletes an allocation.**
+    325 allocations, 120 KB, rewritten with fsync on each change
+    (`AgentAuthRouter.ts:409-422`); `retire` only marks `cancelled`
+    (`:994-1003`). Prune cancelled-and-acknowledged and gone sessions.
+    Entries hold tokens, so a table needs the same 0600 protection.
+27. **`projects/` is mostly August test pollution.** 274 of the 1,227
+    `review-comments.json` files carry the fixture anchor `src/a.ts`, and
+    none changed after 2026-08-27; about 369 author palettes hold
+    `t@example.com`. A test reached the default data dir (not found).
+    Delete the fixtures and find the test. Live review storage is fine.
+28. **`indexes/project-scanner-cache.json` is rewritten per scan.** See
+    item 31.
+
+**Whole-corpus work per catalog generation.** These run every 3.8–7.6 s
+on an active host and go away with a `changed_generation` delta from the
+catalog table:
+
+29. The issue indexer sweep projects identities for all 7,470 rows and
+    stringifies every recent row on each generation (`app.ts:3704-3739`,
+    `IssueIndexer.ts:99-168`).
+30. The project view walks every row each generation
+    (`RetainedSessionCollections.ts:234-260`, `catalog-projects.ts:33-80`).
+    Its version includes `lastActivity`, so a `projects-changed` carrying
+    every project goes out whenever any session advances, and every
+    mounted project page refetches the whole-catalog inventory
+    (item 15). Inferred: those refetches mostly coalesce with the
+    catalog event's.
+31. The legacy `ProjectScanner` still rescans on every session file change
+    (`scanner.ts:506-550`): one `readdir` of the changed Claude directory
+    (1,253 entries for this repository), the Gemini path registration of
+    item 18, and a rewrite of its cache file. It duplicates the catalog's
+    project view; serve projects from the catalog instead.
+32. Smaller: the host agent process poll walks every row every 5 s while
+    the Agents page is open (`host-process-catalog.ts:40-55`);
+    `getRecordedProviders` runs 2–3 times per `scanner.getProject` and
+    `getAllMetadata()` copies the whole map per call (add both to item 3);
+    limited-user grants expand every creation projection per request and
+    per event (`app.ts:969-1031`, `:4570-4580`; off here).
+
+**Missing retention.**
+
+33. **Session creation has a lifetime ceiling.** `session_creation_capacity`
+    counts operations up to 10,000 (`SessionCreationStore.ts:189`, `:823`)
+    and nothing decrements it, including deletion. This host is at 232
+    after five days, about 46 a day, so every YA-created session would be
+    refused from about mid-2027, sooner under automation.
+    [Session identity](../topics/session-identity.md) states the budget as
+    intended, so the fix is a maintainer decision: release operations for
+    consumed or deleted creations, or bound by live rows instead.
+34. Unbounded logs and caches: `logs/sdk-raw.jsonl` (728 MB, opt-in
+    `LOG_SDK_MESSAGES`, about 37 MB/h, no rotation,
+    `sdk/messageLogger.ts:28-41`); dev-mode client logs written with
+    `appendFileSync` on the request path (`routes/client-logs.ts:73`);
+    audit log archives never pruned (`security/auditLog.ts`); preserved
+    tool-result media; 483 empty upload staging directories.
+35. `draft_receipts` keeps 30 days (12,998 rows, 8.1 MB) while write tickets
+    expire after 10 minutes, and each draft write counts all receipts for
+    its owner (`DraftStore.ts:181-184`). Shorten retention and keep a
+    counter. 372 of 529 `session_summary_scopes` are empty and never
+    removed.
+
+**Client storage.** No server corpus is cached in localStorage or
+IndexedDB. Two paths parse more than they need:
+
+36. Each draft keystroke parses the draft envelope about six times and
+    serializes it once (`sessionDraftStorage.ts:137-178`,
+    `draftSyncStorage.ts:701-737`). It is bounded by one draft, but a
+    pasted prompt of a few hundred KB would pay that per keystroke;
+    measure against the 100 ms rule, then parse once.
+37. Scroll memory walks every localStorage key per read and three times
+    per write, and never evicts (`sessionScrollMemoryStorage.ts:164-340`).
+
+Outside the server: the relay parses every daily telemetry file per
+`/stats` request and keeps them forever (`relay/src/stats.ts:131-158`),
+though it already has SQLite.
+
+### Recommended order
+
+1. Decide item 33 before anything else; it is a dated outage.
+2. Cheap deletions and caps with no schema work: items 25, 26, 27, 34, 35,
+   14 and 19.
+3. The catalog table
+   ([session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md)),
+   designed together with items 22–24 so titles and prompts are stored
+   once and rows are keyed for joins. Its `changed_generation` delta then
+   fixes items 29–31 and 15 by construction.
+4. Items 11 and 12 (list projection and metadata on demand), which depend
+   on item 23's columns.
+5. Item 21 (Codex index as the change source) and the client items 36–37
+   as measurement shows need.
+
 ## Not recommended
 
 - Merging `speech-vocabulary.sqlite` into `discovery.sqlite`: the vocabulary
