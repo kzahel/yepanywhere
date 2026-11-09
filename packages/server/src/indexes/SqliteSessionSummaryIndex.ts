@@ -62,7 +62,7 @@ export class SqliteSessionSummaryIndex {
     };
   }
 
-  /** Undefined means this scope still needs its one-time legacy import. */
+  /** Undefined means this scope has no stored summaries yet. */
   get(
     scope: string,
     projectId: string,

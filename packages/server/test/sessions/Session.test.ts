@@ -12,6 +12,7 @@ import { SessionReader } from "../../src/sessions/reader.js";
 import {
   closeTestDiscoveryDatabases,
   createTestSessionMetadataService,
+  openTestDiscoveryDatabase,
 } from "../utils/session-metadata-database.js";
 
 describe("Session", () => {
@@ -37,6 +38,7 @@ describe("Session", () => {
 
     reader = new SessionReader({ sessionDir });
     indexService = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
       dataDir: indexDir,
       projectsDir: testDir,
     });

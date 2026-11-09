@@ -3,7 +3,7 @@
 Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
-`db161ab3c` and the maintainer's profile the same day. Step 1 done
+`db161ab3c` and the maintainer's profile the same day. Steps 1 and 2 done
 2026-11-09.
 
 ## Goal
@@ -266,6 +266,30 @@ one staged upload referenced by many creations is stored many times.
 - Delete the one-time import leftovers, and the JSON summary writer that
   only tests reach (items 5, 14, 19). Those tests move to an in-memory
   database. This touches `SessionIndexService`, which step 5 changes.
+
+Done 2026-11-09:
+- Git-untracked snapshots persist the HEAD sha and a digest of
+  `git ls-files -z --cached` (cache version 2). A reload whose digest
+  differs reconciles fully, since the previous index is unknown. tilefun's
+  file: 4.6 MB to 584 bytes.
+- `server.log`, `sdk-raw.jsonl` and `codex-correlation-debug.jsonl` rotate
+  at 100 MiB and keep two archives (gap item 2 as well). Client logs are
+  appended asynchronously, kept 14 days and capped at 32 MiB per device
+  per day.
+- `SessionIndexService` requires the database. The JSON writer, its locks,
+  the legacy JSON read and `SESSION_INDEX_WRITE_LOCK_*` are gone. Legacy
+  `indexes/*.json` scopes (754 files, 26 MB here) are deleted on start
+  once each parses as a summary scope.
+- `session-metadata.json` and `public-shares.legacy-backup.json` are
+  deleted, best effort, by a later start (for shares, also a later enable)
+  that finds the import marker already present; a metadata marker that
+  imported no file deletes nothing. Decision: the metadata import code stays, because
+  0.9.2 (the last release before the import) can still upgrade directly
+  and the file cannot be rebuilt.
+- The August fixtures were removed from the maintainer's profile, after
+  archiving to `~/yep-anywhere-cleanup-backup-2026-11-09.tar.gz`, which
+  also holds the legacy files above. `projects/` went from 1,644
+  directories to 47.
 
 ### 3 — catalog storage in SQLite
 

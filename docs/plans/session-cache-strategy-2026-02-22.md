@@ -74,9 +74,9 @@ This leaves list endpoints (`/api/sessions`, `/api/projects/:id/sessions`, `/api
 - Added cross-process session index write coordination:
   - lock directory per index file (`.lock`)
   - configurable lock timeout and stale-lock cleanup
-  - env knobs:
-    - `SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS`
-    - `SESSION_INDEX_WRITE_LOCK_STALE_MS`
+  - env knobs `SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS` and
+    `SESSION_INDEX_WRITE_LOCK_STALE_MS` (removed 2026-11 with the JSON writer;
+    summaries live in SQLite)
 - Added tests for:
   - `includeStats` behavior in global sessions route
   - no temporary index files left after atomic writes

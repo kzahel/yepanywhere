@@ -10,9 +10,14 @@ import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
 import { GeminiSessionReader } from "../../src/sessions/gemini-reader.js";
 import { hashProjectPath } from "../../src/projects/gemini-project-map.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 
 const roots: string[] = [];
 afterEach(async () => {
+  closeTestDiscoveryDatabases();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
   );
@@ -268,6 +273,7 @@ it("refreshes a warm native index on edits and creates before its validation int
     projectPath: f.project,
   });
   const index = new SessionIndexService({
+    database: openTestDiscoveryDatabase(join(f.sessionsDir, "..")),
     dataDir: join(f.sessionsDir, "..", "index"),
     eventBus,
     fullValidationIntervalMs: 60000,

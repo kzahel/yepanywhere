@@ -18,7 +18,7 @@ import { SqliteSessionSummaryIndex } from "../../src/indexes/SqliteSessionSummar
 import { SessionReader } from "../../src/sessions/reader.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 
-it("imports a legacy scope once and reads a dirty append's durable facts after database reopen", async () => {
+it("reads a dirty append's durable facts after database reopen", async () => {
   const dir = await mkdtemp(join(tmpdir(), "ya-summary-sql-"));
   const dataDir = join(dir, "indexes");
   const sessionDir = join(dir, "projects", "project");
@@ -31,7 +31,7 @@ it("imports a legacy scope once and reads a dirty append's durable facts after d
     `${JSON.stringify({ type: "user", uuid: "first", timestamp: "2026-01-01T00:00:00.000Z", message: { role: "user", content: "Original title" } })}\n`,
   );
   const stats = await stat(file);
-  const legacy: SessionIndexState = {
+  const persisted: SessionIndexState = {
     version: 5,
     projectId,
     sessions: {
@@ -48,6 +48,10 @@ it("imports a legacy scope once and reads a dirty append's durable facts after d
     },
   };
   let database = new DiscoverySqliteService({ dataDir: dir });
+  new SqliteSessionSummaryIndex(database.getDatabase()).save(
+    sessionDir,
+    persisted,
+  );
   let service = new SessionIndexService({
     dataDir,
     projectsDir: join(dir, "projects"),
@@ -56,8 +60,6 @@ it("imports a legacy scope once and reads a dirty append's durable facts after d
   const reader = new SessionReader({ sessionDir });
   const parse = vi.spyOn(reader, "getSessionSummary");
   try {
-    const path = service.getIndexPath(sessionDir);
-    await writeFile(path, JSON.stringify(legacy));
     expect(
       (
         await service.getCachedSessionSummary(
@@ -70,9 +72,6 @@ it("imports a legacy scope once and reads a dirty append's durable facts after d
     ).toBe("Original title");
     service.dispose();
     database.close();
-    // An old binary's JSON write must not replace already-imported SQL facts.
-    legacy.sessions.session!.title = "Obsolete JSON";
-    await writeFile(path, JSON.stringify(legacy));
     database = new DiscoverySqliteService({ dataDir: dir });
     service = new SessionIndexService({
       dataDir,

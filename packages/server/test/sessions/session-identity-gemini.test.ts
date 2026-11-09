@@ -93,6 +93,7 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
         await metadata.setWorkingProject(publicId, workingId, originalId);
       }
       index = new SessionIndexService({
+        database: storage.getDatabase(),
         dataDir: join(root, "indexes"),
         projectsDir: join(root, "ambient"),
       });

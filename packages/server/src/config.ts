@@ -101,10 +101,6 @@ export interface Config {
    * 0 = validate every request (legacy behavior).
    */
   sessionIndexFullValidationMs: number;
-  /** Session index write lock timeout (ms) for cross-process coordination. */
-  sessionIndexWriteLockTimeoutMs: number;
-  /** Session index lock staleness threshold (ms). */
-  sessionIndexWriteLockStaleMs: number;
   /** Max concurrent summary parses across all session-index scopes. */
   sessionIndexSummaryParseConcurrency: number;
   /** Claude summary parser worker mode. Default off. */
@@ -316,14 +312,6 @@ export function loadConfig(): Config {
     0,
     parseIntOrDefault(process.env.SESSION_INDEX_FULL_VALIDATION_MS, 30000),
   );
-  const sessionIndexWriteLockTimeoutMs = Math.max(
-    0,
-    parseIntOrDefault(process.env.SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS, 2000),
-  );
-  const sessionIndexWriteLockStaleMs = Math.max(
-    1000,
-    parseIntOrDefault(process.env.SESSION_INDEX_WRITE_LOCK_STALE_MS, 10000),
-  );
   const sessionIndexSummaryParseConcurrency = Math.max(
     1,
     parseIntOrDefault(process.env.SESSION_INDEX_SUMMARY_PARSE_CONCURRENCY, 1),
@@ -385,8 +373,6 @@ export function loadConfig(): Config {
     piSessionsDir,
     codexWatchPeriodicRescanMs,
     sessionIndexFullValidationMs,
-    sessionIndexWriteLockTimeoutMs,
-    sessionIndexWriteLockStaleMs,
     sessionIndexSummaryParseConcurrency,
     claudeSummaryParserWorkerMode,
     codexSummaryParserWorkerMode,

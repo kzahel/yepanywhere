@@ -396,6 +396,7 @@ describe("scoped durable session identity", () => {
       lastActivity: null,
     };
     const index = new SessionIndexService({
+      database: fixture().database,
       dataDir: join(root, "indexes"),
       projectsDir: project.sessionDir,
     });

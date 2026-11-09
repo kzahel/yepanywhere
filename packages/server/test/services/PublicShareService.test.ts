@@ -577,6 +577,16 @@ describe("PublicShareService", () => {
     await expect(
       fs.stat(path.join(migrationDir, "public-shares.legacy-backup.json")),
     ).resolves.toMatchObject({});
+
+    // The next start finds the marker complete and deletes the backup, so a
+    // lost marker can no longer re-migrate from it.
+    const restarted = new PublicShareService({ dataDir: migrationDir });
+    await restarted.initialize();
+    expect(restarted.getReadiness().state).toBe("ready");
+    expect(restarted.getValidShareCount()).toBe(migrated.getValidShareCount());
+    await expect(
+      fs.stat(path.join(migrationDir, "public-shares.legacy-backup.json")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("bounds each migrated legacy representation independently", async () => {

@@ -112,10 +112,6 @@ ENVIRONMENT VARIABLES:
                                 Codex watcher periodic check interval in ms; thread-index hinted, full rescan as fallback (default: 5000 on macOS/Windows, 0 elsewhere)
   SESSION_INDEX_FULL_VALIDATION_MS
                                 Session index full validation interval in ms (default: 30000, 0 = validate every request)
-  SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS
-                                Session index write lock timeout in ms (default: 2000)
-  SESSION_INDEX_WRITE_LOCK_STALE_MS
-                                Session index stale lock threshold in ms (default: 10000)
   SESSION_INDEX_SUMMARY_PARSE_CONCURRENCY
                                 Max concurrent session-summary parses during cold index fills (default: 1)
   CLAUDE_SUMMARY_PARSER_WORKER  Claude summary parser child-process mode:

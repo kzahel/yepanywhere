@@ -271,18 +271,6 @@ export const ENV_VAR_REGISTRY: EnvVarDescriptor[] = [
       "Session index full-validation interval (ms). 0 validates every request.",
   },
   {
-    name: "SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS",
-    group: "Sessions & scanning",
-    description:
-      "Timeout (ms) to acquire the cross-process session index write lock.",
-  },
-  {
-    name: "SESSION_INDEX_WRITE_LOCK_STALE_MS",
-    group: "Sessions & scanning",
-    description:
-      "Age (ms) after which a session index write lock is considered stale.",
-  },
-  {
     name: "SESSION_INDEX_SUMMARY_PARSE_CONCURRENCY",
     group: "Sessions & scanning",
     description:

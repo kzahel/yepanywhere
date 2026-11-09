@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import {
   appendFile,
   mkdir,
-  readFile,
   rm,
   stat,
   utimes,
@@ -15,6 +14,7 @@ import * as zlib from "node:zlib";
 import type { CodexSessionEntry, UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
+import { SqliteSessionSummaryIndex } from "../../src/indexes/SqliteSessionSummaryIndex.js";
 import { getLogger } from "../../src/logging/logger.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
@@ -28,6 +28,10 @@ import type { SummaryParserClient } from "../../src/sessions/summary-parser-work
 import type { SessionSummary } from "../../src/supervisor/types.js";
 import { getCodexRolloutActivityTimeMs } from "../../src/utils/codexRolloutFiles.js";
 import { isZstdJsonlSupported } from "../../src/utils/jsonl.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +82,7 @@ describe("CodexSessionReader - OSS Support", () => {
   });
 
   afterEach(async () => {
+    closeTestDiscoveryDatabases();
     await Promise.all(
       [testDir, ...extraTempDirs].map((dir) =>
         rm(dir, { recursive: true, force: true }),
@@ -257,8 +262,12 @@ describe("CodexSessionReader - OSS Support", () => {
     const sessionId = "indexed-before-question-previews";
     await createSessionFile(sessionId, "openai", "gpt-6-astra");
     const projectId = "test-project" as UrlProjectId;
-    const options = { dataDir: join(testDir, "indexes") };
-    const initialIndex = new SessionIndexService(options);
+    const dataDir = join(testDir, "indexes");
+    const initialDatabase = openTestDiscoveryDatabase(testDir);
+    const initialIndex = new SessionIndexService({
+      database: initialDatabase,
+      dataDir,
+    });
     await initialIndex.initialize();
     const indexed = await initialIndex.getSessionSummaryWithCache(
       testDir,
@@ -267,12 +276,16 @@ describe("CodexSessionReader - OSS Support", () => {
       reader,
     );
     expect(indexed).not.toBeNull();
-    const indexPath = initialIndex.getIndexPath(testDir, reader);
-    const persisted = JSON.parse(await readFile(indexPath, "utf8"));
-    delete persisted.sessions[sessionId].asyncQuestions;
     initialIndex.dispose();
-    await writeFile(indexPath, JSON.stringify(persisted));
-    const index = new SessionIndexService(options);
+    const scope = reader.getIndexScopeKey(testDir);
+    const store = new SqliteSessionSummaryIndex(initialDatabase);
+    const persisted = store.read(scope)!;
+    delete persisted.sessions[sessionId]!.asyncQuestions;
+    store.save(scope, { ...persisted, version: 5 });
+    const index = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
+      dataDir,
+    });
     await index.initialize();
     const freshReader = new CodexSessionReader({ sessionsDir: testDir });
     try {
@@ -305,7 +318,7 @@ describe("CodexSessionReader - OSS Support", () => {
       });
       expect(freshReader.getLastSummaryStreamMetrics()).toBeNull();
       expect(summary).not.toHaveProperty("messageCount");
-      expect(await readFile(indexPath, "utf8")).toBe(JSON.stringify(persisted));
+      expect(store.read(scope)).toEqual(persisted);
     } finally {
       index.dispose();
       await freshReader.close();

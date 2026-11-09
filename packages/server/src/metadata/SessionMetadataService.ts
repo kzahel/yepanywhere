@@ -3,7 +3,7 @@
  * This enables renaming sessions and archiving them to hide from default view.
  *
  * State is persisted to the server's SQLite database, one row per session.
- * The legacy `session-metadata.json` is imported once and never written again.
+ * Legacy `session-metadata.json` is imported once; the next start deletes it.
  */
 
 import * as fs from "node:fs/promises";
@@ -354,14 +354,14 @@ export class SessionMetadataService {
   }
 
   /**
-   * Load state from the database, first importing the legacy JSON file if
-   * this database has never imported it. A legacy file that cannot be read or
-   * parsed stops startup rather than being silently replaced.
+   * Load state, importing the legacy JSON file once (an unreadable file stops
+   * startup, never silently replaced); a later start deletes an imported file.
    */
   async initialize(): Promise<void> {
-    if (!this.statements.selectImport.get()) {
-      await this.importLegacyFile();
-    }
+    const marker = this.statements.selectImport.get<{ source: string }>();
+    if (!marker) await this.importLegacyFile();
+    else if (marker.source === "json")
+      await fs.rm(this.legacyFilePath, { force: true }).catch(() => undefined);
     for (const row of this.statements.selectAll.all<{
       session_id: string;
       metadata: string;

@@ -419,6 +419,22 @@ export class PublicShareStore {
               "Legacy public share source remains after completed migration",
             );
           }
+          // A completed migration never reads the backup again, but a lost
+          // marker would re-migrate from it and restore revoked grants. The
+          // migrating reconcile keeps it; a later one that finds the marker
+          // already complete (next start or enable) deletes it, best effort.
+          // The marker's `legacyBackup` name is history only.
+          if (backupExists) {
+            await fs
+              .rm(this.legacyBackupPath, { force: true })
+              .then(() => syncDirectory(path.dirname(this.legacyBackupPath)))
+              .catch((error: unknown) =>
+                console.warn(
+                  "[public-shares] Could not remove the legacy backup",
+                  error,
+                ),
+              );
+          }
         } else if (legacyExists || backupExists) {
           this.readiness = "migrating";
           const completed = await this.migrateLegacy(

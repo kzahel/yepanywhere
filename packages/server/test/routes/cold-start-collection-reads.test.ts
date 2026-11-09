@@ -11,6 +11,10 @@ import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import type { Project } from "../../src/supervisor/types.js";
 import { EventBus } from "../../src/watcher/index.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 
 const PROJECTS = 6;
 const SESSIONS_PER_PROJECT = 4;
@@ -65,6 +69,7 @@ describe("cold start collection reads", () => {
     }
 
     indexService = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
       dataDir: join(testDir, "indexes"),
       projectsDir,
     });
@@ -72,6 +77,7 @@ describe("cold start collection reads", () => {
   });
 
   afterEach(async () => {
+    closeTestDiscoveryDatabases();
     await rm(testDir, { recursive: true });
   });
 

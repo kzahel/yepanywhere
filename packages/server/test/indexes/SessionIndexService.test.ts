@@ -13,13 +13,21 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { toUrlProjectId, type UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
+import {
+  SessionIndexService,
+  type SessionIndexState,
+} from "../../src/indexes/SessionIndexService.js";
+import { SqliteSessionSummaryIndex } from "../../src/indexes/SqliteSessionSummaryIndex.js";
 import { getLogger } from "../../src/logging/logger.js";
 import { GrokSessionReader } from "../../src/sessions/grok-reader.js";
 import { SessionReader } from "../../src/sessions/reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import type { SessionSummary } from "../../src/supervisor/types.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 
 describe("SessionIndexService", () => {
   let testDir: string;
@@ -39,7 +47,11 @@ describe("SessionIndexService", () => {
     await mkdir(dataDir, { recursive: true });
     await mkdir(sessionDir, { recursive: true });
 
-    service = new SessionIndexService({ dataDir, projectsDir });
+    service = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
+      dataDir,
+      projectsDir,
+    });
     await service.initialize();
 
     reader = new SessionReader({ sessionDir });
@@ -48,8 +60,37 @@ describe("SessionIndexService", () => {
 
   afterEach(async () => {
     vi.restoreAllMocks();
+    closeTestDiscoveryDatabases();
     await rm(testDir, { recursive: true, force: true });
   });
+
+  /** Use the persisted summary store on its own connection, as another process would. */
+  function withSummaryStore<T>(
+    use: (store: SqliteSessionSummaryIndex) => T,
+  ): T {
+    const store = new SqliteSessionSummaryIndex(
+      openTestDiscoveryDatabase(testDir),
+    );
+    try {
+      return use(store);
+    } finally {
+      store.dispose();
+    }
+  }
+
+  function readPersistedIndex(scope = sessionDir) {
+    return withSummaryStore((store) => store.read(scope));
+  }
+
+  /** Seed a persisted scope, including versions an older build wrote. */
+  function persistIndex(
+    index: { version: number; projectId: string; sessions: object },
+    scope = sessionDir,
+  ): void {
+    withSummaryStore((store) =>
+      store.save(scope, index as unknown as SessionIndexState),
+    );
+  }
 
   async function createSession(
     sessionId: string,
@@ -82,6 +123,7 @@ describe("SessionIndexService", () => {
     it("creates data directory on initialize", async () => {
       const newDataDir = join(testDir, "new-indexes");
       const newService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir: newDataDir,
         projectsDir,
       });
@@ -90,6 +132,44 @@ describe("SessionIndexService", () => {
 
       const stats = await stat(newDataDir);
       expect(stats.isDirectory()).toBe(true);
+    });
+
+    it("removes only legacy JSON summary scopes beside live index state", async () => {
+      const indexesDir = join(testDir, "legacy-indexes");
+      await mkdir(join(indexesDir, "git-untracked"), { recursive: true });
+      const scope = JSON.stringify({ version: 3, projectId, sessions: {} });
+      await writeFile(join(indexesDir, "-Users-me-project.json"), scope);
+      await writeFile(join(indexesDir, "ext-0123456789abcdef.json"), scope);
+      await writeFile(
+        join(indexesDir, "ext-0123456789abcdef.json.tmp-1-2-3"),
+        "{",
+      );
+      await mkdir(join(indexesDir, "-Users-me-project.json.lock"));
+      // Scope-shaped, but the project scanner owns this name.
+      await writeFile(join(indexesDir, "project-scanner-cache.json"), scope);
+      await writeFile(join(indexesDir, "git-untracked", "repo.json"), scope);
+      await writeFile(
+        join(indexesDir, "notes.json"),
+        JSON.stringify({ version: 1, notes: [] }),
+      );
+      const cleaningService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
+        dataDir: indexesDir,
+        projectsDir,
+      });
+
+      await cleaningService.initialize();
+      await (cleaningService as unknown as { legacyCleanup: Promise<void> })
+        .legacyCleanup;
+
+      expect((await readdir(indexesDir)).sort()).toEqual([
+        "git-untracked",
+        "notes.json",
+        "project-scanner-cache.json",
+      ]);
+      expect(await readdir(join(indexesDir, "git-untracked"))).toEqual([
+        "repo.json",
+      ]);
     });
   });
 
@@ -263,26 +343,23 @@ describe("SessionIndexService", () => {
         JSON.stringify({ type: "mode", mode: "normal", sessionId }),
       );
       const stats = await stat(filePath);
-      await writeFile(
-        service.getIndexPath(sessionDir),
-        JSON.stringify({
-          version: 3,
-          projectId,
-          sessions: {
-            [sessionId]: {
-              title: null,
-              fullTitle: null,
-              createdAt: stats.mtime.toISOString(),
-              updatedAt: stats.mtime.toISOString(),
-              messageCount: 0,
-              indexedBytes: stats.size,
-              fileMtime: stats.mtimeMs,
-              isEmpty: true,
-              provider: "claude",
-            },
+      persistIndex({
+        version: 3,
+        projectId,
+        sessions: {
+          [sessionId]: {
+            title: null,
+            fullTitle: null,
+            createdAt: stats.mtime.toISOString(),
+            updatedAt: stats.mtime.toISOString(),
+            messageCount: 0,
+            indexedBytes: stats.size,
+            fileMtime: stats.mtimeMs,
+            isEmpty: true,
+            provider: "claude",
           },
-        }),
-      );
+        },
+      });
       expect(
         await service.getSessionSummaryWithCache(
           sessionDir,
@@ -291,16 +368,16 @@ describe("SessionIndexService", () => {
           reader,
         ),
       ).toMatchObject({ id: sessionId, messageCount: 0, title: null });
-      const persisted = JSON.parse(
-        await readFile(service.getIndexPath(sessionDir), "utf8"),
-      );
-      expect(persisted.sessions[sessionId].isEmpty).toBeUndefined();
+      expect(
+        readPersistedIndex()?.sessions[sessionId]?.isEmpty,
+      ).toBeUndefined();
     });
 
     it("keeps an empty Claude summary this version indexed itself", async () => {
       const sessionId = "unreadable";
       await createSession(sessionId, "Cannot be summarized");
       const firstRun = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -311,12 +388,10 @@ describe("SessionIndexService", () => {
       expect(
         await firstRun.getSessionsWithCache(sessionDir, projectId, firstReader),
       ).toEqual([]);
-      const persisted = JSON.parse(
-        await readFile(firstRun.getIndexPath(sessionDir), "utf8"),
-      );
-      expect(persisted.sessions[sessionId].isEmpty).toBe(true);
+      expect(readPersistedIndex()?.sessions[sessionId]?.isEmpty).toBe(true);
 
       const secondRun = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -366,27 +441,24 @@ describe("SessionIndexService", () => {
       );
       const fileStats = await stat(filePath);
       const getSessionSummary = vi.spyOn(reader, "getSessionSummary");
-      await writeFile(
-        service.getIndexPath(sessionDir),
-        JSON.stringify({
-          version: 3,
-          projectId,
-          sessions: {
-            [sessionId]: {
-              title:
-                "<local-command-caveat>Caveat: local command messages follow.</local-command-caveat>",
-              fullTitle:
-                "<local-command-caveat>Caveat: local command messages follow.</local-command-caveat>",
-              createdAt: "2026-07-24T17:15:43.435Z",
-              updatedAt: "2026-07-24T17:15:43.435Z",
-              messageCount: 2,
-              indexedBytes: fileStats.size,
-              fileMtime: fileStats.mtimeMs,
-              provider: "claude",
-            },
+      persistIndex({
+        version: 3,
+        projectId,
+        sessions: {
+          [sessionId]: {
+            title:
+              "<local-command-caveat>Caveat: local command messages follow.</local-command-caveat>",
+            fullTitle:
+              "<local-command-caveat>Caveat: local command messages follow.</local-command-caveat>",
+            createdAt: "2026-07-24T17:15:43.435Z",
+            updatedAt: "2026-07-24T17:15:43.435Z",
+            messageCount: 2,
+            indexedBytes: fileStats.size,
+            fileMtime: fileStats.mtimeMs,
+            provider: "claude",
           },
-        }),
-      );
+        },
+      });
 
       const sessions = await service.getSessionsWithCache(
         sessionDir,
@@ -525,16 +597,22 @@ describe("SessionIndexService", () => {
   });
 
   describe("corrupt index", () => {
-    it("gracefully handles malformed index file", async () => {
+    it("gracefully handles a malformed persisted summary", async () => {
       const warn = vi
         .spyOn(getLogger(), "warn")
         .mockImplementation(() => undefined);
       await createSession("session-1", "Test content");
 
-      // Write corrupt index
-      const indexPath = service.getIndexPath(sessionDir);
-      await mkdir(join(testDir, "indexes"), { recursive: true });
-      await writeFile(indexPath, "not valid json{{{");
+      persistIndex({
+        version: 5,
+        projectId,
+        sessions: { "session-1": { title: "replaced below" } },
+      });
+      const corrupt = openTestDiscoveryDatabase(testDir).prepare(
+        "UPDATE session_summary_index SET summary = ? WHERE scope = ?",
+      );
+      corrupt.run("not valid json{{{", sessionDir);
+      corrupt.finalize();
 
       // Should still work - starts fresh
       const sessions = await service.getSessionsWithCache(
@@ -553,16 +631,7 @@ describe("SessionIndexService", () => {
     it("handles index with wrong version", async () => {
       await createSession("session-1", "Test content");
 
-      const indexPath = service.getIndexPath(sessionDir);
-      await mkdir(join(testDir, "indexes"), { recursive: true });
-      await writeFile(
-        indexPath,
-        JSON.stringify({
-          version: 999,
-          projectId,
-          sessions: {},
-        }),
-      );
+      persistIndex({ version: 999, projectId, sessions: {} });
 
       // Should start fresh due to version mismatch
       const sessions = await service.getSessionsWithCache(
@@ -578,26 +647,22 @@ describe("SessionIndexService", () => {
       const fileStats = await stat(join(sessionDir, "session-1.jsonl"));
       const getSessionSummary = vi.spyOn(reader, "getSessionSummary");
 
-      const indexPath = service.getIndexPath(sessionDir);
-      await writeFile(
-        indexPath,
-        JSON.stringify({
-          version: 4,
-          projectId,
-          sessions: {
-            "session-1": {
-              title: "Pre-release cached title",
-              fullTitle: "Pre-release cached title",
-              createdAt: new Date(fileStats.mtimeMs).toISOString(),
-              updatedAt: new Date(fileStats.mtimeMs).toISOString(),
-              messageCount: 1,
-              indexedBytes: fileStats.size,
-              fileMtime: fileStats.mtimeMs,
-              provider: "claude",
-            },
+      persistIndex({
+        version: 4,
+        projectId,
+        sessions: {
+          "session-1": {
+            title: "Pre-release cached title",
+            fullTitle: "Pre-release cached title",
+            createdAt: new Date(fileStats.mtimeMs).toISOString(),
+            updatedAt: new Date(fileStats.mtimeMs).toISOString(),
+            messageCount: 1,
+            indexedBytes: fileStats.size,
+            fileMtime: fileStats.mtimeMs,
+            provider: "claude",
           },
-        }),
-      );
+        },
+      });
 
       const sessions = await service.getSessionsWithCache(
         sessionDir,
@@ -614,26 +679,23 @@ describe("SessionIndexService", () => {
       const fileStats = await stat(join(sessionDir, "session-1.jsonl"));
       const getSessionSummary = vi.spyOn(reader, "getSessionSummary");
 
-      await writeFile(
-        service.getIndexPath(sessionDir),
-        JSON.stringify({
-          version: 3,
-          projectId,
-          sessions: {
-            "session-1": {
-              title: "Legacy cached fork",
-              fullTitle: "Legacy cached fork",
-              createdAt: new Date(fileStats.mtimeMs).toISOString(),
-              updatedAt: new Date(fileStats.mtimeMs).toISOString(),
-              messageCount: 1,
-              indexedBytes: fileStats.size,
-              fileMtime: fileStats.mtimeMs,
-              provider: "codex",
-              parentSessionId: "source-session",
-            },
+      persistIndex({
+        version: 3,
+        projectId,
+        sessions: {
+          "session-1": {
+            title: "Legacy cached fork",
+            fullTitle: "Legacy cached fork",
+            createdAt: new Date(fileStats.mtimeMs).toISOString(),
+            updatedAt: new Date(fileStats.mtimeMs).toISOString(),
+            messageCount: 1,
+            indexedBytes: fileStats.size,
+            fileMtime: fileStats.mtimeMs,
+            provider: "codex",
+            parentSessionId: "source-session",
           },
-        }),
-      );
+        },
+      });
 
       const sessions = await service.getSessionsWithCache(
         sessionDir,
@@ -646,17 +708,6 @@ describe("SessionIndexService", () => {
       });
       expect(sessions[0]?.parentSessionId).toBeUndefined();
       expect(getSessionSummary).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("index file location", () => {
-    it("encodes sessionDir path correctly", () => {
-      const nestedSessionDir = join(projectsDir, "host", "nested", "path");
-      const indexPath = service.getIndexPath(nestedSessionDir);
-
-      // Should encode slashes as %2F
-      expect(indexPath).toContain("%2F");
-      expect(indexPath).toContain("host%2Fnested%2Fpath.json");
     });
   });
 
@@ -685,6 +736,7 @@ describe("SessionIndexService", () => {
 
     it("preserves invalidation that arrives during incremental validation", async () => {
       const revisionService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(join(testDir, "revision-indexes")),
         dataDir: join(testDir, "revision-indexes"),
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -749,6 +801,9 @@ describe("SessionIndexService", () => {
 
     it("preserves invalidation that arrives during full validation", async () => {
       const revisionService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(
+          join(testDir, "full-revision-indexes"),
+        ),
         dataDir: join(testDir, "full-revision-indexes"),
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -803,6 +858,7 @@ describe("SessionIndexService", () => {
 
     it("limits concurrent summary parses across validation scopes", async () => {
       const queuedService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(join(testDir, "queued-indexes")),
         dataDir: join(testDir, "queued-indexes"),
         projectsDir,
         summaryParseConcurrency: 1,
@@ -1002,6 +1058,7 @@ describe("SessionIndexService", () => {
   describe("fast path", () => {
     it("serves cached summaries between validations and refreshes on invalidation", async () => {
       const fastService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1076,6 +1133,7 @@ describe("SessionIndexService", () => {
         }
       });
       const swrService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         eventBus,
@@ -1132,6 +1190,7 @@ describe("SessionIndexService", () => {
         }
       });
       const swrService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         eventBus,
@@ -1179,6 +1238,7 @@ describe("SessionIndexService", () => {
         }
       });
       const swrService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         eventBus,
@@ -1209,6 +1269,7 @@ describe("SessionIndexService", () => {
 
     it("serves a persisted index immediately after a service restart", async () => {
       const firstRun = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1217,9 +1278,12 @@ describe("SessionIndexService", () => {
       await createSession("session-1", "Persisted content");
       await firstRun.getSessionsWithCache(sessionDir, projectId, reader);
       // The first validation persists the index before returning.
-      await readFile(firstRun.getIndexPath(sessionDir), "utf-8");
+      expect(readPersistedIndex()?.sessions["session-1"]?.title).toBe(
+        "Persisted content",
+      );
 
       const secondRun = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1240,6 +1304,7 @@ describe("SessionIndexService", () => {
 
     it("persists an empty index so restarts serve the scope without blocking", async () => {
       const firstRun = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1253,9 +1318,10 @@ describe("SessionIndexService", () => {
         reader,
       );
       expect(empty).toEqual([]);
-      await readFile(firstRun.getIndexPath(sessionDir), "utf-8");
+      expect(readPersistedIndex()?.sessions).toEqual({});
 
       const secondRun = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1275,6 +1341,7 @@ describe("SessionIndexService", () => {
 
     it("still blocks on first-ever scans with no usable index", async () => {
       const swrService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1340,6 +1407,7 @@ describe("SessionIndexService", () => {
     it("invalidates loaded codex scopes on codex file-change events", async () => {
       const eventBus = new EventBus();
       const codexService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         eventBus,
@@ -1420,6 +1488,7 @@ describe("SessionIndexService", () => {
     it("targets loaded codex scopes by rollout session id", async () => {
       const eventBus = new EventBus();
       const codexService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         eventBus,
@@ -1593,6 +1662,7 @@ describe("SessionIndexService", () => {
       await writeGrokSummary(projectBPath, "grok-b", "Project B Grok");
 
       const grokService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(join(testDir, "grok-indexes")),
         dataDir: join(testDir, "grok-indexes"),
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1780,7 +1850,11 @@ describe("SessionIndexService", () => {
       await service.getSessionsWithCache(sessionDir, projectId, reader);
 
       // Create new service instance (simulates server restart)
-      const newService = new SessionIndexService({ dataDir, projectsDir });
+      const newService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
+        dataDir,
+        projectsDir,
+      });
       await newService.initialize();
 
       // Should load cached data from disk
@@ -1795,6 +1869,7 @@ describe("SessionIndexService", () => {
 
     it("preserves forkedFromSessionId on fast path and after restart", async () => {
       const lineageService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1851,6 +1926,7 @@ describe("SessionIndexService", () => {
       expect(parseCount).toBe(1);
 
       const restartedService = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
         dataDir,
         projectsDir,
         fullValidationIntervalMs: 60000,
@@ -1864,47 +1940,11 @@ describe("SessionIndexService", () => {
       expect(afterRestart[0]?.forkedFromSessionId).toBe("source-session");
       expect(parseCount).toBe(1);
     });
-
-    it("writes index atomically without leftover temp files", async () => {
-      await createSession("session-1", "Atomic session");
-
-      await service.getSessionsWithCache(sessionDir, projectId, reader);
-
-      const files = await readdir(dataDir);
-      const tempFiles = files.filter((file) => file.includes(".tmp-"));
-      expect(tempFiles).toHaveLength(0);
-    });
-
-    it("cleans stale lock directories before writing", async () => {
-      const lockService = new SessionIndexService({
-        dataDir,
-        projectsDir,
-        writeLockTimeoutMs: 500,
-        writeLockStaleMs: 50,
-      });
-      await lockService.initialize();
-      await createSession("session-1", "Lock session");
-
-      const indexPath = lockService.getIndexPath(sessionDir);
-      const lockPath = `${indexPath}.lock`;
-      await mkdir(dirname(indexPath), { recursive: true });
-      await mkdir(lockPath, { recursive: true });
-      const staleTime = new Date(Date.now() - 1000);
-      await utimes(lockPath, staleTime, staleTime);
-
-      const sessions = await lockService.getSessionsWithCache(
-        sessionDir,
-        projectId,
-        reader,
-      );
-      expect(sessions).toHaveLength(1);
-
-      await expect(stat(lockPath)).rejects.toMatchObject({ code: "ENOENT" });
-    });
   });
 
   it("evicts the least recently used scope with its bookkeeping", async () => {
     const lruService = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
       dataDir,
       projectsDir,
       maxCacheSize: 2,

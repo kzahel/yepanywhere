@@ -5,45 +5,19 @@ import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
+import { SqliteSessionSummaryIndex } from "../../src/indexes/SqliteSessionSummaryIndex.js";
 import { SessionReader } from "../../src/sessions/reader.js";
-
-const fsControl = vi.hoisted(() => ({
-  target: null as string | null,
-  readCalls: 0,
-  readStarted: null as null | (() => void),
-  readGate: null as Promise<void> | null,
-}));
-
-vi.mock("node:fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs/promises")>();
-  return {
-    ...actual,
-    readFile: async (...args: Parameters<typeof actual.readFile>) => {
-      if (String(args[0]) !== fsControl.target) {
-        return actual.readFile(...args);
-      }
-
-      fsControl.readCalls += 1;
-      const captured = await actual.readFile(...args).then(
-        (value) => ({ ok: true as const, value }),
-        (error: unknown) => ({ ok: false as const, error }),
-      );
-      fsControl.readStarted?.();
-      await fsControl.readGate;
-      if (!captured.ok) throw captured.error;
-      return captured.value;
-    },
-  };
-});
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 
 describe("SessionIndexService concurrency", () => {
   const tempDirs: string[] = [];
 
   afterEach(async () => {
-    fsControl.target = null;
-    fsControl.readCalls = 0;
-    fsControl.readStarted = null;
-    fsControl.readGate = null;
+    vi.restoreAllMocks();
+    closeTestDiscoveryDatabases();
     await Promise.all(
       tempDirs
         .splice(0)
@@ -70,6 +44,7 @@ describe("SessionIndexService concurrency", () => {
     }
 
     const service = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
       dataDir: join(testDir, "indexes"),
       projectsDir,
       fullValidationIntervalMs: 60_000,
@@ -77,16 +52,7 @@ describe("SessionIndexService concurrency", () => {
     await service.initialize();
     const reader = new SessionReader({ sessionDir });
     const projectId = toUrlProjectId("/project");
-    let signalReadStarted: (() => void) | undefined;
-    const readStarted = new Promise<void>((resolve) => {
-      signalReadStarted = resolve;
-    });
-    let releaseRead: (() => void) | undefined;
-    fsControl.readGate = new Promise<void>((resolve) => {
-      releaseRead = resolve;
-    });
-    fsControl.readStarted = () => signalReadStarted?.();
-    fsControl.target = service.getIndexPath(sessionDir);
+    const read = vi.spyOn(SqliteSessionSummaryIndex.prototype, "read");
 
     const listRequest = service.getSessionsWithCache(
       sessionDir,
@@ -99,10 +65,6 @@ describe("SessionIndexService concurrency", () => {
       "session-a",
       reader,
     );
-    await readStarted;
-
-    expect(fsControl.readCalls).toBe(1);
-    releaseRead?.();
     expect(await listRequest).toHaveLength(2);
     expect((await summaryRequest)?.id).toBe("session-a");
     expect(
@@ -110,5 +72,6 @@ describe("SessionIndexService concurrency", () => {
         .map((session) => session.id)
         .sort(),
     ).toEqual(["session-a", "session-b"]);
+    expect(read).toHaveBeenCalledTimes(1);
   });
 });

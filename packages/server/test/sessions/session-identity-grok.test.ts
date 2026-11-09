@@ -168,6 +168,7 @@ it("keeps Grok native ids, late replay, child and media sources scoped behind pu
         await metadata.setWorkingProject(publicId, workingId, projectId);
       }
       index = new SessionIndexService({
+        database: storage.getDatabase(),
         dataDir: join(root, "indexes"),
         projectsDir: join(root, "empty-ambient"),
       });

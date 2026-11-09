@@ -31,7 +31,11 @@ summary migration 25.
    move" cannot work as written, because file adapters stamp
    `reconciliation:<generation>` as their source version on every
    publication.
-2. **Server log has no rotation.** `logging/logger.ts:112` appends to
+2. Fixed 2026-11-09 by plan 189 step 2: `server.log`, `sdk-raw.jsonl` and
+   `codex-correlation-debug.jsonl` rotate at 100 MiB and keep two archives
+   (`logging/rotating-file-stream.ts`). The Codex scan line already logs
+   only on cache misses (`abd8cd45e`). Original finding:
+   **Server log has no rotation.** `logging/logger.ts:112` appends to
    `{dataDir}/logs/server.log` (8.0 GB here, opt-in via `LOG_TO_FILE`).
    File level was debug; volume is dominated by
    `CODEX_READER: scan complete` (`sessions/codex-reader.ts:2435`, about
@@ -72,12 +76,10 @@ summary migration 25.
      `test/storage/discovery-sqlite.test.ts:85`). Keep the wire `sqlite`
      field, the shared `SqliteStatus` union and client handling for older
      servers.
-   - `SessionIndexService` (`:242` optional `database`, `:605-628`,
-     `:648-700`) keeps a temp-file/lock-file JSON writer only tests reach;
-     `SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS` / `_STALE_MS`
-     (`config.ts:319-325`, `cli.ts:115-117`) are inert in production. Make
-     the database required and run those tests on an in-memory database.
-     Keep the legacy JSON read for import (item 14).
+   - Fixed 2026-11-09 by plan 189 step 2: `SessionIndexService` requires
+     the database; its JSON writer, write locks, legacy JSON read and the
+     `SESSION_INDEX_WRITE_LOCK_*` settings are gone, and its tests run on a
+     scratch database.
    - Speech-vocabulary legacy adoption (`VocabularyStore.ts:565-689`,
      `legacy-vocabulary-directories.ts`) probes four directories every
      start. Those layouts existed on `main` only 2026-09-09..10 and in no
@@ -155,7 +157,14 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
 13. **Catalog rows in SQLite.** Now owned by
     [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md),
     which gives the table shape and the defects to fix first.
-14. **Delete the one-time import leftovers.**
+14. Fixed 2026-11-09 by plan 189 step 2, with one deviation: the
+    `session-metadata.json` import code stays, because 0.9.2 (the last
+    release before the import) is still a direct upgrade source and the file
+    is not rebuildable. Each leftover file is deleted by a later start that
+    finds its import marker (metadata and public shares); legacy `indexes/*.json` scopes are deleted on start once they
+    parse as summary scopes, and their import code is gone. Original
+    finding:
+    **Delete the one-time import leftovers.**
     - `session-metadata.json` (2.8 MB) is never read after import
       (`SessionMetadataService.ts:331`, guarded by the
       `session_metadata_import` marker).
@@ -232,7 +241,9 @@ invalidation from the issue indexer, double publication) are recorded in
     `clean()` (`:200`) has no production caller. Persist only hashes that
     match an existing Gemini directory, then purge. A table would fix the
     write cost but keep the junk.
-19. **`public-shares.legacy-backup.json` (2.1 MB) has no cleanup.** The
+19. Fixed 2026-11-09 by plan 189 step 2: a later start or enable that finds
+    the migration marker already complete deletes the backup. Original finding:
+    **`public-shares.legacy-backup.json` (2.1 MB) has no cleanup.** The
     migration completed on 2026-10-02, but the store still probes the file
     (`PublicShareStore.ts:404`, `:413`, `:468`). It would re-migrate from
     it if `migration.json` went missing (`:422-425`). Fold it into item 14.
@@ -319,7 +330,10 @@ metadata `initialPrompt` (2.53 MB) and creation payloads (620 KB). Items
 
 **Whole-file stores.**
 
-25. **`indexes/git-untracked/` persists the tracked tree.** The tilefun
+25. Fixed 2026-11-09 by plan 189 step 2: snapshots persist the HEAD sha
+    and an index digest (cache version 2); tilefun's file went from 4.6 MB
+    to 584 bytes. Original finding:
+    **`indexes/git-untracked/` persists the tracked tree.** The tilefun
     file is 4.6 MB with zero untracked files: 33,267 `headPaths` plus the
     same 33,267 `indexPaths`. It is rewritten on HEAD or index changes,
     on the first query after an hour, and when a queried path is due its
@@ -334,7 +348,13 @@ metadata `initialPrompt` (2.53 MB) and creation payloads (620 KB). Items
     router-side cancel for sessions that are gone and a retention rule for
     that check; it is not a plain deletion. Entries hold tokens, so a
     table needs the same 0600 protection.
-27. **`projects/` holds August test fixtures.** By bytes it is 152 MB, of
+27. Fixed 2026-11-09 on the maintainer's profile (a data cleanup, no
+    code): 1,227 fixture `review-comments.json`, 444 `source-review/` trees
+    and 369 `@example.com` palettes were archived to
+    `~/yep-anywhere-cleanup-backup-2026-11-09.tar.gz` and deleted; 47 of
+    1,644 project directories remain (140 MB, real attachments and
+    palettes). Original finding:
+    **`projects/` holds August test fixtures.** By bytes it is 152 MB, of
     which 146 MB is real attachments. But every one of the 1,227
     `review-comments.json` files is a fixture (`src/a.ts`,
     `src/missing.ts`, `src/present.ts` anchors), none changed after
@@ -381,7 +401,11 @@ catalog table:
     step 1: session creation no longer counts lifetime totals. Per-request,
     per-attempt and per-operation bounds remain, including 2 GiB of
     attachments per operation.
-34. Unbounded logs and caches: `logs/sdk-raw.jsonl` (747 MB, opt-in
+34. Partly fixed 2026-11-09 by plan 189 step 2: `sdk-raw.jsonl` rotates
+    as in item 2; client logs are appended asynchronously, kept 14 days and
+    capped at 32 MiB per device per day. Audit archives, tool-result media,
+    empty staging directories and attachments remain. Original finding:
+    Unbounded logs and caches: `logs/sdk-raw.jsonl` (747 MB, opt-in
     `LOG_SDK_MESSAGES`, about 37 MB/h, no rotation,
     `sdk/messageLogger.ts:28-41`); client logs written with
     `appendFileSync` on the request path (`routes/client-logs.ts:73`,
@@ -420,8 +444,9 @@ though it already has SQLite.
 Planned in [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md).
 
 1. Remove the item 33 ceiling (done, plan 189 step 1).
-2. Cheap deletions and caps with no schema work: items 25, 27, 34, 14 and
-   19. Item 26 needs a retention rule first.
+2. Cheap deletions and caps with no schema work: items 2, 25, 27, 34, 14,
+   19 and part of 5 (done, plan 189 step 2). Item 26 needs a retention rule
+   first.
 3. The catalog table
    ([session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md)),
    designed together with items 22–24 so titles and prompts are stored

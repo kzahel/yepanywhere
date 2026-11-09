@@ -607,8 +607,6 @@ const sessionIndexService = new SessionIndexService({
   projectsDir: config.claudeProjectsDir,
   dataDir: path.join(config.dataDir, "indexes"),
   fullValidationIntervalMs: config.sessionIndexFullValidationMs,
-  writeLockTimeoutMs: config.sessionIndexWriteLockTimeoutMs,
-  writeLockStaleMs: config.sessionIndexWriteLockStaleMs,
   summaryParseConcurrency: config.sessionIndexSummaryParseConcurrency,
   sessionDiscoveryIndexRegistry,
   eventBus,
