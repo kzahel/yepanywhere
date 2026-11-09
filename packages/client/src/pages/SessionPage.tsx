@@ -17,10 +17,7 @@ import { SessionIssuesProvider } from "../components/SessionIssuesLink";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
-import {
-  useDraftAttachmentHydration,
-  useSessionComposerAttachments,
-} from "../hooks/useSessionComposerAttachments";
+import { useComposerDraftAttachments } from "../hooks/useComposerDraftAttachments";
 import { useSessionCorrectionDraft } from "../hooks/useSessionCorrectionDraft";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
@@ -213,12 +210,16 @@ import {
 } from "../lib/sessionModelConfig";
 import { parseThinkingConfig } from "../lib/sourceControlNavigationState";
 import type { MessageSubmissionMetadata } from "../types/messageSubmission";
-import { isComposerStagedAttachment } from "../lib/sessionComposerAttachments";
+import {
+  type ComposerAttachment,
+  isComposerStagedAttachment,
+} from "../lib/sessionComposerAttachments";
 import {
   appendComposerTransferDraft,
   appendSlashCommandDraft,
   collectComposerAttachmentsForSubmission as collectComposerAttachmentsForSubmissionHelper,
   insertComposerTransferText,
+  materializeComposerAttachmentsForSubmission,
 } from "../lib/sessionComposerSubmission";
 import { createSessionComposerSend } from "../lib/sessionComposerSend";
 import {
@@ -410,7 +411,7 @@ function SessionPageContent({
     () => createSessionDraftStorageKey(sessionDraftReference),
     [sessionDraftReference],
   );
-  const { version: versionInfo } = useVersion();
+  const { version: versionInfo, error: versionError } = useVersion();
   const { principal: creationPrincipal, resolved: creationPrincipalResolved } =
     useActingPrincipal();
   const creationKey = `ya-session-creation:${clientSummarySourceKey}:${creationPrincipal.username}:${sessionDraftKey}`;
@@ -1054,21 +1055,40 @@ function SessionPageContent({
   const {
     attachments,
     attachmentsRef,
-    draftAttachmentBatchIdRef,
-    draftAttachmentHydrationRef,
     uploadProgress,
-    setUploadProgress,
     pendingUploadsRef,
     setComposerAttachments,
-    ensureDraftAttachmentBatchId,
-    materializeComposerAttachments,
-  } = useSessionComposerAttachments({
-    composerEditAvailabilityStore,
+    uploadFiles,
+    removeAttachment: handleRemoveAttachment,
+    hydrateDraftAttachments,
+  } = useComposerDraftAttachments({
     draftControlsRef,
-    projectId,
-    sessionId,
+    draftKey: sessionDraftKey,
+    hydrationEnabled: !mainComposerForAside,
     sourceTransport,
+    versionInfo,
+    versionFailed: Boolean(versionError),
   });
+  useEffect(() => {
+    composerEditAvailabilityStore.setExternalBlockers(
+      attachments.length > 0,
+      uploadProgress.length > 0,
+    );
+  }, [
+    attachments.length,
+    composerEditAvailabilityStore,
+    uploadProgress.length,
+  ]);
+  const materializeComposerAttachments = useCallback(
+    (composerAttachments: readonly ComposerAttachment[]) =>
+      materializeComposerAttachmentsForSubmission({
+        attachments: composerAttachments,
+        sourceTransport,
+        projectId,
+        sessionId,
+      }),
+    [sourceTransport, projectId, sessionId],
+  );
 
   const updateTranscriptDisplayObjectsForSession = useCallback(
     (
@@ -1581,18 +1601,15 @@ function SessionPageContent({
     isDomLingerParked,
   });
 
+  // The page is keyed by session, so this runs on mount. It leaves the
+  // attachments alone: a hydration from draft controls that arrived in the
+  // same commit has already run (docs/tactical/188, item 28).
   useEffect(() => {
     void sessionId;
-    setComposerAttachments([], {
-      persistDraft: false,
-      revokeRemovedPreviewUrls: true,
-    });
     resetBtwAsides();
     lastComposerSubmissionRef.current = null;
     lastSentComposerSubmissionRef.current = null;
-    draftAttachmentBatchIdRef.current = null;
-    draftAttachmentHydrationRef.current += 1;
-  }, [resetBtwAsides, sessionId, setComposerAttachments]);
+  }, [resetBtwAsides, sessionId]);
 
   const {
     correctionDraft,
@@ -2300,18 +2317,6 @@ function SessionPageContent({
     flushPendingMotherComposerTransfer();
   }, [flushPendingMotherComposerTransfer]);
 
-  const hydrateDraftAttachments = useDraftAttachmentHydration({
-    attachmentsRef,
-    draftAttachmentBatchIdRef,
-    draftAttachmentHydrationRef,
-    draftControlsRef,
-    mainComposerForAside,
-    sessionDraftKey,
-    setComposerAttachments,
-    sourceTransport,
-    versionInfo,
-  });
-
   const handleDraftControlsReady = useCallback(
     (controls: DraftControls) => {
       draftControlsRef.current = controls;
@@ -2635,25 +2640,19 @@ function SessionPageContent({
     ],
   );
 
-  const { uploadAttachedFiles, handleAttach, handleRemoveAttachment } =
-    useSessionAttachmentUploads({
-      projectId,
-      sessionId,
-      session,
-      project,
-      sourceTransport,
-      attachmentQuality,
-      currentProviderInfo,
-      effectiveModel,
-      effectiveModelConfig,
-      historyScope,
-      isDomLingerParked,
-      ensureDraftAttachmentBatchId,
-      setUploadProgress,
-      setComposerAttachments,
-      attachmentsRef,
-      pendingUploadsRef,
-    });
+  const { uploadAttachedFiles, handleAttach } = useSessionAttachmentUploads({
+    projectId,
+    sessionId,
+    session,
+    project,
+    attachmentQuality,
+    currentProviderInfo,
+    effectiveModel,
+    effectiveModelConfig,
+    historyScope,
+    isDomLingerParked,
+    uploadFiles,
+  });
   // Check if pending request is an AskUserQuestion
   const isAskUserQuestion = pendingInputRequest?.toolName === "AskUserQuestion";
 

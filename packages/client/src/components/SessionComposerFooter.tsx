@@ -165,9 +165,7 @@ export interface SessionComposerFooterProps {
   ) => Promise<void>;
   handleQuestionSubmit: (answers: UserQuestionAnswers) => Promise<void>;
   handleRecallLastSubmission: () => boolean;
-  handleRemoveAttachment: ReturnType<
-    typeof useSessionAttachmentUploads
-  >["handleRemoveAttachment"];
+  handleRemoveAttachment: (id: string) => void;
   handleSemanticComposerDefer: (
     text: string,
     metadata?: MessageSubmissionMetadata,

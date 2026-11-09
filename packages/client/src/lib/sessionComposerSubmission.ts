@@ -333,6 +333,54 @@ export async function collectComposerAttachmentsForSubmission({
   return collectedAttachments;
 }
 
+/**
+ * Prepare one composer file and stage it in `batchId`. The attachment is
+ * named after the prepared file, which is the picked name unless a resize
+ * marks it, and an image gets a preview of the prepared file, which is
+ * returned too.
+ */
+export async function uploadStagedComposerAttachment({
+  file,
+  sourceTransport,
+  imageProfile,
+  batchId,
+  onProgress,
+}: {
+  file: File;
+  sourceTransport: Pick<SourceTransport, "uploadStagedAttachment">;
+  imageProfile: ImagePreparationProfile;
+  batchId: string;
+  onProgress?: (bytesUploaded: number, uploadFile: File) => void;
+}): Promise<{ attachment: ComposerStagedAttachment; uploadFile: File }> {
+  const { uploadFile, uploadOptions } = await prepareComposerAttachmentUpload(
+    file,
+    imageProfile,
+    (bytesUploaded, preparedFile) => {
+      onProgress?.(bytesUploaded, preparedFile);
+    },
+  );
+  const previewUrl = uploadFile.type.startsWith("image/")
+    ? URL.createObjectURL(uploadFile)
+    : undefined;
+  try {
+    const stagedRef = await sourceTransport.uploadStagedAttachment(uploadFile, {
+      batchId,
+      ...uploadOptions,
+    });
+    return {
+      attachment: {
+        ...stagedRef,
+        originalName: uploadFile.name,
+        ...(previewUrl ? { previewUrl } : {}),
+      },
+      uploadFile,
+    };
+  } catch (err) {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    throw err;
+  }
+}
+
 export async function uploadComposerAttachmentFile({
   file,
   sourceTransport,

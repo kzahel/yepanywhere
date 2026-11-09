@@ -13,10 +13,10 @@ import {
   revokeAttachmentPreviewUrls,
 } from "../lib/sessionComposerAttachments";
 import type { DeferredMessage } from "./useSession";
-import type { useSessionComposerAttachments } from "./useSessionComposerAttachments";
+import type { useComposerDraftAttachments } from "./useComposerDraftAttachments";
 import type { DraftControls } from "./useDraftPersistence";
 
-type ComposerAttachments = ReturnType<typeof useSessionComposerAttachments>;
+type ComposerAttachments = ReturnType<typeof useComposerDraftAttachments>;
 
 /**
  * One session page's correction draft: correcting the latest message from

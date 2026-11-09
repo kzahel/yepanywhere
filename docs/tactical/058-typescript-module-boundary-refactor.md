@@ -335,6 +335,7 @@ and props stable.
 | 2.45 | Done 2026-11-08 | `SessionPage.tsx` correction draft | Move the page's correction draft into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 2). | Move-only apart from two effect splits: the correction state and its set-aside draft ref, Cancel, the two correction effects, Edit latest message and the recall move verbatim into `hooks/useSessionCorrectionDraft.ts`, called where Cancel stood, right after the session reset. The set-aside draft's unmount cleanup and the reset's `setCorrectionDraft(null)` become the hook's own effects; the page is keyed by session, so the reset runs only on mount (see the landing note). The state moves later and the recall earlier in the hook order. Three input refs joined four dependency lists. Budget `SessionPage.tsx` 3,803 -> 3,714; the hook is 182 lines. Tier 3, plus plan 187's slice 0 pins. |
 | 2.46 | Done 2026-11-08 | `SessionPage.tsx` draft hydration | Move the page's draft attachment hydration into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 3). | Move-only: `hydrateDraftAttachments` and the two effects that hydrate on a draft key change and on the draft storage event move verbatim into `useDraftAttachmentHydration` in `hooks/useSessionComposerAttachments.ts`, called where the effects stood, so they stay after the session reset. `handleDraftControlsReady` moves unchanged to just after the call. Four input refs joined two dependency lists. Budget `SessionPage.tsx` 3,714 -> 3,621; the hook file is 323 lines. Tier 3, plus plan 187's slice 0 pins. |
 | 2.47 | Done 2026-11-08 | `SessionPage.tsx` starting a correction | Make Edit latest message and the recall start a correction the same way ([plan 187](187-session-page-draft-hooks.md) slice 4). | Not move-only: under plan 187. Both call one `beginCorrection` step in `useSessionCorrectionDraft`, which revokes the composer's discarded previews only when it keeps an earlier set-aside draft. Edit latest message during an open correction no longer leaks the previews it discards; recall, refused while attachments show, is unchanged. The hook is 192 lines. Tier 3, plus plan 187's pins and its new leak pin. |
+| 2.48 | Done 2026-11-09 | Shared composer draft attachments, session page | Replace the session page's attachment state, hydration, uploads and remove with one shared hook ([plan 188](188-shared-composer-draft-attachments.md) slice 1). | Not move-only: under plan 188. New `hooks/useComposerDraftAttachments.ts` owns the list, in-flight uploads, the staging batch, the saved-draft write and hydration, cancel and remove, the preview revoke and the navigation guard; `useSessionComposerAttachments.ts` is deleted and `useSessionAttachmentUploads.ts` keeps only the page's upload settings and the incoming share. Behavior changes are plan 188 items 6, 7, 10, 12 to 16, 18, 26, 28 and 29; the visible one is that hydration waits for the server's capabilities, so a missing file under draft sync keeps its chip with one notice instead of being dropped. Budget `SessionPage.tsx` 3,621 -> 3,620; the hook is 568 lines. Tier 2, plus plan 187's and 188's pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -477,6 +478,55 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.48 — Shared Composer Draft Attachments on the Session Page (Landed 2026-11-09, this commit)
+
+Not move-only. [Plan 188](188-shared-composer-draft-attachments.md) slice 1.
+
+Moved and merged:
+- `useSessionComposerAttachments` and `useDraftAttachmentHydration`
+  (`hooks/useSessionComposerAttachments.ts`, deleted) and the upload and
+  remove halves of `useSessionAttachmentUploads` ->
+  `useComposerDraftAttachments` in `hooks/useComposerDraftAttachments.ts`.
+  Uploads take their image profile and history context per call, because
+  the page knows its provider's profile only below where the hook is
+  called. `useSessionAttachmentUploads` keeps `uploadAttachedFiles`,
+  `handleAttach` and the incoming share.
+- New `uploadStagedComposerAttachment` in `lib/sessionComposerSubmission.ts`
+  stages one file and returns the prepared file too; the old helper stays
+  until slice 3.
+- The edit blocker and `materializeComposerAttachments` stay in the page.
+  The page's session reset no longer touches attachments (item 28).
+
+Behavior changes on the session page (plan 188 item numbers):
+- 26: hydration checks only once the server's version is known, showing
+  the saved files unchecked until then. The e2e server offers draft sync,
+  and plan 187's reload pin had pinned a quiet drop that was the page
+  checking before the version arrived. The pin now expects the draft-sync
+  rule: a missing file keeps its chip, and the page says so once.
+- 18: hydration reruns on the draft key, the rule, the aside flag and
+  the sibling-tab event, not on callback identity, so a load checks once;
+  the reload pin counts one failure notice.
+- 7: duplicate file names get numeric suffixes; a resized image keeps
+  the prepared file's `-resized` name, as before.
+- 12: the batch survives removing the last staged file while an upload
+  runs, here and in hydration.
+- 14, 15, 29: hydration replaces only staged chips, and a shown chip
+  keeps its preview.
+- 6, 10, 13, 16: a late upload's preview is revoked; the preview cache
+  stores the prepared file; an update that changes nothing is skipped.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice.
+- New `hooks/__tests__/useComposerDraftAttachments.test.tsx`: the saved
+  file survives a write while the version is unknown, the batch survives
+  for an upload in flight, and a key change drops the old key's uploads.
+  Each fails when its rule is removed.
+- Browser: plan 187's correction and attachment pins (reload pin updated
+  as above), `session-page-title-attachment-paths`,
+  `session-attachment-send-draft`, `session-page-queue-paths` and
+  `attachment-drop`: 24 passed.
 
 ### Slice 4.9.5 — Codex setup and message loop on the session (Landed 2026-11-09, this commit)
 

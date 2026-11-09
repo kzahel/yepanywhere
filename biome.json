@@ -158,14 +158,8 @@
                 "stableResult": ["setCorrectionDraft"]
               },
               {
-                "name": "useSessionComposerAttachments",
-                "stableResult": [
-                  "attachmentsRef",
-                  "draftAttachmentBatchIdRef",
-                  "draftAttachmentHydrationRef",
-                  "setUploadProgress",
-                  "pendingUploadsRef"
-                ]
+                "name": "useComposerDraftAttachments",
+                "stableResult": ["attachmentsRef", "pendingUploadsRef"]
               },
               {
                 "name": "useComposerSpeechState",

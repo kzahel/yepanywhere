@@ -183,9 +183,12 @@ test("an upload in flight asks before the page is left", async ({
   await asked.accept();
 });
 
-// The test server does not offer draft sync, so these are the local-draft
-// rules: the chip shows once the server confirms the staged file.
-test("a staged attachment comes back after a reload; a failed check keeps it with a notice, and a missing file drops it", async ({
+// The test server offers draft sync, so these are the draft-sync rules: the
+// chip shows from the saved draft, and a file the server no longer holds
+// keeps its chip with a notice. (Plan 187 pinned a quiet drop here, which
+// was the page checking before the server's capabilities had loaded; see
+// docs/tactical/188-shared-composer-draft-attachments.md item 26.)
+test("a staged attachment comes back after a reload; a failed check or a missing file keeps it with one notice", async ({
   page,
   baseURL,
 }) => {
@@ -216,25 +219,29 @@ test("a staged attachment comes back after a reload; a failed check keeps it wit
     json(route, 500, { error: "pin failure" }),
   );
   await reload();
-  // Each check that fails says so; the page can check twice on load.
-  await expect(
-    page
-      .getByRole("alert")
-      .filter({
-        hasText: "Could not check draft attachments. Your draft has been kept.",
-      })
-      .first(),
-  ).toBeVisible();
+  // The page checks once on load, so it says so once.
+  const failed = page.getByRole("alert").filter({
+    hasText: "Could not check draft attachments. Your draft has been kept.",
+  });
+  await expect(failed).toBeVisible();
   await expect(chip(page, "pin-reload.txt")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  await expect(failed).toHaveCount(1);
   expect(await savedDraftNamesFile()).toBe(true);
 
-  // The server no longer holds it: the saved draft forgets it, quietly.
+  // The server no longer holds it: under draft sync the chip and the saved
+  // draft keep it, and the page says so once.
   await page.unroute(validatePath);
   await page.route(validatePath, (route) => json(route, 200, { refs: [] }));
   await reload();
-  await expect.poll(savedDraftNamesFile).toBe(false);
-  await expect(chip(page, "pin-reload.txt")).toHaveCount(0);
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  const gone = page
+    .getByRole("alert")
+    .filter({ hasText: "Draft attachments were no longer available." });
+  await expect(gone).toBeVisible();
+  await expect(chip(page, "pin-reload.txt")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  await expect(gone).toHaveCount(1);
+  expect(await savedDraftNamesFile()).toBe(true);
 });
 
 test("a staged attachment added or removed in one tab follows in a sibling tab", async ({

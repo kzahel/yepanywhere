@@ -90,8 +90,8 @@ Project Queue editor).
    of uploaded and total bytes. Q keeps `percent` and treats a size of
    zero as 100. N and Q draw the uploading chip with `AttachmentChip`,
    using the file's type and a "Remove <name>" button. Kept:
-   `UploadProgress[]` with Q's zero-size rule, plus an optional
-   `mimeType`, so N and Q keep drawing the same chip.
+   `UploadProgress[]` with Q's zero-size rule, plus `mimeType`, so N and
+   Q keep drawing the same chip.
 5. **Cancelling an upload.** N and Q let an uploading chip be removed. A
    later result is then deleted from staging and its preview revoked, and
    a later failure says nothing. S cannot cancel. N keeps the cancelled
@@ -110,10 +110,14 @@ Project Queue editor).
    Kept: with a saved draft, keep the ref there and revoke its preview;
    without one (Q), delete it.
 7. **Unique names.** N and Q rename a file that has the same name as a
-   shown or uploading attachment; S does not. Kept: always rename. The
-   attachment's `originalName` is the picked file's name after renaming,
-   as on N and Q; S used the server's name for the prepared file, which
-   differs only when preparation renames it.
+   shown or uploading attachment; S does not. Kept: always rename. N and
+   Q then name the attachment after the picked file; S uses the prepared
+   file's name, which marks a resized image (`hd-resized.png`), as
+   `image-upload-quality.spec.ts` pins. Kept: the prepared file's name,
+   which is the renamed picked name unless a resize marks it. (Tier 3
+   caught the first choice, the picked name, against that spec.) Two
+   images picked with the same name and both resized can still share a
+   name, as on S before.
 8. **Upload failure.** S shows `sessionUploadFailed` with the file name;
    N shows `newSessionUploadError` without it; Q shows an inline error.
    Kept: `sessionUploadFailed` on S and N; Q passes its own inline
@@ -373,8 +377,9 @@ already pinned by `audio-memo`, `attachment-drop` and
    `materializeComposerAttachments`, and passes `useVersion`'s error as
    `versionFailed`. Its session reset stops touching attachments
    (item 28).
-4. `UploadProgress` gains an optional `mimeType`; `MessageInput` ignores
-   it.
+4. The hook's in-flight records add `mimeType` to `UploadProgress`
+   (`ComposerUploadProgress`); `MessageInput` reads them as
+   `UploadProgress`.
 5. New `hooks/__tests__/useComposerDraftAttachments.test.tsx` pins the
    rules no screen pin reaches directly. Each fails when its rule is
    removed:

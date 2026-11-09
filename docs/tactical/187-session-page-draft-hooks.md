@@ -70,7 +70,10 @@ on the shared session page harness, passing at `a13515c25`:
    the chip and says so. A file the server no longer holds is dropped
    quietly, and the saved draft in `localStorage` forgets it. The test
    server has no draft sync, so these are the local-draft rules; the
-   draft-sync branch is not pinned (see Open).
+   draft-sync branch is not pinned (see Open). (Corrected by
+   [plan 188](188-shared-composer-draft-attachments.md) item 26: the
+   server does offer draft sync, and the quiet drop was the page checking
+   before the server's capabilities had loaded.)
 5. A staged attachment added or removed in one tab follows in a sibling
    tab (the draft storage event).
 
