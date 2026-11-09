@@ -285,12 +285,18 @@ export interface ServerSettings {
   codexCyberAccessProgram?: CodexCyberAccessProgram;
   /**
    * How the server handles Codex CLI updates:
-   * - "auto": automatically run `npm install -g <pkg>@latest` when an update
-   *   is available and the install was done via npm (best effort, logs only).
-   * - "notify": surface a banner in the UI but do nothing automatically.
-   * - "off": don't check or surface updates.
+   * - "auto": update at startup when an update is available and YA can run
+   *   the installation's updater (npm or standalone; best effort, logs only).
+   * - "notify": report updates in Providers settings; a dialog appears only
+   *   when the installed CLI is below YA's declared minimum version.
+   * - "off": never show the dialog.
    */
   codexUpdatePolicy?: "auto" | "notify" | "off";
+  /**
+   * Minimum supported Codex version whose required-update dialog the host
+   * administrator dismissed; a higher declared minimum shows it again.
+   */
+  codexRequiredUpdateDismissed?: string;
   /** Keep eligible local Linux Codex runtimes across YA server reloads. */
   codexReloadSafeSessions: boolean;
   /**

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type CodexUpdateStatus, api } from "../api/client";
+import { api } from "../api/client";
+import type { CodexUpdateStatus } from "../api/codexUpdateStatus";
 
 interface UseCodexUpdateStatusResult {
   status: CodexUpdateStatus | null;

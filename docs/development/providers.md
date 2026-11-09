@@ -57,6 +57,15 @@ compatibility marker in root `package.json`:
   `yepAnywhere.claudeCode.claudeAgentSdkVersion` paired with the committed
   `@anthropic-ai/claude-agent-sdk` dependency when the SDK is refreshed.
 
+`CODEX_CLI_MINIMUM_SUPPORTED_VERSION` in
+`packages/server/src/services/CodexUpdateChecker.ts` is the opposite bound:
+the oldest Codex CLI that YA's integration works with, or `null` when no such
+floor is known. It is the only trigger for the update dialog an administrator
+sees, so raise it only for a known incompatibility, such as removing an older
+protocol fallback, never merely because a newer release exists. Per-feature
+version gates that degrade gracefully do not raise it. See
+[provider installation updates](../../topics/provider-installation-updates.md#update-notices).
+
 This marker is the committed "compatible through / up to date as of" answer for
 future minor-version checks. For Codex, keep `expectedVersion` in sync with
 source/protocol refreshes that change the audited app-server target; a no-op

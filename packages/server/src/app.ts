@@ -4372,7 +4372,7 @@ export function createApp(options: AppOptions): AppResult {
     void (async () => {
       try {
         const status = await codexUpdateChecker.getStatus();
-        if (status.updateAvailable && status.updateMethod === "npm") {
+        if (status.updateAvailable && status.updateMethod !== "manual") {
           const result = await codexUpdateChecker.install();
           if (result.success) {
             console.log(

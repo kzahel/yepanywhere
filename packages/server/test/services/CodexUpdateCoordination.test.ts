@@ -65,6 +65,7 @@ describe("Codex installation update coordination", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -144,6 +145,7 @@ describe("Codex installation update coordination", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -193,6 +195,7 @@ describe("Codex installation update coordination", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),

@@ -158,6 +158,9 @@ export function getCodexCommonPaths(
 
   return platform === "darwin"
     ? [
+        // ChatGPT 26.x bundles its CLI as a package beside the app resources.
+        "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+        `${home}/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`,
         "/Applications/ChatGPT.app/Contents/Resources/codex",
         `${home}/Applications/ChatGPT.app/Contents/Resources/codex`,
         "/Applications/Codex.app/Contents/Resources/codex",
@@ -307,11 +310,35 @@ function splitCodexCliVersion(version: string): {
   };
 }
 
+/**
+ * Whether a Codex executable path lies inside a desktop app bundle, which the
+ * app replaces on its own release schedule: a macOS `.app` resource directory
+ * or the Windows OpenAI desktop binary directory.
+ */
+export function isCodexDesktopAppPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  return (
+    /\.app\/Contents\/Resources\//.test(normalized) ||
+    /\/OpenAI\/Codex\/bin\//i.test(normalized)
+  );
+}
+
+function isDesktopAppPrerelease(candidate: VersionedCodexCandidate): boolean {
+  return (
+    candidate.normalizedVersion?.includes("-") === true &&
+    isCodexDesktopAppPath(candidate.path)
+  );
+}
+
 function compareCodexCandidates(
   a: VersionedCodexCandidate,
   b: VersionedCodexCandidate,
 ): number {
   if (a.normalizedVersion && b.normalizedVersion) {
+    // A desktop app may bundle an alpha build. It must not silently replace
+    // a versioned install the user chose, so it ranks below every other one.
+    const aDemoted = isDesktopAppPrerelease(a);
+    if (aDemoted !== isDesktopAppPrerelease(b)) return aDemoted ? -1 : 1;
     const versionOrder = compareCodexCliVersions(
       a.normalizedVersion,
       b.normalizedVersion,

@@ -28,15 +28,20 @@ This topic covers a command run by YA that can install, update, replace, or
 remove a provider executable or its package files. Merely checking a release
 feed or reporting a copy-pasteable command is not an installation mutation.
 
-As of 2026-08-21, Codex is the only provider installation YA can mutate. With
-`codexUpdatePolicy: "auto"`, or after confirmation in the update prompt, the
-server runs `npm install -g @openai/codex@latest`. Other current mechanisms are
-separate:
+As of 2026-11-09, Codex is the only provider installation YA can mutate. With
+`codexUpdatePolicy: "auto"`, or when an administrator selects **Update now**,
+the server runs the updater that owns the detected executable: `npm install -g
+@openai/codex@latest` for an npm-global install, or that executable's own
+`codex update` for a standalone install, whose real path lies under
+`<CODEX_HOME>/packages/standalone/releases/` (the CLI's own detection rule).
+Other current mechanisms are separate:
 
 | Mechanism | Mutates a provider install? | Coordination owner |
 |---|---|---|
 | Codex npm update | Yes | This topic; first implementation target |
+| Codex standalone `codex update` | Yes | This topic; same `codex-cli` family |
 | Codex Homebrew/cargo hint | No, YA only displays a command | External mutation recovery below |
+| Codex bundled in a desktop app | No, it updates with ChatGPT/Codex | External mutation recovery below |
 | Claude SDK dependency refresh | No runtime package-manager command | YA release/provider-refresh process |
 | Gemini, Grok, OpenCode, Pi detection | No current updater | Must register here before gaining one |
 | Tauri desktop updater | No, it updates the YA shell | `desktop-v0.md` |
@@ -198,18 +203,44 @@ settled unusable result to `installed: false`, but it must not erase the reason
 before logging and retry policy are chosen. A path that exists but cannot be
 launched is not advertised as installed merely to hide a probe failure.
 
+## Update Notices
+
+A newer upstream release is not an incompatibility. YA gates
+version-sensitive Codex behavior per feature and explains a missing feature
+where it is used, so an available release is reported only passively:
+Settings → Providers names the executable the server uses and what installed
+it, shows installed → latest, and offers **Update now**, a command to copy, or
+plain guidance for an app-bundled or unrecognized install.
+
+- The server declares the oldest Codex release its integration works with
+  (`CODEX_CLI_MINIMUM_SUPPORTED_VERSION`), or none. Only an installed CLI
+  below that declared minimum opens a dialog, and only for a host
+  administrator under the `notify` or `auto` policy. A client that receives
+  no minimum from an older server never opens it.
+- Dismissing the dialog is stored on the server per minimum version
+  (`codexRequiredUpdateDismissed`), so it holds on every device and browser
+  until a higher minimum is declared. A dismissal after a failed update is not
+  stored; that incompatibility is still unresolved. `off` suppresses the
+  dialog entirely; Settings keeps reporting the version either way.
+- Updating from the dialog does not opt into automatic updates; its
+  "update next versions too" choice starts unchecked.
+
 ## Configuration, Security, And Observability
 
 - Existing `auto`, `notify`, and `off` choices remain authoritative. The
-  default remains `notify`. Adding an updater for another provider is a new
+  default remains `notify`. `auto` applies to every installation the server
+  can update itself (npm and standalone); the Settings control offers it only
+  for such an installation. Adding an updater for another provider is a new
   configurable, default-off product decision; Codex's stored choice does not
-  opt another installation into mutation.
+  opt another provider's installation into mutation.
 - Explicit provider paths remain authoritative through updates. An updater
   must prove that its package manager owns the configured install; otherwise it
   remains manual and does not drift to a different candidate.
 - Package-manager execution uses an argument-vector launch descriptor rather
   than interpolating a discovered package name into a shell command. Package
-  identity is allowlisted by the provider update adapter.
+  identity is allowlisted by the provider update adapter. A standalone update
+  runs the detected executable with the single argument `update`, from the
+  temporary directory so no project configuration reaches the updater.
 - Locks, status records, and bounded raw output live in private user runtime or
   YA app-data storage. They contain no credentials, environment dumps, auth
   files, or project paths beyond the minimum resolved executable evidence.

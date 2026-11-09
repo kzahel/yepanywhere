@@ -1,31 +1,25 @@
 import { useEffect, useState } from "react";
+import { canServerUpdateCodex } from "../api/codexUpdateStatus";
 import { useCanAdministerHost } from "../hooks/useActingPrincipal";
 import { useCodexUpdateStatus } from "../hooks/useCodexUpdateStatus";
 import { useProviders } from "../hooks/useProviders";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useI18n } from "../i18n";
+import styles from "./CodexUpdatePrompt.module.css";
+import {
+  CodexDetectedInstall,
+  codexManualUpdateHint,
+} from "./CodexUpdateGuidance";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { Modal } from "./ui/Modal";
 
-const STORAGE_KEY = "codex-update-seen-tag";
-
-function readSeenTag(): string | null {
-  try {
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeSeenTag(tag: string): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, tag);
-  } catch {
-    // Storage denied / full: prompt will reappear next session.
-  }
-}
-
+/**
+ * Interrupts only for a known incompatibility: the installed Codex CLI is
+ * older than the server's declared minimum. Ordinary newer releases are
+ * reported passively in Settings → Providers. Dismissal is stored on the
+ * server per minimum version, so it holds on every device.
+ */
 export function CodexUpdatePrompt() {
   const { t } = useI18n();
   const { settings, updateSetting } = useServerSettings();
@@ -33,74 +27,68 @@ export function CodexUpdatePrompt() {
   const canAdministerHost = useCanAdministerHost();
   const policy = canAdministerHost ? settings?.codexUpdatePolicy : undefined;
   const { status, isInstalling, error, installOutput, install } =
-    useCodexUpdateStatus({ enabled: policy === "notify" });
+    useCodexUpdateStatus({ enabled: policy === "notify" || policy === "auto" });
   const { refetch: refetchProviders } = useProviders();
-  const [seenTag, setSeenTag] = useState<string | null>(() => readSeenTag());
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [dismissedTag, setDismissedTag] = useState<string | null>(null);
-  const [autoUpdate, setAutoUpdate] = useState(true);
+  const [activeMinimum, setActiveMinimum] = useState<string | null>(null);
+  const [closedMinimum, setClosedMinimum] = useState<string | null>(null);
+  const [autoUpdate, setAutoUpdate] = useState(false);
   const [installAttempted, setInstallAttempted] = useState(false);
   const [installSucceeded, setInstallSucceeded] = useState<boolean | null>(
     null,
   );
   const [policyError, setPolicyError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSeenTag(readSeenTag());
-  }, []);
-
-  const latestTag = status?.latest ?? null;
+  const requiredMinimum =
+    status?.belowMinimum === true ? (status.minimumSupported ?? null) : null;
   const shouldPrompt =
-    policy === "notify" &&
-    !!status &&
-    status.updateAvailable &&
-    !!latestTag &&
-    latestTag !== seenTag &&
-    latestTag !== dismissedTag;
+    (policy === "notify" || policy === "auto") &&
+    !!requiredMinimum &&
+    requiredMinimum !== settings?.codexRequiredUpdateDismissed &&
+    requiredMinimum !== closedMinimum;
 
   useEffect(() => {
-    if (!shouldPrompt || !latestTag || activeTag === latestTag) {
+    if (
+      !shouldPrompt ||
+      !requiredMinimum ||
+      activeMinimum === requiredMinimum
+    ) {
       return;
     }
-    setActiveTag(latestTag);
-    setAutoUpdate(true);
+    setActiveMinimum(requiredMinimum);
+    setAutoUpdate(false);
     setInstallAttempted(false);
     setInstallSucceeded(null);
     setPolicyError(null);
-  }, [activeTag, latestTag, shouldPrompt]);
+  }, [activeMinimum, requiredMinimum, shouldPrompt]);
 
   useEffect(() => {
-    if (policy !== "notify" && activeTag) {
-      setActiveTag(null);
-      setInstallAttempted(false);
-      setInstallSucceeded(null);
-      setPolicyError(null);
+    if (policy !== "notify" && policy !== "auto" && activeMinimum) {
+      setActiveMinimum(null);
     }
-  }, [activeTag, policy]);
+  }, [activeMinimum, policy]);
 
-  if (!activeTag || !status || !latestTag) {
+  if (!activeMinimum || !status) {
     return null;
   }
 
-  const canInstall = status.updateMethod === "npm";
+  const canInstall = canServerUpdateCodex(status);
+  const manualHint = codexManualUpdateHint(status);
 
-  const close = ({ markSeen = false }: { markSeen?: boolean } = {}) => {
-    if (markSeen) {
-      writeSeenTag(activeTag);
-      setSeenTag(activeTag);
+  const close = () => {
+    setClosedMinimum(activeMinimum);
+    // A failed attempt stays unresolved, so it may prompt again next load.
+    if (installSucceeded === null) {
+      void updateSetting("codexRequiredUpdateDismissed", activeMinimum).catch(
+        () => {
+          // Still dismissed for this page; the next load may ask again.
+        },
+      );
     }
-    setDismissedTag(activeTag);
-    setActiveTag(null);
-    setInstallAttempted(false);
-    setInstallSucceeded(null);
-    setPolicyError(null);
+    setActiveMinimum(null);
   };
 
   const handleModalClose = () => {
-    if (isInstalling) {
-      return;
-    }
-    close({ markSeen: installSucceeded !== false });
+    if (!isInstalling) close();
   };
 
   const handleUpdate = async () => {
@@ -125,10 +113,6 @@ export function CodexUpdatePrompt() {
     setInstallSucceeded(ok);
   };
 
-  const handleNotNow = () => {
-    close({ markSeen: true });
-  };
-
   const installCommand =
     status.manualInstallCommand ??
     (status.installedPackage
@@ -143,46 +127,44 @@ export function CodexUpdatePrompt() {
         : null);
 
   return (
-    <Modal title="Codex CLI update available" onClose={handleModalClose}>
-      <div className="settings-group codex-update-prompt">
-        <p className="codex-update-prompt__summary">
+    <Modal title={t("codexUpdateRequiredTitle")} onClose={handleModalClose}>
+      <div className={`settings-group ${styles.root}`}>
+        <p className={styles.summary}>
           {installSucceeded
             ? t("codexUpdateInstalledSummary", {
-                version: status.installed ?? activeTag,
+                version: status.installed ?? activeMinimum,
               })
-            : t("codexUpdateReadySummary", {
-                current: status.installed ?? "unknown",
-                latest: latestTag,
+            : t("codexUpdateBelowMinimum", {
+                installed: status.installed ?? "unknown",
+                minimum: activeMinimum,
               })}
         </p>
+
+        <CodexDetectedInstall status={status} />
 
         {status.releaseUrl && (
           <a
             href={status.releaseUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="settings-link codex-update-prompt__release-link"
+            className={`settings-link ${styles.releaseLink}`}
           >
-            Release notes
+            {t("providersCodexUpdateReleaseNotes")}
           </a>
         )}
 
         {installCommand && (
-          <div className="codex-update-prompt__command-block">
+          <div className={styles.commandBlock}>
             <span className="settings-hint">
               {canInstall
                 ? t("codexUpdateWillRunCommand")
                 : t("providersCodexUpdateWithInstaller")}
             </span>
-            <code className="codex-update-prompt__command">
-              {installCommand}
-            </code>
+            <code className={styles.command}>{installCommand}</code>
           </div>
         )}
 
-        {!canInstall && (
-          <p className="settings-hint">{t("codexUpdateManualInstallHint")}</p>
-        )}
+        {manualHint && <p className="settings-hint">{t(manualHint)}</p>}
 
         {canInstall && (
           <Checkbox
@@ -194,16 +176,13 @@ export function CodexUpdatePrompt() {
         )}
 
         {isInstalling && (
-          <p className="settings-hint codex-update-prompt__progress">
+          <p className={`settings-hint ${styles.progress}`}>
             {t("codexUpdateProgress")}
           </p>
         )}
 
         {installAttempted && installSucceeded === true && (
-          <p className="form-success">
-            Codex updated successfully. Review the raw output below, then close
-            this dialog.
-          </p>
+          <p className="form-success">{t("codexUpdateSucceeded")}</p>
         )}
 
         {installAttempted && installSucceeded === false && error && (
@@ -213,45 +192,44 @@ export function CodexUpdatePrompt() {
         {policyError && <p className="settings-warning">{policyError}</p>}
 
         {(isInstalling || installAttempted) && rawOutput && (
-          <div className="codex-update-prompt__output-block">
-            <div className="codex-update-prompt__output-header">
-              <strong className="codex-update-prompt__output-title">
-                Raw output
+          <div className={styles.outputBlock}>
+            <div className={styles.outputHeader}>
+              <strong className={styles.outputTitle}>
+                {t("codexUpdateRawOutput")}
               </strong>
               {installCommand && (
-                <code className="codex-update-prompt__output-command">
-                  {installCommand}
-                </code>
+                <code className={styles.outputCommand}>{installCommand}</code>
               )}
             </div>
-            <pre className="codex-update-prompt__output">{rawOutput}</pre>
+            <pre className={styles.output}>{rawOutput}</pre>
           </div>
         )}
 
-        <div className="codex-update-prompt__actions">
-          {installSucceeded === true || !canInstall ? (
-            <Button onClick={() => close({ markSeen: true })}>
-              {t("codexUpdateDone")}
-            </Button>
+        {installSucceeded === null && !isInstalling && (
+          <p className="settings-hint">{t("codexUpdateDismissHint")}</p>
+        )}
+
+        <div className={styles.actions}>
+          {installSucceeded === true ? (
+            <Button onClick={close}>{t("codexUpdateDone")}</Button>
           ) : (
             <>
-              <Button
-                onClick={installAttempted ? () => close() : handleNotNow}
-                disabled={isInstalling}
-              >
-                {installAttempted ? "Dismiss" : "Not now"}
+              <Button onClick={close} disabled={isInstalling}>
+                {t("codexUpdateDismiss")}
               </Button>
-              <Button
-                variant="primary"
-                onClick={() => void handleUpdate()}
-                disabled={isInstalling}
-              >
-                {isInstalling
-                  ? "Installing…"
-                  : installAttempted
-                    ? "Retry update"
-                    : "Update now"}
-              </Button>
+              {canInstall && (
+                <Button
+                  variant="primary"
+                  onClick={() => void handleUpdate()}
+                  disabled={isInstalling}
+                >
+                  {isInstalling
+                    ? t("providersCodexUpdateInstalling")
+                    : installAttempted
+                      ? t("codexUpdateRetry")
+                      : t("providersCodexUpdateNow")}
+                </Button>
+              )}
             </>
           )}
         </div>

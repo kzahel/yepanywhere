@@ -53,15 +53,14 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal, type ModalAnchorRect } from "../../components/ui/Modal";
-import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Switch } from "../../components/ui/Switch";
 import { useToastContext } from "../../contexts/ToastContext";
-import { useCodexUpdateStatus } from "../../hooks/useCodexUpdateStatus";
 import { useProviders } from "../../hooks/useProviders";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { GatewayServicesSettings } from "./GatewayServicesSettings";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
+import { CodexUpdatePanel } from "./CodexUpdatePanel";
 import { ProviderSignIn } from "./ProviderSignIn";
 import {
   ClaudeAutoCompactPercentOverrideControl,
@@ -130,186 +129,6 @@ function GrokBuildApiKeySettings() {
       <p id={hintId} className={styles.switchHint}>
         {t("providersGrokUseXaiApiKeyHint")}
       </p>
-    </div>
-  );
-}
-
-function CodexUpdatePanel() {
-  const { t } = useI18n();
-  const { showToast } = useToastContext();
-  const { settings, updateSetting } = useServerSettings();
-  const {
-    status,
-    isChecking,
-    isInstalling,
-    error,
-    installOutput,
-    refresh,
-    install,
-  } = useCodexUpdateStatus();
-
-  const policy = settings?.codexUpdatePolicy ?? "notify";
-  const canAuto = status?.updateMethod === "npm";
-
-  const copy = useCallback(
-    async (text: string) => {
-      try {
-        await navigator.clipboard.writeText(text);
-        showToast(t("providersCodexUpdateCommandCopied"), "success");
-      } catch {
-        showToast(t("providersCodexUpdateCopyFailed"), "error");
-      }
-    },
-    [showToast, t],
-  );
-
-  if (!status?.installed || !status.latest) {
-    return null;
-  }
-
-  const updateAvailable = status.updateAvailable;
-
-  return (
-    <div style={{ marginTop: "var(--space-2)", width: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          gap: "var(--space-2)",
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        {updateAvailable ? (
-          <span>
-            <strong>{t("providersCodexUpdateAvailable")}</strong>{" "}
-            {status.installed} → {status.latest}
-          </span>
-        ) : (
-          <span className="settings-hint">
-            {t("providersCodexUpdateUpToDate", {
-              version: status.installed,
-            })}
-          </span>
-        )}
-        <Button onClick={() => void refresh(true)} disabled={isChecking}>
-          {isChecking
-            ? t("providersCodexUpdateChecking")
-            : t("providersCodexUpdateCheckNow")}
-        </Button>
-        {status.releaseUrl && updateAvailable && (
-          <a
-            href={status.releaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="settings-link"
-          >
-            {t("providersCodexUpdateReleaseNotes")}
-          </a>
-        )}
-        <div
-          style={{
-            display: "flex",
-            gap: "var(--space-3)",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <span className="settings-hint">
-            {t("providersCodexUpdatePolicyTitle")}
-          </span>
-          <SegmentedControl
-            size="small"
-            activation="manual"
-            aria-label={t("providersCodexUpdatePolicyTitle")}
-            value={policy}
-            onChange={(value) => void updateSetting("codexUpdatePolicy", value)}
-            options={[
-              {
-                value: "auto",
-                label: t("commonAuto"),
-                disabled: !canAuto,
-                tooltip: canAuto
-                  ? undefined
-                  : t("providersCodexUpdatePolicyAutoUnavailable"),
-              },
-              { value: "notify", label: t("providersCodexUpdatePolicyNotify") },
-              { value: "off", label: t("commonOff") },
-            ]}
-          />
-        </div>
-      </div>
-
-      {updateAvailable && (
-        <div
-          style={{
-            display: "flex",
-            gap: "var(--space-2)",
-            alignItems: "center",
-            marginTop: "var(--space-2)",
-            flexWrap: "wrap",
-          }}
-        >
-          {status.updateMethod === "npm" ? (
-            <Button onClick={() => void install()} disabled={isInstalling}>
-              {isInstalling
-                ? t("providersCodexUpdateInstalling")
-                : t("providersCodexUpdateNow")}
-            </Button>
-          ) : status.manualInstallCommand ? (
-            <span className="settings-hint">
-              {t("providersCodexUpdateWithInstaller")}
-            </span>
-          ) : null}
-          {status.manualInstallCommand ? (
-            <>
-              <code
-                style={{
-                  padding: "2px 6px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: 4,
-                  fontSize: "0.85em",
-                }}
-              >
-                {status.manualInstallCommand}
-              </code>
-              <Button
-                variant="ghost"
-                size="small"
-                onClick={() => void copy(status.manualInstallCommand ?? "")}
-              >
-                {t("remoteSetupCopy")}
-              </Button>
-            </>
-          ) : status.updateMethod === "manual" ? (
-            <span className="settings-hint">
-              {t("providersCodexUpdateManualInstallHint")}
-            </span>
-          ) : null}
-        </div>
-      )}
-
-      {error && (
-        <p className="settings-hint" style={{ color: "var(--error-color)" }}>
-          {error}
-        </p>
-      )}
-      {installOutput && (
-        <details style={{ marginTop: "var(--space-2)" }}>
-          <summary className="settings-hint">
-            {t("providersCodexUpdateInstallOutput")}
-          </summary>
-          <pre
-            style={{
-              fontSize: "0.8em",
-              whiteSpace: "pre-wrap",
-              maxHeight: 200,
-              overflow: "auto",
-            }}
-          >
-            {installOutput}
-          </pre>
-        </details>
-      )}
     </div>
   );
 }

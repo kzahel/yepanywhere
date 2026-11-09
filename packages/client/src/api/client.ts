@@ -92,6 +92,7 @@ import type {
   SessionStatus,
 } from "../types";
 import { authApi } from "./authClient";
+import type { CodexUpdateStatus } from "./codexUpdateStatus";
 import type { InboxResponse } from "./inbox";
 import { usersApi } from "./usersClient";
 import { browserProfilesApi } from "./browserProfilesClient";
@@ -1862,6 +1863,8 @@ export interface ServerSettings {
   codexCyberAccessProgram?: CodexCyberAccessProgram | null;
   /** How the server handles Codex CLI updates */
   codexUpdatePolicy?: "auto" | "notify" | "off";
+  /** Minimum Codex version whose required-update dialog was dismissed. */
+  codexRequiredUpdateDismissed?: string | null;
   /** Keep eligible local Linux Codex runtimes across YA server reloads. */
   codexReloadSafeSessions?: boolean;
   /** Host MCP App views from Codex tool calls (topics/mcp-apps.md). */
@@ -1907,18 +1910,4 @@ export interface PublicShareStatusResponse {
   viewerBaseUrl: string | null;
   defaultViewerBaseUrl: string;
   viewerBaseUrlError?: string;
-}
-
-/** Status from the server's Codex CLI update checker */
-export interface CodexUpdateStatus {
-  installed: string | null;
-  installedPath: string | null;
-  installedPackage: string | null;
-  updateMethod: "npm" | "manual";
-  manualInstallCommand: string | null;
-  latest: string | null;
-  releaseUrl: string | null;
-  updateAvailable: boolean;
-  lastCheckedAt: number | null;
-  error: string | null;
 }

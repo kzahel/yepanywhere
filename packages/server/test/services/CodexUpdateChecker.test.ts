@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +15,8 @@ import {
 } from "../../src/services/CodexUpdateChecker.js";
 
 const { normalizeVersion, compareVersions } = __testing__;
-const { extractNpmGlobalPackageName, inferManualInstallCommand } = __testing__;
+const { extractNpmGlobalPackageName, classifyManualInstall } = __testing__;
+const { isStandaloneRelease } = __testing__;
 const { resolveNpmPrefixShimPackage } = __testing__;
 
 const immediateInstallationCoordinator = {
@@ -49,19 +57,36 @@ describe("CodexUpdateChecker version helpers", () => {
     expect(compareVersions("0.4.3-rc.1", "0.4.3-rc.2")).toBeLessThan(0);
   });
 
-  it("infers manual install command from homebrew and cargo paths", () => {
+  it("classifies installs YA cannot update and their guidance", () => {
+    const classify = (resolved: string, installed = resolved) => {
+      const { installSource, manualInstallCommand } = classifyManualInstall(
+        installed,
+        resolved,
+      );
+      return [installSource, manualInstallCommand];
+    };
+    expect(classify("/opt/homebrew/Cellar/codex/0.4.3/bin/codex")).toEqual([
+      "homebrew",
+      "brew upgrade codex",
+    ]);
     expect(
-      inferManualInstallCommand("/opt/homebrew/Cellar/codex/0.4.3/bin/codex"),
-    ).toBe("brew upgrade codex");
-    expect(
-      inferManualInstallCommand(
-        "/usr/local/Cellar/codex/0.4.3/libexec/bin/codex",
-      ),
-    ).toBe("brew upgrade codex");
-    expect(inferManualInstallCommand("/home/graehl/.cargo/bin/codex")).toBe(
+      classify("/opt/homebrew/Caskroom/codex/0.4.3/codex-aarch64-apple-darwin"),
+    ).toEqual(["homebrew", "brew upgrade --cask codex"]);
+    expect(classify("/home/graehl/.cargo/bin/codex")).toEqual([
+      "cargo",
       "cargo install --locked codex",
-    );
-    expect(inferManualInstallCommand("/opt/codex-bundle/codex")).toBeNull();
+    ]);
+    expect(
+      classify(
+        "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+      ),
+    ).toEqual(["desktop-app", null]);
+    expect(
+      classify(
+        "C:/Users/me/AppData/Local/OpenAI/Codex/bin/38dff8711e296435/codex.exe",
+      ),
+    ).toEqual(["desktop-app", null]);
+    expect(classify("/opt/codex-bundle/codex")).toEqual(["unknown", null]);
   });
 
   it("extracts npm package names from global node_modules paths", () => {
@@ -83,6 +108,45 @@ describe("CodexUpdateChecker version helpers", () => {
         "/usr/local/lib/node_modules",
       ),
     ).toBeNull();
+  });
+});
+
+describe("standalone release detection", () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("recognizes the installer's release layout through its public link", async () => {
+    const root = realpathSync(mkdtempSync(path.join(tmpdir(), "ya-codex-")));
+    tempDirs.push(root);
+    const codexHome = path.join(root, ".codex");
+    const release = path.join(
+      codexHome,
+      "packages",
+      "standalone",
+      "releases",
+      "0.160.0-aarch64-apple-darwin",
+    );
+    mkdirSync(path.join(release, "bin"), { recursive: true });
+    const binary = path.join(release, "bin", "codex");
+    writeFileSync(binary, "");
+    const current = path.join(codexHome, "packages", "standalone", "current");
+    symlinkSync(release, current, "junction");
+    const publicLink = path.join(current, "bin", "codex");
+
+    await expect(
+      isStandaloneRelease(realpathSync(publicLink), codexHome),
+    ).resolves.toBe(true);
+    await expect(
+      isStandaloneRelease(binary, path.join(root, "other")),
+    ).resolves.toBe(false);
+    await expect(
+      isStandaloneRelease(path.join(root, "bin", "codex"), codexHome),
+    ).resolves.toBe(false);
   });
 });
 
@@ -184,6 +248,7 @@ describe("CodexUpdateChecker", () => {
       }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -194,6 +259,7 @@ describe("CodexUpdateChecker", () => {
       installed: "0.4.2",
       installedPath: "/usr/local/bin/codex",
       installedPackage: "@openai/codex",
+      installSource: "npm",
       updateMethod: "npm",
       manualInstallCommand: "npm install -g @openai/codex@latest",
       latest: "0.4.3",
@@ -292,6 +358,7 @@ describe("CodexUpdateChecker", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: null,
+        installSource: "homebrew",
         updateMethod: "manual",
         manualInstallCommand: "brew upgrade codex",
       }),
@@ -318,6 +385,7 @@ describe("CodexUpdateChecker", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -348,6 +416,7 @@ describe("CodexUpdateChecker", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -371,6 +440,7 @@ describe("CodexUpdateChecker", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "unexpected-package",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: null,
       }),
@@ -393,6 +463,7 @@ describe("CodexUpdateChecker", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -418,6 +489,7 @@ describe("CodexUpdateChecker", () => {
       fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
       detectInstallMetadata: async () => ({
         installedPackage: "@openai/codex",
+        installSource: "npm",
         updateMethod: "npm",
         manualInstallCommand: "npm install -g @openai/codex@latest",
       }),
@@ -429,5 +501,59 @@ describe("CodexUpdateChecker", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/production CLI probe/i);
     expect(result.status.installed).toBeNull();
+  });
+
+  it("reports an incompatibility only below the declared minimum", async () => {
+    const statusFor = (version: string, minimum: string | null) =>
+      new CodexUpdateChecker({
+        detectInstalled: async () => ({ version, path: null }),
+        fetchLatest: async () => ({ tagName: "v0.9.0", htmlUrl: null }),
+        minimumSupportedVersion: minimum,
+      }).getStatus();
+
+    await expect(statusFor("0.3.9", "0.4.0")).resolves.toMatchObject({
+      updateAvailable: true,
+      minimumSupported: "0.4.0",
+      belowMinimum: true,
+    });
+    await expect(statusFor("0.4.0", "0.4.0")).resolves.toMatchObject({
+      updateAvailable: true,
+      belowMinimum: false,
+    });
+    await expect(statusFor("0.3.9", null)).resolves.toMatchObject({
+      updateAvailable: true,
+      minimumSupported: null,
+      belowMinimum: false,
+    });
+  });
+
+  it("install() runs a standalone installation's own updater and verifies it", async () => {
+    const versions = ["0.4.2", "0.4.2", "0.4.3"];
+    const runInstall = vi.fn(async () => "npm must not run");
+    const runStandaloneUpdate = vi.fn(async () => "Update ran successfully!");
+    const checker = new CodexUpdateChecker({
+      detectInstalled: async () => ({
+        version: versions.shift() ?? "0.4.3",
+        path: "/home/me/.local/bin/codex",
+      }),
+      fetchLatest: async () => ({ tagName: "v0.4.3", htmlUrl: null }),
+      detectInstallMetadata: async () => ({
+        installedPackage: null,
+        installSource: "standalone",
+        updateMethod: "standalone",
+        manualInstallCommand: "codex update",
+      }),
+      runInstall,
+      runStandaloneUpdate,
+      installationCoordinator: immediateInstallationCoordinator,
+    });
+
+    const result = await checker.install();
+    expect(result.success).toBe(true);
+    expect(runStandaloneUpdate).toHaveBeenCalledWith(
+      "/home/me/.local/bin/codex",
+    );
+    expect(runInstall).not.toHaveBeenCalled();
+    expect(result.status.installed).toBe("0.4.3");
   });
 });

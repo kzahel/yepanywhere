@@ -32,6 +32,16 @@ collect detected candidates, probe each usable CLI for its version, and select
 the highest parsed Codex CLI semver. PATH order and common-path order remain
 tie-breakers for equal or unparseable versions.
 
+A desktop app bundle's prerelease never wins over another install that
+reports a version. ChatGPT ships its own Codex build, often an alpha (on
+2026-11-09 ChatGPT 26.1013 bundled `0.163.0-alpha.10.2` at
+`ChatGPT.app/Contents/Resources/codex-cli/bin/codex`), and replaces it on the
+app's schedule. Ranking it by semver alone would silently move YA off a stable
+CLI the user installed. A bundle path is a macOS `.app/Contents/Resources/`
+path or the Windows `OpenAI\Codex\bin\` directory; a stable bundled build
+competes normally, and a bundled prerelease is still used when nothing else
+is installed.
+
 Windows command shims are first-class auto candidates. In particular, `codex.cmd`
 from npm/fnm must be probed through a shell-compatible path so that YA sees the
 same installed version a user sees from `codex --version`.

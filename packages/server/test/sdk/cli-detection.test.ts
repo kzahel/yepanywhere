@@ -1,4 +1,10 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -103,6 +109,8 @@ describe("Codex CLI detection", () => {
       }),
     ).toEqual(
       expect.arrayContaining([
+        "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+        "/Users/test/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
         "/Applications/ChatGPT.app/Contents/Resources/codex",
         "/Users/test/Applications/ChatGPT.app/Contents/Resources/codex",
         "/Applications/Codex.app/Contents/Resources/codex",
@@ -217,5 +225,23 @@ describe("Codex CLI detection", () => {
       path: newerCodex,
       version: "codex-cli 99.2.0",
     });
+  });
+
+  it("keeps a desktop app's bundled prerelease from replacing a stable install", async () => {
+    const stableDir = makeTempDir("codex-stable-");
+    const appDir = join(
+      makeTempDir("codex-app-"),
+      "ChatGPT.app",
+      "Contents",
+      "Resources",
+      "codex-cli",
+      "bin",
+    );
+    mkdirSync(appDir, { recursive: true });
+    const stableCodex = createFakeCodex(stableDir, "98.0.0");
+    createFakeCodex(appDir, "99.0.0-alpha.1");
+    prependPath(appDir, stableDir);
+
+    await expect(findCodexCliPath()).resolves.toBe(stableCodex);
   });
 });

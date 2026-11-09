@@ -1176,6 +1176,23 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps) {
         }
       }
 
+      if ("codexRequiredUpdateDismissed" in body) {
+        const dismissed = body.codexRequiredUpdateDismissed;
+        if (dismissed === undefined || dismissed === null) {
+          updates.codexRequiredUpdateDismissed = undefined;
+        } else if (
+          typeof dismissed === "string" &&
+          /^\d+\.\d+\.\d+(?:-[\w.]+)?$/.test(dismissed)
+        ) {
+          updates.codexRequiredUpdateDismissed = dismissed;
+        } else {
+          return c.json(
+            { error: "codexRequiredUpdateDismissed must be a version or null" },
+            400,
+          );
+        }
+      }
+
       if ("codexReloadSafeSessions" in body) {
         if (typeof body.codexReloadSafeSessions !== "boolean") {
           return c.json(
