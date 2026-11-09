@@ -1233,7 +1233,6 @@
   "inboxTierNeedsAttention": "Needs Attention",
   "inboxTierActive": "Active",
   "inboxTierBackground": "Background",
-  "inboxTierBackgroundNote": "Turn finished. Messages you send queue until this work ends or you stop it.",
   "inboxTierRecentActivity": "Recent Activity",
   "inboxTierUnread8h": "Unread (8h)",
   "inboxTierUnread24h": "Unread (24h)",

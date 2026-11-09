@@ -45,7 +45,6 @@ interface TierConfig {
   activityTier?: boolean;
   /** A tier the user only needs while it has rows. */
   hideWhenEmpty?: boolean;
-  noteKey?: string;
   getBadge?: (item: InboxItem) => { label: string; className: string } | null;
 }
 
@@ -84,7 +83,6 @@ const TIER_CONFIGS: TierConfig[] = [
     colorClass: styles.tierBackground ?? "",
     activityTier: true,
     hideWhenEmpty: true,
-    noteKey: "inboxTierBackgroundNote",
   },
   {
     key: "recentActivity",
@@ -278,9 +276,6 @@ function InboxSection({
         {t(config.titleKey as never)}
         <span className={styles.sectionCount}>{sectionCount}</span>
       </h2>
-      {config.noteKey && (
-        <p className={styles.sectionNote}>{t(config.noteKey as never)}</p>
-      )}
       {isEmpty ? (
         <p className={styles.sectionEmptyMessage}>{t("inboxNoSessions")}</p>
       ) : (

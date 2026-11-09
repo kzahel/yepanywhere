@@ -469,7 +469,6 @@ function InboxProposal() {
               tierClass={styles.tierBackground ?? ""}
               rows={backgroundRows}
               now={now}
-              note="Turn finished. Messages you send queue until this work ends or you stop it."
             />
           </>
         )}
