@@ -2,7 +2,12 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: planned 2026-11-09.
+Status: done 2026-11-09 (slices 0 to 3); doc 058 rows 2.48 to 2.50.
+`NewSessionForm.tsx` went from 3,120 to 2,689 lines and
+`ProjectQueueAttachmentEditor.tsx` from 386 to 262; the shared hook is
+about 575 lines, and production code is about 570 lines smaller
+overall. Tier 2 passed at every slice; Tier 3's result is in doc
+058's slice 2.50 note.
 
 Three screens keep their own copy of the same attachment machinery:
 

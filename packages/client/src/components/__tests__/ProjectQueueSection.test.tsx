@@ -22,7 +22,7 @@ import { ProjectQueueSection } from "../ProjectQueueSection";
 import styles from "../ProjectQueueSection.module.css";
 
 const attachmentMocks = vi.hoisted(() => ({
-  uploadComposerAttachmentFile: vi.fn(),
+  uploadStagedAttachment: vi.fn(),
   fetch: vi.fn(),
 }));
 
@@ -31,12 +31,9 @@ vi.mock("../../contexts/SourceRuntimeContext", () => ({
     transport: {
       capabilities: { sameOriginUrls: true },
       fetch: attachmentMocks.fetch,
+      uploadStagedAttachment: attachmentMocks.uploadStagedAttachment,
     },
   }),
-}));
-
-vi.mock("../../lib/sessionComposerSubmission", () => ({
-  uploadComposerAttachmentFile: attachmentMocks.uploadComposerAttachmentFile,
 }));
 
 const PROJECT_ID = "project-1" as ProjectQueueItemSummary["projectId"];
@@ -176,7 +173,7 @@ function makeProjectStatus(
 
 describe("ProjectQueueSection", () => {
   beforeEach(() => {
-    attachmentMocks.uploadComposerAttachmentFile.mockReset();
+    attachmentMocks.uploadStagedAttachment.mockReset();
     attachmentMocks.fetch.mockReset();
     attachmentMocks.fetch.mockResolvedValue({ deleted: true });
   });
@@ -638,10 +635,10 @@ describe("ProjectQueueSection", () => {
       null,
       true,
     );
-    attachmentMocks.uploadComposerAttachmentFile.mockImplementation(
-      async ({ file, stagedBatchId }) => ({
+    attachmentMocks.uploadStagedAttachment.mockImplementation(
+      async (file: File, { batchId }: { batchId: string }) => ({
         id: "pasted-ref",
-        batchId: stagedBatchId,
+        batchId,
         originalName: file.name,
         name: file.name,
         size: file.size,
@@ -726,9 +723,7 @@ describe("ProjectQueueSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(
-        attachmentMocks.uploadComposerAttachmentFile,
-      ).not.toHaveBeenCalled();
+      expect(attachmentMocks.uploadStagedAttachment).not.toHaveBeenCalled();
       expect(handlers.onUpdateItem).toHaveBeenCalledWith(
         "project-1",
         "legacy",

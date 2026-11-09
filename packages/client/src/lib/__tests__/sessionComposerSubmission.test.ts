@@ -13,7 +13,7 @@ import {
   materializeComposerAttachmentsForSubmission,
   splitComposerAttachmentsForSubmission,
   stageComposerAttachmentsForNewSession,
-  uploadComposerAttachmentFile,
+  uploadStagedComposerAttachment,
 } from "../sessionComposerSubmission";
 import type { ComposerAttachment } from "../sessionComposerAttachments";
 
@@ -294,23 +294,15 @@ describe("session composer submission helpers", () => {
     );
   });
 
-  it("uploads direct and staged composer files with progress callbacks", async () => {
-    const directFile = new File(["hello"], "notes.txt", {
-      type: "text/plain",
-    });
+  it("stages a composer file with progress, named after the prepared file, with an image preview", async () => {
     const imageFile = new File(["image"], "image.png", { type: "image/png" });
-    const upload = vi.fn(async (_projectId, _sessionId, file, options) => {
-      options?.onProgress?.(file.size);
-      return { ...uploadedFile, size: file.size };
-    });
     const uploadStagedAttachment = vi.fn(async (file, options) => {
       options?.onProgress?.(file.size);
-      return { ...stagedRef, size: file.size };
+      return { ...stagedRef, originalName: "server-name.png", size: file.size };
     });
     const sourceTransport = {
-      upload,
       uploadStagedAttachment,
-    } as unknown as Pick<SourceTransport, "upload" | "uploadStagedAttachment">;
+    } as unknown as Pick<SourceTransport, "uploadStagedAttachment">;
     const progress = vi.fn();
     const originalCreateObjectURL = URL.createObjectURL;
     const originalRevokeObjectURL = URL.revokeObjectURL;
@@ -322,71 +314,42 @@ describe("session composer submission helpers", () => {
       configurable: true,
       value: vi.fn(),
     });
+    const imageProfile = {
+      maxLongEdge: 2000,
+      maxBytes: 4 * 1024 * 1024,
+      quality: 90,
+    };
 
     try {
-      await expect(
-        uploadComposerAttachmentFile({
-          file: directFile,
-          sourceTransport,
-          projectId: "project-a",
-          sessionId: "session-a",
-          imageProfile: {
-            maxLongEdge: 2000,
-            maxBytes: 4 * 1024 * 1024,
-            quality: 90,
-          },
-          onProgress: progress,
-        }),
-      ).resolves.toMatchObject({ id: "uploaded-a", size: directFile.size });
-
-      await expect(
-        uploadComposerAttachmentFile({
-          file: imageFile,
-          sourceTransport,
-          projectId: "project-a",
-          sessionId: "session-a",
-          imageProfile: {
-            maxLongEdge: 2000,
-            maxBytes: 4 * 1024 * 1024,
-            quality: 90,
-          },
-          stagedBatchId: "batch-a",
-          onProgress: progress,
-        }),
-      ).resolves.toMatchObject({
+      const { attachment, uploadFile } = await uploadStagedComposerAttachment({
+        file: imageFile,
+        sourceTransport,
+        imageProfile,
+        batchId: "batch-a",
+        onProgress: progress,
+      });
+      expect(attachment).toMatchObject({
         id: "staged-a",
+        originalName: "image.png",
         previewUrl: "blob:image-preview",
       });
-
-      expect(sourceTransport.upload).toHaveBeenCalledWith(
-        "project-a",
-        "session-a",
-        directFile,
-        expect.objectContaining({ onProgress: expect.any(Function) }),
-      );
-      expect(sourceTransport.uploadStagedAttachment).toHaveBeenCalledWith(
+      expect(uploadFile).toBe(imageFile);
+      expect(uploadStagedAttachment).toHaveBeenCalledWith(
         imageFile,
         expect.objectContaining({
           batchId: "batch-a",
           onProgress: expect.any(Function),
         }),
       );
-      expect(progress).toHaveBeenCalledWith(directFile.size, directFile);
       expect(progress).toHaveBeenCalledWith(imageFile.size, imageFile);
 
       uploadStagedAttachment.mockRejectedValueOnce(new Error("boom"));
       await expect(
-        uploadComposerAttachmentFile({
+        uploadStagedComposerAttachment({
           file: imageFile,
           sourceTransport,
-          projectId: "project-a",
-          sessionId: "session-a",
-          imageProfile: {
-            maxLongEdge: 2000,
-            maxBytes: 4 * 1024 * 1024,
-            quality: 90,
-          },
-          stagedBatchId: "batch-a",
+          imageProfile,
+          batchId: "batch-a",
         }),
       ).rejects.toThrow("boom");
       expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:image-preview");

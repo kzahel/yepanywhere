@@ -56,7 +56,8 @@ shared, and how risky it is to touch today.
    makes starting a correction one step (slices 2.44 to 2.47, 2026-11-08).
    [Plan 188](188-shared-composer-draft-attachments.md) replaces the three
    copies of the composer's draft attachments (the session page, New
-   Session and the Project Queue editor) with one hook (in progress).
+   Session and the Project Queue editor) with one hook (slices 2.48 to
+   2.50, 2026-11-09).
    Moving small features out one at a time leaves these files
    structurally as they were; the burn-down order and the consolidations
    it needs (one shared message-box core, then sending as plain
@@ -337,6 +338,7 @@ and props stable.
 | 2.47 | Done 2026-11-08 | `SessionPage.tsx` starting a correction | Make Edit latest message and the recall start a correction the same way ([plan 187](187-session-page-draft-hooks.md) slice 4). | Not move-only: under plan 187. Both call one `beginCorrection` step in `useSessionCorrectionDraft`, which revokes the composer's discarded previews only when it keeps an earlier set-aside draft. Edit latest message during an open correction no longer leaks the previews it discards; recall, refused while attachments show, is unchanged. The hook is 192 lines. Tier 3, plus plan 187's pins and its new leak pin. |
 | 2.48 | Done 2026-11-09 | Shared composer draft attachments, session page | Replace the session page's attachment state, hydration, uploads and remove with one shared hook ([plan 188](188-shared-composer-draft-attachments.md) slice 1). | Not move-only: under plan 188. New `hooks/useComposerDraftAttachments.ts` owns the list, in-flight uploads, the staging batch, the saved-draft write and hydration, cancel and remove, the preview revoke and the navigation guard; `useSessionComposerAttachments.ts` is deleted and `useSessionAttachmentUploads.ts` keeps only the page's upload settings and the incoming share. Behavior changes are plan 188 items 6, 7, 10, 12 to 16, 18, 26, 28 and 29; the visible one is that hydration waits for the server's capabilities, so a missing file under draft sync keeps its chip with one notice instead of being dropped. Budget `SessionPage.tsx` 3,621 -> 3,620; the hook is 568 lines. Tier 2, plus plan 187's and 188's pins. |
 | 2.49 | Done 2026-11-09 | Shared composer draft attachments, New Session | Put New Session's attachments on the shared hook ([plan 188](188-shared-composer-draft-attachments.md) slice 2). | Not move-only: under plan 188. `NewSessionForm.tsx` drops its inline copy (the saved-draft write, batch, hydration, sibling-tab listener, uploads, remove, materializing and the guard) and draws the hook's finished attachments and in-flight uploads. The `PendingFile` union and `lib/newSessionAttachments.ts` are deleted; `newSessionStart.ts` reads the hook's list and upload promises, counting uploads as files. The audio memo uploads on commit. Behavior changes are plan 188 items 2, 3, 5, 6, 8 to 10, 16 to 18, 23 and 25 to 27. Budget `NewSessionForm.tsx` 3,120 -> 2,689. Tier 2, plus plan 188's pins and the New Session browser specs. |
+| 2.50 | Done 2026-11-09 | Shared composer draft attachments, Project Queue editor | Put the Project Queue inline editor's attachments on the shared hook ([plan 188](188-shared-composer-draft-attachments.md) slice 3). | Not move-only: under plan 188. `ProjectQueueAttachmentEditor.tsx` (386 -> 262 lines) passes no saved draft, its item's files read once, an owned-files rule (only files added here are deleted), and its inline error. It keeps its save and its close-time delete. `uploadComposerAttachmentFile`, whose direct-upload branch no caller used, is deleted. The editor's only behavior change is plan 188 item 10 (a finished image is cached for its preview). Tier 2, then Tier 3 once at the plan's tip. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -479,6 +481,52 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.50 — Shared Composer Draft Attachments in the Project Queue Editor (Landed 2026-11-09, this commit)
+
+Not move-only. [Plan 188](188-shared-composer-draft-attachments.md) slice 3.
+
+Changed:
+- `components/ProjectQueueAttachmentEditor.tsx` (386 -> 262 lines) calls
+  `useComposerDraftAttachments` with no saved draft (`draftKey: null`, a
+  ref holding null, hydration off), the item's files as
+  `initialAttachments` (read once; they seed the batch), an
+  `ownsStagedAttachment` rule built once from them, and its inline error
+  for failed uploads and deletes. Its own list, uploading list, batch,
+  added-file tracking, unique names, cancel and guard are gone. It keeps
+  its save and the close-time delete of the files added here, which now
+  reads the hook's list ref.
+- `uploadComposerAttachmentFile` in `lib/sessionComposerSubmission.ts` is
+  deleted: every caller staged, so its direct-upload branch was dead.
+  `uploadStagedComposerAttachment` replaces it, and its unit test moved
+  to the new helper.
+- `ProjectQueueSection.test.tsx` mocks the transport's
+  `uploadStagedAttachment` instead of the helper's module.
+
+Behavior changes:
+- A finished image upload is now stored in the preview cache, as on the
+  other two screens (plan 188 item 10). Nothing else: the batch, the
+  owned files, the cancel, the close-time delete and the guard behave as
+  before, as slice 0's component pins show. After every existing staged
+  file is removed, a new upload may start a new batch (item 12); the
+  server prepares added files from whichever batch the message names.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice, including slice 0's
+  `ProjectQueueAttachmentEditor.test.tsx` and `ProjectQueueSection.test.tsx`.
+- Tier 3 ran once (`pnpm --filter client test:e2e --grep-invert "physical
+  Android"`) at the plan's tip before one fix: 586 passed, 13 skipped, 4
+  failed. `artifact-viewer.spec.ts:136` is the known failure;
+  `session-page-header-paths.spec.ts:497` fails at origin/main (see slice
+  2.44); `long-context-effort-warning.spec.ts:18` fails alone at
+  origin/main `b723e2fd5` too. `image-upload-quality.spec.ts:7` was this
+  plan's: a resized image's chip lost its `-resized` name (plan 188 item
+  7). Attachments are now named after the prepared file; that spec and
+  the attachment specs (`new-session-attachment-paths`,
+  `session-page-correction-attachment-paths`,
+  `session-page-title-attachment-paths`, `attachment-drop`, `audio-memo`)
+  pass at this commit, 24 passed.
 
 ### Slice 2.49 — Shared Composer Draft Attachments on New Session (Landed 2026-11-09, this commit)
 
