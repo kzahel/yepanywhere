@@ -24,7 +24,7 @@
   width: max-content;
   position: fixed;
   /* Stay visually frontmost while document capture owns passive hit testing. */
-  z-index: 2147483647;
+  z-index: var(--z-tooltip);
   max-width: min(520px, calc(100dvw - 16px));
   max-height: min(50vh, 420px);
   overflow: auto;

@@ -41,7 +41,7 @@ describe("themed tooltip CSS contract", () => {
       /\.root\s*\{([^}]*)\}/.exec(hovercardCss)?.[1] ?? "";
 
     expect(declarations).toMatch(/position:\s*fixed\s*;/);
-    expect(declarations).toMatch(/z-index:\s*2147483647\s*;/);
+    expect(declarations).toMatch(/z-index:\s*var\(--z-tooltip\)\s*;/);
     expect(declarations).toMatch(/pointer-events:\s*none\s*;/);
     expect(declarations).toMatch(/user-select:\s*none\s*;/);
     expect(declarations).toMatch(/max-width:\s*min\(520px,/);

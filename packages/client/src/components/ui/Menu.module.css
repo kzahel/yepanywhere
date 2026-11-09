@@ -1,0 +1,128 @@
+/*
+ * The shared action menu (plan 182, family 2). The surface is Popover's
+ * panel; items are full-width rows with optional check, icon, description
+ * and shortcut slots.
+ */
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: min(360px, calc(100dvw - 16px));
+}
+
+.item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 6px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1.3;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.danger {
+  color: var(--error-color);
+}
+
+.check,
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--text-secondary);
+}
+
+.check {
+  color: var(--app-yep-green);
+  font-size: var(--font-size-xs);
+}
+
+.icon svg {
+  flex-shrink: 0;
+}
+
+.danger .icon {
+  color: inherit;
+}
+
+.text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  overflow-wrap: anywhere;
+}
+
+.description {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.shortcut {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.item[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.item:hover:not([aria-disabled="true"]),
+.item:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus-border);
+}
+
+.separator {
+  height: 1px;
+  margin: var(--space-1) calc(-1 * var(--space-1));
+  background: var(--border-color);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.groupLabel {
+  padding: var(--space-1) var(--space-2) 2px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+/* Fingers, not cursors. */
+@media (pointer: coarse) {
+  .item {
+    min-height: 44px;
+    font-size: var(--font-size-base);
+  }
+}

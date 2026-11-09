@@ -437,6 +437,12 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.24);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.32);
 
+  /* Layers: modals, then popovers and menus (which open from them), then
+     tooltips. Page bars and panels keep their own lower values. */
+  --z-modal: 9999;
+  --z-popover: 10010;
+  --z-tooltip: 2147483647;
+
   /* Spinner */
   --app-spinner-foreground: var(--thinking-color);
 }
@@ -4006,52 +4012,6 @@ a.sidebar-nav-item {
   background: var(--primary-color);
 }
 
-/* Mode Selector Bottom Sheet */
-.mode-selector-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 10001;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.mode-selector-sheet {
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  width: 100%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  animation: slideUp 0.2s ease-out;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-.mode-selector-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.mode-selector-title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
 .mode-selector-options {
   display: flex;
   flex-direction: column;
@@ -4089,19 +4049,6 @@ a.sidebar-nav-item {
   color: var(--app-yep-green);
   display: flex;
   align-items: center;
-}
-
-.mode-selector-description {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  margin-left: auto;
-  margin-right: var(--space-2);
-}
-
-.mode-selector-divider {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: var(--space-2) var(--space-4);
 }
 
 .mode-selector-timing-note {
@@ -4143,10 +4090,6 @@ a.sidebar-nav-item {
 
 .mode-selector-dropdown .mode-selector-option {
   padding: var(--space-2) var(--space-3);
-}
-
-.mode-selector-dropdown .mode-selector-divider {
-  margin: var(--space-1) var(--space-3);
 }
 
 @keyframes dropdownFadeIn {
@@ -8502,11 +8445,6 @@ a.sidebar-nav-item {
   overflow-wrap: anywhere;
 }
 
-.filter-dropdowns {
-  display: flex;
-  gap: var(--space-2);
-}
-
 /* Session list header with select-all */
 .session-list-header {
   display: flex;
@@ -8920,10 +8858,6 @@ a.sidebar-nav-item {
 
   .filter-search {
     max-width: none;
-  }
-
-  .filter-dropdowns {
-    display: contents;
   }
 
   .global-sessions-project-cta {
@@ -11578,15 +11512,6 @@ a.sidebar-nav-item {
  * Scoped to the filter bar so these keep winning over the component's own
  * narrow-width rule, as they did when they were descendant overrides.
  */
-.filter-dropdowns .filter-dropdown-trigger--status {
-  min-width: 104px;
-  justify-content: space-between;
-}
-
-.filter-dropdowns .filter-dropdown-trigger--provider {
-  min-width: 132px;
-  justify-content: space-between;
-}
 
 .status-filter-placeholder {
   display: inline-flex;

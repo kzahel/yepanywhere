@@ -2037,7 +2037,7 @@ details[open] .collapsible__icon {
   justify-content: center;
   box-sizing: border-box;
   padding: 0.75rem 0.75rem max(0.75rem, 8vh);
-  z-index: 9999;
+  z-index: var(--z-modal);
 }
 
 .modal-overlay:has(.file-viewer-modal) {

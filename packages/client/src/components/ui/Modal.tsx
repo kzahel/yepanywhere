@@ -12,6 +12,7 @@ import { useI18n } from "../../i18n";
 import { QUOTE_SELECTION_ROOT_ATTRIBUTES } from "../../lib/markdownSelectionCopy";
 import { programmaticFocus } from "../../lib/programmaticFocus";
 import { ButtonBase } from "./Button";
+import { computePopoverPosition } from "./Popover";
 
 const ANCHORED_MODAL_MARGIN_PX = 8;
 const ANCHORED_MODAL_MIN_VIEWPORT_WIDTH_PX = 600;
@@ -24,7 +25,7 @@ const modalBackspaceOwners: Array<{
 }> = [];
 const modalLayerOwners: Array<{
   id: number;
-  close: () => void;
+  close: (event: KeyboardEvent) => boolean | undefined;
 }> = [];
 let bodyScrollOwners = 0;
 let bodyOverflowBeforeModal: string | null = null;
@@ -97,9 +98,11 @@ function handleModalEscape(event: KeyboardEvent): void {
   if (event.key !== "Escape") return;
   const owner = latestModalOwner(modalLayerOwners);
   if (!owner) return;
+  // A layer that declines (a popover whose field handles Escape itself)
+  // lets the key reach its target and closes nothing beneath it.
+  if (owner.close(event) === false) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  owner.close();
 }
 
 function latestModalOwner<T extends { id: number }>(
@@ -114,11 +117,14 @@ function latestModalOwner<T extends { id: number }>(
 
 /**
  * Own topmost Escape dismissal and one share of the document scroll lock.
- * A control layered inside a viewer, such as its find field, can take the
- * Escape slot without the scroll lock (`lockScroll: false`).
+ * A control layered inside a viewer, such as its find field or a popover,
+ * can take the Escape slot without the scroll lock (`lockScroll: false`).
+ * `onClose` returning `false` declines this Escape: nothing closes and the
+ * key reaches its target.
  */
 export function useModalLayer(
-  onClose: () => void,
+  // biome-ignore lint/suspicious/noConfusingVoidType: callers pass plain () => void closers
+  onClose: (event: KeyboardEvent) => boolean | void,
   enabled = true,
   { lockScroll = true }: { lockScroll?: boolean } = {},
 ): void {
@@ -136,7 +142,8 @@ export function useModalLayer(
     if (ownerId === null) return;
     const owner = {
       id: ownerId,
-      close: () => onCloseRef.current(),
+      close: (event: KeyboardEvent) =>
+        onCloseRef.current(event) === false ? false : undefined,
     };
     const needsEscapeListener = modalLayerOwners.length === 0;
     modalLayerOwners.push(owner);
@@ -435,26 +442,35 @@ export function Modal({
       const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
       const viewportHeight =
         window.visualViewport?.height ?? window.innerHeight;
-      const modalWidth = Math.min(
-        modal.offsetWidth,
-        viewportWidth - ANCHORED_MODAL_MARGIN_PX * 2,
-      );
-      const modalHeight = Math.min(
+      // Below the anchor, right edges aligned; above when there is more room.
+      const height = Math.min(
         modal.offsetHeight,
         viewportHeight - ANCHORED_MODAL_MARGIN_PX * 2,
       );
-      const maxLeft = viewportWidth - modalWidth - ANCHORED_MODAL_MARGIN_PX;
-      let left = anchorRect.right - modalWidth;
-      left = Math.min(Math.max(ANCHORED_MODAL_MARGIN_PX, left), maxLeft);
-
-      let top = anchorRect.bottom + ANCHORED_MODAL_MARGIN_PX;
-      if (top + modalHeight > viewportHeight - ANCHORED_MODAL_MARGIN_PX) {
-        top = anchorRect.top - modalHeight - ANCHORED_MODAL_MARGIN_PX;
-      }
-      top = Math.max(ANCHORED_MODAL_MARGIN_PX, top);
+      const position = computePopoverPosition({
+        anchor: anchorRect,
+        size: {
+          width: Math.min(
+            modal.offsetWidth,
+            viewportWidth - ANCHORED_MODAL_MARGIN_PX * 2,
+          ),
+          height,
+        },
+        viewport: { width: viewportWidth, height: viewportHeight },
+        placement: "bottom-end",
+        offset: ANCHORED_MODAL_MARGIN_PX,
+      });
+      // The whole dialog stays on screen, over its anchor if it must.
+      const top = Math.max(
+        ANCHORED_MODAL_MARGIN_PX,
+        Math.min(
+          position.top,
+          viewportHeight - height - ANCHORED_MODAL_MARGIN_PX,
+        ),
+      );
 
       setAnchorStyle({
-        left,
+        left: position.left,
         maxHeight: viewportHeight - ANCHORED_MODAL_MARGIN_PX * 2,
         top,
         visibility: "visible",

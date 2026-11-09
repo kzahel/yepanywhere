@@ -1,0 +1,42 @@
+/*
+ * The shared anchored surface (plan 182, family 2). Popover.tsx sets top,
+ * left and --popover-available-height; the surface scrolls past that.
+ */
+
+.popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-popover);
+  box-sizing: border-box;
+  max-width: calc(100dvw - 16px);
+  max-height: var(--popover-available-height, calc(100dvh - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.panel {
+  padding: var(--space-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Phones: long pickers rise from the bottom edge over a backdrop. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+  background: var(--bg-overlay);
+}
+
+.popover.sheet {
+  inset: auto 0 0;
+  max-width: none;
+  max-height: min(70dvh, calc(100dvh - 48px));
+  padding-bottom: max(var(--space-1), env(safe-area-inset-bottom));
+  border-width: 1px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
