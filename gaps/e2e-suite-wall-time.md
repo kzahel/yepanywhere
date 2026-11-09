@@ -46,8 +46,25 @@ records the measurements.
    workers and pass alone, so CPU load exposes them. Each retry adds its
    timeout and a replacement worker's 3.4s server startup.
 2. **Session creation is the largest area**: 13 specs and 22% of local case
-   time. Their time is real launches, restarts and acknowledgement waits rather
-   than fixed sleeps, so reductions need per-case review of which provider and
-   restart variants add a distinct boundary, per the plan's sequence.
+   time. Standalone servers now share tsx's compile cache and six cases serve
+   the built client (together about 25% off those specs' case time). The
+   2026-11-09 audit's remaining proposals, largest first:
+   - Drop or make HTTP-only the hosted variant of
+     `codex-session-creation.spec.ts` (about 32 case-seconds). Hosted bind,
+     restart and continuation stay covered by `session-creation-callers`
+     (`:19`, `:293`) and `session-creation-recovery` (`:111`, `:167`), but it
+     is the only case combining an auto-started host with the New Session form.
+   - Move `opencode-session-creation.spec.ts:212` (HTTP-only refusals, about
+     16s) beside `packages/server/test/sessions/session-identity-opencode-resume.test.ts`.
+   - Drop the hosted variant of `project-queue-session-creation.spec.ts:15`
+     (HTTP-only, 14s); queue promotion enters `supervisor.startSession` like
+     every other caller.
+   - Move the three Pi native-file layout cases (`pi-session-creation.spec.ts`,
+     HTTP-only, about 14s) to a server test of the `pi.ts` store check, which
+     has no lower-level coverage today.
+   - Make the hosted Pi variant HTTP-only, and share one remote-client Vite
+     server across `session-creation-remote-qualification.spec.ts`.
+   The hosted variants are a coverage judgment for the maintainer; the moves
+   need new server tests that keep the saved-prompt and replay assertions.
 
 Found 2026-11-08 while answering why a full local E2E run could take two hours.

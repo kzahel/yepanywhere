@@ -544,3 +544,13 @@ Local macOS (14 cores), same source: four workers ran 601 cases in 7.6m
 (27.3 case-minutes, six failures); eight workers took 5.1m (33.1
 case-minutes, four failures). Four of the four-worker failures passed alone
 with one worker.
+
+Follow-up the same day on `main`:
+[run 42610688128](https://github.com/kzahel/yepanywhere/actions/runs/42610688128)
+(`036500d47`, default four shards × two workers) passed every E2E shard in
+6.0 / 6.4 / 7.1 / 8.0m, with three first-attempt failures that passed on
+retry, after the two always-failing cases were repaired. Sharing tsx's
+compile cache with standalone servers and serving the built client in six
+session-creation cases then brought a local four-worker full run to 6.8m
+(24.5 case-minutes for 605 cases, from 27.3 for 601), with three
+load-related failures.
