@@ -36,6 +36,7 @@ import {
   getProjectViewerFilePath,
 } from "../../FilePathLink";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import { SourceFileHeaderActions } from "../../SourceFileHeaderActions";
 import { FileRevisionLink } from "../../FileRevisionLink";
 import { FileDiffLinkCluster } from "../../FileDiffViewLinks";
@@ -1155,11 +1156,11 @@ function EditCollapsedPreview({
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Edit" errors={validationErrors} />
           )}
-          <span className={`badge badge-${classSuffix}`}>
+          <Badge tone={classSuffix === "muted" ? "neutral" : "warning"}>
             {isRejection
               ? classification.label
               : `Edit ${classification.label.toLowerCase()}`}
-          </span>
+          </Badge>
           {classification.userReason ? (
             <span className="edit-error-message">
               {classification.userReason}
@@ -1275,9 +1276,7 @@ function EditCollapsedPreview({
   return (
     <>
       <div className="edit-collapsed-preview">
-        {result?.userModified && (
-          <span className="badge badge-info">User modified</span>
-        )}
+        {result?.userModified && <Badge tone="info">User modified</Badge>}
         {showValidationWarning && validationErrors && (
           <SchemaWarning toolName="Edit" errors={validationErrors} />
         )}
@@ -1599,11 +1598,11 @@ function EditToolResult({
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Edit" errors={validationErrors} />
           )}
-          <span className={`badge badge-${classSuffix}`}>
+          <Badge tone={classSuffix === "muted" ? "neutral" : "warning"}>
             {isRejection
               ? classification.label
               : `Edit ${classification.label.toLowerCase()}`}
-          </span>
+          </Badge>
           {classification.userReason ? (
             <div className="edit-error-message">
               {classification.userReason}
@@ -1689,10 +1688,8 @@ function EditToolResult({
           <span className="file-path">
             {filePath ? getFileName(filePath) : "File"}
           </span>
-          {isPlan && <span className="badge badge-muted">Plan</span>}
-          {result?.userModified && (
-            <span className="badge badge-info">User modified</span>
-          )}
+          {isPlan && <Badge>Plan</Badge>}
+          {result?.userModified && <Badge tone="info">User modified</Badge>}
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Edit" errors={validationErrors} />
           )}
@@ -1724,9 +1721,7 @@ function EditToolResult({
         {changeSummary && (
           <div className="edit-change-summary">{changeSummary}</div>
         )}
-        {result.userModified && (
-          <span className="badge badge-info">User modified</span>
-        )}
+        {result.userModified && <Badge tone="info">User modified</Badge>}
         <DiffTapTarget label="Show full diff" onOpen={handleOpen}>
           <DiffMathView
             sourceText={result.structuredPatch

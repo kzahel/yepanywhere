@@ -8,6 +8,7 @@ import {
 } from "../../../hooks/useTooltipAppearance";
 import { selectionIntersectsElement } from "../../../lib/domSelection";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
+import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { HiddenContentBadge } from "../../ui/HiddenContentBadge";
 import {
@@ -179,9 +180,9 @@ function WebRunPageView({
       <div className="webrun-page-header">
         <PageTitleLink page={page} />
         {pageBadges(page).map((badge) => (
-          <span key={badge} className="badge">
+          <Badge key={badge} size="small">
             {badge}
-          </span>
+          </Badge>
         ))}
         <OutputCopyButton text={pageContentText(page)} label="Copy page text" />
       </div>

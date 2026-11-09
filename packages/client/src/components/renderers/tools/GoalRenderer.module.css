@@ -63,37 +63,7 @@
 }
 
 .statusBadge {
-  display: inline-flex;
   flex: 0 0 auto;
-  align-items: center;
-  max-width: 100%;
-  padding: 0.1rem 0.45rem;
-  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
-  border-radius: 999px;
-  color: var(--text-secondary, #aaa);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 650;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-
-.statusActive .statusBadge {
-  color: var(--timeline-dot-working, #4aa3ff);
-}
-
-.statusPaused .statusBadge,
-.statusLimited .statusBadge {
-  color: var(--timeline-dot-warning, #d7ba7d);
-}
-
-.statusBlocked .statusBadge,
-.error {
-  color: var(--timeline-dot-error, #f85149);
-}
-
-.statusComplete .statusBadge {
-  color: var(--app-yep-green, #059669);
 }
 
 .objective {
@@ -161,6 +131,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  color: var(--timeline-dot-error, #f85149);
 }
 
 .errorMessage {

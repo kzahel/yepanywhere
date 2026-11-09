@@ -20,6 +20,7 @@ import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { useImageResourceActions } from "../ImageResourceActions";
 import { LocalMediaModal, type LocalMediaSource } from "../LocalMediaModal";
 import { TimelineDisclosure } from "../TimelineDisclosure";
+import { Banner } from "../ui/Banner";
 import { ButtonBase } from "../ui/Button";
 import styles from "./ToolResultMediaRows.module.css";
 
@@ -243,9 +244,9 @@ function StoredToolResultMediaRow({
             </span>
           )}
           {preview.state === "error" && (
-            <span className={styles.error}>
+            <Banner tone="error" compact className={styles.error}>
               {t("toolResultMediaLoadFailed")}
-            </span>
+            </Banner>
           )}
           {preview.state === "loaded" &&
             (isVideo ? (

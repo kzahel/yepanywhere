@@ -166,9 +166,12 @@ import {
   type UserTurnNavAnchor,
   type UserTurnNavMotionCue,
 } from "./UserTurnNavigator";
+import { Badge } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, buttonClassName } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { LinkifiedText } from "./ui/LinkifiedText";
+import { Spinner } from "./ui/Spinner";
 import styles from "./MessageList.module.css";
 import { useMcpAppViewsEnabled } from "../hooks/useMcpAppViewsEnabled";
 
@@ -1058,8 +1061,12 @@ function BtwAsideTimelineCard({
         {aside.preview && (
           <span className="btw-aside-preview">{aside.preview}</span>
         )}
-        {aside.error && <span className="btw-aside-error">{aside.error}</span>}
       </ButtonBase>
+      {aside.error && (
+        <Banner tone="error" compact className={styles.btwAsideError}>
+          {aside.error}
+        </Banner>
+      )}
       {aside.expanded && canExpand && (
         <BtwAsideTranscript
           aside={aside}
@@ -5056,26 +5063,20 @@ export const MessageList = memo(function MessageList({
                   <Button
                     size="small"
                     onClick={handleLoadOlder}
-                    disabled={
+                    busy={
                       loadingOlder && conversationWindow.hiddenTurnCount === 0
                     }
                   >
-                    {loadingOlder &&
-                    conversationWindow.hiddenTurnCount === 0 ? (
-                      <>
-                        <span className="spinning">&#x21BB;</span>{" "}
-                        {t("sessionLoadingOlderMessages")}
-                      </>
-                    ) : conversationWindow.hiddenTurnCount > 0 ? (
-                      t("sessionConversationLoadEarlierTurns", {
-                        count: Math.min(
-                          conversationViewTurnLimit,
-                          conversationWindow.hiddenTurnCount,
-                        ),
-                      })
-                    ) : (
-                      t("sessionLoadOlderMessages")
-                    )}
+                    {loadingOlder && conversationWindow.hiddenTurnCount === 0
+                      ? t("sessionLoadingOlderMessages")
+                      : conversationWindow.hiddenTurnCount > 0
+                        ? t("sessionConversationLoadEarlierTurns", {
+                            count: Math.min(
+                              conversationViewTurnLimit,
+                              conversationWindow.hiddenTurnCount,
+                            ),
+                          })
+                        : t("sessionLoadOlderMessages")}
                   </Button>
                 )}
               </div>
@@ -5377,9 +5378,9 @@ export const MessageList = memo(function MessageList({
                         </span>
                       ) : null}
                       {projectQueue.lastError && (
-                        <span className="project-queue-inline-message-error">
+                        <Banner tone="error" compact>
                           {projectQueue.lastError}
-                        </span>
+                        </Banner>
                       )}
                       <QueuedMessageActions
                         variant="project"
@@ -5425,6 +5426,10 @@ export const MessageList = memo(function MessageList({
             const deferred = tailRow.message;
             const recoveredQueueId = tailRow.recoveredQueueId;
             const isClearloop = deferred.yaCommand === "clearloop";
+            const loopCounts = deferred.clearloop && {
+              completed: String(deferred.clearloop.completed),
+              total: String(deferred.clearloop.total),
+            };
             const deferredStatus = tailRow.isRecovered
               ? t("sessionRecoveredQueuedPaused")
               : isClearloop
@@ -5469,22 +5474,18 @@ export const MessageList = memo(function MessageList({
                     className={`message-user-prompt ${styles.queuedBubble}`}
                     title={isClearloop ? deferred.content : undefined}
                   >
-                    {isClearloop && deferred.clearloop ? (
-                      <span
+                    {isClearloop && loopCounts ? (
+                      <Badge
+                        shape="count"
+                        size="small"
+                        emphasis="solid"
                         className={styles.clearloopBadge}
                         role="img"
-                        aria-label={t("clearloopProgress", {
-                          completed: String(deferred.clearloop.completed),
-                          total: String(deferred.clearloop.total),
-                        })}
-                        title={t("clearloopIterationBadgeTitle", {
-                          completed: String(deferred.clearloop.completed),
-                          total: String(deferred.clearloop.total),
-                        })}
+                        aria-label={t("clearloopProgress", loopCounts)}
+                        tooltip={t("clearloopIterationBadgeTitle", loopCounts)}
                       >
-                        {deferred.clearloop.completed}/
-                        {deferred.clearloop.total}
-                      </span>
+                        {loopCounts.completed}/{loopCounts.total}
+                      </Badge>
                     ) : null}
                     <LinkifiedText text={deferred.content} />
                   </div>
@@ -5678,10 +5679,9 @@ export const MessageList = memo(function MessageList({
               </div>
             );
           })}
-          {/* Compacting indicator - shown when context is being compressed */}
           {isCompacting && (
             <div className="system-message system-message-compacting">
-              <span className="system-message-icon spinning">⟳</span>
+              <Spinner size="small" />
               <span className="system-message-text">Compacting context...</span>
             </div>
           )}

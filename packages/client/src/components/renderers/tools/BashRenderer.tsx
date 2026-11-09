@@ -27,6 +27,7 @@ import { validateToolResult } from "../../../lib/validateToolResult";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
 import { ProjectPathLinkedText } from "../../ProjectPathLinkedText";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { ToolOutputText } from "../../ToolOutputText";
 import {
@@ -238,13 +239,9 @@ function BashToolResult({
           <NestedHarnessLaunchLink command={command} />
         </div>
       )}
-      {result?.interrupted && (
-        <span className="badge badge-warning">Interrupted</span>
-      )}
+      {result?.interrupted && <Badge tone="warning">Interrupted</Badge>}
       {result?.backgroundTaskId && (
-        <span className="badge badge-info">
-          Background: {result.backgroundTaskId}
-        </span>
+        <Badge tone="info">Background: {result.backgroundTaskId}</Badge>
       )}
       <BashResultMetaBadges result={result} />
       {stdout && (

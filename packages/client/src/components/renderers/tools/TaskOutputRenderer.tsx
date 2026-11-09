@@ -5,6 +5,7 @@ import type { ZodError } from "zod";
 import { useSchemaValidationContext } from "../../../contexts/SchemaValidationContext";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import type { TaskOutputInput, TaskOutputResult } from "./types";
 
@@ -42,12 +43,10 @@ function TaskOutputToolUse({ input }: { input: TaskOutputInput }) {
       <span className="taskoutput-label">Polling task</span>
       <code className="taskoutput-id">{input.task_id}</code>
       {input.block !== undefined && (
-        <span className="badge">
-          {input.block ? "blocking" : "non-blocking"}
-        </span>
+        <Badge size="small">{input.block ? "blocking" : "non-blocking"}</Badge>
       )}
       {input.timeout !== undefined && (
-        <span className="badge">timeout: {input.timeout}ms</span>
+        <Badge size="small">timeout: {input.timeout}ms</Badge>
       )}
     </div>
   );
@@ -96,7 +95,9 @@ function TaskOutputToolResult({ result }: { result: TaskOutputResult }) {
       <div className="taskoutput-header">
         <StatusIndicator status={result.retrieval_status} />
         {task?.task_type && (
-          <span className="badge badge-info">{task.task_type}</span>
+          <Badge tone="info" size="small">
+            {task.task_type}
+          </Badge>
         )}
         {task?.description && (
           <span className="taskoutput-desc">{task.description}</span>
@@ -110,11 +111,12 @@ function TaskOutputToolResult({ result }: { result: TaskOutputResult }) {
           <div className="taskoutput-task-status">
             {task.status && <StatusIndicator status={task.status} />}
             {task.exitCode != null && (
-              <span
-                className={`badge ${task.exitCode === 0 ? "badge-success" : "badge-error"}`}
+              <Badge
+                tone={task.exitCode === 0 ? "success" : "danger"}
+                size="small"
               >
                 exit {task.exitCode}
-              </span>
+              </Badge>
             )}
           </div>
           {task.output && (

@@ -6,7 +6,7 @@
       "maxLines": 1913
     },
     "packages/client/src/components/blocks/ToolCallRow.tsx": {
-      "maxLines": 1953
+      "maxLines": 1927
     },
     "packages/client/src/components/FileViewer.tsx": {
       "maxLines": 2709
@@ -31,7 +31,7 @@
       "maxLines": 2689
     },
     "packages/client/src/components/renderers/tools/EditRenderer.tsx": {
-      "maxLines": 1813
+      "maxLines": 1808
     },
     "packages/client/src/components/RenderItemComponent.tsx": {
       "maxLines": 1723

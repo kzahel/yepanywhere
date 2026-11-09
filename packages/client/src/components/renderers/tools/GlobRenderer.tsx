@@ -6,6 +6,7 @@ import { useSchemaValidationContext } from "../../../contexts/SchemaValidationCo
 import { getPathBasename, makeDisplayPath } from "../../../lib/text";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import styles from "./GlobRenderer.module.css";
 import type { GlobInput, GlobResult } from "./types";
@@ -95,7 +96,11 @@ function GlobToolResult({
     <div className={styles.result}>
       <div className={styles.header}>
         <span className={styles.count}>{numFiles} files</span>
-        {truncated && <span className="badge badge-warning">truncated</span>}
+        {truncated && (
+          <Badge tone="warning" size="small">
+            truncated
+          </Badge>
+        )}
         {showValidationWarning && validationErrors && (
           <SchemaWarning toolName="Glob" errors={validationErrors} />
         )}

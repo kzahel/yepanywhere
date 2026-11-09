@@ -4,6 +4,7 @@ import { normalizeBashResult } from "../../../lib/bashResult";
 import { formatCommandDuration } from "@yep-anywhere/shared/transcript/shellToolOutput";
 import { ProjectPathLinkedText } from "../../ProjectPathLinkedText";
 import { ToolOutputText } from "../../ToolOutputText";
+import { Badge } from "../../ui/Badge";
 import { FixedFontMathToggle } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
 import { OutputCopyButton } from "./outputPreview";
@@ -142,14 +143,12 @@ export function BashModalContent({
       )}
       {result?.interrupted && (
         <div className="bash-modal-section">
-          <span className="badge badge-warning">Interrupted</span>
+          <Badge tone="warning">Interrupted</Badge>
         </div>
       )}
       {result?.backgroundTaskId && (
         <div className="bash-modal-section">
-          <span className="badge badge-info">
-            Background: {result.backgroundTaskId}
-          </span>
+          <Badge tone="info">Background: {result.backgroundTaskId}</Badge>
         </div>
       )}
       <BashResultMetaBadges result={result} />
@@ -174,13 +173,11 @@ export function BashResultMetaBadges({
   }
   return (
     <div className="bash-result-meta-badges">
-      {showExit && (
-        <span className="badge badge-error">rc={result?.exitCode}</span>
-      )}
+      {showExit && <Badge tone="danger">rc={result?.exitCode}</Badge>}
       {showDuration && result?.durationSeconds !== undefined && (
-        <span className="badge badge-info">
+        <Badge tone="info">
           {formatCommandDuration(result.durationSeconds)}
-        </span>
+        </Badge>
       )}
     </div>
   );

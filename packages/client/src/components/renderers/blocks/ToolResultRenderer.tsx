@@ -1,3 +1,4 @@
+import { Badge } from "../../ui/Badge";
 import { toolRegistry } from "../tools";
 import type { ContentBlock, ContentRenderer, RenderContext } from "../types";
 
@@ -39,7 +40,11 @@ function ToolResultRendererComponent({
       <div className="tool-header">
         <span className="tool-icon">{"<"}</span>
         <span className="tool-name">{toolName}</span>
-        {isError && <span className="badge badge-error">Error</span>}
+        {isError && (
+          <Badge tone="danger" size="small">
+            Error
+          </Badge>
+        )}
       </div>
       <div className="tool-content">
         {toolRegistry.renderToolResult(

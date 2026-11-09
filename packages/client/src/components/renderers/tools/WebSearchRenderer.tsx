@@ -5,6 +5,7 @@ import type { ZodError } from "zod";
 import { useSchemaValidationContext } from "../../../contexts/SchemaValidationContext";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import type { WebSearchInput, WebSearchResult } from "./types";
 
 /**
@@ -58,7 +59,7 @@ function WebSearchToolResult({ result }: { result: WebSearchResult }) {
       <div className="websearch-header">
         <span className="websearch-query-display">"{result.query}"</span>
         {result.durationSeconds !== undefined && (
-          <span className="badge">{result.durationSeconds.toFixed(2)}s</span>
+          <Badge size="small">{result.durationSeconds.toFixed(2)}s</Badge>
         )}
         {showValidationWarning && validationErrors && (
           <SchemaWarning toolName="WebSearch" errors={validationErrors} />

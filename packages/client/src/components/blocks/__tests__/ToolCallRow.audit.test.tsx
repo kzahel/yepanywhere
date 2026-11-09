@@ -220,9 +220,7 @@ describe("tactical 126 observed display regressions", () => {
         status: isError ? "error" : "complete",
       });
       expectRich(container);
-      expect(container.querySelector(".badge-error")?.textContent).toBe(
-        "failed",
-      );
+      expect(screen.getByText("failed", { exact: true })).toBeTruthy();
       expect(container.textContent).toContain(rejection);
       expect(container.textContent).not.toContain("Completed");
       expect(container.querySelector("a")).toBeNull();

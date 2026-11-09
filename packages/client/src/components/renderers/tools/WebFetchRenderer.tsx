@@ -5,6 +5,7 @@ import type { ZodError } from "zod";
 import { useSchemaValidationContext } from "../../../contexts/SchemaValidationContext";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import type { WebFetchInput, WebFetchResult } from "./types";
 
@@ -73,12 +74,12 @@ function WebFetchToolResult({ result }: { result: WebFetchResult }) {
   const displayLines =
     needsCollapse && !isExpanded ? lines.slice(0, MAX_CONTENT_LINES) : lines;
 
-  const statusClass =
+  const statusTone =
     result.code >= 200 && result.code < 300
-      ? "badge-success"
+      ? "success"
       : result.code >= 400
-        ? "badge-error"
-        : "badge-warning";
+        ? "danger"
+        : "warning";
 
   return (
     <div className="webfetch-result">
@@ -91,9 +92,9 @@ function WebFetchToolResult({ result }: { result: WebFetchResult }) {
         >
           {result.url}
         </a>
-        <span className={`badge ${statusClass}`}>
+        <Badge tone={statusTone} size="small">
           {result.code} {result.codeText}
-        </span>
+        </Badge>
         <span className="webfetch-meta">
           {formatBytes(result.bytes)} &middot; {result.durationMs}ms
         </span>

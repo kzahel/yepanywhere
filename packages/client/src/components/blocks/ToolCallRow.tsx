@@ -58,6 +58,7 @@ import type { RenderContext } from "../renderers/types";
 import { getToolSummary } from "../tools/summaries";
 import { ButtonBase, IconButton } from "../ui/Button";
 import { HiddenContentBadge } from "../ui/HiddenContentBadge";
+import { Spinner } from "../ui/Spinner";
 import type { WorkflowAnnotation } from "@yep-anywhere/shared/transcript/workflowTags";
 import { WorkflowOutput } from "../WorkflowOutput";
 import { ToolCommentaryBoundary } from "../ToolCommentaryBoundary";
@@ -1410,11 +1411,7 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
             : undefined
         }
       >
-        {status === "pending" && (
-          <span className="tool-spinner" role="status" aria-label="Running">
-            <Spinner />
-          </span>
-        )}
+        {status === "pending" && <Spinner size="small" label="Running" />}
         {status === "aborted" && (
           <span
             className="tool-aborted-icon"
@@ -1857,29 +1854,6 @@ function ToolResultExpanded({
     <div className="tool-result-expanded">
       {prepared.renderToolResult(context)}
     </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="spinner"
-      viewBox="0 0 16 16"
-      width="12"
-      height="12"
-      aria-hidden="true"
-    >
-      <circle
-        cx="8"
-        cy="8"
-        r="6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeDasharray="24"
-        strokeDashoffset="8"
-      />
-    </svg>
   );
 }
 

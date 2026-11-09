@@ -71,6 +71,7 @@ import { ThinkingBlock } from "./blocks/ThinkingBlock";
 import { ToolCallRow } from "./blocks/ToolCallRow";
 import { UserPromptBlock } from "./blocks/UserPromptBlock";
 import { LinkifiedText } from "./ui/LinkifiedText";
+import { Spinner } from "./ui/Spinner";
 import styles from "./RenderItemComponent.module.css";
 import { WorkflowContext } from "./WorkflowOutput";
 import { WorkflowAssistantOutput } from "./WorkflowAssistantOutput";
@@ -1642,10 +1643,9 @@ export const RenderItemComponent = memo(function RenderItemComponent({
           <div
             className={`system-message ${isCompacting ? "system-message-compacting" : ""} ${isError ? "system-message-error" : ""} ${isWarning ? "system-message-warning" : ""} ${isHighlightedConfigAck ? "system-message-config-ack" : ""} ${isLocalCommand ? "system-message-local-command" : ""}`}
           >
-            {systemIconForText(icon, item.content) && (
-              <span
-                className={`system-message-icon ${isCompacting ? "spinning" : ""}`}
-              >
+            {isCompacting && <Spinner size="small" />}
+            {!isCompacting && systemIconForText(icon, item.content) && (
+              <span className="system-message-icon">
                 {systemIconForText(icon, item.content)}
               </span>
             )}

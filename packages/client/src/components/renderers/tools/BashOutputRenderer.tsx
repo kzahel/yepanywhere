@@ -6,6 +6,7 @@ import { useSchemaValidationContext } from "../../../contexts/SchemaValidationCo
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
 import { AnsiText } from "../../ui/AnsiText";
+import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { FixedFontMathToggle } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
@@ -71,9 +72,7 @@ function BashOutputToolUse({ input }: { input: BashOutputInput }) {
       <span className="bashoutput-label">Polling background shell</span>
       <code className="bashoutput-id">{input.bash_id}</code>
       {input.block !== undefined && (
-        <span className="badge">
-          {input.block ? "blocking" : "non-blocking"}
-        </span>
+        <Badge size="small">{input.block ? "blocking" : "non-blocking"}</Badge>
       )}
     </div>
   );
@@ -127,11 +126,12 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
           <code className="bashoutput-command">{result.command}</code>
         )}
         {result.exitCode !== null && (
-          <span
-            className={`badge ${result.exitCode === 0 ? "badge-success" : "badge-error"}`}
+          <Badge
+            tone={result.exitCode === 0 ? "success" : "danger"}
+            size="small"
           >
             exit {result.exitCode}
-          </span>
+          </Badge>
         )}
         {result.timestamp && (
           <span className="bashoutput-timestamp">

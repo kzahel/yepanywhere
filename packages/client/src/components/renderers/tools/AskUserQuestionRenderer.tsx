@@ -5,6 +5,7 @@ import type { ZodError } from "zod";
 import { useSchemaValidationContext } from "../../../contexts/SchemaValidationContext";
 import { validateToolResult } from "../../../lib/validateToolResult";
 import { SchemaWarning } from "../../SchemaWarning";
+import { Badge } from "../../ui/Badge";
 import styles from "./AskUserQuestionRenderer.module.css";
 import type {
   AskUserQuestionInput,
@@ -35,7 +36,7 @@ function QuestionDisplay({
   return (
     <div className={styles.item}>
       <div className={styles.header}>
-        <span className="badge">{question.header}</span>
+        <Badge size="small">{question.header}</Badge>
         <span className={styles.text}>{question.question}</span>
       </div>
       <ul className={styles.options}>

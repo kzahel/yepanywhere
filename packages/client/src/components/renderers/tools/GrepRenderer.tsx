@@ -17,6 +17,7 @@ import { validateToolResult } from "../../../lib/validateToolResult";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
 import { SchemaWarning } from "../../SchemaWarning";
 import { SessionFilePathLink } from "../../SessionFilePathLink";
+import { Badge } from "../../ui/Badge";
 import { Button, ButtonBase } from "../../ui/Button";
 import styles from "./GrepRenderer.module.css";
 import type { GrepInput, GrepMatch, GrepResult } from "./types";
@@ -471,7 +472,9 @@ function GrepToolResult({
             projectPath={projectPath}
           />
           {appliedLimit && (
-            <span className="badge badge-info">limit: {appliedLimit}</span>
+            <Badge tone="info" size="small">
+              limit: {appliedLimit}
+            </Badge>
           )}
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Grep" errors={validationErrors} />

@@ -78,13 +78,12 @@ button.filename:focus-visible {
   background: var(--bg-code, #1e1e1e);
 }
 
-.loading,
-.error {
+.loading {
   padding: 12px;
 }
 
 .error {
-  color: var(--error-color, #f48771);
+  margin: 12px;
 }
 
 .imageButton {

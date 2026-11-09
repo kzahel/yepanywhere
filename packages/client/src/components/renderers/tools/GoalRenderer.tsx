@@ -1,5 +1,6 @@
 import { useI18n } from "../../../i18n";
 import type { RenderContext } from "../types";
+import { Badge, type BadgeTone } from "../../ui/Badge";
 import styles from "./GoalRenderer.module.css";
 import { defineTool } from "./defineTool";
 import { toolDisplayContracts } from "./toolDisplayContracts";
@@ -262,6 +263,23 @@ function statusClassName(status: string): string {
   }
 }
 
+function statusTone(status: string): BadgeTone {
+  switch (status) {
+    case "active":
+      return "info";
+    case "paused":
+    case "usageLimited":
+    case "budgetLimited":
+      return "warning";
+    case "blocked":
+      return "danger";
+    case "complete":
+      return "success";
+    default:
+      return "neutral";
+  }
+}
+
 function GoalPreview({
   operation,
   input,
@@ -355,7 +373,13 @@ function GoalPreview({
         <span className={styles.objectiveLabel}>
           {t("goalRendererObjectiveLabel")}
         </span>
-        <span className={styles.statusBadge}>{statusLabel(goal.status)}</span>
+        <Badge
+          tone={statusTone(goal.status)}
+          size="small"
+          className={styles.statusBadge}
+        >
+          {statusLabel(goal.status)}
+        </Badge>
       </div>
       <p className={styles.objective}>{goal.objective}</p>
 
