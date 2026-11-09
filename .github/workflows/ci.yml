@@ -15,7 +15,7 @@ on:
       e2e_shards:
         description: Time-planned E2E shards for a fixed-source comparison
         type: choice
-        default: "3"
+        default: "4"
         options: ["2", "3", "4"]
       e2e_scope:
         description: Mutable server ownership (run is the legacy control)
@@ -386,11 +386,11 @@ jobs:
   # --shard splits by count, which left one shard with over twice the work.
   # scripts/e2e-shard-plan.mjs owns the plan and its durations record.
   e2e-tests:
-    name: e2e-tests (${{ matrix.shard }}/${{ inputs.e2e_shards || '3' }})
+    name: e2e-tests (${{ matrix.shard }}/${{ inputs.e2e_shards || '4' }})
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(inputs.e2e_shards == '2' && '[1,2]' || inputs.e2e_shards == '4' && '[1,2,3,4]' || '[1,2,3]') }}
+        shard: ${{ fromJSON(inputs.e2e_shards == '2' && '[1,2]' || inputs.e2e_shards == '3' && '[1,2,3]' || '[1,2,3,4]') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -409,7 +409,7 @@ jobs:
       - name: Plan this shard's spec files
         run: >-
           node scripts/e2e-shard-plan.mjs plan
-          --shard ${{ matrix.shard }}/${{ inputs.e2e_shards || '3' }}
+          --shard ${{ matrix.shard }}/${{ inputs.e2e_shards || '4' }}
           --out "$RUNNER_TEMP/e2e-shard-files.txt"
       - name: Run isolated browser workers
         env:

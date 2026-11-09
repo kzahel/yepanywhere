@@ -112,6 +112,28 @@ whose affected cases cannot be bounded reliably. Existing release or migration
 plans may require a full local run for their own gates. State which browser
 scope actually ran in the handoff.
 
+### Local validation
+
+Every invocation first spends about 20s on builds and shared services, so
+batch focused specs into one command rather than one per spec. Positional
+arguments are path substrings: `playwright test session-creation relay`
+runs every spec whose path contains either word, which is the practical way
+to run one feature area.
+
+The configuration defaults to four workers. On 2026-11-09 the full suite of
+601 cases took 7.6 minutes with four workers and 5.1 minutes with eight on a
+14-core Mac; serially it is roughly an hour of case time, which is where
+multi-hour local runs came from. Pass `--workers=N` for a different machine,
+but beyond about half the cores CPU contention inflates case time and
+produces load-only failures.
+
+A full run's failures are not all regressions. Rerun each failure alone with
+`--workers=1` before diagnosing: a case that passes alone failed from load or
+shared state and belongs in a gap with its trace, not in a timeout increase.
+Compare a case that fails alone with the latest `main` CI run before treating
+it as caused by the current change. A physically attached Android device
+enables the device-stream cases, which then fail under parallel load.
+
 CI continues to run the full client E2E suite. A focused local run does not
 turn a failing full CI run into a pass, and CI retries do not make an
 intermittent assertion healthy. Visual verification and capture remain owned by
@@ -124,12 +146,20 @@ packages from the hosted image's Azure mirror; the browser tests never began.
 The job budget is three times that observed limit, independently of Playwright's
 per-test deadlines and the unchanged input-latency assertions.
 
-The full-app Playwright configuration still defaults to one worker. Run-scoped
-services share mutable state, while the opt-in worker fixture below isolates
-parallel files. CI now exercises two worker-owned servers in each of the two
-isolated shards. The migration remains under first-attempt/retry measurement;
-cases assigned sequentially to one worker must still reset the state they
-mutate.
+The full-app Playwright configuration defaults to four workers, each owning
+its mutable services (below). Cases assigned sequentially to one worker must
+still reset the state they mutate.
+
+CI does not use Playwright's `--shard`, which splits files into contiguous
+runs of equal case counts; with cases ranging from 0.1s to 40s, that gave
+one shard more than twice the other's time. `scripts/e2e-shard-plan.mjs`
+assigns whole spec files to shards by measured seconds from
+`packages/client/e2e/shard-durations.json` and passes each shard's list
+through `--test-list`. A spec missing from the record is weighted at the
+median, so it still runs exactly once; stale durations only cost balance.
+Each shard uploads its JSON report; refresh the record from a green run with
+`node scripts/e2e-shard-plan.mjs record <reports...>` when shard times drift
+apart.
 Compare the slower shard's wall time with the single-job gate and also report
 the sum of shard job times as runner cost. A partial local run stopped by the
 failure limit is not a valid speed comparison; the current measurements are in
@@ -137,12 +167,12 @@ failure limit is not a valid speed comparison; the current measurements are in
 
 ### Worker-owned services
 
-Mutable services are worker-owned by default; `pnpm test:e2e --workers=4`
-needs no extra isolation environment setting. Builds and the
+Mutable services are worker-owned by default; parallel runs need no extra
+isolation environment setting. Builds and the
 remote-client Vite/preview servers remain invocation-owned; each worker starts
-its own seeded YA profile and relay only when a fixture needs them. The default
-worker count remains one until full-suite and comparable CI evidence supports
-a change. Keep `--retries=0` in diagnostic parallel runs so a retry cannot hide
+its own seeded YA profile (about 3.4s) and relay only when a fixture needs
+them. A failed case replaces its worker, so failures also pay that startup
+again. Keep `--retries=0` in diagnostic parallel runs so a retry cannot hide
 shared state.
 
 Paths derive from Playwright's `TEST_WORKER_INDEX` before spec imports, rather
