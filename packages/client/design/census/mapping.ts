@@ -1471,3 +1471,275 @@ export const LEGACY_STATUS: readonly LegacyStatus[] = [
     note: "Three hand-rolled strips (source control modes, the model/info dialog, the question panel), only one with roving focus.",
   },
 ];
+
+/**
+ * Family 7 (the dialog pattern): every Modal caller and hand-rolled modal,
+ * with its width, header and footer shape at census time, and where it
+ * went. `dialog` moves onto Dialog (sized box, padded body, footer action
+ * row), `viewer` stays on Modal (files, diffs, media, logs), `keep` is a
+ * hand-rolled surface left on purpose. Confirmations are separate:
+ * CONFIRM_CALLS.
+ */
+export type DialogDisposition = "dialog" | "viewer" | "keep";
+
+export interface LegacyDialog {
+  /** Source file, relative to src/. */
+  file: string;
+  name: string;
+  /** Width and footer shape at census time. */
+  shape: string;
+  /**
+   * Global classes of the old frame or footer. The ban (pnpm buttons:check)
+   * rejects each one once no global stylesheet styles it.
+   */
+  classes?: string;
+  to: DialogDisposition;
+}
+
+export const LEGACY_DIALOGS: readonly LegacyDialog[] = [
+  {
+    file: "components/LongContextEffortWarningModal.tsx",
+    name: "Long-context effort warning",
+    shape:
+      "Full modal width (1200px); model-switch-actions column of buttons; Cancel first, primary last.",
+    classes: "long-context-effort-warning",
+    to: "dialog",
+  },
+  {
+    file: "components/RestartSessionModal.tsx",
+    name: "Restart session",
+    shape:
+      "Full width; model-switch-content sections; model-switch-actions footer inside the scroll.",
+    classes:
+      "model-switch-content model-switch-actions model-switch-action-button model-switch-action-label model-switch-action-badge-main model-switch-action-badge-detail",
+    to: "dialog",
+  },
+  {
+    file: "components/SessionRecapModal.tsx",
+    name: "Session recap",
+    shape:
+      "Full width; settings-group rows; model-switch-actions footer inside the scroll.",
+    classes: "session-recap-modal",
+    to: "dialog",
+  },
+  {
+    file: "components/ModelSwitchModal.tsx",
+    name: "Model switch and process info",
+    shape:
+      "Full width; tabs, a model list, model-switch-actions footer inside the scroll.",
+    to: "dialog",
+  },
+  {
+    file: "components/SessionRenameEditor.tsx",
+    name: "Rename session (phone)",
+    shape:
+      "28rem card pinned near the top via :global(.modal):has(); Save before Cancel.",
+    to: "dialog",
+  },
+  {
+    file: "components/ProjectSessionDefaultsModal.tsx",
+    name: "Project session defaults",
+    shape:
+      "Own width via :global(.modal):has(.body); actions row inside the scroll.",
+    to: "dialog",
+  },
+  {
+    file: "components/HostOfflineModal.tsx",
+    name: "Host offline",
+    shape: "Own width via :global(.modal):has(.content); primary action row.",
+    to: "dialog",
+  },
+  {
+    file: "components/CodexUpdatePrompt.tsx",
+    name: "Codex update required",
+    shape: "Full width; settings-group look; actions row inside the scroll.",
+    to: "dialog",
+  },
+  {
+    file: "components/onboarding/OnboardingWizard.tsx",
+    name: "Onboarding wizard",
+    shape:
+      "Own width via .modal:has(.onboarding-wizard) in index.css; onboarding-footer with Skip at the start, Back/Next at the end.",
+    classes:
+      "onboarding-wizard onboarding-footer onboarding-footer-right onboarding-modal-title onboarding-step-actions onboarding-progress onboarding-progress-dot",
+    to: "dialog",
+  },
+  {
+    file: "components/SchemaWarning.tsx",
+    name: "Schema validation failure",
+    shape: "Full width; schema-warning-footer link row inside the scroll.",
+    classes:
+      "schema-warning-footer schema-warning-modal-content schema-warning-modal-title",
+    to: "dialog",
+  },
+  {
+    file: "components/SchemaValidationSummary.tsx",
+    name: "Schema gap summary",
+    shape: "Full width; a list, no footer.",
+    to: "dialog",
+  },
+  {
+    file: "components/RiskAffordance.tsx",
+    name: "Risk explanation",
+    shape: "Full width for a paragraph; no footer.",
+    to: "dialog",
+  },
+  {
+    file: "components/SessionShareModal.tsx",
+    name: "Share session",
+    shape:
+      "Anchored on desktop; own width via .modal:has(.session-share-modal) in index.css; session-share-actions row.",
+    classes: "session-share-modal",
+    to: "dialog",
+  },
+  {
+    file: "components/PublicShareManagerModal.tsx",
+    name: "Public share manager",
+    shape:
+      "Anchored at any width; own width; primary/secondary rows per share.",
+    to: "dialog",
+  },
+  {
+    file: "components/PublicFileShareModal.tsx",
+    name: "Share file",
+    shape:
+      "Anchored; own width via :global(.modal):has(.modal); primary action.",
+    to: "dialog",
+  },
+  {
+    file: "pages/ReviewSubmitModal.tsx",
+    name: "Submit review",
+    shape: "Full width; module .modal wrapper; actions row inside the scroll.",
+    to: "dialog",
+  },
+  {
+    file: "pages/RepoStatusBar.tsx",
+    name: "Incoming commits",
+    shape: "Full width; a list and a pull action.",
+    to: "dialog",
+  },
+  {
+    file: "pages/settings/ServerConnectionsSettings.tsx",
+    name: "Server connection add, detail and remove",
+    shape:
+      "Shared wrapper; widths and header via :global(.modal):has(.confirmation/.detail); danger confirm row.",
+    to: "dialog",
+  },
+  {
+    file: "pages/settings/ProvidersSettings.tsx",
+    name: "Additional models editor",
+    shape:
+      "Anchored; 32rem via .modal:has(.providers-additional-models-editor) in renderers.css.",
+    classes: "providers-additional-models-editor",
+    to: "dialog",
+  },
+  {
+    file: "pages/settings/VhostOauthSettings.tsx",
+    name: "OAuth logs",
+    shape: "Full width log viewer with header actions.",
+    to: "viewer",
+  },
+  {
+    file: "components/ProcessInfoModal.tsx",
+    name: "Process info",
+    shape: "Full width read-only panel.",
+    to: "viewer",
+  },
+  {
+    file: "components/ToolApprovalPanel.tsx",
+    name: "Tool approval details",
+    shape: "Full width read-only tool input.",
+    to: "viewer",
+  },
+  {
+    file: "components/ActivityDetailModal.tsx",
+    name: "Activity detail",
+    shape: "Full width; header actions.",
+    to: "viewer",
+  },
+  {
+    file: "pages/GitStatusDiffPreview.tsx",
+    name: "Diff, file, blame, commit and working-tree viewers",
+    shape:
+      "Full width/height viewers; back gesture; header actions (also BlameBrowser, CommitBrowser, WorkingTreeBrowser).",
+    to: "viewer",
+  },
+  {
+    file: "components/LocalMediaModal.tsx",
+    name: "Media, diagram and attachment viewers",
+    shape: "image-viewer variant (also DiagramViewer, AttachmentChip).",
+    to: "viewer",
+  },
+  {
+    file: "components/SessionManagedViewer.tsx",
+    name: "Session panels and search detail",
+    shape: "Modal or docked pane via ModalChrome (also SearchDetail).",
+    to: "viewer",
+  },
+  {
+    file: "components/GoalPanel.tsx",
+    name: "Goal editor",
+    shape:
+      "Anchored form panel with its own overlay, focus trap and useModalLayer.",
+    to: "keep",
+  },
+  {
+    file: "components/SourceEditor.tsx",
+    name: "Source editor workspace",
+    shape: "Full-screen workspace with its own trap and save shortcut.",
+    to: "keep",
+  },
+  {
+    file: "components/FilePathLink.tsx",
+    name: "File viewer",
+    shape:
+      "A <dialog open> inside .modal-overlay, portaled into the session layer.",
+    to: "keep",
+  },
+];
+
+/** Family 7: the `window.confirm` calls at census time. */
+export const CONFIRM_CALLS: readonly { file: string; asks: string }[] = [
+  { file: "pages/HostPickerPage.tsx", asks: "Remove a saved host" },
+  { file: "pages/AgentsPage.tsx", asks: "Kill an agent process" },
+  {
+    file: "pages/ProjectsPage.tsx",
+    asks: "Create a missing project folder; add a project (2)",
+  },
+  { file: "pages/settings/UsersSettings.tsx", asks: "Delete a user" },
+  {
+    file: "pages/settings/SettingsBackupActions.tsx",
+    asks: "Load a settings backup",
+  },
+  {
+    file: "pages/settings/ProjectAppInventorySection.tsx",
+    asks: "Stop or forget a project app (2)",
+  },
+  {
+    file: "pages/settings/RemoteAccessSettings.tsx",
+    asks: "Turn off remote access",
+  },
+  {
+    file: "api/connectionImpact.ts",
+    asks: "A setting may disconnect this client (legacy servers)",
+  },
+  {
+    file: "hooks/useConnectionImpactConfirmation.ts",
+    asks: "A setting will disconnect this client",
+  },
+  { file: "hooks/useSessionRewindControls.ts", asks: "Cancel a clear loop" },
+  {
+    file: "components/PublicShareManagerModal.tsx",
+    asks: "Revoke or freeze a share (2)",
+  },
+  { file: "components/PublicFileShareModal.tsx", asks: "Revoke a file share" },
+  { file: "components/FileVhostSection.tsx", asks: "Stop a file site" },
+  {
+    file: "components/SourceEditor.tsx",
+    asks: "Discard edits; register a rebuild hook (2)",
+  },
+  {
+    file: "components/ProjectAppViewer.tsx",
+    asks: "Restart or stop the project app (2)",
+  },
+];

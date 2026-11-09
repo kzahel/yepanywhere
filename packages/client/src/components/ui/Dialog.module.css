@@ -1,0 +1,105 @@
+/* The box: Modal's `.modal` with a width per size. Compound selectors so
+   they outrank the global `.modal` rules at every width. */
+.dialog.small {
+  width: min(24rem, 100%);
+}
+
+.dialog.medium {
+  width: min(32rem, 100%);
+}
+
+.dialog.large {
+  width: min(48rem, 100%);
+}
+
+/* Anchored beside a trigger, the box is fixed to the viewport: keep it
+   inside with Modal's 8px margin. */
+.dialog:global(.modal--anchored) {
+  max-width: calc(100dvw - 16px);
+}
+
+.dialog > :global(.modal-content) {
+  padding: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.body > :where(p) {
+  margin: 0;
+}
+
+.body.flush {
+  gap: 0;
+  padding: 0;
+}
+
+.description {
+  color: var(--text-secondary);
+  /* A confirmation's message may list reasons on separate lines. */
+  white-space: pre-line;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border-color);
+}
+
+.footerStart {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+}
+
+@media (width <= 600px) {
+  /* Small and medium stay cards near the top, clear of the keyboard. */
+  .cardOverlay.cardOverlay {
+    align-items: flex-start;
+    padding: 8dvh 12px 12px;
+  }
+
+  .dialog.small,
+  .dialog.medium {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: calc(92dvh - 12px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+  }
+
+  .dialog:global(.modal--anchored) {
+    height: auto;
+    max-height: calc(100dvh - 16px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+  }
+
+  .body {
+    padding: var(--space-3);
+  }
+
+  .footer {
+    padding: var(--space-2) var(--space-3)
+      max(var(--space-2), env(safe-area-inset-bottom));
+  }
+
+  .footer > * {
+    flex: 1 1 auto;
+  }
+}

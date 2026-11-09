@@ -28,6 +28,7 @@ const Wrapper = STRICT_MODE ? StrictMode : Fragment;
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { PrebootComposerRetirement } from "./components/PrebootComposerRetirement";
 import { RouteModule, routeModule } from "./components/RouteModule";
+import { ConfirmDialogHost } from "./components/ui/ConfirmDialog";
 import { TooltipLayer } from "./components/ui/TooltipLayer";
 import { isExtensionPage } from "./extension/chrome";
 import { initializeContentMaxWidth } from "./hooks/useContentMaxWidth";
@@ -455,6 +456,7 @@ const app = (
         </Suspense>
       )}
       <I18nProvider>
+        <ConfirmDialogHost />
         <Routes>
           <Route
             path="/share/:secret/file"

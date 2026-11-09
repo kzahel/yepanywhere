@@ -141,6 +141,23 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole("menu")).toBeVisible();
     },
   },
+  {
+    name: "share-dialog",
+    path: `/projects/${mockProjectId}/sessions/code-fence-mermaid-001`,
+    ready: (page) =>
+      expect(page.locator("[data-ya-code-rendered] svg")).toBeVisible({
+        timeout: 20_000,
+      }),
+    open: async (page) => {
+      await page
+        .getByRole("button", { name: "Session options" })
+        .filter({ visible: true })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Share", exact: true }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    },
+  },
   ...SETTINGS.map(
     (category): Screen => ({
       name: `settings-${category}`,

@@ -15,6 +15,7 @@ import {
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PrebootComposerRetirement } from "./components/PrebootComposerRetirement";
 import { RouteModule, routeModule } from "./components/RouteModule";
+import { ConfirmDialogHost } from "./components/ui/ConfirmDialog";
 import { TooltipLayer } from "./components/ui/TooltipLayer";
 import { initializeFontSize } from "./hooks/useFontSize";
 import { initializeSidebarSpacing } from "./hooks/useSidebarSpacing";
@@ -308,6 +309,7 @@ if (import.meta.env.DEV && window.location.port === String(__VITE_DEV_PORT__)) {
         <BrowserRouter basename={basename}>
           <PrebootComposerRetirement />
           <I18nProvider>
+            <ConfirmDialogHost />
             <RouteModule>
               <LocalAppShell>
                 <Routes>

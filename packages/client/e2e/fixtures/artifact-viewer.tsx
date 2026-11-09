@@ -4,6 +4,7 @@ import {
   FileVhostSection,
   type FileVhostService,
 } from "../../src/components/FileVhostSection";
+import { ConfirmDialogHost } from "../../src/components/ui/ConfirmDialog";
 import { Modal } from "../../src/components/ui/Modal";
 import { ArtifactPreview } from "../../src/components/ArtifactPreview";
 import { ResourceContextMenu } from "../../src/components/FileResourceActions";
@@ -129,6 +130,7 @@ function Fixture() {
 
 createRoot(document.getElementById("root")!).render(
   <I18nProvider>
+    <ConfirmDialogHost />
     <Fixture />
   </I18nProvider>,
 );
