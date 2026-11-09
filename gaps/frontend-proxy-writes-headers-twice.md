@@ -24,3 +24,12 @@ catch-all route returns. A `headersSent` check before `writeHead` would
 stop the crash, but find the first writer before relying on it.
 
 Found 2026-11-07 while running the browser gate for plan 177 step 5.
+
+2026-11-09: the same throw failed `limited-instructions.spec.ts:103` in a
+local four-worker full run, and that case is a recurring CI first-attempt
+failure. `limited-instructions`, `mockup-export` and `artifact-viewer` are
+the three specs that run this proxy in-process, and the first two are on the
+[wall-time gap](e2e-suite-wall-time.md)'s flaky list. Wrapping `writeHead` to
+record the first writer's stack did not reproduce in six focused
+six-worker runs of those specs or one eight-worker full run; the failure
+appears to need full-suite load.

@@ -1,4 +1,5 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync } from "node:fs";
+import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { CONFIG_ENV_VARS } from "../../../server/test/setup/config-env-vars.js";
 import type { YaServerProfilePaths } from "./ya-server-process.js";
@@ -87,6 +88,7 @@ export function standaloneYaEnvironment(
     LOG_FILE_LEVEL: "warn",
     NODE_ENV: "production",
   };
+  shareTsxCompileCache(join(home, "tmp"));
   // Plain objects lose Windows' case-insensitive environment lookup. Remove
   // every case variant before installing one canonical owned name.
   const protectedNames = new Set(
@@ -99,6 +101,29 @@ export function standaloneYaEnvironment(
       ),
     );
   return { ...unprotected(env), ...unprotected(selected), ...owned };
+}
+
+/**
+ * tsx caches compiled source in `os.tmpdir()/tsx-<euid|username>`. An owned
+ * TMPDIR would otherwise recompile the whole server on every fresh start
+ * (about 5s against under 2s warm). Link only that cache to the coordinator's
+ * copy, which worker servers already share; the cache holds compiled YA
+ * source, not provider or user state. Recursive removal of the profile
+ * unlinks the link without entering it. Windows keeps its own cold cache
+ * rather than relying on junction removal semantics.
+ */
+function shareTsxCompileCache(ownedTmp: string): void {
+  if (process.platform === "win32") return;
+  const name = `tsx-${process.geteuid?.() ?? userInfo().username}`;
+  const link = join(ownedTmp, name);
+  if (existsSync(link)) return;
+  const shared = join(tmpdir(), name);
+  mkdirSync(shared, { recursive: true });
+  try {
+    symlinkSync(shared, link, "dir");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
 }
 
 function directory(...parts: string[]): string {

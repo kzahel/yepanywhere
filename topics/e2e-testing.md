@@ -207,7 +207,10 @@ live discovery and append assertions unchanged.
 Custom YA servers own separate provider-host runtime directories and clear
 inherited host connections. Each fixture's HOME/USERPROFILE points into its
 owned profile, isolating per-user provider installation gates from the normal
-user's live servers. Ordinary fixtures explicitly disable both manual reload
+user's live servers. Standalone profiles also own TMPDIR, except that on
+POSIX the one `tsx-<user>` compile cache inside it links to the coordinator's;
+without it, every fresh standalone server recompiled the server source (about
+5s cold against under 2s warm). Ordinary fixtures explicitly disable both manual reload
 flags so a developer's shell does not enroll them in source watching or display
 reload banners over tested controls. A reload-specific fixture may opt in
 through its explicit environment. The legacy run-scoped server uses the same
