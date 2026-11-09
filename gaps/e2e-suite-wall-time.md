@@ -23,15 +23,18 @@ records the measurements.
 - Global setup builds the two clients concurrently.
 - `rendez-composer.spec.ts` no longer sleeps 10.5s to restate a fake-timer
   unit contract.
+- The three cases that failed every attempt on `main` pass: the account-chip
+  and long-context effort assertions now follow the chip menu and the effort
+  radio group, and the correction-attachment case was repaired separately in
+  `55b466d50`. The model switch modal's thinking heading no longer shows a raw
+  `{mode}` placeholder.
+- `budgetSeconds` in the durations record fails CI planning when the suite's
+  planned case time exceeds 50 minutes
+  ([suite time budget](../topics/e2e-testing.md#suite-time-budget)).
 
 ## Remaining
 
-1. **`main` is red in three browser cases**, each failing all three attempts
-   in every run since at least 2026-11-08: `session-page-header-paths.spec.ts:497`
-   (routed account chip), `long-context-effort-warning.spec.ts:18`, and
-   `session-page-correction-attachment-paths.spec.ts:188`. Besides hiding
-   regressions, their retries make their shard the slowest.
-2. **First-attempt failures are common.** Five comparison runs failed 5–11
+1. **First-attempt failures are common.** Five comparison runs failed 5–11
    cases each; most passed on retry. Recurring cases:
    `limited-instructions.spec.ts:103` (with the
    [proxy header defect](frontend-proxy-writes-headers-twice.md)),
@@ -42,12 +45,9 @@ records the measurements.
    `mockup-export.spec.ts:35`. Several also fail locally under four or eight
    workers and pass alone, so CPU load exposes them. Each retry adds its
    timeout and a replacement worker's 3.4s server startup.
-3. **Session creation is the largest area**: 13 specs and 22% of local case
+2. **Session creation is the largest area**: 13 specs and 22% of local case
    time. Their time is real launches, restarts and acknowledgement waits rather
    than fixed sleeps, so reductions need per-case review of which provider and
    restart variants add a distinct boundary, per the plan's sequence.
-4. **No suite budget.** Nothing makes growth a review decision. A budget on
-   the slower shard (for example eight minutes at four shards) and a
-   durations-record refresh when shards drift apart would surface it.
 
 Found 2026-11-08 while answering why a full local E2E run could take two hours.

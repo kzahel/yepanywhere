@@ -158,12 +158,27 @@ assigns whole spec files to shards by measured seconds from
 through `--test-list`. A spec missing from the record is weighted at the
 median, so it still runs exactly once; stale durations only cost balance.
 Each shard uploads its JSON report; refresh the record from a green run with
-`node scripts/e2e-shard-plan.mjs record <reports...>` when shard times drift
-apart.
+`node scripts/e2e-shard-plan.mjs record --run <ci-run-id>` when shard times
+drift apart or the plan notes ten or more unrecorded specs.
 Compare the slower shard's wall time with the single-job gate and also report
 the sum of shard job times as runner cost. A partial local run stopped by the
 failure limit is not a valid speed comparison; the current measurements are in
 [the E2E cost ledger](../docs/testing/e2e-ci-cost-ledger.md).
+
+### Suite time budget
+
+`budgetSeconds` in `shard-durations.json` caps the suite's total planned case
+time, and CI planning fails above it. Each unrecorded spec counts at the
+median, so adding specs or refreshing the record can cross it. The budget of
+3,000 case-seconds (50 minutes) gives about eight minutes for the slower of
+four two-worker shards, including setup; the 2026-11-09 record held 2,632.
+
+Crossing it is a decision for the change that does so: trim the suite, move
+cases to the cheaper level the contract allows (see the table above), or
+raise the budget with the reason in the commit, adding a shard when the
+slower shard would exceed about eight minutes. Never cut retained coverage or
+raise per-case timeouts to fit. Failing cases cost three attempts each in CI,
+so a red or flaky suite is also a time problem.
 
 ### Worker-owned services
 

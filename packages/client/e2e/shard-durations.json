@@ -1,4 +1,5 @@
 {
+  "budgetSeconds": 3000,
   "seconds": {
     "acli-commentary.spec.ts": 21.4,
     "add-project-form.spec.ts": 1.7,

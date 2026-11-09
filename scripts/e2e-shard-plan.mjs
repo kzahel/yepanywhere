@@ -12,17 +12,31 @@
  *       Longest-processing-time-first assignment of every spec file under
  *       packages/client/e2e. A file absent from the durations record gets the
  *       record's median, so a new spec still runs in exactly one shard.
- *   record <report.json>...
+ *   record --run <ci-run-id> | record <report.json>...
  *       Replace the durations record from Playwright JSON reports, one per
- *       shard of the same run. A file's time is the sum of its cases' final
- *       attempts, which includes its hooks and first-use worker fixtures.
+ *       shard of the same run; `--run` downloads a CI run's reports with gh.
+ *       A file's time is the sum of its cases' final attempts, which includes
+ *       its hooks and first-use worker fixtures.
  *
  * The plan depends only on the checked-out tree and the record, so every shard
  * of one CI run computes the same partition. Stale durations cost balance, not
  * coverage.
+ *
+ * The record's `budgetSeconds` caps the suite's total planned case time.
+ * Planning fails above it, so growth past the budget is a decision made in
+ * the change that crosses it: trim or move cases to a cheaper level, or raise
+ * the budget (and usually the shard count) with the reason in the commit.
  */
 
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,7 +50,7 @@ function usage(message) {
   if (message) console.error(message);
   console.error(
     "usage: e2e-shard-plan.mjs plan --shard <i>/<n> --out <file>\n" +
-      "       e2e-shard-plan.mjs record <report.json>...",
+      "       e2e-shard-plan.mjs record --run <ci-run-id> | <report.json>...",
   );
   process.exit(2);
 }
@@ -55,11 +69,22 @@ function listSpecFiles(dir = testDir) {
 
 function readRecord() {
   try {
-    return JSON.parse(readFileSync(recordPath, "utf8")).seconds ?? {};
+    const record = JSON.parse(readFileSync(recordPath, "utf8"));
+    return {
+      budgetSeconds: record.budgetSeconds,
+      seconds: record.seconds ?? {},
+    };
   } catch (error) {
-    if (error.code === "ENOENT") return {};
+    if (error.code === "ENOENT") return { seconds: {} };
     throw error;
   }
+}
+
+/** A GitHub annotation in Actions, plain text elsewhere. */
+function annotate(level, message) {
+  if (process.env.GITHUB_ACTIONS === "true")
+    console.log(`::${level}::${message}`);
+  else console.log(`${level}: ${message}`);
 }
 
 export function planShards(files, seconds, total) {
@@ -96,16 +121,58 @@ function plan(args) {
   if (current < 1 || current > total) usage(`invalid shard ${shardArg}`);
 
   const files = listSpecFiles();
-  const shards = planShards(files, readRecord(), total);
+  const { budgetSeconds, seconds } = readRecord();
+  const shards = planShards(files, seconds, total);
   const mine = shards[current - 1];
   writeFileSync(out, `${mine.files.sort().join("\n")}\n`);
   const loads = shards.map((s) => `${Math.round(s.load)}s`).join(" / ");
   console.log(
     `E2E shard ${current}/${total}: ${mine.files.length} of ${files.length} files; planned loads ${loads}`,
   );
+  const unrecorded = files.filter((file) => seconds[file] === undefined);
+  // Every shard computes the same totals; annotate once per run.
+  if (current === 1 && unrecorded.length >= 10)
+    annotate(
+      "notice",
+      `${unrecorded.length} E2E spec files have no recorded duration; refresh with \`node scripts/e2e-shard-plan.mjs record --run <green run id>\`.`,
+    );
+  const planned = shards.reduce((sum, shard) => sum + shard.load, 0);
+  if (budgetSeconds !== undefined && planned > budgetSeconds) {
+    annotate(
+      "error",
+      `E2E planned case time ${Math.round(planned)}s exceeds budgetSeconds ${budgetSeconds} in packages/client/e2e/shard-durations.json. Trim or move cases to a cheaper level, or raise the budget deliberately (topics/e2e-testing.md#suite-time-budget).`,
+    );
+    process.exit(1);
+  }
 }
 
-function record(reports) {
+function downloadRunReports(runId) {
+  const dir = mkdtempSync(join(tmpdir(), "e2e-shard-reports-"));
+  execFileSync(
+    "gh",
+    ["run", "download", runId, "--pattern", "e2e-report-shard-*", "--dir", dir],
+    { stdio: "inherit" },
+  );
+  const reports = [];
+  const collect = (path) => {
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      const child = join(path, entry.name);
+      if (entry.isDirectory()) collect(child);
+      else if (entry.name.endsWith(".json")) reports.push(child);
+    }
+  };
+  collect(dir);
+  return { dir, reports };
+}
+
+function record(args) {
+  let download;
+  let reports = args;
+  if (args[0] === "--run") {
+    if (!args[1]) usage("record --run needs a CI run id");
+    download = downloadRunReports(args[1]);
+    reports = download.reports;
+  }
   if (!reports.length)
     usage("record needs at least one Playwright JSON report");
   const seconds = {};
@@ -129,11 +196,16 @@ function record(reports) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([file, value]) => [file, Math.round(value * 10) / 10]),
   );
+  const { budgetSeconds } = readRecord();
   writeFileSync(
     recordPath,
-    `${JSON.stringify({ seconds: sorted }, null, 2)}\n`,
+    `${JSON.stringify({ budgetSeconds, seconds: sorted }, null, 2)}\n`,
   );
-  console.log(`Recorded ${Object.keys(sorted).length} spec files`);
+  if (download) rmSync(download.dir, { recursive: true, force: true });
+  const total = Object.values(sorted).reduce((sum, value) => sum + value, 0);
+  console.log(
+    `Recorded ${Object.keys(sorted).length} spec files, ${Math.round(total)}s of ${budgetSeconds ?? "unbudgeted"}s`,
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
