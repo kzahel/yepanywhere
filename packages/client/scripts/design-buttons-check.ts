@@ -23,7 +23,14 @@
  *    src/components/ui/Switch.tsx and SegmentedControl.tsx: on/off
  *    settings use Switch and one-of-many pickers SegmentedControl (family
  *    3). Their legacy classes (`toggle-switch`, `font-size-option`, …)
- *    are banned under 1 once their global rules are gone.
+ *    are banned under 1 once their global rules are gone;
+ * 6. a menu role (`menu`, `menuitem`, `menuitemradio`, `menuitemcheckbox`,
+ *    `menubar`) outside src/components/ui/Menu.tsx, and a pointer listener
+ *    on `document` or `window` (`mousedown`, `pointerdown`, `touchstart`,
+ *    `click`: hand-rolled outside-press dismissal) outside
+ *    src/components/ui/Popover.tsx: menus use Menu and floating panels
+ *    Popover (family 2). Menu buttons are swept, so their raw buttons count
+ *    under 2.
  *
  * The allowlist (design/census/button-allowlist.json) gives each entry a
  * count and a reason; a later family inherits the entries that name it.
@@ -57,7 +64,9 @@ outside src/components/ui/Button.tsx and the later families, role="button"
 elements, CSS rules that style a bare button element's look, and switch or
 radio roles outside the shared Switch and SegmentedControl. Exceptions
 live in packages/client/design/census/button-allowlist.json with a count
-and a reason; --record lowers those counts to the current scan.`;
+and a reason; --record lowers those counts to the current scan. Also
+reject menu roles outside the shared Menu and document or window pointer
+listeners (hand-rolled outside-press dismissal) outside the shared Popover.`;
 
 const { values } = parseArgs({
   options: {
@@ -81,7 +90,9 @@ type AllowSection =
   | "rawButtons"
   | "roleButtons"
   | "buttonLookRules"
-  | "selectionRoles";
+  | "selectionRoles"
+  | "menuRoles"
+  | "outsidePressListeners";
 interface Allowlist extends Record<AllowSection, Record<string, AllowEntry>> {
   bannedClasses: string[];
 }
@@ -172,8 +183,9 @@ if (banned.length) {
 const SELECTION_CONTROLS = new Set([
   "components/ui/Switch.tsx",
   "components/ui/SegmentedControl.tsx",
+  "components/ui/Menu.tsx",
 ]);
-const UNSWEPT_FAMILIES = new Set<RawButtonFamily>(["menu", "tab", "composer"]);
+const UNSWEPT_FAMILIES = new Set<RawButtonFamily>(["tab", "composer"]);
 const rawCounts = new Map<string, number>();
 const roleCounts = new Map<string, number>();
 for (const row of await scanButtonElements(srcDir)) {
@@ -189,6 +201,7 @@ for (const row of await scanButtonElements(srcDir)) {
     continue;
   const family = rawButtonFamily(row);
   if (family && UNSWEPT_FAMILIES.has(family)) continue;
+  if (COMPOSER_FILE.test(row.file)) continue;
   rawCounts.set(row.file, (rawCounts.get(row.file) ?? 0) + 1);
 }
 
@@ -245,11 +258,50 @@ for (const path of sources) {
   }
 }
 
+// 6. Menu roles outside the shared Menu, and document or window pointer
+// listeners (outside-press dismissal) outside the shared Popover.
+const MENU_ROLE =
+  /(?<![\w[-])role(?:=\{?[^}\n]*?|:\s*)["'`](?:menu|menubar|menuitem|menuitemradio|menuitemcheckbox)["'`]/g;
+const OUTSIDE_PRESS =
+  /\b(?:document|window|ownerDocument)\??\.addEventListener\(\s*["'`](?:mousedown|pointerdown|touchstart|click)["'`]/g;
+function countMatches(
+  pattern: RegExp,
+  exempt: ReadonlySet<string>,
+): Promise<[Map<string, number>, Map<string, string[]>]> {
+  return (async () => {
+    const counts = new Map<string, number>();
+    const sites = new Map<string, string[]>();
+    for (const path of sources) {
+      const file = srcPath(path);
+      if (!/\.tsx?$/.test(file) || exempt.has(file)) continue;
+      if (COMPOSER_FILE.test(file)) continue;
+      const text = await readFile(path, "utf8");
+      for (const match of text.matchAll(pattern)) {
+        counts.set(file, (counts.get(file) ?? 0) + 1);
+        sites.set(file, [
+          ...(sites.get(file) ?? []),
+          `${file}:${lineAt(text, match.index ?? 0)}: ${match[0]}`,
+        ]);
+      }
+    }
+    return [counts, sites];
+  })();
+}
+const [menuCounts, menuSites] = await countMatches(
+  MENU_ROLE,
+  new Set(["components/ui/Menu.tsx"]),
+);
+const [pressCounts, pressSites] = await countMatches(
+  OUTSIDE_PRESS,
+  new Set(["components/ui/Popover.tsx"]),
+);
+
 function ratchet(
   kind: AllowSection,
   counts: Map<string, number>,
   describe: (file: string, count: number, allowed: number) => string[],
 ) {
+  allowlist[kind] ??= {};
   const entries = allowlist[kind];
   for (const [file, count] of counts) {
     const allowed = entries[file]?.count ?? 0;
@@ -290,6 +342,15 @@ ratchet("buttonLookRules", lookCounts, (file, count, allowed) => [
 ratchet("selectionRoles", selectionCounts, (file, count, allowed) => [
   ...(selectionSites.get(file) ?? []),
   `${file}: ${count} switch or radio role${count === 1 ? "" : "s"}, ${allowed} allowed; use Switch or SegmentedControl from components/ui`,
+]);
+
+ratchet("menuRoles", menuCounts, (file, count, allowed) => [
+  ...(menuSites.get(file) ?? []),
+  `${file}: ${count} menu role${count === 1 ? "" : "s"}, ${allowed} allowed; use Menu and MenuItem from components/ui/Menu`,
+]);
+ratchet("outsidePressListeners", pressCounts, (file, count, allowed) => [
+  ...(pressSites.get(file) ?? []),
+  `${file}: ${count} document or window pointer listener${count === 1 ? "" : "s"}, ${allowed} allowed; a floating surface dismissed by an outside press is a Popover (components/ui/Popover)`,
 ]);
 
 if (values.record) {

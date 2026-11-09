@@ -69,6 +69,8 @@ interface Screen {
    * a tall viewport can.
    */
   tall?: boolean;
+  /** Open something (a menu) before the shot. */
+  open?: (page: Page) => Promise<void>;
 }
 
 const TALL = { name: "tall", width: 1000, height: 2400 } as const;
@@ -111,6 +113,34 @@ const SCREENS: Screen[] = [
         page.getByText("report.qmd", { exact: true }).first(),
       ).toBeVisible(),
   },
+  {
+    name: "session-menu",
+    path: `/projects/${mockProjectId}/sessions/code-fence-mermaid-001`,
+    ready: (page) =>
+      expect(page.locator("[data-ya-code-rendered] svg")).toBeVisible({
+        timeout: 20_000,
+      }),
+    open: async (page) => {
+      await page
+        .getByRole("button", { name: "Session options" })
+        .filter({ visible: true })
+        .first()
+        .click();
+      await expect(page.getByRole("menu")).toBeVisible();
+    },
+  },
+  {
+    name: "source-control-projects",
+    path: `/git-status?projectId=${gitProjectId}`,
+    ready: (page) =>
+      expect(
+        page.getByText("report.qmd", { exact: true }).first(),
+      ).toBeVisible(),
+    open: async (page) => {
+      await page.locator(".project-selector-button").first().click();
+      await expect(page.getByRole("menu")).toBeVisible();
+    },
+  },
   ...SETTINGS.map(
     (category): Screen => ({
       name: `settings-${category}`,
@@ -140,6 +170,7 @@ async function capture(
   await page.evaluate(() => document.fonts.ready);
   // Park the pointer so no hover state or tooltip lands in the shot.
   await page.mouse.move(0, 0);
+  await screen.open?.(page);
   await page.waitForTimeout(300);
   await recordUiCapture(page, name, viewport);
 }

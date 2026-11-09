@@ -36,8 +36,9 @@ real desktop and phone renders under [UI testing](ui-testing.md).
 Status: direction selected 2026-11-08.
 [Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
 sequences the work. The playground, its token page, the undefined-property
-limit, the button and switch census, the shared button family and the
-shared switch and segmented control have landed. For controls without a
+limit, the button and switch census, the shared button family, the
+shared switch and segmented control, and the shared popover and menu have
+landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
@@ -83,16 +84,17 @@ more", "Copy", "Edit") is `ghost` `small`; an icon-only button is an
 neighbouring secondary.
 
 Client buttons are on the shared controls except those the allowlist
-below names: menu items and tabs (later families), the composer's controls,
-the crash fallback page, and 15 pre-existing `role="button"` elements.
+below names: tabs (a later family), listbox options, the composer's
+controls, the crash fallback page, and 15 pre-existing `role="button"`
+elements.
 `pnpm buttons:check` (part of `pnpm lint`) keeps it so. It rejects:
 
 - a banned legacy class: any button, switch or option class from
   `design/census/mapping.ts` without global rules (`toggle-switch`,
   `font-size-option`, …), plus those recorded in the allowlist's
   `bannedClasses`, so restoring a deleted rule does not lift the ban;
-- a raw `<button>` outside `ui/Button.tsx`, unless it has a menu or tab
-  role or sits in a composer file;
+- a raw `<button>` outside `ui/Button.tsx` and the shared selection and
+  menu controls, unless it has a tab role or sits in a composer file;
 - a new `role="button"` element (use `ButtonBase`);
 - a CSS rule, module or global, whose selector reaches a bare `button`
   element and sets look or size properties (`.panel button { background:
@@ -101,8 +103,14 @@ the crash fallback page, and 15 pre-existing `role="button"` elements.
 - a `role="switch"`, `role="radio"` or `role="radiogroup"` (as an
   attribute, in a conditional, or as a `role:` prop) outside
   `ui/Switch.tsx` and `ui/SegmentedControl.tsx`. A `role="option"` button
-  counts with the menu family (a listbox in a dropdown), so a one-of-many
-  picker built from options is a review matter, not a lint one.
+  (a listbox in a dropdown) counts as a raw button;
+- a menu role (`menu`, `menuitem`, `menuitemradio`, `menuitemcheckbox`,
+  `menubar`) outside `ui/Menu.tsx`;
+- a pointer listener (`mousedown`, `pointerdown`, `touchstart`, `click`) on
+  `document` or `window` outside `ui/Popover.tsx`: the mark of a
+  hand-rolled outside-press dismissal. Gesture plumbing that needs one
+  (drag selection, pull to refresh, the tooltip layer) is allowlisted with
+  its reason.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
@@ -144,12 +152,60 @@ is a `SegmentedControl`; one thing on or off in a toolbar stays an
 multi-select chip filter. Radios inside a dropdown belong to the menu
 family; native `<input type="radio">` groups wait for the fields family.
 
+**Menus and popovers.** `src/components/ui/Popover.tsx` is the anchored
+floating surface: menus, dropdowns, pickers and small panels that open from
+a trigger (`anchorRef`), a measured rect (`anchorRect`) or a point
+(`anchorPoint`, a context menu at the pointer). It renders through a portal
+into `document.body` at `--z-popover`, above modals and below tooltips, on
+the raised `--bg-elevated` panel with `--shadow-lg`. A script places it: it
+flips to the side with more room, shifts to stay in the viewport, caps its
+height to the room left, and follows scrolling, resizing and its own size.
+It closes on a press outside the surface and its trigger (document capture
+phase, so a row or `Modal` that stops its own events cannot hide the
+press), on Escape, and optionally on the phone back gesture
+(`closeOnBackGesture`). Escape goes through `Modal`'s layer stack
+(`useModalLayer`), so inside a dialog the popover closes first; a field
+inside it can keep Escape for itself through `onEscapeKeyDown`. Focus inside
+the surface returns to the trigger when it closes. A popover opened from
+another (a submenu) is nested: presses inside it are not outside its parent.
+`phoneSheet` presents a long picker as a bottom sheet over a backdrop on
+phones (≤768 px).
+
+`src/components/ui/Menu.tsx` puts `role="menu"` on a `Popover`: opening
+focuses the first item, arrows wrap, Home and End jump, a letter jumps to
+the next item starting with it, Tab closes. `MenuItem` takes `icon`,
+`description`, `shortcut`, `tone="danger"`, `tooltip` (a disabled item stays
+focusable, `aria-disabled`, so its tooltip can say why) and `checked` with
+`kind` (`menuitemcheckbox` or `menuitemradio`); selecting closes the menu
+unless `keepOpen` or the handler calls `preventDefault()`. `MenuGroup`
+labels a group and `MenuSeparator` divides. `useMenuTrigger()` wires the
+trigger: `aria-haspopup="menu"`, `aria-expanded`, toggle on click,
+ArrowDown to open.
+
+Why not the Popover API's top layer: it would cover the tooltip layer and
+toasts; `Modal`'s capture-phase Escape handler cancels the key before a
+popover's close request, so popovers need the layer stack anyway; and
+`popover="auto"`'s light dismiss races React-owned open state on the
+trigger's own click. CSS anchor positioning is missing from older iOS
+WebKit (the native shell). One script path places every popover, and
+`Modal`'s anchored mode shares its placement function. `Modal` stays a
+portal `div` rather than `<dialog>`: moving it is the dialog family's
+decision (plan 182, family 7).
+
+Which control: a list of actions is a `Menu`; a one-of-several choice in a
+dropdown is a `Menu` of radio items, and a filter with several selections a
+`Menu` of checkbox items; anything else floating (help text, a small form, a
+list of links with other content) is a `Popover` with its own role
+(`dialog`, `status`). Completion lists driven by a text field stay
+listboxes, and hover cards stay with `TooltipLayer`'s timing.
+
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
 
 1. **Tokens:** the theme custom properties in `src/styles/index.css`
-   (color, spacing, radius, type and shadow; a z-index scale is still
-   planned). A token used in client CSS must be defined in every client
+   (color, spacing, radius, type, shadow and the layer scale `--z-modal`,
+   `--z-popover`, `--z-tooltip`; page bars and panels keep their own lower
+   values). A token used in client CSS must be defined in every client
    theme, and `pnpm css:check` rejects a read of a property no client source
    defines ([CSS architecture](css-architecture.md#contract)). Surfaces are
    `--bg-surface` (the page), `--bg-secondary`/`--bg-tertiary` (panels),

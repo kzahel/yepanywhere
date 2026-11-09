@@ -5,11 +5,12 @@ Topic: ui-design
 Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
-whole button family (census, swap, delete, ban), the token pass and the
-switch and segmented-control family have landed. Order agreed with the
-maintainer on 2026-11-09: the token pass (done), switches and segmented
-controls (done), then menus and popovers, fields, banners/badges/spinners/
-tabs, the dialog pattern, and the composer last. Each step runs end to
+whole button family (census, swap, delete, ban), the token pass, the
+switch and segmented-control family and the menu and popover family have
+landed. Order agreed with the maintainer on 2026-11-09: the token pass
+(done), switches and segmented controls (done), menus and popovers (done),
+then fields, banners/badges/spinners/tabs, the dialog pattern, and the
+composer last. Each step runs end to
 end (implement, independent review, commit) before the next starts.
 
 ## Why
@@ -170,6 +171,32 @@ of slightly different styles.
   `aria-disabled`), the model switch modal's lost "current" marker (now
   a "Current" line), a wrapping icon-style picker and gaps in the ban;
   all were fixed.
+- **Menu and popover family done (2026-11-09):** `Popover`
+  (`ui/Popover.tsx`) and `Menu`/`MenuItem`/`MenuLinkItem`/`MenuGroup`/
+  `MenuSeparator`/`useMenuTrigger` (`ui/Menu.tsx`), with a Controls/Menu
+  page and tests, and the layer scale `--z-modal`, `--z-popover`,
+  `--z-tooltip`. The Popover API's top layer was evaluated and not used
+  (topic, "Menus and popovers"): it would cover tooltips and toasts,
+  `Modal`'s capture-phase Escape cancels its close request, and `auto`
+  light dismiss races React state; popovers instead join `Modal`'s layer
+  stack (`useModalLayer` can now decline an Escape), and `Modal` stays a
+  portal `div`. A census (Census/Menus and popovers, `LEGACY_MENUS`) found
+  24 hand-rolled surfaces in scope; all moved: the session menu (no roles,
+  Escape or focus handling before), the account chip, the project
+  reclassify menu, recent sessions, the issues menu (rows are real links),
+  the fork-turn, notch, source and file context menus (with a nested
+  submenu), recent hosts, the folder listing, the async questions panel
+  and row menu, ACLI commentary, the search match menu and status, the
+  shortcut, metrics, delivery and aside help popovers, `FilterDropdown`
+  (about 28 callers, checkbox or radio items, a bottom sheet on phones),
+  the project picker and the git help. `Modal`'s anchored mode shares the
+  placement function. Dead rules went with them (`project-reclassify-*`,
+  the delivery and git help popovers, dead mode-selector and
+  `filter-dropdowns` rules), as did the overlays' dismiss labels. `pnpm
+  buttons:check` now bans menu roles outside `Menu` and document or window
+  pointer listeners outside `Popover`, and counts menu and listbox buttons
+  as raw buttons; the allowlist names what is left (the composer's
+  surfaces and gesture or link-routing listeners that are not dismissals).
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
@@ -284,7 +311,9 @@ First confirm how `popover="auto"` interacts with `Modal`'s layer stack,
 Safari, so `Modal` keeps its own `Escape` handling; moving `Modal` onto
 `<dialog>` (for the focus trap it lacks) is evaluated here. Needs the
 raised-surface (`--bg-elevated`) and shadow tokens, which the token pass
-defined.
+defined. **Done 2026-11-09** (What has landed). Left for other families:
+the composer's popovers and completion lists (composer), the model switch
+list inside its Modal, and `GoalPanel`, a form already on the layer stack.
 
 ### 3 — switches and segmented controls
 

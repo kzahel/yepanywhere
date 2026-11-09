@@ -1049,3 +1049,185 @@ export function isSwitchClass(name: string): boolean {
     !/^model-switch-(?!chip)/.test(name)
   );
 }
+
+/** Where a hand-rolled menu, dropdown or popover went (plan 182, family 2). */
+export type MenuDisposition = "menu" | "popover" | "keep" | "composer";
+
+export interface LegacyMenu {
+  /** The surface, as a reader knows it. */
+  name: string;
+  /** Owning file, relative to src/. */
+  file: string;
+  to: MenuDisposition;
+  note?: string;
+}
+
+export const LEGACY_MENUS: readonly LegacyMenu[] = [
+  {
+    name: "Session menu (…)",
+    file: "components/SessionMenu.tsx",
+    to: "menu",
+    note: "25 items, no roles, Escape or focus handling before; inline category picker with a text field.",
+  },
+  {
+    name: "Move session to project",
+    file: "hooks/useProjectReclassifyMenu.ts",
+    to: "menu",
+    note: "Right-click on the project breadcrumb; global .project-reclassify-* rules deleted.",
+  },
+  {
+    name: "Recent sessions",
+    file: "components/RecentSessionsDropdown.tsx",
+    to: "popover",
+    note: "A list of links and the current title: a dialog, not a menu.",
+  },
+  {
+    name: "Issues for this session",
+    file: "components/SessionIssuesLink.tsx",
+    to: "menu",
+    note: "Rows are MenuLinkItems, so modifier clicks open tabs and keep the menu open.",
+  },
+  {
+    name: "Fork from this turn",
+    file: "components/blocks/ForkTurnMenu.tsx",
+    to: "menu",
+  },
+  {
+    name: "Turn rail notch menu",
+    file: "components/UserTurnNavigator.tsx",
+    to: "menu",
+    note: "At the pointer: right-click or long-press.",
+  },
+  {
+    name: "File and resource context menu",
+    file: "components/FileResourceActions.tsx",
+    to: "menu",
+    note: "At the pointer, with a nested submenu (a drill-in on touch).",
+  },
+  {
+    name: "Source context menu",
+    file: "components/SourceContextMenu.tsx",
+    to: "menu",
+    note: "The controller hook keeps its gestures (long-press, Shift+F10); the view is Menu.",
+  },
+  { name: "Recent hosts", file: "components/SwitchHostMenu.tsx", to: "menu" },
+  {
+    name: "Session router account",
+    file: "components/SessionRouterAccountChip.tsx",
+    to: "menu",
+    note: "Radio items grouped by pool.",
+  },
+  {
+    name: "Breadcrumb folder listing",
+    file: "components/FolderListPopover.tsx",
+    to: "popover",
+  },
+  {
+    name: "Async questions panel and row menu",
+    file: "components/AsyncQuestionsButton.tsx",
+    to: "popover",
+    note: "The panel is a Popover, a row's context menu a Menu.",
+  },
+  {
+    name: "ACLI commentary",
+    file: "components/AcliCommentary.tsx",
+    to: "popover",
+  },
+  {
+    name: "Search match menu",
+    file: "components/session-search/SearchPreviews.tsx",
+    to: "menu",
+  },
+  {
+    name: "Search status details",
+    file: "components/session-search/SearchControls.tsx",
+    to: "popover",
+  },
+  {
+    name: "Source shortcut help",
+    file: "components/SourceShortcutHelp.tsx",
+    to: "popover",
+  },
+  { name: "Agent metrics", file: "pages/AgentsPage.tsx", to: "popover" },
+  {
+    name: "Delivery marker",
+    file: "components/blocks/UserPromptBlock.tsx",
+    to: "popover",
+  },
+  {
+    name: "Question aside help",
+    file: "components/QuestionAsideCard.tsx",
+    to: "popover",
+  },
+  {
+    name: "Filter dropdown",
+    file: "components/FilterDropdown.tsx",
+    to: "menu",
+    note: "Checkbox items (several) or radio items (one); a bottom sheet on phones.",
+  },
+  {
+    name: "Source control project picker",
+    file: "components/ProjectSelector.tsx",
+    to: "menu",
+    note: "Radio items; a bottom sheet on phones.",
+  },
+  {
+    name: "Git integration help",
+    file: "pages/GitStatusPage.tsx",
+    to: "popover",
+  },
+  {
+    name: "Goal panel",
+    file: "components/GoalPanel.tsx",
+    to: "keep",
+    note: "Already on the modal layer stack with the back gesture, a focus trap and focus return; a form, not a menu.",
+  },
+  {
+    name: "Anchored Modal",
+    file: "components/ui/Modal.tsx",
+    to: "keep",
+    note: "A dialog; its anchored mode now shares Popover's placement function.",
+  },
+  {
+    name: "Session hover card",
+    file: "components/SessionHoverCard.tsx",
+    to: "keep",
+    note: "Hover timing, pointer bands and suppression belong to the hover card.",
+  },
+  {
+    name: "Tooltip layer",
+    file: "components/ui/TooltipLayer.tsx",
+    to: "keep",
+    note: "Above popovers at --z-tooltip.",
+  },
+  {
+    name: "Selection action cluster",
+    file: "hooks/useSelectionActionPresentation.tsx",
+    to: "keep",
+    note: "A selection toolbar; its context menu is the source context menu.",
+  },
+  {
+    name: "Model switch list",
+    file: "components/ModelSwitchModal.tsx",
+    to: "keep",
+    note: "A listbox inside a Modal with inline save.",
+  },
+  {
+    name: "Completion menus (slash, bang, file, recall)",
+    file: "components/ProjectFileCompletionMenu.tsx",
+    to: "composer",
+    note: "Comboboxes driven by the composer's text field: the composer pass.",
+  },
+  {
+    name: "Composer toolbar popovers (thinking, mode, speech, context, overflow)",
+    file: "components/MessageInputToolbar.tsx",
+    to: "composer",
+    note: "The composer pass.",
+  },
+  {
+    name: "New session queue and project choosers",
+    file: "components/NewSessionQueueOptions.tsx",
+    to: "composer",
+    note: "The composer pass.",
+  },
+];

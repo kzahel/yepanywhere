@@ -1379,7 +1379,6 @@ a.sidebar-toggle:hover {
 
 /* Project breadcrumb in session header */
 .project-breadcrumb-wrapper {
-  position: relative;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -1402,78 +1401,6 @@ a.sidebar-toggle:hover {
 
 .project-breadcrumb:hover {
   color: var(--text-primary);
-}
-
-.project-reclassify-menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  left: 0;
-  min-width: min(28rem, calc(100dvw - 2rem));
-  max-width: min(34rem, calc(100dvw - 2rem));
-  max-height: min(24rem, calc(100dvh - 6rem));
-  overflow: hidden;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 10000;
-}
-
-.project-reclassify-title {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.project-reclassify-list {
-  max-height: inherit;
-  overflow-y: auto;
-}
-
-.project-reclassify-option {
-  width: 100%;
-  display: grid;
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.project-reclassify-option:last-child {
-  border-bottom: none;
-}
-
-.project-reclassify-option:hover:not(:disabled),
-.project-reclassify-option:focus-visible:not(:disabled) {
-  background: var(--bg-hover);
-  outline: none;
-}
-
-.project-reclassify-option:disabled {
-  opacity: 0.55;
-  cursor: wait;
-}
-
-.project-reclassify-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-}
-
-.project-reclassify-path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
 }
 
 /* ==========================================================================
@@ -2613,27 +2540,6 @@ a.sidebar-nav-item {
   text-decoration: underline;
   text-underline-offset: 2px;
   outline: none;
-}
-
-/* Anchored below the bubble's left edge (not the margin tag) so it stays
-   on-screen for both short and near-full-width bubbles. */
-.user-prompt-delivery-popover {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  inset-inline-start: 0;
-  z-index: 50;
-  width: max-content;
-  max-width: min(340px, 85vw);
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  line-height: 1.45;
-  white-space: normal;
-  text-align: start;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .message-user-prompt .text-block {
@@ -12082,46 +11988,6 @@ body:has(.session-page)
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   opacity: 0.65;
-}
-
-.git-integration-help {
-  position: relative;
-}
-
-.git-integration-help summary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  color: var(--text-muted);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 700;
-  list-style: none;
-}
-
-.git-integration-help summary::-webkit-details-marker {
-  display: none;
-}
-
-.git-integration-help-popover {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 4px);
-  right: 0;
-  width: min(320px, calc(100dvw - 2rem));
-  padding: var(--space-2) var(--space-3);
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  font-size: 0.8rem;
-  line-height: 1.4;
 }
 
 .working-tree-clean-landing {

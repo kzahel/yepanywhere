@@ -63,40 +63,32 @@
       "count": 3,
       "reason": "Crash fallback page with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
     },
-    "components/FilterDropdown.tsx": {
-      "count": 2,
-      "reason": "Option rows inside the dropdown list: menu family (plan 182, family 2)."
-    },
     "components/ModelSwitchModal.tsx": {
       "count": 1,
-      "reason": "Model list rows: grouped under 'Previous models' labels, each with its own inline save button and badges, which a radio group cannot hold; a listbox for the menu family."
+      "reason": "Model list rows: grouped under 'Previous models' labels, each with its own inline save button and badges; a listbox inside a Modal, which neither SegmentedControl nor Menu holds."
     },
     "components/NewSessionForm.tsx": {
       "count": 5,
       "reason": "Composer submit, queue and attach controls, and the new-session project picker's options: excluded until the composer pass."
     },
     "components/NewSessionQueueOptions.tsx": {
-      "count": 1,
-      "reason": "The now/patient send pair that submits the queued message: a composer control, excluded until the composer pass."
+      "count": 2,
+      "reason": "The now/patient send pair and the model combobox's listbox options: composer controls, excluded until the composer pass."
     },
-    "components/ProjectSelector.tsx": {
+    "components/ProjectFileCompletionMenu.tsx": {
       "count": 1,
-      "reason": "Project option rows inside the selector dropdown: menu family."
+      "reason": "Completion listbox options driven by the composer's text field: composer pass."
     },
     "components/QuestionAnswerPanel.tsx": {
       "count": 3,
       "reason": "Question tab strip (tab family) and the answer list, single- or multi-select with previews and an Other field inside: its own pattern, not a SegmentedControl."
     },
-    "components/SessionMenu.tsx": {
-      "count": 25,
-      "reason": "Dropdown menu items without an explicit menuitem role: menu family."
-    },
     "components/SpeechControlMenu.tsx": {
       "count": 1,
-      "reason": "Speech method radios inside the speech menu: menu family."
+      "reason": "Speech method choices inside the voice button's settings popover: composer pass."
     },
     "components/ThinkingControls.tsx": {
-      "count": 2,
+      "count": 3,
       "reason": "Thinking mode and effort choices shared with the composer's thinking popover, where they are menuitemradio items: composer pass."
     }
   },
@@ -163,37 +155,9 @@
     }
   },
   "buttonLookRules": {
-    "components/AsyncQuestions.module.css": {
-      "count": 1,
-      "reason": "Row menu items: menu family."
-    },
-    "components/blocks/ForkTurnMenu.module.css": {
-      "count": 4,
-      "reason": "Fork menu items: menu family."
-    },
-    "components/FileResourceActions.module.css": {
-      "count": 3,
-      "reason": "Resource menu items: menu family."
-    },
     "components/NewSessionQueueOptions.module.css": {
       "count": 3,
       "reason": "Model option rows: option family."
-    },
-    "components/session-search/SearchPreviews.module.css": {
-      "count": 1,
-      "reason": "Match menu items: menu family."
-    },
-    "components/SessionMenu.module.css": {
-      "count": 5,
-      "reason": "Session dropdown menu items: menu family."
-    },
-    "components/SourceContextMenu.module.css": {
-      "count": 4,
-      "reason": "Source context menu items: menu family."
-    },
-    "components/UserTurnNavigator.module.css": {
-      "count": 2,
-      "reason": "Turn marker context menu items: menu family."
     },
     "components/ViewerWindowActions.module.css": {
       "count": 3,
@@ -207,7 +171,7 @@
   "selectionRoles": {
     "components/SpeechControlMenu.tsx": {
       "count": 2,
-      "reason": "Speech method radio group inside the speech menu: menu family."
+      "reason": "Speech method radio group inside the voice button's settings popover: composer pass."
     },
     "components/ThinkingControls.tsx": {
       "count": 1,
@@ -216,6 +180,66 @@
     "pages/settings/ProvidersSettings.tsx": {
       "count": 1,
       "reason": "Native radio inputs grouped by a radiogroup div: fields family."
+    }
+  },
+  "menuRoles": {
+    "components/AsyncQuestionsButton.tsx": {
+      "count": 1,
+      "reason": "In `overflow` mode the button is an item of the composer's overflow menu (role=menuitem): composer pass."
+    },
+    "components/ThinkingControls.tsx": {
+      "count": 1,
+      "reason": "Thinking choices shared with the composer's thinking popover, where they are menuitemradio items: composer pass."
+    }
+  },
+  "outsidePressListeners": {
+    "components/ContextThresholdQuickEdit.tsx": {
+      "count": 1,
+      "reason": "The composer toolbar's context-usage popover: composer pass."
+    },
+    "components/MessageList.tsx": {
+      "count": 1,
+      "reason": "A window click that opens incremental search from a search match row; not a dismissal."
+    },
+    "components/NewSessionForm.tsx": {
+      "count": 1,
+      "reason": "The new-session project chooser, a combobox driven by its search field: composer pass."
+    },
+    "components/SpeechControlMenu.tsx": {
+      "count": 1,
+      "reason": "The voice button's speech settings popover (composer and new-session form): composer pass."
+    },
+    "components/ui/TooltipLayer.tsx": {
+      "count": 4,
+      "reason": "The tooltip layer's own hover, press and pin tracking (document capture); tooltips are not popovers."
+    },
+    "contexts/AsyncQuestionsContext.tsx": {
+      "count": 1,
+      "reason": "Notes that the reader moved on while a reply was submitting; not a dismissal."
+    },
+    "hooks/useBottomOverscrollReload.ts": {
+      "count": 1,
+      "reason": "Overscroll-to-reload gesture tracking; not a dismissal."
+    },
+    "hooks/useNativePullToRefresh.ts": {
+      "count": 1,
+      "reason": "Pull-to-refresh gesture tracking; not a dismissal."
+    },
+    "lib/artifactSourceTargets.ts": {
+      "count": 1,
+      "reason": "Click routing for source links inside an artifact frame's document; not a dismissal."
+    },
+    "lib/connection/recoverySignals.ts": {
+      "count": 1,
+      "reason": "Any interaction counts as a signal to recover the connection; not a dismissal."
+    },
+    "lib/publicSharePlay.ts": {
+      "count": 1,
+      "reason": "Script text injected into a played share's frame to route its links; not a dismissal."
+    },
+    "pages/PublicSharePage.tsx": {
+      "count": 1,
+      "reason": "Routes link activation inside a public share's rendered content; not a dismissal."
     }
   }
 }
