@@ -130,11 +130,19 @@ function consoleMethodOf(node) {
 }
 
 function devGateFor(node) {
-  for (let current = node; current; current = current.parent) {
-    if (ts.isIfStatement(current) && current.condition) {
-      if (devGatePattern.test(current.condition.getText())) {
-        return current.condition.getText();
-      }
+  for (
+    let child = node, current = node.parent;
+    current;
+    child = current, current = current.parent
+  ) {
+    // TypeScript names an if statement's condition `expression`. Only the
+    // then-branch runs under the condition; an else-branch is not gated.
+    if (
+      ts.isIfStatement(current) &&
+      current.thenStatement === child &&
+      devGatePattern.test(current.expression.getText())
+    ) {
+      return current.expression.getText();
     }
     if (ts.isConditionalExpression(current)) {
       if (devGatePattern.test(current.condition.getText())) {
