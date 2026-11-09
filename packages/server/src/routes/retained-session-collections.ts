@@ -9,6 +9,7 @@ import {
 import {
   nativeCatalogSessionRef,
   projectCatalogIdentities,
+  type ProjectedCatalogRow,
 } from "../sessions/catalog-identity.js";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
 import { getProjectName, isDetachedProjectPath } from "../projects/paths.js";
@@ -27,6 +28,32 @@ import {
   getActiveSessionIndexOptions,
   isSessionAutoArchived,
 } from "./session-list-options.js";
+
+/**
+ * Display titles per kept projection (frozen, and alive while its row is
+ * unchanged); rows projected afresh on each read are not worth an entry.
+ */
+const displayTitles = new WeakMap<object, string>();
+
+function displayTitle(row: ProjectedCatalogRow, fullTitle: string) {
+  if (!Object.isFrozen(row)) return truncateSessionTitle(fullTitle);
+  let title = displayTitles.get(row);
+  if (title === undefined) {
+    title = truncateSessionTitle(fullTitle);
+    displayTitles.set(row, title);
+  }
+  return title;
+}
+
+/** Project options by name; equal names by id, so no history decides. */
+export function compareProjectOptions(
+  a: { id: string; name: string },
+  b: { id: string; name: string },
+) {
+  return (
+    a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  );
+}
 
 export async function readRetainedSessionItems(
   service: RetainedSessionCollections,
@@ -54,10 +81,13 @@ export async function readRetainedSessionItems(
   // Named now, not from the row: a stored `projectName` is only as current as
   // the file's last read, and renaming a project rereads nothing.
   const projectDisplayName = deps.projectDisplayName ?? getProjectName;
+  // Each project is named once, from its last row's path, in first-row order.
+  const projectPaths = new Map<string, string>();
+  for (const row of rows) projectPaths.set(row.projectId, row.projectPath);
   const projects = new Map<string, { id: string; name: string }>(
-    rows.map((row) => [
-      row.projectId,
-      { id: row.projectId, name: projectDisplayName(row.projectPath) },
+    [...projectPaths].map(([id, path]) => [
+      id,
+      { id, name: projectDisplayName(path) },
     ]),
   );
   const cutoff = getActiveSessionIndexOptions(
@@ -123,7 +153,7 @@ export async function readRetainedSessionItems(
       id: row.sessionId,
       ...(row.title !== undefined
         ? {
-            title: row.title === null ? null : truncateSessionTitle(row.title),
+            title: row.title === null ? null : displayTitle(row, row.title),
             fullTitle,
           }
         : {}),
@@ -187,10 +217,12 @@ export async function readRetainedSessionItems(
     const executor = item.executor ?? "local";
     stats.executorCounts[executor] = (stats.executorCounts[executor] ?? 0) + 1;
   }
+  // Newest first, then by id. Each time is parsed once, not per comparison.
+  const times = new Map(
+    sessions.map((item) => [item, Date.parse(item.updatedAt)]),
+  );
   sessions.sort(
-    (a, b) =>
-      Date.parse(b.updatedAt) - Date.parse(a.updatedAt) ||
-      a.id.localeCompare(b.id),
+    (a, b) => times.get(b)! - times.get(a)! || a.id.localeCompare(b.id),
   );
   // The route selects its authorized, filtered page before any child queries.
   // Stats and offscreen rows do not need relationship enrichment.
@@ -211,9 +243,7 @@ export async function readRetainedSessionItems(
   return {
     sessions,
     stats,
-    projects: [...projects.values()].sort((a, b) =>
-      a.name.localeCompare(b.name),
-    ),
+    projects: [...projects.values()].sort(compareProjectOptions),
     catalog,
   };
 }

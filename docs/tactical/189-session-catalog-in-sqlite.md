@@ -7,7 +7,9 @@ Status: in progress. Proposed 2026-11-09 and checked against the code at
 2026-11-09: the catalog lives in `discovery.sqlite`, the `session-catalog/`
 files are imported once and deleted, its server consumers read what
 changed, summary rows keep the full title in a column, and session metadata
-keeps its queried fields in columns.
+keeps its queried fields in columns. Step 7 done in part the same day: list
+reads keep bound identity projections and cost about a third of what they
+did; paging lists in SQL waits for items 8 and 11 (see step 7).
 
 ## Goal
 
@@ -891,6 +893,84 @@ Depends on steps 3 and 6, and on step 5 for the project page.
 - Point reads (content search, recents, host processes, the conversation
   source) look up by key.
 - Response shapes do not change.
+
+Done 2026-11-09, in part. Decision: the list pages are not paged in SQL yet.
+The page itself could be exact and bounded today: overlays move a row's time
+only for sessions with a live process or a recap, so the top K by stored
+`updated_at`, joined with that overlay set and re-sorted, is the exact page
+(review). What needs the whole population is the rest of every retained
+response, even a sidebar feed of 50 rows:
+- `stats`, whose unread counts come from the notification service's JSON
+  (item 8);
+- the project options;
+- `hasMore` under the auto-archive filter, which uses the overlaid time, and
+  under search, which matches custom titles and initial prompts.
+
+Those aggregates wait for item 11's projection table (and item 16's shared
+result); paging only the rows would save little while they stay whole-catalog
+walks. What landed instead removes the per-request costs that did not depend
+on them:
+- **Project options** sort by name and then id (`compareProjectOptions`),
+  in the retained and the full walk, so equal names (23 of 121 options
+  here) no longer follow catalog history.
+- **Identity projection** (`projectCatalogIdentities`) keeps each bound
+  row's projection per identity store and per published row object: a
+  binding is never changed or removed, and an unchanged catalog row keeps
+  its object. Rows without a native scope, unbound rows (until their next
+  read after adoption), rows whose binding conflicts and OpenCode-overridden
+  rows are projected per read. Every consumer gains: All Sessions, Inbox, the sidebar
+  feeds, recents, the project inventory, issues and the conversation source.
+- **The retained walk** parses each row's time once for the sort, truncates
+  a row's display title once per row object, and names each project once
+  instead of once per row.
+- **Point reads** (item 15) are cheaper by a constant factor, not bounded:
+  recents went from 27 ms to 1.5 ms and a project card from 37 ms to 10 ms,
+  but they, the project inventory, the issue routes and the session-access
+  catalog still walk every row (now cache hits). Content search and the
+  conversation source find one row by scanning memory (about 0.1 ms); they
+  were left as they are.
+
+Gate: the old build (A) and the new (B) as passive servers on identical
+copies of the real profile at version 27, compared with
+`scripts/compare-list-responses.mjs`, which now sorts each run of equal-name
+project options by id on both sides first. To repeat it: copy the profile
+without `logs/`, taking each SQLite file with `VACUUM INTO` and the
+`session-catalog/` folder with its manifest; apply the passive recipe (step 3,
+second commit); build the old commit outside the tree (`git archive` of
+`packages/server`, `tsconfig.base.json` and the scripts its build imports,
+`tsc -p .`, then `scripts/copy-server-assets.mjs`); start each `dist` with the
+recipe's environment on ports 3417 and 3418; wait out warm-up and compare.
+- Responses: after warm-up, three passes of 437 of 437 identical (the first
+  pass differed only in `providerChildren` while B resolved children). Later
+  passes differed in one live session only: A's file watcher reported no
+  event for that transcript's last append, so A's catalog kept the earlier
+  row (B and A's own non-retained list had the new one). No errors;
+  integrity and foreign keys clean.
+- Request timings, median of 15 on the same copies, neither profiled:
+
+  | Request | A | B |
+  |---|---|---|
+  | All Sessions feed, retained, 50 rows | 93.8 ms | 34.5 ms |
+  | Starred feed | 90.7 ms | 30.0 ms |
+  | Categorized feed | 86.0 ms | 26.2 ms |
+  | Inbox, retained | 85.5 ms | 24.2 ms |
+  | Recents, retained | 27.0 ms | 1.5 ms |
+  | Projects, retained | 54.9 ms | 27.5 ms |
+  | One project card | 37.4 ms | 10.0 ms |
+
+  A tab refetches the three feeds and Inbox on each catalog generation:
+  about 356 ms of event loop before, 115 ms after. Whole compare passes
+  summed 6.8–10.0 s on A and 3.4–6.1 s on B.
+- CPU profile of A under that load: of each retained walk's ~95 ms, the
+  identity projection took about 39 ms (the batched identity read 27 ms),
+  the sort comparator 13 ms, title truncation 11 ms. On B the projection is
+  under 2 ms and the remaining walk is the per-row overlay pass (metadata,
+  process, recap, unread) and the item objects.
+
+Still open: SQL paging (needs items 8 and 11), one shared result for the
+feeds that ask in the same generation (item 16), and the project page and
+the non-retained walks, which still read the summary cache per project
+(item 17).
 
 ### 8 — later
 

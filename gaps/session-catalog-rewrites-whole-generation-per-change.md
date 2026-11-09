@@ -17,10 +17,12 @@ catalog is rows in `discovery.sqlite`, a changed session writes one row
 writes nothing and advances no generation, and the shard files are imported
 once and deleted. Step 4 (same day): the issue indexer, the project view
 and vocabulary learning read the rows changed since their last generation
-(1–2 rows, about 1 ms, where an issue sweep of every row took 118 ms). Still
-open below: the whole-catalog walks of the list routes and in every tab per
-generation (step 7), new sessions without full discovery, and deltas to
-clients (step 8).
+(1–2 rows, about 1 ms, where an issue sweep of every row took 118 ms). Step 7 (same
+day, in part): the list walks keep each bound row's identity projection and
+cost about a third of what they did (a tab's three feeds and Inbox per
+generation: 356 ms to 115 ms here). Still open below: those walks themselves
+in every tab per generation (paging in SQL needs the list projection table),
+new sessions without full discovery, and deltas to clients (step 8).
 
 This supersedes the former `retained-catalog-identity-resolution-cpu.md` gap
 and expands items 1 and 13 of

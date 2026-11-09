@@ -144,7 +144,13 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
 
 ## Structural work, in order
 
-11. **Narrow list projection.** Retained All Sessions and Inbox build an item
+11. Still open. Plan 189 step 7 (2026-11-09) cut the walk's fixed costs (bound
+    identity projections kept per row object, one time parse per row for the
+    sort, cached display titles; retained feeds 86–94 ms to 26–35 ms here) and
+    found this item blocks paging in SQL: every retained response carries
+    whole-population stats that count unread sessions, whose state is in
+    `notifications.json` (item 8). Original finding:
+    **Narrow list projection.** Retained All Sessions and Inbox build an item
     for every catalog row before filtering, sorting and slicing
     (`retained-session-collections.ts:77-190`, from `global-sessions.ts:606`
     and `inbox.ts:351`), calling `getMetadata` several times per row and
@@ -209,7 +215,13 @@ The catalog findings (cache budget below the catalog's size, pathless
 invalidation from the issue indexer, double publication) are recorded in
 [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md).
 
-15. **Whole-catalog reads answer point questions.**
+15. Still open; cheaper by a constant factor since plan 189 step 7, which
+    keeps each bound row's identity projection: recents takes 1.5 ms (was 27)
+    and a project card 10 ms (was 37), but recents, the project inventory,
+    the issue routes and the session-access catalog still walk every row, and
+    content search and the conversation source scan memory for one row
+    (about 0.1 ms). Original finding:
+    **Whole-catalog reads answer point questions.**
     - Content search reads the full catalog per 128-record batch, and again
       in `isCurrent`, to find one row by linear search
       (`routes/session-content-search.ts:109-111`, `:152-157`).
@@ -225,7 +237,10 @@ invalidation from the issue indexer, double publication) are recorded in
       `:290`).
 
     These should be per-project or SQL point reads.
-16. **Inbox and the sidebar feeds each walk the whole catalog.** Each tab
+16. Still open; each walk costs about a third of what it did after plan 189
+    step 7 (Inbox 85 to 24 ms, each feed 86–94 to 26–35 ms here), but the
+    feeds still share no result. Original finding:
+    **Inbox and the sidebar feeds each walk the whole catalog.** Each tab
     runs three retained sidebar feeds and Inbox. Each walk projects and
     overlays all rows before slicing a page, with no shared result between
     them (`global-sessions.ts:594-628`, `inbox.ts:355-357`). Inbox also
@@ -235,7 +250,8 @@ invalidation from the issue indexer, double publication) are recorded in
     (catalog token, identity revision, metadata revision, process and
     notification clocks) could serve all of them.
 17. Still open; plan 189 step 5 deferred the merge (see the plan's step 5
-    decision) and did item 22 instead. Original finding:
+    decision) and did item 22 instead, and step 7 left the project page on the
+    per-project summary walk (166 ms for this repository's page here). Original finding:
     **Session summaries are kept twice.** The same summaries live in
     `session_summary_index` (13.1 MB), in `SessionIndexService`'s
     in-memory scope cache (limit 10,000 scopes) and in the catalog (14.3 MB).

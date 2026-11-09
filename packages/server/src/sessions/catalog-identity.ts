@@ -52,20 +52,43 @@ export function metadataForNativeCatalogRow(
   return metadata.getMetadata(row.sessionId);
 }
 
+export type ProjectedCatalogRow = Readonly<
+  SessionCatalogRow & { nativeSessionId: string }
+>;
+
+/**
+ * Rows already bound to a consistent identity, per identity store and per
+ * published row object. A binding is never changed or removed once written,
+ * and the catalog reuses a row's object while the row is unchanged, so such a
+ * row projects the same way for as long as its object lives. Rows without a
+ * native scope, unbound rows (adopted ones are kept from their next read),
+ * rows whose binding conflicts and OpenCode-overridden rows are projected on
+ * every read.
+ */
+const boundProjections = new WeakMap<
+  object,
+  WeakMap<Readonly<SessionCatalogRow>, ProjectedCatalogRow>
+>();
+
 /** Physical catalogue facts remain native; every public consumer projects here. */
 export async function projectCatalogIdentities(
   nativeRows: readonly Readonly<SessionCatalogRow>[],
   metadata?: SessionMetadataService,
   signal?: AbortSignal,
-): Promise<Array<SessionCatalogRow & { nativeSessionId: string }>> {
+): Promise<ProjectedCatalogRow[]> {
   if (signal?.aborted) return [];
   const excluded = new Set<number>();
-  const rows = nativeRows.map((row) => ({
-    ...row,
-    nativeSessionId: row.sessionId,
-  }));
   const identities = metadata?.identities;
-  if (identities) {
+  let cached = identities && boundProjections.get(identities);
+  if (identities && !cached) {
+    cached = new WeakMap();
+    boundProjections.set(identities, cached);
+  }
+  const rows = nativeRows.map(
+    (row): ProjectedCatalogRow =>
+      cached?.get(row) ?? { ...row, nativeSessionId: row.sessionId },
+  );
+  if (identities && cached) {
     // Retained catalogue rows and physical locations stay native. This is the
     // public projection boundary: one indexed read per provider store finds
     // existing bindings, and only rows without one enter the publication's
@@ -74,6 +97,7 @@ export async function projectCatalogIdentities(
     const pendingFamilies = new Map<string, boolean>();
     const scoped: Array<{ position: number; native: NativeSessionRef }> = [];
     for (const [position, row] of nativeRows.entries()) {
+      if (cached.has(row)) continue;
       if (row.nativeStorageScope) {
         scoped.push({
           position,
@@ -97,7 +121,7 @@ export async function projectCatalogIdentities(
     );
     const project = (position: number, identity: SessionIdentity) => {
       const projectPath = fromUrlProjectId(identity.projectId);
-      rows[position] = {
+      const projected = {
         ...rows[position]!,
         sessionId: identity.sessionId,
         provider: identity.provider,
@@ -105,6 +129,8 @@ export async function projectCatalogIdentities(
         projectPath,
         projectIdentityKey: getProjectIdentityKey(projectPath),
       };
+      rows[position] = projected;
+      return projected;
     };
     const candidates: DiscoveredSessionIdentity[] = [];
     const positions: number[] = [];
@@ -149,7 +175,10 @@ export async function projectCatalogIdentities(
         bound.projectId === projectId &&
         nativeSessionFamily(provider) === native.family
       ) {
-        project(position, bound);
+        const projected = project(position, bound);
+        // An OpenCode override depends on the filesystem; it is not kept.
+        if (projectId === row.projectId)
+          cached.set(row, Object.freeze(projected));
         continue;
       }
       candidates.push({

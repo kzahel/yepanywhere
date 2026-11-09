@@ -34,12 +34,42 @@ async function get(base, path) {
   return { status: response.status, body, ms, bytes: text.length };
 }
 
+// Project options with equal names were ordered by catalog history before
+// plan 189 step 7, and by id after it; each run of names equal to the server
+// (localeCompare) is sorted by id on both sides before comparing.
+function sortNameTies(options) {
+  // Only filter options ({id, name}); project cards keep their order.
+  const option = (o) =>
+    o && typeof o.name === "string" && o.id && Object.keys(o).length === 2;
+  if (!options.every(option)) return options;
+  const result = [];
+  for (let i = 0; i < options.length; ) {
+    let j = i + 1;
+    while (
+      j < options.length &&
+      options[j].name.localeCompare(options[i].name) === 0
+    )
+      j++;
+    result.push(
+      ...options
+        .slice(i, j)
+        .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+    );
+    i = j;
+  }
+  return result;
+}
+
 function normalize(value) {
   if (Array.isArray(value)) return value.map(normalize);
   if (value && typeof value === "object") {
     const result = {};
     for (const [key, item] of Object.entries(value))
-      result[key] = VOLATILE.has(key) ? "<volatile>" : normalize(item);
+      result[key] = VOLATILE.has(key)
+        ? "<volatile>"
+        : key === "projects" && Array.isArray(item)
+          ? normalize(sortNameTies(item))
+          : normalize(item);
     return result;
   }
   return value;

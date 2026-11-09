@@ -23,7 +23,10 @@ import { type Principal, PRINCIPAL_VARIABLE } from "../auth/principal.js";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
 import type { RetainedSessionCollectionState } from "@yep-anywhere/shared";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
-import { readRetainedSessionItems } from "./retained-session-collections.js";
+import {
+  compareProjectOptions,
+  readRetainedSessionItems,
+} from "./retained-session-collections.js";
 import { createSessionContentSearchRoutes } from "./session-content-search.js";
 import type { SessionIndexService } from "../indexes/index.js";
 import type { SessionIndexListOptions } from "../indexes/types.js";
@@ -737,7 +740,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
           (!accessibleProjectIdSet || accessibleProjectIdSet.has(project.id)),
       )
       .map((p) => ({ id: p.id, name: p.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort(compareProjectOptions);
 
     // Collect all sessions with enriched data
     let allSessions: GlobalSessionItem[] = [];
@@ -876,7 +879,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
         projectOptionIds.add(item.projectId);
         projectOptions.push({ id: item.projectId, name: item.projectName });
       }
-    projectOptions.sort((a, b) => a.name.localeCompare(b.name));
+    projectOptions.sort(compareProjectOptions);
     // Sort by updatedAt descending (most recent first)
     allSessions.sort(
       (a, b) =>

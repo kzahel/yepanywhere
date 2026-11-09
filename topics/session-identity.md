@@ -360,7 +360,11 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   entries without allowing an in-flight read to re-admit them afterward.
 - Claude/Codex discovery adopts native evidence in a publication transaction.
   Full, lightweight and retained collections project an existing binding back to
-  its public id and launch variant. The native catalogue/index keys and physical
+  its public id and launch variant. A bound row's projection is kept for as
+  long as its published row object lives, per identity store, because a
+  binding is never changed or removed and an unchanged catalogue row keeps its
+  object; rows without a native scope, unbound or conflicting rows and
+  OpenCode-overridden rows are projected on every read (`projectCatalogIdentities`, plan 189 step 7). The native catalogue/index keys and physical
   file locations remain native. Merged readers report the actual native root;
   a private transcript is not adopted under its merged reader's ambient root.
   Summary references carry the resolved native id for subsequent source reads.
