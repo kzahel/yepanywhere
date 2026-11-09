@@ -56,6 +56,7 @@ describe("connection impact refusals", () => {
     const prompt = {
       serverConfirms: true,
       legacyQuestion: null,
+      confirmLegacy: () => true,
       confirmReasons,
     };
     const scope = { confirmed: false };
@@ -85,6 +86,7 @@ describe("connection impact refusals", () => {
       runConfirmingConnectionImpact(send, {
         serverConfirms: true,
         legacyQuestion: null,
+        confirmLegacy: () => true,
         confirmReasons: () => false,
       }),
     ).rejects.toBeInstanceOf(ConnectionImpactDeclinedError);
@@ -92,13 +94,14 @@ describe("connection impact refusals", () => {
   });
 
   it("asks before sending to a server that cannot check", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirm = vi.fn((_question: string) => false);
     const send = vi.fn(async () => "applied");
 
     await expect(
       runConfirmingConnectionImpact(send, {
         serverConfirms: false,
         legacyQuestion: "May disconnect?",
+        confirmLegacy: confirm,
         confirmReasons: () => true,
       }),
     ).rejects.toBeInstanceOf(ConnectionImpactDeclinedError);
@@ -110,6 +113,7 @@ describe("connection impact refusals", () => {
       runConfirmingConnectionImpact(send, {
         serverConfirms: false,
         legacyQuestion: "May disconnect?",
+        confirmLegacy: confirm,
         confirmReasons: () => false,
       }),
     ).resolves.toBe("applied");

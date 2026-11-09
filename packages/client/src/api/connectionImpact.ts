@@ -81,13 +81,17 @@ export interface ConnectionImpactScope {
 
 export interface ConnectionImpactPrompt {
   /** Ask the user about server-reported reasons; true to proceed. */
-  confirmReasons: (reasons: ConnectionImpactReason[]) => boolean;
+  confirmReasons: (
+    reasons: ConnectionImpactReason[],
+  ) => boolean | Promise<boolean>;
   /**
    * For servers not known to have the capability, which may apply without
    * asking: a generic question before sending, or null when the action is
    * not one that can disconnect. A refusal is still handled either way.
    */
   legacyQuestion: string | null;
+  /** Ask `legacyQuestion`; true to proceed. */
+  confirmLegacy: (question: string) => boolean | Promise<boolean>;
   serverConfirms: boolean;
 }
 
@@ -103,7 +107,7 @@ export async function runConfirmingConnectionImpact<T>(
 ): Promise<T> {
   if (scope.confirmed) return send(true);
   if (!prompt.serverConfirms && prompt.legacyQuestion) {
-    if (!window.confirm(prompt.legacyQuestion))
+    if (!(await prompt.confirmLegacy(prompt.legacyQuestion)))
       throw new ConnectionImpactDeclinedError();
     // Already answered: a current server whose capability was not yet known
     // must not ask again, and older servers ignore the parameter.
@@ -115,7 +119,7 @@ export async function runConfirmingConnectionImpact<T>(
   } catch (error) {
     const reasons = connectionImpactOf(error);
     if (!reasons) throw error;
-    if (!prompt.confirmReasons(reasons))
+    if (!(await prompt.confirmReasons(reasons)))
       throw new ConnectionImpactDeclinedError();
     scope.confirmed = true;
     return send(true);

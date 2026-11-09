@@ -24,6 +24,7 @@ import { ProjectQueueSection } from "../components/ProjectQueueSection";
 import { ProjectSessionDefaultsModal } from "../components/ProjectSessionDefaultsModal";
 import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
+import { confirmDialog, promptDialog } from "../components/ui/ConfirmDialog";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
 import { useProjectQueues } from "../hooks/useProjectQueues";
@@ -160,7 +161,13 @@ export function ProjectsPage() {
       // creates the directory as a Git repository with one empty commit,
       // but only after the user says so.
       if ((err as { status?: number }).status === 404) {
-        if (confirm(t("projectsCreateConfirm", { path }))) {
+        if (
+          await confirmDialog({
+            title: t("projectsCreateConfirmTitle"),
+            message: t("projectsCreateConfirm", { path }),
+            confirmLabel: t("projectsCreateConfirmAction"),
+          })
+        ) {
           try {
             const { project } = await api.addProject(path, {
               create: true,
@@ -201,11 +208,16 @@ export function ProjectsPage() {
         project.ownerUsername !== principal.username);
 
   const handleCopyProject = async (project: Project) => {
-    const name = prompt(t("projectCopyPrompt"), `${project.name}-copy`);
-    if (!name?.trim()) return;
+    const name = await promptDialog({
+      title: t("projectCopyDialogTitle"),
+      label: t("projectCopyPrompt"),
+      defaultValue: `${project.name}-copy`,
+      confirmLabel: t("projectCopyLabel"),
+    });
+    if (!name) return;
     setDeleteError(null);
     try {
-      const { path } = await projectAccessApi.copy(project.id, name.trim());
+      const { path } = await projectAccessApi.copy(project.id, name);
       const { project: copy } = await api.addProject(path);
       await refetch();
       navigate(
@@ -220,14 +232,19 @@ export function ProjectsPage() {
 
   const handleDeleteProject = async (project: Project) => {
     if (
-      !confirm(
-        t(
+      !(await confirmDialog({
+        title: t("projectsDeleteConfirmTitle"),
+        message: t(
           personalRemoval
             ? "projectsRemoveFromMyProjectsConfirm"
             : "projectsDeleteConfirm",
           { name: projectDisplayName(project) },
         ),
-      )
+        confirmLabel: t(
+          personalRemoval ? "projectsRemoveFromMyProjects" : "projectsDelete",
+        ),
+        tone: "danger",
+      }))
     ) {
       return;
     }

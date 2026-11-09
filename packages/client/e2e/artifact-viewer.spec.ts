@@ -421,13 +421,17 @@ test("minimizes app details and confirms distinct app and project deletions", as
     await expect(trigger).toBeFocused();
   }
   await inventory.getByRole("button", { name: "Canvas", exact: true }).click();
-  page.once("dialog", (dialog) => dialog.dismiss());
+  const confirm = page.getByRole("alertdialog");
   await inventory
     .getByRole("button", { name: "Delete app", exact: true })
     .click();
+  await confirm.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(confirm).toHaveCount(0);
   expect(deletedApps).toEqual([]);
-  page.once("dialog", (dialog) => dialog.accept());
   await inventory
+    .getByRole("button", { name: "Delete app", exact: true })
+    .click();
+  await confirm
     .getByRole("button", { name: "Delete app", exact: true })
     .click();
   await expect(
@@ -436,8 +440,10 @@ test("minimizes app details and confirms distinct app and project deletions", as
   expect(deletedApps).toEqual(["canvas"]);
   expect(deletedProjects).toEqual([]);
   await inventory.getByRole("button", { name: "Probe", exact: true }).click();
-  page.once("dialog", (dialog) => dialog.accept());
   await inventory
+    .getByRole("button", { name: "Delete project", exact: true })
+    .click();
+  await confirm
     .getByRole("button", { name: "Delete project", exact: true })
     .click();
   await expect(

@@ -17,6 +17,7 @@ import { generateUUID } from "../lib/uuid";
 import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
+import { confirmDialog } from "./ui/ConfirmDialog";
 import { Field, Select } from "./ui/Field";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
@@ -303,11 +304,17 @@ export function SourceEditor({
       setShowPreview(false);
   }, [mapping]);
   const chooseTarget = useCallback(
-    (target: ArtifactSourceTarget) => {
+    async (target: ArtifactSourceTarget) => {
       if (
         !preview ||
         busy ||
-        (dirty && !window.confirm(t("sourceEditorDiscardPrompt")))
+        (dirty &&
+          !(await confirmDialog({
+            title: t("sourceEditorDiscardConfirmTitle"),
+            message: t("sourceEditorDiscardPrompt"),
+            confirmLabel: t("sourceEditorDiscard"),
+            tone: "danger",
+          })))
       )
         return;
       try {
@@ -338,7 +345,7 @@ export function SourceEditor({
       const target = mapping?.value?.targets.find(
         (item) => item.id === event.data.id,
       );
-      if (target) chooseTarget(target);
+      if (target) void chooseTarget(target);
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
@@ -412,13 +419,15 @@ export function SourceEditor({
         return;
       }
       if (
-        !window.confirm(
-          t("sourceEditorRebuildConfirm", {
+        !(await confirmDialog({
+          title: t("sourceEditorRebuildConfirmTitle"),
+          message: t("sourceEditorRebuildConfirm", {
             hook: status.hook,
             cwd: proposal.cwd,
             argv: proposal.argv.join(" "),
           }),
-        )
+          confirmLabel: t("sourceEditorRebuildConfirmAction"),
+        }))
       )
         return;
       approved = {
@@ -773,7 +782,7 @@ export function SourceEditor({
                       const target = mapping.value.targets.find(
                         (item) => item.id === event.target.value,
                       );
-                      if (target) chooseTarget(target);
+                      if (target) void chooseTarget(target);
                     }}
                   >
                     <option value="">{t("sourceEditorChooseTarget")}</option>

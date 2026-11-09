@@ -5,6 +5,7 @@ import {
   type ConnectionImpactScope,
   runConfirmingConnectionImpact,
 } from "../api/connectionImpact";
+import { confirmDialog } from "../components/ui/ConfirmDialog";
 import { useI18n } from "../i18n";
 import { useVersion } from "./useVersion";
 
@@ -62,19 +63,28 @@ export function useConnectionImpactConfirmation() {
     <T>(
       send: (confirmed: boolean) => Promise<T>,
       { mayDisconnect, scope }: ConnectionImpactRunOptions,
-    ): Promise<T> =>
-      runConfirmingConnectionImpact(
+    ): Promise<T> => {
+      const ask = (message: string) =>
+        confirmDialog({
+          title: t("connectionImpactConfirmTitle"),
+          message,
+          confirmLabel: t("connectionImpactConfirmAction"),
+          tone: "danger",
+        });
+      return runConfirmingConnectionImpact(
         send,
         {
           serverConfirms,
           legacyQuestion: mayDisconnect
             ? t("connectionImpactLegacyConfirm")
             : null,
+          confirmLegacy: ask,
           confirmReasons: (reasons) =>
-            window.confirm(describeConnectionImpact(t, reasons)),
+            ask(describeConnectionImpact(t, reasons)),
         },
         scope,
-      ),
+      );
+    },
     [serverConfirms, t],
   );
 }

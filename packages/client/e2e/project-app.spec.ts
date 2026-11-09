@@ -344,8 +344,11 @@ test("app inventory sits below port forwards and manages addresses inline", asyn
       ),
     ).toBe(true);
     await recordUiCapture(page, `project-app-inventory-${size.width}`);
-    page.once("dialog", (dialog) => dialog.accept());
     await inventory
+      .getByRole("button", { name: "Release address", exact: true })
+      .click();
+    await page
+      .getByRole("alertdialog")
       .getByRole("button", { name: "Release address", exact: true })
       .click();
     await expect(name).toBeVisible();
@@ -450,8 +453,11 @@ test("serving a stopped process app starts it first, and a served stopped app wa
     await recordUiCapture(page, "project-app-start-and-serve-375");
     await pane.getByRole("button", { name: "Stop app", exact: true }).click();
     await expect(pane.getByText(warning)).toBeVisible({ timeout: 15_000 });
-    page.once("dialog", (dialog) => dialog.accept());
     await pane
+      .getByRole("button", { name: "Release address", exact: true })
+      .click();
+    await page
+      .getByRole("alertdialog")
       .getByRole("button", { name: "Release address", exact: true })
       .click();
   } finally {

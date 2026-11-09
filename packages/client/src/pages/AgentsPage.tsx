@@ -17,6 +17,7 @@ import { ThinkingIndicator } from "../components/ThinkingIndicator";
 import { Badge, type BadgeTone } from "../components/ui/Badge";
 import { Banner } from "../components/ui/Banner";
 import { Button, ButtonBase } from "../components/ui/Button";
+import { confirmDialog } from "../components/ui/ConfirmDialog";
 import { Popover } from "../components/ui/Popover";
 import { useHostAgentProcesses } from "../hooks/useHostAgentProcesses";
 import { type ProcessInfo, useProcesses } from "../hooks/useProcesses";
@@ -571,7 +572,14 @@ export function AgentsPage() {
   const handleKill = useCallback(
     async (process: ProcessInfo) => {
       const label = process.sessionTitle || t("agentsUntitled" as never);
-      if (!window.confirm(t("agentsKillConfirm" as never, { title: label }))) {
+      if (
+        !(await confirmDialog({
+          title: t("agentsKillConfirmTitle"),
+          message: t("agentsKillConfirm" as never, { title: label }),
+          confirmLabel: t("agentsKill"),
+          tone: "danger",
+        }))
+      ) {
         return;
       }
       setKillingIds((prev) => new Set(prev).add(process.id));

@@ -45,23 +45,19 @@ for (const viewport of [
     await page.getByRole("button", { name: "alice", exact: true }).click();
     const remove = page.getByRole("button", { name: "Delete", exact: true });
     await expect(remove).toBeVisible();
-    const canceled = page.waitForEvent("dialog");
-    const cancelClick = remove.click();
-    const cancelDialog = await canceled;
-    expect(cancelDialog.type()).toBe("confirm");
-    expect(cancelDialog.message()).toBe(
+    const confirm = page.getByRole("alertdialog", { name: "Delete user?" });
+    await remove.click();
+    await expect(confirm).toContainText(
       "Delete user alice? This removes their account, grants and usage history. Project directories and files are kept.",
     );
-    await cancelDialog.dismiss();
-    await cancelClick;
+    await confirm.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(confirm).toHaveCount(0);
     expect(deletionRequests).toBe(0);
     await expect(page.getByText("alice", { exact: true })).toBeVisible();
     await recordUiCapture(page, `user-delete-canceled-${viewport.name}`);
 
-    const confirmed = page.waitForEvent("dialog");
-    const confirmClick = remove.click();
-    await (await confirmed).accept();
-    await confirmClick;
+    await remove.click();
+    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(page.getByText("alice", { exact: true })).toHaveCount(0);
     expect(deletionRequests).toBe(1);
   });

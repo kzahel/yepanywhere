@@ -13,6 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { ClearloopBadgeControls } from "../components/ClearloopRemainingBadge";
+import { confirmDialog } from "../components/ui/ConfirmDialog";
 import type { SessionRewindContextValue } from "../contexts/SessionRewindContext";
 import { useToastContext } from "../contexts/ToastContext";
 import { useI18n } from "../i18n";
@@ -228,8 +229,14 @@ export function useSessionRewindControls({
   }, [projectId, sessionId, showToast, t]);
   const clearloopControls = useMemo<ClearloopBadgeControls>(
     () => ({
-      onCancel: () => {
-        if (window.confirm(t("clearloopCancelConfirm"))) {
+      onCancel: async () => {
+        if (
+          await confirmDialog({
+            title: t("clearloopCancelConfirmTitle"),
+            message: t("clearloopCancelConfirm"),
+            confirmLabel: t("clearloopMenuStop"),
+          })
+        ) {
           void cancelClearloop();
         }
       },

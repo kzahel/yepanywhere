@@ -6,6 +6,7 @@ import { Badge } from "./ui/Badge";
 import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
+import { confirmDialog } from "./ui/ConfirmDialog";
 import { Select, TextInput } from "./ui/Field";
 import styles from "./FileVhostSection.module.css";
 
@@ -109,7 +110,15 @@ export function FileVhostSection({
   };
 
   const stop = async (site: ArtifactVhostSiteView) => {
-    if (!window.confirm(t("fileVhostStopConfirm", { name: site.name }))) return;
+    if (
+      !(await confirmDialog({
+        title: t("fileVhostStopConfirmTitle"),
+        message: t("fileVhostStopConfirm", { name: site.name }),
+        confirmLabel: t("fileVhostStop"),
+        tone: "danger",
+      }))
+    )
+      return;
     setWorking(true);
     setError(null);
     setNotice(null);

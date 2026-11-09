@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { useI18n } from "../../i18n";
 import {
   applyBrowserSettingsBackup,
@@ -60,8 +61,16 @@ export function SettingsBackupActions() {
     }
   };
 
-  const handleLoad = () => {
-    if (!backup || !window.confirm(t("settingsBackupLoadConfirm"))) return;
+  const handleLoad = async () => {
+    if (
+      !backup ||
+      !(await confirmDialog({
+        title: t("settingsBackupLoadConfirmTitle"),
+        message: t("settingsBackupLoadConfirm"),
+        confirmLabel: t("settingsBackupLoad"),
+      }))
+    )
+      return;
     setOperation("loading");
     setError(null);
     try {

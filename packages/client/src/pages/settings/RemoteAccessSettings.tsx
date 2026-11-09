@@ -18,6 +18,7 @@ import { PublicShareManagerModal } from "../../components/PublicShareManagerModa
 import { RemoteAccessSetup } from "../../components/RemoteAccessSetup";
 import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Switch } from "../../components/ui/Switch";
@@ -431,13 +432,17 @@ export function RemoteAccessSettings() {
     if (
       !enabled &&
       publicShareManagementSupported &&
-      !window.confirm(
-        typeof publicShareStatus?.totalValidLinks === "number"
-          ? t("advancedPublicShareDisableConfirm", {
-              count: publicShareStatus.totalValidLinks,
-            })
-          : t("advancedPublicShareDisableConfirmUnknown"),
-      )
+      !(await confirmDialog({
+        title: t("advancedPublicShareDisableConfirmTitle"),
+        message:
+          typeof publicShareStatus?.totalValidLinks === "number"
+            ? t("advancedPublicShareDisableConfirm", {
+                count: publicShareStatus.totalValidLinks,
+              })
+            : t("advancedPublicShareDisableConfirmUnknown"),
+        confirmLabel: t("advancedPublicShareDisableConfirmAction"),
+        tone: "danger",
+      }))
     ) {
       return;
     }

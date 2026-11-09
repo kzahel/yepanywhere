@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Banner } from "../components/ui/Banner";
 import { ButtonBase, IconButton } from "../components/ui/Button";
+import { confirmDialog } from "../components/ui/ConfirmDialog";
 import { Spinner } from "../components/ui/Spinner";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
@@ -180,7 +181,14 @@ export function HostPickerPage() {
   const handleDeleteHost = useCallback(
     async (hostId: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      if (confirm(t("hostPickerRemoveConfirm"))) {
+      if (
+        await confirmDialog({
+          title: t("hostPickerRemoveConfirmTitle"),
+          message: t("hostPickerRemoveConfirm"),
+          confirmLabel: t("hostPickerRemoveHost"),
+          tone: "danger",
+        })
+      ) {
         await removeHost(hostId);
         setHosts((prev) => prev.filter((h) => h.id !== hostId));
       }

@@ -24,6 +24,7 @@ import {
 import { api } from "../../api/client";
 import { Banner } from "../../components/ui/Banner";
 import { Button, IconButton } from "../../components/ui/Button";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
@@ -290,7 +291,15 @@ export function UsersSettings() {
   };
 
   const remove = async (username: string) => {
-    if (!window.confirm(t("usersDeleteConfirm", { username }))) return;
+    if (
+      !(await confirmDialog({
+        title: t("usersDeleteConfirmTitle"),
+        message: t("usersDeleteConfirm", { username }),
+        confirmLabel: t("usersDelete"),
+        tone: "danger",
+      }))
+    )
+      return;
     setBusy(true);
     setError(null);
     try {

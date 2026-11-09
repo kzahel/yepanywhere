@@ -9,6 +9,7 @@ import { api } from "../../api/client";
 import { ProjectAppViewer } from "../../components/ProjectAppViewer";
 import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
 import styles from "./ProjectAppInventorySection.module.css";
@@ -110,11 +111,14 @@ export function ProjectAppInventorySection() {
     row: ProjectAppInventory["reservations"][number],
   ) {
     if (
-      !window.confirm(
-        t("projectAppReleaseConfirm", {
+      !(await confirmDialog({
+        title: t("projectAppReleaseConfirmTitle"),
+        message: t("projectAppReleaseConfirm", {
           address: `${row.name}.${row.namespace}`,
         }),
-      )
+        confirmLabel: t("projectAppRelease"),
+        tone: "danger",
+      }))
     )
       return;
     setBusy(true);
@@ -131,14 +135,23 @@ export function ProjectAppInventorySection() {
   async function deleteSelected(removeProject: boolean) {
     if (!selected || busy) return;
     if (
-      !window.confirm(
-        t(
+      !(await confirmDialog({
+        title: t(
+          removeProject
+            ? "projectAppDeleteProjectConfirmTitle"
+            : "projectAppDeleteAppConfirmTitle",
+        ),
+        message: t(
           removeProject
             ? "projectAppDeleteProjectConfirm"
             : "projectAppDeleteAppConfirm",
           { name: selected.name },
         ),
-      )
+        confirmLabel: t(
+          removeProject ? "projectAppDeleteProject" : "projectAppDeleteApp",
+        ),
+        tone: "danger",
+      }))
     )
       return;
     setBusy(true);
