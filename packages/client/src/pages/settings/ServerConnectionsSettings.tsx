@@ -27,6 +27,7 @@ import {
 } from "../../api/peerConnections";
 import { useI18n } from "../../i18n";
 import { SettingsSection } from "./SettingsSection";
+import { Banner } from "../../components/ui/Banner";
 import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../../components/ui/Field";
@@ -379,23 +380,17 @@ export function ServerConnectionsSettings() {
         </Button>
       </header>
       {!data.enabled && (
-        <div className={styles.feedback}>
-          <span>{t("connectionsDisabled")}</span>
-        </div>
+        <Banner tone="info" role="none">
+          {t("connectionsDisabled")}
+        </Banner>
       )}
       {!supportsRefresh && (
-        <p className={styles.feedback}>{t("connectionsRefreshUpdate")}</p>
+        <Banner tone="info" role="none">
+          {t("connectionsRefreshUpdate")}
+        </Banner>
       )}
-      {error && !selectedPeer && (
-        <p role="alert" className={styles.feedback}>
-          {error}
-        </p>
-      )}
-      {notice && !selectedPeer && (
-        <p role="status" className={styles.feedback}>
-          {notice}
-        </p>
-      )}
+      {error && !selectedPeer && <Banner tone="error">{error}</Banner>}
+      {notice && !selectedPeer && <Banner tone="info">{notice}</Banner>}
       {form && (
         <form
           ref={formRef}
@@ -688,16 +683,8 @@ export function ServerConnectionsSettings() {
           }}
         >
           <div className={styles.detail}>
-            {error && (
-              <p role="alert" className={styles.feedback}>
-                {error}
-              </p>
-            )}
-            {notice && (
-              <p role="status" className={styles.feedback}>
-                {notice}
-              </p>
-            )}
+            {error && <Banner tone="error">{error}</Banner>}
+            {notice && <Banner tone="info">{notice}</Banner>}
             <div className={styles.identifier}>
               <span>{t("connectionsServerId")}</span>
               <code>{selectedPeer.serverId}</code>
@@ -837,7 +824,7 @@ export function ServerConnectionsSettings() {
             </Button>
             <h4>{t("connectionsSessions")}</h4>
             {activityError ? (
-              <p role="alert">{t("connectionsActivityError")}</p>
+              <Banner tone="error">{t("connectionsActivityError")}</Banner>
             ) : !activity ? (
               <p>{t("loading")}</p>
             ) : (
@@ -959,11 +946,7 @@ export function ServerConnectionsSettings() {
                 {t("connectionsKeepAccountAccess")}
               </p>
             )}
-            {removalError && (
-              <p role="alert" className={styles.feedback}>
-                {removalError}
-              </p>
-            )}
+            {removalError && <Banner tone="error">{removalError}</Banner>}
             <div className={styles.confirmActions}>
               <Button disabled={busy} onClick={() => setRemoving(undefined)}>
                 {t("cancel")}

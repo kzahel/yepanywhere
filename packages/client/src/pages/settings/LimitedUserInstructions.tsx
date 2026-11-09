@@ -5,6 +5,7 @@ import {
   resolveLimitedUserInstructions,
   type LimitedUserInstructions as Instructions,
 } from "@yep-anywhere/shared";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { useI18n } from "../../i18n";
@@ -77,11 +78,7 @@ export function SharedLimitedUserInstructions({
           setSaved(false);
         }}
       />
-      {error && (
-        <p role="alert" className="form-error">
-          {error}
-        </p>
-      )}
+      {error && <Banner tone="error">{error}</Banner>}
       <div className={styles.actions}>
         <Button
           variant="primary"
@@ -105,9 +102,7 @@ export function SharedLimitedUserInstructions({
         )}
       </div>
       {saveError && (
-        <p role="alert" className="form-error">
-          {t("usersInstructionsSaveFailed")}
-        </p>
+        <Banner tone="error">{t("usersInstructionsSaveFailed")}</Banner>
       )}
       {preview && (
         <pre className={styles.preview}>

@@ -3,6 +3,7 @@ import {
   isProjectQueueReadinessCommand,
 } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, Textarea, TextInput } from "../../components/ui/Field";
@@ -107,11 +108,7 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
             </p>
           </>
         )}
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        )}
+        {error && <Banner tone="error">{error}</Banner>}
         <Button
           variant="primary"
           type="submit"

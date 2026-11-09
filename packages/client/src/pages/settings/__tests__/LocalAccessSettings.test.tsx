@@ -441,7 +441,7 @@ describe("LocalAccessSettings", () => {
       await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
       await waitFor(() => expect(apply).toHaveProperty("disabled", false));
       expect(mockUpdateBinding).toHaveBeenCalledTimes(1);
-      expect(document.querySelector(".form-error")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
       confirm.mockRestore();
     });
 

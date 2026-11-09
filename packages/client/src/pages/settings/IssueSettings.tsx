@@ -11,6 +11,7 @@ import {
   type IssueSettings as Settings,
 } from "@yep-anywhere/shared";
 import { useEffect, useRef, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -209,7 +210,7 @@ function IssueSettingsControls() {
       {settings && (
         <BlocklistControl settings={settings} busy={busy} save={save} />
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
     </div>
   );
 }
@@ -529,7 +530,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             store={storeKey}
           />
         ))}
-      {actionError && <p role="alert">{actionError}</p>}
+      {actionError && <Banner tone="error">{actionError}</Banner>}
     </>
   );
 }

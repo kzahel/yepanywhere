@@ -6,6 +6,7 @@ import {
   type ProjectTemplateSourcesConfig,
 } from "@yep-anywhere/shared";
 import { fetchJSON } from "../../api/sourceApiFetch";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, TextInput } from "../../components/ui/Field";
@@ -381,7 +382,9 @@ export function ProjectTemplatesSettings() {
           </>
         )}
       </div>
-      {(error || state?.error) && <p role="alert">{error || state?.error}</p>}
+      {(error || state?.error) && (
+        <Banner tone="error">{error || state?.error}</Banner>
+      )}
     </SettingsSection>
   );
 }

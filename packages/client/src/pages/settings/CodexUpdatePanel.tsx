@@ -4,6 +4,7 @@ import {
   CodexDetectedInstall,
   codexManualUpdateHint,
 } from "../../components/CodexUpdateGuidance";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useToastContext } from "../../contexts/ToastContext";
@@ -115,12 +116,12 @@ export function CodexUpdatePanel() {
       />
 
       {status.belowMinimum && status.minimumSupported && (
-        <p className="settings-warning">
+        <Banner tone="warning" compact className={styles.message}>
           {t("codexUpdateBelowMinimum", {
             installed: status.installed,
             minimum: status.minimumSupported,
           })}
-        </p>
+        </Banner>
       )}
 
       {updateAvailable && (
@@ -154,7 +155,11 @@ export function CodexUpdatePanel() {
         </div>
       )}
 
-      {error && <p className={`settings-hint ${styles.error}`}>{error}</p>}
+      {error && (
+        <Banner tone="error" compact className={styles.message}>
+          {error}
+        </Banner>
+      )}
       {installOutput && (
         <details className={styles.output}>
           <summary className="settings-hint">

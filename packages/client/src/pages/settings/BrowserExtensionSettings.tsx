@@ -3,6 +3,7 @@ import {
   FilterDropdown,
   type FilterOption,
 } from "../../components/FilterDropdown";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Radio } from "../../components/ui/Checkbox";
 import { Field, Textarea, TextInput } from "../../components/ui/Field";
@@ -255,9 +256,9 @@ export function BrowserExtensionSettings() {
           </li>
         </ul>
         {siteError && (
-          <p className={styles.error} role="alert">
+          <Banner tone="error" compact className={styles.feedback}>
             {siteError}
-          </p>
+          </Banner>
         )}
         <Field
           label={t("extensionSettingsAllowlist")}

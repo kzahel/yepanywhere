@@ -4,10 +4,8 @@
   color: var(--text-muted);
   font-size: 13px;
 }
-.error {
+.feedback {
   margin: 0 0 8px;
-  color: var(--error-color);
-  font-size: 13px;
 }
 .hostList,
 .siteList {

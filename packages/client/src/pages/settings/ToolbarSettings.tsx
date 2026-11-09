@@ -15,6 +15,7 @@ import {
   SessionToolbarPreview,
   ToolbarControlPreview,
 } from "../../components/SessionToolbarPreview";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
@@ -50,6 +51,7 @@ import { getQuestionReminderThresholds } from "../../lib/asyncQuestions";
 
 import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
+import { HideInSettingsSearch } from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndoBaseline } from "./SettingsUndoContext";
 import toolbarSettingsStyles from "./ToolbarSettings.module.css";
@@ -796,7 +798,9 @@ export function ToolbarSettings() {
             </Button>
           </div>
         </SettingsItem>
-        {error && <p className="settings-warning">{error}</p>}
+        <HideInSettingsSearch>
+          {error && <Banner tone="error">{error}</Banner>}
+        </HideInSettingsSearch>
       </div>
     </SettingsSection>
   );

@@ -48,16 +48,6 @@
 
 .passwordState {
   margin: var(--space-2) 0;
-  font-size: var(--font-size-sm);
-}
-
-.passwordStateActive {
-  color: var(--success-color);
-}
-
-.passwordStatePending,
-.passwordStateWarning {
-  color: var(--warning-color);
 }
 
 .passwordHint {

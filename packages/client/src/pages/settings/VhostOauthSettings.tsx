@@ -6,6 +6,7 @@ import {
   type VhostOauthLogEntry,
   type VhostOauthStatus,
 } from "@yep-anywhere/shared";
+import { Banner } from "../../components/ui/Banner";
 import { Button, IconButton } from "../../components/ui/Button";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal } from "../../components/ui/Modal";
@@ -137,7 +138,7 @@ function ProviderToggle({
           }
         }}
       />
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
     </div>
   );
 }
@@ -555,7 +556,7 @@ export function VhostOauthLogs({
         >
           {t("vhostOauthDownload")}
         </Button>
-        {error && <p role="alert">{error}</p>}
+        {error && <Banner tone="error">{error}</Banner>}
         {entries?.length === 0 && <p>{t("vhostOauthNoLogs")}</p>}
         <div className={styles.logEntries}>
           {entries?.map((entry, index) => (

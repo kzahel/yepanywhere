@@ -23,9 +23,6 @@
   color: var(--text-muted);
   font-size: 13px;
 }
-.error {
-  color: var(--error-color);
-}
 .list {
   display: flex;
   flex-direction: column;

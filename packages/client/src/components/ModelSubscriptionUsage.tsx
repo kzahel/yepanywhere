@@ -3,6 +3,7 @@ import {
   type ProviderSubscriptionUsage,
 } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
+import { Badge } from "./ui/Badge";
 
 export function ModelSubscriptionUsage({
   usage,
@@ -17,21 +18,18 @@ export function ModelSubscriptionUsage({
   const percent = Math.round(bindingWindow.usedPercent);
   if (usage?.ordinaryUsageAllowed === true && percent >= 100) {
     return (
-      <span
-        className="subscription-usage-badge tone-neutral"
-        title={t("subscriptionUsageAllowed")}
-      >
+      <Badge tooltip={t("subscriptionUsageAllowed")}>
         {t("subscriptionUsageAvailable")}
-      </span>
+      </Badge>
     );
   }
   const tone = percent >= 90 ? "danger" : percent >= 75 ? "warning" : "neutral";
   return (
-    <span
-      className={`subscription-usage-badge tone-${tone}`}
-      title={t("subscriptionUsageCompactTitle", { percent })}
+    <Badge
+      tone={tone}
+      tooltip={t("subscriptionUsageCompactTitle", { percent })}
     >
       {t("subscriptionUsageCompact", { percent })}
-    </span>
+    </Badge>
   );
 }

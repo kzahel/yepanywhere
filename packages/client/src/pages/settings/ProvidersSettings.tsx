@@ -44,11 +44,9 @@ import {
   serverHasCapability,
 } from "@yep-anywhere/shared";
 import type { ServerSettings } from "../../api/client";
-import {
-  Button,
-  buttonClassName,
-  IconButton,
-} from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import { Field, Select, TextInput } from "../../components/ui/Field";
@@ -696,7 +694,7 @@ function ClaudeAdditionalModelsSettings({
             {isSaving && (
               <p className="settings-hint">{t("providersSaving")}</p>
             )}
-            {error && <p className="settings-warning">{error}</p>}
+            {error && <Banner tone="error">{error}</Banner>}
           </div>
         </Modal>
       )}
@@ -1065,17 +1063,17 @@ export function ProvidersSettings() {
                     )}
                   {provider.id === "claude-ollama" &&
                   showClaudeOllamaDeprecation ? (
-                    <div className="provider-deprecation-notice" role="status">
-                      <span>{t("providersClaudeOllamaDeprecationNotice")}</span>
-                      <IconButton
-                        size="small"
-                        className={styles.deprecationDismiss}
-                        label={t("providersClaudeOllamaDeprecationDismissAria")}
-                        onClick={dismissClaudeOllamaDeprecation}
-                      >
-                        ×
-                      </IconButton>
-                    </div>
+                    <Banner
+                      tone="warning"
+                      role="status"
+                      className={styles.deprecationSpacing}
+                      onDismiss={dismissClaudeOllamaDeprecation}
+                      dismissLabel={t(
+                        "providersClaudeOllamaDeprecationDismissAria",
+                      )}
+                    >
+                      {t("providersClaudeOllamaDeprecationNotice")}
+                    </Banner>
                   ) : undefined}
                 </>
               }
@@ -1084,13 +1082,9 @@ export function ProvidersSettings() {
                   <div className="settings-item-header">
                     <strong>{provider.displayName}</strong>
                     {provider.installed ? (
-                      <span className="settings-status-badge settings-status-detected">
-                        {t("providersRuntimeReady")}
-                      </span>
+                      <Badge tone="success">{t("providersRuntimeReady")}</Badge>
                     ) : (
-                      <span className="settings-status-badge settings-status-not-detected">
-                        {t("providersRuntimeUnavailable")}
-                      </span>
+                      <Badge>{t("providersRuntimeUnavailable")}</Badge>
                     )}
                   </div>
                   <p>{provider.metadata.description}</p>
@@ -1205,9 +1199,9 @@ export function ProvidersSettings() {
                             : t("providersModelsRefresh")}
                         </Button>
                         {providersError && (
-                          <p className="settings-hint" role="alert">
+                          <Banner tone="error" compact>
                             {t("providersModelsRefreshFailed")}
-                          </p>
+                          </Banner>
                         )}
                       </div>
                       <CodexUpdatePanel />

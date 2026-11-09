@@ -1,3 +1,5 @@
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { useBrowserProfiles } from "../../hooks/useBrowserProfiles";
 import { useConnectedDevices } from "../../hooks/useConnectedDevices";
@@ -68,7 +70,7 @@ export function DevicesSettings() {
   return (
     <SettingsSection description={t("devicesProfilesDescription")}>
       <HideInSettingsSearch>
-        {error && <p className="form-error">{error}</p>}
+        {error && <Banner tone="error">{error}</Banner>}
 
         <div className="settings-group">
           {isLoading ? (
@@ -102,9 +104,7 @@ export function DevicesSettings() {
                         />
                         {displayName}
                         {isCurrentDevice && (
-                          <span className="device-current-badge">
-                            {t("devicesThisDevice")}
-                          </span>
+                          <Badge tone="accent">{t("devicesThisDevice")}</Badge>
                         )}
                       </strong>
 

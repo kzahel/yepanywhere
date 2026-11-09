@@ -6,6 +6,7 @@ import {
   getQualityLabel,
   useEmulatorSettings,
 } from "../../hooks/useEmulatorSettings";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -259,11 +260,9 @@ export function EmulatorSettings() {
 
             <HideInSettingsSearch>
               {chromeOsHostError && (
-                <p className="settings-error">{chromeOsHostError}</p>
+                <Banner tone="error">{chromeOsHostError}</Banner>
               )}
-              {settingsError && (
-                <p className="settings-error">{settingsError}</p>
-              )}
+              {settingsError && <Banner tone="error">{settingsError}</Banner>}
 
               {chromeOsHosts.length === 0 ? (
                 <p className="settings-muted">{t("emulatorNoChromeOsHosts")}</p>
@@ -300,7 +299,7 @@ export function EmulatorSettings() {
               {loading && (
                 <p className="settings-muted">{t("projectsLoading")}</p>
               )}
-              {error && <p className="settings-error">{error}</p>}
+              {error && <Banner tone="error">{error}</Banner>}
 
               {!loading && emulators.length === 0 && (
                 <p className="settings-muted">{t("emulatorNoDevicesFound")}</p>

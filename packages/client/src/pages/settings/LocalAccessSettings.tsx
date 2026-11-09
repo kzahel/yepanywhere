@@ -12,6 +12,8 @@ import {
   type FileAccessSettings,
 } from "../../api/client";
 import { FilterDropdown } from "../../components/FilterDropdown";
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Textarea, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -610,9 +612,7 @@ export function LocalAccessSettings() {
                   <p>{t("fileAccessHomeDescription")}</p>
                 </div>
                 {fileAccess.home && (
-                  <span className="settings-status-badge settings-status-warning">
-                    {t("fileAccessHomeCaution")}
-                  </span>
+                  <Badge tone="warning">{t("fileAccessHomeCaution")}</Badge>
                 )}
                 <Switch
                   aria-label={t("fileAccessHome")}
@@ -659,15 +659,9 @@ export function LocalAccessSettings() {
                 </div>
               </div>
             </div>
-            {fileAccessError && (
-              <p className="form-error file-access-settings-warning">
-                {fileAccessError}
-              </p>
-            )}
+            {fileAccessError && <Banner tone="error">{fileAccessError}</Banner>}
             {hasWholeDiskCustomPath && (
-              <p className="form-warning file-access-settings-warning">
-                {t("fileAccessWholeDiskWarning")}
-              </p>
+              <Banner tone="warning">{t("fileAccessWholeDiskWarning")}</Banner>
             )}
           </>
         )}
@@ -1003,15 +997,13 @@ export function LocalAccessSettings() {
               </p>
             </div>
             {serverInfo?.localhostOnly && !binding?.network.enabled && (
-              <span className="settings-status-badge settings-status-detected">
-                {t("localAccessBadgeLocalOnly")}
-              </span>
+              <Badge tone="success">{t("localAccessBadgeLocalOnly")}</Badge>
             )}
             {(serverInfo?.boundToAllInterfaces || binding?.network.enabled) &&
               !localAuth.authEnabled && (
-                <span className="settings-status-badge settings-status-warning">
+                <Badge tone="warning">
                   {t("localAccessBadgeNetworkExposed")}
-                </span>
+                </Badge>
               )}
           </div>
         </div>
@@ -1210,22 +1202,21 @@ export function LocalAccessSettings() {
               data-local-access-password-block="true"
             >
               <HideInSettingsSearch>
-                <p
-                  className={`${styles.passwordState} ${
-                    !requirePassword
-                      ? styles.passwordStateWarning
-                      : localAuth.authEnabled
-                        ? styles.passwordStateActive
-                        : styles.passwordStatePending
-                  }`}
-                  role="status"
+                <Banner
+                  tone={
+                    requirePassword && localAuth.authEnabled
+                      ? "success"
+                      : "warning"
+                  }
+                  compact
+                  className={styles.passwordState}
                 >
                   {!requirePassword
                     ? t("localAccessPasswordDisableWarning")
                     : localAuth.authEnabled
                       ? t("localAccessPasswordActive")
                       : t("localAccessPasswordPending")}
-                </p>
+                </Banner>
               </HideInSettingsSearch>
               {requirePassword && (
                 <>
@@ -1387,14 +1378,16 @@ export function LocalAccessSettings() {
 
         {localAuth.authDisabledByEnv && (
           <HideInSettingsSearch>
-            <p className="form-warning">{t("localAccessAuthDisabled")}</p>
+            <Banner tone="warning" role="none">
+              {t("localAccessAuthDisabled")}
+            </Banner>
           </HideInSettingsSearch>
         )}
 
         {/* Apply button - always visible */}
         <HideInSettingsSearch>
           <div className="settings-item">
-            {formError && <p className="form-error">{formError}</p>}
+            {formError && <Banner tone="error">{formError}</Banner>}
             <Button
               type="submit"
               disabled={!hasChanges || isApplying || applying}

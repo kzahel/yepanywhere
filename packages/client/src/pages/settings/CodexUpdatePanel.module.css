@@ -32,8 +32,8 @@
   font-size: 0.85em;
 }
 
-.error {
-  color: var(--error-color);
+.message {
+  margin-top: var(--space-2);
 }
 
 .output {

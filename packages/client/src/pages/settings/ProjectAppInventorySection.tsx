@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { projectAppApi } from "../../api/projectApp";
 import { api } from "../../api/client";
 import { ProjectAppViewer } from "../../components/ProjectAppViewer";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
@@ -183,7 +184,7 @@ export function ProjectAppInventorySection() {
           }}
         />
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
       {loading && <p role="status">{t("projectAppLoading")}</p>}
       {supported && inventory && (
         <>

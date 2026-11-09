@@ -1,4 +1,6 @@
 import { useCallback, useMemo } from "react";
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
 import {
   type SegmentedOption,
   SegmentedControl,
@@ -7,6 +9,7 @@ import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
+import { HideInSettingsSearch } from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndoBaseline } from "./SettingsUndoContext";
 import styles from "./StorageSettings.module.css";
@@ -43,9 +46,7 @@ function StorageChoices<T extends string>({
           <span className={styles.choiceHeading}>
             <span>{option.label}</span>
             {option.value === defaultValue && (
-              <span className={styles.defaultBadge}>
-                {t("storageChoiceDefault")}
-              </span>
+              <Badge tone="accent">{t("storageChoiceDefault")}</Badge>
             )}
           </span>
         ),
@@ -167,7 +168,9 @@ export function StorageSettings() {
           />
         </SettingsItem>
       </div>
-      {error && <p className="settings-warning">{error}</p>}
+      <HideInSettingsSearch>
+        {error && <Banner tone="error">{error}</Banner>}
+      </HideInSettingsSearch>
     </SettingsSection>
   );
 }

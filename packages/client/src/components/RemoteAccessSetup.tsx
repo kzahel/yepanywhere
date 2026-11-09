@@ -18,6 +18,9 @@ import { isConnectionImpactDeclined } from "../api/connectionImpact";
 import { useI18n } from "../i18n";
 import { parseUserAgent } from "../lib/deviceDetection";
 import { QRCode } from "./QRCode";
+import styles from "./RemoteAccessSetup.module.css";
+import { Badge, type BadgeTone } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Field, Select, TextInput } from "./ui/Field";
 import { Switch } from "./ui/Switch";
@@ -83,44 +86,46 @@ function getStatusDisplay(
   enabled: boolean,
   hasCredentials: boolean,
   t: (key: never) => string,
-): { text: string; className: string } {
+): { text: string; tone: BadgeTone; pending?: boolean } {
   if (!enabled) {
     return {
       text: t("remoteSetupStatusDisabled" as never),
-      className: "status-disabled",
+      tone: "neutral",
     };
   }
   if (!hasCredentials) {
     return {
       text: t("remoteSetupStatusNotConfigured" as never),
-      className: "status-warning",
+      tone: "warning",
     };
   }
   switch (status) {
     case "waiting":
       return {
         text: t("remoteSetupStatusConnected" as never),
-        className: "status-success",
+        tone: "accent",
       };
     case "connecting":
       return {
         text: t("remoteSetupStatusConnecting" as never),
-        className: "status-pending",
+        tone: "neutral",
+        pending: true,
       };
     case "registering":
       return {
         text: t("remoteSetupStatusRegistering" as never),
-        className: "status-pending",
+        tone: "neutral",
+        pending: true,
       };
     case "rejected":
       return {
         text: t("remoteSetupStatusUsernameTaken" as never),
-        className: "status-error",
+        tone: "danger",
       };
     default:
       return {
         text: t("remoteSetupStatusDisconnected" as never),
-        className: "status-warning",
+        tone: "warning",
       };
   }
 }
@@ -637,16 +642,26 @@ export function RemoteAccessSetup({
           <span className="status-label">
             {t("remoteSetupStatus" as never)}
           </span>
-          <span className={`status-indicator ${status.className}`}>
+          <Badge
+            tone={status.tone}
+            icon={
+              <span className={status.pending ? styles.pending : undefined}>
+                ●
+              </span>
+            }
+          >
             {status.text}
-          </span>
-          {relayStatus?.error && (
-            <span className="status-error-detail">{relayStatus.error}</span>
-          )}
+          </Badge>
         </div>
 
+        {relayStatus?.error && (
+          <Banner tone="error" compact>
+            {relayStatus.error}
+          </Banner>
+        )}
+
         {(error || hookError) && (
-          <p className="form-error">{error || hookError}</p>
+          <Banner tone="error">{error || hookError}</Banner>
         )}
 
         {isEnabled && username && (

@@ -7,6 +7,7 @@ import type {
 } from "@yep-anywhere/shared";
 import { useEffect, useId, useRef, useState } from "react";
 import { vhostOauthPolicy } from "@yep-anywhere/shared";
+import { Banner } from "../../components/ui/Banner";
 import {
   Button,
   buttonClassName,
@@ -574,7 +575,7 @@ function ArtifactSettingsForm({
           />
         </details>
       )}
-      {oauth.error && <p role="alert">{oauth.error}</p>}
+      {oauth.error && <Banner tone="error">{oauth.error}</Banner>}
       {logHost !== null && (
         <VhostOauthLogs
           host={logHost || undefined}
@@ -601,7 +602,7 @@ function ArtifactSettingsForm({
                 {t(access.supported ? "appAccessHint" : "appAccessUnavailable")}
               </p>
             </div>
-            {access.error && <p role="alert">{access.error}</p>}
+            {access.error && <Banner tone="error">{access.error}</Banner>}
             <SettingsCollection
               selectedKey={selectedId}
               title={selected?.name || t("artifactVhostAdd")}

@@ -24,6 +24,7 @@ import {
   type ProviderName,
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -50,6 +51,7 @@ import {
 import { ProjectQueueReadinessSettings } from "./ProjectQueueReadinessSettings";
 import { RendezSettings, type RendezSettingsValue } from "./RendezSettings";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
+import { HideInSettingsSearch } from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndo } from "./SettingsUndoContext";
 
@@ -1117,7 +1119,9 @@ export function MessageDeliverySettings() {
           </SettingsItem>
         }
 
-        {error && <p className="settings-warning">{error}</p>}
+        <HideInSettingsSearch>
+          {error && <Banner tone="error">{error}</Banner>}
+        </HideInSettingsSearch>
       </div>
     </SettingsSection>
   );

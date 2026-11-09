@@ -3,6 +3,7 @@ import {
   LATEX_MATH_RENDERING_CLIENT_CAPABILITY,
   buildEffectiveAgentContext,
 } from "@yep-anywhere/shared";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Textarea } from "../../components/ui/Field";
@@ -242,7 +243,7 @@ export function AgentContextSettings() {
 
       <HideInSettingsSearch>
         {(saveError || error) && (
-          <p className="settings-warning">{saveError || error}</p>
+          <Banner tone="error">{saveError || error}</Banner>
         )}
       </HideInSettingsSearch>
     </SettingsSection>

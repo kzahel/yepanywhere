@@ -67,13 +67,6 @@
 .credential button {
   margin-top: 8px;
 }
-.feedback {
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-}
 .empty {
   color: var(--text-secondary);
   padding-block: 12px;

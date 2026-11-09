@@ -1,6 +1,7 @@
 import type { ProviderLoginFlow, ProviderName } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Banner } from "../../components/ui/Banner";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { TextInput } from "../../components/ui/Field";
 import { useToastContext } from "../../contexts/ToastContext";
@@ -146,7 +147,7 @@ export function ProviderSignIn({
         className={styles.panel}
         data-testid={`provider-sign-in-${provider}`}
       >
-        {problem && <p role="alert">{problem}</p>}
+        {problem && <Banner tone="error">{problem}</Banner>}
         {flow.url ? (
           <a
             className={buttonClassName()}
@@ -227,11 +228,11 @@ export function ProviderSignIn({
 
   return (
     <div className={styles.panel} data-testid={`provider-sign-in-${provider}`}>
-      {problem && <p role="alert">{problem}</p>}
+      {problem && <Banner tone="error">{problem}</Banner>}
       {flow?.state === "succeeded" && (
-        <p role="status">
+        <Banner tone="success">
           {t("providerSignInReady", { provider: displayName })}
-        </p>
+        </Banner>
       )}
       {flow && flow.state !== "succeeded" && (
         <>

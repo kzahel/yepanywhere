@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { TextInput } from "../../components/ui/Field";
@@ -6,6 +7,7 @@ import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
+import { HideInSettingsSearch } from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndoBaseline } from "./SettingsUndoContext";
 
@@ -249,9 +251,11 @@ export function LifecycleWebhooksSettings() {
           </Button>
         </div>
 
-        {(saveError || error) && (
-          <p className="settings-warning">{saveError || error}</p>
-        )}
+        <HideInSettingsSearch>
+          {(saveError || error) && (
+            <Banner tone="error">{saveError || error}</Banner>
+          )}
+        </HideInSettingsSearch>
       </div>
     </SettingsSection>
   );

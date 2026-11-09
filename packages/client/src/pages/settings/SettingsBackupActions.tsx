@@ -4,6 +4,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import {
@@ -104,12 +105,15 @@ export function SettingsBackupActions() {
             : t("settingsBackupLoad")}
         </Button>
       </div>
-      <span
-        className={`${styles.status} ${error ? styles.error : ""}`}
-        role={error ? "alert" : "status"}
-      >
-        {status}
-      </span>
+      {error ? (
+        <Banner tone="error" compact>
+          {status}
+        </Banner>
+      ) : (
+        <span className={styles.status} role="status">
+          {status}
+        </span>
+      )}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import type { TemplateCreationGrant } from "@yep-anywhere/shared";
+import { Banner } from "../../components/ui/Banner";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useProjectTemplateChoices } from "../../hooks/useProjectTemplateChoices";
@@ -99,7 +100,7 @@ export function UserTemplateGrant({
         </div>
       )}
       <p>{t("usersTemplatesHint")}</p>
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
     </fieldset>
   );
 }

@@ -16,6 +16,7 @@ import { useEffect, useId, useState } from "react";
 import type { PublicShareStatusResponse } from "../../api/client";
 import { PublicShareManagerModal } from "../../components/PublicShareManagerModal";
 import { RemoteAccessSetup } from "../../components/RemoteAccessSetup";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -152,12 +153,9 @@ function HostIdentitySettings({
           )}
         </form>
         {draftInvalid && (
-          <p
-            id={invalidId}
-            className="settings-warning host-identity-validation"
-          >
+          <Banner id={invalidId} tone="error" compact>
             {t("hostIdentityInvalid")}
-          </p>
+          </Banner>
         )}
       </div>
     </SettingsItem>
@@ -247,15 +245,13 @@ function HostAwakeSettings({
           <>
             <strong>{t("hostAwakeTitle")}</strong>
             <p>{t("hostAwakeDescription")}</p>
-            <p
-              className={
-                status?.state === "error" || unavailable
-                  ? "settings-warning"
-                  : "settings-hint"
-              }
-            >
-              {statusText}
-            </p>
+            {status?.state === "error" || unavailable ? (
+              <Banner tone="warning" role="none" compact>
+                {statusText}
+              </Banner>
+            ) : (
+              <p className="settings-hint">{statusText}</p>
+            )}
             {status?.batteryPercent !== undefined && (
               <p className="settings-hint">
                 {t("hostAwakeBatteryObserved", {
@@ -336,9 +332,9 @@ function HostAwakeSettings({
               </Button>
             </form>
             {!validFloor && (
-              <p id={floorInvalidId} className="settings-warning">
+              <Banner id={floorInvalidId} tone="error" compact>
                 {t("hostAwakeBatteryFloorInvalid")}
-              </p>
+              </Banner>
             )}
           </SettingsItem>
         )}
@@ -402,30 +398,30 @@ export function RemoteAccessSettings() {
 
   const getShareReadinessMessage = (
     status: PublicShareStatusResponse | null,
-  ): { className: string; text: string } | null => {
+  ): { warning: boolean; text: string } | null => {
     if (!status) return null;
     if (!status.configured) {
       return {
-        className: "settings-warning",
+        warning: true,
         text: t("advancedPublicShareRelayMissing"),
       };
     }
     if (!status.remoteAccessEnabled) {
       return {
-        className: "settings-warning",
+        warning: true,
         text: t("advancedPublicShareRemoteAccessDisabled"),
       };
     }
     if (status.relayStatus !== "waiting") {
       return {
-        className: "settings-warning",
+        warning: true,
         text: t("advancedPublicShareRelayTemporarilyUnavailable", {
           status: status.relayStatus ?? "unknown",
         }),
       };
     }
     return {
-      className: "settings-hint",
+      warning: false,
       text: t("advancedPublicShareReady"),
     };
   };
@@ -487,11 +483,13 @@ export function RemoteAccessSettings() {
             <p>{t("advancedPublicShareDescription")}</p>
             <p>{t("advancedPublicSharePrivacyWarning")}</p>
             <p>{t("advancedPublicShareExistingManagement")}</p>
-            {shareReadinessMessage && (
-              <p className={shareReadinessMessage.className}>
+            {shareReadinessMessage?.warning ? (
+              <Banner tone="warning" role="none" compact>
                 {shareReadinessMessage.text}
-              </p>
-            )}
+              </Banner>
+            ) : shareReadinessMessage ? (
+              <p className="settings-hint">{shareReadinessMessage.text}</p>
+            ) : null}
             {publicShareStatus?.relayUrl && (
               <p className="settings-hint" style={{ wordBreak: "break-all" }}>
                 {t("advancedPublicShareRelayEffective", {
@@ -560,9 +558,9 @@ export function RemoteAccessSettings() {
           })}
         </p>
         {publicShareStatus?.yaClientBaseUrlError && (
-          <p className="settings-warning">
+          <Banner tone="error" compact>
             {publicShareStatus.yaClientBaseUrlError}
-          </p>
+          </Banner>
         )}
       </div>
     </HideInSettingsSearch>
@@ -597,7 +595,9 @@ export function RemoteAccessSettings() {
         </SettingsItem>
       </div>
 
-      {error && <p className="settings-warning">{error}</p>}
+      <HideInSettingsSearch>
+        {error && <Banner tone="error">{error}</Banner>}
+      </HideInSettingsSearch>
     </>
   );
 

@@ -10,6 +10,7 @@ import {
   CodexDetectedInstall,
   codexManualUpdateHint,
 } from "./CodexUpdateGuidance";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { Modal } from "./ui/Modal";
@@ -182,14 +183,14 @@ export function CodexUpdatePrompt() {
         )}
 
         {installAttempted && installSucceeded === true && (
-          <p className="form-success">{t("codexUpdateSucceeded")}</p>
+          <Banner tone="success">{t("codexUpdateSucceeded")}</Banner>
         )}
 
         {installAttempted && installSucceeded === false && error && (
-          <p className="settings-warning">{error}</p>
+          <Banner tone="error">{error}</Banner>
         )}
 
-        {policyError && <p className="settings-warning">{policyError}</p>}
+        {policyError && <Banner tone="error">{policyError}</Banner>}
 
         {(isInstalling || installAttempted) && rawOutput && (
           <div className={styles.outputBlock}>

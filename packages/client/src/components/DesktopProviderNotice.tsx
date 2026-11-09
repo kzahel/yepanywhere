@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useProviders } from "../hooks/useProviders";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
-import { Button, buttonClassName, IconButton } from "./ui/Button";
+import styles from "./DesktopProviderNotice.module.css";
+import { Banner } from "./ui/Banner";
+import { Button, buttonClassName } from "./ui/Button";
 
 const CLAUDE_DOWNLOAD_URL = "https://claude.com/download";
 const CODEX_DOWNLOAD_URL = "https://openai.com/codex/get-started/";
@@ -63,42 +65,40 @@ export function DesktopProviderNotice() {
   }
 
   return (
-    <aside className="desktop-provider-notice" aria-live="polite">
-      <div className="desktop-provider-notice__copy">
-        <strong>{t("desktopProviderNoticeTitle")}</strong>
-        <span>{t("desktopProviderNoticeDescription")}</span>
-      </div>
-      <div className="desktop-provider-notice__actions">
-        <a
-          href={CLAUDE_DOWNLOAD_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonClassName()}
-        >
-          {t("desktopProviderNoticeGetClaude")}
-        </a>
-        <a
-          href={CODEX_DOWNLOAD_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonClassName()}
-        >
-          {t("desktopProviderNoticeGetCodex")}
-        </a>
-        <Button onClick={() => void refetch()}>
-          {t("desktopProviderNoticeRetry")}
-        </Button>
-        <IconButton
-          className="desktop-provider-notice__dismiss"
-          label={t("desktopProviderNoticeDismiss")}
-          onClick={() => {
-            writeDesktopProviderNoticeDismissed();
-            setDismissed(true);
-          }}
-        >
-          ×
-        </IconButton>
-      </div>
-    </aside>
+    <Banner
+      tone="warning"
+      className={styles.floating}
+      title={t("desktopProviderNoticeTitle")}
+      actions={
+        <>
+          <a
+            href={CLAUDE_DOWNLOAD_URL}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClassName()}
+          >
+            {t("desktopProviderNoticeGetClaude")}
+          </a>
+          <a
+            href={CODEX_DOWNLOAD_URL}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClassName()}
+          >
+            {t("desktopProviderNoticeGetCodex")}
+          </a>
+          <Button onClick={() => void refetch()}>
+            {t("desktopProviderNoticeRetry")}
+          </Button>
+        </>
+      }
+      onDismiss={() => {
+        writeDesktopProviderNoticeDismissed();
+        setDismissed(true);
+      }}
+      dismissLabel={t("desktopProviderNoticeDismiss")}
+    >
+      {t("desktopProviderNoticeDescription")}
+    </Banner>
   );
 }

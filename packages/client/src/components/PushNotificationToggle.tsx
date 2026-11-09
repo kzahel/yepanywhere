@@ -4,6 +4,7 @@ import {
   usePushNotifications,
 } from "../hooks/usePushNotifications";
 import { useI18n } from "../i18n";
+import { Banner } from "./ui/Banner";
 import { Switch } from "./ui/Switch";
 import { SettingsItem } from "../pages/settings/SettingsItem";
 
@@ -84,7 +85,9 @@ export function PushNotificationToggle() {
         info={
           <>
             <strong>{t("pushToggleTitle")}</strong>
-            <p className="settings-warning">{t("pushToggleBlocked")}</p>
+            <Banner tone="warning" role="none" compact>
+              {t("pushToggleBlocked")}
+            </Banner>
           </>
         }
       />
@@ -102,7 +105,9 @@ export function PushNotificationToggle() {
             <strong>{t("pushToggleTitle")}</strong>
             <p>{t("pushToggleDescription")}</p>
             {displayedError && (
-              <p className="settings-error">{displayedError}</p>
+              <Banner tone="error" compact>
+                {displayedError}
+              </Banner>
             )}
           </>
         }

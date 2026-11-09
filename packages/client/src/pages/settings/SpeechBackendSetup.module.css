@@ -78,6 +78,10 @@
   font-size: 12px;
 }
 
+.reason {
+  margin-top: 4px;
+}
+
 .consoleLabel {
   font-size: 13px;
 }

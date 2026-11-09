@@ -6,6 +6,7 @@ import {
   type SpeechBackendSetupStatus,
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { Button, ButtonBase } from "../../components/ui/Button";
 import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
@@ -221,9 +222,9 @@ export function SpeechBackendSetup() {
           </a>
         </p>
         {error && (
-          <p className="settings-hint" role="alert">
+          <Banner tone="error" compact>
             {error}
-          </p>
+          </Banner>
         )}
         <div className={styles.catalog}>
           {(status?.catalog ?? []).map((row) => (
@@ -332,9 +333,14 @@ export function SpeechBackendSetup() {
                   ` · ${t("speechBackendSetupDisableRestart")}`}
               </p>
               {row.disabledReason && (
-                <p className={styles.meta} role="alert">
+                <Banner
+                  tone="warning"
+                  role="alert"
+                  compact
+                  className={styles.reason}
+                >
                   {row.disabledReason}
-                </p>
+                </Banner>
               )}
             </section>
           ))}

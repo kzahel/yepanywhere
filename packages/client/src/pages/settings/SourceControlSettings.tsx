@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { Select } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useServerSettings } from "../../hooks/useServerSettings";
@@ -131,7 +132,7 @@ export function SourceControlSettings() {
           />
         </SettingsItem>
       </div>
-      {error && <p className="settings-error">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
     </SettingsSection>
   );
 }

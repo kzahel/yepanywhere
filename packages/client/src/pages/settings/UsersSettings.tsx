@@ -22,6 +22,7 @@ import {
   instructionBlocksError,
 } from "@yep-anywhere/shared";
 import { api } from "../../api/client";
+import { Banner } from "../../components/ui/Banner";
 import { Button, IconButton } from "../../components/ui/Button";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -481,7 +482,7 @@ export function UsersSettings() {
       )}
 
       {error && selection?.kind !== "create" && (
-        <p className="form-error">{error}</p>
+        <Banner tone="error">{error}</Banner>
       )}
 
       {usage && <UserUsageTable report={usage} />}
@@ -820,7 +821,7 @@ function CreateUserForm({
           onChange={(event) => setPassword(event.target.value)}
         />
       </Field>
-      {error && <p className="form-error">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
       <div className={styles.editorActions}>
         <Button type="submit" variant="primary" disabled={busy}>
           {t("usersCreateUser")}
@@ -979,11 +980,7 @@ function UserEditor({
           </Button>
         </div>
       </div>
-      {saveError && (
-        <p role="alert" className="form-error">
-          {saveError}
-        </p>
-      )}
+      {saveError && <Banner tone="error">{saveError}</Banner>}
 
       <details className={styles.account} open={!supportsInstructions}>
         <summary>{t("usersAccountAndAccess")}</summary>

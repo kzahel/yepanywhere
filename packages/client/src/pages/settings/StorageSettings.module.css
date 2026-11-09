@@ -11,12 +11,3 @@
   flex-wrap: wrap;
   font-weight: 600;
 }
-
-.defaultBadge {
-  padding: 1px var(--space-2);
-  border: 1px solid color-mix(in srgb, var(--app-yep-green) 50%, transparent);
-  border-radius: 999px;
-  color: var(--app-yep-green);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-}

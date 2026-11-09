@@ -5,6 +5,7 @@ import type {
 } from "@yep-anywhere/shared";
 import { useI18n } from "../../i18n";
 import { api } from "../../api/client";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, TextInput } from "../../components/ui/Field";
@@ -131,8 +132,10 @@ export function InstructionRestorationControl({
         <Button variant="primary" type="submit" disabled={saving}>
           {t("instructionRestorationSave")}
         </Button>
-        {error && <p role="alert">{error}</p>}
-        {saved && <p role="status">{t("instructionRestorationSaved")}</p>}
+        {error && <Banner tone="error">{error}</Banner>}
+        {saved && (
+          <Banner tone="success">{t("instructionRestorationSaved")}</Banner>
+        )}
       </form>
     </SettingsItem>
   );

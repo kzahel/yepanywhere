@@ -1,0 +1,34 @@
+/* Floats over the app shell; on narrow screens it joins the flow and the
+   session page leaves room for it. */
+.floating {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 240;
+  box-sizing: border-box;
+  width: min(780px, calc(100dvw - 24px));
+  transform: translateX(-50%);
+  box-shadow: var(--shadow-lg);
+}
+
+@media (width <= 700px) {
+  .floating {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: calc(100dvw - 16px);
+    margin: max(8px, env(safe-area-inset-top, 0px)) auto 0;
+    transform: none;
+  }
+
+  .floating ~ :global(.session-page) {
+    box-sizing: border-box;
+    padding-top: calc(162px + env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (width <= 340px) {
+  .floating ~ :global(.session-page) {
+    padding-top: calc(205px + env(safe-area-inset-top, 0px));
+  }
+}

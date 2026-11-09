@@ -1,5 +1,6 @@
 import type { SpeechVocabularyStatus } from "@yep-anywhere/shared";
 import { useEffect, useId, useRef, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { Button, IconButton } from "../../components/ui/Button";
 import { TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -280,7 +281,7 @@ export function SpeechVocabularyControls() {
         </div>
       )}
       {(error || status?.scan.error) && (
-        <p role="alert">{error || status?.scan.error}</p>
+        <Banner tone="error">{error || status?.scan.error}</Banner>
       )}
     </section>
   );

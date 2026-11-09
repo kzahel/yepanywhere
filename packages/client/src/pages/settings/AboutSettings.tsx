@@ -2,6 +2,8 @@ import { useClientSummarySourceKey } from "../../lib/clientSummaryStore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fetchJSON, type VersionInfo } from "../../api/client";
 import { RemoteCompatibilityNoticeCard } from "../../components/RemoteCompatibilityNotices";
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { useRemoteCompatibilityNoticeDismissals } from "../../hooks/useRemoteCompatibilityNoticeDismissals";
@@ -169,9 +171,7 @@ export function AboutSettings() {
             }
           >
             {isInstalled ? (
-              <span className="settings-status-badge">
-                {t("aboutInstalled")}
-              </span>
+              <Badge tone="success">{t("aboutInstalled")}</Badge>
             ) : (
               <Button onClick={install}>{t("aboutInstall")}</Button>
             )}
@@ -266,7 +266,9 @@ export function AboutSettings() {
                   </p>
                 )}
                 {versionError && (
-                  <p className="settings-warning">{t("aboutUnableRefresh")}</p>
+                  <Banner tone="error" compact>
+                    {t("aboutUnableRefresh")}
+                  </Banner>
                 )}
                 {!desktopRuntime &&
                   versionInfo?.updateAvailable &&
@@ -307,12 +309,12 @@ export function AboutSettings() {
               <strong>{t("developmentRestartTitle")}</strong>
               <p>{t("developmentRestartDescription")}</p>
               {interruptibleSessionCount > 0 && !restarting && (
-                <p className="settings-warning">
+                <Banner tone="warning" role="none" compact>
                   {t("developmentInterruptedWarning", {
                     count: interruptibleSessionCount,
                     suffix: interruptibleSessionCount !== 1 ? "s " : " ",
                   })}
-                </p>
+                </Banner>
               )}
             </>
           }

@@ -3,6 +3,7 @@ import {
   serverHasCapability,
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -510,7 +511,7 @@ export function PerformanceSettings() {
             keywords={["Agents", "CPU", "memory", "external processes"]}
             after={
               serverSettingsError ? (
-                <p className="settings-error">{serverSettingsError}</p>
+                <Banner tone="error">{serverSettingsError}</Banner>
               ) : null
             }
           >

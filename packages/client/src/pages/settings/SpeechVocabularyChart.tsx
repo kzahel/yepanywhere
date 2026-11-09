@@ -5,6 +5,7 @@ import {
   VOCABULARY_BASELINE_URL,
 } from "@yep-anywhere/shared";
 import { Fragment, useEffect, useState } from "react";
+import { Banner } from "../../components/ui/Banner";
 import { ButtonBase } from "../../components/ui/Button";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
@@ -88,9 +89,9 @@ export default function SpeechVocabularyChart({
   return (
     <div className={styles.chart}>
       {error && (
-        <p role="alert">
+        <Banner tone="error">
           {t("speechVocabularyBaselineError")} {error}
-        </p>
+        </Banner>
       )}
       <table className={styles.table} aria-label={t("speechVocabularyView")}>
         <thead>

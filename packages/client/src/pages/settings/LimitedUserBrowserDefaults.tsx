@@ -6,6 +6,7 @@ import {
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { limitedUserDefaultsApi } from "../../api/limitedUserDefaultsClient";
+import { Banner } from "../../components/ui/Banner";
 import { Button, IconButton } from "../../components/ui/Button";
 import { TextInput } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
@@ -125,13 +126,17 @@ export function LimitedUserBrowserDefaults() {
       {operation === null && !backup && !error && (
         <p className={styles.hint}>{t("usersBrowserDefaultsNoBackup")}</p>
       )}
-      <span
-        className={`${styles.status} ${error ? styles.error : ""}`}
-        role={error ? "alert" : "status"}
-      >
-        {status}
-        {dirty && ` · ${t("usersBrowserDefaultsUnsaved")}`}
-      </span>
+      {error ? (
+        <Banner tone="error" compact>
+          {status}
+          {dirty && ` · ${t("usersBrowserDefaultsUnsaved")}`}
+        </Banner>
+      ) : (
+        <span className={styles.status} role="status">
+          {status}
+          {dirty && ` · ${t("usersBrowserDefaultsUnsaved")}`}
+        </span>
+      )}
       {entries.length > 0 && (
         <details>
           <summary className={styles.hint}>

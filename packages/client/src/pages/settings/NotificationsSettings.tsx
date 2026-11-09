@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { NativeNotificationStatus } from "../../components/NativeNotificationStatus";
 import { PushNotificationToggle } from "../../components/PushNotificationToggle";
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
 import { Select } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -547,9 +549,9 @@ export function NotificationsSettings() {
                         {device.displayName}
                         {device.browserType && ` ${device.browserType}`}
                         {device.isCurrentDevice && (
-                          <span className="device-current-badge">
+                          <Badge tone="accent">
                             {t("notificationsThisDevice")}
-                          </span>
+                          </Badge>
                         )}
                       </strong>
                       <p>
@@ -630,16 +632,17 @@ export function NotificationsSettings() {
                     <div className="settings-item-info">
                       <strong>{t("notificationsTestPushTitle")}</strong>
                       <p>{t("notificationsTestPushDescription")}</p>
-                      <p
-                        className={`push-test-status ${
-                          testStatus?.kind === "error"
-                            ? "settings-error"
-                            : "settings-hint"
-                        }`}
-                        aria-live="polite"
-                      >
-                        {testStatus?.message ?? "\u00a0"}
-                      </p>
+                      <div className="push-test-status" aria-live="polite">
+                        {testStatus?.kind === "error" ? (
+                          <Banner tone="error" role="none" compact>
+                            {testStatus.message}
+                          </Banner>
+                        ) : (
+                          <p className="settings-hint">
+                            {testStatus?.message ?? "\u00a0"}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <div
                       className={`settings-item-actions ${styles.testActions}`}

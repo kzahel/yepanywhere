@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSchemaValidationContext } from "../../contexts/SchemaValidationContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
+import { Badge } from "../../components/ui/Badge";
+import { Banner } from "../../components/ui/Banner";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Select } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -189,9 +191,9 @@ export function DevelopmentSettings() {
                 <p>{t("developmentIgnoredToolsDescription")}</p>
                 <div className="ignored-tools-list">
                   {ignoredTools.map((tool) => (
-                    <span key={tool} className="ignored-tool-badge">
+                    <Badge key={tool} mono>
                       {tool}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </>
@@ -346,7 +348,9 @@ export function DevelopmentSettings() {
                   )}
                 </p>
                 {unsafeToRestart && (
-                  <p className="settings-warning">{restartWarning}</p>
+                  <Banner tone="warning" role="none" compact>
+                    {restartWarning}
+                  </Banner>
                 )}
               </>
             }

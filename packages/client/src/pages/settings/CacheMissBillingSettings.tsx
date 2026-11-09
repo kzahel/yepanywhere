@@ -6,6 +6,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Banner } from "../../components/ui/Banner";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Field, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
@@ -445,15 +446,17 @@ export function CacheMissBillingSettings() {
           </SettingsItem>
         </div>
 
-        {error && <p className="settings-warning">{error}</p>}
+        <HideInSettingsSearch>
+          {error && <Banner tone="error">{error}</Banner>}
+        </HideInSettingsSearch>
       </SettingsSection>
 
       <SettingsSection
         title={t("cacheMissEvidenceTitle")}
         description={t("cacheMissEvidenceDescription")}
       >
-        {eventsError && <p className="settings-warning">{eventsError}</p>}
         <HideInSettingsSearch>
+          {eventsError && <Banner tone="error">{eventsError}</Banner>}
           <div className={styles.evidence}>
             <div className={styles.recencyControl}>
               <div className={styles.recencyHeader}>

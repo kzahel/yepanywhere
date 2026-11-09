@@ -41,6 +41,6 @@
   margin-bottom: var(--space-4);
 }
 
-.deprecationDismiss {
-  flex: 0 0 auto;
+.deprecationSpacing {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
 }
