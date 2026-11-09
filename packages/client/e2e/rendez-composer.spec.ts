@@ -184,8 +184,21 @@ test("uploads join begun drafts and typing holds the countdown without losing ke
         ),
     )
     .toBe(true);
+  // Clearing the field must not re-arm the held countdown. The timer itself
+  // is covered with fake time in RendezDraftDelivery.test.ts; here the cleared
+  // field must reach the server and leave every upload held.
   await input.fill("");
-  await page.waitForTimeout(10500);
+  await expect
+    .poll(() => api.store.read("", slot).snapshot.payload.fields.text ?? "")
+    .toBe("");
+  expect(
+    api.store
+      .read("", slot)
+      .snapshot.payload.attachments.every(
+        (ref) => ref.rendezAutoSendAt === null,
+      ),
+  ).toBe(true);
+  await expect(page.getByText(/Sends in \d+s/)).toHaveCount(0);
   expect(sends).toBe(0);
   expect(api.store.read("", slot).snapshot.payload.attachments).toHaveLength(3);
   const firstSendIds = api.store

@@ -506,3 +506,41 @@ WebRTC `?auto` case executed in this run; the preceding local run skipped it.
 No browser cases were removed. Fresh lint, formatting and strict E2E types
 passed, alongside the workspace/type/audit checks above. Published exact-source
 CI remains the final campaign checkpoint.
+
+### Time-planned shards — 2026-11-09
+
+Baseline [run 42507550642](https://github.com/kzahel/yepanywhere/actions/runs/42507550642)
+(`main`, two count-split shards, two workers each) passed 582 cases with one
+flaky retry. Shard 1 spent 29.7 case-minutes in 16.6m; shard 2 spent 13.2
+case-minutes in 8.5m. Its global setup took 65s, 46s of it in serial
+shared, local-client and remote-client builds.
+
+All comparisons below ran on the same source of the `e2e-shard-experiment`
+branch through `workflow_dispatch`, with files assigned by
+`scripts/e2e-shard-plan.mjs` from the baseline's per-file seconds. Concurrent
+dispatches queued for runners, so job start skew is excluded; times are the
+Playwright step. Case time includes failed attempts and their two retries.
+
+| Run | Shards × workers | Shard steps | Case time | Failing cases |
+| --- | --- | --- | ---: | ---: |
+| [42575122537](https://github.com/kzahel/yepanywhere/actions/runs/42575122537) | 3 × 2 | 9.0 / 10.8 / 12.0m | 52.4m | 7 |
+| [42575130244](https://github.com/kzahel/yepanywhere/actions/runs/42575130244) | 3 × 3 | 7.7 / 6.7 / 8.9m | 55.4m | 5 |
+| [42575137788](https://github.com/kzahel/yepanywhere/actions/runs/42575137788) | 4 × 2 | 5.9 / 6.5 / 7.1 / 7.0m | 42.3m | 5 |
+| [42576927238](https://github.com/kzahel/yepanywhere/actions/runs/42576927238) | 4 × 2 | 6.1 / 6.8 / 7.9 / 6.3m | 43.6m | 5 |
+| [42576936037](https://github.com/kzahel/yepanywhere/actions/runs/42576936037) | 3 × 3 | 10.2 / 8.8 / 8.4m | 64.6m | 11 |
+
+The one failure-free three-shard job spent 15.1 case-minutes against 14.6
+planned, so the plan predicts balance; the spread comes from failing cases.
+Three workers on the four-vCPU runner inflated case time and doubled
+failures in its repeat. Concurrent builds cut global setup by about 10s on
+CI (about 50% locally). Four shards with two workers is the default.
+
+Three cases failed every attempt on current `main` and in every comparison:
+`session-page-header-paths.spec.ts:497`, `long-context-effort-warning.spec.ts:18`
+and `session-page-correction-attachment-paths.spec.ts:188`. Each costs three
+attempts per run and makes its shard the slowest.
+
+Local macOS (14 cores), same source: four workers ran 601 cases in 7.6m
+(27.3 case-minutes, six failures); eight workers took 5.1m (33.1
+case-minutes, four failures). Four of the four-worker failures passed alone
+with one worker.

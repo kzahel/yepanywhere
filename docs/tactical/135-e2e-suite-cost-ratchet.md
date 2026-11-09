@@ -31,6 +31,13 @@ the newly reported audit blocker. The independent
 and initial search-highlight gap remain open. Preserve these findings and
 collect bounded failure diagnostics instead of treating later passes as causes.
 
+2026-11-09: the suite reached 601 cases and a 17-minute count-split CI gate.
+CI now uses four time-planned shards of two workers (slower shard 7.1m and
+7.9m on fixed source) and the local default is four workers. Three cases fail
+every attempt on `main`, and 5–11 first-attempt failures per run now cost
+more than shard imbalance; see the [wall-time gap](../../gaps/e2e-suite-wall-time.md)
+and the [ledger](../testing/e2e-ci-cost-ledger.md#time-planned-shards--2026-11-09).
+
 The blanket local `pnpm test:e2e` rule first appeared in contributor guidance
 on 2025-12-29, when the suite had about seven specs. Focused Playwright wording
 was added in July 2026; this plan replaces the blanket local rule with a
