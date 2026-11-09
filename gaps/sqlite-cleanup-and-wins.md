@@ -385,9 +385,9 @@ catalog table:
     would be refused from about mid-2027, sooner under automation.
     [Session identity](../topics/session-identity.md) deliberately counts
     deleted tombstones, which keep retry identity so a replay cannot
-    launch twice. Any fix is a maintainer decision and needs a tombstone
-    retention policy: for example, evict consumed creations after a replay
-    window and bound the budget by live rows.
+    launch twice. Decided 2026-11-09: remove the lifetime totals entirely,
+    keeping only per-request and per-attempt checks; step 1 of
+    [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md).
 34. Unbounded logs and caches: `logs/sdk-raw.jsonl` (747 MB, opt-in
     `LOG_SDK_MESSAGES`, about 37 MB/h, no rotation,
     `sdk/messageLogger.ts:28-41`); client logs written with
@@ -424,7 +424,9 @@ though it already has SQLite.
 
 ### Recommended order
 
-1. Decide item 33 before anything else; it is a dated outage.
+Planned in [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md).
+
+1. Remove the item 33 ceiling; it is a dated outage.
 2. Cheap deletions and caps with no schema work: items 25, 27, 34, 14 and
    19. Items 26 and 33 need a retention rule first.
 3. The catalog table
