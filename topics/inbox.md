@@ -88,8 +88,9 @@ not update the complete-summary index or clear its dirty state; complete
 consumers must still receive exact message count and tail-derived metadata.
 
 `providerPhase` is per-request live process state on Active rows, derived
-from the owned process's provider snapshot; the client splits `background`
-rows into their own Background section below Active. The client store keeps
+from the owned process's provider snapshot. Clients split `background` rows
+into their own Background section below Active; the Inbox page and the
+browser extension's side panel split them identically. The client store keeps
 phases from the latest complete inbox response only; session-list snapshots
 neither carry nor clear them. The phase contract is in
 [provider waits](provider-wait-and-background-work.md#contracts).

@@ -5,6 +5,7 @@ import {
 } from "@yep-anywhere/shared";
 import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import { ProviderBadge } from "../../components/ProviderBadge";
+import { SessionProviderPhasePill } from "../../components/SessionProviderPhase";
 import { NotificationBadge } from "../../components/StatusBadge";
 import { ThinkingIndicator } from "../../components/ThinkingIndicator";
 import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
@@ -51,7 +52,15 @@ import { useCurrentTab } from "./useCurrentTab";
 const REFRESH_MS = 30_000;
 const COLLAPSED_GROUPS_KEY = "ya.extension.panelCollapsedGroups";
 
-type GroupKey = "needsYou" | "running" | "recent";
+// Stored keys predate the Inbox section names; renaming them would reopen
+// groups users collapsed.
+type GroupKey = "needsYou" | "running" | "background" | "recent";
+const GROUP_KEYS: readonly GroupKey[] = [
+  "needsYou",
+  "running",
+  "background",
+  "recent",
+];
 
 type Content =
   | { kind: "idle" }
@@ -85,9 +94,7 @@ function loadCollapsedGroups(): GroupKey[] {
       localStorage.getItem(COLLAPSED_GROUPS_KEY) ?? "[]",
     );
     return Array.isArray(stored)
-      ? stored.filter((key): key is GroupKey =>
-          ["needsYou", "running", "recent"].includes(key),
-        )
+      ? stored.filter((key): key is GroupKey => GROUP_KEYS.includes(key))
       : [];
   } catch {
     return [];
@@ -132,8 +139,12 @@ function StateBadge({ session }: { session: PanelSession }) {
         label={t("extensionPanelQuestion")}
       />
     );
-  if (session.state === "running") return <ThinkingIndicator variant="pill" />;
-  return null;
+  if (session.state !== "running") return null;
+  // Waiting and background turns name the work holding them, as Inbox rows do.
+  const phase = session.providerPhase;
+  if (phase && phase.phase !== "generating")
+    return <SessionProviderPhasePill providerPhase={phase} />;
+  return <ThinkingIndicator variant="pill" />;
 }
 
 function SessionRow({
@@ -782,12 +793,17 @@ function AttentionGroups({
           {
             key: "needsYou",
             heading: t("extensionPanelNeedsYou"),
-            sessions: view.needsYou,
+            sessions: view.needsAttention,
           },
           {
             key: "running",
             heading: t("extensionPanelRunning"),
-            sessions: view.running,
+            sessions: view.active,
+          },
+          {
+            key: "background",
+            heading: t("extensionPanelBackground"),
+            sessions: view.background,
           },
           {
             key: "recent",

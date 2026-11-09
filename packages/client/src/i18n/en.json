@@ -4825,6 +4825,7 @@
   "extensionPanelNoIssue": "No issue or PR on this page.",
   "extensionPanelNeedsYou": "Needs you",
   "extensionPanelRunning": "Running",
+  "extensionPanelBackground": "Background",
   "extensionPanelRecent": "Recent",
   "extensionPanelNothingActive": "No recent sessions on the active hosts.",
   "extensionPanelMentions": "Mentioned {count}×",

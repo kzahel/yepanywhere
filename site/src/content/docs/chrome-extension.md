@@ -24,7 +24,8 @@ to your own hosts; your agents and code stay on those machines.
   composer. For GitHub, a project matching the repository is selected when
   available. Review your prompt and send it when ready.
 - **Keep an eye on agents while browsing.** Away from a recognized ticket, the
-  panel can show sessions needing input, running sessions, and recent work.
+  panel can show sessions needing input, running sessions, sessions waiting on
+  background work, and recent work.
   Open a conversation in the extension's app tab to read output and respond.
 - **Move between machines in one workspace.** Save more than one host and use
   the packaged client to browse projects and conversations, follow output, and

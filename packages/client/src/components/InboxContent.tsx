@@ -32,6 +32,10 @@ import {
   useProjectQueuedSessionIds,
 } from "../lib/clientSummaryStore";
 import { activityBus } from "../lib/activityBus";
+import {
+  type InboxSection as InboxSectionKey,
+  splitInboxSections,
+} from "../lib/inboxSections";
 
 import type { Project } from "../types";
 import { getSessionDisplayTitle } from "../utils";
@@ -46,7 +50,7 @@ import { Popover } from "./ui/Popover";
  * Tier configuration for visual styling.
  */
 interface TierConfig {
-  key: string;
+  key: InboxSectionKey;
   titleKey: string;
   colorClass: string;
   /** Rows come from the server's Active tier and show phase indicators. */
@@ -600,19 +604,15 @@ export function InboxContent({
     }
   };
 
-  // Map tier keys to their data. Background-held sessions leave Active for
-  // their own tier; every other count and lookup keeps treating them as
-  // Active rows.
-  const tierData: Record<string, InboxItem[]> = {
+  // Background-held sessions leave Active for their own section; every other
+  // count and lookup keeps treating them as Active rows.
+  const tierData = splitInboxSections({
     needsAttention,
-    active: active.filter((item) => item.providerPhase?.phase !== "background"),
-    background: active.filter(
-      (item) => item.providerPhase?.phase === "background",
-    ),
+    active,
     recentActivity,
     unread8h,
     unread24h,
-  };
+  });
 
   const visibleSessionProjectIds = useMemo(
     () => [
@@ -816,7 +816,7 @@ export function InboxContent({
               <InboxSection
                 key={config.key}
                 config={config}
-                items={tierData[config.key] ?? []}
+                items={tierData[config.key]}
                 projectQueueItems={
                   config.key === "active" ? pendingNewSessionQueueItems : []
                 }

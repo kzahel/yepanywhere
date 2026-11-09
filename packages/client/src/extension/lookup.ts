@@ -11,10 +11,12 @@ import {
   type IssueSearchResult,
   type IssueUrlReference,
   type ProviderName,
+  type SessionProviderPhase,
 } from "@yep-anywhere/shared";
 import type { InboxItem, InboxResponse } from "../api/client";
 import { createIssuesApi } from "../api/issuesClient";
 import type { SavedHost } from "../lib/hostStorage";
+import { type InboxSection, splitInboxSections } from "../lib/inboxSections";
 import {
   documentSavedHostCredentials,
   isSavedHostSignInRequiredError,
@@ -36,6 +38,8 @@ export interface PanelSession {
   updatedAt?: string;
   lastAgentText?: string | null;
   state: PanelSessionState;
+  /** What a running session's provider is doing, from the host's inbox. */
+  providerPhase?: SessionProviderPhase;
   /** Mentions of the looked-up issue in this session. */
   mentions?: number;
 }
@@ -56,10 +60,12 @@ export interface IssueLookup {
   sessions: PanelSession[];
 }
 
+/** The Inbox's sections, merged across hosts; recent is capped. */
 export interface AttentionView {
   hosts: HostAnswer[];
-  needsYou: PanelSession[];
-  running: PanelSession[];
+  needsAttention: PanelSession[];
+  active: PanelSession[];
+  background: PanelSession[];
   recent: PanelSession[];
 }
 
@@ -103,6 +109,7 @@ function inboxSession(host: SavedHost, item: InboxItem): PanelSession {
     title: item.customTitle || item.sessionTitle || item.sessionId,
     updatedAt: item.updatedAt,
     state: inboxState(item),
+    providerPhase: item.providerPhase,
   };
 }
 
@@ -143,11 +150,11 @@ export async function lookupIssue(
               }),
               connection.fetch<InboxResponse>("/inbox").catch(() => null),
             ]);
-            const waiting = new Map(
-              (inbox?.needsAttention ?? []).map((entry) => [
-                entry.sessionId,
-                entry,
-              ]),
+            // Live input and phase state come from the host's inbox rows.
+            const live = new Map(
+              [...(inbox?.needsAttention ?? []), ...(inbox?.active ?? [])].map(
+                (entry) => [entry.sessionId, entry],
+              ),
             );
             return {
               answer: { host, status: "ok" as const },
@@ -164,10 +171,11 @@ export async function lookupIssue(
                   updatedAt: session.updatedAt,
                   lastAgentText: session.lastAgentText,
                   state: inboxState({
-                    pendingInputType: waiting.get(session.sessionId)
+                    pendingInputType: live.get(session.sessionId)
                       ?.pendingInputType,
                     activity: session.activity,
                   }),
+                  providerPhase: live.get(session.sessionId)?.providerPhase,
                   mentions: session.evidenceCount,
                 }),
               ),
@@ -223,7 +231,10 @@ export async function countIssueSessions(
   return counts.reduce((sum, count) => sum + count, 0);
 }
 
-/** Sessions needing input, running, and recently active on every host. */
+/**
+ * The Inbox's needs-attention, active, background and recent sections on
+ * every host, split exactly as the Inbox page splits them.
+ */
 export async function loadAttention(
   hosts: SavedHost[],
   credentials: SavedHostCredentials = documentSavedHostCredentials,
@@ -236,23 +247,29 @@ export async function loadAttention(
           (connection) => connection.fetch<InboxResponse>("/inbox"),
           credentials,
         );
-        return { answer: { host, status: "ok" as const }, inbox };
+        return {
+          answer: { host, status: "ok" as const },
+          sections: splitInboxSections(inbox),
+        };
       } catch (error) {
-        return { answer: answerFor(host, error), inbox: null };
+        return { answer: answerFor(host, error), sections: null };
       }
     }),
   );
-  const tier = (pick: (inbox: InboxResponse) => InboxItem[]) =>
+  const merged = (section: InboxSection) =>
     answers
-      .flatMap(({ answer, inbox }) =>
-        inbox ? pick(inbox).map((item) => inboxSession(answer.host, item)) : [],
+      .flatMap(({ answer, sections }) =>
+        sections
+          ? sections[section].map((item) => inboxSession(answer.host, item))
+          : [],
       )
       .sort(bySessionPriority);
   return {
     hosts: answers.map((answer) => answer.answer),
-    needsYou: tier((inbox) => inbox.needsAttention),
-    running: tier((inbox) => inbox.active),
-    recent: tier((inbox) => inbox.recentActivity).slice(0, 8),
+    needsAttention: merged("needsAttention"),
+    active: merged("active"),
+    background: merged("background"),
+    recent: merged("recentActivity").slice(0, 8),
   };
 }
 

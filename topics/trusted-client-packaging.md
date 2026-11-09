@@ -228,7 +228,11 @@ cannot inject into or debug its pages, and its storage belongs to it alone.
   the tracker page in a new tab. The app tab publishes its route to
   `chrome.storage.session` for this, since the panel cannot read its
   address, and withdraws it when the page goes away. Elsewhere the panel
-  lists sessions needing input, running and recent; each group collapses
+  lists sessions needing input, running, held by background work, and
+  recent. These are the [Inbox](inbox.md#server-tiering) sections, split
+  as the Inbox page splits them; a running session waiting on work or held
+  by background work names that work as the Inbox row does instead of
+  showing Thinking. Each group collapses
   from its heading, and collapsed groups stay collapsed across panel opens
   (extension-origin `localStorage`). The top of the panel always has a
   "+ New session" button, which opens the default host's new-session page
