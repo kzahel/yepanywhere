@@ -3521,6 +3521,7 @@ export function createApp(options: AppOptions): AppResult {
   // Inbox routes (cross-project session aggregation)
   retainedCollections = new RetainedSessionCollections({
     dataDir: effectiveDataDir,
+    database: discoverySqlite.getDatabase(),
     eventBus: options.eventBus,
     projectStores: nativeStores,
     nativeSessionId: catalogNativeSessionId(
@@ -3536,7 +3537,7 @@ export function createApp(options: AppOptions): AppResult {
             ?.activeAfterMs,
         )
       ),
-    adapters: (rows, signal, changedPaths, sources) =>
+    adapters: (...scan) =>
       collectionCatalogAdapters(
         {
           scanner,
@@ -3555,10 +3556,7 @@ export function createApp(options: AppOptions): AppResult {
           getCatalogFamilies,
           antigravitySessionsDir: options.antigravitySessionsDir,
         },
-        rows,
-        signal,
-        changedPaths,
-        sources,
+        ...scan,
       ),
   });
   const conversationCatalog = retainedCollections;

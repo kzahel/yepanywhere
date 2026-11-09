@@ -111,6 +111,10 @@ clients never receive deltas. The server computes and stores them anyway.
 
 ## Proposed shape
 
+[Plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) owns the
+schema as built. Its step 3 first commit (2026-11-09) added the tables
+and a startup copy; publications still write shard files.
+
 Rows in the profile database, keyed natively, written per changed row:
 
 - `session_catalog_rows(catalog_family, store_key, session_id, …)` is keyed

@@ -28,6 +28,10 @@ const { SessionMetadataService } = await import(
   pathToFileURL(resolve(storageDir, "../metadata/SessionMetadataService.js"))
     .href
 );
+const { SessionCatalogSqliteStore } = await import(
+  pathToFileURL(resolve(storageDir, "../services/session-catalog-sqlite.js"))
+    .href
+);
 const { ApiReceiptStore } = await import(
   pathToFileURL(resolve(storageDir, "../core-api/receipt-store.js")).href
 );
@@ -240,7 +244,80 @@ async function relationshipWriterContract(dataDir) {
   );
   reopened.close();
 }
+// The catalog publication's UPSERTs, INSERT ... SELECT ... ON CONFLICT and
+// cascading text rows, on whichever SQLite each runtime links.
+function catalogContract(database) {
+  const store = new SessionCatalogSqliteStore(database);
+  const row = (sessionId, title) => ({
+    catalogFamily: "codex",
+    storeKey: "/store",
+    sessionId,
+    projectId: "id",
+    projectPath: "/p",
+    projectIdentityKey: "/p",
+    updatedAt: "2026-11-09T00:00:00.000Z",
+    ...(title === undefined ? {} : { title }),
+    fidelity: "head",
+    sourceVersion: sessionId,
+    location: { kind: "file", path: `/store/${sessionId}` },
+  });
+  const long = "t".repeat(600);
+  const state = (generation) => ({
+    epoch: "e",
+    generation,
+    completedAt: "2026-11-09T00:00:00.000Z",
+  });
+  store.writeGeneration(state(1), [row("a", long), row("b", null)], []);
+  assert.deepEqual(store.readRows(), [row("a", long), row("b", null)]);
+  const next = store.writeGeneration(state(2), [row("a", "short")], []);
+  assert.deepEqual(next, {
+    rowsWritten: 1,
+    rowsTombstoned: 1,
+    lineageReplaced: false,
+  });
+  assert.deepEqual(store.readRows(), [row("a", "short")]);
+  store.writeGeneration({ ...state(0), epoch: "f" }, [], []);
+  assert.equal(
+    database.prepare("SELECT count(*) AS n FROM session_catalog_text").get().n,
+    0,
+  );
+}
 try {
+  const catalog = openService(join(temporary, "catalog"));
+  catalogContract(catalog.getDatabase());
+  // A transaction larger than the page cache must fail fast, not stall, while
+  // an outside reader holds its shared lock (cache_spill is off).
+  const reader = loadSqliteDriver().open(
+    join(temporary, "catalog", "discovery.sqlite"),
+  );
+  reader.exec("BEGIN");
+  reader.prepare("SELECT count(*) FROM session_catalog").get();
+  const started = Date.now();
+  assert.throws(
+    () =>
+      new SessionCatalogSqliteStore(catalog.getDatabase()).writeGeneration(
+        { epoch: "g", generation: 1, completedAt: "2026-11-09T00:00:00.000Z" },
+        Array.from({ length: 5000 }, (_, index) => ({
+          catalogFamily: "codex",
+          storeKey: "/store",
+          sessionId: `big-${index}`,
+          projectId: "id",
+          projectPath: "/p",
+          projectIdentityKey: "/p",
+          updatedAt: "2026-11-09T00:00:00.000Z",
+          title: "w".repeat(1000),
+          fidelity: "head",
+          sourceVersion: "v",
+          location: { kind: "file", path: `/store/big-${index}` },
+        })),
+        [],
+      ),
+    /locked|busy/i,
+  );
+  assert.ok(Date.now() - started < 5000, "a blocked write must fail fast");
+  reader.exec("ROLLBACK");
+  reader.close();
+  catalog.close();
   const relationships = openService(join(temporary, "relationships"));
   relationshipContract(relationships.getDatabase());
   relationships.close();

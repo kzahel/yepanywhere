@@ -76,13 +76,13 @@
       "maxLines": 1548
     },
     "packages/server/src/app.ts": {
-      "maxLines": 4615
+      "maxLines": 4613
     },
     "packages/server/src/augments/safe-markdown.ts": {
       "maxLines": 1951
     },
     "packages/server/src/indexes/SessionIndexService.ts": {
-      "maxLines": 2448
+      "maxLines": 2396
     },
     "packages/server/src/metadata/SessionMetadataService.ts": {
       "maxLines": 1550
@@ -127,7 +127,7 @@
       "maxLines": 1532
     },
     "packages/server/src/server-main.ts": {
-      "maxLines": 1824
+      "maxLines": 1822
     },
     "packages/server/src/services/ProjectQueueService.ts": {
       "maxLines": 1532

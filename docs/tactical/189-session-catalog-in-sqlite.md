@@ -4,7 +4,8 @@ Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
 `db161ab3c` and the maintainer's profile the same day. Steps 1 and 2 done
-2026-11-09.
+2026-11-09; step 3's first commit (tables and startup copy) done the same
+day.
 
 ## Goal
 
@@ -93,7 +94,8 @@ migration (`topics/required-sqlite.md:247-250`).
   - content-search cursors (`routes/session-content-search.ts:119`, `:153-156`).
 - **List facts:**
   - `provider`, `title` (display length);
-  - `created_at`, `updated_at` (indexed), `last_human_turn_at`;
+  - `created_at`, `updated_at`, `last_human_turn_at` (sort indexes come
+    with step 7's queries);
   - `async_questions` (small JSON).
 
   Catalog rows do not carry `model`, `messageCount`, `lastAgentText` or
@@ -104,7 +106,12 @@ migration (`topics/required-sqlite.md:247-250`).
   - `row_hash`, so an unchanged row is never rewritten;
   - `changed_gen` (indexed) and `deleted`.
 
-Long text lives in `session_catalog_text`, not in a last column. SQLite reads
+Long text lives in `session_catalog_text`, not in a last column. As built
+(migration 028): the row keeps the first 512 characters of the title
+(`CATALOG_TITLE_PREFIX_LENGTH`, enough for the shared display title's
+sanitizer prefix), and `session_catalog_text` holds the whole title, keyed
+by the row's `id`, only when it is longer. `title_null` distinguishes an
+adapter's `title: null` from an absent title, so rows read back exactly. SQLite reads
 a large column only when it is selected, but `ALTER TABLE ADD COLUMN`
 appends after it, so a later small column would sit behind the overflow
 chain. The full title stays capped at 16,384 characters
@@ -333,8 +340,55 @@ Land it in three reviewed commits.
 
 The first commit adds the tables and the seed. Reads stay on files:
 - Migration 028 creates the tables.
-- On startup, when `catalog_state` is empty, `initialize` copies the
-  current manifest's epoch, generation and rows in one transaction.
+- On startup, when `catalog_state` does not hold the manifest's generation,
+  `initialize` copies its epoch, generation and rows in one transaction.
+
+Done 2026-11-09 (first commit):
+- Migration 028 creates `catalog_state`, `catalog_sources` (only the
+  `(family, store_key)` pairs, the only fields their readers use),
+  `session_catalog` and `session_catalog_text`, with indexes on the row
+  key, the native identity triple, `project_key` and `changed_gen`.
+- `SessionCatalogSqliteStore.writeGeneration` stores one whole generation
+  in a transaction: rows are diffed by `row_hash` (a digest of the
+  normalized row JSON), unchanged rows are not written, changed rows take
+  the generation as `changed_gen`, and missing rows become tombstones. A
+  different epoch, or a generation behind the stored one, empties the table
+  first.
+- `SessionCatalogService.initialize` copies the published generation, with
+  its epoch and generation, when the tables do not already hold it.
+  Decision: not only when `catalog_state` is empty, as first written.
+  Publications do not write the tables until the second commit, so every
+  start would otherwise leave them at the first copy. A failed copy is
+  logged and the files keep serving. The store's statements are prepared
+  and finalized within the one synchronous write.
+- Gate, on copies of the maintainer's profile (`VACUUM INTO` plus the
+  catalog folder; generations 870,137 and 870,348, 7,487 and 7,488 rows):
+  migration 027 to 028 in under 6 ms; the copy wrote every row in one
+  transaction of 129 ms on a quiet host and 255–580 ms at load average 50
+  (the shard read it reuses is the one the first list read makes anyway);
+  every row read back byte-identical to its shard line; 58 sources;
+  integrity and foreign-key checks clean. A start at the same generation
+  does nothing; a start one changed row later wrote one row in 41 ms, most
+  of it hashing every row. The database grew from 55.9 MB to 74.5 MB:
+  7.4 MB of rows, 9.0 MB of long titles, 2.1 MB of indexes.
+- Titles are made well-formed when rows are normalized and again before a
+  row is hashed and stored. A title cut inside a surrogate pair would
+  otherwise read back from SQLite with U+FFFD and never match.
+- Review found that a transaction bigger than the page cache never failed
+  with `SQLITE_BUSY` while an outside reader held a shared lock: each
+  mid-transaction cache spill waited out the busy timeout and carried on,
+  so the copy blocked the event loop for as long as the reader stayed
+  (reproduced: still blocked at 20 s). The discovery connection now sets
+  `cache_spill = OFF`, so such a transaction fails at COMMIT within about
+  300 ms and holds its pages in memory meanwhile (about 20 MB for this
+  copy). `scripts/test-discovery-sqlite.mjs` checks this on both drivers.
+- For the second commit (from review): a publication must not run the
+  whole-table diff (26–41 ms per call); pass the changed and removed keys
+  the publication already knows. Once publications write, the startup copy
+  must not wipe the table for a generation behind the stored one; only a
+  different epoch starts over. Its comparison must ignore row order.
+- `scripts/test-discovery-sqlite.mjs` runs the store's SQL on Node 25 and
+  Bun 1.3.14.
 
 The second commit writes both and compares:
 - Each publication goes to the files and to SQLite.
@@ -548,7 +602,8 @@ Two tools serve these gates:
 - **Rollback journal with a 250 ms busy timeout.** An outside reader
   holding a shared lock during a commit, such as a `sqlite3` shell or a
   backup, makes the publication fail with `SQLITE_BUSY`. A refresh failure
-  triggers full rediscovery.
+  triggers full rediscovery. That bound holds for large transactions only
+  because the connection sets `cache_spill = OFF` (step 3, first commit).
 - **A durable commit per changed generation.** The default synchronous
   setting syncs on every commit, and commits come every 4–8 s while a
   session is active. Measure commit latency.

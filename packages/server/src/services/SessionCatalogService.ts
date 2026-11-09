@@ -8,14 +8,16 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
+import { getLogger } from "../logging/logger.js";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
-import {
-  type NativeSessionCatalogAdapter,
-  type SessionCatalogRow,
-  type SessionCatalogRowKey,
-  type SessionCatalogScanMode,
-  SESSION_CATALOG_TITLE_MAX_LENGTH,
+import type { SqliteDatabase } from "../storage/sqlite.js";
+import type {
+  NativeSessionCatalogAdapter,
+  SessionCatalogRow,
+  SessionCatalogRowKey,
+  SessionCatalogScanMode,
 } from "../sessions/catalog-types.js";
 import {
   type CatalogRowsValue,
@@ -30,6 +32,17 @@ import {
   readShardLines,
   readShardRows,
 } from "./session-catalog-shards.js";
+import {
+  cloneRow,
+  normalizeRow,
+  requireNonEmpty,
+  requireTimestamp,
+} from "./session-catalog-rows.js";
+import {
+  type SessionCatalogSqliteWrite,
+  SessionCatalogSqliteStore,
+  readSessionCatalogState,
+} from "./session-catalog-sqlite.js";
 
 const MANIFEST_SCHEMA_VERSION = 1;
 const DEFAULT_BUCKET_COUNT = 64;
@@ -167,11 +180,18 @@ export interface SessionCatalogServiceMetrics {
   hotSet: ReturnType<
     SourceVersionedSingleFlight<string, ProjectRowsValue>["getStats"]
   >;
+  sqliteCopyFailures: number;
+  lastSqliteCopy: (SessionCatalogSqliteWrite & { durationMs: number }) | null;
 }
 
 export interface SessionCatalogServiceOptions {
   /** YA app-data root. Catalog files live below session-catalog/. */
   dataDir: string;
+  /**
+   * The profile database. While the files stay authoritative, startup copies
+   * the published generation into its catalog tables (plan 189 step 3).
+   */
+  database?: SqliteDatabase;
   bucketCount?: number;
   maxHotBytes?: number;
   maxDeltaBytes?: number;
@@ -309,6 +329,9 @@ export class SessionCatalogService {
   private deltaBaseUnreadable = 0;
   private resetFailures = 0;
   private lastResetReason: string | null = null;
+  private readonly database?: SqliteDatabase;
+  private sqliteCopyFailures = 0;
+  private lastSqliteCopy: SessionCatalogServiceMetrics["lastSqliteCopy"] = null;
 
   constructor(options: SessionCatalogServiceOptions) {
     this.catalogDir = join(options.dataDir, "session-catalog");
@@ -351,6 +374,7 @@ export class SessionCatalogService {
     this.now = options.now ?? Date.now;
     this.createEpoch = options.createEpoch ?? randomUUID;
     this.onLineageReset = options.onLineageReset;
+    this.database = options.database;
     this.projectRowsOwner = new SourceVersionedSingleFlight({
       maxRetainedBytes: nonNegativeInteger(
         options.maxHotBytes ?? DEFAULT_HOT_BYTES,
@@ -368,15 +392,66 @@ export class SessionCatalogService {
         await readFile(this.manifestPath, "utf-8"),
       ) as unknown;
       this.manifest = validateManifest(parsed, this.bucketCount);
-      return this.snapshotFrom(this.manifest);
     } catch (error) {
       // A cache must never be able to keep the server from starting. Anything
       // unreadable or incompatible ends this lineage: the catalog restarts at
       // a fresh epoch and reconciliation refills it.
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT") this.recordReset(error);
+      await this.startLineage();
     }
-    return this.snapshotFrom(await this.startLineage());
+    await this.copyToSqlite();
+    return this.snapshotFrom(this.requireManifest());
+  }
+
+  /**
+   * Copy the published generation into the catalog tables, keeping its epoch
+   * and generation, unless they already hold it. Nothing reads the tables
+   * yet, and publications do not write them, so every start that finds an
+   * older generation refreshes the copy; only changed rows are written.
+   * Failure is logged and leaves the files serving as before.
+   */
+  private async copyToSqlite(): Promise<void> {
+    const database = this.database;
+    if (!database) return;
+    try {
+      const token = this.getToken();
+      const stored = readSessionCatalogState(database);
+      if (
+        stored?.epoch === token.catalogEpoch &&
+        stored.generation === token.catalogGeneration
+      )
+        return;
+      // An unreadable shard is left for the first real read to recover.
+      const { snapshot, rows } = await this.readRows({
+        recoverUnreadable: false,
+      });
+      const startedAt = performance.now();
+      // Prepared and released within one synchronous step.
+      const store = new SessionCatalogSqliteStore(database);
+      try {
+        this.lastSqliteCopy = {
+          ...store.writeGeneration(
+            {
+              epoch: snapshot.catalogEpoch,
+              generation: snapshot.catalogGeneration,
+              completedAt: snapshot.completedAt,
+            },
+            rows,
+            snapshot.providerSources,
+          ),
+          durationMs: performance.now() - startedAt,
+        };
+      } finally {
+        store.dispose();
+      }
+    } catch (error) {
+      this.sqliteCopyFailures += 1;
+      getLogger().warn(
+        { err: error },
+        "SESSION_CATALOG: copying the catalog into SQLite failed",
+      );
+    }
   }
 
   private recordReset(reason: unknown): void {
@@ -753,6 +828,8 @@ export class SessionCatalogService {
       rowCount: this.manifest?.rowCount ?? 0,
       rowsBytes: this.manifest?.rowsBytes ?? 0,
       hotSet: this.projectRowsOwner.getStats(),
+      sqliteCopyFailures: this.sqliteCopyFailures,
+      lastSqliteCopy: this.lastSqliteCopy,
     };
   }
 
@@ -1152,119 +1229,6 @@ function reconciliationSignature(
   });
 }
 
-function normalizeRow(
-  row: SessionCatalogRow,
-  adapter: NativeSessionCatalogAdapter,
-): SessionCatalogRow {
-  if (row.catalogFamily !== adapter.catalogFamily) {
-    throw new Error(
-      `Catalog adapter ${adapter.catalogFamily}:${adapter.storeKey} yielded ${row.catalogFamily}`,
-    );
-  }
-  if (row.storeKey !== adapter.storeKey) {
-    throw new Error(
-      `Catalog adapter ${adapter.catalogFamily}:${adapter.storeKey} yielded store ${row.storeKey}`,
-    );
-  }
-  requireBoundedString(row.sessionId, "row sessionId", 4_096);
-  if (row.nativeStorageScope !== undefined)
-    requireBoundedString(
-      row.nativeStorageScope,
-      "row nativeStorageScope",
-      4_096,
-    );
-  if (row.nativeDirectoryProjectId !== undefined)
-    requireBoundedString(
-      row.nativeDirectoryProjectId,
-      "row nativeDirectoryProjectId",
-      32_768,
-    );
-  requireBoundedString(row.projectId, "row projectId", 32_768);
-  requireBoundedString(row.projectPath, "row projectPath", 32_768);
-  requireBoundedString(
-    row.projectIdentityKey,
-    "row projectIdentityKey",
-    32_768,
-  );
-  requireTimestamp(row.updatedAt, "row updatedAt");
-  if (row.createdAt !== undefined)
-    requireTimestamp(row.createdAt, "row createdAt");
-  if (row.lastHumanTurnAt !== undefined)
-    requireTimestamp(row.lastHumanTurnAt, "row lastHumanTurnAt");
-  if (row.title !== undefined && row.title !== null) {
-    requireBoundedString(
-      row.title,
-      "row title",
-      SESSION_CATALOG_TITLE_MAX_LENGTH,
-      true,
-    );
-  }
-  if (!(["identity", "head", "tail"] as const).includes(row.fidelity)) {
-    throw new Error(
-      `Invalid session catalog fidelity: ${String(row.fidelity)}`,
-    );
-  }
-  requireBoundedString(row.sourceVersion, "row sourceVersion", 16_384);
-  if (
-    row.rowFormat !== undefined &&
-    !(Number.isSafeInteger(row.rowFormat) && row.rowFormat > 0)
-  ) {
-    throw new Error(
-      `Invalid session catalog rowFormat: ${String(row.rowFormat)}`,
-    );
-  }
-  validateLocation(row);
-  return cloneRow(row);
-}
-
-function validateLocation(row: SessionCatalogRow): void {
-  const location = row.location;
-  switch (location.kind) {
-    case "file":
-      requireBoundedString(location.path, "row file path", 32_768);
-      return;
-    case "database":
-      requireBoundedString(location.path, "row database path", 32_768);
-      requireBoundedString(location.recordId, "row database recordId", 4_096);
-      return;
-    case "provider":
-      requireBoundedString(location.recordId, "row provider recordId", 4_096);
-      return;
-  }
-}
-
-function cloneRow(row: SessionCatalogRow): SessionCatalogRow {
-  return {
-    catalogFamily: row.catalogFamily,
-    storeKey: row.storeKey,
-    sessionId: row.sessionId,
-    ...(row.nativeStorageScope !== undefined
-      ? { nativeStorageScope: row.nativeStorageScope }
-      : {}),
-    ...(row.nativeDirectoryProjectId !== undefined
-      ? { nativeDirectoryProjectId: row.nativeDirectoryProjectId }
-      : {}),
-    projectId: row.projectId,
-    projectPath: row.projectPath,
-    projectIdentityKey: row.projectIdentityKey,
-    updatedAt: row.updatedAt,
-    ...(row.createdAt !== undefined ? { createdAt: row.createdAt } : {}),
-    ...(row.lastHumanTurnAt !== undefined
-      ? { lastHumanTurnAt: row.lastHumanTurnAt }
-      : {}),
-    ...(row.title !== undefined ? { title: row.title } : {}),
-    ...(row.provider !== undefined ? { provider: row.provider } : {}),
-    ...(row.projectName !== undefined ? { projectName: row.projectName } : {}),
-    ...(row.asyncQuestions !== undefined
-      ? { asyncQuestions: structuredClone(row.asyncQuestions) }
-      : {}),
-    fidelity: row.fidelity,
-    sourceVersion: row.sourceVersion,
-    ...(row.rowFormat !== undefined ? { rowFormat: row.rowFormat } : {}),
-    location: { ...row.location },
-  };
-}
-
 function cloneDelta(delta: SessionCatalogDelta): SessionCatalogDelta {
   return {
     ...delta,
@@ -1427,40 +1391,6 @@ function nonNegativeInteger(value: unknown, name: string): number {
     throw new RangeError(`${name} must be a non-negative integer`);
   }
   return value;
-}
-
-function requireNonEmpty(
-  value: unknown,
-  name: string,
-): asserts value is string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${name} must be a non-empty string`);
-  }
-}
-
-function requireBoundedString(
-  value: unknown,
-  name: string,
-  maxLength: number,
-  allowEmpty = false,
-): asserts value is string {
-  if (
-    typeof value !== "string" ||
-    (!allowEmpty && value.length === 0) ||
-    value.length > maxLength
-  ) {
-    throw new Error(`${name} must be a string of at most ${maxLength} chars`);
-  }
-}
-
-function requireTimestamp(
-  value: unknown,
-  name: string,
-): asserts value is string {
-  requireNonEmpty(value, name);
-  if (!Number.isFinite(Date.parse(value))) {
-    throw new Error(`${name} must be an ISO-compatible timestamp`);
-  }
 }
 
 function throwIfAborted(signal: AbortSignal): void {

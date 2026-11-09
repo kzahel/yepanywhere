@@ -251,7 +251,10 @@ conversion's backup must be a consistent SQLite backup, not a live file copy.
 
 Pending migrations and version advancement run in one immediate transaction.
 Foreign keys are enabled and lock waits are bounded to 250 ms, including the
-migration lock. The default rollback journal remains unchanged. Even a no-op
+migration lock. Cache spill is off, so a transaction larger than the page
+cache also fails within that bound while an outside reader holds a shared
+lock, instead of waiting out the timeout once per spill for as long as the
+reader stays. The default rollback journal remains unchanged. Even a no-op
 startup takes the immediate lock; concurrent mixed-version profile use is not
 supported. Lock contention at startup refuses to start, without data loss.
 

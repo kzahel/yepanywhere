@@ -16,6 +16,7 @@ import type {
   SessionCatalogRow,
 } from "../sessions/catalog-types.js";
 import { readCodexAsyncQuestions } from "../sessions/codex-async-questions.js";
+import type { SqliteDatabase } from "../storage/sqlite.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import {
   catalogProjects,
@@ -30,6 +31,8 @@ import {
 
 export interface RetainedSessionCollectionsOptions {
   dataDir: string;
+  /** Profile database holding the catalog tables. */
+  database?: SqliteDatabase;
   adapters: (
     rows: readonly Readonly<SessionCatalogRow>[],
     signal: AbortSignal,
@@ -98,6 +101,7 @@ export class RetainedSessionCollections {
   constructor(private readonly options: RetainedSessionCollectionsOptions) {
     this.catalog = new SessionCatalogService({
       dataDir: options.dataDir,
+      database: options.database,
       maxRowBytes: 256 * 1024,
       // An unreadable generation empties the catalog; rebuild it from every
       // provider store rather than from the rows it just lost.

@@ -458,7 +458,11 @@ a process-wide transcript store.
 Use a disk/RAM hierarchy:
 
 - YA app-data storage holds the durable compact catalog, shard metadata,
-  generation lineage, and cold rows needed after restart;
+  generation lineage, and cold rows needed after restart. While
+  [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) step 3 is in
+  progress, startup also copies the published generation into the
+  `session_catalog` tables of `discovery.sqlite`; the shard files stay
+  authoritative and nothing reads the copy yet;
 - RAM holds the current generation's parsed rows (exactly one generation,
   replaced at publication by the rows it wrote; about the size of the row
   JSON, and two generations while one is being built), bounded hot project

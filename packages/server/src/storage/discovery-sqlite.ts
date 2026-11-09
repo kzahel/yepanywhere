@@ -1,5 +1,6 @@
 import { SESSION_RELATIONSHIPS_SCHEMA } from "./migrations/026-session-relationships.js";
 import { RELATIONSHIP_PENDING_SCHEMA } from "./migrations/027-relationship-pending.js";
+import { SESSION_CATALOG_SCHEMA } from "./migrations/028-session-catalog.js";
 import { ANTIGRAVITY_NATIVE_ALLOCATIONS_SCHEMA } from "./migrations/024-antigravity-native-allocations.js";
 import { SESSION_SUMMARY_INDEX_SCHEMA } from "./migrations/025-session-summary-index.js";
 import { CREATION_INPUT_EXPECTATION_SCHEMA } from "./migrations/023-creation-input-expectation.js";
@@ -74,6 +75,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 25, sql: SESSION_SUMMARY_INDEX_SCHEMA },
   { version: 26, sql: SESSION_RELATIONSHIPS_SCHEMA },
   { version: 27, sql: RELATIONSHIP_PENDING_SCHEMA },
+  { version: 28, sql: SESSION_CATALOG_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */
@@ -191,6 +193,13 @@ export function openDiscoveryDatabase(options: {
     database = driver.open(path);
     // A short, bounded wait also applies while obtaining the migration lock.
     database.exec("PRAGMA busy_timeout = 250");
+    // In rollback-journal mode a transaction larger than the page cache
+    // spills pages mid-transaction, which needs the exclusive lock. While an
+    // outside reader holds a shared lock, each spill waits out the busy
+    // timeout and the transaction carries on, so it blocks the event loop
+    // for as long as the reader stays. Without spilling, it fails at COMMIT
+    // within the busy timeout instead, at the cost of holding its pages.
+    database.exec("PRAGMA cache_spill = OFF");
     database.exec("PRAGMA foreign_keys = ON");
     migrateDiscoveryDatabase(database);
     return database;
