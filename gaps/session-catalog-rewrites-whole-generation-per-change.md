@@ -92,11 +92,15 @@ change on every publication, even when no row did.
 6. A Codex async-question pass walks every row, which can publish a second
    generation.
 7. `session-catalog-updated` is emitted twice per refresh (once with
-   `refreshing: true` from inside reconcile, then again at the end). The
-   global feed, Inbox, recents and project queues refetch on both. Each tab
-   runs three sidebar feeds, Inbox, and optionally the recents dropdown and
-   All Sessions. Each is a full `readRetainedSessionItems` walk (identity
-   projection, overlays on all 7,470 rows, sort) before slicing to a page.
+   `refreshing: true` from inside reconcile, then again at the end). Fixed
+   2026-11-09 (item 3 below): the global feed, Inbox, recents and project
+   queues refetch once per published generation, plus once for a failure.
+   They used to refetch on both announcements whenever the refresh's tail
+   outlasted their 500 ms debounce. Each tab still refetches three
+   sidebar feeds, Inbox, and optionally the recents dropdown and All
+   Sessions for each generation. Each is a full `readRetainedSessionItems`
+   walk (identity projection, overlays on all 7,470 rows, sort) before
+   slicing to a page.
    The retained branch has no single-flight between them, and the client
    deliberately sends no generation token in retained mode
    (`useGlobalSessionsFeed.ts:464-467`).
@@ -167,8 +171,10 @@ These are defects, not design, and each is small:
 2. Done 2026-11-09 for activity events, `session-created` and new Claude
    files. Remaining: classify a new Codex rollout by its head `cwd` and a new
    Gemini file by its project hash instead of rediscovering.
-3. Emit `session-catalog-updated` once per refresh, or have every client
-   ignore `refreshing: true`.
+3. Done 2026-11-09: each query's revalidation owner skips the
+   end-of-refresh announcement that repeats the `refreshing: true` one it
+   refetched for (`lib/clientQueryRevalidation.ts`). The server still
+   announces both, because its own consumers wait for `refreshing: false`.
 
 ## Not recommended now
 

@@ -15,6 +15,8 @@ import {
   asClientSummarySourceKey,
   type ClientSummarySourceKey,
 } from "../../lib/clientSummaryStore";
+import type { ActivityEventType } from "../../lib/activityBus";
+import { isCatalogRefreshingEvent } from "../../lib/clientQueryRevalidation";
 import { useRetainedClientQuery } from "../useRetainedClientQuery";
 
 const busMock = vi.hoisted(() => {
@@ -77,7 +79,9 @@ function renderRetainedQuery({
   coverage,
   applySnapshot = vi.fn(),
   shouldRevalidateEvent,
+  revalidateOn = ["refresh", "reconnect"],
 }: {
+  revalidateOn?: ActivityEventType[];
   sourceKey?: ClientSummarySourceKey;
   ready?: boolean;
   fetcher?: ReturnType<typeof vi.fn<() => Promise<string>>>;
@@ -96,7 +100,7 @@ function renderRetainedQuery({
         coverage,
         ready: props.ready,
         debounceMs: 50,
-        revalidateOn: ["refresh", "reconnect"],
+        revalidateOn,
         shouldRevalidateEvent,
         fetcher,
         applySnapshot,
@@ -421,5 +425,106 @@ describe("useRetainedClientQuery revalidation ownership", () => {
     await settle();
 
     expect(getQueryRevalidationMetrics().owners).toBe(2);
+  });
+});
+
+describe("useRetainedClientQuery catalog announcements", () => {
+  const catalogEvent = (
+    catalogGeneration: number,
+    refreshing: boolean,
+    refreshError?: string,
+  ) => ({
+    type: "session-catalog-updated",
+    catalog: {
+      catalogEpoch: "epoch",
+      catalogGeneration,
+      complete: true,
+      refreshing,
+      ...(refreshError ? { refreshError } : {}),
+    },
+  });
+
+  async function announce(...events: ReturnType<typeof catalogEvent>[]) {
+    for (const event of events) {
+      await act(async () => {
+        busMock.emit("session-catalog-updated", event);
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      await settle();
+    }
+  }
+
+  const CATALOG_EVENTS: ActivityEventType[] = [
+    "refresh",
+    "session-catalog-updated",
+  ];
+
+  it("skips only the end-of-refresh twin of an announcement it refetched for", async () => {
+    const fetcher = vi.fn(async () => "loaded");
+    renderRetainedQuery({ fetcher, revalidateOn: CATALOG_EVENTS });
+    await settle();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    await announce(catalogEvent(7, true), catalogEvent(7, false));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    // A later pass's generation and a failure still refetch, and so does
+    // a repeated failure: only a refreshing announcement has a twin.
+    await announce(catalogEvent(7, true), catalogEvent(8, false));
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    await announce(catalogEvent(9, true), catalogEvent(9, false, "disk full"));
+    expect(fetcher).toHaveBeenCalledTimes(6);
+    await announce(catalogEvent(9, false, "disk full"));
+    expect(fetcher).toHaveBeenCalledTimes(7);
+  });
+
+  it("starts a fresh request rather than joining one from before the announcement", async () => {
+    const older = deferred<string>();
+    const fetcher = vi.fn(async () => "loaded");
+    renderRetainedQuery({ fetcher, revalidateOn: CATALOG_EVENTS });
+    await settle();
+    fetcher.mockImplementationOnce(() => older.promise);
+    await act(async () => {
+      busMock.emit("refresh");
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    await announce(catalogEvent(8, true), catalogEvent(8, false));
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    older.resolve("generation 7");
+    await settle();
+  });
+
+  it("refetches for the skipped twin when the first refetch fails", async () => {
+    const fetcher = vi.fn(async () => "loaded");
+    renderRetainedQuery({ fetcher, revalidateOn: CATALOG_EVENTS });
+    await settle();
+    const failing = deferred<string>();
+    fetcher.mockImplementationOnce(() => failing.promise);
+
+    await announce(catalogEvent(8, true), catalogEvent(8, false));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      failing.reject(new Error("offline"));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await settle();
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the twin for a consumer that waits for the end of the refresh", async () => {
+    const fetcher = vi.fn(async () => "loaded");
+    renderRetainedQuery({ fetcher, revalidateOn: CATALOG_EVENTS });
+    renderRetainedQuery({
+      fetcher,
+      revalidateOn: CATALOG_EVENTS,
+      shouldRevalidateEvent: (event) => !isCatalogRefreshingEvent(event),
+    });
+    await settle();
+    const before = fetcher.mock.calls.length;
+
+    await announce(catalogEvent(7, true), catalogEvent(7, false));
+    expect(fetcher).toHaveBeenCalledTimes(before + 2);
   });
 });

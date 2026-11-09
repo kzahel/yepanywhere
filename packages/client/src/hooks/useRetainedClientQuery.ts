@@ -224,9 +224,7 @@ export function useRetainedClientQuery<T>({
         debounceMs,
         shouldRevalidateEvent: (event) =>
           shouldRevalidateEventRef.current?.(event) !== false,
-        run: () => {
-          void runRef.current({ force: true, background: true });
-        },
+        run: () => runRef.current({ force: true, background: true }),
       },
     });
     revalidationRef.current = handle;
@@ -245,9 +243,7 @@ export function useRetainedClientQuery<T>({
       debounceMs,
       shouldRevalidateEvent: (event) =>
         shouldRevalidateEventRef.current?.(event) !== false,
-      run: () => {
-        void runRef.current({ force: true, background: true });
-      },
+      run: () => runRef.current({ force: true, background: true }),
     });
   });
 

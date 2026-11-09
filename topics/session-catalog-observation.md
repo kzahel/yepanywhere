@@ -104,10 +104,19 @@ a later request or event can retry. Shutdown cancels queued work and prevents
 further publication.
 
 `session-catalog-updated` carries catalog status and revalidates active client
-queries. A capable client joins the source's version request before its first
-collection request, uses retained response statistics rather than the complete
-`/api/sessions/stats` path, and obtains full-prompt search through the existing
-complete path. Catalog generations do not authorize `knownGeneration` shortcuts:
+queries. A refresh announces itself twice, once when its rows are published
+(`refreshing: true`) and again when it ends. A query's revalidation owner
+skips the end-of-refresh announcement when it repeats the epoch, generation,
+`complete` and `refreshError` of the `refreshing: true` one it refetched for,
+and every subscriber wanted that refetch. A catalog refetch starts a new
+request rather than joining an older one, and a failed one is retried in
+place of the skipped twin. A later pass's generation and every failure still
+refetch. Recents shows `refreshing`, so like relationships it ignores
+`refreshing: true` and refetches when the refresh ends. A capable client joins
+the source's version request before its first collection request, uses
+retained response statistics rather than the complete `/api/sessions/stats`
+path, and obtains full-prompt search through the existing complete path.
+Catalog generations do not authorize `knownGeneration` shortcuts:
 metadata and read-state overlays have their own clocks. Old clients and servers
 retain the existing complete-request behavior and capability meanings.
 

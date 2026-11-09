@@ -1,7 +1,4 @@
-import type {
-  SessionRelationshipPage,
-  SessionCatalogUpdatedEvent,
-} from "@yep-anywhere/shared";
+import type { SessionRelationshipPage } from "@yep-anywhere/shared";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { createSessionRelationshipsApi } from "../api/sessionRelationshipsClient";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
@@ -10,6 +7,7 @@ import {
   createClientQueryKey,
   invalidateClientQuery,
 } from "../lib/clientQueryController";
+import { isCatalogRefreshingEvent } from "../lib/clientQueryRevalidation";
 import { isRemoteClient } from "../lib/connection";
 import { useRetainedClientQuery } from "./useRetainedClientQuery";
 
@@ -93,10 +91,7 @@ export function useSessionRelationships(
     // Page one follows accepted-fact notifications. Later pages deliberately
     // remain a keyset view until the user refreshes from the beginning.
     revalidateOn: cursor ? NO_EVENTS : EVENTS,
-    shouldRevalidateEvent: (event) =>
-      event.eventType !== "session-catalog-updated" ||
-      (event.data as SessionCatalogUpdatedEvent | undefined)?.catalog
-        ?.refreshing !== true,
+    shouldRevalidateEvent: (event) => !isCatalogRefreshingEvent(event),
     fetcher: async () => {
       const entry = entries.get(entryKey);
       if (!entry) throw new Error("Relationship viewer was released");

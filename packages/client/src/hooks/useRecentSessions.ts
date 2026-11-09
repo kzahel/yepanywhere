@@ -9,6 +9,7 @@ import {
   ensureClientQuery,
   invalidateClientQuery,
 } from "../lib/clientQueryController";
+import { isCatalogRefreshingEvent } from "../lib/clientQueryRevalidation";
 import { LOCAL_CLIENT_SUMMARY_SOURCE_KEY } from "../lib/clientSummaryStore";
 import { getSourceRuntimeRegistry } from "../lib/sourceRuntime";
 import { catalogLoadState } from "../lib/clientSummaryCollections";
@@ -106,6 +107,8 @@ export function useRecentSessions(options: UseRecentSessionsOptions = {}): {
     ready,
     hasData: snapshot.loaded,
     revalidateOn: REVALIDATE_EVENTS,
+    // Recents shows `refreshing`, so it refetches when a refresh ends.
+    shouldRevalidateEvent: (event) => !isCatalogRefreshingEvent(event),
   });
   const fetchRecents = useCallback(() => {
     if (hasRecentsConsumers(sourceKey)) void refetch({ force: true });

@@ -13,12 +13,14 @@
  * events, keeps a single debounce timer, and performs one revalidation that
  * satisfies every subscriber.
  */
+import type { SessionCatalogUpdatedEvent } from "@yep-anywhere/shared";
 import { activityBus, type ActivityEventType } from "./activityBus";
 import {
   type ClientQueryCoverage,
   type ClientQueryKey,
   coverageSatisfies,
   createClientQueryKey,
+  invalidateClientQuery,
 } from "./clientQueryController";
 import type { ClientSummarySourceKey } from "./clientSummaryStore";
 
@@ -37,7 +39,8 @@ export interface QueryRevalidationSubscriber {
   events: readonly ActivityEventType[];
   shouldRevalidateEvent?: (event: QueryRevalidationEvent) => boolean;
   debounceMs: number;
-  run: () => void;
+  /** A run that settles `{ status: "failed" }` or rejects counts as failed. */
+  run: () => unknown;
 }
 
 export interface QueryRevalidationHandle {
@@ -52,7 +55,13 @@ interface RevalidationOwner {
   ownerKey: string;
   subscribers: Map<number, QueryRevalidationSubscriber>;
   unsubscribeByEvent: Map<ActivityEventType, () => void>;
+  sourceKey: ClientSummarySourceKey;
+  queryKey: ClientQueryKey;
   timer: ReturnType<typeof setTimeout> | null;
+  /** The pending run answers a catalog announcement. */
+  catalogRun: boolean;
+  /** The `refreshing: true` announcement whose end-of-refresh twin to skip. */
+  twin?: { key: string; skipped: boolean };
 }
 
 const owners = new Map<string, RevalidationOwner>();
@@ -110,10 +119,63 @@ function scheduleOwner(owner: RevalidationOwner): void {
   clearOwnerTimer(owner);
   owner.timer = setTimeout(() => {
     owner.timer = null;
+    const { twin } = owner;
+    // A catalog refetch must not join a request that began before the
+    // announcement, since its twin will not come to repair it.
+    if (owner.catalogRun)
+      invalidateClientQuery(owner.sourceKey, owner.queryKey);
+    owner.catalogRun = false;
+    const failed = () => {
+      if (!twin || owner.twin !== twin) return;
+      owner.twin = undefined;
+      if (twin.skipped && owners.get(owner.ownerKey) === owner) {
+        owner.catalogRun = true;
+        scheduleOwner(owner);
+      }
+    };
     for (const subscriber of widestSubscribers(owner)) {
-      subscriber.run();
+      const result = subscriber.run();
+      if (result instanceof Promise)
+        result.then((settled) => {
+          if (
+            (settled as { status?: unknown } | undefined)?.status === "failed"
+          )
+            failed();
+        }, failed);
     }
   }, debounceMs);
+}
+
+/**
+ * The server announces one catalog refresh twice: once when its rows are
+ * published (`refreshing: true`) and again when the refresh ends. Unless a
+ * later pass published another generation, or the refresh failed, the second
+ * announcement carries the same rows, so a query that refetched for the first
+ * gains nothing from refetching for it. Only that exact twin is skipped, and
+ * only when every subscriber wanted the first. A consumer that renders
+ * `refreshing` ignores `refreshing: true` (`isCatalogRefreshingEvent`), so its
+ * refetch follows the end of the refresh and it never skips one.
+ */
+function catalogStateKey(data: unknown): string | undefined {
+  const catalog = (data as SessionCatalogUpdatedEvent | undefined)?.catalog;
+  if (!catalog) return undefined;
+  return JSON.stringify([
+    catalog.catalogEpoch,
+    catalog.catalogGeneration,
+    catalog.complete,
+    catalog.refreshError ?? null,
+  ]);
+}
+
+export function isCatalogRefreshingEvent(event: {
+  eventType: string;
+  data: unknown;
+}): boolean {
+  return (
+    event.eventType === "session-catalog-updated" &&
+    (event.data as SessionCatalogUpdatedEvent | undefined)?.catalog
+      ?.refreshing === true
+  );
 }
 
 function handleOwnerEvent(
@@ -121,19 +183,41 @@ function handleOwnerEvent(
   eventType: ActivityEventType,
   data: unknown,
 ): void {
+  const catalogKey =
+    eventType === "session-catalog-updated" ? catalogStateKey(data) : undefined;
+  const refreshing = isCatalogRefreshingEvent({ eventType, data });
+  if (eventType === "reconnect" || eventType === "refresh")
+    owner.twin = undefined;
+  if (
+    catalogKey !== undefined &&
+    !refreshing &&
+    owner.twin?.key === catalogKey &&
+    !owner.twin.skipped
+  ) {
+    owner.twin.skipped = true;
+    return;
+  }
   // Only subscribers that asked for this event get a say, and any one of them
   // wanting a revalidation is enough — the query entry is shared, so a refetch
   // one consumer needs is a refetch they all receive.
   let wanted = false;
+  let everyoneWanted = true;
   for (const subscriber of owner.subscribers.values()) {
     if (!subscriber.events.includes(eventType)) continue;
     if (subscriber.shouldRevalidateEvent?.({ eventType, data }) === false) {
+      everyoneWanted = false;
       continue;
     }
     wanted = true;
-    break;
   }
-  if (wanted) scheduleOwner(owner);
+  if (catalogKey !== undefined)
+    owner.twin =
+      refreshing && wanted && everyoneWanted
+        ? { key: catalogKey, skipped: false }
+        : undefined;
+  if (!wanted) return;
+  if (catalogKey !== undefined) owner.catalogRun = true;
+  scheduleOwner(owner);
 }
 
 /** Subscribe to the union of the subscribers' events, and nothing more. */
@@ -174,9 +258,12 @@ export function retainQueryRevalidation(options: {
   if (!owner) {
     owner = {
       ownerKey,
+      sourceKey: options.sourceKey,
+      queryKey: createClientQueryKey(options.key),
       subscribers: new Map(),
       unsubscribeByEvent: new Map(),
       timer: null,
+      catalogRun: false,
     };
     owners.set(ownerKey, owner);
   }
