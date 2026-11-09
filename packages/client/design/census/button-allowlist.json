@@ -1,5 +1,7 @@
 {
   "bannedClasses": [
+    "attachment-quality-option",
+    "attachment-quality-toggle",
     "btn-primary",
     "btn-secondary",
     "commit-jump-btn",
@@ -8,12 +10,25 @@
     "file-viewer-download-btn",
     "filter-clear-button",
     "filter-search-button",
+    "font-size-option",
+    "font-size-selector",
     "git-status-action-button",
     "global-sessions-load-more-button",
     "global-sessions-project-cta__button",
+    "host-identity-preset",
     "inbox-refresh-button",
     "load-older-button",
     "login-button",
+    "model-switch-chip",
+    "new-session-helper-option",
+    "new-session-helper-options",
+    "onboarding-theme-option",
+    "patient-queue-switch",
+    "patient-queue-switch-thumb",
+    "patient-queue-switch-track",
+    "patient-queue-switch-wrap",
+    "provider-option",
+    "provider-options",
     "qr-toggle-button",
     "revoke-all-button",
     "revoke-button",
@@ -25,7 +40,11 @@
     "settings-button",
     "settings-button-danger",
     "settings-button-danger-subtle",
-    "settings-button-secondary"
+    "settings-button-secondary",
+    "settings-icon-style-option",
+    "toggle-btn",
+    "toggle-slider",
+    "toggle-switch"
   ],
   "rawButtons": {
     "components/ErrorBoundary.tsx": {
@@ -37,12 +56,12 @@
       "reason": "Option rows inside the dropdown list: menu family (plan 182, family 2)."
     },
     "components/ModelSwitchModal.tsx": {
-      "count": 4,
-      "reason": "Model, thinking, effort and speed chips that pick one value: segmented/option family."
+      "count": 1,
+      "reason": "Model list rows: grouped under 'Previous models' labels, each with its own inline save button and badges, which a radio group cannot hold; a listbox for the menu family."
     },
     "components/NewSessionForm.tsx": {
-      "count": 3,
-      "reason": "Composer submit, queue and attach controls: excluded until the composer pass."
+      "count": 5,
+      "reason": "Composer submit, queue and attach controls, and the new-session project picker's options: excluded until the composer pass."
     },
     "components/NewSessionQueueOptions.tsx": {
       "count": 1,
@@ -54,39 +73,19 @@
     },
     "components/QuestionAnswerPanel.tsx": {
       "count": 3,
-      "reason": "Question tab strip and single-choice answers (aria-pressed): tab and option families."
-    },
-    "components/renderers/tools/ReadRenderer.tsx": {
-      "count": 2,
-      "reason": "Source/Preview toggle-btn pair: segmented family."
-    },
-    "components/renderers/tools/WriteRenderer.tsx": {
-      "count": 2,
-      "reason": "Source/Preview toggle-btn pair: segmented family."
-    },
-    "components/RestartSessionModal.tsx": {
-      "count": 2,
-      "reason": "Handoff/fork chips that pick one mode: segmented family."
-    },
-    "components/session-search/SearchControls.tsx": {
-      "count": 1,
-      "reason": "Activity/Turns/Created sort that picks one value: segmented family."
+      "reason": "Question tab strip (tab family) and the answer list, single- or multi-select with previews and an Other field inside: its own pattern, not a SegmentedControl."
     },
     "components/SessionMenu.tsx": {
       "count": 25,
       "reason": "Dropdown menu items without an explicit menuitem role: menu family."
     },
-    "components/SourceEditor.tsx": {
-      "count": 2,
-      "reason": "Source/Preview pair that picks one view: segmented family."
-    },
-    "pages/BlameBrowser.tsx": {
-      "count": 2,
-      "reason": "Contents/Blame pair that picks one view: segmented family."
-    },
-    "pages/settings/RemoteAccessSettings.tsx": {
+    "components/SpeechControlMenu.tsx": {
       "count": 1,
-      "reason": "Host identity icon preset picker (aria-pressed, one of several): option family."
+      "reason": "Speech method radios inside the speech menu: menu family."
+    },
+    "components/ThinkingControls.tsx": {
+      "count": 2,
+      "reason": "Thinking mode and effort choices shared with the composer's thinking popover, where they are menuitemradio items: composer pass."
     }
   },
   "roleButtons": {
@@ -172,10 +171,6 @@
       "count": 1,
       "reason": "Match menu items: menu family."
     },
-    "components/session-search/SessionSearch.module.css": {
-      "count": 4,
-      "reason": "Activity/Turns/Created segmented sort: segmented family."
-    },
     "components/SessionMenu.module.css": {
       "count": 5,
       "reason": "Session dropdown menu items: menu family."
@@ -183,10 +178,6 @@
     "components/SourceContextMenu.module.css": {
       "count": 4,
       "reason": "Source context menu items: menu family."
-    },
-    "components/SourceEditor.module.css": {
-      "count": 2,
-      "reason": "Source/Preview segmented pair: segmented family."
     },
     "components/UserTurnNavigator.module.css": {
       "count": 2,
@@ -196,13 +187,23 @@
       "count": 3,
       "reason": "The composer's mic action (ComposerMicAction), a raw button in the viewer actions row: composer pass."
     },
-    "pages/BlameBrowser.module.css": {
-      "count": 2,
-      "reason": "Contents/Blame segmented pair: segmented family."
-    },
     "styles/index.css": {
       "count": 1,
       "reason": "The base form-control font reset (`button, input, select, textarea { font-family }`), which every control inherits deliberately."
+    }
+  },
+  "selectionRoles": {
+    "components/SpeechControlMenu.tsx": {
+      "count": 2,
+      "reason": "Speech method radio group inside the speech menu: menu family."
+    },
+    "components/ThinkingControls.tsx": {
+      "count": 1,
+      "reason": "Thinking choices shared with the composer's thinking popover: composer pass."
+    },
+    "pages/settings/ProvidersSettings.tsx": {
+      "count": 1,
+      "reason": "Native radio inputs grouped by a radiogroup div: fields family."
     }
   }
 }

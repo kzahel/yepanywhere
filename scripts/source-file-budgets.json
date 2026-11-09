@@ -70,7 +70,7 @@
       "maxLines": 3621
     },
     "packages/client/src/pages/settings/AppearanceSettings.tsx": {
-      "maxLines": 2056
+      "maxLines": 1855
     },
     "packages/client/src/pages/settings/ProvidersSettings.tsx": {
       "maxLines": 1504

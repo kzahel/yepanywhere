@@ -1064,7 +1064,11 @@ switches and segmented controls, menus and popovers, fields, banners,
 badges, spinners and tabs, a dialog pattern, and the composer last, each
 implemented, independently reviewed and committed before the next. The
 token pass landed on 2026-11-09: every custom property the client reads is
-defined, with new raised-surface, tint, shadow and radius tokens.
+defined, with new raised-surface, tint, shadow and radius tokens. The
+switch and segmented-control family landed the same day: every pasted
+toggle is the shared `Switch`, one-of-many pickers are `SegmentedControl`
+radio groups, and lint bans the old classes and roles. Menus and popovers
+are next.
 
 ## Later directions
 

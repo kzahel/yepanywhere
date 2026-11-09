@@ -24,7 +24,11 @@ export interface ButtonElement {
   role?: string;
 }
 
-/** Families that keep raw buttons until their own pass (plan 182). */
+/**
+ * Families of raw buttons (plan 182). Menu, tab and composer buttons wait
+ * for their own pass; option and switch buttons are swept (family 3), so
+ * the button ban counts them.
+ */
 export type RawButtonFamily = "menu" | "tab" | "option" | "switch" | "composer";
 
 const ROLE_FAMILIES: Record<string, RawButtonFamily> = {
@@ -32,7 +36,8 @@ const ROLE_FAMILIES: Record<string, RawButtonFamily> = {
   menuitemcheckbox: "menu",
   menuitemradio: "menu",
   tab: "tab",
-  option: "option",
+  // A listbox option sits in a dropdown or completion list: popover family.
+  option: "menu",
   radio: "option",
   switch: "switch",
 };
@@ -42,12 +47,14 @@ export const COMPOSER_FILE =
   /^components\/(?:MessageInput[^/]*|Composer[^/]*|VoiceInputButton|SlashCommandButton|ThinkingToolbarControl|ModeSelector|AttachmentButton|BrowserDebugToolbarButton|FullPaneComposerToggle)\.tsx$/;
 
 /**
- * Option-picker classes: buttons that pick one value from a set, left for
- * the segmented-control family. Named explicitly rather than matched by a
- * pattern, so a new `*-option` class is not exempt by accident.
+ * Option-picker classes still on raw buttons: pickers inside the composer's
+ * popovers or a menu. Family 3 swept every other picker onto
+ * SegmentedControl, so the button ban no longer exempts the option family;
+ * this only labels what is left on the census. Named explicitly rather
+ * than matched by a pattern.
  */
 const OPTION_CLASS =
-  /(?<![\w-])(?:font-size-option|provider-option|mode-option|new-session-helper-option|new-session-project-option|attachment-quality-option|speech-method-option|thinking-effort-option|onboarding-theme-option|output-font-option|settings-icon-style-option)(?![\w-])|styles\.usageWindowOption\b/;
+  /(?<![\w-])(?:new-session-project-option|speech-method-option|thinking-effort-option)(?![\w-])/;
 
 /**
  * Which later family a raw button belongs to, judged from its role, its

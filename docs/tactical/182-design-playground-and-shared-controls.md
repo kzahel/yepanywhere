@@ -5,10 +5,10 @@ Topic: ui-design
 Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
-whole button family (census, swap, delete, ban) and the token pass have
-landed. Order agreed with the maintainer on 2026-11-09: the token pass
-(done), then switches and
-segmented controls, menus and popovers, fields, banners/badges/spinners/
+whole button family (census, swap, delete, ban), the token pass and the
+switch and segmented-control family have landed. Order agreed with the
+maintainer on 2026-11-09: the token pass (done), switches and segmented
+controls (done), then menus and popovers, fields, banners/badges/spinners/
 tabs, the dialog pattern, and the composer last. Each step runs end to
 end (implement, independent review, commit) before the next starts.
 
@@ -137,6 +137,33 @@ of slightly different styles.
   (Opus, 2026-11-08) found no blockers; its fixes covered dense rows, touch
   overflow, specificity ties, the ban's gaps and these docs. The screen
   tour gained a touch-phone pass.
+- **Switch and segmented-control family done (2026-11-09):** `Switch`
+  (`ui/Switch.tsx`, a checkbox with `role="switch"` on the legacy 44×24
+  track) and `SegmentedControl` (`ui/SegmentedControl.tsx`, a radio group
+  with roving focus, a `segmented` and a `cards` look, `inline`/`fill`/
+  `stack` layouts and two sizes), each with a Controls page and tests. All
+  76 pasted `toggle-switch` copies in 14 files became `Switch`, and about
+  35 one-of-many pickers became `SegmentedControl`: the `font-size-option`
+  groups across settings, the provider, permission-mode and helper option
+  cards, host icon presets, the usage window, recap mode, emulator fps,
+  width and quality, the model switch modal's thinking, effort and speed
+  chips, the restart modal's handoff/fork pair, the public share scope,
+  the image viewer's Fit/100%, the session search's age basis, and the
+  Source/Preview and Contents/Blame pairs. `role="group"` plus
+  `aria-pressed` single-choice groups are now radio groups, so tests and
+  E2E specs query `radio` and `switch` roles. The unused
+  `AttachmentQualityToggle` and the census prototypes were deleted, and
+  so were the legacy rules (`toggle-switch`, `font-size-*`,
+  `provider-option*`, `mode-option*`, `new-session-helper-option*`,
+  `host-identity-preset*`, `model-switch-chip`, `toggle-btn`, the dead
+  `patient-queue-switch`, about 600 lines). `pnpm buttons:check` now also
+  bans those classes and any `role="switch"`, `"radio"` or `"radiogroup"`
+  outside the two controls, and no longer exempts option or switch
+  buttons; the allowlist names what is left (radios inside the speech
+  menu, the thinking choices shared with the composer's popover, the
+  model list, the question panel's answers, and one native radio group
+  for the fields family). The onboarding theme picker became a stacked
+  list of cards, and a few option cards lost their "current" tint.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
@@ -213,7 +240,7 @@ switch roles.
   showing it through `TooltipLayer`. Both forward refs and accept
   `type`, `disabled`, a `busy` state, and ordinary button attributes.
   Coarse pointers get larger hit areas. Variants start from the census
-  prototypes in `design/census/proposed.module.css`.
+  prototypes (`design/census/proposed.module.css`, since deleted).
 - **Not every `<button>` becomes a `Button`.** Classify each during the
   swap:
   - looks like a button → `Button` or `IconButton`;
@@ -257,8 +284,12 @@ defined.
 
 `Switch` (`role="switch"`, the legacy 44×24 geometry) replaces the pasted
 `toggle-switch` markup; `SegmentedControl` (radio group, the font-size
-selector's look) replaces the chip groups, option rows and
-`AttachmentQualityToggle`. The census for both already exists.
+selector's look) replaces the chip groups and option rows. **Done
+2026-11-09** (What has landed). Left for other families: radios inside
+menus (menu family), the thinking choices the composer's popover shares
+(composer), native `<input type="radio">` groups (fields), and the
+question panel's answer list, which mixes single and multi select with
+previews and an Other field.
 
 ### 4 — fields
 

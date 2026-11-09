@@ -7,9 +7,9 @@
  *    the classes recorded in the allowlist's `bannedClasses`, so restoring
  *    a deleted rule does not lift the ban;
  * 2. a raw `<button>` outside src/components/ui/Button.tsx, unless it
- *    belongs to a later family (a menu, tab, option or radio role, a named
- *    option-picker or switch class, the composer's files) or its file is
- *    in the allowlist with at least that many;
+ *    belongs to a later family (a menu or tab role, the composer's files)
+ *    or its file is in the allowlist with at least that many. Option
+ *    pickers and switches are swept (family 3): their raw buttons count;
  * 3. an element with `role="button"` beyond the allowlist: a real button
  *    (ButtonBase) gets keyboard and focus behavior for free;
  * 4. a CSS rule, in a CSS Module or a global stylesheet, whose selector
@@ -18,7 +18,12 @@
  *    font, radius, width, height, outline, shadow). Such a rule outranks
  *    ButtonBase's zero-specificity reset and ties with Button's variants,
  *    so a shared control under it loses its look, size or focus ring.
- *    Button.module.css and the composer's modules are exempt.
+ *    Button.module.css and the composer's modules are exempt;
+ * 5. a `role="switch"`, `role="radio"` or `role="radiogroup"` outside
+ *    src/components/ui/Switch.tsx and SegmentedControl.tsx: on/off
+ *    settings use Switch and one-of-many pickers SegmentedControl (family
+ *    3). Their legacy classes (`toggle-switch`, `font-size-option`, …)
+ *    are banned under 1 once their global rules are gone.
  *
  * The allowlist (design/census/button-allowlist.json) gives each entry a
  * count and a reason; a later family inherits the entries that name it.
@@ -27,6 +32,8 @@
  * `bannedClasses`; it never raises a count or adds a file. Counts are per
  * file, so a file may trade one allowed button for another.
  *
+ * Family 3's classes come from LEGACY_SWITCHES in the same mapping file.
+ *
  *   pnpm -s buttons:check            check
  *   pnpm -s buttons:check --record   lower the allowlist after a swap
  */
@@ -34,16 +41,21 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { scanButtonElements } from "../design/buttonElements";
-import { COMPOSER_FILE, rawButtonFamily } from "../design/buttonFamilies";
-import { LEGACY_BUTTONS } from "../design/census/mapping";
+import {
+  COMPOSER_FILE,
+  type RawButtonFamily,
+  rawButtonFamily,
+} from "../design/buttonFamilies";
+import { LEGACY_BUTTONS, LEGACY_SWITCHES } from "../design/census/mapping";
 import { collectDesignData } from "../design/vite-plugin-design-data";
 import { clientRoot } from "./design-index";
 
 const help = `Usage: pnpm -s buttons:check [--record]
 
-Reject banned legacy button classes, raw <button>s outside
-src/components/ui/Button.tsx and the later families, role="button"
-elements, and CSS rules that style a bare button element's look. Exceptions
+Reject banned legacy button, switch and option classes, raw <button>s
+outside src/components/ui/Button.tsx and the later families, role="button"
+elements, CSS rules that style a bare button element's look, and switch or
+radio roles outside the shared Switch and SegmentedControl. Exceptions
 live in packages/client/design/census/button-allowlist.json with a count
 and a reason; --record lowers those counts to the current scan.`;
 
@@ -65,7 +77,11 @@ interface AllowEntry {
   count: number;
   reason: string;
 }
-type AllowSection = "rawButtons" | "roleButtons" | "buttonLookRules";
+type AllowSection =
+  | "rawButtons"
+  | "roleButtons"
+  | "buttonLookRules"
+  | "selectionRoles";
 interface Allowlist extends Record<AllowSection, Record<string, AllowEntry>> {
   bannedClasses: string[];
 }
@@ -115,9 +131,10 @@ const declared = await collectDesignData(srcDir);
 const banned = [
   ...new Set([
     ...allowlist.bannedClasses,
-    ...LEGACY_BUTTONS.flatMap((row) => row.classes.split(/\s+/)).filter(
-      (name) => !declared[name],
-    ),
+    ...[
+      ...LEGACY_BUTTONS.flatMap((row) => row.classes.split(/\s+/)),
+      ...LEGACY_SWITCHES.flatMap((row) => row.classes?.split(/\s+/) ?? []),
+    ].filter((name) => !declared[name]),
   ]),
 ].sort();
 const bannedPattern = new RegExp(
@@ -144,13 +161,19 @@ if (banned.length) {
       )
         continue;
       problems.push(
-        `${srcPath(path)}:${lineAt(text, index)}: legacy button class "${match[0]}" is banned; use the shared Button controls`,
+        `${srcPath(path)}:${lineAt(text, index)}: legacy class "${match[0]}" is banned; use the shared Button, Switch or SegmentedControl`,
       );
     }
   }
 }
 
-// 2 and 3. Raw buttons and role="button" elements.
+// 2 and 3. Raw buttons and role="button" elements. The shared selection
+// controls draw their own buttons.
+const SELECTION_CONTROLS = new Set([
+  "components/ui/Switch.tsx",
+  "components/ui/SegmentedControl.tsx",
+]);
+const UNSWEPT_FAMILIES = new Set<RawButtonFamily>(["menu", "tab", "composer"]);
 const rawCounts = new Map<string, number>();
 const roleCounts = new Map<string, number>();
 for (const row of await scanButtonElements(srcDir)) {
@@ -158,8 +181,14 @@ for (const row of await scanButtonElements(srcDir)) {
     roleCounts.set(row.file, (roleCounts.get(row.file) ?? 0) + 1);
     continue;
   }
-  if (row.kind !== "raw" || row.file === "components/ui/Button.tsx") continue;
-  if (rawButtonFamily(row)) continue;
+  if (
+    row.kind !== "raw" ||
+    row.file === "components/ui/Button.tsx" ||
+    SELECTION_CONTROLS.has(row.file)
+  )
+    continue;
+  const family = rawButtonFamily(row);
+  if (family && UNSWEPT_FAMILIES.has(family)) continue;
   rawCounts.set(row.file, (rawCounts.get(row.file) ?? 0) + 1);
 }
 
@@ -192,6 +221,25 @@ for (const path of stylesheets) {
     lookSites.set(file, [
       ...(lookSites.get(file) ?? []),
       `${file}:${lineAt(text, (rule.index ?? 0) + (rule[0].length - rule[0].trimStart().length))}: "${selector.replace(/\s+/g, " ")}" sets ${looks.join(", ")}`,
+    ]);
+  }
+}
+
+// 5. Switch and radio roles outside the shared controls.
+// An attribute, not a `[role="radio"]` inside a selector string.
+const SELECTION_ROLE =
+  /(?<![\w[-])role=\{?["'`](?:switch|radio|radiogroup)["'`]/g;
+const selectionCounts = new Map<string, number>();
+const selectionSites = new Map<string, string[]>();
+for (const path of sources) {
+  const file = srcPath(path);
+  if (!file.endsWith(".tsx") || SELECTION_CONTROLS.has(file)) continue;
+  const text = await readFile(path, "utf8");
+  for (const match of text.matchAll(SELECTION_ROLE)) {
+    selectionCounts.set(file, (selectionCounts.get(file) ?? 0) + 1);
+    selectionSites.set(file, [
+      ...(selectionSites.get(file) ?? []),
+      `${file}:${lineAt(text, match.index ?? 0)}: ${match[0]}`,
     ]);
   }
 }
@@ -236,6 +284,11 @@ ratchet("roleButtons", roleCounts, (file, count, allowed) => [
 ratchet("buttonLookRules", lookCounts, (file, count, allowed) => [
   ...(lookSites.get(file) ?? []),
   `${file}: ${count} rule${count === 1 ? "" : "s"} styling a button element, ${allowed} allowed; style the element through its own class, or ButtonBase`,
+]);
+
+ratchet("selectionRoles", selectionCounts, (file, count, allowed) => [
+  ...(selectionSites.get(file) ?? []),
+  `${file}: ${count} switch or radio role${count === 1 ? "" : "s"}, ${allowed} allowed; use Switch or SegmentedControl from components/ui`,
 ]);
 
 if (values.record) {

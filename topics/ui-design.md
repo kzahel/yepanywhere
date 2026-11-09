@@ -36,8 +36,8 @@ real desktop and phone renders under [UI testing](ui-testing.md).
 Status: direction selected 2026-11-08.
 [Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
 sequences the work. The playground, its token page, the undefined-property
-limit, the button and switch census and the shared button family have
-landed. For controls without a shared version yet, the owners above remain
+limit, the button and switch census, the shared button family and the
+shared switch and segmented control have landed. For controls without a shared version yet, the owners above remain
 the reference.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
@@ -83,27 +83,57 @@ more", "Copy", "Edit") is `ghost` `small`; an icon-only button is an
 neighbouring secondary.
 
 Client buttons are on the shared controls except those the allowlist
-below names: menu items, tabs, option pickers and switches (later
-families), the composer's controls, the crash fallback page, and 15
-pre-existing `role="button"` elements. `pnpm buttons:check` (part of
+below names: menu items and tabs (later families), the composer's controls,
+the crash fallback page, and 15 pre-existing `role="button"` elements. `pnpm buttons:check` (part of
 `pnpm lint`) keeps it so. It rejects:
 
-- a banned legacy button class: any class from `design/census/mapping.ts`
-  without global rules, plus those recorded in the allowlist's
+- a banned legacy class: any button, switch or option class from
+  `design/census/mapping.ts` without global rules (`toggle-switch`,
+  `font-size-option`, …), plus those recorded in the allowlist's
   `bannedClasses`, so restoring a deleted rule does not lift the ban;
-- a raw `<button>` outside `ui/Button.tsx`, unless it has a menu, tab,
-  option, radio or switch role, a named option-picker or switch class, or
-  sits in a composer file;
+- a raw `<button>` outside `ui/Button.tsx`, unless it has a menu or tab
+  role or sits in a composer file;
 - a new `role="button"` element (use `ButtonBase`);
 - a CSS rule, module or global, whose selector reaches a bare `button`
   element and sets look or size properties (`.panel button { background:
   …; min-height: … }`), which would outrank `ButtonBase`'s reset and tie
-  with `Button`'s variants.
+  with `Button`'s variants;
+- a `role="switch"`, `role="radio"` or `role="radiogroup"` outside
+  `ui/Switch.tsx` and `ui/SegmentedControl.tsx`.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
 the entries that name it. The Census/Buttons "Button elements" state lists
 what is left.
+
+**Switches and segmented controls.** `src/components/ui/Switch.tsx` is the
+on/off control: a native checkbox with `role="switch"` drawn as the 44×24
+track the settings pages always had. Space toggles it and assistive
+technology announces it as a switch. `onCheckedChange(checked, event)`
+reports changes. Name it with `label` (visible text beside the track;
+clicking the text toggles) or, in a row whose own text names it,
+`aria-label`. On coarse pointers its hit area grows to 44 px tall without
+growing the row.
+
+`src/components/ui/SegmentedControl.tsx` picks one value of several. It is a
+radio group: `role="radiogroup"` with `role="radio"` options, one tab stop
+(the selected option, else the first enabled one), and arrow keys, Home and
+End that move focus and select, skipping disabled options. It has two looks
+with one behavior: `segmented` (default; options in one track, the selected
+one filled in the primary green) for short labels, and `cards` (each option
+framed, the selected one outlined in green) for options with an icon, a
+swatch or a description line. `layout` is `inline`, `fill` (equal widths
+across the row) or `stack` (one option per row); `size` is `default` or
+`small`. Options take `icon`, `description`, `disabled`, `ariaLabel` (for an
+icon-only option), `tooltip` (through `TooltipLayer`, as on `IconButton`)
+and a `className` for content styling such as a font preview. Name the
+group with `aria-label` or `aria-labelledby`.
+
+Which control: one setting on or off is a `Switch`; one of several values
+is a `SegmentedControl`; one thing on or off in a toolbar stays an
+`IconButton` or ghost `Button` with `aria-pressed`, and so does a
+multi-select chip filter. Radios inside a dropdown belong to the menu
+family; native `<input type="radio">` groups wait for the fields family.
 
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
@@ -219,6 +249,8 @@ The playground's pages:
   2026-11-09 token pass; the page lists any a future baseline records).
 - **Controls/Button:** every variant, size and state of the shared button
   family.
+- **Controls/Switch** and **Controls/SegmentedControl:** each state, both
+  looks, sizes and layouts.
 - **Census/Buttons:** every global and CSS Module class named like a
   button (`button`, `btn`), grouped by its destination in
   `design/census/mapping.ts` (a shared variant, `ButtonBase`, a later
@@ -230,14 +262,14 @@ The playground's pages:
   `IconButton` and `ButtonBase`, every `<a>`, `Link` or `<label>` whose
   className names a button or calls `buttonClassName()`, and every element
   with `role="button"`, each with its file, line and className expression.
-  Raw buttons that belong to a later family (menu, tab, option or radio
-  roles, `*-option` classes, switches, the composer's files) are counted
-  apart from those the button family still has to swap. The scan
+  Raw buttons that belong to a later family (menu or tab roles, the
+  composer's files) are counted apart from those still to swap. The scan
   (`design/buttonElements.ts`, classification in `design/buttonFamilies.ts`)
   parses production TSX with the TypeScript compiler.
-- **Census/Switches and segmented controls:** the census prototypes in
-  `design/census/` beside the mapped legacy styles, every unmapped global
-  class and every matching CSS Module class, each rendered standalone.
+- **Census/Switches and segmented controls:** the shared controls, each
+  mapped legacy style with its live use count (all swept), every unmapped
+  global class and every matching CSS Module class, each rendered
+  standalone, kept as a regression view.
 
 Global class counts are static whole-token counts in production
 TypeScript, served by a dev-only Vite plugin and refreshed when sources

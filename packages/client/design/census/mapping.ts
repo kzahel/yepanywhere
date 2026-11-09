@@ -956,6 +956,11 @@ export interface LegacySwitch {
   name: string;
   /** Class whose use count represents the row, when it is a global class. */
   counted?: string;
+  /**
+   * Every global class the row covers. The ban (pnpm buttons:check) rejects
+   * each one once no global stylesheet styles it.
+   */
+  classes?: string;
   to: SwitchDisposition;
   note?: string;
 }
@@ -964,36 +969,70 @@ export const LEGACY_SWITCHES: readonly LegacySwitch[] = [
   {
     name: "toggle-switch + toggle-slider",
     counted: "toggle-switch",
+    classes: "toggle-switch toggle-slider",
     to: "switch",
-    note: "Pasted markup: a hidden checkbox and a styled span. Same geometry; becomes role=switch.",
+    note: "Pasted markup: a hidden checkbox and a styled span. Became Switch, a checkbox with role=switch on the same 44×24 track.",
   },
   {
     name: "patient-queue-switch",
     counted: "patient-queue-switch",
+    classes:
+      "patient-queue-switch patient-queue-switch-wrap patient-queue-switch-track patient-queue-switch-thumb",
     to: "segmented",
-    note: "A two-option track (regular / patient), not an on/off switch. The census shows its current use count.",
+    note: "A two-option track (regular / patient) with no remaining use; its rules were deleted.",
   },
   {
     name: "font-size-selector + font-size-option",
     counted: "font-size-option",
+    classes: "font-size-selector font-size-option",
     to: "segmented",
-    note: "The de facto segmented control; the proposal keeps its look.",
+    note: "The de facto segmented control; SegmentedControl keeps its look.",
   },
   {
     name: "model-settings-chip-group",
     counted: "model-settings-chip-group",
+    classes: "model-settings-chip-group",
     to: "segmented",
-    note: "Wraps font-size-option buttons in model and recap settings.",
+    note: "Wrapped font-size-option buttons in model and recap settings.",
   },
   {
     name: "model-switch-chip-group + model-switch-chip",
     counted: "model-switch-chip",
+    classes: "model-switch-chip-group model-switch-chip",
+    to: "segmented",
+  },
+  {
+    name: "provider-option, mode-option, new-session-helper-option",
+    counted: "provider-option",
+    classes:
+      "provider-options provider-option new-session-helper-options new-session-helper-option",
+    to: "segmented",
+    note: "Bordered option cards with a colored dot: SegmentedControl's cards look. mode-option also styles the host picker's navigation cards, which stay.",
+  },
+  {
+    name: "host-identity-preset",
+    counted: "host-identity-preset",
+    classes: "host-identity-preset",
+    to: "segmented",
+    note: "Icon presets: cards with icon-only options.",
+  },
+  {
+    name: "settings-icon-style-option, output-font-option, onboarding-theme-option",
+    counted: "onboarding-theme-option",
+    classes: "settings-icon-style-option onboarding-theme-option",
     to: "segmented",
   },
   {
     name: "AttachmentQualityToggle",
+    classes: "attachment-quality-toggle attachment-quality-option",
     to: "segmented",
-    note: "Component with its own module styles.",
+    note: "Had no caller left; deleted with its rules.",
+  },
+  {
+    name: "toggle-btn (Source/Preview in tool rows)",
+    counted: "toggle-btn",
+    classes: "toggle-btn",
+    to: "segmented",
   },
   {
     name: "FullPaneComposerToggle",

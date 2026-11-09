@@ -2342,69 +2342,6 @@ details[open] .collapsible__icon {
   gap: 0.35rem;
 }
 
-.model-switch-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.32rem 0.55rem;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.model-switch-chip:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.model-switch-chip.active {
-  background: color-mix(in srgb, var(--accent-color) 16%, var(--bg-secondary));
-  border-color: color-mix(
-    in srgb,
-    var(--accent-color) 78%,
-    var(--border-color)
-  );
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--accent-color) 18%, transparent);
-  color: var(--text-primary);
-}
-
-.model-switch-chip.active:hover {
-  background: color-mix(in srgb, var(--accent-color) 22%, var(--bg-hover));
-}
-
-.model-switch-chip.current.active {
-  background: color-mix(in srgb, var(--accent-color) 22%, var(--bg-secondary));
-  border-color: var(--accent-color);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 24%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--accent-color) 10%, transparent);
-}
-
-.model-switch-chip.current {
-  border-color: color-mix(
-    in srgb,
-    var(--accent-color) 40%,
-    var(--border-color)
-  );
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--accent-color) 16%, transparent);
-}
-
-.model-switch-chip:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .model-switch-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
@@ -4257,35 +4194,6 @@ pre.code-highlighter-plain code {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-secondary);
-}
-
-.markdown-view-toggle .toggle-btn {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.markdown-view-toggle .toggle-btn:first-child {
-  border-radius: 4px 0 0 4px;
-  border-right: none;
-}
-
-.markdown-view-toggle .toggle-btn:last-child {
-  border-radius: 0 4px 4px 0;
-}
-
-.markdown-view-toggle .toggle-btn:hover {
-  background: var(--bg-hover);
-}
-
-.markdown-view-toggle .toggle-btn.active {
-  background: var(--primary-color);
-  color: #fff;
-  border-color: var(--primary-color);
 }
 
 /* Markdown preview container */
