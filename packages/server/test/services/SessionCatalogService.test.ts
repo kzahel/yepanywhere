@@ -134,14 +134,17 @@ describe("SessionCatalogService", () => {
   });
 
   it("answers twenty simultaneous project readers with one shard read", async () => {
-    const service = createService();
-    await service.initialize();
-    await service.reconcile([
+    const writer = createService();
+    await writer.initialize();
+    await writer.reconcile([
       adapter([
         row({ sessionId: "a", project: "alpha" }),
         row({ sessionId: "b", project: "alpha" }),
       ]),
     ]);
+    // Restarted, so no published rows are retained to slice from.
+    const service = createService();
+    await service.initialize();
 
     const results = await Promise.all(
       Array.from({ length: 20 }, () =>
@@ -426,11 +429,14 @@ describe("SessionCatalogService", () => {
   });
 
   it("does not publish onto a lineage a reader reset mid-reconcile", async () => {
+    const writer = createService();
+    await writer.initialize();
+    const rows = [row({ sessionId: "a", project: "alpha" })];
+    await writer.reconcile([adapter(rows, { sourceVersion: "v1" })]);
+    const [shard] = await currentShardPaths();
+    // A restarted process holds no rows yet, so its read meets the damage.
     const service = createService();
     await service.initialize();
-    const rows = [row({ sessionId: "a", project: "alpha" })];
-    await service.reconcile([adapter(rows, { sourceVersion: "v1" })]);
-    const [shard] = await currentShardPaths();
 
     const resetting: NativeSessionCatalogAdapter = {
       catalogFamily: "codex",
@@ -515,10 +521,78 @@ describe("SessionCatalogService", () => {
     ]);
   });
 
-  it("re-reads a project shard after the hot set evicts it", async () => {
+  it("serves whole-catalog and project reads of a published generation without reading it back", async () => {
+    // A hot budget smaller than the catalog, as on a real host.
     const service = createService({ maxHotBytes: 1 });
     await service.initialize();
-    await service.reconcile([adapter([row({ sessionId: "a", project: "a" })])]);
+    const rows = Array.from({ length: 40 }, (_, index) =>
+      row({ sessionId: `s${index}`, project: `p${index % 8}` }),
+    );
+    await service.reconcile([adapter(rows)]);
+
+    const first = await service.readRows();
+    const second = await service.readRows();
+    const project = await service.readProjectRows("/projects/p3");
+
+    expect(second.rows).toBe(first.rows);
+    expect(first.rows).toHaveLength(40);
+    expect(project.rows.map((entry) => entry.sessionId).sort()).toEqual([
+      "s11",
+      "s19",
+      "s27",
+      "s3",
+      "s35",
+    ]);
+    expect(service.getMetrics()).toMatchObject({
+      catalogDiskReads: 0,
+      projectDiskReads: 0,
+    });
+
+    // A restarted process reads the generation once, in the same order.
+    const restarted = createService({ maxHotBytes: 1 });
+    await restarted.initialize();
+    const reread = await restarted.readRows();
+    await restarted.readRows();
+    await restarted.readProjectRows("/projects/p3");
+    expect(reread.rows.map((entry) => entry.sessionId)).toEqual(
+      first.rows.map((entry) => entry.sessionId),
+    );
+    expect(restarted.getMetrics()).toMatchObject({
+      catalogDiskReads: 1,
+      projectDiskReads: 0,
+    });
+  });
+
+  it.each([
+    ["torn", (shard: string) => writeFile(shard, "{ torn", "utf-8")],
+    ["missing", (shard: string) => rm(shard)],
+  ] as const)(
+    "publishes past a %s shard in the previous generation",
+    async (_kind, damage) => {
+      const service = createService();
+      await service.initialize();
+      const rows = [row({ sessionId: "a", project: "alpha" })];
+      await service.reconcile([adapter(rows, { sourceVersion: "v1" })]);
+      for (const shard of await currentShardPaths()) await damage(shard);
+
+      const result = await service.reconcile([
+        adapter([row({ sessionId: "a", project: "alpha", title: "renamed" })], {
+          sourceVersion: "v2",
+        }),
+      ]);
+
+      expect(result.metrics.deltaReplacementRequired).toBe(true);
+      expect(service.getMetrics().deltaBaseUnreadable).toBe(1);
+      expect((await service.readRows()).rows[0]?.title).toBe("renamed");
+    },
+  );
+
+  it("re-reads a project shard after the hot set evicts it", async () => {
+    const writer = createService();
+    await writer.initialize();
+    await writer.reconcile([adapter([row({ sessionId: "a", project: "a" })])]);
+    const service = createService({ maxHotBytes: 1 });
+    await service.initialize();
 
     await service.readProjectRows("/projects/a");
     await service.readProjectRows("/projects/a");

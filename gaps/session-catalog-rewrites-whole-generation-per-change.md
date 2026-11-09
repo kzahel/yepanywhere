@@ -66,13 +66,15 @@ change on every publication, even when no row did.
    digests each shard, and renames it into place.
 4. `computeDelta` reads the changed shards of both generations back to diff
    them, and the manifest (with its retained delta list) is rewritten.
-5. `readRows` reads the whole new generation back into memory. Its
-   per-generation cache never holds it. The hot budget is 8 MiB
-   (`SessionCatalogService.ts:28`), and a full read is counted at
-   `rowsBytes` (14.3 MB). Storing the read therefore evicts every project
-   entry and then the read itself. Every whole-catalog caller re-reads and
-   re-parses all 55 shard files: list routes, both reconcile reads, the issue
-   indexer, recents, and content search (twice per 128-record batch).
+5. Fixed 2026-11-09: `readRows` used to read the whole new generation back
+   for every whole-catalog caller, because a full read counted against the
+   8 MiB project hot budget evicted itself. The publishing process now keeps
+   the rows it wrote and serves whole-catalog and project reads from them.
+   A synthetic 7,470-row, 11.6 MB catalog went from a 14.7 ms median full
+   read to 0.09 ms. The cost is resident heap of about the row JSON's
+   size (13.4 MB for 12.9 MB of JSON, more with non-Latin-1 titles), and
+   two generations at once while a publication builds, every few seconds
+   on a busy host. The rows are still walked per request (step 7).
 6. A Codex async-question pass walks every row, which can publish a second
    generation.
 7. `session-catalog-updated` is emitted twice per refresh (once with
@@ -146,8 +148,8 @@ Moving storage alone keeps step 7. These go with it:
 
 These are defects, not design, and each is small:
 
-1. Keep one generation's parsed rows outside the 8 MiB byte budget (or size
-   the budget to the catalog).
+1. Done 2026-11-09: one generation's parsed rows stay in memory outside the
+   byte budget, seeded by the publication that wrote them.
 2. Make the issue indexer and vocabulary learning invalidate the event's
    session path instead of forcing discovery. Use the `session-created`
    payload rather than rediscovering everything. A new Claude file in a

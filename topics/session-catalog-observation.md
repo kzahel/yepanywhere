@@ -438,8 +438,12 @@ Use a disk/RAM hierarchy:
 
 - YA app-data storage holds the durable compact catalog, shard metadata,
   generation lineage, and cold rows needed after restart;
-- RAM holds bounded hot rows, query memberships/counts, current indexes,
-  in-flight work, and live/interest state under byte and age budgets;
+- RAM holds the current generation's parsed rows (exactly one generation,
+  replaced at publication by the rows it wrote; about the size of the row
+  JSON, and two generations while one is being built), bounded hot project
+  rows,
+  query memberships/counts, current indexes, in-flight work, and live/interest
+  state under byte and age budgets;
 - bounded head/tail projections may be retained with the exact provider source
   version that established them; and
 - complete transcript summaries and parsed messages stay in their dedicated
@@ -569,7 +573,12 @@ epoch and generation 0, and reconciliation refills it. This includes a shard
 the current manifest names but that is missing or holds an unparseable row,
 whenever a read finds it: the read answers from generation 0 instead of
 failing, and a reconciliation still based on the abandoned generation fails
-rather than publishing over the reset. Each accepted row,
+rather than publishing over the reset. A process that holds a generation's
+parsed rows (because it published them or has read them whole once) serves
+reads from memory, so damage to that generation's files is not reported
+there. The next publication rewrites every shard and so heals it; if a damaged
+shard changed, that publication's delta becomes a replacement
+(`deltaBaseUnreadable`) rather than failing. Each accepted row,
 membership, count, and delta identifies the catalog generation and provider
 source version from which it was derived.
 

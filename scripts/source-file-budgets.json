@@ -135,9 +135,6 @@
     "packages/server/src/services/SecurityClientService.ts": {
       "maxLines": 1753
     },
-    "packages/server/src/services/SessionCatalogService.ts": {
-      "maxLines": 1569
-    },
     "packages/server/src/session-sandbox.ts": {
       "maxLines": 1588
     },

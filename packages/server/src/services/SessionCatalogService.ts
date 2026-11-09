@@ -1,17 +1,13 @@
-import { type Hash, createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { randomUUID } from "node:crypto";
 import {
   mkdir,
-  open,
   readFile,
   readdir,
   rename,
   rm,
   writeFile,
-  type FileHandle,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
 import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
 import {
@@ -20,12 +16,23 @@ import {
   type SessionCatalogRowKey,
   type SessionCatalogScanMode,
   SESSION_CATALOG_TITLE_MAX_LENGTH,
-  sessionCatalogRowKey,
 } from "../sessions/catalog-types.js";
+import {
+  type CatalogRowsValue,
+  GenerationWriter,
+  type ProjectRowsValue,
+  SessionCatalogCorruptionError,
+  type ShardLine,
+  isMissingFile,
+  projectBucket,
+  projectSlice,
+  readProjectRowsFromShard,
+  readShardLines,
+  readShardRows,
+} from "./session-catalog-shards.js";
 
 const MANIFEST_SCHEMA_VERSION = 1;
 const DEFAULT_BUCKET_COUNT = 64;
-const SHARD_WRITE_FLUSH_BYTES = 256 * 1024;
 const DEFAULT_HOT_BYTES = 8 * 1024 * 1024;
 const DEFAULT_DELTA_BYTES = 1024 * 1024;
 const DEFAULT_DELTA_AGE_MS = 15 * 60 * 1000;
@@ -141,9 +148,16 @@ export interface SessionCatalogServiceMetrics {
   reconciliationFailures: number;
   projectReadRequests: number;
   projectDiskReads: number;
+  /** Whole-generation reads that walked shard files rather than memory. */
+  catalogDiskReads: number;
   projectShardNoChange: number;
   deltaShardsCompared: number;
   deltaShardsSkippedByHash: number;
+  /**
+   * Publications whose previous generation had an unreadable changed shard.
+   * The new generation replaces it; clients are sent a replacement.
+   */
+  deltaBaseUnreadable: number;
   resetFailures: number;
   lastResetReason: string | null;
   catalogEpoch: string | null;
@@ -177,104 +191,13 @@ export interface SessionCatalogServiceOptions {
   onLineageReset?: () => void;
 }
 
-interface ProjectRowsValue {
-  rows: ReadonlyArray<Readonly<SessionCatalogRow>>;
-  bytes: number;
-}
-
 interface ReconcileInFlight {
   signature: string;
   controller: AbortController;
   promise: Promise<Omit<SessionCatalogReconcileResult, "status">>;
 }
 
-interface MutableShardStats {
-  rowCount: number;
-  bytes: number;
-  digest: Hash;
-  pending: Buffer[];
-  pendingBytes: number;
-}
-
-/**
- * Appends rows to their project's shard, buffering whole lines so one row is
- * not one write syscall, and digesting each shard so a later generation can
- * prove a bucket unchanged without reading it back.
- */
-class GenerationWriter {
-  private readonly handles = new Map<number, FileHandle>();
-  private readonly shardStats = new Map<number, MutableShardStats>();
-
-  constructor(
-    private readonly directory: string,
-    private readonly bucketCount: number,
-    private readonly maxRowBytes: number,
-  ) {}
-
-  async write(row: SessionCatalogRow): Promise<number> {
-    const bucket = projectBucket(row.projectIdentityKey, this.bucketCount);
-    const line = Buffer.from(`${JSON.stringify(row)}\n`);
-    if (line.byteLength > this.maxRowBytes) {
-      throw new Error(
-        `Session catalog row exceeds ${this.maxRowBytes} bytes: ${sessionCatalogRowKey(row)}`,
-      );
-    }
-    let stats = this.shardStats.get(bucket);
-    if (!stats) {
-      stats = {
-        rowCount: 0,
-        bytes: 0,
-        digest: createHash("sha256"),
-        pending: [],
-        pendingBytes: 0,
-      };
-      this.shardStats.set(bucket, stats);
-    }
-    stats.rowCount += 1;
-    stats.bytes += line.byteLength;
-    stats.digest.update(line);
-    stats.pending.push(line);
-    stats.pendingBytes += line.byteLength;
-    if (stats.pendingBytes >= SHARD_WRITE_FLUSH_BYTES) {
-      await this.flush(bucket, stats);
-    }
-    return line.byteLength;
-  }
-
-  async close(): Promise<void> {
-    for (const [bucket, stats] of this.shardStats) {
-      if (stats.pendingBytes > 0) await this.flush(bucket, stats);
-    }
-    const handles = [...this.handles.values()];
-    this.handles.clear();
-    await Promise.all(handles.map((handle) => handle.close()));
-  }
-
-  /** Shard facts for the manifest; the caller assigns each one a generation. */
-  snapshots(): Array<Omit<SessionCatalogShardSnapshot, "generation">> {
-    return [...this.shardStats.entries()]
-      .sort(([left], [right]) => left - right)
-      .map(([bucket, value]) => ({
-        bucket,
-        file: shardFileName(bucket),
-        rowCount: value.rowCount,
-        bytes: value.bytes,
-        contentHash: value.digest.copy().digest("hex"),
-      }));
-  }
-
-  private async flush(bucket: number, stats: MutableShardStats): Promise<void> {
-    let handle = this.handles.get(bucket);
-    if (!handle) {
-      handle = await open(join(this.directory, shardFileName(bucket)), "a");
-      this.handles.set(bucket, handle);
-    }
-    const payload = Buffer.concat(stats.pending);
-    stats.pending.length = 0;
-    stats.pendingBytes = 0;
-    await handle.write(payload);
-  }
-}
+const WHOLE_CATALOG_KEY = "all";
 
 /**
  * Newest-first window of rows under a row and byte budget, maintained by
@@ -332,8 +255,9 @@ class RecentRowWindow {
 
 /**
  * Owns one complete, durable catalog generation. Provider scans run outside
- * request paths; project reads stream one deterministic shard and retain only
- * byte-bounded, source-versioned project rows in RAM.
+ * request paths. The current generation's rows stay parsed in RAM, seeded by
+ * the publication that wrote them; project reads slice them, or stream one
+ * deterministic shard when they are absent, into a byte-bounded hot set.
  */
 export class SessionCatalogService {
   private readonly catalogDir: string;
@@ -356,6 +280,18 @@ export class SessionCatalogService {
     string,
     ProjectRowsValue
   >;
+  /**
+   * The current generation's parsed rows, outside the project hot budget.
+   * Whole-catalog reads are the common path (every list and reconciliation),
+   * and the catalog outgrows any fixed byte budget: counted against one, a
+   * full read evicted every project entry and then itself, so each caller
+   * re-read and re-parsed every shard. One fixed key keeps exactly one
+   * generation, replaced at publication by the rows that publication wrote.
+   */
+  private readonly catalogRowsOwner = new SourceVersionedSingleFlight<
+    string,
+    CatalogRowsValue
+  >({ maxRetainedBytes: Number.POSITIVE_INFINITY, estimateBytes: () => 0 });
   private manifest: PersistedSessionCatalogManifest | null = null;
   private reconcileInFlight: ReconcileInFlight | null = null;
   private stopped = false;
@@ -366,9 +302,11 @@ export class SessionCatalogService {
   private reconciliationFailures = 0;
   private projectReadRequests = 0;
   private projectDiskReads = 0;
+  private catalogDiskReads = 0;
   private projectShardNoChange = 0;
   private deltaShardsCompared = 0;
   private deltaShardsSkippedByHash = 0;
+  private deltaBaseUnreadable = 0;
   private resetFailures = 0;
   private lastResetReason: string | null = null;
 
@@ -468,6 +406,7 @@ export class SessionCatalogService {
       deltas: [],
     };
     this.manifest = manifest;
+    this.catalogRowsOwner.invalidate(WHOLE_CATALOG_KEY);
     await this.persistManifest(manifest);
     await this.cleanupGenerationDirectories(null);
     return manifest;
@@ -541,14 +480,16 @@ export class SessionCatalogService {
     for (let attempt = 0; attempt < MAX_PROJECT_READ_RETARGETS; attempt += 1) {
       this.ensureRunning();
       const manifest = this.requireManifest();
-      let result: Awaited<ReturnType<typeof this.projectRowsOwner.run>>;
+      let result: Awaited<ReturnType<typeof this.catalogRowsOwner.run>>;
       try {
-        result = await this.projectRowsOwner.run({
-          key: `${manifest.catalogEpoch}:all`,
-          sourceVersion: String(manifest.catalogGeneration),
+        result = await this.catalogRowsOwner.run({
+          key: WHOLE_CATALOG_KEY,
+          sourceVersion: catalogRowsVersion(manifest),
           compute: async () => {
-            const rows: SessionCatalogRow[] = [];
+            const rows: Readonly<SessionCatalogRow>[] = [];
+            const rowBytes: number[] = [];
             if (manifest.generationDirectory) {
+              this.catalogDiskReads += 1;
               const release = this.pinGeneration(manifest.generationDirectory);
               try {
                 for (const shard of manifest.shards) {
@@ -556,14 +497,19 @@ export class SessionCatalogService {
                     manifest.generationDirectory,
                     shard.file,
                   );
-                  for await (const { row } of readShardRows(path))
-                    rows.push(row);
+                  for await (const { row, line } of readShardRows(path)) {
+                    rows.push(Object.freeze(row));
+                    rowBytes.push(Buffer.byteLength(line) + 1);
+                  }
                 }
               } finally {
                 release();
               }
             }
-            return { rows: Object.freeze(rows), bytes: manifest.rowsBytes };
+            return {
+              rows: Object.freeze(rows),
+              rowBytes: Object.freeze(rowBytes),
+            };
           },
           isCurrent: () => this.manifest === manifest && !this.stopped,
         });
@@ -693,6 +639,10 @@ export class SessionCatalogService {
         key,
         sourceVersion: shard.contentHash,
         compute: async () => {
+          const retained = this.catalogRowsOwner.getAccepted(WHOLE_CATALOG_KEY);
+          if (retained?.sourceVersion === catalogRowsVersion(manifest)) {
+            return projectSlice(retained.value, projectIdentityKey);
+          }
           this.projectDiskReads += 1;
           const release = this.pinGeneration(manifest.generationDirectory!);
           try {
@@ -778,6 +728,7 @@ export class SessionCatalogService {
     this.stopped = true;
     this.reconcileInFlight?.controller.abort();
     this.projectRowsOwner.clear();
+    this.catalogRowsOwner.clear();
   }
 
   getMetrics(): SessionCatalogServiceMetrics {
@@ -790,9 +741,11 @@ export class SessionCatalogService {
       reconciliationFailures: this.reconciliationFailures,
       projectReadRequests: this.projectReadRequests,
       projectDiskReads: this.projectDiskReads,
+      catalogDiskReads: this.catalogDiskReads,
       projectShardNoChange: this.projectShardNoChange,
       deltaShardsCompared: this.deltaShardsCompared,
       deltaShardsSkippedByHash: this.deltaShardsSkippedByHash,
+      deltaBaseUnreadable: this.deltaBaseUnreadable,
       resetFailures: this.resetFailures,
       lastResetReason: this.lastResetReason,
       catalogEpoch: this.manifest?.catalogEpoch ?? null,
@@ -899,8 +852,18 @@ export class SessionCatalogService {
       }
       await this.persistManifest(manifest);
       this.manifest = manifest;
+      // Admitted before any await, so a reader arriving now joins these rows
+      // instead of reading back the generation this pass just wrote.
+      const written = writer.writtenRows();
+      const retaining = this.catalogRowsOwner.run({
+        key: WHOLE_CATALOG_KEY,
+        sourceVersion: catalogRowsVersion(manifest),
+        compute: async () => written,
+        isCurrent: () => this.manifest === manifest && !this.stopped,
+      });
       cleanupFailures =
         await this.cleanupGenerationDirectories(finalDirectoryName);
+      await retaining;
 
       return {
         snapshot: this.snapshotFrom(manifest),
@@ -961,14 +924,32 @@ export class SessionCatalogService {
         return replacementDelta(delta);
       }
       this.deltaShardsCompared += 1;
-      const before = previousShard
-        ? await readShardLines(
+      let before = new Map<string, ShardLine>();
+      if (previousShard) {
+        try {
+          before = await readShardLines(
             this.shardPath(
               requireGenerationDirectory(previous),
               previousShard.file,
             ),
-          )
-        : new Map<string, ShardLine>();
+          );
+        } catch (error) {
+          // Reads serve the retained rows, so damage to the previous
+          // generation's files is met here, if at all. The new generation
+          // rewrote every shard and is complete without them; clients just
+          // cannot be given a delta.
+          if (
+            error instanceof SessionCatalogCorruptionError ||
+            isMissingFile(error)
+          ) {
+            this.deltaBaseUnreadable += 1;
+            this.lastResetReason =
+              error instanceof Error ? error.message : String(error);
+            return replacementDelta(delta);
+          }
+          throw error;
+        }
+      }
       const after = nextShard
         ? await readShardLines(
             this.shardPath(requireGenerationDirectory(next), nextShard.file),
@@ -1360,87 +1341,8 @@ function retainDeltas(
   return retained;
 }
 
-/**
- * Row plus the exact serialized line that produced it. Comparing lines is what
- * lets a delta detect a changed row without re-serializing either side.
- */
-interface ShardLine {
-  row: SessionCatalogRow;
-  line: string;
-}
-
-async function readShardLines(
-  filePath: string,
-): Promise<Map<string, ShardLine>> {
-  const entries = new Map<string, ShardLine>();
-  for await (const entry of readShardRows(filePath)) {
-    entries.set(sessionCatalogRowKey(entry.row), entry);
-  }
-  return entries;
-}
-
-async function readProjectRowsFromShard(
-  filePath: string,
-  projectIdentityKey: string,
-): Promise<ProjectRowsValue> {
-  const rows: SessionCatalogRow[] = [];
-  let bytes = 0;
-  for await (const { row, line } of readShardRows(filePath)) {
-    if (row.projectIdentityKey !== projectIdentityKey) continue;
-    rows.push(row);
-    bytes += Buffer.byteLength(line);
-  }
-  rows.sort(
-    (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-  );
-  return {
-    rows: Object.freeze(rows.map((row) => Object.freeze(row))),
-    bytes,
-  };
-}
-
-class SessionCatalogCorruptionError extends Error {}
-
-async function* readShardRows(filePath: string): AsyncGenerator<ShardLine> {
-  const input = createReadStream(filePath, { encoding: "utf-8" });
-  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
-  let lineNumber = 0;
-  try {
-    for await (const line of lines) {
-      lineNumber += 1;
-      if (!line) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(line);
-      } catch (error) {
-        throw new SessionCatalogCorruptionError(
-          `Invalid session catalog row at ${filePath}:${lineNumber}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
-      yield { row: parsed as SessionCatalogRow, line };
-    }
-  } finally {
-    lines.close();
-    input.destroy();
-  }
-}
-
-function projectBucket(
-  projectIdentityKey: string,
-  bucketCount: number,
-): number {
-  const digest = createHash("sha256").update(projectIdentityKey).digest();
-  return digest.readUInt32BE(0) % bucketCount;
-}
-
-function isMissingFile(error: unknown): boolean {
-  return (error as NodeJS.ErrnoException)?.code === "ENOENT";
-}
-
-function shardFileName(bucket: number): string {
-  return `bucket-${String(bucket).padStart(3, "0")}.jsonl`;
+function catalogRowsVersion(manifest: PersistedSessionCatalogManifest): string {
+  return `${manifest.catalogEpoch}:${manifest.catalogGeneration}`;
 }
 
 function generationFromDirectory(directory: string): number {

@@ -741,15 +741,14 @@ it("reads a row an older build stored for an unchanged file once more", async ()
 
 it("rebuilds at once after an ordinary read finds its shard unreadable", async () => {
   dataDir = await mkdtemp(join(tmpdir(), "retained-reset-"));
-  // Past the 8 MiB hot-set budget, so every list read streams the shard from
-  // disk instead of answering from memory.
-  const rows: SessionCatalogRow[] = Array.from({ length: 540 }, (_, index) => ({
-    ...catalogProjectIdentity(join(dataDir, "project")),
+  const projectPath = join(dataDir, "project");
+  const rows: SessionCatalogRow[] = Array.from({ length: 3 }, (_, index) => ({
+    ...catalogProjectIdentity(projectPath),
     catalogFamily: "claude",
     storeKey: "store",
     sessionId: `saved-${index}`,
     updatedAt: new Date().toISOString(),
-    title: "t".repeat(16_384),
+    title: `Saved ${index}`,
     fidelity: "head",
     sourceVersion: "v1",
     location: { kind: "provider", recordId: `saved-${index}` },
@@ -763,21 +762,31 @@ it("rebuilds at once after an ordinary read finds its shard unreadable", async (
       },
     ],
   );
+  const writer = new RetainedSessionCollections({
+    dataDir,
+    eventBus: new EventBus(),
+    adapters,
+  });
+  await writer.refresh();
+  expect((await writer.read()).rows).toHaveLength(rows.length);
+  await writer.dispose();
+  adapters.mockClear();
+
+  // The publishing process keeps its rows in memory, so the damage is met by
+  // a restarted one. No session file changes after this: only the reset
+  // itself can ask for the rebuild.
+  const generations = join(dataDir, "session-catalog", "generations");
+  const [generation] = await readdir(generations);
+  const [shard] = await readdir(join(generations, generation!));
+  await writeFile(join(generations, generation!, shard!), "{ torn", "utf-8");
   collections = new RetainedSessionCollections({
     dataDir,
     eventBus: new EventBus(),
     adapters,
   });
-  await collections.refresh();
-  expect((await collections.read()).rows).toHaveLength(rows.length);
-  adapters.mockClear();
-
-  // No session file changes after this: only the reset itself can ask for
-  // the rebuild.
-  const generations = join(dataDir, "session-catalog", "generations");
-  const [generation] = await readdir(generations);
-  const [shard] = await readdir(join(generations, generation!));
-  await writeFile(join(generations, generation!, shard!), "{ torn", "utf-8");
+  await expect(
+    collections.readPublishedProjectRows(toUrlProjectId(projectPath)),
+  ).rejects.toThrow("Invalid session catalog row");
   const version = collections.getVersion();
   // Optional process enrichment cannot turn catalogue corruption into native
   // discovery. Advance the actual 300ms scheduling boundary without wall time.
