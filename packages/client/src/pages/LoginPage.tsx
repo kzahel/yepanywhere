@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { Field, TextInput } from "../components/ui/Field";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
@@ -149,7 +150,7 @@ export function LoginPage() {
             </Field>
           )}
 
-          {error && <div className="login-error">{error}</div>}
+          {error && <Banner tone="error">{error}</Banner>}
 
           <Button variant="primary" type="submit" disabled={isSubmitting}>
             {isSubmitting

@@ -37,16 +37,7 @@
 }
 
 .liveBadge {
-  background: color-mix(in srgb, var(--app-yep-green) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--app-yep-green) 55%, transparent);
-  border-radius: 999px;
-  color: var(--app-yep-green);
   flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 2px 7px;
-  text-transform: uppercase;
 }
 
 .description {
@@ -54,29 +45,6 @@
   font-size: 0.86rem;
   line-height: 1.45;
   margin: 0;
-}
-
-.warning {
-  align-items: flex-start;
-  background: color-mix(in srgb, var(--warning-color) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warning-color) 40%, transparent);
-  border-radius: 8px;
-  color: var(--text-primary);
-  display: flex;
-  font-size: 0.78rem;
-  gap: 8px;
-  line-height: 1.4;
-  padding: 9px 10px;
-}
-
-.warning svg {
-  color: var(--warning-color);
-  flex: 0 0 auto;
-  height: 17px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
-  width: 17px;
 }
 
 .createButton svg {
@@ -109,9 +77,5 @@
 
   .modal {
     gap: 11px;
-  }
-
-  .warning {
-    font-size: 0.74rem;
   }
 }

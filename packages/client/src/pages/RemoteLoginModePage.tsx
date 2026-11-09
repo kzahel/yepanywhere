@@ -8,6 +8,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { ButtonBase } from "../components/ui/Button";
+import { Spinner } from "../components/ui/Spinner";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useI18n } from "../i18n";
@@ -27,7 +28,7 @@ export function RemoteLoginModePage() {
           </div>
           <p className="login-subtitle">Reconnecting...</p>
           <div className="login-loading" data-testid="auto-resume-loading">
-            <div className="login-spinner" />
+            <Spinner size="large" />
           </div>
         </div>
       </div>

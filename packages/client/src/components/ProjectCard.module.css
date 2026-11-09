@@ -51,63 +51,12 @@
 
 /* Its own row under the title line, which would clip it, and above the caption. */
 .codeNameError {
-  display: block;
   max-width: 28rem;
   margin-top: 2px;
-  color: var(--error-color);
-  font-size: var(--font-size-xs);
-  font-weight: 400;
-  line-height: 1.25;
 }
 
-.attentionBadge {
+.queueWarning {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  background: var(--error-color);
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.queueBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border: 1px solid
-    color-mix(in srgb, var(--project-queue-action-bg) 45%, var(--border-color));
-  border-radius: 10px;
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 12%,
-    var(--bg-surface)
-  );
-  color: var(--project-queue-action-bg);
-  font-size: 11px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.queueWarningBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--warning-color);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--warning-color) 14%, var(--bg-surface));
-  color: var(--warning-color);
-  font-size: 12px;
-  font-weight: 800;
   flex-shrink: 0;
 }
 

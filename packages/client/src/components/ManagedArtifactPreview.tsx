@@ -219,7 +219,7 @@ export function ManagedArtifactPreview(props: ArtifactPreviewProps) {
     <div className={`${styles.preview} ${props.className ?? ""}`}>
       {props.toolbarHost ? createPortal(controls, props.toolbarHost) : controls}
       {busy && props.showControls === false && (
-        <div className={styles.notice} role="status">
+        <div className={styles.status} role="status">
           {t("artifactChecking")}
         </div>
       )}

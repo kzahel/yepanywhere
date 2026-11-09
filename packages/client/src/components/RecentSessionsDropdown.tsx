@@ -17,6 +17,7 @@ import { useI18n } from "../i18n";
 import { ProviderBadge } from "./ProviderBadge";
 import { SessionTitleDetails } from "./SessionTitleDetails";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { Badge } from "./ui/Badge";
 import { Popover } from "./ui/Popover";
 import styles from "./RecentSessionsDropdown.module.css";
 
@@ -99,12 +100,14 @@ function StatusIndicator({ session }: { session: GlobalSessionItem }) {
   if (session.pendingInputType) {
     const label = session.pendingInputType === "tool-approval" ? "Appr" : "Q";
     return (
-      <span className={`${styles.badge} ${styles.needsInput}`}>{label}</span>
+      <Badge tone="warning" size="small">
+        {label}
+      </Badge>
     );
   }
 
   if (session.ownership.owner === "external") {
-    return <span className={`${styles.badge} ${styles.external}`}>Ext</span>;
+    return <Badge size="small">Ext</Badge>;
   }
 
   return null;
@@ -239,7 +242,7 @@ export function RecentSessionsDropdown({
                     {isBtwAside && (
                       // biome-ignore lint/a11y/noStaticElementInteractions: clickable variant has link role and keyboard handling; inert variant only shows the badge
                       <span
-                        className={`${styles.badge} ${BTW_BADGE_INTEROP_CLASSES}`}
+                        className={`${styles.btwBadge} ${BTW_BADGE_INTEROP_CLASSES}`}
                         title={
                           parentHref
                             ? "Open parent session with this /btw aside visible"

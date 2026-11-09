@@ -5,6 +5,8 @@ import type {
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { CopyButton } from "../components/CopyButton";
+import { Badge } from "../components/ui/Badge";
+import { Banner } from "../components/ui/Banner";
 import { ButtonBase } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import type { TranslationFn } from "../i18n";
@@ -150,13 +152,12 @@ export function RepoStatusBar({
             {t("gitStatusDirty")}
           </ButtonBase>
         ) : (
-          <span
-            className={`${styles.badge} ${
-              status.isClean ? styles.clean : styles.dirty
-            }`}
+          <Badge
+            tone={status.isClean ? "success" : "warning"}
+            className={styles.state}
           >
             {status.isClean ? t("gitStatusClean") : t("gitStatusDirty")}
-          </span>
+          </Badge>
         )}
       </div>
       {incomingOpen && projectId && (
@@ -206,9 +207,7 @@ function IncomingCommitsDialog({
           {t("sourceIncomingCommitsDescription")}
         </p>
         {error ? (
-          <p className={styles.incomingState} role="alert">
-            {t("sourceIncomingCommitsError")}
-          </p>
+          <Banner tone="error">{t("sourceIncomingCommitsError")}</Banner>
         ) : result === null ? (
           <p className={styles.incomingState}>
             {t("sourceIncomingCommitsLoading")}

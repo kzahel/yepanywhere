@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useI18n } from "../i18n";
+import { Banner } from "./ui/Banner";
 import { IconButton } from "./ui/Button";
 import actions from "./ViewerWindowActions.module.css";
 import styles from "./AppViewerToolbar.module.css";
@@ -122,9 +123,9 @@ export function AppViewerToolbar({
         </IconButton>
       </div>
       {error && (
-        <span className={styles.error} role="alert">
+        <Banner tone="error" compact className={styles.failure}>
           {t("appFullscreenFailed")}
-        </span>
+        </Banner>
       )}
     </header>
   );

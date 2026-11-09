@@ -1,29 +1,14 @@
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
+/* Fixed type hues with white text keep contrast in every app theme; they
+   compound with the shared Badge's tone. */
+.type.jira {
+  --badge-color: #1d4ed8;
+  --badge-on: #fff;
 }
-/* Fixed type hues with white text keep contrast in every app theme. */
-.jira {
-  background: #1d4ed8;
-  color: #fff;
+.type.pr {
+  --badge-color: #7e22ce;
+  --badge-on: #fff;
 }
-.pr {
-  background: #7e22ce;
-  color: #fff;
-}
-.issue {
-  background: #0f766e;
-  color: #fff;
-}
-.unknown {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
+.type.issue {
+  --badge-color: #0f766e;
+  --badge-on: #fff;
 }

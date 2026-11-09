@@ -2,6 +2,7 @@ import type { LocalSourceRoot } from "@yep-anywhere/shared";
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
+import { Banner } from "../components/ui/Banner";
 import { GlossaryProjectBoundary } from "../contexts/GlossaryContext";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useI18n } from "../i18n";
@@ -34,7 +35,7 @@ export function LocalSourcePage() {
       <main className="page-scroll-container">
         <div className="page-content-inner">
           {!projectId || !requestedPath ? (
-            <div className="error">{t("fileInvalidUrl" as never)}</div>
+            <Banner tone="error">{t("fileInvalidUrl" as never)}</Banner>
           ) : (
             <GlossaryProjectBoundary projectId={projectId}>
               <div className="git-status">

@@ -3,6 +3,7 @@ import type { SqliteStatus } from "@yep-anywhere/shared";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import styles from "./StorageFilesystemBanner.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 
 /**
@@ -64,21 +65,24 @@ export function StorageFilesystemBanner() {
   if (!filesystem || dismissed) return null;
 
   return (
-    <div className={styles.root} role="alert" data-storage-filesystem="network">
-      <div className={styles.content}>
-        <p className={styles.title}>
-          {t("storageNetworkFilesystemTitle", { filesystem })}
-        </p>
-        <p className={styles.body}>
-          {t("storageNetworkFilesystemDescription", { filesystem })}
-        </p>
-        <code className={styles.command}>
-          YEP_DATA_DIR=/path/on/local/disk/.yep-anywhere
-        </code>
-      </div>
-      <Button className={styles.dismiss} onClick={dismiss}>
-        {t("storageNetworkFilesystemDismiss")}
-      </Button>
-    </div>
+    <Banner
+      tone="warning"
+      role="alert"
+      className={styles.root}
+      title={t("storageNetworkFilesystemTitle", { filesystem })}
+      actions={
+        <Button onClick={dismiss}>
+          {t("storageNetworkFilesystemDismiss")}
+        </Button>
+      }
+      data-storage-filesystem="network"
+    >
+      <p className={styles.body}>
+        {t("storageNetworkFilesystemDescription", { filesystem })}
+      </p>
+      <code className={styles.command}>
+        YEP_DATA_DIR=/path/on/local/disk/.yep-anywhere
+      </code>
+    </Banner>
   );
 }

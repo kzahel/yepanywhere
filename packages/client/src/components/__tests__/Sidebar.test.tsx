@@ -12,6 +12,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -714,10 +715,10 @@ describe("Sidebar collapsed toggle", () => {
 
     const projectsLink = screen.getByRole("link", { name: /Projects/i });
     expect(projectsLink.textContent).toContain("3");
-    const badge = projectsLink.querySelector(".sidebar-nav-badge");
-    expect(badge?.classList.contains("sidebar-nav-badge--projectQueue")).toBe(
-      true,
-    );
+    expect(
+      within(projectsLink).getByTestId("sidebar-nav-badge-projectQueue")
+        .textContent,
+    ).toBe("3");
   });
 
   it("links Source Control to the project selected in the sessions filter", () => {

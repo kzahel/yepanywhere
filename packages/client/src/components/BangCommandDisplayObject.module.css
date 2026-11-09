@@ -50,22 +50,6 @@
   gap: var(--space-1);
 }
 
-.spinner {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 auto;
-  border: 2px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
-  border-top-color: var(--accent-primary);
-  border-radius: 50%;
-  animation: bang-command-spinner-spin 0.7s linear infinite;
-}
-
-@keyframes bang-command-spinner-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .exitNonzero {
   color: var(--error-color);
   font-weight: 600;

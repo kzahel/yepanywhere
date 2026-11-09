@@ -6,6 +6,7 @@ import {
   normalizeEffortLevelForProvider,
 } from "../lib/effortLevels";
 import { useI18n } from "../i18n";
+import { Badge } from "./ui/Badge";
 import styles from "./ProviderBadge.module.css";
 
 const PROVIDER_COLORS: Record<ProviderName, string> = {
@@ -20,6 +21,21 @@ const PROVIDER_COLORS: Record<ProviderName, string> = {
   grok: "var(--provider-grok)", // xAI Grok
   opencode: "var(--provider-opencode)", // OpenCode purple
   pi: "var(--provider-pi)", // pi teal
+};
+
+/** Module classes tinting the Badge with the same provider colors. */
+const PROVIDER_TINTS: Record<ProviderName, string | undefined> = {
+  claude: styles.claude,
+  "claude-gateway": styles.claude,
+  "claude-ollama": styles.claude,
+  codex: styles.codex,
+  "codex-oss": styles.codex,
+  gemini: styles.gemini,
+  "gemini-acp": styles.gemini,
+  antigravity: styles.gemini,
+  grok: styles.grok,
+  opencode: styles.opencode,
+  pi: styles.pi,
 };
 
 const PROVIDER_LABELS: Record<ProviderName, string> = {
@@ -179,46 +195,50 @@ export function ProviderBadge({
 
   return (
     <span
-      className={`provider-badge ${styles.badge} ${condensed ? styles.condensed : ""} ${className}`}
-      style={{ borderColor: color, color }}
+      className={`provider-badge ${styles.root} ${className}`}
       title={accessibleTitle}
       role="img"
       aria-label={accessibleTitle}
     >
-      <span className={dotClass} style={dotStyle} />
-      <span className={`provider-badge-label ${styles.model}`}>
-        {condensed ? (
-          <span style={modelColorStyle}>{condensedModel}</span>
-        ) : modelParts ? (
-          <>
-            {modelParts.providerGlyph}
-            {modelParts.subProvider ? ` ${modelParts.subProvider}` : ""}
-            {modelParts.modelLabel ? (
-              <span className="provider-badge-model" style={modelColorStyle}>
-                {` ${modelParts.modelLabel}`}
-              </span>
-            ) : null}
-          </>
-        ) : provider === "antigravity" ? (
-          "Agy"
-        ) : (
-          label
-        )}
-      </span>
-      {effortLabel && effortTone && (
-        <span
-          className={styles.effort}
-          title={t("providerBadgeEffort", { effort: effortLabel })}
-        >
-          <span
-            className={`${styles.effortDot} ${effortToneClass}`}
-            aria-hidden="true"
-          />
-          <span className={styles.effortLabel}>
-            {condensed ? shortEffort : effortLabel}
-          </span>
+      <Badge
+        size="small"
+        className={`${styles.badge} ${PROVIDER_TINTS[provider] ?? ""} ${condensed ? styles.condensed : ""}`}
+      >
+        <span className={dotClass} style={dotStyle} />
+        <span className={`provider-badge-label ${styles.model}`}>
+          {condensed ? (
+            <span style={modelColorStyle}>{condensedModel}</span>
+          ) : modelParts ? (
+            <>
+              {modelParts.providerGlyph}
+              {modelParts.subProvider ? ` ${modelParts.subProvider}` : ""}
+              {modelParts.modelLabel ? (
+                <span className="provider-badge-model" style={modelColorStyle}>
+                  {` ${modelParts.modelLabel}`}
+                </span>
+              ) : null}
+            </>
+          ) : provider === "antigravity" ? (
+            "Agy"
+          ) : (
+            label
+          )}
         </span>
-      )}
+        {effortLabel && effortTone && (
+          <span
+            className={styles.effort}
+            title={t("providerBadgeEffort", { effort: effortLabel })}
+          >
+            <span
+              className={`${styles.effortDot} ${effortToneClass}`}
+              aria-hidden="true"
+            />
+            <span className={styles.effortLabel}>
+              {condensed ? shortEffort : effortLabel}
+            </span>
+          </span>
+        )}
+      </Badge>
     </span>
   );
 }

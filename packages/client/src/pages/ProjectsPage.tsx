@@ -22,6 +22,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ProjectCard } from "../components/ProjectCard";
 import { ProjectQueueSection } from "../components/ProjectQueueSection";
 import { ProjectSessionDefaultsModal } from "../components/ProjectSessionDefaultsModal";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
@@ -359,18 +360,22 @@ export function ProjectsPage() {
             <div role="status">{t("projectsLoading")}</div>
           )}
           {error && (
-            <div className={styles.loadError} role="status">
-              <span>
-                {t("projectsErrorPrefix")} {error.message}
-              </span>
-              <Button
-                variant="ghost"
-                size="small"
-                onClick={() => void refetch()}
-              >
-                {t("hostOfflineRetry")}
-              </Button>
-            </div>
+            <Banner
+              tone="error"
+              role="status"
+              className={styles.loadError}
+              actions={
+                <Button
+                  variant="ghost"
+                  size="small"
+                  onClick={() => void refetch()}
+                >
+                  {t("hostOfflineRetry")}
+                </Button>
+              }
+            >
+              {t("projectsErrorPrefix")} {error.message}
+            </Banner>
           )}
           {/* Toolbar with Add Project button */}
           <div className="inbox-toolbar">
@@ -420,7 +425,7 @@ export function ProjectsPage() {
                   />
                 )}
                 {templateError && !addProjectTyped && (
-                  <p role="alert">{templateError}</p>
+                  <Banner tone="error">{templateError}</Banner>
                 )}
                 {templateChoices?.enabled && (
                   <div hidden={addProjectTyped && !templateProjectBusy}>
@@ -455,7 +460,7 @@ export function ProjectsPage() {
               </div>
             )}
           </div>
-          {deleteError && <div className={formStyles.error}>{deleteError}</div>}
+          {deleteError && <Banner tone="error">{deleteError}</Banner>}
 
           {
             <ProjectQueueSection

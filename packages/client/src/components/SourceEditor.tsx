@@ -14,6 +14,7 @@ import {
   type ArtifactSourceTarget,
 } from "../lib/artifactSourceTargets";
 import { generateUUID } from "../lib/uuid";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { Field, Select } from "./ui/Field";
@@ -606,55 +607,62 @@ export function SourceEditor({
         )}
       </div>
       {snapshot && !snapshot.editable && (
-        <div className={styles.notice}>{t("sourceEditorTooLarge")}</div>
+        <Banner tone="warning" role="none" compact className={styles.message}>
+          {t("sourceEditorTooLarge")}
+        </Banner>
       )}
       {error && (
-        <div className={styles.error} role="alert">
+        <Banner tone="error" compact className={styles.message}>
           {error}
-        </div>
+        </Banner>
       )}
       {preview && (
-        <div className={styles.notice}>
-          <span>
-            {t(
-              building
-                ? "sourceEditorRebuilding"
-                : rebuilt
-                  ? "sourceEditorRebuilt"
-                  : stale
-                    ? "sourceEditorStale"
-                    : styled.grant
-                      ? "sourceEditorStyled"
-                      : "sourceEditorSnapshot",
-            )}
-          </span>
-          {preview.regenerate && (
-            <span className={styles.rebuildControls}>
-              <Button
-                variant="ghost"
-                size="small"
-                disabled={building || busy}
-                onClick={() => void rebuild(preview)}
-              >
-                {t(
-                  preview.regenerate.registered && preview.regenerate.matches
-                    ? "sourceEditorRebuild"
-                    : "sourceEditorRebuildApprove",
-                )}
-              </Button>
-              {preview.regenerate.registered && preview.regenerate.matches && (
-                <Checkbox
-                  label={t("sourceEditorRebuildAuto")}
-                  checked={autoRebuild}
-                  onCheckedChange={(checked) => {
-                    setAutoRebuild(checked);
-                    writeAutoRebuild(preview.path, checked);
-                  }}
-                />
-              )}
-            </span>
+        <Banner
+          role="none"
+          compact
+          className={styles.message}
+          actions={
+            preview.regenerate && (
+              <span className={styles.rebuildControls}>
+                <Button
+                  variant="ghost"
+                  size="small"
+                  disabled={building || busy}
+                  onClick={() => void rebuild(preview)}
+                >
+                  {t(
+                    preview.regenerate.registered && preview.regenerate.matches
+                      ? "sourceEditorRebuild"
+                      : "sourceEditorRebuildApprove",
+                  )}
+                </Button>
+                {preview.regenerate.registered &&
+                  preview.regenerate.matches && (
+                    <Checkbox
+                      label={t("sourceEditorRebuildAuto")}
+                      checked={autoRebuild}
+                      onCheckedChange={(checked) => {
+                        setAutoRebuild(checked);
+                        writeAutoRebuild(preview.path, checked);
+                      }}
+                    />
+                  )}
+              </span>
+            )
+          }
+        >
+          {t(
+            building
+              ? "sourceEditorRebuilding"
+              : rebuilt
+                ? "sourceEditorRebuilt"
+                : stale
+                  ? "sourceEditorStale"
+                  : styled.grant
+                    ? "sourceEditorStyled"
+                    : "sourceEditorSnapshot",
           )}
-        </div>
+        </Banner>
       )}
       {buildLog && (
         <details className={styles.buildLog}>
@@ -663,25 +671,34 @@ export function SourceEditor({
         </details>
       )}
       {closing && (
-        <div className={styles.confirm} role="alert">
-          <span>{t("sourceEditorDiscardPrompt")}</span>
-          <Button
-            variant="primary"
-            onClick={() => void save(true)}
-            disabled={busy}
-          >
-            {t("sourceEditorSaveClose")}
-          </Button>
-          <Button variant="danger-outline" onClick={onClose}>
-            {t("sourceEditorDiscard")}
-          </Button>
-          <Button onClick={() => setClosing(false)}>
-            {t("sourceEditorKeepEditing")}
-          </Button>
-        </div>
+        <Banner
+          tone="warning"
+          role="alert"
+          compact
+          className={styles.message}
+          actions={
+            <>
+              <Button
+                variant="primary"
+                onClick={() => void save(true)}
+                disabled={busy}
+              >
+                {t("sourceEditorSaveClose")}
+              </Button>
+              <Button variant="danger-outline" onClick={onClose}>
+                {t("sourceEditorDiscard")}
+              </Button>
+              <Button onClick={() => setClosing(false)}>
+                {t("sourceEditorKeepEditing")}
+              </Button>
+            </>
+          }
+        >
+          {t("sourceEditorDiscardPrompt")}
+        </Banner>
       )}
       {preview && (
-        <div className={styles.tabs}>
+        <div className={styles.views}>
           <SegmentedControl
             aria-label={t("sourceEditorViews")}
             options={[
@@ -711,7 +728,11 @@ export function SourceEditor({
         </div>
         {preview && (
           <div className={styles.previewPane}>
-            {mapping?.error && <p role="alert">{mapping.error}</p>}
+            {mapping?.error && (
+              <Banner tone="error" compact className={styles.message}>
+                {mapping.error}
+              </Banner>
+            )}
             {mapping?.value && (
               <>
                 {styledAvailable && preview && (

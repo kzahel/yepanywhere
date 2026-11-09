@@ -25,8 +25,11 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { GitActionFeedback } from "../components/GitActionFeedback";
 import { ProjectSelector } from "../components/ProjectSelector";
+import { Badge } from "../components/ui/Badge";
+import { Banner } from "../components/ui/Banner";
 import { Button, IconButton } from "../components/ui/Button";
 import { Popover } from "../components/ui/Popover";
+import { Spinner } from "../components/ui/Spinner";
 import { GlossaryProjectBoundary } from "../contexts/GlossaryContext";
 import { SourceReviewDefaultSessionContext } from "../contexts/SourceReviewDefaultSessionContext";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -501,7 +504,9 @@ function SourceActionButton({
       disabled={disabled}
     >
       <span className="git-status-action-indicator" aria-hidden="true">
-        {running ? null : showOutcome ? (
+        {running ? (
+          <Spinner size="small" />
+        ) : showOutcome ? (
           tone === "success" ? (
             "✓"
           ) : (
@@ -828,9 +833,9 @@ export function GitStatusPage() {
           {projectsLoading || loading ? (
             <div className="loading">{t("gitStatusLoading")}</div>
           ) : error ? (
-            <div className="error">
+            <Banner tone="error">
               {t("gitStatusErrorPrefix")} {error.message}
-            </div>
+            </Banner>
           ) : gitStatus &&
             !gitStatus.isGitRepo &&
             effectiveProjectId &&
@@ -978,16 +983,14 @@ function GitStatusContent({
     setIgnoreWhitespace(!ignoreWhitespace);
   }, [ignoreWhitespace]);
   const projectionNotice = projectionRequestError ? (
-    <div className="source-projection-notice" role="alert">
-      <span>{projectionRequestError}</span>
-      <IconButton
-        label={t("sourceDismissProjectionError")}
-        size="small"
-        onClick={() => setProjectionRequestError(null)}
-      >
-        ×
-      </IconButton>
-    </div>
+    <Banner
+      tone="error"
+      className="source-projection-notice"
+      onDismiss={() => setProjectionRequestError(null)}
+      dismissLabel={t("sourceDismissProjectionError")}
+    >
+      {projectionRequestError}
+    </Banner>
   ) : null;
   // Bridge a commit file to its blame-at-HEAD view: switch to the files tab
   // with that file seeded open (a real history step, so back returns).
@@ -1207,19 +1210,11 @@ function GitIntegrationOptionsPanel({
   t: TranslationFn;
 }) {
   if (loading) {
-    return (
-      <div className="git-integration-options">
-        <span>{t("gitStatusAutoOptionsChecking")}</span>
-      </div>
-    );
+    return <Banner>{t("gitStatusAutoOptionsChecking")}</Banner>;
   }
 
   if (error) {
-    return (
-      <div className="git-integration-options git-integration-options-warning">
-        <span>{error}</span>
-      </div>
-    );
+    return <Banner tone="warning">{error}</Banner>;
   }
 
   if (!options) {
@@ -1228,38 +1223,26 @@ function GitIntegrationOptionsPanel({
 
   if (options.status === "available") {
     return (
-      <div className="git-integration-options">
+      <Banner actions={<GitIntegrationOptionsHelp t={t} />}>
         <span className="git-integration-options-label">
           {t("gitStatusAutoOptionsLabel")}
-        </span>
-        <span
-          className="git-integration-option-pill"
-          aria-disabled="true"
-          title={t("gitStatusAutoActionNotEnabled")}
-        >
+        </span>{" "}
+        <Badge tooltip={t("gitStatusAutoActionNotEnabled")}>
           {t("gitStatusAutoRebase")}
-        </span>
-        <span
-          className="git-integration-option-pill"
-          aria-disabled="true"
-          title={t("gitStatusAutoActionNotEnabled")}
-        >
+        </Badge>{" "}
+        <Badge tooltip={t("gitStatusAutoActionNotEnabled")}>
           {t("gitStatusAutoMerge")}
-        </span>
-        <GitIntegrationOptionsHelp t={t} />
-      </div>
+        </Badge>
+      </Banner>
     );
   }
 
   return (
-    <div className="git-integration-options git-integration-options-warning">
-      <span>
-        {t("gitStatusAutoOptionsUnavailable", {
-          reason: getIntegrationUnavailableReason(options.reasons, t),
-        })}
-      </span>
-      <GitIntegrationOptionsHelp t={t} />
-    </div>
+    <Banner tone="warning" actions={<GitIntegrationOptionsHelp t={t} />}>
+      {t("gitStatusAutoOptionsUnavailable", {
+        reason: getIntegrationUnavailableReason(options.reasons, t),
+      })}
+    </Banner>
   );
 }
 

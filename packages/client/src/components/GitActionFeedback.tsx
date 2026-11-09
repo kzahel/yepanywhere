@@ -2,6 +2,7 @@ import { useI18n } from "../i18n";
 import type { GitFailureDescription } from "../lib/gitActionError";
 import { CopyButton } from "./CopyButton";
 import styles from "./GitActionFeedback.module.css";
+import { Banner } from "./ui/Banner";
 
 export function GitActionFeedback({
   message,
@@ -14,10 +15,7 @@ export function GitActionFeedback({
 }) {
   const { t } = useI18n();
   return (
-    <div
-      className={`${styles.message} ${tone === "warning" ? styles.warning : styles.success}`}
-      role={tone === "warning" ? "alert" : "status"}
-    >
+    <Banner tone={tone} role={tone === "warning" ? "alert" : "status"}>
       <div>{message}</div>
       {failure?.hint && <p className={styles.hint}>{failure.hint}</p>}
       {failure?.detail && (
@@ -33,6 +31,6 @@ export function GitActionFeedback({
           </div>
         </details>
       )}
-    </div>
+    </Banner>
   );
 }

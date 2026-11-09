@@ -7,7 +7,8 @@ import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { useI18n } from "../i18n";
 import { querySessionRouteLayerElement } from "../lib/sessionRouteLayer";
 import styles from "./ReloadBanner.module.css";
-import { Button, IconButton } from "./ui/Button";
+import { Banner } from "./ui/Banner";
+import { Button } from "./ui/Button";
 
 const RELOAD_BANNER_CONTROL_GAP = 4;
 const RELOAD_BANNER_COMPOSER_GAP = 8;
@@ -301,11 +302,53 @@ export function ReloadBanner({
   return (
     // `reload-banner` stays literal: the global transcript-selection rule in
     // styles/index.css and the transcript artifact smoke script name it.
-    <div
-      className={`reload-banner ${styles.banner} ${
-        showWarning ? styles.warning : ""
-      }`}
+    <Banner
+      tone={showWarning ? "error" : "warning"}
       role="status"
+      className={`reload-banner ${styles.banner}`}
+      onDismiss={handleDismissClick}
+      dismissLabel={t("reloadBannerDismiss")}
+      actions={
+        <>
+          <Button
+            variant={showWarning ? "secondary" : "primary"}
+            className={`${styles.button} ${styles.buttonPrimary}`}
+            onClick={handleImmediateReloadClick}
+            aria-label={primaryReloadLabel}
+            title={primaryReloadLabel}
+          >
+            <span className={styles.buttonLabel}>
+              {t("reloadBannerReloadTargetCompact")}
+            </span>
+          </Button>
+          {canScheduleSafeRestart && (
+            <Button
+              className={`${styles.button} ${styles.buttonSafe}`}
+              onClick={handleRestartWhenSafeClick}
+              disabled={safeRestartMutating}
+              aria-label={t("reloadBannerRestartWhenSafe")}
+              title={t("reloadBannerRestartWhenSafe")}
+            >
+              <span className={styles.buttonLabel}>
+                {t("reloadBannerRestartWhenSafeCompact")}
+              </span>
+            </Button>
+          )}
+          {hasScheduledRestart && onCancelSafeRestart && (
+            <Button
+              className={styles.button}
+              onClick={handleCancelSafeRestartClick}
+              disabled={safeRestartMutating}
+              aria-label={t("reloadBannerCancelSafeRestart")}
+              title={t("reloadBannerCancelSafeRestart")}
+            >
+              <span className={styles.buttonLabel}>
+                {t("reloadBannerCancelSafeRestartCompact")}
+              </span>
+            </Button>
+          )}
+        </>
+      }
     >
       <span className={styles.content}>
         <span className={styles.message}>
@@ -325,52 +368,6 @@ export function ReloadBanner({
           <span className={styles.warningDetail}>{warningDetail}</span>
         )}
       </span>
-      <span className={styles.actions}>
-        <Button
-          variant={showWarning ? "secondary" : "primary"}
-          className={`${styles.button} ${styles.buttonPrimary}`}
-          onClick={handleImmediateReloadClick}
-          aria-label={primaryReloadLabel}
-          title={primaryReloadLabel}
-        >
-          <span className={styles.buttonLabel}>
-            {t("reloadBannerReloadTargetCompact")}
-          </span>
-        </Button>
-        {canScheduleSafeRestart && (
-          <Button
-            className={`${styles.button} ${styles.buttonSafe}`}
-            onClick={handleRestartWhenSafeClick}
-            disabled={safeRestartMutating}
-            aria-label={t("reloadBannerRestartWhenSafe")}
-            title={t("reloadBannerRestartWhenSafe")}
-          >
-            <span className={styles.buttonLabel}>
-              {t("reloadBannerRestartWhenSafeCompact")}
-            </span>
-          </Button>
-        )}
-        {hasScheduledRestart && onCancelSafeRestart && (
-          <Button
-            className={styles.button}
-            onClick={handleCancelSafeRestartClick}
-            disabled={safeRestartMutating}
-            aria-label={t("reloadBannerCancelSafeRestart")}
-            title={t("reloadBannerCancelSafeRestart")}
-          >
-            <span className={styles.buttonLabel}>
-              {t("reloadBannerCancelSafeRestartCompact")}
-            </span>
-          </Button>
-        )}
-        <IconButton
-          label={t("reloadBannerDismiss")}
-          className={styles.dismiss}
-          onClick={handleDismissClick}
-        >
-          ×
-        </IconButton>
-      </span>
-    </div>
+    </Banner>
   );
 }

@@ -8,9 +8,11 @@ import { mutateResumeCredentials } from "../lib/rejectedResumeStorage";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Banner } from "../components/ui/Banner";
 import { Button, ButtonBase } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { Field, TextInput } from "../components/ui/Field";
+import { Spinner } from "../components/ui/Spinner";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useSignInRequiredNotice } from "../hooks/useSignInRequiredNotice";
@@ -182,7 +184,7 @@ export function RelayLoginPage() {
           </div>
           <p className="login-subtitle">{t("reconnecting")}</p>
           <div className="login-loading" data-testid="auto-resume-loading">
-            <div className="login-spinner" />
+            <Spinner size="large" />
           </div>
         </div>
       </div>
@@ -398,14 +400,14 @@ export function RelayLoginPage() {
           )}
 
           {error && (
-            <div className="login-error" data-testid="login-error">
+            <Banner tone="error" data-testid="login-error">
               {error}
-            </div>
+            </Banner>
           )}
 
           {isConnecting && statusMessage && (
             <div className="login-status" data-testid="connection-status">
-              <div className="login-spinner" />
+              <Spinner />
               <span>{statusMessage}</span>
             </div>
           )}

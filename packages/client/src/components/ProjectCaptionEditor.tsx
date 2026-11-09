@@ -7,6 +7,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectCaptionEditor.module.css";
+import { Banner } from "./ui/Banner";
 import { IconButton } from "./ui/Button";
 import { TextInput } from "./ui/Field";
 
@@ -175,9 +176,9 @@ export function ProjectCaptionEditor({
           </IconButton>
         </div>
         {error && (
-          <span className={styles.error} role="alert">
+          <Banner tone="error" compact className={styles.failure}>
             {error}
-          </span>
+          </Banner>
         )}
       </div>
     );

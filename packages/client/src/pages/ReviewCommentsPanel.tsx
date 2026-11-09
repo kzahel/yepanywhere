@@ -1,6 +1,7 @@
 import type { ReviewComment } from "@yep-anywhere/shared";
 import { useState } from "react";
 import { api } from "../api/client";
+import { Banner } from "../components/ui/Banner";
 import { Button, ButtonBase } from "../components/ui/Button";
 import { Textarea } from "../components/ui/Field";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
@@ -89,7 +90,7 @@ export function ReviewCommentsPanel({
 
   return (
     <section className={styles.panel}>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <Banner tone="error">{error}</Banner>}
       <ul className={styles.list}>
         {pending.map((comment) => (
           <li key={comment.id} className={styles.row}>

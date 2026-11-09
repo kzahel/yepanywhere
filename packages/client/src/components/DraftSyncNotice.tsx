@@ -12,6 +12,7 @@ import {
   type DraftResolution,
   type PendingDraft,
 } from "../lib/draftSyncStorage";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import styles from "./DraftSyncNotice.module.css";
 
@@ -57,13 +58,14 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
     setBusy(false);
   };
   return (
-    <aside
-      className={styles.notice}
-      data-draft-notice=""
+    <Banner
+      tone="warning"
       role="status"
+      className={styles.notice}
+      title={t(`draftSyncSlot_${draft.slot.kind}`)}
+      data-draft-notice=""
       aria-label={t("draftSyncNotice")}
     >
-      <strong>{t(`draftSyncSlot_${draft.slot.kind}`)}</strong>
       <div className={styles.summary}>
         <span>
           {draft.error === "local"
@@ -139,7 +141,7 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
           </div>
         </div>
       )}
-    </aside>
+    </Banner>
   );
 }
 

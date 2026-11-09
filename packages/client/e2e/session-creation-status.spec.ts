@@ -120,7 +120,7 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       .getByRole("button", { name: "Open sidebar", exact: true })
       .click();
     await expect(
-      page.locator(".sidebar-actions .session-draft-badge"),
+      page.locator(".sidebar-actions").getByText("Draft", { exact: true }),
     ).toHaveCount(1);
     await page.locator("button.sidebar-close").click();
     const acceptance = page.waitForResponse(
@@ -268,7 +268,7 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       .getByRole("button", { name: "Open sidebar", exact: true })
       .click();
     await expect(
-      page.locator(".sidebar-actions .session-draft-badge"),
+      page.locator(".sidebar-actions").getByText("Draft", { exact: true }),
     ).toHaveCount(0);
     await page.locator("button.sidebar-close").click();
     releaseTail();

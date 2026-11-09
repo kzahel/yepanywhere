@@ -22,6 +22,8 @@ import type { Project } from "../types";
 import { ProjectQueueAttachmentEditor } from "./ProjectQueueAttachmentEditor";
 import { ProviderBadge } from "./ProviderBadge";
 import styles from "./ProjectQueueSection.module.css";
+import { Badge, type BadgeTone } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Textarea } from "./ui/Field";
 import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
@@ -36,10 +38,10 @@ const ITEM_STATUS_CLASS: Record<ItemStatus, string | undefined> = {
   failed: styles.itemFailed,
 };
 
-const ITEM_STATUS_BADGE_CLASS: Record<ItemStatus, string | undefined> = {
-  queued: "",
-  dispatching: styles.itemStatusDispatching,
-  failed: styles.itemStatusFailed,
+const ITEM_STATUS_TONE: Record<ItemStatus, BadgeTone> = {
+  queued: "neutral",
+  dispatching: "info",
+  failed: "danger",
 };
 
 function cx(...classNames: (string | false | undefined)[]): string {
@@ -595,15 +597,15 @@ export function ProjectQueueSection({
       </div>
 
       {pausedState && hasProjectQueueItems && (
-        <div className={styles.notice}>
+        <Banner tone="warning">
           {pausedNotice(pausedState, items, projectStatusesByProject, t)}
-        </div>
+        </Banner>
       )}
 
       {error && (
-        <div className={styles.sectionError}>
+        <Banner tone="error">
           {t("projectQueueLoadError", { message: error.message })}
-        </div>
+        </Banner>
       )}
 
       {recoveredGroups.length > 0 && (
@@ -862,9 +864,9 @@ export function ProjectQueueSection({
                           </div>
                         )}
                         {item.lastError && (
-                          <div className={styles.itemError}>
+                          <Banner tone="error" compact>
                             {item.lastError}
-                          </div>
+                          </Banner>
                         )}
                         {readiness && (
                           <div className={styles.itemReadiness}>
@@ -874,14 +876,13 @@ export function ProjectQueueSection({
                       </div>
 
                       <div className={styles.itemSide}>
-                        <span
-                          className={cx(
-                            styles.itemStatus,
-                            ITEM_STATUS_BADGE_CLASS[item.status],
-                          )}
+                        <Badge
+                          size="small"
+                          tone={ITEM_STATUS_TONE[item.status]}
+                          className={styles.itemStatus}
                         >
                           {statusLabel(item.status, t)}
-                        </span>
+                        </Badge>
                         <div className={styles.itemActions}>
                           {pausedState && !isEditing && (
                             <Button

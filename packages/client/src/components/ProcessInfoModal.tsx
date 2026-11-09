@@ -19,6 +19,7 @@ import styles from "./ProcessInfoModal.module.css";
 import { SessionTitleDetails } from "./SessionTitleDetails";
 import { SessionRelationshipsSection } from "./SessionRelationshipsSection";
 import type { RouterBinding } from "./RouterPoolSelector";
+import { Banner } from "./ui/Banner";
 import { Modal } from "./ui/Modal";
 
 interface ProcessInfo {
@@ -725,7 +726,7 @@ export function ProcessInfoBody({
             {loading && (
               <div className={styles.loading}>{t("newSessionLoading")}</div>
             )}
-            {error && <div className={styles.error}>{error}</div>}
+            {error && <Banner tone="error">{error}</Banner>}
             {processInfo && (
               <>
                 <InfoRow

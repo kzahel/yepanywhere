@@ -164,6 +164,11 @@
   min-width: min(28rem, calc(100dvw - 16px));
 }
 
+.archivedBadge {
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+}
+
 /* The project App button sits beside the session's last-view icon. */
 .projectAppButton {
   flex-shrink: 0;

@@ -161,14 +161,7 @@
   left: 50%;
   max-width: min(36rem, calc(100% - 2rem));
   box-sizing: border-box;
-  padding: var(--space-2) var(--space-3);
   transform: translateX(-50%);
-  border: 1px solid color-mix(in srgb, var(--error-color) 45%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
-  color: var(--error-color);
-  box-shadow: var(--shadow-md);
-  text-align: center;
 }
 
 .player {
@@ -177,15 +170,10 @@
   border-radius: var(--radius-md);
 }
 
-.loading,
-.error {
+.loading {
   padding: 2rem;
   text-align: center;
   color: var(--text-secondary);
-}
-
-.error {
-  color: var(--error-color);
 }
 
 /* The shared modal shell stays global; this module only sizes it. */
@@ -235,8 +223,7 @@
   background: var(--bg-surface);
 }
 
-.fileLoading,
-.fileError {
+.fileLoading {
   display: flex;
   flex: 1;
   align-items: center;
@@ -244,8 +231,4 @@
   padding: 2rem;
   color: var(--text-secondary);
   text-align: center;
-}
-
-.fileError {
-  color: var(--error-color);
 }

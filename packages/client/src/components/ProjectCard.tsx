@@ -8,6 +8,8 @@ import styles from "./ProjectCard.module.css";
 import { ProjectCaptionEditor } from "./ProjectCaptionEditor";
 import { ProjectCodeNameEditor } from "./ProjectCodeNameEditor";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { Badge } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button, buttonClassName, IconButton } from "./ui/Button";
 
 interface ProjectCardProps {
@@ -188,26 +190,28 @@ export function ProjectCard({
           <div className={styles.identity}>
             <strong className={styles.name}>
               {needsAttentionCount > 0 && (
-                <span className={styles.attentionBadge}>
+                <Badge shape="count" tone="danger" emphasis="solid">
                   {needsAttentionCount}
-                </span>
+                </Badge>
               )}
               {queueCount > 0 && (
-                <span
-                  className={styles.queueBadge}
-                  title={t("projectCardQueueCount", { count: queueCount })}
+                <Badge
+                  shape="count"
+                  tooltip={t("projectCardQueueCount", { count: queueCount })}
                 >
                   {queueCount}
-                </span>
+                </Badge>
               )}
               {hasQueueWarning && (
                 <span
-                  className={styles.queueWarningBadge}
+                  className={styles.queueWarning}
                   role="img"
                   title={t("projectCardQueueWarning")}
                   aria-label={t("projectCardQueueWarning")}
                 >
-                  !
+                  <Badge shape="count" tone="warning">
+                    !
+                  </Badge>
                 </span>
               )}
               <span className={styles.nameText}>
@@ -224,13 +228,14 @@ export function ProjectCard({
               )}
             </strong>
             {onUpdateCodeName && codeNameError && (
-              <span
+              <Banner
+                tone="error"
+                compact
                 id={codeNameErrorId}
                 className={styles.codeNameError}
-                role="alert"
               >
                 {codeNameError}
-              </span>
+              </Banner>
             )}
             <ProjectCaptionEditor
               project={project}

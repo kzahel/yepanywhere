@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { Button } from "./ui/Button";
+import { Spinner } from "./ui/Spinner";
 import styles from "./BangCommandDisplayObject.module.css";
 
 export interface BangCommandOutput {
@@ -149,7 +150,7 @@ export function BangCommandDisplayObject({
         <span className={styles.meta}>
           {object.status === "running" && (
             <span className={styles.running}>
-              <span className={styles.spinner} aria-hidden="true" />
+              <Spinner size="small" />
               {t("bangRunning")}
             </span>
           )}

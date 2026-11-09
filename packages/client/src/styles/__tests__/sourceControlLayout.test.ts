@@ -261,12 +261,10 @@ describe("Source Control workbench layout CSS contract", () => {
       readFile(commitHistoryParentLinkStylesheetUrl, "utf8"),
       readFile(gitStatusPageStylesheetUrl, "utf8"),
     ]);
-    // `SourceModeTabs` owns the stacked phone layout as a module variant; the
-    // page only chooses it with `variant="stacked"`.
-    const mobileTabs = getLastRuleDeclarations(
-      sourceModeTabsCss,
-      ".tabs.stacked",
-    );
+    // `SourceModeTabs` owns the stacked phone layout as a module variant (the
+    // shared Tabs `fill` layout plus a full-width row); the page only chooses
+    // it with `variant="stacked"`.
+    const mobileTabs = getLastRuleDeclarations(sourceModeTabsCss, ".stacked");
     const historyParentLink = getLastRuleDeclarations(
       commitHistoryParentLinkCss,
       ".link",
@@ -285,8 +283,7 @@ describe("Source Control workbench layout CSS contract", () => {
       "text-overflow",
     );
 
-    expect(mobileTabs).toMatch(/grid-auto-columns:\s*minmax\(0,\s*1fr\)\s*;/);
-    expect(mobileTabs).toMatch(/grid-auto-flow:\s*column\s*;/);
+    expect(mobileTabs).toMatch(/width:\s*100%\s*;/);
     expect(actionGroup).not.toMatch(/1fr/);
     expect(checkRemote).toMatch(/min-width:\s*0\s*;/);
     expect(checkRemote).toMatch(/text-overflow:\s*ellipsis\s*;/);

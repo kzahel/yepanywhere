@@ -64,6 +64,7 @@ import {
 } from "./SessionProviderPhase";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import styles from "./SessionListItem.module.css";
+import { Badge, type BadgeTone } from "./ui/Badge";
 import { ButtonBase } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { TextInput } from "./ui/Field";
@@ -123,7 +124,7 @@ interface SessionListItemProps {
   showActivityIndicator?: boolean;
 
   // Custom badge (for Inbox)
-  customBadge?: { label: string; className: string } | null;
+  customBadge?: { label: string; tone: BadgeTone } | null;
   /** Inbox rows open their pending delivery instead of the normal session tail. */
   openNonHumanUserTurn?: boolean;
 
@@ -496,14 +497,16 @@ export function SessionListItem({
   const getCompactActivityIndicator = () => {
     // External sessions always show external badge
     if (status?.owner === "external") {
-      return <span className="session-badge session-badge-external">Ext</span>;
+      return <Badge size="small">Ext</Badge>;
     }
 
     // Priority 1: Needs input
     if (pendingInputType) {
       const label = pendingInputType === "tool-approval" ? "Appr" : "Q";
       return (
-        <span className="session-badge session-badge-needs-input">{label}</span>
+        <Badge tone="warning" size="small">
+          {label}
+        </Badge>
       );
     }
 
@@ -951,19 +954,16 @@ export function SessionListItem({
                     <ClearloopRemainingBadge badge={clearloop} />
                   )}
                   {hasDraft && (
-                    <span className="session-draft-badge">Draft</span>
+                    <Badge tone="warning" size="small">
+                      Draft
+                    </Badge>
                   )}
                   {hasProjectQueue && (
-                    <span
-                      className="session-project-queue-badge"
-                      title={t("projectQueueSidebarBadge")}
-                    >
+                    <Badge size="small" tooltip={t("projectQueueSidebarBadge")}>
                       Q
-                    </span>
+                    </Badge>
                   )}
-                  {isArchived && (
-                    <span className="session-archived-badge">Archived</span>
-                  )}
+                  {isArchived && <Badge size="small">Archived</Badge>}
                 </strong>
                 <span className="session-list-item__meta">
                   {provider && (
@@ -996,22 +996,22 @@ export function SessionListItem({
                     </span>
                   )}
                   {executor && (
-                    <span
-                      className="session-badge session-badge-executor"
-                      title={`Running on ${executor}`}
+                    <Badge
+                      size="small"
+                      mono
+                      tooltip={`Running on ${executor}`}
+                      className={styles.executor}
                     >
-                      {executor}
-                    </span>
+                      <span className={styles.executorText}>{executor}</span>
+                    </Badge>
                   )}
                   {showContextUsage && (
                     <ContextUsageIndicator usage={contextUsage} size={14} />
                   )}
                   {customBadge && (
-                    <span
-                      className={`inbox-item-badge ${customBadge.className}`}
-                    >
+                    <Badge tone={customBadge.tone} size="small">
                       {customBadge.label}
-                    </span>
+                    </Badge>
                   )}
                   {showActivityIndicator &&
                     activity === "in-turn" &&
@@ -1099,29 +1099,32 @@ export function SessionListItem({
                   )}
                 </span>
                 {hasSessionApp && (
-                  <span className={styles.appChip}>
-                    {t("sessionRightPaneApps")}
-                  </span>
+                  <Badge size="small">{t("sessionRightPaneApps")}</Badge>
                 )}
-                {hasDraft && <span className="session-draft-badge">Draft</span>}
+                {hasDraft && (
+                  <Badge tone="warning" size="small">
+                    Draft
+                  </Badge>
+                )}
                 {hasProjectQueue && (
-                  <span
-                    className="session-project-queue-badge"
-                    title={t("projectQueueSidebarBadge")}
-                  >
+                  <Badge size="small" tooltip={t("projectQueueSidebarBadge")}>
                     Q
-                  </span>
+                  </Badge>
                 )}
                 {providerChildren.length > 0 && (
                   <span
-                    className={`${styles.providerChildrenBadge} ${
-                      hasUnread ? styles.providerChildrenBadgeUnread : ""
-                    }`}
+                    className={styles.providerChildrenCount}
                     role="img"
                     title={providerChildrenTooltip}
                     aria-label={providerChildrenLabel}
                   >
-                    {providerChildren.length}
+                    <Badge
+                      shape="count"
+                      size="small"
+                      emphasis={hasUnread ? "solid" : "soft"}
+                    >
+                      {providerChildren.length}
+                    </Badge>
                   </span>
                 )}
               </span>

@@ -14,6 +14,7 @@ import {
 import { useI18n } from "../i18n";
 import { FilterDropdown } from "./FilterDropdown";
 import styles from "./RouterPoolSelector.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 export interface RouterSelection {
   sourceKey: string;
@@ -757,21 +758,22 @@ export function RouterPoolSelector({
           triggerClassName={styles.leftAlignedTrigger}
         />
         {error ? (
-          <div className={styles.status} role="alert">
-            <span>{t("routerDiscoveryFailed")}</span>
-            <Button
-              variant="ghost"
-              size="small"
-              className={styles.retry}
-              onClick={retry}
-            >
-              {t("routerRetry")}
-            </Button>
-          </div>
+          <Banner
+            tone="error"
+            compact
+            className={styles.message}
+            actions={
+              <Button variant="ghost" size="small" onClick={retry}>
+                {t("routerRetry")}
+              </Button>
+            }
+          >
+            {t("routerDiscoveryFailed")}
+          </Banner>
         ) : unavailable ? (
-          <div className={`${styles.status} ${styles.warning}`} role="status">
-            <span>{t("routerSelectionUnavailable")}</span>
-          </div>
+          <Banner tone="warning" compact className={styles.message}>
+            {t("routerSelectionUnavailable")}
+          </Banner>
         ) : busy ? (
           <div className={styles.status} role="status">
             <span>{t("routerChecking")}</span>

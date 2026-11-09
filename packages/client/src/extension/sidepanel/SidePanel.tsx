@@ -8,6 +8,7 @@ import { ProviderBadge } from "../../components/ProviderBadge";
 import { SessionProviderPhasePill } from "../../components/SessionProviderPhase";
 import { NotificationBadge } from "../../components/StatusBadge";
 import { ThinkingIndicator } from "../../components/ThinkingIndicator";
+import { Badge } from "../../components/ui/Badge";
 import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import { formatBriefAge } from "../../lib/sessionAge";
@@ -616,13 +617,14 @@ export function SidePanel() {
               (item) => item.host.id === host.id && item.status === "ok",
             );
             return (
-              <span key={host.id} className={styles.hostChip}>
-                <span
-                  className={online ? styles.online : styles.offline}
-                  aria-hidden="true"
-                />
+              <Badge
+                key={host.id}
+                icon={
+                  <span className={online ? styles.online : styles.offline} />
+                }
+              >
                 {host.displayName}
-              </span>
+              </Badge>
             );
           })}
         </span>

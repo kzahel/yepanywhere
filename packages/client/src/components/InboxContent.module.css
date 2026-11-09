@@ -10,14 +10,7 @@
  *   - `inbox-toolbar` is also rendered by `pages/ProjectsPage.tsx` and
  *     `pages/GlobalSessionsPage.tsx`.
  *   - `inbox-empty` is also rendered by both of those pages.
- *   - `inbox-item-badge` is produced by `SessionListItem.tsx`, which
- *     composes it with the `customBadge.className` supplied from here.
- * The refresh button is a shared Button; its spinning icon is
- * `.refreshSpinner`, the one refresh button in the app that spins.
- *
- * `spin` is duplicated here rather than shared: CSS Modules scopes
- * keyframe names, and the global copies in `styles/index.css` still
- * animate `.system-message-icon.spinning`.
+ * The refresh button is a shared Button showing its `busy` spinner.
  */
 
 .root {
@@ -26,19 +19,6 @@
 
 .toolbar {
   flex-wrap: wrap;
-}
-
-.refreshSpinner {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .tiers {
@@ -194,17 +174,6 @@
   font-style: italic;
 }
 
-/* Inbox badges (used by SessionListItem customBadge) */
-.badgeApproval {
-  background: rgba(77, 170, 252, 0.15);
-  color: var(--attention-color);
-}
-
-.badgeQuestion {
-  background: rgba(77, 170, 252, 0.15);
-  color: var(--attention-color);
-}
-
 .queueItem {
   list-style: none;
 }
@@ -247,15 +216,8 @@
   -webkit-line-clamp: 2;
 }
 
-.queueItemTargetBadge {
+.queueItemBadge {
   flex-shrink: 0;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .queueItemPreview {

@@ -1,3 +1,4 @@
+import { Tabs } from "../components/ui/Tabs";
 import type { MessageKey, TranslationFn } from "../i18n";
 import styles from "./SourceModeTabs.module.css";
 
@@ -33,35 +34,22 @@ export function SourceModeTabs({
   t: TranslationFn;
 }) {
   return (
-    <div
-      className={`${styles.tabs} ${
-        variant === "stacked" ? styles.stacked : ""
-      }`.trimEnd()}
-      role="tablist"
-    >
-      {tabs.map((key) => {
-        const count = counts?.[key];
-        return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            className={`${styles.tab} ${tab === key ? styles.active : ""}`.trimEnd()}
-            onClick={() => onSelect(key)}
-          >
-            {t(
-              key === "files" && fileTabLabelKey
-                ? fileTabLabelKey
-                : sourceTabLabelKey(key),
-            )}
-            {typeof count === "number" && count > 0 && (
-              <span className={styles.count}>{count}</span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+    <Tabs
+      variant="pill"
+      layout={variant === "stacked" ? "fill" : "inline"}
+      className={variant === "stacked" ? styles.stacked : undefined}
+      value={tab}
+      onChange={onSelect}
+      tabs={tabs.map((key) => ({
+        value: key,
+        label: t(
+          key === "files" && fileTabLabelKey
+            ? fileTabLabelKey
+            : sourceTabLabelKey(key),
+        ),
+        count: counts?.[key],
+      }))}
+    />
   );
 }
 

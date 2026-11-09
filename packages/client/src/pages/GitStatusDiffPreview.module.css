@@ -1,9 +1,5 @@
-.plainNotice {
-  padding: 0.45rem 0.75rem;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+.notice {
+  margin: var(--space-1) var(--space-2);
 }
 
 /* The toolbar's width-adaptive layout is the shared `ViewerHeader.module.css`,

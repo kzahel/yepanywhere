@@ -23,6 +23,7 @@ import { api } from "../api/client";
 import { CopyButton } from "../components/CopyButton";
 import { FileRevisionLink } from "../components/FileRevisionLink";
 import { MarkdownPreview } from "../components/MarkdownPreview";
+import { Banner } from "../components/ui/Banner";
 import { IconButton } from "../components/ui/Button";
 import { renderFixedFontRichContent } from "../components/ui/FixedFontMathToggle";
 import { Modal } from "../components/ui/Modal";
@@ -688,29 +689,26 @@ export function GitDiffBody({
       {initialLoading && (
         <div className="git-diff-loading">{t("gitStatusLoadingDiff")}</div>
       )}
-      {!diffResult && error && <div className="git-diff-error">{error}</div>}
+      {error && <Banner tone="error">{error}</Banner>}
       {diffResult && (
-        <>
-          {error && <div className="git-diff-error">{error}</div>}
-          <GitDiffContent
-            key={requestKey}
-            file={file}
-            fileKey={fileKey}
-            projectId={projectId}
-            source={source}
-            diffResult={diffResult}
-            retainedDiffView={liveDiffViewRef.current.view}
-            onRetainDiffView={retainLiveDiffView}
-            paneHeader={paneHeader}
-            onHunkNavigationChange={onHunkNavigationChange}
-            onCommentEditorOpenChange={onCommentEditorOpenChange}
-            captureReviewProjections={captureReviewProjections}
-            ignoreWhitespace={ignoreWhitespace}
-            onToggleIgnoreWhitespace={onToggleIgnoreWhitespace}
-            onProjectionRequestFailure={onProjectionRequestFailure}
-            t={t}
-          />
-        </>
+        <GitDiffContent
+          key={requestKey}
+          file={file}
+          fileKey={fileKey}
+          projectId={projectId}
+          source={source}
+          diffResult={diffResult}
+          retainedDiffView={liveDiffViewRef.current.view}
+          onRetainDiffView={retainLiveDiffView}
+          paneHeader={paneHeader}
+          onHunkNavigationChange={onHunkNavigationChange}
+          onCommentEditorOpenChange={onCommentEditorOpenChange}
+          captureReviewProjections={captureReviewProjections}
+          ignoreWhitespace={ignoreWhitespace}
+          onToggleIgnoreWhitespace={onToggleIgnoreWhitespace}
+          onProjectionRequestFailure={onProjectionRequestFailure}
+          t={t}
+        />
       )}
     </>
   );
@@ -1348,16 +1346,16 @@ function GitDiffContent({
           <div className="diff-context-buttons">{toolbarButtons}</div>
         </div>
       )}
-      {contextError && <div className="diff-context-error">{contextError}</div>}
+      {contextError && <Banner tone="error">{contextError}</Banner>}
       <div
         className="diff-modal-content source-diff-pane diff-gutter-aligned"
         ref={mountContent}
         style={{ "--diff-sticky-top": `${toolbarHeight}px` } as CSSProperties}
       >
         {plainDiff && !previewSkipped && !showingMarkdownPreview && (
-          <div className={styles.plainNotice}>
+          <Banner role="none" compact className={styles.notice}>
             {t("gitStatusDiffPlainMode")}
-          </div>
+          </Banner>
         )}
         {showingMarkdownPreview && renderedPreviewHtml ? (
           <MarkdownPreview html={renderedPreviewHtml} sourcePath={file.path} />

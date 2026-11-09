@@ -31,24 +31,15 @@
   white-space: nowrap;
   font-size: 12px;
 }
-.status,
-.notice,
-.error,
-.confirm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
 .status {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  padding: 6px 12px;
+  font-size: 13px;
 }
-.notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  background: var(--bg-secondary);
+.message {
+  margin: 4px 12px;
 }
 .rebuildControls {
   display: inline-flex;
@@ -67,15 +58,6 @@
   padding: 8px;
   background: var(--bg-code, var(--bg-secondary));
   white-space: pre-wrap;
-}
-.error {
-  color: var(--error-color, #e66);
-}
-.confirm {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
 }
 .panes {
   display: flex;
@@ -125,7 +107,7 @@
 .targetPicker {
   padding: 8px;
 }
-.tabs {
+.views {
   display: none;
 }
 @media (width <= 650px) {
@@ -135,7 +117,7 @@
   .identity {
     flex-basis: 100%;
   }
-  .tabs {
+  .views {
     display: flex;
     padding: 6px 12px;
   }

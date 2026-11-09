@@ -67,15 +67,6 @@
   gap: var(--space-2, 8px);
 }
 
-.targetError,
-.error {
-  color: var(--error-color);
-}
-
-.targetError {
-  font-size: 0.78rem;
-}
-
 .actions {
   display: flex;
   align-items: end;

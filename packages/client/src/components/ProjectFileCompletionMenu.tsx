@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { useI18n } from "../i18n";
 import styles from "./ProjectFileCompletionMenu.module.css";
+import { Badge } from "./ui/Badge";
 
 /** What a path completion source exposes to its sheet. */
 export interface PathCompletionMenuModel<Entry extends { path: string }> {
@@ -114,7 +115,11 @@ export function ProjectFileCompletionMenu<
           <span className={styles.parent}>
             {highlighted(parent, 0, matched)}
           </span>
-          {label && <span className={styles.kind}>{label}</span>}
+          {label && (
+            <Badge size="small" className={styles.kind}>
+              {label}
+            </Badge>
+          )}
         </button>
         {rowAction?.(entry)}
       </div>

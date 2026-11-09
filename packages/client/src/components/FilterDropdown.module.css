@@ -90,10 +90,13 @@
 
 .meta,
 .count {
-  display: inline-flex;
   flex-shrink: 0;
-  align-items: center;
   margin-left: auto;
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
 }
 
 /*

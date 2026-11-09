@@ -48,16 +48,6 @@
   font-size: 0.78rem;
 }
 
-.warning {
-  color: var(--warning-color);
-  font-size: 0.78rem;
-}
-
-.notice {
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-}
-
 .rowActions {
   align-items: center;
   display: flex;
@@ -94,10 +84,6 @@
 .iconButtonDanger svg {
   height: 13px;
   width: 13px;
-}
-
-.error {
-  color: var(--error-color);
 }
 
 .empty {

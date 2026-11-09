@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
+import { Spinner } from "./ui/Spinner";
 
 function formatElapsed(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -41,10 +42,7 @@ export function ForkSummaryDisplayObject({
         role="status"
         aria-live="polite"
       >
-        <span
-          className="fork-summary-display-object-spinner"
-          aria-hidden="true"
-        />
+        <Spinner size="small" />
         <span className="fork-summary-display-object-label">
           {t("forkSummaryProgress")}
         </span>

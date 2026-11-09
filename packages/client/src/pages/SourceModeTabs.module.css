@@ -1,65 +1,8 @@
-/* Source Control mode tabs: top-right in a wide header, full-width on phones. */
-.tabs {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-md, 8px);
-}
-
-.tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 4px 12px;
-  font-size: 0.85rem;
-  color: var(--text-secondary, #8b949e);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--text-primary, #e6edf3);
-}
-
-/* Distinct from bg-elevated: the tabs sit inside the elevated status bar. */
-.tab.active {
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-}
-
-.count {
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  color: var(--text-secondary, #8b949e);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-  font-variant-numeric: tabular-nums;
-}
-
 /* The `stacked` variant is the phone layout, where the tab strip is its own
    full-width row above the action row instead of sitting in the page header. */
 @media (width < 760px) {
-  .tabs.stacked {
-    display: grid;
-    grid-auto-columns: minmax(0, 1fr);
-    grid-auto-flow: column;
-    justify-content: space-between;
+  .stacked {
     box-sizing: border-box;
     width: 100%;
-  }
-
-  .tabs.stacked .tab {
-    min-width: 0;
-    padding-inline: 4px;
-    font-size: 0.8rem;
-  }
-
-  .tabs.stacked .count {
-    padding-inline: 4px;
   }
 }

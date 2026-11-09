@@ -10,6 +10,7 @@ import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import styles from "./ProjectSessionDefaultsModal.module.css";
+import { Banner } from "./ui/Banner";
 import { Select } from "./ui/Field";
 
 /**
@@ -117,9 +118,9 @@ export function ProjectSharingSection({
         </ul>
       )}
       {error && (
-        <p className={styles.error} role="alert">
+        <Banner tone="error" compact>
           {error}
-        </p>
+        </Banner>
       )}
     </section>
   );

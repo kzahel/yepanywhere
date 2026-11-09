@@ -59,8 +59,11 @@ import {
   useClientSummarySourceKey,
 } from "../lib/clientSummaryStore";
 import { writeClipboardText } from "../lib/clipboard";
+import { Badge } from "../components/ui/Badge";
+import { Banner } from "../components/ui/Banner";
 import { Modal } from "../components/ui/Modal";
 import { CommitHistoryParentLink } from "./CommitHistoryParentLink";
+import { SourceCommentCountBadge } from "./SourceCommentCountBadge";
 import styles from "./WorkingTreeBrowser.module.css";
 import {
   GitDiffModal,
@@ -199,14 +202,7 @@ const WorkingTreeFileRow = memo(function WorkingTreeFileRow({
             ) : null}
           </span>
         )}
-        {commentCount > 0 && (
-          <span
-            className="source-comment-badge"
-            title={t("sourceCommentCount", { count: commentCount })}
-          >
-            {commentCount}
-          </span>
-        )}
+        <SourceCommentCountBadge count={commentCount} t={t} />
         <SourceReviewStateBadges states={reviewStates} t={t} />
       </SourceFileRowButton>
       {!isFolder && (
@@ -1034,14 +1030,15 @@ export function WorkingTreeBrowser({
                   <span className="source-detail-subject">
                     {t("sourceWorkingTree")}
                   </span>
-                  <span
-                    className="working-tree-detail-count"
-                    title={t("sourceChangedFileCount", {
+                  <Badge
+                    shape="count"
+                    size="small"
+                    tooltip={t("sourceChangedFileCount", {
                       count: files.length,
                     })}
                   >
                     {files.length}
-                  </span>
+                  </Badge>
                 </span>
                 <span
                   className="source-detail-title"
@@ -1077,9 +1074,9 @@ export function WorkingTreeBrowser({
               </span>
             )}
             {effectiveInventoryPending && effectiveInventoryError && (
-              <span className={styles.scanProgress} role="alert">
+              <Banner tone="error" compact className={styles.scanNotice}>
                 {t("gitStatusErrorPrefix")} {effectiveInventoryError.message}
-              </span>
+              </Banner>
             )}
             {supportsUntrackedCache && untrackedFiles?.truncated && (
               <span className={styles.scanProgress} role="status">
@@ -1101,9 +1098,9 @@ export function WorkingTreeBrowser({
               </span>
             )}
             {untrackedCacheError && (
-              <span className={styles.scanProgress} role="status">
+              <Banner tone="warning" compact className={styles.scanNotice}>
                 {t("sourceUntrackedCacheError")}
-              </span>
+              </Banner>
             )}
             <ChangesetFileFilter
               query={fileQuery}

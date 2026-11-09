@@ -6,15 +6,17 @@ import { useId } from "react";
 import { useI18n } from "../i18n";
 import { ProviderBadge } from "./ProviderBadge";
 import styles from "./NewSessionProjectQueue.module.css";
+import { Badge, type BadgeTone } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { ButtonBase } from "./ui/Button";
 import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
 
 type Translate = ReturnType<typeof useI18n>["t"];
 
-const STATUS_CLASS: Record<ProjectQueueItemStatus, string | undefined> = {
-  queued: undefined,
-  dispatching: styles.statusDispatching,
-  failed: styles.statusFailed,
+const STATUS_TONE: Record<ProjectQueueItemStatus, BadgeTone> = {
+  queued: "neutral",
+  dispatching: "info",
+  failed: "danger",
 };
 
 function statusLabel(status: ProjectQueueItemStatus, t: Translate): string {
@@ -86,9 +88,9 @@ export function NewSessionProjectQueue({
       </div>
 
       {error && (
-        <p className={styles.error} role="alert">
+        <Banner tone="error" compact>
           {t("projectQueueLoadError", { message: error.message })}
-        </p>
+        </Banner>
       )}
 
       <ul className={styles.list}>
@@ -108,11 +110,13 @@ export function NewSessionProjectQueue({
               >
                 <span className={styles.itemHeading}>
                   <strong className={styles.itemTitle}>{title}</strong>
-                  <span
-                    className={`${styles.status} ${STATUS_CLASS[item.status] ?? ""}`}
+                  <Badge
+                    size="small"
+                    tone={STATUS_TONE[item.status]}
+                    className={styles.status}
                   >
                     {statusLabel(item.status, t)}
-                  </span>
+                  </Badge>
                 </span>
                 <span className={styles.targetRow}>
                   <span className={styles.target}>{targetLabel(item, t)}</span>

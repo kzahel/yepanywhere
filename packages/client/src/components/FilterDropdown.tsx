@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { useI18n } from "../i18n";
 import styles from "./FilterDropdown.module.css";
+import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import {
   Menu,
@@ -197,7 +198,9 @@ export function FilterDropdown<T extends string>({
           <span className={styles.optionLabel}>{option.label}</span>
           {option.meta && <span className={styles.meta}>{option.meta}</span>}
           {option.count !== undefined && (
-            <span className={styles.count}>{option.count}</span>
+            <Badge shape="count" size="small" className={styles.count}>
+              {option.count}
+            </Badge>
           )}
         </span>
       </MenuItem>

@@ -6,6 +6,7 @@ import { deriveReviewSubmissionName } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ReviewPreviewItem } from "../api/reviewClient";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../components/ui/Field";
@@ -193,8 +194,8 @@ export function ReviewSubmitModal({
   return (
     <Modal title={t("sourceReviewSubmitTitle")} onClose={onClose}>
       <div className={styles.modal}>
-        {error && <div className={styles.error}>{error}</div>}
-        {notice && <div role="status">{notice}</div>}
+        {error && <Banner tone="error">{error}</Banner>}
+        {notice && <Banner tone="success">{notice}</Banner>}
         {items === null ? (
           <div>{t("loading")}</div>
         ) : items.length === 0 ? (
@@ -215,7 +216,14 @@ export function ReviewSubmitModal({
 
         {items && items.length > 0 && (
           <div className={styles.destination}>
-            <Field label={t("sourceReviewTargetLegend")}>
+            <Field
+              label={t("sourceReviewTargetLegend")}
+              error={
+                sessionsError
+                  ? `${t("sourceReviewSessionsUnavailable")}: ${sessionsError}`
+                  : undefined
+              }
+            >
               <Select
                 value={targetSessionId}
                 onChange={(event) => {
@@ -245,12 +253,6 @@ export function ReviewSubmitModal({
                 ))}
               </Select>
             </Field>
-
-            {sessionsError && (
-              <div className={styles.targetError}>
-                {t("sourceReviewSessionsUnavailable")}: {sessionsError}
-              </div>
-            )}
 
             {targetSessionId === "new" && (
               <div className={styles.newSession}>

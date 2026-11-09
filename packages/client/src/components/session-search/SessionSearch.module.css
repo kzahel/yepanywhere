@@ -280,10 +280,6 @@
   width: max-content;
   white-space: nowrap;
 }
-.error {
-  color: var(--error-color);
-  font-size: 12px;
-}
 .footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

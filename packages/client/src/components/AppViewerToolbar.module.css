@@ -35,13 +35,10 @@
 }
 /* Below the toolbar at whatever height its controls give it (44 px on
    touch). The header is the containing block in both states. */
-.error {
+.failure {
   position: absolute;
   top: 100%;
   right: 0;
   z-index: 4;
   max-width: 100%;
-  padding: 8px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
 }

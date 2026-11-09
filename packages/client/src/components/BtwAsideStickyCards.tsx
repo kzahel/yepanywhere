@@ -1,5 +1,7 @@
 import { useI18n } from "../i18n";
 import { BtwAsideTranscript, type BtwAsidePaneItem } from "./BtwAsidePane";
+import styles from "./BtwAsideStickyCards.module.css";
+import { Banner } from "./ui/Banner";
 import { Button, ButtonBase } from "./ui/Button";
 
 export interface BtwAsideStickyCardItem extends BtwAsidePaneItem {
@@ -72,10 +74,12 @@ export function BtwAsideStickyCards({
               {aside.preview && (
                 <span className="btw-aside-preview">{aside.preview}</span>
               )}
-              {aside.error && (
-                <span className="btw-aside-error">{aside.error}</span>
-              )}
             </ButtonBase>
+            {aside.error && (
+              <Banner tone="error" compact className={styles.failure}>
+                {aside.error}
+              </Banner>
+            )}
             {aside.expanded && canExpand && (
               <BtwAsideTranscript
                 aside={aside}

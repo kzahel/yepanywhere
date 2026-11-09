@@ -1,6 +1,7 @@
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import styles from "./ProviderHostDegradedBanner.module.css";
+import { Banner } from "./ui/Banner";
 
 export function shouldShowProviderHostDegradedBanner(
   version: { providerHostDegraded?: boolean } | null | undefined,
@@ -14,13 +15,13 @@ export function ProviderHostDegradedBanner() {
   if (!shouldShowProviderHostDegradedBanner(version)) return null;
 
   return (
-    <div
+    <Banner
+      tone="error"
       className={styles.root}
-      role="alert"
+      title={t("providerHostDegradedTitle")}
       data-provider-host-degraded="true"
     >
-      <p className={styles.title}>{t("providerHostDegradedTitle")}</p>
       <p className={styles.body}>{t("providerHostDegradedDescription")}</p>
-    </div>
+    </Banner>
   );
 }

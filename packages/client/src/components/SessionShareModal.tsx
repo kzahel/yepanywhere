@@ -13,9 +13,11 @@ import {
   PublicShareManagerModal,
   type PublicShareCreationIdentity,
 } from "./PublicShareManagerModal";
+import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Field, TextInput } from "./ui/Field";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
+import { Spinner } from "./ui/Spinner";
 import { ViewerCountIndicator } from "./ViewerCountIndicator";
 
 export interface SessionShareModalProps {
@@ -322,24 +324,20 @@ export function LegacySessionShareModal({
           </Field>
         )}
 
-        {error && <div className="session-share-error">{error}</div>}
-        {result && <div className="session-share-status">{result}</div>}
+        {error && <Banner tone="error">{error}</Banner>}
+        {result && <Banner tone="success">{result}</Banner>}
         {createdLinkedFileMode === "live" && (
-          <div className="session-share-error" role="note">
+          <Banner tone="warning" role="none">
             {t("publicShareFrozenLinkedFilesLiveWarning")}
-          </div>
+          </Banner>
         )}
 
         {statusLoading && (
-          <div className="session-share-status" role="status">
-            {t("publicShareManagementLoadingExisting")}
+          <div role="status">
+            <Spinner size="small" /> {t("publicShareManagementLoadingExisting")}
           </div>
         )}
-        {statusError && (
-          <div className="session-share-error" role="alert">
-            {statusError}
-          </div>
-        )}
+        {statusError && <Banner tone="error">{statusError}</Banner>}
         {onManage && (
           <Button size="small" onClick={onManage}>
             {t("publicShareManagementManageSession")}

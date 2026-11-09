@@ -13,6 +13,7 @@ import {
 } from "@yep-anywhere/shared";
 import { type ReactNode, useMemo, useState } from "react";
 import styles from "./NewSessionForm.module.css";
+import { Banner } from "./ui/Banner";
 import { Button, IconButton } from "./ui/Button";
 import type { useNewSessionOptions } from "../hooks/useNewSessionOptions";
 import { type MessageKey, useI18n } from "../i18n";
@@ -852,12 +853,14 @@ export function NewSessionOptionsPanel({
             triggerClassName={styles.leftAlignedTrigger}
           />
           {sandboxLocalAuthOpen && (
-            <p
+            <Banner
+              tone="warning"
+              compact
               className={styles.optionWarning}
               data-new-session-sandbox-local-auth-warning="true"
             >
               {t("newSessionSandboxLocalAuthWarning")}
-            </p>
+            </Banner>
           )}
         </NewSessionOptionSection>
       )}

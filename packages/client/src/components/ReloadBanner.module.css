@@ -1,8 +1,8 @@
 /*
- * Reload notice: the fixed bottom-right stack, the banner itself, its
- * message and warning text, and the layout of its reload / safe-restart /
- * dismiss buttons, which are shared Buttons that own their look. Rules
- * move here in their original cascade order.
+ * Reload notice: the fixed bottom-right stack, the placement of the shared
+ * Banner inside it (the Banner owns the box, tone and dismiss button), its
+ * message and warning text, and the layout of its reload / safe-restart
+ * buttons, which are shared Buttons that own their look.
  *
  * Two literals stay on the elements alongside these module classes:
  *
@@ -38,39 +38,18 @@
 
 .banner {
   position: relative;
-  display: flex;
   width: max-content;
   max-width: 100%;
-  min-height: 40px;
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
   box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  color: #000;
-  background: var(--warning-color);
-  border: 1px solid rgba(0, 0, 0, 0.24);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-}
-
-.content,
-.actions {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
 }
 
 .content {
+  display: inline-flex;
+  align-items: center;
   flex: 1 1 auto;
   gap: var(--space-2);
-}
-
-.actions {
-  gap: var(--space-1);
-  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .message {
@@ -106,18 +85,6 @@
   transform: translateY(1px);
 }
 
-/* The ghost dismiss takes the banner's dark text: the control's muted
-   ghost color is unreadable on the amber and red fills. Compound so it
-   outranks the shared variant regardless of stylesheet order. */
-.banner .dismiss {
-  color: inherit;
-}
-
-/* Warning state for unsafe restart */
-.warning {
-  background: var(--error-color);
-}
-
 /* Mobile adjustments */
 @media (width <= 600px) {
   .stack {
@@ -130,37 +97,16 @@
   }
 
   .banner {
-    align-items: stretch;
-    justify-content: center;
-    flex-direction: column;
-    gap: var(--space-1);
     width: 100%;
     max-width: none;
-    min-height: 0;
-    padding: var(--space-1) var(--space-2);
-  }
-
-  .content,
-  .actions {
-    width: 100%;
   }
 
   .content {
+    width: 100%;
     justify-content: flex-start;
-    min-height: 26px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .actions {
-    justify-content: flex-end;
-    gap: var(--space-1);
-    min-height: 30px;
-  }
-
-  .message {
-    flex-shrink: 0;
   }
 
   .warningText {

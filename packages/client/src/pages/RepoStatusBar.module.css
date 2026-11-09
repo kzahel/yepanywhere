@@ -93,14 +93,13 @@
   flex-shrink: 0;
 }
 
-.badge.clean {
-  color: var(--success-color);
-  background: color-mix(in srgb, var(--success-color) 14%, transparent);
-}
-
 .badge.dirty {
   color: var(--warning-color);
   background: color-mix(in srgb, var(--warning-color) 16%, transparent);
+}
+
+.state {
+  flex-shrink: 0;
 }
 
 .badgeAction:hover {

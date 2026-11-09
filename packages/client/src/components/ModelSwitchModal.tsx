@@ -11,6 +11,7 @@ import {
   Fragment,
   type ReactNode,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -49,9 +50,32 @@ import {
 } from "../lib/serviceTiers";
 import { ProviderBadge } from "./ProviderBadge";
 import { ModelSubscriptionUsage } from "./ModelSubscriptionUsage";
+import { Badge } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
+import { Spinner } from "./ui/Spinner";
+import { TabPanel, Tabs } from "./ui/Tabs";
+
+/** The pane is a tab panel only when the info tab exists. */
+function MaybeTabPanel({
+  tabsId,
+  value,
+  children,
+}: {
+  tabsId?: string;
+  value: string;
+  children: ReactNode;
+}) {
+  return tabsId ? (
+    <TabPanel tabsId={tabsId} value={value}>
+      {children}
+    </TabPanel>
+  ) : (
+    children
+  );
+}
 
 interface ModelSwitchModalProps {
   /** Session uses an AAR account pin. */
@@ -162,6 +186,7 @@ export function ModelSwitchModal({
   const [activeTab, setActiveTab] = useState<"model" | "info">(
     initialTab ?? "model",
   );
+  const tabsId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
   const dismissedRef = useRef(false);
   const [activating, setActivating] = useState(false);
@@ -447,18 +472,17 @@ export function ModelSwitchModal({
     effort: EffortLevel,
     tone: string,
   ) => (
-    <span className="model-switch-action-badge">
-      <span
-        className={`model-switch-indicator-dot tone-${tone}`}
-        aria-hidden="true"
-      />
+    <Badge
+      size="small"
+      icon={<span className={`model-switch-indicator-dot tone-${tone}`} />}
+    >
       <span className="model-switch-action-badge-main">
         {modelId ?? t("processInfoDefaultModel")}
       </span>
       <span className="model-switch-action-badge-detail">
         {renderThinkingLabel(mode, effort)}
       </span>
-    </span>
+    </Badge>
   );
   const renderInlineSave = () => (
     <Button
@@ -477,347 +501,344 @@ export function ModelSwitchModal({
     >
       <div ref={contentRef} className="model-switch-content">
         {infoPane && (
-          <div className="model-switch-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "model"}
-              className={`model-switch-tab ${activeTab === "model" ? "active" : ""}`}
-              onClick={() => handleTabChange("model")}
-            >
-              {t("newSessionModelTitle")}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "info"}
-              className={`model-switch-tab ${activeTab === "info" ? "active" : ""}`}
-              onClick={() => handleTabChange("info")}
-            >
-              {t("processInfoTitle")}
-            </button>
-          </div>
+          <Tabs
+            id={tabsId}
+            className="model-switch-tabs"
+            value={activeTab}
+            onChange={handleTabChange}
+            tabs={[
+              { value: "model", label: t("newSessionModelTitle") },
+              { value: "info", label: t("processInfoTitle") },
+            ]}
+          />
         )}
-        {infoPane && activeTab === "info" && (
-          <div className="model-switch-info-pane">{infoPane}</div>
-        )}
-        {(!infoPane || activeTab === "model") && loading && (
-          <div className="model-switch-loading">{t("modelSwitchLoading")}</div>
-        )}
+        <MaybeTabPanel tabsId={infoPane ? tabsId : undefined} value={activeTab}>
+          {infoPane && activeTab === "info" && (
+            <div className="model-switch-info-pane">{infoPane}</div>
+          )}
+          {(!infoPane || activeTab === "model") && loading && (
+            <div className="model-switch-loading">
+              <Spinner size="small" /> {t("modelSwitchLoading")}
+            </div>
+          )}
 
-        {(!infoPane || activeTab === "model") && !loading && (
-          <>
-            <div className="model-switch-status">
-              <div className="model-switch-status-row">
-                <span className="model-switch-status-marker">
-                  {processId
-                    ? t("modelSwitchCurrent")
-                    : t("modelSwitchNextSend")}
-                </span>
-                <span
-                  className={`model-switch-indicator-dot tone-${currentIndicatorTone}`}
-                  aria-hidden="true"
-                />
-                <span className="model-switch-status-main">
-                  {currentModelId ??
-                    currentModel ??
-                    t("processInfoDefaultModel")}
-                </span>
-                <span className="model-switch-status-detail">
-                  {renderThinkingLabel(currentThinkingMode, currentEffortLevel)}
-                </span>
-              </div>
-              {dirty && (
-                <div className="model-switch-status-row pending">
-                  <span
-                    className="model-switch-status-marker"
-                    aria-hidden="true"
-                  >
-                    →
+          {(!infoPane || activeTab === "model") && !loading && (
+            <>
+              <div className="model-switch-status">
+                <div className="model-switch-status-row">
+                  <span className="model-switch-status-marker">
+                    {processId
+                      ? t("modelSwitchCurrent")
+                      : t("modelSwitchNextSend")}
                   </span>
                   <span
-                    className={`model-switch-indicator-dot tone-${pendingIndicatorTone}`}
+                    className={`model-switch-indicator-dot tone-${currentIndicatorTone}`}
                     aria-hidden="true"
                   />
                   <span className="model-switch-status-main">
-                    {selectedModel ??
-                      currentModelId ??
+                    {currentModelId ??
+                      currentModel ??
                       t("processInfoDefaultModel")}
                   </span>
                   <span className="model-switch-status-detail">
                     {renderThinkingLabel(
-                      effectiveThinkingMode,
-                      effectiveEffortLevel,
+                      currentThinkingMode,
+                      currentEffortLevel,
                     )}
                   </span>
                 </div>
+                {dirty && (
+                  <div className="model-switch-status-row pending">
+                    <span
+                      className="model-switch-status-marker"
+                      aria-hidden="true"
+                    >
+                      →
+                    </span>
+                    <span
+                      className={`model-switch-indicator-dot tone-${pendingIndicatorTone}`}
+                      aria-hidden="true"
+                    />
+                    <span className="model-switch-status-main">
+                      {selectedModel ??
+                        currentModelId ??
+                        t("processInfoDefaultModel")}
+                    </span>
+                    <span className="model-switch-status-detail">
+                      {renderThinkingLabel(
+                        effectiveThinkingMode,
+                        effectiveEffortLevel,
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {!processId && (
+                <div className="model-switch-activate">
+                  <span className="model-switch-activate-note">
+                    {t("processInfoNoActiveProcess")}
+                  </span>
+                  {onActivate && (
+                    <Button
+                      className="model-switch-inline-save"
+                      onClick={handleActivate}
+                      disabled={activating}
+                    >
+                      {activating
+                        ? t("modelSwitchActivating")
+                        : t("modelSwitchActivate")}
+                    </Button>
+                  )}
+                  {activateError && (
+                    <Banner tone="error">{activateError}</Banner>
+                  )}
+                </div>
               )}
-            </div>
-            {!processId && (
-              <div className="model-switch-activate">
-                <span className="model-switch-activate-note">
-                  {t("processInfoNoActiveProcess")}
-                </span>
-                {onActivate && (
-                  <Button
-                    className="model-switch-inline-save"
-                    onClick={handleActivate}
-                    disabled={activating}
-                  >
-                    {activating
-                      ? t("modelSwitchActivating")
-                      : t("modelSwitchActivate")}
-                  </Button>
-                )}
-                {activateError && (
-                  <div className="model-switch-error">{activateError}</div>
-                )}
-              </div>
-            )}
-            {error && <div className="model-switch-error">{error}</div>}
+              {error && <Banner tone="error">{error}</Banner>}
 
-            {processId && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
-                  <strong>{t("modelSwitchThinkingModeTitle")}</strong>
-                </div>
-                <div className="model-switch-chip-group">
-                  <SegmentedControl
-                    variant="cards"
-                    aria-label={t("modelSwitchThinkingModeTitle")}
-                    options={thinkingModeOptions.map((mode) => ({
-                      value: mode,
-                      icon: (
-                        <span
-                          className={`model-switch-indicator-dot tone-${
-                            mode === "off"
-                              ? "off"
-                              : mode === "auto"
-                                ? "auto"
-                                : effectiveEffortLevel
-                          }`}
-                        />
-                      ),
-                      label:
-                        mode === "off"
-                          ? t("modelSettingsThinkingOffLabel")
-                          : mode === "auto"
-                            ? t("modelSettingsThinkingAutoLabel")
-                            : t("modelSettingsThinkingOnLabel"),
-                      // The setting the session runs with, beside the pending pick.
-                      description:
-                        currentThinkingMode === mode
-                          ? t("modelSwitchCurrent")
-                          : undefined,
-                    }))}
-                    value={effectiveThinkingMode}
-                    onChange={(mode) => {
-                      setLastTouchedSection("thinking");
-                      setThinkingModeState(mode);
-                    }}
-                    disabled={switching}
-                  />
-                  {dirty &&
-                    lastTouchedSection === "thinking" &&
-                    renderInlineSave()}
-                </div>
-              </section>
-            )}
+              {processId && (
+                <section className="model-switch-section">
+                  <div className="model-switch-section-header">
+                    <strong>{t("modelSwitchThinkingModeTitle")}</strong>
+                  </div>
+                  <div className="model-switch-chip-group">
+                    <SegmentedControl
+                      variant="cards"
+                      aria-label={t("modelSwitchThinkingModeTitle")}
+                      options={thinkingModeOptions.map((mode) => ({
+                        value: mode,
+                        icon: (
+                          <span
+                            className={`model-switch-indicator-dot tone-${
+                              mode === "off"
+                                ? "off"
+                                : mode === "auto"
+                                  ? "auto"
+                                  : effectiveEffortLevel
+                            }`}
+                          />
+                        ),
+                        label:
+                          mode === "off"
+                            ? t("modelSettingsThinkingOffLabel")
+                            : mode === "auto"
+                              ? t("modelSettingsThinkingAutoLabel")
+                              : t("modelSettingsThinkingOnLabel"),
+                        // The setting the session runs with, beside the pending pick.
+                        description:
+                          currentThinkingMode === mode
+                            ? t("modelSwitchCurrent")
+                            : undefined,
+                      }))}
+                      value={effectiveThinkingMode}
+                      onChange={(mode) => {
+                        setLastTouchedSection("thinking");
+                        setThinkingModeState(mode);
+                      }}
+                      disabled={switching}
+                    />
+                    {dirty &&
+                      lastTouchedSection === "thinking" &&
+                      renderInlineSave()}
+                  </div>
+                </section>
+              )}
 
-            {processId && showEffortOptions && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
-                  <strong>{t("modelSettingsEffortTitle")}</strong>
-                </div>
-                <div className="model-switch-chip-group">
+              {processId && showEffortOptions && (
+                <section className="model-switch-section">
+                  <div className="model-switch-section-header">
+                    <strong>{t("modelSettingsEffortTitle")}</strong>
+                  </div>
+                  <div className="model-switch-chip-group">
+                    <SegmentedControl
+                      variant="cards"
+                      aria-label={t("modelSettingsEffortTitle")}
+                      options={effortOptions.map((option) => ({
+                        value: option.value,
+                        icon: (
+                          <span
+                            className={`model-switch-indicator-dot tone-${option.value}`}
+                          />
+                        ),
+                        label: option.label,
+                        tooltip: option.description,
+                        description:
+                          currentThinkingMode === "on" &&
+                          currentEffortLevel === option.value
+                            ? t("modelSwitchCurrent")
+                            : undefined,
+                      }))}
+                      value={
+                        effectiveThinkingMode === "on"
+                          ? effectiveEffortLevel
+                          : null
+                      }
+                      onChange={(value) => {
+                        setLastTouchedSection("effort");
+                        setEffortLevelState(value);
+                        setThinkingModeState("on");
+                      }}
+                      disabled={switching}
+                    />
+                    {dirty &&
+                      lastTouchedSection === "effort" &&
+                      renderInlineSave()}
+                  </div>
+                </section>
+              )}
+
+              {showServiceTierOptions && (
+                <section className="model-switch-section">
+                  <div className="model-switch-section-header">
+                    <strong>{t("modelSwitchSpeedLabel")}</strong>
+                  </div>
                   <SegmentedControl
-                    variant="cards"
-                    aria-label={t("modelSettingsEffortTitle")}
-                    options={effortOptions.map((option) => ({
-                      value: option.value,
-                      icon: (
-                        <span
-                          className={`model-switch-indicator-dot tone-${option.value}`}
-                        />
-                      ),
-                      label: option.label,
-                      tooltip: option.description,
-                      description:
-                        currentThinkingMode === "on" &&
-                        currentEffortLevel === option.value
-                          ? t("modelSwitchCurrent")
-                          : undefined,
-                    }))}
-                    value={
-                      effectiveThinkingMode === "on"
-                        ? effectiveEffortLevel
-                        : null
+                    activation="manual"
+                    aria-label={t("modelSwitchSpeedLabel")}
+                    options={[
+                      {
+                        value: STANDARD_SERVICE_TIER,
+                        label: t("serviceTierStandardLabel"),
+                        tooltip: t("serviceTierStandardDescription"),
+                      },
+                      ...serviceTierOptions.map((tier) => ({
+                        value: tier.id,
+                        label: tier.name,
+                        tooltip: tier.description,
+                      })),
+                    ]}
+                    value={currentServiceTier ?? STANDARD_SERVICE_TIER}
+                    onChange={(value) =>
+                      void applyServiceTier(
+                        value === STANDARD_SERVICE_TIER ? null : value,
+                      )
                     }
-                    onChange={(value) => {
-                      setLastTouchedSection("effort");
-                      setEffortLevelState(value);
-                      setThinkingModeState("on");
-                    }}
-                    disabled={switching}
+                    disabled={switching || savingServiceTier}
                   />
-                  {dirty &&
-                    lastTouchedSection === "effort" &&
-                    renderInlineSave()}
-                </div>
-              </section>
-            )}
+                  <div className="model-switch-section-note">
+                    {t("modelSwitchSpeedLiveHint")}
+                  </div>
+                </section>
+              )}
 
-            {showServiceTierOptions && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
-                  <strong>{t("modelSwitchSpeedLabel")}</strong>
+              {processId && !error && models.length === 0 && (
+                <div className="model-switch-loading">
+                  {t("modelSwitchEmpty")}
                 </div>
-                <SegmentedControl
-                  activation="manual"
-                  aria-label={t("modelSwitchSpeedLabel")}
-                  options={[
-                    {
-                      value: STANDARD_SERVICE_TIER,
-                      label: t("serviceTierStandardLabel"),
-                      tooltip: t("serviceTierStandardDescription"),
-                    },
-                    ...serviceTierOptions.map((tier) => ({
-                      value: tier.id,
-                      label: tier.name,
-                      tooltip: tier.description,
-                    })),
-                  ]}
-                  value={currentServiceTier ?? STANDARD_SERVICE_TIER}
-                  onChange={(value) =>
-                    void applyServiceTier(
-                      value === STANDARD_SERVICE_TIER ? null : value,
-                    )
-                  }
-                  disabled={switching || savingServiceTier}
-                />
-                <div className="model-switch-section-note">
-                  {t("modelSwitchSpeedLiveHint")}
-                </div>
-              </section>
-            )}
+              )}
 
-            {processId && !error && models.length === 0 && (
-              <div className="model-switch-loading">
-                {t("modelSwitchEmpty")}
-              </div>
-            )}
-
-            {models.length > 0 && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
-                  <strong>{t("newSessionModelTitle")}</strong>
-                </div>
-                <div className="model-switch-list">
-                  {models.map((model, index) => {
-                    const isCurrent = currentModelId === model.id;
-                    const isSelected = selectedModel === model.id;
-                    const showInlineSave =
-                      dirty && lastTouchedSection === "model" && isSelected;
-                    return (
-                      <Fragment key={model.id}>
-                        {startsAdditionalModelGroup(models, index) && (
-                          <div className="model-switch-group-label">
-                            {t("previousModelsGroup")}
-                          </div>
-                        )}
-                        <div className="model-switch-item-row">
-                          <button
-                            type="button"
-                            className={`model-switch-item ${isCurrent ? "current" : ""} ${isSelected ? "active" : ""}`}
-                            onClick={() => {
-                              if (selectedModel !== model.id) {
-                                setLastTouchedSection("model");
-                              }
-                              setSelectedModel(model.id);
-                            }}
-                            disabled={switching}
-                          >
-                            <span className="model-switch-item-main">
-                              <span className="model-switch-name-row">
-                                <span className="model-switch-name">
-                                  {model.name}
+              {models.length > 0 && (
+                <section className="model-switch-section">
+                  <div className="model-switch-section-header">
+                    <strong>{t("newSessionModelTitle")}</strong>
+                  </div>
+                  <div className="model-switch-list">
+                    {models.map((model, index) => {
+                      const isCurrent = currentModelId === model.id;
+                      const isSelected = selectedModel === model.id;
+                      const showInlineSave =
+                        dirty && lastTouchedSection === "model" && isSelected;
+                      return (
+                        <Fragment key={model.id}>
+                          {startsAdditionalModelGroup(models, index) && (
+                            <div className="model-switch-group-label">
+                              {t("previousModelsGroup")}
+                            </div>
+                          )}
+                          <div className="model-switch-item-row">
+                            <button
+                              type="button"
+                              className={`model-switch-item ${isCurrent ? "current" : ""} ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                if (selectedModel !== model.id) {
+                                  setLastTouchedSection("model");
+                                }
+                                setSelectedModel(model.id);
+                              }}
+                              disabled={switching}
+                            >
+                              <span className="model-switch-item-main">
+                                <span className="model-switch-name-row">
+                                  <span className="model-switch-name">
+                                    {model.name}
+                                  </span>
+                                  {provider && (
+                                    <ProviderBadge
+                                      provider={provider}
+                                      model={model.id}
+                                    />
+                                  )}
                                 </span>
-                                {provider && (
-                                  <ProviderBadge
-                                    provider={provider}
-                                    model={model.id}
-                                  />
+                                {model.description && (
+                                  <span className="model-switch-description">
+                                    {model.description}
+                                  </span>
                                 )}
                               </span>
-                              {model.description && (
-                                <span className="model-switch-description">
-                                  {model.description}
+                              <span className="model-switch-item-meta">
+                                <ModelSubscriptionUsage
+                                  usage={subscriptionUsage}
+                                  modelId={model.id}
+                                />
+                                {isCurrent && (
+                                  <Badge tone="accent" size="small">
+                                    {t("modelSwitchCurrent")}
+                                  </Badge>
+                                )}
+                                <span
+                                  className={`model-switch-radio ${isSelected ? "selected" : ""}`}
+                                  aria-hidden="true"
+                                >
+                                  {isSelected ? "●" : "○"}
                                 </span>
-                              )}
-                            </span>
-                            <span className="model-switch-item-meta">
-                              <ModelSubscriptionUsage
-                                usage={subscriptionUsage}
-                                modelId={model.id}
-                              />
-                              {isCurrent && (
-                                <span className="model-switch-tag">
-                                  {t("modelSwitchCurrent")}
-                                </span>
-                              )}
-                              <span
-                                className={`model-switch-radio ${isSelected ? "selected" : ""}`}
-                                aria-hidden="true"
-                              >
-                                {isSelected ? "●" : "○"}
                               </span>
-                            </span>
-                          </button>
-                          {showInlineSave && renderInlineSave()}
-                        </div>
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+                            </button>
+                            {showInlineSave && renderInlineSave()}
+                          </div>
+                        </Fragment>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
-            {dirty && (
-              <div className="model-switch-actions">
-                <Button
-                  className="model-switch-action-button"
-                  onClick={handleDismiss}
-                >
-                  <span className="model-switch-action-label">
-                    {t("modalCancel")}
-                  </span>
-                  {renderConfigBadge(
-                    currentModelId ?? currentModel,
-                    currentThinkingMode,
-                    currentEffortLevel,
-                    currentIndicatorTone,
-                  )}
-                </Button>
-                <Button
-                  variant="primary"
-                  className="model-switch-action-button"
-                  onClick={() => void applyConfig()}
-                  disabled={switching || !selectedModel}
-                >
-                  <span className="model-switch-action-label">
-                    {t("modelSwitchSaveAll")}
-                  </span>
-                  {renderConfigBadge(
-                    selectedModel ?? currentModelId ?? currentModel,
-                    effectiveThinkingMode,
-                    effectiveEffortLevel,
-                    pendingIndicatorTone,
-                  )}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
+              {dirty && (
+                <div className="model-switch-actions">
+                  <Button
+                    className="model-switch-action-button"
+                    onClick={handleDismiss}
+                  >
+                    <span className="model-switch-action-label">
+                      {t("modalCancel")}
+                    </span>
+                    {renderConfigBadge(
+                      currentModelId ?? currentModel,
+                      currentThinkingMode,
+                      currentEffortLevel,
+                      currentIndicatorTone,
+                    )}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="model-switch-action-button"
+                    onClick={() => void applyConfig()}
+                    disabled={switching || !selectedModel}
+                  >
+                    <span className="model-switch-action-label">
+                      {t("modelSwitchSaveAll")}
+                    </span>
+                    {renderConfigBadge(
+                      selectedModel ?? currentModelId ?? currentModel,
+                      effectiveThinkingMode,
+                      effectiveEffortLevel,
+                      pendingIndicatorTone,
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </MaybeTabPanel>
       </div>
     </Modal>
   );

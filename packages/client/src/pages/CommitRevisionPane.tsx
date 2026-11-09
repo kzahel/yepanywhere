@@ -15,6 +15,7 @@ import {
 } from "../components/SourceContextMenu";
 import { SearchMatchText } from "../components/SearchMatchText";
 import { SourceShortcutHelp } from "../components/SourceShortcutHelp";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { TextInput } from "../components/ui/Field";
 import {
@@ -26,6 +27,7 @@ import type { CommitSearchMatch } from "../lib/commitSearchIndex";
 import { findTextMatch } from "../lib/searchMatch";
 import type { TranslationFn } from "../i18n";
 import { WORKING_TREE_KEY } from "./useCommitBrowserModel";
+import { SourceCommentCountBadge } from "./SourceCommentCountBadge";
 import styles from "./CommitRevisionPane.module.css";
 
 /**
@@ -237,11 +239,11 @@ export function CommitRevisionPane({
         {loadingList && !searchActive && noVisibleRevisions ? (
           <div className="git-diff-loading">{t("gitStatusLoading")}</div>
         ) : listError && !searchActive && noVisibleRevisions ? (
-          <div className="git-diff-error">{listError}</div>
+          <Banner tone="error">{listError}</Banner>
         ) : searchActive && searchIndexing && noVisibleRevisions ? (
           <div className="git-diff-loading">{t("sourceSearching")}</div>
         ) : searchActive && searchError && noVisibleRevisions ? (
-          <div className="git-diff-error">{searchError}</div>
+          <Banner tone="error">{searchError}</Banner>
         ) : noVisibleRevisions ? (
           <div className="git-status-empty">
             {searchActive ? t("sourceNoMatches") : t("sourceNoCommits")}
@@ -289,16 +291,10 @@ export function CommitRevisionPane({
                       <span className="commit-subject">
                         {t("sourceWorkingTree")}
                       </span>
-                      {workingTreeCommentCount > 0 && (
-                        <span
-                          className="source-comment-badge"
-                          title={t("sourceCommentCount", {
-                            count: workingTreeCommentCount,
-                          })}
-                        >
-                          {workingTreeCommentCount}
-                        </span>
-                      )}
+                      <SourceCommentCountBadge
+                        count={workingTreeCommentCount}
+                        t={t}
+                      />
                     </span>
                     <span className="commit-meta">
                       {workingTreeClean ? (
@@ -380,16 +376,7 @@ export function CommitRevisionPane({
                           }
                           title={commit.subject}
                         />
-                        {commentCount > 0 && (
-                          <span
-                            className="source-comment-badge"
-                            title={t("sourceCommentCount", {
-                              count: commentCount,
-                            })}
-                          >
-                            {commentCount}
-                          </span>
-                        )}
+                        <SourceCommentCountBadge count={commentCount} t={t} />
                       </span>
                       <span className="commit-meta">
                         <SearchMatchText
@@ -437,7 +424,7 @@ export function CommitRevisionPane({
                 );
               })}
             </ol>
-            {listError && <div className="git-diff-error">{listError}</div>}
+            {listError && <Banner tone="error">{listError}</Banner>}
             {hasMore && !searchActive && (
               <Button className={styles.loadMore} onClick={onLoadMore}>
                 {t("sourceLoadMore")}

@@ -66,11 +66,11 @@ describe("SourceFileRow", () => {
   it("expands a compact git status code", () => {
     render(<SourceFileStatusBadge status="M" t={t} />);
 
-    const badge = screen.getByText("M");
+    const badge = screen.getByRole("img", {
+      name: "M — sourceFileStatusModified",
+    });
+    expect(badge.textContent).toBe("M");
     expect(badge.getAttribute("data-tooltip")).toBe(
-      "M — sourceFileStatusModified",
-    );
-    expect(badge.getAttribute("aria-label")).toBe(
       "M — sourceFileStatusModified",
     );
   });

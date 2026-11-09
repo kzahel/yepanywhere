@@ -19,6 +19,7 @@ import { AppViewerToolbar } from "./AppViewerToolbar";
 import { LastViewIcon } from "./LastViewIcon";
 import { ViewerFindField } from "./ViewerFindField";
 import { ViewerWindowActions } from "./ViewerWindowActions";
+import { Banner } from "./ui/Banner";
 import { ButtonBase, buttonClassName, IconButton } from "./ui/Button";
 import { ComposerMicAction } from "./ComposerMicAction";
 import type { VoiceInputButtonRef } from "./VoiceInputButton";
@@ -318,18 +319,18 @@ function SessionRightPaneContent({
               />
             </AppViewerToolbar>
             {pane.appStatus === "checking" ? (
-              <p className={styles.error} role="status">
+              <p className={styles.status} role="status">
                 {t("sessionRightPaneChecking")}
               </p>
             ) : pane.appStatus === "unavailable" ||
               pane.appStatus === "error" ? (
-              <p className={styles.error} role="alert">
+              <Banner tone="error" className={styles.message}>
                 {pane.appError ?? t("sessionRightPaneUnavailable")}
-              </p>
+              </Banner>
             ) : blockedUrl === url ? (
-              <p className={styles.error}>
+              <Banner tone="warning" className={styles.message}>
                 {t("sessionRightPaneFrameBlocked")}
-              </p>
+              </Banner>
             ) : (
               // biome-ignore lint/a11y/useIframeTitle: aria-label names the frame without a native tooltip over the app content.
               <iframe

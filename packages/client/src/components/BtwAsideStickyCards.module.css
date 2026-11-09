@@ -1,0 +1,4 @@
+/* Below the card's summary button, in the content column. */
+.failure {
+  grid-column: 1;
+}

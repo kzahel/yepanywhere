@@ -17,6 +17,7 @@ import {
 import { ChangesetFileFilter } from "../components/ChangesetFileFilter";
 import { CopyButton } from "../components/CopyButton";
 import { SourceFileOutline } from "../components/SourceFileOutline";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import {
   SourceFilePath,
@@ -42,6 +43,7 @@ import { writeClipboardText } from "../lib/clipboard";
 import { reflowCommitMessage } from "../lib/reflowCommitMessage";
 import type { TranslationFn } from "../i18n";
 import { CommitHistoryParentLink } from "./CommitHistoryParentLink";
+import { SourceCommentCountBadge } from "./SourceCommentCountBadge";
 import styles from "./CommitFilesPane.module.css";
 
 const EMPTY_REVIEW_STATES = new Map<string, ReviewSiteStateSummary[]>();
@@ -285,7 +287,7 @@ export function CommitFilesPane({
         {loading ? (
           <div className="git-diff-loading">{t("gitStatusLoading")}</div>
         ) : detailError ? (
-          <div className="git-diff-error">{detailError}</div>
+          <Banner tone="error">{detailError}</Banner>
         ) : detail ? (
           <>
             {detail.body && (
@@ -385,14 +387,7 @@ export function CommitFilesPane({
                           ) : null}
                         </span>
                       )}
-                      {count > 0 && (
-                        <span
-                          className="source-comment-badge"
-                          title={t("sourceCommentCount", { count })}
-                        >
-                          {count}
-                        </span>
-                      )}
+                      <SourceCommentCountBadge count={count} t={t} />
                       <SourceReviewStateBadges
                         states={reviewStatesByPath.get(file.path) ?? []}
                         t={t}

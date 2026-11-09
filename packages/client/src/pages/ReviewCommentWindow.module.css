@@ -27,11 +27,6 @@
   white-space: pre;
 }
 
-.error {
-  color: var(--error-color);
-  font-size: var(--font-size-sm, 0.85em);
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -50,12 +45,6 @@
 
 .destination {
   flex: 1 1 220px;
-}
-
-.destinationError {
-  align-self: center;
-  color: var(--error-color);
-  font-size: var(--font-size-sm, 0.85em);
 }
 
 .defaultSessionTarget {

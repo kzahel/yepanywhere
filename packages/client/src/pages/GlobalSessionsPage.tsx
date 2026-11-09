@@ -63,6 +63,7 @@ import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useSessionRightPaneSetting } from "../hooks/useSessionRightPaneSetting";
 import { useVersion } from "../hooks/useVersion";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { useModalBackGesture } from "../components/ui/Modal";
@@ -856,9 +857,7 @@ function SessionSearchPage() {
             </div>
           )}
           {invalidRange && (
-            <p role="alert" className={styles.error}>
-              {t("sessionSearchInvalidRange")}
-            </p>
+            <Banner tone="error">{t("sessionSearchInvalidRange")}</Banner>
           )}
           {!effectiveFields.length && query.trim() && (
             <p role="status" className={styles.progress}>
@@ -866,14 +865,12 @@ function SessionSearchPage() {
             </p>
           )}
           {invalidLimit && (
-            <p role="alert" className={styles.error}>
-              {t("sessionSearchInvalidLimit")}
-            </p>
+            <Banner tone="error">{t("sessionSearchInvalidLimit")}</Banner>
           )}
           {(feed.error || scan.error || actionError) && (
-            <p role="alert" className={styles.error}>
+            <Banner tone="error">
               {feed.error?.message ?? scan.error ?? actionError}
-            </p>
+            </Banner>
           )}
           {!progress && !feed.error && !scan.error && !results.length && (
             <p className={styles.progress}>

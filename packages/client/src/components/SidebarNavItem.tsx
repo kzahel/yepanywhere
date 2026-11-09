@@ -4,6 +4,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import { Link, useLocation } from "react-router-dom";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import styles from "./SidebarNavItem.module.css";
+import { Badge } from "./ui/Badge";
 import { ButtonBase } from "./ui/Button";
 
 /**
@@ -250,15 +251,24 @@ export function SidebarNavItem({
     >
       {icon}
       <span className="sidebar-nav-text">{label}</span>
-      {hasDraft && <span className="session-draft-badge">Draft</span>}
+      {hasDraft && (
+        <Badge tone="warning" size="small">
+          Draft
+        </Badge>
+      )}
       {hasActivityIndicator && <ThinkingIndicator />}
       {badge !== undefined && badge > 0 && (
-        <span
-          className={`sidebar-nav-badge sidebar-nav-badge--${badgeVariant}`}
-          title={badgeTitle}
+        <Badge
+          shape="count"
+          size="small"
+          tone={badgeVariant === "projectQueue" ? "neutral" : "accent"}
+          emphasis={badgeVariant === "projectQueue" ? "soft" : "solid"}
+          tooltip={badgeTitle}
+          className={styles.badge}
+          data-testid={`sidebar-nav-badge-${badgeVariant}`}
         >
           {badge}
-        </span>
+        </Badge>
       )}
     </Link>
   );

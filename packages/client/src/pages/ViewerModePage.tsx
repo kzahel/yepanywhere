@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { ArtifactLinkViewer } from "../components/ArtifactLinkViewer";
 import { LocalFileModal } from "../components/LocalMediaModal";
+import { Banner } from "../components/ui/Banner";
 import { useVersion } from "../hooks/useVersion";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { isArtifactLink } from "../lib/artifactPreview";
@@ -26,13 +27,13 @@ export function ViewerModePage() {
     return Number.isSafeInteger(number) && number > 0 ? number : undefined;
   };
   if (mode !== "edit" && mode !== "interactive")
-    return <p role="alert">{t("fileInvalidUrl")}</p>;
+    return <Banner tone="error">{t("fileInvalidUrl")}</Banner>;
   if (artifactUrl) {
     if (!version) return <p role="status">{t("sourceEditorLoading")}</p>;
     if (
       !isArtifactLink(artifactUrl, version.artifactViewer, window.location.href)
     )
-      return <p role="alert">{t("artifactUnavailable")}</p>;
+      return <Banner tone="error">{t("artifactUnavailable")}</Banner>;
     return (
       <div className={styles.artifactHost} ref={setArtifactHost}>
         {artifactHost && (
@@ -58,7 +59,7 @@ export function ViewerModePage() {
       </div>
     );
   }
-  if (!path) return <p role="alert">{t("fileMissingPath")}</p>;
+  if (!path) return <Banner tone="error">{t("fileMissingPath")}</Banner>;
   return (
     <LocalFileModal
       resource={

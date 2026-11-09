@@ -4,6 +4,7 @@ import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import type { MessageKey, TranslationFn } from "../i18n";
 import { findTextMatch } from "../lib/searchMatch";
 import { SearchMatchText } from "./SearchMatchText";
+import { Badge, type BadgeTone } from "./ui/Badge";
 import { ButtonBase } from "./ui/Button";
 import styles from "./SourceFileRow.module.css";
 
@@ -83,6 +84,16 @@ const STATUS_LABEL_KEYS: Record<string, MessageKey> = {
   "?": "sourceFileStatusUntracked",
 };
 
+const STATUS_TONES: Record<string, BadgeTone> = {
+  M: "warning",
+  A: "success",
+  D: "danger",
+  R: "info",
+  C: "info",
+  T: "info",
+  U: "danger",
+};
+
 export function SourceFileStatusBadge({
   status,
   t,
@@ -96,12 +107,14 @@ export function SourceFileStatusBadge({
 
   return (
     <span
-      className={`git-status-badge git-status-${status.toLowerCase()}`}
+      className={styles.status}
       role="img"
       aria-label={label}
       {...tooltipAttributes}
     >
-      {status}
+      <Badge tone={STATUS_TONES[status] ?? "neutral"} size="small" mono>
+        {status}
+      </Badge>
     </span>
   );
 }
@@ -124,35 +137,30 @@ export function SourceReviewStateBadges({
     (state) => state.changeStatus === "unchanged",
   ).length;
   const unavailable = states.length - changed - unchanged;
-  const discussion =
+  type ReviewState = { label: string; count: number; tone?: BadgeTone };
+  const discussion: ReviewState =
     open > 0
-      ? {
-          label: t("sourceReviewStateOpen"),
-          count: open,
-          className: styles.open!,
-        }
+      ? { label: t("sourceReviewStateOpen"), count: open, tone: "warning" }
       : {
           label: t("sourceReviewStateAddressed"),
           count: addressed,
-          className: styles.addressed!,
+          tone: "accent",
         };
-  const source =
+  const source: ReviewState =
     changed > 0
       ? {
           label: t("sourceReviewSourceChanged"),
           count: changed,
-          className: styles.changed!,
+          tone: "success",
         }
       : unchanged > 0
         ? {
             label: t("sourceReviewSourceUnchanged"),
             count: unchanged,
-            className: styles.unchanged!,
           }
         : {
             label: t("sourceReviewSourceUnavailable"),
             count: unavailable,
-            className: styles.unavailable!,
           };
 
   return (
@@ -166,22 +174,21 @@ export function SourceReviewStateBadges({
 function ReviewStateBadge({
   label,
   count,
-  className,
+  tone,
   t,
 }: {
   label: string;
   count: number;
-  className: string;
+  tone?: BadgeTone;
   t: TranslationFn;
 }) {
-  const title = t("sourceReviewSiteStateCount", { state: label, count });
-  const tooltipAttributes = useTextTooltipAttributes(title);
   return (
-    <span
-      className={`${styles.reviewState} ${className}`}
-      {...tooltipAttributes}
+    <Badge
+      tone={tone}
+      size="small"
+      tooltip={t("sourceReviewSiteStateCount", { state: label, count })}
     >
       {label} {count}
-    </span>
+    </Badge>
   );
 }

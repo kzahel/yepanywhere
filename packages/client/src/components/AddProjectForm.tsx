@@ -10,6 +10,7 @@ import { useI18n } from "../i18n";
 import { pathForProjectName, settlePathEntry } from "../lib/newProjectPath";
 import type { Project } from "../types";
 import styles from "./AddProjectForm.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Field, TextInput } from "./ui/Field";
 
@@ -214,7 +215,7 @@ export function AddProjectForm({
           {t("projectsCancel")}
         </Button>
       </div>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <Banner tone="error">{error}</Banner>}
     </form>
   );
 }

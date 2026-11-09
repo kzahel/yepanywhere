@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { formatBriefAge } from "../lib/sessionAge";
 import styles from "./SessionProviderPhase.module.css";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { Badge } from "./ui/Badge";
 
 function formatClock(iso: string): string | null {
   const ms = Date.parse(iso);
@@ -75,13 +76,15 @@ export function SessionProviderPhasePill({
     text = parts.filter(Boolean).join(" · ");
   }
   return (
-    <span
+    <Badge
+      tone={providerPhase.phase === "waiting" ? "info" : "neutral"}
+      size="small"
       className={styles.pill}
       data-phase={providerPhase.phase}
       data-provider-phase-pill=""
-      title={first?.command ? `${text}\n${first.command}` : text}
+      tooltip={first?.command ? `${text}\n${first.command}` : text}
     >
-      {text}
-    </span>
+      <span className={styles.pillText}>{text}</span>
+    </Badge>
   );
 }

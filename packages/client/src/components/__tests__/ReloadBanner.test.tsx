@@ -211,7 +211,6 @@ describe("ReloadBanner", () => {
     const banner = screen.getByRole("status");
     expect(banner.classList.contains("reload-banner")).toBe(true);
     expect(banner.className).toContain(styles.banner);
-    expect(banner.className).toContain(styles.warning);
 
     const stack = document.querySelector(".reload-banner-stack");
     expect(stack?.className).toContain(styles.stack);

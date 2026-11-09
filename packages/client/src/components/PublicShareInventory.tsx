@@ -1,6 +1,7 @@
 import type { PublicSessionShareMode } from "@yep-anywhere/shared";
 import type { ReactNode } from "react";
 import styles from "./PublicShareInventory.module.css";
+import { Banner } from "./ui/Banner";
 import { IconButton } from "./ui/Button";
 
 export interface PublicShareRowAction {
@@ -60,7 +61,11 @@ export function PublicShareInventoryRow({
       <div className={styles.rowMain}>
         <strong>{title}</strong>
         {children}
-        {warning && <span className={styles.warning}>{warning}</span>}
+        {warning && (
+          <Banner tone="warning" role="none" compact>
+            {warning}
+          </Banner>
+        )}
       </div>
       <div className={styles.rowActions}>
         <span
@@ -146,14 +151,7 @@ export function PublicShareFeedback({
   children: ReactNode;
   tone: "error" | "notice";
 }) {
-  return (
-    <div
-      className={tone === "error" ? styles.error : styles.notice}
-      role={tone === "error" ? "alert" : "status"}
-    >
-      {children}
-    </div>
-  );
+  return <Banner tone={tone === "error" ? "error" : "info"}>{children}</Banner>;
 }
 
 export function PublicSharePlusIcon() {

@@ -21,6 +21,7 @@ import {
   buttonClassName,
   IconButton,
 } from "../components/ui/Button";
+import { Banner } from "../components/ui/Banner";
 import { Checkbox } from "../components/ui/Checkbox";
 import { Field, Select, TextInput } from "../components/ui/Field";
 import { MainContent, useNavigationLayout } from "../layouts";
@@ -403,7 +404,7 @@ function IssueBrowser() {
           <Link to={`${base}/issues`}>{t("issuesAll")}</Link>
         </p>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
       <div className={`${styles.columns} ${selected ? styles.withDetail : ""}`}>
         <section
           className={`${styles.list} ${editing ? styles.editingList : ""}`}

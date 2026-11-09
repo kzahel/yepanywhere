@@ -73,8 +73,7 @@
   font-weight: 600;
 }
 .kind {
-  color: var(--text-secondary);
-  font-size: 12px;
+  flex-shrink: 0;
 }
 .status {
   padding: 8px 10px;

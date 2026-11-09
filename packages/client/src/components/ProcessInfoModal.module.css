@@ -50,15 +50,10 @@
 }
 
 .loading,
-.error,
 .muted {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
   padding: 0.5rem 0;
-}
-
-.error {
-  color: var(--error-color);
 }
 
 @media (width <= 600px) {

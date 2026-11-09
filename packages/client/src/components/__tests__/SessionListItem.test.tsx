@@ -20,8 +20,8 @@ import { I18nProvider } from "../../i18n";
 import { activityBus } from "../../lib/activityBus";
 import { UI_KEYS } from "../../lib/storageKeys";
 import "../../../test/pointerEventShim";
-import styles from "../SessionListItem.module.css";
 import { SessionListItem } from "../SessionListItem";
+import badgeStyles from "../ui/Badge.module.css";
 
 const mockWindowOpen = vi.fn();
 const originalClipboard = navigator.clipboard;
@@ -1285,14 +1285,16 @@ describe("SessionListItem links", () => {
     });
 
     expect(readBadge.textContent).toBe("2");
-    expect(readBadge.className).not.toContain(
-      styles.providerChildrenBadgeUnread,
+    expect(readBadge.firstElementChild?.className).not.toContain(
+      badgeStyles.solid,
     );
     expect(readBadge.getAttribute("title")).toBe(
       "2 provider subagents\nFirst delegated task\nSecond delegated task",
     );
     expect(unreadBadge.textContent).toBe("1");
-    expect(unreadBadge.className).toContain(styles.providerChildrenBadgeUnread);
+    expect(unreadBadge.firstElementChild?.className).toContain(
+      badgeStyles.solid,
+    );
     expect(unreadBadge.getAttribute("title")).toBe(
       "1 provider subagent\nNew delegated task",
     );

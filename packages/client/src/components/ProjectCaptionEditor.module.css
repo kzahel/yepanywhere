@@ -51,10 +51,7 @@
   min-width: 8ch;
 }
 
-.error {
+.failure {
   max-width: 28rem;
   margin-top: 2px;
-  color: var(--error-color);
-  font-size: var(--font-size-xs);
-  line-height: 1.25;
 }

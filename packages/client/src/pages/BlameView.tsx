@@ -19,6 +19,7 @@ import {
 import { api } from "../api/client";
 import { CopyButton } from "../components/CopyButton";
 import { FileRevisionLink } from "../components/FileRevisionLink";
+import { Banner } from "../components/ui/Banner";
 import { ButtonBase, IconButton } from "../components/ui/Button";
 import { InnerHtml } from "../components/ui/InnerHtml";
 import {
@@ -417,7 +418,9 @@ export function BlameView({
   if (contentError && blameError && !blame) {
     return (
       <section className={`blame-view ${styles.root}`}>
-        <div className="git-diff-error">{contentError}</div>
+        <Banner tone="error" className={styles.notice}>
+          {contentError}
+        </Banner>
       </section>
     );
   }
@@ -466,14 +469,14 @@ export function BlameView({
         />
       </div>
       {contentError && (
-        <div className={`git-diff-error ${styles.contentError}`}>
+        <Banner tone="error" compact className={styles.notice}>
           {contentError}
-        </div>
+        </Banner>
       )}
       {blameError && (
-        <div className={styles.provenanceError} role="status">
+        <Banner tone="warning" compact className={styles.notice}>
           {t("sourceBlameUnavailable")}
-        </div>
+        </Banner>
       )}
       {file && !file.metadata.isText && !blame && (
         <div className="git-status-empty">{t("fileViewerBinary")}</div>

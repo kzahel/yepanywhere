@@ -30,6 +30,7 @@ import {
 } from "../lib/sessionComposerAttachments";
 import { AttachmentChip } from "./AttachmentChip";
 import styles from "./ProjectQueueSection.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Textarea } from "./ui/Field";
 
@@ -243,7 +244,11 @@ export function ProjectQueueAttachmentEditor({
           ))}
         </div>
       )}
-      {editError && <div className={styles.itemError}>{editError}</div>}
+      {editError && (
+        <Banner tone="error" compact>
+          {editError}
+        </Banner>
+      )}
       <div className={styles.itemEditActions}>
         <Button
           variant="primary"

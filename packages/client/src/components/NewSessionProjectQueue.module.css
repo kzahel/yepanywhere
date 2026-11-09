@@ -38,7 +38,6 @@
   font-weight: 600;
 }
 
-.error,
 .itemError {
   margin: 0;
   color: var(--error-color);
@@ -109,26 +108,6 @@
 
 .status {
   flex-shrink: 0;
-  padding: 0.1rem 0.35rem;
-  color: var(--project-queue-action-bg);
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 10%,
-    transparent
-  );
-  border-radius: 999px;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.statusDispatching {
-  color: var(--warning-color);
-  background: color-mix(in srgb, var(--warning-color) 10%, transparent);
-}
-
-.statusFailed {
-  color: var(--error-color);
-  background: color-mix(in srgb, var(--error-color) 10%, transparent);
 }
 
 .targetRow {

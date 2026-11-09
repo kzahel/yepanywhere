@@ -6,6 +6,7 @@ import {
 import { useI18n } from "../i18n";
 import type { SourceTransportStatus } from "../lib/transport/types";
 import styles from "./SessionCreationNotice.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 
 export function SessionCreationNotice({
@@ -128,39 +129,48 @@ export function SessionCreationNotice({
               : state === "queued"
                 ? "sessionCreationQueued"
                 : "sessionCreationStarting";
+  const tone =
+    state === "failed" ? "error" : state === "uncertain" ? "warning" : "info";
   return (
     <section className={styles.notice} aria-label={t("sessionCreationLabel")}>
-      <p role="status">{t(label)}</p>
-      {state === "failed" &&
-        creation.failure?.startsWith("router-") &&
-        creation.failureDetail && <p>{creation.failureDetail}</p>}
-      {prompt && (
-        <pre role="region" aria-label={t("sessionCreationSavedPrompt")}>
-          {prompt}
-        </pre>
-      )}
-      <div className={styles.actions}>
+      <Banner
+        tone={tone}
+        role="none"
+        actions={
+          <>
+            {prompt && (
+              <Button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(prompt);
+                    setCopyFailed(false);
+                  } catch {
+                    setCopyFailed(true);
+                  }
+                }}
+              >
+                {t("sessionCreationCopyPrompt")}
+              </Button>
+            )}
+            {(!active || checksExhausted) && (
+              <Button onClick={() => void refresh.current().catch(() => {})}>
+                {t("sessionCreationRefresh")}
+              </Button>
+            )}
+          </>
+        }
+      >
+        <p role="status">{t(label)}</p>
+        {state === "failed" &&
+          creation.failure?.startsWith("router-") &&
+          creation.failureDetail && <p>{creation.failureDetail}</p>}
         {prompt && (
-          <Button
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(prompt);
-                setCopyFailed(false);
-              } catch {
-                setCopyFailed(true);
-              }
-            }}
-          >
-            {t("sessionCreationCopyPrompt")}
-          </Button>
+          <pre role="region" aria-label={t("sessionCreationSavedPrompt")}>
+            {prompt}
+          </pre>
         )}
-        {(!active || checksExhausted) && (
-          <Button onClick={() => void refresh.current().catch(() => {})}>
-            {t("sessionCreationRefresh")}
-          </Button>
-        )}
-      </div>
-      {copyFailed && <p role="status">{t("sessionCreationCopyFailed")}</p>}
+        {copyFailed && <p role="status">{t("sessionCreationCopyFailed")}</p>}
+      </Banner>
     </section>
   );
 }

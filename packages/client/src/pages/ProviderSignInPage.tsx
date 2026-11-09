@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
+import { Banner } from "../components/ui/Banner";
 import { useProviderRow } from "../hooks/useProviders";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
@@ -25,13 +26,15 @@ export function ProviderSignInPage() {
           <h1>{t("providersSignIn", { provider: name })}</h1>
           <p>{t("providerSignInHostHint")}</p>
           {!provider ? (
-            <p role="alert">{t("providerSignInUnsupported")}</p>
+            <Banner tone="error">{t("providerSignInUnsupported")}</Banner>
           ) : loading ? (
             <p role="status">{t("providerSignInLoading")}</p>
           ) : error ? (
-            <p role="alert">{error.message}</p>
+            <Banner tone="error">{error.message}</Banner>
           ) : row?.authenticated ? (
-            <p role="status">{t("providerSignInReady", { provider: name })}</p>
+            <Banner tone="success">
+              {t("providerSignInReady", { provider: name })}
+            </Banner>
           ) : row?.supportsInAppLogin ? (
             <ProviderSignIn
               key={`${sourceKey}:${provider}`}
@@ -41,7 +44,7 @@ export function ProviderSignInPage() {
               onSignedIn={() => void refresh()}
             />
           ) : (
-            <p role="alert">{t("providerSignInUnavailable")}</p>
+            <Banner tone="error">{t("providerSignInUnavailable")}</Banner>
           )}
           <Link to={`${basePath}/settings/providers`}>
             {t("providerSignInSettings")}

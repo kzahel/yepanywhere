@@ -28,20 +28,8 @@
   padding: var(--space-3);
 }
 
-.killFeedback {
+.feedback {
   margin: 0 0 var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-}
-
-.killFeedbackSuccess {
-  color: var(--success-color);
-}
-
-.killFeedbackError {
-  color: var(--error-color);
 }
 
 .list {
@@ -114,78 +102,38 @@
   min-width: 0;
 }
 
-.stateBadge {
-  font-size: var(--font-size-xs);
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  white-space: nowrap;
+/* Provider brand colors, compounded with the shared Badge's tone. */
+.provider.claude,
+.provider.codex,
+.provider.gemini,
+.provider.grok,
+.provider.opencode,
+.provider.pi {
+  --badge-soft: color-mix(in srgb, var(--badge-color) 16%, transparent);
 }
 
-.stateInput {
-  background: var(--status-badge-input-bg);
-  color: var(--status-badge-input-text);
+.provider.claude {
+  --badge-color: var(--provider-claude);
 }
 
-.stateIdle {
-  background: var(--status-badge-idle-bg);
-  color: var(--status-badge-idle-text);
+.provider.codex {
+  --badge-color: var(--provider-codex);
 }
 
-.stateTerminated {
-  background: var(--bg-hover);
-  color: var(--text-muted);
+.provider.gemini {
+  --badge-color: var(--provider-gemini);
 }
 
-.stateExternal {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
+.provider.grok {
+  --badge-color: var(--provider-grok);
 }
 
-/* Provider badges */
-.providerBadge {
-  font-size: var(--font-size-xs);
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+.provider.opencode {
+  --badge-color: var(--provider-opencode);
 }
 
-.providerClaude {
-  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
-  color: white;
-}
-
-.providerCodex {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  color: white;
-}
-
-.providerGemini {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: white;
-}
-
-.providerGrok {
-  background: linear-gradient(135deg, #111827 0%, #374151 100%);
-  color: white;
-}
-
-.providerOpencode {
-  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
-  color: white;
-}
-
-.providerPi {
-  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-  color: white;
-}
-
-.providerLocal {
-  background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
-  color: white;
+.provider.pi {
+  --badge-color: var(--provider-pi);
 }
 
 .killButton {

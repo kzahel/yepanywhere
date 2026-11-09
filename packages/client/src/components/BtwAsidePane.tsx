@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { parseComposerSlashCommand } from "../lib/slashCommands";
 import { TextBlock } from "./blocks/TextBlock";
 import { UserPromptBlock } from "./blocks/UserPromptBlock";
+import { Banner } from "./ui/Banner";
 import { Button, IconButton } from "./ui/Button";
 
 export type BtwAsidePaneStatus =
@@ -288,7 +289,11 @@ export function BtwAsidePane({
           autoScrollLatest
           onTransferToComposer={onTransferToComposer}
         />
-        {aside.error && <div className="btw-aside-error">{aside.error}</div>}
+        {aside.error && (
+          <Banner tone="error" compact>
+            {aside.error}
+          </Banner>
+        )}
       </div>
       <form
         className="session-btw-pane-composer"

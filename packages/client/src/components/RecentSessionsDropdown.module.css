@@ -125,20 +125,11 @@
   white-space: nowrap;
 }
 
-.badge {
+/* The /btw chip is clickable (it opens the parent), so it is not a Badge. */
+.btwBadge {
   font-size: 10px;
   font-weight: 600;
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-sm);
   white-space: nowrap;
-}
-
-.badge.needsInput {
-  background-color: var(--status-badge-input-bg);
-  color: var(--status-badge-input-text);
-}
-
-.badge.external {
-  background-color: var(--status-badge-external-bg);
-  color: var(--status-badge-external-text);
 }

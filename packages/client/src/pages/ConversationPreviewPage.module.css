@@ -202,11 +202,6 @@
 .actions a {
   margin-left: auto;
 }
-.badge {
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  padding: 5px 9px;
-}
 .transcript {
   overflow-y: auto;
   flex: 1;
@@ -265,15 +260,7 @@
   line-height: 1.5;
 }
 .notice {
-  padding: 12px;
   margin: 12px 0;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  line-height: 1.5;
-}
-.notice .control {
-  margin-top: 8px;
 }
 /* Doubled so the layout display outranks the shared button's inline-flex
    regardless of stylesheet order. */

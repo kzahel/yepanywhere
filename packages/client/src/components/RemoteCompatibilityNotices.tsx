@@ -7,6 +7,8 @@ import {
   type RemoteNoticeSeverity,
   getRemoteCompatibilityNotices,
 } from "../lib/remoteCompatibilityNotices";
+import { Badge } from "./ui/Badge";
+import { Banner, type BannerTone } from "./ui/Banner";
 import { Button, buttonClassName } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { Textarea, TextInput } from "./ui/Field";
@@ -20,11 +22,11 @@ const placementClassNames: Record<
   inline: styles.inline!,
 };
 
-const severityClassNames: Record<RemoteNoticeSeverity, string | undefined> = {
-  info: undefined,
-  recommended: undefined,
-  security: styles.critical!,
-  blocking: styles.critical!,
+const severityTones: Record<RemoteNoticeSeverity, BannerTone> = {
+  info: "info",
+  recommended: "warning",
+  security: "error",
+  blocking: "error",
 };
 
 interface RemoteCompatibilityNoticesProps {
@@ -101,97 +103,89 @@ export function RemoteCompatibilityNoticeCard({
     : null;
 
   return (
-    <section
+    <Banner
+      tone={severityTones[notice.severity]}
       className={[
-        styles.root!,
         placementClassNames[placement],
         placement === "floating" &&
           notice.floatingPlacement === "below-header" &&
           styles.belowHeader,
-        severityClassNames[notice.severity],
       ]
         .filter(Boolean)
         .join(" ")}
-      role={
-        notice.severity === "security" || notice.severity === "blocking"
-          ? "alert"
-          : "status"
-      }
-      data-testid="remote-compatibility-notice"
-    >
-      <div className={styles.content!}>
-        <div className={styles.headline!}>
-          <strong className={styles.title!}>{notice.title}</strong>
+      title={
+        <span className={styles.headline!}>
+          {notice.title}
           {notice.versionSummary && (
             <span className={styles.meta!}>{notice.versionSummary}</span>
           )}
-          {noticeCount > 1 && (
-            <span className={styles.count!}>{noticeCount} notices</span>
+          {noticeCount > 1 && <Badge size="small">{noticeCount} notices</Badge>}
+        </span>
+      }
+      actions={
+        <>
+          {notice.action?.href && (
+            <a
+              className={buttonClassName({ variant: "primary", size: "small" })}
+              href={notice.action.href}
+            >
+              {notice.action.label}
+            </a>
           )}
-        </div>
-        <span className={styles.body!}>{notice.body}</span>
-        {notice.guidance && (
-          <span className={styles.guidance!}>{notice.guidance}</span>
-        )}
-        {commandField && (
-          <div className={styles.commandField!}>
-            {commandField.lines > 1 ? (
-              <Textarea
-                className={`${styles.commandInput!} ${styles.commandInputMulti!}`}
-                size="small"
-                mono
-                value={commandField.command}
-                readOnly
-                rows={Math.min(commandField.lines, 4)}
-                aria-label={`${commandField.label} text`}
-                onFocus={(event) => event.currentTarget.select()}
-              />
-            ) : (
-              <TextInput
-                className={styles.commandInput!}
-                size="small"
-                mono
-                value={commandField.command}
-                readOnly
-                aria-label={`${commandField.label} text`}
-                onFocus={(event) => event.currentTarget.select()}
-              />
-            )}
-            <CopyTextButton
-              text={commandField.command}
-              label={commandField.label}
-              copiedLabel="Copied"
-              className={styles.copyButton!}
-              copiedClassName={styles.copied!}
+          {onRestore && (
+            <Button variant="primary" size="small" onClick={onRestore}>
+              Show reminder
+            </Button>
+          )}
+          {onDismiss && notice.dismissal === "dismiss" && (
+            <Button size="small" onClick={onDismiss}>
+              Dismiss
+            </Button>
+          )}
+          {onSnooze && notice.severity !== "info" && (
+            <Button size="small" onClick={onSnooze}>
+              Remind me later
+            </Button>
+          )}
+        </>
+      }
+      data-testid="remote-compatibility-notice"
+    >
+      <p className={styles.line!}>{notice.body}</p>
+      {notice.guidance && <p className={styles.line!}>{notice.guidance}</p>}
+      {commandField && (
+        <div className={styles.commandField!}>
+          {commandField.lines > 1 ? (
+            <Textarea
+              className={`${styles.commandInput!} ${styles.commandInputMulti!}`}
+              size="small"
+              mono
+              value={commandField.command}
+              readOnly
+              rows={Math.min(commandField.lines, 4)}
+              aria-label={`${commandField.label} text`}
+              onFocus={(event) => event.currentTarget.select()}
             />
-          </div>
-        )}
-      </div>
-      <div className={styles.actions!}>
-        {notice.action?.href && (
-          <a
-            className={buttonClassName({ variant: "primary", size: "small" })}
-            href={notice.action.href}
-          >
-            {notice.action.label}
-          </a>
-        )}
-        {onRestore && (
-          <Button variant="primary" size="small" onClick={onRestore}>
-            Show reminder
-          </Button>
-        )}
-        {onDismiss && notice.dismissal === "dismiss" && (
-          <Button size="small" onClick={onDismiss}>
-            Dismiss
-          </Button>
-        )}
-        {onSnooze && notice.severity !== "info" && (
-          <Button size="small" onClick={onSnooze}>
-            Remind me later
-          </Button>
-        )}
-      </div>
-    </section>
+          ) : (
+            <TextInput
+              className={styles.commandInput!}
+              size="small"
+              mono
+              value={commandField.command}
+              readOnly
+              aria-label={`${commandField.label} text`}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          )}
+          <CopyTextButton
+            text={commandField.command}
+            label={commandField.label}
+            copiedLabel="Copied"
+            className={styles.copyButton!}
+            copiedClassName={styles.copied!}
+          />
+        </div>
+      )}
+    </Banner>
   );
 }

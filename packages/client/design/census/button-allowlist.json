@@ -100,8 +100,8 @@
       "reason": "Completion listbox options driven by the composer's text field: composer pass."
     },
     "components/QuestionAnswerPanel.tsx": {
-      "count": 3,
-      "reason": "Question tab strip (tab family) and the answer list, single- or multi-select with previews and an Other field inside: its own pattern, not a SegmentedControl."
+      "count": 2,
+      "reason": "The answer list, single- or multi-select with previews and an Other field inside: its own pattern, not a SegmentedControl."
     },
     "components/SpeechControlMenu.tsx": {
       "count": 1,

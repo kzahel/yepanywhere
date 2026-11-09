@@ -10,6 +10,7 @@ import {
   useModalBackspace,
   useModalLayer,
 } from "./ui/Modal";
+import { Banner } from "./ui/Banner";
 import styles from "./ArtifactLinkViewer.module.css";
 import headerStyles from "./ViewerHeader.module.css";
 import { ViewerFindField } from "./ViewerFindField";
@@ -105,9 +106,9 @@ export function ArtifactLinkViewer({
         />
       </header>
       {blocked ? (
-        <p role="alert" className={styles.notice}>
+        <Banner tone="warning" role="alert" className={styles.message}>
           {t("artifactLinkFrameBlocked")}
-        </p>
+        </Banner>
       ) : (
         <iframe
           key={reloadKey}

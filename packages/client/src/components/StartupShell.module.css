@@ -57,16 +57,6 @@
   text-align: center;
 }
 
-.spinner {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: 0 0 auto;
-  border: 2px solid var(--border-subtle);
-  border-top-color: var(--app-yep-green);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
 .composerSlot {
   display: flex;
   min-height: 156px;
@@ -104,12 +94,6 @@
   .shell {
     height: 100dvh;
     min-height: 100dvh;
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 

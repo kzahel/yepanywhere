@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { SessionHoverCardTarget } from "../components/SessionHoverCardTarget";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { Field, Select, Textarea } from "../components/ui/Field";
 import type { SourceReviewDefaultSession } from "../contexts/SourceReviewDefaultSessionContext";
@@ -102,6 +103,9 @@ export function ReviewCommentWindow({
             <Field
               label={t("sourceReviewTargetLegend")}
               className={styles.destination}
+              error={
+                sessionsError ? t("sourceReviewSessionsUnavailable") : undefined
+              }
             >
               <Select
                 value={targetSessionId}
@@ -136,11 +140,6 @@ export function ReviewCommentWindow({
                 ))}
               </Select>
             </Field>
-            {sessionsError && (
-              <span className={styles.destinationError}>
-                {t("sourceReviewSessionsUnavailable")}
-              </span>
-            )}
             {defaultSession && targetSessionId === defaultSession.id ? (
               <SessionHoverCardTarget
                 sessionId={defaultSession.id}
@@ -218,7 +217,7 @@ export function ReviewCommentEditor({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
       />
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <Banner tone="error">{error}</Banner>}
       <div className={styles.actions}>{actions}</div>
     </div>
   );

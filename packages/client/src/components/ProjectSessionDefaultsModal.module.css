@@ -37,12 +37,6 @@
   background: var(--bg-secondary);
 }
 
-.error {
-  margin: 0;
-  color: var(--error-color);
-  font-size: var(--font-size-sm);
-}
-
 .actions {
   grid-column: 1 / -1;
   position: sticky;

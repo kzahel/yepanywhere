@@ -47,6 +47,11 @@
   white-space: nowrap;
 }
 
+.scanNotice {
+  flex: 0 1 auto;
+  margin-left: auto;
+}
+
 .currentContent {
   min-width: 0;
   min-height: 0;

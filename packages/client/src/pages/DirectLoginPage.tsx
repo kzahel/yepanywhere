@@ -9,9 +9,11 @@ import { mutateResumeCredentials } from "../lib/rejectedResumeStorage";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { Field, TextInput } from "../components/ui/Field";
+import { Spinner } from "../components/ui/Spinner";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useSignInRequiredNotice } from "../hooks/useSignInRequiredNotice";
 import { useI18n } from "../i18n";
@@ -53,7 +55,7 @@ export function DirectLoginPage() {
           </div>
           <p className="login-subtitle">{t("reconnecting")}</p>
           <div className="login-loading" data-testid="auto-resume-loading">
-            <div className="login-spinner" />
+            <Spinner size="large" />
           </div>
         </div>
       </div>
@@ -211,9 +213,9 @@ export function DirectLoginPage() {
           />
 
           {displayError && (
-            <div className="login-error" data-testid="login-error">
+            <Banner tone="error" data-testid="login-error">
               {displayError}
-            </div>
+            </Banner>
           )}
 
           <Button

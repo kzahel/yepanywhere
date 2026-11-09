@@ -43,7 +43,7 @@ test("Archive and Unarchive send the flag, toast and show the badge", async ({
 }) => {
   const session = await openSessionPage(page, baseURL, { owner: "none" });
   await session.answer("PUT", metadataPath, saved);
-  const badge = session.header.locator(".archived-badge");
+  const badge = session.header.getByTestId("session-archived-badge");
   await expect(badge).toHaveCount(0);
 
   await menuItem(page, "Archive");
@@ -68,7 +68,9 @@ test("a failed archive says so and shows no badge", async ({
   await menuItem(page, "Archive");
   await expect.poll(session.requests).toEqual([`PUT ${metadataPath}`]);
   await expect(session.toast("Failed to update archive status")).toBeVisible();
-  await expect(session.header.locator(".archived-badge")).toHaveCount(0);
+  await expect(
+    session.header.getByTestId("session-archived-badge"),
+  ).toHaveCount(0);
 });
 
 test("Star sends the flag, toasts and marks the title; a failure says so", async ({

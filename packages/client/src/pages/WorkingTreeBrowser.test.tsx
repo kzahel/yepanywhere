@@ -339,7 +339,7 @@ describe("WorkingTreeBrowser", () => {
     const row = document.querySelector(".commit-file-item");
     expect(row?.getAttribute("data-tooltip")).toBe("src/dirty.ts");
     expect(
-      row?.querySelector(".git-status-badge")?.getAttribute("data-tooltip"),
+      row?.querySelector('[role="img"]')?.getAttribute("data-tooltip"),
     ).toBe("M — sourceFileStatusModified");
     await waitFor(() =>
       expect(getGitDiff).toHaveBeenCalledWith(
@@ -1203,9 +1203,7 @@ describe("WorkingTreeBrowser", () => {
     if (!untrackedRow) throw new Error("Untracked file row is missing");
     expect(untrackedRow.querySelector(".worktree-file-state")).toBeNull();
     expect(
-      untrackedRow
-        .querySelector(".git-status-badge")
-        ?.getAttribute("data-tooltip"),
+      untrackedRow.querySelector('[role="img"]')?.getAttribute("data-tooltip"),
     ).toBe("? — sourceFileStatusUntracked");
   });
 

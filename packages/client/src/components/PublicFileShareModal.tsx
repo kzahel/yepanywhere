@@ -19,6 +19,8 @@ import {
   PublicShareInventoryMeta,
   PublicShareInventoryRow,
 } from "./PublicShareInventory";
+import { Badge } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Field, TextInput } from "./ui/Field";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
@@ -171,7 +173,9 @@ export function PublicFileShareModal({
         <div className={styles.fileIdentity} title={filePath}>
           <FileIcon />
           <span>{filePath}</span>
-          <span className={styles.liveBadge}>{t("publicShareLiveBadge")}</span>
+          <Badge tone="accent" size="small" className={styles.liveBadge}>
+            {t("publicShareLiveBadge")}
+          </Badge>
         </div>
         <p className={styles.description}>{t("publicFileShareDescription")}</p>
         {projectAppLink && (
@@ -204,10 +208,9 @@ export function PublicFileShareModal({
         {playLinks && (
           <p className={styles.description}>{t("publicFileSharePlayLinks")}</p>
         )}
-        <div className={styles.warning} role="note">
-          <WarningIcon />
-          <span>{t("publicFileShareWarning")}</span>
-        </div>
+        <Banner tone="warning" role="none">
+          {t("publicFileShareWarning")}
+        </Banner>
         {canUseBearerGrants && (
           <Button
             variant="primary"
@@ -303,19 +306,6 @@ function FileIcon() {
       aria-hidden="true"
     >
       <path d="M5 2.5h6l4 4v11H5zM11 2.5v4h4" />
-    </svg>
-  );
-}
-
-function WarningIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M10 2.5 18 17H2zM10 7v4.5M10 14.5v.1" />
     </svg>
   );
 }

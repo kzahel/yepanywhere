@@ -12,6 +12,7 @@ import type { AskUserQuestionInput, Question } from "./renderers/tools/types";
 import styles from "./QuestionAnswerPanel.module.css";
 import { Button, ButtonBase } from "./ui/Button";
 import { TextInput } from "./ui/Field";
+import { Tabs } from "./ui/Tabs";
 
 const OTHER_ANSWER = "__other__";
 
@@ -301,30 +302,21 @@ export function QuestionAnswerPanel({
           {/* Tab bar — only meaningful with more than one question; a lone
               tab is just noise (and an awkward "active" pill), so hide it. */}
           {questions.length > 1 && (
-            <div className={styles.tabs}>
-              {questions.map((q, idx) => {
-                const isActive = idx === currentTab;
-                const isAnswered = isQuestionAnswered(
+            <Tabs
+              aria-label={t("asyncQuestionsTitle")}
+              value={String(currentTab)}
+              onChange={(value) => setCurrentTab(Number(value))}
+              tabs={questions.map((q, idx) => ({
+                value: String(idx),
+                label: q.header,
+                icon: isQuestionAnswered(
                   getSelections(answers, getQuestionKey(q)),
                   getQuestionOtherText(q),
-                );
-                return (
-                  <button
-                    key={getQuestionKey(q)}
-                    type="button"
-                    className={cx(
-                      styles.tab,
-                      isActive && styles.active,
-                      isAnswered && styles.answered,
-                    )}
-                    onClick={() => setCurrentTab(idx)}
-                  >
-                    {isAnswered && <span className={styles.tabCheck}>✓</span>}
-                    {q.header}
-                  </button>
-                );
-              })}
-            </div>
+                )
+                  ? "✓"
+                  : undefined,
+              }))}
+            />
           )}
 
           {/* Current question */}

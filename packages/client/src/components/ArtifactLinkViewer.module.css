@@ -35,7 +35,6 @@
   background: white;
 }
 
-.notice {
-  padding: var(--space-3);
-  font-size: var(--font-size-sm);
+.message {
+  margin: var(--space-3);
 }

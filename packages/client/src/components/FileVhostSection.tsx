@@ -2,6 +2,8 @@ import type { ArtifactVhostSiteView } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
+import { Badge } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
 import { Select, TextInput } from "./ui/Field";
@@ -150,15 +152,21 @@ export function FileVhostSection({
                 ) : (
                   <span className={styles.url}>{site.name}</span>
                 )}
-                <span
-                  className={`${styles.badge} ${site.public && !site.passwordProtected ? styles.public : ""}`}
+                <Badge
+                  size="small"
+                  tone={
+                    site.public && !site.passwordProtected
+                      ? "accent"
+                      : "neutral"
+                  }
+                  className={styles.siteAccess}
                 >
                   {!site.public
                     ? t("fileVhostPrivateBadge")
                     : site.passwordProtected
                       ? t("fileVhostPasswordBadge")
                       : t("fileVhostPublicBadge")}
-                </span>
+                </Badge>
                 <span className={styles.actions}>
                   {url && (
                     <Button
@@ -260,14 +268,14 @@ export function FileVhostSection({
         </form>
       )}
       {error && (
-        <p className={styles.error} role="alert">
+        <Banner tone="error" compact>
           {error}
-        </p>
+        </Banner>
       )}
       {notice && (
-        <p className={styles.description} role="status">
+        <Banner tone="success" compact>
           {notice}
-        </p>
+        </Banner>
       )}
     </section>
   );

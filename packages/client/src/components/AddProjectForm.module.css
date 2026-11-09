@@ -39,11 +39,3 @@
   gap: 0.5rem;
   justify-content: flex-end;
 }
-
-.error {
-  padding: 0.5rem;
-  background: var(--bg-error);
-  border-radius: 4px;
-  color: var(--error-color);
-  font-size: var(--font-size-sm);
-}

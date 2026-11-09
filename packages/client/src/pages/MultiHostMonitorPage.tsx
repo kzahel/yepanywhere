@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
+import { Badge, type BadgeTone } from "../components/ui/Badge";
 import { Button, buttonClassName } from "../components/ui/Button";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { type MessageKey, useI18n } from "../i18n";
@@ -10,6 +11,13 @@ import {
   type MultiHostMonitorHostSnapshot,
   type MultiHostMonitorHostState,
 } from "../lib/multiHostMonitor";
+
+const STATUS_TONES: Record<MultiHostMonitorHostState, BadgeTone> = {
+  connecting: "info",
+  connected: "accent",
+  offline: "danger",
+  "sign-in-required": "warning",
+};
 
 const STATUS_KEYS: Record<MultiHostMonitorHostState, MessageKey> = {
   connecting: "multiHostMonitorStateConnecting",
@@ -67,7 +75,9 @@ function HostMonitorCard({
             )}
           </div>
         </div>
-        <span className="multi-host-state">{t(STATUS_KEYS[host.state])}</span>
+        <Badge tone={STATUS_TONES[host.state]}>
+          {t(STATUS_KEYS[host.state])}
+        </Badge>
       </header>
 
       {host.state === "connected" && summary ? (

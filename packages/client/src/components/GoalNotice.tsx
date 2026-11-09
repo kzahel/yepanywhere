@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import { GoalPanel } from "./GoalPanel";
+import { Banner } from "./ui/Banner";
 import { ButtonBase } from "./ui/Button";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import styles from "./GoalNotice.module.css";
@@ -15,12 +16,17 @@ export function GoalNotice({
 }) {
   const { t } = useI18n();
   return (
-    <div className={styles.notice}>
-      <strong className={styles.label}>{status || t("goalNoticeLabel")}</strong>
+    <Banner
+      role="none"
+      className={styles.notice}
+      title={
+        <span className={styles.label}>{status || t("goalNoticeLabel")}</span>
+      }
+    >
       <span className={styles.objective}>
         <LinkifiedText text={objective} />
       </span>
-    </div>
+    </Banner>
   );
 }
 

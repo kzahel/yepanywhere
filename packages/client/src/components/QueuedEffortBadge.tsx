@@ -8,7 +8,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
 import { getEffortLevelLabel } from "../lib/effortLevels";
-import styles from "./QueuedEffortBadge.module.css";
+import { Badge } from "./ui/Badge";
 
 export interface QueuedEffortContext {
   normal: ThinkingOption;
@@ -45,12 +45,8 @@ export function QueuedEffortBadge({
       ? t("turnEffortOff")
       : getEffortLevelLabel(level as EffortLevel, context.provider, t);
   return (
-    <span
-      className={styles.badge}
-      title={`/${modifier}`}
-      data-turn-effort={level}
-    >
+    <Badge size="small" tooltip={`/${modifier}`} data-turn-effort={level}>
       {label}
-    </span>
+    </Badge>
   );
 }

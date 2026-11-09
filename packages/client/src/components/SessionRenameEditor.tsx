@@ -1,5 +1,6 @@
 import { useCallback, useId, useRef, useState } from "react";
 import { useI18n } from "../i18n";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { TextInput } from "./ui/Field";
 import { Modal } from "./ui/Modal";
@@ -114,9 +115,9 @@ export function SessionRenameEditor({
         </Button>
       </div>
       {failed && (
-        <p className={styles.error} role="alert">
+        <Banner tone="error" compact className={styles.failure}>
           {t("sessionRenameFailed")}
-        </p>
+        </Banner>
       )}
     </form>
   );

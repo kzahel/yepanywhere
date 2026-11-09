@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { Banner } from "../components/ui/Banner";
 import { Button, ButtonBase } from "../components/ui/Button";
 import { Field, Select, Textarea } from "../components/ui/Field";
 import type { TranslationFn } from "../i18n";
@@ -221,7 +222,7 @@ export function ReviewSubmissionsPanel({
       </div>
 
       <article className={styles.detail}>
-        {error && <div className={styles.error}>{error}</div>}
+        {error && <Banner tone="error">{error}</Banner>}
         {detail?.submission.id === selected.id ? (
           <SubmissionDetail
             detail={detail}
@@ -252,7 +253,10 @@ function SubmissionDetail({
   t: TranslationFn;
 }) {
   const [refreshingResponse, setRefreshingResponse] = useState(false);
-  const [responseNotice, setResponseNotice] = useState<string | null>(null);
+  const [responseNotice, setResponseNotice] = useState<{
+    tone: "info" | "error";
+    text: string;
+  } | null>(null);
   const sourceByEntry = useMemo(
     () =>
       new Map(
@@ -278,15 +282,20 @@ function SubmissionDetail({
         projectId,
         detail.submission.id,
       );
-      setResponseNotice(responseStatusLabel(result.responseStatus, t));
+      setResponseNotice({
+        tone: "info",
+        text: responseStatusLabel(result.responseStatus, t),
+      });
       notifyReviewCommentsChanged(projectId);
       await refresh();
     } catch (cause) {
-      setResponseNotice(
-        cause instanceof Error
-          ? cause.message
-          : t("sourceReviewResponseRefreshFailed"),
-      );
+      setResponseNotice({
+        tone: "error",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : t("sourceReviewResponseRefreshFailed"),
+      });
     } finally {
       setRefreshingResponse(false);
     }
@@ -326,7 +335,13 @@ function SubmissionDetail({
         </div>
       </header>
       {responseNotice && (
-        <div className={styles.responseNotice}>{responseNotice}</div>
+        <Banner
+          tone={responseNotice.tone}
+          compact
+          className={styles.responseNotice}
+        >
+          {responseNotice.text}
+        </Banner>
       )}
       <ul className={styles.siteList}>
         {detail.sites.map((site) => (
@@ -469,7 +484,11 @@ function ReviewSiteCard({
           );
         })}
       </ol>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && (
+        <Banner tone="error" className={styles.error}>
+          {error}
+        </Banner>
+      )}
       {!hasPending && (
         <div className={styles.followUp}>
           <Textarea

@@ -1,6 +1,7 @@
 import type { AgentActivity } from "../hooks/useFileActivity";
 import type { SessionStatus } from "../types";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { Badge } from "./ui/Badge";
 
 type BadgeVariant = "self" | "external" | "none";
 type NotificationVariant = "needs-input" | "unread";
@@ -31,32 +32,24 @@ interface NotificationBadgeProps {
   label?: string;
 }
 
-function getCountBadgeStatusClass(
-  variant: BadgeVariant,
-): "idle" | "owned" | "external" {
-  if (variant === "self") return "owned";
-  if (variant === "external") return "external";
-  return "idle";
-}
-
 /**
- * Notification badge indicating action needed or unread content.
- * - "needs-input" (blue): Tool approval or user question pending
- * - "unread" (orange): New content since last viewed
+ * Notification badge indicating action needed or unread content, sized for
+ * the session rows it sits in.
+ * - "needs-input" (warning): Tool approval or user question pending
+ * - "unread" (info): New content since last viewed
  */
 export function NotificationBadge({ variant, label }: NotificationBadgeProps) {
-  const defaultLabel = variant === "needs-input" ? "Input Needed" : "New";
-
+  const needsInput = variant === "needs-input";
   return (
-    <span className={`status-badge notification-${variant}`}>
-      {label ?? defaultLabel}
-    </span>
+    <Badge tone={needsInput ? "warning" : "info"} size="small">
+      {label ?? (needsInput ? "Input Needed" : "New")}
+    </Badge>
   );
 }
 
 /**
  * Status badge for a single session in a list.
- * Priority: needs-input (blue) > in-turn (pulsing) > unread (orange) > active (outline) > idle (nothing)
+ * Priority: needs-input > in-turn (pulsing) > unread > active > idle (nothing)
  * External sessions always show "External" badge regardless of other state.
  */
 export function SessionStatusBadge({
@@ -67,7 +60,7 @@ export function SessionStatusBadge({
   // External sessions always show the external badge
   // We can't track fine-grained state (in-turn, needs input) for external sessions
   if (status.owner === "external") {
-    return <span className="status-badge status-external">External</span>;
+    return <Badge size="small">External</Badge>;
   }
 
   // Priority 1: Needs input (tool approval or user question)
@@ -107,10 +100,6 @@ export function ActiveCountBadge({ variant, count }: CountBadgeProps) {
   if (!label) return null;
 
   return (
-    <span
-      className={`status-badge status-${getCountBadgeStatusClass(variant)}`}
-    >
-      {label}
-    </span>
+    <Badge tone={variant === "self" ? "accent" : "neutral"}>{label}</Badge>
   );
 }

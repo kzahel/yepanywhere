@@ -12,6 +12,7 @@ import { useSessionCollectionRecord } from "../lib/clientSummaryStore";
 import { providerChildSessionHref } from "../lib/providerChildSessions";
 import { getProvider } from "../providers/registry";
 import styles from "./SessionRelationshipsSection.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 
 const LABELS: Record<string, readonly [string, string]> = {
@@ -171,9 +172,9 @@ function SessionRelationshipsPage({
         </p>
       )}
       {error && (
-        <p className={styles.error} role="status">
+        <Banner tone="error" role="status" compact>
           {t("sessionRelationshipsUnavailable")}
-        </p>
+        </Banner>
       )}
       {page && (
         <>

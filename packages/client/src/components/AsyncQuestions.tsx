@@ -10,6 +10,7 @@ import { useI18n } from "../i18n";
 import type { AsyncQuestion } from "../lib/asyncQuestions";
 import styles from "./AsyncQuestions.module.css";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Textarea } from "./ui/Field";
 import { renderFixedFontRichContent } from "./ui/FixedFontMathToggle";
@@ -212,9 +213,9 @@ function InlineQuestion({
         </>
       )}
       {error && (
-        <p role="alert" className={styles.error}>
+        <Banner tone="error" compact className={styles.sendFailure}>
           {t("asyncQuestionSendFailed")}
-        </p>
+        </Banner>
       )}
     </div>
   );

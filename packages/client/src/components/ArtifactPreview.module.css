@@ -26,14 +26,17 @@
   background: white;
 }
 
-.notice {
+.status {
   padding: var(--space-3);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  line-height: 1.5;
 }
 
-.notice a {
+.message {
+  margin: var(--space-3);
+}
+
+.openLink {
   display: inline-block;
   padding-block: var(--space-2);
   color: var(--link-color);

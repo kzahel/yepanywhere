@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { RiskAffordance } from "./RiskAffordance";
+import { Banner } from "./ui/Banner";
 
 /**
  * Warning shown while another process (a terminal Claude session, an IDE
@@ -72,10 +73,8 @@ export function ExternalSessionWarning({ active }: { active: boolean }) {
     : 0;
 
   return (
-    <div className="external-session-warning" role="status">
-      <span className="external-session-warning-text">
-        {t("sessionExternalWarning")}
-      </span>{" "}
+    <Banner tone="warning" compact>
+      {t("sessionExternalWarning")}{" "}
       <RiskAffordance
         label={t("sessionExternalWarningElapsed", {
           duration: formatDuration(elapsedSeconds),
@@ -84,7 +83,7 @@ export function ExternalSessionWarning({ active }: { active: boolean }) {
         modalTitle={t("sessionExternalWarningExplainTitle")}
         explanation={<ExternalSessionRiskExplanation />}
       />
-    </div>
+    </Banner>
   );
 }
 

@@ -61,9 +61,6 @@
   gap: var(--space-2);
 }
 
-.error {
+.failure {
   flex-basis: 100%;
-  margin: 0;
-  color: var(--error-color);
-  font-size: var(--font-size-sm);
 }

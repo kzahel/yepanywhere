@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FileViewer, type FileViewerSource } from "../components/FileViewer";
 import { createPublicShareFileViewerSource } from "../components/publicShareFileViewerSource";
+import { Banner } from "../components/ui/Banner";
 import {
   type PublicShareContextValue,
   PublicShareProvider,
@@ -108,9 +109,9 @@ export function PublicShareFilePage() {
           />
         ) : (
           <div className="file-viewer">
-            <div className="file-viewer-error">
+            <Banner tone="error">
               {relayConfig.error || t("fileInvalidUrl" as never)}
-            </div>
+            </Banner>
           </div>
         )}
       </div>

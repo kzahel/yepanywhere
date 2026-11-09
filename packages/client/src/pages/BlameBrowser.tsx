@@ -34,6 +34,7 @@ import {
   SourceFileRowButton,
   SourceFileStatusBadge,
 } from "../components/SourceFileRow";
+import { Banner } from "../components/ui/Banner";
 import { Button, ButtonBase } from "../components/ui/Button";
 import { TextInput } from "../components/ui/Field";
 import { Modal } from "../components/ui/Modal";
@@ -47,6 +48,7 @@ import {
 import type { TranslationFn } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import { FileSearchIndex } from "../lib/fileSearchIndex";
+import { SourceCommentCountBadge } from "./SourceCommentCountBadge";
 import styles from "./BlameBrowser.module.css";
 import { BlameView } from "./BlameView";
 
@@ -409,14 +411,7 @@ export function BlameBrowser({
             {visiblePath}
           </SourceFilePath>
           {fileStatus && <SourceFileStatusBadge status={fileStatus} t={t} />}
-          {count > 0 && (
-            <span
-              className="source-comment-badge"
-              title={t("sourceCommentCount", { count })}
-            >
-              {count}
-            </span>
-          )}
+          <SourceCommentCountBadge count={count} t={t} />
         </SourceFileRowButton>
         <SourceRowMenuTrigger
           actions={menuActions}
@@ -452,7 +447,7 @@ export function BlameBrowser({
           {effectiveLoading ? (
             <div className="git-diff-loading">{t("gitStatusLoading")}</div>
           ) : effectiveError ? (
-            <div className="git-diff-error">{effectiveError}</div>
+            <Banner tone="error">{effectiveError}</Banner>
           ) : (
             <WorkingTreeFileList
               trackedFiles={plainInventory ? filtered : trackedFiles}

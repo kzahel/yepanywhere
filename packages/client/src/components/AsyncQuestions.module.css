@@ -157,8 +157,8 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.error {
-  color: var(--error-color, #d55);
+.sendFailure {
+  margin-top: var(--space-2);
 }
 @media (pointer: coarse) {
   .indicator,

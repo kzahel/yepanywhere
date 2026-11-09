@@ -26,6 +26,7 @@ import {
   PublicSharePlusIcon,
   PublicShareRevokeIcon,
 } from "./PublicShareInventory";
+import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Modal, type ModalAnchorRect } from "./ui/Modal";
 import { SegmentedControl } from "./ui/SegmentedControl";
@@ -959,16 +960,15 @@ function SourcePublicShareManagerModal({
           </div>
         </div>
         {pendingCategoryAction && (
-          <div
-            className={
-              pendingCategoryAction.action === "freeze"
-                ? styles.freezeConfirmationBanner
-                : styles.revokeConfirmationBanner
+          <Banner
+            tone={
+              pendingCategoryAction.action === "freeze" ? "warning" : "error"
             }
             role="status"
+            compact
           >
             {categoryConfirmLabel(pendingCategoryAction, true)}
-          </div>
+          </Banner>
         )}
       </div>
     </Modal>

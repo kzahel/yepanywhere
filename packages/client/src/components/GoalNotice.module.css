@@ -1,28 +1,15 @@
 .notice {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 0.5rem 0.75rem;
-  border-inline-start: 2px solid var(--text-secondary);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
 }
 
 .label {
-  flex: none;
-  color: var(--text-secondary);
   white-space: pre-wrap;
 }
 
 .objective {
-  min-width: 0;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .flag {

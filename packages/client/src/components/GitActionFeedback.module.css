@@ -1,24 +1,3 @@
-.message {
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.82rem;
-  overflow-wrap: anywhere;
-}
-
-.success {
-  color: var(--success-color);
-  background: color-mix(in srgb, var(--success-color) 12%, transparent);
-  border-color: color-mix(in srgb, var(--success-color) 28%, transparent);
-}
-
-.warning {
-  color: var(--warning-color);
-  background: color-mix(in srgb, var(--warning-color) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warning-color) 28%, transparent);
-}
-
 .hint {
   margin: var(--space-1) 0 0;
 }

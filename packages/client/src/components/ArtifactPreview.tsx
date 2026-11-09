@@ -25,6 +25,7 @@ import { usePublicShareContext } from "../contexts/PublicShareContext";
 import { useRetainedVersionInfo } from "../hooks/useVersion";
 import { MANAGED_ARTIFACT_PARENTS } from "../lib/managedArtifactViewer";
 import { ManagedArtifactPreview } from "./ManagedArtifactPreview";
+import { Banner } from "./ui/Banner";
 import styles from "./ArtifactPreview.module.css";
 
 export interface ArtifactPreviewProps {
@@ -177,22 +178,33 @@ function ConfiguredArtifactPreview(props: ArtifactPreviewProps) {
       {props.toolbarHost ? createPortal(controls, props.toolbarHost) : controls}
       {runningMenu}
       {props.showControls === false && busy && (
-        <div className={styles.notice} role="status">
+        <div className={styles.status} role="status">
           {t("artifactChecking")}
         </div>
       )}
       {props.autoStart && !origin && (
-        <div className={styles.notice} role="status">
+        <Banner tone="warning" className={styles.message}>
           {t("artifactUnavailable")}
-        </div>
+        </Banner>
       )}
       {grant && frameBlocked ? (
-        <div className={styles.notice} role="alert">
-          <p>{t("artifactFrameBlocked")}</p>
-          <a href={grant.url} target="_blank" rel="noopener noreferrer">
-            {t("artifactOpenTab")}
-          </a>
-        </div>
+        <Banner
+          tone="warning"
+          role="alert"
+          className={styles.message}
+          actions={
+            <a
+              className={styles.openLink}
+              href={grant.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t("artifactOpenTab")}
+            </a>
+          }
+        >
+          {t("artifactFrameBlocked")}
+        </Banner>
       ) : grant ? (
         <iframe
           key={`${grant.id}:${props.reloadKey ?? 0}`}

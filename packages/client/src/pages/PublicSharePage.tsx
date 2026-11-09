@@ -11,7 +11,10 @@ import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { BrandWordmark } from "../components/BrandWordmark";
 import { ConversationViewIcon } from "../components/ConversationViewIcon";
 import { MessageList } from "../components/MessageList";
+import { Badge } from "../components/ui/Badge";
+import { Banner } from "../components/ui/Banner";
 import { IconButton } from "../components/ui/Button";
+import { Spinner } from "../components/ui/Spinner";
 import { ViewerCountIndicator } from "../components/ViewerCountIndicator";
 import {
   PublicShareProvider,
@@ -571,37 +574,34 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
               />
             )}
             {badgeLabel && (
-              <span className="public-share-badge">{badgeLabel}</span>
+              <Badge tone={mode === "live" ? "accent" : "neutral"}>
+                {badgeLabel}
+              </Badge>
             )}
           </div>
         </div>
       </header>
       <section className="public-share-scroll">
         {cautionLabel && (
-          <div
-            className={`public-share-caution public-share-caution--${mode}`}
-            role="note"
-          >
+          <Banner tone="warning" role="none" className="public-share-caution">
             {cautionLabel}
-          </div>
+          </Banner>
         )}
         {mode === "frozen" && linkedFileMode === "live" && (
-          <div className="public-share-caution" role="note">
+          <Banner tone="warning" role="none" className="public-share-caution">
             {t("publicShareFrozenLinkedFilesLiveWarning")}
-          </div>
+          </Banner>
         )}
         <ToastProvider>
           <SchemaValidationProvider>
             <StreamingMarkdownProvider>
               {linkNotice && (
-                <div className="public-share-notice" role="status">
-                  {linkNotice}
-                </div>
+                <Banner className="public-share-notice">{linkNotice}</Banner>
               )}
               {error && !retrying && !share ? (
-                <div className="public-share-error public-share-error--inline">
+                <Banner tone="error" className="public-share-error--inline">
                   {error}
-                </div>
+                </Banner>
               ) : messageContent ? (
                 messageContent
               ) : initialPromptPreview ? (
@@ -610,15 +610,13 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
                     {initialPromptPreview}
                   </div>
                   <div className="public-share-fetch-status" role="status">
-                    <span className="public-share-spinner" aria-hidden="true" />
+                    <Spinner size="small" />
                     {loadStatusLabel}
                   </div>
                 </div>
               ) : (
                 <div className="public-share-empty">
-                  {isFetching && (
-                    <span className="public-share-spinner" aria-hidden="true" />
-                  )}
+                  {isFetching && <Spinner size="small" />}
                   {loadStatusLabel}
                 </div>
               )}

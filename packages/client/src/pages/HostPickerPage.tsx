@@ -13,7 +13,9 @@ import {
 import { getResumeError } from "../lib/connection/resumeErrors";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Banner } from "../components/ui/Banner";
 import { ButtonBase, IconButton } from "../components/ui/Button";
+import { Spinner } from "../components/ui/Spinner";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { signInRequiredState } from "../hooks/useSignInRequiredNotice";
@@ -220,7 +222,7 @@ export function HostPickerPage() {
           </div>
           <p className="login-subtitle">{t("reconnecting")}</p>
           <div className="login-loading" data-testid="auto-resume-loading">
-            <div className="login-spinner" />
+            <Spinner size="large" />
           </div>
         </div>
       </div>
@@ -281,7 +283,7 @@ export function HostPickerPage() {
                     </div>
                     {isConnecting && (
                       <div className="host-picker-connecting">
-                        <div className="login-spinner" />
+                        <Spinner />
                       </div>
                     )}
                   </ButtonBase>
@@ -290,9 +292,9 @@ export function HostPickerPage() {
             </div>
 
             {error && (
-              <div className="login-error" data-testid="host-picker-error">
+              <Banner tone="error" data-testid="host-picker-error">
                 {error}
-              </div>
+              </Banner>
             )}
 
             <p className="login-subtitle host-picker-add-title">

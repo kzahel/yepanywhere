@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ActiveCountBadge, SessionStatusBadge } from "../StatusBadge";
 
@@ -38,8 +38,7 @@ describe("SessionStatusBadge", () => {
     );
 
     // No indicator for owned sessions - "Thinking" badge shows when actually in-turn
-    expect(container.querySelector(".status-badge")).toBeNull();
-    expect(container.querySelector(".status-indicator")).toBeNull();
+    expect(container.textContent).toBe("");
   });
 
   it("shows nothing when unowned", () => {
@@ -47,8 +46,7 @@ describe("SessionStatusBadge", () => {
       <SessionStatusBadge status={{ owner: "none" }} />,
     );
 
-    expect(container.querySelector(".status-badge")).toBeNull();
-    expect(container.querySelector(".status-indicator")).toBeNull();
+    expect(container.textContent).toBe("");
   });
 
   it("prioritizes needs-input over in-turn", () => {
@@ -65,11 +63,7 @@ describe("SessionStatusBadge", () => {
       />,
     );
 
-    const badge = container.querySelector(
-      ".status-badge.notification-needs-input",
-    );
-    expect(badge).not.toBeNull();
-    expect(badge?.textContent).toBe("Approval Needed");
+    expect(screen.getByText("Approval Needed")).toBeTruthy();
 
     expect(container.textContent).not.toContain("Thinking");
   });
@@ -99,8 +93,7 @@ describe("SessionStatusBadge", () => {
     );
 
     // No badge - unread is now handled via CSS class on parent element
-    expect(container.querySelector(".status-badge")).toBeNull();
-    expect(container.querySelector(".status-indicator")).toBeNull();
+    expect(container.textContent).toBe("");
   });
 
   it("shows nothing for owned sessions with unread (unread handled via CSS class)", () => {
@@ -117,15 +110,12 @@ describe("SessionStatusBadge", () => {
     );
 
     // No badge or indicator - unread is handled via CSS class on parent
-    expect(container.querySelector(".status-badge")).toBeNull();
-    expect(container.querySelector(".status-indicator")).toBeNull();
+    expect(container.textContent).toBe("");
   });
 
-  it("maps self count badges to the existing owned CSS class", () => {
+  it("labels self count badges as active", () => {
     const { container } = render(<ActiveCountBadge variant="self" count={2} />);
 
-    const badge = container.querySelector(".status-badge");
-    expect(badge?.classList.contains("status-owned")).toBe(true);
-    expect(badge?.textContent).toBe("2 Active");
+    expect(container.textContent).toBe("2 Active");
   });
 });

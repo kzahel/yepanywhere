@@ -1,4 +1,4 @@
-import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
+import { Badge } from "./Badge";
 
 interface HiddenContentBadgeProps {
   count: number;
@@ -12,14 +12,9 @@ export function HiddenContentBadge({
   className,
   tooltip,
 }: HiddenContentBadgeProps) {
-  const classes = className
-    ? `hidden-content-badge ${className}`
-    : "hidden-content-badge";
-  const tooltipAttributes = useTextTooltipAttributes(tooltip);
-
   return (
-    <span className={classes} {...tooltipAttributes}>
+    <Badge shape="count" size="small" tooltip={tooltip} className={className}>
       +{count}
-    </span>
+    </Badge>
   );
 }

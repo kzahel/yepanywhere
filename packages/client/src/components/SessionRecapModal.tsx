@@ -14,6 +14,7 @@ import { useI18n } from "../i18n";
 import { getRecapModeDescription } from "../lib/recapModes";
 import { RecapAfterSecondsControl } from "./RecapAfterSecondsControl";
 import styles from "./SessionRecapModal.module.css";
+import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
 import { Select } from "./ui/Field";
 import { Modal } from "./ui/Modal";
@@ -244,7 +245,7 @@ export function SessionRecapModal({
           </label>
         )}
 
-        {error && <p className="settings-warning">{error}</p>}
+        {error && <Banner tone="error">{error}</Banner>}
 
         <div className="model-switch-actions">
           <Button onClick={onClose} disabled={isSaving}>

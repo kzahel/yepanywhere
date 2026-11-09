@@ -82,8 +82,11 @@
   background: rgb(0 0 0 / 35%);
   z-index: 29;
 }
-.error {
+.status {
   padding: 16px;
+}
+.message {
+  margin: 16px;
 }
 .launcher {
   flex-shrink: 0;

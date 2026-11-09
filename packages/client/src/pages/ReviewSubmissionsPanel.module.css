@@ -98,8 +98,6 @@
 
 .responseNotice {
   margin: calc(-1 * var(--space-2, 8px)) 0 var(--space-3, 12px);
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.8rem;
 }
 
 .detailHeader h2 {
@@ -256,15 +254,11 @@
 .captureMissing,
 .error {
   margin-top: var(--space-2, 8px);
-  font-size: 0.8rem;
 }
 
 .captureMissing {
   color: var(--text-muted);
-}
-
-.error {
-  color: var(--error-color);
+  font-size: 0.8rem;
 }
 
 .outcome {

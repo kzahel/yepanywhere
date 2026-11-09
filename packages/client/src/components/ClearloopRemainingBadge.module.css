@@ -1,3 +1,18 @@
+/* The passive count is a Badge; the header's live control below is a button
+   and keeps its own chip. */
+.label {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+  vertical-align: middle;
+}
+
+/* Patient loops wear the Project Queue purple, which no Badge tone carries;
+   compounded so it outranks the Badge's own tone class. */
+.count.patient {
+  --badge-color: var(--project-queue-action-bg);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

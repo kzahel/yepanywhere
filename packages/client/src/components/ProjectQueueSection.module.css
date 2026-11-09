@@ -58,28 +58,6 @@
   min-width: 72px;
 }
 
-.notice {
-  padding: 0.55rem 0.65rem;
-  border: 1px solid
-    color-mix(in srgb, var(--project-queue-action-bg) 24%, var(--border-subtle));
-  border-radius: var(--radius-sm);
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 8%,
-    transparent
-  );
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: 1.35;
-}
-
-.sectionError,
-.itemError {
-  color: var(--error-color);
-  font-size: var(--font-size-sm);
-  line-height: 1.35;
-}
-
 .recovered {
   display: flex;
   flex-direction: column;
@@ -367,30 +345,6 @@
 
 .itemStatus {
   min-width: max-content;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 10%,
-    var(--bg-surface)
-  );
-  color: var(--project-queue-action-bg);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.itemStatusFailed {
-  background: color-mix(in srgb, var(--error-color) 10%, var(--bg-surface));
-  color: var(--error-color);
-}
-
-.itemStatusDispatching {
-  background: color-mix(
-    in srgb,
-    var(--project-queue-action-bg) 16%,
-    var(--bg-surface)
-  );
-  color: var(--project-queue-action-bg);
 }
 
 .itemActions {

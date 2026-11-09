@@ -46,14 +46,6 @@
   color: var(--text-secondary);
 }
 
-.itemStatus.running {
-  color: var(--app-yep-green);
-}
-
-.itemStatus.stopped {
-  color: var(--text-muted);
-}
-
 .itemActions {
   display: flex;
   gap: 8px;
@@ -158,12 +150,7 @@
 }
 
 .error {
-  padding: 12px 16px;
   margin: 8px 0;
-  background: var(--bg-error);
-  color: var(--error-color);
-  border-radius: 6px;
-  font-size: 0.9em;
 }
 
 .connecting {

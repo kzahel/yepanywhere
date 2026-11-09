@@ -1,13 +1,46 @@
-.badge {
+/* The labelled wrapper; the Badge inside carries the look. */
+.root {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px 1px;
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  border: 1px solid;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.badge {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Provider brand colors, which no Badge tone carries; compounded so they
+   outrank the Badge's own tone class. */
+.badge.claude {
+  --badge-color: var(--provider-claude);
+  --badge-soft: color-mix(in srgb, var(--provider-claude) 12%, transparent);
+}
+
+.badge.codex {
+  --badge-color: var(--provider-codex);
+  --badge-soft: color-mix(in srgb, var(--provider-codex) 12%, transparent);
+}
+
+.badge.gemini {
+  --badge-color: var(--provider-gemini);
+  --badge-soft: color-mix(in srgb, var(--provider-gemini) 12%, transparent);
+}
+
+.badge.grok {
+  --badge-color: var(--provider-grok);
+  --badge-soft: color-mix(in srgb, var(--provider-grok) 12%, transparent);
+}
+
+.badge.opencode {
+  --badge-color: var(--provider-opencode);
+  --badge-soft: color-mix(in srgb, var(--provider-opencode) 12%, transparent);
+}
+
+.badge.pi {
+  --badge-color: var(--provider-pi);
+  --badge-soft: color-mix(in srgb, var(--provider-pi) 12%, transparent);
 }
 
 .dot {
@@ -89,14 +122,6 @@
     opacity: 1;
     transform: scale(1);
   }
-}
-
-.condensed {
-  min-width: 0;
-  max-width: 100%;
-  gap: 3px;
-  padding: 2px 5px;
-  white-space: nowrap;
 }
 
 .model {

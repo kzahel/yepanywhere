@@ -19,3 +19,13 @@
 :global(.sidebar-collapsed) .row {
   flex-direction: column;
 }
+/* The count sits at the row's end and, like the label, leaves the collapsed
+ * desktop rail. */
+.badge {
+  margin-left: auto;
+}
+@media (width >= 1100px) {
+  :global(.sidebar-collapsed) .badge {
+    display: none;
+  }
+}

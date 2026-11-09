@@ -97,17 +97,17 @@ describe("RemoteCompatibilityNotices", () => {
   });
 
   it.each([
-    ["floating", "security", "alert", styles.floating!, styles.critical!],
-    ["floating", "blocking", "alert", styles.floating!, styles.critical!],
-    ["floating", "recommended", "status", styles.floating!, undefined],
-    ["floating", "info", "status", styles.floating!, undefined],
-    ["inline", "security", "alert", styles.inline!, styles.critical!],
-    ["inline", "blocking", "alert", styles.inline!, styles.critical!],
-    ["inline", "recommended", "status", styles.inline!, undefined],
-    ["inline", "info", "status", styles.inline!, undefined],
+    ["floating", "security", "alert", styles.floating!],
+    ["floating", "blocking", "alert", styles.floating!],
+    ["floating", "recommended", "status", styles.floating!],
+    ["floating", "info", "status", styles.floating!],
+    ["inline", "security", "alert", styles.inline!],
+    ["inline", "blocking", "alert", styles.inline!],
+    ["inline", "recommended", "status", styles.inline!],
+    ["inline", "info", "status", styles.inline!],
   ] as const)(
-    "maps %s %s notices to the expected module classes and %s role",
-    (placement, severity, role, placementClass, severityClass) => {
+    "places %s %s notices with the %s role",
+    (placement, severity, role, placementClass) => {
       const { container } = render(
         <RemoteCompatibilityNoticeCard
           notice={notice({ severity })}
@@ -117,13 +117,7 @@ describe("RemoteCompatibilityNotices", () => {
 
       const root = screen.getByTestId("remote-compatibility-notice");
       expect(root.getAttribute("role")).toBe(role);
-      expect(root.classList.contains(styles.root!)).toBe(true);
       expect(root.classList.contains(placementClass)).toBe(true);
-      expect(
-        severityClass ? root.classList.contains(severityClass) : true,
-      ).toBe(true);
-      expect(root.querySelector(`.${styles.content!}`)).toBeTruthy();
-      expect(root.querySelector(`.${styles.actions!}`)).toBeTruthy();
       expectNoLegacyNoticeClasses(container);
     },
   );
@@ -153,13 +147,8 @@ describe("RemoteCompatibilityNotices", () => {
     });
 
     expect(root.querySelector(`.${styles.headline!}`)).toBeTruthy();
-    expect(root.querySelector(`.${styles.title!}`)).toBeTruthy();
     expect(root.querySelector(`.${styles.meta!}`)).toBeTruthy();
-    expect(root.querySelector(`.${styles.count!}`)?.textContent).toBe(
-      "2 notices",
-    );
-    expect(root.querySelector(`.${styles.body!}`)).toBeTruthy();
-    expect(root.querySelector(`.${styles.guidance!}`)).toBeTruthy();
+    expect(screen.getByText("2 notices")).toBeTruthy();
     expect(root.querySelector(`.${styles.commandField!}`)).toBeTruthy();
     expect(textarea.classList.contains(styles.commandInput!)).toBe(true);
     expect(textarea.value).toBe(command);

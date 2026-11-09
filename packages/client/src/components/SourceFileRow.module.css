@@ -35,28 +35,8 @@
   align-items: center;
 }
 
-.reviewState {
-  padding: 1px 5px;
-  font-size: 0.65rem;
-  line-height: 1.25;
-  white-space: nowrap;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-}
-
-.open {
-  color: var(--warning-color);
-}
-
-.addressed {
-  color: var(--accent-color);
-}
-
-.changed {
-  color: var(--success-color);
-}
-
-.unchanged,
-.unavailable {
-  color: var(--text-muted);
+/* The labelled wrapper of a file's one-letter git status Badge. */
+.status {
+  display: inline-flex;
+  flex-shrink: 0;
 }

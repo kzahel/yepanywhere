@@ -16,6 +16,7 @@
 
 import { useEffect, useRef } from "react";
 import { observeViewportActivityAnimation } from "../lib/viewportActivityAnimation";
+import { Badge } from "./ui/Badge";
 import styles from "./ThinkingIndicator.module.css";
 
 interface ThinkingIndicatorProps {
@@ -79,10 +80,14 @@ export function ThinkingIndicator({
 
   if (variant === "pill") {
     return (
-      <span ref={rootRef} className={`${styles.pill} ${className ?? ""}`}>
-        {dot}
-        <span className={styles.label}>{label}</span>
-      </span>
+      <Badge
+        ref={rootRef}
+        size="small"
+        icon={dot}
+        className={`${styles.thinking} ${styles.pill} ${className ?? ""}`}
+      >
+        {label}
+      </Badge>
     );
   }
 

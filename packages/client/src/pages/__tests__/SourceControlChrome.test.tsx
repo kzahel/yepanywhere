@@ -242,9 +242,11 @@ describe("SourceModeTabs", () => {
       />,
     );
 
-    const counts = document.querySelectorAll(`.${tabStyles.count as string}`);
-    expect(counts).toHaveLength(1);
-    expect(counts[0]?.textContent).toBe("3");
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "sourceTabChanges3",
+      "sourceTabFiles",
+      "sourceTabComments",
+    ]);
   });
 
   it("supports a fourth Reviews mode without changing the tab contract", () => {

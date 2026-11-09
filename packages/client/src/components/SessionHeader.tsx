@@ -17,6 +17,7 @@ import {
 import { SessionRenameEditor } from "./SessionRenameEditor";
 import { SessionRouterAccountChip } from "./SessionRouterAccountChip";
 import { SessionAppAction } from "./SessionRightPane";
+import { Badge } from "./ui/Badge";
 import { ButtonBase, IconButton } from "./ui/Button";
 import { Menu, MenuGroup, MenuItem } from "./ui/Menu";
 import {
@@ -783,9 +784,12 @@ export function SessionHeader({
               </>
             )}
             {!loading && isArchived && (
-              <span className="archived-badge">
+              <Badge
+                className={sessionHeaderStyles.archivedBadge}
+                data-testid="session-archived-badge"
+              >
                 {t("sessionArchivedBadge")}
-              </span>
+              </Badge>
             )}
           </div>
         </div>

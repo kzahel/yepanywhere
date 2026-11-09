@@ -19,12 +19,6 @@
   margin: 0;
 }
 
-.error {
-  color: var(--error-color);
-  font-size: 0.8rem;
-  margin: 0;
-}
-
 .form {
   align-items: center;
   display: flex;
@@ -131,21 +125,8 @@
   overflow-wrap: anywhere;
 }
 
-.badge {
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  color: var(--text-secondary);
+.siteAccess {
   flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 2px 7px;
-  text-transform: uppercase;
-}
-
-.public {
-  border-color: color-mix(in srgb, var(--app-yep-green) 55%, transparent);
-  color: var(--app-yep-green);
 }
 
 .actions {

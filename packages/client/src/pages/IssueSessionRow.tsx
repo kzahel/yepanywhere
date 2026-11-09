@@ -6,6 +6,7 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import { SessionListItem } from "../components/SessionListItem";
 import { useSourceContextMenu } from "../components/SourceContextMenu";
+import { Banner } from "../components/ui/Banner";
 import { Button, IconButton } from "../components/ui/Button";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
@@ -307,7 +308,7 @@ export function IssueSessionRow({
       {loading && (
         <span className={styles.muted}>{t("issuesLoadingMentions")}</span>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <Banner tone="error">{error}</Banner>}
       {menu.menu}
     </article>
   );

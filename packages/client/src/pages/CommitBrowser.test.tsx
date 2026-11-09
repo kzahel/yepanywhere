@@ -1368,7 +1368,9 @@ describe("CommitBrowser", () => {
     );
 
     await screen.findByText("first commit");
-    const badges = await screen.findAllByTitle("sourceCommentCount");
+    const badges = await screen.findAllByRole("img", {
+      name: "sourceCommentCount",
+    });
     expect(badges.some((badge) => badge.textContent === "1")).toBe(true);
   });
 

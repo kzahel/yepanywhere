@@ -43,6 +43,8 @@ import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import styles from "./InboxContent.module.css";
 import { SessionListItem } from "./SessionListItem";
 import { SessionAsyncQuestionsButton } from "./SessionAsyncQuestionsButton";
+import { Badge, type BadgeTone } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
 import { Button, IconButton } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 
@@ -59,7 +61,7 @@ interface TierConfig {
   hideWhenEmpty?: boolean;
   /** A "?" beside the title that opens this explanation. */
   helpKey?: string;
-  getBadge?: (item: InboxItem) => { label: string; className: string } | null;
+  getBadge?: (item: InboxItem) => { label: string; tone: BadgeTone } | null;
 }
 
 const TIER_CONFIGS: TierConfig[] = [
@@ -69,16 +71,10 @@ const TIER_CONFIGS: TierConfig[] = [
     colorClass: styles.tierAttention ?? "",
     getBadge: (item) => {
       if (item.pendingInputType === "tool-approval") {
-        return {
-          label: "inboxBadgeApproval",
-          className: styles.badgeApproval ?? "",
-        };
+        return { label: "inboxBadgeApproval", tone: "warning" };
       }
       if (item.pendingInputType === "user-question") {
-        return {
-          label: "inboxBadgeQuestion",
-          className: styles.badgeQuestion ?? "",
-        };
+        return { label: "inboxBadgeQuestion", tone: "warning" };
       }
       return null;
     },
@@ -227,15 +223,16 @@ function InboxProjectQueueItem({
       <Link className={styles.queueItemLink} to={href}>
         <span className={styles.queueItemTitleRow}>
           <strong className={styles.queueItemTitle}>{title}</strong>
-          <span className={styles.queueItemTargetBadge}>
+          <Badge size="small" className={styles.queueItemBadge}>
             {t("projectQueueTargetNewSession")}
-          </span>
-          <span
-            className="session-project-queue-badge"
-            title={t("projectQueueSidebarBadge")}
+          </Badge>
+          <Badge
+            size="small"
+            tooltip={t("projectQueueSidebarBadge")}
+            className={styles.queueItemBadge}
           >
             Q
-          </span>
+          </Badge>
         </span>
         {showPromptPreview && (
           <span className={styles.queueItemPreview}>{prompt}</span>
@@ -743,23 +740,28 @@ export function InboxContent({
               multiSelect={false}
             />
           )}
-          <Button onClick={handleRefresh} disabled={refreshing || loading}>
-            <svg
-              className={refreshing ? styles.refreshSpinner : ""}
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
+          <Button
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+            busy={refreshing}
+          >
+            {!refreshing && (
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+            )}
             {refreshing ? t("inboxRefreshing") : t("inboxRefresh")}
           </Button>
         </div>
@@ -767,7 +769,9 @@ export function InboxContent({
         {pageLoading && <p className="loading">{t("inboxLoading")}</p>}
 
         {error && (
-          <p className="error">{t("inboxError", { message: error.message })}</p>
+          <Banner tone="error">
+            {t("inboxError", { message: error.message })}
+          </Banner>
         )}
 
         {!pageLoading && !error && isEmpty && (

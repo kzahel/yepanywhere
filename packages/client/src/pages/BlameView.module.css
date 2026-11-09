@@ -183,12 +183,6 @@
   font-size: 0.72rem;
 }
 
-.provenanceError,
-.contentError {
-  padding: 6px 10px;
-  color: var(--warning-color);
-  font-family: var(--font-sans, sans-serif);
-  font-size: 0.75rem;
-  background: color-mix(in srgb, var(--warning-color) 8%, transparent);
-  border-bottom: 1px solid var(--border-subtle, #21262d);
+.notice {
+  margin: var(--space-1) var(--space-2);
 }

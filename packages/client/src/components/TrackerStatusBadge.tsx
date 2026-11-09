@@ -1,5 +1,6 @@
 import type { IssueItem } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
+import { Badge, type BadgeTone } from "./ui/Badge";
 import styles from "./TrackerStatusBadge.module.css";
 
 export const TRACKER_STATUS_LABELS = {
@@ -9,11 +10,12 @@ export const TRACKER_STATUS_LABELS = {
   closed: "issuesStatus_closed",
 } as const;
 
-const CLASSES = {
-  open: styles.open,
-  draft: styles.draft,
-  merged: styles.merged,
-  closed: styles.closed,
+/** GitHub's state hues; merged keeps its purple, which no tone carries. */
+const TONES: Record<keyof typeof TRACKER_STATUS_LABELS, BadgeTone> = {
+  open: "success",
+  draft: "neutral",
+  merged: "info",
+  closed: "danger",
 };
 
 /** The tracker's reported state; nothing at all when the server sent none. */
@@ -30,8 +32,10 @@ export function TrackerStatusBadge({
   const label = status && TRACKER_STATUS_LABELS[status.state];
   if (!status || !label) return null;
   return (
-    <span
-      title={[
+    <Badge
+      tone={TONES[status.state]}
+      emphasis="solid"
+      tooltip={[
         status.checkedAt,
         status.mergedAt
           ? t("issuesMergedOn", {
@@ -44,9 +48,15 @@ export function TrackerStatusBadge({
       ]
         .filter(Boolean)
         .join(" · ")}
-      className={`${styles.badge} ${CLASSES[status.state]} ${className ?? ""}`}
+      className={[
+        styles.badge,
+        status.state === "merged" && styles.merged,
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {t(label)}
-    </span>
+    </Badge>
   );
 }

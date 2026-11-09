@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { NewSessionForm } from "../components/NewSessionForm";
 import { PageHeader } from "../components/PageHeader";
+import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useVersion } from "../hooks/useVersion";
@@ -244,9 +245,9 @@ export function NewSessionPage() {
         <PageHeader title={t("newSessionTitle")} />
         <main className="page-scroll-container">
           <div className="page-content-inner">
-            <div className="error">
+            <Banner tone="error">
               {t("newSessionErrorPrefix")} {renderError.message}
-            </div>
+            </Banner>
           </div>
         </main>
       </MainContent>
