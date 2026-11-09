@@ -3,10 +3,10 @@
 Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
-`db161ab3c` and the maintainer's profile the same day. Steps 1–4 done
+`db161ab3c` and the maintainer's profile the same day. Steps 1–5 done
 2026-11-09: the catalog lives in `discovery.sqlite`, the `session-catalog/`
-files are imported once and deleted, and its server consumers read what
-changed.
+files are imported once and deleted, its server consumers read what
+changed, and summary rows keep the full title in a column.
 
 ## Goal
 
@@ -722,6 +722,76 @@ exactly, so no transcript is reparsed, and the complete-mode list and
 project page read the same rows (item 17). Otherwise, do item 22 alone:
 a rowid table with `full_title` in a column.
 
+Decided 2026-11-09: item 22 alone, with item 4's cold-load save. The merge
+needs new scope and fingerprint columns, a separate summary format, and
+changes to all eight consumers above, and its payoff (one copy of each
+title, the project page off the per-project walk) belongs with step 7's
+queries. Item 17 stays open.
+
+Done 2026-11-09:
+- Migration 030 rebuilds `session_summary_index` as a rowid table:
+  `id`, `scope`, `session_id`, `summary` (the JSON without `fullTitle`),
+  `full_title` last, `UNIQUE (scope, session_id)`. It is plain SQL
+  (`json_remove`, `json_extract`) inside the startup transaction.
+  - A null `fullTitle` is NULL. A summary whose JSON escapes a lone
+    surrogate or a NUL keeps its title in the JSON: SQLite's `json_extract`
+    turns a lone-surrogate escape into U+FFFD (the SQL contract caught this
+    on both drivers), and node:sqlite cuts text at a NUL, even a bound one
+    (found in review). The writer keeps such titles in the JSON the same way.
+  - Rows that are not JSON objects are dropped (invalid JSON and `null`
+    discarded their whole scope before; arrays and scalars were junk
+    entries), and so are rows whose scope is gone, which would fail the
+    rebuild's foreign key and block startup.
+  - The reader puts `fullTitle` back beside `title`. Summaries as YA writes
+    them (`title` first, `fullTitle` a string or null) serialize exactly as
+    before, so the first save rewrites nothing; a missing `fullTitle` reads
+    back as null.
+  - The gain is packing, not fewer reads: every reader still selects
+    `full_title`.
+- A cold scope load stores the scope again only when it repaired, upgraded
+  or started it fresh (item 4, partly). Before, every load reread and
+  reserialized every row.
+- Measured on a copy of the real profile (7,494 summaries, 529 scopes):
+  - all 7,494 summaries read back byte-identical to their old JSON text;
+  - migration 030 alone 63 ms; 028–030 together 95 ms;
+  - the table went from 24.7 MB (10.5 MB unused) to 16.6 MB plus a 0.95 MB
+    key index (2.8 MB unused);
+  - reading every scope 29.5 ms before, 25.8 ms after (median of 7); the
+    largest scope (a Codex project) reads in 2.3 ms.
+- Gate: two passive servers on identical copies of the real profile (still
+  at `user_version` 27, so the real upgrade path), the old build on one and
+  the new on the other, compared with `scripts/compare-list-responses.mjs`.
+  It fetches 437 responses: All Sessions in each mode and filter, stats,
+  Inbox (both modes, and per project), recents, processes, every project
+  and its session list, and 60 sessions' metadata.
+  - The first pass, 25 s after start, is discarded as warm-up. It differed
+    in `providerChildren: []` on sessions of the server started 2 s later
+    (the key is added only once the provider-child relationship service has
+    resolved a native identity), and in one All Sessions position holding a
+    different session on each side, after which that response hit the
+    script's 40-difference cap (the script now reports a capped response).
+    The next two passes were identical (437/437), with the two sessions at
+    the same positions.
+  - About 25 minutes in, while a new session was starting on the host,
+    one pass differed in `/api/sessions` only: `lastHumanTurnAt` and
+    provider children's `updatedAt` on live sessions, newer on either
+    side. The next pass, 30 s later, was identical again.
+  - The new server was then restarted on its own copy, so it read rows its
+    writer had produced, and later the old one too. Every summary field
+    still matched, and both caches held the same rows (7,496), decoded.
+    Two kinds of difference remained, both history-dependent and outside
+    the summary cache:
+    - Retained All Sessions sorts its project options by name, and ties
+      (several projects named `checkout` or `project`) keep the catalog's
+      in-memory row order, which depends on each server's publication
+      history. Step 7 must give the list a stable tiebreak (project id)
+      before comparing.
+    - `providerChildren: []` appears only on sessions whose provider-child
+      relationships that server has already resolved, so one session of one
+      project page carried it on one side only.
+  - Request time summed over a pass: 7.0 s on both, and equal within noise
+    in every later pass.
+
 ### 6 — session metadata columns
 
 - Before migrating, take a consistent backup with `VACUUM INTO`, not a
@@ -795,9 +865,10 @@ Depends on steps 3 and 6, and on step 5 for the project page.
 - **Step 7:** identical responses, and request timings before and after.
 
 Two tools serve these gates:
-- **A response-comparison script**, to be written; none exists yet. It
-  fetches All Sessions, Inbox, project pages, the sidebar feeds and recents
-  from two servers, normalizes volatile fields, and diffs them.
+- **A response-comparison script**, `scripts/compare-list-responses.mjs`
+  (step 5). It fetches All Sessions, Inbox, project pages, the sidebar feeds
+  and recents from two servers at once, normalizes volatile fields, diffs
+  them including key order, and records request times.
 - **A second server on a copied profile.** Copy the profile, taking
   `discovery.sqlite` with `VACUUM INTO`. Start the server with
   `YEP_DATA_DIR` set to the copy and a port other than 3400. Never restart
@@ -858,6 +929,7 @@ Two tools serve these gates:
     announcement.
   - The issue indexer and vocabulary wait for it (`app.ts:3737`, `:3836`).
 - Step 5: merge the summary cache into catalog rows, or only do item 22.
+  Decided: item 22 only; the merge (item 17) waits for step 7.
 - Step 4: how project lists learn `lastActivity` once it leaves the project
   view version. Decided: it stays in the version; `projects-changed` names
   only the projects that changed (step 4).

@@ -36,6 +36,10 @@ const { SessionCatalogSqliteStore } = await import(
   pathToFileURL(resolve(storageDir, "../services/session-catalog-sqlite.js"))
     .href
 );
+const { SqliteSessionSummaryIndex } = await import(
+  pathToFileURL(resolve(storageDir, "../indexes/SqliteSessionSummaryIndex.js"))
+    .href
+);
 const { ApiReceiptStore } = await import(
   pathToFileURL(resolve(storageDir, "../core-api/receipt-store.js")).href
 );
@@ -393,8 +397,84 @@ function issueJobMigrationContract() {
     database.close();
   }
 }
+/**
+ * Migration 030 moves `fullTitle` out with JSON functions; the rest of each
+ * summary must read back as written, numbers and escapes included, or every
+ * scope would be rewritten on its next save.
+ */
+function summaryTitleMigrationContract() {
+  const database = loadSqliteDriver().open(":memory:");
+  try {
+    migrateDiscoveryDatabase(database, DISCOVERY_MIGRATIONS.slice(0, 29));
+    database.exec("INSERT INTO session_summary_scopes VALUES ('s', 'p', 5)");
+    const odd = 'a"b\\c\u2028d\u0001e😀\ud800f';
+    const written = {
+      plain: {
+        title: "t",
+        fullTitle: "t long",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        messageCount: 3,
+        contextUsage: { inputTokens: 12345, percentage: 0.6170000000000001 },
+        indexedBytes: 9007199254740991,
+        fileMtime: 1731111111111.1235,
+        provider: "codex",
+      },
+      odd: {
+        title: odd,
+        fullTitle: odd.repeat(500),
+        lastAgentText: odd,
+        n: -0.5e-7,
+      },
+      // Escapes JSON functions must keep as written, in a summary that
+      // json_remove does rewrite (no lone surrogate or NUL).
+      escaped: {
+        title: "q",
+        fullTitle: 'a"b\\c\u2028d\u0001e😀/\t'.repeat(500),
+        lastAgentText: 'x"y\\z\u0001',
+        sizes: [1.5, 1e21, 12345678901234567000, 0.1, -5e-7],
+      },
+      nul: { title: "n", fullTitle: "before\u0000after" },
+      untitled: { title: null, fullTitle: null, isEmpty: true },
+    };
+    const insert = database.prepare(
+      "INSERT INTO session_summary_index (scope, session_id, summary) VALUES ('s', ?, ?)",
+    );
+    for (const [id, summary] of Object.entries(written))
+      insert.run(id, JSON.stringify(summary));
+    insert.finalize();
+    migrateDiscoveryDatabase(database);
+    assert.deepEqual(
+      database
+        .prepare(
+          "SELECT session_id, full_title IS NOT NULL AS split FROM session_summary_index ORDER BY session_id",
+        )
+        .all()
+        .map((row) => [row.session_id, Number(row.split)]),
+      [
+        ["escaped", 1],
+        ["nul", 0],
+        ["odd", 0],
+        ["plain", 1],
+        ["untitled", 0],
+      ],
+    );
+    const store = new SqliteSessionSummaryIndex(database);
+    try {
+      const sessions = store.read("s").sessions;
+      for (const [id, summary] of Object.entries(written)) {
+        assert.deepEqual(sessions[id], summary);
+        assert.equal(JSON.stringify(sessions[id]), JSON.stringify(summary));
+      }
+    } finally {
+      store.dispose();
+    }
+  } finally {
+    database.close();
+  }
+}
 try {
   issueJobMigrationContract();
+  summaryTitleMigrationContract();
   const catalog = openService(join(temporary, "catalog"));
   catalogContract(catalog.getDatabase());
   // A transaction larger than the page cache must fail fast, not stall, while

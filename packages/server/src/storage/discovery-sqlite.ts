@@ -2,6 +2,7 @@ import { SESSION_RELATIONSHIPS_SCHEMA } from "./migrations/026-session-relations
 import { RELATIONSHIP_PENDING_SCHEMA } from "./migrations/027-relationship-pending.js";
 import { SESSION_CATALOG_SCHEMA } from "./migrations/028-session-catalog.js";
 import { ISSUE_JOB_CATALOG_KEY_SCHEMA } from "./migrations/029-issue-job-catalog-key.js";
+import { SESSION_SUMMARY_FULL_TITLE_SCHEMA } from "./migrations/030-session-summary-full-title.js";
 import { ANTIGRAVITY_NATIVE_ALLOCATIONS_SCHEMA } from "./migrations/024-antigravity-native-allocations.js";
 import { SESSION_SUMMARY_INDEX_SCHEMA } from "./migrations/025-session-summary-index.js";
 import { CREATION_INPUT_EXPECTATION_SCHEMA } from "./migrations/023-creation-input-expectation.js";
@@ -78,6 +79,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 27, sql: RELATIONSHIP_PENDING_SCHEMA },
   { version: 28, sql: SESSION_CATALOG_SCHEMA },
   { version: 29, sql: ISSUE_JOB_CATALOG_KEY_SCHEMA },
+  { version: 30, sql: SESSION_SUMMARY_FULL_TITLE_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

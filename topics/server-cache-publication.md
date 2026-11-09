@@ -71,9 +71,10 @@ objects from the same disk revision.
 The server persists summary scopes and per-session rows atomically in SQLite.
 Selected-session reads may query one durable row without hydrating a mutable
 scope. They do not clear dirty revisions or advance complete-summary freshness.
-Legacy JSON scope imports publish their marker and rows in the same transaction;
-an interrupted publication leaves the previous SQL scope intact. Normal writes
-touch only changed rows instead of rewriting the scope's JSON file.
+An interrupted publication leaves the previous SQL scope intact. Writes touch
+only rows whose summary or full title changed. A cold load stores the scope
+again only when it repaired, upgraded or started it fresh; a scope read back
+unchanged is not rewritten.
 
 Every watcher or explicit invalidation advances the scope's dirty revision,
 including repeated invalidation of an already-dirty session. Incremental,

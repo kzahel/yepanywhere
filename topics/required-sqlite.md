@@ -234,10 +234,15 @@ It performs no network access or transcript acquisition; rows fill only when
 viewed with the relevant feature enabled.
 
 Version 25 adds provider session-summary scopes and per-session summary rows.
-These cross-session indexes share the required database. Legacy JSON scopes
-import on demand, preserving their files for rollback; migration initialization
-creates only the tables. Indexed selected-session reads do not load the scope's
-other summaries. See [session index validation](session-index-validation.md).
+These cross-session indexes share the required database. Indexed
+selected-session reads do not load the scope's other summaries. See
+[session index validation](session-index-validation.md). Version 30 rebuilds
+the summary rows as a rowid table with the uncapped `fullTitle` in its own
+last column (`full_title`, NULL for a null title) and the rest of the summary
+as JSON. A title holding a lone surrogate or a NUL stays in the JSON, because
+a text column would replace the surrogate and node:sqlite cuts text at a NUL.
+Rows that are not JSON objects, or whose scope is gone, are not carried
+over; the cache rebuilds them from transcripts.
 
 One statically registered, consecutive migration sequence owns `user_version`.
 Historical SQL lives in frozen named modules; released migrations are append-only.

@@ -61,7 +61,10 @@ summary migration 25.
    - `getRecordedProviders` (`SessionMetadataService.ts:496`) becomes
      `SELECT DISTINCT`.
    - Queries must repeat the indexed expression exactly.
-4. **Summary scopes are rewritten after every load.**
+4. Partly fixed 2026-11-09 by plan 189 step 5: a cold load stores the scope
+   again only when it repaired, upgraded or started it fresh. The
+   whole-scope saves after validation remain. Original finding:
+   **Summary scopes are rewritten after every load.**
    `SessionIndexService.ts:473` calls `summaryStore.save` after each cold
    load, including reloads after eviction (`:382`). That runs
    `BEGIN IMMEDIATE`, rereads and re-stringifies every row
@@ -226,7 +229,9 @@ invalidation from the issue indexer, double publication) are recorded in
     structural fix. Until then, one projected list per combined clock
     (catalog token, identity revision, metadata revision, process and
     notification clocks) could serve all of them.
-17. **Session summaries are kept twice.** The same summaries live in
+17. Still open; plan 189 step 5 deferred the merge (see the plan's step 5
+    decision) and did item 22 instead. Original finding:
+    **Session summaries are kept twice.** The same summaries live in
     `session_summary_index` (13.1 MB), in `SessionIndexService`'s
     in-memory scope cache (limit 10,000 scopes) and in the catalog (14.3 MB).
     Two freshness mechanisms keep them current: dirty tracking plus a 30 s
@@ -294,7 +299,12 @@ key in `WITHOUT ROWID` tables. Rows over about 1 KB overflow, and the
 overflow pages are about half empty: 10.1 MB of 19.7 MB for summaries,
 3.5 MB of 6.5 MB for metadata (`dbstat`).
 
-22. **`session_summary_index` should be a rowid table with `full_title` in
+22. Fixed 2026-11-09 by plan 189 step 5 (migration 030): a rowid table
+    with `full_title` as its last column; every one of the 7,494 summaries
+    here reads back byte-identical, and the table went from 24.7 MB (10.5 MB
+    unused) to 17.5 MB including its key index (2.8 MB unused). Original
+    finding:
+    **`session_summary_index` should be a rowid table with `full_title` in
     a column.** `fullTitle` is 8.57 MB of the 13.15 MB of summary JSON,
     uncapped (max 28,525 characters; the catalog caps at 16,384).
     `read()` parses a whole scope (`SqliteSessionSummaryIndex.ts:51-56`);

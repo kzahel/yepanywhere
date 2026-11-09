@@ -127,14 +127,16 @@ function needsClaudeSummaryRefresh(
   );
 }
 
-function migrateCachedForkLineage(summary: CachedSessionSummary): void {
+function migrateCachedForkLineage(summary: CachedSessionSummary): boolean {
   if (!summary.parentSessionId || summary.parentSessionKind) {
-    return;
+    return false;
   }
   // Provider summaries never owned the interactive `/btw` Mother link. Before
   // the lineage split, Codex `forked_from_id` was cached in parentSessionId.
+  // Returns whether the summary changed.
   summary.forkedFromSessionId ??= summary.parentSessionId;
   delete summary.parentSessionId;
+  return true;
 }
 
 const PROJECT_SCANNER_CACHE_FILE = "project-scanner-cache.json";
@@ -521,7 +523,7 @@ export class SessionIndexService implements ISessionIndexService {
     const existing = this.indexLoadPromises.get(scopeKey);
     if (existing) return existing;
 
-    const loadPromise = this.loadIndexFromDisk(sessionDir, projectId, reader);
+    const loadPromise = this.loadPersistedIndex(sessionDir, projectId, reader);
     const trackedPromise = loadPromise.finally(() => {
       if (this.indexLoadPromises.get(scopeKey) === trackedPromise) {
         this.indexLoadPromises.delete(scopeKey);
@@ -531,62 +533,59 @@ export class SessionIndexService implements ISessionIndexService {
     return trackedPromise;
   }
 
-  private async loadIndexFromDisk(
-    sessionDir: string,
-    projectId: UrlProjectId,
-    reader?: ISessionReader,
-  ): Promise<SessionIndexState> {
-    const index = await this.loadPersistedIndex(sessionDir, projectId, reader);
-    this.summaryStore.save(this.getScopeKey(sessionDir, reader), index);
-    return index;
-  }
-
+  /**
+   * Read a scope, storing it again only when it was repaired, upgraded or
+   * started fresh: rewriting an unchanged scope rereads and reserializes
+   * every row (gap item 4).
+   */
   private async loadPersistedIndex(
     sessionDir: string,
     projectId: UrlProjectId,
     reader?: ISessionReader,
   ): Promise<SessionIndexState> {
     const scopeKey = this.getScopeKey(sessionDir, reader);
-    const cacheKey = scopeKey;
-
-    const cached = this.indexCache.get(cacheKey);
+    const cached = this.indexCache.get(scopeKey);
     if (cached) return cached;
 
+    let loaded: { index: SessionIndexState; stored: boolean } | undefined;
     try {
       const parsed = this.summaryStore.read(scopeKey);
 
-      // Validate version and projectId. A missing scope starts fresh: it is
-      // rebuilt from provider files.
+      // A missing scope starts fresh: it is rebuilt from provider files.
       if (
         parsed &&
         STRUCTURALLY_COMPATIBLE_VERSIONS.has(parsed.version) &&
         parsed.projectId === projectId
       ) {
-        const compatible: SessionIndexState = {
+        const index: SessionIndexState = {
           ...parsed,
           version: CURRENT_VERSION,
         };
+        loaded = { index, stored: parsed.version === CURRENT_VERSION };
         // Repair only the provider summaries known to violate the current
         // summary contract instead of rebuilding every provider's shared index.
-        for (const [sessionId, summary] of Object.entries(
-          compatible.sessions,
-        )) {
-          migrateCachedForkLineage(summary);
+        for (const [sessionId, summary] of Object.entries(index.sessions)) {
+          if (migrateCachedForkLineage(summary)) loaded.stored = false;
           if (needsClaudeSummaryRefresh(summary, parsed.version)) {
-            delete compatible.sessions[sessionId];
+            delete index.sessions[sessionId];
             this.markSessionDirtyByScopeKey(scopeKey, sessionId);
+            loaded.stored = false;
           }
         }
-        this.indexCache.set(cacheKey, compatible);
-        this.persistedIndexScopes.add(cacheKey);
-        this.evictIfNeeded();
-        return compatible;
       }
     } catch (error) {
+      loaded = undefined;
       getLogger().warn(
         { err: error },
         `[SessionIndexService] Failed to load index for ${scopeKey}, starting fresh`,
       );
+    }
+    if (loaded) {
+      this.indexCache.set(scopeKey, loaded.index);
+      this.persistedIndexScopes.add(scopeKey);
+      this.evictIfNeeded();
+      if (!loaded.stored) this.summaryStore.save(scopeKey, loaded.index);
+      return loaded.index;
     }
 
     // Missing, invalid, version mismatch or different project - start fresh
@@ -595,8 +594,9 @@ export class SessionIndexService implements ISessionIndexService {
       projectId,
       sessions: {},
     };
-    this.indexCache.set(cacheKey, fresh);
+    this.indexCache.set(scopeKey, fresh);
     this.evictIfNeeded();
+    this.summaryStore.save(scopeKey, fresh);
     return fresh;
   }
 
