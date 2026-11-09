@@ -1233,6 +1233,8 @@
   "inboxTierNeedsAttention": "Needs Attention",
   "inboxTierActive": "Active",
   "inboxTierBackground": "Background",
+  "inboxTierBackgroundHelp": "These sessions finished their turn but left something running, like a dev server, a build, a wait on PR checks, or a timer. When it finishes or the timer fires, the agent may pick back up on its own. Open a session to see or stop what's running.",
+  "inboxSectionHelpLabel": "About {section}",
   "inboxTierRecentActivity": "Recent Activity",
   "inboxTierUnread8h": "Unread (8h)",
   "inboxTierUnread24h": "Unread (24h)",

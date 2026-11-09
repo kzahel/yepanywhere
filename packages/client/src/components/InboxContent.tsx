@@ -6,7 +6,14 @@ import {
   type ReviewInboxItem,
   serverHasCapability,
 } from "@yep-anywhere/shared";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { type InboxItem, useInboxContext } from "../contexts/InboxContext";
@@ -32,7 +39,8 @@ import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import styles from "./InboxContent.module.css";
 import { SessionListItem } from "./SessionListItem";
 import { SessionAsyncQuestionsButton } from "./SessionAsyncQuestionsButton";
-import { Button } from "./ui/Button";
+import { Button, IconButton } from "./ui/Button";
+import { Popover } from "./ui/Popover";
 
 /**
  * Tier configuration for visual styling.
@@ -45,6 +53,8 @@ interface TierConfig {
   activityTier?: boolean;
   /** A tier the user only needs while it has rows. */
   hideWhenEmpty?: boolean;
+  /** A "?" beside the title that opens this explanation. */
+  helpKey?: string;
   getBadge?: (item: InboxItem) => { label: string; className: string } | null;
 }
 
@@ -83,6 +93,7 @@ const TIER_CONFIGS: TierConfig[] = [
     colorClass: styles.tierBackground ?? "",
     activityTier: true,
     hideWhenEmpty: true,
+    helpKey: "inboxTierBackgroundHelp",
   },
   {
     key: "recentActivity",
@@ -251,6 +262,43 @@ function getInboxRowActivity(
   return item.activity;
 }
 
+/** A tap-to-open explanation of a section, so it works without hover. */
+function InboxSectionHelp({ title, text }: { title: string; text: string }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverId = useId();
+  const label = t("inboxSectionHelpLabel", { section: title });
+  return (
+    <>
+      <IconButton
+        ref={triggerRef}
+        size="dense"
+        className={styles.sectionHelp}
+        label={label}
+        aria-expanded={open}
+        aria-controls={open ? popoverId : undefined}
+        onClick={() => setOpen((shown) => !shown)}
+      >
+        <span aria-hidden="true" className={styles.sectionHelpMark}>
+          ?
+        </span>
+      </IconButton>
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={triggerRef}
+        id={popoverId}
+        surface="card"
+        role="tooltip"
+        className={styles.sectionHelpContent}
+      >
+        {text}
+      </Popover>
+    </>
+  );
+}
+
 function InboxSection({
   config,
   items,
@@ -275,6 +323,12 @@ function InboxSection({
       <h2 className={styles.sectionHeader}>
         {t(config.titleKey as never)}
         <span className={styles.sectionCount}>{sectionCount}</span>
+        {config.helpKey && (
+          <InboxSectionHelp
+            title={t(config.titleKey as never)}
+            text={t(config.helpKey as never)}
+          />
+        )}
       </h2>
       {isEmpty ? (
         <p className={styles.sectionEmptyMessage}>{t("inboxNoSessions")}</p>

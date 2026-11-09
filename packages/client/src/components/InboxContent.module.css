@@ -156,6 +156,31 @@
   color: inherit;
 }
 
+/* Inherits the tier color, like the count. */
+.sectionHelp {
+  color: inherit;
+}
+
+/* A circled "?", so the control reads as help rather than stray text. */
+.sectionHelpMark {
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sectionHelpContent {
+  width: min(320px, calc(100dvw - 32px));
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: 1.45;
+}
+
 /* Empty section styling */
 .sectionEmpty .sectionHeader {
   opacity: 0.6;

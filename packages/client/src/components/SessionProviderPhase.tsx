@@ -1,22 +1,8 @@
-import type {
-  ProviderWorkKind,
-  SessionProviderPhase,
-} from "@yep-anywhere/shared";
+import type { SessionProviderPhase } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
 import { formatBriefAge } from "../lib/sessionAge";
 import styles from "./SessionProviderPhase.module.css";
 import { ThinkingIndicator } from "./ThinkingIndicator";
-
-const KIND_GLYPH: Record<ProviderWorkKind, string> = {
-  shell: "$",
-  monitor: "◉",
-  subagent: "↳",
-  workflow: "⇉",
-  mcp: "⧉",
-  cron: "◷",
-  sleep: "◷",
-  other: "•",
-};
 
 function formatClock(iso: string): string | null {
   const ms = Date.parse(iso);
@@ -95,7 +81,6 @@ export function SessionProviderPhasePill({
       data-provider-phase-pill=""
       title={first?.command ? `${text}\n${first.command}` : text}
     >
-      {first && <span aria-hidden="true">{KIND_GLYPH[first.kind]} </span>}
       {text}
     </span>
   );

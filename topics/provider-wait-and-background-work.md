@@ -126,9 +126,13 @@ came from, plus `command`, `startedAt`, `until`, `schedule`, `recurring` or
 - Inbox shows the pulsing dot for `generating`, an orange ring and pill
   naming the first foreground wait for `waiting`, and a gray ring and pill
   for `background`. Pills lead with elapsed time or the wake time so
-  truncation drops the label; ages are as of the last row refresh. Sessions
-  in `background` leave Active for a Background tier that appears only while
-  it has rows. The sidebar keeps the plain dot.
+  truncation drops the label; ages are as of the last row refresh. Pills are
+  text only, with no per-kind glyph. Sessions in `background` leave Active
+  for a Background tier that appears only while it has rows. Its title has a
+  "?" that opens on click or tap, not hover, a plain explanation: the turn
+  ended with something still running, the agent may pick back up when it
+  finishes or a timer fires, and the session shows or stops it. The sidebar
+  keeps the plain dot.
 - Codex self-started turns (goals, thread queue) carry no trigger field over
   app-server; YA can record that a turn began without a YA `turn/start`, not
   why.
