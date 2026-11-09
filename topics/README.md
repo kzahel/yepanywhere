@@ -49,8 +49,8 @@
   opt-in, writer audit, and Git-metadata boundary)
 - Storage settings (YA data directory vs. project `.yep`, default lazy media,
   and live managed-session preservation opt-in)
-- [Optional discovery SQLite storage](optional-sqlite.md) (Node/Bun adapters,
-  startup opt-in, migrations, and source-server readiness)
+- [Required SQLite storage](required-sqlite.md) (Node/Bun adapters,
+  startup policy, migrations, and source-server readiness)
 - OpenCode backend capability and rendering parity
 - [ACP integration and sharing](acp.md) (current YA/T3 comparison and proposed
   transport/session composition; native Copilot and generic registry boundaries)

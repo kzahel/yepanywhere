@@ -1090,7 +1090,7 @@ Optional discovery storage reports `sqlite?: { state }` on `/api/version`;
 absence means the server does not report storage status. This diagnostic does
 not allocate a capability or imply session search. Future discovery endpoints
 need their own runtime-dependent optional gate. See
-[optional SQLite](optional-sqlite.md) for startup policy and the approved
+[required SQLite](required-sqlite.md) for startup policy and the approved
 v0.8.0/v0.8.1 compatibility corpus.
 
 `packages/server/src/routes/version.ts` advertises capability names from the

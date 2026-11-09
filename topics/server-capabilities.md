@@ -396,7 +396,7 @@ not turn unfinished preflight into an affirmative capability.
 `sourceRevision` reports the startup commit/date and changes under `packages/`
 for About's display; it does not establish feature support. Likewise optional
 `sqlite.state` is a diagnostic, not proof that a discovery endpoint exists.
-See [optional SQLite](optional-sqlite.md) for storage readiness.
+See [required SQLite](required-sqlite.md) for storage readiness.
 
 ## Feature-specific contracts
 

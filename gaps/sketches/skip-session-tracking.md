@@ -156,7 +156,7 @@ alone establishes neither.
   tracking, but neither means that all provider transcripts should move to SQL.
 - [Per-session versus shared SQLite](prefer-per-session-sqlite-over-global-keyed-by-session.md)
   records the storage-layout trade-off, including the cross-session-query
-  exception. Follow [runtime-portable SQLite](../../topics/optional-sqlite.md)
+  exception. Follow [runtime-portable SQLite](../../topics/required-sqlite.md)
   if the experiment adds a SQLite source adapter.
 
 ## What Skip provides, and what still belongs to YA

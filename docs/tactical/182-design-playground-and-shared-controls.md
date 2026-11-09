@@ -9,9 +9,9 @@ whole button family (census, swap, delete, ban), the token pass, the
 switch and segmented-control family, the menu and popover family and the
 field family have landed. Order agreed with the maintainer on 2026-11-09:
 the token pass (done), switches and segmented controls (done), menus and
-popovers (done), fields (done), then banners/badges/spinners/tabs, the dialog pattern, and the
-composer last. Each step runs end to
-end (implement, independent review, commit) before the next starts.
+popovers (done), fields (done), then banners/badges/spinners/tabs, the
+dialog pattern, and the composer last. Each step runs end to end
+(implement, independent review, commit) before the next starts.
 
 ## Why
 

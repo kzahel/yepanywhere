@@ -98,7 +98,7 @@ const DEFAULT_SESSION_SHARE = 0;
  * All three live in the data directory. That directory is local disk whenever
  * this feature can run at all: learning is gated on discovery SQLite being
  * ready, and startup refuses to open that database on a network filesystem
- * (topics/optional-sqlite.md). The earlier separate reservation existed to
+ * (topics/required-sqlite.md). The earlier separate reservation existed to
  * escape a data directory that might be a share, which is now prevented rather
  * than worked around.
  */

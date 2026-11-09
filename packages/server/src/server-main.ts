@@ -570,7 +570,7 @@ if (process.env.NO_BACKEND_RELOAD === "true") {
 }
 
 // The SQLite database is required: session metadata lives there, so a server
-// that cannot open it does not start (topics/optional-sqlite.md).
+// that cannot open it does not start (topics/required-sqlite.md).
 const discoverySqlite = (() => {
   try {
     return new DiscoverySqliteService({ dataDir: config.dataDir });

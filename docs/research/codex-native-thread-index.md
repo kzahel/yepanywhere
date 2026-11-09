@@ -7,7 +7,7 @@ Current behavior is owned by
 [Codex metadata scanner](../../topics/codex-metadata-scanner.md),
 [session catalog observation](../../topics/session-catalog-observation.md),
 [provider child sessions](../../topics/provider-child-sessions.md) and
-[built-in SQLite storage](../../topics/optional-sqlite.md#session-metadata).
+[built-in SQLite storage](../../topics/required-sqlite.md#session-metadata).
 The open defect is
 [sqlite-backed-cold-storage-startup](../../gaps/sqlite-backed-cold-storage-startup.md).
 
@@ -59,7 +59,7 @@ event-loop stall profiles put 2–3 s of every 30 s in
 `hydrateSessionFileCache` and `isNewerCodexSessionFile`. `server.log` grew
 from 8.0 GB to 12.0 GB in two days. The same profiles put 8–11 s of every
 30 s in retained-collection identity resolution, outside the scanner:
-[retained-catalog-identity-resolution-cpu](../../gaps/retained-catalog-identity-resolution-cpu.md).
+[session catalog rewrites](../../gaps/session-catalog-rewrites-whole-generation-per-change.md).
 
 **Cold enumeration.** A full reader enumeration took 131 ms with the warm
 discovery index (3,704 `stat`s, no head reads) and 707 ms without it.

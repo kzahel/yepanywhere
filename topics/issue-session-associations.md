@@ -507,7 +507,7 @@ scope. The observable requirement is that admitting an unchanged catalog of
 any size performs no writes at all: SQLite takes a file lock per write, and an
 idle server was previously taking roughly one lock per known session per
 catalog publication, which is fatal on the network filesystems
-[optional SQLite](optional-sqlite.md) now refuses. Recent scope is the case
+[required SQLite](required-sqlite.md) now refuses. Recent scope is the case
 that makes this visible, because it re-admits every session inside the window
 on every publication, and an active server republishes every few seconds.
 
@@ -617,7 +617,7 @@ No existing capability meaning or protocol floor changes. This unpublished v1
 contract can evolve before release; released peers require normal compatibility
 review for subsequent changes.
 
-[SQLite storage](optional-sqlite.md) owns migration policy. Frozen historical
+[SQLite storage](required-sqlite.md) owns migration policy. Frozen historical
 v2/v3 SQL moved out of the mutable vocabulary schema. Migration 4 adds the domain
 and indexing tables; migration 5 adds resolution/deletion continuations;
 migration 6 adds the one-verdict-per-reference confirmation table; migration 7

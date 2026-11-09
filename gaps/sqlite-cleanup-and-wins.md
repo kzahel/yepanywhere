@@ -1,7 +1,7 @@
 # No cleanup pass followed making SQLite required
 
 SQLite became required storage on 2026-10-11
-([optional SQLite](../topics/optional-sqlite.md)). Session metadata and
+([required SQLite](../topics/required-sqlite.md)). Session metadata and
 provider summaries moved into it, but nothing swept the server afterwards for
 code written around optional storage, whole-file JSON stores, or in-memory
 whole-corpus scans that SQLite now makes avoidable. This entry is the
@@ -24,16 +24,13 @@ summary migration 25.
 
 ## Easy wins
 
-1. **Session catalog republishes without changes.**
-   `SessionCatalogService.ts:806-926` (`buildGeneration`), triggered from
-   `RetainedSessionCollections.ts:240` (300 ms debounce), writes every row
-   (1,526 rows, 2.4 MB, up to 64 shard files) into a new generation directory
-   and rewrites an 852 KB `manifest.json`. Generations advanced about every
-   2 s; 211 of the last 463 had an empty delta. Cheap fix: publish nothing
-   for an empty delta, update only the manifest when only source versions
-   move, and hard-link shards whose digest is unchanged. Preserve the
-   epoch/generation/shard-digest token contract in
-   [session catalog observation](../topics/session-catalog-observation.md).
+1. **Session catalog republishes without changes.** Moved to
+   [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md),
+   with 2026-11-09 measurements: 7,470 rows and 14.3 MB per generation,
+   every 3.8–7.6 s. "Update only the manifest when only source versions
+   move" cannot work as written, because file adapters stamp
+   `reconciliation:<generation>` as their source version on every
+   publication.
 2. **Server log has no rotation.** `logging/logger.ts:112` appends to
    `{dataDir}/logs/server.log` (8.0 GB here, opt-in via `LOG_TO_FILE`).
    File level was debug; volume is dominated by
@@ -89,7 +86,7 @@ summary migration 25.
      new migration.
    - No-driver branches in `vocabulary-database.ts:61`,
      `codex-spawn-index.ts:57`, `opencode-db-reader.ts:150`.
-   - Stale text: `topics/optional-sqlite.md:97` and `:179`;
+   - Stale text: `topics/required-sqlite.md:97` and `:179`;
      `gaps/vocabulary-scratch-placement-is-never-surfaced.md` names removed
      code and looks resolved;
      `gaps/sketches/network-filesystem-banner-offers-no-migration.md`
@@ -155,20 +152,119 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
     `:1540`), distinguish absent from deleted (`:282`, `:1488`, `:1502`),
     and keep reference-equality callers (`:706`) correct. Consider moving
     `initialPrompt` to its own column so a cache miss does not parse it.
-13. **Catalog rows in SQLite.** Replace generation directories with
-    upserted rows plus a change table carrying the delta/generation token.
-    The catalog is rebuildable, so it can start a fresh epoch instead of
-    converting data. Do after item 1 and once 11–12 settle the query shape.
-14. **Retirement policy for one-time imports.** `session-metadata.json` is
-    never read after import (`SessionMetadataService.ts:416-470`, shipped
-    v0.10.0) and summary JSON scopes are read only on a scope miss
-    (`SessionIndexService.ts:502-508`, unreleased), but nothing deletes
-    either (10 MB of `indexes/*.json` here; un-opened scopes never import).
-    [Backward compatibility](../topics/backward-compat.md) covers the wire
-    only. Decide how many releases import code stays, whether a bounded
-    post-startup bulk import should finish the summary scopes, and when the
-    files may be removed. Keep `indexes/git-untracked/`,
-    `session-discovery/` and the project scanner cache; they are live.
+13. **Catalog rows in SQLite.** Now owned by
+    [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md),
+    which gives the table shape and the defects to fix first.
+14. **Delete the one-time import leftovers.**
+    - `session-metadata.json` (2.8 MB) is never read after import
+      (`SessionMetadataService.ts:331`, guarded by the
+      `session_metadata_import` marker).
+    - The legacy `indexes/*.json` summary scopes are rebuildable from
+      provider files, so un-imported scopes lose nothing.
+    - `public-shares.legacy-backup.json` is item 19.
+
+    The only argument for keeping them is a downgrade to a build that
+    predates the import. The
+    [backward compatibility](../topics/backward-compat.md) entry for
+    2026-10-11 already says downgrading is not supported. So delete them
+    once the import marker is confirmed, and drop the import code with them. Keep
+    `indexes/git-untracked/`, `session-discovery/` and the project scanner
+    cache; they are live.
+
+## Second sweep, 2026-11-09
+
+Re-read at `807b297af` against the maintainer's macOS data dir. Items 3, 4,
+5, 6, 8, 9, 10, 11, 12 and 14 still hold; line numbers moved, sizes grew.
+Current figures:
+- `session_metadata`: 4,672 rows, 4.16 MB.
+- `notifications.json`: 7,343 entries, 727 KB.
+- `dirty-file-editors.json`: 186 KB, written within the last minute.
+- `user-usage.jsonl`: 12,908 lines, 81 bytes each on average.
+- legacy `indexes/*.json`: 763 files, 14.1 MB. About 234 scopes were never
+  imported (assuming one file per scope).
+
+The debug metadata count moved to `routes/session-metadata-routes.ts:126`
+and the mark-unread route to `routes/session-metadata-routes.ts:94`.
+
+The catalog findings (cache budget below the catalog's size, pathless
+invalidation from the issue indexer, double publication) are recorded in
+[session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md).
+
+15. **Whole-catalog reads answer point questions.**
+    - Content search reads the full catalog per 128-record batch, and again
+      in `isCurrent`, to find one row by linear search
+      (`routes/session-content-search.ts:109-111`, `:152-157`).
+    - Recents projects all 7,470 identities to enrich at most 100 visits
+      (`routes/recents.ts:67-75`).
+    - The projects inventory projects the whole catalog for one project card
+      when creation projections exist (`app.ts:3242-3260`). Clients refetch
+      projects on `process-state-changed`.
+    - The experimental conversation source does a full read to resolve one
+      session (`app.ts:3573`).
+    - `GET /api/issues` and `GET /api/issues/sessions` project the whole
+      catalog per request (`app.ts:3794-3799`, `routes/issues.ts:262`,
+      `:290`).
+
+    These should be per-project or SQL point reads.
+16. **Inbox and the sidebar feeds each walk the whole catalog.** Each tab
+    runs three retained sidebar feeds and Inbox. Each walk projects and
+    overlays all rows before slicing a page, with no shared result between
+    them (`global-sessions.ts:594-628`, `inbox.ts:355-357`). Inbox also
+    refetches on `session-updated`, `process-state-changed`, `session-seen`
+    and `session-metadata-changed`. Item 11's list projection table is the
+    structural fix. Until then, one projected list per combined clock
+    (catalog token, identity revision, metadata revision, process and
+    notification clocks) could serve all of them.
+17. **Session summaries are kept twice.** The same summaries live in
+    `session_summary_index` (13.1 MB), in `SessionIndexService`'s
+    in-memory scope cache (limit 10,000 scopes) and in the catalog (14.3 MB).
+    Two freshness mechanisms keep them current: dirty tracking plus a 30 s
+    directory check (`SessionIndexService.ts:1261`, `:1549-1589`), and
+    catalog invalidation. The project page still uses the older per-project
+    walk (`projects.ts:1052`). Fold the catalog's list columns into the
+    summary table and serve the project page from it.
+18. **`gemini-project-map.json` records every Claude/Codex project path.**
+    It holds 3.64 MB and 20,053 entries; 19,914 are temp-directory paths and
+    69 still exist. The cause is that every project scan registers all seen
+    paths (`scanner.ts:1206` → `gemini-scanner.ts:111` →
+    `gemini-project-map.ts:221`). Any new path copies the whole map and
+    rewrites the whole pretty-printed file (`gemini-project-map.ts:91-118`).
+    `clean()` (`:200`) has no production caller. Persist only hashes that
+    match an existing Gemini directory, then purge. A table would fix the
+    write cost but keep the junk.
+19. **`public-shares.legacy-backup.json` (2.1 MB) has no cleanup.** The
+    migration completed on 2026-10-02, but the store still probes the file
+    (`PublicShareStore.ts:404`, `:413`, `:468`). It would re-migrate from
+    it if `migration.json` went missing (`:422-425`). Fold it into item 14.
+20. **The Codex discovery cache rewrites a whole day per change.** It keeps
+    one pretty-printed JSON file per day: about 220 files, 3.4 MB
+    (`SessionDiscoveryIndex.ts:316-335`). Loaded days are never evicted
+    (`:121`, `:225-245`). Low priority; the
+    [Codex thread index research](../docs/research/codex-native-thread-index.md)
+    step 2 is the alternative.
+
+21. **The Codex tree watcher is probably redundant for listing.** Codex's
+    `state_5.sqlite` already reports changed threads; the periodic rescan is
+    hinted by it (`codex-thread-index.ts`). Tree-wide file-change events
+    still feed three consumers:
+    - the catalog and summary index;
+    - external session tracking (`ExternalSessionTracker.ts:337`);
+    - live transcript updates for an open, externally run session.
+
+    The index updates a thread's row at most every ~5 s for ordinary appends
+    and cannot see deleted files. So the likely shape is the index as the
+    list's change source, plus per-file watches only for sessions being
+    viewed or tracked as running, plus a rare walk for deletions and for
+    Codex homes without an index. This needs measurement of live-view
+    latency before the tree watch is removed.
+
+Not candidates: the small capped stores
+also stay files: security clients, recents, project metadata and queues,
+review comments, browser profiles, and remote sessions. Line numbers for
+the fixed-`.tmp` writers in
+[atomic file writes](atomic-file-writes-have-many-private-copies.md) are
+stale. SecurityClientService is now `:1741`, ProjectQueueService `:1311`
+and DirtyFileEditorService `:598`.
 
 ## Not recommended
 

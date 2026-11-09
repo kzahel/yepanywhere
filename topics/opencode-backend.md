@@ -432,7 +432,7 @@ below is the as-built contract; a few choices deviate from the original draft
 and are flagged inline.
 
 **Runtime-portable read-only mechanism.** The reader uses
-[YA's shared SQLite adapter](optional-sqlite.md#runtime-portable-sqlite), selecting
+[YA's shared SQLite adapter](required-sqlite.md#runtime-portable-sqlite), selecting
 Node's built-in SQLite or Desktop's pinned Bun SQLite. No external SQLite
 package or native installer is added. A read-only file open requires an existing
 database and cannot create a missing native store. Missing/locked/old-schema

@@ -52,7 +52,7 @@ SQLite storage is required and has no setting. `YEP_SQLITE` was removed on
 2026-10-11 and is ignored. A server whose data directory is on a network
 filesystem refuses to start; place the data directory on local disk with
 `YEP_DATA_DIR`. There is no legacy alias. See
-[built-in SQLite storage](optional-sqlite.md#startup-policy) for runtime
+[built-in SQLite storage](required-sqlite.md#startup-policy) for runtime
 support, database location, and the startup refusals.
 
 ## Compatibility renames
@@ -257,7 +257,7 @@ value, because the child has no other way to express one.
 | `MAINTENANCE_PORT` | Port for the out-of-band maintenance server. Unset or 0 means it never starts, so a launch that may need to diagnose a wedged server must name it. |
 | `VITE_PORT` | Override vite dev port. |
 | `YEP_PROFILE` | Profile suffix → `~/.yep-anywhere-<profile>/`. |
-| `YEP_DATA_DIR` | Full data-dir path override. Either variable is an explicit placement choice; see [optional SQLite](optional-sqlite.md#when-ya-may-choose-the-directory-for-the-user). |
+| `YEP_DATA_DIR` | Full data-dir path override. Either variable is an explicit placement choice; see [required SQLite](required-sqlite.md#when-ya-may-choose-the-directory-for-the-user). |
 | `CLAUDE_CONFIG_DIR` | Claude Code config dir (sessions scanned from `<dir>/projects/`). |
 
 ### Development & UI testing

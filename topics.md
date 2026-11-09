@@ -485,3 +485,7 @@
 - codex-native-thread-index - Codex state_5.sqlite thread index as change signal and listing source; scan fan-out and log volume.
 
 - catalog-identity-projection-cost - Per-read cost of projecting retained catalog rows to public session identities.
+
+- required-sqlite - Required SQLite storage (renamed from optional-sqlite on
+  2026-11-09): runtime adapters, data directory placement, transaction cost,
+  and retiring designs that assumed no database.

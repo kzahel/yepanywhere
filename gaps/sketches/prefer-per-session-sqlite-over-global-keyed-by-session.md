@@ -63,7 +63,7 @@ protect, since every open database carries its own statements.
 
 When the audit and the measurement agree, this stops being a gap and becomes
 permanent development guidance alongside the rest of
-[optional SQLite](../../topics/optional-sqlite.md).
+[required SQLite](../../topics/required-sqlite.md).
 
 Found 2026-09-10, proposed by the maintainer while tracing a write storm whose
 shape came from every session's bookkeeping living in one table.

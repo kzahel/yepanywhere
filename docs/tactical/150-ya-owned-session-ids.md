@@ -150,7 +150,7 @@ URLs, metadata, REST and WebSocket payloads, and agent-facing ids such as
   and `unsupported` handling (`SpeechSettings.tsx:355`,
   `StorageFilesystemBanner.tsx`) for older servers until the horizon passes.
 - **Contracts.** Rewrite the startup policy and data directory placement in
-  [`topics/optional-sqlite.md`](../../topics/optional-sqlite.md) as
+  [`topics/required-sqlite.md`](../../topics/required-sqlite.md) as
   requirements, and update the "Node 22 and built-in SQLite" roadmap row.
 
 ### 2 — move session metadata into a session table
@@ -167,7 +167,7 @@ URLs, metadata, REST and WebSocket payloads, and agent-facing ids such as
   for manual recovery; never write it again.
 - **Access.** Make `SessionMetadataService` read and write the table, using
   prepared statements reused per the
-  [runtime-portable SQLite](../../topics/optional-sqlite.md#runtime-portable-sqlite)
+  [runtime-portable SQLite](../../topics/required-sqlite.md#runtime-portable-sqlite)
   rules. No transaction per session when importing or sweeping.
 - **Contract.** Record the decision in
   [`topics/backward-compat.md`](../../topics/backward-compat.md): no downgrade,

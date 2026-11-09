@@ -151,7 +151,7 @@ export class DiscoveryStorageError extends Error {
 /**
  * Open YA's required SQLite database below the data directory, or throw a
  * {@link DiscoveryStorageError}. There is no degraded mode: session metadata
- * lives here (topics/optional-sqlite.md).
+ * lives here (topics/required-sqlite.md).
  */
 export function openDiscoveryDatabase(options: {
   dataDir: string;

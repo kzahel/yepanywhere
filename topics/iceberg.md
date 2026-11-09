@@ -16,7 +16,7 @@ See [Iceberg's reliability model](https://iceberg.apache.org/docs/latest/reliabi
 YA already has narrower mechanisms: `SessionCatalogService` publishes catalog
 generations through a manifest and pins generations for readers;
 [cache publication](server-cache-publication.md) serializes mutable writes;
-[SQLite](optional-sqlite.md) serves local relational state. Iceberg has no
+[SQLite](required-sqlite.md) serves local relational state. Iceberg has no
 demonstrated advantage here sufficient to justify another storage layer.
 The [DuckDB file-query sketch](../gaps/sketches/duckdb-transcript-queries.md)
 does not depend on Iceberg.

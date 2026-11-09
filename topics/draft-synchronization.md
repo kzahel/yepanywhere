@@ -277,7 +277,7 @@ that never completed are not promised to survive a browser reload.
 Migration 008 uses the existing discovery SQLite database. Draft tables hold
 user data, not rebuildable indexing caches: normal upgrades, optional feature
 changes, and backups must preserve them. No separate database or JSON fallback
-is introduced. Existing [SQLite startup policy](optional-sqlite.md) applies.
+is introduced. Existing [SQLite startup policy](required-sqlite.md) applies.
 
 | Data | Bound / retention |
 | --- | --- |

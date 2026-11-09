@@ -342,7 +342,7 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
 - SQLite is required. Migration 10 stores metadata JSON keyed by `session_id`;
   it does not supply the general indexed provider/native-id relationship or
   durable startup-attempt state described here. See
-  [session metadata](optional-sqlite.md#session-metadata).
+  [session metadata](required-sqlite.md#session-metadata).
 - Migration 17 adds profile-owned public identities with optional scoped native
   bindings. Existing metadata/public keys remain intact; migration performs no
   transcript scan. Explicit discovery adoption preserves existing public ids,
@@ -632,7 +632,7 @@ scope and uniqueness rule before schema changes; a UUID alone is not an
 authorization boundary or a complete account/profile address.
 
 Use an append-only migration under
-[the SQLite migration rules](optional-sqlite.md#database-ownership-and-migration).
+[the SQLite migration rules](required-sqlite.md#database-ownership-and-migration).
 Do not scan the provider corpus in migration initialization. Preserve metadata,
 router pins, sandbox facts, provenance and ownership through import and binding.
 The existing no-downgrade policy remains: recovery is upgrade or an explicit

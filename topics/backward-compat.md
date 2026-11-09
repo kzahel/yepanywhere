@@ -37,7 +37,7 @@ data directory is on a network filesystem, exits instead of degrading.
 it. `GET /api/version` keeps its `sqlite` field, now always `ready`. Clients
 keep their `disabled`, `unsupported`, `error` and `networkFilesystem` handling
 for older servers within the compatibility horizon. See
-[built-in SQLite storage](optional-sqlite.md#session-metadata) and
+[built-in SQLite storage](required-sqlite.md#session-metadata) and
 [plan 150](../docs/tactical/150-ya-owned-session-ids.md).
 
 2026-10-10 Codex async-delivery tool-use message UUIDs — qualify with

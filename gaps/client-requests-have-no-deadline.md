@@ -16,7 +16,7 @@ loading div, with the error branch immediately below it at `:245`. `SessionPage`
 have the same shape. The 2026-09-10 symptom
 was a black Loading screen and a New Session pane stuck on "Loading..." while
 `GET /health` was taking 4-13 seconds; that server-side cause is fixed
-([optional SQLite](../topics/optional-sqlite.md) § Data directory placement),
+([required SQLite](../topics/required-sqlite.md) § Data directory placement),
 but any future slow server looks the same to the reader.
 
 The wanted behavior is a third state after a few seconds of waiting: say the

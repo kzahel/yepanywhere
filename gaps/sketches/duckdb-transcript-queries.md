@@ -130,7 +130,7 @@ targets readiness and bounded cold queries, while
 [session catalog observation](../../topics/session-catalog-observation.md)
 owns compact retained summaries. DuckDB must demonstrate a distinct analytical
 benefit before displacing these mechanisms. The
-[runtime-portable SQLite contract](../../topics/optional-sqlite.md) remains the
+[runtime-portable SQLite contract](../../topics/required-sqlite.md) remains the
 existing storage baseline, not authority to add DuckDB.
 
 ## Truth, coverage, and refresh remain explicit

@@ -33,7 +33,7 @@ package, installer, compiler requirement or sidecar. The Node experimental
 SQLite warning remains visible: it is an accepted upstream runtime diagnostic,
 not a reason to suppress warnings globally. Runtime eligibility does not imply
 that SQLite successfully opened. SQLite is required: a server that cannot open
-it does not start, under the [storage startup policy](optional-sqlite.md#startup-policy).
+it does not start, under the [storage startup policy](required-sqlite.md#startup-policy).
 Feature enablement remains separate.
 
 Desktop uses its exact hash-pinned private Bun from `runtime-versions.json`.

@@ -672,7 +672,7 @@ alongside the settings file. That directory is local disk whenever this feature
 can run at all: the server only starts once discovery SQLite has opened, and
 startup refuses that database on a network filesystem, so the placement the
 earlier separate reservation searched for is now guaranteed rather than sought
-(see [optional SQLite](optional-sqlite.md) § Data directory placement). The
+(see [required SQLite](required-sqlite.md) § Data directory placement). The
 filter is still sized against free space and keeps a gigabyte of headroom, so a
 machine with little room gets a smaller filter rather than a full disk. Profiles
 stay separate because their data directories are separate. Installs that used

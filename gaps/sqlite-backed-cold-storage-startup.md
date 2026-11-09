@@ -45,7 +45,7 @@ whole-corpus readers need scoped projections before lazy retention can be
 safe. Scanner/reader enumeration coalescing, retained-provider reattachment,
 and end-to-end initial view/memory qualification remain as below. These need
 recovery/freshness work beyond the local save and lookup improvements; the gap
-is not closed. Current contracts: [SQLite](../topics/optional-sqlite.md#session-metadata)
+is not closed. Current contracts: [SQLite](../topics/required-sqlite.md#session-metadata)
 and [project discovery](../topics/session-catalog-observation.md#retained-project-discovery-owner).
 
 Progress, 2026-11-05 — Contributing-model: 6-astra
@@ -112,7 +112,7 @@ atomic updates, and durable user metadata through resumable, failure-safe
 migration. Distinguish disposable indexes from irreplaceable state. Verify
 restart and interrupted migration, bounded cold queries, and Node/Bun behavior
 across supported operating systems. Update the runtime floor and the stale
-optional-storage assumptions in [optional SQLite](../topics/optional-sqlite.md)
+optional-storage assumptions in [required SQLite](../topics/required-sqlite.md)
 as the approved policy is enacted.
 
 Related: [slow sidebar after restart](sidebar-slow-after-server-restart.md)

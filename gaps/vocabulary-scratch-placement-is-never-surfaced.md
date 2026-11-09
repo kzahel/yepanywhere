@@ -8,7 +8,7 @@ host. Access is random by construction: a bloom lookup touches one block at a
 hashed offset, and a write is a read-modify-write of that block.
 
 That file takes no locks, so the startup refusal added for
-`discovery.sqlite` ([optional SQLite](../topics/optional-sqlite.md) § Data
+`discovery.sqlite` ([required SQLite](../topics/required-sqlite.md) § Data
 directory placement) never considers it. Being lock-free does not make it
 cheap on a share; a quarter-gigabyte file written a block at a time over NFS is
 its own kind of unusable.

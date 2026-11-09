@@ -3,7 +3,7 @@
 `StorageFilesystemBanner`
 (`packages/client/src/components/StorageFilesystemBanner.tsx:62`) appears when
 the server refused to open `discovery.sqlite` because the data directory is on
-a network filesystem ([optional SQLite](../../topics/optional-sqlite.md) § Data
+a network filesystem ([required SQLite](../../topics/required-sqlite.md) § Data
 directory placement). It names the filesystem and prints the `YEP_DATA_DIR`
 assignment to set, which leaves the actual move as manual shell work the user
 does outside YA, on a server they then have to restart. The banner should carry
@@ -11,7 +11,7 @@ a control that offers to do it, next to the Dismiss button.
 
 This is the upgrade path, and it is the only path these users get. A first-start
 flow that picks a suitable filesystem reaches new installs only — by the
-condition recorded in [optional SQLite](../../topics/optional-sqlite.md) § When YA
+condition recorded in [required SQLite](../../topics/required-sqlite.md) § When YA
 may choose the directory for the user, it cannot fire for anyone whose
 `~/.yep-anywhere` already exists, which is exactly this population. Their entry
 point is this banner, on the load right after they upgrade to a server that
@@ -73,7 +73,7 @@ What makes the move itself its own piece of work rather than a banner tweak:
   use, and do not mutate a running graph to hand a late-arriving database to
   features that already started without one. Today `DiscoverySqliteService` is
   built once and deliberately never retries, which
-  [optional SQLite](../../topics/optional-sqlite.md) states as a contract
+  [required SQLite](../../topics/required-sqlite.md) states as a contract
   ("version requests do not probe storage or retry initialization"), and
   `app.ts:2061` and `app.ts:2148` each call `getDatabase()` once and skip
   wiring their feature when it returns nothing. All of that stays. The

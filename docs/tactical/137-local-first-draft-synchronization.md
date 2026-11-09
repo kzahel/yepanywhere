@@ -63,7 +63,7 @@ Start from these documents rather than introducing parallel behavior:
   provider delivery and must not claim to close it.
 - [Attachment storage](../../topics/attachment-storage.md),
   [project storage](../../topics/project-directory-storage.md), and
-  [SQLite](../../topics/optional-sqlite.md) own file placement and storage
+  [SQLite](../../topics/required-sqlite.md) own file placement and storage
   lifecycle. Draft state stays in app data, never in the selected checkout.
 - [Capabilities](../../topics/server-capabilities.md) and
   [hosted compatibility](../../topics/remote-hosted-compatibility.md) own rollout.

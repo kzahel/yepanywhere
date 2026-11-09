@@ -34,7 +34,7 @@ YA JSON store. Each durable store still needs an owning schema, migration,
 rollback, and recovery contract before its data moves into
 `{dataDir}/discovery.sqlite` or another explicitly owned database.
 
-Related: [optional SQLite](../../topics/optional-sqlite.md),
+Related: [required SQLite](../../topics/required-sqlite.md),
 [remote compatibility](../../topics/remote-hosted-compatibility.md),
 [compatibility notices](006-remote-compatibility-notices.md),
 [server capabilities](../../topics/server-capabilities.md),
@@ -120,7 +120,7 @@ Do not raise unrelated execution floors mechanically:
   was written. This plan removed native SQLite pressure from the main server
   only. The owning migration landed on 2026-09-10 and moved both onto the same
   built-in adapter, so the monorepo now ships no SQLite addon; see
-  [optional SQLite](../../topics/optional-sqlite.md).
+  [required SQLite](../../topics/required-sqlite.md).
 
 ## Immediate Cutover And Remote Warning Contract
 

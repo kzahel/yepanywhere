@@ -6,7 +6,7 @@
 > does not start. Product features keep their own enablement and retention
 > policies; opening storage does not enable learning, search, or indexing.
 
-Topic: optional-sqlite
+Topic: required-sqlite (commits before 2026-11-09 used `optional-sqlite`)
 
 Verified: 2026-10-11
 
@@ -27,6 +27,22 @@ There is no setting to disable storage or to open it anyway. The operator
 corrects the cause, typically by moving the data directory with
 `YEP_DATA_DIR`, and restarts. `YEP_SQLITE` was removed on 2026-10-11; the server
 and desktop launcher no longer read or pass it.
+
+## Designs that predate required storage
+
+Several stores and caches were built before YA had a database and still
+assume it has none:
+- whole-file JSON rewrites of growing state;
+- immutable whole-catalog generations on disk;
+- full in-memory mirrors scanned to answer point questions.
+
+New growing or frequently written state belongs in a table, written per
+changed row in one transaction per batch and read by bounded, indexed
+queries. Small, capped, rarely written or human-edited files (settings,
+secrets, recents, client lists) stay files.
+[SQLite cleanup and wins](../gaps/sqlite-cleanup-and-wins.md) and
+[session catalog rewrites](../gaps/session-catalog-rewrites-whole-generation-per-change.md)
+track the existing designs still to move.
 
 ## Data directory placement
 
@@ -94,7 +110,8 @@ no paths or raw exception messages.
 ## Runtime adapters
 
 The server selects `bun:sqlite` when running under Bun and otherwise attempts
-`node:sqlite`. Loading is guarded and deferred until storage is enabled. No
+`node:sqlite`, once, at startup; a runtime without one fails startup as
+described under [Startup policy](#startup-policy). No
 SQLite package, native installer, sidecar, or compiler is added to the core
 distribution. Desktop's pinned Bun is tested directly, independently of claims
 about newer Bun versions' Node compatibility.
@@ -175,9 +192,9 @@ also finalizes outstanding Bun statements before closing the database; Bun
 1.3.14's default close otherwise leaves them and the Windows file handle alive.
 Using a finalized statement or one belonging to a closed adapter throws.
 
-Node versions without an accessible SQLite builtin still load the published
-modules and report `unsupported` in auto mode. Node's experimental-module notice
-on applicable versions is not suppressed by the service.
+Node versions without an accessible SQLite builtin fail startup; there is no
+mode that runs without storage. Node's experimental-module notice on applicable
+versions is not suppressed by the service.
 
 ## Personal draft data
 

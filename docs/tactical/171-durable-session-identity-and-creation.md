@@ -1440,7 +1440,7 @@ Owning contracts and prior work:
 - [Remap](../../topics/session-id-remap.md),
   [liveness](../../topics/session-liveness.md),
   [HTTP v0 receipts](../../topics/http-api-v0.md#creation-and-retry-receipts),
-  [storage](../../topics/optional-sqlite.md#database-ownership-and-migration)
+  [storage](../../topics/required-sqlite.md#database-ownership-and-migration)
   and [provider-host ownership](../../topics/provider-host-api.md).
 - Existing gaps: [draft acknowledgement can delete newer text](../../gaps/new-session-draft-clear-captures-after-submission.md)
   and [unconfirmed sends](../../gaps/unconfirmed-send-loss-across-reload.md).
