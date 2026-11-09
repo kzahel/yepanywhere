@@ -27,6 +27,30 @@ export interface SessionCatalogSqliteSource {
   storeKey: string;
 }
 
+/** One publication's change to a row, as the catalog's delta records it. */
+export type SessionCatalogSqliteChange =
+  | { type: "upsert"; row: Readonly<SessionCatalogRow> }
+  | {
+      type: "delete";
+      key: Pick<SessionCatalogRow, "catalogFamily" | "storeKey" | "sessionId">;
+    };
+
+/** How the stored rows differ from the published ones; all zero when equal. */
+export interface SessionCatalogSqliteMismatch {
+  missing: number;
+  extra: number;
+  differing: number;
+  sources: boolean;
+  /** One differing row key, for the log. */
+  example: string | null;
+}
+
+export interface SessionCatalogSqliteComparison {
+  mismatch: SessionCatalogSqliteMismatch;
+  /** Every row key that differs, for `repairRows`. */
+  keys: Set<string>;
+}
+
 export interface SessionCatalogSqliteWrite {
   rowsWritten: number;
   rowsTombstoned: number;
@@ -83,7 +107,10 @@ export class SessionCatalogSqliteStore {
   private readonly upsertText;
   private readonly deleteText;
   private readonly tombstone;
+  private readonly selectHash;
+  private readonly tombstoneKey;
   private readonly deleteAllRows;
+  private readonly countLive;
   private readonly selectSources;
   private readonly insertSource;
   private readonly deleteSource;
@@ -155,7 +182,18 @@ export class SessionCatalogSqliteStore {
       this.tombstone = prepare(
         "UPDATE session_catalog SET deleted = 1, changed_gen = ? WHERE id = ?",
       );
+      this.selectHash = prepare(
+        `SELECT row_hash, deleted FROM session_catalog
+         WHERE family = ? AND store_key = ? AND native_id = ?`,
+      );
+      this.tombstoneKey = prepare(
+        `UPDATE session_catalog SET deleted = 1, changed_gen = ?
+         WHERE family = ? AND store_key = ? AND native_id = ? AND deleted = 0`,
+      );
       this.deleteAllRows = prepare("DELETE FROM session_catalog");
+      this.countLive = prepare(
+        "SELECT count(*) AS n FROM session_catalog WHERE deleted = 0",
+      );
       this.selectSources = prepare(
         "SELECT family, store_key FROM catalog_sources",
       );
@@ -249,6 +287,152 @@ export class SessionCatalogSqliteStore {
     });
   }
 
+  /**
+   * Apply one publication's changes on top of the generation they follow, in
+   * a single transaction, without reading the other rows. An upsert whose
+   * stored row already matches is not rewritten; a delete tombstones a live
+   * row. Throws when the stored generation is not `previousGeneration` of the
+   * same epoch, since the changes would then be applied to the wrong base.
+   */
+  applyChanges(
+    state: Omit<SessionCatalogSqliteState, "tombstoneHorizon">,
+    previousGeneration: number,
+    changes: readonly SessionCatalogSqliteChange[],
+    sources: readonly SessionCatalogSqliteSource[],
+  ): SessionCatalogSqliteWrite {
+    return this.database.transaction(() => {
+      const previous = this.readState();
+      if (
+        previous?.epoch !== state.epoch ||
+        previous.generation !== previousGeneration ||
+        state.generation <= previousGeneration
+      ) {
+        throw new Error(
+          "Session catalog changes do not follow the stored generation",
+        );
+      }
+      let rowsWritten = 0;
+      let rowsTombstoned = 0;
+      // A row that moved buckets is an upsert and a delete; the upsert wins.
+      const upserted = new Set(
+        [...changes].flatMap((change) =>
+          change.type === "upsert"
+            ? [
+                rowKey(
+                  change.row.catalogFamily,
+                  change.row.storeKey,
+                  change.row.sessionId,
+                ),
+              ]
+            : [],
+        ),
+      );
+      for (const change of changes) {
+        if (change.type === "delete") {
+          const { catalogFamily, storeKey, sessionId } = change.key;
+          if (upserted.has(rowKey(catalogFamily, storeKey, sessionId)))
+            continue;
+          rowsTombstoned += this.tombstoneKey.run(
+            state.generation,
+            catalogFamily,
+            storeKey,
+            sessionId,
+          ).changes;
+          continue;
+        }
+        const row = withWellFormedTitle(change.row);
+        const hash = sessionCatalogRowHash(row);
+        const existing = this.selectHash.get<{
+          row_hash: string;
+          deleted: number;
+        }>(row.catalogFamily, row.storeKey, row.sessionId);
+        if (existing?.deleted === 0 && existing.row_hash === hash) continue;
+        this.writeRow(row, hash, state.generation);
+        rowsWritten += 1;
+      }
+      this.writeSources(sources);
+      this.writeState.run(
+        state.epoch,
+        state.generation,
+        previous.tombstoneHorizon,
+        state.completedAt,
+      );
+      return { rowsWritten, rowsTombstoned, lineageReplaced: false };
+    });
+  }
+
+  /**
+   * Rewrite the given row keys from the published rows, whatever their stored
+   * hash says, and tombstone those the generation no longer holds. Repairs
+   * what a comparison found different; the rows take the current generation.
+   */
+  repairRows(
+    generation: number,
+    keys: ReadonlySet<string>,
+    rows: Iterable<Readonly<SessionCatalogRow>>,
+    sources: readonly SessionCatalogSqliteSource[],
+  ): number {
+    return this.database.transaction(() => {
+      this.writeSources(sources);
+      const remaining = new Set(keys);
+      for (const candidate of rows) {
+        const row = withWellFormedTitle(candidate);
+        const key = rowKey(row.catalogFamily, row.storeKey, row.sessionId);
+        if (!remaining.delete(key)) continue;
+        this.writeRow(row, sessionCatalogRowHash(row), generation);
+      }
+      for (const key of remaining) {
+        const [family, storeKey, nativeId] = JSON.parse(key) as string[];
+        this.tombstoneKey.run(generation, family!, storeKey!, nativeId!);
+      }
+      return keys.size;
+    });
+  }
+
+  /**
+   * Cheap check after a change write: the live row count and, for each
+   * changed key, that the stored row is live with the published hash or
+   * tombstoned when deleted. Returns the keys that are wrong, or all of
+   * `count` when only the count is off.
+   */
+  checkChanges(
+    changes: readonly SessionCatalogSqliteChange[],
+    liveRows: number,
+  ): { countMatches: boolean; wrongKeys: string[] } {
+    const wrongKeys: string[] = [];
+    const upserted = new Set<string>();
+    for (const change of changes) {
+      if (change.type !== "upsert") continue;
+      const row = withWellFormedTitle(change.row);
+      const key = rowKey(row.catalogFamily, row.storeKey, row.sessionId);
+      upserted.add(key);
+      const stored = this.selectHash.get<{ row_hash: string; deleted: number }>(
+        row.catalogFamily,
+        row.storeKey,
+        row.sessionId,
+      );
+      if (
+        stored?.deleted !== 0 ||
+        stored.row_hash !== sessionCatalogRowHash(row)
+      )
+        wrongKeys.push(key);
+    }
+    for (const change of changes) {
+      if (change.type !== "delete") continue;
+      const { catalogFamily, storeKey, sessionId } = change.key;
+      const key = rowKey(catalogFamily, storeKey, sessionId);
+      if (upserted.has(key)) continue;
+      const stored = this.selectHash.get<{ deleted: number }>(
+        catalogFamily,
+        storeKey,
+        sessionId,
+      );
+      if (stored && stored.deleted !== 1) wrongKeys.push(key);
+    }
+    const live = this.countLive.get<{ n: number }>()?.n ?? 0;
+    return { countMatches: live === liveRows, wrongKeys };
+  }
+
   /** Live rows, reassembled exactly as the adapters published them. */
   readRows(): SessionCatalogRow[] {
     return this.selectRows.all<CatalogColumns>().map(rowFromColumns);
@@ -286,7 +470,7 @@ export class SessionCatalogSqliteStore {
       row.projectPath,
       row.projectName ?? null,
       row.provider ?? null,
-      title === null ? null : title.slice(0, CATALOG_TITLE_PREFIX_LENGTH),
+      title === null ? null : titlePrefix(title),
       row.title === null ? 1 : 0,
       row.createdAt ?? null,
       row.updatedAt,
@@ -347,6 +531,66 @@ export function sessionCatalogRowHash(
     .slice(0, 22);
 }
 
+/**
+ * Compare the rows and sources a store returns with the published ones,
+ * ignoring order: the store returns rows by insertion, the files by shard.
+ */
+export function compareSessionCatalogRows(
+  stored: readonly Readonly<SessionCatalogRow>[],
+  published: Iterable<Readonly<SessionCatalogRow>>,
+  storedSources: readonly SessionCatalogSqliteSource[],
+  publishedSources: readonly SessionCatalogSqliteSource[],
+): SessionCatalogSqliteComparison {
+  const expected = new Map<string, string>();
+  for (const candidate of published) {
+    const row = withWellFormedTitle(candidate);
+    expected.set(
+      rowKey(row.catalogFamily, row.storeKey, row.sessionId),
+      JSON.stringify(row),
+    );
+  }
+  const result: SessionCatalogSqliteMismatch = {
+    missing: 0,
+    extra: 0,
+    differing: 0,
+    sources: false,
+    example: null,
+  };
+  const seen = new Set<string>();
+  const keys = new Set<string>();
+  for (const row of stored) {
+    const key = rowKey(row.catalogFamily, row.storeKey, row.sessionId);
+    seen.add(key);
+    const line = expected.get(key);
+    if (line === JSON.stringify(row)) continue;
+    if (line === undefined) result.extra += 1;
+    else result.differing += 1;
+    result.example ??= key;
+    keys.add(key);
+  }
+  for (const key of expected.keys()) {
+    if (seen.has(key)) continue;
+    result.missing += 1;
+    result.example ??= key;
+    keys.add(key);
+  }
+  const sourceKeys = (sources: readonly SessionCatalogSqliteSource[]) =>
+    [...new Set(sources.map((s) => rowKey(s.catalogFamily, s.storeKey)))]
+      .sort()
+      .join("\n");
+  result.sources = sourceKeys(storedSources) !== sourceKeys(publishedSources);
+  return { mismatch: result, keys };
+}
+
+export function isSessionCatalogMatch(
+  mismatch: SessionCatalogSqliteMismatch,
+): boolean {
+  return (
+    mismatch.missing + mismatch.extra + mismatch.differing === 0 &&
+    !mismatch.sources
+  );
+}
+
 interface StateColumns {
   epoch: string;
   generation: number;
@@ -382,7 +626,18 @@ export function readSessionCatalogState(
   }
 }
 
-function rowKey(...parts: string[]): string {
+/** The stored prefix, never ending inside a surrogate pair. */
+function titlePrefix(title: string): string {
+  const end =
+    title.length > CATALOG_TITLE_PREFIX_LENGTH &&
+    /[\uD800-\uDBFF]/.test(title[CATALOG_TITLE_PREFIX_LENGTH - 1]!)
+      ? CATALOG_TITLE_PREFIX_LENGTH - 1
+      : CATALOG_TITLE_PREFIX_LENGTH;
+  return title.slice(0, end);
+}
+
+/** The row key the store compares and repairs by. */
+export function rowKey(...parts: string[]): string {
   return JSON.stringify(parts);
 }
 

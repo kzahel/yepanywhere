@@ -8,7 +8,6 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { performance } from "node:perf_hooks";
 import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
 import { getLogger } from "../logging/logger.js";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
@@ -39,10 +38,9 @@ import {
   requireTimestamp,
 } from "./session-catalog-rows.js";
 import {
-  type SessionCatalogSqliteWrite,
-  SessionCatalogSqliteStore,
-  readSessionCatalogState,
-} from "./session-catalog-sqlite.js";
+  type SessionCatalogMirrorMetrics,
+  SessionCatalogSqliteMirror,
+} from "./session-catalog-mirror.js";
 
 const MANIFEST_SCHEMA_VERSION = 1;
 const DEFAULT_BUCKET_COUNT = 64;
@@ -180,8 +178,8 @@ export interface SessionCatalogServiceMetrics {
   hotSet: ReturnType<
     SourceVersionedSingleFlight<string, ProjectRowsValue>["getStats"]
   >;
-  sqliteCopyFailures: number;
-  lastSqliteCopy: (SessionCatalogSqliteWrite & { durationMs: number }) | null;
+  /** The catalog tables' copy of the files; null without a database. */
+  sqlite: SessionCatalogMirrorMetrics | null;
 }
 
 export interface SessionCatalogServiceOptions {
@@ -189,7 +187,8 @@ export interface SessionCatalogServiceOptions {
   dataDir: string;
   /**
    * The profile database. While the files stay authoritative, startup copies
-   * the published generation into its catalog tables (plan 189 step 3).
+   * the published generation into its catalog tables and every publication
+   * writes them too (plan 189 step 3).
    */
   database?: SqliteDatabase;
   bucketCount?: number;
@@ -329,9 +328,7 @@ export class SessionCatalogService {
   private deltaBaseUnreadable = 0;
   private resetFailures = 0;
   private lastResetReason: string | null = null;
-  private readonly database?: SqliteDatabase;
-  private sqliteCopyFailures = 0;
-  private lastSqliteCopy: SessionCatalogServiceMetrics["lastSqliteCopy"] = null;
+  private readonly mirror?: SessionCatalogSqliteMirror;
 
   constructor(options: SessionCatalogServiceOptions) {
     this.catalogDir = join(options.dataDir, "session-catalog");
@@ -374,7 +371,8 @@ export class SessionCatalogService {
     this.now = options.now ?? Date.now;
     this.createEpoch = options.createEpoch ?? randomUUID;
     this.onLineageReset = options.onLineageReset;
-    this.database = options.database;
+    if (options.database)
+      this.mirror = new SessionCatalogSqliteMirror(options.database);
     this.projectRowsOwner = new SourceVersionedSingleFlight({
       maxRetainedBytes: nonNegativeInteger(
         options.maxHotBytes ?? DEFAULT_HOT_BYTES,
@@ -406,50 +404,47 @@ export class SessionCatalogService {
 
   /**
    * Copy the published generation into the catalog tables, keeping its epoch
-   * and generation, unless they already hold it. Nothing reads the tables
-   * yet, and publications do not write them, so every start that finds an
-   * older generation refreshes the copy; only changed rows are written.
-   * Failure is logged and leaves the files serving as before.
+   * and generation, unless they already hold it. Only changed rows are
+   * written.
    */
   private async copyToSqlite(): Promise<void> {
-    const database = this.database;
-    if (!database) return;
-    try {
-      const token = this.getToken();
-      const stored = readSessionCatalogState(database);
-      if (
-        stored?.epoch === token.catalogEpoch &&
-        stored.generation === token.catalogGeneration
-      )
+    const mirror = this.mirror;
+    if (!mirror) return;
+    const token = this.getToken();
+    const stored = mirror.storedState();
+    if (stored?.epoch === token.catalogEpoch) {
+      if (stored.generation === token.catalogGeneration) return;
+      // SQLite is ahead of the files only when the files were restored from
+      // an older copy. Numbering on from the files would reuse generations
+      // change readers have seen, so the lineage ends, as for unreadable files.
+      if (stored.generation > token.catalogGeneration) {
+        this.recordReset(
+          new Error("Session catalog tables are ahead of the catalog files"),
+        );
+        await this.startLineage();
         return;
+      }
+    }
+    try {
       // An unreadable shard is left for the first real read to recover.
       const { snapshot, rows } = await this.readRows({
         recoverUnreadable: false,
       });
-      const startedAt = performance.now();
-      // Prepared and released within one synchronous step.
-      const store = new SessionCatalogSqliteStore(database);
-      try {
-        this.lastSqliteCopy = {
-          ...store.writeGeneration(
-            {
-              epoch: snapshot.catalogEpoch,
-              generation: snapshot.catalogGeneration,
-              completedAt: snapshot.completedAt,
-            },
-            rows,
-            snapshot.providerSources,
-          ),
-          durationMs: performance.now() - startedAt,
-        };
-      } finally {
-        store.dispose();
-      }
+      // Rechecked synchronously by the mirror: a publication may have
+      // written a later generation while the rows were read.
+      mirror.copy(
+        {
+          epoch: snapshot.catalogEpoch,
+          generation: snapshot.catalogGeneration,
+          completedAt: snapshot.completedAt,
+        },
+        rows,
+        snapshot.providerSources,
+      );
     } catch (error) {
-      this.sqliteCopyFailures += 1;
       getLogger().warn(
         { err: error },
-        "SESSION_CATALOG: copying the catalog into SQLite failed",
+        "SESSION_CATALOG: reading the catalog to copy into SQLite failed",
       );
     }
   }
@@ -482,6 +477,18 @@ export class SessionCatalogService {
     };
     this.manifest = manifest;
     this.catalogRowsOwner.invalidate(WHOLE_CATALOG_KEY);
+    // The tables follow at once, so they never describe an abandoned lineage.
+    this.mirror?.publish(
+      {
+        epoch: manifest.catalogEpoch,
+        generation: 0,
+        completedAt: manifest.completedAt,
+      },
+      0,
+      null,
+      [],
+      [],
+    );
     await this.persistManifest(manifest);
     await this.cleanupGenerationDirectories(null);
     return manifest;
@@ -828,8 +835,7 @@ export class SessionCatalogService {
       rowCount: this.manifest?.rowCount ?? 0,
       rowsBytes: this.manifest?.rowsBytes ?? 0,
       hotSet: this.projectRowsOwner.getStats(),
-      sqliteCopyFailures: this.sqliteCopyFailures,
-      lastSqliteCopy: this.lastSqliteCopy,
+      sqlite: this.mirror?.getMetrics() ?? null,
     };
   }
 
@@ -929,9 +935,20 @@ export class SessionCatalogService {
       }
       await this.persistManifest(manifest);
       this.manifest = manifest;
+      const written = writer.writtenRows();
+      this.mirror?.publish(
+        {
+          epoch: manifest.catalogEpoch,
+          generation: manifest.catalogGeneration,
+          completedAt,
+        },
+        previous.catalogGeneration,
+        delta.replacementRequired ? null : delta.changes,
+        written.rows,
+        providerSources,
+      );
       // Admitted before any await, so a reader arriving now joins these rows
       // instead of reading back the generation this pass just wrote.
-      const written = writer.writtenRows();
       const retaining = this.catalogRowsOwner.run({
         key: WHOLE_CATALOG_KEY,
         sourceVersion: catalogRowsVersion(manifest),
@@ -1066,7 +1083,7 @@ export class SessionCatalogService {
         }
       }
     }
-    return delta;
+    return withoutMovedRowDeletes(delta);
   }
 
   /**
@@ -1274,6 +1291,36 @@ function appendDeltaChange(
   delta.changes.push(change);
   delta.bytes += bytes;
   return true;
+}
+
+/**
+ * A row whose project changed moves to another bucket and appears as an
+ * upsert in its new bucket and a delete in its old one. Buckets are walked in
+ * order, so a move to a lower bucket lists the delete last, and applying the
+ * changes in order would remove a row the generation still holds.
+ */
+function withoutMovedRowDeletes(
+  delta: SessionCatalogDelta,
+): SessionCatalogDelta {
+  const keyOf = (key: SessionCatalogRowKey) =>
+    JSON.stringify([key.catalogFamily, key.storeKey, key.sessionId]);
+  const upserted = new Set(
+    delta.changes.flatMap((change) =>
+      change.type === "upsert" ? [keyOf(change.row)] : [],
+    ),
+  );
+  const changes = delta.changes.filter(
+    (change) => change.type === "upsert" || !upserted.has(keyOf(change.key)),
+  );
+  if (changes.length === delta.changes.length) return delta;
+  return {
+    ...delta,
+    changes,
+    bytes: changes.reduce(
+      (total, change) => total + Buffer.byteLength(JSON.stringify(change)),
+      0,
+    ),
+  };
 }
 
 function replacementDelta(delta: SessionCatalogDelta): SessionCatalogDelta {

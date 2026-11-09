@@ -460,9 +460,16 @@ Use a disk/RAM hierarchy:
 - YA app-data storage holds the durable compact catalog, shard metadata,
   generation lineage, and cold rows needed after restart. While
   [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) step 3 is in
-  progress, startup also copies the published generation into the
-  `session_catalog` tables of `discovery.sqlite`; the shard files stay
-  authoritative and nothing reads the copy yet;
+  progress, startup copies the published generation into the
+  `session_catalog` tables of `discovery.sqlite`, and every publication
+  writes its changed rows there too (the delta it computed, or a diff of the
+  whole generation when the delta is incomplete). The shard files stay
+  authoritative and nothing reads the tables yet. Each change write is
+  checked by key and live count, and a full read-back (after copies,
+  whole-generation writes and failed checks, otherwise every 10 minutes)
+  counts mismatches against the published rows and repairs them. A
+  delta never deletes a key it also upserts: a row whose project moved
+  buckets appears as both;
 - RAM holds the current generation's parsed rows (exactly one generation,
   replaced at publication by the rows it wrote; about the size of the row
   JSON, and two generations while one is being built), bounded hot project

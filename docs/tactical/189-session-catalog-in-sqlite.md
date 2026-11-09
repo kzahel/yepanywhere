@@ -4,8 +4,8 @@ Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
 `db161ab3c` and the maintainer's profile the same day. Steps 1 and 2 done
-2026-11-09; step 3's first commit (tables and startup copy) done the same
-day.
+2026-11-09; step 3's first two commits (tables and startup copy, then the
+dual write) done the same day.
 
 ## Goal
 
@@ -395,6 +395,71 @@ The second commit writes both and compares:
 - A mismatch counter compares the rows SQLite returns with the published
   rows.
 
+Done 2026-11-09 (second commit):
+- Each publication writes SQLite after the manifest is persisted
+  (`SessionCatalogSqliteMirror`, `session-catalog-mirror.ts`). When the
+  stored generation is the one the publication follows and its delta is
+  complete, only the delta's upserts and deletes are written
+  (`applyChanges`, one point lookup per changed row); otherwise, for a
+  delta over its 1 MiB bound or a stored lineage that does not match (a
+  failed earlier write, a lineage reset), the whole generation is diffed
+  as in the first commit. The first commit's review notes are met: no
+  whole-table diff per publication, no wipe of a later generation by the
+  startup copy (rechecked synchronously after its read), and a keyed, not
+  ordered, comparison.
+- A lineage reset writes its empty generation to SQLite at once. A start
+  that finds SQLite ahead of the files in the same epoch (files restored
+  from an older copy) ends the lineage, as an unreadable manifest does,
+  rather than numbering generations change readers have already seen.
+- Checking: every change write checks its changed keys against their
+  published hashes and the live row count (about 1.5 ms). A full read-back
+  of every row and source, compared by key with the published rows, runs
+  after copies, whole-generation writes and failed checks, and otherwise at
+  most every 10 minutes (`YEP_CATALOG_SQLITE_COMPARE_MS`, 0 for every
+  write). It costs 55–75 ms quiet and up to 300 ms at load average 20–25.
+  A mismatch is counted, logged as a warning, and repaired by rewriting the
+  differing keys from the published rows, so it does not persist into the
+  reads the third commit moves to SQLite. Failures are counted and logged
+  and the files keep serving.
+- Review found that a session whose project changed to one in a
+  lower-numbered bucket was tombstoned: the delta walks buckets in order,
+  so it listed the row's upsert before its delete (reproduced as a missing
+  row). The delta now drops a delete whose key it also upserts, and
+  `applyChanges` lets an upsert win too; the delta clients would get had
+  the same defect.
+- Measured on a copy of the maintainer's profile (7,489 rows) through the
+  real `reconcile` path: a change write took 0.4–0.7 ms for 0–1 changed
+  rows, about 2 ms with its check (26–41 ms with the whole-table diff); a
+  publication changing every row (a `rowFormat` bump, whose delta is over
+  the bound) took 205–240 ms plus a 56 ms read-back. Integrity clean.
+- Gate: a second server on a copy of the profile (port 3417), passive by
+  recipe (below), comparing every write. Before the review fixes: 107
+  change writes, generations 870,464 to 870,570, no mismatch or failure;
+  writes 0.7 ms median (6.9 ms max), read-backs 72 ms median (297 ms max at
+  load average 20–25). After them: 33 change writes over 44 minutes,
+  870,571 to 870,603, no mismatch or failure, writes with their check
+  2.4 ms median, read-backs 56 ms median; integrity and foreign-key checks
+  clean. Live traffic never exercised the copy or whole-generation paths;
+  the scripted run above did.
+- Passive second server, by recipe rather than a mode: run the built
+  `dist` with `env -i` (no inherited wake, provider-runtime or dev-wrapper
+  variables), `NODE_ENV=production`, `YEP_PROVIDER_HOST_ENABLED=false`
+  (from `dist` on macOS the provider host is off anyway),
+  `YEP_PEER_API_ENABLED=false`, `HOST=127.0.0.1 CLI_HOST_OVERRIDE=true`,
+  `AUTH_DISABLED=true`. In the copy: `settings` in `server-settings.json`
+  (they are nested there) with `codexUpdatePolicy: "off"`,
+  `hostAwakeMode: "off"`, issue associations and rendez disabled, wake
+  turns, lifecycle webhooks and the gateway export off; the relay removed
+  from `remote-access.json`; project queue items emptied;
+  `push-subscriptions.json` deleted. Discovery only reads provider
+  directories, and the gateway export, the one startup write into them, is
+  a no-op with the export off and no services. No route switch stops
+  launches, so the gate calls only read routes, with `summaryMode=retained`
+  (the catalog refreshes only for retained reads). The first attempt had
+  the settings at the top level, where they are ignored; it ran about two
+  minutes with host-awake and issue associations on, spawned only
+  `caffeinate`, and launched nothing.
+
 The third commit switches reads and deletes the folder:
 - A publication upserts changed rows and tombstones removed ones in one
   transaction. It advances the generation only when something changed.
@@ -635,8 +700,9 @@ Two tools serve these gates:
   curation and remote-executor sessions. Also where item 11 gets the
   creation surface and the latest recap time; no server code reads
   `creationProvenance.surface` today.
-- Whether a second server on a copied profile can stay passive. It must
-  not run queues, restart recovery, wake turns, recaps or pushes against
-  live sessions. Check before using it for the gates.
+- Whether a second server on a copied profile can stay passive. Answered
+  for the step 3 gate (see the second commit): yes, by recipe, not by a
+  mode. There is no switch for launches through HTTP routes, so the gate
+  calls only read routes.
 - Whether to trim `payload_json` after consumption, given its readers
   listed in step 1.

@@ -276,6 +276,46 @@ function catalogContract(database) {
     lineageReplaced: false,
   });
   assert.deepEqual(store.readRows(), [row("a", "short")]);
+  // A publication's changes: resurrect a tombstone, tombstone by key.
+  const changed = store.applyChanges(
+    state(3),
+    2,
+    [
+      { type: "upsert", row: row("b", long) },
+      { type: "delete", key: row("a") },
+    ],
+    [],
+  );
+  assert.deepEqual(changed, {
+    rowsWritten: 1,
+    rowsTombstoned: 1,
+    lineageReplaced: false,
+  });
+  assert.deepEqual(store.readRows(), [row("b", long)]);
+  // A moved row is an upsert and a delete of one key; the upsert wins.
+  store.applyChanges(
+    state(4),
+    3,
+    [
+      { type: "upsert", row: row("b", "moved") },
+      { type: "delete", key: row("b") },
+    ],
+    [],
+  );
+  assert.deepEqual(store.readRows(), [row("b", "moved")]);
+  assert.deepEqual(
+    store.checkChanges([{ type: "upsert", row: row("b", "moved") }], 1),
+    { countMatches: true, wrongKeys: [] },
+  );
+  database.exec("UPDATE session_catalog SET title = 'bad'");
+  store.repairRows(
+    4,
+    new Set([JSON.stringify(["codex", "/store", "b"])]),
+    [row("b", "moved")],
+    [],
+  );
+  assert.deepEqual(store.readRows(), [row("b", "moved")]);
+  assert.throws(() => store.applyChanges(state(5), 3.5, [], []), /follow/);
   store.writeGeneration({ ...state(0), epoch: "f" }, [], []);
   assert.equal(
     database.prepare("SELECT count(*) AS n FROM session_catalog_text").get().n,
