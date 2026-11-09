@@ -120,8 +120,10 @@ Downgrade is unsupported, as for every migration since required SQLite
   bytes (`SessionCreationStore.ts:189-193`, `:808-829`).
 - Keep the per-item checks: 256 KiB per request, 8 KiB per attempt
   record, 64 attempts per creation.
-- Keep the `generation` counter. It fences late launch callbacks and
-  versions the creation list; it may move to its own table.
+- Keep the table's `generation` counter. It is the creation list's change
+  stamp: list cache keys and status `revision` read it. It may move to its
+  own table. The per-attempt `generation` that fences late launch
+  callbacks is a separate column and is untouched.
 - Clear `payload_json` once a creation is consumed, since that is what
   actually grows.
 - Update the bounds paragraph of
