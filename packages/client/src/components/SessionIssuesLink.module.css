@@ -29,63 +29,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.menuEntry {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  text-decoration: none;
-}
-
-.menuEntry:hover,
-.menuEntry:focus-visible {
-  background: var(--bg-hover);
-}
-
-/* Sits above the sidebar and the session header, like the neighboring menus. */
-.menu {
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  min-width: 240px;
-  max-width: min(420px, calc(100dvw - 16px));
-  max-height: min(60vh, 520px);
-  overflow-y: auto;
-  padding: 4px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.item,
-.browse {
+/* A row's key, title and state share one line; the title yields first. */
+.row {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  text-decoration: none;
-}
-.item:hover,
-.browse:hover {
-  background: var(--bg-hover);
-}
-.item:focus-visible,
-.browse:focus-visible {
-  outline: 2px solid var(--focus-border);
-  outline-offset: -2px;
-}
-
-/* A tight phone row gives up title width, never the glyph's. */
-.item > svg {
-  flex-shrink: 0;
+  min-width: 0;
 }
 
 /* The key identifies the row; the title fills whatever width is left. */
@@ -106,35 +55,10 @@
   margin-left: auto;
 }
 
-.browse {
-  margin-top: 4px;
-  border-top: 1px solid var(--border-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  color: var(--text-secondary);
-}
-
-/* Section headings label their rows without competing with them. */
-.section {
-  margin: 0;
-  padding: 8px 8px 2px;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .empty,
 .more {
   margin: 0;
   padding: 6px 8px;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-}
-
-@media (width <= 700px) {
-  .item,
-  .browse {
-    min-height: 44px;
-  }
 }

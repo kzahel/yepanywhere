@@ -102,44 +102,6 @@
   touch-action: manipulation;
 }
 
-/* Turn-notch context menu (right-click / long-press): fork / copy / hide. */
-.contextOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  cursor: default;
-}
-
-.contextMenu {
-  position: fixed;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  min-width: 140px;
-  padding: var(--space-1);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
-}
-
-.contextMenu button {
-  appearance: none;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.contextMenu button:hover,
-.contextMenu button:focus-visible {
-  background: var(--bg-hover);
-}
-
 .markerLine {
   position: absolute;
   top: 50%;

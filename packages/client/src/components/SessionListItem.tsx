@@ -1154,7 +1154,6 @@ export function SessionListItem({
             }
             useEllipsisIcon
             overlayTrigger
-            useFixedPositioning
             onOpenChange={handleMenuOpenChange}
             className="session-list-item__menu"
           />

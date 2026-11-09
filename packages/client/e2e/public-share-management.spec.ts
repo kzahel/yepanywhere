@@ -100,7 +100,7 @@ test("left and right click open the same share manager", async ({
     .locator("header.session-header")
     .getByLabel("Session options")
     .click();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Share", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Manage Public Shares")).toBeVisible();
   await expect(
@@ -268,7 +268,7 @@ test("left and right click open the same share manager", async ({
   // race the newly installed menu scroll listener.
   await sessionRow.scrollIntoViewIfNeeded();
   await sessionRow.getByLabel("Session options").click();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Share", exact: true }).click();
   await expect(dialog.getByText("Manage Public Shares")).toBeVisible();
   await expect(
     dialog.getByRole("radio", { name: "This session", exact: true }),
@@ -311,7 +311,7 @@ test("share type labels fit beside creation actions", async ({
     .locator("header.session-header")
     .getByLabel("Session options")
     .click();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Share", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
   const liveFilter = dialog.getByRole("button", {

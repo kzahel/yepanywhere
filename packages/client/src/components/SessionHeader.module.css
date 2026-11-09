@@ -142,6 +142,13 @@
   }
 }
 
+/* Project paths are long: the move menu is wider than a plain action menu.
+   Compounded to outrank the menu's own min-width; min-width also wins over
+   its max-width. Layout only. */
+.reclassifyMenu[role="menu"] {
+  min-width: min(28rem, calc(100dvw - 16px));
+}
+
 /* The project App button sits beside the session's last-view icon. */
 .projectAppButton {
   flex-shrink: 0;

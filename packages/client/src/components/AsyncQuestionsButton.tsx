@@ -1,12 +1,4 @@
-import {
-  Fragment,
-  type CSSProperties,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import { createPortal } from "react-dom";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ComposerOverflowTier } from "../hooks/useMessageInputToolbarLayout";
 import { useAsyncQuestions } from "../contexts/AsyncQuestionsContext";
 import { isQuestionAnswered } from "../lib/asyncQuestionRecords";
@@ -17,6 +9,8 @@ import {
 } from "../lib/asyncQuestions";
 import styles from "./AsyncQuestions.module.css";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Menu, MenuItem } from "./ui/Menu";
+import { Popover, type PopoverPoint } from "./ui/Popover";
 
 function QuestionIcon() {
   return (
@@ -56,7 +50,8 @@ function QuestionMenuRow({
   state: AsyncQuestionsMenuState;
 }) {
   const { t } = useI18n();
-  const [contextOpen, setContextOpen] = useState(false);
+  const [contextPoint, setContextPoint] = useState<PopoverPoint | null>(null);
+  const previewRef = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
   const clearTimer = () => {
@@ -72,7 +67,7 @@ function QuestionMenuRow({
   const dismissed = state.records[question.id]?.dismissed === true;
   const dismiss = () => {
     state.update(question.id, { dismissed: !dismissed });
-    setContextOpen(false);
+    setContextPoint(null);
   };
   return (
     <li className={styles.menuRow}>
@@ -85,6 +80,7 @@ function QuestionMenuRow({
       </span>
       <div className={styles.previewBox}>
         <ButtonBase
+          ref={previewRef}
           className={styles.preview}
           title={question.title}
           aria-label={question.title}
@@ -98,14 +94,17 @@ function QuestionMenuRow({
           onContextMenu={(event) => {
             event.preventDefault();
             clearTimer();
-            setContextOpen(true);
+            setContextPoint({ x: event.clientX, y: event.clientY });
           }}
-          onTouchStart={() => {
+          onTouchStart={(event) => {
             held.current = false;
             clearTimer();
+            const touch = event.touches[0];
+            if (!touch) return;
+            const point = { x: touch.clientX, y: touch.clientY };
             timer.current = setTimeout(() => {
               held.current = true;
-              setContextOpen(true);
+              setContextPoint(point);
             }, 450);
           }}
           onTouchMove={clearTimer}
@@ -132,17 +131,22 @@ function QuestionMenuRow({
         >
           {dismissed && showDismissed ? "↶" : "×"}
         </IconButton>
-        {contextOpen && (
-          <div className={styles.rowMenu} role="menu">
-            <button type="button" role="menuitem" onClick={dismiss}>
-              {t(
-                dismissed
-                  ? "asyncQuestionRestoreShort"
-                  : "asyncQuestionDismissShort",
-              )}
-            </button>
-          </div>
-        )}
+        <Menu
+          open={contextPoint !== null}
+          onClose={() => setContextPoint(null)}
+          anchorRef={previewRef}
+          anchorPoint={contextPoint}
+          placement="bottom-start"
+          aria-label={question.title}
+        >
+          <MenuItem onSelect={dismiss}>
+            {t(
+              dismissed
+                ? "asyncQuestionRestoreShort"
+                : "asyncQuestionDismissShort",
+            )}
+          </MenuItem>
+        </Menu>
       </div>
     </li>
   );
@@ -170,12 +174,6 @@ export function AsyncQuestionsButton({
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
-  const [position, setPosition] = useState<CSSProperties>({
-    left: 8,
-    bottom: 0,
-    width: 360,
-    maxHeight: 400,
-  });
   const pending =
     state?.questions.filter(
       (question) => !isQuestionAnswered(state.records[question.id]),
@@ -215,68 +213,12 @@ export function AsyncQuestionsButton({
 
   useLayoutEffect(() => {
     if (!open) return;
-    const measure = () => {
-      const rect = button.current?.getBoundingClientRect();
-      if (!rect) return;
-      const width = Math.min(520, window.innerWidth - 16);
-      const below =
-        Boolean(inventory) &&
-        window.innerHeight - rect.bottom > Math.min(280, rect.top);
-      const available = below
-        ? window.innerHeight - rect.bottom - 14
-        : rect.top - 16;
-      setPosition({
-        left: Math.max(
-          8,
-          Math.min(rect.right - width, window.innerWidth - width - 8),
-        ),
-        ...(below
-          ? { top: rect.bottom + 6 }
-          : { bottom: window.innerHeight - rect.top + 6 }),
-        width,
-        maxHeight: Math.max(100, Math.min(400, available)),
-      });
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [open, inventory]);
-
-  useLayoutEffect(() => {
-    if (!open) return;
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
     const previews = panel.current?.querySelectorAll<HTMLButtonElement>(
       `button.${styles.preview}`,
     );
     previews?.[previews.length - 1]?.focus({ preventScroll: true });
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: PointerEvent) => {
-      if (
-        !(event.target instanceof Node) ||
-        panel.current?.contains(event.target) ||
-        button.current?.contains(event.target)
-      )
-        return;
-      setOpen(false);
-      setMenuOpen?.(false);
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setOpen(false);
-      setMenuOpen?.(false);
-      button.current?.focus({ preventScroll: true });
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open, setMenuOpen]);
 
   useEffect(() => {
     if (state?.menuOpen === false) setOpen(false);
@@ -347,89 +289,92 @@ export function AsyncQuestionsButton({
           compact !== "late" && <span>{t("asyncQuestionsTitle")}</span>
         )}
       </ButtonBase>
-      {open &&
-        createPortal(
-          <div
-            ref={panel}
-            className={styles.menu}
-            style={position}
-            role="dialog"
-            aria-label={t("asyncQuestionsTitle")}
-            onKeyDown={(event) => {
-              if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-              const targets = [
-                ...(panel.current?.querySelectorAll<HTMLButtonElement>(
-                  `button.${styles.preview}`,
-                ) ?? []),
-              ];
-              const current = targets.indexOf(
-                document.activeElement as HTMLButtonElement,
-              );
-              if (!targets.length) return;
-              event.preventDefault();
-              targets[
-                (current +
-                  (event.key === "ArrowDown" ? 1 : -1) +
-                  targets.length) %
-                  targets.length
-              ]?.focus();
-            }}
+      <Popover
+        open={open}
+        onClose={close}
+        anchorRef={button}
+        // The composer sits at the bottom, so its panel rises above it; the
+        // sidebar and inbox rows open below. Either flips when short of room.
+        placement={inventory ? "bottom-end" : "top-end"}
+        offset={6}
+        ref={panel}
+        className={styles.menu}
+        style={{ maxHeight: "min(400px, var(--popover-available-height))" }}
+        role="dialog"
+        aria-label={t("asyncQuestionsTitle")}
+        onKeyDown={(event) => {
+          // A row's context menu (a nested portal) handles its own arrows.
+          if (event.defaultPrevented) return;
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          const targets = [
+            ...(panel.current?.querySelectorAll<HTMLButtonElement>(
+              `button.${styles.preview}`,
+            ) ?? []),
+          ];
+          const current = targets.indexOf(
+            document.activeElement as HTMLButtonElement,
+          );
+          if (!targets.length) return;
+          event.preventDefault();
+          targets[
+            (current + (event.key === "ArrowDown" ? 1 : -1) + targets.length) %
+              targets.length
+          ]?.focus();
+        }}
+      >
+        <div className={styles.menuHeading}>
+          <strong>{t("asyncQuestionsTitle")}</strong>
+          <IconButton
+            size="small"
+            className={styles.dismiss}
+            label={t("asyncQuestionCloseMenu")}
+            onClick={close}
           >
-            <div className={styles.menuHeading}>
-              <strong>{t("asyncQuestionsTitle")}</strong>
-              <IconButton
-                size="small"
-                className={styles.dismiss}
-                label={t("asyncQuestionCloseMenu")}
-                onClick={close}
-              >
-                ×
-              </IconButton>
-            </div>
-            <ul ref={list} className={styles.questionList}>
-              {visible.map((question, index) => (
-                <Fragment key={question.id}>
-                  {groupTitles?.has(question.id) &&
-                    (index === 0 ||
-                      groupTitles.get(visible[index - 1]!.id)?.id !==
-                        groupTitles.get(question.id)?.id) && (
-                      <li className={styles.groupHeading}>
-                        {groupTitles.get(question.id)?.title}
-                      </li>
-                    )}
-                  <QuestionMenuRow
-                    question={question}
-                    showDismissed={showDismissed}
-                    state={{
-                      ...state,
-                      open: (selected) => {
-                        close();
-                        state.open(selected);
-                      },
-                    }}
-                  />
-                </Fragment>
-              ))}
-            </ul>
-            {visible.length === 0 && <p>{t("asyncQuestionsNone")}</p>}
-            {omitted && (
-              <p className={styles.hint}>{t("asyncQuestionsEarlierOmitted")}</p>
-            )}
-            <Button
-              variant="ghost"
-              size="small"
-              className={styles.showDismissed}
-              onClick={() => setShowDismissed(!showDismissed)}
-            >
-              {t(
-                showDismissed
-                  ? "asyncQuestionHideDismissed"
-                  : "asyncQuestionShowDismissed",
-              )}
-            </Button>
-          </div>,
-          document.body,
+            ×
+          </IconButton>
+        </div>
+        <ul ref={list} className={styles.questionList}>
+          {visible.map((question, index) => (
+            <Fragment key={question.id}>
+              {groupTitles?.has(question.id) &&
+                (index === 0 ||
+                  groupTitles.get(visible[index - 1]!.id)?.id !==
+                    groupTitles.get(question.id)?.id) && (
+                  <li className={styles.groupHeading}>
+                    {groupTitles.get(question.id)?.title}
+                  </li>
+                )}
+              <QuestionMenuRow
+                question={question}
+                showDismissed={showDismissed}
+                state={{
+                  ...state,
+                  open: (selected) => {
+                    close();
+                    state.open(selected);
+                  },
+                }}
+              />
+            </Fragment>
+          ))}
+        </ul>
+        {visible.length === 0 && <p>{t("asyncQuestionsNone")}</p>}
+        {omitted && (
+          <p className={styles.hint}>{t("asyncQuestionsEarlierOmitted")}</p>
         )}
+        <Button
+          variant="ghost"
+          size="small"
+          className={styles.showDismissed}
+          onClick={() => setShowDismissed(!showDismissed)}
+        >
+          {t(
+            showDismissed
+              ? "asyncQuestionHideDismissed"
+              : "asyncQuestionShowDismissed",
+          )}
+        </Button>
+      </Popover>
     </>
   );
 }

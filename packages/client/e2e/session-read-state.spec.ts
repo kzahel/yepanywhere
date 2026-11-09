@@ -284,7 +284,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       await expect(sidebarRow).toHaveClass(/\bunread\b/);
       await sidebarRow.locator(".session-menu-trigger").click();
       await page
-        .getByRole("button", { name: "Mark as read", exact: true })
+        .getByRole("menuitem", { name: "Mark as read", exact: true })
         .click();
       await expect(sidebarRow).not.toHaveClass(/\bunread\b/);
       // A later event must supersede the prior manual toggle.
@@ -297,7 +297,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       const menu = page.locator(".session-header .session-menu-trigger");
       await menu.click();
       await page
-        .getByRole("button", { name: "Mark as read", exact: true })
+        .getByRole("menuitem", { name: "Mark as read", exact: true })
         .click();
       await expect.poll(() => hasUnread).toBe(false);
       setReadState(true);
@@ -306,7 +306,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       await page.keyboard.press("r");
       expect(readWrites).toHaveLength(writesBeforeMenuKey);
       await expect(
-        page.getByRole("button", { name: "Mark as read", exact: true }),
+        page.getByRole("menuitem", { name: "Mark as read", exact: true }),
       ).toBeVisible();
       await recordUiCapture(
         page,
@@ -314,7 +314,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         viewport,
       );
       await page
-        .getByRole("button", { name: "Mark as read", exact: true })
+        .getByRole("menuitem", { name: "Mark as read", exact: true })
         .click();
       await page.goto(`${origin}/inbox`);
       const inboxRow = page

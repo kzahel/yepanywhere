@@ -12,7 +12,11 @@ beforeEach(() => {
   onFields.mockReset();
   vi.stubGlobal(
     "matchMedia",
-    vi.fn(() => ({ matches: true })),
+    vi.fn(() => ({
+      matches: true,
+      addEventListener() {},
+      removeEventListener() {},
+    })),
   );
   vi.stubGlobal(
     "ResizeObserver",

@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import { SessionIssuesLink, SessionIssuesProvider } from "../SessionIssuesLink";
@@ -49,6 +49,11 @@ function result(count: number, more = false, active = false) {
   };
 }
 
+function Location() {
+  const location = useLocation();
+  return <output>{location.pathname + location.search}</output>;
+}
+
 function tree(messageCount: number) {
   return (
     <I18nProvider>
@@ -58,10 +63,13 @@ function tree(messageCount: number) {
           projectId="p1"
           messageCount={messageCount}
         />
+        <Location />
       </MemoryRouter>
     </I18nProvider>
   );
 }
+
+const location = () => screen.getByRole("status").textContent;
 
 function renderLink(messageCount = 3) {
   return render(tree(messageCount));
@@ -74,11 +82,17 @@ async function openMenu(name: string) {
 }
 
 describe("SessionIssuesLink", () => {
+  const open = vi.fn();
   beforeEach(() => {
     state.enabled = true;
     state.fetch.mockReset();
+    open.mockReset();
+    vi.spyOn(window, "open").mockImplementation(open);
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
 
   it("links already displayed prompt mentions when discovery settles, sharing the header read", async () => {
     vi.useFakeTimers();
@@ -158,7 +172,7 @@ describe("SessionIssuesLink", () => {
     expect(state.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("links each row at its tracker, leaving new-tab clicks to the browser", async () => {
+  it("links a row to its tracker without a referrer", async () => {
     state.fetch.mockResolvedValue(result(1));
     renderLink();
     await openMenu("1 issue or pull request associated with this session");
@@ -166,16 +180,14 @@ describe("SessionIssuesLink", () => {
     expect(row.getAttribute("href")).toBe(
       "https://example.test/browse/AUTOTEST-0",
     );
-    expect(row.getAttribute("target")).toBeNull();
+    expect(row.getAttribute("rel")).toBe("noreferrer");
   });
 
   it("stays open for new-tab clicks and closes for a navigating one", async () => {
     state.fetch.mockResolvedValue(result(2));
     renderLink();
     await openMenu("2 issues and pull requests associated with this session");
-    // jsdom does not navigate; the menu's own response is what is under test.
     const row = () => screen.getAllByRole("menuitem")[0]!;
-    row().addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(row(), { metaKey: true });
     fireEvent.click(row(), { ctrlKey: true });
     expect(screen.getByRole("menu")).toBeTruthy();
@@ -214,7 +226,9 @@ describe("SessionIssuesLink", () => {
     await openMenu("1 issue or pull request associated with this session");
     const row = screen.getAllByRole("menuitem")[0]!;
     expect(row.textContent).toBe("AUTOTEST-3");
-    expect(row.getAttribute("href")).toBe("/issues?sessionId=s1&projectId=p1");
+    fireEvent.click(row);
+    expect(open).not.toHaveBeenCalled();
+    expect(location()).toBe("/issues?sessionId=s1&projectId=p1");
   });
 
   it("caps the rows and says how many more the full list holds", async () => {
@@ -227,12 +241,11 @@ describe("SessionIssuesLink", () => {
     // Twelve references plus the row that opens the full list.
     expect(screen.getAllByRole("menuitem")).toHaveLength(13);
     expect(screen.getByText("88 more in the full list")).toBeTruthy();
-    const browse = screen.getByRole("menuitem", {
-      name: "Show all in this session",
-    });
-    expect(browse.getAttribute("href")).toBe(
-      "/issues?sessionId=s1&projectId=p1",
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Show all in this session" }),
     );
+    expect(location()).toBe("/issues?sessionId=s1&projectId=p1");
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("lists pull requests first and keeps them in view past a long ticket list", async () => {
@@ -257,8 +270,8 @@ describe("SessionIssuesLink", () => {
       screen.getByText("Pull requests").id,
     );
     const keys = (group: HTMLElement) =>
-      Array.from(group.querySelectorAll('[role="menuitem"]')).map(
-        (row) => row.querySelector("span")?.textContent,
+      Array.from(group.querySelectorAll('[role="menuitem"]')).map((row) =>
+        row.textContent?.replace(/Title \d+$/, ""),
       );
     expect(keys(prs!)).toEqual(["o/r#92", "o/r#90", "o/r#91"]);
     // The tickets fill what the PRs leave, newest mention first.
@@ -390,7 +403,8 @@ describe("SessionIssuesLink", () => {
   it("renders nothing while the feature is off", () => {
     state.enabled = false;
     const { container } = renderLink();
-    expect(container.textContent).toBe("");
+    // Only the route probe remains.
+    expect(container.textContent).toBe(location());
     expect(state.fetch).not.toHaveBeenCalled();
   });
 });

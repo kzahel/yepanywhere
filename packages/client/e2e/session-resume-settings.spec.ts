@@ -148,7 +148,7 @@ test("clones saved settings, preserves explicit edits, and degrades on older ser
     .getByRole("button", { name: "Session options", exact: true })
     .last()
     .click();
-  await page.getByRole("button", { name: "Clone", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Clone", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
   expect(forks).toEqual([
     expect.objectContaining({ forkKind: "clone-latest-complete" }),

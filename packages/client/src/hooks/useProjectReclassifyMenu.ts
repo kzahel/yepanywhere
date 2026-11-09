@@ -18,8 +18,8 @@ import type { useProjects } from "./useProjects";
 
 /**
  * The session page's project move menu: the breadcrumb's context menu
- * listing the other projects, closing on Escape or a click outside, and
- * moving the session to the chosen project.
+ * listing the other projects (a shared `Menu` anchored to the breadcrumb,
+ * which owns dismissal and focus), moving the session to the chosen project.
  * Moved verbatim from `SessionPage.tsx`
  * (docs/tactical/182-session-page-header-and-footer.md slice 2).
  */
@@ -48,7 +48,6 @@ export function useProjectReclassifyMenu({
     useState(false);
   const [isReclassifyingProject, setIsReclassifyingProject] = useState(false);
   const projectBreadcrumbRef = useRef<HTMLAnchorElement>(null);
-  const projectReclassifyMenuRef = useRef<HTMLDivElement>(null);
 
   const projectReclassifyOptions = useMemo(
     () =>
@@ -58,34 +57,15 @@ export function useProjectReclassifyMenu({
     [projectId, projects],
   );
 
+  // The menu portals to the body, so a parked (hidden) page must not keep it.
   useEffect(() => {
-    if (isDomLingerParked || !showProjectReclassifyMenu) return;
+    if (isDomLingerParked) setShowProjectReclassifyMenu(false);
+  }, [isDomLingerParked]);
 
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (
-        projectBreadcrumbRef.current?.contains(target) ||
-        projectReclassifyMenuRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setShowProjectReclassifyMenu(false);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowProjectReclassifyMenu(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isDomLingerParked, showProjectReclassifyMenu]);
+  const closeProjectReclassifyMenu = useCallback(
+    () => setShowProjectReclassifyMenu(false),
+    [],
+  );
 
   const handleProjectBreadcrumbContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLAnchorElement>) => {
@@ -156,8 +136,8 @@ export function useProjectReclassifyMenu({
     showProjectReclassifyMenu,
     isReclassifyingProject,
     projectBreadcrumbRef,
-    projectReclassifyMenuRef,
     projectReclassifyOptions,
+    closeProjectReclassifyMenu,
     handleProjectBreadcrumbContextMenu,
     handleReclassifySessionProject,
   };

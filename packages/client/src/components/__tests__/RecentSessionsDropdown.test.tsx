@@ -126,6 +126,10 @@ describe("RecentSessionsDropdown", () => {
       </MemoryRouter>,
     );
 
+    // A navigation panel, not an action menu.
+    expect(
+      screen.getByRole("dialog", { name: "sessionRecentSessions" }),
+    ).not.toBeNull();
     expect(
       screen.getByText(
         "Longer complete title text that should be visible in the recent sessions dropdown",

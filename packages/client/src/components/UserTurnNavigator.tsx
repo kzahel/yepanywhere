@@ -12,7 +12,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   getCollapsedSearchPreviewText,
   normalizeSearchPreviewText as normalizePreviewText,
@@ -22,6 +21,7 @@ import { useI18n } from "../i18n";
 import { findRenderRow, indexRenderRowsById } from "../lib/scrollAnchors";
 import styles from "./UserTurnNavigator.module.css";
 import { ButtonBase } from "./ui/Button";
+import { Menu, MenuItem } from "./ui/Menu";
 
 export interface UserTurnNavAnchor {
   id: string;
@@ -728,9 +728,9 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
   const visiblePreviewIdsRef = useRef<string[]>([]);
   const activeMotionCue = motionCue ?? internalMotionCue;
   const minAnchorCount = searchState ? 1 : MIN_NAV_ANCHORS;
-  // Keep the rail mounted while the context menu is open: the menu portal is
+  // Keep the rail mounted while the context menu is open: the menu is
   // rendered inside this component's output, which returns null when not
-  // measuring. Without this, the menu's overlay triggers the scroll
+  // measuring. Without this, moving onto the menu triggers the scroll
   // container's pointerleave -> railActive=false -> unmount -> remount loop
   // (frame-rate strobe). See topics/fork-from-turn.md.
   const shouldMeasure =
@@ -846,7 +846,7 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
       });
     };
     const hideRail = () => {
-      if (notchMenuOpenRef.current) return; // overlay covers the container; keep rail
+      if (notchMenuOpenRef.current) return; // menu open over the rail; keep it
       if (!searchState) {
         setRailActive(false);
       }
@@ -1053,14 +1053,6 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
     },
     [hasNotchMenu, clearLongPress, openNotchMenu],
   );
-  useEffect(() => {
-    if (!notchMenu) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeNotchMenu();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [notchMenu, closeNotchMenu]);
   useEffect(() => () => clearLongPress(), [clearLongPress]);
   const consumeLongPressClick = useCallback(() => {
     if (!suppressNextMarkerClickRef.current) {
@@ -1491,117 +1483,80 @@ export const UserTurnNavigator = memo(function UserTurnNavigator({
           </ButtonBase>
         ))}
       </div>
-      {notchMenu &&
-        createPortal(
+      {/* Notches sit at the right edge, so the menu's right side meets the
+          click and it opens leftward toward screen center. */}
+      <Menu
+        open={notchMenu !== null}
+        onClose={(reason) => {
+          // A long-press can be followed by the browser's compatibility
+          // mousedown on the notch; that press opened the menu.
+          if (reason === "outside" && suppressNextMarkerClickRef.current) {
+            return;
+          }
+          closeNotchMenu();
+        }}
+        anchorPoint={notchMenu ? { x: notchMenu.x, y: notchMenu.y } : null}
+        placement="bottom-end"
+        aria-label={t("sourceMoreActions")}
+      >
+        {notchMenu && (
           <>
-            <ButtonBase
-              className={styles.contextOverlay}
-              aria-label={t("turnNotchDismissMenu")}
-              onClick={closeNotchMenu}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                closeNotchMenu();
-              }}
-            />
-            {/* Notches sit at the right edge, so anchor the menu's right side at
-                the click and open leftward toward screen center. */}
-            <div
-              className={styles.contextMenu}
-              role="menu"
-              style={{
-                top: Math.min(notchMenu.y, window.innerHeight - 220),
-                right: Math.max(8, window.innerWidth - notchMenu.x),
-              }}
+            <MenuItem
+              onSelect={() =>
+                handleAnchorClick(notchMenu.id, notchMenu.targetId)
+              }
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  handleAnchorClick(notchMenu.id, notchMenu.targetId);
+              {t("turnNotchJump")}
+            </MenuItem>
+            {onForkBeforeAnchor &&
+              (canForkBeforeAnchor?.(notchMenu.id) ?? true) && (
+                <MenuItem onSelect={() => onForkBeforeAnchor(notchMenu.id)}>
+                  {t("turnNotchForkBefore")}
+                </MenuItem>
+              )}
+            {onForkAfterAnchor &&
+              (canForkAfterAnchor?.(notchMenu.id) ?? true) && (
+                <MenuItem
+                  disabled={forkAfterDisabled}
+                  tooltip={
+                    forkAfterDisabled ? t("forkTurnAfterDisabled") : undefined
+                  }
+                  onSelect={() => onForkAfterAnchor(notchMenu.id)}
+                >
+                  {t("turnNotchForkAfter")}
+                </MenuItem>
+              )}
+            {onCopyAnchor && (canCopyAnchor?.(notchMenu.id) ?? true) && (
+              <MenuItem onSelect={() => onCopyAnchor(notchMenu.id)}>
+                {t("turnNotchCopy")}
+              </MenuItem>
+            )}
+            {onTrimAnchor && (canTrimAnchor?.(notchMenu.id) ?? true) && (
+              <MenuItem onSelect={() => onTrimAnchor(notchMenu.id)}>
+                {t("turnNotchShowFrom")}
+              </MenuItem>
+            )}
+            {onHandoffFromAnchor && (
+              <MenuItem
+                onMouseDown={(event) => {
+                  if (event.button === 1) event.preventDefault();
+                }}
+                onSelect={() =>
+                  onHandoffFromAnchor(notchMenu.id, { newTab: false })
+                }
+                onAuxClick={(event) => {
+                  if (event.button !== 1) return;
+                  event.preventDefault();
+                  onHandoffFromAnchor(notchMenu.id, { newTab: true });
                   closeNotchMenu();
                 }}
               >
-                {t("turnNotchJump")}
-              </button>
-              {onForkBeforeAnchor &&
-                (canForkBeforeAnchor?.(notchMenu.id) ?? true) && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onForkBeforeAnchor(notchMenu.id);
-                      closeNotchMenu();
-                    }}
-                  >
-                    {t("turnNotchForkBefore")}
-                  </button>
-                )}
-              {onForkAfterAnchor &&
-                (canForkAfterAnchor?.(notchMenu.id) ?? true) && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={forkAfterDisabled}
-                    title={
-                      forkAfterDisabled ? t("forkTurnAfterDisabled") : undefined
-                    }
-                    onClick={() => {
-                      onForkAfterAnchor(notchMenu.id);
-                      closeNotchMenu();
-                    }}
-                  >
-                    {t("turnNotchForkAfter")}
-                  </button>
-                )}
-              {onCopyAnchor && (canCopyAnchor?.(notchMenu.id) ?? true) && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onCopyAnchor(notchMenu.id);
-                    closeNotchMenu();
-                  }}
-                >
-                  {t("turnNotchCopy")}
-                </button>
-              )}
-              {onTrimAnchor && (canTrimAnchor?.(notchMenu.id) ?? true) && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onTrimAnchor(notchMenu.id);
-                    closeNotchMenu();
-                  }}
-                >
-                  {t("turnNotchShowFrom")}
-                </button>
-              )}
-              {onHandoffFromAnchor && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onMouseDown={(event) => {
-                    if (event.button === 1) event.preventDefault();
-                  }}
-                  onClick={() => {
-                    onHandoffFromAnchor(notchMenu.id, { newTab: false });
-                    closeNotchMenu();
-                  }}
-                  onAuxClick={(event) => {
-                    if (event.button !== 1) return;
-                    event.preventDefault();
-                    onHandoffFromAnchor(notchMenu.id, { newTab: true });
-                    closeNotchMenu();
-                  }}
-                >
-                  {t("turnNotchHandoffFrom")}
-                </button>
-              )}
-            </div>
-          </>,
-          document.body,
+                {t("turnNotchHandoffFrom")}
+              </MenuItem>
+            )}
+          </>
         )}
+      </Menu>
     </nav>
   );
 });

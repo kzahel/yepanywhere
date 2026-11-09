@@ -1,13 +1,6 @@
+/* Feature width; the shared Popover owns the frame, position and height. */
 .dropdown {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  min-width: 280px;
-  max-width: min(830px, calc(100dvw - 32px));
-  z-index: 10001;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  width: min(830px, calc(100dvw - 16px));
 }
 
 .current {

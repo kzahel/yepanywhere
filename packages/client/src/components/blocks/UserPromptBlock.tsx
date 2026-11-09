@@ -3,6 +3,7 @@ import {
   memo,
   type ReactNode,
   type RefObject,
+  useRef,
   useState,
 } from "react";
 import type { ProjectPathLinkTarget } from "@yep-anywhere/shared";
@@ -18,6 +19,7 @@ import type { ContentBlock } from "../../types";
 import { AttachmentChip } from "../AttachmentChip";
 import { Button, ButtonBase } from "../ui/Button";
 import { CopyTextButton } from "../ui/CopyTextButton";
+import { Popover } from "../ui/Popover";
 import { ForkTurnMenu } from "./ForkTurnMenu";
 import { useUserPromptActionPacking } from "./useUserPromptActionPacking";
 import { UserPromptLinkedText } from "./UserPromptLinkedText";
@@ -511,7 +513,8 @@ function UserPromptActionButtons({
  * server-accepted but not yet proven in the durable transcript; disappears
  * entirely on confirmation so the steady state stays unadorned. Hover shows
  * the short explanation (title); click/tap toggles a popover with the full
- * one, since touch devices never see the title.
+ * one, since touch devices never see the title. The tag sits in the right
+ * margin, so the popover extends leftward from it.
  */
 function DeliveryStateMarker({
   deliveryState,
@@ -520,27 +523,31 @@ function DeliveryStateMarker({
 }) {
   const { t } = useI18n();
   const [showDetail, setShowDetail] = useState(false);
+  const markerRef = useRef<HTMLButtonElement>(null);
   if (deliveryState !== "sent") return null;
   return (
     <>
       <ButtonBase
+        ref={markerRef}
         className="user-prompt-delivery-marker"
         title={t("userPromptDeliverySent")}
         aria-label={t("userPromptDeliverySent")}
         aria-expanded={showDetail}
         onClick={() => setShowDetail((open) => !open)}
         onBlur={() => setShowDetail(false)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setShowDetail(false);
-        }}
       >
         {t("userPromptDeliverySentLabel")}
       </ButtonBase>
-      {showDetail && (
-        <span className="user-prompt-delivery-popover" role="status">
-          {t("userPromptDeliverySentDetail")}
-        </span>
-      )}
+      <Popover
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+        anchorRef={markerRef}
+        placement="bottom-end"
+        role="status"
+        style={{ maxWidth: "min(340px, 85dvw)" }}
+      >
+        {t("userPromptDeliverySentDetail")}
+      </Popover>
     </>
   );
 }

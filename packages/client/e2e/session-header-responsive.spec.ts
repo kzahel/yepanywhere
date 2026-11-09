@@ -237,7 +237,7 @@ test("header preserves identity, overflow actions and rename typing during live 
   await recordUiCapture(page, "session-header-desktop");
 
   await menu.click();
-  await page.getByRole("button", { name: "Rename...", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rename...", exact: true }).click();
   const input = page.getByRole("textbox", {
     name: "Session title",
     exact: true,
@@ -333,7 +333,7 @@ test("header preserves identity, overflow actions and rename typing during live 
   await recordUiCapture(page, "session-header-phone");
   await menu.click();
   await expect(
-    page.getByRole("link", {
+    page.getByRole("menuitem", {
       name: "1 issue or pull request associated with this session",
     }),
   ).toHaveAttribute(
@@ -341,9 +341,9 @@ test("header preserves identity, overflow actions and rename typing during live 
     `/issues?sessionId=${sessionId}&projectId=${projectId}`,
   );
   await expect(
-    page.getByRole("button", { name: /Share.*1 viewers.*2 links/ }),
+    page.getByRole("menuitem", { name: /Share.*1 viewers.*2 links/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Rename...", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rename...", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Rename session" });
   await expect(dialog).toBeVisible();
   await expect(input).toBeFocused();
@@ -412,7 +412,7 @@ test("header preserves identity, overflow actions and rename typing during live 
 
   await page.setViewportSize({ width: 375, height: 812 });
   await menu.click();
-  await page.getByRole("button", { name: "Rename...", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rename...", exact: true }).click();
   await input.pressSequentially("Retry title");
   refuseSave = true;
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
@@ -426,14 +426,14 @@ test("header preserves identity, overflow actions and rename typing during live 
   await expect(header.locator(".session-title-text")).toHaveText("Retry title");
   // The shared dialog history entry lets Android Back cancel without a save.
   await menu.click();
-  await page.getByRole("button", { name: "Rename...", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rename...", exact: true }).click();
   await input.pressSequentially("Unsaved");
   await page.goBack();
   await expect(dialog).toHaveCount(0);
   expect(saves).toEqual([desktopTitle, "Retry title", "Retry title"]);
   await menu.click();
   await page
-    .getByRole("link", {
+    .getByRole("menuitem", {
       name: "1 issue or pull request associated with this session",
     })
     .click();
@@ -443,7 +443,7 @@ test("header preserves identity, overflow actions and rename typing during live 
   ).toBeVisible();
   await expectHeaderSizing(page.locator("header.session-header"), 44);
   await expect(
-    page.getByRole("button", { name: "Rename...", exact: true }),
+    page.getByRole("menuitem", { name: "Rename...", exact: true }),
   ).toHaveCount(0);
   expect(errors).toEqual([]);
 

@@ -144,7 +144,7 @@ test("warns before compacting an active Codex turn and enables it when idle", as
         .locator(".session-header")
         .getByRole("button", { name: "Session options" })
         .click();
-      const compact = page.getByRole("button", {
+      const compact = page.getByRole("menuitem", {
         name: "Compact (turn active)",
       });
       await expect(compact).toBeDisabled();
@@ -177,7 +177,7 @@ test("warns before compacting an active Codex turn and enables it when idle", as
       .locator(".session-header")
       .getByRole("button", { name: "Session options" })
       .click();
-    await page.getByRole("button", { name: "Compact", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Compact", exact: true }).click();
     await expect.poll(() => compactRequests).toBe(1);
   } finally {
     await page.close();

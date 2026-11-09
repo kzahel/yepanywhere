@@ -219,11 +219,11 @@ describe("UserPromptBlock", () => {
     );
     fireEvent.click(fork);
     expect(
-      (
-        screen.getByRole("menuitem", {
+      screen
+        .getByRole("menuitem", {
           name: "Update this YA server for Codex forks.",
-        }) as HTMLButtonElement
-      ).disabled,
+        })
+        .getAttribute("aria-disabled") === "true",
     ).toBe(true);
   });
 
@@ -244,25 +244,25 @@ describe("UserPromptBlock", () => {
       screen.getByRole("button", { name: "Fork from this turn" }),
     );
     expect(
-      (
-        screen.getByRole("menuitem", {
+      screen
+        .getByRole("menuitem", {
           name: "Before this turn",
-        }) as HTMLButtonElement
-      ).disabled,
+        })
+        .getAttribute("aria-disabled") === "true",
     ).toBe(false);
     expect(
-      (
-        screen.getByRole("menuitem", {
+      screen
+        .getByRole("menuitem", {
           name: "After this turn",
-        }) as HTMLButtonElement
-      ).disabled,
+        })
+        .getAttribute("aria-disabled") === "true",
     ).toBe(true);
     expect(
-      (
-        screen.getByRole("menuitem", {
+      screen
+        .getByRole("menuitem", {
           name: "After with summary…",
-        }) as HTMLButtonElement
-      ).disabled,
+        })
+        .getAttribute("aria-disabled") === "true",
     ).toBe(true);
   });
 

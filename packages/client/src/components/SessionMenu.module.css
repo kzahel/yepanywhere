@@ -1,4 +1,4 @@
-/* SessionMenu owns these rules, including its portal-rendered dropdown. */
+/* SessionMenu's trigger layout; the menu itself is the shared ui/Menu. */
 .wrapper {
   position: relative;
   flex-shrink: 0;
@@ -8,87 +8,17 @@
   position: absolute;
 }
 
-.dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: var(--space-1);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 140px;
-  width: max-content;
-  max-width: calc(100dvw - 16px);
-  z-index: 10000; /* High z-index to appear above sidebar (z-index: 101) and modals */
-  max-height: calc(100dvh - 16px);
-  overflow-y: auto;
-}
-
-.shortcut {
-  margin-left: auto;
-  padding-left: var(--space-3);
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-}
-
-.dropdown button {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.dropdown button:hover {
-  background: var(--bg-hover);
-}
-
-.dropdown button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.dropdown button:disabled:hover {
-  background: transparent;
-}
-
-@media (pointer: coarse) {
-  .dropdown button {
-    min-height: 44px;
-  }
-}
-
-.dropdown button svg {
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-
-/* Category choices hang under their item, aligned with its label text. */
+/* Category choices hang under their item, checks under its label text. */
 .categoryChoices {
-  padding-left: calc(14px + var(--space-2));
-}
-
-.categoryCheck {
-  display: inline-block;
-  width: 1em;
-  color: var(--accent-color);
-  text-align: center;
+  padding-left: calc(16px + var(--space-2));
 }
 
 .newCategoryForm {
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2);
 }
 
 .newCategoryForm input {
+  box-sizing: border-box;
   width: 100%;
   min-width: 12rem;
   padding: var(--space-1) var(--space-2);
@@ -97,21 +27,4 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-}
-
-.dropdown button.terminateButton {
-  color: var(--error-color);
-}
-
-.dropdown button.terminateButton svg {
-  color: var(--error-color);
-}
-
-.dropdown button.terminateButton:hover {
-  background: var(--bg-error);
-}
-
-.dropdown button.terminateButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }

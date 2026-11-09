@@ -193,7 +193,7 @@ test("automatically discovers Jira and GitHub references from viewed and recent 
       page.getByRole("menuitem", { name: "Show all in this session" }),
     ).toHaveAttribute("href", /\/issues\?sessionId=issues-view-one/);
     await page.keyboard.press("Escape");
-    // Resizing dismisses the menu, so each width opens its own before its shot.
+    // Each width opens its own menu before its shot.
     const original = page.viewportSize();
     for (const [name, size] of [
       ["session-issues-menu-desktop", { width: 1000, height: 600 }],
@@ -212,10 +212,10 @@ test("automatically discovers Jira and GitHub references from viewed and recent 
         await recordUiCapture(page, name.replace("menu", "header"));
         await page.getByRole("button", { name: "Session options" }).click();
         await expect(
-          page.getByRole("button", { name: /^Share/ }),
+          page.getByRole("menuitem", { name: /^Share/ }),
         ).toBeVisible();
         await expect(
-          page.getByRole("link", {
+          page.getByRole("menuitem", {
             name: "2 issues and pull requests associated with this session",
           }),
         ).toHaveAttribute(

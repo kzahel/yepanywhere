@@ -1,7 +1,8 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import styles from "./QuestionAsideCard.module.css";
 import { Button, IconButton } from "./ui/Button";
+import { Popover } from "./ui/Popover";
 
 export interface QuestionAsideCardProps {
   question: string;
@@ -43,6 +44,7 @@ export function QuestionAsideCard({
   const { t } = useI18n();
   const [helpOpen, setHelpOpen] = useState(false);
   const helpId = useId();
+  const helpButton = useRef<HTMLButtonElement>(null);
   const complete = status === "complete" && answers.length > 0;
   const saving = status === "saving";
   const sending = status === "sending";
@@ -55,13 +57,6 @@ export function QuestionAsideCard({
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget))
           setHelpOpen(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && helpOpen) {
-          event.preventDefault();
-          event.stopPropagation();
-          setHelpOpen(false);
-        }
       }}
     >
       <div className={styles.content}>
@@ -125,6 +120,7 @@ export function QuestionAsideCard({
           <kbd>Esc</kbd>
         </Button>
         <IconButton
+          ref={helpButton}
           className={styles.help}
           label={t("questionAsideTitle")}
           tooltip={
@@ -138,16 +134,26 @@ export function QuestionAsideCard({
         >
           ?
         </IconButton>
-        {helpOpen && (
-          <div id={helpId} className={styles.helpContent} role="tooltip">
-            <strong>{t("questionAsideTitle")}</strong>
-            <p>
-              {t("questionAsideMainComposer")}.{" "}
-              {t("questionAsideSaveDescription")}
-            </p>
-            <p>{t("questionAsideSaveShortcut")}</p>
-          </div>
-        )}
+        {/* Escape with the help open closes only the help (the popover
+            takes the topmost Escape); with it closed, Escape reaches the
+            composer and discards the aside. */}
+        <Popover
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          anchorRef={helpButton}
+          placement="top-end"
+          offset={8}
+          id={helpId}
+          className={styles.helpContent}
+          role="tooltip"
+        >
+          <strong>{t("questionAsideTitle")}</strong>
+          <p>
+            {t("questionAsideMainComposer")}.{" "}
+            {t("questionAsideSaveDescription")}
+          </p>
+          <p>{t("questionAsideSaveShortcut")}</p>
+        </Popover>
       </footer>
     </section>
   );

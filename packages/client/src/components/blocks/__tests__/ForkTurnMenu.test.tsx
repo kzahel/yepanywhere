@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("ForkTurnMenu", () => {
-  it("passes measured desktop position through overridable CSS variables", () => {
+  it("opens below its trigger, aligned to the trigger's end", () => {
     Object.defineProperty(window, "innerWidth", {
       configurable: true,
       value: 1000,
@@ -39,10 +39,8 @@ describe("ForkTurnMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "forkTurnMenuLabel" }));
 
     const menu = screen.getByRole("menu");
-    expect(menu.style.getPropertyValue("--fork-turn-menu-top")).toBe("108px");
-    expect(menu.style.getPropertyValue("--fork-turn-menu-right")).toBe("100px");
-    expect(menu.style.top).toBe("");
-    expect(menu.style.right).toBe("");
+    expect(menu.style.top).toBe("104px");
+    expect(menu.style.left).toBe("900px");
   });
 
   it("opens visible update guidance instead of a fork action", () => {
@@ -59,6 +57,6 @@ describe("ForkTurnMenu", () => {
     const unavailable = screen.getByRole("menuitem", {
       name: "Update the server for Codex forks.",
     });
-    expect((unavailable as HTMLButtonElement).disabled).toBe(true);
+    expect(unavailable.getAttribute("aria-disabled")).toBe("true");
   });
 });

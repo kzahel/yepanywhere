@@ -1,18 +1,10 @@
-import {
-  Fragment,
-  memo,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
-import { createPortal } from "react-dom";
+import { Fragment, memo, useCallback, useId, useRef, useState } from "react";
 import { useTooltipTrigger } from "../hooks/useTooltipTrigger";
 import { useI18n } from "../i18n";
 import type { PresentedCommentary } from "../lib/acliToolOutput";
 import { TextBlock } from "./blocks/TextBlock";
 import { ButtonBase, IconButton } from "./ui/Button";
+import { Popover } from "./ui/Popover";
 import { WorkflowBoundary, WorkflowContext } from "./WorkflowOutput";
 import styles from "./AcliCommentary.module.css";
 
@@ -83,33 +75,13 @@ function ContextBullet({
   const { t } = useI18n();
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
-  const popup = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [context, setContext] = useState("");
-  const [position, setPosition] = useState({ left: 8, top: 8, maxHeight: 320 });
   const changeOpen = useCallback(
     (next: boolean) => {
       if (!item.getContext || (pinned && !next)) return;
-      if (next) {
-        setContext(item.getContext());
-        const rect = button.current?.getBoundingClientRect();
-        if (rect) {
-          const width = Math.min(480, window.innerWidth - 16);
-          const top = Math.max(
-            8,
-            Math.min(rect.bottom + 6, window.innerHeight * 0.55),
-          );
-          setPosition({
-            left: Math.max(
-              8,
-              Math.min(rect.left, window.innerWidth - width - 8),
-            ),
-            top,
-            maxHeight: window.innerHeight - top - 8,
-          });
-        }
-      }
+      if (next) setContext(item.getContext());
       setOpen(next);
     },
     [item, pinned],
@@ -119,36 +91,6 @@ function ContextBullet({
     setPinned(false);
     setOpen(false);
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: Event) => {
-      if (
-        event.target instanceof Node &&
-        (popup.current?.contains(event.target) ||
-          button.current?.contains(event.target))
-      )
-        return;
-      close();
-    };
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        close();
-        button.current?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("scroll", outside, true);
-    document.addEventListener("keydown", keydown);
-    window.addEventListener("resize", close);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("scroll", outside, true);
-      document.removeEventListener("keydown", keydown);
-      window.removeEventListener("resize", close);
-    };
-  }, [open, close]);
 
   return (
     <>
@@ -178,29 +120,27 @@ function ContextBullet({
           }
         }}
       />
-      {open
-        ? createPortal(
-            <div
-              ref={popup}
-              id={id}
-              className={styles.context}
-              style={position}
-              role="dialog"
-              aria-label={t("acliCommentaryContext")}
-            >
-              <IconButton
-                size="small"
-                className={styles.close}
-                onClick={close}
-                label={t("acliCommentaryCloseContext")}
-              >
-                ×
-              </IconButton>
-              <pre>{context}</pre>
-            </div>,
-            document.body,
-          )
-        : null}
+      <Popover
+        open={open}
+        onClose={close}
+        anchorRef={button}
+        placement="bottom-start"
+        offset={6}
+        id={id}
+        className={styles.context}
+        role="dialog"
+        aria-label={t("acliCommentaryContext")}
+      >
+        <IconButton
+          size="small"
+          className={styles.close}
+          onClick={close}
+          label={t("acliCommentaryCloseContext")}
+        >
+          ×
+        </IconButton>
+        <pre>{context}</pre>
+      </Popover>
     </>
   );
 }

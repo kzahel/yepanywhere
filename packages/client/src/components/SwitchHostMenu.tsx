@@ -1,9 +1,6 @@
-import { useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { loadSavedHosts, type SavedHost } from "../lib/hostStorage";
-import styles from "./SwitchHostMenu.module.css";
-import { ButtonBase } from "./ui/Button";
+import { Menu, MenuGroup, MenuItem, MenuSeparator } from "./ui/Menu";
 
 /** A saved relay host the menu can switch to by route. */
 export type SwitchableRelayHost = SavedHost & { relayUsername: string };
@@ -27,9 +24,6 @@ export function recentRelayHosts(
     );
 }
 
-const MENU_WIDTH = 220;
-const ITEM_HEIGHT = 44;
-
 /**
  * Recent-hosts menu for the sidebar Switch Host button. Picking a host only
  * reports it; the caller navigates to that host's relay route and the relay
@@ -50,69 +44,34 @@ export function SwitchHostMenu({
 }) {
   const { t } = useI18n();
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [onClose]);
-
-  const select = (action: () => void) => {
-    onClose();
-    action();
-  };
-
-  // Open beside the button; the sidebar sits at the left edge.
-  const left = Math.max(
-    8,
-    Math.min(anchor.right + 4, window.innerWidth - MENU_WIDTH - 8),
-  );
-  const height = 56 + (hosts.length + 1) * ITEM_HEIGHT;
-  const top = Math.max(8, Math.min(anchor.top, window.innerHeight - height));
-
-  return createPortal(
-    <>
-      <ButtonBase
-        className={styles.overlay}
-        aria-label={t("sidebarSwitchHostMenuDismiss")}
-        onClick={onClose}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          onClose();
-        }}
-      />
-      <div
-        className={styles.menu}
-        role="menu"
-        aria-label={t("sidebarSwitchHostMenuLabel")}
-        style={{ left, top }}
-      >
-        <div className={styles.heading}>{t("sidebarSwitchHostMenuLabel")}</div>
+  return (
+    <Menu
+      open
+      onClose={onClose}
+      anchorRect={anchor}
+      // Open beside the button; the sidebar sits at the left edge.
+      placement="right-start"
+      aria-label={t("sidebarSwitchHostMenuLabel")}
+    >
+      <MenuGroup label={t("sidebarSwitchHostMenuLabel")}>
         {hosts.map((host) => (
-          <button
+          <MenuItem
             key={host.id}
-            type="button"
-            role="menuitem"
-            className={styles.hostItem}
-            onClick={() => select(() => onPick(host))}
+            onSelect={() => onPick(host)}
+            description={
+              host.displayName !== host.relayUsername
+                ? host.relayUsername
+                : undefined
+            }
           >
-            <span>{host.displayName}</span>
-            {host.displayName !== host.relayUsername && (
-              <span className={styles.hostDetail}>{host.relayUsername}</span>
-            )}
-          </button>
+            {host.displayName}
+          </MenuItem>
         ))}
-        {hosts.length > 0 && <div className={styles.separator} />}
-        <button type="button" role="menuitem" onClick={() => select(onShowAll)}>
-          {t("sidebarSwitchHostMenuAllHosts")}
-        </button>
-      </div>
-    </>,
-    document.body,
+      </MenuGroup>
+      {hosts.length > 0 && <MenuSeparator />}
+      <MenuItem onSelect={onShowAll}>
+        {t("sidebarSwitchHostMenuAllHosts")}
+      </MenuItem>
+    </Menu>
   );
 }

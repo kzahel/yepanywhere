@@ -56,8 +56,7 @@ vi.mock("../../i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-const item = (name: string) =>
-  screen.getByRole("menuitemradio", { name }) as HTMLButtonElement;
+const item = (name: string) => screen.getByRole("menuitemradio", { name });
 
 afterEach(() => {
   cleanup();
@@ -91,9 +90,13 @@ describe("SessionRouterAccountChip", () => {
     fireEvent.click(screen.getByRole("button", { name: /routerChipTooltip/ }));
     // Focus enters the menu on its first enabled item; arrows move it.
     await waitFor(() => expect(document.activeElement).toBe(item("Account b")));
-    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
     expect(document.activeElement).toBe(item("routerSwitchDirect"));
-    expect(item("Account a").disabled).toBe(true);
+    expect(item("Account a").getAttribute("aria-checked")).toBe("true");
+    expect(item("Account a").getAttribute("aria-disabled")).toBe("true");
+    expect(
+      screen.getByRole("group", { name: "Work" }).contains(item("Account b")),
+    ).toBe(true);
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Account b" }));
     await waitFor(() => expect(onSwitched).toHaveBeenCalled());
     expect(mockSwitch).toHaveBeenCalledWith("s", {
@@ -116,7 +119,9 @@ describe("SessionRouterAccountChip", () => {
       />,
     );
     fireEvent.click(await screen.findByText("routerSwitchDirect"));
-    expect(item("routerSwitchDirect").disabled).toBe(true);
+    expect(item("routerSwitchDirect").getAttribute("aria-disabled")).toBe(
+      "true",
+    );
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Account a" }));
     await waitFor(() =>
       expect(mockShowToast).toHaveBeenCalledWith("routerSwitchFailed", "error"),

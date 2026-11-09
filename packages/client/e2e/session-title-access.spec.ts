@@ -190,7 +190,7 @@ test("reads the full session title on phone and desktop without losing the draft
     await expect(footerInfo).toHaveCount(0);
     await header.getByRole("button", { name: "Session options" }).click();
     await page
-      .getByRole("button", { name: "Session info", exact: true })
+      .getByRole("menuitem", { name: "Session info", exact: true })
       .click();
     const info = page.getByRole("dialog");
     await expect(info.locator(".modal-title")).toHaveText("Session Info");
@@ -213,7 +213,9 @@ test("reads the full session title on phone and desktop without losing the draft
   live = false;
   await page.reload();
   await header.getByRole("button", { name: "Session options" }).click();
-  await page.getByRole("button", { name: "Session info", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Session info", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "Session title" }).getByText(fullTitle),
   ).toBeVisible();

@@ -1555,8 +1555,8 @@ function SessionPageContent({
     showProjectReclassifyMenu,
     isReclassifyingProject,
     projectBreadcrumbRef,
-    projectReclassifyMenuRef,
     projectReclassifyOptions,
+    closeProjectReclassifyMenu,
     handleProjectBreadcrumbContextMenu,
     handleReclassifySessionProject,
   } = useProjectReclassifyMenu({
@@ -2990,6 +2990,7 @@ function SessionPageContent({
           canStopOwnedProcess={canStopOwnedProcess}
           clearloopControls={clearloopControls}
           cloneSession={cloneSession}
+          closeProjectReclassifyMenu={closeProjectReclassifyMenu}
           condensedHeader={condensedHeader}
           currentGoal={currentGoal}
           currentProviderInfo={currentProviderInfo}
@@ -3055,7 +3056,6 @@ function SessionPageContent({
           projectBreadcrumbRef={projectBreadcrumbRef}
           projectCodeNamesEnabled={projectCodeNamesEnabled}
           projectId={projectId}
-          projectReclassifyMenuRef={projectReclassifyMenuRef}
           projectReclassifyOptions={projectReclassifyOptions}
           promptSuggestionMode={promptSuggestionMode}
           publicShareActionAvailable={publicShareActionAvailable}

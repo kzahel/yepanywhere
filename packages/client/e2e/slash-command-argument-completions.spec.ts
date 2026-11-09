@@ -316,7 +316,7 @@ test("restarts the provider only after verified stop and reloads saved turns", a
   await menu.click();
   await capture(page, "restart-provider-desktop-1000x600.png");
   await page
-    .getByRole("button", { name: "Restart provider", exact: true })
+    .getByRole("menuitem", { name: "Restart provider", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText(
     "Could not verify process stopped",
@@ -329,7 +329,9 @@ test("restarts the provider only after verified stop and reloads saved turns", a
   await capture(page, "restart-provider-mobile-375x812.png");
   await Promise.all([
     page.waitForEvent("load", { timeout: 30_000 }),
-    page.getByRole("button", { name: "Restart provider", exact: true }).click(),
+    page
+      .getByRole("menuitem", { name: "Restart provider", exact: true })
+      .click(),
   ]);
   // Restart reloads this routed dev app, just like the initial cold navigation.
   await expect(composer).toBeVisible({ timeout: 30_000 });

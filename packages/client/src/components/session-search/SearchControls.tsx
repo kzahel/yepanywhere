@@ -14,6 +14,7 @@ import {
   type TimeBasis,
 } from "./model";
 import { Button, ButtonBase, IconButton } from "../ui/Button";
+import { Popover } from "../ui/Popover";
 import { SegmentedControl } from "../ui/SegmentedControl";
 import styles from "./SessionSearch.module.css";
 
@@ -68,24 +69,12 @@ export function SearchHeader({
 }) {
   const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
-  const statusArea = useRef<HTMLDivElement>(null);
+  const statusButton = useRef<HTMLButtonElement>(null);
   const pendingField = useRef<SearchField | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   useEffect(() => {
     if (!status) setStatusOpen(false);
   }, [status]);
-  useEffect(() => {
-    if (!statusOpen) return;
-    const close = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !statusArea.current?.contains(event.target)
-      )
-        setStatusOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, [statusOpen]);
   // Router navigation is deferred work; it must never own keyboard echo.
   const [draft, setDraft] = useState(query);
   const draftValue = useRef(query);
@@ -256,8 +245,9 @@ export function SearchHeader({
           placeholder={t("globalSessionsSearchPlaceholder")}
           aria-label={t("globalSessionsSearchPlaceholder")}
         />
-        <div ref={statusArea} className={styles.statusArea}>
+        <div className={styles.statusArea}>
           <ButtonBase
+            ref={statusButton}
             className={styles.searchStatus}
             disabled={!status}
             title={status}
@@ -277,7 +267,16 @@ export function SearchHeader({
               …
             </span>
           </ButtonBase>
-          {statusOpen && <div className={styles.statusDetails}>{status}</div>}
+          <Popover
+            open={statusOpen}
+            onClose={() => setStatusOpen(false)}
+            anchorRef={statusButton}
+            placement="bottom-end"
+            className={styles.statusDetails}
+            role="status"
+          >
+            {status}
+          </Popover>
         </div>
       </div>
     </div>

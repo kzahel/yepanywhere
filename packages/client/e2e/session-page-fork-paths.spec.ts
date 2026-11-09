@@ -48,7 +48,7 @@ test("Clone from the session menu forks the latest complete turn and opens it", 
     json(route, 200, forked("pin-clone", "clone-latest-complete")),
   );
   await session.header.getByRole("button", { name: "Session options" }).click();
-  await page.getByRole("button", { name: "Clone", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Clone", exact: true }).click();
 
   await expect.poll(session.requests).toEqual([`POST ${forkPath}`]);
   const body = session.calls[0]?.body as Record<string, unknown>;
@@ -78,7 +78,7 @@ test("a failed Clone shows the server's error and stays on the session", async (
     json(route, 500, { error: "Transcript is locked for cloning" }),
   );
   await session.header.getByRole("button", { name: "Session options" }).click();
-  await page.getByRole("button", { name: "Clone", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Clone", exact: true }).click();
 
   await expect(session.toast("Transcript is locked for cloning")).toBeVisible();
   expect(session.requests()).toEqual([`POST ${forkPath}`]);

@@ -28,7 +28,7 @@ async function startRename(page: Page) {
     .locator(".session-header")
     .getByRole("button", { name: "Session options" })
     .click();
-  await page.getByRole("button", { name: "Rename...", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rename...", exact: true }).click();
   return page.getByLabel("Session title");
 }
 
@@ -113,7 +113,7 @@ test("Generate Title proposes from the current title, then saves the proposal", 
   const original = (await title.textContent()) ?? "";
   await session.header.getByRole("button", { name: "Session options" }).click();
   await page
-    .getByRole("button", { name: "Generate Title (uses tokens)" })
+    .getByRole("menuitem", { name: "Generate Title (uses tokens)" })
     .click();
 
   await expect
@@ -144,7 +144,7 @@ test("after Generate Title fails, Enter does nothing and Ctrl+Enter saves the ty
   const original = (await title.textContent()) ?? "";
   await session.header.getByRole("button", { name: "Session options" }).click();
   await page
-    .getByRole("button", { name: "Generate Title (uses tokens)" })
+    .getByRole("menuitem", { name: "Generate Title (uses tokens)" })
     .click();
 
   await expect.poll(session.requests).toEqual([`POST ${retitlePath}`]);

@@ -92,7 +92,6 @@
   min-width: 0;
 }
 .statusArea {
-  position: relative;
   flex: 0 0 132px;
   height: 32px;
 }
@@ -111,18 +110,8 @@
   color: var(--text-secondary);
 }
 .statusDetails {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 20;
   width: max-content;
   max-width: 280px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 12px;
 }
 .scanIndicator {
   flex: 0 0 1em;

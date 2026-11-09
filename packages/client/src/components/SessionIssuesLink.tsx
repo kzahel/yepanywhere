@@ -1,28 +1,34 @@
 import type { IssueItem, IssueSearchResult } from "@yep-anywhere/shared";
 import {
   createContext,
+  type MouseEvent,
   type ReactNode,
   useCallback,
   useContext,
   useDeferredValue,
   useEffect,
-  useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useIssuesEnabled } from "../hooks/useIssuesEnabled";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import { useI18n } from "../i18n";
+import { toBrowserAppHref } from "../lib/appHref";
 import { formatBriefAge } from "../lib/sessionAge";
 import { IssueIcon } from "./IssueIcon";
 import styles from "./SessionIssuesLink.module.css";
 import { ButtonBase } from "./ui/Button";
+import {
+  Menu,
+  MenuGroup,
+  MenuLinkItem,
+  MenuSeparator,
+  useMenuTrigger,
+} from "./ui/Menu";
 import { IssueMentionLinksContext } from "./IssueMentionText";
 import { createIssueMentionLinks } from "../lib/issueMentionLinks";
 import {
@@ -50,8 +56,6 @@ const MENU_STALE_MS = 30_000;
 const MENU_ROWS = 12;
 /** Each section keeps this many rows however long the other one is. */
 const SECTION_ROWS = MENU_ROWS / 2;
-/** Keep the menu off both screen edges on a phone. */
-const MENU_MARGIN_PX = 8;
 
 interface KnownIssues {
   items: IssueItem[];
@@ -266,61 +270,43 @@ function useItemTooltip(item: IssueItem): string {
   return lines.filter(Boolean).join("\n");
 }
 
+/**
+ * Menu items that go somewhere are links: a plain click follows the item (in
+ * the app through the router) and the menu closes; a modifier or middle click
+ * opens it in a new tab the browser's way and keeps the menu open, so several
+ * references can be opened from one opening.
+ */
+function useLinkItem(href: string, external: boolean) {
+  const navigate = useNavigate();
+  return {
+    href: external ? href : toBrowserAppHref(href),
+    rel: external ? "noreferrer" : undefined,
+    onNavigate: (event: MouseEvent<HTMLAnchorElement>) => {
+      if (external) return;
+      event.preventDefault();
+      navigate(href);
+    },
+  };
+}
+
 function IssueMenuRow({
   item,
   fallbackHref,
-  onSelect,
 }: {
   item: IssueItem;
   /** Where a reference with no known tracker URL goes instead. */
   fallbackHref: string;
-  onSelect: () => void;
 }) {
   const tooltip = useItemTooltip(item);
-  const tooltipProps = useTextTooltipAttributes(tooltip);
-  const content = (
-    <>
-      <IssueIcon size={14} />
-      <span className={styles.itemKey}>{item.key}</span>
-      {item.title && <span className={styles.itemTitle}>{item.title}</span>}
-      <TrackerStatusBadge item={item} className={styles.itemStatus} />
-    </>
-  );
-  // A plain href in both branches keeps the browser's own middle-click and
-  // modifier-click handling: a left click navigates, anything else opens a tab.
-  // Only the navigating click closes the menu, so several references can be
-  // opened into tabs from one opening.
-  const onClick = (event: React.MouseEvent) => {
-    if (
-      event.button === 0 &&
-      !event.metaKey &&
-      !event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey
-    )
-      onSelect();
-  };
-  return item.url ? (
-    <a
-      className={styles.item}
-      role="menuitem"
-      href={item.url}
-      rel="noreferrer"
-      onClick={onClick}
-      {...tooltipProps}
-    >
-      {content}
-    </a>
-  ) : (
-    <Link
-      className={styles.item}
-      role="menuitem"
-      to={fallbackHref}
-      onClick={onClick}
-      {...tooltipProps}
-    >
-      {content}
-    </Link>
+  const link = useLinkItem(item.url ?? fallbackHref, !!item.url);
+  return (
+    <MenuLinkItem icon={<IssueIcon size={14} />} tooltip={tooltip} {...link}>
+      <span className={styles.row}>
+        <span className={styles.itemKey}>{item.key}</span>
+        {item.title && <span className={styles.itemTitle}>{item.title}</span>}
+        <TrackerStatusBadge item={item} className={styles.itemStatus} />
+      </span>
+    </MenuLinkItem>
   );
 }
 
@@ -349,81 +335,15 @@ export function SessionIssuesLink({
     messageCount,
   );
   const { known, refresh } = shared ?? standalone;
-  const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ top: number; left: number }>();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menu = useMenuTrigger({
+    // Opening re-reads a list old enough for its tracker states to be stale.
+    onOpenChange: (open) => {
+      if (open) refresh();
+    },
+  });
   const sections = menuSections(known?.items ?? []);
   const shown = sections.prs.length + sections.others.length;
   const hidden = known ? known.count - shown : 0;
-  const prHeading = useId();
-  const otherHeading = useId();
-
-  const openMenu = () => {
-    setOpen(true);
-    refresh();
-  };
-
-  const close = useCallback((focusTrigger: boolean) => {
-    setOpen(false);
-    setPosition(undefined);
-    if (focusTrigger) triggerRef.current?.focus();
-  }, []);
-
-  // Anchor the menu under the trigger's right edge, flipping above and
-  // sliding inward rather than leaving the viewport.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a count that lands while the menu is open changes its height, so the measured rows re-run the placement
-  useLayoutEffect(() => {
-    if (!open) return;
-    const trigger = triggerRef.current;
-    const menu = menuRef.current;
-    if (!trigger || !menu) return;
-    const rect = trigger.getBoundingClientRect();
-    const { width, height } = menu.getBoundingClientRect();
-    const below = rect.bottom + 4;
-    const fitsBelow = below + height <= window.innerHeight - MENU_MARGIN_PX;
-    setPosition({
-      top: fitsBelow ? below : Math.max(MENU_MARGIN_PX, rect.top - height - 4),
-      left: Math.max(
-        MENU_MARGIN_PX,
-        Math.min(
-          rect.right - width,
-          window.innerWidth - width - MENU_MARGIN_PX,
-        ),
-      ),
-    });
-  }, [open, shown, hidden]);
-
-  // The first row takes focus so the menu is usable from the keyboard even
-  // though the portal sits outside the header's tab order.
-  useEffect(() => {
-    if (!open) return;
-    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target)) return;
-      if (triggerRef.current?.contains(target)) return;
-      close(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close(true);
-    };
-    const onScrollOrResize = () => close(false);
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [open, close]);
 
   const badge = known?.more
     ? `${known.count}+`
@@ -439,134 +359,83 @@ export function SessionIssuesLink({
       )
     : t("issuesForSession");
   const triggerTooltip = useTextTooltipAttributes(label);
+  const browseHref = `${base}/issues?${new URLSearchParams({ sessionId, projectId })}`;
+  const browseLink = useLinkItem(browseHref, false);
   if (!enabled) return null;
 
-  const browseHref = `${base}/issues?${new URLSearchParams({ sessionId, projectId })}`;
-
   if (presentation === "menu") {
+    // An item of the session menu on narrow headers.
     return (
-      <Link
-        className={styles.menuEntry}
-        to={browseHref}
+      <MenuLinkItem
+        icon={<IssueIcon size={14} />}
         aria-label={label}
-        onClick={onSelect}
+        shortcut={badge}
+        {...browseLink}
+        onNavigate={(event) => {
+          browseLink.onNavigate(event);
+          onSelect?.();
+        }}
       >
-        <IssueIcon size={14} />
         {t("issuesForSession")}
-        {badge && <span className={styles.count}>{badge}</span>}
-      </Link>
+      </MenuLinkItem>
     );
   }
-
-  const moveFocus = (step: number, event: React.KeyboardEvent) => {
-    const items = Array.from(
-      menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
-    );
-    if (items.length === 0) return;
-    event.preventDefault();
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    const next =
-      step > 0 ? (at + 1) % items.length : (at <= 0 ? items.length : at) - 1;
-    items[next]?.focus();
-  };
-
-  const menu = open
-    ? createPortal(
-        <div
-          ref={menuRef}
-          className={styles.menu}
-          style={{
-            position: "fixed",
-            top: position?.top ?? -9999,
-            left: position?.left ?? -9999,
-            visibility: position ? "visible" : "hidden",
-          }}
-          role="menu"
-          aria-label={label}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") moveFocus(1, event);
-            else if (event.key === "ArrowUp") moveFocus(-1, event);
-            else if (event.key === "Tab") close(false);
-          }}
-        >
-          {shown === 0 ? (
-            <p className={styles.empty}>{t("issuesMenuEmpty")}</p>
-          ) : (
-            <>
-              <div role="group" aria-labelledby={prHeading}>
-                <p id={prHeading} className={styles.section}>
-                  {t("issuesMenuPullRequests")}
-                </p>
-                {sections.prs.length === 0 && (
-                  <p className={styles.empty}>
-                    {t("issuesMenuNoPullRequests")}
-                  </p>
-                )}
-                {sections.prs.map((item) => (
-                  <IssueMenuRow
-                    key={item.id}
-                    item={item}
-                    fallbackHref={browseHref}
-                    onSelect={() => close(false)}
-                  />
-                ))}
-              </div>
-              {sections.others.length > 0 && (
-                <div role="group" aria-labelledby={otherHeading}>
-                  <p id={otherHeading} className={styles.section}>
-                    {t("issuesMenuIssues")}
-                  </p>
-                  {sections.others.map((item) => (
-                    <IssueMenuRow
-                      key={item.id}
-                      item={item}
-                      fallbackHref={browseHref}
-                      onSelect={() => close(false)}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-          {hidden > 0 && (
-            <p className={styles.more}>
-              {t("issuesMenuMore", { count: hidden })}
-            </p>
-          )}
-          <Link
-            className={styles.browse}
-            role="menuitem"
-            to={browseHref}
-            onClick={() => close(false)}
-          >
-            {t("issuesMenuBrowse")}
-          </Link>
-        </div>,
-        document.body,
-      )
-    : null;
 
   return (
     <>
       <ButtonBase
-        ref={triggerRef}
+        {...menu.triggerProps}
         className={styles.trigger}
         aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
         {...triggerTooltip}
-        onClick={() => (open ? close(false) : openMenu())}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" && !open) {
-            event.preventDefault();
-            openMenu();
-          }
-        }}
       >
         <IssueIcon size={14} />
         {badge && <span className={styles.count}>{badge}</span>}
       </ButtonBase>
-      {menu}
+      <Menu
+        open={menu.open}
+        onClose={menu.close}
+        anchorRef={menu.anchorRef}
+        placement="bottom-end"
+        aria-label={label}
+      >
+        {shown === 0 ? (
+          <p className={styles.empty}>{t("issuesMenuEmpty")}</p>
+        ) : (
+          <>
+            <MenuGroup label={t("issuesMenuPullRequests")}>
+              {sections.prs.length === 0 && (
+                <p className={styles.empty}>{t("issuesMenuNoPullRequests")}</p>
+              )}
+              {sections.prs.map((item) => (
+                <IssueMenuRow
+                  key={item.id}
+                  item={item}
+                  fallbackHref={browseHref}
+                />
+              ))}
+            </MenuGroup>
+            {sections.others.length > 0 && (
+              <MenuGroup label={t("issuesMenuIssues")}>
+                {sections.others.map((item) => (
+                  <IssueMenuRow
+                    key={item.id}
+                    item={item}
+                    fallbackHref={browseHref}
+                  />
+                ))}
+              </MenuGroup>
+            )}
+          </>
+        )}
+        {hidden > 0 && (
+          <p className={styles.more}>
+            {t("issuesMenuMore", { count: hidden })}
+          </p>
+        )}
+        <MenuSeparator />
+        <MenuLinkItem {...browseLink}>{t("issuesMenuBrowse")}</MenuLinkItem>
+      </Menu>
     </>
   );
 }

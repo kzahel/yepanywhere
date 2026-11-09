@@ -28,7 +28,7 @@ vi.mock("../../i18n", () => ({
         turnNotchCopy: "Copy",
         turnNotchShowFrom: "Show from",
         turnNotchHandoffFrom: "Handoff from…",
-        turnNotchDismissMenu: "Dismiss menu",
+        sourceMoreActions: "More actions",
         turnNotchJumpToTurn: "Jump to turn",
         turnNotchShowFromTurn: "Load client transcript from turn",
       })[key] ?? key,
@@ -324,6 +324,7 @@ describe("UserTurnNavigator", () => {
     });
     fireEvent.contextMenu(marker, { clientX: 492, clientY: 150 });
 
+    expect(screen.getByRole("menu", { name: "More actions" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Jump" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Fork before…" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Fork after…" })).toBeTruthy();

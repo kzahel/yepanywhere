@@ -344,7 +344,11 @@ describe("GlobalSessionsPage", () => {
     );
     vi.stubGlobal(
       "matchMedia",
-      vi.fn(() => ({ matches: true })),
+      vi.fn(() => ({
+        matches: true,
+        addEventListener() {},
+        removeEventListener() {},
+      })),
     );
     globalSessionsState.sessions = [];
     sessionCollectionState.records = [];

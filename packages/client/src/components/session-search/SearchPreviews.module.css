@@ -73,27 +73,6 @@
 .match > a:hover .snippet {
   text-decoration: underline;
 }
-.menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 5;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px #0005;
-}
-.menu button,
-.menu a {
-  display: block;
-  text-decoration: none;
-  border: 0;
-  background: none;
-  color: var(--text-primary);
-  padding: 8px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
 .zoom {
   max-width: 680px;
   overflow-wrap: anywhere;

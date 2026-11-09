@@ -744,7 +744,7 @@ for (const viewport of [
       .getByRole("button", { name: "Filter by Providers", exact: true })
       .click();
     await expect(
-      page.getByRole("button", { name: /^grok Title only/ }),
+      page.getByRole("menuitemcheckbox", { name: /^grok Title only/ }),
     ).toBeVisible();
     await recordUiCapture(
       page,
@@ -879,12 +879,16 @@ for (const viewport of [
         timeout: 30000,
       });
       const menus = expanded.getByRole("button", { name: "Match menu" });
+      // Menus open in a popover outside the dialog's DOM, which may cover
+      // the next row's trigger, so close one before opening another.
       await menus.first().click();
-      await expect(expanded.getByRole("menu")).toHaveCount(1);
-      await menus.nth(3).click();
-      await expect(expanded.getByRole("menu")).toHaveCount(1);
+      await expect(page.getByRole("menu")).toHaveCount(1);
       await page.keyboard.press("Escape");
-      await expect(expanded.getByRole("menu")).toHaveCount(0);
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await menus.nth(3).click();
+      await expect(page.getByRole("menu")).toHaveCount(1);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("menu")).toHaveCount(0);
       await expect(expanded).toBeVisible();
       await expanded.locator('a[href*="searchMatch="]').last().click();
       const zoom = page.getByRole("dialog").last();

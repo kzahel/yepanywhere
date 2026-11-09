@@ -34,7 +34,7 @@ async function menuItem(page: Page, name: string) {
     .locator(".session-header")
     .getByRole("button", { name: "Session options" })
     .click();
-  await page.getByRole("button", { name, exact: true }).click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
 test("Archive and Unarchive send the flag, toast and show the badge", async ({
@@ -118,7 +118,7 @@ test("Suggestions turns on; a failure puts the menu label back", async ({
   await expect(session.toast("Failed to update suggestions")).toBeVisible();
   await session.header.getByRole("button", { name: "Session options" }).click();
   await expect(
-    page.getByRole("button", { name: "Suggestions: On", exact: true }),
+    page.getByRole("menuitem", { name: "Suggestions: On", exact: true }),
   ).toBeVisible();
 });
 
@@ -230,7 +230,9 @@ test("the breadcrumb's move menu lists other projects and moves the session", as
       replaces.push({
         url: String(url ?? ""),
         seed: state?.usr?.pinSeed,
-        menuOpen: !!document.querySelector(".project-reclassify-menu"),
+        menuOpen: !!document.querySelector(
+          '[role="menu"][aria-label="Move session to project"]',
+        ),
       });
       replace(state, unused, url);
     };
@@ -257,13 +259,11 @@ test("the breadcrumb's move menu lists other projects and moves the session", as
 
   await breadcrumb.click({ button: "right" });
   await expect(menu).toBeVisible();
-  const names = await menu
-    .locator(".project-reclassify-name")
-    .allTextContents();
-  expect(names).toContain("Alpha pin project");
-  expect(names.indexOf("Alpha pin project")).toBeLessThan(
-    names.indexOf("Zulu pin project"),
-  );
+  // Each item reads its project name, then its path.
+  const items = await menu.getByRole("menuitem").allTextContents();
+  const at = (name: string) => items.findIndex((text) => text.startsWith(name));
+  expect(at("Alpha pin project")).toBeGreaterThanOrEqual(0);
+  expect(at("Alpha pin project")).toBeLessThan(at("Zulu pin project"));
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
 
@@ -413,10 +413,11 @@ test("the title and chevron toggle recent sessions, and the session menu closes 
   const session = await openSessionPage(page, baseURL, { owner: "none" });
   const title = session.header.locator(".session-title-recent-trigger");
   const chevron = session.header.locator(".session-title-chevron-trigger");
-  // The dropdown's own heading (the chevron's label is not text).
-  const dropdown = page.getByText("Recent sessions", { exact: true });
+  const dropdown = page.getByRole("dialog", { name: "Recent sessions" });
 
   await expect(dropdown).toHaveCount(0);
+  await expect(title).toHaveAttribute("aria-haspopup", "dialog");
+  await expect(chevron).toHaveAttribute("aria-haspopup", "dialog");
   await title.click();
   await expect(title).toHaveAttribute("aria-expanded", "true");
   await expect(chevron).toHaveAttribute("aria-label", "Close recent sessions");

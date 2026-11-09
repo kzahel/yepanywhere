@@ -26,17 +26,7 @@
 }
 
 .context {
-  position: fixed;
-  z-index: 2000;
-  box-sizing: border-box;
   inline-size: min(480px, calc(100dvw - 16px));
-  padding: 12px;
-  overflow: auto;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgb(0 0 0 / 25%);
 }
 
 .context pre {

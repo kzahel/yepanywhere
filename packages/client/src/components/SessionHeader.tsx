@@ -18,6 +18,7 @@ import { SessionRenameEditor } from "./SessionRenameEditor";
 import { SessionRouterAccountChip } from "./SessionRouterAccountChip";
 import { SessionAppAction } from "./SessionRightPane";
 import { ButtonBase, IconButton } from "./ui/Button";
+import { Menu, MenuGroup, MenuItem } from "./ui/Menu";
 import {
   SERVER_CAPABILITIES,
   SIDEBAR_SESSION_RESUME_CAPABILITY,
@@ -63,6 +64,9 @@ export interface SessionHeaderProps {
     typeof useSessionRewindControls
   >["clearloopControls"];
   cloneSession: ReturnType<typeof useSessionForkActions>["cloneSession"];
+  closeProjectReclassifyMenu: ReturnType<
+    typeof useProjectReclassifyMenu
+  >["closeProjectReclassifyMenu"];
   condensedHeader: boolean;
   currentGoal: string | null | undefined;
   currentProviderInfo: ProviderInfo | null;
@@ -172,9 +176,6 @@ export interface SessionHeaderProps {
     typeof useProjectCodeNamePreferences
   >["projectCodeNamesEnabled"];
   projectId: string;
-  projectReclassifyMenuRef: ReturnType<
-    typeof useProjectReclassifyMenu
-  >["projectReclassifyMenuRef"];
   projectReclassifyOptions: ReturnType<
     typeof useProjectReclassifyMenu
   >["projectReclassifyOptions"];
@@ -249,6 +250,7 @@ export function SessionHeader({
   canStopOwnedProcess,
   clearloopControls,
   cloneSession,
+  closeProjectReclassifyMenu,
   condensedHeader,
   currentGoal,
   currentProviderInfo,
@@ -310,7 +312,6 @@ export function SessionHeader({
   projectBreadcrumbRef,
   projectCodeNamesEnabled,
   projectId,
-  projectReclassifyMenuRef,
   projectReclassifyOptions,
   promptSuggestionMode,
   publicShareActionAvailable,
@@ -448,40 +449,32 @@ export function SessionHeader({
                   ? project.codeName
                   : project.name}
               </Link>
-              {showProjectReclassifyMenu && (
-                <div
-                  ref={projectReclassifyMenuRef}
-                  className="project-reclassify-menu"
-                  role="menu"
-                  aria-label={t("sessionReclassifyProjectMenu")}
-                >
-                  <div className="project-reclassify-title">
-                    {t("sessionReclassifyProjectMenu")}
-                  </div>
-                  <div className="project-reclassify-list">
-                    {projectReclassifyOptions.map((candidate) => (
-                      <button
-                        key={candidate.id}
-                        type="button"
-                        className="project-reclassify-option"
-                        role="menuitem"
-                        disabled={isReclassifyingProject}
-                        onClick={() =>
-                          void handleReclassifySessionProject(candidate)
-                        }
-                        title={candidate.path}
-                      >
-                        <span className="project-reclassify-name">
-                          {candidate.name}
-                        </span>
-                        <span className="project-reclassify-path">
-                          {candidate.path}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <Menu
+                open={showProjectReclassifyMenu}
+                onClose={closeProjectReclassifyMenu}
+                anchorRef={projectBreadcrumbRef}
+                placement="bottom-start"
+                aria-label={t("sessionReclassifyProjectMenu")}
+                className={sessionHeaderStyles.reclassifyMenu}
+              >
+                <MenuGroup label={t("sessionReclassifyProjectMenu")}>
+                  {projectReclassifyOptions.map((candidate) => (
+                    // The move closes the menu once it succeeds; a failure
+                    // leaves it open to pick again.
+                    <MenuItem
+                      key={candidate.id}
+                      keepOpen
+                      disabled={isReclassifyingProject}
+                      description={candidate.path}
+                      onSelect={() =>
+                        void handleReclassifySessionProject(candidate)
+                      }
+                    >
+                      {candidate.name}
+                    </MenuItem>
+                  ))}
+                </MenuGroup>
+              </Menu>
             </div>
           )}
           <div
@@ -665,7 +658,7 @@ export function SessionHeader({
                   className={`session-title session-title-recent-trigger ${sessionHeaderStyles.titleWithBadge}`}
                   onClick={() => setShowRecentSessions(!showRecentSessions)}
                   title={titleTooltip}
-                  aria-haspopup="menu"
+                  aria-haspopup="dialog"
                   aria-expanded={showRecentSessions}
                 >
                   <span className="session-title-text">{displayTitle}</span>
@@ -737,6 +730,7 @@ export function SessionHeader({
                       ? t("sessionCloseRecentSessions")
                       : t("sessionRecentSessions")
                   }
+                  aria-haspopup="dialog"
                   aria-expanded={showRecentSessions}
                 >
                   <svg
@@ -961,7 +955,6 @@ export function SessionHeader({
                     )
                   : undefined
               }
-              useFixedPositioning
               useEllipsisIcon
               onOpenChange={(open) => {
                 if (open) setShowRecentSessions(false);

@@ -18,7 +18,6 @@
 }
 
 .actions {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -65,18 +64,7 @@
 }
 
 .helpContent {
-  position: absolute;
-  z-index: 4;
-  right: 0;
-  bottom: calc(100% + var(--space-2));
   width: min(300px, calc(100dvw - 48px));
-  padding: var(--space-3);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-  box-shadow: 0 4px 16px #0002;
-  font-size: var(--font-size-sm);
-  line-height: 1.45;
 }
 
 .helpContent p {

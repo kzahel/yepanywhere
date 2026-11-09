@@ -52,32 +52,49 @@ describe("SessionMenu CSS module contracts", () => {
     fireEvent.click(trigger);
 
     expect(wrapper.classList.contains("is-open")).toBe(true);
-    const dropdown = screen.getByRole("button", { name: "Star" })
-      .parentElement as HTMLElement;
-    expect(dropdown.classList.contains(styles.dropdown ?? "")).toBe(true);
-    expect(dropdown.classList.contains("session-menu-dropdown")).toBe(false);
+    // Read-shortcut suppression keys off this marker on the open menu.
+    const menu = screen.getByRole("menu", { name: "Session options" });
+    expect(menu.hasAttribute("data-session-menu-open")).toBe(true);
+    expect(container.contains(menu)).toBe(false);
   });
 
-  it("styles the terminate variant in a fixed-position portal", () => {
-    const { container } = renderMenu({
-      processId: "process-1",
-      onTerminate: vi.fn(),
-      useFixedPositioning: true,
-    });
+  it("closes on Escape and returns focus to its trigger", () => {
+    const onOpenChange = vi.fn();
+    renderMenu({ onOpenChange });
     const trigger = screen.getByRole("button", { name: "Session options" });
 
     fireEvent.click(trigger);
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "Star" }),
+    );
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
 
-    const terminateButton = screen.getByRole("button", { name: "Terminate" });
-    const dropdown = terminateButton.parentElement as HTMLElement;
-    expect(container.contains(dropdown)).toBe(false);
-    expect(document.body.contains(dropdown)).toBe(true);
-    expect(dropdown.classList.contains(styles.dropdown ?? "")).toBe(true);
-    expect(dropdown.style.position).toBe("fixed");
-    expect(
-      terminateButton.classList.contains(styles.terminateButton ?? ""),
-    ).toBe(true);
-    expect(terminateButton.classList.contains("terminate-button")).toBe(false);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("runs Terminate once while it is pending", async () => {
+    let finish: () => void = () => {};
+    const onTerminate = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderMenu({ processId: "process-1", onTerminate });
+    const trigger = screen.getByRole("button", { name: "Session options" });
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Terminate" }));
+    fireEvent.click(trigger);
+    const pending = screen.getByRole("menuitem", { name: "Terminating..." });
+    expect(pending.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(pending);
+    await act(async () => finish());
+
+    expect(onTerminate).toHaveBeenCalledTimes(1);
   });
 
   it("exposes direct Clone with pending and disabled states", async () => {
@@ -85,7 +102,7 @@ describe("SessionMenu CSS module contracts", () => {
     const { rerender } = renderMenu({ onClone });
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Clone" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Clone" }));
     });
     expect(onClone).toHaveBeenCalledTimes(1);
 
@@ -106,9 +123,10 @@ describe("SessionMenu CSS module contracts", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
     expect(
-      (screen.getByRole("button", { name: "Clone" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+      screen
+        .getByRole("menuitem", { name: "Clone" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
   });
 
   it("keeps incompatible Clone visible with update guidance", () => {
@@ -117,11 +135,11 @@ describe("SessionMenu CSS module contracts", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
 
-    const clone = screen.getByRole("button", {
+    const clone = screen.getByRole("menuitem", {
       name: "Clone (server update required)",
     });
-    expect((clone as HTMLButtonElement).disabled).toBe(true);
-    expect(clone.getAttribute("title")).toBe(
+    expect(clone.getAttribute("aria-disabled")).toBe("true");
+    expect(clone.getAttribute("data-tooltip")).toBe(
       "Update the server to use Codex Clone.",
     );
   });
@@ -131,7 +149,7 @@ describe("SessionMenu CSS module contracts", () => {
     renderMenu({ onConfigureProjectSettings });
 
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
-    fireEvent.click(screen.getByRole("button", { name: "Project settings" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Project settings" }));
 
     expect(onConfigureProjectSettings).toHaveBeenCalledOnce();
   });
@@ -141,11 +159,11 @@ describe("SessionMenu CSS module contracts", () => {
     renderMenu({ onCompact, compactDisabled: true });
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
 
-    const compact = screen.getByRole("button", {
+    const compact = screen.getByRole("menuitem", {
       name: "Compact (turn active)",
     });
-    expect((compact as HTMLButtonElement).disabled).toBe(true);
-    expect(compact.title).toBe(
+    expect(compact.getAttribute("aria-disabled")).toBe("true");
+    expect(compact.getAttribute("data-tooltip")).toBe(
       "Unavailable until this turn finishes, including tool waits.",
     );
     fireEvent.click(compact);
@@ -162,12 +180,14 @@ describe("SessionMenu CSS module contracts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Copy session id" }),
+      );
     });
 
     expect(writeText).toHaveBeenCalledWith("abc-123");
     expect(
-      screen.getByRole("button", { name: "Copied session id" }),
+      screen.getByRole("menuitem", { name: "Copied session id" }),
     ).toBeTruthy();
   });
 
@@ -198,7 +218,7 @@ describe("SessionMenu CSS module contracts", () => {
       openMenu();
       await act(async () => {
         fireEvent.click(
-          screen.getByRole("button", { name: "Copy session id" }),
+          screen.getByRole("menuitem", { name: "Copy session id" }),
         );
       });
 
@@ -217,7 +237,7 @@ describe("SessionMenu CSS module contracts", () => {
       openMenu();
       await act(async () => {
         fireEvent.click(
-          screen.getByRole("button", { name: "Copy session id" }),
+          screen.getByRole("menuitem", { name: "Copy session id" }),
         );
       });
       fireEvent.mouseDown(document.body);
@@ -227,7 +247,7 @@ describe("SessionMenu CSS module contracts", () => {
 
       expect(menuIsOpen()).toBe(true);
       expect(
-        screen.getByRole("button", { name: "Copy session id" }),
+        screen.getByRole("menuitem", { name: "Copy session id" }),
       ).toBeTruthy();
     });
 
@@ -247,7 +267,9 @@ describe("SessionMenu CSS module contracts", () => {
       });
       renderMenu();
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Copy session id" }),
+      );
       fireEvent.mouseDown(document.body);
       await act(async () => finishCopy());
       openMenu();
@@ -256,7 +278,7 @@ describe("SessionMenu CSS module contracts", () => {
 
       expect(menuIsOpen()).toBe(true);
       expect(
-        screen.getByRole("button", { name: "Copy session id" }),
+        screen.getByRole("menuitem", { name: "Copy session id" }),
       ).toBeTruthy();
     });
   });
@@ -270,11 +292,15 @@ describe("SessionMenu CSS module contracts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Copy session id" }),
+      );
     });
 
     expect(
-      screen.getByRole("button", { name: "Clipboard blocked — copy failed" }),
+      screen.getByRole("menuitem", {
+        name: "Clipboard blocked — copy failed",
+      }),
     ).toBeTruthy();
   });
 });
@@ -289,23 +315,29 @@ describe("SessionMenu sidebar categories", () => {
     });
     const open = () => {
       fireEvent.click(screen.getByRole("button", { name: "Session options" }));
-      fireEvent.click(screen.getByRole("button", { name: "Move to category" }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Move to category" }),
+      );
     };
 
     // The choices stay folded until asked for.
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
-    expect(screen.queryByRole("button", { name: /PII program/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Move to category" }));
-    fireEvent.click(screen.getByRole("button", { name: /PII program/ }));
+    expect(
+      screen.queryByRole("menuitemradio", { name: /PII program/ }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move to category" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /PII program/ }));
     expect(onSetSidebarCategory).toHaveBeenLastCalledWith("PII program");
 
     // Choosing the current category again takes the session out of it.
     open();
-    fireEvent.click(screen.getByRole("button", { name: /Paper/ }));
+    const current = screen.getByRole("menuitemradio", { name: /Paper/ });
+    expect(current.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(current);
     expect(onSetSidebarCategory).toHaveBeenLastCalledWith(null);
 
     open();
-    fireEvent.click(screen.getByRole("button", { name: "New category…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New category…" }));
     const input = screen.getByRole("textbox", { name: "New category…" });
     let typed = "";
     for (const key of "  Grant  work") {
@@ -318,16 +350,36 @@ describe("SessionMenu sidebar categories", () => {
 
     open();
     fireEvent.click(
-      screen.getByRole("button", { name: "Remove from category" }),
+      screen.getByRole("menuitem", { name: "Remove from category" }),
     );
     expect(onSetSidebarCategory).toHaveBeenLastCalledWith(null);
+  });
+
+  it("lets Escape in the new-category field cancel the name, not the menu", () => {
+    renderMenu({
+      sidebarCategoryNames: ["Paper"],
+      onSetSidebarCategory: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Session options" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move to category" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New category…" }));
+    const input = screen.getByRole("textbox", { name: "New category…" });
+    expect(document.activeElement).toBe(input);
+
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    const entry = screen.getByRole("menuitem", { name: "New category…" });
+    expect(document.activeElement).toBe(entry);
+    fireEvent.keyDown(entry, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("offers no category entry when the caller cannot store one", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "Session options" }));
     expect(
-      screen.queryByRole("button", { name: "Move to category" }),
+      screen.queryByRole("menuitem", { name: "Move to category" }),
     ).toBeNull();
   });
 });
