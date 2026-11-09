@@ -23,6 +23,14 @@ on:
         default: worker
         options: [worker, run]
 
+# A new push to a pull request cancels that PR's superseded run, freeing
+# runners for the gate that matters. `main` pushes and manual comparisons get
+# a group of their own run, so every main commit keeps a complete result for
+# the deployment workflow that follows it.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: true
+
 # Server checks run at the supported Node floor. SQLite boundary and Bun
 # distribution checks live in sqlite.yml; managed runners retain their own floor.
 
