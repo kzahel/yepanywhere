@@ -26,7 +26,7 @@ import type {
   SessionMetadata,
   SessionMetadataService,
 } from "../metadata/SessionMetadataService.js";
-import { mapClaudeCliModels } from "../sdk/providers/claude.js";
+import { mapClaudeCliModels } from "../sdk/providers/claude-model-catalog.js";
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 
 /** AAR accepts the gateway token in `x-aar-gateway-token`. */

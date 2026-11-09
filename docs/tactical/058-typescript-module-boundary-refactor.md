@@ -422,7 +422,7 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 | 4.9 | Done 2026-11-09 ([plan 186](186-codex-session-lifecycle.md)) | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). The config-dependent thread and turn param builders (`buildThreadConfigOverrides`, `createThreadStartParams`/`ResumeParams`/`ForkParams`, `createTurnStartParams`) and the recap/fork-summary helpers stayed in `codex.ts` after slice 4.10 because they read provider configuration getters, the model cache and the provider's own app-server setup; the session object should own that configuration. Tier 3. Landed as slices 4.9.0 to 4.9.5 plus one behaviour fix (requests wait for the ready thread); `codex.ts` is 1,032 lines and no longer budgeted. |
 | 4.10 | Done 2026-11-08 | Codex thread policy and skill input | Move the pure thread/turn policy helpers and fork-anchor resolution to `codex-thread-params.ts`, and slash-command and skill-input assembly to `codex-skill-inputs.ts`. | 223 and 102 lines. They read no provider state. `refreshCodexSkills` stays because `codex-dynamic-results.test.ts` stubs it on the provider; `startOrResumeThread` and `createInitializeParams` stay with the app-server setup. Move-only, Tier 1 plus the Codex provider tests. |
 | 4.11 | Done 2026-11-09 | Claude executable and login resolution | Move the Claude Code executable lookup (SDK native package, configured or PATH command, Windows Claude Desktop copies) and the claude.ai login command and status read from `claude.ts` into `claude-executable.ts`. | 323 lines. Module functions with no provider state; `claude.ts` 3,114 -> 2,805. Importers outside `claude.ts` import the new module directly (no re-export). Move-only, Tier 1 plus the Claude provider tests, `pnpm test:providers` and `pnpm test:e2e:sdk`, which run the real lookup. |
-| 4.12 | Not started | Claude model and slash-command catalog | Move the launch-model aliases, SDK model and slash-command mapping, family merge and the remote slash-command filter from `claude.ts` into `claude-model-catalog.ts`, mirroring `codex-model-catalog.ts`. | Pure functions; the provider's model cache, probe and catalog status stay. Move-only, Tier 1 plus the Claude provider tests. |
+| 4.12 | Done 2026-11-09 | Claude model and slash-command catalog | Move the launch-model aliases, SDK model and slash-command mapping, family merge and the remote slash-command filter from `claude.ts` into `claude-model-catalog.ts`, mirroring `codex-model-catalog.ts`. | 367 lines. Pure functions; the provider's model cache, its TTL, the probe and catalog status stay. `claude.ts` 2,805 -> 2,469. Move-only, Tier 1 plus the Claude provider tests, `pnpm test:providers` and `pnpm test:e2e:sdk`. |
 | 4.13 | Not started | Claude helper sessions and session object | Move the recap, fork-summary and prompt-cache keepalive helper queries behind a provider host, then give the live Claude session its own object, as plan 186 did for Codex. | Write a plan doc first. `ClaudeGatewayProvider` and `ClaudeOllamaProvider` override protected hooks (`getEnv`, `getSettings`, `getDisallowedTools`, `getSystemPrompt`, `sessionEnvironment`, `normalizeSupportedModels`), so moved code must reach them through the provider at call time, with a Gateway test per slice. Tier 3. |
 
 ## Phase 5: Load-Bearing Supervisor And Process Files
@@ -484,6 +484,51 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.12 — Claude model and slash-command catalog (Landed 2026-11-09, this commit)
+
+Moved to new `claude-model-catalog.ts`:
+- The SDK row types `ClaudeSdkModelInfo` and `ClaudeSdkSlashCommand`,
+  now exported because `claude.ts` still names them.
+- `CLAUDE_EFFORT_LEVELS`.
+- `CLAUDE_LAUNCH_MODEL_ALIASES` with its history comment,
+  `ALWAYS_EXTENDED_DESCRIPTIONS` and `normalizeClaudeLaunchModel`.
+- `CLAUDE_MODELS_FALLBACK` and `CLAUDE_GOAL_LOOP_ALIAS_COMMAND`.
+- `isClaudeEffortLevel`, `mapClaudeSupportedEffortLevels`, the
+  slash-command name normalizers, `filterClaudeRemoteSlashCommands`,
+  `withClaudeGoalAlias` and `mapClaudeSlashCommand`.
+- `enrichClaudeModel`, `mapClaudeSdkModel`, `mapClaudeCliModels`,
+  `claudeModelFamily` and `mergeClaudeModels`.
+
+Left in `claude.ts`: `CLAUDE_MODEL_CACHE_TTL_MS`, which sat between the
+aliases and the fallback list but belongs to the provider's model cache.
+The orphaned "Static fallback list" doc comment above it moved with the
+list it describes.
+
+Signature conversions:
+- None. `CLAUDE_MODELS_FALLBACK`, `normalizedSlashCommandNameValue`,
+  `mapClaudeSlashCommand`, `mapClaudeSdkModel` and `claudeModelFamily`
+  are now exported because `claude.ts` still uses them.
+
+Importers:
+- `AgentAuthRouter.ts` (`mapClaudeCliModels`) and `claude.test.ts`
+  import from `claude-model-catalog.js`. No re-export from `claude.ts`.
+
+Behavior changes:
+- None.
+
+Verification:
+- Server `tsc` (main and tool-display configs; `tsconfig.test.json` has
+  no errors in the touched files), the Claude-focused vitest set plus the
+  two Agent Auth Router test files under a temporary home (73 files,
+  1,130 passed), `pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test:providers` (22 passed, 1 skipped), `pnpm test:e2e:sdk`
+  (80 passed, 4 skipped),
+  `git diff --check`, and a normalized check that every moved range of
+  HEAD appears in the new file and is gone from `claude.ts`, with the
+  rest unchanged (12 checks).
+- Budget: `claude.ts` 2,805 -> 2,469. Row 4.13 (helper sessions and a
+  session object, plan first) is what remains to get it under 1,500.
 
 ### Slice 4.11 — Claude executable and login resolution (Landed 2026-11-09, this commit)
 
