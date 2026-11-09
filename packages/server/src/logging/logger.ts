@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import pino from "pino";
+import { createRotatingFileStream } from "./rotating-file-stream.js";
 
 /**
  * Valid log levels.
@@ -109,7 +110,7 @@ export function initLogger(config: Partial<LogConfig> = {}): pino.Logger {
     try {
       fs.mkdirSync(finalConfig.logDir, { recursive: true });
       const logPath = path.join(finalConfig.logDir, finalConfig.logFile);
-      const fileStream = fs.createWriteStream(logPath, { flags: "a" });
+      const fileStream = createRotatingFileStream(logPath);
       fileStream.on("error", () => {
         fileStream.destroy();
       });

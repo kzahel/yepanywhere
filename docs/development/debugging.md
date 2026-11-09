@@ -14,6 +14,12 @@ Server logs are written to `{dataDir}/logs/` (default: `~/.yep-anywhere/logs/`):
 
 To view logs in real-time: `tail -f ~/.yep-anywhere/logs/server.log`
 
+`server.log` and `sdk-raw.jsonl` rotate by size: past 100 MiB the file
+becomes `.1`, the previous `.1` becomes `.2`, and the older `.2` is
+deleted, so each log holds at most about 300 MiB
+(`packages/server/src/logging/rotating-file-stream.ts`). A file already over
+the limit rotates on the first write after a restart.
+
 All `console.log/error/warn` output is captured. Logs are JSON format in the file but pretty-printed to console.
 
 Environment variables:
@@ -30,7 +36,7 @@ Remote collection of browser `console.log/warn/error` from mobile clients. Usefu
 
 **Enable:** Developer Mode settings → "Browser Diagnostics" toggle.
 
-**Storage:** `{dataDir}/logs/client-logs/` (default: `~/.yep-anywhere/logs/client-logs/`). One JSONL file per device per day, named `client-{YYYY-MM-DD}-{deviceId}.jsonl`. The device UUID is persisted in the client's `localStorage`.
+**Storage:** `{dataDir}/logs/client-logs/` (default: `~/.yep-anywhere/logs/client-logs/`). One JSONL file per device per day, named `client-{YYYY-MM-DD}-{deviceId}.jsonl`. The device UUID is persisted in the client's `localStorage`. Files older than 14 days are deleted on the first post of each server day, and a device's file stops at 32 MiB for that day; further posts answer `{ received: 0, dropped: n }`.
 
 Each line is a single log event:
 ```json

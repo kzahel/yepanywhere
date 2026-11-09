@@ -198,6 +198,12 @@ correlation debug logs. Possible approaches:
 Prefer a small local implementation unless YA needs a broader logging package
 for reasons beyond rotation.
 
+Done 2026-11-09 for `server.log`, `sdk-raw.jsonl` and
+`codex-correlation-debug.jsonl`: size rotation at 100 MiB keeping two
+archives (`packages/server/src/logging/rotating-file-stream.ts`). Client logs
+keep 14 days and stop a device's daily file at 32 MiB. The relay log is not
+capped yet.
+
 ### Option D: Disk-Pressure Status
 
 Expose disk pressure and degraded writers in server status surfaces:

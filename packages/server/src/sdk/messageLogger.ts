@@ -1,19 +1,21 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { Writable } from "node:stream";
 import { loadConfig } from "../config.js";
+import { createRotatingFileStream } from "../logging/rotating-file-stream.js";
 
 /**
  * Simple JSONL logger for raw SDK messages.
  * Captures exact message shapes for analysis.
  *
  * Disabled by default. Enable via LOG_SDK_MESSAGES=true
- * Output: {logDir}/sdk-raw.jsonl
+ * Output: {logDir}/sdk-raw.jsonl, rotated by size like server.log.
  */
 
-let writeStream: fs.WriteStream | null = null;
+let writeStream: Writable | null = null;
 let enabled = false;
 
-function disableMessageLogger(stream: fs.WriteStream): void {
+function disableMessageLogger(stream: Writable): void {
   if (writeStream !== stream) return;
   enabled = false;
   writeStream = null;
@@ -35,8 +37,7 @@ export function initMessageLogger(): void {
     // Ensure log directory exists
     fs.mkdirSync(config.logDir, { recursive: true });
 
-    // Open append stream
-    const stream = fs.createWriteStream(logPath, { flags: "a" });
+    const stream = createRotatingFileStream(logPath);
     stream.on("error", () => {
       disableMessageLogger(stream);
     });

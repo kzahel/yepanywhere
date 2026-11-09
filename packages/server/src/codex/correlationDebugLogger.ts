@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { Writable } from "node:stream";
 import { loadConfig } from "../config.js";
+import { createRotatingFileStream } from "../logging/rotating-file-stream.js";
 import type { SDKMessage } from "../sdk/types.js";
 import type { Message } from "../supervisor/types.js";
 
@@ -30,10 +32,10 @@ export interface CodexCorrelationDebugRecord {
   contentPreview?: string | null;
 }
 
-let writeStream: fs.WriteStream | null = null;
+let writeStream: Writable | null = null;
 let enabled = false;
 
-function disableLogger(stream: fs.WriteStream): void {
+function disableLogger(stream: Writable): void {
   if (writeStream !== stream) return;
   enabled = false;
   writeStream = null;
@@ -49,7 +51,7 @@ export function initCodexCorrelationDebugLogger(): void {
 
   try {
     fs.mkdirSync(config.logDir, { recursive: true });
-    const stream = fs.createWriteStream(logPath, { flags: "a" });
+    const stream = createRotatingFileStream(logPath);
     stream.on("error", () => {
       disableLogger(stream);
     });
