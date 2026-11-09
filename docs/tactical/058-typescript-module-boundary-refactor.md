@@ -473,6 +473,69 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Slice 4.9.4 — Codex turn consumer (Landed 2026-11-09, this commit)
+
+[Plan 186](186-codex-session-lifecycle.md) slice 4.
+
+Moved to new `codex-turn-consumer.ts`:
+- `consumeTurn` -> `consumeCodexTurn(context, turn, barrier,
+  cyberAccessRequested)` and `prepareOverloadRetry` ->
+  `prepareCodexOverloadRetry(context, error, attempt)`. Both were generator
+  closures inside `runSession`; `consumeTurn` took the provider as an
+  explicit argument.
+- The shared notification reader (`pendingNotification` with
+  `peekNotification`/`readNotification`) -> `CodexNotificationReader`
+  with `peek()`, `read()` and `takePeeked()`. `takePeeked()` replaces the
+  idle wait's `pendingNotification = null`. The statements are unchanged,
+  including the swallowed rejection for a failed `turn/start`.
+- The overload retry constants, `CodexOverloadRetryWait`,
+  `getCodexOverloadRetryDelayMs` and `waitForCodexOverloadRetry`.
+- The turn-error kinds, `codexTurnErrorHttpStatus`,
+  `isCodexCyberAccessDenial`, `classifyCodexTurnError` and the three
+  notification id readers.
+- The provider methods `logRawCodexNotification`,
+  `shouldSuppressLiveDeltaNotification`, `isTurnTerminalNotification`,
+  `classifyRetryableTurnError` and `updateBackgroundProcessTracking`,
+  now module functions. None read provider state.
+
+Added:
+- `CodexTurnContext`, which `runSession` builds once after the thread
+  starts, where the closures used to be defined. It has the eight members
+  plan 186 lists (`reader`, `runtimeState`, `failureTrace`,
+  `usageByTurnId`, `liveEventState`, `observeCommands`, `options`,
+  `signal`) and four that the closures also read: `appServer`,
+  `sessionId` (final by then), `logRawNotification` and
+  `overloadRetryWait`. The last is still resolved once per session from
+  `config.overloadRetryWait ?? waitForCodexOverloadRetry`.
+- The consumer destructures the context at the top, so its body matches
+  HEAD apart from `readNotification()` -> `reader.read()` and dropping
+  `provider.` from the four helper calls. `observeCommands`, the
+  `logRawNotification` closure, the message loop and turn start stay in
+  `runSession` until slice 5.
+
+Tests:
+- The seven references move to the new module: the
+  `isCodexCyberAccessDenial` import, and the
+  `logRawCodexNotification`, `shouldSuppressLiveDeltaNotification` and
+  `isTurnTerminalNotification` tests now cast the module namespace instead
+  of a provider. Assertions are unchanged.
+
+Behavior changes:
+- None. The idle wait and the consumer share one reader, so the
+  one-prefetch invariant holds by construction.
+
+Verification:
+- Tier 3: server `tsc` (main and tool-display configs; `tsconfig.test.json`
+  has no new errors in the touched files), the Codex-focused vitest set
+  (75 files, 1,134 passed), `pnpm lint`, `pnpm format:check`,
+  `pnpm typecheck`, `pnpm test:providers` (22 passed, 1 skipped; all 11
+  Codex cases ran), `pnpm test:e2e:sdk` (80 passed, 4 skipped),
+  `git diff --check`, and a normalized check that every moved range of
+  HEAD appears in the new file once the declared substitutions are undone.
+- Budget: `codex.ts` 2,696 -> 2,038 (plan 186 estimated about −900 before
+  slices 1–3 had moved code out of the same regions).
+  `codex-turn-consumer.ts` is 748 lines.
+
 ### Follow-up to 4.9.3 — Codex requests wait for the ready thread (Landed 2026-11-09, this commit)
 
 Behaviour fix, not a refactor slice. Closes

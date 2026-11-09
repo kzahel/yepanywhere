@@ -229,6 +229,11 @@ went to a small `codex-session-state.ts`.
 
 ### 4. Turn consumer
 
+Landed 2026-11-09 as 058 slice 4.9.4. `codex.ts` went from 2,696 to
+2,038 lines. The context also carries `appServer`, `sessionId`,
+`logRawNotification` and `overloadRetryWait`, which the closures read,
+and the reader is a small class.
+
 - Move into `codex-turn-consumer.ts`:
   - the shared notification reader;
   - `consumeTurn` and `prepareOverloadRetry`;

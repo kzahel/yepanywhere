@@ -45,12 +45,13 @@ import {
   CodexProvider,
   type CodexProviderConfig,
   formatCodexLoginCommand,
-  isCodexCyberAccessDenial,
 } from "../../../src/sdk/providers/codex.js";
 import * as codexApprovals from "../../../src/sdk/providers/codex-approvals.js";
 import * as codexItemConversion from "../../../src/sdk/providers/codex-item-conversion.js";
 import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
 import * as codexThreadParams from "../../../src/sdk/providers/codex-thread-params.js";
+import * as codexTurnConsumer from "../../../src/sdk/providers/codex-turn-consumer.js";
+import { isCodexCyberAccessDenial } from "../../../src/sdk/providers/codex-turn-consumer.js";
 import {
   CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS,
   CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS,
@@ -6038,7 +6039,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("logs raw Codex app-server notifications for sdk raw logging", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexTurnConsumer as unknown as {
       logRawCodexNotification: (
         sessionId: string,
         notification: { method: string; params?: unknown },
@@ -6068,7 +6069,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("identifies live delta notifications for the backend suppression toggle", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexTurnConsumer as unknown as {
       shouldSuppressLiveDeltaNotification: (
         notification: {
           method: string;
@@ -8502,7 +8503,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("treats a synthetic app-server exit as terminal without a turn id", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexTurnConsumer as unknown as {
       isTurnTerminalNotification: (
         notification: { method: string; params?: unknown },
         turnId: string,
