@@ -1,5 +1,5 @@
 import { registerSharedServiceProcess } from "./support/shared-service-process.js";
-import { execFileSync, execSync, spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -55,6 +55,26 @@ async function waitForPortFile(
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(`Timeout waiting for ${name} port file (${timeoutMs}ms)`);
+}
+
+function runBuild(
+  args: string[],
+  env: Record<string, string>,
+  cwd: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("pnpm", args, {
+      cwd,
+      env: { ...process.env, ...env },
+      stdio: "inherit",
+    });
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      if (code === 0) resolve();
+      else
+        reject(new Error(`pnpm ${args.join(" ")} failed (${code ?? signal})`));
+    });
+  });
 }
 
 function shouldStartRelay(): boolean {
@@ -115,60 +135,52 @@ export default async function globalSetup() {
     stdio: "inherit",
   });
 
-  console.log("[E2E] Building client...");
-  execFileSync(
-    "pnpm",
-    [
-      "--filter",
-      "@yep-anywhere/client",
-      "exec",
-      "vite",
-      "build",
-      "--outDir",
-      clientDist,
-      "--emptyOutDir",
-    ],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
+  // The two bundles are independent; building them concurrently removes about
+  // 20s of the serial setup every invocation and CI shard pays.
+  console.log("[E2E] Building client and remote client production preview...");
+  await Promise.all([
+    runBuild(
+      [
+        "--filter",
+        "@yep-anywhere/client",
+        "exec",
+        "vite",
+        "build",
+        "--outDir",
+        clientDist,
+        "--emptyOutDir",
+      ],
+      {
         // Global first-run overlays are outside this suite's contracts and can
         // arrive after a page-specific readiness check, obscuring its controls.
         VITE_DISABLE_CLI_UPDATE_NOTIFICATIONS: "true",
         VITE_DISABLE_ONBOARDING: "true",
         VITE_E2E_SOURCE_TRANSPORT_SMOKE: "true",
       },
-      stdio: "inherit",
-    },
-  );
-
-  console.log("[E2E] Building remote client production preview...");
-  execFileSync(
-    "pnpm",
-    [
-      "--filter",
-      "@yep-anywhere/client",
-      "exec",
-      "vite",
-      "build",
-      "--config",
-      "vite.config.remote.ts",
-      "--base",
-      "/",
-      "--outDir",
-      remoteClientDist,
-      "--emptyOutDir",
-    ],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
+      repoRoot,
+    ),
+    runBuild(
+      [
+        "--filter",
+        "@yep-anywhere/client",
+        "exec",
+        "vite",
+        "build",
+        "--config",
+        "vite.config.remote.ts",
+        "--base",
+        "/",
+        "--outDir",
+        remoteClientDist,
+        "--emptyOutDir",
+      ],
+      {
         VITE_DISABLE_CLI_UPDATE_NOTIFICATIONS: "true",
         VITE_DISABLE_ONBOARDING: "true",
       },
-      stdio: "inherit",
-    },
-  );
+      repoRoot,
+    ),
+  ]);
   copyFileSync(
     join(remoteClientDist, "remote.html"),
     join(remoteClientDist, "index.html"),

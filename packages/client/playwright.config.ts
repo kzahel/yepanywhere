@@ -22,7 +22,10 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  // Mutable services are worker-owned. Four workers ran the full suite in
+  // 7.6 minutes on a 14-core Mac, against about an hour serially; CI passes
+  // its own count per shard.
+  workers: 4,
   reporter: "list",
   timeout: 15000,
   expect: {
