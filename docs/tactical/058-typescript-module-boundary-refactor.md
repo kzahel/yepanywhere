@@ -54,6 +54,9 @@ shared, and how risky it is to touch today.
    [Plan 187](187-session-page-draft-hooks.md) moves the page's composer
    attachment state, correction draft and draft hydration into hooks and
    makes starting a correction one step (slices 2.44 to 2.47, 2026-11-08).
+   [Plan 188](188-shared-composer-draft-attachments.md) replaces the three
+   copies of the composer's draft attachments (the session page, New
+   Session and the Project Queue editor) with one hook (in progress).
    Moving small features out one at a time leaves these files
    structurally as they were; the burn-down order and the consolidations
    it needs (one shared message-box core, then sending as plain

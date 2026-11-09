@@ -3343,6 +3343,95 @@ describe("NewSessionForm", () => {
     expect(draftAttachmentState.value).toBe(null);
   });
 
+  // "narrow" is a server with text and staged creation but no admission:
+  // a file still uploading is not staged yet, so the start must take the
+  // legacy path, which waits for it.
+  it.each(["legacy", "narrow", "admission"] as const)(
+    "starts with a file that is still uploading and sends it once staged (%s)",
+    async (server) => {
+      serverSettingsState.isLoading = false;
+      const admission = server === "admission";
+      if (admission)
+        versionState.version = {
+          capabilities: [SERVER_CAPABILITIES.sessionCreationAdmission.name],
+        };
+      if (server === "narrow")
+        versionState.version = {
+          capabilities: [
+            SERVER_CAPABILITIES.claudeTextCreation.name,
+            SERVER_CAPABILITIES.stagedSessionCreation.name,
+          ],
+        };
+      let finishUpload: (ref: typeof stagedRef) => void = () => {};
+      mockUploadStagedAttachment.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finishUpload = resolve;
+          }),
+      );
+      mockConnectionFetch.mockImplementation(async (path: string) =>
+        path.endsWith("/session-creations")
+          ? {
+              requestId: "uploading-start",
+              sessionId: "session-created",
+              projectId: "project-1",
+            }
+          : { files: [materializedFile] },
+      );
+      const { container } = render(
+        <NewSessionForm
+          projectId="project-1"
+          selectedProject={chooserProjects[0]}
+          projects={[...chooserProjects]}
+        />,
+      );
+      const input =
+        container.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!input) throw new Error("missing file input");
+      fireEvent.change(input, {
+        target: {
+          files: [new File(["hello"], "notes.txt", { type: "text/plain" })],
+        },
+      });
+      await waitFor(() =>
+        expect(mockUploadStagedAttachment).toHaveBeenCalledTimes(1),
+      );
+      fireEvent.change(screen.getByPlaceholderText("newSessionPlaceholder"), {
+        target: { value: "start while uploading" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "newSessionStartAction" }),
+      );
+      await act(async () => finishUpload(stagedRef));
+
+      if (admission) {
+        await waitFor(() =>
+          expect(mockConnectionFetch).toHaveBeenCalledWith(
+            "/projects/project-1/session-creations",
+            expect.anything(),
+          ),
+        );
+        const [, request] = mockConnectionFetch.mock.calls.find(
+          ([path]) => path === "/projects/project-1/session-creations",
+        )!;
+        expect(JSON.parse(request.body).stagedAttachments).toEqual([stagedRef]);
+      } else {
+        await waitFor(() => expect(mockQueueMessage).toHaveBeenCalledTimes(1));
+        expect(mockConnectionFetch).toHaveBeenCalledWith(
+          "/projects/project-1/sessions/session-created/attachments/staging/materialize",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              batchId: "batch-new-session",
+              refs: [stagedRef],
+            }),
+          },
+        );
+        expect(mockQueueMessage.mock.calls[0]?.[3]).toEqual([materializedFile]);
+      }
+    },
+  );
+
   it("queues a new session through Project Queue when the toolbar action is visible", async () => {
     toolbarVisibilityState.projectQueue = true;
     inboxState.active = [
