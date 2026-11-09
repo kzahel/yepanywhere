@@ -6,10 +6,10 @@ Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
 whole button family (census, swap, delete, ban), the token pass, the
-switch and segmented-control family and the menu and popover family have
-landed. Order agreed with the maintainer on 2026-11-09: the token pass
-(done), switches and segmented controls (done), menus and popovers (done),
-then fields, banners/badges/spinners/tabs, the dialog pattern, and the
+switch and segmented-control family, the menu and popover family and the
+field family have landed. Order agreed with the maintainer on 2026-11-09:
+the token pass (done), switches and segmented controls (done), menus and
+popovers (done), fields (done), then banners/badges/spinners/tabs, the dialog pattern, and the
 composer last. Each step runs end to
 end (implement, independent review, commit) before the next starts.
 
@@ -213,6 +213,33 @@ of slightly different styles.
   turned flaky), the switch-host menu anchored to its button, model badges
   in the icon slot, wider ban patterns, a heading made a group label, and
   a dead composer popover deleted.
+- **Field family done (2026-11-09):** `Field`, `TextInput`, `Textarea` and
+  `Select` (`ui/Field.tsx`) and `Checkbox` and `Radio` (`ui/Checkbox.tsx`),
+  with a Controls/Field page, tests and a Census/Fields page
+  (`LEGACY_FIELDS`). A census by element found 332 raw inputs, selects and
+  textareas: 77 checkboxes, 63 selects, 22 textareas, 9 radios and the rest
+  text, number, password, url and search boxes, 205 of them in settings,
+  styled by `settings-input` (~70 uses), `settings-select` (~20), the
+  `form-*` and `login-field` rules and about 40 module look rules. All moved
+  except range, file and hidden inputs, the composer's fields and seven
+  chromeless editors whose owners draw the frame (the header title editor,
+  the source editor's code textarea, the find bar, the transcript search
+  scope, the vhost address and search age fields, the aside composer).
+  The controls are stateless pass-throughs, so typing costs nothing beyond
+  the caller's render; the per-key 100 ms E2E checks over the instruction
+  path, the gateway URL and the template revision fields cover the swap.
+  Settings rows whose checkbox applied at once became `Switch`es; the
+  remaining native radio groups (Codex update policy, storage locations,
+  template grants, the gateway effort mode, the project start palette)
+  became `SegmentedControl`s; radios spread across rows (the default
+  gateway service, browser host, Rendez defaults) are `Radio`. Labels
+  wrapping a field became `Field`s, so hints and errors are linked and
+  invalid fields are `aria-invalid`. The legacy rules were deleted
+  (`settings-input*`, `settings-select`, `settings-textarea`, `form-field`,
+  `form-select`, `login-field*`, the Codex prompt's hand-drawn checkbox,
+  about 400 lines of global CSS). `pnpm buttons:check` now also bans raw
+  field elements and rules that style a bare `input`, `select` or
+  `textarea`; Biome's label rule knows the shared controls.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
@@ -347,7 +374,9 @@ previews and an Other field.
 `Field` (label, hint, error), text input, select and checkbox, replacing
 `settings-input`/`settings-select` and the module variants. Typing in every
 migrated field must still meet the sequential-typing requirement in
-[AGENTS.md](../../AGENTS.md).
+[AGENTS.md](../../AGENTS.md). **Done 2026-11-09** (What has landed). Left
+for other families: the composer's fields (composer) and the chromeless
+editors the allowlist names.
 
 ### 5 — banners, badges, spinners and tabs
 

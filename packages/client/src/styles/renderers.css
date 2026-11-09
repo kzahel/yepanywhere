@@ -4928,24 +4928,6 @@ pre.code-highlighter-plain,
   order: 20;
 }
 
-.changeset-file-filter-input {
-  min-width: 0;
-  height: 28px;
-  flex: 1;
-  padding: 3px 8px;
-  color: var(--text-primary, #e6edf3);
-  font-size: 0.78rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-}
-
-.changeset-file-filter-input:focus {
-  border-color: var(--focus-border);
-  outline: 1px solid var(--focus-border);
-  outline-offset: -1px;
-}
-
 .source-detail-action-text {
   display: none;
 }
@@ -5150,14 +5132,13 @@ pre.code-highlighter-plain,
 }
 
 .source-search-input {
-  width: 100%;
   margin-bottom: var(--space-2, 8px);
-  padding: 5px 58px 5px 10px;
-  font-size: 0.85rem;
-  color: var(--text-primary, #e6edf3);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: 6px;
+}
+
+/* Room for the shortcut and help overlay drawn over the field's end;
+   compounded so it outranks the shared field's padding. */
+.source-search-field .source-search-input {
+  padding-right: 58px;
 }
 
 .source-search-field {
@@ -5275,9 +5256,8 @@ pre.code-highlighter-plain,
     border-bottom: 1px solid var(--border-subtle, #21262d);
   }
 
-  .source-search-input {
-    min-height: 40px;
-    padding-right: 10px;
+  .source-search-field .source-search-input {
+    padding-right: var(--space-2);
   }
 
   /* The shortcut disclosure hides itself in SourceShortcutHelp.module.css. */

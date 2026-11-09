@@ -3282,12 +3282,7 @@ a.sidebar-nav-item {
 
 /* Per-fork auto-open toggle; groups with Cancel at the right edge. */
 .fork-summary-display-object-autoopen {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
   margin-left: auto;
-  color: var(--text-secondary);
-  cursor: pointer;
   white-space: nowrap;
 }
 
@@ -6276,21 +6271,6 @@ a.sidebar-nav-item {
   margin-bottom: 0;
 }
 
-.settings-input,
-.settings-input-small {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-}
-
-.settings-input {
-  width: 100%;
-  margin-top: var(--space-2);
-}
-
 /* Groups an enable/disable toggle with its dependent sub-setting(s) inside a
    single beveled container: rows share one continuous background with no
    dividers between them, rather than being indented or split into cards. */
@@ -6363,25 +6343,6 @@ a.sidebar-nav-item {
   gap: var(--space-2);
 }
 
-.claude-gateway-settings-row .settings-input {
-  flex: 1;
-  margin-top: 0;
-}
-
-.claude-gateway-start-command {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.claude-gateway-start-command .settings-input {
-  margin-top: 0;
-  font-family: var(--font-mono);
-}
-
 .host-identity-controls {
   display: flex;
   flex: 0 1 25rem;
@@ -6400,7 +6361,6 @@ a.sidebar-nav-item {
 .host-identity-custom .host-identity-input {
   flex: 1 1 auto;
   min-width: 0;
-  margin-top: 0;
 }
 
 .host-identity-validation {
@@ -6413,10 +6373,6 @@ a.sidebar-nav-item {
   flex: 0 0 auto;
   align-items: center;
   gap: var(--space-2);
-}
-
-.host-awake-floor-controls .settings-input-small {
-  margin-top: 0;
 }
 
 @container (max-width: 36rem) {
@@ -6569,20 +6525,6 @@ a.sidebar-nav-item {
 
 .output-appearance-number {
   width: 4.25rem;
-}
-
-.output-appearance-number-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.output-appearance-unit {
-  display: inline-flex;
-  align-items: center;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1;
 }
 
 /*
@@ -7287,29 +7229,15 @@ a.sidebar-nav-item {
   gap: var(--space-1);
 }
 
+/* A Checkbox row: the control owns the box, label and description. */
 .providers-additional-model-option {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
   padding: var(--space-2);
   border-radius: var(--radius-sm);
-  cursor: pointer;
 }
 
 .providers-additional-model-option:hover {
   background: var(--bg-hover);
-}
-
-.providers-additional-model-option input {
-  margin-top: 0.2rem;
-}
-
-.providers-additional-model-option > span {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .providers-additional-model-option code {
@@ -7332,11 +7260,6 @@ a.sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-.providers-additional-models-custom-row .settings-input {
-  min-width: 0;
-  flex: 1;
 }
 
 @media (width <= 600px) {
@@ -7476,12 +7399,6 @@ a.sidebar-nav-item {
   accent-color: var(--app-yep-green);
 }
 
-.settings-input-unit .settings-input-small::-webkit-inner-spin-button,
-.settings-input-unit .settings-input-small::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
 /* Muted, lightweight line-count estimate beside the height box. */
 .settings-hovercard-lines {
   white-space: nowrap;
@@ -7494,25 +7411,6 @@ a.sidebar-nav-item {
 }
 
 /* Select dropdown for settings */
-.settings-select {
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  min-width: 160px;
-}
-
-.settings-select:hover {
-  background: var(--border-color);
-}
-
-.settings-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 .settings-warning {
   color: var(--error-color);
@@ -7646,70 +7544,7 @@ a.sidebar-nav-item {
   font: inherit;
 }
 
-.settings-textarea {
-  width: 100%;
-  min-height: 120px;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  resize: vertical;
-  margin-top: var(--space-2);
-}
-
-.settings-textarea:focus {
-  outline: none;
-  border-color: var(--app-yep-green);
-}
-
-.settings-textarea::placeholder {
-  color: var(--text-muted);
-  opacity: 0.6;
-}
-
-.settings-item-inline-field > .settings-input {
-  flex: 1 1 20rem;
-  width: auto;
-  min-width: min(100%, 18rem);
-  max-width: 28rem;
-  margin-top: 0;
-}
-
-.file-access-setting-row--field > .settings-input {
-  flex: 1 1 20rem;
-  width: auto;
-  min-width: min(100%, 18rem);
-  max-width: 28rem;
-  margin-top: 0;
-}
-
-.settings-input-small {
-  width: 96px;
-  flex-shrink: 0;
-}
-
 /* Narrow numeric field: ~4 digits plus a small gap, no spinner buttons. */
-.settings-input-unit .settings-input-small {
-  width: 4rem;
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-.settings-input:focus,
-.settings-input-small:focus {
-  outline: none;
-  border-color: var(--app-yep-green);
-}
-
-.settings-input::placeholder,
-.settings-input-small::placeholder {
-  color: var(--text-muted);
-  opacity: 0.6;
-}
 
 .settings-item-header {
   display: flex;
@@ -8359,21 +8194,6 @@ a.sidebar-nav-item {
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-2);
-}
-
-.session-list-header__select-all {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.session-list-header__select-all input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
 }
 
 /* Bulk action bar styles live in components/BulkActionBar.module.css */
@@ -9412,27 +9232,6 @@ a.sidebar-nav-item {
   }
 }
 
-.prompt-cache-keepalive-cadence input {
-  width: 4.5rem;
-  height: 32px;
-  padding: 0.25rem 0.45rem;
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font: inherit;
-}
-
-.prompt-cache-keepalive-cadence input:focus {
-  outline: none;
-  border-color: var(--focus-border);
-}
-
-.prompt-cache-keepalive-cadence input:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .recap-after-seconds-control {
   display: grid;
   grid-template-columns: max-content minmax(12rem, 28rem);
@@ -10015,60 +9814,6 @@ a.sidebar-nav-item {
   gap: var(--space-3);
 }
 
-.login-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.login-field label {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-}
-
-.login-field input {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-}
-
-.login-field input:focus {
-  outline: none;
-  border-color: var(--focus-border);
-}
-
-.login-field-hint {
-  font-size: var(--font-size-xs);
-  color: var(--text-dimmed);
-  margin: 0;
-}
-
-.login-field-checkbox {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.login-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-}
-
-.login-checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--app-yep-green);
-}
-
 .login-error {
   color: var(--error-color);
   font-size: var(--font-size-sm);
@@ -10620,32 +10365,6 @@ a.sidebar-nav-item {
   gap: var(--space-3);
 }
 
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.form-field label {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.form-field input {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-}
-
-.form-field input:focus {
-  outline: none;
-  border-color: var(--focus-border);
-}
-
 .form-error {
   color: var(--error-color);
   font-size: var(--font-size-sm);
@@ -10710,70 +10429,6 @@ a.sidebar-nav-item {
   font-family: var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.codex-update-prompt__checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-}
-
-.codex-update-prompt__checkbox {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  display: grid;
-  place-content: center;
-  flex-shrink: 0;
-  border: 1px solid
-    color-mix(in srgb, var(--text-muted) 45%, var(--border-input));
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-input) 70%, var(--bg-secondary));
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.codex-update-prompt__checkbox::before {
-  content: "✓";
-  color: #fff;
-  font-size: 12px;
-  line-height: 1;
-  transform: scale(0);
-  transition: transform 0.15s ease;
-}
-
-.codex-update-prompt__checkbox:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--provider-codex) 55%,
-    var(--border-input)
-  );
-}
-
-.codex-update-prompt__checkbox:checked {
-  background: var(--provider-codex);
-  border-color: var(--provider-codex);
-}
-
-.codex-update-prompt__checkbox:checked::before {
-  transform: scale(1);
-}
-
-.codex-update-prompt__checkbox:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--provider-codex) 55%, transparent);
-  outline-offset: 2px;
-}
-
-.codex-update-prompt__checkbox:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .codex-update-prompt__progress {
@@ -10961,26 +10616,6 @@ a.sidebar-nav-item {
 .remote-access-actions {
   display: flex;
   gap: var(--space-2);
-}
-
-.form-select {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-  cursor: pointer;
-}
-
-.form-select:focus {
-  outline: none;
-  border-color: var(--focus-border);
-}
-
-.form-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Remote Access QR Code */
@@ -11312,20 +10947,6 @@ a.sidebar-nav-item {
 }
 
 /* Rename input */
-.session-rename-input {
-  flex: 1;
-  padding: var(--space-2);
-  background: var(--bg-input);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-sm);
-  color: inherit;
-  font-size: var(--font-size-sm);
-}
-
-.session-rename-input:focus {
-  outline: none;
-  border-color: var(--app-yep-green);
-}
 
 /* Session menu positioning - overlay on right side of text */
 .session-list-item__menu {
@@ -11374,13 +10995,6 @@ a.sidebar-nav-item {
 }
 
 /* Checkbox for multi-select */
-.session-list-item__checkbox {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  cursor: pointer;
-  accent-color: var(--app-yep-green);
-}
 
 /* Read state: slightly dimmer than unread */
 .session-list-item .session-list-item__title-text,
@@ -12347,26 +11961,6 @@ body:has(.session-page)
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   line-height: 1.35;
-}
-
-.session-share-url-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.session-share-url-field input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: var(--space-2);
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
 }
 
 .session-share-error {

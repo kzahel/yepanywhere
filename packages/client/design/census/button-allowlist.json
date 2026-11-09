@@ -4,6 +4,10 @@
     "attachment-quality-toggle",
     "btn-primary",
     "btn-secondary",
+    "changeset-file-filter-input",
+    "claude-gateway-start-command",
+    "codex-update-prompt__checkbox",
+    "codex-update-prompt__checkbox-label",
     "commit-jump-btn",
     "copy-button",
     "diff-toolbar-icon-button",
@@ -12,6 +16,8 @@
     "filter-search-button",
     "font-size-option",
     "font-size-selector",
+    "form-field",
+    "form-select",
     "git-status-action-button",
     "global-sessions-load-more-button",
     "global-sessions-project-cta__button",
@@ -19,6 +25,10 @@
     "inbox-refresh-button",
     "load-older-button",
     "login-button",
+    "login-checkbox-label",
+    "login-field",
+    "login-field-checkbox",
+    "login-field-hint",
     "mode-option",
     "mode-option-content",
     "mode-option-desc",
@@ -30,6 +40,8 @@
     "onboarding-theme-grid",
     "onboarding-theme-label",
     "onboarding-theme-option",
+    "output-appearance-number-wrap",
+    "output-appearance-unit",
     "output-font-option",
     "patient-queue-switch",
     "patient-queue-switch-option",
@@ -44,16 +56,24 @@
     "qr-toggle-button",
     "revoke-all-button",
     "revoke-button",
+    "session-list-header__select-all",
+    "session-list-item__checkbox",
+    "session-rename-input",
     "session-share-icon-button",
     "session-share-icon-button-danger",
     "session-share-revoke-button",
     "session-share-small-button",
+    "session-share-url-field",
     "session-title-edit-button",
     "settings-button",
     "settings-button-danger",
     "settings-button-danger-subtle",
     "settings-button-secondary",
     "settings-icon-style-option",
+    "settings-input",
+    "settings-input-small",
+    "settings-select",
+    "settings-textarea",
     "toggle-btn",
     "toggle-slider",
     "toggle-switch"
@@ -260,6 +280,66 @@
     "pages/PublicSharePage.tsx": {
       "count": 1,
       "reason": "Routes link activation inside a public share's rendered content; not a dismissal."
+    }
+  },
+  "rawFields": {
+    "components/BtwAsidePane.tsx": {
+      "count": 1,
+      "reason": "The /btw aside's chat composer textarea (Enter sends, grows to a max height): composer pass."
+    },
+    "components/ContextThresholdQuickEdit.tsx": {
+      "count": 1,
+      "reason": "Composer (the session input and new-session form): its own later pass."
+    },
+    "components/FileVhostSection.tsx": {
+      "count": 1,
+      "reason": "The address-name input sits chromeless inside a frame that also draws the https:// prefix and the domain suffix."
+    },
+    "components/NewSessionForm.tsx": {
+      "count": 4,
+      "reason": "Composer (the session input and new-session form): its own later pass."
+    },
+    "components/NewSessionQueueOptions.tsx": {
+      "count": 3,
+      "reason": "Composer (the session input and new-session form): its own later pass."
+    },
+    "components/session-search/SearchControls.tsx": {
+      "count": 1,
+      "reason": "The age field sizes itself from hidden mirror text inside a frame that draws the unit."
+    },
+    "components/SessionHeader.tsx": {
+      "count": 1,
+      "reason": "Edits the header title in place, in the title's own type, beside its accept and regenerate icons."
+    },
+    "components/SourceEditor.tsx": {
+      "count": 1,
+      "reason": "The source editor's code textarea: an editing surface whose pane draws the frame."
+    },
+    "components/SpeechControlMenu.tsx": {
+      "count": 4,
+      "reason": "Composer (the session input and new-session form): its own later pass."
+    },
+    "components/ViewerFindField.tsx": {
+      "count": 1,
+      "reason": "Chromeless inside the find bar's bordered pill, beside its match count and arrows."
+    },
+    "hooks/useMessageListIsearch.tsx": {
+      "count": 1,
+      "reason": "A chromeless scope picker drawn as an uppercase label in front of the transcript search query."
+    }
+  },
+  "fieldLookRules": {
+    "components/NewSessionForm.module.css": {
+      "count": 2,
+      "reason": "Composer (the session input and new-session form): its own later pass."
+    },
+    "components/NewSessionQueueOptions.module.css": {
+      "count": 4,
+      "reason": "Composer (the session input and new-session form): its own later pass."
+    },
+    "styles/index.css": {
+      "count": 11,
+      "reason": "The UI-font inheritance reset for form controls, and the composer's textareas and steer-now toggle (composer pass)."
     }
   }
 }

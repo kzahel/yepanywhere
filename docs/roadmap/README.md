@@ -1072,7 +1072,12 @@ landed the same day: a shared `Popover` (portal, script placement, outside
 press and layered Escape, focus return, phone sheet) and `Menu` replace
 23 hand-rolled menus, dropdowns and panels, with a `--z-modal`/
 `--z-popover`/`--z-tooltip` layer scale, and lint bans menu roles and
-document pointer listeners outside them. Fields are next.
+document pointer listeners outside them. Fields landed the same day:
+`Field` (label, hint, error), `TextInput`, `Textarea`, `Select`, `Checkbox`
+and `Radio` replace about 320 raw fields and the `settings-input`,
+`settings-select`, form and login field styles, and lint bans raw field
+elements and rules that style them. Banners, badges, spinners and tabs are
+next.
 
 ## Later directions
 

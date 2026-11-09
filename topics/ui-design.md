@@ -37,8 +37,8 @@ Status: direction selected 2026-11-08.
 [Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
 sequences the work. The playground, its token page, the undefined-property
 limit, the button and switch census, the shared button family, the
-shared switch and segmented control, and the shared popover and menu have
-landed. For controls without a
+shared switch and segmented control, the shared popover and menu, and the
+shared fields have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
@@ -111,7 +111,13 @@ elements.
   through a `doc` or `*Document` variable) outside `ui/Popover.tsx`: the
   mark of a hand-rolled outside dismissal. Plumbing that needs one (drag
   and text selection, pull to refresh, the tooltip layer, link routing in
-  share frames) is allowlisted with its reason.
+  share frames) is allowlisted with its reason;
+- a raw `<input>` (text types, number, checkbox, radio; not range, file,
+  hidden or color), `<select>` or `<textarea>` outside `ui/Field.tsx`,
+  `ui/Checkbox.tsx` and `ui/Switch.tsx`, and a CSS rule whose selector
+  styles a bare `input`, `select` or `textarea` element with look or size
+  properties (`.form input { border: … }`); the legacy field classes
+  (`settings-input`, `settings-select`, …) once their rules are gone.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
@@ -150,8 +156,8 @@ while it saves keeps keyboard focus.
 Which control: one setting on or off is a `Switch`; one of several values
 is a `SegmentedControl`; one thing on or off in a toolbar stays an
 `IconButton` or ghost `Button` with `aria-pressed`, and so does a
-multi-select chip filter. Radios inside a dropdown belong to the menu
-family; native `<input type="radio">` groups wait for the fields family.
+multi-select chip filter. Radios inside a dropdown are `Menu` radio items;
+a choice whose options sit in separate rows is a `Radio` (Fields, below).
 
 **Menus and popovers.** `src/components/ui/Popover.tsx` is the anchored
 floating surface: menus, dropdowns, pickers and small panels that open from
@@ -211,6 +217,39 @@ dropdown is a `Menu` of radio items, and a filter with several selections a
 list of links with other content) is a `Popover` with its own role
 (`dialog`, `status`). Completion lists driven by a text field stay
 listboxes, and hover cards stay with `TooltipLayer`'s timing.
+
+**Fields.** `src/components/ui/Field.tsx` owns the text fields:
+`TextInput` (a single-line `<input>` of any text type, number included),
+`Textarea` and `Select` (a native `<select>` with a chevron drawn in the
+text color). They share one box: `--bg-input` with an `--border-input`
+border, 32 px tall (44 px on coarse pointers), small type, a green focus
+ring, a red border while `aria-invalid`, and `size="small"` (26 px) for
+dense rows. `mono` sets the code font for commands, paths, tokens and ids;
+`unit` puts a muted unit after a narrow number box without spinners. They
+are plain elements with no state of their own, so the caller's `value` and
+`onChange` reach the element untouched and typing costs nothing beyond the
+caller's render (the 100 ms rule in [AGENTS.md](../AGENTS.md)). Width
+defaults to the container's at zero specificity, so a caller's single
+layout class wins; the control owns everything else.
+
+`Field` is a label above one control, with an optional `hint` and `error`
+below: it names the control with `<label htmlFor>`, links the hint and
+error through `aria-describedby`, marks the control `aria-invalid` while
+`error` is set and `required` when asked. The control picks these up from
+context, so `<Field label="URL" hint="…"><TextInput … /></Field>` needs no
+ids. A settings row whose own title names its control passes `aria-label`
+instead.
+
+`src/components/ui/Checkbox.tsx` has `Checkbox` and `Radio`: native inputs
+in the accent green, with an optional `label` (clicking it toggles) and a
+muted `description` line that describes rather than names, and
+`onCheckedChange(checked, event)`. `indeterminate` shows a mixed state.
+
+Which control: one setting on or off that applies at once is a `Switch`; a
+checkbox picks several independent things (a selection, a filter, an
+"also do this" beside a form's submit); one of several values shown
+together is a `SegmentedControl`; `Radio` is only for a choice whose
+options sit in separate rows or cards (the default among listed services).
 
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
@@ -346,6 +385,10 @@ The playground's pages:
   composer's files) are counted apart from those still to swap. The scan
   (`design/buttonElements.ts`, classification in `design/buttonFamilies.ts`)
   parses production TSX with the TypeScript compiler.
+- **Controls/Field:** text inputs, selects and textareas in every state,
+  `Field` with hint and error, and checkboxes and radios.
+- **Census/Fields:** each legacy field class with its live use count,
+  grouped by the shared control it became, kept as a regression view.
 - **Census/Switches and segmented controls:** the shared controls, each
   mapped legacy style with its live use count (all swept), every unmapped
   global class and every matching CSS Module class, each rendered
