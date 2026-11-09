@@ -22,7 +22,11 @@ import {
   createProjectQueueRoutes,
 } from "../../src/routes/project-queue.js";
 import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
-import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
+import { seedTestCatalog } from "../utils/session-catalog.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 import {
   catalogAdaptersForRows,
   buildCatalogRow,
@@ -62,6 +66,7 @@ describe("Project Queue Routes", () => {
 
   afterEach(async () => {
     await Promise.all(catalogs.splice(0).map((catalog) => catalog.dispose()));
+    closeTestDiscoveryDatabases();
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
@@ -439,10 +444,9 @@ describe("Project Queue Routes", () => {
       },
     });
     const directory = path.join(testDir, "catalog");
-    const published = new SessionCatalogService({ dataDir: directory });
-    await published.initialize();
     const title = "A long accepted native title ".repeat(12);
-    await published.reconcile(
+    await seedTestCatalog(
+      directory,
       catalogAdaptersForRows([
         buildCatalogRow({
           catalogFamily: "claude",
@@ -457,12 +461,12 @@ describe("Project Queue Routes", () => {
         }),
       ]),
     );
-    await published.stop();
     const acquire = vi.fn(async () => {
       throw new Error("Queue reads must not acquire native providers");
     });
     const catalog = new RetainedSessionCollections({
       dataDir: directory,
+      database: openTestDiscoveryDatabase(directory),
       adapters: acquire,
     });
     catalogs.push(catalog);
@@ -480,24 +484,12 @@ describe("Project Queue Routes", () => {
     }
     expect(acquire).not.toHaveBeenCalled();
     await catalog.dispose();
-    const manifest = JSON.parse(
-      await fs.readFile(
-        path.join(directory, "session-catalog", "manifest.json"),
-        "utf8",
-      ),
-    );
-    await fs.writeFile(
-      path.join(
-        directory,
-        "session-catalog",
-        "generations",
-        manifest.generationDirectory,
-        manifest.shards[0].file,
-      ),
-      "broken accepted shard\n",
-    );
+    // A stored row that no longer reassembles ends the lineage.
+    const database = openTestDiscoveryDatabase(directory);
+    database.exec("UPDATE session_catalog SET async_questions = '{'");
     const damaged = new RetainedSessionCollections({
       dataDir: directory,
+      database,
       adapters: acquire,
     });
     catalogs.push(damaged);

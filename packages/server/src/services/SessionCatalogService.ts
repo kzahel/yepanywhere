@@ -1,148 +1,68 @@
 import { randomUUID } from "node:crypto";
-import {
-  mkdir,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
-import { join } from "node:path";
-import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
+import { rm, stat } from "node:fs/promises";
+import { performance } from "node:perf_hooks";
 import { getLogger } from "../logging/logger.js";
-import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
-import type { SqliteDatabase } from "../storage/sqlite.js";
 import type {
   NativeSessionCatalogAdapter,
   SessionCatalogRow,
-  SessionCatalogRowKey,
   SessionCatalogScanMode,
 } from "../sessions/catalog-types.js";
+import type { SqliteDatabase } from "../storage/sqlite.js";
 import {
-  type CatalogRowsValue,
-  GenerationWriter,
-  type ProjectRowsValue,
-  SessionCatalogCorruptionError,
-  type ShardLine,
-  isMissingFile,
-  projectBucket,
-  projectSlice,
-  readProjectRowsFromShard,
-  readShardLines,
-  readShardRows,
-} from "./session-catalog-shards.js";
+  LegacyCatalogCorruptionError,
+  readLegacyCatalogManifest,
+  readLegacyCatalogRows,
+} from "./session-catalog-legacy.js";
+import { normalizeRow, requireNonEmpty } from "./session-catalog-rows.js";
 import {
-  cloneRow,
-  normalizeRow,
-  requireNonEmpty,
-  requireTimestamp,
-} from "./session-catalog-rows.js";
-import {
-  type SessionCatalogMirrorMetrics,
-  SessionCatalogSqliteMirror,
-} from "./session-catalog-mirror.js";
+  type SessionCatalogSqliteChange,
+  type SessionCatalogSqliteSource,
+  type SessionCatalogSqliteState,
+  SessionCatalogRowError,
+  SessionCatalogSqliteStore,
+  type SessionCatalogSqliteWrite,
+  rowKey,
+  sessionCatalogJsonHash,
+} from "./session-catalog-sqlite.js";
 
-const MANIFEST_SCHEMA_VERSION = 1;
-const DEFAULT_BUCKET_COUNT = 64;
-const DEFAULT_HOT_BYTES = 8 * 1024 * 1024;
-const DEFAULT_DELTA_BYTES = 1024 * 1024;
-const DEFAULT_DELTA_AGE_MS = 15 * 60 * 1000;
-const DEFAULT_DELTA_COMPARE_SHARD_BYTES = 8 * 1024 * 1024;
-const DEFAULT_RECENT_ROWS = 200;
-const DEFAULT_RECENT_BYTES = 256 * 1024;
 const DEFAULT_MAX_ROW_BYTES = 64 * 1024;
-const DEFAULT_RETAINED_GENERATIONS = 2;
-const MAX_PROJECT_READ_RETARGETS = 4;
+/**
+ * Generations a tombstone outlives before it is purged. A change reader at
+ * least this close to the current generation sees every deletion; one
+ * further behind reads in full. Purges run in steps of a tenth of it, so
+ * each publication does not scan for them.
+ */
+const DEFAULT_TOMBSTONE_GENERATIONS = 10_000;
 
 export interface SessionCatalogToken {
   catalogEpoch: string;
   catalogGeneration: number;
 }
 
-export interface SessionCatalogShardSnapshot {
-  bucket: number;
-  file: string;
-  rowCount: number;
-  bytes: number;
-  /** Digest of this shard's rows, so an unchanged bucket is never re-read. */
-  contentHash: string;
-  /** Catalog generation in which this shard's content last changed. */
-  generation: number;
-}
-
-export interface SessionCatalogProviderSourceSnapshot {
-  catalogFamily: ProviderCatalogFamily;
-  storeKey: string;
-  sourceVersion: string;
-  rowCount: number;
-  metrics: Readonly<Record<string, number>>;
-}
-
-export type SessionCatalogDeltaChange =
-  | { type: "upsert"; row: SessionCatalogRow }
-  | { type: "delete"; key: SessionCatalogRowKey };
-
-export interface SessionCatalogDelta {
-  fromGeneration: number;
-  toGeneration: number;
-  createdAt: string;
-  replacementRequired: boolean;
-  changes: SessionCatalogDeltaChange[];
-  bytes: number;
-}
+/** A provider store the published generation covers, even with no rows. */
+export type SessionCatalogProviderSourceSnapshot = SessionCatalogSqliteSource;
 
 export interface SessionCatalogSnapshot extends SessionCatalogToken {
   completedAt: string;
   rowCount: number;
-  rowsBytes: number;
-  shards: SessionCatalogShardSnapshot[];
   providerSources: SessionCatalogProviderSourceSnapshot[];
-  recentRows: SessionCatalogRow[];
 }
 
-interface PersistedSessionCatalogManifest extends SessionCatalogSnapshot {
-  schemaVersion: typeof MANIFEST_SCHEMA_VERSION;
-  bucketCount: number;
-  generationDirectory: string | null;
-  deltas: SessionCatalogDelta[];
-}
-
-export type SessionCatalogConditionalResult =
-  | { status: "no-change"; token: SessionCatalogToken }
-  | {
-      status: "deltas";
-      token: SessionCatalogToken;
-      deltas: SessionCatalogDelta[];
-    }
-  | { status: "replacement"; snapshot: SessionCatalogSnapshot };
-
-/**
- * One component of the catalog's generation vector. `catalogGeneration`
- * orders global publication; `shardGeneration` moves only when this project's
- * bucket actually changed, so an unrelated write does not invalidate it.
- */
-export interface SessionCatalogShardToken extends SessionCatalogToken {
-  bucket: number;
-  shardGeneration: number;
-}
-
-export interface SessionCatalogProjectRows extends SessionCatalogShardToken {
+export interface SessionCatalogProjectRows extends SessionCatalogToken {
+  /** Newest first. */
   rows: ReadonlyArray<Readonly<SessionCatalogRow>>;
 }
-
-export type SessionCatalogProjectConditionalResult =
-  | { status: "no-change"; token: SessionCatalogShardToken }
-  | { status: "changed"; token: SessionCatalogShardToken };
 
 export interface SessionCatalogReconcileMetrics {
   durationMs: number;
   adapterScans: number;
+  rowsScanned: number;
+  /** False when nothing changed and the generation stayed. */
+  changed: boolean;
   rowsWritten: number;
-  bytesWritten: number;
-  deltaBytes: number;
-  deltaChanges: number;
-  deltaReplacementRequired: boolean;
-  cleanupFailures: number;
+  rowsTombstoned: number;
+  /** Synchronous time of the SQLite transaction, 0 when nothing changed. */
+  writeMs: number;
 }
 
 export interface SessionCatalogReconcileResult {
@@ -151,63 +71,57 @@ export interface SessionCatalogReconcileResult {
   metrics: SessionCatalogReconcileMetrics;
 }
 
+export interface SessionCatalogLegacyImport {
+  /**
+   * `imported`: the files' generation was written to the tables.
+   * `superseded`: the tables already held it or a later one.
+   * `unreadable`: the files were damaged and a new lineage starts.
+   */
+  status: "imported" | "superseded" | "unreadable";
+  rows: number;
+  durationMs: number;
+  deleted: boolean;
+}
+
+export interface SessionCatalogWrite extends SessionCatalogSqliteWrite {
+  generation: number;
+  durationMs: number;
+}
+
 export interface SessionCatalogServiceMetrics {
   reconciliationRequests: number;
   reconciliationStarts: number;
   reconciliationJoins: number;
   reconciliationQueuedBehindDifferentScope: number;
   reconciliationFailures: number;
-  projectReadRequests: number;
-  projectDiskReads: number;
-  /** Whole-generation reads that walked shard files rather than memory. */
-  catalogDiskReads: number;
-  projectShardNoChange: number;
-  deltaShardsCompared: number;
-  deltaShardsSkippedByHash: number;
-  /**
-   * Publications whose previous generation had an unreadable changed shard.
-   * The new generation replaces it; clients are sent a replacement.
-   */
-  deltaBaseUnreadable: number;
+  /** Writes that advanced the generation. */
+  publications: number;
+  /** Reconciliations that found nothing to write. */
+  unchangedReconciliations: number;
+  /** Rows an adapter yielded twice in one scan; the later one is kept. */
+  duplicateRows: number;
+  lastWrite: SessionCatalogWrite | null;
   resetFailures: number;
   lastResetReason: string | null;
+  legacyImport: SessionCatalogLegacyImport | null;
   catalogEpoch: string | null;
   catalogGeneration: number;
   rowCount: number;
-  rowsBytes: number;
-  hotSet: ReturnType<
-    SourceVersionedSingleFlight<string, ProjectRowsValue>["getStats"]
-  >;
-  /** The catalog tables' copy of the files; null without a database. */
-  sqlite: SessionCatalogMirrorMetrics | null;
 }
 
 export interface SessionCatalogServiceOptions {
-  /** YA app-data root. Catalog files live below session-catalog/. */
-  dataDir: string;
+  /** The profile database; its catalog tables are the catalog. */
+  database: SqliteDatabase;
   /**
-   * The profile database. While the files stay authoritative, startup copies
-   * the published generation into its catalog tables and every publication
-   * writes them too (plan 189 step 3).
+   * `session-catalog/` below the data directory, where earlier versions kept
+   * the catalog as files. Imported once if the tables are behind it, then
+   * deleted.
    */
-  database?: SqliteDatabase;
-  bucketCount?: number;
-  maxHotBytes?: number;
-  maxDeltaBytes?: number;
-  maxDeltaAgeMs?: number;
-  maxDeltaCompareShardBytes?: number;
-  maxRecentRows?: number;
-  maxRecentBytes?: number;
+  legacyCatalogDir?: string;
   maxRowBytes?: number;
-  retainedGenerations?: number;
+  tombstoneGenerations?: number;
   now?: () => number;
   createEpoch?: () => string;
-  /**
-   * Called when a read finds the current generation unreadable and ends the
-   * lineage. The catalog is then empty until its owner reconciles, and
-   * nothing else will ask it to.
-   */
-  onLineageReset?: () => void;
 }
 
 interface ReconcileInFlight {
@@ -216,102 +130,42 @@ interface ReconcileInFlight {
   promise: Promise<Omit<SessionCatalogReconcileResult, "status">>;
 }
 
-const WHOLE_CATALOG_KEY = "all";
+interface IndexEntry {
+  position: number;
+  hash: string;
+}
 
-/**
- * Newest-first window of rows under a row and byte budget, maintained by
- * bounded insertion so one scanned row never costs a sort of the window.
- */
-class RecentRowWindow {
-  private readonly rows: SessionCatalogRow[] = [];
-  private readonly updatedAtMs: number[] = [];
-  private bytes = 0;
-
-  constructor(
-    private readonly maxRows: number,
-    private readonly maxBytes: number,
-  ) {}
-
-  add(row: SessionCatalogRow): void {
-    if (this.maxRows === 0 || this.maxBytes === 0) return;
-    const updatedAtMs = Date.parse(row.updatedAt);
-    const rowBytes = Buffer.byteLength(JSON.stringify(row)) + 1;
-    if (
-      this.rows.length >= this.maxRows &&
-      updatedAtMs <= (this.updatedAtMs[this.rows.length - 1] ?? 0)
-    ) {
-      return;
-    }
-    const index = this.insertionIndex(updatedAtMs);
-    this.rows.splice(index, 0, row);
-    this.updatedAtMs.splice(index, 0, updatedAtMs);
-    this.bytes += rowBytes;
-    while (
-      this.rows.length > 0 &&
-      (this.rows.length > this.maxRows || this.bytes > this.maxBytes)
-    ) {
-      const dropped = this.rows.pop();
-      this.updatedAtMs.pop();
-      if (dropped) this.bytes -= Buffer.byteLength(JSON.stringify(dropped)) + 1;
-    }
-  }
-
-  snapshot(): SessionCatalogRow[] {
-    return [...this.rows];
-  }
-
-  private insertionIndex(updatedAtMs: number): number {
-    let low = 0;
-    let high = this.updatedAtMs.length;
-    while (low < high) {
-      const middle = (low + high) >>> 1;
-      if ((this.updatedAtMs[middle] ?? 0) >= updatedAtMs) low = middle + 1;
-      else high = middle;
-    }
-    return low;
-  }
+/** The published generation, as stored, kept parsed in memory. */
+interface Published {
+  epoch: string;
+  generation: number;
+  completedAt: string;
+  tombstoneHorizon: number;
+  rows: readonly Readonly<SessionCatalogRow>[];
+  /** Row key to its position in `rows` and its stored hash. */
+  index: ReadonlyMap<string, IndexEntry>;
+  sources: readonly SessionCatalogSqliteSource[];
+  /** Built on the first project read of this generation. */
+  byProject?: Map<string, readonly Readonly<SessionCatalogRow>[]>;
 }
 
 /**
- * Owns one complete, durable catalog generation. Provider scans run outside
- * request paths. The current generation's rows stay parsed in RAM, seeded by
- * the publication that wrote them; project reads slice them, or stream one
- * deterministic shard when they are absent, into a byte-bounded hot set.
+ * Owns the session catalog in `discovery.sqlite` (plan 189 step 3). Provider
+ * scans run outside request paths; a publication diffs the scanned rows
+ * against the published ones by row hash and writes only what changed, in one
+ * transaction that advances the generation. A scan that changes nothing
+ * advances nothing. The published generation's rows stay parsed in memory,
+ * loaded from the tables at startup, so reads never query SQLite.
  */
 export class SessionCatalogService {
-  private readonly catalogDir: string;
-  private readonly generationsDir: string;
-  private readonly manifestPath: string;
-  private readonly bucketCount: number;
-  private readonly maxDeltaBytes: number;
-  private readonly maxDeltaAgeMs: number;
-  private readonly maxDeltaCompareShardBytes: number;
-  private readonly maxRecentRows: number;
-  private readonly maxRecentBytes: number;
+  private readonly database: SqliteDatabase;
+  private readonly legacyCatalogDir?: string;
   private readonly maxRowBytes: number;
-  private readonly retainedGenerations: number;
-  /** Generation directories with in-flight readers, by reader count. */
-  private readonly pinnedGenerations = new Map<string, number>();
+  private readonly tombstoneGenerations: number;
   private readonly now: () => number;
   private readonly createEpoch: () => string;
-  private readonly onLineageReset?: () => void;
-  private readonly projectRowsOwner: SourceVersionedSingleFlight<
-    string,
-    ProjectRowsValue
-  >;
-  /**
-   * The current generation's parsed rows, outside the project hot budget.
-   * Whole-catalog reads are the common path (every list and reconciliation),
-   * and the catalog outgrows any fixed byte budget: counted against one, a
-   * full read evicted every project entry and then itself, so each caller
-   * re-read and re-parsed every shard. One fixed key keeps exactly one
-   * generation, replaced at publication by the rows that publication wrote.
-   */
-  private readonly catalogRowsOwner = new SourceVersionedSingleFlight<
-    string,
-    CatalogRowsValue
-  >({ maxRetainedBytes: Number.POSITIVE_INFINITY, estimateBytes: () => 0 });
-  private manifest: PersistedSessionCatalogManifest | null = null;
+  private published: Published | null = null;
+  private initialization?: Promise<void>;
   private reconcileInFlight: ReconcileInFlight | null = null;
   private stopped = false;
   private reconciliationRequests = 0;
@@ -319,134 +173,155 @@ export class SessionCatalogService {
   private reconciliationJoins = 0;
   private reconciliationQueuedBehindDifferentScope = 0;
   private reconciliationFailures = 0;
-  private projectReadRequests = 0;
-  private projectDiskReads = 0;
-  private catalogDiskReads = 0;
-  private projectShardNoChange = 0;
-  private deltaShardsCompared = 0;
-  private deltaShardsSkippedByHash = 0;
-  private deltaBaseUnreadable = 0;
+  private publications = 0;
+  private unchangedReconciliations = 0;
+  private duplicateRows = 0;
+  private lastWrite: SessionCatalogWrite | null = null;
   private resetFailures = 0;
   private lastResetReason: string | null = null;
-  private readonly mirror?: SessionCatalogSqliteMirror;
+  private legacyImport: SessionCatalogLegacyImport | null = null;
 
   constructor(options: SessionCatalogServiceOptions) {
-    this.catalogDir = join(options.dataDir, "session-catalog");
-    this.generationsDir = join(this.catalogDir, "generations");
-    this.manifestPath = join(this.catalogDir, "manifest.json");
-    this.bucketCount = positiveInteger(
-      options.bucketCount ?? DEFAULT_BUCKET_COUNT,
-      "bucketCount",
-      1_024,
-    );
-    this.maxDeltaBytes = nonNegativeInteger(
-      options.maxDeltaBytes ?? DEFAULT_DELTA_BYTES,
-      "maxDeltaBytes",
-    );
-    this.maxDeltaAgeMs = nonNegativeInteger(
-      options.maxDeltaAgeMs ?? DEFAULT_DELTA_AGE_MS,
-      "maxDeltaAgeMs",
-    );
-    this.maxDeltaCompareShardBytes = nonNegativeInteger(
-      options.maxDeltaCompareShardBytes ?? DEFAULT_DELTA_COMPARE_SHARD_BYTES,
-      "maxDeltaCompareShardBytes",
-    );
-    this.maxRecentRows = nonNegativeInteger(
-      options.maxRecentRows ?? DEFAULT_RECENT_ROWS,
-      "maxRecentRows",
-    );
-    this.maxRecentBytes = nonNegativeInteger(
-      options.maxRecentBytes ?? DEFAULT_RECENT_BYTES,
-      "maxRecentBytes",
-    );
+    this.database = options.database;
+    this.legacyCatalogDir = options.legacyCatalogDir;
     this.maxRowBytes = positiveInteger(
       options.maxRowBytes ?? DEFAULT_MAX_ROW_BYTES,
       "maxRowBytes",
     );
-    this.retainedGenerations = positiveInteger(
-      options.retainedGenerations ?? DEFAULT_RETAINED_GENERATIONS,
-      "retainedGenerations",
-      16,
+    this.tombstoneGenerations = positiveInteger(
+      options.tombstoneGenerations ?? DEFAULT_TOMBSTONE_GENERATIONS,
+      "tombstoneGenerations",
     );
     this.now = options.now ?? Date.now;
     this.createEpoch = options.createEpoch ?? randomUUID;
-    this.onLineageReset = options.onLineageReset;
-    if (options.database)
-      this.mirror = new SessionCatalogSqliteMirror(options.database);
-    this.projectRowsOwner = new SourceVersionedSingleFlight({
-      maxRetainedBytes: nonNegativeInteger(
-        options.maxHotBytes ?? DEFAULT_HOT_BYTES,
-        "maxHotBytes",
-      ),
-      estimateBytes: (value) => Math.max(64, value.bytes),
-    });
   }
 
   async initialize(): Promise<SessionCatalogSnapshot> {
-    if (this.manifest) return this.snapshotFrom(this.manifest);
-    await mkdir(this.generationsDir, { recursive: true });
-    try {
-      const parsed = JSON.parse(
-        await readFile(this.manifestPath, "utf-8"),
-      ) as unknown;
-      this.manifest = validateManifest(parsed, this.bucketCount);
-    } catch (error) {
-      // A cache must never be able to keep the server from starting. Anything
-      // unreadable or incompatible ends this lineage: the catalog restarts at
-      // a fresh epoch and reconciliation refills it.
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== "ENOENT") this.recordReset(error);
-      await this.startLineage();
+    // A failed start (an I/O error reading the legacy files, a busy
+    // database) is retried by the next caller rather than kept.
+    this.initialization ??= this.load().catch((error: unknown) => {
+      this.initialization = undefined;
+      throw error;
+    });
+    await this.initialization;
+    return this.getSnapshot();
+  }
+
+  private async load(): Promise<void> {
+    let stored = this.withStore((store) => store.readState());
+    if (this.legacyCatalogDir)
+      stored = await this.importLegacy(this.legacyCatalogDir, stored);
+    if (!stored) {
+      this.startLineage();
+      return;
     }
-    await this.copyToSqlite();
-    return this.snapshotFrom(this.requireManifest());
+    try {
+      const { rows, sources } = this.withStore((store) => ({
+        rows: store.readRowsWithHashes(),
+        sources: store.readSources(),
+      }));
+      const index = new Map<string, IndexEntry>();
+      const published: Readonly<SessionCatalogRow>[] = [];
+      for (const { row, hash } of rows) {
+        index.set(rowKey(row.catalogFamily, row.storeKey, row.sessionId), {
+          position: published.length,
+          hash,
+        });
+        published.push(Object.freeze(row));
+      }
+      this.published = {
+        epoch: stored.epoch,
+        generation: stored.generation,
+        completedAt: stored.completedAt,
+        tombstoneHorizon: stored.tombstoneHorizon,
+        rows: Object.freeze(published),
+        index,
+        sources: Object.freeze(sources),
+      };
+    } catch (error) {
+      // A row the store cannot reassemble ends the lineage; the catalog is a
+      // cache and reconciliation refills it. A database error (busy, I/O)
+      // fails the start instead, to be retried.
+      if (!(error instanceof SessionCatalogRowError)) throw error;
+      this.recordReset(error);
+      this.startLineage();
+    }
   }
 
   /**
-   * Copy the published generation into the catalog tables, keeping its epoch
-   * and generation, unless they already hold it. Only changed rows are
-   * written.
+   * Import the generation an earlier version left in files, unless the
+   * tables already hold it or a later one, then delete the folder. The folder
+   * is deleted only once the tables hold a generation at least as new, or the
+   * files are proven damaged; any other read error keeps it and fails the
+   * start, to be retried.
    */
-  private async copyToSqlite(): Promise<void> {
-    const mirror = this.mirror;
-    if (!mirror) return;
-    const token = this.getToken();
-    const stored = mirror.storedState();
-    if (stored?.epoch === token.catalogEpoch) {
-      if (stored.generation === token.catalogGeneration) return;
-      // SQLite is ahead of the files only when the files were restored from
-      // an older copy. Numbering on from the files would reuse generations
-      // change readers have seen, so the lineage ends, as for unreadable files.
-      if (stored.generation > token.catalogGeneration) {
-        this.recordReset(
-          new Error("Session catalog tables are ahead of the catalog files"),
-        );
-        await this.startLineage();
-        return;
-      }
-    }
+  private async importLegacy(
+    catalogDir: string,
+    stored: SessionCatalogSqliteState | undefined,
+  ): Promise<SessionCatalogSqliteState | undefined> {
+    const startedAt = performance.now();
+    let status: SessionCatalogLegacyImport["status"];
+    let rows = 0;
     try {
-      // An unreadable shard is left for the first real read to recover.
-      const { snapshot, rows } = await this.readRows({
-        recoverUnreadable: false,
-      });
-      // Rechecked synchronously by the mirror: a publication may have
-      // written a later generation while the rows were read.
-      mirror.copy(
-        {
-          epoch: snapshot.catalogEpoch,
-          generation: snapshot.catalogGeneration,
-          completedAt: snapshot.completedAt,
-        },
-        rows,
-        snapshot.providerSources,
-      );
+      const manifest = await readLegacyCatalogManifest(catalogDir);
+      if (!manifest) {
+        // A folder without a manifest holds nothing a reader could use.
+        if (!(await exists(catalogDir))) return stored;
+        status = "superseded";
+      } else if (
+        stored &&
+        (stored.epoch !== manifest.epoch ||
+          stored.generation >= manifest.generation)
+      ) {
+        status = "superseded";
+      } else {
+        const legacyRows = await readLegacyCatalogRows(catalogDir, manifest);
+        // Nothing else writes the tables before initialization completes.
+        this.withStore((store) =>
+          store.writeGeneration(
+            {
+              epoch: manifest.epoch,
+              generation: manifest.generation,
+              completedAt: manifest.completedAt,
+            },
+            legacyRows,
+            manifest.sources,
+          ),
+        );
+        stored = this.withStore((store) => store.readState());
+        status = "imported";
+        rows = legacyRows.length;
+      }
     } catch (error) {
+      if (!(error instanceof LegacyCatalogCorruptionError)) throw error;
+      this.recordReset(error);
+      status = "unreadable";
+      // The tables were behind the damaged files, or their lineage is
+      // unknown: continuing from them could reuse generations clients have
+      // seen, so a fresh lineage starts.
+      stored = undefined;
+    }
+    let deleted = true;
+    try {
+      await rm(catalogDir, { recursive: true, force: true });
+    } catch (error) {
+      deleted = false;
       getLogger().warn(
-        { err: error },
-        "SESSION_CATALOG: reading the catalog to copy into SQLite failed",
+        { err: error, catalogDir },
+        "SESSION_CATALOG: deleting the catalog files failed",
       );
     }
+    this.legacyImport = {
+      status,
+      rows,
+      durationMs: performance.now() - startedAt,
+      deleted,
+    };
+    getLogger().info(
+      { legacyImport: this.legacyImport },
+      "SESSION_CATALOG: moved the catalog files into SQLite",
+    );
+    return stored;
   }
 
   private recordReset(reason: unknown): void {
@@ -455,309 +330,59 @@ export class SessionCatalogService {
       reason instanceof Error ? reason.message : String(reason);
   }
 
-  /**
-   * End the current lineage at a fresh epoch and generation 0. The in-memory
-   * manifest is replaced before any await, so concurrent callers observe the
-   * reset at once and no reader returns to the abandoned generation.
-   */
-  private async startLineage(): Promise<PersistedSessionCatalogManifest> {
-    const manifest: PersistedSessionCatalogManifest = {
-      schemaVersion: MANIFEST_SCHEMA_VERSION,
-      bucketCount: this.bucketCount,
-      catalogEpoch: this.createEpoch(),
-      catalogGeneration: 0,
+  /** Start a fresh epoch at generation 0 with no rows, in memory and stored. */
+  private startLineage(): void {
+    const state = {
+      epoch: this.createEpoch(),
+      generation: 0,
       completedAt: new Date(this.now()).toISOString(),
-      generationDirectory: null,
-      rowCount: 0,
-      rowsBytes: 0,
-      shards: [],
-      providerSources: [],
-      recentRows: [],
-      deltas: [],
     };
-    this.manifest = manifest;
-    this.catalogRowsOwner.invalidate(WHOLE_CATALOG_KEY);
-    // The tables follow at once, so they never describe an abandoned lineage.
-    this.mirror?.publish(
-      {
-        epoch: manifest.catalogEpoch,
-        generation: 0,
-        completedAt: manifest.completedAt,
-      },
-      0,
-      null,
-      [],
-      [],
-    );
-    await this.persistManifest(manifest);
-    await this.cleanupGenerationDirectories(null);
-    return manifest;
-  }
-
-  /**
-   * A shard the current manifest names but cannot be read back (a torn or
-   * interrupted write, a full disk, outside damage) is the same unreadable
-   * cache state `initialize` recovers from. Rethrowing it would fail every
-   * collection read and, because reconciliation starts with a read, keep the
-   * catalog from ever rebuilding itself.
-   */
-  private async resetUnreadableGeneration(
-    manifest: PersistedSessionCatalogManifest,
-    error: unknown,
-  ): Promise<boolean> {
-    if (
-      !(error instanceof SessionCatalogCorruptionError || isMissingFile(error))
-    )
-      return false;
-    // Concurrent readers of one generation fail together; one reset serves all.
-    if (this.manifest !== manifest) return true;
-    this.recordReset(error);
-    try {
-      await this.startLineage();
-    } finally {
-      // The empty generation is already current even if persisting it failed.
-      this.onLineageReset?.();
-    }
-    return true;
+    this.withStore((store) => store.writeGeneration(state, [], []));
+    this.published = {
+      ...state,
+      tombstoneHorizon: 0,
+      rows: Object.freeze([]),
+      index: new Map(),
+      sources: Object.freeze([]),
+    };
   }
 
   getSnapshot(): SessionCatalogSnapshot {
-    return this.snapshotFrom(this.requireManifest());
-  }
-
-  /** Fixed-cost publication identity without copying rows or touching disk. */
-  getToken(): SessionCatalogToken {
-    return this.tokenFrom(this.requireManifest());
-  }
-
-  /** Read one coherent compact generation without consulting provider storage. */
-  /**
-   * Hold a generation directory against cleanup while a reader walks it.
-   *
-   * Retention counts directories, not readers: with two generations
-   * published back to back, the directory a whole-catalog read started from
-   * is the one cleanup removes, and the read then failed mid-walk with
-   * ENOENT on a later bucket. A pinned directory outlives retention until
-   * its last reader releases it; the next publication's cleanup removes it.
-   */
-  pinGeneration(directory: string): () => void {
-    this.pinnedGenerations.set(
-      directory,
-      (this.pinnedGenerations.get(directory) ?? 0) + 1,
-    );
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      const remaining = (this.pinnedGenerations.get(directory) ?? 1) - 1;
-      if (remaining > 0) this.pinnedGenerations.set(directory, remaining);
-      else this.pinnedGenerations.delete(directory);
+    const published = this.requirePublished();
+    return {
+      ...tokenFrom(published),
+      completedAt: published.completedAt,
+      rowCount: published.rows.length,
+      providerSources: published.sources.map((source) => ({ ...source })),
     };
   }
 
-  async readRows(options?: { recoverUnreadable?: boolean }): Promise<{
+  /** Fixed-cost publication identity without copying rows. */
+  getToken(): SessionCatalogToken {
+    return tokenFrom(this.requirePublished());
+  }
+
+  /** The published generation's rows, from memory. */
+  async readRows(): Promise<{
     snapshot: SessionCatalogSnapshot;
     rows: ReadonlyArray<Readonly<SessionCatalogRow>>;
   }> {
-    for (let attempt = 0; attempt < MAX_PROJECT_READ_RETARGETS; attempt += 1) {
-      this.ensureRunning();
-      const manifest = this.requireManifest();
-      let result: Awaited<ReturnType<typeof this.catalogRowsOwner.run>>;
-      try {
-        result = await this.catalogRowsOwner.run({
-          key: WHOLE_CATALOG_KEY,
-          sourceVersion: catalogRowsVersion(manifest),
-          compute: async () => {
-            const rows: Readonly<SessionCatalogRow>[] = [];
-            const rowBytes: number[] = [];
-            if (manifest.generationDirectory) {
-              this.catalogDiskReads += 1;
-              const release = this.pinGeneration(manifest.generationDirectory);
-              try {
-                for (const shard of manifest.shards) {
-                  const path = this.shardPath(
-                    manifest.generationDirectory,
-                    shard.file,
-                  );
-                  for await (const { row, line } of readShardRows(path)) {
-                    rows.push(Object.freeze(row));
-                    rowBytes.push(Buffer.byteLength(line) + 1);
-                  }
-                }
-              } finally {
-                release();
-              }
-            }
-            return {
-              rows: Object.freeze(rows),
-              rowBytes: Object.freeze(rowBytes),
-            };
-          },
-          isCurrent: () => this.manifest === manifest && !this.stopped,
-        });
-      } catch (error) {
-        // A shard that vanished under a superseded manifest is a retarget;
-        // under the current manifest it is corruption, and ends the lineage.
-        if (options?.recoverUnreadable === false) throw error;
-        if (await this.resetUnreadableGeneration(manifest, error)) continue;
-        throw error;
-      }
-      if (result.status !== "stale") {
-        return {
-          snapshot: this.snapshotFrom(manifest),
-          rows: result.value.rows,
-        };
-      }
-    }
-    throw new Error(
-      "Session catalog generation kept moving during collection read",
-    );
+    this.ensureRunning();
+    const published = this.requirePublished();
+    return { snapshot: this.getSnapshot(), rows: published.rows };
   }
 
-  getConditional(token: SessionCatalogToken): SessionCatalogConditionalResult {
-    const manifest = this.requireManifest();
-    const current = this.tokenFrom(manifest);
-    if (
-      token.catalogEpoch !== manifest.catalogEpoch ||
-      token.catalogGeneration < 0 ||
-      token.catalogGeneration > manifest.catalogGeneration
-    ) {
-      return { status: "replacement", snapshot: this.snapshotFrom(manifest) };
-    }
-    if (token.catalogGeneration === manifest.catalogGeneration) {
-      return { status: "no-change", token: current };
-    }
-
-    const deltas: SessionCatalogDelta[] = [];
-    let nextGeneration = token.catalogGeneration;
-    for (const delta of manifest.deltas) {
-      if (delta.fromGeneration !== nextGeneration) continue;
-      if (delta.replacementRequired) {
-        return {
-          status: "replacement",
-          snapshot: this.snapshotFrom(manifest),
-        };
-      }
-      deltas.push(cloneDelta(delta));
-      nextGeneration = delta.toGeneration;
-      if (nextGeneration === manifest.catalogGeneration) {
-        return { status: "deltas", token: current, deltas };
-      }
-    }
-    return { status: "replacement", snapshot: this.snapshotFrom(manifest) };
-  }
-
-  /**
-   * Generation vector component for one project's shard. A caller holding a
-   * matching `shardGeneration` needs no rows even when the global generation
-   * has moved for unrelated projects.
-   */
-  getProjectToken(projectIdentityKey: string): SessionCatalogShardToken {
-    const manifest = this.requireManifest();
-    return this.projectTokenFrom(manifest, projectIdentityKey);
-  }
-
-  /**
-   * `changed` means the caller should read rows; it does not carry them, so a
-   * revalidation that needs nothing costs no row work.
-   */
-  getProjectConditional(
-    projectIdentityKey: string,
-    token: SessionCatalogShardToken,
-  ): SessionCatalogProjectConditionalResult {
-    const current = this.getProjectToken(projectIdentityKey);
-    if (
-      token.catalogEpoch === current.catalogEpoch &&
-      token.bucket === current.bucket &&
-      token.shardGeneration === current.shardGeneration
-    ) {
-      this.projectShardNoChange += 1;
-      return { status: "no-change", token: current };
-    }
-    return { status: "changed", token: current };
-  }
-
+  /** One project's rows of the published generation, newest first. */
   async readProjectRows(
     projectIdentityKey: string,
-    options: { recoverUnreadable?: boolean } = {},
   ): Promise<SessionCatalogProjectRows> {
-    this.projectReadRequests += 1;
-    // A generation published between admission and completion retargets the
-    // read. The bound keeps a pathological publish rate from recursing freely.
-    for (let attempt = 0; attempt < MAX_PROJECT_READ_RETARGETS; attempt += 1) {
-      const attempted = await this.readProjectRowsOnce(
-        projectIdentityKey,
-        options,
-      );
-      if (attempted) return attempted;
-    }
-    throw new Error(
-      `Session catalog generation kept moving under ${projectIdentityKey}`,
-    );
-  }
-
-  private async readProjectRowsOnce(
-    projectIdentityKey: string,
-    options: { recoverUnreadable?: boolean },
-  ): Promise<SessionCatalogProjectRows | null> {
     this.ensureRunning();
-    const manifest = this.requireManifest();
-    const token = this.projectTokenFrom(manifest, projectIdentityKey);
-    if (!manifest.generationDirectory || manifest.catalogGeneration === 0) {
-      return { ...token, rows: [] };
-    }
-    const shard = manifest.shards.find(
-      (candidate) => candidate.bucket === token.bucket,
-    );
-    if (!shard) return { ...token, rows: [] };
-
-    const filePath = this.shardPath(manifest.generationDirectory, shard.file);
-    // Keyed by shard content, not by generation: a new generation that leaves
-    // this bucket byte-identical reuses the retained rows instead of re-reading.
-    const key = `${manifest.catalogEpoch}:${projectIdentityKey}`;
-    let result: Awaited<ReturnType<typeof this.projectRowsOwner.run>>;
-    try {
-      result = await this.projectRowsOwner.run({
-        key,
-        sourceVersion: shard.contentHash,
-        compute: async () => {
-          const retained = this.catalogRowsOwner.getAccepted(WHOLE_CATALOG_KEY);
-          if (retained?.sourceVersion === catalogRowsVersion(manifest)) {
-            return projectSlice(retained.value, projectIdentityKey);
-          }
-          this.projectDiskReads += 1;
-          const release = this.pinGeneration(manifest.generationDirectory!);
-          try {
-            return await readProjectRowsFromShard(filePath, projectIdentityKey);
-          } finally {
-            release();
-          }
-        },
-        isCurrent: (candidate) =>
-          this.currentShardContentHash(token.bucket) === candidate,
-      });
-    } catch (error) {
-      if (
-        options.recoverUnreadable !== false &&
-        (await this.resetUnreadableGeneration(manifest, error))
-      )
-        return null;
-      throw error;
-    }
-    if (result.status === "stale") {
-      if (this.requireManifest() !== manifest) return null;
-      throw new Error(`Session catalog shard disappeared: ${filePath}`);
-    }
-    return { ...token, rows: result.value.rows };
-  }
-
-  private currentShardContentHash(bucket: number): string | null {
-    const manifest = this.manifest;
-    if (!manifest) return null;
-    return (
-      manifest.shards.find((shard) => shard.bucket === bucket)?.contentHash ??
-      null
-    );
+    const published = this.requirePublished();
+    published.byProject ??= groupByProject(published.rows);
+    return {
+      ...tokenFrom(published),
+      rows: published.byProject.get(projectIdentityKey) ?? [],
+    };
   }
 
   async reconcile(
@@ -806,11 +431,37 @@ export class SessionCatalogService {
     }
   }
 
+  /**
+   * Replace published rows by key, as one publication if any changed. A row
+   * whose key is gone, or whose source version moved since the caller read
+   * it, is skipped: the next scan owns it. Waits for a reconciliation in
+   * flight, whose scan would not carry these rows.
+   */
+  async upsertRows(
+    rows: readonly SessionCatalogRow[],
+  ): Promise<SessionCatalogToken> {
+    while (this.reconcileInFlight) {
+      await this.reconcileInFlight.promise.catch(() => {});
+    }
+    this.ensureRunning();
+    const current = this.requirePublished();
+    const next = [...current.rows];
+    const index = new Map(current.index);
+    for (const candidate of rows) {
+      const { row, key, hash } = this.prepareRow(candidate, candidate);
+      const entry = index.get(key);
+      if (!entry || entry.hash === hash) continue;
+      if (next[entry.position]!.sourceVersion !== row.sourceVersion) continue;
+      next[entry.position] = row;
+      index.set(key, { position: entry.position, hash });
+    }
+    this.commit(next, index, current.sources);
+    return this.getToken();
+  }
+
   stop(): void {
     this.stopped = true;
     this.reconcileInFlight?.controller.abort();
-    this.projectRowsOwner.clear();
-    this.catalogRowsOwner.clear();
   }
 
   getMetrics(): SessionCatalogServiceMetrics {
@@ -821,21 +472,16 @@ export class SessionCatalogService {
       reconciliationQueuedBehindDifferentScope:
         this.reconciliationQueuedBehindDifferentScope,
       reconciliationFailures: this.reconciliationFailures,
-      projectReadRequests: this.projectReadRequests,
-      projectDiskReads: this.projectDiskReads,
-      catalogDiskReads: this.catalogDiskReads,
-      projectShardNoChange: this.projectShardNoChange,
-      deltaShardsCompared: this.deltaShardsCompared,
-      deltaShardsSkippedByHash: this.deltaShardsSkippedByHash,
-      deltaBaseUnreadable: this.deltaBaseUnreadable,
+      publications: this.publications,
+      unchangedReconciliations: this.unchangedReconciliations,
+      duplicateRows: this.duplicateRows,
+      lastWrite: this.lastWrite,
       resetFailures: this.resetFailures,
       lastResetReason: this.lastResetReason,
-      catalogEpoch: this.manifest?.catalogEpoch ?? null,
-      catalogGeneration: this.manifest?.catalogGeneration ?? 0,
-      rowCount: this.manifest?.rowCount ?? 0,
-      rowsBytes: this.manifest?.rowsBytes ?? 0,
-      hotSet: this.projectRowsOwner.getStats(),
-      sqlite: this.mirror?.getMetrics() ?? null,
+      legacyImport: this.legacyImport,
+      catalogEpoch: this.published?.epoch ?? null,
+      catalogGeneration: this.published?.generation ?? 0,
+      rowCount: this.published?.rows.length ?? 0,
     };
   }
 
@@ -844,373 +490,268 @@ export class SessionCatalogService {
     mode: SessionCatalogScanMode,
     signal: AbortSignal,
   ): Promise<Omit<SessionCatalogReconcileResult, "status">> {
-    const previous = this.requireManifest();
-    const targetGeneration = previous.catalogGeneration + 1;
+    const basis = this.requirePublished();
     const startedAt = this.now();
-    const stagingDirectoryName = `.staging-${targetGeneration}-${randomUUID()}`;
-    const stagingDirectory = join(this.generationsDir, stagingDirectoryName);
-    const finalDirectoryName = `gen-${targetGeneration}-${randomUUID()}`;
-    const finalDirectory = join(this.generationsDir, finalDirectoryName);
-    await mkdir(stagingDirectory, { recursive: false });
-    const writer = new GenerationWriter(
-      stagingDirectory,
-      this.bucketCount,
-      this.maxRowBytes,
-    );
-    const recentRows = new RecentRowWindow(
-      this.maxRecentRows,
-      this.maxRecentBytes,
-    );
-    const providerSources: SessionCatalogProviderSourceSnapshot[] = [];
-    let rowCount = 0;
-    let rowsBytes = 0;
-    let finalDirectoryCreated = false;
-    let cleanupFailures = 0;
-
-    try {
-      for (const adapter of adapters) {
-        throwIfAborted(signal);
-        const scan = await adapter.scan({
-          catalogEpoch: previous.catalogEpoch,
-          targetGeneration,
-          mode,
-          signal,
-        });
-        requireNonEmpty(scan.sourceVersion, "adapter sourceVersion");
-        let adapterRows = 0;
-        for await (const candidate of scan.rows) {
-          throwIfAborted(signal);
-          const row = normalizeRow(candidate, adapter);
-          rowsBytes += await writer.write(row);
-          rowCount += 1;
-          adapterRows += 1;
-          recentRows.add(row);
-        }
-        providerSources.push({
-          catalogFamily: adapter.catalogFamily,
-          storeKey: adapter.storeKey,
-          sourceVersion: scan.sourceVersion,
-          rowCount: adapterRows,
-          metrics: { ...scan.metrics },
-        });
-      }
-      await writer.close();
+    const rows: Readonly<SessionCatalogRow>[] = [];
+    const index = new Map<string, IndexEntry>();
+    const sources: SessionCatalogSqliteSource[] = [];
+    let rowsScanned = 0;
+    for (const adapter of adapters) {
       throwIfAborted(signal);
-      await rename(stagingDirectory, finalDirectory);
-      finalDirectoryCreated = true;
-
-      const completedAt = new Date(this.now()).toISOString();
-      const nextWithoutDeltas: PersistedSessionCatalogManifest = {
-        schemaVersion: MANIFEST_SCHEMA_VERSION,
-        bucketCount: this.bucketCount,
-        catalogEpoch: previous.catalogEpoch,
-        catalogGeneration: targetGeneration,
-        completedAt,
-        generationDirectory: finalDirectoryName,
-        rowCount,
-        rowsBytes,
-        shards: carryShardGenerations(
-          writer.snapshots(),
-          previous.shards,
-          targetGeneration,
-        ),
-        providerSources,
-        recentRows: recentRows.snapshot(),
-        deltas: [],
-      };
-      const delta = await this.computeDelta(previous, nextWithoutDeltas);
-      const manifest = {
-        ...nextWithoutDeltas,
-        deltas: retainDeltas(
-          [...previous.deltas, delta],
-          this.now(),
-          this.maxDeltaAgeMs,
-          this.maxDeltaBytes,
-        ),
-      };
-      // A reader that found this pass's base generation unreadable ended its
-      // lineage; publishing onto the abandoned epoch would resurrect it.
-      if (this.manifest !== previous) {
-        throw new Error("Session catalog lineage was reset during reconcile");
-      }
-      await this.persistManifest(manifest);
-      this.manifest = manifest;
-      const written = writer.writtenRows();
-      this.mirror?.publish(
-        {
-          epoch: manifest.catalogEpoch,
-          generation: manifest.catalogGeneration,
-          completedAt,
-        },
-        previous.catalogGeneration,
-        delta.replacementRequired ? null : delta.changes,
-        written.rows,
-        providerSources,
-      );
-      // Admitted before any await, so a reader arriving now joins these rows
-      // instead of reading back the generation this pass just wrote.
-      const retaining = this.catalogRowsOwner.run({
-        key: WHOLE_CATALOG_KEY,
-        sourceVersion: catalogRowsVersion(manifest),
-        compute: async () => written,
-        isCurrent: () => this.manifest === manifest && !this.stopped,
+      const scan = await adapter.scan({
+        catalogEpoch: basis.epoch,
+        targetGeneration: basis.generation + 1,
+        mode,
+        signal,
       });
-      cleanupFailures =
-        await this.cleanupGenerationDirectories(finalDirectoryName);
-      await retaining;
-
-      return {
-        snapshot: this.snapshotFrom(manifest),
-        metrics: {
-          durationMs: this.now() - startedAt,
-          adapterScans: adapters.length,
-          rowsWritten: rowCount,
-          bytesWritten: rowsBytes,
-          deltaBytes: delta.bytes,
-          deltaChanges: delta.changes.length,
-          deltaReplacementRequired: delta.replacementRequired,
-          cleanupFailures,
-        },
-      };
-    } catch (error) {
-      await writer.close().catch(() => {});
-      await rm(finalDirectoryCreated ? finalDirectory : stagingDirectory, {
-        recursive: true,
-        force: true,
-      }).catch(() => {});
-      throw error;
+      requireNonEmpty(scan.sourceVersion, "adapter sourceVersion");
+      for await (const candidate of scan.rows) {
+        throwIfAborted(signal);
+        const { row, key, hash } = this.prepareRow(candidate, adapter, basis);
+        rowsScanned += 1;
+        const existing = index.get(key);
+        if (existing) {
+          // The store keeps one row per key, so memory keeps the same one.
+          this.duplicateRows += 1;
+          rows[existing.position] = row;
+          index.set(key, { position: existing.position, hash });
+        } else {
+          index.set(key, { position: rows.length, hash });
+          rows.push(row);
+        }
+      }
+      sources.push({
+        catalogFamily: adapter.catalogFamily,
+        storeKey: adapter.storeKey,
+      });
     }
-  }
-
-  private async computeDelta(
-    previous: PersistedSessionCatalogManifest,
-    next: PersistedSessionCatalogManifest,
-  ): Promise<SessionCatalogDelta> {
-    const delta: SessionCatalogDelta = {
-      fromGeneration: previous.catalogGeneration,
-      toGeneration: next.catalogGeneration,
-      createdAt: next.completedAt,
-      replacementRequired: false,
-      changes: [],
-      bytes: 0,
+    throwIfAborted(signal);
+    // Diffed against the generation published now, not the scan's basis, so
+    // a publication that landed meanwhile is not undone by key.
+    const write = this.commit(rows, index, sources);
+    const metrics: SessionCatalogReconcileMetrics = {
+      durationMs: this.now() - startedAt,
+      adapterScans: adapters.length,
+      rowsScanned,
+      changed: write !== null,
+      rowsWritten: write?.rowsWritten ?? 0,
+      rowsTombstoned: write?.rowsTombstoned ?? 0,
+      writeMs: write?.durationMs ?? 0,
     };
-    const previousShards = new Map(
-      previous.shards.map((shard) => [shard.bucket, shard]),
+    getLogger().debug(
+      { metrics, generation: this.published?.generation },
+      "SESSION_CATALOG: reconciled",
     );
-    const nextShards = new Map(
-      next.shards.map((shard) => [shard.bucket, shard]),
-    );
-    const buckets = new Set([...previousShards.keys(), ...nextShards.keys()]);
-
-    for (const bucket of [...buckets].sort((left, right) => left - right)) {
-      const previousShard = previousShards.get(bucket);
-      const nextShard = nextShards.get(bucket);
-      // The writer digested every shard, so an unchanged bucket is provably
-      // change-free without reading either generation back off disk.
-      if (previousShard?.contentHash === nextShard?.contentHash) {
-        this.deltaShardsSkippedByHash += 1;
-        continue;
-      }
-      if (
-        (previousShard?.bytes ?? 0) > this.maxDeltaCompareShardBytes ||
-        (nextShard?.bytes ?? 0) > this.maxDeltaCompareShardBytes
-      ) {
-        return replacementDelta(delta);
-      }
-      this.deltaShardsCompared += 1;
-      let before = new Map<string, ShardLine>();
-      if (previousShard) {
-        try {
-          before = await readShardLines(
-            this.shardPath(
-              requireGenerationDirectory(previous),
-              previousShard.file,
-            ),
-          );
-        } catch (error) {
-          // Reads serve the retained rows, so damage to the previous
-          // generation's files is met here, if at all. The new generation
-          // rewrote every shard and is complete without them; clients just
-          // cannot be given a delta.
-          if (
-            error instanceof SessionCatalogCorruptionError ||
-            isMissingFile(error)
-          ) {
-            this.deltaBaseUnreadable += 1;
-            this.lastResetReason =
-              error instanceof Error ? error.message : String(error);
-            return replacementDelta(delta);
-          }
-          throw error;
-        }
-      }
-      const after = nextShard
-        ? await readShardLines(
-            this.shardPath(requireGenerationDirectory(next), nextShard.file),
-          )
-        : new Map<string, ShardLine>();
-
-      for (const [key, entry] of after) {
-        const old = before.get(key);
-        if (old?.line === entry.line) continue;
-        if (
-          !appendDeltaChange(
-            delta,
-            { type: "upsert", row: entry.row },
-            this.maxDeltaBytes,
-          )
-        ) {
-          return replacementDelta(delta);
-        }
-      }
-      for (const [key, entry] of before) {
-        if (after.has(key)) continue;
-        if (
-          !appendDeltaChange(
-            delta,
-            {
-              type: "delete",
-              key: {
-                catalogFamily: entry.row.catalogFamily,
-                storeKey: entry.row.storeKey,
-                sessionId: entry.row.sessionId,
-              },
-            },
-            this.maxDeltaBytes,
-          )
-        ) {
-          return replacementDelta(delta);
-        }
-      }
-    }
-    return withoutMovedRowDeletes(delta);
+    return { snapshot: this.getSnapshot(), metrics };
   }
 
   /**
-   * `currentDirectory` is null when the lineage was abandoned, in which case
-   * no generation directory survives.
+   * Validate and key one row. A row equal to the published row of its key
+   * reuses that row and its hash: most of a scan is unchanged rows, and
+   * serializing and hashing all of them cost about 30 ms of event loop per
+   * publication on 7,500 rows.
    */
-  private async cleanupGenerationDirectories(
-    currentDirectory: string | null,
-  ): Promise<number> {
-    let entries: string[];
-    try {
-      entries = await readdir(this.generationsDir);
-    } catch {
-      return 1;
-    }
-    const retained = new Set<string>();
-    if (currentDirectory) {
-      const generationDirectories = entries
-        .filter((entry) => /^gen-\d+-[0-9a-f-]+$/.test(entry))
-        .map((entry) => ({ entry, generation: generationFromDirectory(entry) }))
-        .sort((left, right) => right.generation - left.generation);
-      for (const { entry } of generationDirectories.slice(
-        0,
-        this.retainedGenerations,
-      )) {
-        retained.add(entry);
-      }
-      retained.add(currentDirectory);
-    }
-    let failures = 0;
-    for (const entry of entries) {
-      const removable =
-        entry.startsWith(".staging-") ||
-        (/^gen-\d+-[0-9a-f-]+$/.test(entry) &&
-          !retained.has(entry) &&
-          !this.pinnedGenerations.has(entry));
-      if (!removable) continue;
-      try {
-        await rm(join(this.generationsDir, entry), {
-          recursive: true,
-          force: true,
-        });
-      } catch {
-        failures += 1;
-      }
-    }
-    return failures;
-  }
-
-  private async persistManifest(
-    manifest: PersistedSessionCatalogManifest,
-  ): Promise<void> {
-    const temporaryPath = `${this.manifestPath}.${process.pid}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporaryPath, JSON.stringify(manifest), "utf-8");
-      await rename(temporaryPath, this.manifestPath);
-    } catch (error) {
-      await rm(temporaryPath, { force: true }).catch(() => {});
-      throw error;
-    }
-  }
-
-  private snapshotFrom(
-    manifest: PersistedSessionCatalogManifest,
-  ): SessionCatalogSnapshot {
-    return {
-      ...this.tokenFrom(manifest),
-      completedAt: manifest.completedAt,
-      rowCount: manifest.rowCount,
-      rowsBytes: manifest.rowsBytes,
-      shards: manifest.shards.map((shard) => ({ ...shard })),
-      providerSources: manifest.providerSources.map((source) => ({
-        ...source,
-        metrics: { ...source.metrics },
-      })),
-      recentRows: manifest.recentRows.map(cloneRow),
-    };
-  }
-
-  private tokenFrom(
-    manifest: PersistedSessionCatalogManifest,
-  ): SessionCatalogToken {
-    return {
-      catalogEpoch: manifest.catalogEpoch,
-      catalogGeneration: manifest.catalogGeneration,
-    };
-  }
-
-  private projectTokenFrom(
-    manifest: PersistedSessionCatalogManifest,
-    projectIdentityKey: string,
-  ): SessionCatalogShardToken {
-    const bucket = projectBucket(projectIdentityKey, manifest.bucketCount);
-    const shard = manifest.shards.find(
-      (candidate) => candidate.bucket === bucket,
+  private prepareRow(
+    candidate: SessionCatalogRow,
+    adapter: Pick<NativeSessionCatalogAdapter, "catalogFamily" | "storeKey">,
+    published?: Published,
+  ): { row: Readonly<SessionCatalogRow>; key: string; hash: string } {
+    const normalized = normalizeRow(candidate, adapter);
+    const key = rowKey(
+      normalized.catalogFamily,
+      normalized.storeKey,
+      normalized.sessionId,
     );
-    return {
-      ...this.tokenFrom(manifest),
-      bucket,
-      shardGeneration: shard?.generation ?? 0,
-    };
-  }
-
-  private shardPath(directory: string, file: string): string {
-    if (!/^gen-\d+-[0-9a-f-]+$/.test(directory)) {
+    const entry = published?.index.get(key);
+    const previous = entry && published!.rows[entry.position];
+    if (entry && previous && sameRow(previous, normalized))
+      return { row: previous, key, hash: entry.hash };
+    const row = Object.freeze(normalized);
+    const json = JSON.stringify(row);
+    if (Buffer.byteLength(json) + 1 > this.maxRowBytes) {
       throw new Error(
-        `Invalid session catalog generation directory: ${directory}`,
+        `Session catalog row exceeds ${this.maxRowBytes} bytes: ${row.catalogFamily}:${row.storeKey}:${row.sessionId}`,
       );
     }
-    if (!/^bucket-\d{3}\.jsonl$/.test(file)) {
-      throw new Error(`Invalid session catalog shard file: ${file}`);
-    }
-    return join(this.generationsDir, directory, file);
+    return { row, key, hash: sessionCatalogJsonHash(json) };
   }
 
-  private requireManifest(): PersistedSessionCatalogManifest {
-    if (!this.manifest) {
+  /**
+   * Publish `rows` as the next generation if they or the store coverage
+   * differ from the published generation: one synchronous transaction, then
+   * memory. Returns null when nothing changed.
+   */
+  private commit(
+    rows: readonly Readonly<SessionCatalogRow>[],
+    index: ReadonlyMap<string, IndexEntry>,
+    sources: readonly SessionCatalogSqliteSource[],
+  ): SessionCatalogWrite | null {
+    this.ensureRunning();
+    const current = this.requirePublished();
+    const changes: SessionCatalogSqliteChange[] = [];
+    for (const [key, entry] of index) {
+      if (current.index.get(key)?.hash !== entry.hash)
+        changes.push({ type: "upsert", row: rows[entry.position]! });
+    }
+    for (const [key, entry] of current.index) {
+      if (index.has(key)) continue;
+      const row = current.rows[entry.position]!;
+      changes.push({
+        type: "delete",
+        key: {
+          catalogFamily: row.catalogFamily,
+          storeKey: row.storeKey,
+          sessionId: row.sessionId,
+        },
+      });
+    }
+    if (
+      changes.length === 0 &&
+      sourceSetKey(sources) === sourceSetKey(current.sources)
+    ) {
+      this.unchangedReconciliations += 1;
+      return null;
+    }
+    const state = {
+      epoch: current.epoch,
+      generation: current.generation + 1,
+      completedAt: new Date(this.now()).toISOString(),
+    };
+    const purgeTo = state.generation - this.tombstoneGenerations;
+    const horizon =
+      purgeTo - current.tombstoneHorizon >=
+      Math.max(1, Math.floor(this.tombstoneGenerations / 10))
+        ? purgeTo
+        : 0;
+    const startedAt = performance.now();
+    const { written, tombstoneHorizon } = this.withStore((store) => {
+      const stored = store.readState();
+      const written =
+        stored?.epoch === current.epoch &&
+        stored.generation === current.generation
+          ? store.applyChanges(
+              state,
+              current.generation,
+              changes,
+              sources,
+              horizon,
+            )
+          : // The tables no longer hold what this process published (changed
+            // from outside, or restored): store the whole generation instead.
+            store.writeGeneration(state, rows, sources);
+      return {
+        written,
+        tombstoneHorizon: store.readState()?.tombstoneHorizon ?? 0,
+      };
+    });
+    const write: SessionCatalogWrite = {
+      ...written,
+      generation: state.generation,
+      durationMs: performance.now() - startedAt,
+    };
+    this.published = {
+      ...state,
+      tombstoneHorizon,
+      rows: Object.freeze([...rows]),
+      index,
+      sources: Object.freeze([...sources]),
+    };
+    this.publications += 1;
+    this.lastWrite = write;
+    return write;
+  }
+
+  /** The store's statements are prepared and released within one call. */
+  private withStore<T>(use: (store: SessionCatalogSqliteStore) => T): T {
+    const store = new SessionCatalogSqliteStore(this.database);
+    try {
+      return use(store);
+    } finally {
+      store.dispose();
+    }
+  }
+
+  private requirePublished(): Published {
+    if (!this.published) {
       throw new Error(
         "SessionCatalogService not initialized. Call initialize() first.",
       );
     }
-    return this.manifest;
+    return this.published;
   }
 
   private ensureRunning(): void {
-    this.requireManifest();
+    this.requirePublished();
     if (this.stopped) throw new Error("SessionCatalogService is stopped");
+  }
+}
+
+function tokenFrom(published: Published): SessionCatalogToken {
+  return {
+    catalogEpoch: published.epoch,
+    catalogGeneration: published.generation,
+  };
+}
+
+function groupByProject(
+  rows: readonly Readonly<SessionCatalogRow>[],
+): Map<string, readonly Readonly<SessionCatalogRow>[]> {
+  const groups = new Map<string, Readonly<SessionCatalogRow>[]>();
+  for (const row of rows) {
+    const group = groups.get(row.projectIdentityKey);
+    if (group) group.push(row);
+    else groups.set(row.projectIdentityKey, [row]);
+  }
+  for (const group of groups.values()) {
+    group.sort(
+      (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
+    );
+    Object.freeze(group);
+  }
+  return groups;
+}
+
+/**
+ * Whether two normalized rows serialize identically: the same keys, in the
+ * order normalization fixes, with equal values.
+ */
+function sameRow(
+  left: Readonly<SessionCatalogRow>,
+  right: Readonly<SessionCatalogRow>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (let index = 0; index < leftKeys.length; index += 1) {
+    const key = leftKeys[index]!;
+    if (key !== rightKeys[index]) return false;
+    const a = (left as Record<string, unknown>)[key];
+    const b = (right as Record<string, unknown>)[key];
+    if (a === b) continue;
+    if (typeof a !== "object" || typeof b !== "object" || !a || !b)
+      return false;
+    if (JSON.stringify(a) !== JSON.stringify(b)) return false;
+  }
+  return true;
+}
+
+function sourceSetKey(sources: readonly SessionCatalogSqliteSource[]): string {
+  return [
+    ...new Set(
+      sources.map((source) => rowKey(source.catalogFamily, source.storeKey)),
+    ),
+  ]
+    .sort()
+    .join("\n");
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
   }
 }
 
@@ -1246,196 +787,9 @@ function reconciliationSignature(
   });
 }
 
-function cloneDelta(delta: SessionCatalogDelta): SessionCatalogDelta {
-  return {
-    ...delta,
-    changes: delta.changes.map((change) =>
-      change.type === "upsert"
-        ? { type: "upsert", row: cloneRow(change.row) }
-        : { type: "delete", key: { ...change.key } },
-    ),
-  };
-}
-
-/**
- * Assign each shard the generation in which its content last changed, so an
- * unrelated project's write does not invalidate a client's shard token.
- */
-function carryShardGenerations(
-  shards: ReadonlyArray<Omit<SessionCatalogShardSnapshot, "generation">>,
-  previous: readonly SessionCatalogShardSnapshot[],
-  targetGeneration: number,
-): SessionCatalogShardSnapshot[] {
-  const previousByBucket = new Map(
-    previous.map((shard) => [shard.bucket, shard]),
-  );
-  return shards.map((shard) => {
-    const before = previousByBucket.get(shard.bucket);
-    return {
-      ...shard,
-      generation:
-        before && before.contentHash === shard.contentHash
-          ? before.generation
-          : targetGeneration,
-    };
-  });
-}
-
-function appendDeltaChange(
-  delta: SessionCatalogDelta,
-  change: SessionCatalogDeltaChange,
-  maxBytes: number,
-): boolean {
-  const bytes = Buffer.byteLength(JSON.stringify(change));
-  if (delta.bytes + bytes > maxBytes) return false;
-  delta.changes.push(change);
-  delta.bytes += bytes;
-  return true;
-}
-
-/**
- * A row whose project changed moves to another bucket and appears as an
- * upsert in its new bucket and a delete in its old one. Buckets are walked in
- * order, so a move to a lower bucket lists the delete last, and applying the
- * changes in order would remove a row the generation still holds.
- */
-function withoutMovedRowDeletes(
-  delta: SessionCatalogDelta,
-): SessionCatalogDelta {
-  const keyOf = (key: SessionCatalogRowKey) =>
-    JSON.stringify([key.catalogFamily, key.storeKey, key.sessionId]);
-  const upserted = new Set(
-    delta.changes.flatMap((change) =>
-      change.type === "upsert" ? [keyOf(change.row)] : [],
-    ),
-  );
-  const changes = delta.changes.filter(
-    (change) => change.type === "upsert" || !upserted.has(keyOf(change.key)),
-  );
-  if (changes.length === delta.changes.length) return delta;
-  return {
-    ...delta,
-    changes,
-    bytes: changes.reduce(
-      (total, change) => total + Buffer.byteLength(JSON.stringify(change)),
-      0,
-    ),
-  };
-}
-
-function replacementDelta(delta: SessionCatalogDelta): SessionCatalogDelta {
-  return {
-    ...delta,
-    replacementRequired: true,
-    changes: [],
-    bytes: 0,
-  };
-}
-
-function retainDeltas(
-  deltas: SessionCatalogDelta[],
-  now: number,
-  maxAgeMs: number,
-  maxBytes: number,
-): SessionCatalogDelta[] {
-  const minimumCreatedAt = now - maxAgeMs;
-  const retained: SessionCatalogDelta[] = [];
-  let retainedBytes = 0;
-  for (let index = deltas.length - 1; index >= 0; index -= 1) {
-    const delta = deltas[index];
-    if (!delta || Date.parse(delta.createdAt) < minimumCreatedAt) continue;
-    const bytes = Buffer.byteLength(JSON.stringify(delta));
-    if (retainedBytes + bytes > maxBytes) break;
-    retained.unshift(cloneDelta(delta));
-    retainedBytes += bytes;
-  }
-  return retained;
-}
-
-function catalogRowsVersion(manifest: PersistedSessionCatalogManifest): string {
-  return `${manifest.catalogEpoch}:${manifest.catalogGeneration}`;
-}
-
-function generationFromDirectory(directory: string): number {
-  const match = /^gen-(\d+)-/.exec(directory);
-  return match?.[1] ? Number(match[1]) : -1;
-}
-
-function requireGenerationDirectory(
-  manifest: PersistedSessionCatalogManifest,
-): string {
-  if (!manifest.generationDirectory) {
-    throw new Error(
-      `Session catalog generation ${manifest.catalogGeneration} has no directory`,
-    );
-  }
-  return manifest.generationDirectory;
-}
-
-function validateManifest(
-  value: unknown,
-  expectedBucketCount: number,
-): PersistedSessionCatalogManifest {
-  if (!value || typeof value !== "object") {
-    throw new Error("Invalid session catalog manifest: expected object");
-  }
-  const manifest = value as Partial<PersistedSessionCatalogManifest>;
-  if (manifest.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
-    throw new Error(
-      `Unsupported session catalog manifest schema: ${String(manifest.schemaVersion)}`,
-    );
-  }
-  if (manifest.bucketCount !== expectedBucketCount) {
-    throw new Error(
-      `Session catalog bucket count changed: ${String(manifest.bucketCount)} != ${expectedBucketCount}`,
-    );
-  }
-  requireNonEmpty(manifest.catalogEpoch, "manifest catalogEpoch");
-  nonNegativeInteger(manifest.catalogGeneration, "manifest catalogGeneration");
-  requireTimestamp(manifest.completedAt, "manifest completedAt");
-  if (!Array.isArray(manifest.shards)) {
-    throw new Error("Invalid session catalog manifest shards");
-  }
-  if (!Array.isArray(manifest.providerSources)) {
-    throw new Error("Invalid session catalog manifest providerSources");
-  }
-  if (!Array.isArray(manifest.recentRows)) {
-    throw new Error("Invalid session catalog manifest recentRows");
-  }
-  if (!Array.isArray(manifest.deltas)) {
-    throw new Error("Invalid session catalog manifest deltas");
-  }
-  if (
-    manifest.generationDirectory !== null &&
-    (typeof manifest.generationDirectory !== "string" ||
-      !/^gen-\d+-[0-9a-f-]+$/.test(manifest.generationDirectory))
-  ) {
-    throw new Error("Invalid session catalog generation directory");
-  }
-  nonNegativeInteger(manifest.rowCount, "manifest rowCount");
-  nonNegativeInteger(manifest.rowsBytes, "manifest rowsBytes");
-  return manifest as PersistedSessionCatalogManifest;
-}
-
-function positiveInteger(
-  value: unknown,
-  name: string,
-  maximum = Number.MAX_SAFE_INTEGER,
-): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    value <= 0 ||
-    value > maximum
-  ) {
-    throw new RangeError(`${name} must be a positive integer <= ${maximum}`);
-  }
-  return value;
-}
-
-function nonNegativeInteger(value: unknown, name: string): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw new RangeError(`${name} must be a non-negative integer`);
+function positiveInteger(value: unknown, name: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new RangeError(`${name} must be a positive integer`);
   }
   return value;
 }

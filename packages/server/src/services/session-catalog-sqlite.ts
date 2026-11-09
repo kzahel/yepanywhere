@@ -35,31 +35,18 @@ export type SessionCatalogSqliteChange =
       key: Pick<SessionCatalogRow, "catalogFamily" | "storeKey" | "sessionId">;
     };
 
-/** How the stored rows differ from the published ones; all zero when equal. */
-export interface SessionCatalogSqliteMismatch {
-  missing: number;
-  extra: number;
-  differing: number;
-  sources: boolean;
-  /** One differing row key, for the log. */
-  example: string | null;
-}
-
-export interface SessionCatalogSqliteComparison {
-  mismatch: SessionCatalogSqliteMismatch;
-  /** Every row key that differs, for `repairRows`. */
-  keys: Set<string>;
-}
-
 export interface SessionCatalogSqliteWrite {
   rowsWritten: number;
   rowsTombstoned: number;
+  /** Tombstones at or below the new horizon, removed with their text. */
+  tombstonesPurged: number;
   /** True when the previous lineage was dropped rather than diffed. */
   lineageReplaced: boolean;
 }
 
 interface CatalogColumns {
   id: number;
+  row_hash: string;
   family: string;
   store_key: string;
   native_id: string;
@@ -85,7 +72,7 @@ interface CatalogColumns {
   location_record_id: string | null;
 }
 
-const ROW_COLUMNS = `c.id, c.family, c.store_key, c.native_id,
+const ROW_COLUMNS = `c.id, c.row_hash, c.family, c.store_key, c.native_id,
   c.native_storage_scope, c.native_directory_project_id, c.project_key,
   c.project_id, c.project_path, c.project_name, c.provider, c.title,
   c.title_null, t.full_title, c.created_at, c.updated_at,
@@ -110,7 +97,8 @@ export class SessionCatalogSqliteStore {
   private readonly selectHash;
   private readonly tombstoneKey;
   private readonly deleteAllRows;
-  private readonly countLive;
+  private readonly deleteTextById;
+  private readonly purgeTombstones;
   private readonly selectSources;
   private readonly insertSource;
   private readonly deleteSource;
@@ -118,10 +106,22 @@ export class SessionCatalogSqliteStore {
   private readonly statements: SqliteStatement[] = [];
 
   constructor(private readonly database: SqliteDatabase) {
-    const prepare = (sql: string) => {
-      const statement = database.prepare(sql);
-      this.statements.push(statement);
-      return statement;
+    // Prepared on first use: a store lives for one call, which needs only
+    // some of them, and tests cap the statements live at once.
+    const prepare = (sql: string): Omit<SqliteStatement, "finalize"> => {
+      let statement: SqliteStatement | undefined;
+      const prepared = () => {
+        if (!statement) {
+          statement = database.prepare(sql);
+          this.statements.push(statement);
+        }
+        return statement;
+      };
+      return {
+        get: (...parameters) => prepared().get(...parameters),
+        all: (...parameters) => prepared().all(...parameters),
+        run: (...parameters) => prepared().run(...parameters),
+      };
     };
     try {
       this.selectState = prepare(STATE_SQL);
@@ -191,8 +191,12 @@ export class SessionCatalogSqliteStore {
          WHERE family = ? AND store_key = ? AND native_id = ? AND deleted = 0`,
       );
       this.deleteAllRows = prepare("DELETE FROM session_catalog");
-      this.countLive = prepare(
-        "SELECT count(*) AS n FROM session_catalog WHERE deleted = 0",
+      this.deleteTextById = prepare(
+        "DELETE FROM session_catalog_text WHERE catalog_id = ?",
+      );
+      // Text rows go with them (ON DELETE CASCADE).
+      this.purgeTombstones = prepare(
+        "DELETE FROM session_catalog WHERE deleted = 1 AND changed_gen <= ?",
       );
       this.selectSources = prepare(
         "SELECT family, store_key FROM catalog_sources",
@@ -272,6 +276,7 @@ export class SessionCatalogSqliteStore {
       for (const [key, existing] of stored) {
         if (existing.deleted || seen.has(key)) continue;
         this.tombstone.run(state.generation, existing.id);
+        this.deleteTextById.run(existing.id);
         rowsTombstoned += 1;
       }
       this.writeSources(sources);
@@ -283,7 +288,12 @@ export class SessionCatalogSqliteStore {
           : (previous?.tombstoneHorizon ?? state.generation),
         state.completedAt,
       );
-      return { rowsWritten, rowsTombstoned, lineageReplaced };
+      return {
+        rowsWritten,
+        rowsTombstoned,
+        tombstonesPurged: 0,
+        lineageReplaced,
+      };
     });
   }
 
@@ -293,12 +303,17 @@ export class SessionCatalogSqliteStore {
    * stored row already matches is not rewritten; a delete tombstones a live
    * row. Throws when the stored generation is not `previousGeneration` of the
    * same epoch, since the changes would then be applied to the wrong base.
+   *
+   * A `tombstoneHorizon` above the stored one removes the tombstones at or
+   * below it: a change reader at or past the horizon still sees every
+   * deletion after its generation, and one behind it must read in full.
    */
   applyChanges(
     state: Omit<SessionCatalogSqliteState, "tombstoneHorizon">,
     previousGeneration: number,
     changes: readonly SessionCatalogSqliteChange[],
     sources: readonly SessionCatalogSqliteSource[],
+    tombstoneHorizon = 0,
   ): SessionCatalogSqliteWrite {
     return this.database.transaction(() => {
       const previous = this.readState();
@@ -332,12 +347,16 @@ export class SessionCatalogSqliteStore {
           const { catalogFamily, storeKey, sessionId } = change.key;
           if (upserted.has(rowKey(catalogFamily, storeKey, sessionId)))
             continue;
-          rowsTombstoned += this.tombstoneKey.run(
+          const { changes: tombstoned } = this.tombstoneKey.run(
             state.generation,
             catalogFamily,
             storeKey,
             sessionId,
-          ).changes;
+          );
+          if (tombstoned > 0) {
+            this.deleteText.run(catalogFamily, storeKey, sessionId);
+            rowsTombstoned += tombstoned;
+          }
           continue;
         }
         const row = withWellFormedTitle(change.row);
@@ -351,91 +370,51 @@ export class SessionCatalogSqliteStore {
         rowsWritten += 1;
       }
       this.writeSources(sources);
+      const horizon = Math.min(
+        state.generation,
+        Math.max(previous.tombstoneHorizon, tombstoneHorizon),
+      );
+      const tombstonesPurged =
+        horizon > previous.tombstoneHorizon
+          ? this.purgeTombstones.run(horizon).changes
+          : 0;
       this.writeState.run(
         state.epoch,
         state.generation,
-        previous.tombstoneHorizon,
+        horizon,
         state.completedAt,
       );
-      return { rowsWritten, rowsTombstoned, lineageReplaced: false };
+      return {
+        rowsWritten,
+        rowsTombstoned,
+        tombstonesPurged,
+        lineageReplaced: false,
+      };
     });
-  }
-
-  /**
-   * Rewrite the given row keys from the published rows, whatever their stored
-   * hash says, and tombstone those the generation no longer holds. Repairs
-   * what a comparison found different; the rows take the current generation.
-   */
-  repairRows(
-    generation: number,
-    keys: ReadonlySet<string>,
-    rows: Iterable<Readonly<SessionCatalogRow>>,
-    sources: readonly SessionCatalogSqliteSource[],
-  ): number {
-    return this.database.transaction(() => {
-      this.writeSources(sources);
-      const remaining = new Set(keys);
-      for (const candidate of rows) {
-        const row = withWellFormedTitle(candidate);
-        const key = rowKey(row.catalogFamily, row.storeKey, row.sessionId);
-        if (!remaining.delete(key)) continue;
-        this.writeRow(row, sessionCatalogRowHash(row), generation);
-      }
-      for (const key of remaining) {
-        const [family, storeKey, nativeId] = JSON.parse(key) as string[];
-        this.tombstoneKey.run(generation, family!, storeKey!, nativeId!);
-      }
-      return keys.size;
-    });
-  }
-
-  /**
-   * Cheap check after a change write: the live row count and, for each
-   * changed key, that the stored row is live with the published hash or
-   * tombstoned when deleted. Returns the keys that are wrong, or all of
-   * `count` when only the count is off.
-   */
-  checkChanges(
-    changes: readonly SessionCatalogSqliteChange[],
-    liveRows: number,
-  ): { countMatches: boolean; wrongKeys: string[] } {
-    const wrongKeys: string[] = [];
-    const upserted = new Set<string>();
-    for (const change of changes) {
-      if (change.type !== "upsert") continue;
-      const row = withWellFormedTitle(change.row);
-      const key = rowKey(row.catalogFamily, row.storeKey, row.sessionId);
-      upserted.add(key);
-      const stored = this.selectHash.get<{ row_hash: string; deleted: number }>(
-        row.catalogFamily,
-        row.storeKey,
-        row.sessionId,
-      );
-      if (
-        stored?.deleted !== 0 ||
-        stored.row_hash !== sessionCatalogRowHash(row)
-      )
-        wrongKeys.push(key);
-    }
-    for (const change of changes) {
-      if (change.type !== "delete") continue;
-      const { catalogFamily, storeKey, sessionId } = change.key;
-      const key = rowKey(catalogFamily, storeKey, sessionId);
-      if (upserted.has(key)) continue;
-      const stored = this.selectHash.get<{ deleted: number }>(
-        catalogFamily,
-        storeKey,
-        sessionId,
-      );
-      if (stored && stored.deleted !== 1) wrongKeys.push(key);
-    }
-    const live = this.countLive.get<{ n: number }>()?.n ?? 0;
-    return { countMatches: live === liveRows, wrongKeys };
   }
 
   /** Live rows, reassembled exactly as the adapters published them. */
   readRows(): SessionCatalogRow[] {
-    return this.selectRows.all<CatalogColumns>().map(rowFromColumns);
+    return this.readRowsWithHashes().map(({ row }) => row);
+  }
+
+  /**
+   * Live rows with the `row_hash` each was stored under. A stored row that no
+   * longer reassembles throws {@link SessionCatalogRowError}; a database error
+   * passes through.
+   */
+  readRowsWithHashes(): { row: SessionCatalogRow; hash: string }[] {
+    const stored = this.selectRows.all<CatalogColumns>();
+    try {
+      return stored.map((columns) => ({
+        row: rowFromColumns(columns),
+        hash: columns.row_hash,
+      }));
+    } catch (error) {
+      throw new SessionCatalogRowError(
+        `Unreadable session catalog row: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   readSources(): SessionCatalogSqliteSource[] {
@@ -447,9 +426,18 @@ export class SessionCatalogSqliteStore {
       }));
   }
 
-  /** Finalize the prepared statements; the store is unusable afterwards. */
+  /**
+   * Finalize the prepared statements; the store is unusable afterwards. A
+   * failed finalize is ignored: the call it follows may have committed.
+   */
   dispose(): void {
-    for (const statement of this.statements.splice(0)) statement.finalize();
+    for (const statement of this.statements.splice(0)) {
+      try {
+        statement.finalize();
+      } catch {
+        // Nothing to release that the database does not reclaim on close.
+      }
+    }
   }
 
   private writeRow(
@@ -525,70 +513,12 @@ export class SessionCatalogSqliteStore {
 export function sessionCatalogRowHash(
   row: Readonly<SessionCatalogRow>,
 ): string {
-  return createHash("sha256")
-    .update(JSON.stringify(row))
-    .digest("base64url")
-    .slice(0, 22);
+  return sessionCatalogJsonHash(JSON.stringify(row));
 }
 
-/**
- * Compare the rows and sources a store returns with the published ones,
- * ignoring order: the store returns rows by insertion, the files by shard.
- */
-export function compareSessionCatalogRows(
-  stored: readonly Readonly<SessionCatalogRow>[],
-  published: Iterable<Readonly<SessionCatalogRow>>,
-  storedSources: readonly SessionCatalogSqliteSource[],
-  publishedSources: readonly SessionCatalogSqliteSource[],
-): SessionCatalogSqliteComparison {
-  const expected = new Map<string, string>();
-  for (const candidate of published) {
-    const row = withWellFormedTitle(candidate);
-    expected.set(
-      rowKey(row.catalogFamily, row.storeKey, row.sessionId),
-      JSON.stringify(row),
-    );
-  }
-  const result: SessionCatalogSqliteMismatch = {
-    missing: 0,
-    extra: 0,
-    differing: 0,
-    sources: false,
-    example: null,
-  };
-  const seen = new Set<string>();
-  const keys = new Set<string>();
-  for (const row of stored) {
-    const key = rowKey(row.catalogFamily, row.storeKey, row.sessionId);
-    seen.add(key);
-    const line = expected.get(key);
-    if (line === JSON.stringify(row)) continue;
-    if (line === undefined) result.extra += 1;
-    else result.differing += 1;
-    result.example ??= key;
-    keys.add(key);
-  }
-  for (const key of expected.keys()) {
-    if (seen.has(key)) continue;
-    result.missing += 1;
-    result.example ??= key;
-    keys.add(key);
-  }
-  const sourceKeys = (sources: readonly SessionCatalogSqliteSource[]) =>
-    [...new Set(sources.map((s) => rowKey(s.catalogFamily, s.storeKey)))]
-      .sort()
-      .join("\n");
-  result.sources = sourceKeys(storedSources) !== sourceKeys(publishedSources);
-  return { mismatch: result, keys };
-}
-
-export function isSessionCatalogMatch(
-  mismatch: SessionCatalogSqliteMismatch,
-): boolean {
-  return (
-    mismatch.missing + mismatch.extra + mismatch.differing === 0 &&
-    !mismatch.sources
-  );
+/** {@link sessionCatalogRowHash} of a row already serialized. */
+export function sessionCatalogJsonHash(json: string): string {
+  return createHash("sha256").update(json).digest("base64url").slice(0, 22);
 }
 
 interface StateColumns {
@@ -636,7 +566,10 @@ function titlePrefix(title: string): string {
   return title.slice(0, end);
 }
 
-/** The row key the store compares and repairs by. */
+/** A stored catalog row that can no longer be reassembled. */
+export class SessionCatalogRowError extends Error {}
+
+/** The row key the store and the catalog diff rows by. */
 export function rowKey(...parts: string[]): string {
   return JSON.stringify(parts);
 }

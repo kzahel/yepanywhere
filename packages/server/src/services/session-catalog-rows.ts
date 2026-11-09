@@ -11,7 +11,7 @@ import {
  */
 export function normalizeRow(
   row: SessionCatalogRow,
-  adapter: NativeSessionCatalogAdapter,
+  adapter: Pick<NativeSessionCatalogAdapter, "catalogFamily" | "storeKey">,
 ): SessionCatalogRow {
   if (row.catalogFamily !== adapter.catalogFamily) {
     throw new Error(

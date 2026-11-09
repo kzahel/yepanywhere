@@ -10,7 +10,7 @@ import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
-import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
+import { seedTestCatalog } from "../utils/session-catalog.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import type { SessionSeenEvent } from "../../src/watcher/EventBus.js";
 import { createApp } from "../setup/create-app.js";
@@ -109,16 +109,13 @@ describe("limited-user session access through the app's session catalog", () => 
       sourceVersion: "v1",
       location: { kind: "provider", recordId: seeded.sessionId },
     }));
-    const seed = new SessionCatalogService({ dataDir });
-    await seed.initialize();
-    await seed.reconcile([
+    await seedTestCatalog(dataDir, [
       {
         catalogFamily: "claude",
         storeKey: "seed",
         scan: async () => ({ sourceVersion: "v1", rows }),
       },
     ]);
-    seed.stop();
 
     const authService = new AuthService({
       dataDir,

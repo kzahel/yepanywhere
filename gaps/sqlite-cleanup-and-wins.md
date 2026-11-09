@@ -24,7 +24,9 @@ summary migration 25.
 
 ## Easy wins
 
-1. **Session catalog republishes without changes.** Moved to
+1. Fixed 2026-11-09 by plan 189 step 3: a scan that changes nothing
+   writes nothing and advances no generation. **Session catalog
+   republishes without changes.** Moved to
    [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md),
    with 2026-11-09 measurements: 7,470 rows and 14.3 MB per generation,
    every 3.8–7.6 s. "Update only the manifest when only source versions
@@ -154,7 +156,7 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
     `:1540`), distinguish absent from deleted (`:282`, `:1488`, `:1502`),
     and keep reference-equality callers (`:706`) correct. Consider moving
     `initialPrompt` to its own column so a cache miss does not parse it.
-13. **Catalog rows in SQLite.** Now owned by
+13. Done 2026-11-09 by plan 189 step 3. **Catalog rows in SQLite.** Now owned by
     [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md),
     which gives the table shape and the defects to fix first.
 14. Fixed 2026-11-09 by plan 189 step 2, with one deviation: the

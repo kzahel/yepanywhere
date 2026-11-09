@@ -273,6 +273,7 @@ function catalogContract(database) {
   assert.deepEqual(next, {
     rowsWritten: 1,
     rowsTombstoned: 1,
+    tombstonesPurged: 0,
     lineageReplaced: false,
   });
   assert.deepEqual(store.readRows(), [row("a", "short")]);
@@ -289,6 +290,7 @@ function catalogContract(database) {
   assert.deepEqual(changed, {
     rowsWritten: 1,
     rowsTombstoned: 1,
+    tombstonesPurged: 0,
     lineageReplaced: false,
   });
   assert.deepEqual(store.readRows(), [row("b", long)]);
@@ -303,19 +305,26 @@ function catalogContract(database) {
     [],
   );
   assert.deepEqual(store.readRows(), [row("b", "moved")]);
-  assert.deepEqual(
-    store.checkChanges([{ type: "upsert", row: row("b", "moved") }], 1),
-    { countMatches: true, wrongKeys: [] },
-  );
-  database.exec("UPDATE session_catalog SET title = 'bad'");
-  store.repairRows(
+  // A tombstone loses its text at once and its row at the horizon.
+  store.applyChanges(
+    state(5),
     4,
-    new Set([JSON.stringify(["codex", "/store", "b"])]),
-    [row("b", "moved")],
+    [{ type: "upsert", row: row("c", long) }],
     [],
   );
-  assert.deepEqual(store.readRows(), [row("b", "moved")]);
-  assert.throws(() => store.applyChanges(state(5), 3.5, [], []), /follow/);
+  store.applyChanges(state(6), 5, [{ type: "delete", key: row("c") }], []);
+  assert.equal(
+    database.prepare("SELECT count(*) AS n FROM session_catalog_text").get().n,
+    0,
+  );
+  const purged = store.applyChanges(state(7), 6, [], [], 6);
+  assert.equal(purged.tombstonesPurged, 2);
+  assert.equal(store.readState().tombstoneHorizon, 6);
+  assert.deepEqual(
+    store.readRowsWithHashes().map(({ row }) => row),
+    [row("b", "moved")],
+  );
+  assert.throws(() => store.applyChanges(state(8), 3.5, [], []), /follow/);
   store.writeGeneration({ ...state(0), epoch: "f" }, [], []);
   assert.equal(
     database.prepare("SELECT count(*) AS n FROM session_catalog_text").get().n,

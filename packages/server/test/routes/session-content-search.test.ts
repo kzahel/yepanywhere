@@ -8,6 +8,10 @@ import {
 import { afterEach, expect, it } from "vitest";
 import { Hono } from "hono";
 import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 import { ProjectScanner } from "../../src/projects/scanner.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { createGlobalSessionsRoutes } from "../../src/routes/global-sessions.js";
@@ -17,6 +21,7 @@ let directory: string;
 let collections: RetainedSessionCollections;
 afterEach(async () => {
   await collections?.dispose();
+  closeTestDiscoveryDatabases();
   if (directory) await rm(directory, { recursive: true });
 });
 
@@ -60,6 +65,7 @@ it("answers availability from the resolved reader, not the advertised provider l
   };
   collections = new RetainedSessionCollections({
     dataDir: join(directory, "data"),
+    database: openTestDiscoveryDatabase(join(directory, "data")),
     adapters: async () => [
       {
         catalogFamily: "claude",
@@ -134,6 +140,7 @@ it("searches cold turns in bounded batches through the mounted route, with role/
   };
   collections = new RetainedSessionCollections({
     dataDir: join(directory, "data"),
+    database: openTestDiscoveryDatabase(join(directory, "data")),
     adapters: async () => [
       {
         catalogFamily: "claude",

@@ -6,6 +6,10 @@ import { ProjectScanner } from "../../src/projects/scanner.js";
 import { claudeCwdProjectDirectory } from "../../src/projects/claude-project-directory.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 import { AntigravitySessionCatalogAdapter } from "../../src/sessions/catalog-adapters/antigravity-catalog-adapter.js";
 import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
 import { nativeCatalogAdapters } from "../../src/sessions/catalog-adapters/native-catalog-registry.js";
@@ -27,6 +31,7 @@ afterEach(async () => {
   await collections?.dispose();
   await scanner?.dispose();
   vi.restoreAllMocks();
+  closeTestDiscoveryDatabases();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -69,6 +74,7 @@ function setup(agy: string, pi: string) {
   });
   collections = new RetainedSessionCollections({
     dataDir: join(root, "data"),
+    database: openTestDiscoveryDatabase(join(root, "data")),
     eventBus,
     projectStores: () =>
       nativeCatalogAdapters(getCatalogFamilies(), nativeOptions),

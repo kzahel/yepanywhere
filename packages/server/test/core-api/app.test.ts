@@ -9,7 +9,7 @@ import { AuthService } from "../../src/auth/AuthService.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
-import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
+import { seedTestCatalog } from "../utils/session-catalog.js";
 import { AUTHENTICATED_SRP_TRANSPORT } from "../../src/middleware/authenticated-transport.js";
 import { WS_INTERNAL_AUTHENTICATED } from "../../src/middleware/internal-auth.js";
 import { createApp } from "../setup/create-app.js";
@@ -43,9 +43,7 @@ it("uses the production authentication/principal boundary and retained catalog f
       password: "fixture-only-password",
       viewProjects: [visible],
     });
-    const catalog = new SessionCatalogService({ dataDir });
-    await catalog.initialize();
-    await catalog.reconcile([
+    await seedTestCatalog(dataDir, [
       {
         catalogFamily: "claude",
         storeKey: "fixture",

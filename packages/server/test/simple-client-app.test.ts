@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { createApp } from "./setup/create-app.js";
-import { SessionCatalogService } from "../src/services/SessionCatalogService.js";
+import { seedTestCatalog } from "./utils/session-catalog.js";
 import { loadCapture } from "./utils/captured-provider-replay.js";
 import { readConversation } from "@yep-anywhere/shared/experimental/conversation-client";
 
@@ -17,9 +17,7 @@ it("consumes a captured native session through the real app, catalog, capability
     path,
     `${capture.native.map((row) => JSON.stringify(row)).join("\n")}\n`,
   );
-  const seed = new SessionCatalogService({ dataDir: directory });
-  await seed.initialize();
-  await seed.reconcile([
+  await seedTestCatalog(directory, [
     {
       catalogFamily: "claude",
       storeKey: "fixture",
@@ -42,7 +40,6 @@ it("consumes a captured native session through the real app, catalog, capability
       }),
     },
   ]);
-  seed.stop();
   // Version update discovery has no role in this contract test.
   vi.stubGlobal(
     "fetch",

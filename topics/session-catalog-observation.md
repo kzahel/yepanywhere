@@ -457,23 +457,22 @@ a process-wide transcript store.
 
 Use a disk/RAM hierarchy:
 
-- YA app-data storage holds the durable compact catalog, shard metadata,
-  generation lineage, and cold rows needed after restart. While
-  [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) step 3 is in
-  progress, startup copies the published generation into the
-  `session_catalog` tables of `discovery.sqlite`, and every publication
-  writes its changed rows there too (the delta it computed, or a diff of the
-  whole generation when the delta is incomplete). The shard files stay
-  authoritative and nothing reads the tables yet. Each change write is
-  checked by key and live count, and a full read-back (after copies,
-  whole-generation writes and failed checks, otherwise every 10 minutes)
-  counts mismatches against the published rows and repairs them. A
-  delta never deletes a key it also upserts: a row whose project moved
-  buckets appears as both;
+- YA app-data storage holds the durable compact catalog: the
+  `session_catalog` tables of `discovery.sqlite`
+  ([plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) step 3),
+  with the epoch, generation and tombstone horizon in `catalog_state` and
+  store coverage in `catalog_sources`. A publication diffs the scanned rows
+  against the published ones by row hash and writes only changed rows and
+  tombstones, in one transaction that advances the generation; a scan that
+  changes nothing writes nothing and advances nothing. A row's key is
+  `(family, store, native id)`, so a session whose project changed is
+  updated in place, never deleted and re-added. The `session-catalog/`
+  files earlier versions wrote are imported once, keeping their epoch and
+  generation, and then deleted;
 - RAM holds the current generation's parsed rows (exactly one generation,
-  replaced at publication by the rows it wrote; about the size of the row
-  JSON, and two generations while one is being built), bounded hot project
-  rows,
+  loaded from the tables at startup and replaced at publication by the rows
+  it wrote; about the size of the row JSON, and two generations while one
+  is being built), each project's rows grouped on first project read,
   query memberships/counts, current indexes, in-flight work, and live/interest
   state under byte and age budgets;
 - bounded head/tail projections may be retained with the exact provider source
@@ -599,28 +598,22 @@ that name/mtime inventory as a reason to parse unchanged cold transcripts.
 Every durable catalog lineage has a random `catalogEpoch` and a monotonic
 `catalogGeneration`. Resetting/rebuilding incompatible catalog state changes
 the epoch; restart over valid persisted state preserves it. Durable state is a
-cache and must never keep the server from starting: state that cannot be read
-or that no longer matches the current shard layout ends its lineage at a fresh
-epoch and generation 0, and reconciliation refills it. This includes a shard
-the current manifest names but that is missing or holds an unparseable row,
-whenever a read finds it: the read answers from generation 0 instead of
-failing, and a reconciliation still based on the abandoned generation fails
-rather than publishing over the reset. A process that holds a generation's
-parsed rows (because it published them or has read them whole once) serves
-reads from memory, so damage to that generation's files is not reported
-there. The next publication rewrites every shard and so heals it; if a damaged
-shard changed, that publication's delta becomes a replacement
-(`deltaBaseUnreadable`) rather than failing. Each accepted row,
-membership, count, and delta identifies the catalog generation and provider
-source version from which it was derived.
+cache and must never keep the server from starting: a missing `catalog_state`
+starts a lineage at a fresh epoch and generation 0, and so does a stored row
+that can no longer be reassembled, or legacy catalog files proven damaged;
+reconciliation refills it. Reads are served from memory, so nothing after
+startup ends a lineage. A failed publication writes nothing, leaves the
+published generation and memory unchanged, and is retried by the next
+refresh. Each accepted row, membership and count identifies the catalog
+generation from which it was derived.
 
-The global generation is one component of a vector, not the whole clock. Each
-shard carries a digest of its rows plus the generation in which that digest
-last changed, so a caller holding a shard's generation is unaffected by writes
-landing in other shards. Publication compares digests: an unchanged shard keeps
-its generation, is never re-read to compute a delta, and lets its retained rows
-survive into the new generation. Split the clock further — per projection kind
-— only when measurement shows the shard component is too coarse.
+The generation advances only when a row or the store coverage changed. Each
+changed row carries the generation it changed in (`changed_gen`) and a
+removed row stays as a tombstone with its generation, so "changes since
+generation N" is one indexed query. Tombstones older than 10,000
+generations are purged in steps, and `tombstone_horizon` names the oldest
+generation from which every deletion is still known; a reader further behind
+reads in full.
 
 Unfiltered, starred, project/search, Inbox, queue-title, hover, and stats
 projections read one accepted generation plus ordered overlay deltas. A client
@@ -630,13 +623,13 @@ never replaces the last complete accepted generation, and a response cannot
 mix an absence from a newer incomplete shard into an otherwise older complete
 snapshot.
 
-Retain only a byte/time-bounded delta window. A client generation outside that
-window receives a compact replacement snapshot; the server does not preserve
-an unbounded event history merely to satisfy a very old browser cache. An
-unrelated row change may advance the global generation without changing a
-given query membership, in which case conditional reconciliation advances the
-token with no replacement rows — and where that query maps to one shard, its
-shard generation answers no-change without consulting the delta window at all.
+Clients do not ask conditionally yet (plan 189 step 8). When they do, a
+client generation behind the tombstone horizon, or from another epoch,
+receives a compact replacement snapshot; the server does not preserve an
+unbounded history merely to satisfy a very old browser cache. An unrelated
+row change may advance the global generation without changing a given query
+membership, in which case conditional reconciliation advances the token with
+no replacement rows.
 
 ### The session-collection generation is a different clock
 
@@ -857,8 +850,8 @@ relocated session visibly grouped under its former project.
 - Moving an active session from project A to B updates its sidebar project
   immediately, and a later lifecycle event carrying launch project A cannot
   move it back.
-- A write to one project leaves every other shard's generation, retained rows,
-  and delta comparison untouched.
+- A scan that changes nothing advances no generation and writes no row; one
+  changed session writes one row (`SessionCatalogService.test.ts`).
 - A `q` naming a word only the initial prompt carries returns that session in
   retained mode, and the retained and complete modes return the same rows for
   one query.
@@ -866,15 +859,16 @@ relocated session visibly grouped under its former project.
   per-project reader would, grouped by canonical host path, without the store
   being walked once per project.
 - A row whose provider directory name encodes a path is still keyed by the
-  decoded canonical path, so two families in one project land in one shard.
+  decoded canonical path, so two families in one project land in one project.
 - A recent-mode pass skips a stale entry before reading it, and a later
   complete pass over the same store still produces that entry.
-- Unreadable or layout-incompatible durable catalog state starts a new epoch
-  and still serves requests, rather than failing initialization.
-- A missing or corrupt shard in the current generation starts a new epoch on
-  the read that finds it, and that reset itself schedules a full
-  reconciliation that rebuilds the catalog; no session file change or restart
-  is needed to trigger it.
+- Stored rows that cannot be reassembled, or damaged legacy catalog files,
+  start a new epoch and still serve requests, rather than failing
+  initialization; the first ordinary read rebuilds by full discovery.
+- The legacy `session-catalog/` generation is imported with its epoch and
+  generation and the folder deleted only once the tables hold that
+  generation or a later one, or the files are proven damaged; any other read
+  error keeps it and fails the start, to be retried.
 - Loss/eviction of browser persistence changes only cold-fetch cost, not visible
   correctness or the ability to reconnect.
 
@@ -882,11 +876,11 @@ relocated session visibly grouped under its former project.
 ## Accepted session point lookups
 
 Collection consumers may restore one project's accepted catalog rows without
-starting reconciliation, summary enrichment or native history loading. The
-existing source-versioned project-shard owner coalesces concurrent reads and
-retains unchanged shard content across generations. Point lookups neither adopt
-identities nor reset an unreadable generation into provider discovery. A bad
-shard leaves the title unknown; normal collection reconciliation owns recovery. A known public identity requires its exact family, original scope
+starting reconciliation, summary enrichment or native history loading. They
+read the published generation's rows from memory, grouped by project once per
+generation. Point lookups neither adopt identities nor start provider
+discovery; a row absent from the published generation leaves the title
+unknown, and normal collection reconciliation owns recovery. A known public identity requires its exact family, original scope
 and native ID, and validates any working-project assignment. Unbound legacy
 lookups require unique project/provider membership and honor pending native
 allocation quarantine; same-string rows in other stores cannot stand in for a

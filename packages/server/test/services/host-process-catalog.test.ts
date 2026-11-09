@@ -25,7 +25,7 @@ it("correlates native PID namespaces once per sample and never emits a wrong leg
   const legacyId = parseNativeSessionId("retained-legacy-address");
   let storage: DiscoverySqliteService | undefined;
   let service: HostAgentProcessService | undefined;
-  const catalog = new SessionCatalogService({ dataDir });
+  let catalog!: SessionCatalogService;
   const row = (
     namespace: string,
     id: string,
@@ -111,6 +111,7 @@ it("correlates native PID namespaces once per sample and never emits a wrong leg
     await metadata.setTitle(nativeId, "Wrong native-string title");
     await metadata.setTitle(legacyId, "Legacy title");
     await metadata.setWorkingProject("permanent-a", workingId, projectId);
+    catalog = new SessionCatalogService({ database: storage.getDatabase() });
     await catalog.initialize();
     await publish(baseRows);
     const readRows = vi.fn(() => catalog.readRows());
@@ -206,7 +207,7 @@ it("correlates native PID namespaces once per sample and never emits a wrong leg
     });
   } finally {
     service?.close();
-    catalog.stop();
+    catalog?.stop();
     storage?.close();
     vi.restoreAllMocks();
     await rm(root, { recursive: true, force: true });

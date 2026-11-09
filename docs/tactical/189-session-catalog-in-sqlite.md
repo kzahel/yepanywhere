@@ -3,9 +3,9 @@
 Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
-`db161ab3c` and the maintainer's profile the same day. Steps 1 and 2 done
-2026-11-09; step 3's first two commits (tables and startup copy, then the
-dual write) done the same day.
+`db161ab3c` and the maintainer's profile the same day. Steps 1, 2 and 3
+done 2026-11-09: the catalog lives in `discovery.sqlite` and the
+`session-catalog/` files are imported once and deleted.
 
 ## Goal
 
@@ -468,6 +468,88 @@ The third commit switches reads and deletes the folder:
 - After the first successful SQLite publication, delete `session-catalog/`.
 - The in-memory published rows (`ef2914085`) stay for now.
 
+Done 2026-11-09 (third commit):
+- `SessionCatalogService` takes the database. A publication scans as
+  before, diffs the rows against the published ones by row hash (a row equal
+  to the published row of its key reuses it and its hash, which halved an
+  unchanged scan's event-loop time), and writes the upserts and tombstones
+  in one transaction that advances the generation. A scan that changes
+  neither a row nor the store coverage writes nothing and advances nothing.
+  A failed write leaves the generation and memory unchanged; the refresh
+  retries. The published rows stay in memory, loaded from the tables at
+  startup; project reads group them once per generation.
+- Lineage: a missing `catalog_state`, a stored row that no longer
+  reassembles, or damaged legacy files start a fresh epoch at generation 0.
+  Nothing after startup resets one, so `onLineageReset` is gone.
+- The Codex async-question pass upserts the rows it enriched
+  (`upsertRows`), one generation carrying only them, instead of
+  republishing every row. A row whose source version moved since it was
+  read is skipped.
+- Tombstones lose their text at once; their rows are purged once 10,000
+  generations old, in steps of 1,000, and `tombstone_horizon` follows.
+  Decision (open question on retention): count generations, not time, since
+  change readers are in-process (step 4) and a reader behind the horizon
+  reads in full.
+- `session-catalog/` is imported on the first start (its epoch, generation
+  and rows, validated as a publication would), unless the tables already
+  hold that generation or a later one, and then deleted. It is deleted only
+  after an import, when superseded, or when its files are proven damaged (a
+  bad manifest, a bad row, a missing shard); any other read error keeps it
+  and fails the start, which the next read retries
+  (`session-catalog-legacy.ts`).
+- Removed: the shard writer and readers, manifest, deltas, `recentRows`,
+  `getConditional`, `getProjectToken`/`getProjectConditional`,
+  `pinGeneration`, the hot set, the file counters, the dual-write mirror and
+  its comparison and repair. `providerSources` carries only the family and
+  store. Review leftovers from the second commit: a key yielded twice in one
+  scan keeps the later row in memory and the table alike
+  (`duplicateRows`), and the lineage race is gone with mid-run resets.
+- Decision (open question): a refresh that changes nothing still announces
+  `refreshing: false`, since the issue indexer, vocabulary and the client
+  hooks wait for it; the client's duplicate filter drops it.
+- Store statements are prepared on first use, since a store lives for one
+  call and tests cap live statements at 64.
+- Review (Opus) found that the collections wrapper kept a failed start
+  forever, so a failed import on the upgrade restart would have left the
+  lists failing until another restart; a failed start is now retried by the
+  next read (the test fails without the fix). Also applied: only a stored row
+  that does not reassemble resets the lineage (a busy or failing database
+  fails the start instead), the import checks the manifest's row count,
+  damaged files start a fresh lineage rather than continue older tables of
+  the same epoch, the tombstone horizon is read back after each write, and
+  a failed statement finalize no longer turns a committed write into an
+  error.
+- `benchmark:session-catalog` now measures the SQLite catalog.
+
+Measured (step 3):
+- Bytes written per changed session: 5 database pages (20 KB), plus the
+  same pages' old content in the rollback journal, against 14.3 MB of
+  shards before (synthetic catalog of 7,470 rows, 13.7 MB of row JSON).
+- Event-loop time on a copy of the maintainer's profile (7,489 rows): the
+  import 187 ms including reading the shards (the transaction alone about
+  130 ms); restart load 32–70 ms; an unchanged scan 22 ms, nothing written;
+  one changed row 23 ms, its transaction 3 ms; every row changed (a
+  `rowFormat` bump) 200–222 ms of transaction.
+- Reads come from memory: a full read returns the published array, and 100
+  project reads took 13 ms including grouping the generation once.
+- Live gate: a passive second server (the second commit's recipe) on a
+  fresh copy of the profile, which was still at `user_version` 27, so this
+  was the upgrade path the maintainer's server will take: migration 028,
+  then the import of generation 870,778 (7,489 rows, 58 stores; every row
+  byte-identical to its shard line except one session that a publication
+  had changed since), the folder deleted, integrity and foreign-key checks
+  clean. Live traffic for 14 minutes (generations 870,804 to
+  870,912): 104 reconciliations, 98 publications of 1–2 rows each (writes
+  1.1 ms median, 32 ms max), the other 6 wrote nothing; the startup full
+  discovery took 389 ms and changed nothing. No publication was empty, where
+  24–36% were before.
+- Publications per idle minute: this host is never idle while agents run,
+  so a truly idle minute was not observable. In a three-minute window with
+  this session waiting, there were 6 publications (2 a minute), each for one
+  of the two sessions whose transcripts were still being written, against
+  8–16 a minute before. A scan with no changed row publishes nothing (tested,
+  and seen at startup and on 6 live refreshes).
+
 Measure:
 - bytes written per changed session (14.3 MB today);
 - publications per idle minute (zero expected);
@@ -681,13 +763,14 @@ Two tools serve these gates:
 ## Open questions
 
 - How long to keep tombstones before an older token gets a replacement.
-  This only matters once step 8 sends deltas.
+  Step 3 keeps 10,000 generations; revisit when step 8 sends deltas.
 - Whether the display `title` length stays at today's 16,384 characters
   until full-prompt search moves into SQL.
 - Whether to key `session_catalog` by public id once every row has an
   identity. Grok and pi rows have no native scope today.
 - Whether a refresh that changes nothing still announces
-  `refreshing: false`:
+  `refreshing: false`. Decided for step 3: yes, as before (see its third
+  commit):
   - A response served mid-refresh reports `refreshing: true`
     (`RetainedSessionCollections.ts:145`).
   - `useRecentSessions` and `useSessionRelationships` act on the

@@ -1,5 +1,6 @@
 import { getProjectIdentityKey } from "../projects/paths.js";
 import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import {
   fromUrlProjectId,
   isYaSessionId,
@@ -7,10 +8,7 @@ import {
   type RetainedSessionCollectionState,
 } from "@yep-anywhere/shared";
 import type { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
-import {
-  catalogAdaptersForRows,
-  catalogFileVersion,
-} from "../sessions/catalog-adapters/row.js";
+import { catalogFileVersion } from "../sessions/catalog-adapters/row.js";
 import type {
   NativeSessionCatalogAdapter,
   SessionCatalogRow,
@@ -30,9 +28,10 @@ import {
 } from "./SessionCatalogService.js";
 
 export interface RetainedSessionCollectionsOptions {
+  /** YA app-data root; an earlier version's catalog files are below it. */
   dataDir: string;
   /** Profile database holding the catalog tables. */
-  database?: SqliteDatabase;
+  database: SqliteDatabase;
   adapters: (
     rows: readonly Readonly<SessionCatalogRow>[],
     signal: AbortSignal,
@@ -100,43 +99,48 @@ export class RetainedSessionCollections {
 
   constructor(private readonly options: RetainedSessionCollectionsOptions) {
     this.catalog = new SessionCatalogService({
-      dataDir: options.dataDir,
       database: options.database,
+      legacyCatalogDir: join(options.dataDir, "session-catalog"),
       maxRowBytes: 256 * 1024,
-      // An unreadable generation empties the catalog; rebuild it from every
-      // provider store rather than from the rows it just lost.
-      onLineageReset: () => this.invalidate(),
     });
   }
 
   private initialize(): Promise<void> {
-    this.initialization ??= this.catalog.initialize().then(() => {
-      this.initialized = true;
-      if (this.controller.signal.aborted) return;
-      this.unsubscribe = this.options.eventBus?.subscribe((event) => {
-        if (event.type === "session-created") {
-          this.awaitCreated(event.session.id);
-        } else if (
-          event.type === "session-updated" ||
-          (event.type === "process-state-changed" &&
-            event.activity !== "in-turn")
-        ) {
-          this.refreshUnwatchedStore(event.sessionId);
-        } else if (
-          event.type === "file-change" &&
-          event.fileType === "session"
-        ) {
-          this.invalidate(event.path);
-        } else if (
-          event.type === "session-metadata-changed" &&
-          event.archived === false
-        ) {
-          // Reconsider deferred questions without rediscovering unchanged files.
-          this.dirty = true;
-          this.schedule();
-        }
-      });
-    });
+    // A failed start (an I/O error on the legacy files, a busy database) is
+    // retried by the next read rather than kept.
+    this.initialization ??= this.catalog.initialize().then(
+      () => {
+        this.initialized = true;
+        if (this.controller.signal.aborted) return;
+        this.unsubscribe = this.options.eventBus?.subscribe((event) => {
+          if (event.type === "session-created") {
+            this.awaitCreated(event.session.id);
+          } else if (
+            event.type === "session-updated" ||
+            (event.type === "process-state-changed" &&
+              event.activity !== "in-turn")
+          ) {
+            this.refreshUnwatchedStore(event.sessionId);
+          } else if (
+            event.type === "file-change" &&
+            event.fileType === "session"
+          ) {
+            this.invalidate(event.path);
+          } else if (
+            event.type === "session-metadata-changed" &&
+            event.archived === false
+          ) {
+            // Reconsider deferred questions without rediscovering unchanged files.
+            this.dirty = true;
+            this.schedule();
+          }
+        });
+      },
+      (error: unknown) => {
+        this.initialization = undefined;
+        throw error;
+      },
+    );
     return this.initialization;
   }
 
@@ -161,12 +165,10 @@ export class RetainedSessionCollections {
   /** Optional projections cannot initialize discovery or schedule a refresh. */
   async readPublishedRows() {
     this.controller.signal.throwIfAborted();
-    return this.initialized
-      ? this.catalog.readRows({ recoverUnreadable: false })
-      : { rows: [] };
+    return this.initialized ? this.catalog.readRows() : { rows: [] };
   }
 
-  /** Restore one accepted project shard without discovery, enrichment or adoption. */
+  /** One project's accepted rows without discovery, enrichment or adoption. */
   async readPublishedProjectRows(
     projectId: UrlProjectId,
   ): Promise<readonly Readonly<SessionCatalogRow>[]> {
@@ -175,7 +177,6 @@ export class RetainedSessionCollections {
     this.controller.signal.throwIfAborted();
     const accepted = await this.catalog.readProjectRows(
       getProjectIdentityKey(fromUrlProjectId(projectId)),
-      { recoverUnreadable: false },
     );
     this.controller.signal.throwIfAborted();
     return accepted.rows;
@@ -432,8 +433,9 @@ export class RetainedSessionCollections {
     const accepted = await this.catalog.readRows();
     this.updateProjects(accepted);
     this.publish();
+    // Questions found here are row upserts: one more generation carrying
+    // just those rows, not a second publication of every row.
     const enriched: SessionCatalogRow[] = [];
-    let changed = false;
     for (const row of accepted.rows) {
       this.controller.signal.throwIfAborted();
       if (
@@ -441,39 +443,30 @@ export class RetainedSessionCollections {
         row.location.kind !== "file" ||
         row.asyncQuestions !== undefined ||
         !this.options.shouldReadQuestions?.(row)
-      ) {
-        enriched.push(row);
+      )
         continue;
-      }
       const filePath = row.location.path;
       try {
         const before = catalogFileVersion(await stat(filePath));
         if (before !== row.sourceVersion) {
           this.invalidate(filePath);
-          enriched.push(row);
           continue;
         }
         const asyncQuestions = await readCodexAsyncQuestions(filePath);
         if (catalogFileVersion(await stat(filePath)) !== before) {
           this.invalidate(filePath);
-          enriched.push(row);
           continue;
         }
-        enriched.push(
-          asyncQuestions === undefined ? row : { ...row, asyncQuestions },
-        );
-        changed ||= asyncQuestions !== undefined;
+        if (asyncQuestions !== undefined)
+          enriched.push({ ...row, asyncQuestions });
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         this.invalidate(filePath);
-        enriched.push(row);
       }
     }
-    if (changed) {
+    if (enriched.length) {
       this.controller.signal.throwIfAborted();
-      await this.catalog.reconcile(
-        catalogAdaptersForRows(enriched, accepted.snapshot.providerSources),
-      );
+      await this.catalog.upsertRows(enriched);
     }
   }
 

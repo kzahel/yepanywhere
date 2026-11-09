@@ -10,9 +10,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { openTestCatalog } from "../utils/session-catalog.js";
+import { closeTestDiscoveryDatabases } from "../utils/session-metadata-database.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
-import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
 import { GrokSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/grok-catalog-adapter.js";
 import { OpenCodeSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/opencode-catalog-adapter.js";
 import { AntigravitySessionCatalogAdapter } from "../../src/sessions/catalog-adapters/antigravity-catalog-adapter.js";
@@ -31,6 +32,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  closeTestDiscoveryDatabases();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -303,9 +305,7 @@ describe("catalog coordinator integration", () => {
       time: { updated: Date.parse("2026-08-03T00:00:00.000Z") },
     });
 
-    const catalog = new SessionCatalogService({
-      dataDir: join(root, "data"),
-    });
+    const catalog = openTestCatalog(join(root, "data"));
     await catalog.initialize();
     const result = await catalog.reconcile([
       new GrokSessionCatalogAdapter({ sessionsDir: grokDir }),
@@ -477,9 +477,7 @@ describe("AntigravitySessionCatalogAdapter", () => {
     const adapter = new AntigravitySessionCatalogAdapter({
       sessionsDir: directory,
     });
-    const catalog = new SessionCatalogService({
-      dataDir: join(root, "catalog"),
-    });
+    const catalog = openTestCatalog(join(root, "catalog"));
     await catalog.initialize();
     await catalog.reconcile([adapter]);
     const before = await catalog.readRows();

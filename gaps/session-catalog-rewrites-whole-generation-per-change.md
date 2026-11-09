@@ -10,6 +10,15 @@ files were the file-only way to get crash-safe publication and consistent
 readers. Every one of those properties is now available from one SQLite
 transaction, and the file design costs O(catalog) work for every change.
 
+**Storage fixed 2026-11-09** by
+[plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) step 3: the
+catalog is rows in `discovery.sqlite`, a changed session writes one row
+(about 20 KB of pages instead of 14.3 MB), a scan that changes nothing
+writes nothing and advances no generation, and the shard files are imported
+once and deleted. Still open below: the whole-catalog walks on the server
+and in every tab per generation (plan 189 steps 4 and 7), new sessions
+without full discovery, and deltas to clients (step 8).
+
 This supersedes the former `retained-catalog-identity-resolution-cpu.md` gap
 and expands items 1 and 13 of
 [SQLite cleanup and wins](sqlite-cleanup-and-wins.md).
@@ -105,16 +114,15 @@ change on every publication, even when no row did.
    deliberately sends no generation token in retained mode
    (`useGlobalSessionsFeed.ts:464-467`).
 
-The delta and conditional machinery is unused. `getConditional` and the
-manifest's `recentRows` have no caller outside `SessionCatalogService`, so
-clients never receive deltas. The server computes and stores them anyway.
+The delta and conditional machinery was unused: `getConditional` and the
+manifest's `recentRows` had no caller outside `SessionCatalogService`.
+Removed 2026-11-09 with the files.
 
 ## Proposed shape
 
 [Plan 189](../docs/tactical/189-session-catalog-in-sqlite.md) owns the
-schema as built. Its step 3 first commit (2026-11-09) added the tables
-and a startup copy; the second writes each publication's changed rows
-there too, beside the shard files, which still serve every read.
+schema as built. Its step 3 (2026-11-09) moved the catalog into those
+tables in three commits; the files are gone.
 
 Rows in the profile database, keyed natively, written per changed row:
 
