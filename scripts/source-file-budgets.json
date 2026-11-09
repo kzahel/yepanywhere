@@ -106,7 +106,7 @@
       "maxLines": 3066
     },
     "packages/server/src/sdk/providers/claude.ts": {
-      "maxLines": 3114
+      "maxLines": 2805
     },
     "packages/server/src/sdk/providers/codex-oss.ts": {
       "maxLines": 1615

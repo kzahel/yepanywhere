@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { resolveClaudeSdkNativeExecutable } from "../../server/src/sdk/providers/claude.js";
+import { resolveClaudeSdkNativeExecutable } from "../../server/src/sdk/providers/claude-executable.js";
 import { DiscoverySqliteService } from "../../server/src/storage/discovery-sqlite.js";
 import { SessionMetadataService } from "../../server/src/metadata/SessionMetadataService.js";
 import { InstallService } from "../../server/src/services/InstallService.js";

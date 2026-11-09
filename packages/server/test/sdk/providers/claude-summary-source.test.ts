@@ -13,10 +13,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  ClaudeProvider,
-  resolveClaudeSdkNativeExecutable,
-} from "../../../src/sdk/providers/claude.js";
+import { ClaudeProvider } from "../../../src/sdk/providers/claude.js";
+import { resolveClaudeSdkNativeExecutable } from "../../../src/sdk/providers/claude-executable.js";
 import { ClaudeGatewayProvider } from "../../../src/sdk/providers/claude-gateway.js";
 import { ClaudeOllamaProvider } from "../../../src/sdk/providers/claude-ollama.js";
 import {

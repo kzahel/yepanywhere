@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync } from "node:fs";
-import { resolveClaudeSdkNativeExecutable } from "../../src/sdk/providers/claude.js";
+import { resolveClaudeSdkNativeExecutable } from "../../src/sdk/providers/claude-executable.js";
 
 export const nativeProviders = [
   "claude",
