@@ -5,7 +5,7 @@
       "reason": "Device stream video vocabulary produced by EmulatorStream."
     },
     "packages/client/src/styles/index.css": {
-      "maxLines": 12207,
+      "maxLines": 11531,
       "reason": "Legacy application shell plus global tokens, themes, and base rules."
     },
     "packages/client/src/styles/provider-colors.css": {
@@ -13,11 +13,11 @@
       "reason": "Theme-dependent provider badge color tokens shared by every badge surface."
     },
     "packages/client/src/styles/renderers.css": {
-      "maxLines": 5296,
+      "maxLines": 5161,
       "reason": "Legacy generated-content and renderer class vocabulary."
     },
     "packages/client/src/styles/tool-rows.css": {
-      "maxLines": 745,
+      "maxLines": 709,
       "reason": "Shared tool-row state and generated renderer composition."
     }
   },

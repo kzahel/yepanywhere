@@ -37,8 +37,8 @@ Status: direction selected 2026-11-08.
 [Plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
 sequences the work. The playground, its token page, the undefined-property
 limit, the button and switch census, the shared button family, the
-shared switch and segmented control, the shared popover and menu, and the
-shared fields have landed. For controls without a
+shared switch and segmented control, the shared popover and menu, the
+shared fields, and the shared banner, badge, spinner and tabs have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
@@ -84,17 +84,16 @@ more", "Copy", "Edit") is `ghost` `small`; an icon-only button is an
 neighbouring secondary.
 
 Client buttons are on the shared controls except those the allowlist
-below names: tabs (a later family), listbox options, the composer's
-controls, the crash fallback page, and 15 pre-existing `role="button"`
-elements.
+below names: listbox options, the composer's controls, the crash fallback
+page, and 15 pre-existing `role="button"` elements.
 `pnpm buttons:check` (part of `pnpm lint`) keeps it so. It rejects:
 
 - a banned legacy class: any button, switch or option class from
   `design/census/mapping.ts` without global rules (`toggle-switch`,
   `font-size-option`, …), plus those recorded in the allowlist's
   `bannedClasses`, so restoring a deleted rule does not lift the ban;
-- a raw `<button>` outside `ui/Button.tsx` and the shared selection and
-  menu controls, unless it has a tab role or sits in a composer file;
+- a raw `<button>` outside `ui/Button.tsx` and the shared selection, menu
+  and tab controls, unless it sits in a composer file;
 - a new `role="button"` element (use `ButtonBase`);
 - a CSS rule, module or global, whose selector reaches a bare `button`
   element and sets look or size properties (`.panel button { background:
@@ -117,7 +116,12 @@ elements.
   `ui/Checkbox.tsx` and `ui/Switch.tsx`, and a CSS rule whose selector
   styles a bare `input`, `select` or `textarea` element with look or size
   properties (`.form input { border: … }`); the legacy field classes
-  (`settings-input`, `settings-select`, …) once their rules are gone.
+  (`settings-input`, `settings-select`, …) once their rules are gone;
+- a tab role (`tab`, `tablist`, `tabpanel`) outside `ui/Tabs.tsx`, a
+  `@keyframes` set that rotates outside `ui/Spinner.module.css`, and the
+  legacy banner, badge, spinner and tab classes (`settings-warning`,
+  `form-error`, `badge-error`, `login-spinner`, `model-switch-tab`, …,
+  `LEGACY_STATUS`) once their rules are gone.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
@@ -258,6 +262,56 @@ checkbox picks several independent things (a selection, a filter, an
 together is a `SegmentedControl`; `Radio` is only for a choice whose
 options sit in separate rows or cards (the default among listed services).
 
+**Banners, badges, spinners and tabs.** `src/components/ui/Banner.tsx` is
+a message about a page, panel, form or action: `tone` `info`, `success`,
+`warning` or `error`, drawn as a box tinted from the tone's color with a
+tone-colored left edge, text in the primary text color. `title` is a bold
+first line, `actions` hold its buttons (they wrap under the text when the
+banner is narrow), and `onDismiss` with a `dismissLabel` adds a close
+button (the caller's translated label; the control takes no i18n
+context). An error banner is `role="alert"`, the
+others `role="status"`; a notice that is part of the page from the start
+passes `role="none"`. `compact` tightens it for a row or small panel. An
+error that belongs to one field is that `Field`'s `error` instead. Toasts,
+tool output error text in the transcript, system message rows and empty
+states are not banners.
+
+`src/components/ui/Badge.tsx` is a short label that is not a control: a
+state, a kind or a count. `tone` is `neutral`, `info`, `success`,
+`warning`, `danger` or `accent` (the brand green, for "current", "default",
+"live"); `emphasis="soft"` is a tint with colored text and `solid` a filled
+chip for counts that ask for attention; `shape="count"` is a pill with
+tabular figures; `size="small"` fits dense rows; `mono` sets the code font.
+A component whose color comes from data (a provider's brand color) sets
+`--badge-color` and `--badge-soft` on a class it passes. A clickable chip is
+a button, not a badge. Only a badge with a `tooltip` subscribes to the
+tooltip setting, so badges cost nothing extra in the transcript.
+
+`src/components/ui/Spinner.tsx` is the one busy indicator: a ring in the
+current text color with one gap, `small` (0.9em, inline with text and in
+`Button`'s `busy` state), `default` (16 px) and `large` (32 px, page-level
+loading), slower under reduced motion. Without `label` it is decoration
+beside text that says what is happening; with `label` it is a named
+`role="status"`. It reads `--ya-activity-play`, so a transcript row
+scrolled out of view pauses its spinner. Its keyframes are the client's
+only rotating set.
+
+`src/components/ui/Tabs.tsx` is a tab strip: `role="tablist"` with
+`role="tab"` buttons, one tab stop, Left/Right, Home and End that move and
+select (`activation="manual"` to move focus only), disabled tabs skipped.
+`variant="underline"` (default) heads a pane, dialog or panel;
+`variant="pill"` sits in a toolbar or page header. A tab takes `icon` (a
+state mark such as answered ✓), `count` (a small count badge, part of its
+name) and `ariaLabel`. Given an `id`, the selected tab points at the
+`<TabPanel tabsId={id} value={tab}>` holding its pane, which is labelled
+by the tab.
+
+Which control: a message about a page or action is a `Banner`, a passing
+confirmation of an action a toast; a label beside content is a `Badge`;
+work in progress is a `Spinner`, or `busy` on the button that started it;
+switching between panes of one surface is `Tabs`, choosing a value a
+`SegmentedControl`.
+
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
 
@@ -394,6 +448,11 @@ The playground's pages:
   parses production TSX with the TypeScript compiler.
 - **Controls/Field:** text inputs, selects and textareas in every state,
   `Field` with hint and error, and checkboxes and radios.
+- **Controls/Banner**, **Controls/Badge**, **Controls/Spinner** and
+  **Controls/Tabs:** every tone, size, shape and look.
+- **Census/Banners, badges, spinners and tabs:** each legacy class or
+  component with its live use count, per control in the family's order,
+  kept as a regression view.
 - **Census/Fields:** each legacy field class with its live use count,
   grouped by the shared control it became, kept as a regression view.
 - **Census/Switches and segmented controls:** the shared controls, each

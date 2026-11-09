@@ -6,11 +6,12 @@ Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
 whole button family (census, swap, delete, ban), the token pass, the
-switch and segmented-control family, the menu and popover family and the
-field family have landed. Order agreed with the maintainer on 2026-11-09:
-the token pass (done), switches and segmented controls (done), menus and
-popovers (done), fields (done), then banners/badges/spinners/tabs, the
-dialog pattern, and the composer last. Each step runs end to end
+switch and segmented-control family, the menu and popover family, the
+field family and the banner, badge, spinner and tab family have landed.
+Order agreed with the maintainer on 2026-11-09: the token pass (done),
+switches and segmented controls (done), menus and popovers (done), fields
+(done), banners/badges/spinners/tabs (done), then the dialog pattern, and
+the composer last. Each step runs end to end
 (implement, independent review, commit) before the next starts.
 
 ## Why
@@ -252,6 +253,29 @@ of slightly different styles.
   colors, unnamed fields got names, and the ban now reads `:is()` and
   `:where()` subjects, rules after `@layer`/`@import` statements and
   `max-` sizes.
+- **Banner, badge, spinner and tab family done (2026-11-09):** `Banner`,
+  `Badge`, `Spinner` and `Tabs`/`TabPanel` (`ui/`), each with a Controls
+  page, tests, and one census page (Census/Banners, badges, spinners and
+  tabs, `LEGACY_STATUS`) in the family's order. The census found the
+  settings and form message styles (`settings-warning` ~25 uses,
+  `form-error`, `form-warning`, `login-error`), a dozen one-off notice
+  boxes, 13 notice components and many module error and notice classes;
+  the renderers' `.badge` family (~70 uses) and about 45 named badge
+  classes; eight spinner classes with fourteen rotate keyframe sets (four
+  of them a global `spin` overriding each other); and three tab strips,
+  one with roving focus. About 270 files moved, area by area: messages
+  became `Banner`s in the matching tone (notice components keep their
+  logic and placement and draw their box through it), labels and counts
+  `Badge`s (brand and tracker colors through `--badge-color`), every
+  busy indicator `Spinner` or a button's `busy`, and the source control,
+  model switch and question panel strips `Tabs`. Toasts, tool output
+  error text, system message rows and clickable chips stayed what they
+  were. About 850 lines of global CSS went with the classes, and the
+  layout classes kept on the shared controls lost their look properties.
+  `pnpm buttons:check` now also bans tab roles outside `Tabs`, rotating
+  keyframes outside `Spinner` (the new-session submit's spinner is
+  allowlisted for the composer) and the legacy status classes, and tab
+  buttons lost their exemption.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
@@ -392,7 +416,9 @@ editors the allowlist names.
 
 ### 5 — banners, badges, spinners and tabs
 
-Each with its own census, in that order.
+Each with its own census, in that order. **Done 2026-11-09** (What has
+landed). Left for other families: the composer's spinner and messages
+(composer); toasts keep their own stack.
 
 ### 7 — dialog pattern
 

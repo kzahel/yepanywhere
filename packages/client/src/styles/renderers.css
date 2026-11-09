@@ -2200,31 +2200,8 @@ details[open] .collapsible__icon {
   position: sticky;
   top: 0;
   z-index: 1;
-  display: flex;
-  gap: 0.25rem;
   margin-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border-color);
   background: var(--bg-surface);
-}
-
-.model-switch-tab {
-  padding: 0.35rem 0.7rem;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.model-switch-tab:hover {
-  color: var(--text-primary);
-}
-
-.model-switch-tab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent-color);
 }
 
 .model-switch-activate {
@@ -2440,17 +2417,6 @@ details[open] .collapsible__icon {
   flex-shrink: 0;
 }
 
-.model-switch-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
 .model-switch-radio {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
@@ -2527,16 +2493,6 @@ details[open] .collapsible__icon {
 
 /* Inherit the variant's text color so the badge reads on the green primary
    as well as the neutral secondary; opacity keeps it subordinate. */
-.model-switch-action-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  max-width: 100%;
-  font-size: var(--font-size-xs);
-  color: inherit;
-  opacity: 0.85;
-}
 
 .model-switch-action-badge-main {
   min-width: 0;
@@ -2601,35 +2557,6 @@ details[open] .collapsible__icon {
 /* ==========================================================================
    Badges
    ========================================================================== */
-
-.badge {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  vertical-align: middle;
-}
-
-.badge-warning {
-  background: var(--bg-warning);
-  color: var(--warning-color);
-}
-
-.badge-error {
-  background: var(--bg-error);
-  color: var(--error-color);
-}
-
-.badge-info {
-  background: var(--bg-secondary);
-  color: var(--link-color);
-}
-
-.badge-muted {
-  background: var(--bg-secondary);
-  color: var(--text-muted);
-}
 
 /* ==========================================================================
    Buttons
@@ -3065,40 +2992,6 @@ details[open] .collapsible__icon {
 
 .task-model {
   flex-shrink: 0;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-
-/* Spinner Animation */
-.task-spinner {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.spinner {
-  animation: spin 1s linear infinite;
-  color: #88aaff;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Badge for running status */
-.badge-running {
-  background: var(--bg-secondary);
-  color: var(--link-color);
-}
-
-.badge-pending {
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
 }
 
 /* Task Inline Content - Expanded View */
@@ -3613,11 +3506,6 @@ details[open] .collapsible__icon {
 /* ==========================================================================
    Badge Success (for status badges)
    ========================================================================== */
-
-.badge-success {
-  background: var(--bg-success);
-  color: var(--success-color);
-}
 
 /* ==========================================================================
    Mobile Adjustments
@@ -4904,17 +4792,6 @@ pre.code-highlighter-plain,
   text-overflow: ellipsis;
 }
 
-.working-tree-detail-count {
-  flex-shrink: 0;
-  padding: 0 5px;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.68rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-  border-radius: 999px;
-}
-
 .changeset-file-filter {
   display: inline-flex;
   min-width: 0;
@@ -4940,18 +4817,6 @@ pre.code-highlighter-plain,
 }
 
 /* Count of pending review comments anchored to a commit / file row. */
-.source-comment-badge {
-  flex-shrink: 0;
-  min-width: 16px;
-  padding: 0 5px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 16px;
-  text-align: center;
-  color: var(--bg-surface);
-  background: var(--success-color);
-  border-radius: 8px;
-}
 
 .commit-list-item,
 .commit-file-item {

@@ -1076,8 +1076,12 @@ document pointer listeners outside them. Fields landed the same day:
 `Field` (label, hint, error), `TextInput`, `Textarea`, `Select`, `Checkbox`
 and `Radio` replace about 320 raw fields and the `settings-input`,
 `settings-select`, form and login field styles, and lint bans raw field
-elements and rules that style them. Banners, badges, spinners and tabs are
-next.
+elements and rules that style them. Banners, badges, spinners and tabs
+landed the same day: `Banner`, `Badge`, `Spinner` and `Tabs` replace the
+settings and form message styles, notice boxes, about 45 badge classes,
+eight spinner classes with their rotate keyframes and three tab strips,
+and lint bans the old classes, tab roles outside `Tabs` and rotating
+keyframes outside `Spinner`. The dialog pattern is next.
 
 ## Later directions
 

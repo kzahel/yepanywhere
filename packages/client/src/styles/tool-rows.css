@@ -179,12 +179,6 @@
 }
 
 /* Spinner (for pending state) */
-.tool-spinner {
-  flex-shrink: 0;
-  color: var(--text-muted, #888);
-  display: flex;
-  align-items: center;
-}
 
 .tool-incomplete-icon {
   flex-shrink: 0;
@@ -192,20 +186,6 @@
   font-weight: 700;
   width: 14px;
   text-align: center;
-}
-
-.tool-spinner .spinner {
-  color: var(--app-spinner-foreground);
-  animation: spin 1s linear infinite var(--ya-activity-play, paused);
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Tool name */
@@ -274,22 +254,6 @@ button.tool-summary {
   line-height: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.hidden-content-badge {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  padding: 0.05rem 0.35rem;
-  border: 1px solid var(--border-subtle, var(--border-color));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-secondary) 84%, transparent);
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 1.15;
-  white-space: nowrap;
 }
 
 .tool-summary-command-more {

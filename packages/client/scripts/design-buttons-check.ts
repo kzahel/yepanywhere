@@ -7,8 +7,8 @@
  *    the classes recorded in the allowlist's `bannedClasses`, so restoring
  *    a deleted rule does not lift the ban;
  * 2. a raw `<button>` outside src/components/ui/Button.tsx and the shared
- *    selection and menu controls, unless it belongs to a later family (a
- *    tab role, the composer's files) or its file is in the allowlist with
+ *    selection, menu and tab controls, unless it sits in a composer file
+ *    or its file is in the allowlist with
  *    at least that many. Option pickers, switches, menu items and listbox
  *    options are swept (families 2 and 3): their raw buttons count;
  * 3. an element with `role="button"` beyond the allowlist: a real button
@@ -41,6 +41,13 @@
  *    (`.form input { border: … }`): fields use Field, TextInput, Textarea,
  *    Select, Checkbox and Radio (family 4). Their legacy classes
  *    (`settings-input`, `settings-select`, …, LEGACY_FIELDS) are banned
+ *    under 1 once their global rules are gone;
+ * 8. a tab role (`tab`, `tablist`, `tabpanel`) outside
+ *    src/components/ui/Tabs.tsx, and a rotating keyframe set (`@keyframes`
+ *    whose frames `rotate`) outside src/components/ui/Spinner.module.css:
+ *    tab strips use Tabs and busy indicators Spinner (family 5). Tab
+ *    buttons are swept, so their raw buttons count under 2. The legacy
+ *    banner, badge, spinner and tab classes (LEGACY_STATUS) are banned
  *    under 1 once their global rules are gone.
  *
  * The allowlist (design/census/button-allowlist.json) gives each entry a
@@ -68,6 +75,7 @@ import {
 import {
   LEGACY_BUTTONS,
   LEGACY_FIELDS,
+  LEGACY_STATUS,
   LEGACY_SWITCHES,
 } from "../design/census/mapping";
 import { collectDesignData } from "../design/vite-plugin-design-data";
@@ -82,7 +90,9 @@ radio roles outside the shared Switch and SegmentedControl. Exceptions
 live in packages/client/design/census/button-allowlist.json with a count
 and a reason; --record lowers those counts to the current scan. Also
 reject menu roles outside the shared Menu and document or window pointer
-listeners (hand-rolled outside-press dismissal) outside the shared Popover.`;
+listeners (hand-rolled outside-press dismissal) outside the shared Popover,
+raw fields outside the shared field controls, tab roles outside the shared
+Tabs and rotating keyframes outside the shared Spinner.`;
 
 const { values } = parseArgs({
   options: {
@@ -110,7 +120,9 @@ type AllowSection =
   | "menuRoles"
   | "outsidePressListeners"
   | "rawFields"
-  | "fieldLookRules";
+  | "fieldLookRules"
+  | "tabRoles"
+  | "spinKeyframes";
 interface Allowlist extends Record<AllowSection, Record<string, AllowEntry>> {
   bannedClasses: string[];
 }
@@ -164,6 +176,7 @@ const banned = [
       ...LEGACY_BUTTONS.flatMap((row) => row.classes.split(/\s+/)),
       ...LEGACY_SWITCHES.flatMap((row) => row.classes?.split(/\s+/) ?? []),
       ...LEGACY_FIELDS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
+      ...LEGACY_STATUS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
     ].filter((name) => !declared[name]),
   ]),
 ].sort();
@@ -191,7 +204,7 @@ if (banned.length) {
       )
         continue;
       problems.push(
-        `${srcPath(path)}:${lineAt(text, index)}: legacy class "${match[0]}" is banned; use the shared control (components/ui: Button, Switch, SegmentedControl, TextInput, Select, Textarea, Checkbox)`,
+        `${srcPath(path)}:${lineAt(text, index)}: legacy class "${match[0]}" is banned; use the shared control (components/ui: Button, Switch, SegmentedControl, TextInput, Select, Textarea, Checkbox, Banner, Badge, Spinner, Tabs)`,
       );
     }
   }
@@ -203,8 +216,9 @@ const SELECTION_CONTROLS = new Set([
   "components/ui/Switch.tsx",
   "components/ui/SegmentedControl.tsx",
   "components/ui/Menu.tsx",
+  "components/ui/Tabs.tsx",
 ]);
-const UNSWEPT_FAMILIES = new Set<RawButtonFamily>(["tab", "composer"]);
+const UNSWEPT_FAMILIES = new Set<RawButtonFamily>(["composer"]);
 const rawCounts = new Map<string, number>();
 const roleCounts = new Map<string, number>();
 for (const row of await scanButtonElements(srcDir)) {
@@ -412,6 +426,37 @@ for (const row of await scanFieldElements(srcDir)) {
   fieldCounts.set(row.file, (fieldCounts.get(row.file) ?? 0) + 1);
 }
 
+// 8. Tab roles outside the shared Tabs, and rotating keyframes outside the
+// shared Spinner.
+const TAB_ROLE =
+  /(?<![\w[-])role(?:=(?:\{[^}\n]*?)?|:\s*)["'`](?:tab|tablist|tabpanel)["'`]/g;
+const [tabCounts, tabSites] = await countMatches(
+  TAB_ROLE,
+  new Set(["components/ui/Tabs.tsx"]),
+);
+const spinCounts = new Map<string, number>();
+const spinSites = new Map<string, string[]>();
+for (const path of stylesheets) {
+  const file = srcPath(path);
+  if (file === "components/ui/Spinner.module.css") continue;
+  if (COMPOSER_FILE.test(file.replace(/\.module\.css$/, ".tsx"))) continue;
+  const text = (await readFile(path, "utf8")).replace(
+    /\/\*[\s\S]*?\*\//g,
+    (c) => c.replace(/[^\n]/g, " "),
+  );
+  for (const frames of text.matchAll(
+    /@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/g,
+  )) {
+    if (!/\brotate(?:Z)?\(|\brotate\s*:/.test(frames[2] ?? "")) continue;
+    tally(
+      spinCounts,
+      spinSites,
+      file,
+      `${file}:${lineAt(text, frames.index ?? 0)}: @keyframes ${frames[1]}`,
+    );
+  }
+}
+
 function ratchet(
   kind: AllowSection,
   counts: Map<string, number>,
@@ -475,6 +520,15 @@ ratchet("rawFields", fieldCounts, (file, count, allowed) => [
 ratchet("fieldLookRules", fieldLookCounts, (file, count, allowed) => [
   ...(fieldLookSites.get(file) ?? []),
   `${file}: ${count} rule${count === 1 ? "" : "s"} styling an input, select or textarea element, ${allowed} allowed; the shared field controls own their look, so style layout through a class passed as className`,
+]);
+
+ratchet("tabRoles", tabCounts, (file, count, allowed) => [
+  ...(tabSites.get(file) ?? []),
+  `${file}: ${count} tab role${count === 1 ? "" : "s"}, ${allowed} allowed; use Tabs and TabPanel from components/ui/Tabs`,
+]);
+ratchet("spinKeyframes", spinCounts, (file, count, allowed) => [
+  ...(spinSites.get(file) ?? []),
+  `${file}: ${count} rotating keyframe set${count === 1 ? "" : "s"}, ${allowed} allowed; a busy indicator is Spinner from components/ui/Spinner (or Button's busy)`,
 ]);
 
 if (values.record) {
