@@ -179,7 +179,7 @@ describe("DiffCommentLayer", () => {
     expect(screen.getByText("sourceCopyLine")).toBeDefined();
     expect(screen.getByText("sourceCopyPathLine")).toBeDefined();
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
     expect(document.activeElement).toBe(line);
 

@@ -527,9 +527,7 @@ describe("WorkingTreeBrowser", () => {
       }),
     ).toBeDefined();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "sourceDismissActions" }),
-    );
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.contextMenu(row?.closest("button") as HTMLButtonElement, {
       clientX: 20,
       clientY: 20,

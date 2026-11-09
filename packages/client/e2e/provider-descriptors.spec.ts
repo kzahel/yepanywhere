@@ -23,7 +23,7 @@ test("provider selector is usable before aggregate discovery finishes", async ({
     expect(aggregateStarted).toBe(true);
     await selector.click();
     await expect(
-      page.getByRole("dialog").getByRole("button", { name: /^pi\b/i }),
+      page.getByRole("menu").getByRole("menuitemradio", { name: /^pi\b/i }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
     const field = page.locator(".new-session-form textarea");

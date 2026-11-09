@@ -162,10 +162,13 @@ for (const viewport of [
     );
 
     const showThinkingPicker = showThinking.locator(
-      'button[aria-haspopup="listbox"]',
+      'button[aria-haspopup="menu"]',
     );
     await showThinkingPicker.click();
-    await page.getByRole("dialog").getByRole("button", { name: "On" }).click();
+    await page
+      .getByRole("menu")
+      .getByRole("menuitemradio", { name: "On" })
+      .click();
     await expect(showThinkingPicker).toContainText("On");
 
     await page.reload();

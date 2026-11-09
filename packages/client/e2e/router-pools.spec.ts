@@ -60,7 +60,8 @@ test("pool overview, editor and policy selection retain typing under 48-account 
       await overview
         .getByRole("button", { name: "Create pool", exact: true })
         .evaluate((el) => el.getBoundingClientRect().height),
-    ).toBeGreaterThanOrEqual(38);
+      // The shared Button's height; coarse pointers get 44 px.
+    ).toBeGreaterThanOrEqual(32);
     await recordUiCapture(page, `router-pools-${size.width}`, size);
   }
   await page.setViewportSize({ width: 1000, height: 600 });
@@ -121,17 +122,20 @@ test("pool overview, editor and policy selection retain typing under 48-account 
   });
   await expect(poolTrigger).toContainText("Direct provider login");
   await poolTrigger.click();
-  const poolPanel = page.getByRole("dialog", { name: "Filter by Pool" });
-  await expect(poolPanel.getByRole("button")).toHaveText([
-    /^Direct provider login/,
-    /^Personal Codex.*Round robin · 15 of 16 accounts offer Fixture model · best 45% left/,
-    /^Hand-picked Codex.*Manual · 3 of 4 accounts offer Fixture model · best 45% left/,
+  const poolPanel = page.getByRole("menu", { name: "Filter by Pool" });
+  // Text, not names: the checked row's text starts with its radio mark.
+  await expect(poolPanel.getByRole("menuitemradio")).toHaveText([
+    /Direct provider login/,
+    /Personal Codex.*Round robin · 15 of 16 accounts offer Fixture model · best 45% left/,
+    /Hand-picked Codex.*Manual · 3 of 4 accounts offer Fixture model · best 45% left/,
   ]);
   await recordUiCapture(page, "router-unified-selection-open-1000", {
     width: 1000,
     height: 600,
   });
-  await poolPanel.getByRole("button", { name: /^Personal Codex/ }).click();
+  await poolPanel
+    .getByRole("menuitemradio", { name: /^Personal Codex/ })
+    .click();
   await expect(poolPanel).toHaveCount(0);
   await expect(poolTrigger).toContainText("Personal Codex");
   await expect(selector.getByLabel("Selected route")).toContainText(
@@ -145,59 +149,64 @@ test("pool overview, editor and policy selection retain typing under 48-account 
   });
   await expect(accountTrigger).toContainText("Round robin");
   await accountTrigger.click();
-  const accountPanel = page.getByRole("dialog", {
+  const accountPanel = page.getByRole("menu", {
     name: "Filter by Router account",
   });
-  await expect(accountPanel.getByRole("button").nth(0)).toHaveText(
-    /^Round robin.*Pool default/,
+  await expect(accountPanel.getByRole("menuitemradio").nth(0)).toHaveText(
+    /Round robin.*Pool default/,
   );
-  await expect(accountPanel.getByRole("button").nth(2)).toHaveText(
-    /^Weekly pace/,
+  await expect(accountPanel.getByRole("menuitemradio").nth(2)).toHaveText(
+    /Weekly pace/,
   );
-  await expect(accountPanel.getByRole("button")).toHaveCount(3 + 16);
-  await accountPanel.getByRole("button", { name: /^Weekly pace/ }).click();
+  await expect(accountPanel.getByRole("menuitemradio")).toHaveCount(3 + 16);
+  await accountPanel
+    .getByRole("menuitemradio", { name: /^Weekly pace/ })
+    .click();
   await expect(selector.getByLabel("Selected route")).toContainText(
     '"policy":"weekly-pace"',
   );
   await poolTrigger.click();
-  await poolPanel.getByRole("button", { name: /^Hand-picked Codex/ }).click();
+  await poolPanel
+    .getByRole("menuitemradio", { name: /^Hand-picked Codex/ })
+    .click();
   await expect(accountTrigger).toContainText("Choose an account");
   await accountTrigger.click();
   // Every pool account is listed with its reason, both cached windows and
   // the observation state; only catalog facts disable a row.
-  await expect(accountPanel.getByRole("button")).toHaveText([
-    /^Round robin/,
-    /^Most remaining/,
-    /^Weekly pace/,
-    /Account 1.*Quota exhausted when last checked.*5h 0% left.*7d 45% left.*checked Oct 3/,
+  await expect(accountPanel.getByRole("menuitemradio")).toHaveText([
+    /Round robin/,
+    /Most remaining/,
+    /Weekly pace/,
+    // The quota sits beside the name; the reason is the second line.
+    /Account 1.*5h 0% left.*7d 45% left.*checked Oct 3.*Quota exhausted when last checked/,
     /Account 2.*5h 68% left.*7d 45% left.*from a request Oct 3.*last refresh failed/,
-    /Account 3.*Disabled in AAR.*5h 68% left.*7d 45% left.*checked Oct 3/,
+    /Account 3.*5h 68% left.*7d 45% left.*checked Oct 3.*Disabled in AAR/,
     /Account 4.*no quota observed/,
   ]);
   await expect(
-    accountPanel.getByRole("button", { name: /Account 3/ }),
+    accountPanel.getByRole("menuitemradio", { name: /Account 3/ }),
   ).toBeDisabled();
   await expect(
-    accountPanel.getByRole("button", { name: /Account 1/ }),
+    accountPanel.getByRole("menuitemradio", { name: /Account 1/ }),
   ).toBeEnabled();
   await recordUiCapture(page, "router-account-quota-open-1000", {
     width: 1000,
     height: 600,
   });
-  await accountPanel.getByRole("button", { name: /Account 2/ }).click();
+  await accountPanel.getByRole("menuitemradio", { name: /Account 2/ }).click();
   await expect(selector.getByLabel("Selected route")).toContainText(
     '"accountId":"account-2"',
   );
   // The phone sheet must hold both quota lines without clipping the row.
   await page.setViewportSize({ width: 375, height: 812 });
   await accountTrigger.click();
-  const accountSheet = page.getByRole("dialog", {
+  const accountSheet = page.getByRole("menu", {
     name: "Filter by Router account",
   });
-  await expect(accountSheet.getByRole("button")).toHaveCount(7);
+  await expect(accountSheet.getByRole("menuitemradio")).toHaveCount(7);
   expect(
     await accountSheet
-      .getByRole("button", { name: /Account 2/ })
+      .getByRole("menuitemradio", { name: /Account 2/ })
       .evaluate((el) => el.scrollWidth <= el.clientWidth),
   ).toBe(true);
   await recordUiCapture(page, "router-account-quota-open-375", {

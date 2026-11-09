@@ -1,8 +1,7 @@
 /*
- * FilterDropdown owns every element it renders: the trigger, the desktop
- * dropdown, and the portaled mobile sheet. Portals need no global CSS — the
- * module emits static CSS and the sheet carries these classes wherever it
- * mounts.
+ * FilterDropdown owns its trigger and the layout of each option's content.
+ * The surface, rows, check marks, group labels, separators and the phone
+ * bottom sheet belong to the shared Menu (components/ui/Menu.tsx).
  *
  * Caller-facing presentation is expressed as props (fullWidth, triggerVariant,
  * panelVariant, triggerClassName), not as ancestor selectors reaching into
@@ -10,7 +9,6 @@
  */
 
 .container {
-  position: relative;
   display: inline-block;
 }
 
@@ -55,8 +53,24 @@
   justify-content: space-between;
 }
 
+/* One line of option content: dot, icon, label, then trailing meta and
+ * count. Wraps below the label when a narrow sheet has no room. */
+.optionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-2);
+  min-width: 0;
+}
+
+.optionLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .optionIcon {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 }
@@ -67,116 +81,6 @@
   flex-shrink: 0;
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 10001;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.sheet {
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  width: 100%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  animation: slideUp 0.2s ease-out;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.options {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-2) 0;
-}
-
-.option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: background 0.15s ease;
-  color: var(--text-primary);
-}
-
-.option:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.option:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.option.selected {
-  background: rgba(217, 119, 87, 0.08);
-}
-
-.checkbox {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-
-.checkbox.checked {
-  background: var(--app-yep-green);
-  border-color: var(--app-yep-green);
-  color: white;
-}
-
-.checkboxSpacer {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-/* Single-select mode: show checkmark on right side instead of checkbox */
-.option.singleSelect {
-  position: relative;
-  padding-right: var(--space-8);
-}
-
 .colorDot {
   width: 10px;
   height: 10px;
@@ -184,83 +88,28 @@
   flex-shrink: 0;
 }
 
-.labelWrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.meta {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.label {
-  font-size: var(--font-size-base);
-}
-
-.description {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  line-height: 1.3;
-}
-
+.meta,
 .count {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  background: var(--bg-secondary);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-}
-
-.clear .label {
-  color: var(--text-muted);
-}
-
-.clear:hover .label {
-  color: var(--text-primary);
-}
-
-.divider {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: var(--space-2) var(--space-4);
-}
-
-.groupLabel {
-  padding: var(--space-1) var(--space-4);
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.dropdown {
-  display: none;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  margin-left: auto;
 }
 
 /*
- * Model picker panel. The rows carry a multi-line description and a leading
- * ProviderBadge. Top-align the row so the badge sits next to the model name
- * (instead of floating to the vertical center of a tall, multi-line row), give
- * the badge a consistent gutter, and widen the desktop panel so descriptions
- * wrap to one or two lines instead of three or four.
+ * Model picker: the rows lead with a ProviderBadge. Give the badge a
+ * consistent gutter so model names line up, and widen the desktop menu so
+ * descriptions wrap to one or two lines instead of three or four.
  */
-.option.model {
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
 .optionIcon.model {
   justify-content: flex-start;
-  flex-shrink: 0;
   min-width: 96px;
-  /* Optically center the badge on the model name's first line. */
-  margin-top: 2px;
+}
+
+@media (width > 768px) {
+  .modelMenu {
+    width: 360px;
+  }
 }
 
 /*
@@ -278,83 +127,5 @@
     width: 100%;
     min-width: 0;
     justify-content: space-between;
-  }
-}
-
-@media (width > 768px) {
-  .dropdown {
-    display: block;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: var(--space-1);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    min-width: 200px;
-    /*
-     * A long list scrolls inside the panel instead of growing the page. The
-     * component also caps it to the visible space on its side of the
-     * trigger; a panel that overhangs the scroll container would grow the
-     * page and leave its last rows unreachable from inside the panel.
-     */
-    max-height: min(
-      60vh,
-      480px,
-      var(--filter-dropdown-available-height, 480px)
-    );
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 100;
-    animation: dropdownFadeIn 0.15s ease-out;
-  }
-
-  .dropdown.alignRight {
-    left: auto;
-    right: 0;
-  }
-
-  /* Opens upward when there is more room above the trigger than below. */
-  .dropdown.above {
-    top: auto;
-    bottom: 100%;
-    margin-top: 0;
-    margin-bottom: var(--space-1);
-  }
-
-  .dropdown .options {
-    padding: var(--space-1) 0;
-  }
-
-  .dropdown .option {
-    padding: var(--space-2) var(--space-3);
-  }
-
-  .dropdown .divider {
-    margin: var(--space-1) var(--space-3);
-  }
-
-  .dropdown .groupLabel {
-    padding-inline: var(--space-3);
-  }
-
-  .dropdown.model {
-    width: 360px;
-  }
-
-  @keyframes dropdownFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .overlay {
-    display: none;
   }
 }

@@ -73,7 +73,6 @@ export function IssueSessionRow({
   const base = useRemoteBasePath();
   const menu = useSourceContextMenu(t, {
     menu: t("issuesAssociationActions"),
-    dismiss: t("issuesCancel"),
   });
   const [expanded, setExpanded] = useState(false);
   // Only the pages this row fetched are held here: the first mention stays a

@@ -82,7 +82,6 @@ function IssueBrowser() {
   const projectId = params.get("projectId") ?? "";
   const menu = useSourceContextMenu(t, {
     menu: t("issuesItemActions"),
-    dismiss: t("issuesCancel"),
   });
   useEffect(() => {
     let disposed = false;

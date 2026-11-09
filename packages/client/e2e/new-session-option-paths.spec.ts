@@ -87,8 +87,8 @@ test("saves a provider switch and starts with the options off their defaults", a
       .getByRole("button", { name: `Filter by ${label}`, exact: true })
       .click();
     await page
-      .getByRole("dialog", { name: `Filter by ${label}` })
-      .getByRole("button", { name: value })
+      .getByRole("menu", { name: `Filter by ${label}` })
+      .getByRole("menuitemradio", { name: value })
       .click();
   }
 

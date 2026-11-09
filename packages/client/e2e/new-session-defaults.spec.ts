@@ -132,8 +132,8 @@ test("remembers speed and router choices across clients while discovery preserve
       .getByRole("button", { name: `Filter by ${label}`, exact: true })
       .click();
     await page
-      .getByRole("dialog", { name: `Filter by ${label}` })
-      .getByRole("button", { name: value })
+      .getByRole("menu", { name: `Filter by ${label}` })
+      .getByRole("menuitemradio", { name: value })
       .click();
   }
   const other = await browser.newContext({

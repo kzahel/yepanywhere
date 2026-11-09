@@ -1,28 +1,15 @@
-/* Portaled to document.body like the path menu, one layer below the list. */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10010;
-  cursor: default;
-}
-
+/* Layout inside the shared popover panel, which supplies frame and padding. */
 .popover {
-  position: fixed;
-  z-index: 10011;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  width: min(360px, calc(100dvw - 16px));
 }
 
 .head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 4px 4px 4px 10px;
+  padding: 0 0 var(--space-1) 6px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -53,8 +40,9 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  max-height: 340px;
   margin: 0;
-  padding: 4px;
+  padding: var(--space-1) 0 0;
   overflow-y: auto;
   list-style: none;
 }

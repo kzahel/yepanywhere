@@ -1,4 +1,5 @@
 import {
+  Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -9,10 +10,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { beginTooltipSuppression } from "../hooks/useTooltipAppearance";
 import type { TranslationFn } from "../i18n";
-import { ButtonBase, IconButton } from "./ui/Button";
+import { IconButton } from "./ui/Button";
+import {
+  Menu,
+  type MenuCloseReason,
+  MenuGroup,
+  MenuItem,
+  MenuSeparator,
+} from "./ui/Menu";
 import styles from "./SourceContextMenu.module.css";
 
 /**
@@ -38,10 +45,8 @@ export interface SourceContextMenuOpenOptions {
 }
 
 export interface SourceContextMenuLabels {
-  dismiss: string;
   menu: string;
   heading?: string;
-  touchTargets?: boolean;
 }
 
 interface OpenSourceContextMenu {
@@ -50,6 +55,8 @@ interface OpenSourceContextMenu {
   y: number;
   returnFocus: HTMLElement | null;
   contextKey?: string;
+  /** Opened from a trigger button: anchored to it rather than at x/y. */
+  fromButton?: boolean;
 }
 
 interface SourceMenuTargetProps {
@@ -109,7 +116,12 @@ export function useSourceContextMenu(
   t: TranslationFn,
   labels?: SourceContextMenuLabels,
 ): SourceContextMenuController {
-  const [open, setOpen] = useState<OpenSourceContextMenu | null>(null);
+  const [open, setOpen] = useState<
+    (OpenSourceContextMenu & { sequence: number }) | null
+  >(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const openSequenceRef = useRef(0);
   const longPressRef = useRef<{
     timer: ReturnType<typeof setTimeout>;
     x: number;
@@ -120,7 +132,36 @@ export function useSourceContextMenu(
     null,
   );
 
-  const close = useCallback(() => setOpen(null), []);
+  const closeFromMenu = useCallback((reason?: MenuCloseReason) => {
+    // A touch hold opens the menu under the finger; that same pointer
+    // sequence's compatibility press must not count as one outside it.
+    if (reason === "outside" && suppressNextClickRef.current) return;
+    setOpen(null);
+  }, []);
+
+  const openMenu = useCallback(
+    (
+      x: number,
+      y: number,
+      returnFocus: HTMLElement | null,
+      actions: SourceContextMenuAction[],
+      options: SourceContextMenuOpenOptions | undefined,
+      fromButton: boolean,
+    ) => {
+      openSequenceRef.current += 1;
+      setOpen({
+        actions,
+        x,
+        y,
+        returnFocus,
+        sequence: openSequenceRef.current,
+        ...(fromButton ? { fromButton } : {}),
+        ...(options?.contextKey ? { contextKey: options.contextKey } : {}),
+      });
+      options?.onOpen?.();
+    },
+    [],
+  );
 
   const openAt = useCallback(
     (
@@ -129,17 +170,8 @@ export function useSourceContextMenu(
       returnFocus: HTMLElement | null,
       actions: SourceContextMenuAction[],
       options?: SourceContextMenuOpenOptions,
-    ) => {
-      setOpen({
-        actions,
-        x,
-        y,
-        returnFocus,
-        ...(options?.contextKey ? { contextKey: options.contextKey } : {}),
-      });
-      options?.onOpen?.();
-    },
-    [],
+    ) => openMenu(x, y, returnFocus, actions, options, false),
+    [openMenu],
   );
 
   const openFromButton = useCallback(
@@ -150,16 +182,15 @@ export function useSourceContextMenu(
     ) => {
       event.preventDefault();
       event.stopPropagation();
-      const rect = event.currentTarget.getBoundingClientRect();
-      openAt(
-        rect.right,
-        rect.bottom + 4,
-        event.currentTarget,
-        actions,
-        options,
-      );
+      // The trigger toggles: pressing it is not outside its open menu.
+      const current = openRef.current;
+      if (current?.fromButton && current.returnFocus === event.currentTarget) {
+        setOpen(null);
+        return;
+      }
+      openMenu(0, 0, event.currentTarget, actions, options, true);
     },
-    [openAt],
+    [openMenu],
   );
 
   const refreshOpenActions = useCallback(
@@ -361,7 +392,14 @@ export function useSourceContextMenu(
 
   return {
     menu: open ? (
-      <SourceContextMenu {...open} labels={labels} onClose={close} t={t} />
+      <SourceContextMenu
+        // Each open is a fresh menu (focus, layer); a refresh keeps it.
+        key={open.sequence}
+        {...open}
+        labels={labels}
+        onClose={closeFromMenu}
+        t={t}
+      />
     ) : null,
     targetProps,
     openAt,
@@ -390,6 +428,7 @@ export function SourceRowMenuTrigger({
       size="small"
       className={styles.trigger}
       label={label}
+      aria-haspopup="menu"
       onClick={(event) => onOpen(event, actions, openOptions)}
     >
       ⋯
@@ -402,123 +441,78 @@ export function SourceContextMenu({
   x,
   y,
   returnFocus,
+  fromButton = false,
   onClose,
   t,
   labels,
 }: OpenSourceContextMenu & {
-  onClose: () => void;
+  onClose: (reason?: MenuCloseReason) => void;
   t: TranslationFn;
   labels?: SourceContextMenuLabels;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLElement | null>(returnFocus);
+  anchorRef.current = returnFocus;
+  // Whether focus is inside the menu, read when it closes: removing a
+  // focused element moves focus to <body> without a blur event.
+  const focusInsideRef = useRef(false);
 
   // A row's hover tooltip is normally still up when its context menu opens, and
   // the pointer then holds still over the menu. See FilePathContextMenu.
   useEffect(() => beginTooltipSuppression(), []);
 
-  useLayoutEffect(() => {
-    menuRef.current
-      ?.querySelector<HTMLButtonElement>(
-        'button[role="menuitem"]:not(:disabled)',
-      )
-      ?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        returnFocus?.focus();
-        return;
+  // A pointer-opened menu has no trigger for the menu to return focus to, so
+  // focus inside it at close goes back to the element it acted on here.
+  useLayoutEffect(
+    () => () => {
+      const target = anchorRef.current;
+      if (focusInsideRef.current && target?.isConnected) {
+        target.focus({ preventScroll: true });
       }
-      if (
-        event.key !== "ArrowDown" &&
-        event.key !== "ArrowUp" &&
-        event.key !== "Home" &&
-        event.key !== "End"
-      ) {
-        return;
-      }
-      const items = Array.from(
-        menuRef.current?.querySelectorAll<HTMLButtonElement>(
-          'button[role="menuitem"]:not(:disabled)',
-        ) ?? [],
-      );
-      if (items.length === 0) return;
-      event.preventDefault();
-      const current = items.indexOf(
-        document.activeElement as HTMLButtonElement,
-      );
-      const next =
-        event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? items.length - 1
-            : event.key === "ArrowDown"
-              ? (current + 1 + items.length) % items.length
-              : (current - 1 + items.length) % items.length;
-      items[next]?.focus();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, returnFocus]);
+    },
+    [],
+  );
 
-  const select = (action: SourceContextMenuAction) => {
-    if (action.disabled) return;
-    onClose();
-    returnFocus?.focus();
-    action.onSelect();
-  };
-
-  const estimatedHeight =
-    actions.length * (labels?.touchTargets ? 46 : 34) +
-    16 +
-    (labels?.heading ? 32 : 0);
-  return createPortal(
-    <>
-      <ButtonBase
-        className={styles.overlay}
-        aria-label={labels?.dismiss ?? t("sourceDismissActions")}
-        onClick={() => {
-          onClose();
-          returnFocus?.focus();
-        }}
-        onContextMenu={(event) => {
+  const items = actions.map((action, index) => (
+    <Fragment key={index}>
+      {action.separatorBefore ? <MenuSeparator /> : null}
+      <MenuItem
+        disabled={action.disabled}
+        onSelect={(event) => {
+          // Close and return focus first, so the action can move focus on.
           event.preventDefault();
-          onClose();
+          onClose("select");
           returnFocus?.focus();
-        }}
-      />
-      <div
-        ref={menuRef}
-        className={`${styles.menu}${labels?.touchTargets ? ` ${styles.touchTargets}` : ""}`}
-        role="menu"
-        aria-label={labels?.menu ?? t("sourceActionMenu")}
-        style={{
-          left: Math.max(8, Math.min(x, window.innerWidth - 232)),
-          top: Math.max(8, Math.min(y, window.innerHeight - estimatedHeight)),
+          action.onSelect();
         }}
       >
-        {labels?.heading && (
-          <div className={styles.heading}>{labels.heading}</div>
-        )}
-        {actions.map((action, index) => (
-          <button
-            key={index}
-            type="button"
-            role="menuitem"
-            className={
-              action.separatorBefore ? styles.separatorBefore : undefined
-            }
-            disabled={action.disabled}
-            onClick={() => select(action)}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
-    </>,
-    document.body,
+        {action.label}
+      </MenuItem>
+    </Fragment>
+  ));
+  return (
+    <Menu
+      open
+      onClose={(reason) => onClose(reason)}
+      // A trigger button anchors the menu; a pointer or key opens it there.
+      {...(fromButton
+        ? { anchorRef, placement: "bottom-end" as const }
+        : { anchorPoint: { x, y }, placement: "bottom-start" as const })}
+      returnFocus={false}
+      aria-label={labels?.menu ?? t("sourceActionMenu")}
+      onFocus={() => {
+        focusInsideRef.current = true;
+      }}
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        focusInsideRef.current =
+          next instanceof Node && event.currentTarget.contains(next);
+      }}
+    >
+      {labels?.heading ? (
+        <MenuGroup label={labels.heading}>{items}</MenuGroup>
+      ) : (
+        items
+      )}
+    </Menu>
   );
 }

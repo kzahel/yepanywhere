@@ -39,7 +39,6 @@ export function ClearloopRemainingBadge({
 }) {
   const { t } = useI18n();
   const menu = useSourceContextMenu(t, {
-    dismiss: t("clearloopMenuDismiss"),
     menu: t("clearloopMenu"),
   });
   const contract = t(

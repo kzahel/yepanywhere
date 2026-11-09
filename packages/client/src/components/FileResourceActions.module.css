@@ -1,136 +1,16 @@
-/* Both nodes are portaled to document.body, so the overlay sits one layer
-   below the menu and swallows the click that dismisses it. */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10010;
-  cursor: default;
-}
-
-.menu {
-  position: fixed;
-  z-index: 10011;
-  display: flex;
-  flex-direction: column;
-  min-width: 230px;
-  max-width: calc(100dvw - 16px);
-  max-height: calc(100dvh - 16px);
-  overflow-y: auto;
-  padding: var(--space-1);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
-}
-
-.menu button {
-  appearance: none;
-  min-height: 36px;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.menu button:hover,
-.menu button:focus-visible,
-.menu button.activeItem {
-  background: var(--bg-hover);
-}
-
-.submenu {
-  z-index: 10012;
-}
-
-/* Names the folder a path segment's menu acts on; long paths keep their end. */
+/* Names what the menu acts on; long paths keep their end. It takes the menu's
+   width rather than widening it. */
 .heading {
-  /* Within the menu's 230px minimum, which its viewport clamp assumes. */
-  max-width: 206px;
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
   overflow: hidden;
-  padding: 0.25rem 0.6rem 0.4rem;
-  margin-bottom: var(--space-1);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-1) var(--space-2);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  line-height: 1rem;
+  font-size: var(--font-size-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
   direction: rtl;
   text-align: left;
-}
-
-.branchLabel,
-.backLabel {
-  display: flex;
-  align-items: center;
-}
-
-.branchLabel {
-  width: 100%;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.backLabel {
-  gap: var(--space-2);
-  color: var(--text-muted);
-}
-
-.copyActionLabel {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.copyActionLabel svg {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-}
-
-.separator {
-  height: 1px;
-  margin: var(--space-1) var(--space-2);
-  background: var(--border-subtle);
-}
-
-.githubLabel {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.githubLabel svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.githubDescription {
-  display: block;
-  margin-top: 3px;
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-}
-
-.menu button.githubDirty {
-  color: var(--warning-color);
-}
-
-.menu button.githubUnpushed {
-  color: var(--error-color);
-  cursor: not-allowed;
-}
-
-.menu button.githubUnpushed:hover {
-  background: transparent;
-}
-
-@media (pointer: coarse) {
-  .menu button {
-    min-height: 44px;
-  }
 }

@@ -142,7 +142,6 @@ export function useSelectionActionPresentation({
   const { t } = useI18n();
   const { menu: selectionContextMenu, openAt: openSelectionContextMenuAt } =
     useSourceContextMenu(t, {
-      dismiss: t("sessionDismissSelectionActions" as never),
       menu: t("sessionSelectionActionMenu" as never),
     });
 

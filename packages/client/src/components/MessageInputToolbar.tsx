@@ -1099,8 +1099,6 @@ export function MessageInputToolbarView({
     useEscapeInterruptDisabled();
   const stopMenu = useSourceContextMenu(t, {
     menu: t("toolbarStopOptions"),
-    dismiss: t("toolbarDismissStopOptions"),
-    touchTargets: true,
   });
   const asyncQuestions = useAsyncQuestions();
   const hasAsyncQuestions =

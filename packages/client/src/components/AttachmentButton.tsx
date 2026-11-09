@@ -27,9 +27,7 @@ export function AttachmentButton({
   const [preference] = useAttachmentAction();
   const menu = useSourceContextMenu(t, {
     menu: t("audioMemoShareMenu"),
-    dismiss: t("audioMemoDismissMenu"),
     heading: t("audioMemoShareMenu"),
-    touchTargets: true,
   });
   const primary = !onMemo
     ? "files"

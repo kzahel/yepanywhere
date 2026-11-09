@@ -752,7 +752,10 @@ describe("FileViewer", () => {
     );
     expect(screen.getByRole("menuitem", { name: "New session" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Copy text" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss file menu" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    // jsdom drops the selection when the menu focuses its first item.
+    selection?.removeAllRanges();
+    selection?.addRange(range);
 
     fireEvent.contextMenu(selectedLine, { clientX: 0, clientY: 0 });
     expect(
@@ -1804,7 +1807,7 @@ describe("FileViewer", () => {
       "Copy absolute file path",
       "Copy viewer link",
     ]);
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss image menu" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
     const openLink = container.querySelector<HTMLAnchorElement>(
       '.file-viewer-actions a[aria-label="Move viewer to new tab"]',

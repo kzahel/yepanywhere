@@ -171,8 +171,6 @@ export function ProjectAppViewer({
   const toast = useOptionalToastContext();
   const pathMenu = useSourceContextMenu(t, {
     menu: t("projectPathActions"),
-    dismiss: t("sourceDismissActions"),
-    touchTargets: true,
   });
   const [repoLocation, setRepoLocation] = useState<{
     root: URL;

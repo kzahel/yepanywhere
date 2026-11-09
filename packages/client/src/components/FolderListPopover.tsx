@@ -8,11 +8,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { formatFileSize } from "../lib/formatFileSize";
 import styles from "./FolderListPopover.module.css";
 import { ButtonBase, IconButton } from "./ui/Button";
+import { Popover, type PopoverRect } from "./ui/Popover";
 
 /** A folder path's parent in the same form, or null at a root we can name. */
 export function parentFolderPath(folder: string): string | null {
@@ -175,12 +175,13 @@ export function FolderListPopover({
   const { t } = useI18n();
   const [folder, setFolder] = useState(initialFolder);
   const [listing, setListing] = useState<Listing>({ state: "loading" });
-  const [place, setPlace] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
+  // The anchor may be an inline segment that wraps: open under its last line.
+  const [anchorRect] = useState<PopoverRect>(() => {
+    const rects = anchor.getClientRects();
+    return rects[rects.length - 1] ?? anchor.getBoundingClientRect();
+  });
+  const anchorRef = useRef(anchor);
+  anchorRef.current = anchor;
   const rowsRef = useRef<HTMLUListElement>(null);
   const loadRef = useRef(load);
   loadRef.current = load;
@@ -200,36 +201,6 @@ export function FolderListPopover({
       cancelled = true;
     };
   }, [folder]);
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const rects = anchor.getClientRects();
-      const rect = rects[rects.length - 1] ?? anchor.getBoundingClientRect();
-      const width = Math.min(360, window.innerWidth - 16);
-      const top = rect.bottom + 4;
-      setPlace({
-        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
-        top,
-        width,
-        maxHeight: Math.max(160, Math.min(380, window.innerHeight - top - 8)),
-      });
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [anchor]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-      anchor.focus();
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [anchor, onClose]);
 
   const entries =
     listing.state === "ready"
@@ -273,129 +244,123 @@ export function FolderListPopover({
 
   const now = Date.now();
   const label = folderLabel(folder, rootLabel);
-  return createPortal(
-    <>
-      <ButtonBase
-        className={styles.overlay}
-        aria-label={t("fileLinkDismissMenu" as never)}
-        onClick={onClose}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          onClose();
-        }}
-      />
-      <div
-        className={styles.popover}
-        role="dialog"
-        aria-label={t("folderListLabel" as never, { path: label })}
-        style={place ?? { visibility: "hidden" }}
-      >
-        <div className={styles.head}>
-          <span className={styles.title}>{label}</span>
-          <span className={styles.count}>
-            {listing.state === "ready"
-              ? t(
-                  (listing.response.truncated
-                    ? "folderListTruncated"
-                    : "folderListItems") as never,
-                  { count: entries.length },
-                )
-              : null}
+  return (
+    <Popover
+      open
+      onClose={() => onClose()}
+      // Measured once at open; the segment also keeps focus return and
+      // toggling (pressing it is not outside).
+      anchorRect={anchorRect}
+      anchorRef={anchorRef}
+      placement="bottom-start"
+      className={styles.popover}
+      role="dialog"
+      aria-label={t("folderListLabel" as never, { path: label })}
+    >
+      <div className={styles.head}>
+        <span className={styles.title}>{label}</span>
+        <span className={styles.count}>
+          {listing.state === "ready"
+            ? t(
+                (listing.response.truncated
+                  ? "folderListTruncated"
+                  : "folderListItems") as never,
+                { count: entries.length },
+              )
+            : null}
+        </span>
+        {siblings.length > 0 && index >= 0 ? (
+          <span className={styles.stepper}>
+            <IconButton
+              size="small"
+              label={
+                previous
+                  ? t("folderListPrevious" as never, { name: previous.name })
+                  : t("folderListNoPrevious" as never)
+              }
+              disabled={!previous}
+              onClick={() =>
+                previous && onOpenFile(childPath(folder, previous.name))
+              }
+            >
+              ‹
+            </IconButton>
+            <IconButton
+              size="small"
+              label={
+                next
+                  ? t("folderListNext" as never, { name: next.name })
+                  : t("folderListNoNext" as never)
+              }
+              disabled={!next}
+              onClick={() => next && onOpenFile(childPath(folder, next.name))}
+            >
+              ›
+            </IconButton>
           </span>
-          {siblings.length > 0 && index >= 0 ? (
-            <span className={styles.stepper}>
-              <IconButton
-                size="small"
-                label={
-                  previous
-                    ? t("folderListPrevious" as never, { name: previous.name })
-                    : t("folderListNoPrevious" as never)
-                }
-                disabled={!previous}
-                onClick={() =>
-                  previous && onOpenFile(childPath(folder, previous.name))
-                }
-              >
-                ‹
-              </IconButton>
-              <IconButton
-                size="small"
-                label={
-                  next
-                    ? t("folderListNext" as never, { name: next.name })
-                    : t("folderListNoNext" as never)
-                }
-                disabled={!next}
-                onClick={() => next && onOpenFile(childPath(folder, next.name))}
-              >
-                ›
-              </IconButton>
-            </span>
-          ) : null}
-        </div>
-        <ul ref={rowsRef} className={styles.rows} onKeyDown={handleRowsKeyDown}>
-          {parent !== null ? (
-            <li>
-              <RowLink
-                href={folderHref(parent)}
-                label={t("folderListParent" as never)}
-                activate={() => setFolder(parent)}
-              >
-                <Glyph folder />
-                <span className={styles.name}>../</span>
-              </RowLink>
-            </li>
-          ) : null}
-          {listing.state === "loading" ? (
-            <li className={styles.status}>{t("folderListLoading" as never)}</li>
-          ) : listing.state === "error" ? (
-            <li className={styles.status}>{t("folderListError" as never)}</li>
-          ) : entries.length === 0 ? (
-            <li className={styles.status}>{t("folderListEmpty" as never)}</li>
-          ) : (
-            entries.map((entry) => {
-              const path = childPath(folder, entry.name);
-              const isFolder = entry.kind === "folder";
-              const cells = (
-                <>
-                  <Glyph folder={isFolder} />
-                  <span className={styles.name}>
-                    {isFolder ? `${entry.name}/` : entry.name}
-                  </span>
-                  <span className={styles.size}>
-                    {entry.size !== undefined ? formatFileSize(entry.size) : ""}
-                  </span>
-                  <span className={styles.age}>
-                    {entry.modifiedAt !== undefined
-                      ? briefAge(entry.modifiedAt, now)
-                      : ""}
-                  </span>
-                </>
-              );
-              return (
-                <li key={entry.name}>
-                  {entry.kind === "other" ? (
-                    <ButtonBase className={styles.row} disabled>
-                      {cells}
-                    </ButtonBase>
-                  ) : (
-                    <RowLink
-                      href={isFolder ? folderHref(path) : fileHref(path)}
-                      current={path === currentPath}
-                      activate={() =>
-                        isFolder ? setFolder(path) : onOpenFile(path)
-                      }
-                    >
-                      {cells}
-                    </RowLink>
-                  )}
-                </li>
-              );
-            })
-          )}
-        </ul>
+        ) : null}
       </div>
-    </>,
-    document.body,
+      <ul ref={rowsRef} className={styles.rows} onKeyDown={handleRowsKeyDown}>
+        {parent !== null ? (
+          <li>
+            <RowLink
+              href={folderHref(parent)}
+              label={t("folderListParent" as never)}
+              activate={() => setFolder(parent)}
+            >
+              <Glyph folder />
+              <span className={styles.name}>../</span>
+            </RowLink>
+          </li>
+        ) : null}
+        {listing.state === "loading" ? (
+          <li className={styles.status}>{t("folderListLoading" as never)}</li>
+        ) : listing.state === "error" ? (
+          <li className={styles.status}>{t("folderListError" as never)}</li>
+        ) : entries.length === 0 ? (
+          <li className={styles.status}>{t("folderListEmpty" as never)}</li>
+        ) : (
+          entries.map((entry) => {
+            const path = childPath(folder, entry.name);
+            const isFolder = entry.kind === "folder";
+            const cells = (
+              <>
+                <Glyph folder={isFolder} />
+                <span className={styles.name}>
+                  {isFolder ? `${entry.name}/` : entry.name}
+                </span>
+                <span className={styles.size}>
+                  {entry.size !== undefined ? formatFileSize(entry.size) : ""}
+                </span>
+                <span className={styles.age}>
+                  {entry.modifiedAt !== undefined
+                    ? briefAge(entry.modifiedAt, now)
+                    : ""}
+                </span>
+              </>
+            );
+            return (
+              <li key={entry.name}>
+                {entry.kind === "other" ? (
+                  <ButtonBase className={styles.row} disabled>
+                    {cells}
+                  </ButtonBase>
+                ) : (
+                  <RowLink
+                    href={isFolder ? folderHref(path) : fileHref(path)}
+                    current={path === currentPath}
+                    activate={() =>
+                      isFolder ? setFolder(path) : onOpenFile(path)
+                    }
+                  >
+                    {cells}
+                  </RowLink>
+                )}
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </Popover>
   );
 }

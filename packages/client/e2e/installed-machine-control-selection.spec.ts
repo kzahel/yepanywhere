@@ -146,7 +146,7 @@ test("installed MC readiness preserves typing and its selected affordance at des
   await control
     .getByRole("button", { name: "Filter by Machine Control" })
     .click();
-  await page.getByRole("button", { name: "On", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "On", exact: true }).click();
   await expect(control).toContainText("On");
   await expect(control).toContainText(
     "closing this session does not revoke it.",

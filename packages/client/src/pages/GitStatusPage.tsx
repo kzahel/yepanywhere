@@ -26,6 +26,7 @@ import { PageHeader } from "../components/PageHeader";
 import { GitActionFeedback } from "../components/GitActionFeedback";
 import { ProjectSelector } from "../components/ProjectSelector";
 import { Button, IconButton } from "../components/ui/Button";
+import { Popover } from "../components/ui/Popover";
 import { GlossaryProjectBoundary } from "../contexts/GlossaryContext";
 import { SourceReviewDefaultSessionContext } from "../contexts/SourceReviewDefaultSessionContext";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -1265,18 +1266,31 @@ function GitIntegrationOptionsPanel({
 }
 
 function GitIntegrationOptionsHelp({ t }: { t: TranslationFn }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
-    <details className="git-integration-help">
-      <summary
-        aria-label={t("gitStatusAutoHelpLabel")}
-        title={t("gitStatusAutoHelpLabel")}
+    <>
+      <IconButton
+        ref={triggerRef}
+        size="small"
+        label={t("gitStatusAutoHelpLabel")}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
       >
-        ?
-      </summary>
-      <div className="git-integration-help-popover">
-        {t("gitStatusAutoHelp")}
-      </div>
-    </details>
+        <span aria-hidden="true">?</span>
+      </IconButton>
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={triggerRef}
+        placement="bottom-end"
+        role="dialog"
+        aria-label={t("gitStatusAutoHelpLabel")}
+      >
+        <p className={styles.integrationHelp}>{t("gitStatusAutoHelp")}</p>
+      </Popover>
+    </>
   );
 }
 

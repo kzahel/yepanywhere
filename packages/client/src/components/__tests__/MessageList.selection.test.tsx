@@ -735,9 +735,7 @@ describe("MessageList selection and copy", () => {
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual(["Copy text", "Quote reply", "New session"]);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Dismiss selected text actions" }),
-    );
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
     selection?.removeAllRanges();
     selection?.addRange(range);
@@ -783,9 +781,7 @@ describe("MessageList selection and copy", () => {
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual(["Copy text", "New session"]);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Dismiss selected text actions" }),
-    );
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
     selectAgain();
     fireEvent.pointerDown(selectedElement, { clientY: 120 });

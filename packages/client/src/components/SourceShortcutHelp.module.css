@@ -27,25 +27,17 @@
   outline: none;
 }
 
+/* The shared Popover owns the surface; this lays out the shortcut table. */
 .popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
   display: grid;
   width: max-content;
   min-width: 210px;
-  padding: 8px;
-  color: var(--text-secondary, #8b949e);
-  font-size: 0.75rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md, 8px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.34);
 }
 
 .popoverTitle {
   margin: 0 4px 5px;
   color: var(--text-primary, #e6edf3);
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -55,6 +47,8 @@
   align-items: center;
   gap: 8px;
   padding: 3px 4px;
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.75rem;
 }
 
 .row kbd {

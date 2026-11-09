@@ -38,12 +38,6 @@ vi.mock("../../hooks/useVersion", () => ({
   }),
 }));
 
-/** Global class names forbidden by this component's CSS Module ownership. */
-const REMOVED_LEGACY_CLASSES = [
-  "file-path-context-overlay",
-  "file-path-context-menu",
-];
-
 function renderMenu(
   props: Partial<Parameters<typeof FilePathContextMenu>[0]> = {},
 ) {
@@ -73,8 +67,19 @@ function renderMenu(
   return { onClose, ...handlers };
 }
 
-function overlay() {
-  return screen.getByRole("button", { name: "Dismiss file menu" });
+/** A hover-capable fine pointer, which gets the Open flyout. */
+function stubFinePointer() {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(
+      () =>
+        ({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    ),
+  );
 }
 
 describe("FilePathContextMenu", () => {
@@ -114,12 +119,10 @@ describe("FilePathContextMenu", () => {
     ).toBeNull();
   });
 
-  it("portals the overlay and menu directly into the body", () => {
+  it("portals the menu directly into the body", () => {
     renderMenu();
 
-    const menu = screen.getByRole("menu");
-    expect(menu.parentElement).toBe(document.body);
-    expect(overlay().parentElement).toBe(document.body);
+    expect(screen.getByRole("menu").parentElement).toBe(document.body);
   });
 
   it("keeps copy actions flat while open uses a touch-selectable panel", () => {
@@ -141,8 +144,14 @@ describe("FilePathContextMenu", () => {
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual(["‹Back", "Source", "Preview"]);
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "Back" }),
+    );
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Back" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "Open" }),
+    );
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual([
@@ -164,7 +173,6 @@ describe("FilePathContextMenu", () => {
           x={10}
           y={10}
           canStartNewSession={false}
-          dismissLabel="Dismiss image actions"
           onClose={vi.fn()}
           onCopyImage={onCopyImage}
           download={{ fileName: "plot.png", loadBlob: vi.fn() }}
@@ -176,9 +184,6 @@ describe("FilePathContextMenu", () => {
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual(["Open", "Download", "Copy image"]);
-    expect(
-      screen.getByRole("button", { name: "Dismiss image actions" }),
-    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Copy image" }));
     expect(onCopyImage).toHaveBeenCalledTimes(1);
@@ -252,7 +257,7 @@ describe("FilePathContextMenu", () => {
     const item = await screen.findByRole("menuitem", {
       name: /Copy GitHub link/,
     });
-    expect(item.getAttribute("disabled")).not.toBeNull();
+    expect(item.getAttribute("aria-disabled")).toBe("true");
     expect(item.textContent).toContain("Revision not pushed to GitHub");
     expect(item.textContent).not.toContain("Local edits");
     fireEvent.click(item);
@@ -260,10 +265,7 @@ describe("FilePathContextMenu", () => {
   });
 
   it("opens adjacent submenus on hover-capable pointers", () => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({ matches: true }) as MediaQueryList),
-    );
+    stubFinePointer();
     renderMenu();
 
     const rootMenu = screen.getByRole("menu");
@@ -286,6 +288,27 @@ describe("FilePathContextMenu", () => {
     );
     expect(screen.queryByRole("menu", { name: "Open" })).toBeNull();
     expect(document.body.contains(rootMenu)).toBe(true);
+  });
+
+  it("enters the flyout by key and closes only it on Escape", () => {
+    stubFinePointer();
+    const { onClose, onOpenSource } = renderMenu();
+
+    const openItem = screen.getByRole("menuitem", { name: "Open" });
+    expect(document.activeElement).toBe(openItem);
+    fireEvent.keyDown(openItem, { key: "ArrowRight" });
+    const source = screen.getByRole("menuitem", { name: "Source" });
+    expect(document.activeElement).toBe(source);
+
+    fireEvent.keyDown(source, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Open" })).toBeNull();
+    expect(document.activeElement).toBe(openItem);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(openItem, { key: "ArrowRight" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Source" }));
+    expect(onOpenSource).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("omits the conditional items when their actions are unavailable", () => {
@@ -336,63 +359,14 @@ describe("FilePathContextMenu", () => {
     expect(sequence).toEqual(["copyPath", "close"]);
   });
 
-  it("closes on Escape, overlay click, and overlay context menu", () => {
+  it("closes on Escape and on a press outside", () => {
     const { onClose } = renderMenu();
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(overlay());
+    fireEvent.mouseDown(document.body);
     expect(onClose).toHaveBeenCalledTimes(2);
-
-    fireEvent.contextMenu(overlay());
-    expect(onClose).toHaveBeenCalledTimes(3);
-  });
-
-  it("clamps the inline position to the viewport", () => {
-    renderMenu({ x: 9999, y: 9999 });
-
-    const menu = screen.getByRole("menu");
-    expect(menu.style.left).toBe(`${window.innerWidth - 230}px`);
-    expect(menu.style.top).toBe(`${window.innerHeight - 333}px`);
-  });
-
-  it("keeps the inline position off the viewport edges", () => {
-    renderMenu({ x: -50, y: -50 });
-
-    const menu = screen.getByRole("menu");
-    expect(menu.style.left).toBe("8px");
-    expect(menu.style.top).toBe("8px");
-  });
-
-  it("opens a hover flyout to the left when the right edge is constrained", () => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({ matches: true }) as MediaQueryList),
-    );
-    renderMenu({ x: 9999, y: 10 });
-
-    const rootMenu = screen.getByRole("menu");
-    fireEvent.mouseEnter(
-      within(rootMenu).getByRole("menuitem", { name: "Open" }),
-    );
-
-    expect(screen.getByRole("menu", { name: "Open" }).style.left).toBe(
-      `${window.innerWidth - 448}px`,
-    );
-  });
-
-  it("styles both portal nodes from the module, not the removed globals", () => {
-    renderMenu();
-
-    const menu = screen.getByRole("menu");
-    const dismiss = overlay();
-    expect(menu.className).toBeTruthy();
-    expect(dismiss.className).toBeTruthy();
-    expect(menu.className).not.toBe(dismiss.className);
-    for (const legacy of REMOVED_LEGACY_CLASSES) {
-      expect(document.body.innerHTML).not.toContain(legacy);
-    }
   });
 });
 

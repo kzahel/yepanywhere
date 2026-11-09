@@ -969,7 +969,7 @@ describe("CommitBrowser", () => {
     expect(await screen.findByRole("menu")).toBeDefined();
     expect(screen.getByText("sourceCopyCommitSubject")).toBeDefined();
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
     expect(document.activeElement).toBe(row);
 

@@ -277,7 +277,7 @@ describe("InboxContent", () => {
 
   function selectCreatedVia(option: string) {
     fireEvent.click(screen.getByRole("button", { name: "filterByLabel" }));
-    fireEvent.click(screen.getByRole("button", { name: option }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: option }));
   }
 
   it("combines creation and project filters across tiers and remembers each source", () => {

@@ -1,9 +1,14 @@
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
-import type { ReactNode } from "react";
-import { useCallback, useContext, useEffect, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { ComposerInsertContext } from "../contexts/ComposerInsertContext";
 import { useOptionalSessionMetadata } from "../contexts/SessionMetadataContext";
-import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useOptionalToastContext } from "../contexts/ToastContext";
@@ -32,7 +37,7 @@ import {
   stashNewSessionPrefillToken,
   type NewSessionPrefillCaret,
 } from "../lib/newSessionPrefill";
-import { ButtonBase } from "./ui/Button";
+import { Menu, MenuItem, MenuSeparator } from "./ui/Menu";
 import styles from "./FileResourceActions.module.css";
 
 export type FileViewPresentation = "preview" | "source";
@@ -69,7 +74,6 @@ export interface ResourceContextMenuProps {
   x: number;
   y: number;
   canStartNewSession?: boolean;
-  dismissLabel?: string;
   onClose: () => void;
   onCopyAbsolutePath?: () => void;
   onCopyContents?: () => void;
@@ -251,11 +255,9 @@ export function localSourceTarget(
 function OpenLocalSourceMenuItem({
   target,
   onHover,
-  select,
 }: {
   target: LocalSourceTarget;
   onHover?: () => void;
-  select: (action: () => void) => void;
 }) {
   const { t } = useI18n();
   const basePath = useRemoteBasePath();
@@ -273,9 +275,9 @@ function OpenLocalSourceMenuItem({
     );
   };
   return (
-    <FilePathContextMenuItem onHover={onHover} onSelect={() => select(open)}>
+    <MenuItem onMouseEnter={onHover} onSelect={open}>
       {t("fileLinkMenuOpenInSourceControl" as never)}
-    </FilePathContextMenuItem>
+    </MenuItem>
   );
 }
 
@@ -328,61 +330,6 @@ export function useSaveResourceDownload() {
   );
 }
 
-function FilePathContextMenuItem({
-  children,
-  expanded = false,
-  onHover,
-  onSelect,
-  opensPanel = false,
-}: {
-  children: ReactNode;
-  expanded?: boolean;
-  onHover?: () => void;
-  onSelect: () => void;
-  opensPanel?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      aria-haspopup={opensPanel ? "menu" : undefined}
-      aria-expanded={opensPanel ? expanded : undefined}
-      className={expanded ? styles.activeItem : undefined}
-      onClick={onSelect}
-      onMouseEnter={onHover}
-    >
-      {children}
-    </button>
-  );
-}
-
-function BranchLabel({ children }: { children: ReactNode }) {
-  return (
-    <span className={styles.branchLabel}>
-      <span>{children}</span>
-      <span aria-hidden="true">›</span>
-    </span>
-  );
-}
-
-function BackLabel({ children }: { children: ReactNode }) {
-  return (
-    <span className={styles.backLabel}>
-      <span aria-hidden="true">‹</span>
-      <span>{children}</span>
-    </span>
-  );
-}
-
-function CopyActionLabel({ children }: { children: ReactNode }) {
-  return (
-    <span className={styles.copyActionLabel}>
-      <CopyIcon />
-      <span>{children}</span>
-    </span>
-  );
-}
-
 function CopyIcon() {
   return (
     <svg
@@ -406,7 +353,6 @@ export function ResourceContextMenu({
   x,
   y,
   canStartNewSession = true,
-  dismissLabel,
   onClose,
   onCopyAbsolutePath,
   onCopyContents,
@@ -451,6 +397,11 @@ export function ResourceContextMenu({
       }
     : onCopyPublicUrl;
   const [panel, setPanel] = useState<"open" | "root">("root");
+  // A submenu opened by hover leaves focus where it is; by click or key, it
+  // takes focus.
+  const [submenuTakesFocus, setSubmenuTakesFocus] = useState(false);
+  const openItemRef = useRef<HTMLButtonElement | null>(null);
+  const backItemRef = useRef<HTMLButtonElement | null>(null);
   const hasPresentationChoice = Boolean(onOpenSource && onOpenPreview);
   const hasCopyActions = Boolean(
     onCopyLink ||
@@ -469,24 +420,6 @@ export function ResourceContextMenu({
     window.innerWidth >= 520 &&
     typeof window.matchMedia === "function" &&
     window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  const rootItemCount =
-    1 +
-    Number(Boolean(newTabHref)) +
-    Number(Boolean(commentPath)) +
-    Number(Boolean(download)) +
-    Number(Boolean(canStartNewSession && onStartNewSession)) +
-    Number(Boolean(localSource)) +
-    Number(Boolean(onCopyImage)) +
-    Number(Boolean(onCopyLink)) +
-    Number(Boolean(onCopyProjectRelativePath)) +
-    Number(Boolean(copyPublicUrl)) +
-    Number(Boolean(onCopyAbsolutePath)) +
-    Number(Boolean(onCopyFilePath)) +
-    Number(Boolean(onCopyViewerLink)) +
-    Number(Boolean(onCopyListing)) +
-    Number(Boolean(onCopyContents)) +
-    Number(Boolean(onCopyRenderedContents)) +
-    Number(Boolean(githubLink));
   const githubDescription = githubLink
     ? !githubLink.pushed
       ? t("fileLinkGitHubUnpushed")
@@ -501,303 +434,306 @@ export function ResourceContextMenu({
   // reader moves far enough to shake it off.
   useEffect(() => beginTooltipSuppression(), []);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [onClose]);
-
-  const select = (action: () => void) => {
-    action();
-    onClose();
-  };
-
-  const rootMenuLeft = Math.max(8, Math.min(x, window.innerWidth - 230));
-  const rootMenuHeight =
-    16 +
-    rootItemCount * (usesHoverFlyout ? 36 : 44) +
-    (hasCopyActions ? 9 : 0) +
-    (heading ? 29 : 0) +
-    (githubDescription ? 24 : 0);
-  const rootMenuTop = Math.max(
-    8,
-    Math.min(y, window.innerHeight - rootMenuHeight),
+  // Opened at a point, the menu has no trigger to return focus to; focus
+  // inside it at close goes back to what held focus when it opened.
+  const [opener] = useState(() =>
+    document.activeElement instanceof HTMLElement &&
+    document.activeElement !== document.body
+      ? document.activeElement
+      : null,
   );
-  const estimatedSubmenuHeight = 180;
-  const submenuTop = usesHoverFlyout
-    ? Math.max(
-        8,
-        Math.min(rootMenuTop, window.innerHeight - estimatedSubmenuHeight),
-      )
-    : Math.max(8, Math.min(y, window.innerHeight - estimatedSubmenuHeight));
-  const canOpenSubmenuRight = rootMenuLeft + 218 + 230 <= window.innerWidth;
-  const submenuLeft = usesHoverFlyout
-    ? canOpenSubmenuRight
-      ? rootMenuLeft + 218
-      : Math.max(8, rootMenuLeft - 218)
-    : rootMenuLeft;
-  const renderRootPanel = panel === "root" || usesHoverFlyout;
+  const focusInsideRef = useRef(false);
+  useLayoutEffect(
+    () => () => {
+      if (focusInsideRef.current && opener?.isConnected) {
+        opener.focus({ preventScroll: true });
+      }
+    },
+    [opener],
+  );
 
-  return createPortal(
+  // The touch drill-in swaps the menu's items: keep focus on the panel shown.
+  const shownPanelRef = useRef(panel);
+  useLayoutEffect(() => {
+    if (usesHoverFlyout || shownPanelRef.current === panel) return;
+    shownPanelRef.current = panel;
+    (panel === "open" ? backItemRef : openItemRef).current?.focus({
+      preventScroll: true,
+    });
+  }, [panel, usesHoverFlyout]);
+
+  const showSubmenu = (takeFocus: boolean) => {
+    setSubmenuTakesFocus(takeFocus);
+    setPanel("open");
+  };
+  const drilledIn = !usesHoverFlyout && panel === "open";
+  const onRootHover = usesHoverFlyout ? () => setPanel("root") : undefined;
+
+  const presentationItems = (
     <>
-      <ButtonBase
-        className={styles.overlay}
-        aria-label={dismissLabel ?? t("fileLinkDismissMenu" as never)}
-        onClick={onClose}
-        onContextMenu={(event) => {
+      {onOpenSource ? (
+        <MenuItem
+          onSelect={() => {
+            onOpenSource();
+            if (usesHoverFlyout) onClose();
+          }}
+        >
+          {t("fileViewerSource" as never)}
+        </MenuItem>
+      ) : null}
+      {onOpenPreview ? (
+        <MenuItem
+          onSelect={() => {
+            onOpenPreview();
+            if (usesHoverFlyout) onClose();
+          }}
+        >
+          {t("fileViewerPreview" as never)}
+        </MenuItem>
+      ) : null}
+    </>
+  );
+
+  const rootItems = (
+    <>
+      {heading ? (
+        <>
+          <div className={styles.heading} title={heading}>
+            {/* Elide from the left; the path itself stays left-to-right. */}
+            <bdi dir="ltr">{heading}</bdi>
+          </div>
+          <MenuSeparator />
+        </>
+      ) : null}
+      <MenuItem
+        ref={openItemRef}
+        keepOpen={hasPresentationChoice}
+        aria-haspopup={hasPresentationChoice ? "menu" : undefined}
+        aria-expanded={hasPresentationChoice ? panel === "open" : undefined}
+        shortcut={hasPresentationChoice ? "›" : undefined}
+        onMouseEnter={
+          usesHoverFlyout && hasPresentationChoice
+            ? () => showSubmenu(false)
+            : undefined
+        }
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowRight" || !hasPresentationChoice) return;
           event.preventDefault();
-          onClose();
+          showSubmenu(true);
         }}
-      />
-      {renderRootPanel ? (
-        <div
-          className={styles.menu}
-          role="menu"
-          style={{ left: rootMenuLeft, top: rootMenuTop }}
-        >
-          {heading ? (
-            <div className={styles.heading} title={heading}>
-              {/* Elide from the left; the path itself stays left-to-right. */}
-              <bdi dir="ltr">{heading}</bdi>
-            </div>
-          ) : null}
-          <FilePathContextMenuItem
-            expanded={panel === "open"}
-            opensPanel={hasPresentationChoice}
-            onHover={
-              usesHoverFlyout && hasPresentationChoice
-                ? () => setPanel("open")
-                : undefined
-            }
-            onSelect={() =>
-              hasPresentationChoice ? setPanel("open") : select(onOpen)
-            }
-          >
-            {hasPresentationChoice ? (
-              <BranchLabel>{t("fileLinkMenuOpen" as never)}</BranchLabel>
-            ) : (
-              t("fileLinkMenuOpen" as never)
-            )}
-          </FilePathContextMenuItem>
-          {newTabHref ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() =>
-                select(() => window.open(newTabHref, "_blank", "noopener"))
-              }
-            >
-              {t("fileLinkMenuOpenInNewTab" as never)}
-            </FilePathContextMenuItem>
-          ) : null}
-          {commentPath ? (
-            <FilePathContextMenuItem onSelect={() => select(commentPath)}>
-              {t("projectPathComment")}
-            </FilePathContextMenuItem>
-          ) : null}
-          {download ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(() => saveDownload(download))}
-            >
-              {t("resourceMenuDownload" as never)}
-            </FilePathContextMenuItem>
-          ) : null}
-          {canStartNewSession && onStartNewSession ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onStartNewSession)}
-            >
-              {t("fileLinkMenuNewSession" as never)}
-            </FilePathContextMenuItem>
-          ) : null}
-          {localSource ? (
-            <OpenLocalSourceMenuItem
-              target={localSource}
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              select={select}
-            />
-          ) : null}
-          {hasCopyActions ? <div className={styles.separator} /> : null}
-          {onCopyImage ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyImage)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyImage" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyLink ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyLink)}
-            >
-              <CopyActionLabel>{t("fileLinkMenuCopyLink")}</CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyProjectRelativePath ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyProjectRelativePath)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyProjectRelativePath" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {copyPublicUrl ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(copyPublicUrl)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyPublicUrl" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyAbsolutePath ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyAbsolutePath)}
-            >
-              <CopyActionLabel>
-                {folder
-                  ? t("folderMenuCopyAbsolutePath" as never)
-                  : t("fileLinkMenuCopyAbsolutePath" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyFilePath ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyFilePath)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyFilePath" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyViewerLink ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyViewerLink)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyViewerLink" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyListing ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyListing)}
-            >
-              <CopyActionLabel>
-                {t("folderMenuCopyListing" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyContents ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyContents)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyContents" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onCopyRenderedContents ? (
-            <FilePathContextMenuItem
-              onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-              onSelect={() => select(onCopyRenderedContents)}
-            >
-              <CopyActionLabel>
-                {t("fileLinkMenuCopyRenderedContents" as never)}
-              </CopyActionLabel>
-            </FilePathContextMenuItem>
-          ) : null}
-          {onStop && stopLabel ? (
-            <>
-              <div className={styles.separator} />
-              <FilePathContextMenuItem
-                onHover={usesHoverFlyout ? () => setPanel("root") : undefined}
-                onSelect={() => select(onStop)}
-              >
-                {stopLabel}
-              </FilePathContextMenuItem>
-            </>
-          ) : null}
-          {githubLink ? (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={!githubLink.pushed}
-              className={
-                !githubLink.pushed
-                  ? styles.githubUnpushed
-                  : githubLink.dirty
-                    ? styles.githubDirty
-                    : undefined
-              }
-              onMouseEnter={
-                usesHoverFlyout ? () => setPanel("root") : undefined
-              }
-              onClick={() =>
-                select(() => void writeClipboardText(githubLink.url))
-              }
-            >
-              <span className={styles.githubLabel}>
-                <CopyIcon />
-                <span>
-                  {t("fileLinkMenuCopyGitHubLink")}
-                  {githubDescription ? (
-                    <small className={styles.githubDescription}>
-                      {githubDescription}
-                    </small>
-                  ) : null}
-                </span>
-              </span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-      {panel !== "root" ? (
-        <div
+        onSelect={() => (hasPresentationChoice ? showSubmenu(true) : onOpen())}
+      >
+        {t("fileLinkMenuOpen" as never)}
+      </MenuItem>
+      {usesHoverFlyout && hasPresentationChoice ? (
+        <Menu
+          open={panel === "open"}
+          onClose={(reason) => {
+            setPanel("root");
+            if (reason === "escape") openItemRef.current?.focus();
+          }}
+          anchorRef={openItemRef}
+          placement="right-start"
+          autoFocus={submenuTakesFocus}
+          // Focus goes back by hand: a leaf that closes the whole menu must
+          // not pull focus onto the Open item as it unmounts.
+          returnFocus={false}
           aria-label={t("fileLinkMenuOpen" as never)}
-          className={`${styles.menu} ${styles.submenu}`}
-          role="menu"
-          style={{ left: submenuLeft, top: submenuTop }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft") return;
+            event.preventDefault();
+            setPanel("root");
+            openItemRef.current?.focus();
+          }}
         >
-          {!usesHoverFlyout ? (
-            <>
-              <FilePathContextMenuItem onSelect={() => setPanel("root")}>
-                <BackLabel>{t("fileLinkMenuBack" as never)}</BackLabel>
-              </FilePathContextMenuItem>
-              <div className={styles.separator} />
-            </>
-          ) : null}
-          {onOpenSource ? (
-            <FilePathContextMenuItem onSelect={() => select(onOpenSource)}>
-              {t("fileViewerSource" as never)}
-            </FilePathContextMenuItem>
-          ) : null}
-          {onOpenPreview ? (
-            <FilePathContextMenuItem onSelect={() => select(onOpenPreview)}>
-              {t("fileViewerPreview" as never)}
-            </FilePathContextMenuItem>
-          ) : null}
-        </div>
+          {presentationItems}
+        </Menu>
       ) : null}
-    </>,
-    document.body,
+      {newTabHref ? (
+        <MenuItem
+          onMouseEnter={onRootHover}
+          onSelect={() => window.open(newTabHref, "_blank", "noopener")}
+        >
+          {t("fileLinkMenuOpenInNewTab" as never)}
+        </MenuItem>
+      ) : null}
+      {commentPath ? (
+        <MenuItem onMouseEnter={onRootHover} onSelect={commentPath}>
+          {t("projectPathComment")}
+        </MenuItem>
+      ) : null}
+      {download ? (
+        <MenuItem
+          onMouseEnter={onRootHover}
+          onSelect={() => saveDownload(download)}
+        >
+          {t("resourceMenuDownload" as never)}
+        </MenuItem>
+      ) : null}
+      {canStartNewSession && onStartNewSession ? (
+        <MenuItem
+          onMouseEnter={onRootHover}
+          onSelect={() => onStartNewSession()}
+        >
+          {t("fileLinkMenuNewSession" as never)}
+        </MenuItem>
+      ) : null}
+      {localSource ? (
+        <OpenLocalSourceMenuItem target={localSource} onHover={onRootHover} />
+      ) : null}
+      {hasCopyActions ? <MenuSeparator /> : null}
+      {onCopyImage ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyImage()}
+        >
+          {t("fileLinkMenuCopyImage" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyLink ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyLink()}
+        >
+          {t("fileLinkMenuCopyLink")}
+        </MenuItem>
+      ) : null}
+      {onCopyProjectRelativePath ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyProjectRelativePath()}
+        >
+          {t("fileLinkMenuCopyProjectRelativePath" as never)}
+        </MenuItem>
+      ) : null}
+      {copyPublicUrl ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => copyPublicUrl()}
+        >
+          {t("fileLinkMenuCopyPublicUrl" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyAbsolutePath ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyAbsolutePath()}
+        >
+          {folder
+            ? t("folderMenuCopyAbsolutePath" as never)
+            : t("fileLinkMenuCopyAbsolutePath" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyFilePath ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyFilePath()}
+        >
+          {t("fileLinkMenuCopyFilePath" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyViewerLink ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyViewerLink()}
+        >
+          {t("fileLinkMenuCopyViewerLink" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyListing ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyListing()}
+        >
+          {t("folderMenuCopyListing" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyContents ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyContents()}
+        >
+          {t("fileLinkMenuCopyContents" as never)}
+        </MenuItem>
+      ) : null}
+      {onCopyRenderedContents ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          onMouseEnter={onRootHover}
+          onSelect={() => onCopyRenderedContents()}
+        >
+          {t("fileLinkMenuCopyRenderedContents" as never)}
+        </MenuItem>
+      ) : null}
+      {onStop && stopLabel ? (
+        <>
+          <MenuSeparator />
+          <MenuItem onMouseEnter={onRootHover} onSelect={() => onStop()}>
+            {stopLabel}
+          </MenuItem>
+        </>
+      ) : null}
+      {githubLink ? (
+        <MenuItem
+          icon={<CopyIcon />}
+          disabled={!githubLink.pushed}
+          description={githubDescription}
+          onMouseEnter={onRootHover}
+          onSelect={() => void writeClipboardText(githubLink.url)}
+        >
+          {t("fileLinkMenuCopyGitHubLink")}
+        </MenuItem>
+      ) : null}
+    </>
+  );
+
+  return (
+    <Menu
+      open
+      onClose={() => onClose()}
+      anchorPoint={{ x, y }}
+      placement="bottom-start"
+      returnFocus={false}
+      aria-label={
+        drilledIn
+          ? t("fileLinkMenuOpen" as never)
+          : (heading ?? t("resourceMenuActions" as never))
+      }
+      onFocus={() => {
+        focusInsideRef.current = true;
+      }}
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        focusInsideRef.current =
+          next instanceof Node && event.currentTarget.contains(next);
+      }}
+    >
+      {drilledIn ? (
+        <>
+          <MenuItem
+            ref={backItemRef}
+            keepOpen
+            icon="‹"
+            onSelect={() => setPanel("root")}
+          >
+            {t("fileLinkMenuBack" as never)}
+          </MenuItem>
+          <MenuSeparator />
+          {presentationItems}
+        </>
+      ) : (
+        rootItems
+      )}
+    </Menu>
   );
 }
 

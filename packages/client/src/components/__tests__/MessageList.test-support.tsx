@@ -74,11 +74,9 @@ vi.mock("../../i18n", async (importOriginal) => ({
         sessionCopySelectionRich: "Copy selection as rich text",
         sessionNewSessionFromSelection: "New session",
         sessionSelectionActionMenu: "Selected text actions",
-        sessionDismissSelectionActions: "Dismiss selected text actions",
         viewerSelectAll: "Select all",
         viewerSelectAllTitle: "Select all (Ctrl/Cmd+A)",
         sourceActionMenu: "Source actions",
-        sourceDismissActions: "Dismiss source actions",
         projectQueueAttachmentOnly: "Attachment-only message",
         projectQueueInlineStatusQueued: "Project Queue (#{position})",
         projectQueueInlineStatusDispatching:

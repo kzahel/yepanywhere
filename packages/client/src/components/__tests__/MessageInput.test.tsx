@@ -714,7 +714,6 @@ const toolbarT = ((key: string, params?: Record<string, string>) => {
     toolbarSend: "Send",
     toolbarOverflowMenu: "More toolbar controls",
     toolbarBrowserDebugMenu: "Browser debugging actions",
-    toolbarBrowserDebugDismissMenu: "Dismiss browser debugging actions",
     toolbarBrowserDebugReload: "Reload app code (keep debugging)",
     toolbarBrowserDebugReactivate: "Reconnect existing debug link",
     toolbarBrowserDebugDisableNow: "Disable browser debugging",

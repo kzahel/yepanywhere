@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { TranslationFn } from "../i18n";
 import { ButtonBase } from "./ui/Button";
+import { Popover } from "./ui/Popover";
 import styles from "./SourceShortcutHelp.module.css";
 
 /** Compact hover/focus/tap disclosure for Source Control keyboard shortcuts. */
@@ -9,30 +10,13 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
   const [focused, setFocused] = useState(false);
   const [pinned, setPinned] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const open = hovered || focused || pinned;
-
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (event: globalThis.PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setPinned(false);
-        setHovered(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setPinned(false);
-        setHovered(false);
-        setFocused(false);
-      }
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
+  const close = () => {
+    setPinned(false);
+    setHovered(false);
+    setFocused(false);
+  };
 
   const shortcuts = [
     ["/", t("sourceShortcutSearch")],
@@ -59,14 +43,13 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
       }}
     >
       <ButtonBase
+        ref={triggerRef}
         className={styles.trigger}
         aria-label={t("sourceShortcutHelp")}
         aria-expanded={open}
         onClick={(event) => {
           if (pinned) {
-            setPinned(false);
-            setHovered(false);
-            setFocused(false);
+            close();
             event.currentTarget.blur();
           } else {
             setPinned(true);
@@ -75,17 +58,25 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
       >
         ?
       </ButtonBase>
-      {open && (
-        <span className={styles.popover} role="tooltip">
-          <span className={styles.popoverTitle}>{t("sourceShortcutHelp")}</span>
-          {shortcuts.map(([keys, label]) => (
-            <span key={keys} className={styles.row}>
-              <kbd>{keys}</kbd>
-              <span>{label}</span>
-            </span>
-          ))}
-        </span>
-      )}
+      {/* Portaled, but a React child of the root, so hovering it keeps
+          the root's pointer hover. */}
+      <Popover
+        open={open}
+        onClose={close}
+        anchorRef={triggerRef}
+        insideRefs={[rootRef]}
+        placement="bottom-end"
+        role="tooltip"
+        className={styles.popover}
+      >
+        <span className={styles.popoverTitle}>{t("sourceShortcutHelp")}</span>
+        {shortcuts.map(([keys, label]) => (
+          <span key={keys} className={styles.row}>
+            <kbd>{keys}</kbd>
+            <span>{label}</span>
+          </span>
+        ))}
+      </Popover>
     </span>
   );
 }

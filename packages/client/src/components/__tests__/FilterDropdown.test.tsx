@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FilterDropdown } from "../FilterDropdown";
 import styles from "../FilterDropdown.module.css";
@@ -11,76 +17,14 @@ vi.mock("../../i18n", () => ({
   }),
 }));
 
-const DESKTOP_WIDTH = 1024;
-const PHONE_WIDTH = 375;
+const originalMatchMedia = window.matchMedia;
 
-function setViewportWidth(width: number) {
-  Object.defineProperty(window, "innerWidth", {
-    configurable: true,
-    writable: true,
-    value: width,
-  });
-}
-
-function setViewportHeight(height: number) {
-  Object.defineProperty(window, "innerHeight", {
-    configurable: true,
-    writable: true,
-    value: height,
-  });
-}
-
-function rect(top: number, bottom: number): DOMRect {
-  return {
-    top,
-    bottom,
-    left: 0,
-    right: 300,
-    width: 300,
-    height: bottom - top,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  };
-}
-
-/**
- * Lays out the trigger at the given rows, an optional clipping ancestor, and
- * a panel whose unclamped content is `panelContentHeight` tall. jsdom has no
- * layout, so these stand in for what the browser would measure.
- */
-function mockPanelLayout({
-  trigger,
-  panelContentHeight,
-  clip,
-}: {
-  trigger: { top: number; bottom: number };
-  panelContentHeight: number;
-  clip?: { top: number; height: number };
-}) {
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
-    function (this: Element) {
-      if (this.getAttribute("aria-haspopup") === "listbox") {
-        return rect(trigger.top, trigger.bottom);
-      }
-      if (clip && this.getAttribute("data-clip") === "true") {
-        return rect(clip.top, clip.top + clip.height);
-      }
-      return rect(0, 0);
-    },
-  );
-  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
-    function (this: HTMLElement) {
-      return clip && this.getAttribute("data-clip") === "true"
-        ? clip.height
-        : 0;
-    },
-  );
-  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
-    function (this: HTMLElement) {
-      return this.getAttribute("role") === "dialog" ? panelContentHeight : 0;
-    },
-  );
+/** Phones match the shared Popover's bottom-sheet query. */
+function matchPhoneViewport() {
+  window.matchMedia = ((media: string) => ({
+    ...originalMatchMedia(media),
+    matches: media === "(max-width: 768px)",
+  })) as typeof window.matchMedia;
 }
 
 function openTrigger() {
@@ -91,8 +35,7 @@ describe("FilterDropdown", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
-    setViewportHeight(768);
-    setViewportWidth(DESKTOP_WIDTH);
+    window.matchMedia = originalMatchMedia;
     document.body.style.overflow = "";
   });
 
@@ -116,8 +59,18 @@ describe("FilterDropdown", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "filterByLabel" }));
 
-    expect(screen.getByText("Previous models")).toBeTruthy();
-    expect(screen.getByText("Previous")).toBeTruthy();
+    const group = screen.getByRole("group", { name: "Previous models" });
+    expect(
+      within(group).getByRole("menuitemradio", { name: "Previous" }),
+    ).toBeTruthy();
+    expect(
+      within(group).queryByRole("menuitemradio", { name: "Latest" }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("menuitemradio", { name: "Latest" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
   });
 
   it("renders trailing option metadata", () => {
@@ -152,11 +105,11 @@ describe("FilterDropdown", () => {
       />,
     );
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
     openTrigger();
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("menu")).toBeTruthy();
     openTrigger();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("closes on Escape", () => {
@@ -172,7 +125,7 @@ describe("FilterDropdown", () => {
     openTrigger();
     fireEvent.keyDown(document, { key: "Escape" });
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("closes on a click outside the desktop dropdown", () => {
@@ -188,7 +141,7 @@ describe("FilterDropdown", () => {
     openTrigger();
     fireEvent.mouseDown(document.body);
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("selects a single value and closes", () => {
@@ -207,10 +160,10 @@ describe("FilterDropdown", () => {
     );
 
     openTrigger();
-    fireEvent.click(screen.getByRole("button", { name: "Opus" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Opus" }));
 
     expect(onChange).toHaveBeenCalledWith(["opus"]);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("accumulates multi-select values and stays open", () => {
@@ -228,33 +181,22 @@ describe("FilterDropdown", () => {
     );
 
     openTrigger();
-    fireEvent.click(screen.getByRole("button", { name: "Starred" }));
+    expect(
+      screen
+        .getByRole("menuitemcheckbox", { name: "Unread" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Starred" }));
 
     expect(onChange).toHaveBeenCalledWith(["unread", "starred"]);
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("menu")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "filterClearAll" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "filterClearAll" }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it("aligns the desktop dropdown to the right on request", () => {
-    render(
-      <FilterDropdown
-        label="Interface"
-        options={[{ value: "lan", label: "LAN" }]}
-        selected={[]}
-        onChange={vi.fn()}
-        align="right"
-      />,
-    );
-
-    openTrigger();
-
-    expect(screen.getByRole("dialog").className).toContain(styles.alignRight);
-  });
-
   it("renders the narrow-viewport sheet through a portal", () => {
-    setViewportWidth(PHONE_WIDTH);
+    matchPhoneViewport();
     const { container } = render(
       <FilterDropdown
         label="Status"
@@ -266,107 +208,11 @@ describe("FilterDropdown", () => {
 
     openTrigger();
 
-    const sheet = screen.getByRole("dialog");
+    const sheet = screen.getByRole("menu");
     // The sheet mounts on document.body, not inside the component's container.
     expect(container.contains(sheet)).toBe(false);
     expect(document.body.contains(sheet)).toBe(true);
-    expect(sheet.className).toContain(styles.sheet);
     expect(document.body.style.overflow).toBe("hidden");
-  });
-
-  it("caps the desktop panel to the room below the trigger", () => {
-    setViewportHeight(700);
-    mockPanelLayout({
-      trigger: { top: 100, bottom: 130 },
-      panelContentHeight: 900,
-    });
-    render(
-      <FilterDropdown
-        label="Models"
-        options={[{ value: "fable", label: "Fable" }]}
-        selected={[]}
-        onChange={vi.fn()}
-      />,
-    );
-
-    openTrigger();
-    const panel = screen.getByRole("dialog");
-
-    expect(panel.className).not.toContain(styles.above);
-    expect(
-      panel.style.getPropertyValue("--filter-dropdown-available-height"),
-    ).toBe("562px");
-  });
-
-  it("opens upward when a low trigger has more room above", () => {
-    setViewportHeight(700);
-    mockPanelLayout({
-      trigger: { top: 560, bottom: 590 },
-      panelContentHeight: 400,
-    });
-    render(
-      <FilterDropdown
-        label="Models"
-        options={[{ value: "fable", label: "Fable" }]}
-        selected={[]}
-        onChange={vi.fn()}
-      />,
-    );
-
-    openTrigger();
-    const panel = screen.getByRole("dialog");
-
-    expect(panel.className).toContain(styles.above);
-    expect(
-      panel.style.getPropertyValue("--filter-dropdown-available-height"),
-    ).toBe("552px");
-  });
-
-  it("stays below a low trigger when its content fits there", () => {
-    setViewportHeight(700);
-    mockPanelLayout({
-      trigger: { top: 560, bottom: 590 },
-      panelContentHeight: 80,
-    });
-    render(
-      <FilterDropdown
-        label="Models"
-        options={[{ value: "fable", label: "Fable" }]}
-        selected={[]}
-        onChange={vi.fn()}
-      />,
-    );
-
-    openTrigger();
-
-    expect(screen.getByRole("dialog").className).not.toContain(styles.above);
-  });
-
-  it("measures room against a scrolling ancestor, not only the window", () => {
-    setViewportHeight(900);
-    mockPanelLayout({
-      trigger: { top: 150, bottom: 180 },
-      panelContentHeight: 1000,
-      clip: { top: 100, height: 400 },
-    });
-    render(
-      <div data-clip="true" style={{ overflowY: "auto" }}>
-        <FilterDropdown
-          label="Models"
-          options={[{ value: "fable", label: "Fable" }]}
-          selected={[]}
-          onChange={vi.fn()}
-        />
-      </div>,
-    );
-
-    openTrigger();
-    const panel = screen.getByRole("dialog");
-
-    expect(panel.className).not.toContain(styles.above);
-    expect(
-      panel.style.getPropertyValue("--filter-dropdown-available-height"),
-    ).toBe("312px");
   });
 
   it("applies the full-width variant to the container and trigger", () => {

@@ -618,7 +618,10 @@ describe("LocalMediaModal", () => {
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual(["Open", "Download", "Copy image", "Copy absolute file path"]);
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss image menu" }));
+    // Escape closes the menu, not the Modal under it.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
     Object.defineProperties(image, {
       naturalHeight: { configurable: true, value: 1080 },
       naturalWidth: { configurable: true, value: 1920 },

@@ -155,7 +155,7 @@ describe("SpeechSettings", () => {
         }),
       );
       fireEvent.click(
-        screen.getByRole("button", {
+        screen.getByRole("menuitemradio", {
           name:
             backend === "ya-granite"
               ? /Granite Speech STT/
@@ -371,10 +371,10 @@ describe("SpeechSettings", () => {
       }),
     );
 
-    const option = screen.getByRole("button", {
+    const option = screen.getByRole("menuitemradio", {
       name: /NeMo Parakeet STT\s*speechSettingsBackendValidating/,
-    }) as HTMLButtonElement;
-    expect(option.disabled).toBe(true);
+    });
+    expect(option.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("switches to a compatible enabled backend for a selected Parakeet preset", () => {
@@ -419,7 +419,9 @@ describe("SpeechSettings", () => {
         name: "filterByLabel speechSettingsBackendTitle",
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /NeMo Parakeet STT/ }));
+    fireEvent.click(
+      screen.getByRole("menuitemradio", { name: /NeMo Parakeet STT/ }),
+    );
 
     expect(modelSettings.setSpeechMethod).toHaveBeenCalledWith("ya-nemo");
     expect(prewarmYaServerSpeechBackend).toHaveBeenCalledWith(
@@ -439,7 +441,9 @@ describe("SpeechSettings", () => {
         name: "filterByLabel speechSettingsBackendTitle",
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /^Parakeet STT/ }));
+    fireEvent.click(
+      screen.getByRole("menuitemradio", { name: /^Parakeet STT/ }),
+    );
 
     expect(modelSettings.setSpeechMethod).toHaveBeenCalledWith("ya-parakeet");
     expect(modelSettings.setParakeetSpeechModel).toHaveBeenCalledWith(

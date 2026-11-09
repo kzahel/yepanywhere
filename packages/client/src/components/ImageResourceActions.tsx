@@ -3,7 +3,6 @@ import { type MouseEvent, type ReactNode, useState } from "react";
 import { usePublicShareContext } from "../contexts/PublicShareContext";
 import { useOptionalSessionMetadata } from "../contexts/SessionMetadataContext";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
-import { useI18n } from "../i18n";
 import { toBrowserAppHref } from "../lib/appHref";
 import { writeClipboardText } from "../lib/clipboard";
 import { writeClipboardImageLater } from "../lib/imageActions";
@@ -96,7 +95,6 @@ export function useImageResourceActions({
   contextMenuElement: ReactNode;
   handleContextMenu: (event: MouseEvent<Element>) => void;
 } {
-  const { t } = useI18n();
   const publicShare = usePublicShareContext();
   const sessionMetadata = useOptionalSessionMetadata();
   const basePath = useRemoteBasePath();
@@ -134,7 +132,6 @@ export function useImageResourceActions({
       x={contextMenu.x}
       y={contextMenu.y}
       canStartNewSession={false}
-      dismissLabel={t("imageResourceDismissMenu" as never)}
       onClose={() => setContextMenu(null)}
       onOpen={onOpen}
       fileTarget={

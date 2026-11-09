@@ -74,15 +74,18 @@ describe("SourceContextMenu", () => {
       screen.getByRole("menu", { name: "sourceActionMenu" }),
     ).toBeDefined();
     fireEvent.pointerUp(target);
+    // The same sequence's compatibility press is not one outside the menu.
+    fireEvent.mouseDown(target);
     fireEvent.click(target);
     expect(onActivate).not.toHaveBeenCalled();
+    expect(screen.getByRole("menu")).toBeDefined();
 
     await act(() => vi.advanceTimersByTimeAsync(0));
     fireEvent.click(target);
     expect(onActivate).toHaveBeenCalledOnce();
   });
 
-  it("does not carry long-press suppression past an overlay pointer-up", async () => {
+  it("does not carry long-press suppression past a pointer-up elsewhere", async () => {
     vi.useFakeTimers();
     const onActivate = vi.fn();
     render(<MenuHarness onActivate={onActivate} />);
@@ -101,9 +104,7 @@ describe("SourceContextMenu", () => {
     fireEvent(target, pointerDown);
     await act(() => vi.advanceTimersByTimeAsync(500));
 
-    fireEvent.pointerUp(
-      screen.getByRole("button", { name: "sourceDismissActions" }),
-    );
+    fireEvent.pointerUp(document.body);
     await act(() => vi.advanceTimersByTimeAsync(0));
     fireEvent.click(target);
 
@@ -121,8 +122,10 @@ describe("SourceContextMenu", () => {
     const newItem = screen.getByRole("menuitem", { name: "New" });
     expect(document.activeElement).toBe(newItem);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "sourceDismissActions" }),
+    fireEvent.keyDown(newItem, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Target" }),
     );
     fireEvent.contextMenu(screen.getByRole("button", { name: "Other" }));
     fireEvent.click(screen.getByRole("button", { name: "Refresh target" }));

@@ -77,8 +77,6 @@ function InlineCodeMenu({
       onClose={close}
       labels={{
         menu: t("inlineCodeActions"),
-        dismiss: t("sourceDismissActions"),
-        touchTargets: true,
       }}
       actions={[
         {

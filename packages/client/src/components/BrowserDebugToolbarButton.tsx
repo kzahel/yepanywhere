@@ -41,7 +41,6 @@ export function BrowserDebugToolbarButton({
   dataAttributes,
 }: BrowserDebugToolbarButtonProps) {
   const contextMenu = useSourceContextMenu(t, {
-    dismiss: t("toolbarBrowserDebugDismissMenu"),
     menu: t("toolbarBrowserDebugMenu"),
   });
   const actions = useMemo(

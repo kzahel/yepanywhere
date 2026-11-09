@@ -1169,7 +1169,6 @@ function LocalResourceContextMenu({
     presentation?: FileViewPresentation,
   ) => void;
 }) {
-  const { t } = useI18n();
   const fileScope = useLocalFileScope();
   const publicShare = usePublicShareContext();
   const basePath = useRemoteBasePath();
@@ -1228,9 +1227,6 @@ function LocalResourceContextMenu({
       y={contextMenu.y}
       canStartNewSession={
         publicShare === null && !isMedia && Boolean(projectContext?.projectId)
-      }
-      dismissLabel={
-        isMedia ? t("imageResourceDismissMenu" as never) : undefined
       }
       onClose={onClose}
       onOpen={() => openResource()}

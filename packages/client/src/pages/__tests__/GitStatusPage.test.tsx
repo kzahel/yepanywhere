@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   MemoryRouter,
@@ -1174,11 +1175,17 @@ describe("GitStatusPage source header", () => {
     expect(text.className).toContain("project-selector-text");
     expect(text.className).toContain(selectorStyles.text);
 
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
     fireEvent.click(trigger);
-    const dropdown = (await screen.findByRole("dialog", {
+    const menu = await screen.findByRole("menu", {
       name: "projectSelectorSelectProject",
-    })) as HTMLElement;
-    expect(dropdown.className).toContain(selectorStyles.dropdown);
+    });
+    expect(menu.className).toContain(selectorStyles.menu);
+    expect(
+      within(menu)
+        .getAllByRole("menuitemradio")
+        .map((item) => item.getAttribute("aria-checked")),
+    ).toEqual(["true", "false"]);
 
     // The retired vocabulary is gone everywhere it was not an interop hook.
     for (const retired of [

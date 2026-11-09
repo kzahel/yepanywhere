@@ -69,11 +69,6 @@
   }
 }
 
-.card:has(.metricsWrapOpen) {
-  position: relative;
-  z-index: 40;
-}
-
 .cardTerminated {
   border-style: dashed;
   opacity: 0.7;
@@ -220,13 +215,8 @@
 }
 
 .metricsWrap {
-  position: relative;
   margin-left: auto;
   flex-shrink: 0;
-}
-
-.metricsWrapOpen {
-  z-index: 40;
 }
 
 .metrics {
@@ -250,19 +240,11 @@
   color: var(--text-primary);
 }
 
+/* Content of the shared Popover: the metrics, one per line. */
 .metricsPopover {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  width: max-content;
+  display: block;
   max-width: min(22rem, calc(100dvw - 2rem));
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-lg);
-  color: var(--text-primary);
+  padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   line-height: 1.5;
   white-space: pre-line;

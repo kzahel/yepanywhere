@@ -136,14 +136,16 @@ test.describe("New Session provider readiness", () => {
 
     await page.goto(`${baseURL}/new-session?provider=codex&detached=1`);
     const providerPicker = page.locator(
-      '.new-session-provider-section button[aria-haspopup="listbox"]',
+      '.new-session-provider-section button[aria-haspopup="menu"]',
     );
     await expect(providerPicker).toBeEnabled();
     await expect(providerPicker).toContainText("Codex");
     await expect(providerPicker).toContainText("Authentication needed");
     await providerPicker.click();
     await expect(
-      page.getByRole("dialog").getByRole("button", { name: /^Codex OpenAI/ }),
+      page
+        .getByRole("menu")
+        .getByRole("menuitemradio", { name: /^Codex OpenAI/ }),
     ).toContainText("Authentication needed");
     await page.keyboard.press("Escape");
     await page
