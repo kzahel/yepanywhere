@@ -579,12 +579,12 @@ export function ModelSwitchModal({
             {processId && (
               <section className="model-switch-section">
                 <div className="model-switch-section-header">
-                  <strong>{t("newSessionThinkingMode")}</strong>
+                  <strong>{t("modelSwitchThinkingModeTitle")}</strong>
                 </div>
                 <div className="model-switch-chip-group">
                   <SegmentedControl
                     variant="cards"
-                    aria-label={t("newSessionThinkingMode")}
+                    aria-label={t("modelSwitchThinkingModeTitle")}
                     options={thinkingModeOptions.map((mode) => ({
                       value: mode,
                       icon: (

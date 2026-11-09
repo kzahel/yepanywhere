@@ -494,7 +494,7 @@ test("keys typed into the retitle field each show within 100 ms during live upda
   expect(session.calls[1]?.body).toEqual({ title: "parser notes" });
 });
 
-test("a routed session's account chip opens the Info tab", async ({
+test("a routed session's account chip menu reaches the Info tab", async ({
   page,
   baseURL,
 }) => {
@@ -515,7 +515,13 @@ test("a routed session's account chip opens the Info tab", async ({
     name: /Pin account/,
   });
   await expect(chip).toHaveText("Pin pool · Pin account");
+  // With account switching advertised, the chip opens the account menu;
+  // Session info stays its last item.
   await chip.click();
+  await page
+    .getByRole("menu", { name: "Session account" })
+    .getByRole("menuitem", { name: "Session info", exact: true })
+    .click();
   await expect(
     page.getByRole("dialog").getByRole("tab", { name: "Session Info" }),
   ).toHaveAttribute("aria-selected", "true");

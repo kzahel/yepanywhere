@@ -3474,6 +3474,7 @@
   "speechSmartTurnCaption": "Timeout is the max wait. At turn end, say send, cancel, or wait; no command means send.",
   "providersSave": "Save",
   "modelSwitchSaveAll": "Save all",
+  "modelSwitchThinkingModeTitle": "Thinking mode",
   "providersSaving": "Saving...",
   "providersOllamaUrlLabel": "Ollama server URL",
   "providersOllamaUrlHint": "Ollama server URL. Default: http://localhost:11434",

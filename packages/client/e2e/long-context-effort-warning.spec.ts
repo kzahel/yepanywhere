@@ -235,7 +235,10 @@ test("a long-context effort change asks first and can fork at the new effort", a
     await page.locator(".provider-badge-button").click();
     const panel = page.getByRole("dialog").filter({ hasText: "Switch Model" });
     await expect(panel).toBeVisible({ timeout: 15_000 });
-    await panel.getByRole("button", { name: /^Max/ }).first().click();
+    await panel
+      .getByRole("radiogroup", { name: "Effort Level" })
+      .getByRole("radio", { name: "Max" })
+      .click();
     await panel
       .getByRole("button", { name: /Save all/ })
       .first()
