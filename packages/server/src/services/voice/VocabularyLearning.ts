@@ -19,6 +19,22 @@ export interface VocabularySession {
   messages: () => AsyncIterable<readonly Message[]>;
 }
 
+/** A catalog generation, as the session source reports and resumes from. */
+export interface VocabularyCatalogMark {
+  catalogEpoch: string;
+  catalogGeneration: number;
+}
+
+/**
+ * Lets an automatic scan read only the sessions changed since the last
+ * completed one (plan 189 step 4): the source reads after `since` and
+ * reports the generation it read in `reached`.
+ */
+export interface VocabularyCatalogScan {
+  since?: VocabularyCatalogMark;
+  reached?: VocabularyCatalogMark;
+}
+
 const MESSAGE_BURST = 16;
 
 /** Shortest interval between two relearns of a full fingerprint filter. */
@@ -79,6 +95,17 @@ export class VocabularyLearning {
   private retrospective = false;
   private relearnAfter = 0;
   private compactAfter = 0;
+  /**
+   * Where the last completed automatic scan left the catalog, under the
+   * settings generation and cutoff it scanned with. A later scan with the same
+   * generation and a cutoff no earlier skips sessions that have not changed:
+   * each was checkpointed or skipped then, and would be again.
+   */
+  private scannedThrough?: {
+    mark: VocabularyCatalogMark;
+    generation: number;
+    cutoff: number;
+  };
   private readonly epsilonMs: number;
   private readonly flushAfter: number;
   private readonly reference?: () => Promise<ReadonlyMap<string, number>>;
@@ -93,6 +120,7 @@ export class VocabularyLearning {
     readonly store: VocabularyStore,
     private readonly sessions: (
       cutoff: number,
+      scan?: VocabularyCatalogScan,
     ) => AsyncIterable<VocabularySession>,
     options: {
       reference?: () => Promise<ReadonlyMap<string, number>>;
@@ -144,6 +172,15 @@ export class VocabularyLearning {
     const cutoff = this.retrospective
       ? requestedCutoff
       : this.store.automaticCutoff(requestedCutoff);
+    const previous = this.scannedThrough;
+    const scan: VocabularyCatalogScan = {
+      since:
+        !this.retrospective &&
+        previous?.generation === generation &&
+        previous.cutoff <= cutoff
+          ? previous.mark
+          : undefined,
+    };
     this.retrospective = false;
     const active = () =>
       !this.closed && epoch === this.epoch && this.store.accepts(generation);
@@ -158,7 +195,7 @@ export class VocabularyLearning {
       if (this.reference) this.store.setReference(await this.reference());
       if (!active()) return;
       let burst = 0;
-      for await (const session of this.sessions(cutoff)) {
+      for await (const session of this.sessions(cutoff, scan)) {
         if (!active()) break;
         if (
           session.updatedAt < cutoff ||
@@ -192,6 +229,8 @@ export class VocabularyLearning {
       // no rewritten rows, no rebuilt ranking, no new revision.
       if (this.store.settings().enabled && active()) {
         if (!this.store.idle) await this.store.flush();
+        if (scan.reached)
+          this.scannedThrough = { mark: scan.reached, generation, cutoff };
       } else this.store.discardPending();
       if (active()) this.progress.state = "idle";
       // Compaction first: it keeps every learned count, and it triggers far
@@ -285,6 +324,7 @@ export class VocabularyLearning {
 
   async reset(): Promise<void> {
     this.epoch++;
+    this.scannedThrough = undefined;
     this.requested = false;
     this.retrospective = false;
     await this.store.reset();

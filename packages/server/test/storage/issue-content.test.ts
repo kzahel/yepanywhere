@@ -44,7 +44,14 @@ function fixture(fetcher: typeof fetch) {
   });
   const indexer = new IssueIndexer(store, {
     settings: () => settings,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const app = new Hono().route(

@@ -12,16 +12,30 @@ import {
 } from "../../sessions/normalization.js";
 import { sessionCatalogRowKey } from "../../sessions/catalog-types.js";
 import { nativeCatalogSessionRef } from "../../sessions/catalog-identity.js";
-import type { VocabularySession } from "./VocabularyLearning.js";
+import type {
+  VocabularyCatalogScan,
+  VocabularySession,
+} from "./VocabularyLearning.js";
 
+/**
+ * Catalog sessions for speech learning: those changed after `scan.since`
+ * (plan 189 step 4), or every one without it. `scan.reached` receives the
+ * generation read, for the next scan to resume from.
+ */
 export async function* vocabularySessions(
-  catalog: Pick<RetainedSessionCollections, "read" | "invalidate">,
+  catalog: Pick<RetainedSessionCollections, "readChanges" | "invalidate">,
   scanner: Pick<ProjectScanner, "getProject">,
   deps: ProviderResolutionDeps,
   cutoff: number,
+  scan?: VocabularyCatalogScan,
 ): AsyncIterable<VocabularySession> {
-  const snapshot = await catalog.read();
-  for (const row of snapshot.rows) {
+  const changes = await catalog.readChanges(scan?.since);
+  if (scan)
+    scan.reached = {
+      catalogEpoch: changes.catalogEpoch,
+      catalogGeneration: changes.catalogGeneration,
+    };
+  for (const row of changes.rows) {
     if (Date.parse(row.updatedAt) < cutoff) continue;
     const native = nativeCatalogSessionRef(row);
     // Old compact rows need the next scoped catalogue publication. Skipping

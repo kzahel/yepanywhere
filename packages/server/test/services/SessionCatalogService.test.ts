@@ -233,6 +233,127 @@ describe("SessionCatalogService", () => {
     ).toBe(3);
   });
 
+  it("reads the rows changed and the keys removed since a generation", async () => {
+    const service = createService();
+    await service.initialize();
+    const a = row({ sessionId: "a", project: "alpha" });
+    await service.reconcile([
+      adapter([
+        a,
+        row({ sessionId: "b", project: "alpha" }),
+        row({ sessionId: "c", project: "beta" }),
+      ]),
+    ]);
+    const first = service.getToken();
+    expect(service.readChanges()).toMatchObject({ full: true, removed: [] });
+    expect(ids(service.readChanges().rows)).toEqual(["a", "b", "c"]);
+    expect(service.readChanges(first)).toMatchObject({
+      ...first,
+      full: false,
+      rows: [],
+      removed: [],
+    });
+
+    await service.reconcile([
+      adapter([
+        { ...a, title: "renamed" },
+        row({ sessionId: "b", project: "alpha" }),
+      ]),
+    ]);
+    const second = service.readChanges(first);
+    expect(second).toMatchObject({
+      catalogGeneration: first.catalogGeneration + 1,
+      full: false,
+      removed: [
+        { catalogFamily: "codex", storeKey: "default", sessionId: "c" },
+      ],
+    });
+    expect(second.rows.map((entry) => entry.title)).toEqual(["renamed"]);
+
+    // Another lineage, or a generation this one never reached, reads in full.
+    for (const since of [
+      { ...first, catalogEpoch: "another" },
+      { ...first, catalogGeneration: first.catalogGeneration + 5 },
+    ])
+      expect(service.readChanges(since)).toMatchObject({ full: true });
+
+    // The log is in the tables, so a restarted server answers the same.
+    service.stop();
+    const restarted = createService();
+    await restarted.initialize();
+    expect(restarted.readChanges(first)).toMatchObject({
+      full: false,
+      removed: [{ sessionId: "c" }],
+    });
+    expect(
+      restarted.readRow(JSON.stringify(["codex", "default", "a"])),
+    ).toMatchObject({ title: "renamed" });
+  });
+
+  it("reads in full from memory when the change log cannot be read", async () => {
+    const database = openTestDiscoveryDatabase(dataDir);
+    let busy = false;
+    const service = createService({
+      database: {
+        ...database,
+        prepare(sql: string) {
+          if (busy && sql.includes("changed_gen >"))
+            throw new Error("database is locked");
+          return database.prepare(sql);
+        },
+      },
+    });
+    await service.initialize();
+    await service.reconcile([adapter([row({ sessionId: "a", project: "p" })])]);
+    const before = service.getToken();
+    await service.reconcile([adapter([row({ sessionId: "b", project: "p" })])]);
+    busy = true;
+    const changes = service.readChanges(before);
+    expect(changes).toMatchObject({ full: true, removed: [] });
+    expect(ids(changes.rows)).toEqual(["b"]);
+  });
+
+  it("reads in full from a generation whose deletions were purged", async () => {
+    const service = createService({ tombstoneGenerations: 10 });
+    await service.initialize();
+    const keep = row({ sessionId: "keep", project: "a" });
+    await service.reconcile([
+      adapter([keep, row({ sessionId: "gone", project: "a" })]),
+    ]);
+    const before = service.getToken();
+    const tokens = [before];
+    for (let generation = 2; generation <= 13; generation += 1) {
+      await service.reconcile([
+        adapter([{ ...keep, sourceVersion: `keep@${generation}` }]),
+      ]);
+      tokens.push(service.getToken());
+    }
+    // `gone` was tombstoned at generation 2 and purged with horizon 3.
+    expect(service.readChanges(before)).toMatchObject({ full: true });
+    expect(service.readChanges(tokens[2])).toMatchObject({
+      full: false,
+      removed: [],
+    });
+  });
+
+  it("reads in full across a generation stored over tables that moved", async () => {
+    const service = createService();
+    await service.initialize();
+    const a = row({ sessionId: "a", project: "alpha" });
+    await service.reconcile([adapter([a])]);
+    const before = service.getToken();
+    // Something outside this process rewrote the tables meanwhile.
+    openTestDiscoveryDatabase(dataDir).exec(
+      "UPDATE catalog_state SET generation = generation + 3",
+    );
+    await service.reconcile([adapter([{ ...a, title: "changed" }])]);
+    expect(service.readChanges(before)).toMatchObject({ full: true });
+    expect(service.readChanges(service.getToken())).toMatchObject({
+      full: false,
+      rows: [],
+    });
+  });
+
   it("keeps the last generation when a scan fails", async () => {
     const service = createService();
     await service.initialize();

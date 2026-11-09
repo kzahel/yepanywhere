@@ -316,7 +316,11 @@ overflow pages are about half empty: 10.1 MB of 19.7 MB for summaries,
       never pruned.
     - Relationship visibility parses the whole blob for
       `$.workingProjectId` (`authorized-relationship-source.ts:32-37`).
-24. **`issue_index_jobs.source_json` is a whole catalog row.** 6.14 MB for
+24. Fixed 2026-11-09 by plan 189 step 4: jobs keep a `catalog_key`
+    (migration 029), the worker reads the current row, a removed catalog row
+    deletes its jobs; the table went from 8.5 MB to 1.9 MB here. Original
+    finding:
+    **`issue_index_jobs.source_json` is a whole catalog row.** 6.14 MB for
     2,043 jobs, 72% of it titles (`IssueIndexer.ts:188`). Every catalog
     generation loads all of them (`IssueStore.ts:306-320`) and compares
     full JSON strings to detect change (`IssueIndexer.ts:188-198`). Store a
@@ -371,10 +375,17 @@ metadata `initialPrompt` (2.53 MB) and creation payloads (620 KB). Items
 on an active host and go away with a `changed_generation` delta from the
 catalog table:
 
-29. The issue indexer sweep projects identities for all 7,470 rows and
+29. Fixed 2026-11-09 by plan 189 step 4 (sweeps read `changed_gen`
+    changes: 1 ms for 1–2 rows against 118 ms in full). Original finding:
+    The issue indexer sweep projects identities for all 7,470 rows and
     stringifies every recent row on each generation (`app.ts:3704-3739`,
     `IssueIndexer.ts:99-168`).
-30. The project view walks every row each generation
+30. Fixed 2026-11-09 by plan 189 step 4: the project view folds only the
+    projects a change touches, and `projects-changed` names only projects
+    whose facts changed. On this host the all-ids events came from item 31's
+    retained refresh, which now names only changed projects too. Original
+    finding:
+    The project view walks every row each generation
     (`RetainedSessionCollections.ts:234-260`, `catalog-projects.ts:33-80`).
     Its version includes `lastActivity`, so a `projects-changed` carrying
     every project id goes out whenever any session advances, and every

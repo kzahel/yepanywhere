@@ -60,6 +60,7 @@ import { createExperimentalConversationRoutes } from "./routes/experimental-conv
 import { IssueStore } from "./services/issues/IssueStore.js";
 import { IssueContentRefresher } from "./services/issues/content.js";
 import { IssueIndexer } from "./services/issues/IssueIndexer.js";
+import { issueCatalogSource } from "./services/issues/issue-catalog-source.js";
 import { createIssueRoutes } from "./routes/issues.js";
 import { IssueCredentials } from "./services/issues/credentials.js";
 import { IssueConfirmer } from "./services/issues/confirm.js";
@@ -3701,13 +3702,11 @@ export function createApp(options: AppOptions): AppResult {
     const indexer = new IssueIndexer(issueStore, {
       settings: issueSettings,
       confirm: () => confirmer.schedule(),
-      candidates: async function* () {
-        yield* await projectCatalogIdentities(
-          (await catalog.read()).rows,
-          options.sessionMetadataService,
-          sessionReadLifetime.signal,
-        );
-      },
+      ...issueCatalogSource(
+        catalog,
+        options.sessionMetadataService,
+        sessionReadLifetime.signal,
+      ),
       projectForSession: (id) =>
         options.sessionMetadataService?.getMetadata(id)?.workingProjectId,
       read: async (row, readOptions) => {
@@ -3809,12 +3808,13 @@ export function createApp(options: AppOptions): AppResult {
     const keyterms = new VocabularyKeyterms(store, effectiveDataDir);
     const learning = new VocabularyLearning(
       store,
-      (cutoff) =>
+      (cutoff, scan) =>
         vocabularySessions(
           catalog,
           scanner,
           sessionProviderResolutionDeps(),
           cutoff,
+          scan,
         ),
       { reference: () => keyterms.reference() },
     );

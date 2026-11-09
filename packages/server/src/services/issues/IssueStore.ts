@@ -33,8 +33,9 @@ export interface AdmittedJob {
   projectId: string;
   priority: number;
   state: string;
-  /** Serialized catalog row, compared verbatim against the candidate's. */
-  source: string;
+  sourceVersion: string;
+  /** The catalog row the job reads (`sessionCatalogRowKey`); null for a viewed window. */
+  catalogKey: string | null;
 }
 /** One candidate session the worker may pick up, as the queue holds it. */
 export interface QueuedJob {
@@ -42,15 +43,15 @@ export interface QueuedJob {
   sourceVersion: string;
   /** Acquisition position to resume from, absent before the first read. */
   cursor?: string;
-  /** Serialized catalog row; `"null"` for a viewed window with no catalog row. */
-  source: string;
+  /** The catalog row to read; null for a viewed window with no catalog row. */
+  catalogKey: string | null;
 }
 /** A candidate admitted by a catalog sweep. */
 export interface JobAdmission {
   sessionId: string;
   projectId: string;
   sourceVersion: string;
-  source: string;
+  catalogKey: string;
   priority: number;
 }
 /**
@@ -303,20 +304,50 @@ export class IssueStore {
    * publication. One read names the queue and the sweep writes only real
    * changes.
    */
-  admittedJobs(): Map<string, AdmittedJob> {
+  admittedJobs(sessionId?: string): Map<string, AdmittedJob> {
     return new Map(
       this.rows(
-        "SELECT session_id,project_id,priority,state,source_json FROM issue_index_jobs",
+        `SELECT session_id,project_id,priority,state,source_version,catalog_key FROM issue_index_jobs${sessionId === undefined ? "" : " WHERE session_id=?"}`,
+        ...(sessionId === undefined ? [] : [sessionId]),
       ).map((row) => [
         String(row.session_id),
         {
           projectId: String(row.project_id),
           priority: Number(row.priority),
           state: String(row.state),
-          source: String(row.source_json),
+          sourceVersion: String(row.source_version),
+          catalogKey:
+            typeof row.catalog_key === "string" ? row.catalog_key : null,
         },
       ]),
     );
+  }
+  /** `ownedProjects` for one session, for a sweep over a few changed rows. */
+  ownedProjectsOf(sessionId: string): Set<string> | undefined {
+    const projects = this.rows(
+      "SELECT project_id FROM issue_index_jobs WHERE session_id=? UNION SELECT project_id FROM session_issue_evidence WHERE session_id=?",
+      sessionId,
+      sessionId,
+    ).map((row) => String(row.project_id));
+    return projects.length ? new Set(projects) : undefined;
+  }
+  /** Point a job at the catalog row its session moved to, keeping its state. */
+  rekeyJob(sessionId: string, catalogKey: string): void {
+    this.run(
+      "UPDATE issue_index_jobs SET catalog_key=? WHERE session_id=? AND catalog_key IS NOT NULL",
+      catalogKey,
+      sessionId,
+    );
+  }
+  /**
+   * Drop the jobs of catalog rows that were removed. Their evidence stays; a
+   * viewed window's job has no catalog row and is never dropped here.
+   */
+  removeJobs(catalogKeys: readonly string[]): void {
+    this.database.transaction(() => {
+      for (const key of catalogKeys)
+        this.run("DELETE FROM issue_index_jobs WHERE catalog_key=?", key);
+    });
   }
   updateProject(sessionId: string, projectId: string): void {
     this.database.transaction(() => {
@@ -351,22 +382,22 @@ export class IssueStore {
    */
   admitJob(job: JobAdmission): void {
     this.run(
-      `INSERT INTO issue_index_jobs(session_id,project_id,source_version,cursor,state,updated_at,source_json,priority)
+      `INSERT INTO issue_index_jobs(session_id,project_id,source_version,cursor,state,updated_at,catalog_key,priority)
       VALUES (?,?,?,NULL,'queued',?,?,?) ON CONFLICT(session_id) DO UPDATE SET
       state=CASE WHEN issue_index_jobs.source_version!=excluded.source_version OR issue_index_jobs.state='paused' THEN 'queued' ELSE issue_index_jobs.state END,
-      project_id=excluded.project_id,source_json=excluded.source_json,source_version=excluded.source_version,priority=excluded.priority`,
+      project_id=excluded.project_id,catalog_key=excluded.catalog_key,source_version=excluded.source_version,priority=excluded.priority`,
       job.sessionId,
       job.projectId,
       job.sourceVersion,
       Date.now(),
-      job.source,
+      job.catalogKey,
       job.priority,
     );
   }
   /** Record a viewed window that was refused outright, without indexing it. */
   refuseViewedJob(sessionId: string, projectId: string, error: string): void {
     this.run(
-      `INSERT INTO issue_index_jobs(session_id,project_id,source_version,state,error,updated_at,source_json,priority) VALUES (?,?,'','partial',?,?,'null',1)
+      `INSERT INTO issue_index_jobs(session_id,project_id,source_version,state,error,updated_at,priority) VALUES (?,?,'','partial',?,?,1)
        ON CONFLICT(session_id) DO UPDATE SET state=CASE WHEN issue_index_jobs.state='viewed' THEN 'partial' ELSE issue_index_jobs.state END`,
       sessionId,
       projectId,
@@ -382,7 +413,7 @@ export class IssueStore {
     error: string | null,
   ): void {
     this.run(
-      `INSERT INTO issue_index_jobs(session_id,project_id,source_version,state,error,updated_at,source_json,priority) VALUES (?,?,'',?,?,?,'null',1)
+      `INSERT INTO issue_index_jobs(session_id,project_id,source_version,state,error,updated_at,priority) VALUES (?,?,'',?,?,?,1)
       ON CONFLICT(session_id) DO UPDATE SET project_id=excluded.project_id,state=CASE WHEN excluded.state='partial' AND issue_index_jobs.state='viewed' THEN 'partial' ELSE issue_index_jobs.state END,error=COALESCE(excluded.error,issue_index_jobs.error)`,
       sessionId,
       projectId,
@@ -394,13 +425,13 @@ export class IssueStore {
   /** One fair worker batch: viewed windows first, then least recently touched. */
   nextQueuedJobs(limit: number): QueuedJob[] {
     return this.rows(
-      "SELECT session_id,source_version,cursor,source_json FROM issue_index_jobs WHERE state='queued' ORDER BY priority DESC,updated_at,session_id LIMIT ?",
+      "SELECT session_id,source_version,cursor,catalog_key FROM issue_index_jobs WHERE state='queued' ORDER BY priority DESC,updated_at,session_id LIMIT ?",
       limit,
     ).map((row) => ({
       sessionId: String(row.session_id),
       sourceVersion: String(row.source_version),
       ...(typeof row.cursor === "string" ? { cursor: row.cursor } : {}),
-      source: String(row.source_json),
+      catalogKey: typeof row.catalog_key === "string" ? row.catalog_key : null,
     }));
   }
   /**

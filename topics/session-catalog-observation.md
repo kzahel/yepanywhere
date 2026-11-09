@@ -192,7 +192,12 @@ Accepted complete reads and retained reads share the scanner's snapshot and
 persistence owner. Failed refreshes preserve it, expose the error and impose a
 five-second admission backoff. A later read or event can retry; there is no
 periodic scan timer. Refresh completion emits `projects-changed` with
-`collectionRefresh: true`. Limited users receive this completion signal even
+`collectionRefresh: true`, naming only the projects whose facts changed since
+the scanner last announced (added, removed, or any field changed); a refresh
+that changed none still announces itself, with no ids. A catalog publication
+that changes the native project view announces the same way, and not at all
+when no project changed. Project pages refetch only when named; project lists
+refetch on every announcement. Limited users receive this completion signal even
 when no affected project is accessible, with an empty project-id list; they
 never receive catalog error details. Disposal
 cancels queued work, drains active retained work and prevents its publication.
@@ -614,6 +619,15 @@ generation N" is one indexed query. Tombstones older than 10,000
 generations are purged in steps, and `tombstone_horizon` names the oldest
 generation from which every deletion is still known; a reader further behind
 reads in full.
+
+Server consumers follow publications through that log rather than walking
+every row (plan 189 step 4): `readChanges(since)` returns the live rows written
+and the keys removed after a reader's token, or every row (`full`) without a
+token, for another epoch, behind the tombstone horizon, or behind a generation
+stored whole over tables that had moved. Change readers keep their token in
+memory, so each starts a process with one full read. The issue indexer, the
+project view and speech-vocabulary learning read this way; the project view
+folds only the projects its changed rows touch.
 
 Unfiltered, starred, project/search, Inbox, queue-title, hover, and stats
 projections read one accepted generation plus ordered overlay deltas. A client

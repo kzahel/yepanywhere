@@ -1,4 +1,5 @@
 import { setImmediate as yieldTurn } from "node:timers/promises";
+import { getLogger } from "../../logging/logger.js";
 import type { SessionCatalogRow } from "../../sessions/catalog-types.js";
 import type {
   IssueReadOptions,
@@ -18,6 +19,29 @@ export interface CatalogMark {
   catalogGeneration: number;
 }
 
+/** A catalog row as the indexer sees it: public identity, and its own key. */
+export interface IssueCatalogRow extends SessionCatalogRow {
+  /** `sessionCatalogRowKey` of the native row. */
+  catalogKey: string;
+}
+
+/** What changed in the catalog since a sweep's mark, projected to public rows. */
+export interface IssueCatalogChanges {
+  /** The generation these changes bring a sweep to. */
+  mark: CatalogMark;
+  /** Every row, rather than only those changed since the mark. */
+  full: boolean;
+  rows: readonly Readonly<IssueCatalogRow>[];
+  /** Keys of rows removed from the catalog since the mark. */
+  removed: readonly string[];
+  /**
+   * Keys of changed or retried rows the identity projection left out (their
+   * family still has pending allocations, or adoption refused them). Their
+   * rows may not change again, so the next sweep offers them once more.
+   */
+  excluded: readonly string[];
+}
+
 /** Bytes of one capture chunk; a message longer than this is captured in several. */
 const CAPTURE_CHUNK = 32 * 1024;
 /**
@@ -35,9 +59,18 @@ const SWEEP_PRIORITY = 0;
 
 export interface IssueIndexerDeps {
   settings: () => IssueSettings;
-  candidates: () => AsyncIterable<Readonly<SessionCatalogRow>>;
+  /**
+   * Rows changed since `since`, or every row when `since` is absent or the
+   * catalog cannot say, with `retry` keys offered again.
+   */
+  changes: (
+    since: CatalogMark | undefined,
+    retry: ReadonlySet<string>,
+  ) => Promise<IssueCatalogChanges>;
+  /** The current row under a catalog key, or nothing when it is gone or unprojectable. */
+  row: (catalogKey: string) => Promise<Readonly<IssueCatalogRow> | undefined>;
   read: (
-    row: SessionCatalogRow,
+    row: IssueCatalogRow,
     options: IssueReadOptions,
   ) => Promise<IssueTextBatch | null>;
   projectForSession?: (sessionId: string) => string | undefined;
@@ -51,11 +84,15 @@ export class IssueIndexer {
   private work?: Promise<void>;
   private enumeration?: Promise<void>;
   private refreshPending = false;
-  /** Catalog mark the last completed sweep covered. */
-  private sweptMark?: string;
-  /** What a sweep queued behind the running one should cover. */
-  private pendingCatalog?: CatalogMark;
-  private pendingForced = false;
+  /** Catalog generation the last completed sweep reached. */
+  private swept?: CatalogMark;
+  /**
+   * Keys offered again by the next sweep: rows the last sweep could not
+   * project, and rows the worker found unprojectable and paused.
+   */
+  private retry = new Set<string>();
+  /** A sweep over every row is owed: settings changed, or a caller asked. */
+  private fullPending = false;
   private closed = false;
   private viewTasks = new Set<Promise<void>>();
   private viewBytes = 0;
@@ -84,51 +121,67 @@ export class IssueIndexer {
     this.lastError = null;
     this.store.reconcileJira();
     // Settings decide what a sweep admits, so a change invalidates the mark.
-    this.sweptMark = undefined;
+    this.swept = undefined;
     if (!this.settings().enabled || this.closed) return;
     this.refresh();
   }
   /**
    * Sweep the catalog. Pass the publication's catalog mark to make it a no-op
-   * when nothing has changed since the last completed sweep: the catalog
-   * republishes every few seconds on an active server, and re-walking an
-   * identical corpus to reach the same conclusions is the cost this avoids.
-   * Callers with their own reason to sweep — a settings change, a remap — pass
-   * nothing and always run.
+   * when nothing has changed since the last completed sweep, and otherwise to
+   * read only the rows changed since (plan 189 step 4): re-walking a whole
+   * corpus every few seconds to reach the same conclusions is the cost this
+   * avoids. A caller with its own reason to sweep (a settings change, through
+   * `configure`) passes nothing and sweeps every row.
    */
   refresh(catalog?: CatalogMark): void {
     if (this.closed || !this.settings().enabled) return;
-    const mark = catalog
-      ? `${catalog.catalogEpoch}:${catalog.catalogGeneration}`
-      : undefined;
-    if (mark !== undefined && mark === this.sweptMark) return;
+    if (!catalog) this.fullPending = true;
+    else if (
+      !this.fullPending &&
+      catalog.catalogEpoch === this.swept?.catalogEpoch &&
+      catalog.catalogGeneration === this.swept.catalogGeneration
+    )
+      return;
+    this.sweep();
+  }
+  private sweep(): void {
     if (this.enumeration) {
       this.refreshPending = true;
-      // A caller with its own reason to sweep stays forced; a marked caller
-      // only supplies the mark the rerun should claim.
-      if (catalog) this.pendingCatalog = catalog;
-      else this.pendingForced = true;
       return;
     }
     this.refreshPending = false;
-    const running = mark;
+    const full = this.fullPending || !this.swept;
+    this.fullPending = false;
     const signal = this.controller.signal;
+    let reached: IssueCatalogChanges | undefined;
+    // Keys the worker adds while this sweep runs are kept for the next.
+    const retrying = new Set(this.retry);
     this.enumeration = (async () => {
+      const startedAt = performance.now();
+      const changes = await this.deps.changes(
+        full ? undefined : this.swept,
+        full ? new Set() : retrying,
+      );
       const cutoff = Date.now() - this.settings().recentDays * 86400_000;
-      // Every catalog publication re-enumerates the whole corpus, so an
-      // unconditional ownership write here is one write transaction per known
-      // session per publication — thousands of file locks a minute on an idle
-      // server, none of which can change a row. Only a session that already
-      // has a row can move, and a row created later during this sweep carries
-      // its own project, so one read up front replaces all of them.
-      const owned = this.store.ownedProjects();
+      // Every row of a full sweep would otherwise cost one ownership write
+      // transaction per known session — thousands of file locks, none of which
+      // can change a row. Only a session that already has a row can move, and
+      // a row created later during this sweep carries its own project, so one
+      // read up front replaces all of them. A change sweep of a few rows asks
+      // per row instead of reading every job.
+      const owned = changes.full ? this.store.ownedProjects() : undefined;
       // Read once, and only if something is actually admitted: a sweep in
       // viewed scope admits nothing and must not pay for a queue it will not
       // touch.
       let queue: Map<string, AdmittedJob> | undefined;
-      const admitted = () => (queue ??= this.store.admittedJobs());
+      const admitted = (sessionId: string) => {
+        if (!changes.full)
+          return this.store.admittedJobs(sessionId).get(sessionId);
+        queue ??= this.store.admittedJobs();
+        return queue.get(sessionId);
+      };
       let count = 0;
-      for await (const row of this.deps.candidates()) {
+      for (const row of changes.rows) {
         if (signal.aborted) return;
         const projectId =
           this.deps.projectForSession?.(row.sessionId) ?? row.projectId;
@@ -136,34 +189,61 @@ export class IssueIndexer {
         // and only for a session some stored row still files elsewhere: the
         // update statements are no-ops otherwise, but their transaction is a
         // file lock either way.
-        const stored = owned.get(row.sessionId);
+        const stored = owned
+          ? owned.get(row.sessionId)
+          : this.store.ownedProjectsOf(row.sessionId);
         if (stored && [...stored].some((held) => held !== projectId))
           this.store.updateProject(row.sessionId, projectId);
         if (
           this.settings().scope === "recent" &&
           Date.parse(row.updatedAt) >= cutoff
         )
-          this.enqueue(row, projectId, admitted());
+          this.enqueue(row, projectId, admitted(row.sessionId));
+        else {
+          // A session whose row moved to a new key keeps its job and cursor.
+          const job = admitted(row.sessionId);
+          if (job?.catalogKey && job.catalogKey !== row.catalogKey)
+            this.store.rekeyJob(row.sessionId, row.catalogKey);
+        }
         if (++count % 100 === 0) await yieldTurn();
       }
+      if (signal.aborted) return;
+      // Only a removed catalog row ends a job. A row a recent-scope sweep
+      // passes over, or a store whose scan failed, is still in the catalog.
+      if (changes.removed.length) this.store.removeJobs(changes.removed);
+      reached = changes;
+      getLogger().debug(
+        {
+          full: changes.full,
+          rows: changes.rows.length,
+          removed: changes.removed.length,
+          excluded: changes.excluded.length,
+          durationMs: Math.round(performance.now() - startedAt),
+          generation: changes.mark.catalogGeneration,
+        },
+        "ISSUE_INDEX: swept catalog changes",
+      );
     })()
       .then(() => {
         // Only a sweep that ran to completion may retire its mark.
-        if (!signal.aborted && running !== undefined) this.sweptMark = running;
+        if (signal.aborted || !reached) return;
+        this.swept = reached.mark;
+        this.retry = new Set([
+          ...reached.excluded,
+          ...[...this.retry].filter((key) => !retrying.has(key)),
+        ]);
       })
       .catch(() => {
         if (!signal.aborted) this.lastError = "Catalog unavailable";
       })
       .finally(() => {
         this.enumeration = undefined;
-        const pending = this.pendingForced ? undefined : this.pendingCatalog;
-        this.pendingCatalog = undefined;
-        this.pendingForced = false;
+        if (full && !reached) this.fullPending = true;
         if (
           (signal !== this.controller.signal || this.refreshPending) &&
           this.settings().enabled
         )
-          this.refresh(pending);
+          this.sweep();
         this.kick();
       });
   }
@@ -184,25 +264,24 @@ export class IssueIndexer {
    * of the pause and the upsert landed second decided the state.
    */
   private enqueue(
-    row: Readonly<SessionCatalogRow>,
+    row: Readonly<IssueCatalogRow>,
     projectId: string,
-    queued: ReadonlyMap<string, AdmittedJob>,
+    current: AdmittedJob | undefined,
   ): void {
-    const source = JSON.stringify(row);
-    const current = queued.get(row.sessionId);
     if (
       current &&
       current.state !== "paused" &&
       current.priority === SWEEP_PRIORITY &&
       current.projectId === projectId &&
-      current.source === source
+      current.sourceVersion === row.sourceVersion &&
+      current.catalogKey === row.catalogKey
     )
       return;
     this.store.admitJob({
       sessionId: row.sessionId,
       projectId,
       sourceVersion: row.sourceVersion,
-      source,
+      catalogKey: row.catalogKey,
       priority: SWEEP_PRIORITY,
     });
   }
@@ -340,21 +419,30 @@ export class IssueIndexer {
       let processed = false;
       for (const job of jobs) {
         if (signal.aborted) return;
-        const row: SessionCatalogRow | null = JSON.parse(job.source);
-        if (!row) {
+        if (job.catalogKey === null) {
           this.store.markJob(job.sessionId, "viewed");
           continue;
         }
+        const found = await this.deps.row(job.catalogKey);
+        if (signal.aborted) return;
+        processed = true;
+        if (!found) {
+          // Gone from the catalog (its removal deletes the job) or not yet
+          // projectable: the next sweep offers the row again, and admitting
+          // it re-queues the paused job.
+          this.store.markJob(job.sessionId, "paused");
+          this.retry.add(job.catalogKey);
+          continue;
+        }
+        const row = { ...found, sessionId: job.sessionId };
         const recent =
           this.settings().scope === "recent" &&
           Date.parse(row.updatedAt) >=
             Date.now() - this.settings().recentDays * 86400_000;
         if (!recent) {
           this.store.markJob(row.sessionId, "paused");
-          processed = true;
           continue;
         }
-        processed = true;
         this.store.markJob(row.sessionId, "indexing");
         try {
           const batch = await this.deps.read(row, {

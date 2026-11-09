@@ -3,9 +3,10 @@
 Topic: catalog-identity-projection-cost
 
 Status: in progress. Proposed 2026-11-09 and checked against the code at
-`db161ab3c` and the maintainer's profile the same day. Steps 1, 2 and 3
-done 2026-11-09: the catalog lives in `discovery.sqlite` and the
-`session-catalog/` files are imported once and deleted.
+`db161ab3c` and the maintainer's profile the same day. Steps 1–4 done
+2026-11-09: the catalog lives in `discovery.sqlite`, the `session-catalog/`
+files are imported once and deleted, and its server consumers read what
+changed.
 
 ## Goal
 
@@ -585,6 +586,86 @@ Project view:
 - Dropping `lastActivity` stops that, but project lists would then learn
   recency some other way. Decide that before landing.
 
+Done 2026-11-09:
+- `SessionCatalogService.readChanges(since)` returns the live rows written
+  and the keys removed after a token, from the `changed_gen` index, or every
+  row (`full`) without a token, for another epoch, behind the tombstone
+  horizon, or behind a generation stored whole over tables that had moved
+  (a `changeFloor` kept beside the horizon). `readRow(key)` is the point
+  lookup. Consumers keep their token in memory; each process starts with one
+  full read.
+- Issue indexer: a sweep reads the changes since the generation its last
+  completed sweep reached, and per changed row asks for its job and owned
+  projects instead of reading every job. Rows the identity projection leaves
+  out are offered again by each later sweep until they project (the
+  "sessions without identity" case), and so are rows the worker found
+  unprojectable and paused (review must-fix). Settings changes and the first
+  sweep read every row; a full sweep also re-keys moved non-recent jobs.
+- Migration 029 rebuilds `issue_index_jobs` with `catalog_key` (the row's
+  `sessionCatalogRowKey`, JSON functions on `source_json`, falling back to the
+  identity's native id, then the job's id) and without `source_json`. The
+  worker reads the current row by key; a job whose row is gone or not yet
+  projectable is paused. Deletion cases (review gate): a tombstoned key
+  deletes the jobs holding it, after the same sweep's changed rows, so a
+  session whose row moved keys keeps its job and cursor (re-keyed); viewed
+  windows have no key and are never deleted this way; leaving the recent
+  window or a failed store scan deletes nothing; evidence stays. Decision: a
+  full sweep deletes nothing, so jobs whose rows vanished before a process's
+  first change read stay, as all did before.
+- Project view: `CatalogProjectsProjection` keeps each project's rows and
+  folds only the projects a change touches; `catalogProjects` is the same
+  fold over every row. A random-change test checks it against the full fold.
+- `projects-changed` (review gate): both scanner announcements, a catalog
+  publication that changes the native project view and a retained refresh
+  settling, name only the projects whose facts changed since the last
+  announcement. Decision (open question): `lastActivity` stays in the
+  version, since project lists sort by it and learn it only from this event.
+  A settling refresh still announces with no ids when nothing moved (its
+  `collectionRefresh` completion signal); project lists refetch on every
+  announcement, project pages only when named.
+- Vocabulary: an automatic scan reads sessions changed since the last
+  completed scan with the same settings generation and a cutoff no earlier;
+  retrospective scans, compaction, a wider window and failed scans read every
+  session again.
+- Gate, on a fresh copy of the maintainer's profile (passive second server
+  on port 3417, `user_version` 27, so migrations 028 and 029 and the catalog
+  import ran as the maintainer's restart will; issue associations as the
+  profile has them: on, recent scope, no confirmation, no tracker
+  credentials):
+  - Migration 029 on 2,053 jobs (with 028, 12 ms): every other column
+    unchanged, 2,047 keys equal to the copy-derived ones, 6 viewed jobs
+    null, integrity clean. The table and its indexes went from 8.5 MB to
+    1.9 MB; the freed pages are reused.
+  - 15 minutes of live traffic, 112 publications: one full issue sweep at
+    startup (7,490 rows, 118 ms, what every publication cost before), then
+    112 sweeps of 1–2 rows (1 ms median, 5 ms max); project view updates
+    0.075 ms median against 2.9 ms for the full fold. No error, no job lost
+    (2,053), integrity and foreign keys clean.
+  - Finding: on this host the catalog's project view is unused (no
+    Antigravity, pi or OpenCode stores). The `projects-changed` naming all 122
+    projects on every session file change came from the legacy scanner's
+    retained refresh (item 31), whose Claude `lastActivity` does not move on
+    appends. All 112 announcements in the run named no project; each named
+    122 before, and every mounted project page refetched.
+  - Vocabulary learning is off on this profile; its change reads are covered
+    by tests only. No removal happened live; deletion is covered by tests.
+- Review (Opus) found that a job the worker paused because its row was
+  briefly unprojectable (a pending allocation in its family) never resumed:
+  its key never reached the retry list, which only held rows a sweep left
+  out. The worker now adds it, and a sweep keeps keys added while it ran
+  (the test fails without the fix). Also applied: a change-log read that
+  fails (a busy database) falls back to a full read from memory rather than
+  failing the refresh it runs in; a catalog project view that only became
+  complete still announces, with no ids; a full sweep re-keys moved jobs
+  outside the recent window; an integration test pins the three spellings of
+  a catalog key (the indexer's, the catalog's, migration 029's), and the SQL
+  contract checks the JSON escaping on Node and Bun. Left as noted: a row that
+  moves and is unprojectable in the same read loses its job and cursor (the
+  session is re-read, evidence kept); a migrated job with no catalog key that
+  was not a viewed window is treated as one; sandbox-only counts are not part
+  of the compared project facts, so they no longer refetch a mounted project
+  page.
+
 ### 5 — summary cache and catalog rows
 
 Decide how this step lands before starting it. The merge as first written
@@ -778,7 +859,8 @@ Two tools serve these gates:
   - The issue indexer and vocabulary wait for it (`app.ts:3737`, `:3836`).
 - Step 5: merge the summary cache into catalog rows, or only do item 22.
 - Step 4: how project lists learn `lastActivity` once it leaves the project
-  view version.
+  view version. Decided: it stays in the version; `projects-changed` names
+  only the projects that changed (step 4).
 - Step 6: a pruning rule for metadata with no identity that keeps user
   curation and remote-executor sessions. Also where item 11 gets the
   creation surface and the latest recap time; no server code reads

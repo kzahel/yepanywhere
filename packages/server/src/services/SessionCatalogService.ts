@@ -16,6 +16,7 @@ import {
 import { normalizeRow, requireNonEmpty } from "./session-catalog-rows.js";
 import {
   type SessionCatalogSqliteChange,
+  type SessionCatalogSqliteKey,
   type SessionCatalogSqliteSource,
   type SessionCatalogSqliteState,
   SessionCatalogRowError,
@@ -46,6 +47,19 @@ export interface SessionCatalogSnapshot extends SessionCatalogToken {
   completedAt: string;
   rowCount: number;
   providerSources: SessionCatalogProviderSourceSnapshot[];
+}
+
+/**
+ * What a change reader needs to catch up from its token: the rows written
+ * since and the keys removed since, or every row (`full`) when the change log
+ * cannot answer: no token, another epoch, or a token behind the floor.
+ */
+export interface SessionCatalogChanges extends SessionCatalogToken {
+  full: boolean;
+  /** Live rows written after the reader's token; every row when `full`. */
+  rows: ReadonlyArray<Readonly<SessionCatalogRow>>;
+  /** Keys tombstoned after the reader's token; empty when `full`. */
+  removed: readonly SessionCatalogSqliteKey[];
 }
 
 export interface SessionCatalogProjectRows extends SessionCatalogToken {
@@ -141,6 +155,12 @@ interface Published {
   generation: number;
   completedAt: string;
   tombstoneHorizon: number;
+  /**
+   * The oldest generation the change log answers from: the tombstone
+   * horizon, or a generation stored whole over tables that had moved, whose
+   * `changed_gen` values say nothing about what memory published before it.
+   */
+  changeFloor: number;
   rows: readonly Readonly<SessionCatalogRow>[];
   /** Row key to its position in `rows` and its stored hash. */
   index: ReadonlyMap<string, IndexEntry>;
@@ -234,6 +254,7 @@ export class SessionCatalogService {
         generation: stored.generation,
         completedAt: stored.completedAt,
         tombstoneHorizon: stored.tombstoneHorizon,
+        changeFloor: stored.tombstoneHorizon,
         rows: Object.freeze(published),
         index,
         sources: Object.freeze(sources),
@@ -341,6 +362,7 @@ export class SessionCatalogService {
     this.published = {
       ...state,
       tombstoneHorizon: 0,
+      changeFloor: 0,
       rows: Object.freeze([]),
       index: new Map(),
       sources: Object.freeze([]),
@@ -370,6 +392,70 @@ export class SessionCatalogService {
     this.ensureRunning();
     const published = this.requirePublished();
     return { snapshot: this.getSnapshot(), rows: published.rows };
+  }
+
+  /** The published row stored under `key` (`sessionCatalogRowKey`). */
+  readRow(key: string): Readonly<SessionCatalogRow> | undefined {
+    this.ensureRunning();
+    const published = this.requirePublished();
+    const entry = published.index.get(key);
+    return entry && published.rows[entry.position];
+  }
+
+  /**
+   * The rows written and the keys removed after `since`, from the
+   * `changed_gen` index, so a consumer that follows publications reads what
+   * changed rather than every row. Every row comes back (`full`) when the
+   * log cannot answer for `since`.
+   */
+  readChanges(since?: SessionCatalogToken): SessionCatalogChanges {
+    this.ensureRunning();
+    const published = this.requirePublished();
+    const token = tokenFrom(published);
+    const everything = {
+      ...token,
+      full: true,
+      rows: published.rows,
+      removed: [],
+    };
+    if (
+      !since ||
+      since.catalogEpoch !== published.epoch ||
+      since.catalogGeneration > published.generation ||
+      since.catalogGeneration < published.changeFloor
+    )
+      return everything;
+    if (since.catalogGeneration === published.generation)
+      return { ...token, full: false, rows: [], removed: [] };
+    let changed: ReturnType<SessionCatalogSqliteStore["readChangedKeys"]>;
+    try {
+      const read = this.withStore((store) => {
+        const stored = store.readState();
+        return stored?.epoch === published.epoch &&
+          stored.generation === published.generation
+          ? store.readChangedKeys(since.catalogGeneration)
+          : undefined;
+      });
+      if (!read) return everything;
+      changed = read;
+    } catch {
+      // A busy or failing database costs this reader a full read from
+      // memory, never the refresh it runs in.
+      return everything;
+    }
+    const rows: Readonly<SessionCatalogRow>[] = [];
+    const removed: SessionCatalogSqliteKey[] = [];
+    for (const { key, deleted } of changed) {
+      const entry = published.index.get(
+        rowKey(key.catalogFamily, key.storeKey, key.sessionId),
+      );
+      // The tables and memory are written in one synchronous step, so they
+      // agree; if they ever do not, the reader starts over.
+      if (deleted ? entry : !entry) return everything;
+      if (entry) rows.push(published.rows[entry.position]!);
+      else removed.push(key);
+    }
+    return { ...token, full: false, rows, removed };
   }
 
   /** One project's rows of the published generation, newest first. */
@@ -624,23 +710,25 @@ export class SessionCatalogService {
         ? purgeTo
         : 0;
     const startedAt = performance.now();
-    const { written, tombstoneHorizon } = this.withStore((store) => {
+    const { written, tombstoneHorizon, follows } = this.withStore((store) => {
       const stored = store.readState();
-      const written =
+      const follows =
         stored?.epoch === current.epoch &&
-        stored.generation === current.generation
-          ? store.applyChanges(
-              state,
-              current.generation,
-              changes,
-              sources,
-              horizon,
-            )
-          : // The tables no longer hold what this process published (changed
-            // from outside, or restored): store the whole generation instead.
-            store.writeGeneration(state, rows, sources);
+        stored.generation === current.generation;
+      const written = follows
+        ? store.applyChanges(
+            state,
+            current.generation,
+            changes,
+            sources,
+            horizon,
+          )
+        : // The tables no longer hold what this process published (changed
+          // from outside, or restored): store the whole generation instead.
+          store.writeGeneration(state, rows, sources);
       return {
         written,
+        follows,
         tombstoneHorizon: store.readState()?.tombstoneHorizon ?? 0,
       };
     });
@@ -652,6 +740,9 @@ export class SessionCatalogService {
     this.published = {
       ...state,
       tombstoneHorizon,
+      changeFloor: follows
+        ? Math.max(current.changeFloor, tombstoneHorizon)
+        : state.generation,
       rows: Object.freeze([...rows]),
       index,
       sources: Object.freeze([...sources]),

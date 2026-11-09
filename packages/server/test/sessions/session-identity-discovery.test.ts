@@ -343,15 +343,16 @@ it("projects discovery once across native collections and scoped summary lookups
               sessionDir: globalRoot,
             }) as import("../../src/sessions/codex-reader.js").CodexSessionReader,
         };
-        const nativeCatalog = {
-          read: async () => ({ rows: [row], catalog }),
-          invalidate: vi.fn(),
-        };
         const collect = async (sourceRow: typeof row) => {
           const sessions = vocabularySessions(
             {
-              ...nativeCatalog,
-              read: async () => ({ rows: [sourceRow], catalog }),
+              readChanges: async () => ({
+                ...catalog,
+                full: true,
+                rows: [sourceRow],
+                removed: [],
+              }),
+              invalidate: vi.fn(),
             },
             app!.scanner,
             vocabularyDeps,

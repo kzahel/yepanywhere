@@ -15,9 +15,12 @@ transaction, and the file design costs O(catalog) work for every change.
 catalog is rows in `discovery.sqlite`, a changed session writes one row
 (about 20 KB of pages instead of 14.3 MB), a scan that changes nothing
 writes nothing and advances no generation, and the shard files are imported
-once and deleted. Still open below: the whole-catalog walks on the server
-and in every tab per generation (plan 189 steps 4 and 7), new sessions
-without full discovery, and deltas to clients (step 8).
+once and deleted. Step 4 (same day): the issue indexer, the project view
+and vocabulary learning read the rows changed since their last generation
+(1–2 rows, about 1 ms, where an issue sweep of every row took 118 ms). Still
+open below: the whole-catalog walks of the list routes and in every tab per
+generation (step 7), new sessions without full discovery, and deltas to
+clients (step 8).
 
 This supersedes the former `retained-catalog-identity-resolution-cpu.md` gap
 and expands items 1 and 13 of

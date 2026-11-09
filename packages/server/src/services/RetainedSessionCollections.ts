@@ -1,3 +1,4 @@
+import { getLogger } from "../logging/logger.js";
 import { getProjectIdentityKey } from "../projects/paths.js";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -17,14 +18,15 @@ import { readCodexAsyncQuestions } from "../sessions/codex-async-questions.js";
 import type { SqliteDatabase } from "../storage/sqlite.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import {
-  catalogProjects,
+  CatalogProjectsProjection,
   catalogStoreKey,
   type CatalogProjectsView,
   type CatalogProjectStore,
 } from "../projects/catalog-projects.js";
 import {
+  type SessionCatalogChanges,
   SessionCatalogService,
-  type SessionCatalogSnapshot,
+  type SessionCatalogToken,
 } from "./SessionCatalogService.js";
 
 export interface RetainedSessionCollectionsOptions {
@@ -90,7 +92,9 @@ export class RetainedSessionCollections {
     complete: false,
     version: "uninitialized",
   };
-  private projectProjectionKey?: string;
+  private readonly projection = new CatalogProjectsProjection();
+  /** The catalog generation the project view was last brought to. */
+  private projectedToken?: SessionCatalogToken;
   private projectStoresKey?: string;
   private projectedStoresKey?: string;
   /** Created session ids, each with the time its grace period ends. */
@@ -229,39 +233,67 @@ export class RetainedSessionCollections {
     }
     if (refresh && (this.work || (this.dirty && Date.now() >= this.retryAfter)))
       await this.refresh();
-    const accepted = await this.catalog.readRows();
     this.controller.signal.throwIfAborted();
-    this.updateProjects(accepted);
+    this.updateProjects();
     this.schedule();
     return this.peekProjects();
   }
 
-  private updateProjects(accepted: {
-    snapshot: SessionCatalogSnapshot;
-    rows: readonly Readonly<SessionCatalogRow>[];
-  }): void {
-    const token = this.catalog.getToken();
-    if (
-      accepted.snapshot.catalogEpoch !== token.catalogEpoch ||
-      accepted.snapshot.catalogGeneration !== token.catalogGeneration
-    )
-      return;
+  /**
+   * Bring the project view to the published generation from the rows that
+   * changed since the generation it shows (gap item 30), rather than folding
+   * every row again.
+   */
+  private updateProjects(): void {
     const stores = this.options.projectStores?.() ?? [];
-    const key = JSON.stringify([
-      accepted.snapshot.catalogEpoch,
-      accepted.snapshot.catalogGeneration,
-      stores.map(catalogStoreKey),
-    ]);
-    if (key === this.projectProjectionKey) return;
-    const next = catalogProjects(
-      accepted.rows,
-      accepted.snapshot.providerSources,
+    const storesKey = JSON.stringify(stores.map(catalogStoreKey));
+    const token = this.catalog.getToken();
+    const sameStores = storesKey === this.projectedStoresKey;
+    if (sameStores && sameToken(token, this.projectedToken)) return;
+    const startedAt = performance.now();
+    const changes = this.catalog.readChanges(
+      sameStores ? this.projectedToken : undefined,
+    );
+    const next = this.projection.apply(
+      changes,
+      this.catalog.getSnapshot().providerSources,
       stores,
     );
+    getLogger().debug(
+      {
+        full: changes.full,
+        rows: changes.rows.length,
+        removed: changes.removed.length,
+        projects: next.projects.length,
+        changed: next.version !== this.projectView.version,
+        durationMs: performance.now() - startedAt,
+      },
+      "SESSION_CATALOG: projected projects",
+    );
     if (next.version !== this.projectView.version) this.projectView = next;
-    this.projectProjectionKey = key;
-    this.projectedStoresKey = JSON.stringify(stores.map(catalogStoreKey));
-    this.projectStoresKey = this.projectedStoresKey;
+    this.projectedToken = {
+      catalogEpoch: changes.catalogEpoch,
+      catalogGeneration: changes.catalogGeneration,
+    };
+    this.projectedStoresKey = storesKey;
+    this.projectStoresKey = storesKey;
+  }
+
+  /** Rows written and keys removed since `since`; see `SessionCatalogService.readChanges`. */
+  async readChanges(
+    since?: SessionCatalogToken,
+  ): Promise<SessionCatalogChanges> {
+    await this.initialize();
+    this.controller.signal.throwIfAborted();
+    this.schedule();
+    return this.catalog.readChanges(since);
+  }
+
+  /** The published row under a `sessionCatalogRowKey`, without discovery. */
+  async readRow(key: string): Promise<Readonly<SessionCatalogRow> | undefined> {
+    await this.initialize();
+    this.controller.signal.throwIfAborted();
+    return this.catalog.readRow(key);
   }
 
   invalidate(path?: string): void {
@@ -431,7 +463,7 @@ export class RetainedSessionCollections {
 
     // The first publication is usable before any optional tail is opened.
     const accepted = await this.catalog.readRows();
-    this.updateProjects(accepted);
+    this.updateProjects();
     this.publish();
     // Questions found here are row upserts: one more generation carrying
     // just those rows, not a second publication of every row.
@@ -480,4 +512,14 @@ export class RetainedSessionCollections {
     this.catalog.stop();
     await this.work;
   }
+}
+
+function sameToken(
+  left: SessionCatalogToken,
+  right: SessionCatalogToken | undefined,
+): boolean {
+  return (
+    left.catalogEpoch === right?.catalogEpoch &&
+    left.catalogGeneration === right.catalogGeneration
+  );
 }

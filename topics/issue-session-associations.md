@@ -494,13 +494,32 @@ worker batch. Settings, catalog and completed-session signals drive admission.
 An unchanged failed source is not retried by an endless loop; a changed source
 version permits another attempt.
 
-A republished catalog that has not changed costs nothing. Admission is keyed
-to the publication's epoch and generation, so the sweep that already covered
-that pair returns immediately rather than re-walking an identical corpus, which
-matters because an active server republishes every few seconds. A caller with
-its own reason to sweep — a settings change, a session-id remap — is not keyed
-and always runs, and only a sweep that ran to completion retires its mark, so
-an aborted one is repeated rather than assumed.
+A republished catalog that has not changed costs nothing, and one that has
+costs its changed rows. Admission is keyed to the publication's epoch and
+generation: the sweep that already covered that pair returns immediately, and
+a later publication reads only the rows written and the keys removed since the
+generation the last completed sweep reached (the catalog's `changed_gen` log,
+plan 189 step 4), which matters because an active server republishes every few
+seconds. Every row is read on the first sweep after a start, after a settings
+change, and when the catalog cannot answer from the sweep's generation (another epoch, or
+behind the tombstone horizon). Only a sweep that ran to completion retires its
+mark, so an aborted one is repeated rather than assumed. Rows the identity
+projection leaves out (their family still has pending native allocations, or
+adoption refused them) may never change again, so each sweep offers them once
+more until they project; so does a row the worker found unprojectable when it
+reached the row's job, which it paused.
+
+A job keeps the catalog key of its row (`catalog_key`, the row's
+`sessionCatalogRowKey`), not a copy of it; a viewed window has none. The
+worker reads the current row by that key, so recency and the reader's project
+and provider are the catalog's now, not as admitted. A job whose row is gone or
+not yet projectable is paused. Only a removal from the catalog ends a job: a
+tombstoned key deletes the jobs that hold it, after the same sweep's changed
+rows, so a session whose row moved to a new key keeps its job and cursor (it is
+re-keyed). Passing out of the recent window, or a store whose scan failed (the
+catalog keeps its rows), deletes nothing. Evidence is never deleted with a job.
+A full sweep deletes no jobs; jobs whose rows were removed before the first
+change read of a process stay, as every job did before.
 
 A catalog sweep writes only for sessions that actually changed, in every
 scope. The observable requirement is that admitting an unchanged catalog of
@@ -511,13 +530,14 @@ catalog publication, which is fatal on the network filesystems
 that makes this visible, because it re-admits every session inside the window
 on every publication, and an active server republishes every few seconds.
 
-Two reads before the sweep replace all of those writes. Ownership can change
+Two reads before a full sweep replace all of those writes; a change sweep
+asks the same two questions per changed row. Ownership can change
 only for a session that already has a job or evidence row, so one read names
 those sessions and the project each of their rows currently holds; a candidate
 with no row, or whose rows all hold its current project, is skipped without
 opening a transaction. The other read names what each queued job already
-holds, so a candidate whose project, priority and serialized catalog row all
-match the stored job is admitted without a write — the upsert would otherwise
+holds, so a candidate whose project, priority, source version and catalog
+key all match the stored job is admitted without a write — the upsert would otherwise
 rewrite the row with its own bytes. A paused job is the exception and is
 always written, because returning it to the queue is exactly what the upsert
 does when a widened recent window or a reopened session admits it again.

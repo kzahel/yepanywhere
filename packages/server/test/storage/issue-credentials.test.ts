@@ -133,7 +133,14 @@ describe("issue tracker credentials", () => {
     const indexer = new IssueIndexer(new IssueStore(db.getDatabase()), {
       settings: () =>
         settings.getSetting("issueAssociations") ?? DEFAULT_ISSUE_SETTINGS,
-      candidates: async function* () {},
+      changes: async () => ({
+        mark: { catalogEpoch: "e", catalogGeneration: 1 },
+        full: true,
+        rows: [],
+        removed: [],
+        excluded: [],
+      }),
+      row: async () => undefined,
       read: async () => null,
     });
     const credentials = new IssueCredentials({
@@ -191,7 +198,14 @@ describe("issue tracker credentials", () => {
     const indexer = new IssueIndexer(new IssueStore(db.getDatabase()), {
       settings: () =>
         settings.getSetting("issueAssociations") ?? DEFAULT_ISSUE_SETTINGS,
-      candidates: async function* () {},
+      changes: async () => ({
+        mark: { catalogEpoch: "e", catalogGeneration: 1 },
+        full: true,
+        rows: [],
+        removed: [],
+        excluded: [],
+      }),
+      row: async () => undefined,
       read: async () => null,
     });
     const app = createIssueRoutes(indexer, settings, async () => ({

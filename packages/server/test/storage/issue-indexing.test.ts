@@ -5,7 +5,9 @@ import { afterEach, expect, it } from "vitest";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { IssueStore } from "../../src/services/issues/IssueStore.js";
 import {
+  type CatalogMark,
   IssueIndexer,
+  type IssueIndexerDeps,
   type IssueSettings,
 } from "../../src/services/issues/IssueIndexer.js";
 import { readIssueTextBatch } from "../../src/sessions/issue-text-reader.js";
@@ -23,6 +25,33 @@ function directory() {
   const dir = mkdtempSync(join(tmpdir(), "ya-issue-index-"));
   dirs.push(dir);
   return dir;
+}
+/**
+ * A catalog that answers every sweep with all of its rows, each keyed by its
+ * session id, at the next generation unless `mark` says otherwise.
+ */
+function wholeCatalog(
+  rows: () => readonly SessionCatalogRow[],
+  mark?: () => CatalogMark,
+): Pick<IssueIndexerDeps, "changes" | "row"> {
+  let generation = 0;
+  const keyed = (row: SessionCatalogRow) => ({
+    ...row,
+    catalogKey: row.sessionId,
+  });
+  return {
+    changes: async () => ({
+      mark: mark?.() ?? { catalogEpoch: "e", catalogGeneration: ++generation },
+      full: true,
+      rows: rows().map(keyed),
+      removed: [],
+      excluded: [],
+    }),
+    row: async (key) => {
+      const row = rows().find((candidate) => candidate.sessionId === key);
+      return row && keyed(row);
+    },
+  };
 }
 const claude = (id: string, text: string) =>
   `${JSON.stringify({
@@ -176,14 +205,10 @@ it("automatically drains a durable recent queue larger than its in-memory batch 
   const read: string[] = [];
   const indexer = new IssueIndexer(store, {
     settings: () => settings,
-    candidates: async function* () {
-      yield* rows;
-      yield {
-        ...rows[0]!,
-        sessionId: "old",
-        updatedAt: "2000-01-01T00:00:00Z",
-      };
-    },
+    ...wholeCatalog(() => [
+      ...rows,
+      { ...rows[0]!, sessionId: "old", updatedAt: "2000-01-01T00:00:00Z" },
+    ]),
     read: async (row) => {
       read.push(row.sessionId);
       return {
@@ -231,7 +256,7 @@ it("automatic viewed windows need no registered issues and disable fences delaye
   };
   const indexer = new IssueIndexer(store, {
     settings: () => settings,
-    candidates: async function* () {},
+    ...wholeCatalog(() => []),
     read: async () => null,
   });
   cleanup.push(async () => {
@@ -362,9 +387,7 @@ it("deletion fences an in-flight batch without losing other references in the sa
   } as SessionCatalogRow;
   const indexer = new IssueIndexer(store, {
     settings: () => ({ enabled: true, scope: "recent", recentDays: 7 }),
-    candidates: async function* () {
-      yield row;
-    },
+    ...wholeCatalog(() => [row]),
     read: async () => {
       if (++calls === 1) {
         started();
@@ -438,11 +461,9 @@ it("sweeps a catalog for moved projects without a write transaction per session"
   );
   const indexer = new IssueIndexer(store, {
     settings: () => ({ enabled: true, scope: "viewed", recentDays: 7 }),
-    candidates: async function* () {
-      yield* rows.map(
-        (row) => ({ ...row, projectId: project }) as SessionCatalogRow,
-      );
-    },
+    ...wholeCatalog(() =>
+      rows.map((row) => ({ ...row, projectId: project }) as SessionCatalogRow),
+    ),
     read: async () => null,
   });
   cleanup.push(async () => {
@@ -529,9 +550,7 @@ it("re-admits an unchanged recent catalog without a write per session", {
   const read: string[] = [];
   const indexer = new IssueIndexer(store, {
     settings: () => settings,
-    candidates: async function* () {
-      yield* rows;
-    },
+    ...wholeCatalog(() => rows),
     read: async (row) => {
       read.push(row.sessionId);
       return {
@@ -591,10 +610,17 @@ it("re-queues a paused job when the catalog admits it again", async () => {
   const read: string[] = [];
   const indexer = new IssueIndexer(store, {
     settings: () => settings,
-    candidates: async function* () {
-      yield row;
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [{ ...row, catalogKey: "s" }],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => {
       // The window narrows between admission and the worker reaching the job.
       if (narrowsAfterAdmission) settings.recentDays = 7;
+      return { ...row, catalogKey: "s" };
     },
     read: async (candidate) => {
       read.push(candidate.sessionId);
@@ -649,12 +675,16 @@ it("skips a republished catalog that has not changed, and still sweeps on demand
         location: { kind: "file", path: "unused" },
       }) as SessionCatalogRow,
   );
+  let mark: CatalogMark = { catalogEpoch: "e1", catalogGeneration: 7 };
   const indexer = new IssueIndexer(store, {
     settings: () => ({ enabled: true, scope: "viewed", recentDays: 7 }),
-    candidates: async function* () {
-      enumerations++;
-      yield* rows;
-    },
+    ...wholeCatalog(
+      () => {
+        enumerations++;
+        return rows;
+      },
+      () => mark,
+    ),
     read: async () => null,
   });
   cleanup.push(async () => {
@@ -662,7 +692,6 @@ it("skips a republished catalog that has not changed, and still sweeps on demand
     service.close();
   });
 
-  const mark = { catalogEpoch: "e1", catalogGeneration: 7 };
   indexer.refresh(mark);
   await indexer.settled();
   expect(enumerations).toBe(1);
@@ -673,12 +702,14 @@ it("skips a republished catalog that has not changed, and still sweeps on demand
   await indexer.settled();
   expect(enumerations).toBe(1);
 
-  indexer.refresh({ catalogEpoch: "e1", catalogGeneration: 8 });
+  mark = { catalogEpoch: "e1", catalogGeneration: 8 };
+  indexer.refresh(mark);
   await indexer.settled();
   expect(enumerations).toBe(2);
 
   // A rebuilt catalog reuses generation numbers, so the epoch has to count.
-  indexer.refresh({ catalogEpoch: "e2", catalogGeneration: 8 });
+  mark = { catalogEpoch: "e2", catalogGeneration: 8 };
+  indexer.refresh(mark);
   await indexer.settled();
   expect(enumerations).toBe(3);
 
@@ -717,9 +748,7 @@ ${"y".repeat(40 * 1024)}
   } as SessionCatalogRow;
   const indexer = new IssueIndexer(store, {
     settings: () => ({ enabled: true, scope: "recent", recentDays: 7 }),
-    candidates: async function* () {
-      yield row;
-    },
+    ...wholeCatalog(() => [row]),
     read: async () => ({
       messages: [{ id: "m", text }],
       cursor: "end",
@@ -749,4 +778,182 @@ ${"y".repeat(40 * 1024)}
       "SELECT session_id FROM session_issue_evidence WHERE ref_key='a/b#42' ORDER BY session_id",
     ).map((evidence) => evidence.session_id),
   ).toEqual(["background", "viewed"]);
+});
+it("follows catalog changes: only changed rows, removals end jobs, moved sessions keep theirs, unprojected rows retried", async () => {
+  const service = new DiscoverySqliteService({ dataDir: directory() });
+  const settings: IssueSettings = {
+    enabled: true,
+    scope: "recent",
+    recentDays: 7,
+  };
+  const store = new IssueStore(service.getDatabase(), () => settings);
+  const now = new Date().toISOString();
+  const row = (sessionId: string, catalogKey: string, extra = {}) =>
+    ({
+      sessionId,
+      catalogKey,
+      projectId: "p",
+      sourceVersion: "one",
+      updatedAt: now,
+      location: { kind: "file", path: "unused" },
+      ...extra,
+    }) as SessionCatalogRow & { catalogKey: string };
+  // An old session with a job from before; its row moves to a new key.
+  store.admitJob({
+    sessionId: "old",
+    projectId: "p",
+    sourceVersion: "one",
+    catalogKey: "k-old",
+    priority: 0,
+  });
+  store.markJob("old", "indexed");
+  store.recordViewedJob("viewed", "p", "viewed", null);
+  const calls: { since?: CatalogMark; retry: string[] }[] = [];
+  const answers = [
+    {
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [row("s1", "k1"), row("s2", "k2")],
+      removed: [],
+      excluded: ["k4"],
+    },
+    {
+      mark: { catalogEpoch: "e", catalogGeneration: 2 },
+      full: false,
+      rows: [
+        row("s2", "k2", { sourceVersion: "two" }),
+        row("s4", "k4"),
+        row("old", "k-moved", { updatedAt: "2000-01-01T00:00:00Z" }),
+      ],
+      removed: ["k1", "k-unknown"],
+      excluded: [],
+    },
+  ];
+  // The catalog as the worker finds it when it reaches a job.
+  const rows = new Map(answers[0]!.rows.map((r) => [r.catalogKey, r]));
+  const read: string[] = [];
+  const indexer = new IssueIndexer(store, {
+    settings: () => settings,
+    changes: async (since, retry) => {
+      calls.push({ since, retry: [...retry] });
+      return answers[calls.length - 1]!;
+    },
+    row: async (key) => rows.get(key),
+    read: async (candidate) => {
+      read.push(`${candidate.sessionId}@${candidate.sourceVersion}`);
+      return {
+        messages: [],
+        cursor: "end",
+        done: true,
+        partial: false,
+        bytesRead: 0,
+      };
+    },
+  });
+  cleanup.push(async () => {
+    await indexer.close();
+    service.close();
+  });
+  const jobs = () =>
+    storedRows(
+      store.database,
+      "SELECT session_id,catalog_key,state FROM issue_index_jobs ORDER BY session_id",
+    );
+
+  indexer.refresh({ catalogEpoch: "e", catalogGeneration: 1 });
+  await indexer.settled();
+  expect(read.sort()).toEqual(["s1@one", "s2@one"]);
+  for (const r of answers[1]!.rows) rows.set(r.catalogKey, r);
+  rows.delete("k1");
+  indexer.refresh({ catalogEpoch: "e", catalogGeneration: 2 });
+  await indexer.settled();
+  expect(calls).toEqual([
+    { since: undefined, retry: [] },
+    { since: { catalogEpoch: "e", catalogGeneration: 1 }, retry: ["k4"] },
+  ]);
+  expect(read.slice(2).sort()).toEqual(["s2@two", "s4@one"]);
+  expect(jobs()).toEqual([
+    { session_id: "old", catalog_key: "k-moved", state: "indexed" },
+    { session_id: "s2", catalog_key: "k2", state: "indexed" },
+    { session_id: "s4", catalog_key: "k4", state: "indexed" },
+    { session_id: "viewed", catalog_key: null, state: "viewed" },
+  ]);
+
+  // A queued job whose row is gone from the catalog waits as paused.
+  rows.delete("k2");
+  store.admitJob({
+    sessionId: "s2",
+    projectId: "p",
+    sourceVersion: "three",
+    catalogKey: "k2",
+    priority: 0,
+  });
+  indexer.resumePendingWork();
+  await indexer.settled();
+  expect(jobs().find((job) => job.session_id === "s2")?.state).toBe("paused");
+});
+it("resumes a job paused because its row was briefly unprojectable", async () => {
+  const service = new DiscoverySqliteService({ dataDir: directory() });
+  const settings: IssueSettings = {
+    enabled: true,
+    scope: "recent",
+    recentDays: 7,
+  };
+  const store = new IssueStore(service.getDatabase(), () => settings);
+  const row = {
+    sessionId: "grok-1",
+    catalogKey: "k",
+    projectId: "p",
+    sourceVersion: "one",
+    updatedAt: new Date().toISOString(),
+    location: { kind: "file", path: "unused" },
+  } as SessionCatalogRow & { catalogKey: string };
+  // A pending allocation of its family hides the row when the worker
+  // reaches the job; it projects again afterwards, unchanged.
+  let projectable = false;
+  const retried: string[][] = [];
+  let generation = 0;
+  const read: string[] = [];
+  const indexer = new IssueIndexer(store, {
+    settings: () => settings,
+    changes: async (since, retry) => {
+      generation += 1;
+      retried.push([...retry]);
+      const rows =
+        since === undefined || (projectable && retry.has("k")) ? [row] : [];
+      return {
+        mark: { catalogEpoch: "e", catalogGeneration: generation },
+        full: since === undefined,
+        rows,
+        removed: [],
+        excluded: [],
+      };
+    },
+    row: async () => (projectable ? row : undefined),
+    read: async (candidate) => {
+      read.push(candidate.sessionId);
+      return {
+        messages: [],
+        cursor: "end",
+        done: true,
+        partial: false,
+        bytesRead: 0,
+      };
+    },
+  });
+  cleanup.push(async () => {
+    await indexer.close();
+    service.close();
+  });
+  indexer.refresh({ catalogEpoch: "e", catalogGeneration: 1 });
+  await indexer.settled();
+  expect(read).toEqual([]);
+  expect(
+    storedRows(store.database, "SELECT state FROM issue_index_jobs")[0]?.state,
+  ).toBe("paused");
+  projectable = true;
+  indexer.refresh({ catalogEpoch: "e", catalogGeneration: 2 });
+  await indexer.settled();
+  expect(retried[1]).toEqual(["k"]);
+  expect(read).toEqual(["grok-1"]);
 });

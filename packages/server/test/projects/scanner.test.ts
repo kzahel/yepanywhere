@@ -633,6 +633,51 @@ describe("ProjectScanner cache", () => {
     }
   });
 
+  it("names only the projects that changed when a retained refresh settles", async () => {
+    const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
+    tempDirs.push(projectsDir);
+    const eventBus = new EventBus();
+    const publications: string[][] = [];
+    eventBus.subscribe((event) => {
+      if (event.type === "projects-changed")
+        publications.push(event.projectIds);
+    });
+    await createClaudeProject(projectsDir, "localhost", "/home/user/one", "a");
+    await createClaudeProject(projectsDir, "localhost", "/home/user/two", "b");
+    const scanner = new ProjectScanner({
+      projectsDir,
+      enableCodex: false,
+      enableGemini: false,
+      eventBus,
+    });
+    try {
+      await scanner.refreshRetainedProjects();
+      expect(publications.at(-1)?.sort()).toEqual(
+        [
+          encodeProjectId("/home/user/one"),
+          encodeProjectId("/home/user/two"),
+        ].sort(),
+      );
+      // A session in one project: only that project's page refetches.
+      await createClaudeProject(
+        projectsDir,
+        "localhost",
+        "/home/user/one",
+        "c",
+      );
+      scanner.invalidateCache();
+      await scanner.refreshRetainedProjects();
+      expect(publications.at(-1)).toEqual([encodeProjectId("/home/user/one")]);
+      // Settling still announces itself, naming nothing when nothing moved.
+      scanner.invalidateCache();
+      await scanner.refreshRetainedProjects();
+      expect(publications).toHaveLength(3);
+      expect(publications.at(-1)).toEqual([]);
+    } finally {
+      await scanner.dispose();
+    }
+  });
+
   it("starts first retained discovery without the file-event debounce", async () => {
     const projectsDir = join(tmpdir(), `initial-discovery-${randomUUID()}`);
     tempDirs.push(projectsDir);

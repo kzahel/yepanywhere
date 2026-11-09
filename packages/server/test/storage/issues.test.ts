@@ -372,6 +372,71 @@ describe("append-only discovery migrations", () => {
       }
     },
   );
+  it("keys issue jobs by their catalog row instead of a copy of it", () => {
+    const db = loadSqliteDriver()!.open(":memory:");
+    try {
+      db.exec("PRAGMA foreign_keys=ON");
+      migrateDiscoveryDatabase(db, DISCOVERY_MIGRATIONS.slice(0, 28));
+      const copy = (row: object) => JSON.stringify(row);
+      const store = { catalogFamily: "claude", storeKey: "/store" };
+      const insert = db.prepare(
+        "INSERT INTO issue_index_jobs(session_id,project_id,source_version,cursor,state,error,updated_at,source_json,priority) VALUES (?,?,?,?,?,?,?,?,?)",
+      );
+      for (const [session, source] of [
+        // Recorded its native id.
+        [
+          "public-1",
+          copy({
+            ...store,
+            sessionId: "public-1",
+            nativeSessionId: "native-1",
+          }),
+        ],
+        // Older copy without it; the identity binds the native id.
+        ["public-2", copy({ ...store, sessionId: "public-2" })],
+        // No identity: the job's id is the native one.
+        ["native-3", copy({ ...store, sessionId: "native-3" })],
+        // A viewed window has no catalog row.
+        ["viewed", "null"],
+      ] as const)
+        insert.run(session, "p", "v", "c", "indexed", null, 7, source, 1);
+      insert.finalize();
+      db.exec(
+        "INSERT INTO session_identities(session_id,provider,project_id,created_at,native_family,native_scope,native_id) VALUES ('public-2','claude','p','t','claude','/store','native-2')",
+      );
+      migrateDiscoveryDatabase(db);
+      expect(
+        storedRows(
+          db,
+          "SELECT session_id,project_id,source_version,cursor,state,updated_at,catalog_key,priority FROM issue_index_jobs ORDER BY session_id",
+        ),
+      ).toEqual(
+        [
+          ["native-3", JSON.stringify(["claude", "/store", "native-3"])],
+          ["public-1", JSON.stringify(["claude", "/store", "native-1"])],
+          ["public-2", JSON.stringify(["claude", "/store", "native-2"])],
+          ["viewed", null],
+        ].map(([session_id, catalog_key]) => ({
+          session_id,
+          project_id: "p",
+          source_version: "v",
+          cursor: "c",
+          state: "indexed",
+          updated_at: 7,
+          catalog_key,
+          priority: 1,
+        })),
+      );
+      expect(
+        storedRows(
+          db,
+          "SELECT name FROM pragma_table_info('issue_index_jobs')",
+        ).map((column) => column.name),
+      ).not.toContain("source_json");
+    } finally {
+      db.close();
+    }
+  });
   it("rolls back an entire failing upgrade sequence", () => {
     const db = loadSqliteDriver()!.open(":memory:");
     try {

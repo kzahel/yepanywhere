@@ -33,7 +33,14 @@ it("gates all data routes, validates settings, saves through the shared settings
   const indexer = new IssueIndexer(store, {
     settings: () =>
       settings.getSetting("issueAssociations") ?? DEFAULT_ISSUE_SETTINGS,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const unsub = settings.onSettingsChanged(() => indexer.configure());
@@ -224,7 +231,14 @@ it("paginates distinct sessions by catalog activity before loading their first m
   const store = new IssueStore(db);
   const indexer = new IssueIndexer(store, {
     settings: () => settings.getSetting("issueAssociations")!,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const catalog = [
@@ -310,7 +324,14 @@ it("sorts issues across pages by session activity, source mention time, and name
   );
   const indexer = new IssueIndexer(store, {
     settings: () => settings.getSetting("issueAssociations")!,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const catalog = [
@@ -455,7 +476,14 @@ it("attaches a hand-resolved reference in one write, with the note as its excerp
   );
   const indexer = new IssueIndexer(store, {
     settings: () => settings.getSetting("issueAssociations")!,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const app = createIssueRoutes(indexer, settings, async () => ({
@@ -508,7 +536,14 @@ it("asks a tracker only about a reference YA captured in that project", async ()
   );
   const indexer = new IssueIndexer(store, {
     settings: () => settings.getSetting("issueAssociations")!,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const fetcher = vi.fn(
@@ -612,7 +647,14 @@ it("looks up one item exactly by any URL a browser shows for it", async () => {
   const store = new IssueStore(db);
   const indexer = new IssueIndexer(store, {
     settings: () => settings.getSetting("issueAssociations")!,
-    candidates: async function* () {},
+    changes: async () => ({
+      mark: { catalogEpoch: "e", catalogGeneration: 1 },
+      full: true,
+      rows: [],
+      removed: [],
+      excluded: [],
+    }),
+    row: async () => undefined,
     read: async () => null,
   });
   const app = createIssueRoutes(indexer, settings, async (_, id) => ({

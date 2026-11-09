@@ -14,7 +14,11 @@ const [expected, storageDir = "packages/server/dist/storage", sharedFile] =
   process.argv.slice(2);
 // SQLite is required: every supported runtime must provide it.
 assert.equal(expected, "ready", "Pass ready");
-const { DiscoverySqliteService, migrateDiscoveryDatabase } = await import(
+const {
+  DISCOVERY_MIGRATIONS,
+  DiscoverySqliteService,
+  migrateDiscoveryDatabase,
+} = await import(
   pathToFileURL(resolve(storageDir, "discovery-sqlite.js")).href
 );
 const { loadSqliteDriver } = await import(
@@ -294,6 +298,23 @@ function catalogContract(database) {
     lineageReplaced: false,
   });
   assert.deepEqual(store.readRows(), [row("b", long)]);
+  // Change readers follow changed_gen: what generation 3 wrote or removed.
+  assert.deepEqual(
+    store
+      .readChangedKeys(2)
+      .sort((x, y) => x.key.sessionId.localeCompare(y.key.sessionId)),
+    [
+      {
+        key: { catalogFamily: "codex", storeKey: "/store", sessionId: "a" },
+        deleted: true,
+      },
+      {
+        key: { catalogFamily: "codex", storeKey: "/store", sessionId: "b" },
+        deleted: false,
+      },
+    ],
+  );
+  assert.deepEqual(store.readChangedKeys(3), []);
   // A moved row is an upsert and a delete of one key; the upsert wins.
   store.applyChanges(
     state(4),
@@ -331,7 +352,49 @@ function catalogContract(database) {
     0,
   );
 }
+/** Migration 029 derives each issue job's catalog key with JSON functions. */
+function issueJobMigrationContract() {
+  const database = loadSqliteDriver().open(":memory:");
+  try {
+    migrateDiscoveryDatabase(database, DISCOVERY_MIGRATIONS.slice(0, 28));
+    const insert = database.prepare(
+      "INSERT INTO issue_index_jobs(session_id,project_id,source_version,state,updated_at,source_json,priority) VALUES (?,'p','v','indexed',1,?,0)",
+    );
+    insert.run(
+      "a",
+      JSON.stringify({
+        catalogFamily: "codex",
+        storeKey: "/s",
+        nativeSessionId: "n",
+      }),
+    );
+    insert.run("b", JSON.stringify({ catalogFamily: "codex", storeKey: "/s" }));
+    // JSON functions must spell the key as JSON.stringify does.
+    const odd = '/s"t\\o\u2028r\u0001e😀';
+    insert.run("c", JSON.stringify({ catalogFamily: "codex", storeKey: odd }));
+    insert.run("v", "null");
+    insert.finalize();
+    migrateDiscoveryDatabase(database);
+    assert.deepEqual(
+      database
+        .prepare(
+          "SELECT session_id, catalog_key FROM issue_index_jobs ORDER BY session_id",
+        )
+        .all()
+        .map((job) => ({ ...job })),
+      [
+        { session_id: "a", catalog_key: '["codex","/s","n"]' },
+        { session_id: "b", catalog_key: '["codex","/s","b"]' },
+        { session_id: "c", catalog_key: JSON.stringify(["codex", odd, "c"]) },
+        { session_id: "v", catalog_key: null },
+      ],
+    );
+  } finally {
+    database.close();
+  }
+}
 try {
+  issueJobMigrationContract();
   const catalog = openService(join(temporary, "catalog"));
   catalogContract(catalog.getDatabase());
   // A transaction larger than the page cache must fail fast, not stall, while

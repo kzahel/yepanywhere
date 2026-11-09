@@ -27,13 +27,16 @@ export interface SessionCatalogSqliteSource {
   storeKey: string;
 }
 
+/** A row's key: the adapter's family and store, and the native session id. */
+export type SessionCatalogSqliteKey = Pick<
+  SessionCatalogRow,
+  "catalogFamily" | "storeKey" | "sessionId"
+>;
+
 /** One publication's change to a row, as the catalog's delta records it. */
 export type SessionCatalogSqliteChange =
   | { type: "upsert"; row: Readonly<SessionCatalogRow> }
-  | {
-      type: "delete";
-      key: Pick<SessionCatalogRow, "catalogFamily" | "storeKey" | "sessionId">;
-    };
+  | { type: "delete"; key: SessionCatalogSqliteKey };
 
 export interface SessionCatalogSqliteWrite {
   rowsWritten: number;
@@ -103,6 +106,7 @@ export class SessionCatalogSqliteStore {
   private readonly insertSource;
   private readonly deleteSource;
   private readonly selectRows;
+  private readonly selectChanged;
   private readonly statements: SqliteStatement[] = [];
 
   constructor(private readonly database: SqliteDatabase) {
@@ -211,6 +215,10 @@ export class SessionCatalogSqliteStore {
         `SELECT ${ROW_COLUMNS} FROM session_catalog c
          LEFT JOIN session_catalog_text t ON t.catalog_id = c.id
          WHERE c.deleted = 0 ORDER BY c.id`,
+      );
+      this.selectChanged = prepare(
+        `SELECT family, store_key, native_id, deleted FROM session_catalog
+         WHERE changed_gen > ?`,
       );
     } catch (error) {
       this.dispose();
@@ -415,6 +423,31 @@ export class SessionCatalogSqliteStore {
         `Unreadable session catalog row: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Keys of the rows written or tombstoned after `generation`, through the
+   * `changed_gen` index. Complete only for a generation at or above the
+   * tombstone horizon; below it, purged deletions are missing.
+   */
+  readChangedKeys(
+    generation: number,
+  ): { key: SessionCatalogSqliteKey; deleted: boolean }[] {
+    return this.selectChanged
+      .all<{
+        family: string;
+        store_key: string;
+        native_id: string;
+        deleted: number;
+      }>(generation)
+      .map((row) => ({
+        key: {
+          catalogFamily: row.family as ProviderCatalogFamily,
+          storeKey: row.store_key,
+          sessionId: row.native_id,
+        },
+        deleted: row.deleted === 1,
+      }));
   }
 
   readSources(): SessionCatalogSqliteSource[] {

@@ -1,4 +1,5 @@
 import type { CatalogProjectSource } from "./catalog-projects.js";
+import { changedProjects } from "./catalog-projects.js";
 import { claudeCwdProjectDirectory } from "./claude-project-directory.js";
 import type { Dirent } from "node:fs";
 import {
@@ -195,7 +196,7 @@ export class ProjectScanner {
     version: string;
     snapshot: ProjectSnapshot;
   };
-  private publishedCatalogVersion?: string;
+  private published?: ReturnType<typeof changedProjects>;
 
   constructor(options: ScannerOptions = {}) {
     this.catalogProjects = options.catalogProjects;
@@ -230,21 +231,19 @@ export class ProjectScanner {
           this.handleFileChange(event);
         } else if (event.type === "session-catalog-updated") {
           const view = this.catalogProjects?.peek();
-          if (!view || this.publishedCatalogVersion === view.version) return;
-          this.publishedCatalogVersion = view.version;
-          const previousIds =
-            this.joined?.snapshot.projects.map((project) => project.id) ?? [];
-          this.eventBus?.emit({
-            type: "projects-changed",
-            collectionRefresh: true,
-            projectIds: [
-              ...new Set([
-                ...previousIds,
-                ...this.joinedSnapshot().projects.map((project) => project.id),
-              ]),
-            ],
-            timestamp: new Date().toISOString(),
-          });
+          if (!view || this.published?.version === view.version) return;
+          this.published = changedProjects(
+            view,
+            this.published ?? this.joined?.snapshot.projects ?? [],
+            this.joinedSnapshot().projects,
+          );
+          if (this.published.announce)
+            this.eventBus?.emit({
+              type: "projects-changed",
+              collectionRefresh: true,
+              projectIds: this.published.ids,
+              timestamp: new Date().toISOString(),
+            });
         }
       });
     }
@@ -471,15 +470,16 @@ export class ProjectScanner {
       .finally(() => {
         this.retainedRefresh = null;
         if (this.disposed) return;
+        if (this.eventBus)
+          this.published = changedProjects(
+            this.published ?? {},
+            this.published ?? previousIds.map((id) => ({ id })),
+            this.joinedSnapshot().projects,
+          );
         this.eventBus?.emit({
           type: "projects-changed",
           collectionRefresh: true,
-          projectIds: [
-            ...new Set([
-              ...previousIds,
-              ...this.joinedSnapshot().projects.map((project) => project.id),
-            ]),
-          ],
+          projectIds: this.published?.ids ?? [],
           timestamp: new Date().toISOString(),
         });
         this.scheduleRetainedRefresh();
