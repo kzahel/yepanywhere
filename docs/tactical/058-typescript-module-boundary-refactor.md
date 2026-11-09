@@ -336,6 +336,7 @@ and props stable.
 | 2.46 | Done 2026-11-08 | `SessionPage.tsx` draft hydration | Move the page's draft attachment hydration into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 3). | Move-only: `hydrateDraftAttachments` and the two effects that hydrate on a draft key change and on the draft storage event move verbatim into `useDraftAttachmentHydration` in `hooks/useSessionComposerAttachments.ts`, called where the effects stood, so they stay after the session reset. `handleDraftControlsReady` moves unchanged to just after the call. Four input refs joined two dependency lists. Budget `SessionPage.tsx` 3,714 -> 3,621; the hook file is 323 lines. Tier 3, plus plan 187's slice 0 pins. |
 | 2.47 | Done 2026-11-08 | `SessionPage.tsx` starting a correction | Make Edit latest message and the recall start a correction the same way ([plan 187](187-session-page-draft-hooks.md) slice 4). | Not move-only: under plan 187. Both call one `beginCorrection` step in `useSessionCorrectionDraft`, which revokes the composer's discarded previews only when it keeps an earlier set-aside draft. Edit latest message during an open correction no longer leaks the previews it discards; recall, refused while attachments show, is unchanged. The hook is 192 lines. Tier 3, plus plan 187's pins and its new leak pin. |
 | 2.48 | Done 2026-11-09 | Shared composer draft attachments, session page | Replace the session page's attachment state, hydration, uploads and remove with one shared hook ([plan 188](188-shared-composer-draft-attachments.md) slice 1). | Not move-only: under plan 188. New `hooks/useComposerDraftAttachments.ts` owns the list, in-flight uploads, the staging batch, the saved-draft write and hydration, cancel and remove, the preview revoke and the navigation guard; `useSessionComposerAttachments.ts` is deleted and `useSessionAttachmentUploads.ts` keeps only the page's upload settings and the incoming share. Behavior changes are plan 188 items 6, 7, 10, 12 to 16, 18, 26, 28 and 29; the visible one is that hydration waits for the server's capabilities, so a missing file under draft sync keeps its chip with one notice instead of being dropped. Budget `SessionPage.tsx` 3,621 -> 3,620; the hook is 568 lines. Tier 2, plus plan 187's and 188's pins. |
+| 2.49 | Done 2026-11-09 | Shared composer draft attachments, New Session | Put New Session's attachments on the shared hook ([plan 188](188-shared-composer-draft-attachments.md) slice 2). | Not move-only: under plan 188. `NewSessionForm.tsx` drops its inline copy (the saved-draft write, batch, hydration, sibling-tab listener, uploads, remove, materializing and the guard) and draws the hook's finished attachments and in-flight uploads. The `PendingFile` union and `lib/newSessionAttachments.ts` are deleted; `newSessionStart.ts` reads the hook's list and upload promises, counting uploads as files. The audio memo uploads on commit. Behavior changes are plan 188 items 2, 3, 5, 6, 8 to 10, 16 to 18, 23 and 25 to 27. Budget `NewSessionForm.tsx` 3,120 -> 2,689. Tier 2, plus plan 188's pins and the New Session browser specs. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -478,6 +479,66 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.49 — Shared Composer Draft Attachments on New Session (Landed 2026-11-09, this commit)
+
+Not move-only. [Plan 188](188-shared-composer-draft-attachments.md) slice 2.
+
+Removed from `components/NewSessionForm.tsx` (3,120 -> 2,689 lines): the
+`PendingFile` state and refs, the saved-draft write, the batch, hydration,
+the sibling-tab listener, the uploads with their progress record and
+removal tracking, the local-file upload at start, materializing, and the
+navigation guard. The form calls `useComposerDraftAttachments` and draws
+its finished attachments, then its in-flight uploads, as chips; removing
+an uploading chip cancels it. `lib/newSessionAttachments.ts` and its test
+are deleted.
+
+Changed:
+- `lib/newSessionStart.ts` reads `attachmentsRef`, `pendingUploadsRef`
+  and `setComposerAttachments`. Every file count is finished attachments
+  plus in-flight uploads (item 24), so each start picks the path it did.
+  The counts, including the launch refusal's, are read when the start
+  runs, not from the render that built it, because the audio memo
+  uploads and then starts; a memo on a fork or handoff launch is refused
+  rather than dropped from the launch.
+  The durable path awaits the uploads it captured; one cancelled by a
+  source change stops the start quietly when the form is no longer the
+  one that started (item 27). The unchanged-files checks compare ids as
+  sets, through `sameAttachmentIds` in `lib/sessionComposerAttachments.ts`.
+- The legacy start awaits in-flight uploads and materializes through
+  `materializeComposerAttachmentsForSubmission`.
+- The audio memo uploads on commit, as on the session page. A refused
+  start keeps it as a staged chip; a new recording replaces it; Cancel
+  deletes it or cancels its upload (item 23).
+- The template button's disabled reason moved into
+  `templateStartDisabledReason` in `lib/newSessionStartDecisions.ts`.
+
+Behavior changes (plan 188 items): finished uploads are appended in the
+order they finish (2); an image's preview appears when its upload
+finishes (3); a cancelled upload no longer fails a later start (5); a
+failed upload says `sessionUploadFailed` with the file name (8); history
+records the picked file and the preview cache the prepared one (9, 10);
+the sibling-tab event re-checks only when the saved refs changed, also
+without draft sync (16, 17); hydration checks once, after the version
+(18, 26); a draft key change cancels uploads in flight (27).
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice.
+- New unit pins in `NewSessionForm.test.tsx`: Start after removing a file
+  while it uploaded starts without it and deletes the late result (fails
+  when a cancel leaves the upload's promise for the start to wait on); an
+  incoming share that finishes before the version loads keeps the saved
+  file. The memo case now expects the staged upload, the replace and
+  Cancel. A memo on a launch is refused and `launch.submit` is not
+  called (fails with a render-time count). `templateStartDisabledReason`
+  is tested in
+  `newSessionStartDecisions.test.ts`.
+- Browser: slice 0's New Session pins, with the short-answer step added
+  (the chip stays and the form says so once), `audio-memo`,
+  `attachment-drop`, `session-creation-attachments`,
+  `new-session-project-queue`, `new-session-draft-windows` and plan 187's
+  pins: 20 passed.
 
 ### Slice 2.48 — Shared Composer Draft Attachments on the Session Page (Landed 2026-11-09, this commit)
 

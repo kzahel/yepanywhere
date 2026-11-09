@@ -27,26 +27,22 @@ import {
   planNewSessionStart,
   projectQueueRefusalBeforeDefer,
 } from "./newSessionStartDecisions";
-import {
-  getAttachmentUploadProfile,
-  type useAttachmentUploadQuality,
-} from "../hooks/useAttachmentUploadQuality";
 import type { useI18n } from "../i18n";
 import { getUiCreationProvenance } from "./sessionCreationProvenance";
 import type { LaunchLock } from "./limitedLaunchLock";
+import type { SetComposerAttachments } from "../hooks/useComposerDraftAttachments";
 import {
-  type PendingFile,
-  type PendingStagedFile,
-  isPendingStagedFile,
+  type ComposerAttachment,
+  isComposerStagedAttachment,
+  sameAttachmentIds,
   toPersistedStagedAttachmentRef,
-} from "./newSessionAttachments";
+} from "./sessionComposerAttachments";
 import {
   resolvePromptSuggestionMode,
   resolveRecapMode,
   toThinkingOption,
 } from "./newSessionOptions";
 import { normalizeProjectInput } from "./newSessionProjects";
-import { prepareComposerAttachmentUpload } from "./composerAttachmentUpload";
 import { logSessionUiTrace } from "./diagnostics/uiTrace";
 import {
   getEstimatedServerOffsetMs,
@@ -101,11 +97,19 @@ export type NewSessionAcceptedCreation = SessionCreationReceipt & {
 };
 
 type NewSessionOptions = ReturnType<typeof useNewSessionOptions>;
+
+/** The form's attachments as a start or a queue reads them. */
+interface NewSessionAttachmentDeps {
+  attachmentsRef: { readonly current: ComposerAttachment[] };
+  pendingUploadsRef: {
+    readonly current: Map<string, Promise<ComposerAttachment | null>>;
+  };
+  setComposerAttachments: SetComposerAttachments;
+}
 type RecentSpeechAttribution = ReturnType<typeof useRecentSpeechAttribution>;
 
 /** The form values a start reads, under the names it reads them by. */
-export interface NewSessionStartDeps {
-  attachmentQuality: ReturnType<typeof useAttachmentUploadQuality>[0];
+export interface NewSessionStartDeps extends NewSessionAttachmentDeps {
   basePath: string;
   canCreateDetached: boolean;
   canCreateInBackground: boolean;
@@ -131,7 +135,6 @@ export interface NewSessionStartDeps {
   effectiveSandboxNetworkFirewall: NewSessionOptions["effectiveSandboxNetworkFirewall"];
   effectiveServiceTier: NewSessionOptions["effectiveServiceTier"];
   effectiveThinkingMode: NewSessionOptions["effectiveThinkingMode"];
-  ensureDraftAttachmentBatchId: () => string;
   hasSelectedProviderModel: NewSessionOptions["hasSelectedProviderModel"];
   helperSideModel: NewSessionOptions["helperSideModel"];
   historyScope: string | null;
@@ -143,11 +146,6 @@ export interface NewSessionStartDeps {
   machineControlSelected: NewSessionOptions["machineControlSelected"];
   navigate: NavigateFunction;
   newSessionDraftKey: string;
-  pendingFiles: PendingFile[];
-  pendingFilesRef: { readonly current: PendingFile[] };
-  pendingStagedUploadsRef: {
-    readonly current: Map<string, Promise<PendingStagedFile | null>>;
-  };
   principal: { username: string | null };
   principalResolved: boolean;
   projectApp: ProjectAppTarget | undefined;
@@ -182,12 +180,6 @@ export interface NewSessionStartDeps {
     typeof useComposerSpeechState
   >["setInterimTranscript"];
   setIsStarting: Dispatch<SetStateAction<boolean>>;
-  setPendingFiles: (
-    updater:
-      | PendingFile[]
-      | ((previous: readonly PendingFile[]) => readonly PendingFile[]),
-    options?: { persistDraft?: boolean; revokeRemovedPreviewUrls?: boolean },
-  ) => void;
   showToast: ReturnType<typeof useToastContext>["showToast"];
   sourceTransport: ReturnType<typeof useCurrentSourceRuntime>["transport"];
   speechMessagePrefix: ReturnType<
@@ -202,7 +194,7 @@ export interface NewSessionStartDeps {
 }
 
 /** The form values Project Queue reads, under the names it reads them by. */
-export interface NewSessionQueueDeps {
+export interface NewSessionQueueDeps extends NewSessionAttachmentDeps {
   clientSummarySourceKey: string;
   consumeSpeechAttribution: RecentSpeechAttribution["consume"];
   creatingTemplateProject: boolean;
@@ -227,7 +219,6 @@ export interface NewSessionQueueDeps {
   launchLock: LaunchLock;
   machineControlEligible: NewSessionOptions["machineControlEligible"];
   machineControlSelected: NewSessionOptions["machineControlSelected"];
-  pendingFilesRef: { readonly current: PendingFile[] };
   principal: { username: string | null };
   projectInput: string;
   projectPending: boolean;
@@ -253,12 +244,6 @@ export interface NewSessionQueueDeps {
     typeof useComposerSpeechState
   >["setInterimTranscript"];
   setIsStarting: Dispatch<SetStateAction<boolean>>;
-  setPendingFiles: (
-    updater:
-      | PendingFile[]
-      | ((previous: readonly PendingFile[]) => readonly PendingFile[]),
-    options?: { persistDraft?: boolean; revokeRemovedPreviewUrls?: boolean },
-  ) => void;
   showToast: ReturnType<typeof useToastContext>["showToast"];
   sourceSummary: ReturnType<typeof useCurrentSourceRuntime>["summary"];
   speechMessagePrefix: ReturnType<
@@ -283,7 +268,7 @@ export async function startNewSession(
   background = false,
 ) {
   const {
-    attachmentQuality,
+    attachmentsRef,
     basePath,
     canCreateDetached,
     canCreateInBackground,
@@ -301,7 +286,6 @@ export async function startNewSession(
     effectiveSandboxNetworkFirewall,
     effectiveServiceTier,
     effectiveThinkingMode,
-    ensureDraftAttachmentBatchId,
     hasSelectedProviderModel,
     helperSideModel,
     historyScope,
@@ -313,9 +297,7 @@ export async function startNewSession(
     machineControlSelected,
     navigate,
     newSessionDraftKey,
-    pendingFiles,
-    pendingFilesRef,
-    pendingStagedUploadsRef,
+    pendingUploadsRef,
     principal,
     principalResolved,
     projectApp,
@@ -339,8 +321,8 @@ export async function startNewSession(
     setAcceptedCreation,
     setAcceptingText,
     setInterimTranscript,
+    setComposerAttachments,
     setIsStarting,
-    setPendingFiles,
     showToast,
     sourceTransport,
     speechMessagePrefix,
@@ -363,12 +345,24 @@ export async function startNewSession(
 
   const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
 
-  let submissionFiles = pendingFilesRef.current;
-  const submissionUploads = new Map(pendingStagedUploadsRef.current);
+  // Files still uploading count as files, so a start picks the path that
+  // waits for them (docs/tactical/188, item 24).
+  let submissionFiles = attachmentsRef.current;
+  const submissionUploads = [...pendingUploadsRef.current.values()];
+  const submissionFileCount = submissionFiles.length + submissionUploads.length;
+  const ownsForm = () =>
+    creationViewOwner.current.active &&
+    creationViewOwner.current.sourceKey === clientSummarySourceKey &&
+    creationViewOwner.current.accountKey === principal.username;
+  const unchangedSince = (files: readonly ComposerAttachment[]) =>
+    pendingUploadsRef.current.size === 0 &&
+    sameAttachmentIds(attachmentsRef.current, files);
   const plan = planNewSessionStart({
     finalMessage,
-    submissionFileCount: submissionFiles.length,
-    pendingFileCount: pendingFiles.length,
+    submissionFileCount,
+    // Read now, not from the render that built this start: the audio memo
+    // uploads and then starts (docs/tactical/188, item 23).
+    pendingFileCount: submissionFileCount,
     speechPrefix: resolveDeliverySpeechPrefix({
       configuredPrefix: speechMessagePrefix,
       speechTriggered,
@@ -416,7 +410,7 @@ export async function startNewSession(
     SERVER_CAPABILITIES.sessionCreationAdmission.name,
   );
   let stagedCreationRefs = submissionFiles
-    .filter(isPendingStagedFile)
+    .filter(isComposerStagedAttachment)
     .map(toPersistedStagedAttachmentRef);
   const durableText =
     !launch &&
@@ -427,10 +421,10 @@ export async function startNewSession(
       sandbox: effectiveSandboxLevel,
       machineControl: machineControlSelected,
       command: plan.hasCommand,
-      fileCount: submissionFiles.length,
+      fileCount: submissionFileCount,
       stagedCount: stagedCreationRefs.length,
     }) &&
-    (Boolean(trimmedMessage.trim()) || submissionFiles.length > 0);
+    (Boolean(trimmedMessage.trim()) || submissionFileCount > 0);
   let capturedAttachmentState = JSON.stringify(
     draftControls.getAttachmentState(),
   );
@@ -521,13 +515,13 @@ export async function startNewSession(
       promptSuggestionMode: effectivePromptSuggestionMode,
       helperSideModel,
       textLength: trimmedMessage.length,
-      pendingFileCount: pendingFiles.length,
+      pendingFileCount: submissionFileCount,
       clientTimestamp,
       serverOffsetMs: getEstimatedServerOffsetMs(),
     });
 
     if (launch) {
-      if (pendingFiles.length > 0) {
+      if (submissionFileCount > 0) {
         throw new Error("This session launch does not accept attachments");
       }
       await launch.submit({
@@ -541,58 +535,24 @@ export async function startNewSession(
     }
 
     if (durableText) {
-      if (
-        fullAdmission &&
-        submissionFiles.some((file) => !isPendingStagedFile(file))
-      ) {
-        const batchId = ensureDraftAttachmentBatchId();
-        submissionFiles = await Promise.all(
-          submissionFiles.map(async (file): Promise<PendingStagedFile> => {
-            if (isPendingStagedFile(file)) return file;
-            if (file.kind === "uploading") {
-              const result = await submissionUploads.get(file.id);
-              if (!result)
-                throw new Error(t("sessionDraftAttachmentsUnavailable"));
-              return result;
-            }
-            // No progress callback on this path, as before.
-            const { uploadFile, uploadOptions } =
-              await prepareComposerAttachmentUpload(
-                file.file,
-                getAttachmentUploadProfile(
-                  attachmentQuality,
-                  selectedProviderInfo,
-                  selectedModel,
-                ),
-              );
-            const ref = await sourceTransport.uploadStagedAttachment(
-              uploadFile,
-              { batchId, ...uploadOptions },
-            );
-            const result = {
-              ...ref,
-              kind: "staged" as const,
-              ...(file.previewUrl ? { previewUrl: file.previewUrl } : {}),
-            };
-            if (
-              !pendingFilesRef.current.some((current) => current.id === file.id)
-            )
-              throw new Error(t("sessionDraftAttachmentsUnavailable"));
-            setPendingFiles((current) =>
-              current.map((item) => (item.id === file.id ? result : item)),
-            );
-            return result;
-          }),
-        );
+      if (fullAdmission && submissionUploads.length > 0) {
+        const uploaded = await Promise.all(submissionUploads);
+        if (uploaded.some((file) => !file)) {
+          // A source change cancels the form's uploads; that start stops
+          // quietly, as at the ownership check below.
+          if (!ownsForm()) return;
+          throw new Error(t("sessionDraftAttachmentsUnavailable"));
+        }
+        submissionFiles = [
+          ...submissionFiles,
+          ...(uploaded as ComposerAttachment[]),
+        ];
         stagedCreationRefs = submissionFiles
-          .filter(isPendingStagedFile)
+          .filter(isComposerStagedAttachment)
           .map(toPersistedStagedAttachmentRef);
         if (
           draftControls.getDraft() === capturedSubmission?.text &&
-          pendingFilesRef.current.length === submissionFiles.length &&
-          pendingFilesRef.current.every(
-            (file, index) => file.id === submissionFiles[index]?.id,
-          )
+          unchangedSince(submissionFiles)
         ) {
           capturedSubmission = draftControls.captureSubmission?.();
           capturedAttachmentState = JSON.stringify(
@@ -625,16 +585,12 @@ export async function startNewSession(
         creationViewOwner.current.accountKey !== principal.username
       )
         return true;
-      const unchangedFiles =
-        pendingFilesRef.current.length === submissionFiles.length &&
-        pendingFilesRef.current.every(
-          (file, index) => file.id === submissionFiles[index]?.id,
-        );
+      const unchangedFiles = unchangedSince(submissionFiles);
       const cleared = unchangedFiles
         ? (capturedSubmission?.confirm() ?? false)
         : false;
       if (cleared)
-        setPendingFiles([], {
+        setComposerAttachments([], {
           persistDraft: false,
           revokeRemovedPreviewUrls: true,
         });
@@ -683,7 +639,7 @@ export async function startNewSession(
       options: sessionOptions,
       clientTimestamp,
       metadata: messageMetadata,
-      materialize: submissionFiles.length
+      materialize: submissionFileCount
         ? resolvePendingAttachmentsForSession
         : undefined,
     });
@@ -701,7 +657,7 @@ export async function startNewSession(
     }
 
     // Clean up preview URLs
-    setPendingFiles([], {
+    setComposerAttachments([], {
       persistDraft: false,
       revokeRemovedPreviewUrls: true,
     });
@@ -778,7 +734,8 @@ export async function queueNewSessionForProject(
     launchLock,
     machineControlEligible,
     machineControlSelected,
-    pendingFilesRef,
+    attachmentsRef,
+    pendingUploadsRef,
     principal,
     projectInput,
     projectPending,
@@ -798,7 +755,7 @@ export async function queueNewSessionForProject(
     setAcceptingText,
     setInterimTranscript,
     setIsStarting,
-    setPendingFiles,
+    setComposerAttachments,
     showToast,
     sourceSummary,
     speechMessagePrefix,
@@ -837,9 +794,9 @@ export async function queueNewSessionForProject(
 
   const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
   const trimmedProjectInput = normalizeProjectInput(projectInput);
-  const submissionFiles = pendingFilesRef.current;
+  const submissionFiles = attachmentsRef.current;
   const stagedRefs = submissionFiles
-    .filter(isPendingStagedFile)
+    .filter(isComposerStagedAttachment)
     .map(toPersistedStagedAttachmentRef);
   const planned = planNewSessionProjectQueue({
     finalMessage,
@@ -848,7 +805,8 @@ export async function queueNewSessionForProject(
       speechTriggered: false,
       recentSpeech: isRecentSpeechAttribution(),
     }),
-    submissionFileCount: submissionFiles.length,
+    submissionFileCount:
+      submissionFiles.length + pendingUploadsRef.current.size,
     stagedFileCount: stagedRefs.length,
     isStarting,
     displayDefaultsPending,
@@ -962,7 +920,7 @@ export async function queueNewSessionForProject(
       uploadWaitMs: Date.now() - actionAtMs,
     });
     if (capturedSubmission?.confirm())
-      setPendingFiles(
+      setComposerAttachments(
         (current) => current.filter((file) => !submittedFileIds.has(file.id)),
         { persistDraft: false, revokeRemovedPreviewUrls: true },
       );

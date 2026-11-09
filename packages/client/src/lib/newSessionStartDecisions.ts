@@ -447,6 +447,29 @@ export function buildProjectQueueNewSessionTarget(input: {
   };
 }
 
+/**
+ * Why the template project's Create & prepare action is unavailable, as a
+ * message key, or undefined when it is available. Files still uploading
+ * count as files (docs/tactical/188, item 24).
+ */
+export function templateStartDisabledReason(input: {
+  fileCount: number;
+  uploadsInFlight: number;
+  templateAcceptsAttachments: boolean;
+  hasSelectedProviderModel: boolean;
+}):
+  | "templateAttachmentsUnsupported"
+  | "projectQueueNewSessionAttachmentsPreparing"
+  | "templateSelectProvider"
+  | undefined {
+  if (input.fileCount > 0 && !input.templateAcceptsAttachments)
+    return "templateAttachmentsUnsupported";
+  if (input.uploadsInFlight > 0)
+    return "projectQueueNewSessionAttachmentsPreparing";
+  if (!input.hasSelectedProviderModel) return "templateSelectProvider";
+  return undefined;
+}
+
 /** The toast for a start that failed after it began. */
 export function newSessionStartErrorMessage(
   err: unknown,

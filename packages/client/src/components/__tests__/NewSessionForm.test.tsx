@@ -633,6 +633,9 @@ vi.mock("../../contexts/ToastContext", () => ({
   useToastContext: () => ({
     showToast: mockShowToast,
   }),
+  useOptionalToastContext: () => ({
+    showToast: mockShowToast,
+  }),
 }));
 
 vi.mock("../../i18n", () => {
@@ -758,12 +761,14 @@ const { audioMemoState } = vi.hoisted(() => ({
   audioMemoState: {
     current: null as null | {
       onCommit: (file: File, transcript: string) => Promise<void>;
+      onCancel: () => void;
     },
   },
 }));
 vi.mock("../AudioMemoPanel", () => ({
   AudioMemoPanel: (props: {
     onCommit: (file: File, transcript: string) => Promise<void>;
+    onCancel: () => void;
   }) => {
     audioMemoState.current = props;
     return <div data-testid="audio-memo" />;
@@ -3432,6 +3437,139 @@ describe("NewSessionForm", () => {
     },
   );
 
+  it("starts without a file removed while it uploaded, and deletes it when it arrives", async () => {
+    serverSettingsState.isLoading = false;
+    let finishUpload: (ref: typeof stagedRef) => void = () => {};
+    mockUploadStagedAttachment.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishUpload = resolve;
+        }),
+    );
+    mockConnectionFetch.mockResolvedValue({ deleted: true });
+    const { container } = render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    const input =
+      container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("missing file input");
+    fireEvent.change(input, {
+      target: {
+        files: [new File(["hello"], "notes.txt", { type: "text/plain" })],
+      },
+    });
+    await waitFor(() =>
+      expect(mockUploadStagedAttachment).toHaveBeenCalledTimes(1),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "attachmentRemove" }));
+    fireEvent.change(screen.getByPlaceholderText("newSessionPlaceholder"), {
+      target: { value: "start without the file" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "newSessionStartAction" }),
+    );
+    // With no files left, the start sends no attachments.
+    await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+    expect(mockStartSession.mock.calls[0]?.[1]).toBe("start without the file");
+    expect(mockCreateSession).not.toHaveBeenCalled();
+    expect(mockShowToast).not.toHaveBeenCalledWith(
+      "sessionDraftAttachmentsUnavailable",
+      "error",
+    );
+
+    await act(async () => finishUpload(stagedRef));
+    await waitFor(() =>
+      expect(mockConnectionFetch).toHaveBeenCalledWith(
+        `/attachments/staging/drafts/${stagedRef.batchId}/${stagedRef.id}`,
+        { method: "DELETE" },
+      ),
+    );
+  });
+
+  it("keeps a saved file when an incoming share finishes before the version loads", async () => {
+    serverSettingsState.isLoading = false;
+    versionState.version = null;
+    const saved = { ...stagedRef, id: "saved-ref", originalName: "saved.txt" };
+    draftAttachmentState.value = {
+      batchId: saved.batchId,
+      refs: [saved],
+      updatedAt: saved.updatedAt,
+    };
+    mockUploadStagedAttachment.mockResolvedValue({
+      ...stagedRef,
+      id: "shared-ref",
+      originalName: "shared.png",
+    });
+    render(
+      <NewSessionForm
+        incomingShareFiles={[
+          new File(["pixels"], "shared.png", { type: "image/png" }),
+        ]}
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    await waitFor(() =>
+      expect(draftAttachmentState.value?.refs.map((ref) => ref.id)).toEqual([
+        "saved-ref",
+        "shared-ref",
+      ]),
+    );
+    expect(mockConnectionFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/validate"),
+      expect.anything(),
+    );
+  });
+
+  it("refuses an audio memo on a launch, which takes no attachments", async () => {
+    serverSettingsState.isLoading = false;
+    mockUploadStagedAttachment.mockResolvedValue({
+      ...stagedRef,
+      id: "staged-memo",
+      originalName: "memo.webm",
+      mimeType: "audio/webm",
+    });
+    const submit = vi.fn(async () => undefined);
+    render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+        preferredProvider="claude"
+        preferredModel="opus"
+        launch={{
+          draftKey: "draft-handoff:memo",
+          initialMessage: "Prepared handoff",
+          submit,
+        }}
+      />,
+    );
+    await screen.findByDisplayValue("Prepared handoff");
+    fireEvent.click(
+      screen.getByRole("button", { name: "newSessionAttachFiles" }),
+      { shiftKey: true },
+    );
+    await screen.findByTestId("audio-memo");
+    await act(async () => {
+      await expect(
+        audioMemoState.current!.onCommit(
+          new File(["memo"], "memo.webm", { type: "audio/webm" }),
+          "",
+        ),
+      ).rejects.toThrow();
+    });
+    expect(submit).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.stringContaining("does not accept attachments"),
+      "error",
+    );
+  });
+
   it("queues a new session through Project Queue when the toolbar action is visible", async () => {
     toolbarVisibilityState.projectQueue = true;
     inboxState.active = [
@@ -6087,41 +6225,82 @@ describe("NewSessionForm", () => {
       expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
     });
 
-    it("throws from a memo start that is refused and resolves one that starts", async () => {
+    it("uploads a memo on commit, keeps it when the start is refused, replaces it with a new recording and deletes it on Cancel", async () => {
+      mockUploadStagedAttachment.mockImplementation(async (file: File) => ({
+        ...stagedRef,
+        id: `staged-${file.name}`,
+        originalName: file.name,
+        name: file.name,
+        mimeType: file.type,
+      }));
       renderForm();
       const openMemo = () =>
         fireEvent.click(
           screen.getByRole("button", { name: "newSessionAttachFiles" }),
           { shiftKey: true },
         );
-      const memo = () =>
-        new File(["memo"], "memo.webm", { type: "audio/webm" });
+      const memo = (name: string) =>
+        new File(["memo"], name, { type: "audio/webm" });
+      const deletes = () =>
+        mockConnectionFetch.mock.calls
+          .filter(([, init]) => init?.method === "DELETE")
+          .map(([path]) => path);
       typeDraft("/slow review");
       openMemo();
       await screen.findByTestId("audio-memo");
       await act(async () => {
         await expect(
-          audioMemoState.current!.onCommit(memo(), ""),
+          audioMemoState.current!.onCommit(memo("first.webm"), ""),
         ).rejects.toThrow("composerMemoCannotStart");
       });
       expect(mockShowToast).toHaveBeenCalledWith(
         "turnEffortUnavailable",
         "error",
       );
+      // The refused start keeps the uploaded memo, saved in the draft.
+      expect(draftAttachmentState.value?.refs.map((ref) => ref.id)).toEqual([
+        "staged-first.webm",
+      ]);
+
+      // A new recording replaces it.
+      mockConnectionFetch.mockResolvedValue({ deleted: true });
+      await act(async () => {
+        await expect(
+          audioMemoState.current!.onCommit(memo("second.webm"), ""),
+        ).rejects.toThrow("composerMemoCannotStart");
+      });
+      expect(draftAttachmentState.value?.refs.map((ref) => ref.id)).toEqual([
+        "staged-second.webm",
+      ]);
+      await waitFor(() =>
+        expect(deletes()).toEqual([
+          "/attachments/staging/drafts/batch-new-session/staged-first.webm",
+        ]),
+      );
+
+      // Cancel deletes it.
+      act(() => audioMemoState.current!.onCancel());
+      expect(draftAttachmentState.value).toBeNull();
+      await waitFor(() => expect(deletes()).toHaveLength(2));
 
       cleanup();
-      mockUpload.mockResolvedValue(materializedFile);
+      mockConnectionFetch.mockReset();
+      mockConnectionFetch.mockResolvedValue({ files: [materializedFile] });
       renderForm();
       typeDraft("memo note");
       openMemo();
       await screen.findByTestId("audio-memo");
       await act(async () => {
-        await audioMemoState.current!.onCommit(memo(), "spoken words");
+        await audioMemoState.current!.onCommit(
+          memo("memo.webm"),
+          "spoken words",
+        );
       });
       expect(mockCreateSession).toHaveBeenCalledTimes(1);
       expect(mockQueueMessage.mock.calls[0]?.[1]).toBe(
         "memo note\n\n🎤 audioMemoTranscriptSuffix\nspoken words",
       );
+      expect(mockQueueMessage.mock.calls[0]?.[3]).toEqual([materializedFile]);
       expect(mockNavigate).toHaveBeenCalledWith(
         "/projects/project-1/sessions/session-created",
         expect.anything(),

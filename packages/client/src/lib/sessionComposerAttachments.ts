@@ -46,3 +46,12 @@ export function revokeAttachmentPreviewUrls(
     }
   }
 }
+
+/** Whether two attachment lists hold the same files, in any order. */
+export function sameAttachmentIds(
+  a: readonly { id: string }[],
+  b: readonly { id: string }[],
+): boolean {
+  const ids = new Set(a.map((file) => file.id));
+  return a.length === b.length && b.every((file) => ids.has(file.id));
+}

@@ -53,6 +53,8 @@ export interface ComposerUploadSettings {
   imageProfile: ImagePreparationProfile;
   /** Where composer history records the picked file; null records nothing. */
   history: { scope: string; origin: ComposerUploadOrigin } | null;
+  /** Learns each upload's id, which `cancelUpload` takes. */
+  onUploadStarted?: (uploadId: string, file: File) => void;
 }
 
 export type SetComposerAttachments = (
@@ -258,7 +260,7 @@ export function useComposerDraftAttachments({
   const uploadFiles = useCallback(
     (
       files: readonly File[],
-      { imageProfile, history }: ComposerUploadSettings,
+      { imageProfile, history, onUploadStarted }: ComposerUploadSettings,
     ): Promise<(ComposerAttachment | null)[]> => {
       // A screen without a saved draft cannot keep what finishes after it
       // closed, so that is deleted; a saved draft outlives the screen.
@@ -284,6 +286,7 @@ export function useComposerDraftAttachments({
               percent: 0,
             },
           ]);
+          onUploadStarted?.(uploadId, file);
           const upload = uploadStagedComposerAttachment({
             file,
             sourceTransport: latest.current.sourceTransport,

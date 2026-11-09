@@ -5,7 +5,7 @@ import {
   pendingSessionCreation,
 } from "../lib/sessionCreation";
 import { DraftSyncNotice } from "./DraftSyncNotice";
-import { DRAFT_STORAGE_EVENT, draftStorage } from "../lib/draftSyncStorage";
+import { draftStorage } from "../lib/draftSyncStorage";
 import { useRendezCompose } from "../hooks/useRendezCompose";
 import { useComposerSpeechHandlers } from "../hooks/useComposerSpeechHandlers";
 import { useComposerSpeechState } from "../hooks/useComposerSpeechState";
@@ -20,10 +20,7 @@ import type { TemplateCreationRequest } from "../api/projectTemplatesClient";
 import { ComposerRecents } from "./ComposerRecents";
 import { AudioMemoPanel } from "./AudioMemoPanel";
 import { PromptHistoryRail } from "./PromptHistoryRail";
-import {
-  rememberComposerPrompt,
-  rememberComposerUpload,
-} from "../lib/composerHistory";
+import { rememberComposerPrompt } from "../lib/composerHistory";
 import templateStyles from "./TemplateProjectForm.module.css";
 import { Button, ButtonBase } from "./ui/Button";
 import { useProjectTemplateChoices } from "../hooks/useProjectTemplateChoices";
@@ -49,7 +46,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { type UploadedFile, api } from "../api/client";
+import { api } from "../api/client";
 import styles from "./NewSessionForm.module.css";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useToastContext } from "../contexts/ToastContext";
@@ -72,6 +69,7 @@ import {
   queueNewSessionForProject,
   startNewSession,
 } from "../lib/newSessionStart";
+import { templateStartDisabledReason } from "../lib/newSessionStartDecisions";
 import { templateSessionSettings } from "../lib/templateSessionSettings";
 import { NewSessionOptionsPanel } from "./NewSessionOptionsPanel";
 import {
@@ -86,20 +84,13 @@ import { formatFileSize } from "../lib/formatFileSize";
 import { takePrebootComposer } from "../lib/prebootComposer";
 import { UI_KEYS } from "../lib/storageKeys";
 import { launchLockFor, type LaunchLock } from "../lib/limitedLaunchLock";
+import { useComposerDraftAttachments } from "../hooks/useComposerDraftAttachments";
 import {
-  type PendingFile,
-  type PendingLocalFile,
-  type PendingStagedFile,
-  type PendingUploadingFile,
-  getPendingFileImageDimensions,
-  getPendingFileMimeType,
-  getPendingFileName,
-  getPendingFileSize,
-  isPendingLocalFile,
-  isPendingStagedFile,
-  revokePendingFilePreviewUrls,
+  isComposerStagedAttachment,
+  sameAttachmentIds,
   toPersistedStagedAttachmentRef,
-} from "../lib/newSessionAttachments";
+} from "../lib/sessionComposerAttachments";
+import { materializeComposerAttachmentsForSubmission } from "../lib/sessionComposerSubmission";
 import {
   PROJECT_SUGGESTION_COUNT,
   QUICK_PROJECT_COUNT,
@@ -113,19 +104,6 @@ import {
   projectNameForEntry,
   settlePathEntry,
 } from "../lib/newProjectPath";
-import { prepareComposerAttachmentUpload } from "../lib/composerAttachmentUpload";
-import { storeUploadedAttachmentPreview } from "../lib/attachmentPreviewCache";
-import type { DraftAttachmentState } from "../lib/draftEnvelope";
-import {
-  deleteDraftAttachmentRef,
-  isInterruptedDraftAttachmentValidation,
-  materializeDraftAttachmentsForSession,
-  validateDraftAttachmentRefs,
-} from "../lib/draftAttachmentStaging";
-import {
-  hasAttachmentNavigationRisk,
-  useAttachmentNavigationGuard,
-} from "../lib/attachmentNavigationGuard";
 import { shouldShowProjectQueueAffordance } from "../lib/projectQueueVisibility";
 import {
   useActiveProjectSessionIds,
@@ -145,7 +123,6 @@ import {
   consumeNewSessionPrefill,
   consumeNewSessionPrefillToken,
 } from "../lib/newSessionPrefill";
-import { makeAttachmentFileNamesUnique } from "../lib/attachmentFileNames";
 import {
   canSpeechMethodStream,
   getSpeechMethodCapabilities,
@@ -166,7 +143,6 @@ import {
 } from "../lib/speechRecognition";
 import { handleVoiceInputShortcutKeyDown } from "../lib/voiceInputShortcut";
 import { createClientSpeechTurnId } from "../lib/speechTargets";
-import { generateUUID } from "../lib/uuid";
 import { useVersion } from "../hooks/useVersion";
 import { useSpeechCaptureSettings } from "../hooks/useSpeechCaptureSettings";
 import { useRecentSpeechAttribution } from "../hooks/useRecentSpeechAttribution";
@@ -312,14 +288,8 @@ export function NewSessionForm({
   );
   const [message, setMessage, draftControls] =
     useDraftPersistence(newSessionDraftKey);
-  const [pendingFiles, setPendingFilesState] = useState<PendingFile[]>([]);
-  const pendingFilesRef = useRef<PendingFile[]>([]);
-  const draftAttachmentBatchIdRef = useRef<string | null>(null);
-  const draftAttachmentHydrationRef = useRef(0);
-  const pendingStagedUploadsRef = useRef<
-    Map<string, Promise<PendingStagedFile | null>>
-  >(new Map());
-  const removedPendingUploadIdsRef = useRef<Set<string>>(new Set());
+  const draftControlsRef = useRef(draftControls);
+  draftControlsRef.current = draftControls;
   const [isStarting, setIsStarting] = useState(false);
   const [acceptingText, setAcceptingText] = useState(false);
   const [acceptedCreation, setAcceptedCreation] =
@@ -329,9 +299,6 @@ export function NewSessionForm({
   const [fullPaneBaseWidth, setFullPaneBaseWidth] = useState<number | null>(
     null,
   );
-  const [uploadProgress, setUploadProgress] = useState<
-    Record<string, { uploaded: number; total: number }>
-  >({});
   const [attachmentQuality] = useAttachmentUploadQuality();
   const { visibility: toolbarVisibility } = useSessionToolbarPresence();
   const {
@@ -407,7 +374,29 @@ export function NewSessionForm({
   } = useModelSettings();
 
   // Server version for voiceBackends advertisement
-  const { version: versionInfo, loading: versionLoading } = useVersion();
+  const {
+    version: versionInfo,
+    loading: versionLoading,
+    error: versionError,
+  } = useVersion();
+  const {
+    attachments,
+    attachmentsRef,
+    uploadProgress,
+    pendingUploadsRef,
+    setComposerAttachments,
+    uploadFiles,
+    cancelUpload,
+    removeAttachment,
+  } = useComposerDraftAttachments({
+    draftControlsRef,
+    draftKey: newSessionDraftKey,
+    hydrationEnabled: true,
+    sourceTransport,
+    versionInfo,
+    versionFailed: Boolean(versionError),
+  });
+  const pendingFileCount = attachments.length + uploadProgress.length;
   // What this principal's account settles rather than offers. A limited user's
   // locked fields and forced sandbox are enforced at the launch route; the
   // form reads them so it stops presenting a choice that would be refused.
@@ -434,7 +423,12 @@ export function NewSessionForm({
     : null;
   const [recentUploadsOpen, setRecentUploadsOpen] = useState(false);
   const [audioMemoOpen, setAudioMemoOpen] = useState(false);
-  const memoPendingIdRef = useRef<string | null>(null);
+  // The committed audio memo: its file, and its upload or attachment.
+  const memoRef = useRef<{
+    file: File;
+    uploadId: string | null;
+    attachmentId: string | null;
+  } | null>(null);
   const attachGesture = useRef({ y: 0, swiped: false });
   const launchLock = useMemo<LaunchLock>(
     () => launchLockFor(principal),
@@ -558,384 +552,37 @@ export function NewSessionForm({
     setMessage(combined);
   }, [launch, message, setMessage]);
 
-  const writeDraftAttachmentState = useCallback(
-    (nextFiles: readonly PendingFile[]) => {
-      const stagedRefs = nextFiles
-        .filter(isPendingStagedFile)
-        .map(toPersistedStagedAttachmentRef);
-      if (stagedRefs.length === 0) {
-        if (!nextFiles.some((file) => file.kind === "uploading")) {
-          draftAttachmentBatchIdRef.current = null;
-        }
-        draftControls.setAttachmentState(null);
-        return;
-      }
-
-      const batchId = stagedRefs[0]?.batchId;
-      if (!batchId) {
-        draftControls.setAttachmentState(null);
-        return;
-      }
-
-      draftAttachmentBatchIdRef.current = batchId;
-      draftControls.setAttachmentState({
-        batchId,
-        refs: stagedRefs,
-        updatedAt: new Date().toISOString(),
-      });
-    },
-    [draftControls],
-  );
-
-  const setPendingFiles = useCallback(
-    (
-      updater:
-        | PendingFile[]
-        | ((previous: readonly PendingFile[]) => readonly PendingFile[]),
-      options?: {
-        persistDraft?: boolean;
-        revokeRemovedPreviewUrls?: boolean;
-      },
-    ) => {
-      const previous = pendingFilesRef.current;
-      const nextValue =
-        typeof updater === "function" ? updater(previous) : updater;
-      if (nextValue === previous) {
-        return;
-      }
-      const next = [...nextValue];
-
-      if (options?.revokeRemovedPreviewUrls) {
-        const nextIds = new Set(next.map((file) => file.id));
-        revokePendingFilePreviewUrls(
-          previous.filter((file) => !nextIds.has(file.id)),
-        );
-      }
-
-      pendingFilesRef.current = next;
-      setPendingFilesState(next);
-      if (options?.persistDraft !== false) {
-        writeDraftAttachmentState(next);
-      }
-    },
-    [writeDraftAttachmentState],
-  );
-
-  useEffect(() => {
-    return () => {
-      revokePendingFilePreviewUrls(pendingFilesRef.current);
-    };
-  }, []);
-
-  const ensureDraftAttachmentBatchId = useCallback(() => {
-    const existing =
-      draftControls.getAttachmentState()?.batchId ??
-      draftAttachmentBatchIdRef.current;
-    if (existing) {
-      draftAttachmentBatchIdRef.current = existing;
-      return existing;
-    }
-    const batchId = generateUUID();
-    draftAttachmentBatchIdRef.current = batchId;
-    return batchId;
-  }, [draftControls]);
-
-  const hydrateDraftAttachments = useCallback(async () => {
-    const state = draftControls.getAttachmentState();
-    if (!state) {
-      setPendingFiles(
-        (prev) =>
-          prev.some(isPendingStagedFile)
-            ? prev.filter((file) => !isPendingStagedFile(file))
-            : prev,
-        {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        },
-      );
-      return;
-    }
-
-    const syncEnabled = serverHasCapability(
-      versionInfo,
-      SERVER_CAPABILITIES.draftSync.name,
-    );
-    if (
-      !syncEnabled &&
-      pendingFilesRef.current.some(
-        (file) => file.kind === "uploading" || isPendingStagedFile(file),
-      )
-    )
-      return;
-    if (syncEnabled)
-      setPendingFiles(
-        (prev) => [
-          ...prev.filter((file) => !isPendingStagedFile(file)),
-          ...state.refs.map(
-            (ref): PendingStagedFile => ({ ...ref, kind: "staged" }),
-          ),
-        ],
-        { persistDraft: false, revokeRemovedPreviewUrls: true },
-      );
-
-    const hydrationId = draftAttachmentHydrationRef.current + 1;
-    draftAttachmentHydrationRef.current = hydrationId;
-
-    try {
-      const refs = await validateDraftAttachmentRefs(sourceTransport, state);
-      if (
-        draftAttachmentHydrationRef.current !== hydrationId ||
-        JSON.stringify(draftControls.getAttachmentState()?.refs) !==
-          JSON.stringify(state.refs)
-      ) {
-        return;
-      }
-
-      if (syncEnabled && refs.length !== state.refs.length) {
-        showToast(t("sessionDraftAttachmentsUnavailable"), "info");
-        return;
-      }
-      const nextState: DraftAttachmentState | null =
-        refs.length > 0
-          ? {
-              batchId: refs[0]?.batchId ?? state.batchId,
-              refs,
-              updatedAt: new Date().toISOString(),
-            }
-          : null;
-      draftAttachmentBatchIdRef.current = nextState?.batchId ?? null;
-      draftControls.setAttachmentState(nextState);
-      setPendingFiles(
-        (prev) => [
-          ...prev.filter((file) => !isPendingStagedFile(file)),
-          ...refs.map(
-            (ref): PendingStagedFile => ({
-              ...ref,
-              kind: "staged",
-            }),
-          ),
-        ],
-        {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        },
-      );
-    } catch (err) {
-      if (
-        draftAttachmentHydrationRef.current !== hydrationId ||
-        JSON.stringify(draftControls.getAttachmentState()?.refs) !==
-          JSON.stringify(state.refs)
-      ) {
-        return;
-      }
-      // Reconnection is not evidence that the staged file disappeared.
-      setPendingFiles(
-        (prev) => [
-          ...prev.filter((file) => !isPendingStagedFile(file)),
-          ...state.refs.map(
-            (ref): PendingStagedFile => ({ ...ref, kind: "staged" }),
-          ),
-        ],
-        { persistDraft: false, revokeRemovedPreviewUrls: true },
-      );
-      if (!isInterruptedDraftAttachmentValidation(err))
-        showToast(t("sessionDraftAttachmentsValidationFailed"), "info");
-    }
-  }, [
-    sourceTransport,
-    draftControls,
-    setPendingFiles,
-    showToast,
-    versionInfo,
-    t,
-  ]);
-
-  useEffect(() => {
-    void newSessionDraftKey;
-    void hydrateDraftAttachments();
-  }, [hydrateDraftAttachments, newSessionDraftKey]);
-  useEffect(() => {
-    const changed = (event: Event) => {
-      if (
-        (event as CustomEvent<{ key: string }>).detail.key ===
-        newSessionDraftKey
-      )
-        void hydrateDraftAttachments();
-    };
-    window.addEventListener(DRAFT_STORAGE_EVENT, changed);
-    return () => window.removeEventListener(DRAFT_STORAGE_EVENT, changed);
-  }, [hydrateDraftAttachments, newSessionDraftKey]);
-
   const addPendingFiles = useCallback(
-    (files: readonly File[]) => {
-      if (files.length === 0) {
-        return;
-      }
-      const pendingNames = pendingFilesRef.current.map(getPendingFileName);
-      const uniqueFiles = makeAttachmentFileNamesUnique(files, pendingNames);
-
-      const batchId = ensureDraftAttachmentBatchId();
-
-      if (!batchId) {
-        const localFiles = uniqueFiles.map(
-          (file): PendingLocalFile => ({
-            kind: "local",
-            id: `pending-${generateUUID()}`,
-            file,
-            previewUrl: file.type.startsWith("image/")
-              ? URL.createObjectURL(file)
-              : undefined,
-          }),
-        );
-        setPendingFiles((prev) => [...prev, ...localFiles]);
-        return;
-      }
-
-      for (const file of uniqueFiles) {
-        const tempId = `pending-${generateUUID()}`;
-        const previewUrl = file.type.startsWith("image/")
-          ? URL.createObjectURL(file)
-          : undefined;
-        const uploadingFile: PendingUploadingFile = {
-          kind: "uploading",
-          id: tempId,
-          originalName: file.name,
-          size: file.size,
-          mimeType: file.type || "application/octet-stream",
-          ...(previewUrl ? { previewUrl } : {}),
-        };
-        setPendingFiles((prev) => [...prev, uploadingFile]);
-
-        const uploadPromise = (async () => {
-          const { uploadFile, uploadOptions } =
-            await prepareComposerAttachmentUpload(
-              file,
-              getAttachmentUploadProfile(
-                attachmentQuality,
-                selectedProviderInfo,
-                selectedModel,
-              ),
-              (bytesUploaded, preparedFile) => {
-                setUploadProgress((prev) => ({
-                  ...prev,
-                  [tempId]: {
-                    uploaded: bytesUploaded,
-                    total: preparedFile.size,
-                  },
-                }));
+    (
+      files: readonly File[],
+      onUploadStarted?: (uploadId: string, file: File) => void,
+    ) =>
+      uploadFiles(files, {
+        imageProfile: getAttachmentUploadProfile(
+          attachmentQuality,
+          selectedProviderInfo,
+          selectedModel,
+        ),
+        history: historyScope
+          ? {
+              scope: historyScope,
+              origin: {
+                projectId,
+                projectName: selectedProject?.name ?? projectInput,
               },
-            );
-          const stagedRef = await sourceTransport.uploadStagedAttachment(
-            uploadFile,
-            { batchId, ...uploadOptions },
-          );
-          if (uploadFile.type.startsWith("image/")) {
-            void storeUploadedAttachmentPreview(
-              {
-                id: stagedRef.id,
-                originalName: file.name,
-                name: stagedRef.name,
-                path: stagedRef.id,
-                size: stagedRef.size,
-                mimeType: stagedRef.mimeType,
-                ...(stagedRef.width !== undefined
-                  ? { width: stagedRef.width }
-                  : {}),
-                ...(stagedRef.height !== undefined
-                  ? { height: stagedRef.height }
-                  : {}),
-              },
-              uploadFile,
-            ).catch(() => {});
-          }
-          if (historyScope)
-            void rememberComposerUpload(historyScope, uploadFile, {
-              projectId,
-              projectName: selectedProject?.name ?? projectInput,
-            }).catch((cause) =>
-              showToast(
-                t("composerHistorySaveError", { error: String(cause) }),
-                "error",
-              ),
-            );
-          return {
-            ...stagedRef,
-            originalName: file.name,
-            kind: "staged",
-            ...(previewUrl ? { previewUrl } : {}),
-          } satisfies PendingStagedFile;
-        })()
-          .then(
-            (stagedFile) => {
-              const wasRemoved =
-                removedPendingUploadIdsRef.current.delete(tempId) ||
-                !pendingFilesRef.current.some((item) => item.id === tempId);
-              if (wasRemoved) {
-                if (previewUrl) {
-                  URL.revokeObjectURL(previewUrl);
-                }
-                void deleteDraftAttachmentRef(
-                  sourceTransport,
-                  stagedFile.batchId,
-                  stagedFile.id,
-                ).catch((err) => {
-                  console.warn(
-                    "[NewSessionForm] Failed to delete staged attachment:",
-                    err,
-                  );
-                });
-                return null;
-              }
-
-              setPendingFiles((prev) =>
-                prev.map((item) => (item.id === tempId ? stagedFile : item)),
-              );
-              return stagedFile;
-            },
-            (err) => {
-              const wasRemoved =
-                removedPendingUploadIdsRef.current.delete(tempId) ||
-                !pendingFilesRef.current.some((item) => item.id === tempId);
-              if (!wasRemoved) {
-                console.error("Failed to upload staged file:", err);
-                const uploadMessage =
-                  err instanceof Error ? err.message : String(err);
-                showToast(
-                  t("newSessionUploadError", { message: uploadMessage }),
-                  "error",
-                );
-                setPendingFiles(
-                  (prev) => prev.filter((item) => item.id !== tempId),
-                  { revokeRemovedPreviewUrls: true },
-                );
-              }
-              return null;
-            },
-          )
-          .finally(() => {
-            setUploadProgress((prev) => {
-              const { [tempId]: _removed, ...rest } = prev;
-              return rest;
-            });
-            pendingStagedUploadsRef.current.delete(tempId);
-          });
-
-        pendingStagedUploadsRef.current.set(tempId, uploadPromise);
-      }
-    },
+            }
+          : null,
+        onUploadStarted,
+      }),
     [
+      uploadFiles,
       attachmentQuality,
       selectedProviderInfo,
       selectedModel,
       historyScope,
-      sourceTransport,
       projectId,
       selectedProject?.name,
       projectInput,
-      ensureDraftAttachmentBatchId,
-      setPendingFiles,
-      showToast,
-      t,
     ],
   );
 
@@ -949,7 +596,7 @@ export function NewSessionForm({
       return;
     }
     consumedIncomingShareFilesRef.current = incomingShareFiles;
-    addPendingFiles(incomingShareFiles);
+    void addPendingFiles(incomingShareFiles);
   }, [addPendingFiles, allowAttachments, incomingShareFiles]);
 
   const resolvedPlaceholder = placeholder ?? t("newSessionPlaceholder");
@@ -1532,31 +1179,8 @@ export function NewSessionForm({
     const files = e.target.files;
     if (!files?.length) return;
 
-    addPendingFiles(Array.from(files));
+    void addPendingFiles(Array.from(files));
     e.target.value = ""; // Reset for re-selection
-  };
-
-  const handleRemoveFile = (id: string) => {
-    const removed = pendingFilesRef.current.find((file) => file.id === id);
-    if (removed?.kind === "uploading") {
-      removedPendingUploadIdsRef.current.add(id);
-    }
-    setPendingFiles((prev) => prev.filter((file) => file.id !== id), {
-      revokeRemovedPreviewUrls: true,
-    });
-
-    if (removed && isPendingStagedFile(removed)) {
-      deleteDraftAttachmentRef(
-        sourceTransport,
-        removed.batchId,
-        removed.id,
-      ).catch((err) => {
-        console.warn(
-          "[NewSessionForm] Failed to delete staged attachment:",
-          err,
-        );
-      });
-    }
   };
 
   const resolveProjectIdForSubmission = useCallback(
@@ -1644,87 +1268,20 @@ export function NewSessionForm({
 
   const resolvePendingAttachmentsForSession = useCallback(
     async (activeProjectId: string, sessionId: string) => {
-      const pendingUploads = [...pendingStagedUploadsRef.current.values()];
-      if (pendingUploads.length > 0) {
-        const results = await Promise.all(pendingUploads);
+      const uploads = [...pendingUploadsRef.current.values()];
+      if (uploads.length > 0) {
+        const results = await Promise.all(uploads);
         if (results.some((result) => result === null))
           throw new Error(t("sessionDraftAttachmentsUnavailable"));
       }
-
-      const currentFiles = pendingFilesRef.current;
-      const uploadedFiles: UploadedFile[] = [];
-      const localFiles = currentFiles.filter(isPendingLocalFile);
-      for (const pendingFile of localFiles) {
-        try {
-          const { uploadFile, uploadOptions } =
-            await prepareComposerAttachmentUpload(
-              pendingFile.file,
-              getAttachmentUploadProfile(
-                attachmentQuality,
-                selectedProviderInfo,
-                selectedModel,
-              ),
-              (bytesUploaded, preparedFile) => {
-                setUploadProgress((prev) => ({
-                  ...prev,
-                  [pendingFile.id]: {
-                    uploaded: bytesUploaded,
-                    total: preparedFile.size,
-                  },
-                }));
-              },
-            );
-          const uploadedFile = await sourceTransport.upload(
-            activeProjectId,
-            sessionId,
-            uploadFile,
-            uploadOptions,
-          );
-          uploadedFiles.push(uploadedFile);
-        } catch (uploadErr) {
-          console.error("Failed to upload file:", uploadErr);
-          const uploadMessage =
-            uploadErr instanceof Error ? uploadErr.message : "";
-          showToast(
-            t("newSessionUploadError", { message: uploadMessage }),
-            "error",
-          );
-          throw uploadErr;
-        }
-      }
-
-      const stagedRefs = currentFiles
-        .filter(isPendingStagedFile)
-        .map(toPersistedStagedAttachmentRef);
-      if (stagedRefs.length === 0) {
-        return uploadedFiles;
-      }
-
-      const batchId = stagedRefs[0]?.batchId;
-      if (!batchId) {
-        throw new Error("Draft attachments are split across staging batches");
-      }
-
-      const materializedFiles = await materializeDraftAttachmentsForSession(
+      return materializeComposerAttachmentsForSubmission({
+        attachments: attachmentsRef.current,
         sourceTransport,
-        activeProjectId,
+        projectId: activeProjectId,
         sessionId,
-        {
-          batchId,
-          refs: stagedRefs,
-          updatedAt: new Date().toISOString(),
-        },
-      );
-      return [...uploadedFiles, ...materializedFiles];
+      });
     },
-    [
-      attachmentQuality,
-      selectedProviderInfo,
-      selectedModel,
-      sourceTransport,
-      showToast,
-      t,
-    ],
+    [sourceTransport, t],
   );
 
   const deferSpeechDelivery = useCallback(
@@ -1764,7 +1321,7 @@ export function NewSessionForm({
     ) =>
       startNewSession(
         {
-          attachmentQuality,
+          attachmentsRef,
           basePath,
           canCreateDetached,
           canCreateInBackground,
@@ -1782,7 +1339,6 @@ export function NewSessionForm({
           effectiveSandboxNetworkFirewall,
           effectiveServiceTier,
           effectiveThinkingMode,
-          ensureDraftAttachmentBatchId,
           hasSelectedProviderModel,
           helperSideModel,
           historyScope,
@@ -1794,9 +1350,7 @@ export function NewSessionForm({
           machineControlSelected,
           navigate,
           newSessionDraftKey,
-          pendingFiles,
-          pendingFilesRef,
-          pendingStagedUploadsRef,
+          pendingUploadsRef,
           principal: { username: principal.username },
           principalResolved,
           projectApp,
@@ -1820,8 +1374,8 @@ export function NewSessionForm({
           setAcceptedCreation,
           setAcceptingText,
           setInterimTranscript,
+          setComposerAttachments,
           setIsStarting,
-          setPendingFiles,
           showToast,
           sourceTransport,
           speechMessagePrefix,
@@ -1874,7 +1428,6 @@ export function NewSessionForm({
       deferSpeechDelivery,
       isRecentSpeechAttribution,
       navigate,
-      pendingFiles,
       projectInput,
       projectApp,
       projectPending,
@@ -1883,15 +1436,13 @@ export function NewSessionForm({
       effectiveSandboxLevel,
       effectiveSandboxNetworkFirewall,
       resolvePendingAttachmentsForSession,
-      ensureDraftAttachmentBatchId,
-      attachmentQuality,
       resolveProjectIdForSubmission,
       selectedModel,
       selectedPromptSuggestionMode,
       selectedProvider,
       selectedProviderInfo,
       selectedRecapMode,
-      setPendingFiles,
+      setComposerAttachments,
       showToast,
       speechMessagePrefix,
       supportsSessionSandboxing,
@@ -1920,7 +1471,8 @@ export function NewSessionForm({
         launchLock,
         machineControlEligible,
         machineControlSelected,
-        pendingFilesRef,
+        attachmentsRef,
+        pendingUploadsRef,
         principal,
         projectInput,
         projectPending,
@@ -1940,7 +1492,7 @@ export function NewSessionForm({
         setAcceptingText,
         setInterimTranscript,
         setIsStarting,
-        setPendingFiles,
+        setComposerAttachments,
         showToast,
         sourceSummary,
         speechMessagePrefix,
@@ -2072,7 +1624,7 @@ export function NewSessionForm({
     const files = getClipboardFiles(e);
     if (files.length > 0) {
       e.preventDefault();
-      addPendingFiles(files);
+      void addPendingFiles(files);
     }
   };
 
@@ -2091,7 +1643,10 @@ export function NewSessionForm({
       // accepted, and only an accepted send arms follow-up listening.
       // A muted launch composer starts without a draft of its own.
       if (
-        (!hasComposerDraftContent(text, pendingFilesRef.current.length) &&
+        (!hasComposerDraftContent(
+          text,
+          attachmentsRef.current.length + pendingUploadsRef.current.size,
+        ) &&
           !composerMuted) ||
         isStarting
       )
@@ -2155,7 +1710,7 @@ export function NewSessionForm({
 
   const hasContent =
     message.trim() ||
-    pendingFiles.length > 0 ||
+    pendingFileCount > 0 ||
     speechPending !== null ||
     interimTranscript;
   const canStart = Boolean(
@@ -2167,19 +1722,10 @@ export function NewSessionForm({
       (!isDetachedProject || canCreateDetached),
   );
   const hasProjectQueueTargetProject = Boolean(projectQueueTargetProjectId);
-  const pendingFilesReadyForProjectQueue =
-    pendingFiles.every(isPendingStagedFile);
-  const stagedPendingFileRefs = pendingFiles
-    .filter(isPendingStagedFile)
+  const pendingFilesReadyForProjectQueue = uploadProgress.length === 0;
+  const stagedPendingFileRefs = attachments
+    .filter(isComposerStagedAttachment)
     .map(toPersistedStagedAttachmentRef);
-  const attachmentNavigationGuardActive = hasAttachmentNavigationRisk({
-    pendingUploadCount: pendingFiles.filter((file) => file.kind === "uploading")
-      .length,
-    transientAttachmentCount: pendingFiles.filter(isPendingLocalFile).length,
-    stagedRefs: stagedPendingFileRefs,
-    draftState: draftControls.getAttachmentState(),
-  });
-  useAttachmentNavigationGuard(attachmentNavigationGuardActive);
   const canQueueProjectSession = Boolean(
     allowProjectQueue &&
       !projectPending &&
@@ -2258,31 +1804,50 @@ export function NewSessionForm({
         ),
       };
     }, [draftControls, projectId, newSessionDraftKey]);
+  const dropMemo = () => {
+    const memo = memoRef.current;
+    memoRef.current = null;
+    if (!memo) return;
+    if (
+      memo.attachmentId &&
+      attachmentsRef.current.some((file) => file.id === memo.attachmentId)
+    )
+      removeAttachment(memo.attachmentId);
+    else if (!memo.attachmentId && memo.uploadId) cancelUpload(memo.uploadId);
+  };
   // Shared input area with toolbar (textarea + attach/voice on left, send on right)
   const inputArea = audioMemoOpen ? (
     <AudioMemoPanel
       projectId={projectId}
       commitLabel={t("composerMemoStart")}
       onCancel={() => {
-        setPendingFiles((previous) =>
-          previous.filter((item) => item.id !== memoPendingIdRef.current),
-        );
-        memoPendingIdRef.current = null;
+        dropMemo();
         setAudioMemoOpen(false);
       }}
       onCommit={async (file, transcript) => {
+        const shown = memoRef.current;
         if (
-          !pendingFilesRef.current.some(
-            (item) => item.kind === "local" && item.file === file,
-          )
+          shown?.file !== file ||
+          !attachmentsRef.current.some((item) => item.id === shown.attachmentId)
         ) {
-          const previousMemoId = memoPendingIdRef.current;
-          const id = `memo-${generateUUID()}`;
-          memoPendingIdRef.current = id;
-          setPendingFiles((previous) => [
-            ...previous.filter((item) => item.id !== previousMemoId),
-            { kind: "local", id, file },
-          ]);
+          // A new recording replaces the earlier memo, as the panel's
+          // Restart promises; the memo uploads before the start, as on the
+          // session page (docs/tactical/188, item 23).
+          dropMemo();
+          const memo = { file, uploadId: null, attachmentId: null } as {
+            file: File;
+            uploadId: string | null;
+            attachmentId: string | null;
+          };
+          memoRef.current = memo;
+          const [uploaded] = await addPendingFiles([file], (uploadId) => {
+            memo.uploadId = uploadId;
+          });
+          if (!uploaded) {
+            if (memoRef.current === memo) memoRef.current = null;
+            throw new Error(t("audioMemoUploadFailed"));
+          }
+          memo.attachmentId = uploaded.id;
         }
         const suffix = transcript.trim()
           ? `🎤 ${t("audioMemoTranscriptSuffix")}\n${transcript.trim()}`
@@ -2590,33 +2155,34 @@ export function NewSessionForm({
             </button>
           </div>
         </div>
-        {pendingFiles.length > 0 && (
+        {pendingFileCount > 0 && (
           <div className={styles.pendingFilesList}>
-            {pendingFiles.map((pf) => {
-              const progress = uploadProgress[pf.id];
-              const fileName = getPendingFileName(pf);
-              const fileSize = getPendingFileSize(pf);
-              const imageSize = getPendingFileImageDimensions(pf);
-              return (
-                <AttachmentChip
-                  key={pf.id}
-                  attachmentId={pf.id}
-                  originalName={fileName}
-                  mimeType={getPendingFileMimeType(pf)}
-                  sizeLabel={
-                    progress
-                      ? `${Math.round((progress.uploaded / progress.total) * 100)}%`
-                      : formatFileSize(fileSize)
-                  }
-                  imageWidth={imageSize?.width}
-                  imageHeight={imageSize?.height}
-                  previewUrl={pf.previewUrl}
-                  onRemove={
-                    isStarting ? undefined : () => handleRemoveFile(pf.id)
-                  }
-                />
-              );
-            })}
+            {attachments.map((file) => (
+              <AttachmentChip
+                key={file.id}
+                attachmentId={file.id}
+                originalName={file.originalName}
+                mimeType={file.mimeType}
+                sizeLabel={formatFileSize(file.size)}
+                imageWidth={file.width}
+                imageHeight={file.height}
+                previewUrl={file.previewUrl}
+                onRemove={
+                  isStarting ? undefined : () => removeAttachment(file.id)
+                }
+              />
+            ))}
+            {uploadProgress.map((upload) => (
+              <AttachmentChip
+                key={upload.fileId}
+                originalName={upload.fileName}
+                mimeType={upload.mimeType}
+                sizeLabel={`${upload.percent}%`}
+                onRemove={
+                  isStarting ? undefined : () => cancelUpload(upload.fileId)
+                }
+              />
+            ))}
           </div>
         )}
       </PromptHistoryRail>
@@ -2902,10 +2468,15 @@ export function NewSessionForm({
                   creationViewOwner.current.accountKey !== principal.username
                 )
                   return;
+                const draftFilesUnchanged =
+                  pendingUploadsRef.current.size === 0 &&
+                  sameAttachmentIds(
+                    attachmentsRef.current,
+                    (pending.draftFileIds ?? []).map((id) => ({ id })),
+                  );
                 const cleared =
                   pending.draftText !== undefined &&
-                  pendingFilesRef.current.map((file) => file.id).join("\0") ===
-                    (pending.draftFileIds ?? []).join("\0") &&
+                  draftFilesUnchanged &&
                   draftControls.getDraft() === pending.draftText &&
                   JSON.stringify(draftControls.getAttachmentState()) ===
                     (pending.draftAttachments ?? "null")
@@ -2913,8 +2484,7 @@ export function NewSessionForm({
                     : false;
                 if (
                   cleared ||
-                  pendingFilesRef.current.map((file) => file.id).join("\0") !==
-                    (pending.draftFileIds ?? []).join("\0") ||
+                  !draftFilesUnchanged ||
                   (pending.draftText !== undefined &&
                     (draftControls.getDraft() !== pending.draftText ||
                       JSON.stringify(draftControls.getAttachmentState()) !==
@@ -3067,19 +2637,18 @@ export function NewSessionForm({
                     }
                   : undefined
               }
-              disabledReason={
-                pendingFiles.length > 0 &&
-                !serverHasCapability(
-                  versionInfo,
-                  SERVER_CAPABILITIES.templatePreparationAttachments.name,
-                )
-                  ? t("templateAttachmentsUnsupported")
-                  : !pendingFilesReadyForProjectQueue
-                    ? t("projectQueueNewSessionAttachmentsPreparing")
-                    : !hasSelectedProviderModel
-                      ? t("templateSelectProvider")
-                      : undefined
-              }
+              disabledReason={(() => {
+                const reason = templateStartDisabledReason({
+                  fileCount: pendingFileCount,
+                  uploadsInFlight: uploadProgress.length,
+                  templateAcceptsAttachments: serverHasCapability(
+                    versionInfo,
+                    SERVER_CAPABILITIES.templatePreparationAttachments.name,
+                  ),
+                  hasSelectedProviderModel,
+                });
+                return reason ? t(reason) : undefined;
+              })()}
               sessionSettings={templateSessionSettings(
                 newSessionOptions,
                 getShowThinkingSetting(),

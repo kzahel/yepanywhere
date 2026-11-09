@@ -412,7 +412,9 @@ failed check's notice is now counted as exactly one.
      draft sync, the chip stays and the page says the file is gone, once;
    - Start after removing a file while it uploaded starts without it and
      without an error (item 5);
-   - the template button stays disabled while a file uploads (item 24);
+   - the template button stays disabled while a file uploads (item 24),
+     through its rule moved into `templateStartDisabledReason` in
+     `newSessionStartDecisions.ts` and tested there;
    - a refused memo start keeps the memo chip, a second recording
      replaces it, and Cancel deletes it (item 23);
    - a reload whose incoming share finishes before the version loads

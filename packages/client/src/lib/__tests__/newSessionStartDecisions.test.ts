@@ -8,6 +8,7 @@ import {
   planNewSessionProjectQueue,
   planNewSessionStart,
   projectQueueRefusalBeforeDefer,
+  templateStartDisabledReason,
 } from "../newSessionStartDecisions";
 
 const t = (key: string, vars?: Record<string, string | number>) =>
@@ -518,5 +519,44 @@ describe("newSessionStartErrorMessage", () => {
     expect(message(new Error("HTTP 404"))).toBe("newSessionProjectNotFound");
     expect(message(new Error("network down"))).toBe("newSessionNetworkError");
     expect(message(new Error("odd"))).toBe("odd");
+  });
+});
+
+describe("templateStartDisabledReason", () => {
+  const ready = {
+    fileCount: 0,
+    uploadsInFlight: 0,
+    templateAcceptsAttachments: true,
+    hasSelectedProviderModel: true,
+  };
+
+  it("waits while a file is still uploading, which counts as a file", () => {
+    expect(
+      templateStartDisabledReason({
+        ...ready,
+        fileCount: 1,
+        uploadsInFlight: 1,
+      }),
+    ).toBe("projectQueueNewSessionAttachmentsPreparing");
+    expect(
+      templateStartDisabledReason({
+        ...ready,
+        fileCount: 1,
+        uploadsInFlight: 1,
+        templateAcceptsAttachments: false,
+      }),
+    ).toBe("templateAttachmentsUnsupported");
+  });
+
+  it("is available with finished files and a chosen model", () => {
+    expect(templateStartDisabledReason({ ...ready, fileCount: 2 })).toBe(
+      undefined,
+    );
+    expect(
+      templateStartDisabledReason({
+        ...ready,
+        hasSelectedProviderModel: false,
+      }),
+    ).toBe("templateSelectProvider");
   });
 });

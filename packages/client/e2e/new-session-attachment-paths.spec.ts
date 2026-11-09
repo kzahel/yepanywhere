@@ -49,7 +49,7 @@ const json = (
     body: JSON.stringify(body),
   });
 
-test("a staged file comes back after a reload, and a failed check keeps it with a notice", async ({
+test("a staged file comes back after a reload; a failed check or a missing file keeps it with one notice", async ({
   page,
   baseURL,
 }) => {
@@ -77,20 +77,28 @@ test("a staged file comes back after a reload, and a failed check keeps it with 
     json(route, 500, { error: "pin failure" }),
   );
   await reload();
-  await expect(
-    page
-      .getByRole("alert")
-      .filter({
-        hasText: "Could not check draft attachments. Your draft has been kept.",
-      })
-      .first(),
-  ).toBeVisible();
+  // The form checks once on load, so it says so once.
+  const failed = page.getByRole("alert").filter({
+    hasText: "Could not check draft attachments. Your draft has been kept.",
+  });
+  await expect(failed).toBeVisible();
   await expect(chip(page, "pin-new-reload.txt")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  await expect(failed).toHaveCount(1);
   expect(await savedDraftNamesFile()).toBe(true);
 
-  // A file the server no longer holds is not pinned here: today the
-  // outcome depends on whether the server's capabilities have loaded
-  // before the first check (plan 188, item 26).
+  // The server no longer holds it. The e2e server offers draft sync, so the
+  // chip stays and the form says the file is gone, once.
+  await page.unroute(validatePath);
+  await page.route(validatePath, (route) => json(route, 200, { refs: [] }));
+  await reload();
+  const gone = page
+    .getByRole("alert")
+    .filter({ hasText: "Draft attachments were no longer available." });
+  await expect(gone).toBeVisible();
+  await expect(chip(page, "pin-new-reload.txt")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  await expect(gone).toHaveCount(1);
 });
 
 test("a staged file added or removed in one tab follows in a sibling tab", async ({
