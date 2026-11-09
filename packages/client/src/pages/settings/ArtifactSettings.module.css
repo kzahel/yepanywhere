@@ -9,30 +9,6 @@
   min-width: 0;
 }
 
-.fields label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fields .toggle {
-  flex-direction: row;
-  align-items: center;
-}
-
-.vhostRow input:not([type="checkbox"]),
-.fields > label > input:not([type="checkbox"]) {
-  width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
-  padding: 8px;
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font: inherit;
-}
-
 .fields p {
   margin: -4px 0 4px;
   color: var(--text-secondary);
@@ -104,22 +80,8 @@
   min-width: 0;
 }
 
-.vhostRow label {
-  min-width: 0;
-}
-
 .vhostRow button {
   align-self: end;
-}
-
-.vhostRow select {
-  min-height: 36px;
-  padding: 7px 8px;
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font: inherit;
 }
 
 .password {
@@ -178,9 +140,6 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-}
-.withLinkIcon input {
-  flex: 1 1 auto;
 }
 .linkIcon {
   flex: none;
@@ -257,10 +216,6 @@
 }
 
 @media (width <= 640px) {
-  .fields .toggle {
-    min-height: 44px;
-  }
-
   .vhostRow {
     grid-template-columns: 1fr;
   }

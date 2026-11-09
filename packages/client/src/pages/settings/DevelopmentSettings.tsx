@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSchemaValidationContext } from "../../contexts/SchemaValidationContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { Button, buttonClassName } from "../../components/ui/Button";
+import { Select } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
 import { useReloadNotifications } from "../../hooks/useReloadNotifications";
@@ -304,8 +305,7 @@ export function DevelopmentSettings() {
           }
         >
           <div className="settings-item-actions">
-            <select
-              className="settings-select"
+            <Select
               value={sessionScrollBehaviorMode}
               onChange={(event) =>
                 setSessionScrollBehaviorMode(
@@ -319,7 +319,7 @@ export function DevelopmentSettings() {
                   {t(sessionScrollMemoryModeLabelKeys[mode])}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </SettingsItem>
       </div>

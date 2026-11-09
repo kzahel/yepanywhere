@@ -4,6 +4,8 @@ import {
 } from "@yep-anywhere/shared";
 import { useEffect, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Field, Textarea, TextInput } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import { SettingsDocLink } from "./SettingsDocLink";
 import { SettingsItem } from "./SettingsItem";
@@ -60,15 +62,12 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
           }
         }}
       >
-        <label className={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={enabled}
-            disabled={saving}
-            onChange={(event) => setEnabled(event.target.checked)}
-          />
-          <strong>{t("projectQueueReadinessSettingTitle")}</strong>
-        </label>
+        <Checkbox
+          label={t("projectQueueReadinessSettingTitle")}
+          checked={enabled}
+          disabled={saving}
+          onCheckedChange={setEnabled}
+        />
         <p className={styles.hint}>
           {t("projectQueueReadinessSettingDescription")}{" "}
           <SettingsDocLink
@@ -80,9 +79,9 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
         </p>
         {enabled && (
           <>
-            <label className={styles.field}>
-              {t("projectQueueReadinessExecutable")}
-              <input
+            <Field label={t("projectQueueReadinessExecutable")}>
+              <TextInput
+                mono
                 value={executable}
                 onChange={(event) => setExecutable(event.target.value)}
                 disabled={saving}
@@ -90,10 +89,10 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
                 autoCorrect="off"
                 spellCheck={false}
               />
-            </label>
-            <label className={styles.field}>
-              {t("projectQueueReadinessArguments")}
-              <textarea
+            </Field>
+            <Field label={t("projectQueueReadinessArguments")}>
+              <Textarea
+                mono
                 value={args}
                 onChange={(event) => setArgs(event.target.value)}
                 disabled={saving}
@@ -102,7 +101,7 @@ export function ProjectQueueReadinessSettings({ command, onSave }: Props) {
                 autoCorrect="off"
                 spellCheck={false}
               />
-            </label>
+            </Field>
             <p className={styles.hint}>
               {t("projectQueueReadinessExecutionHint")}
             </p>

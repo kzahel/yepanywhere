@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { Textarea } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import {
   applyBrowserSettingsBackup,
@@ -149,8 +150,8 @@ export function SettingsClipboardTransfer() {
         </Button>
       </div>
       {manual?.mode === "copy" && (
-        <textarea
-          className={styles.text}
+        <Textarea
+          mono
           aria-label={t("settingsClipboardCopyFieldLabel")}
           value={manual.text}
           readOnly
@@ -159,8 +160,8 @@ export function SettingsClipboardTransfer() {
       )}
       {manual?.mode === "paste" && (
         <>
-          <textarea
-            className={styles.text}
+          <Textarea
+            mono
             aria-label={t("settingsClipboardPasteFieldLabel")}
             value={pastedText}
             onChange={(event) => setPastedText(event.target.value)}

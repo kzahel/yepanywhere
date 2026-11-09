@@ -177,10 +177,10 @@ test("launch steering preserves live owners across settings changes and server r
       if (r.method() === "PUT" && r.url().endsWith("/api/settings"))
         writes.push(r.postDataJSON());
     });
-    const checkbox = page.getByRole("checkbox", {
+    const toggle = page.getByRole("switch", {
       name: 'Start with "now" steering on',
     });
-    await checkbox.click();
+    await toggle.click();
     await page.getByRole("button", { name: /^Undo changes on/ }).click();
     expect(writes.length).toBeGreaterThanOrEqual(2);
     expect(writes.every((body) => !("steeringModes" in body))).toBe(true);

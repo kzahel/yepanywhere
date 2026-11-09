@@ -4,6 +4,8 @@ import {
   type FilterOption,
 } from "../../components/FilterDropdown";
 import { Button } from "../../components/ui/Button";
+import { Radio } from "../../components/ui/Checkbox";
+import { Field, Textarea, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { getChrome } from "../../extension/chrome";
 import { activeHosts, defaultHost } from "../../extension/savedHosts";
@@ -185,16 +187,13 @@ export function BrowserExtensionSettings() {
                   />
                   {t("extensionSettingsHostActive")}
                 </label>
-                <label className={styles.inlineControl}>
-                  <input
-                    type="radio"
-                    name="extension-default-host"
-                    checked={fallbackDefault === host.id}
-                    disabled={!active.has(host.id)}
-                    onChange={() => update({ defaultHostId: host.id })}
-                  />
-                  {t("extensionSettingsHostDefault")}
-                </label>
+                <Radio
+                  name="extension-default-host"
+                  label={t("extensionSettingsHostDefault")}
+                  checked={fallbackDefault === host.id}
+                  disabled={!active.has(host.id)}
+                  onCheckedChange={() => update({ defaultHostId: host.id })}
+                />
               </li>
             ))}
           </ul>
@@ -240,7 +239,8 @@ export function BrowserExtensionSettings() {
             </li>
           ))}
           <li className={styles.addSite}>
-            <input
+            <TextInput
+              className={styles.siteInput}
               aria-label={t("extensionSettingsAddSite")}
               placeholder="github.com"
               value={newSite}
@@ -259,12 +259,13 @@ export function BrowserExtensionSettings() {
             {siteError}
           </p>
         )}
-        <label className={styles.allowlist}>
-          <span>
-            <strong>{t("extensionSettingsAllowlist")}</strong>
-            <span>{t("extensionSettingsAllowlistDescription")}</span>
-          </span>
-          <textarea
+        <Field
+          label={t("extensionSettingsAllowlist")}
+          hint={t("extensionSettingsAllowlistDescription")}
+          className={styles.allowlist}
+        >
+          <Textarea
+            mono
             rows={4}
             value={allowlist}
             onChange={(event) => setAllowlist(event.target.value)}
@@ -277,7 +278,7 @@ export function BrowserExtensionSettings() {
               })
             }
           />
-        </label>
+        </Field>
         <SettingsItem
           label={t("extensionSettingsCollapseMerged")}
           description={t("extensionSettingsCollapseMergedHelp")}

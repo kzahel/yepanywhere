@@ -18,6 +18,7 @@ import {
 import { Button } from "../../components/ui/Button";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
+import { Select } from "../../components/ui/Field";
 import {
   CONVERSATION_VIEW_TURN_LIMIT_STEP,
   MAX_CONVERSATION_VIEW_TURN_LIMIT,
@@ -607,8 +608,7 @@ export function ToolbarSettings() {
           label={t("audioMemoDefaultAction")}
           description={t("audioMemoDefaultActionDescription")}
         >
-          <select
-            className="settings-select"
+          <Select
             value={attachmentAction}
             onChange={(event) =>
               setAttachmentAction(event.target.value as AttachmentAction)
@@ -619,15 +619,14 @@ export function ToolbarSettings() {
             <option value="menu">{t("audioMemoShareMenu")}</option>
             <option value="files">{t("toolbarAttachFiles")}</option>
             <option value="memo">{t("audioMemoRecord")}</option>
-          </select>
+          </Select>
         </SettingsItem>
         <SettingsItem
           label={t("appearanceToolbarDefaultActionTitle")}
           description={t("appearanceToolbarDefaultActionDescription")}
           doc="site/src/content/docs/sessions-and-approvals.md#steer-queue-and-interrupt"
         >
-          <select
-            className="settings-select"
+          <Select
             value={busyComposerDefaultAction}
             onChange={(event) => {
               const next = event.target.value as BusyComposerDefaultAction;
@@ -646,15 +645,14 @@ export function ToolbarSettings() {
             <option value="queue">
               {t("appearanceToolbarDefaultActionQueue")}
             </option>
-          </select>
+          </Select>
         </SettingsItem>
 
         <SettingsItem
           label={t("appearanceToolbarCollapsedButtonTitle")}
           description={t("appearanceToolbarCollapsedButtonDescription")}
         >
-          <select
-            className="settings-select"
+          <Select
             value={collapsedComposerButton}
             onChange={(event) => {
               const next = event.target
@@ -677,7 +675,7 @@ export function ToolbarSettings() {
             <option value="microphone">
               {t("appearanceToolbarCollapsedButtonMicrophone")}
             </option>
-          </select>
+          </Select>
         </SettingsItem>
 
         <SettingsItem

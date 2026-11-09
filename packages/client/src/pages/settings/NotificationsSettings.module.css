@@ -78,8 +78,4 @@
     width: 100%;
     min-width: 0;
   }
-
-  .testActions select {
-    min-height: 44px;
-  }
 }

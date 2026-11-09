@@ -18,6 +18,7 @@ import {
 import { SpeechSmartTurnControls } from "../../components/SpeechSmartTurnControls";
 import { SpeechMessagePrefixControls } from "../../components/SpeechMessagePrefixControls";
 import { WhisperModelControls } from "../../components/WhisperModelControls";
+import { Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { SpeechBackendSetup } from "./SpeechBackendSetup";
 import { useCanAdministerHost } from "../../hooks/useActingPrincipal";
@@ -404,9 +405,8 @@ export function SpeechSettings() {
             className="model-settings-item"
           >
             <div className="speech-backend-settings-field">
-              <select
+              <Select
                 id={parakeetModelPresetId}
-                className="settings-select speech-parakeet-model-select"
                 value={selectedParakeetPreset}
                 onChange={(event) => {
                   const preset = event.currentTarget.value;
@@ -449,10 +449,9 @@ export function SpeechSettings() {
                     </option>
                   );
                 })}
-              </select>
-              <input
+              </Select>
+              <TextInput
                 id={parakeetModelInputId}
-                className="settings-input"
                 value={parakeetSpeechModel}
                 placeholder={t(
                   recentModels
@@ -550,11 +549,10 @@ export function SpeechSettings() {
           description={t("speechSettingsXaiKeyDescription")}
           className="model-settings-item"
         >
-          <input
+          <TextInput
             type="password"
             id="xai-stt-api-key"
             name="xai-stt-api-key"
-            className="settings-input"
             value={browserXaiSttApiKey}
             placeholder={t("speechSettingsXaiKeyPlaceholder")}
             autoComplete="new-password"

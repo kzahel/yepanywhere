@@ -4,12 +4,6 @@
   max-width: 44rem;
 }
 
-.field {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
 .source {
   display: grid;
   gap: 12px;
@@ -24,22 +18,11 @@
   overflow-wrap: anywhere;
 }
 
-.field input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.enabled,
 .actions {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.enabled {
-  min-height: 40px;
 }
 
 .status {

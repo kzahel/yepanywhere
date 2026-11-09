@@ -1,14 +1,6 @@
 /* Cache-billing pane controls and evidence layout. Shared settings primitives
    stay global; this module owns only this pane's vocabulary. */
 
-/* Kept literally from index.css. It has never decided the rendered width:
-   the field always sits inside `.settings-input-unit`, whose
-   `.settings-input-unit .settings-input-small { width: 4rem }` outranks any
-   single class. Left at one-class specificity so that stays true. */
-.tokenInput {
-  width: 7rem;
-}
-
 .evidence {
   container-type: inline-size;
   display: flex;
@@ -63,30 +55,7 @@
 }
 
 .expectedExpiryToggle {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
   margin-top: var(--space-3);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.expectedExpiryToggle input {
-  margin-top: 0.2rem;
-}
-
-.expectedExpiryToggle > span {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.expectedExpiryToggle strong {
-  font-size: var(--font-size-sm);
-}
-
-.expectedExpiryToggle span span {
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
 }
 
 .sliderStack {
@@ -96,7 +65,7 @@
   gap: var(--space-1);
 }
 
-.sliderStack input {
+.slider {
   width: 100%;
   accent-color: var(--accent-color);
 }
@@ -111,16 +80,7 @@
 }
 
 .recencyTextInput {
-  display: flex;
   flex: 0 0 auto;
-  flex-direction: column;
-  gap: var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.recencyTextInput input {
-  width: 4rem;
 }
 
 .chartGrid {

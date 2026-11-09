@@ -49,17 +49,6 @@
 }
 .allowlist {
   margin: 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.allowlist > span {
-  display: flex;
-  flex-direction: column;
-}
-.allowlist > span span {
-  color: var(--text-muted);
-  font-size: 13px;
 }
 .siteList li {
   display: flex;
@@ -80,27 +69,9 @@
   color: var(--text-muted);
   font-size: 12px;
 }
-.addSite input {
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
+.siteInput {
   flex: 1;
-  min-width: 0;
 }
 .siteList .addSite {
   border-style: dashed;
-}
-.allowlist textarea {
-  padding: 8px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  resize: vertical;
 }

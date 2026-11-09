@@ -11,7 +11,7 @@
   color: var(--text-primary);
   font-size: var(--font-size-sm);
 }
-.cacheLifetime input {
+.slider {
   width: 100%;
   min-height: 44px;
   margin: 0;
@@ -25,32 +25,13 @@
 }
 .control,
 .days {
-  box-sizing: border-box;
-  min-height: 36px;
-  min-width: 0;
   max-width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
 }
 .control {
   width: 240px;
 }
 .days {
   width: 80px;
-}
-.control:focus-visible,
-.days:focus-visible {
-  outline: 2px solid var(--focus-border);
-  outline-offset: 2px;
-}
-.control:disabled,
-.days:disabled {
-  opacity: 0.5;
 }
 /* Scope guidance stays above its control in both narrow settings panes and phones. */
 .settings .scopeRow {
@@ -60,7 +41,6 @@
 }
 .scopeRow .control {
   width: 100%;
-  min-height: 44px;
 }
 
 /*
@@ -93,18 +73,7 @@
  * also stops the label from wrapping into a column on a phone.
  */
 .stacked {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
   margin: var(--space-2) 0;
-}
-
-.stacked input {
-  width: 100%;
-}
-
-.names {
-  font-family: var(--font-mono, monospace);
 }
 
 .projects {

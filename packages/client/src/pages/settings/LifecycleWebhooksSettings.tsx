@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { TextInput } from "../../components/ui/Field";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 import { SettingsItem } from "./SettingsItem";
@@ -142,11 +144,11 @@ export function LifecycleWebhooksSettings() {
             <strong>{t("lifecycleWebhooksEnableTitle")}</strong>
             <p>{t("lifecycleWebhooksEnableDescription")}</p>
           </div>
-          <input
-            type="checkbox"
+          <Checkbox
+            aria-label={t("lifecycleWebhooksEnableTitle")}
             checked={enabled}
-            onChange={(e) => {
-              setEnabled(e.target.checked);
+            onCheckedChange={(checked) => {
+              setEnabled(checked);
               setHasDraftEdits(true);
               setSaveError(null);
             }}
@@ -165,11 +167,10 @@ export function LifecycleWebhooksSettings() {
             <strong>{t("lifecycleWebhooksUrlTitle")}</strong>
             <p>{t("lifecycleWebhooksUrlDescription")}</p>
           </div>
-          <input
+          <TextInput
             aria-label={t("lifecycleWebhooksUrlTitle")}
             autoComplete="off"
             type="url"
-            className="settings-input"
             id="lifecycle-webhook-url"
             name="yep-lifecycle-webhook-url"
             value={url}
@@ -196,11 +197,10 @@ export function LifecycleWebhooksSettings() {
             <strong>{t("lifecycleWebhooksTokenTitle")}</strong>
             <p>{t("lifecycleWebhooksTokenDescription")}</p>
           </div>
-          <input
+          <TextInput
             aria-label={t("lifecycleWebhooksTokenTitle")}
             autoComplete="new-password"
             type="password"
-            className="settings-input"
             id="lifecycle-webhook-token"
             name="yep-lifecycle-webhook-token"
             value={token}
@@ -225,11 +225,11 @@ export function LifecycleWebhooksSettings() {
             <strong>{t("lifecycleWebhooksDryRunTitle")}</strong>
             <p>{t("lifecycleWebhooksDryRunDescription")}</p>
           </div>
-          <input
-            type="checkbox"
+          <Checkbox
+            aria-label={t("lifecycleWebhooksDryRunTitle")}
             checked={dryRun}
-            onChange={(e) => {
-              setDryRun(e.target.checked);
+            onCheckedChange={(checked) => {
+              setDryRun(checked);
               setHasDraftEdits(true);
               setSaveError(null);
             }}

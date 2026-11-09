@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { limitedUserDefaultsApi } from "../../api/limitedUserDefaultsClient";
 import { Button, IconButton } from "../../components/ui/Button";
+import { TextInput } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import { portableBrowserSettings } from "../../lib/limitedUserBrowserDefaults";
 import styles from "./LimitedUserBrowserDefaults.module.css";
@@ -149,9 +150,8 @@ export function LimitedUserBrowserDefaults() {
                   >
                     {label}
                   </label>
-                  <input
+                  <TextInput
                     id={`browser-default-${key}`}
-                    className={styles.value}
                     value={value}
                     disabled={operation !== null}
                     onChange={(event) =>

@@ -11,6 +11,11 @@
   font-size: var(--font-size-sm);
 }
 
+/* The select keeps its intrinsic width beside the label. */
+.filterSelect {
+  width: auto;
+}
+
 /* Tightens the shared `.settings-group` rhythm for this dense catalog. The
    global class is compounded so the override does not depend on whether the
    module or index.css is emitted last. */

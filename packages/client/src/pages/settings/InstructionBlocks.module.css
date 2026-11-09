@@ -12,19 +12,9 @@
   align-items: start;
   gap: 6px;
 }
-.block textarea {
+/* Each block grows with its text. */
+.text {
   display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 80px;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font: inherit;
-  line-height: 1.45;
-  resize: vertical;
   field-sizing: content;
   overflow-wrap: anywhere;
 }
@@ -47,17 +37,6 @@
 .panel h3 {
   margin: 0;
   font-size: 15px;
-}
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-}
-.checkbox input {
-  accent-color: var(--accent-color);
-  width: 18px;
-  height: 18px;
 }
 .actions {
   display: flex;

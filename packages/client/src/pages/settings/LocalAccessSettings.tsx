@@ -13,6 +13,7 @@ import {
 } from "../../api/client";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Button } from "../../components/ui/Button";
+import { Textarea, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { isConnectionImpactDeclined } from "../../api/connectionImpact";
 import { useOptionalAuth } from "../../contexts/AuthContext";
@@ -627,8 +628,8 @@ export function LocalAccessSettings() {
                   <p>{t("fileAccessCustomDescription")}</p>
                 </div>
                 <div className={styles.customFoldersControls}>
-                  <textarea
-                    className={`${styles.customFoldersInput} settings-input`}
+                  <Textarea
+                    className={styles.customFoldersInput}
                     rows={3}
                     aria-label={t("fileAccessCustomTitle")}
                     value={fileAccess.customText}
@@ -1042,9 +1043,9 @@ export function LocalAccessSettings() {
                   </span>
                 </span>
               ) : (
-                <input
+                <TextInput
                   type="number"
-                  className="settings-input-small"
+                  className={styles.port}
                   disabled={!canChangeListeners}
                   value={localhostPort}
                   onChange={(e) => {
@@ -1127,9 +1128,8 @@ export function LocalAccessSettings() {
               description={t("localAccessCustomIpDescription")}
               className="settings-item-inline-field"
             >
-              <input
-                type="text"
-                className="settings-input"
+              <TextInput
+                className={styles.inlineField}
                 placeholder="192.168.1.100"
                 value={customIp}
                 onChange={(e) => setCustomIp(e.target.value)}
@@ -1157,9 +1157,8 @@ export function LocalAccessSettings() {
             description={t("localAccessAllowedHostsDescription")}
             className="settings-item-inline-field"
           >
-            <input
-              type="text"
-              className="settings-input"
+            <TextInput
+              className={styles.inlineField}
               placeholder={t("localAccessAllowedHostsPlaceholder")}
               value={allowedHostsText}
               onChange={(e) => {
@@ -1229,8 +1228,7 @@ export function LocalAccessSettings() {
                 <>
                   {/* Hidden username field to prevent Chrome from using port as username */}
                   <HideInSettingsSearch>
-                    <input
-                      type="text"
+                    <TextInput
                       name="username"
                       autoComplete="username"
                       style={{
@@ -1254,9 +1252,9 @@ export function LocalAccessSettings() {
                     }
                     className="settings-item-inline-field"
                   >
-                    <input
+                    <TextInput
                       type="password"
-                      className="settings-input"
+                      className={styles.inlineField}
                       value={authPassword}
                       onChange={(e) => {
                         setAuthPassword(e.target.value);
@@ -1276,16 +1274,10 @@ export function LocalAccessSettings() {
                       label={t("localAccessConfirmPasswordTitle")}
                       className="settings-item-inline-field"
                     >
-                      <input
+                      <TextInput
                         type="password"
-                        className={`settings-input ${
-                          feedback?.kind === "mismatch"
-                            ? styles.inputInvalid
-                            : feedback?.kind === "match"
-                              ? styles.inputValid
-                              : ""
-                        }`}
-                        aria-invalid={feedback?.kind === "mismatch"}
+                        className={styles.inlineField}
+                        invalid={feedback?.kind === "mismatch"}
                         aria-describedby="local-access-password-feedback"
                         value={authPasswordConfirm}
                         onChange={(e) => {

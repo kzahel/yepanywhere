@@ -12,7 +12,9 @@ import {
   buttonClassName,
   IconButton,
 } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
@@ -453,41 +455,35 @@ function ArtifactSettingsForm({
     >
       <p>{t("appsSettingsAutosave")}</p>
       <fieldset className={styles.fields} disabled={status.locked}>
-        <label className={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={localEnabled}
-            onChange={(e) => {
-              setLocalEnabled(e.target.checked);
-              void save({ localEnabled: e.target.checked });
-            }}
-          />
-          {t("artifactLocalEnabled")}
-        </label>
+        <Checkbox
+          label={t("artifactLocalEnabled")}
+          checked={localEnabled}
+          onCheckedChange={(checked) => {
+            setLocalEnabled(checked);
+            void save({ localEnabled: checked });
+          }}
+        />
         {localEnabled && (
-          <label>
-            {t("artifactLocalOrigin")}
-            <input
+          <Field label={t("artifactLocalOrigin")}>
+            <TextInput
               type="url"
               value={localOrigin}
               onBlur={() => void save()}
               onChange={(e) => setLocalOrigin(e.target.value)}
             />
-          </label>
+          </Field>
         )}
-        <label>
-          {t("artifactPublicOrigin")}
-          <input
+        <Field label={t("artifactPublicOrigin")}>
+          <TextInput
             type="url"
             value={publicOrigin}
             onBlur={() => void save()}
             onChange={(e) => setPublicOrigin(e.target.value)}
           />
-        </label>
+        </Field>
         <p>{t("artifactPublicHint")}</p>
-        <label>
-          {t("artifactPort")}
-          <input
+        <Field label={t("artifactPort")}>
+          <TextInput
             type="number"
             min={1}
             max={65535}
@@ -495,7 +491,7 @@ function ArtifactSettingsForm({
             onBlur={() => void save()}
             onChange={(e) => setPort(e.target.value)}
           />
-        </label>
+        </Field>
         <p>{t("artifactPortHint")}</p>
         {expiryDays !== undefined ? (
           <>
@@ -543,31 +539,24 @@ function ArtifactSettingsForm({
         )}
         {vhostsSupported && (
           <>
-            <label>
-              {t("artifactVhostPublicRoot")}
-              <input
-                type="text"
+            <Field label={t("artifactVhostPublicRoot")}>
+              <TextInput
                 value={vhostPublicRoot}
                 onBlur={() => void save()}
                 autoComplete="off"
                 spellCheck={false}
                 onChange={(e) => setVhostPublicRoot(e.target.value)}
               />
-            </label>
+            </Field>
             <p>{t("artifactVhostPublicRootHint", { port })}</p>
-            <label className={styles.toggle}>
-              <input
-                type="checkbox"
-                checked={alwaysRewriteVhostLinks}
-                onChange={(event) => {
-                  setAlwaysRewriteVhostLinks(event.target.checked);
-                  void save({
-                    alwaysRewriteVhostLinks: event.target.checked,
-                  });
-                }}
-              />
-              {t("artifactAlwaysRewriteVhostLinks")}
-            </label>
+            <Checkbox
+              label={t("artifactAlwaysRewriteVhostLinks")}
+              checked={alwaysRewriteVhostLinks}
+              onCheckedChange={(checked) => {
+                setAlwaysRewriteVhostLinks(checked);
+                void save({ alwaysRewriteVhostLinks: checked });
+              }}
+            />
             <p>{t("artifactAlwaysRewriteVhostLinksHint")}</p>
           </>
         )}
@@ -622,10 +611,8 @@ function ArtifactSettingsForm({
                       className={styles.vhostRow}
                       disabled={status.locked}
                     >
-                      <label>
-                        {t("artifactVhostName")}
-                        <input
-                          type="text"
+                      <Field label={t("artifactVhostName")}>
+                        <TextInput
                           value={row.name}
                           onBlur={() => void save()}
                           autoComplete="off"
@@ -640,11 +627,10 @@ function ArtifactSettingsForm({
                             )
                           }
                         />
-                      </label>
+                      </Field>
                       {sitesSupported && (
-                        <label>
-                          {t("artifactVhostServes")}
-                          <select
+                        <Field label={t("artifactVhostServes")}>
+                          <Select
                             value={row.kind}
                             onChange={(e) => {
                               const kind = e.target.value as VhostDraft["kind"];
@@ -673,15 +659,16 @@ function ArtifactSettingsForm({
                             <option value="files">
                               {t("artifactVhostServesFiles")}
                             </option>
-                          </select>
-                        </label>
+                          </Select>
+                        </Field>
                       )}
                       {row.kind === "files" ? (
-                        <label className={styles.pathField}>
-                          {t("artifactVhostPath")}
+                        <Field
+                          label={t("artifactVhostPath")}
+                          className={styles.pathField}
+                        >
                           <span className={styles.withLinkIcon}>
-                            <input
-                              type="text"
+                            <TextInput
                               value={row.path}
                               onBlur={() => void save()}
                               placeholder="~/site/index.html"
@@ -706,12 +693,11 @@ function ArtifactSettingsForm({
                               />
                             )}
                           </span>
-                        </label>
+                        </Field>
                       ) : (
                         <>
-                          <label>
-                            {t("artifactVhostPort")}
-                            <input
+                          <Field label={t("artifactVhostPort")}>
+                            <TextInput
                               type="number"
                               min={1}
                               max={65535}
@@ -730,11 +716,9 @@ function ArtifactSettingsForm({
                                 )
                               }
                             />
-                          </label>
-                          <label>
-                            {t("artifactVhostEnv")}
-                            <input
-                              type="text"
+                          </Field>
+                          <Field label={t("artifactVhostEnv")}>
+                            <TextInput
                               value={row.env ?? ""}
                               onBlur={() => void save()}
                               placeholder="PLANNOTATOR_PORT"
@@ -750,7 +734,7 @@ function ArtifactSettingsForm({
                                 )
                               }
                             />
-                          </label>
+                          </Field>
                         </>
                       )}
                       <Button
@@ -780,36 +764,29 @@ function ArtifactSettingsForm({
                       )}
                       {access.supported && (
                         <div className={styles.access}>
-                          <label className={styles.toggle}>
-                            <input
-                              type="checkbox"
-                              checked={row.public === true}
-                              disabled={
-                                vhostOauthPolicy(
-                                  oauth.status?.policies,
-                                  row.name,
-                                ) !== undefined
-                              }
-                              onChange={(event) => {
-                                const next = vhosts.map((item, i) =>
-                                  i === index
-                                    ? {
-                                        ...item,
-                                        public: event.target.checked,
-                                      }
-                                    : item,
-                                );
-                                setVhosts(next);
-                                void save({ vhosts: next });
-                              }}
-                            />
-                            {t("appAccessPublic")}
-                          </label>
+                          <Checkbox
+                            label={t("appAccessPublic")}
+                            checked={row.public === true}
+                            disabled={
+                              vhostOauthPolicy(
+                                oauth.status?.policies,
+                                row.name,
+                              ) !== undefined
+                            }
+                            onCheckedChange={(checked) => {
+                              const next = vhosts.map((item, i) =>
+                                i === index
+                                  ? { ...item, public: checked }
+                                  : item,
+                              );
+                              setVhosts(next);
+                              void save({ vhosts: next });
+                            }}
+                          />
                           {row.kind === "files" && row.public && (
                             <div className={styles.password}>
-                              <label>
-                                {t("artifactVhostPassword")}
-                                <input
+                              <Field label={t("artifactVhostPassword")}>
+                                <TextInput
                                   type="password"
                                   value={row.password ?? ""}
                                   autoComplete="new-password"
@@ -833,7 +810,7 @@ function ArtifactSettingsForm({
                                     )
                                   }
                                 />
-                              </label>
+                              </Field>
                               {row.passwordProtected && (
                                 <Button
                                   onClick={() => {

@@ -55,23 +55,27 @@ describe("StorageSettings", () => {
   it("shows the non-project, on-demand defaults and saves explicit opt-ins", () => {
     render(<StorageSettings />);
 
-    const appDataChoice = screen.getByLabelText(
-      "projectDataLocationAppData",
-    ) as HTMLInputElement;
-    const onDemandChoice = screen.getByLabelText(
-      "toolResultImagesOnDemand",
-    ) as HTMLInputElement;
-    expect(appDataChoice.checked).toBe(true);
-    expect(onDemandChoice.checked).toBe(true);
-    expect(appDataChoice.closest("label")?.textContent).toContain(
+    const appDataChoice = screen.getByRole("radio", {
+      name: "projectDataLocationAppData",
+    });
+    const onDemandChoice = screen.getByRole("radio", {
+      name: "toolResultImagesOnDemand",
+    });
+    expect(appDataChoice.getAttribute("aria-checked")).toBe("true");
+    expect(onDemandChoice.getAttribute("aria-checked")).toBe("true");
+    expect(appDataChoice.textContent).toContain(
       "projectDataLocationAppDataDescription",
     );
-    expect(onDemandChoice.closest("label")?.textContent).toContain(
+    expect(onDemandChoice.textContent).toContain(
       "toolResultImagesOnDemandDescription",
     );
 
-    fireEvent.click(screen.getByLabelText("projectDataLocationProject"));
-    fireEvent.click(screen.getByLabelText("toolResultImagesPreserve"));
+    fireEvent.click(
+      screen.getByRole("radio", { name: "projectDataLocationProject" }),
+    );
+    fireEvent.click(
+      screen.getByRole("radio", { name: "toolResultImagesPreserve" }),
+    );
 
     expect(updateSettings).toHaveBeenNthCalledWith(1, {
       projectDirectoryStorage: "project",

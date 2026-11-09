@@ -26,15 +26,6 @@
 
 .codeInput {
   flex: 1 1 16rem;
-  min-width: 0;
-  min-height: 36px;
-  padding: 6px 8px;
-  box-sizing: border-box;
-  font-family: var(--font-mono);
-  color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
 }
 
 .output {

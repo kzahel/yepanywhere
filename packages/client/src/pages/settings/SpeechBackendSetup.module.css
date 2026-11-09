@@ -28,21 +28,6 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
-.enable {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  cursor: pointer;
-}
-.enable input {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-.enable[data-locked] {
-  cursor: not-allowed;
-}
 .environmentLock {
   padding: 8px;
   border-left: 3px solid var(--border-color);

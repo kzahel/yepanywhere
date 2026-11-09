@@ -6,21 +6,19 @@
   min-width: 0;
 }
 .option {
-  display: flex;
+  padding-block: var(--space-2);
+}
+.template {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 40px;
-  overflow-wrap: anywhere;
 }
-.option input,
-.option img {
+.template img {
   flex: none;
 }
-.option small {
-  display: block;
-  color: var(--text-muted);
-}
 .choices {
+  display: flex;
+  flex-direction: column;
   margin-inline-start: var(--space-3);
 }
 .grant p {

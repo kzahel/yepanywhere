@@ -1,4 +1,6 @@
 import type { TemplateCreationGrant } from "@yep-anywhere/shared";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useProjectTemplateChoices } from "../../hooks/useProjectTemplateChoices";
 import { useI18n } from "../../i18n";
 import styles from "./UserTemplateGrant.module.css";
@@ -24,21 +26,20 @@ export function UserTemplateGrant({
   return (
     <fieldset className={styles.grant}>
       <legend>{t("usersTemplatesHeading")}</legend>
-      {(["none", "selected", "any"] as const).map((mode) => (
-        <label className={styles.option} key={mode}>
-          <input
-            type="radio"
-            name="template-creation-grant"
-            checked={value.mode === mode}
-            onChange={() =>
-              onChange(
-                mode === "selected" ? { mode, templates: selected } : { mode },
-              )
-            }
-          />
-          {t(`usersTemplates_${mode}`)}
-        </label>
-      ))}
+      <SegmentedControl
+        aria-label={t("usersTemplatesHeading")}
+        activation="manual"
+        value={value.mode}
+        options={(["none", "selected", "any"] as const).map((mode) => ({
+          value: mode,
+          label: t(`usersTemplates_${mode}`),
+        }))}
+        onChange={(mode) =>
+          onChange(
+            mode === "selected" ? { mode, templates: selected } : { mode },
+          )
+        }
+      />
       {value.mode === "selected" && (
         <div className={styles.choices}>
           {[
@@ -60,40 +61,38 @@ export function UserTemplateGrant({
                 entry.templateId === item.templateId,
             );
             return (
-              <label
+              <Checkbox
                 className={styles.option}
                 key={`${item.sourceId}/${item.templateId}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() =>
-                    onChange({
-                      mode: "selected",
-                      templates: checked
-                        ? selected.filter(
-                            (entry) =>
-                              entry.sourceId !== item.sourceId ||
-                              entry.templateId !== item.templateId,
-                          )
-                        : [
-                            ...selected,
-                            {
-                              sourceId: item.sourceId,
-                              templateId: item.templateId,
-                            },
-                          ],
-                    })
-                  }
-                />
-                {item.icon && (
-                  <img src={item.icon} alt="" width="24" height="24" />
-                )}
-                <span>
-                  {item.title}
-                  <small>{item.sourceId}</small>
-                </span>
-              </label>
+                label={
+                  <span className={styles.template}>
+                    {item.icon && (
+                      <img src={item.icon} alt="" width="24" height="24" />
+                    )}
+                    {item.title}
+                  </span>
+                }
+                description={item.sourceId}
+                checked={checked}
+                onCheckedChange={() =>
+                  onChange({
+                    mode: "selected",
+                    templates: checked
+                      ? selected.filter(
+                          (entry) =>
+                            entry.sourceId !== item.sourceId ||
+                            entry.templateId !== item.templateId,
+                        )
+                      : [
+                          ...selected,
+                          {
+                            sourceId: item.sourceId,
+                            templateId: item.templateId,
+                          },
+                        ],
+                  })
+                }
+              />
             );
           })}
           {templates.length === 0 && <p>{t("templateNoReady")}</p>}

@@ -6,6 +6,7 @@ import {
   SERVER_CAPABILITIES,
   serverHasCapability,
 } from "@yep-anywhere/shared";
+import { Select } from "../../components/ui/Field";
 import { useProviders } from "../../hooks/useProviders";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useVersion } from "../../hooks/useVersion";
@@ -76,8 +77,7 @@ export function SteerNowProviderDefaultRow({
       doc={DOC}
       searchable={searchable}
     >
-      <select
-        className="settings-select"
+      <Select
         value={own === undefined ? "inherit" : own ? "on" : "off"}
         aria-label={title}
         onChange={(event) => save(event.target.value)}
@@ -91,7 +91,7 @@ export function SteerNowProviderDefaultRow({
         </option>
         <option value="on">{t("providerSteerNowDefaultOn")}</option>
         <option value="off">{t("providerSteerNowDefaultOff")}</option>
-      </select>
+      </Select>
     </SettingsItem>
   );
 }

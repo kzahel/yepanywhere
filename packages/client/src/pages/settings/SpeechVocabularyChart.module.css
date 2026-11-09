@@ -10,14 +10,6 @@
   gap: 12px;
 }
 
-.controls label {
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-}
-
-.controls input,
-.controls select,
 .unknownWord {
   min-height: 44px;
   border: 1px solid var(--border-color);
@@ -28,7 +20,7 @@
   font: inherit;
 }
 
-.controls input {
+.minimum {
   width: 100px;
 }
 

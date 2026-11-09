@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type EnvSettingEntry } from "../../api/client";
+import { Select } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import styles from "./EnvironmentSettings.module.css";
 import { SettingsItem } from "./SettingsItem";
@@ -76,10 +77,13 @@ export function EnvironmentSettings() {
         {!error && entries === null && <p>{t("environmentLoading")}</p>}
 
         {!error && entries && (
-          <label className={styles.filter}>
-            <span>{t("environmentShowLabel")}</span>
-            <select
-              className="settings-select"
+          <div className={styles.filter}>
+            <label htmlFor="environment-show">
+              {t("environmentShowLabel")}
+            </label>
+            <Select
+              id="environment-show"
+              className={styles.filterSelect}
               value={showAll ? "all" : "set"}
               onChange={(event) => setShowAll(event.target.value === "all")}
             >
@@ -89,8 +93,8 @@ export function EnvironmentSettings() {
               <option value="all">
                 {t("environmentShowAll", { count: entries.length })}
               </option>
-            </select>
-          </label>
+            </Select>
+          </div>
         )}
 
         {!error && entries && !showAll && groups.length === 0 && (

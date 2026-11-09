@@ -24,6 +24,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ServerSettings } from "../../api/client";
 import { Button, IconButton } from "../../components/ui/Button";
+import { Checkbox, Radio } from "../../components/ui/Checkbox";
+import { Field, Select, TextInput } from "../../components/ui/Field";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useI18n } from "../../i18n";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import styles from "./GatewayServicesSettings.module.css";
@@ -557,38 +560,26 @@ export function GatewayServicesSettings({
       {services.length > 1 && (
         <p className="settings-hint">{t("providersGatewayServiceOrderHint")}</p>
       )}
-      <label className={styles.check}>
-        <input
-          type="checkbox"
-          checked={exportEnabled}
-          onChange={(event) =>
-            void updateSetting(
-              "gatewayServiceExportEnabled",
-              event.target.checked,
-            )
-          }
-        />{" "}
-        <strong>{t("providersGatewayServiceExportTitle")}</strong>
-      </label>
-      <p className="settings-hint">
-        {t("providersGatewayServiceExportDescription")}
-      </p>
-      <label className={styles.check}>
-        <input
-          type="checkbox"
-          checked={effortDetectionEnabled}
-          onChange={(event) =>
-            void updateSetting(
-              "gatewayServiceEffortDetection",
-              event.target.checked,
-            )
-          }
-        />{" "}
-        <strong>{t("providersGatewayServiceEffortDetectionTitle")}</strong>
-      </label>
-      <p className="settings-hint">
-        {t("providersGatewayServiceEffortDetectionDescription")}
-      </p>
+      <Checkbox
+        className={styles.setting}
+        label={<strong>{t("providersGatewayServiceExportTitle")}</strong>}
+        description={t("providersGatewayServiceExportDescription")}
+        checked={exportEnabled}
+        onCheckedChange={(checked) =>
+          void updateSetting("gatewayServiceExportEnabled", checked)
+        }
+      />
+      <Checkbox
+        className={styles.setting}
+        label={
+          <strong>{t("providersGatewayServiceEffortDetectionTitle")}</strong>
+        }
+        description={t("providersGatewayServiceEffortDetectionDescription")}
+        checked={effortDetectionEnabled}
+        onCheckedChange={(checked) =>
+          void updateSetting("gatewayServiceEffortDetection", checked)
+        }
+      />
       <form
         className={styles.form}
         onSubmit={(event) => {
@@ -613,9 +604,9 @@ export function GatewayServicesSettings({
           return (
             <fieldset className={styles.card} key={service.id}>
               <legend className={styles.legend}>
-                <input
-                  type="text"
-                  className={`settings-input ${styles.id}`}
+                <TextInput
+                  size="small"
+                  className={styles.id}
                   value={service.id}
                   maxLength={32}
                   onChange={(event) =>
@@ -652,11 +643,12 @@ export function GatewayServicesSettings({
                   here — and the short fields after it pair off. Each hint sits
                   under its own field rather than as a full-width band between
                   rows, which is what made two services fill a phone screen. */}
-              <label className={`${styles.field} ${styles.span2}`}>
-                <span>{t("providersGatewayServiceUrlLabel")}</span>
-                <input
+              <Field
+                label={t("providersGatewayServiceUrlLabel")}
+                className={styles.span2}
+              >
+                <TextInput
                   type="url"
-                  className="settings-input"
                   value={service.url}
                   placeholder={EXAMPLE_URL}
                   onChange={(event) =>
@@ -665,13 +657,13 @@ export function GatewayServicesSettings({
                   onBlur={() => leaveEndpointField(index)}
                   aria-label={t("providersGatewayServiceUrlAria")}
                 />
-              </label>
+              </Field>
 
-              <label className={styles.field}>
-                <span>{t("providersGatewayServiceShortNameLabel")}</span>
-                <input
-                  type="text"
-                  className="settings-input"
+              <Field
+                label={t("providersGatewayServiceShortNameLabel")}
+                hint={t("providersGatewayServiceShortNameHint")}
+              >
+                <TextInput
                   value={service.shortName}
                   maxLength={MAX_GATEWAY_SERVICE_SHORT_NAME_LENGTH}
                   placeholder={service.id}
@@ -683,63 +675,41 @@ export function GatewayServicesSettings({
                   onBlur={() => void save()}
                   aria-label={t("providersGatewayServiceShortNameAria")}
                 />
-                <p className={styles.hint}>
-                  {t("providersGatewayServiceShortNameHint")}
-                </p>
-              </label>
+              </Field>
 
               {/* Not a full-width band: three short checkboxes wrap to about
                   the height of the short-name hint beside them, so they fill
                   the cell that hint would otherwise leave empty. */}
               <div className={styles.row}>
-                <label className={styles.check}>
-                  <input
-                    type="radio"
-                    name="gateway-default-service"
-                    // Only a saved entry can be the default; a save naming an
-                    // unsaved one falls back to the first saved entry.
-                    disabled={unsaved}
-                    checked={defaultId === service.id}
-                    onChange={() => chooseDefault(service.id)}
-                  />{" "}
-                  {t("providersGatewayServiceDefault")}
-                </label>
-                <label className={styles.check}>
-                  <input
-                    type="checkbox"
-                    checked={service.enabled}
-                    onChange={(event) =>
-                      updateService(
-                        index,
-                        { enabled: event.target.checked },
-                        { save: true },
-                      )
-                    }
-                  />{" "}
-                  {t("providersGatewayServiceEnabled")}
-                </label>
-                <label className={styles.check}>
-                  <input
-                    type="checkbox"
-                    checked={service.codexEnabled}
-                    onChange={(event) =>
-                      updateService(
-                        index,
-                        { codexEnabled: event.target.checked },
-                        { save: true },
-                      )
-                    }
-                  />{" "}
-                  {t("providersGatewayServiceCodex")}
-                </label>
+                <Radio
+                  name="gateway-default-service"
+                  label={t("providersGatewayServiceDefault")}
+                  // Only a saved entry can be the default; a save naming an
+                  // unsaved one falls back to the first saved entry.
+                  disabled={unsaved}
+                  checked={defaultId === service.id}
+                  onCheckedChange={() => chooseDefault(service.id)}
+                />
+                <Checkbox
+                  label={t("providersGatewayServiceEnabled")}
+                  checked={service.enabled}
+                  onCheckedChange={(enabled) =>
+                    updateService(index, { enabled }, { save: true })
+                  }
+                />
+                <Checkbox
+                  label={t("providersGatewayServiceCodex")}
+                  checked={service.codexEnabled}
+                  onCheckedChange={(codexEnabled) =>
+                    updateService(index, { codexEnabled }, { save: true })
+                  }
+                />
               </div>
 
-              <label className={styles.field}>
-                <span>{t("providersGatewayServiceContextLabel")}</span>
-                <input
+              <Field label={t("providersGatewayServiceContextLabel")}>
+                <TextInput
                   type="number"
                   min={1}
-                  className="settings-input"
                   value={numberFieldValue(service.contextWindowTokens)}
                   onChange={(event) =>
                     updateService(index, {
@@ -749,13 +719,11 @@ export function GatewayServicesSettings({
                   onBlur={() => void save()}
                   aria-label={t("providersGatewayServiceContextAria")}
                 />
-              </label>
-              <label className={styles.field}>
-                <span>{t("providersGatewayServiceOutputLabel")}</span>
-                <input
+              </Field>
+              <Field label={t("providersGatewayServiceOutputLabel")}>
+                <TextInput
                   type="number"
                   min={1}
-                  className="settings-input"
                   value={numberFieldValue(service.maxOutputTokens)}
                   onChange={(event) =>
                     updateService(index, {
@@ -765,7 +733,7 @@ export function GatewayServicesSettings({
                   onBlur={() => void save()}
                   aria-label={t("providersGatewayServiceOutputAria")}
                 />
-              </label>
+              </Field>
               <p className={`${styles.hint} ${styles.wide}`}>
                 {t("providersGatewayServiceSizesHint")}
               </p>
@@ -782,11 +750,8 @@ export function GatewayServicesSettings({
               <details className={`${styles.advanced} ${styles.wide}`}>
                 <summary>{t("providersGatewayServiceAdvanced")}</summary>
                 <div className={styles.advancedBody}>
-                  <label className={styles.field}>
-                    <span>{t("providersGatewayServiceLabelLabel")}</span>
-                    <input
-                      type="text"
-                      className="settings-input"
+                  <Field label={t("providersGatewayServiceLabelLabel")}>
+                    <TextInput
                       value={service.label}
                       maxLength={MAX_GATEWAY_SERVICE_LABEL_LENGTH}
                       onChange={(event) =>
@@ -797,13 +762,18 @@ export function GatewayServicesSettings({
                       onBlur={() => void save()}
                       aria-label={t("providersGatewayServiceLabelAria")}
                     />
-                  </label>
+                  </Field>
 
-                  <label className={`${styles.field} ${styles.span2}`}>
-                    <span>{t("providersGatewayServiceCommandLabel")}</span>
-                    <input
-                      type="text"
-                      className="settings-input"
+                  <Field
+                    label={t("providersGatewayServiceCommandLabel")}
+                    hint={
+                      loopback
+                        ? t("providersGatewayServiceCommandHint")
+                        : t("providersGatewayServiceCommandRemoteHint")
+                    }
+                    className={styles.span2}
+                  >
+                    <TextInput
                       value={service.serviceCommand ?? ""}
                       maxLength={MAX_GATEWAY_SERVICE_COMMAND_LENGTH}
                       disabled={!loopback}
@@ -819,35 +789,23 @@ export function GatewayServicesSettings({
                       onBlur={() => void save()}
                       aria-label={t("providersGatewayServiceCommandAria")}
                     />
-                    <p className={styles.hint}>
-                      {loopback
-                        ? t("providersGatewayServiceCommandHint")
-                        : t("providersGatewayServiceCommandRemoteHint")}
-                    </p>
-                  </label>
+                  </Field>
 
                   <div className={`${styles.row} ${styles.wide}`}>
-                    <label className={styles.check}>
-                      <input
-                        type="checkbox"
-                        checked={service.autoStop}
-                        disabled={!loopback || !service.serviceCommand}
-                        onChange={(event) =>
-                          updateService(
-                            index,
-                            { autoStop: event.target.checked },
-                            { save: true },
-                          )
-                        }
-                      />{" "}
-                      {t("providersGatewayServiceAutoStop")}
-                    </label>
+                    <Checkbox
+                      label={t("providersGatewayServiceAutoStop")}
+                      checked={service.autoStop}
+                      disabled={!loopback || !service.serviceCommand}
+                      onCheckedChange={(autoStop) =>
+                        updateService(index, { autoStop }, { save: true })
+                      }
+                    />
                     <label className={`${styles.field} ${styles.inline}`}>
                       <span>{t("providersGatewayServiceAutoStopAfter")}</span>
-                      <input
+                      <TextInput
                         type="number"
                         min={0}
-                        className="settings-input"
+                        className={styles.delay}
                         value={service.autoStopAfterSeconds}
                         disabled={!service.autoStop}
                         onChange={(event) =>
@@ -867,12 +825,10 @@ export function GatewayServicesSettings({
                     </p>
                   </div>
 
-                  <label className={styles.field}>
-                    <span>{t("providersGatewayServiceMaxModelsLabel")}</span>
-                    <input
+                  <Field label={t("providersGatewayServiceMaxModelsLabel")}>
+                    <TextInput
                       type="number"
                       min={1}
-                      className="settings-input"
                       value={numberFieldValue(service.maxModels)}
                       onChange={(event) =>
                         updateService(index, {
@@ -882,12 +838,10 @@ export function GatewayServicesSettings({
                       onBlur={() => void save()}
                       aria-label={t("providersGatewayServiceMaxModelsAria")}
                     />
-                  </label>
+                  </Field>
 
-                  <label className={styles.field}>
-                    <span>{t("providersGatewayServiceWireApiLabel")}</span>
-                    <select
-                      className="settings-input"
+                  <Field label={t("providersGatewayServiceWireApiLabel")}>
+                    <Select
                       value={service.codexWireApi}
                       onChange={(event) =>
                         updateService(
@@ -901,68 +855,60 @@ export function GatewayServicesSettings({
                           { save: true },
                         )
                       }
-                      aria-label={t("providersGatewayServiceWireApiLabel")}
                     >
                       <option value="chat">chat/completions</option>
                       <option value="responses">responses</option>
-                    </select>
-                  </label>
+                    </Select>
+                  </Field>
 
                   <div className={`${styles.field} ${styles.wide}`}>
                     <span>{t("providersGatewayServiceEffortLabel")}</span>
-                    <div className={styles.row}>
-                      <label className={styles.check}>
-                        <input
-                          type="radio"
-                          name={`gateway-effort-mode-${service.id}`}
-                          checked={!statesEffortLevels}
-                          onChange={() => void chooseAskedEffort(index)}
-                        />{" "}
-                        {t("providersGatewayServiceEffortModeAsk")}
-                      </label>
-                      <label className={styles.check}>
-                        <input
-                          type="radio"
-                          name={`gateway-effort-mode-${service.id}`}
-                          checked={statesEffortLevels}
-                          onChange={() => void chooseStatedEffort(index)}
-                        />{" "}
-                        {t("providersGatewayServiceEffortModeStated")}
-                      </label>
-                    </div>
+                    <SegmentedControl
+                      size="small"
+                      activation="manual"
+                      aria-label={t("providersGatewayServiceEffortLabel")}
+                      value={statesEffortLevels ? "stated" : "ask"}
+                      onChange={(mode) =>
+                        void (mode === "ask"
+                          ? chooseAskedEffort(index)
+                          : chooseStatedEffort(index))
+                      }
+                      options={[
+                        {
+                          value: "ask",
+                          label: t("providersGatewayServiceEffortModeAsk"),
+                        },
+                        {
+                          value: "stated",
+                          label: t("providersGatewayServiceEffortModeStated"),
+                        },
+                      ]}
+                    />
                     <div className={styles.row}>
                       {EFFORT_LEVEL_ORDER.map((level) => (
-                        <label className={styles.check} key={level}>
-                          <input
-                            type="checkbox"
-                            // Greyed out under "ask": the ticks are what "stated"
-                            // means, so an editable tick there would be a second
-                            // way to say the opposite of the chosen mode.
-                            disabled={!statesEffortLevels}
-                            checked={
-                              service.effortLevels?.includes(level) ?? false
-                            }
-                            onChange={(event) =>
-                              updateService(
-                                index,
-                                toggledEffortLevel(service, level, {
-                                  checked: event.target.checked,
-                                }),
-                                { save: true },
-                              )
-                            }
-                          />{" "}
-                          {level}
-                        </label>
+                        <Checkbox
+                          key={level}
+                          label={level}
+                          // Greyed out under "ask": the ticks are what "stated"
+                          // means, so an editable tick there would be a second
+                          // way to say the opposite of the chosen mode.
+                          disabled={!statesEffortLevels}
+                          checked={
+                            service.effortLevels?.includes(level) ?? false
+                          }
+                          onCheckedChange={(checked) =>
+                            updateService(
+                              index,
+                              toggledEffortLevel(service, level, { checked }),
+                              { save: true },
+                            )
+                          }
+                        />
                       ))}
                     </div>
                   </div>
-                  <label className={styles.field}>
-                    <span>
-                      {t("providersGatewayServiceEffortDefaultLabel")}
-                    </span>
-                    <select
-                      className="settings-input"
+                  <Field label={t("providersGatewayServiceEffortDefaultLabel")}>
+                    <Select
                       value={service.defaultEffortLevel ?? ""}
                       disabled={!service.effortLevels?.length}
                       onChange={(event) =>
@@ -978,9 +924,6 @@ export function GatewayServicesSettings({
                           { save: true },
                         )
                       }
-                      aria-label={t(
-                        "providersGatewayServiceEffortDefaultLabel",
-                      )}
                     >
                       <option value="">
                         {t("providersGatewayServiceEffortDefaultUnknown")}
@@ -990,8 +933,8 @@ export function GatewayServicesSettings({
                           {level}
                         </option>
                       ))}
-                    </select>
-                  </label>
+                    </Select>
+                  </Field>
                   {detection && (
                     <p className={`${styles.hint} ${styles.wide}`}>
                       {detection.state === "asking"
@@ -1012,10 +955,8 @@ export function GatewayServicesSettings({
                     {t("providersGatewayServiceEffortHint")}
                   </p>
 
-                  <label className={styles.field}>
-                    <span>{t("providersGatewayServiceDisableAgentLabel")}</span>
-                    <select
-                      className="settings-input"
+                  <Field label={t("providersGatewayServiceDisableAgentLabel")}>
+                    <Select
                       value={overrideValue(service.disableAgent)}
                       onChange={(event) =>
                         updateService(
@@ -1029,7 +970,6 @@ export function GatewayServicesSettings({
                           { save: true },
                         )
                       }
-                      aria-label={t("providersGatewayServiceDisableAgentLabel")}
                     >
                       <option value="inherit">
                         {t("providersGatewayServiceOverrideInherit")}
@@ -1040,15 +980,13 @@ export function GatewayServicesSettings({
                       <option value="off">
                         {t("providersGatewayServiceOverrideOff")}
                       </option>
-                    </select>
-                  </label>
+                    </Select>
+                  </Field>
 
-                  <label className={styles.field}>
-                    <span>
-                      {t("providersGatewayServiceDisablePlanModeLabel")}
-                    </span>
-                    <select
-                      className="settings-input"
+                  <Field
+                    label={t("providersGatewayServiceDisablePlanModeLabel")}
+                  >
+                    <Select
                       value={overrideValue(service.disablePlanMode)}
                       onChange={(event) =>
                         updateService(
@@ -1062,9 +1000,6 @@ export function GatewayServicesSettings({
                           { save: true },
                         )
                       }
-                      aria-label={t(
-                        "providersGatewayServiceDisablePlanModeLabel",
-                      )}
                     >
                       <option value="inherit">
                         {t("providersGatewayServiceOverrideInherit")}
@@ -1075,8 +1010,8 @@ export function GatewayServicesSettings({
                       <option value="off">
                         {t("providersGatewayServiceOverrideOff")}
                       </option>
-                    </select>
-                  </label>
+                    </Select>
+                  </Field>
 
                   <Button
                     variant="danger-outline"

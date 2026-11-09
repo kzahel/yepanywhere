@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThinkingText } from "../../components/ThinkingText";
 import { Button, IconButton } from "../../components/ui/Button";
+import { Select, TextInput } from "../../components/ui/Field";
 import tooltipStyles from "../../components/ui/TooltipLayer.module.css";
 import { renderFixedFontMath } from "../../components/ui/FixedFontMathToggle";
 import {
@@ -117,6 +118,7 @@ import {
   settingsCategoryEmojiIcons,
   settingsCategoryIcons,
 } from "./SettingsCategoryIcons";
+import styles from "./AppearanceSettings.module.css";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { InnerHtml } from "../../components/ui/InnerHtml";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
@@ -629,8 +631,8 @@ export function AppearanceSettings() {
           description={t("appearanceLanguageDescription")}
           valueText={getLocaleLabel(locale, translate)}
         >
-          <select
-            className="settings-select"
+          <Select
+            className={styles.select}
             value={locale}
             onChange={(e) =>
               setLocale(e.target.value as (typeof SUPPORTED_LOCALES)[number])
@@ -642,7 +644,7 @@ export function AppearanceSettings() {
                 {getLocaleLabel(value, translate)}
               </option>
             ))}
-          </select>
+          </Select>
         </SettingsItem>
         <SettingsItem
           label={t("appearanceThemeTitle")}
@@ -702,26 +704,23 @@ export function AppearanceSettings() {
               onCommit={setContentMaxWidth}
               aria-label={t("appearanceContentWidthTitle")}
             />
-            <span className="settings-input-unit">
-              <input
-                type="number"
-                className="settings-input-small"
-                min={MIN_CONTENT_MAX_WIDTH_PX}
-                max={MAX_CONTENT_MAX_WIDTH_PX}
-                step={10}
-                value={contentMaxWidthDraft}
-                onChange={(e) => setContentMaxWidthDraft(e.target.value)}
-                onBlur={commitContentMaxWidth}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    commitContentMaxWidth();
-                    e.currentTarget.blur();
-                  }
-                }}
-                aria-label={t("appearanceContentWidthTitle")}
-              />
-              {t("appearanceContentWidthUnit")}
-            </span>
+            <TextInput
+              type="number"
+              unit={t("appearanceContentWidthUnit")}
+              min={MIN_CONTENT_MAX_WIDTH_PX}
+              max={MAX_CONTENT_MAX_WIDTH_PX}
+              step={10}
+              value={contentMaxWidthDraft}
+              onChange={(e) => setContentMaxWidthDraft(e.target.value)}
+              onBlur={commitContentMaxWidth}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commitContentMaxWidth();
+                  e.currentTarget.blur();
+                }
+              }}
+              aria-label={t("appearanceContentWidthTitle")}
+            />
             <IconButton
               size="small"
               label={t("appearanceContentWidthReset")}
@@ -769,28 +768,25 @@ export function AppearanceSettings() {
               onCommit={setOutputToolPreviewLineCount}
               aria-label={t("appearanceOutputToolPreviewLinesLabel")}
             />
-            <span className="settings-input-unit">
-              <input
-                type="number"
-                className="settings-input-small"
-                min={OUTPUT_TOOL_PREVIEW_LINE_COUNT_MIN}
-                max={OUTPUT_TOOL_PREVIEW_LINE_COUNT_MAX}
-                step={OUTPUT_TOOL_PREVIEW_LINE_COUNT_STEP}
-                value={outputToolPreviewLineCountDraft}
-                onChange={(e) =>
-                  setOutputToolPreviewLineCountDraft(e.target.value)
+            <TextInput
+              type="number"
+              unit={t("appearanceOutputToolPreviewLinesUnit")}
+              min={OUTPUT_TOOL_PREVIEW_LINE_COUNT_MIN}
+              max={OUTPUT_TOOL_PREVIEW_LINE_COUNT_MAX}
+              step={OUTPUT_TOOL_PREVIEW_LINE_COUNT_STEP}
+              value={outputToolPreviewLineCountDraft}
+              onChange={(e) =>
+                setOutputToolPreviewLineCountDraft(e.target.value)
+              }
+              onBlur={commitOutputToolPreviewLineCount}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commitOutputToolPreviewLineCount();
+                  e.currentTarget.blur();
                 }
-                onBlur={commitOutputToolPreviewLineCount}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    commitOutputToolPreviewLineCount();
-                    e.currentTarget.blur();
-                  }
-                }}
-                aria-label={t("appearanceOutputToolPreviewLinesLabel")}
-              />
-              {t("appearanceOutputToolPreviewLinesUnit")}
-            </span>
+              }}
+              aria-label={t("appearanceOutputToolPreviewLinesLabel")}
+            />
           </div>
         </SettingsItem>
         <SettingsItem
@@ -952,28 +948,23 @@ export function AppearanceSettings() {
                   onCommit={setGeneratedTitleLength}
                   aria-label={t("appearanceGeneratedTitleLengthTitle")}
                 />
-                <span className="settings-input-unit">
-                  <input
-                    type="number"
-                    className="settings-input-small"
-                    min={GENERATED_TITLE_LENGTH_MIN}
-                    max={GENERATED_TITLE_LENGTH_MAX}
-                    step={GENERATED_TITLE_LENGTH_STEP}
-                    value={generatedTitleLengthDraft}
-                    onChange={(e) =>
-                      setGeneratedTitleLengthDraft(e.target.value)
+                <TextInput
+                  type="number"
+                  unit={t("appearanceGeneratedTitleLengthUnit")}
+                  min={GENERATED_TITLE_LENGTH_MIN}
+                  max={GENERATED_TITLE_LENGTH_MAX}
+                  step={GENERATED_TITLE_LENGTH_STEP}
+                  value={generatedTitleLengthDraft}
+                  onChange={(e) => setGeneratedTitleLengthDraft(e.target.value)}
+                  onBlur={commitGeneratedTitleLength}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      commitGeneratedTitleLength();
+                      e.currentTarget.blur();
                     }
-                    onBlur={commitGeneratedTitleLength}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        commitGeneratedTitleLength();
-                        e.currentTarget.blur();
-                      }
-                    }}
-                    aria-label={t("appearanceGeneratedTitleLengthTitle")}
-                  />
-                  {t("appearanceGeneratedTitleLengthUnit")}
-                </span>
+                  }}
+                  aria-label={t("appearanceGeneratedTitleLengthTitle")}
+                />
                 <IconButton
                   size="small"
                   label={t("appearanceGeneratedTitleLengthReset")}
@@ -1066,26 +1057,23 @@ export function AppearanceSettings() {
               onCommit={setHoverCardMaxHeightPx}
               aria-label={t("appearanceHoverCardHeightTitle")}
             />
-            <span className="settings-input-unit">
-              <input
-                type="number"
-                className="settings-input-small"
-                min={HOVERCARD_MAX_HEIGHT_MIN_PX}
-                max={HOVERCARD_MAX_HEIGHT_MAX_PX}
-                step={HOVERCARD_MAX_HEIGHT_STEP_PX}
-                value={hoverCardHeightDraft}
-                onChange={(e) => setHoverCardHeightDraft(e.target.value)}
-                onBlur={commitHoverCardHeight}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    commitHoverCardHeight();
-                    e.currentTarget.blur();
-                  }
-                }}
-                aria-label={t("appearanceHoverCardHeightTitle")}
-              />
-              {t("appearanceHoverCardHeightUnit")}
-            </span>
+            <TextInput
+              type="number"
+              unit={t("appearanceHoverCardHeightUnit")}
+              min={HOVERCARD_MAX_HEIGHT_MIN_PX}
+              max={HOVERCARD_MAX_HEIGHT_MAX_PX}
+              step={HOVERCARD_MAX_HEIGHT_STEP_PX}
+              value={hoverCardHeightDraft}
+              onChange={(e) => setHoverCardHeightDraft(e.target.value)}
+              onBlur={commitHoverCardHeight}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commitHoverCardHeight();
+                  e.currentTarget.blur();
+                }
+              }}
+              aria-label={t("appearanceHoverCardHeightTitle")}
+            />
             <span className="settings-hovercard-lines">
               ({hoverCardHeightLines}{" "}
               {hoverCardHeightLines === 1
@@ -1491,26 +1479,23 @@ export function AppearanceSettings() {
                     }
                     onCommit={setOutputFontSizePx}
                   />
-                  <span className="output-appearance-number-wrap">
-                    <input
-                      type="number"
-                      className="settings-input-small output-appearance-number"
-                      min={OUTPUT_FONT_SIZE_MIN_PX}
-                      max={OUTPUT_FONT_SIZE_MAX_PX}
-                      step={OUTPUT_FONT_SIZE_STEP_PX}
-                      value={outputFontSizeDraft}
-                      onChange={(e) => setOutputFontSizeDraft(e.target.value)}
-                      onBlur={commitOutputFontSize}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          commitOutputFontSize();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      aria-label={t("appearanceOutputFontSizeLabel")}
-                    />
-                    <span className="output-appearance-unit">px</span>
-                  </span>
+                  <TextInput
+                    type="number"
+                    unit="px"
+                    min={OUTPUT_FONT_SIZE_MIN_PX}
+                    max={OUTPUT_FONT_SIZE_MAX_PX}
+                    step={OUTPUT_FONT_SIZE_STEP_PX}
+                    value={outputFontSizeDraft}
+                    onChange={(e) => setOutputFontSizeDraft(e.target.value)}
+                    onBlur={commitOutputFontSize}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        commitOutputFontSize();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    aria-label={t("appearanceOutputFontSizeLabel")}
+                  />
                 </span>
               </label>
               <datalist id="output-font-size-presets">
@@ -1544,28 +1529,25 @@ export function AppearanceSettings() {
                     }
                     onCommit={setOutputThinkingFontSizeOffsetPx}
                   />
-                  <span className="output-appearance-number-wrap">
-                    <input
-                      type="number"
-                      className="settings-input-small output-appearance-number"
-                      min={OUTPUT_THINKING_FONT_SIZE_OFFSET_MIN_PX}
-                      max={OUTPUT_THINKING_FONT_SIZE_OFFSET_MAX_PX}
-                      step={OUTPUT_THINKING_FONT_SIZE_OFFSET_STEP_PX}
-                      value={outputThinkingFontSizeOffsetDraft}
-                      onChange={(e) =>
-                        setOutputThinkingFontSizeOffsetDraft(e.target.value)
+                  <TextInput
+                    type="number"
+                    unit="px"
+                    min={OUTPUT_THINKING_FONT_SIZE_OFFSET_MIN_PX}
+                    max={OUTPUT_THINKING_FONT_SIZE_OFFSET_MAX_PX}
+                    step={OUTPUT_THINKING_FONT_SIZE_OFFSET_STEP_PX}
+                    value={outputThinkingFontSizeOffsetDraft}
+                    onChange={(e) =>
+                      setOutputThinkingFontSizeOffsetDraft(e.target.value)
+                    }
+                    onBlur={commitOutputThinkingFontSizeOffset}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        commitOutputThinkingFontSizeOffset();
+                        e.currentTarget.blur();
                       }
-                      onBlur={commitOutputThinkingFontSizeOffset}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          commitOutputThinkingFontSizeOffset();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      aria-label={t("appearanceOutputThinkingSizeOffsetLabel")}
-                    />
-                    <span className="output-appearance-unit">px</span>
-                  </span>
+                    }}
+                    aria-label={t("appearanceOutputThinkingSizeOffsetLabel")}
+                  />
                 </span>
               </label>
 
@@ -1607,28 +1589,25 @@ export function AppearanceSettings() {
                     }
                     onCommit={setOutputFixedFontSizeOffsetPx}
                   />
-                  <span className="output-appearance-number-wrap">
-                    <input
-                      type="number"
-                      className="settings-input-small output-appearance-number"
-                      min={OUTPUT_FIXED_FONT_SIZE_OFFSET_MIN_PX}
-                      max={OUTPUT_FIXED_FONT_SIZE_OFFSET_MAX_PX}
-                      step={OUTPUT_FIXED_FONT_SIZE_OFFSET_STEP_PX}
-                      value={outputFixedFontSizeOffsetDraft}
-                      onChange={(e) =>
-                        setOutputFixedFontSizeOffsetDraft(e.target.value)
+                  <TextInput
+                    type="number"
+                    unit="px"
+                    min={OUTPUT_FIXED_FONT_SIZE_OFFSET_MIN_PX}
+                    max={OUTPUT_FIXED_FONT_SIZE_OFFSET_MAX_PX}
+                    step={OUTPUT_FIXED_FONT_SIZE_OFFSET_STEP_PX}
+                    value={outputFixedFontSizeOffsetDraft}
+                    onChange={(e) =>
+                      setOutputFixedFontSizeOffsetDraft(e.target.value)
+                    }
+                    onBlur={commitOutputFixedFontSizeOffset}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        commitOutputFixedFontSizeOffset();
+                        e.currentTarget.blur();
                       }
-                      onBlur={commitOutputFixedFontSizeOffset}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          commitOutputFixedFontSizeOffset();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      aria-label={t("appearanceOutputFixedSizeOffsetLabel")}
-                    />
-                    <span className="output-appearance-unit">px</span>
-                  </span>
+                    }}
+                    aria-label={t("appearanceOutputFixedSizeOffsetLabel")}
+                  />
                 </span>
               </label>
 
@@ -1653,28 +1632,25 @@ export function AppearanceSettings() {
                     }
                     onCommit={setOutputMathFontSizeOffsetPx}
                   />
-                  <span className="output-appearance-number-wrap">
-                    <input
-                      type="number"
-                      className="settings-input-small output-appearance-number"
-                      min={OUTPUT_MATH_FONT_SIZE_OFFSET_MIN_PX}
-                      max={OUTPUT_MATH_FONT_SIZE_OFFSET_MAX_PX}
-                      step={OUTPUT_MATH_FONT_SIZE_OFFSET_STEP_PX}
-                      value={outputMathFontSizeOffsetDraft}
-                      onChange={(e) =>
-                        setOutputMathFontSizeOffsetDraft(e.target.value)
+                  <TextInput
+                    type="number"
+                    unit="px"
+                    min={OUTPUT_MATH_FONT_SIZE_OFFSET_MIN_PX}
+                    max={OUTPUT_MATH_FONT_SIZE_OFFSET_MAX_PX}
+                    step={OUTPUT_MATH_FONT_SIZE_OFFSET_STEP_PX}
+                    value={outputMathFontSizeOffsetDraft}
+                    onChange={(e) =>
+                      setOutputMathFontSizeOffsetDraft(e.target.value)
+                    }
+                    onBlur={commitOutputMathFontSizeOffset}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        commitOutputMathFontSizeOffset();
+                        e.currentTarget.blur();
                       }
-                      onBlur={commitOutputMathFontSizeOffset}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          commitOutputMathFontSizeOffset();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      aria-label={t("appearanceOutputMathSizeOffsetLabel")}
-                    />
-                    <span className="output-appearance-unit">px</span>
-                  </span>
+                    }}
+                    aria-label={t("appearanceOutputMathSizeOffsetLabel")}
+                  />
                 </span>
               </label>
 
@@ -1697,28 +1673,23 @@ export function AppearanceSettings() {
                     }
                     onCommit={setOutputLineSpacingPercent}
                   />
-                  <span className="output-appearance-number-wrap">
-                    <input
-                      type="number"
-                      className="settings-input-small output-appearance-number"
-                      min={OUTPUT_LINE_SPACING_MIN_PERCENT}
-                      max={OUTPUT_LINE_SPACING_MAX_PERCENT}
-                      step={OUTPUT_LINE_SPACING_STEP_PERCENT}
-                      value={outputLineSpacingDraft}
-                      onChange={(e) =>
-                        setOutputLineSpacingDraft(e.target.value)
+                  <TextInput
+                    type="number"
+                    unit="%"
+                    min={OUTPUT_LINE_SPACING_MIN_PERCENT}
+                    max={OUTPUT_LINE_SPACING_MAX_PERCENT}
+                    step={OUTPUT_LINE_SPACING_STEP_PERCENT}
+                    value={outputLineSpacingDraft}
+                    onChange={(e) => setOutputLineSpacingDraft(e.target.value)}
+                    onBlur={commitOutputLineSpacing}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        commitOutputLineSpacing();
+                        e.currentTarget.blur();
                       }
-                      onBlur={commitOutputLineSpacing}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          commitOutputLineSpacing();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      aria-label={t("appearanceOutputLineSpacingLabel")}
-                    />
-                    <span className="output-appearance-unit">%</span>
-                  </span>
+                    }}
+                    aria-label={t("appearanceOutputLineSpacingLabel")}
+                  />
                 </span>
               </label>
 
@@ -1741,28 +1712,25 @@ export function AppearanceSettings() {
                     }
                     onCommit={setOutputVerticalSpacingPercent}
                   />
-                  <span className="output-appearance-number-wrap">
-                    <input
-                      type="number"
-                      className="settings-input-small output-appearance-number"
-                      min={OUTPUT_VERTICAL_SPACING_MIN_PERCENT}
-                      max={OUTPUT_VERTICAL_SPACING_MAX_PERCENT}
-                      step={OUTPUT_VERTICAL_SPACING_STEP_PERCENT}
-                      value={outputVerticalSpacingDraft}
-                      onChange={(e) =>
-                        setOutputVerticalSpacingDraft(e.target.value)
+                  <TextInput
+                    type="number"
+                    unit="%"
+                    min={OUTPUT_VERTICAL_SPACING_MIN_PERCENT}
+                    max={OUTPUT_VERTICAL_SPACING_MAX_PERCENT}
+                    step={OUTPUT_VERTICAL_SPACING_STEP_PERCENT}
+                    value={outputVerticalSpacingDraft}
+                    onChange={(e) =>
+                      setOutputVerticalSpacingDraft(e.target.value)
+                    }
+                    onBlur={commitOutputVerticalSpacing}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        commitOutputVerticalSpacing();
+                        e.currentTarget.blur();
                       }
-                      onBlur={commitOutputVerticalSpacing}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          commitOutputVerticalSpacing();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      aria-label={t("appearanceOutputVerticalSpacingLabel")}
-                    />
-                    <span className="output-appearance-unit">%</span>
-                  </span>
+                    }}
+                    aria-label={t("appearanceOutputVerticalSpacingLabel")}
+                  />
                 </span>
               </label>
             </div>

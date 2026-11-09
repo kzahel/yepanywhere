@@ -529,7 +529,7 @@ test("background creation keeps options, clears captured files, and supports the
     ).toHaveCount(0);
     await page.goto(`${f.origin}/settings/message-delivery`);
     await page
-      .getByRole("checkbox", {
+      .getByRole("switch", {
         name: "Create sessions in background",
         exact: true,
       })

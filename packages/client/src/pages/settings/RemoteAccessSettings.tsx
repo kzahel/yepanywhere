@@ -17,6 +17,7 @@ import type { PublicShareStatusResponse } from "../../api/client";
 import { PublicShareManagerModal } from "../../components/PublicShareManagerModal";
 import { RemoteAccessSetup } from "../../components/RemoteAccessSetup";
 import { Button } from "../../components/ui/Button";
+import { TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Switch } from "../../components/ui/Switch";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
@@ -113,9 +114,10 @@ function HostIdentitySettings({
             }
           }}
         >
-          <input
-            className="settings-input host-identity-input"
+          <TextInput
+            className="host-identity-input"
             value={draft}
+            invalid={draftInvalid}
             maxLength={MAX_HOST_IDENTITY_ICON_CODE_UNITS}
             aria-label={t("hostIdentityCustomLabel")}
             placeholder={t("hostIdentityCustomPlaceholder")}
@@ -304,9 +306,10 @@ function HostAwakeSettings({
                 }
               }}
             >
-              <input
+              <TextInput
                 type="number"
-                className="settings-input settings-input-small"
+                unit="%"
+                invalid={!validFloor}
                 min={1}
                 max={100}
                 step={1}
@@ -315,7 +318,6 @@ function HostAwakeSettings({
                 disabled={saving}
                 onChange={(event) => setFloorDraft(event.target.value)}
               />
-              <span aria-hidden="true">%</span>
               <Button
                 variant="primary"
                 type="submit"

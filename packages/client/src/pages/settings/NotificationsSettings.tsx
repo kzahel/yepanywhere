@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { NativeNotificationStatus } from "../../components/NativeNotificationStatus";
 import { PushNotificationToggle } from "../../components/PushNotificationToggle";
 import { Button } from "../../components/ui/Button";
+import { Select } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useConnectedDevices } from "../../hooks/useConnectedDevices";
 import {
@@ -643,8 +644,7 @@ export function NotificationsSettings() {
                     <div
                       className={`settings-item-actions ${styles.testActions}`}
                     >
-                      <select
-                        className="settings-select"
+                      <Select
                         aria-label={t("pushToggleDisplayBehavior")}
                         value={testDisplayUrgency}
                         onChange={(e) =>
@@ -663,9 +663,8 @@ export function NotificationsSettings() {
                         <option value="silent">
                           {t("pushToggleUrgencySilent")}
                         </option>
-                      </select>
-                      <select
-                        className="settings-select"
+                      </Select>
+                      <Select
                         aria-label={t("pushTestDeliveryPriority")}
                         value={testDeliveryUrgency}
                         onChange={(e) =>
@@ -683,7 +682,7 @@ export function NotificationsSettings() {
                         <option value="very-low">
                           {t("pushDeliveryVeryLow")}
                         </option>
-                      </select>
+                      </Select>
                       <Button
                         onClick={sendTestToMobileDevices}
                         disabled={

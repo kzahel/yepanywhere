@@ -2,6 +2,7 @@ import type { ProviderLoginFlow, ProviderName } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { Button, buttonClassName } from "../../components/ui/Button";
+import { TextInput } from "../../components/ui/Field";
 import { useToastContext } from "../../contexts/ToastContext";
 import { useI18n } from "../../i18n";
 import styles from "./ProviderSignIn.module.css";
@@ -184,8 +185,8 @@ export function ProviderSignIn({
               void submitCode();
             }}
           >
-            <input
-              type="text"
+            <TextInput
+              mono
               className={styles.codeInput}
               value={code}
               onChange={(event) => setCode(event.target.value)}

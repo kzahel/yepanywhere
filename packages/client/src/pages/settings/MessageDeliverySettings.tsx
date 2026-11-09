@@ -25,6 +25,8 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
+import { Select, TextInput } from "../../components/ui/Field";
+import { Switch } from "../../components/ui/Switch";
 import {
   type AttachmentUploadQuality,
   useAttachmentUploadQuality,
@@ -37,6 +39,7 @@ import { useProjects } from "../../hooks/useProjects";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
+import styles from "./MessageDeliverySettings.module.css";
 
 import { SettingsItem } from "./SettingsItem";
 import { ProviderSteeringSettings } from "./ProviderSteeringSettings";
@@ -136,20 +139,17 @@ function PatientCompactThresholdItem({
           onDraftChange={setDraft}
           onCommit={commit}
         />
-        <span className="output-appearance-number-wrap">
-          <input
-            type="number"
-            className="settings-input-small output-appearance-number"
-            min={1}
-            max={PATIENT_COMPACT_OFF_PERCENT}
-            step={1}
-            value={draft}
-            aria-label={label}
-            onChange={(e) => setDraft(Number(e.target.value))}
-            onBlur={() => commit(draft)}
-          />
-          <span className="output-appearance-unit">%</span>
-        </span>
+        <TextInput
+          type="number"
+          unit="%"
+          min={1}
+          max={PATIENT_COMPACT_OFF_PERCENT}
+          step={1}
+          value={draft}
+          aria-label={label}
+          onChange={(e) => setDraft(Number(e.target.value))}
+          onBlur={() => commit(draft)}
+        />
       </span>
       <span className="settings-hint">{valueHint}</span>
     </SettingsItem>
@@ -728,8 +728,7 @@ export function MessageDeliverySettings() {
               : t("attachmentQualityHd")
           }
         >
-          <select
-            className="settings-select"
+          <Select
             aria-label={t("attachmentQualityTitle")}
             value={attachmentQuality}
             onChange={(event) =>
@@ -740,7 +739,7 @@ export function MessageDeliverySettings() {
           >
             <option value="sd">{t("attachmentQualitySd")}</option>
             <option value="hd">{t("attachmentQualityHd")}</option>
-          </select>
+          </Select>
         </SettingsItem>
         <SettingsItem
           label={t("messageDeliveryJoinWindowTitle")}
@@ -761,18 +760,15 @@ export function MessageDeliverySettings() {
               aria-label={t("messageDeliveryJoinWindowTitle")}
               onCommit={(value) => setDraftJoinWindow(String(value))}
             />
-            <span className="output-appearance-number-wrap">
-              <input
-                type="number"
-                className="settings-input-small output-appearance-number"
-                min={0}
-                max={JOIN_WINDOW_MAX_SECONDS}
-                value={shownJoinWindowText}
-                onChange={(e) => setDraftJoinWindow(e.target.value)}
-                aria-label={t("messageDeliveryJoinWindowTitle")}
-              />
-              <span className="output-appearance-unit">s</span>
-            </span>
+            <TextInput
+              type="number"
+              unit="s"
+              min={0}
+              max={JOIN_WINDOW_MAX_SECONDS}
+              value={shownJoinWindowText}
+              onChange={(e) => setDraftJoinWindow(e.target.value)}
+              aria-label={t("messageDeliveryJoinWindowTitle")}
+            />
           </span>
           <span className="settings-hint">
             {shownJoinWindowSeconds === 0
@@ -810,17 +806,14 @@ export function MessageDeliverySettings() {
                   setDraftClearloopInactivity(formatDurationSeconds(value))
                 }
               />
-              <span className="output-appearance-number-wrap">
-                <input
-                  type="text"
-                  inputMode="text"
-                  className="settings-input-small output-appearance-number"
-                  value={shownClearloopInactivityText}
-                  onChange={(e) => setDraftClearloopInactivity(e.target.value)}
-                  aria-label={t("messageDeliveryClearloopTitle")}
-                  aria-invalid={shownClearloopInactivitySeconds === null}
-                />
-              </span>
+              <TextInput
+                inputMode="text"
+                className={styles.duration}
+                value={shownClearloopInactivityText}
+                onChange={(e) => setDraftClearloopInactivity(e.target.value)}
+                aria-label={t("messageDeliveryClearloopTitle")}
+                invalid={shownClearloopInactivitySeconds === null}
+              />
             </span>
             <span className="settings-hint">
               {shownClearloopInactivitySeconds === null
@@ -855,18 +848,15 @@ export function MessageDeliverySettings() {
                   aria-label={t("messageDeliveryProjectQueueQuietTitle")}
                   onCommit={(value) => setDraftProjectQueueQuiet(String(value))}
                 />
-                <span className="output-appearance-number-wrap">
-                  <input
-                    type="number"
-                    className="settings-input-small output-appearance-number"
-                    min={0}
-                    max={MAX_PROJECT_QUEUE_QUIET_SECONDS}
-                    value={shownProjectQueueQuietText}
-                    onChange={(e) => setDraftProjectQueueQuiet(e.target.value)}
-                    aria-label={t("messageDeliveryProjectQueueQuietTitle")}
-                  />
-                  <span className="output-appearance-unit">s</span>
-                </span>
+                <TextInput
+                  type="number"
+                  unit="s"
+                  min={0}
+                  max={MAX_PROJECT_QUEUE_QUIET_SECONDS}
+                  value={shownProjectQueueQuietText}
+                  onChange={(e) => setDraftProjectQueueQuiet(e.target.value)}
+                  aria-label={t("messageDeliveryProjectQueueQuietTitle")}
+                />
               </span>
               <span className="settings-hint">
                 {shownProjectQueueQuietSeconds === 0
@@ -893,11 +883,9 @@ export function MessageDeliverySettings() {
           description={t("messageDeliveryComposeAnchorsDescription")}
           doc="topics/compose-time-context-anchors.md#opt-in-staleness-anchors-yep_compose_anchors1"
         >
-          <input
-            type="checkbox"
+          <Switch
             checked={shownAnchors}
-            onChange={(e) => {
-              const next = e.target.checked;
+            onCheckedChange={(next) => {
               setDraftAnchors(next);
               void updateSettings({ composeAnchorsEnabled: next }).catch(() => {
                 // surfaced via the hook's error state
@@ -912,8 +900,7 @@ export function MessageDeliverySettings() {
           description={t("messageDeliveryTurnTimestampsDescription")}
           doc="topics/compose-time-context-anchors.md#opt-in-turn-timestamps-turntimestamps--yep_turn_timestamps"
         >
-          <select
-            className="settings-select"
+          <Select
             value={shownTurnTimestamps}
             onChange={(event) => {
               const next = event.target.value as TurnTimestampsPlacement;
@@ -932,7 +919,7 @@ export function MessageDeliverySettings() {
             <option value="after">
               {t("messageDeliveryTurnTimestampsAfter")}
             </option>
-          </select>
+          </Select>
         </SettingsItem>
 
         <SettingsItem
@@ -940,12 +927,9 @@ export function MessageDeliverySettings() {
           label={t("sessionCreationBackgroundSettingTitle")}
           description={t("sessionCreationBackgroundSettingDescription")}
         >
-          <input
-            type="checkbox"
+          <Switch
             checked={backgroundSessionCreation}
-            onChange={(event) =>
-              setBackgroundSessionCreation(event.target.checked)
-            }
+            onCheckedChange={(checked) => setBackgroundSessionCreation(checked)}
             aria-label={t("sessionCreationBackgroundSettingTitle")}
           />
         </SettingsItem>
@@ -955,10 +939,9 @@ export function MessageDeliverySettings() {
           label={t("questionAsideSettingTitle")}
           description={t("questionAsideSettingDescription")}
         >
-          <input
-            type="checkbox"
+          <Switch
             checked={questionAsidesEnabled}
-            onChange={(event) => setQuestionAsidesEnabled(event.target.checked)}
+            onCheckedChange={(checked) => setQuestionAsidesEnabled(checked)}
             aria-label={t("questionAsideSettingTitle")}
           />
         </SettingsItem>
@@ -969,11 +952,9 @@ export function MessageDeliverySettings() {
             label={t("messageDeliveryBangCommandsTitle")}
             description={t("messageDeliveryBangCommandsDescription")}
           >
-            <input
-              type="checkbox"
+            <Switch
               checked={shownBangCommands}
-              onChange={(e) => {
-                const next = e.target.checked;
+              onCheckedChange={(next) => {
                 setDraftBangCommands(next);
                 void updateSettings({
                   clientDefaults: { bangCommandsEnabled: next },
@@ -991,11 +972,10 @@ export function MessageDeliverySettings() {
           label={t("messageDeliveryKeepMobileKeyboardOpenTitle")}
           description={t("messageDeliveryKeepMobileKeyboardOpenDescription")}
         >
-          <input
-            type="checkbox"
+          <Switch
             checked={keepMobileKeyboardOpenAfterDelivery}
-            onChange={(event) =>
-              setKeepMobileKeyboardOpenAfterDelivery(event.target.checked)
+            onCheckedChange={(checked) =>
+              setKeepMobileKeyboardOpenAfterDelivery(checked)
             }
             aria-label={t("messageDeliveryKeepMobileKeyboardOpenTitle")}
           />
@@ -1006,8 +986,7 @@ export function MessageDeliverySettings() {
           description={t("appearanceToolbarDefaultActionDescription")}
           doc="site/src/content/docs/sessions-and-approvals.md#steer-queue-and-interrupt"
         >
-          <select
-            className="settings-select"
+          <Select
             value={shownBusyDefaultAction}
             onChange={(event) => {
               const next = event.target.value as BusyComposerDefaultAction;
@@ -1027,7 +1006,7 @@ export function MessageDeliverySettings() {
             <option value="queue">
               {t("appearanceToolbarDefaultActionQueue")}
             </option>
-          </select>
+          </Select>
         </SettingsItem>
 
         <SettingsItem
@@ -1041,11 +1020,9 @@ export function MessageDeliverySettings() {
             )
           }
         >
-          <input
-            type="checkbox"
+          <Switch
             checked={shownSteerNowDefault}
-            onChange={(e) => {
-              const next = e.target.checked;
+            onCheckedChange={(next) => {
               setDraftSteerNow(next);
               void updateSettings({
                 clientDefaults: { steerNowDefault: next },
@@ -1072,11 +1049,9 @@ export function MessageDeliverySettings() {
           description={t("messageDeliveryPatientQueueDefaultDescription")}
           descriptionLayout="full-width-on-narrow"
         >
-          <input
-            type="checkbox"
+          <Switch
             checked={shownPatientQueueDefault}
-            onChange={(e) => {
-              const next = e.target.checked;
+            onCheckedChange={(next) => {
               setDraftPatientQueue(next);
               void updateSettings({
                 clientDefaults: { patientQueueDefault: next },
@@ -1127,11 +1102,9 @@ export function MessageDeliverySettings() {
             label={t("messageDeliveryProjectQueueShortcutTitle")}
             description={t("messageDeliveryProjectQueueShortcutDescription")}
           >
-            <input
-              type="checkbox"
+            <Switch
               checked={shownProjectQueueCtrlEnter}
-              onChange={(e) => {
-                const next = e.target.checked;
+              onCheckedChange={(next) => {
                 setDraftProjectQueueCtrlEnter(next);
                 void updateSettings({
                   clientDefaults: { projectQueueCtrlEnterEnabled: next },

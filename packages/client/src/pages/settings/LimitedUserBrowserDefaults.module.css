@@ -44,17 +44,6 @@
   overflow-wrap: anywhere;
   color: var(--text-secondary);
 }
-.value {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font: inherit;
-}
 @media (width <= 480px) {
   .row {
     grid-template-columns: minmax(0, 1fr) 40px;

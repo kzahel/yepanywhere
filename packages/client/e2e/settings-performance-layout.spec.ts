@@ -47,7 +47,9 @@ for (const viewport of [
     const description = row.getByText(
       "Maximum older-history pages one active search shortcut or Up action may load while looking for the next match. A page is one bounded server response, normally covering at most two compaction boundaries.",
     );
-    const control = row.locator(".settings-input-unit");
+    const control = row.getByRole("spinbutton", {
+      name: "Reverse-search pages per attempt",
+    });
 
     await expect(row).toBeVisible({ timeout: 10_000 });
     await expect(description).toBeVisible();

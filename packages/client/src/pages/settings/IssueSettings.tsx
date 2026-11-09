@@ -12,6 +12,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useVersion } from "../../hooks/useVersion";
@@ -117,7 +118,7 @@ function IssueSettingsControls() {
             : t("issuesViewedHelp")
         }
       >
-        <select
+        <Select
           className={styles.control}
           aria-label={t("issuesScope")}
           value={settings?.scope ?? "viewed"}
@@ -132,11 +133,11 @@ function IssueSettingsControls() {
         >
           <option value="viewed">{t("issuesViewed")}</option>
           <option value="recent">{t("issuesRecent")}</option>
-        </select>
+        </Select>
       </SettingsItem>
       {settings?.scope === "recent" && (
         <SettingsItem id="issue-discovery-days" label={t("issuesDays")}>
-          <input
+          <TextInput
             className={styles.days}
             type="number"
             aria-label={t("issuesDays")}
@@ -272,6 +273,7 @@ function CacheTtlControl({
           {label(values[position] ?? null)}
         </output>
         <input
+          className={styles.slider}
           id={`${id}-slider`}
           type="range"
           min={0}
@@ -422,7 +424,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             label={t("issuesGithubAccount")}
             description={t("issuesGithubAccountHelp")}
           >
-            <select
+            <Select
               className={styles.control}
               aria-label={t("issuesGithubAccount")}
               value={cli.account}
@@ -445,7 +447,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
                   {account}
                 </option>
               ))}
-            </select>
+            </Select>
           </SettingsItem>
           <SettingsItem
             id="issue-github-cache"
@@ -488,7 +490,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             id="issue-confirm-jira-site"
             label={t("issuesJiraSite")}
           >
-            <input
+            <TextInput
               className={styles.control}
               type="url"
               aria-label={t("issuesJiraSite")}
@@ -502,7 +504,7 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             id="issue-confirm-jira-email"
             label={t("issuesJiraEmail")}
           >
-            <input
+            <TextInput
               className={styles.control}
               type="email"
               aria-label={t("issuesJiraEmail")}
@@ -570,9 +572,8 @@ function CredentialControl({
           </li>
         ))}
       </ul>
-      <label className={styles.stacked}>
-        {t("issuesCredentialOverride")}
-        <input
+      <Field label={t("issuesCredentialOverride")} className={styles.stacked}>
+        <TextInput
           type="password"
           aria-label={`${label}: ${t("issuesCredentialOverride")}`}
           autoComplete="new-password"
@@ -582,7 +583,7 @@ function CredentialControl({
           disabled={busy}
           onChange={(e) => setKey(e.target.value)}
         />
-      </label>
+      </Field>
       <Button
         variant="primary"
         disabled={busy || !key.trim()}
@@ -611,9 +612,9 @@ function BlocklistControl({ settings, busy, save }: ControlProps) {
   const current = settings.jiraKeyBlocklist ?? [...DEFAULT_JIRA_KEY_BLOCKLIST];
   return (
     <SettingsItem id="issue-jira-blocklist" label={t("issuesBlocklist")}>
-      <input
-        type="text"
-        className={`${styles.control} ${styles.names}`}
+      <TextInput
+        mono
+        className={styles.control}
         aria-label={t("issuesBlocklist")}
         defaultValue={current.join(" ")}
         disabled={busy}

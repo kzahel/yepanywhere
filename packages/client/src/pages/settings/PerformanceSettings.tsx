@@ -4,6 +4,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
+import { TextInput } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useSessionLoadingProgress } from "../../hooks/useSessionLoadingProgress";
 import { useServerSettings } from "../../hooks/useServerSettings";
@@ -423,28 +424,25 @@ export function PerformanceSettings() {
             count: reverseSearchMaxPagesPerAttempt,
           })}
         >
-          <span className="settings-input-unit">
-            <input
-              type="number"
-              className="settings-input-small"
-              min={1}
-              max={MAX_REVERSE_SEARCH_PAGES_PER_ATTEMPT}
-              step={1}
-              value={reverseSearchPageLimitDraft}
-              onChange={(event) =>
-                setReverseSearchPageLimitDraft(event.target.value)
+          <TextInput
+            type="number"
+            unit={t("performanceReverseSearchPageLimitUnit")}
+            min={1}
+            max={MAX_REVERSE_SEARCH_PAGES_PER_ATTEMPT}
+            step={1}
+            value={reverseSearchPageLimitDraft}
+            onChange={(event) =>
+              setReverseSearchPageLimitDraft(event.target.value)
+            }
+            onBlur={commitReverseSearchPageLimit}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                commitReverseSearchPageLimit();
+                event.currentTarget.blur();
               }
-              onBlur={commitReverseSearchPageLimit}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  commitReverseSearchPageLimit();
-                  event.currentTarget.blur();
-                }
-              }}
-              aria-label={t("performanceReverseSearchPageLimitTitle")}
-            />
-            {t("performanceReverseSearchPageLimitUnit")}
-          </span>
+            }}
+            aria-label={t("performanceReverseSearchPageLimitTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("performanceTranscriptCacheTitle")}

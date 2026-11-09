@@ -69,7 +69,9 @@ import {
 import { ProviderBadge } from "../../components/ProviderBadge";
 import { ModelSubscriptionUsage } from "../../components/ModelSubscriptionUsage";
 import { RecapAfterSecondsControl } from "../../components/RecapAfterSecondsControl";
+import { TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { Switch } from "../../components/ui/Switch";
 import {
   ShowThinkingControls,
   ThinkingControlsPanel,
@@ -753,12 +755,10 @@ export function ModelSettings() {
               }
               className="new-session-helper-section session-default-sandbox-section settings-item--session-default-block"
             >
-              <input
-                type="checkbox"
+              <Switch
                 checked={savedDefaults?.sandboxLevel === "project-write"}
                 disabled={settingsLoading}
-                onChange={(event) => {
-                  const enabled = event.currentTarget.checked;
+                onCheckedChange={(enabled) => {
                   void updateNewSessionDefaults({
                     sandboxLevel: enabled ? "project-write" : "none",
                     sandboxNetworkFirewall: enabled ? true : undefined,
@@ -790,8 +790,7 @@ export function ModelSettings() {
               }
               className="new-session-helper-section session-default-sandbox-section settings-item--session-default-block"
             >
-              <input
-                type="checkbox"
+              <Switch
                 checked={
                   savedDefaults?.sandboxLevel === "project-write" &&
                   savedDefaults.sandboxNetworkFirewall !== false
@@ -800,9 +799,9 @@ export function ModelSettings() {
                   settingsLoading ||
                   savedDefaults?.sandboxLevel !== "project-write"
                 }
-                onChange={(event) => {
+                onCheckedChange={(checked) => {
                   void updateNewSessionDefaults({
-                    sandboxNetworkFirewall: event.currentTarget.checked,
+                    sandboxNetworkFirewall: checked,
                   });
                 }}
                 aria-label={t("newSessionSandboxNetworkFirewallLabel")}
@@ -966,10 +965,9 @@ export function ModelSettings() {
             }
             className="new-session-helper-section session-default-fork-summary-section settings-item--session-default-block"
           >
-            <input
-              type="checkbox"
+            <Switch
               checked={forkSummaryAutoOpen}
-              onChange={(e) => setForkSummaryAutoOpen(e.target.checked)}
+              onCheckedChange={(checked) => setForkSummaryAutoOpen(checked)}
               aria-label={t("modelSettingsForkSummaryAutoOpenLabel")}
             />
           </SettingsItem>
@@ -1017,14 +1015,12 @@ export function ModelSettings() {
                 }
                 className="new-session-helper-section session-default-force-ya-section settings-item--session-default-block"
               >
-                <input
-                  type="checkbox"
+                <Switch
                   checked={forceYaOrchestratedCompaction}
                   disabled={settingsLoading}
-                  onChange={(event) => {
+                  onCheckedChange={(checked) => {
                     void updateSetting("clientDefaults", {
-                      forceYaOrchestratedCompaction:
-                        event.currentTarget.checked,
+                      forceYaOrchestratedCompaction: checked,
                     });
                   }}
                   aria-label={t("modelSettingsForceYaCompactionLabel")}
@@ -1077,9 +1073,10 @@ export function ModelSettings() {
                 />
                 <label className="prompt-cache-keepalive-cadence">
                   <span>{t("promptCacheKeepaliveCadenceLabel")}</span>
-                  <input
+                  <TextInput
                     key={`${selectedProvider.name}-${selectedPromptCacheKeepalive.inactivityMinutes}`}
                     type="number"
+                    unit={t("promptCacheKeepaliveCadenceUnit")}
                     min={1}
                     max={1440}
                     step={1}
@@ -1112,7 +1109,6 @@ export function ModelSettings() {
                       }
                     }}
                   />
-                  <span>{t("promptCacheKeepaliveCadenceUnit")}</span>
                 </label>
               </div>
             </SettingsItem>

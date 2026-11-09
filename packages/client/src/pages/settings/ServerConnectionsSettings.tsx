@@ -28,6 +28,8 @@ import {
 import { useI18n } from "../../i18n";
 import { SettingsSection } from "./SettingsSection";
 import { Button, ButtonBase, IconButton } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal } from "../../components/ui/Modal";
 import styles from "./ServerConnectionsSettings.module.css";
 
@@ -405,24 +407,20 @@ export function ServerConnectionsSettings() {
         >
           <h3>{renew ? t("connectionsRenewTitle") : t("connectionsAdd")}</h3>
           <p className={styles.muted}>{t("connectionsTrustHint")}</p>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={automatic}
-              onChange={(e) => setAutomatic(e.target.checked)}
-              disabled={busy}
-            />
-            {t("connectionsAutomatic")}
-          </label>
+          <Checkbox
+            label={t("connectionsAutomatic")}
+            checked={automatic}
+            onCheckedChange={setAutomatic}
+            disabled={busy}
+          />
           <p className={styles.muted}>
             {automatic
               ? t("connectionsAutomaticHint")
               : t("connectionsFixedHint")}
           </p>
           {renew && <p className={styles.muted}>{t("connectionsRenewHint")}</p>}
-          <label>
-            {t("connectionsRoute")}
-            <select
+          <Field label={t("connectionsRoute")}>
+            <Select
               value={kind}
               disabled={busy}
               onChange={(e) => {
@@ -432,14 +430,16 @@ export function ServerConnectionsSettings() {
             >
               <option value="relay">{t("connectionsRelay")}</option>
               <option value="direct">{t("connectionsDirect")}</option>
-            </select>
-          </label>
-          <label>
-            {kind === "relay"
-              ? t("connectionsRelayUrl")
-              : t("connectionsServerAddress")}
-            <input
-              type="text"
+            </Select>
+          </Field>
+          <Field
+            label={
+              kind === "relay"
+                ? t("connectionsRelayUrl")
+                : t("connectionsServerAddress")
+            }
+          >
+            <TextInput
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder={
@@ -452,10 +452,9 @@ export function ServerConnectionsSettings() {
               disabled={busy}
               autoComplete="off"
             />
-          </label>
-          <label>
-            {t("connectionsUsername")}
-            <input
+          </Field>
+          <Field label={t("connectionsUsername")}>
+            <TextInput
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -465,10 +464,9 @@ export function ServerConnectionsSettings() {
               autoCapitalize="none"
               spellCheck={false}
             />
-          </label>
-          <label>
-            {t("connectionsPassword")}
-            <input
+          </Field>
+          <Field label={t("connectionsPassword")}>
+            <TextInput
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -477,42 +475,39 @@ export function ServerConnectionsSettings() {
               disabled={busy}
               autoComplete="off"
             />
-          </label>
+          </Field>
           <p className={styles.muted}>{t("connectionsSrpHint")}</p>
-          <label>
-            {t("connectionsLabel")}
-            <input
+          <Field label={t("connectionsLabel")}>
+            <TextInput
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               maxLength={128}
               disabled={busy}
             />
-          </label>
+          </Field>
           {reverseOnly ? (
             <p>{t("connectionsReverseOnly")}</p>
           ) : (
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={both}
-                onChange={(e) => setBoth(e.target.checked)}
-                disabled={busy}
-              />
-              <span>{t("connectionsBoth")}</span>
-            </label>
+            <Checkbox
+              label={t("connectionsBoth")}
+              checked={both}
+              onCheckedChange={setBoth}
+              disabled={busy}
+            />
           )}
           {both && kind === "direct" && !data.relay?.enabled && (
-            <label>
-              {t("connectionsReturnAddress")}
-              <input
+            <Field
+              label={t("connectionsReturnAddress")}
+              hint={t("connectionsReturnHint")}
+            >
+              <TextInput
                 value={returnAddress}
                 onChange={(e) => setReturnAddress(e.target.value)}
                 placeholder="ws://192.168.1.10:3400/peer/ws"
                 required
                 disabled={busy}
               />
-              <span className={styles.muted}>{t("connectionsReturnHint")}</span>
-            </label>
+            </Field>
           )}
           <p className={styles.muted}>{t("connectionsOwnerSessionHint")}</p>
           <div className={styles.actions}>
@@ -717,16 +712,18 @@ export function ServerConnectionsSettings() {
                 );
               }}
             >
-              <label>
-                {t("connectionsLabel")}
-                <input
+              <Field
+                label={t("connectionsLabel")}
+                className={styles.labelField}
+              >
+                <TextInput
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   required
                   maxLength={128}
                   disabled={busy}
                 />
-              </label>
+              </Field>
               <Button variant="primary" type="submit" disabled={busy}>
                 {t("connectionsSave")}
               </Button>

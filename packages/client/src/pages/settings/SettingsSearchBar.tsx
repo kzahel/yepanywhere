@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import { IconButton } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { TextInput } from "../../components/ui/Field";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import { useI18n } from "../../i18n";
 import { UI_KEYS } from "../../lib/storageKeys";
@@ -52,11 +54,11 @@ export function SettingsSearchBar({
       onSubmit={(event) => event.preventDefault()}
     >
       <div className={styles.inputWrap}>
-        <input
+        <TextInput
           type="search"
           name="settings-search"
           autoComplete="off"
-          className={`settings-input ${styles.input}`}
+          className={styles.input}
           placeholder={t("settingsSearchPlaceholder")}
           aria-label={t("settingsSearchPlaceholder")}
           value={query}
@@ -80,14 +82,13 @@ export function SettingsSearchBar({
         )}
       </div>
       {searching && (
-        <label className={styles.valuesToggle} {...matchValuesTooltip}>
-          <input
-            type="checkbox"
+        <span className={styles.valuesToggle} {...matchValuesTooltip}>
+          <Checkbox
+            label={t("settingsSearchMatchValues")}
             checked={matchValues}
-            onChange={(event) => onMatchValuesChange(event.target.checked)}
+            onCheckedChange={onMatchValuesChange}
           />
-          {t("settingsSearchMatchValues")}
-        </label>
+        </span>
       )}
     </form>
   );

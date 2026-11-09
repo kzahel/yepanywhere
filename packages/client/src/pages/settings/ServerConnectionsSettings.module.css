@@ -38,38 +38,6 @@
 .form p {
   margin: 0;
 }
-.form label,
-.detail label {
-  display: grid;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.form input:not([type="checkbox"]),
-.form select,
-.detail input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  min-height: 42px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-}
-.form .check {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-}
-.check input {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-}
 .detail {
   padding: 20px;
   display: grid;
@@ -85,7 +53,7 @@
   gap: 8px;
   justify-items: start;
 }
-.detail form label {
+.labelField {
   width: 100%;
 }
 .detail h4,

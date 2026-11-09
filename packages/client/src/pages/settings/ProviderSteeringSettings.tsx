@@ -1,4 +1,5 @@
 import type { SteeringMode, SteeringModeSettings } from "@yep-anywhere/shared";
+import { Select } from "../../components/ui/Field";
 import { useProviders } from "../../hooks/useProviders";
 import { useProcesses } from "../../hooks/useProcesses";
 import { useI18n } from "../../i18n";
@@ -51,8 +52,7 @@ export function ProviderSteeringSettings({
             )
           }
         >
-          <select
-            className="settings-select"
+          <Select
             value={value[provider.name] ?? capability.defaultMode}
             aria-label={t("providerSteeringLaunchTitle", {
               provider: provider.displayName,
@@ -69,7 +69,7 @@ export function ProviderSteeringSettings({
                 {label(mode)}
               </option>
             ))}
-          </select>
+          </Select>
         </SettingsItem>
       );
     });

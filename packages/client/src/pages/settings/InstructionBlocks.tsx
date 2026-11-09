@@ -1,5 +1,6 @@
 import { MAX_INSTRUCTION_BLOCKS } from "@yep-anywhere/shared";
 import { Button, IconButton } from "../../components/ui/Button";
+import { Textarea } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import { generateUUID } from "../../lib/uuid";
 import styles from "./InstructionBlocks.module.css";
@@ -38,7 +39,8 @@ export function InstructionBlocks({
       )}
       {value.map((block, index) => (
         <div className={styles.block} key={block.id}>
-          <textarea
+          <Textarea
+            className={styles.text}
             aria-label={t("usersInstructionLabel", { number: index + 1 })}
             rows={3}
             value={block.text}

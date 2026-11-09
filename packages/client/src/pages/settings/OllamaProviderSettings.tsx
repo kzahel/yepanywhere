@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Textarea, TextInput } from "../../components/ui/Field";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 
@@ -44,9 +46,7 @@ function OllamaUrlInput() {
       <div
         style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}
       >
-        <input
-          type="text"
-          className="settings-input"
+        <TextInput
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
@@ -74,27 +74,16 @@ function OllamaUseFullSystemPrompt() {
   const enabled = settings?.ollamaUseFullSystemPrompt ?? false;
 
   return (
-    <label
-      style={{
-        display: "flex",
-        gap: "var(--space-2)",
-        alignItems: "center",
-        marginTop: "var(--space-2)",
-        cursor: "pointer",
-      }}
-    >
-      <input
-        type="checkbox"
+    <div style={{ marginTop: "var(--space-2)" }}>
+      <Checkbox
+        label={t("providersUseFullPrompt")}
+        description={t("providersUseFullPromptHint")}
         checked={enabled}
-        onChange={(e) =>
-          updateSetting("ollamaUseFullSystemPrompt", e.target.checked)
+        onCheckedChange={(checked) =>
+          updateSetting("ollamaUseFullSystemPrompt", checked)
         }
       />
-      <span>{t("providersUseFullPrompt")}</span>
-      <span className="settings-hint" style={{ marginLeft: "auto" }}>
-        {t("providersUseFullPromptHint")}
-      </span>
-    </label>
+    </div>
   );
 }
 
@@ -127,8 +116,8 @@ function OllamaSystemPromptInput() {
 
   return (
     <div style={{ marginTop: "var(--space-2)", width: "100%" }}>
-      <textarea
-        className="settings-textarea"
+      <Textarea
+        mono
         value={prompt}
         onChange={(e) => {
           setPrompt(e.target.value);

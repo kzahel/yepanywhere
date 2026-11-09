@@ -6,6 +6,8 @@ import type {
 import { useI18n } from "../../i18n";
 import { api } from "../../api/client";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Field, TextInput } from "../../components/ui/Field";
 import { SettingsItem } from "./SettingsItem";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
 import styles from "./InstructionRestorationControl.module.css";
@@ -55,29 +57,23 @@ export function InstructionRestorationControl({
           }
         }}
       >
-        <label>
-          {t("instructionRestorationPrefix")}
-          <input
-            className="settings-input"
-            aria-label={t("instructionRestorationPrefix")}
+        <Field label={t("instructionRestorationPrefix")}>
+          <TextInput
             value={draft.pathPrefix}
             placeholder="~/agents/topics/"
             onChange={(event) =>
               setDraft({ ...draft, pathPrefix: event.target.value })
             }
           />
-        </label>
-        <label>
-          {t("instructionRestorationPattern")}
-          <input
-            className="settings-input"
-            aria-label={t("instructionRestorationPattern")}
+        </Field>
+        <Field label={t("instructionRestorationPattern")}>
+          <TextInput
             value={draft.pattern}
             onChange={(event) =>
               setDraft({ ...draft, pattern: event.target.value })
             }
           />
-        </label>
+        </Field>
         <p>{t("instructionRestorationBoundary")}</p>
         <Button
           onClick={async () => {
@@ -118,22 +114,17 @@ export function InstructionRestorationControl({
         />
         <div className={styles.providers}>
           {providers.map((provider) => (
-            <label key={provider.id}>
-              <input
-                type="checkbox"
-                checked={draft.providers[provider.id as ProviderName] === true}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    providers: {
-                      ...draft.providers,
-                      [provider.id]: event.target.checked,
-                    },
-                  })
-                }
-              />
-              {provider.displayName}
-            </label>
+            <Checkbox
+              key={provider.id}
+              label={provider.displayName}
+              checked={draft.providers[provider.id as ProviderName] === true}
+              onCheckedChange={(checked) =>
+                setDraft({
+                  ...draft,
+                  providers: { ...draft.providers, [provider.id]: checked },
+                })
+              }
+            />
           ))}
         </div>
         <p>{t("instructionRestorationCompanion")}</p>

@@ -1,6 +1,8 @@
 import type { SpeechVocabularyStatus } from "@yep-anywhere/shared";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, IconButton } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { TextInput } from "../../components/ui/Field";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
 import styles from "./SpeechVocabularyControls.module.css";
@@ -132,20 +134,15 @@ export function SpeechVocabularyControls() {
     <section className={styles.panel} aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>{t("speechVocabularyTitle")}</h3>
       <p>{t("speechVocabularyDescription")}</p>
-      <label className={styles.choice}>
-        <input
-          type="checkbox"
-          checked={status?.enabled ?? false}
-          disabled={!status || busy || !validHours}
-          onChange={(event) =>
-            void action("settings", { enabled: event.target.checked })
-          }
-        />
-        {t("speechVocabularyLearn")}
-      </label>
+      <Checkbox
+        label={t("speechVocabularyLearn")}
+        checked={status?.enabled ?? false}
+        disabled={!status || busy || !validHours}
+        onCheckedChange={(enabled) => void action("settings", { enabled })}
+      />
       <div className={styles.hours}>
         <label htmlFor={`${id}-hours`}>{t("speechVocabularyHours")}</label>
-        <input
+        <TextInput
           id={`${id}-hours`}
           type="number"
           min="0"
@@ -156,6 +153,7 @@ export function SpeechVocabularyControls() {
         />
         <input
           type="range"
+          className={styles.slider}
           min="0"
           max="8760"
           step="any"
@@ -169,7 +167,7 @@ export function SpeechVocabularyControls() {
         <label htmlFor={`${id}-session-share`}>
           {t("speechVocabularySessionShare")}
         </label>
-        <input
+        <TextInput
           id={`${id}-session-share`}
           type="number"
           min="0"
@@ -181,6 +179,7 @@ export function SpeechVocabularyControls() {
         />
         <input
           type="range"
+          className={styles.slider}
           min="0"
           max="100"
           step="1"
@@ -194,7 +193,7 @@ export function SpeechVocabularyControls() {
         <label htmlFor={`${id}-session-multiplier`}>
           {t("speechVocabularySessionMultiplier")}
         </label>
-        <input
+        <TextInput
           id={`${id}-session-multiplier`}
           type="number"
           min="0"
@@ -205,6 +204,7 @@ export function SpeechVocabularyControls() {
         />
         <input
           type="range"
+          className={styles.slider}
           min="0"
           max="20"
           step="any"
@@ -249,17 +249,12 @@ export function SpeechVocabularyControls() {
             )
           : t("speechVocabularyLoading")}
       </p>
-      <label className={styles.choice}>
-        <input
-          type="checkbox"
-          checked={status?.biasing ?? false}
-          disabled={!status || busy || !validHours}
-          onChange={(event) =>
-            void action("settings", { biasing: event.target.checked })
-          }
-        />
-        {t("speechVocabularyBiasing")}
-      </label>
+      <Checkbox
+        label={t("speechVocabularyBiasing")}
+        checked={status?.biasing ?? false}
+        disabled={!status || busy || !validHours}
+        onCheckedChange={(biasing) => void action("settings", { biasing })}
+      />
       {showLexicon ? (
         <div className={styles.exploration}>
           <div className={styles.viewHeader}>

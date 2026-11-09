@@ -20,7 +20,8 @@
 .providerCard details[open] > summary {
   margin-bottom: 16px;
 }
-.settings p {
+/* Zero-specificity, so Field hints and errors keep their own look. */
+:where(.settings) p {
   margin: 0;
   color: var(--text-secondary);
   font-size: 13px;
@@ -33,39 +34,12 @@
   padding: 0;
   margin: 0;
 }
-.fields label {
-  display: grid;
-  gap: 6px;
-}
-.settings input:not([type="checkbox"]),
-.settings select {
-  box-sizing: border-box;
-  min-width: 0;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-}
 .settings button {
   justify-self: start;
-}
-.settings .toggle {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: center;
-  min-height: 44px;
 }
 .emailRow {
   display: flex;
   gap: 8px;
-}
-.settings input.redundant {
-  border-color: var(--error-color, #c44343);
-  color: var(--error-color, #c44343);
 }
 .redundantHint {
   color: var(--error-color, #c44343);

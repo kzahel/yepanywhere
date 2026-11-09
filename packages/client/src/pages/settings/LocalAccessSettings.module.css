@@ -21,8 +21,19 @@
 
 .customFoldersInput {
   flex: 1 1 auto;
-  min-width: 0;
-  margin-top: 0;
+}
+
+/* A text field beside its row's description (.settings-item-inline-field). */
+.inlineField {
+  flex: 1 1 20rem;
+  width: auto;
+  min-width: min(100%, 18rem);
+  max-width: 28rem;
+}
+
+.port {
+  width: 96px;
+  flex-shrink: 0;
 }
 
 .customFoldersButton {
@@ -47,20 +58,6 @@
 .passwordStatePending,
 .passwordStateWarning {
   color: var(--warning-color);
-}
-
-/* Validity outranks the shared `.settings-input:focus` ring, which also
-   recolors the border; the element qualifier wins regardless of load order. */
-input.inputValid,
-input.inputValid:focus {
-  border-color: var(--success-color);
-  box-shadow: 0 0 0 1px var(--success-color);
-}
-
-input.inputInvalid,
-input.inputInvalid:focus {
-  border-color: var(--error-color);
-  box-shadow: 0 0 0 1px var(--error-color);
 }
 
 .passwordHint {

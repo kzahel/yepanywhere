@@ -49,13 +49,6 @@
   gap: var(--space-2);
 }
 
-.enabledToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-sm);
-}
-
 .editor {
   display: flex;
   flex-direction: column;
@@ -91,45 +84,6 @@
   margin-top: var(--space-2);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  font-size: var(--font-size-sm);
-}
-
-.input,
-.select {
-  min-width: 0;
-  /* Mobile-first: every control stays a real touch target. */
-  min-height: 36px;
-  padding: 4px 8px;
-  border: 1px solid var(--border-input, var(--border-color));
-  border-radius: 4px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-}
-
-/* The open list is drawn by the browser, which paints it from the element's
-   color scheme and its own defaults, not from the closed control's colors.
-   Under the default "auto" theme on a light desktop that is a white popup
-   with grey text hanging off a dark control. Naming the option colors and
-   the accent pins all three themes to YA's own palette. */
-.select {
-  accent-color: var(--accent-color, var(--app-yep-green));
-}
-
-.select option {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-}
-
-.select option:disabled {
-  color: var(--text-muted);
-}
-
 .inputRow {
   display: flex;
   align-items: stretch;
@@ -137,9 +91,8 @@
   min-width: 0;
 }
 
-.inputRow > input {
+.grow {
   flex: 1;
-  min-width: 0;
 }
 
 .inputRow > button {
@@ -192,7 +145,7 @@
   .directoryRow {
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .directoryRow > input {
+  .directoryPath {
     grid-column: 1 / -1;
   }
 }

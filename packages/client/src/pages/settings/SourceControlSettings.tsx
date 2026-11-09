@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { Select } from "../../components/ui/Field";
 import { Switch } from "../../components/ui/Switch";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import {
@@ -76,8 +77,7 @@ export function SourceControlSettings() {
               : t("sourceControlCleanLandingWorkingTree")
           }
         >
-          <select
-            className="settings-select"
+          <Select
             aria-label={t("sourceControlCleanLandingTitle")}
             value={sourceControlCleanLanding}
             onChange={(event) =>
@@ -92,7 +92,7 @@ export function SourceControlSettings() {
             <option value="latest-commit">
               {t("sourceControlCleanLandingLatestCommit")}
             </option>
-          </select>
+          </Select>
         </SettingsItem>
         <SettingsItem
           as="label"

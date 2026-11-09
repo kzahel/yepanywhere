@@ -6,6 +6,7 @@ import {
   type LimitedUserInstructions as Instructions,
 } from "@yep-anywhere/shared";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { useI18n } from "../../i18n";
 import {
   InstructionBlocks,
@@ -52,18 +53,15 @@ export function SharedLimitedUserInstructions({
       aria-label={t("usersSharedInstructionsTitle")}
     >
       <h3>{t("usersSharedInstructionsTitle")}</h3>
-      <label className={styles.checkbox}>
-        <input
-          type="checkbox"
-          checked={startFromDefault}
-          disabled={busy}
-          onChange={(event) => {
-            setStartFromDefault(event.target.checked);
-            setSaved(false);
-          }}
-        />
-        {t("usersInstructionsDefault")}
-      </label>
+      <Checkbox
+        label={t("usersInstructionsDefault")}
+        checked={startFromDefault}
+        disabled={busy}
+        onCheckedChange={(checked) => {
+          setStartFromDefault(checked);
+          setSaved(false);
+        }}
+      />
       <p className={styles.hint}>
         {t(
           startFromDefault

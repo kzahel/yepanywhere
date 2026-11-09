@@ -48,8 +48,11 @@ import {
   buttonClassName,
   IconButton,
 } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal, type ModalAnchorRect } from "../../components/ui/Modal";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useToastContext } from "../../contexts/ToastContext";
 import { useCodexUpdateStatus } from "../../hooks/useCodexUpdateStatus";
 import { useProviders } from "../../hooks/useProviders";
@@ -112,30 +115,15 @@ function GrokBuildApiKeySettings() {
   const enabled = settings?.grokBuildUseXaiApiKey ?? false;
 
   return (
-    <label
-      style={{
-        display: "flex",
-        gap: "var(--space-2)",
-        alignItems: "flex-start",
-        marginTop: "var(--space-2)",
-        cursor: "pointer",
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={enabled}
-        onChange={(event) =>
-          updateSetting("grokBuildUseXaiApiKey", event.target.checked)
-        }
-        style={{ marginTop: "0.2rem" }}
-      />
-      <span>
-        <span>{t("providersGrokUseXaiApiKey")}</span>
-        <span className="settings-hint" style={{ display: "block" }}>
-          {t("providersGrokUseXaiApiKeyHint")}
-        </span>
-      </span>
-    </label>
+    <Checkbox
+      className={styles.grokApiKey}
+      label={t("providersGrokUseXaiApiKey")}
+      description={t("providersGrokUseXaiApiKeyHint")}
+      checked={enabled}
+      onCheckedChange={(checked) =>
+        updateSetting("grokBuildUseXaiApiKey", checked)
+      }
+    />
   );
 }
 
@@ -211,12 +199,7 @@ function CodexUpdatePanel() {
             {t("providersCodexUpdateReleaseNotes")}
           </a>
         )}
-        {/* A div rather than a fieldset: a <legend> is laid out in the border
-            area whatever the fieldset's display is, so it always took a line of
-            its own above radios that fit beside it. */}
         <div
-          role="radiogroup"
-          aria-label={t("providersCodexUpdatePolicyTitle")}
           style={{
             display: "flex",
             gap: "var(--space-3)",
@@ -227,44 +210,25 @@ function CodexUpdatePanel() {
           <span className="settings-hint">
             {t("providersCodexUpdatePolicyTitle")}
           </span>
-          {(["auto", "notify", "off"] as const).map((value) => {
-            const disabled = value === "auto" && !canAuto;
-            return (
-              <label
-                key={value}
-                style={{
-                  display: "inline-flex",
-                  gap: 4,
-                  alignItems: "center",
-                  opacity: disabled ? 0.55 : 1,
-                  cursor: disabled ? "not-allowed" : "pointer",
-                }}
-                title={
-                  disabled
-                    ? t("providersCodexUpdatePolicyAutoUnavailable")
-                    : undefined
-                }
-              >
-                <input
-                  type="radio"
-                  name="codex-update-policy"
-                  value={value}
-                  checked={policy === value}
-                  disabled={disabled}
-                  onChange={() =>
-                    void updateSetting("codexUpdatePolicy", value)
-                  }
-                />
-                <span>
-                  {value === "auto"
-                    ? t("commonAuto")
-                    : value === "notify"
-                      ? t("providersCodexUpdatePolicyNotify")
-                      : t("commonOff")}
-                </span>
-              </label>
-            );
-          })}
+          <SegmentedControl
+            size="small"
+            activation="manual"
+            aria-label={t("providersCodexUpdatePolicyTitle")}
+            value={policy}
+            onChange={(value) => void updateSetting("codexUpdatePolicy", value)}
+            options={[
+              {
+                value: "auto",
+                label: t("commonAuto"),
+                disabled: !canAuto,
+                tooltip: canAuto
+                  ? undefined
+                  : t("providersCodexUpdatePolicyAutoUnavailable"),
+              },
+              { value: "notify", label: t("providersCodexUpdatePolicyNotify") },
+              { value: "off", label: t("commonOff") },
+            ]}
+          />
         </div>
       </div>
 
@@ -374,8 +338,7 @@ function CodexReasoningSummarySetting({
       ]}
       valueText={labels[value]}
     >
-      <select
-        className="settings-select"
+      <Select
         aria-label={t("providersCodexReasoningSummaryAria")}
         value={value}
         onChange={(event) => {
@@ -389,7 +352,7 @@ function CodexReasoningSummarySetting({
             {labels[summary]}
           </option>
         ))}
-      </select>
+      </Select>
     </SettingsItem>
   );
 }
@@ -420,8 +383,7 @@ function CodexPlanToolSetting({
       keywords={["update_plan", "plan", "checklist", "tasks", "todo"]}
       valueText={labels[selection]}
     >
-      <select
-        className="settings-select"
+      <Select
         aria-label={t("providersCodexPlanToolAria")}
         value={selection}
         onChange={(event) => {
@@ -437,7 +399,7 @@ function CodexPlanToolSetting({
             {labels[mode]}
           </option>
         ))}
-      </select>
+      </Select>
     </SettingsItem>
   );
 }
@@ -470,8 +432,7 @@ function CodexCyberAccessProgramSetting({
       keywords={["daybreak", "cyber", "security", "access", "program"]}
       valueText={labels[selection]}
     >
-      <select
-        className="settings-select"
+      <Select
         aria-label={t("providersCodexCyberAccessAria")}
         value={selection}
         onChange={(event) => {
@@ -487,7 +448,7 @@ function CodexCyberAccessProgramSetting({
             {labels[program]}
           </option>
         ))}
-      </select>
+      </Select>
     </SettingsItem>
   );
 }
@@ -549,9 +510,9 @@ function ClaudeGatewaySettings({
         }}
       >
         <div className="claude-gateway-settings-row">
-          <input
+          <TextInput
             type="url"
-            className="settings-input"
+            className={styles.gatewayUrl}
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             onFocus={() => {
@@ -565,21 +526,20 @@ function ClaudeGatewaySettings({
           </Button>
         </div>
 
-        <label className="claude-gateway-start-command">
-          <span>{t("providersClaudeGatewayStartCommandLabel")}</span>
-          <input
-            type="text"
-            className="settings-input"
+        <Field
+          className={styles.gatewayStartCommand}
+          label={t("providersClaudeGatewayStartCommandLabel")}
+          hint={t("providersClaudeGatewayStartCommandHint")}
+        >
+          <TextInput
+            mono
             value={startCommand}
             maxLength={10_000}
             onChange={(event) => setStartCommand(event.target.value)}
             placeholder={t("providersClaudeGatewayStartCommandPlaceholder")}
             aria-label={t("providersClaudeGatewayStartCommandAria")}
           />
-        </label>
-        <p className="settings-hint">
-          {t("providersClaudeGatewayStartCommandHint")}
-        </p>
+        </Field>
 
         <p className="settings-hint">
           {t("providersClaudeGatewayIsolationHint")}
@@ -607,18 +567,12 @@ function ClaudeGatewayToggleSetting({
 
   return (
     <div id={id} className="settings-subsection">
-      <label>
-        <input
-          type="checkbox"
-          checked={enabled}
-          aria-label={title}
-          onChange={(event) =>
-            void updateSetting(setting, event.target.checked)
-          }
-        />{" "}
-        <strong>{title}</strong>
-      </label>
-      <p className="settings-hint">{description}</p>
+      <Checkbox
+        label={title}
+        description={description}
+        checked={enabled}
+        onCheckedChange={(checked) => void updateSetting(setting, checked)}
+      />
     </div>
   );
 }
@@ -866,24 +820,19 @@ function ClaudeAdditionalModelsSettings({
             </p>
             <div className="providers-additional-models-list">
               {choices.map((model) => (
-                <label
+                <Checkbox
                   key={model.id}
                   className="providers-additional-model-option"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(model.id)}
-                    disabled={isSaving}
-                    onChange={() => toggleModel(model)}
-                  />
-                  <span>
-                    <strong>{model.name}</strong>
-                    <code>{model.id}</code>
-                    {model.description && (
-                      <span className="settings-hint">{model.description}</span>
-                    )}
-                  </span>
-                </label>
+                  label={
+                    <>
+                      <strong>{model.name}</strong> <code>{model.id}</code>
+                    </>
+                  }
+                  description={model.description || undefined}
+                  checked={selectedIds.has(model.id)}
+                  disabled={isSaving}
+                  onCheckedChange={() => toggleModel(model)}
+                />
               ))}
             </div>
             <details className="providers-additional-models-custom">
@@ -892,9 +841,8 @@ function ClaudeAdditionalModelsSettings({
                 {t("providersAdditionalModelsCustomHint")}
               </p>
               <div className="providers-additional-models-custom-row">
-                <input
-                  type="text"
-                  className="settings-input"
+                <TextInput
+                  className={styles.customModelId}
                   value={customId}
                   maxLength={MAX_CLAUDE_ADDITIONAL_MODEL_ID_LENGTH}
                   placeholder={t("providersAdditionalModelsCustomPlaceholder")}
@@ -1011,22 +959,20 @@ function LongContextEffortWarningControl({
             const providerId = provider.id as ProviderName;
             const enabled = value.providers?.[providerId] === true;
             return (
-              <label key={provider.id} className={styles.providerToggle}>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(event) => {
-                    const providersMap = { ...value.providers };
-                    if (event.target.checked) {
-                      providersMap[providerId] = true;
-                    } else {
-                      delete providersMap[providerId];
-                    }
-                    void save({ ...value, providers: providersMap });
-                  }}
-                />
-                <span>{provider.displayName}</span>
-              </label>
+              <Checkbox
+                key={provider.id}
+                label={provider.displayName}
+                checked={enabled}
+                onCheckedChange={(checked) => {
+                  const providersMap = { ...value.providers };
+                  if (checked) {
+                    providersMap[providerId] = true;
+                  } else {
+                    delete providersMap[providerId];
+                  }
+                  void save({ ...value, providers: providersMap });
+                }}
+              />
             );
           })}
         </div>

@@ -7,6 +7,8 @@ import {
 } from "@yep-anywhere/shared";
 import { fetchJSON } from "../../api/sourceApiFetch";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Field, TextInput } from "../../components/ui/Field";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
 import { useI18n } from "../../i18n";
 import { generateUUID } from "../../lib/uuid";
@@ -206,17 +208,12 @@ export function ProjectTemplatesSettings() {
           void save();
         }}
       >
-        <label className={styles.enabled}>
-          <input
-            type="checkbox"
-            disabled={!state}
-            checked={draft.enabled}
-            onChange={(event) =>
-              setDraft({ ...draft, enabled: event.target.checked })
-            }
-          />
-          {t("templatesEnable")}
-        </label>
+        <Checkbox
+          label={t("templatesEnable")}
+          disabled={!state}
+          checked={draft.enabled}
+          onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
+        />
         <p>{t("templatesLayerHelp")}</p>
         {draft.sources.map((source, index) => (
           <fieldset className={styles.source} key={source.id} disabled={!state}>
@@ -229,14 +226,15 @@ export function ProjectTemplatesSettings() {
               ? (["location"] as const)
               : (["location", "revision"] as const)
             ).map((field) => (
-              <label className={styles.field} key={field}>
-                {t(
+              <Field
+                key={field}
+                label={t(
                   field === "location"
                     ? "templatesRepository"
                     : "templatesRevision",
                 )}
-                <input
-                  className="settings-input"
+              >
+                <TextInput
                   value={source[field]}
                   onBlur={
                     field === "location"
@@ -262,7 +260,7 @@ export function ProjectTemplatesSettings() {
                     }))
                   }
                 />
-              </label>
+              </Field>
             ))}
             <div className={styles.actions}>
               <Button

@@ -176,10 +176,6 @@
     "components/ThinkingControls.tsx": {
       "count": 1,
       "reason": "Thinking choices shared with the composer's thinking popover: composer pass."
-    },
-    "pages/settings/ProvidersSettings.tsx": {
-      "count": 1,
-      "reason": "Native radio inputs grouped by a radiogroup div: fields family."
     }
   },
   "menuRoles": {

@@ -34,20 +34,6 @@
   color: var(--error-color);
 }
 
-.text {
-  width: 100%;
-  min-height: 6rem;
-  box-sizing: border-box;
-  padding: var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  resize: vertical;
-}
-
 .changes {
   display: flex;
   flex-direction: column;

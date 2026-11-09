@@ -2,6 +2,8 @@ import { RENDEZ_DELIVERIES, type RendezDelivery } from "@yep-anywhere/shared";
 import { useState } from "react";
 import type { ServerSettings } from "../../api/client";
 import { ButtonBase } from "../../components/ui/Button";
+import { Checkbox, Radio } from "../../components/ui/Checkbox";
+import { Select } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import { shortenPath } from "../../lib/text";
 import { SettingsItem } from "./SettingsItem";
@@ -108,14 +110,11 @@ export function RendezSettings({
           "watch",
         ]}
       >
-        <input
-          type="checkbox"
+        <Checkbox
           checked={value.enabled}
           disabled={saving}
           aria-label={t("rendezDefaultTitle")}
-          onChange={(event) =>
-            onChange({ ...value, enabled: event.target.checked })
-          }
+          onCheckedChange={(enabled) => onChange({ ...value, enabled })}
         />
       </SettingsItem>
       <SettingsItem
@@ -124,7 +123,7 @@ export function RendezSettings({
         descriptionLayout="full-width-on-narrow"
         keywords={["rendez", "upload", "steer", "queue", "delivery"]}
       >
-        <select
+        <Select
           value={value.delivery ?? "auto"}
           disabled={saving}
           aria-label={t("rendezDeliveryTitle")}
@@ -137,7 +136,7 @@ export function RendezSettings({
           <option value="auto">{t("rendezDeliveryAuto")}</option>
           <option value="steer">{t("rendezDeliverySteer")}</option>
           <option value="queue">{t("rendezDeliveryQueue")}</option>
-        </select>
+        </Select>
       </SettingsItem>
       {shown.length > 0 && (
         <table className={styles.table}>
@@ -181,8 +180,7 @@ export function RendezSettings({
                   {CHOICES.map((option) => (
                     <td key={option} className={styles.choice}>
                       <label>
-                        <input
-                          type="radio"
+                        <Radio
                           name={`rendez-${row.path}`}
                           value={option}
                           checked={choice === option}
@@ -194,7 +192,7 @@ export function RendezSettings({
                                 ? "rendezOff"
                                 : "rendezInherit",
                           )}`}
-                          onChange={() =>
+                          onCheckedChange={() =>
                             onChange(withChoice(value, row.path, option))
                           }
                         />

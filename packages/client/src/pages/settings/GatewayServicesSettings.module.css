@@ -98,8 +98,8 @@
   gap: 0.5rem;
 }
 
-.inline > input {
-  /* Wide enough for the largest accepted delay (86400) plus the spinner. */
+/* Wide enough for the largest accepted delay (86400) plus the spinner. */
+.delay {
   width: 10ch;
 }
 
@@ -110,14 +110,10 @@
   gap: 0.75rem 1rem;
 }
 
-/* Checkbox and its label share a baseline; the control keeps a touch-sized
-   hit area on a phone even though the text is small. */
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2.25rem;
-  font-size: 0.9rem;
+/* A list-wide setting takes its own line, its description under it. */
+.setting {
+  width: 100%;
+  margin: var(--space-2) 0;
 }
 
 .advanced > summary {

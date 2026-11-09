@@ -7,6 +7,8 @@ import {
   type VhostOauthStatus,
 } from "@yep-anywhere/shared";
 import { Button, IconButton } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import { Modal } from "../../components/ui/Modal";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
@@ -119,26 +121,22 @@ function ProviderToggle({
   const [error, setError] = useState("");
   return (
     <div>
-      <label className={styles.toggle}>
-        <input
-          type="checkbox"
-          checked={pending ?? enabled}
-          disabled={pending !== undefined}
-          onChange={async (event) => {
-            const value = event.target.checked;
-            setPending(value);
-            setError("");
-            try {
-              await update(path, { enabled: value });
-            } catch (failure) {
-              setError(String(failure));
-            } finally {
-              setPending(undefined);
-            }
-          }}
-        />
-        {label}
-      </label>
+      <Checkbox
+        label={label}
+        checked={pending ?? enabled}
+        disabled={pending !== undefined}
+        onCheckedChange={async (value) => {
+          setPending(value);
+          setError("");
+          try {
+            await update(path, { enabled: value });
+          } catch (failure) {
+            setError(String(failure));
+          } finally {
+            setPending(undefined);
+          }
+        }}
+      />
       {error && <p role="alert">{error}</p>}
     </div>
   );
@@ -168,39 +166,32 @@ function ProviderEditor({
   return (
     <div className={styles.settings}>
       {status.enabled !== undefined && (
-        <>
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={pendingEnabled ?? status.enabled}
-              disabled={busy}
-              onChange={async (event) => {
-                const enabled = event.target.checked;
-                setPendingEnabled(enabled);
-                setBusy(true);
-                setMessage("");
-                try {
-                  await update("/artifacts/vhosts/oauth/enabled", { enabled });
-                } catch (error) {
-                  setMessage(String(error));
-                } finally {
-                  setPendingEnabled(undefined);
-                  setBusy(false);
-                }
-              }}
-            />
-            {t("vhostOauthEnabled")}
-          </label>
-          <p>{t("vhostOauthEnabledHint")}</p>
-        </>
+        <Checkbox
+          label={t("vhostOauthEnabled")}
+          description={t("vhostOauthEnabledHint")}
+          checked={pendingEnabled ?? status.enabled}
+          disabled={busy}
+          onCheckedChange={async (enabled) => {
+            setPendingEnabled(enabled);
+            setBusy(true);
+            setMessage("");
+            try {
+              await update("/artifacts/vhosts/oauth/enabled", { enabled });
+            } catch (error) {
+              setMessage(String(error));
+            } finally {
+              setPendingEnabled(undefined);
+              setBusy(false);
+            }
+          }}
+        />
       )}
       <p>
         {t(status.locked ? "vhostOauthEnvironment" : "vhostOauthProviderHint")}
       </p>
       <fieldset disabled={status.locked || busy} className={styles.fields}>
-        <label>
-          {t("vhostOauthProvider")}
-          <select
+        <Field label={t("vhostOauthProvider")}>
+          <Select
             value={
               provider.kind === "oidc" && provider.issuer === GOOGLE_ISSUER
                 ? "google"
@@ -217,55 +208,50 @@ function ProviderEditor({
             <option value="entra">Microsoft Entra</option>
             <option value="google">Google</option>
             <option value="oidc">{t("vhostOauthCustomProvider")}</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
         {provider.kind === "oidc" && provider.issuer === GOOGLE_ISSUER && (
           <p>{t("vhostOauthGoogleHint")}</p>
         )}
         {provider.kind === "entra" ? (
-          <label>
-            {t("vhostOauthTenant")}
-            <input
+          <Field label={t("vhostOauthTenant")}>
+            <TextInput
               value={provider.tenantId}
               onChange={(e) =>
                 setProvider({ ...provider, tenantId: e.target.value })
               }
             />
-          </label>
+          </Field>
         ) : (
-          <label>
-            {t("vhostOauthIssuer")}
-            <input
+          <Field label={t("vhostOauthIssuer")}>
+            <TextInput
               type="url"
               value={provider.issuer}
               onChange={(e) =>
                 setProvider({ ...provider, issuer: e.target.value })
               }
             />
-          </label>
+          </Field>
         )}
-        <label>
-          {t("vhostOauthClientId")}
-          <input
+        <Field label={t("vhostOauthClientId")}>
+          <TextInput
             value={provider.clientId}
             onChange={(e) =>
               setProvider({ ...provider, clientId: e.target.value })
             }
           />
-        </label>
-        <label>
-          {t("vhostOauthCallback")}
-          <input
+        </Field>
+        <Field label={t("vhostOauthCallback")}>
+          <TextInput
             type="url"
             value={provider.callbackUrl}
             onChange={(e) =>
               setProvider({ ...provider, callbackUrl: e.target.value })
             }
           />
-        </label>
-        <label>
-          {t("vhostOauthSecret")}
-          <input
+        </Field>
+        <Field label={t("vhostOauthSecret")}>
+          <TextInput
             type="password"
             autoComplete="new-password"
             value={secret}
@@ -274,10 +260,9 @@ function ProviderEditor({
             }
             onChange={(e) => setSecret(e.target.value)}
           />
-        </label>
-        <label>
-          {t("vhostOauthIp")}
-          <select
+        </Field>
+        <Field label={t("vhostOauthIp")} hint={t("vhostOauthIpHint")}>
+          <Select
             value={provider.visitorIp}
             onChange={(e) =>
               setProvider({
@@ -289,9 +274,8 @@ function ProviderEditor({
             <option value="peer">{t("vhostOauthIpPeer")}</option>
             <option value="cloudflare">Cloudflare</option>
             <option value="x-real-ip">X-Real-IP</option>
-          </select>
-        </label>
-        <p>{t("vhostOauthIpHint")}</p>
+          </Select>
+        </Field>
         {!status.locked && (
           <Button
             variant="primary"
@@ -397,28 +381,23 @@ export function VhostOauthEmails({
   }
   return (
     <div className={styles.settings}>
-      <label className={styles.toggle}>
-        <input
-          type="checkbox"
-          checked={enabled}
-          disabled={
-            disabled ||
-            busy ||
-            (!enabled && (!status.configured || status.enabled === false))
-          }
-          onChange={(e) => {
-            void persist(
-              e.target.checked ? rows.map((row) => row.value) : null,
-            );
-            if (e.target.checked)
-              requestAnimationFrame(() => {
-                first.current?.focus();
-                first.current?.select();
-              });
-          }}
-        />
-        {t("vhostOauthRequired")}
-      </label>
+      <Checkbox
+        label={t("vhostOauthRequired")}
+        checked={enabled}
+        disabled={
+          disabled ||
+          busy ||
+          (!enabled && (!status.configured || status.enabled === false))
+        }
+        onCheckedChange={(checked) => {
+          void persist(checked ? rows.map((row) => row.value) : null);
+          if (checked)
+            requestAnimationFrame(() => {
+              first.current?.focus();
+              first.current?.select();
+            });
+        }}
+      />
       <p>
         {t(
           enabled && (!status.configured || status.enabled === false)
@@ -439,9 +418,9 @@ export function VhostOauthEmails({
             return (
               <div key={row.id}>
                 <div className={styles.emailRow}>
-                  <input
+                  <TextInput
                     ref={index === 0 ? first : undefined}
-                    className={redundant ? styles.redundant : undefined}
+                    invalid={Boolean(redundant)}
                     aria-label={t("vhostOauthEmail", { number: index + 1 })}
                     value={row.value}
                     autoComplete="off"

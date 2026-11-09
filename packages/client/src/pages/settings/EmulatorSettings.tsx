@@ -7,6 +7,7 @@ import {
   useEmulatorSettings,
 } from "../../hooks/useEmulatorSettings";
 import { Button } from "../../components/ui/Button";
+import { TextInput } from "../../components/ui/Field";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Switch } from "../../components/ui/Switch";
 import { useEmulators } from "../../hooks/useEmulators";
@@ -239,11 +240,9 @@ export function EmulatorSettings() {
                   void addHost();
                 }}
               >
-                <input
-                  type="text"
+                <TextInput
                   name="chromeosHost"
                   placeholder={t("emulatorHostAliasPlaceholder")}
-                  className="settings-select"
                   autoComplete="off"
                   value={hostInput}
                   onChange={(event) => setHostInput(event.target.value)}

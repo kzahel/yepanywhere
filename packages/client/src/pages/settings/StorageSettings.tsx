@@ -1,4 +1,8 @@
 import { useCallback, useMemo } from "react";
+import {
+  type SegmentedOption,
+  SegmentedControl,
+} from "../../components/ui/SegmentedControl";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 import { SettingsItem } from "./SettingsItem";
@@ -7,50 +11,46 @@ import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndoBaseline } from "./SettingsUndoContext";
 import styles from "./StorageSettings.module.css";
 
-interface StorageChoiceProps {
-  name: string;
-  value: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  isDefault?: boolean;
-  onChange: () => void;
-}
+type StorageOption<T extends string> = SegmentedOption<T> & { label: string };
 
-function StorageChoice({
-  name,
-  value,
+/** A stacked card group whose change saves; the default carries a badge. */
+function StorageChoices<T extends string>({
   label,
-  description,
-  checked,
-  isDefault = false,
+  options,
+  defaultValue,
+  value,
   onChange,
-}: StorageChoiceProps) {
+}: {
+  label: string;
+  options: StorageOption<T>[];
+  defaultValue: T;
+  value: T;
+  onChange: (value: T) => void;
+}) {
   const { t } = useI18n();
   return (
-    <label
-      className={`${styles.choice} ${checked ? styles.selected : ""}`.trim()}
-    >
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        aria-label={label}
-        checked={checked}
-        onChange={onChange}
-      />
-      <span className={styles.choiceText}>
-        <span className={styles.choiceHeading}>
-          <span>{label}</span>
-          {isDefault && (
-            <span className={styles.defaultBadge}>
-              {t("storageChoiceDefault")}
-            </span>
-          )}
-        </span>
-        <span className={styles.choiceDescription}>{description}</span>
-      </span>
-    </label>
+    <SegmentedControl
+      aria-label={label}
+      variant="cards"
+      layout="stack"
+      activation="manual"
+      value={value}
+      onChange={onChange}
+      options={options.map((option) => ({
+        ...option,
+        ariaLabel: option.label,
+        label: (
+          <span className={styles.choiceHeading}>
+            <span>{option.label}</span>
+            {option.value === defaultValue && (
+              <span className={styles.defaultBadge}>
+                {t("storageChoiceDefault")}
+              </span>
+            )}
+          </span>
+        ),
+      }))}
+    />
   );
 }
 
@@ -103,40 +103,30 @@ export function StorageSettings() {
               : t("projectDataLocationAppData")
           }
         >
-          <fieldset
-            className={styles.choices}
-            aria-label={t("projectDataLocationTitle")}
-          >
-            <StorageChoice
-              name="project-data-location"
-              value="app-data"
-              label={t("projectDataLocationAppData")}
-              description={t("projectDataLocationAppDataDescription")}
-              checked={projectLocation === "app-data"}
-              isDefault
-              onChange={() => {
-                void updateSettings({
-                  projectDirectoryStorage: "app-data",
-                }).catch(() => {
+          <StorageChoices
+            label={t("projectDataLocationTitle")}
+            defaultValue="app-data"
+            value={projectLocation}
+            options={[
+              {
+                value: "app-data",
+                label: t("projectDataLocationAppData"),
+                description: t("projectDataLocationAppDataDescription"),
+              },
+              {
+                value: "project",
+                label: t("projectDataLocationProject"),
+                description: t("projectDataLocationProjectDescription"),
+              },
+            ]}
+            onChange={(next) => {
+              void updateSettings({ projectDirectoryStorage: next }).catch(
+                () => {
                   // The hook keeps the actionable error visible in this pane.
-                });
-              }}
-            />
-            <StorageChoice
-              name="project-data-location"
-              value="project"
-              label={t("projectDataLocationProject")}
-              description={t("projectDataLocationProjectDescription")}
-              checked={projectLocation === "project"}
-              onChange={() => {
-                void updateSettings({
-                  projectDirectoryStorage: "project",
-                }).catch(() => {
-                  // The hook keeps the actionable error visible in this pane.
-                });
-              }}
-            />
-          </fieldset>
+                },
+              );
+            }}
+          />
         </SettingsItem>
 
         <SettingsItem
@@ -151,40 +141,30 @@ export function StorageSettings() {
               : t("toolResultImagesOnDemand")
           }
         >
-          <fieldset
-            className={styles.choices}
-            aria-label={t("toolResultImagesStorageTitle")}
-          >
-            <StorageChoice
-              name="tool-result-images"
-              value="on-demand"
-              label={t("toolResultImagesOnDemand")}
-              description={t("toolResultImagesOnDemandDescription")}
-              checked={mediaPreservation === "on-demand"}
-              isDefault
-              onChange={() => {
-                void updateSettings({
-                  toolResultMediaPreservation: "on-demand",
-                }).catch(() => {
+          <StorageChoices
+            label={t("toolResultImagesStorageTitle")}
+            defaultValue="on-demand"
+            value={mediaPreservation}
+            options={[
+              {
+                value: "on-demand",
+                label: t("toolResultImagesOnDemand"),
+                description: t("toolResultImagesOnDemandDescription"),
+              },
+              {
+                value: "preserve",
+                label: t("toolResultImagesPreserve"),
+                description: t("toolResultImagesPreserveDescription"),
+              },
+            ]}
+            onChange={(next) => {
+              void updateSettings({ toolResultMediaPreservation: next }).catch(
+                () => {
                   // The hook keeps the actionable error visible in this pane.
-                });
-              }}
-            />
-            <StorageChoice
-              name="tool-result-images"
-              value="preserve"
-              label={t("toolResultImagesPreserve")}
-              description={t("toolResultImagesPreserveDescription")}
-              checked={mediaPreservation === "preserve"}
-              onChange={() => {
-                void updateSettings({
-                  toolResultMediaPreservation: "preserve",
-                }).catch(() => {
-                  // The hook keeps the actionable error visible in this pane.
-                });
-              }}
-            />
-          </fieldset>
+                },
+              );
+            }}
+          />
         </SettingsItem>
       </div>
       {error && <p className="settings-warning">{error}</p>}

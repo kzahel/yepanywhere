@@ -6,6 +6,7 @@ import {
 } from "@yep-anywhere/shared";
 import { Fragment, useEffect, useState } from "react";
 import { ButtonBase } from "../../components/ui/Button";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import { useI18n } from "../../i18n";
 import styles from "./SpeechVocabularyChart.module.css";
 
@@ -191,9 +192,8 @@ export default function SpeechVocabularyChart({
         </div>
       )}
       <div className={styles.controls}>
-        <label>
-          {t("speechVocabularyView")}
-          <select
+        <Field label={t("speechVocabularyView")}>
+          <Select
             value={distinctive ? "distinctive" : "frequent"}
             onChange={(event) =>
               setDistinctive(event.target.value === "distinctive")
@@ -203,12 +203,12 @@ export default function SpeechVocabularyChart({
               {t("speechVocabularyDistinctive")}
             </option>
             <option value="frequent">{t("speechVocabularyFrequent")}</option>
-          </select>
-        </label>
-        <label>
-          {t("speechVocabularyMinimum")}
-          <input
+          </Select>
+        </Field>
+        <Field label={t("speechVocabularyMinimum")}>
+          <TextInput
             type="number"
+            className={styles.minimum}
             min="1"
             max="1000000"
             value={minimum}
@@ -218,7 +218,7 @@ export default function SpeechVocabularyChart({
               )
             }
           />
-        </label>
+        </Field>
       </div>
       <p>{t("speechVocabularyChartGuide")}</p>
       <p>

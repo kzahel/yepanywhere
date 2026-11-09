@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import { MessageAge } from "../../components/MessageAge";
 import { ButtonBase } from "../../components/ui/Button";
+import { Field, Select, TextInput } from "../../components/ui/Field";
 import {
   type CacheMissEventOutcomeFilter,
   useCacheMissEventOutcomeFilter,
@@ -279,9 +280,11 @@ export function CacheMissEventTable({
     <div className={styles.viewer}>
       <div className={styles.toolbar}>
         <div className={styles.filterControls}>
-          <label className={styles.outcomeLabel}>
-            <span>{t("cacheMissEventResultHeader")}</span>
-            <select
+          <Field
+            label={t("cacheMissEventResultHeader")}
+            className={styles.outcomeLabel}
+          >
+            <Select
               value={outcomeFilter}
               onChange={(event) =>
                 setOutcomeFilter(
@@ -292,17 +295,19 @@ export function CacheMissEventTable({
               <option value="misses">{t("cacheMissEventResultMiss")}</option>
               <option value="hits">{t("cacheMissEventResultHit")}</option>
               <option value="all">{t("cacheMissEventResultAll")}</option>
-            </select>
-          </label>
-          <label className={styles.filterLabel}>
-            <span>{t("cacheMissEventFilterLabel")}</span>
-            <input
+            </Select>
+          </Field>
+          <Field
+            label={t("cacheMissEventFilterLabel")}
+            className={styles.filterLabel}
+          >
+            <TextInput
               type="search"
               value={tupleFilter}
               onChange={(event) => setTupleFilter(event.currentTarget.value)}
               placeholder={t("cacheMissEventFilterPlaceholder")}
             />
-          </label>
+          </Field>
         </div>
         <span className={styles.matchCount}>{visibleCountLabel}</span>
       </div>
