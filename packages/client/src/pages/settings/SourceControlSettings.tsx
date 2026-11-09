@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { Switch } from "../../components/ui/Switch";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import {
   type SourceControlCleanLanding,
@@ -98,44 +99,36 @@ export function SourceControlSettings() {
           label={t("sourceReviewSubmissionsSettingTitle")}
           description={t("sourceReviewSubmissionsSettingDescription")}
         >
-          <span className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("sourceReviewSubmissionsSettingTitle")}
-              checked={reviewsEnabled}
-              onChange={(event) => {
-                void updateSettings({
-                  sourceReviewSubmissionsEnabled: event.target.checked,
-                }).catch(() => {
-                  // The hook keeps the actionable error visible in this pane.
-                });
-              }}
-            />
-            <span className="toggle-slider" />
-          </span>
+          <Switch
+            aria-label={t("sourceReviewSubmissionsSettingTitle")}
+            checked={reviewsEnabled}
+            onCheckedChange={(checked) => {
+              void updateSettings({
+                sourceReviewSubmissionsEnabled: checked,
+              }).catch(() => {
+                // The hook keeps the actionable error visible in this pane.
+              });
+            }}
+          />
         </SettingsItem>
         <SettingsItem
           as="label"
           label={t("liveWorktreeMonitoringSettingTitle")}
           description={t("liveWorktreeMonitoringSettingDescription")}
         >
-          <span className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("liveWorktreeMonitoringSettingTitle")}
-              checked={liveWorktreeMonitoringEnabled}
-              onChange={(event) => {
-                void updateSettings({
-                  liveWorktreeMonitoringEnabled: event.target.checked,
-                })
-                  .then(() => refetchVersion())
-                  .catch(() => {
-                    // The hook keeps the actionable error visible in this pane.
-                  });
-              }}
-            />
-            <span className="toggle-slider" />
-          </span>
+          <Switch
+            aria-label={t("liveWorktreeMonitoringSettingTitle")}
+            checked={liveWorktreeMonitoringEnabled}
+            onCheckedChange={(checked) => {
+              void updateSettings({
+                liveWorktreeMonitoringEnabled: checked,
+              })
+                .then(() => refetchVersion())
+                .catch(() => {
+                  // The hook keeps the actionable error visible in this pane.
+                });
+            }}
+          />
         </SettingsItem>
       </div>
       {error && <p className="settings-error">{error}</p>}

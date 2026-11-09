@@ -64,7 +64,7 @@ describe("PerformanceSettings", () => {
   it("defaults active-window trimming on and persists an explicit opt-out", () => {
     render(<PerformanceSettings />);
 
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "performanceActiveWindowTrimTitle",
     }) as HTMLInputElement;
     expect(toggle.checked).toBe(true);
@@ -158,7 +158,7 @@ describe("PerformanceSettings", () => {
     expect(initialState?.sessionActiveWindowTrimEnabled).toBe(true);
 
     fireEvent.click(
-      screen.getByRole("checkbox", {
+      screen.getByRole("switch", {
         name: "performanceActiveWindowTrimTitle",
       }),
     );
@@ -177,7 +177,7 @@ describe("PerformanceSettings", () => {
     );
     expect(
       (
-        screen.getByRole("checkbox", {
+        screen.getByRole("switch", {
           name: "performanceActiveWindowTrimTitle",
         }) as HTMLInputElement
       ).checked,
@@ -187,7 +187,7 @@ describe("PerformanceSettings", () => {
   it("defaults host process metrics on and persists an opt-out", async () => {
     render(<PerformanceSettings />);
 
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "performanceHostProcessObservabilityTitle",
     }) as HTMLInputElement;
     expect(toggle.checked).toBe(true);

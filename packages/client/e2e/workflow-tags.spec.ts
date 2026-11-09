@@ -209,7 +209,7 @@ for (const viewport of [
     expect(fileRequests).toEqual([]);
 
     await page.goto(`${baseURL}/settings/appearance`);
-    const setting = page.getByRole("checkbox", {
+    const setting = page.getByRole("switch", {
       name: "Workflow tag highlighting",
     });
     await expect(setting).not.toBeChecked();

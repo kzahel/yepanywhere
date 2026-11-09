@@ -848,7 +848,7 @@ test("Appearance defaults off and persists its setting", async ({
   baseURL,
 }) => {
   await page.goto(`${baseURL}/settings/appearance`);
-  const setting = page.getByRole("checkbox", {
+  const setting = page.getByRole("switch", {
     name: "Session right pane",
     exact: true,
   });

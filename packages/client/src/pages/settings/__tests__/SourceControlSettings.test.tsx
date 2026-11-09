@@ -103,7 +103,7 @@ describe("SourceControlSettings", () => {
 
   it("keeps a missing submission setting off and saves an explicit opt-in", () => {
     render(<SourceControlSettings />);
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "sourceReviewSubmissionsSettingTitle",
     });
     expect((toggle as HTMLInputElement).checked).toBe(false);
@@ -115,7 +115,7 @@ describe("SourceControlSettings", () => {
 
   it("keeps live monitoring default-off and refreshes capabilities after opt-in", async () => {
     render(<SourceControlSettings />);
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "liveWorktreeMonitoringSettingTitle",
     });
 

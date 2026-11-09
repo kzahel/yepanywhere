@@ -19,6 +19,7 @@ import { useI18n } from "../i18n";
 import { parseUserAgent } from "../lib/deviceDetection";
 import { QRCode } from "./QRCode";
 import { Button } from "./ui/Button";
+import { Switch } from "./ui/Switch";
 
 export interface RemoteAccessSetupProps {
   /** Custom title (default: "Remote Access") */
@@ -508,15 +509,12 @@ export function RemoteAccessSetup({
           <h3>{title}</h3>
           <p>{description}</p>
         </div>
-        <label className="toggle-switch">
-          <input
-            type="checkbox"
-            checked={isEnabled}
-            onChange={(e) => handleToggle(e.target.checked)}
-            disabled={isSaving || (!isEnabled && !canToggleOn)}
-          />
-          <span className="toggle-slider" />
-        </label>
+        <Switch
+          aria-label={title}
+          checked={isEnabled}
+          onCheckedChange={(checked) => handleToggle(checked)}
+          disabled={isSaving || (!isEnabled && !canToggleOn)}
+        />
       </div>
 
       <form onSubmit={handleSave} className="remote-access-form">

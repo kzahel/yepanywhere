@@ -55,7 +55,7 @@ test("Settings controls do not wait for sidebar sessions", async ({
     ).toBeVisible();
     const light = page
       .locator(".settings-content-panel")
-      .getByRole("button", { name: "Light", exact: true });
+      .getByRole("radio", { name: "Light", exact: true });
     await light.click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   } finally {
@@ -89,7 +89,7 @@ test("search loads inactive panes without blocking existing editable results", a
     await expect.poll(() => speechRequested).toBe(true);
     const results = page.locator(".settings-search-results");
     await expect(results).toHaveAttribute("aria-busy", "true");
-    await results.getByRole("button", { name: "Light", exact: true }).click();
+    await results.getByRole("radio", { name: "Light", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await search.fill("zzzz-no-such-setting");
     await expect(page.locator(".settings-search-no-results")).toHaveCount(0);

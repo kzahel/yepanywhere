@@ -155,7 +155,7 @@ test("directory mentions resolve per occurrence and session controls stay local"
     await page.setViewportSize(viewport);
     await page.goto(`${baseURL}/settings/appearance`);
     await page
-      .getByRole("checkbox", { name: "Use Mentioned Directories" })
+      .getByRole("switch", { name: "Use Mentioned Directories" })
       .scrollIntoViewIfNeeded();
     await recordUiCapture(page, `directory-link-settings-${viewport.width}`);
   }

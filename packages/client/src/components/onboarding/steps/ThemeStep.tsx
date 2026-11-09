@@ -1,6 +1,7 @@
 import { getThemeLabel, THEMES, useTheme } from "../../../hooks/useTheme";
 import { useI18n } from "../../../i18n";
 import { Button } from "../../ui/Button";
+import { SegmentedControl } from "../../ui/SegmentedControl";
 import type { OnboardingStepProps } from "../types";
 
 /**
@@ -17,23 +18,22 @@ export function ThemeStep({ onNext, onSkip, isLastStep }: OnboardingStepProps) {
         {t("onboardingThemeDescription")}
       </p>
 
-      <div className="onboarding-theme-grid">
-        {THEMES.map((themeName) => (
-          <button
-            key={themeName}
-            type="button"
-            className={`onboarding-theme-option ${theme === themeName ? "selected" : ""}`}
-            onClick={() => setTheme(themeName)}
-          >
-            <div
+      <SegmentedControl
+        variant="cards"
+        layout="stack"
+        aria-label={t("appearanceThemeTitle")}
+        options={THEMES.map((themeName) => ({
+          value: themeName,
+          label: getThemeLabel(themeName),
+          icon: (
+            <span
               className={`onboarding-theme-preview theme-preview-${themeName}`}
             />
-            <span className="onboarding-theme-label">
-              {getThemeLabel(themeName)}
-            </span>
-          </button>
-        ))}
-      </div>
+          ),
+        }))}
+        value={theme}
+        onChange={setTheme}
+      />
 
       <div className="onboarding-step-actions">
         <Button onClick={onSkip}>Skip</Button>

@@ -4,6 +4,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
+import { Switch } from "../../components/ui/Switch";
 import { useSessionLoadingProgress } from "../../hooks/useSessionLoadingProgress";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import {
@@ -341,79 +342,55 @@ export function PerformanceSettings() {
           label={t("appearanceStreamingTitle")}
           description={t("appearanceStreamingDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={streamingEnabled}
-              onChange={(event) => setStreamingEnabled(event.target.checked)}
-              aria-label={t("appearanceStreamingTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={streamingEnabled}
+            onCheckedChange={(checked) => setStreamingEnabled(checked)}
+            aria-label={t("appearanceStreamingTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceLiveToolOutputTitle")}
           description={t("appearanceLiveToolOutputDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={liveToolOutputEnabled}
-              onChange={(event) =>
-                setLiveToolOutputEnabled(event.target.checked)
-              }
-              aria-label={t("appearanceLiveToolOutputTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={liveToolOutputEnabled}
+            onCheckedChange={(checked) => setLiveToolOutputEnabled(checked)}
+            aria-label={t("appearanceLiveToolOutputTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSessionLoadingProgressTitle")}
           description={t("appearanceSessionLoadingProgressDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={sessionLoadingProgressEnabled}
-              onChange={(event) =>
-                setSessionLoadingProgressEnabled(event.target.checked)
-              }
-              aria-label={t("appearanceSessionLoadingProgressTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={sessionLoadingProgressEnabled}
+            onCheckedChange={(checked) =>
+              setSessionLoadingProgressEnabled(checked)
+            }
+            aria-label={t("appearanceSessionLoadingProgressTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("performanceKeepRecentSessionMountedTitle")}
           description={t("performanceKeepRecentSessionMountedDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={sessionDomLingerEnabled}
-              onChange={(event) =>
-                setSessionDomLingerEnabled(event.target.checked)
-              }
-              aria-label={t("performanceKeepRecentSessionMountedTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={sessionDomLingerEnabled}
+            onCheckedChange={(checked) => setSessionDomLingerEnabled(checked)}
+            aria-label={t("performanceKeepRecentSessionMountedTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("performanceActiveWindowTrimTitle")}
           description={t("performanceActiveWindowTrimDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={sessionActiveWindowTrimEnabled}
-              onChange={(event) =>
-                setSessionActiveWindowTrimEnabled(event.target.checked)
-              }
-              aria-label={t("performanceActiveWindowTrimTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={sessionActiveWindowTrimEnabled}
+            onCheckedChange={(checked) =>
+              setSessionActiveWindowTrimEnabled(checked)
+            }
+            aria-label={t("performanceActiveWindowTrimTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("performanceInitialHistoryTitle")}
@@ -520,17 +497,13 @@ export function PerformanceSettings() {
           label={t("appearanceStableToolPreviewTitle")}
           description={t("appearanceStableToolPreviewDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={stableToolPreviewRendering}
-              onChange={(event) =>
-                setStableToolPreviewRendering(event.target.checked)
-              }
-              aria-label={t("appearanceStableToolPreviewTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={stableToolPreviewRendering}
+            onCheckedChange={(checked) =>
+              setStableToolPreviewRendering(checked)
+            }
+            aria-label={t("appearanceStableToolPreviewTitle")}
+          />
         </SettingsItem>
         {hostProcessObservabilitySupported && (
           <SettingsItem
@@ -543,20 +516,14 @@ export function PerformanceSettings() {
               ) : null
             }
           >
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={hostProcessObservabilityEnabled}
-                disabled={
-                  serverSettingsLoading || savingHostProcessObservability
-                }
-                onChange={(event) =>
-                  void setHostProcessObservability(event.target.checked)
-                }
-                aria-label={t("performanceHostProcessObservabilityTitle")}
-              />
-              <span className="toggle-slider" />
-            </label>
+            <Switch
+              checked={hostProcessObservabilityEnabled}
+              disabled={serverSettingsLoading || savingHostProcessObservability}
+              onCheckedChange={(checked) =>
+                void setHostProcessObservability(checked)
+              }
+              aria-label={t("performanceHostProcessObservabilityTitle")}
+            />
           </SettingsItem>
         )}
       </div>

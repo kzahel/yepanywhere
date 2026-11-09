@@ -15,6 +15,7 @@ import { getRecapModeDescription } from "../lib/recapModes";
 import { RecapAfterSecondsControl } from "./RecapAfterSecondsControl";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
+import { SegmentedControl } from "./ui/SegmentedControl";
 
 interface SessionRecapModalProps {
   sessionId: string;
@@ -193,23 +194,19 @@ export function SessionRecapModal({
             <strong>{t("sessionRecapModeTitle")}</strong>
             <p>{t("sessionRecapModeDescription")}</p>
           </div>
-          <div className="font-size-selector model-settings-chip-group">
-            {RECAP_MODE_ORDER.map((mode) => {
-              const available = modeAvailability[mode];
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`font-size-option ${recapMode === mode ? "active" : ""}`}
-                  onClick={() => setRecapMode(mode)}
-                  disabled={isLoading || isSaving || !available}
-                  title={getRecapModeDescription(mode, t, recapAfterSeconds)}
-                >
-                  {modeLabel(mode, t)}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl
+            className="model-settings-chip-group"
+            aria-label={t("sessionRecapModeTitle")}
+            options={RECAP_MODE_ORDER.map((mode) => ({
+              value: mode,
+              label: modeLabel(mode, t),
+              tooltip: getRecapModeDescription(mode, t, recapAfterSeconds),
+              disabled: !modeAvailability[mode],
+            }))}
+            value={recapMode}
+            onChange={setRecapMode}
+            disabled={isLoading || isSaving}
+          />
           <p className="recap-mode-caption">
             {getRecapModeDescription(recapMode, t, recapAfterSeconds)}
           </p>

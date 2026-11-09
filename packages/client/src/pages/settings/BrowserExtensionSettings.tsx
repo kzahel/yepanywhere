@@ -4,6 +4,7 @@ import {
   type FilterOption,
 } from "../../components/FilterDropdown";
 import { Button } from "../../components/ui/Button";
+import { Switch } from "../../components/ui/Switch";
 import { getChrome } from "../../extension/chrome";
 import { activeHosts, defaultHost } from "../../extension/savedHosts";
 import {
@@ -58,16 +59,12 @@ function Toggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <span className="toggle-switch">
-      <input
-        id={id}
-        type="checkbox"
-        aria-label={label}
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span className="toggle-slider" />
-    </span>
+    <Switch
+      id={id}
+      aria-label={label}
+      checked={checked}
+      onCheckedChange={onChange}
+    />
   );
 }
 

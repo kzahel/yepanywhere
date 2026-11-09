@@ -1296,7 +1296,7 @@ test.describe("Full Relay Integration", () => {
     });
     await loginViaRelay(page, remotePreviewURL, relayWsURL);
     await page.goto(remoteRelayUrl(remotePreviewURL, "settings/development"));
-    const toggle = page.getByRole("checkbox", {
+    const toggle = page.getByRole("switch", {
       name: "Retain rejected SRP sessions for debugging",
     });
     await toggle.locator("..").click();
@@ -1381,7 +1381,7 @@ test.describe("Full Relay Integration", () => {
     ).toBe(1);
     await page.goto(remoteRelayUrl(remotePreviewURL, "settings/development"));
     await page
-      .getByRole("checkbox", {
+      .getByRole("switch", {
         name: "Retain rejected SRP sessions for debugging",
       })
       .locator("..")

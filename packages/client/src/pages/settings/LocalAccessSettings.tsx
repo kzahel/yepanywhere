@@ -13,6 +13,7 @@ import {
 } from "../../api/client";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Button } from "../../components/ui/Button";
+import { Switch } from "../../components/ui/Switch";
 import { isConnectionImpactDeclined } from "../../api/connectionImpact";
 import { useOptionalAuth } from "../../contexts/AuthContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
@@ -565,33 +566,25 @@ export function LocalAccessSettings() {
                   <strong>{t("fileAccessProjects")}</strong>
                   <p>{t("fileAccessProjectsDescription")}</p>
                 </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    aria-label={t("fileAccessProjects")}
-                    checked={fileAccess.projects}
-                    onChange={(e) =>
-                      patchAndSaveFileAccess({ projects: e.target.checked })
-                    }
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Switch
+                  aria-label={t("fileAccessProjects")}
+                  checked={fileAccess.projects}
+                  onCheckedChange={(checked) =>
+                    patchAndSaveFileAccess({ projects: checked })
+                  }
+                />
               </div>
               <div className="file-access-setting-row">
                 <div className="settings-item-info">
                   <strong>{t("fileAccessUploads")}</strong>
                 </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    aria-label={t("fileAccessUploads")}
-                    checked={fileAccess.uploads}
-                    onChange={(e) =>
-                      patchAndSaveFileAccess({ uploads: e.target.checked })
-                    }
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Switch
+                  aria-label={t("fileAccessUploads")}
+                  checked={fileAccess.uploads}
+                  onCheckedChange={(checked) =>
+                    patchAndSaveFileAccess({ uploads: checked })
+                  }
+                />
               </div>
               <div className="file-access-setting-row">
                 <div className="settings-item-info">
@@ -602,17 +595,13 @@ export function LocalAccessSettings() {
                     </p>
                   )}
                 </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    aria-label={t("fileAccessTemp")}
-                    checked={fileAccess.temp}
-                    onChange={(e) =>
-                      patchAndSaveFileAccess({ temp: e.target.checked })
-                    }
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Switch
+                  aria-label={t("fileAccessTemp")}
+                  checked={fileAccess.temp}
+                  onCheckedChange={(checked) =>
+                    patchAndSaveFileAccess({ temp: checked })
+                  }
+                />
               </div>
               <div className="file-access-setting-row">
                 <div className="settings-item-info">
@@ -624,17 +613,13 @@ export function LocalAccessSettings() {
                     {t("fileAccessHomeCaution")}
                   </span>
                 )}
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    aria-label={t("fileAccessHome")}
-                    checked={fileAccess.home}
-                    onChange={(e) =>
-                      patchAndSaveFileAccess({ home: e.target.checked })
-                    }
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Switch
+                  aria-label={t("fileAccessHome")}
+                  checked={fileAccess.home}
+                  onCheckedChange={(checked) =>
+                    patchAndSaveFileAccess({ home: checked })
+                  }
+                />
               </div>
               <div className="file-access-setting-row file-access-setting-row--field">
                 <div className="settings-item-info">
@@ -694,18 +679,14 @@ export function LocalAccessSettings() {
       label={t("localAccessApprovalAuditTitle")}
       description={t("localAccessApprovalAuditDescription")}
     >
-      <label className="toggle-switch">
-        <input
-          type="checkbox"
-          checked={approvalAuditLogEnabled}
-          disabled={!serverSettings}
-          onChange={(e) =>
-            updateServerSetting("approvalAuditLogEnabled", e.target.checked)
-          }
-          aria-label={t("localAccessApprovalAuditTitle")}
-        />
-        <span className="toggle-slider" />
-      </label>
+      <Switch
+        checked={approvalAuditLogEnabled}
+        disabled={!serverSettings}
+        onCheckedChange={(checked) =>
+          updateServerSetting("approvalAuditLogEnabled", checked)
+        }
+        aria-label={t("localAccessApprovalAuditTitle")}
+      />
     </SettingsItem>
   );
 
@@ -740,18 +721,14 @@ export function LocalAccessSettings() {
             </details>
           }
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={serverSettings?.agentApiEnabled ?? false}
-              disabled={!serverSettings}
-              onChange={(e) =>
-                updateServerSetting("agentApiEnabled", e.target.checked)
-              }
-              aria-label={t("localAccessAgentApiTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={serverSettings?.agentApiEnabled ?? false}
+            disabled={!serverSettings}
+            onCheckedChange={(checked) =>
+              updateServerSetting("agentApiEnabled", checked)
+            }
+            aria-label={t("localAccessAgentApiTitle")}
+          />
         </SettingsItem>
       )}
 
@@ -761,21 +738,14 @@ export function LocalAccessSettings() {
           description={t("localAccessAgentApiManagementDescription")}
           doc="topics/http-api-v0.md#session-command-authority"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={serverSettings?.agentApiManagementEnabled ?? false}
-              disabled={!serverSettings}
-              onChange={(event) =>
-                updateServerSetting(
-                  "agentApiManagementEnabled",
-                  event.target.checked,
-                )
-              }
-              aria-label={t("localAccessAgentApiManagementTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={serverSettings?.agentApiManagementEnabled ?? false}
+            disabled={!serverSettings}
+            onCheckedChange={(checked) =>
+              updateServerSetting("agentApiManagementEnabled", checked)
+            }
+            aria-label={t("localAccessAgentApiManagementTitle")}
+          />
         </SettingsItem>
       )}
     </>
@@ -789,18 +759,14 @@ export function LocalAccessSettings() {
       description={t("localAccessAgentServerAccessDescription")}
       doc="topics/agent-session-access.md#operator-api-token"
     >
-      <label className="toggle-switch">
-        <input
-          type="checkbox"
-          checked={serverSettings?.agentServerAccessEnabled ?? false}
-          disabled={!serverSettings}
-          onChange={(e) =>
-            updateServerSetting("agentServerAccessEnabled", e.target.checked)
-          }
-          aria-label={t("localAccessAgentServerAccessTitle")}
-        />
-        <span className="toggle-slider" />
-      </label>
+      <Switch
+        checked={serverSettings?.agentServerAccessEnabled ?? false}
+        disabled={!serverSettings}
+        onCheckedChange={(checked) =>
+          updateServerSetting("agentServerAccessEnabled", checked)
+        }
+        aria-label={t("localAccessAgentServerAccessTitle")}
+      />
     </SettingsItem>
   );
 
@@ -1104,18 +1070,15 @@ export function LocalAccessSettings() {
                   </span>
                 </span>
               ) : (
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={networkEnabled}
-                    disabled={!canChangeListeners}
-                    onChange={(e) => {
-                      setNetworkEnabled(e.target.checked);
-                      updateHasChanges({ networkEnabled: e.target.checked });
-                    }}
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Switch
+                  aria-label={t("localAccessNetworkTitle")}
+                  checked={networkEnabled}
+                  disabled={!canChangeListeners}
+                  onCheckedChange={(checked) => {
+                    setNetworkEnabled(checked);
+                    updateHasChanges({ networkEnabled: checked });
+                  }}
+                />
               )}
             </SettingsItem>
           </>
@@ -1179,17 +1142,14 @@ export function LocalAccessSettings() {
           label={t("localAccessAllowAllHostsTitle")}
           description={t("localAccessAllowAllHostsDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={allowAllHostsToggle}
-              onChange={(e) => {
-                setAllowAllHostsToggle(e.target.checked);
-                updateHasChanges({ allowAll: e.target.checked });
-              }}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("localAccessAllowAllHostsTitle")}
+            checked={allowAllHostsToggle}
+            onCheckedChange={(checked) => {
+              setAllowAllHostsToggle(checked);
+              updateHasChanges({ allowAll: checked });
+            }}
+          />
         </SettingsItem>
         {!allowAllHostsToggle && (
           <SettingsItem
@@ -1226,19 +1186,15 @@ export function LocalAccessSettings() {
             }
             doc="site/src/content/docs/local-access.md"
           >
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                aria-label={t("localAccessRequirePasswordTitle")}
-                checked={requirePassword}
-                disabled={!localAuth.canManage}
-                onChange={(e) => {
-                  setRequirePassword(e.target.checked);
-                  updateHasChanges({ requirePw: e.target.checked });
-                }}
-              />
-              <span className="toggle-slider" />
-            </label>
+            <Switch
+              aria-label={t("localAccessRequirePasswordTitle")}
+              checked={requirePassword}
+              disabled={!localAuth.canManage}
+              onCheckedChange={(checked) => {
+                setRequirePassword(checked);
+                updateHasChanges({ requirePw: checked });
+              }}
+            />
           </SettingsItem>
         )}
 
@@ -1416,19 +1372,15 @@ export function LocalAccessSettings() {
               description={t("localAccessLocalhostOpenDescription")}
               doc="site/src/content/docs/local-access.md#desktop-app-allow-localhost-access"
             >
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  aria-label={t("localAccessLocalhostOpenTitle")}
-                  checked={localhostOpenToggle}
-                  disabled={!localAuth.canManage}
-                  onChange={(e) => {
-                    setLocalhostOpenToggle(e.target.checked);
-                    updateHasChanges({ localhostOpen: e.target.checked });
-                  }}
-                />
-                <span className="toggle-slider" />
-              </label>
+              <Switch
+                aria-label={t("localAccessLocalhostOpenTitle")}
+                checked={localhostOpenToggle}
+                disabled={!localAuth.canManage}
+                onCheckedChange={(checked) => {
+                  setLocalhostOpenToggle(checked);
+                  updateHasChanges({ localhostOpen: checked });
+                }}
+              />
             </SettingsItem>
           )}
 

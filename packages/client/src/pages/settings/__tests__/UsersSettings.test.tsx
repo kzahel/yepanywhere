@@ -299,7 +299,7 @@ describe("Settings → Users", () => {
     );
     expect(english.usersTrustWarning).toContain("only with people you trust");
     // The toggle is present and off, and adding a user does not wait for it.
-    const toggle = screen.getByRole("checkbox") as HTMLInputElement;
+    const toggle = screen.getByRole("switch") as HTMLInputElement;
     expect(toggle.checked).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "+ usersAddUser" }));
     expect(
@@ -476,6 +476,6 @@ describe("Settings → Users", () => {
 
     await waitFor(() => expect(mockListUsers).toHaveBeenCalled());
     expect(await screen.findByText("Not permitted")).toBeTruthy();
-    expect(screen.getByRole("checkbox")).toBeTruthy();
+    expect(screen.getByRole("switch")).toBeTruthy();
   });
 });

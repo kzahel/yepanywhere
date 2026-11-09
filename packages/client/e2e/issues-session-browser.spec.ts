@@ -238,7 +238,7 @@ for (const viewport of [
       });
     });
     await page.goto(`${baseURL}/settings/issues`);
-    const aggressive = page.getByRole("checkbox", {
+    const aggressive = page.getByRole("switch", {
       name: "Match unknown ticket keys",
     });
     await expect(aggressive).not.toBeChecked();

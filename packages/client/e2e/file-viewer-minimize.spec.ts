@@ -316,7 +316,7 @@ test("in the right pane, finds past a wide table and keeps its place on reload",
   try {
     await page.setViewportSize({ width: 1600, height: 900 });
     await page.goto(`${baseURL}/settings/appearance`);
-    const setting = page.getByRole("checkbox", {
+    const setting = page.getByRole("switch", {
       name: "Session right pane",
       exact: true,
     });

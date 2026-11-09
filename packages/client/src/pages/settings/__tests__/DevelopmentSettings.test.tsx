@@ -225,7 +225,7 @@ describe("DevelopmentSettings", () => {
   it("toggles relay debug logging from development settings", () => {
     renderSettings();
 
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "Relay Debug Logging",
     }) as HTMLInputElement;
     expect(toggle.checked).toBe(false);

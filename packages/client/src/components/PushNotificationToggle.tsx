@@ -4,6 +4,7 @@ import {
   usePushNotifications,
 } from "../hooks/usePushNotifications";
 import { useI18n } from "../i18n";
+import { Switch } from "./ui/Switch";
 import { SettingsItem } from "../pages/settings/SettingsItem";
 
 /**
@@ -106,15 +107,12 @@ export function PushNotificationToggle() {
           </>
         }
       >
-        <label className="toggle-switch">
-          <input
-            type="checkbox"
-            checked={isSubscribed}
-            onChange={handleToggle}
-            disabled={isLoading}
-          />
-          <span className="toggle-slider" />
-        </label>
+        <Switch
+          aria-label={t("pushToggleTitle")}
+          checked={isSubscribed}
+          onCheckedChange={handleToggle}
+          disabled={isLoading}
+        />
       </SettingsItem>
 
       {isSubscribed && (
@@ -122,14 +120,11 @@ export function PushNotificationToggle() {
           label={t("pushToggleNotifyInAppTitle")}
           description={t("pushToggleNotifyInAppDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={notifyInApp}
-              onChange={(e) => setNotifyInApp(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("pushToggleNotifyInAppTitle")}
+            checked={notifyInApp}
+            onCheckedChange={setNotifyInApp}
+          />
         </SettingsItem>
       )}
     </>

@@ -40,7 +40,7 @@ test("agent API discovery previews its bootstrap and acknowledges typing during 
     await page.goto(`${baseURL}/settings/local-access`);
     const skip = page.locator(".onboarding-skip-all");
     if (await skip.isVisible()) await skip.click();
-    const toggle = page.getByRole("checkbox", {
+    const toggle = page.getByRole("switch", {
       name: "Agent API discovery",
       exact: true,
     });
@@ -91,7 +91,7 @@ test("agent API discovery previews its bootstrap and acknowledges typing during 
     await search.clear();
     await page.goto(`${baseURL}/settings/local-access`);
     await expect(toggle).toBeChecked();
-    const managementToggle = page.getByRole("checkbox", {
+    const managementToggle = page.getByRole("switch", {
       name: "Agent session commands",
       exact: true,
     });

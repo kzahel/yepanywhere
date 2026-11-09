@@ -39,7 +39,7 @@ describe("AppearanceSettings", () => {
   it("keeps project-app composing off independently of the right pane", () => {
     localStorage.setItem(UI_KEYS.sessionRightPane, "true");
     renderAppearanceSettings();
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "Show project app while composing",
     });
     expect((toggle as HTMLInputElement).checked).toBe(false);
@@ -57,9 +57,10 @@ describe("AppearanceSettings", () => {
     expect(row?.querySelector('input[type="range"]')).toBeTruthy();
     expect(row?.querySelector('input[type="number"]')).toBeTruthy();
 
-    const themedButton = screen.getByRole("button", { name: "Themed" });
-    expect(themedButton.classList.contains("active")).toBe(true);
-    const nativeButton = screen.getByRole("button", { name: "Native" });
+    expect(
+      screen.getByRole("radio", { name: "Themed", checked: true }),
+    ).toBeTruthy();
+    const nativeButton = screen.getByRole("radio", { name: "Native" });
     act(() => fireEvent.click(nativeButton));
     expect(localStorage.getItem(UI_KEYS.tooltipMode)).toBe("native");
 
@@ -133,16 +134,10 @@ describe("AppearanceSettings", () => {
     );
     expect(densityRow?.closest(".output-appearance-settings")).toBeNull();
 
-    const comfortable = densityRow?.querySelector<HTMLButtonElement>(
-      'button[role="radio"][aria-checked="true"]',
-    );
-    expect(comfortable).toBeTruthy();
-    if (!comfortable) throw new Error("Comfortable spacing control is missing");
-    expect(comfortable.classList.contains("active")).toBe(true);
-    const compact = screen.getByText("Compact").closest("button");
-    expect(compact).toBeTruthy();
-    if (!compact) throw new Error("Compact spacing control is missing");
-    act(() => fireEvent.click(compact));
+    expect(
+      screen.getByRole("radio", { name: "Comfortable", checked: true }),
+    ).toBeTruthy();
+    act(() => fireEvent.click(screen.getByRole("radio", { name: "Compact" })));
     expect(localStorage.getItem(UI_KEYS.sidebarSpacing)).toBe("compact");
     expect(
       document.documentElement.style.getPropertyValue(
@@ -218,7 +213,7 @@ describe("AppearanceSettings", () => {
 
   it("places compact image galleries beside inline media and defaults them on", () => {
     const { container } = renderAppearanceSettings();
-    const galleryToggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const galleryToggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Compact Multi-Image Galleries",
     });
     const galleryRow = galleryToggle.closest("[data-settings-item]");
@@ -240,7 +235,7 @@ describe("AppearanceSettings", () => {
 
   it("keeps wider Conversation activity previews default-off in Appearance", () => {
     renderAppearanceSettings();
-    const toggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const toggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Wider activity previews",
     });
 
@@ -260,7 +255,7 @@ describe("AppearanceSettings", () => {
 
   it("keeps recent basename file links default-off in Appearance", () => {
     renderAppearanceSettings();
-    const toggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const toggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Link Recent File Basenames",
     });
 
@@ -287,15 +282,12 @@ describe("AppearanceSettings", () => {
     const pulseRow = screen
       .getByText("Pulse Project Code for Tab Activity")
       .closest("[data-settings-item]");
-    const codeNameToggle = codeNameRow?.querySelector<HTMLInputElement>(
-      'input[type="checkbox"]',
-    );
-    const activityToggle = activityRow?.querySelector<HTMLInputElement>(
-      'input[type="checkbox"]',
-    );
-    const pulseToggle = pulseRow?.querySelector<HTMLInputElement>(
-      'input[type="checkbox"]',
-    );
+    const codeNameToggle =
+      codeNameRow?.querySelector<HTMLInputElement>('[role="switch"]');
+    const activityToggle =
+      activityRow?.querySelector<HTMLInputElement>('[role="switch"]');
+    const pulseToggle =
+      pulseRow?.querySelector<HTMLInputElement>('[role="switch"]');
 
     expect(codeNameToggle?.checked).toBe(false);
     expect(activityToggle?.checked).toBe(false);
@@ -323,19 +315,19 @@ describe("AppearanceSettings", () => {
   it("shows independent selection-action toggles with live specimens", () => {
     renderAppearanceSettings();
 
-    const quoteToggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const quoteToggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Quote selected text",
     });
-    const textToggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const textToggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Copy selected text button",
     });
-    const sourceToggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const sourceToggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Copy selected Markdown",
     });
-    const richToggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const richToggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "Copy selected rich text",
     });
-    const newSessionToggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const newSessionToggle = screen.getByRole<HTMLInputElement>("switch", {
       name: "New session from selection button",
     });
     const quoteRow = quoteToggle.closest("[data-settings-item]");

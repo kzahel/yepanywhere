@@ -120,7 +120,9 @@ import {
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
 import { InnerHtml } from "../../components/ui/InnerHtml";
 import { CommittedRangeNumberInput } from "../../components/ui/CommittedRangeNumberInput";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { SelectionActionButton } from "../../components/ui/SelectionActionCluster";
+import { Switch } from "../../components/ui/Switch";
 import {
   DEFAULT_TOOLTIP_DELAY_MS,
   TOOLTIP_DELAY_MAX_MS,
@@ -646,18 +648,15 @@ export function AppearanceSettings() {
           label={t("appearanceThemeTitle")}
           valueText={getThemeLabel(theme, translate)}
         >
-          <div className="font-size-selector">
-            {THEMES.map((themeValue) => (
-              <button
-                key={themeValue}
-                type="button"
-                className={`font-size-option ${theme === themeValue ? "active" : ""}`}
-                onClick={() => setTheme(themeValue)}
-              >
-                {getThemeLabel(themeValue, translate)}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            aria-label={t("appearanceThemeTitle")}
+            options={THEMES.map((themeValue) => ({
+              value: themeValue,
+              label: getThemeLabel(themeValue, translate),
+            }))}
+            value={theme}
+            onChange={setTheme}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSettingsIconStyleTitle")}
@@ -665,35 +664,27 @@ export function AppearanceSettings() {
           valueText={getSettingsIconStyleLabel(settingsIconStyle, translate)}
           className="settings-item--wide-control"
         >
-          <div
-            className="font-size-selector settings-icon-style-selector"
-            role="group"
-            aria-label={t("appearanceSettingsIconStyleTitle")}
-          >
-            {SETTINGS_ICON_STYLES.map((style) => {
-              const selected = settingsIconStyle === style;
-              const preview =
-                style === "emoji"
-                  ? settingsCategoryEmojiIcons["local-access"]
-                  : settingsCategoryIcons["local-access"];
-              return (
-                <button
-                  key={style}
-                  type="button"
-                  className={`font-size-option settings-icon-style-option ${selected ? "active" : ""}`}
-                  onClick={() => setSettingsIconStyle(style)}
-                  aria-pressed={selected}
-                >
+          <div className="settings-item-actions">
+            <SegmentedControl
+              variant="cards"
+              className="settings-icon-style-selector"
+              aria-label={t("appearanceSettingsIconStyleTitle")}
+              options={SETTINGS_ICON_STYLES.map((style) => ({
+                value: style,
+                label: getSettingsIconStyleLabel(style, translate),
+                icon: (
                   <span
                     className={`settings-category-icon settings-category-icon-local-access settings-category-icon-${style} settings-icon-style-preview`}
-                    aria-hidden="true"
                   >
-                    {preview}
+                    {style === "emoji"
+                      ? settingsCategoryEmojiIcons["local-access"]
+                      : settingsCategoryIcons["local-access"]}
                   </span>
-                  <span>{getSettingsIconStyleLabel(style, translate)}</span>
-                </button>
-              );
-            })}
+                ),
+              }))}
+              value={settingsIconStyle}
+              onChange={setSettingsIconStyle}
+            />
           </div>
         </SettingsItem>
         <SettingsItem
@@ -750,26 +741,16 @@ export function AppearanceSettings() {
           valueText={getSidebarSpacingLabel(sidebarSpacing, translate)}
           className="settings-item--wide-control"
         >
-          <div
-            className="font-size-selector"
-            role="radiogroup"
-            aria-label={t("appearanceSidebarSpacingTitle")}
-          >
-            {SIDEBAR_SPACINGS.map((spacing) => {
-              const selected = sidebarSpacing === spacing;
-              return (
-                <button
-                  key={spacing}
-                  type="button"
-                  className={`font-size-option ${selected ? "active" : ""}`}
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setSidebarSpacing(spacing)}
-                >
-                  {getSidebarSpacingLabel(spacing, translate)}
-                </button>
-              );
-            })}
+          <div className="settings-item-actions">
+            <SegmentedControl
+              aria-label={t("appearanceSidebarSpacingTitle")}
+              options={SIDEBAR_SPACINGS.map((spacing) => ({
+                value: spacing,
+                label: getSidebarSpacingLabel(spacing, translate),
+              }))}
+              value={sidebarSpacing}
+              onChange={setSidebarSpacing}
+            />
           </div>
         </SettingsItem>
         <SettingsItem
@@ -816,101 +797,65 @@ export function AppearanceSettings() {
           label={t("appearanceWiderActivityPreviewsTitle")}
           description={t("appearanceWiderActivityPreviewsDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={widerConversationActivityPreviews}
-              onChange={(event) =>
-                setWiderConversationActivityPreviews(event.target.checked)
-              }
-              aria-label={t("appearanceWiderActivityPreviewsTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={widerConversationActivityPreviews}
+            onCheckedChange={setWiderConversationActivityPreviews}
+            aria-label={t("appearanceWiderActivityPreviewsTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceTranscriptMarginNavigationTitle")}
           description={t("appearanceTranscriptMarginNavigationDescription")}
           keywords={["margin", "click", "right-click", "outline", "navigation"]}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={transcriptMarginNavigationEnabled}
-              onChange={(event) =>
-                setTranscriptMarginNavigationEnabled(event.target.checked)
-              }
-              aria-label={t("appearanceTranscriptMarginNavigationTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={transcriptMarginNavigationEnabled}
+            onCheckedChange={setTranscriptMarginNavigationEnabled}
+            aria-label={t("appearanceTranscriptMarginNavigationTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceComposerPromptRailTitle")}
           description={t("appearanceComposerPromptRailDescription")}
           keywords={["recent", "prompt", "history", "drag", "rail", "composer"]}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={composerPromptRailEnabled}
-              onChange={(event) =>
-                setComposerPromptRailEnabled(event.target.checked)
-              }
-              aria-label={t("appearanceComposerPromptRailTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={composerPromptRailEnabled}
+            onCheckedChange={setComposerPromptRailEnabled}
+            aria-label={t("appearanceComposerPromptRailTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSessionRightPaneTitle")}
           description={t("appearanceSessionRightPaneDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={sessionRightPaneEnabled}
-              onChange={(event) =>
-                setSessionRightPaneEnabled(event.target.checked)
-              }
-              aria-label={t("appearanceSessionRightPaneTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={sessionRightPaneEnabled}
+            onCheckedChange={setSessionRightPaneEnabled}
+            aria-label={t("appearanceSessionRightPaneTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("projectAppWhileComposing")}
           description={t("appearanceProjectAppComposingDescription")}
           keywords={["project", "app", "new session", "compose"]}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={projectAppComposingEnabled}
-              onChange={(event) =>
-                setProjectAppComposingEnabled(event.target.checked)
-              }
-              aria-label={t("projectAppWhileComposing")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={projectAppComposingEnabled}
+            onCheckedChange={setProjectAppComposingEnabled}
+            aria-label={t("projectAppWhileComposing")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearancePdfjsRendererTitle")}
           description={t("appearancePdfjsRendererDescription")}
           keywords={["pdf", "pdf.js", "document", "viewer", "blocked"]}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={pdfjsRendererEnabled}
-              onChange={(event) =>
-                setPdfjsRendererEnabled(event.target.checked)
-              }
-              aria-label={t("appearancePdfjsRendererTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={pdfjsRendererEnabled}
+            onCheckedChange={setPdfjsRendererEnabled}
+            aria-label={t("appearancePdfjsRendererTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearancePanelSlideAnimationsTitle")}
@@ -924,67 +869,48 @@ export function AppearanceSettings() {
             "app",
           ]}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={panelSlideAnimations}
-              onChange={(event) =>
-                setPanelSlideAnimations(event.target.checked)
-              }
-              aria-label={t("appearancePanelSlideAnimationsTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={panelSlideAnimations}
+            onCheckedChange={setPanelSlideAnimations}
+            aria-label={t("appearancePanelSlideAnimationsTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceWorkflowTagsTitle")}
           description={t("appearanceWorkflowTagsDescription")}
           doc="topics/workflow-view.md#implemented-v1-contract"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={workflowTagsEnabled}
-              onChange={(event) => setWorkflowTagsEnabled(event.target.checked)}
-              aria-label={t("appearanceWorkflowTagsTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={workflowTagsEnabled}
+            onCheckedChange={setWorkflowTagsEnabled}
+            aria-label={t("appearanceWorkflowTagsTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("acliCommentarySetting")}
           description={t("acliCommentaryDescription")}
           doc="topics/acli-commentary.md"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={acliCommentaryEnabled}
-              onChange={(event) =>
-                setAcliCommentaryEnabled(event.target.checked)
-              }
-              aria-label={t("acliCommentarySetting")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={acliCommentaryEnabled}
+            onCheckedChange={setAcliCommentaryEnabled}
+            aria-label={t("acliCommentarySetting")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceTabSizeTitle")}
           description={t("appearanceTabSizeDescription")}
           valueText={getTabSizeLabel(tabSize)}
         >
-          <div className="font-size-selector">
-            {TAB_SIZES.map((size) => (
-              <button
-                key={size}
-                type="button"
-                className={`font-size-option ${tabSize === size ? "active" : ""}`}
-                onClick={() => setTabSize(size)}
-              >
-                {getTabSizeLabel(size)}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            aria-label={t("appearanceTabSizeTitle")}
+            options={TAB_SIZES.map((size) => ({
+              value: size,
+              label: getTabSizeLabel(size),
+            }))}
+            value={tabSize}
+            onChange={setTabSize}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceGeneratedTitlesTitle")}
@@ -1002,14 +928,11 @@ export function AppearanceSettings() {
               <strong>{t("appearanceGeneratedTitlesTitle")}</strong>
               <p>{t("appearanceGeneratedTitlesDescription")}</p>
             </div>
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={generatedTitleEnabled}
-                onChange={(e) => setGeneratedTitleEnabled(e.target.checked)}
-              />
-              <span className="toggle-slider" />
-            </label>
+            <Switch
+              checked={generatedTitleEnabled}
+              aria-label={t("appearanceGeneratedTitlesTitle")}
+              onCheckedChange={setGeneratedTitleEnabled}
+            />
           </div>
           {generatedTitleEnabled && (
             <div className="settings-item-group-row settings-item-group-row--field settings-item-group-row--wide-control">
@@ -1072,17 +995,11 @@ export function AppearanceSettings() {
             label={t("appearanceUnicodeMathTitle")}
             description={t("appearanceUnicodeMathDescription")}
           >
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={unicodeProseMathEnabled}
-                onChange={(event) =>
-                  setUnicodeProseMathEnabled(event.target.checked)
-                }
-                aria-label={t("appearanceUnicodeMathTitle")}
-              />
-              <span className="toggle-slider" />
-            </label>
+            <Switch
+              checked={unicodeProseMathEnabled}
+              onCheckedChange={setUnicodeProseMathEnabled}
+              aria-label={t("appearanceUnicodeMathTitle")}
+            />
           </SettingsItem>
         )}
         <SettingsItem
@@ -1090,17 +1007,11 @@ export function AppearanceSettings() {
           description={t("appearanceGlossaryHintsDescription")}
           doc="topics/glossary-tooltips.md#product-contract"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={glossaryHintsEnabled}
-              onChange={(event) =>
-                setGlossaryHintsEnabled(event.target.checked)
-              }
-              aria-label={t("appearanceGlossaryHintsTitle")}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={glossaryHintsEnabled}
+            onCheckedChange={setGlossaryHintsEnabled}
+            aria-label={t("appearanceGlossaryHintsTitle")}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceTooltipDelayTitle")}
@@ -1108,30 +1019,16 @@ export function AppearanceSettings() {
           className="settings-item--wide-control settings-item--tooltip-control"
         >
           <div className="settings-item-actions tooltip-settings-actions">
-            <div
-              className="font-size-selector tooltip-mode-selector"
-              role="group"
+            <SegmentedControl
+              className="tooltip-mode-selector"
               aria-label={t("appearanceTooltipModeTitle")}
-            >
-              <button
-                type="button"
-                className={`font-size-option ${
-                  tooltipMode === "themed" ? "active" : ""
-                }`}
-                onClick={() => setTooltipMode("themed")}
-              >
-                {t("appearanceTooltipModeThemed")}
-              </button>
-              <button
-                type="button"
-                className={`font-size-option ${
-                  tooltipMode === "native" ? "active" : ""
-                }`}
-                onClick={() => setTooltipMode("native")}
-              >
-                {t("appearanceTooltipModeNative")}
-              </button>
-            </div>
+              options={[
+                { value: "themed", label: t("appearanceTooltipModeThemed") },
+                { value: "native", label: t("appearanceTooltipModeNative") },
+              ]}
+              value={tooltipMode}
+              onChange={setTooltipMode}
+            />
             <CommittedRangeNumberInput
               id="tooltip-delay"
               min={TOOLTIP_DELAY_MIN_MS}
@@ -1214,83 +1111,58 @@ export function AppearanceSettings() {
           label={t("appearanceInlineImagesTitle")}
           description={t("appearanceInlineImagesDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={inlineMediaExpandedByDefault}
-              onChange={(e) =>
-                setInlineMediaExpandedByDefault(e.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={inlineMediaExpandedByDefault}
+            aria-label={t("appearanceInlineImagesTitle")}
+            onCheckedChange={setInlineMediaExpandedByDefault}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceImageGalleriesTitle")}
           description={t("appearanceImageGalleriesDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceImageGalleriesTitle")}
-              checked={compactMultiImageGalleries}
-              onChange={(e) => setCompactMultiImageGalleries(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceImageGalleriesTitle")}
+            checked={compactMultiImageGalleries}
+            onCheckedChange={setCompactMultiImageGalleries}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceProjectPathLinksTitle")}
           description={t("appearanceProjectPathLinksDescription")}
           doc="topics/project-path-links.md#file-link-preferences-and-mentioned-directories"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceProjectPathLinksTitle")}
-              checked={projectPaths}
-              onChange={(event) =>
-                projectPathLinkStores.projectPaths.set(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceProjectPathLinksTitle")}
+            checked={projectPaths}
+            onCheckedChange={(checked) =>
+              projectPathLinkStores.projectPaths.set(checked)
+            }
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceMentionedDirectoriesTitle")}
           description={t("appearanceMentionedDirectoriesDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceMentionedDirectoriesTitle")}
-              checked={mentionedDirectories}
-              disabled={!projectPaths}
-              onChange={(event) =>
-                projectPathLinkStores.mentionedDirectories.set(
-                  event.target.checked,
-                )
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceMentionedDirectoriesTitle")}
+            checked={mentionedDirectories}
+            disabled={!projectPaths}
+            onCheckedChange={(checked) =>
+              projectPathLinkStores.mentionedDirectories.set(checked)
+            }
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceRecentProjectPathLinksTitle")}
           description={t("appearanceRecentProjectPathLinksDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceRecentProjectPathLinksTitle")}
-              disabled={!projectPaths}
-              checked={recentProjectPathLinksEnabled}
-              onChange={(event) =>
-                setRecentProjectPathLinksEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceRecentProjectPathLinksTitle")}
+            disabled={!projectPaths}
+            checked={recentProjectPathLinksEnabled}
+            onCheckedChange={setRecentProjectPathLinksEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceQuoteReplyButtonsTitle")}
@@ -1301,26 +1173,16 @@ export function AppearanceSettings() {
           )}
           className="settings-item--wide-control"
         >
-          <div
-            className="font-size-selector"
-            role="radiogroup"
-            aria-label={t("appearanceQuoteReplyButtonsTitle")}
-          >
-            {QUOTE_REPLY_BUTTON_MODES.map((mode) => {
-              const selected = quoteReplyButtonMode === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`font-size-option ${selected ? "active" : ""}`}
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setQuoteReplyButtonMode(mode)}
-                >
-                  {getQuoteReplyButtonModeLabel(mode, translate)}
-                </button>
-              );
-            })}
+          <div className="settings-item-actions">
+            <SegmentedControl
+              aria-label={t("appearanceQuoteReplyButtonsTitle")}
+              options={QUOTE_REPLY_BUTTON_MODES.map((mode) => ({
+                value: mode,
+                label: getQuoteReplyButtonModeLabel(mode, translate),
+              }))}
+              value={quoteReplyButtonMode}
+              onChange={setQuoteReplyButtonMode}
+            />
           </div>
         </SettingsItem>
         <SettingsItem
@@ -1332,17 +1194,11 @@ export function AppearanceSettings() {
             label={t("sessionQuoteSelection")}
             specimen
           />
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceSelectionQuoteActionTitle")}
-              checked={selectionQuoteActionEnabled}
-              onChange={(event) =>
-                setSelectionQuoteActionEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceSelectionQuoteActionTitle")}
+            checked={selectionQuoteActionEnabled}
+            onCheckedChange={setSelectionQuoteActionEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSelectionTextCopyActionTitle" as never)}
@@ -1355,17 +1211,11 @@ export function AppearanceSettings() {
             label={t("sessionCopySelectionText" as never)}
             specimen
           />
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceSelectionTextCopyActionTitle" as never)}
-              checked={selectionTextCopyActionEnabled}
-              onChange={(event) =>
-                setSelectionTextCopyActionEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceSelectionTextCopyActionTitle" as never)}
+            checked={selectionTextCopyActionEnabled}
+            onCheckedChange={setSelectionTextCopyActionEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSelectionSourceCopyActionTitle")}
@@ -1376,17 +1226,11 @@ export function AppearanceSettings() {
             label={t("sessionCopySelectionSource")}
             specimen
           />
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceSelectionSourceCopyActionTitle")}
-              checked={selectionSourceCopyActionEnabled}
-              onChange={(event) =>
-                setSelectionSourceCopyActionEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceSelectionSourceCopyActionTitle")}
+            checked={selectionSourceCopyActionEnabled}
+            onCheckedChange={setSelectionSourceCopyActionEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSelectionRichCopyActionTitle")}
@@ -1397,17 +1241,11 @@ export function AppearanceSettings() {
             label={t("sessionCopySelectionRich")}
             specimen
           />
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceSelectionRichCopyActionTitle")}
-              checked={selectionRichCopyActionEnabled}
-              onChange={(event) =>
-                setSelectionRichCopyActionEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceSelectionRichCopyActionTitle")}
+            checked={selectionRichCopyActionEnabled}
+            onCheckedChange={setSelectionRichCopyActionEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSelectionNewSessionActionTitle" as never)}
@@ -1420,123 +1258,87 @@ export function AppearanceSettings() {
             label={t("sessionNewSessionFromSelection" as never)}
             specimen
           />
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t(
-                "appearanceSelectionNewSessionActionTitle" as never,
-              )}
-              checked={selectionNewSessionActionEnabled}
-              onChange={(event) =>
-                setSelectionNewSessionActionEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceSelectionNewSessionActionTitle" as never)}
+            checked={selectionNewSessionActionEnabled}
+            onCheckedChange={setSelectionNewSessionActionEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceFunPhrasesTitle")}
           description={t("appearanceFunPhrasesDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={funPhrasesEnabled}
-              onChange={(e) => setFunPhrasesEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={funPhrasesEnabled}
+            aria-label={t("appearanceFunPhrasesTitle")}
+            onCheckedChange={setFunPhrasesEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceSidebarDuplicateHidingTitle")}
           description={t("appearanceSidebarDuplicateHidingDescription")}
           doc="topics/session-list-hidden-duplicates.md#contract"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={sidebarDuplicateHidingEnabled}
-              onChange={(e) =>
-                setSidebarDuplicateHidingEnabled(e.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={sidebarDuplicateHidingEnabled}
+            aria-label={t("appearanceSidebarDuplicateHidingTitle")}
+            onCheckedChange={setSidebarDuplicateHidingEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceProjectCodeNamesTitle")}
           description={t("appearanceProjectCodeNamesDescription")}
           doc="topics/project-code-names.md#user-visible-contract"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={projectCodeNamesEnabled}
-              onChange={(e) => setProjectCodeNamesEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={projectCodeNamesEnabled}
+            aria-label={t("appearanceProjectCodeNamesTitle")}
+            onCheckedChange={setProjectCodeNamesEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceTabTitleActivityTitle")}
           description={t("appearanceTabTitleActivityDescription")}
         >
           <div className="settings-item-actions">
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={tabTitleActivityEnabled}
-                onChange={(e) => setTabTitleActivityEnabled(e.target.checked)}
-              />
-              <span className="toggle-slider" />
-            </label>
+            <Switch
+              checked={tabTitleActivityEnabled}
+              aria-label={t("appearanceTabTitleActivityTitle")}
+              onCheckedChange={setTabTitleActivityEnabled}
+            />
           </div>
         </SettingsItem>
         <SettingsItem
           label={t("appearanceProjectCodeNameActivityPulseTitle")}
           description={t("appearanceProjectCodeNameActivityPulseDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={projectCodeNameActivityPulseEnabled}
-              disabled={!projectCodeNamesEnabled || !tabTitleActivityEnabled}
-              onChange={(e) =>
-                setProjectCodeNameActivityPulseEnabled(e.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={projectCodeNameActivityPulseEnabled}
+            aria-label={t("appearanceProjectCodeNameActivityPulseTitle")}
+            disabled={!projectCodeNamesEnabled || !tabTitleActivityEnabled}
+            onCheckedChange={setProjectCodeNameActivityPulseEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceComposerBeaconTitle")}
           description={t("appearanceComposerBeaconDescription")}
           doc="topics/composer-hotkey-beacon.md#use-and-scope"
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("appearanceComposerBeaconTitle")}
-              checked={composerBeaconEnabled}
-              onChange={(event) =>
-                setComposerBeaconEnabled(event.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("appearanceComposerBeaconTitle")}
+            checked={composerBeaconEnabled}
+            onCheckedChange={setComposerBeaconEnabled}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceConnectionBarsTitle")}
           description={t("appearanceConnectionBarsDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={showConnectionBars}
-              onChange={(e) => setShowConnectionBars(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={showConnectionBars}
+            aria-label={t("appearanceConnectionBarsTitle")}
+            onCheckedChange={setShowConnectionBars}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("appearanceToolbarSettingsShortcutTitle")}
@@ -1576,18 +1378,17 @@ export function AppearanceSettings() {
                 <span className="output-appearance-label">
                   {t("appearanceOutputUiFontLabel")}
                 </span>
-                <div className="font-size-selector output-font-selector">
-                  {OUTPUT_PROSE_FONTS.map((font) => (
-                    <button
-                      key={font}
-                      type="button"
-                      className={`font-size-option output-font-option output-font-option-${font} ${outputUiFont === font ? "active" : ""}`}
-                      onClick={() => setOutputUiFont(font)}
-                    >
-                      {getOutputProseFontLabel(font, translate)}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  className="output-font-selector"
+                  aria-label={t("appearanceOutputUiFontLabel")}
+                  options={OUTPUT_PROSE_FONTS.map((font) => ({
+                    value: font,
+                    label: getOutputProseFontLabel(font, translate),
+                    className: `output-font-option-${font}`,
+                  }))}
+                  value={outputUiFont}
+                  onChange={setOutputUiFont}
+                />
               </div>
 
               <label
@@ -1657,18 +1458,17 @@ export function AppearanceSettings() {
                 <span className="output-appearance-label">
                   {t("appearanceOutputFontLabel")}
                 </span>
-                <div className="font-size-selector output-font-selector">
-                  {OUTPUT_PROSE_FONTS.map((font) => (
-                    <button
-                      key={font}
-                      type="button"
-                      className={`font-size-option output-font-option output-font-option-${font} ${outputFont === font ? "active" : ""}`}
-                      onClick={() => setOutputFont(font)}
-                    >
-                      {getOutputProseFontLabel(font, translate)}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  className="output-font-selector"
+                  aria-label={t("appearanceOutputFontLabel")}
+                  options={OUTPUT_PROSE_FONTS.map((font) => ({
+                    value: font,
+                    label: getOutputProseFontLabel(font, translate),
+                    className: `output-font-option-${font}`,
+                  }))}
+                  value={outputFont}
+                  onChange={setOutputFont}
+                />
               </div>
 
               <label
@@ -1773,18 +1573,17 @@ export function AppearanceSettings() {
                 <span className="output-appearance-label">
                   {t("appearanceOutputFixedFontLabel")}
                 </span>
-                <div className="font-size-selector output-font-selector">
-                  {OUTPUT_FIXED_FONTS.map((font) => (
-                    <button
-                      key={font}
-                      type="button"
-                      className={`font-size-option output-font-option output-fixed-font-option-${font} ${outputFixedFont === font ? "active" : ""}`}
-                      onClick={() => setOutputFixedFont(font)}
-                    >
-                      {getOutputFixedFontLabel(font, translate)}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  className="output-font-selector"
+                  aria-label={t("appearanceOutputFixedFontLabel")}
+                  options={OUTPUT_FIXED_FONTS.map((font) => ({
+                    value: font,
+                    label: getOutputFixedFontLabel(font, translate),
+                    className: `output-fixed-font-option-${font}`,
+                  }))}
+                  value={outputFixedFont}
+                  onChange={setOutputFixedFont}
+                />
               </div>
 
               <label

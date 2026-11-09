@@ -16,6 +16,7 @@ import {
 } from "@yep-anywhere/shared";
 import { api } from "../../api/client";
 import { Button, IconButton } from "../../components/ui/Button";
+import { Switch } from "../../components/ui/Switch";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
 import { useProjects } from "../../hooks/useProjects";
 import { useProviders } from "../../hooks/useProviders";
@@ -362,20 +363,14 @@ export function UsersSettings() {
             description={t("advancedLimitedUsersDescription")}
             keywords={["limited users", "accounts", "enable", "disable"]}
           >
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={enabled}
-                disabled={settingsLoading || busy}
-                onChange={(event) =>
-                  void updateSetting(
-                    "limitedUsersEnabled",
-                    event.target.checked,
-                  )
-                }
-              />
-              <span className="toggle-slider" />
-            </label>
+            <Switch
+              aria-label={t("advancedLimitedUsersTitle")}
+              checked={enabled}
+              disabled={settingsLoading || busy}
+              onCheckedChange={(checked) =>
+                void updateSetting("limitedUsersEnabled", checked)
+              }
+            />
           </SettingsItem>
           <p className="settings-hint">{t("usersTrustWarning")}</p>
         </details>

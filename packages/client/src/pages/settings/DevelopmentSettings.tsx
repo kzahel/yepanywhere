@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSchemaValidationContext } from "../../contexts/SchemaValidationContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { Button, buttonClassName } from "../../components/ui/Button";
+import { Switch } from "../../components/ui/Switch";
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
 import { useReloadNotifications } from "../../hooks/useReloadNotifications";
 import { useSchemaValidation } from "../../hooks/useSchemaValidation";
@@ -171,14 +172,11 @@ export function DevelopmentSettings() {
           label={t("developmentSchemaTitle")}
           description={t("developmentSchemaDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={validationSettings.enabled}
-              onChange={(e) => setValidationEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("developmentSchemaTitle")}
+            checked={validationSettings.enabled}
+            onCheckedChange={(checked) => setValidationEnabled(checked)}
+          />
         </SettingsItem>
         {ignoredTools.length > 0 && (
           <SettingsItem
@@ -222,15 +220,11 @@ export function DevelopmentSettings() {
           label={t("developmentRelayDebugTitle")}
           description={t("developmentRelayDebugDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("developmentRelayDebugTitle")}
-              checked={relayDebugEnabled}
-              onChange={(e) => setRelayDebugEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("developmentRelayDebugTitle")}
+            checked={relayDebugEnabled}
+            onCheckedChange={(checked) => setRelayDebugEnabled(checked)}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("developmentDiagnosticsTitle")}
@@ -240,14 +234,13 @@ export function DevelopmentSettings() {
             label: "client console logs",
           }}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={remoteLogCollectionEnabled}
-              onChange={(e) => setRemoteLogCollectionEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("developmentDiagnosticsTitle")}
+            checked={remoteLogCollectionEnabled}
+            onCheckedChange={(checked) =>
+              setRemoteLogCollectionEnabled(checked)
+            }
+          />
         </SettingsItem>
         <SettingsItem
           label={t("developmentRetainRejectedSrpTitle")}
@@ -257,30 +250,23 @@ export function DevelopmentSettings() {
             label: "rejected SRP debugging",
           }}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              aria-label={t("developmentRetainRejectedSrpTitle")}
-              checked={retainRejectedSrpSessions}
-              onChange={(e) => setRetainRejectedSrpSessions(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("developmentRetainRejectedSrpTitle")}
+            checked={retainRejectedSrpSessions}
+            onCheckedChange={(checked) => setRetainRejectedSrpSessions(checked)}
+          />
         </SettingsItem>
         <SettingsItem
           label={t("developmentServiceWorkerTitle")}
           description={t("developmentServiceWorkerDescription")}
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={serverSettings?.serviceWorkerEnabled ?? true}
-              onChange={(e) =>
-                updateServerSetting("serviceWorkerEnabled", e.target.checked)
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            aria-label={t("developmentServiceWorkerTitle")}
+            checked={serverSettings?.serviceWorkerEnabled ?? true}
+            onCheckedChange={(checked) =>
+              updateServerSetting("serviceWorkerEnabled", checked)
+            }
+          />
         </SettingsItem>
       </div>
 

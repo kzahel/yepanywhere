@@ -275,11 +275,7 @@
 }
 
 .usageWindow {
-  display: inline-flex;
-  gap: 0;
   margin: var(--space-2) 0 0;
-  padding: 0;
-  border: 0;
 }
 
 .usageWindowLegend {
@@ -289,30 +285,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.usageWindowOption {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.usageWindowOption:first-of-type {
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-}
-
-.usageWindowOption:last-of-type {
-  border-left: 0;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-}
-
-.usageWindowSelected {
-  background: var(--bg-code);
-  color: var(--text-primary);
-  font-weight: 600;
 }
 
 .usageTable th,

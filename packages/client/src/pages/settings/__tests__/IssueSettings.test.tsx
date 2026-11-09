@@ -172,7 +172,7 @@ describe("IssueSettings tracker confirmation", () => {
     expect(toggle.checked).toBe(false);
     await screen.findByText("Using GITHUB_TOKEN.");
     expect(
-      screen.getByRole<HTMLInputElement>("checkbox", {
+      screen.getByRole<HTMLInputElement>("switch", {
         name: /Confirm new references/,
       }).checked,
     ).toBe(false);
@@ -206,7 +206,7 @@ describe("IssueSettings tracker confirmation", () => {
 
   it("keeps confirmation off and its credentials hidden until opted in", async () => {
     await renderPane();
-    const toggle = screen.getByRole<HTMLInputElement>("checkbox", {
+    const toggle = screen.getByRole<HTMLInputElement>("switch", {
       name: /Confirm new references with the tracker/,
     });
     expect(toggle.checked).toBe(false);

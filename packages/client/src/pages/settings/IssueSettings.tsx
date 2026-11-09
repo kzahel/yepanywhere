@@ -12,6 +12,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useVersion } from "../../hooks/useVersion";
 import { useServerSettings } from "../../hooks/useServerSettings";
@@ -97,18 +98,14 @@ function IssueSettingsControls() {
         label={t("issuesEnable")}
         description={t("issuesRetention")}
       >
-        <span className={`toggle-switch ${styles.toggle}`}>
-          <input
-            type="checkbox"
-            aria-label={t("issuesEnable")}
-            checked={settings?.enabled ?? false}
-            disabled={!settings || busy}
-            onChange={(e) =>
-              settings && void save({ ...settings, enabled: e.target.checked })
-            }
-          />
-          <span className="toggle-slider" />
-        </span>
+        <Switch
+          aria-label={t("issuesEnable")}
+          checked={settings?.enabled ?? false}
+          disabled={!settings || busy}
+          onCheckedChange={(checked) =>
+            settings && void save({ ...settings, enabled: checked })
+          }
+        />
       </SettingsItem>
       <SettingsItem
         id="issue-discovery-scope"
@@ -178,19 +175,14 @@ function IssueSettingsControls() {
         label={t("issuesAggressiveMatching")}
         description={t("issuesAggressiveHelp")}
       >
-        <span className={`toggle-switch ${styles.toggle}`}>
-          <input
-            type="checkbox"
-            aria-label={t("issuesAggressiveMatching")}
-            checked={settings?.aggressiveMatching ?? false}
-            disabled={!settings || busy}
-            onChange={(e) =>
-              settings &&
-              void save({ ...settings, aggressiveMatching: e.target.checked })
-            }
-          />
-          <span className="toggle-slider" />
-        </span>
+        <Switch
+          aria-label={t("issuesAggressiveMatching")}
+          checked={settings?.aggressiveMatching ?? false}
+          disabled={!settings || busy}
+          onCheckedChange={(checked) =>
+            settings && void save({ ...settings, aggressiveMatching: checked })
+          }
+        />
       </SettingsItem>
       <SettingsItem
         id="issue-known-projects"
@@ -394,21 +386,17 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             label={t("issuesGithubStatusEnable")}
             description={t("issuesGithubStatusHelp")}
           >
-            <span className={`toggle-switch ${styles.toggle}`}>
-              <input
-                type="checkbox"
-                aria-label={t("issuesGithubStatusEnable")}
-                checked={statusEnabled}
-                disabled={busy}
-                onChange={(e) =>
-                  void save({
-                    ...settings,
-                    githubStatusEnabled: e.target.checked,
-                  })
-                }
-              />
-              <span className="toggle-slider" />
-            </span>
+            <Switch
+              aria-label={t("issuesGithubStatusEnable")}
+              checked={statusEnabled}
+              disabled={busy}
+              onCheckedChange={(checked) =>
+                void save({
+                  ...settings,
+                  githubStatusEnabled: checked,
+                })
+              }
+            />
           </SettingsItem>
           <SettingsItem
             as="label"
@@ -416,21 +404,17 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
             label={t("issuesGithubCliEnable")}
             description={t("issuesGithubCliHelp")}
           >
-            <span className={`toggle-switch ${styles.toggle}`}>
-              <input
-                type="checkbox"
-                aria-label={t("issuesGithubCliEnable")}
-                checked={cli.enabled}
-                disabled={busy}
-                onChange={(e) =>
-                  void save({
-                    ...settings,
-                    githubCli: { ...cli, enabled: e.target.checked },
-                  })
-                }
-              />
-              <span className="toggle-slider" />
-            </span>
+            <Switch
+              aria-label={t("issuesGithubCliEnable")}
+              checked={cli.enabled}
+              disabled={busy}
+              onCheckedChange={(checked) =>
+                void save({
+                  ...settings,
+                  githubCli: { ...cli, enabled: checked },
+                })
+              }
+            />
           </SettingsItem>
           <SettingsItem
             id="issue-github-account"
@@ -491,16 +475,12 @@ function ConfirmationControls({ settings, busy, save }: ControlProps) {
         label={t("issuesConfirmEnable")}
         description={t("issuesConfirmHelp")}
       >
-        <span className={`toggle-switch ${styles.toggle}`}>
-          <input
-            type="checkbox"
-            aria-label={t("issuesConfirmEnable")}
-            checked={confirmation.enabled}
-            disabled={busy}
-            onChange={(e) => update({ enabled: e.target.checked })}
-          />
-          <span className="toggle-slider" />
-        </span>
+        <Switch
+          aria-label={t("issuesConfirmEnable")}
+          checked={confirmation.enabled}
+          disabled={busy}
+          onCheckedChange={(checked) => update({ enabled: checked })}
+        />
       </SettingsItem>
       {confirmation.enabled && (
         <>

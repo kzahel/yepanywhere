@@ -166,8 +166,8 @@ function render(ui: ReactElement) {
   return renderWithoutRouter(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
-function checkboxFor(labelKey: string): HTMLInputElement {
-  return screen.getByRole("checkbox", {
+function switchFor(labelKey: string): HTMLInputElement {
+  return screen.getByRole("switch", {
     name: labelKey,
   }) as HTMLInputElement;
 }
@@ -237,19 +237,19 @@ describe("LocalAccessSettings", () => {
       useDirectAccess(false);
       const first = render(<LocalAccessSettings />);
       expect(
-        screen.queryByRole("checkbox", { name: "localAccessAgentApiTitle" }),
+        screen.queryByRole("switch", { name: "localAccessAgentApiTitle" }),
       ).toBeNull();
       first.unmount();
       versionState.capabilities = [SERVER_CAPABILITIES.agentApiBootstrap.name];
       render(<LocalAccessSettings />);
-      const toggle = screen.getByRole("checkbox", {
+      const toggle = screen.getByRole("switch", {
         name: "localAccessAgentApiTitle",
       });
       expect(toggle).toHaveProperty("checked", false);
       fireEvent.click(toggle);
       expect(mockUpdateSetting).toHaveBeenCalledWith("agentApiEnabled", true);
       expect(
-        screen.queryByRole("checkbox", {
+        screen.queryByRole("switch", {
           name: "localAccessAgentServerAccessTitle",
         }),
       ).toBeNull();
@@ -269,7 +269,7 @@ describe("LocalAccessSettings", () => {
       versionState.capabilities = [SERVER_CAPABILITIES.agentApiBootstrap.name];
       const first = render(<LocalAccessSettings />);
       expect(
-        screen.queryByRole("checkbox", {
+        screen.queryByRole("switch", {
           name: "localAccessAgentApiManagementTitle",
         }),
       ).toBeNull();
@@ -278,7 +278,7 @@ describe("LocalAccessSettings", () => {
         SERVER_CAPABILITIES.agentApiManagement.name,
       );
       render(<LocalAccessSettings />);
-      const management = screen.getByRole("checkbox", {
+      const management = screen.getByRole("switch", {
         name: "localAccessAgentApiManagementTitle",
       });
       expect(management).toHaveProperty("checked", false);
@@ -297,7 +297,7 @@ describe("LocalAccessSettings", () => {
       useDirectAccess(false);
       const { unmount } = render(<LocalAccessSettings />);
       expect(
-        screen.queryByRole("checkbox", {
+        screen.queryByRole("switch", {
           name: "localAccessAgentServerAccessTitle",
         }),
       ).toBeNull();
@@ -305,7 +305,7 @@ describe("LocalAccessSettings", () => {
 
       useDirectAccess(true);
       render(<LocalAccessSettings />);
-      const toggle = screen.getByRole("checkbox", {
+      const toggle = screen.getByRole("switch", {
         name: "localAccessAgentServerAccessTitle",
       });
       expect(toggle).toHaveProperty("checked", false);
@@ -323,7 +323,7 @@ describe("LocalAccessSettings", () => {
       expect(
         document.querySelector("[data-local-access-password-block]"),
       ).toBeNull();
-      fireEvent.click(checkboxFor("localAccessRequirePasswordTitle"));
+      fireEvent.click(switchFor("localAccessRequirePasswordTitle"));
 
       const block = document.querySelector(
         "[data-local-access-password-block]",
@@ -366,7 +366,7 @@ describe("LocalAccessSettings", () => {
         "[data-local-access-password-block]",
       ) as HTMLElement;
       expect(block.textContent).toContain("localAccessPasswordActive");
-      fireEvent.click(checkboxFor("localAccessRequirePasswordTitle"));
+      fireEvent.click(switchFor("localAccessRequirePasswordTitle"));
       expect(block.textContent).toContain("localAccessPasswordDisableWarning");
       fireEvent.click(
         screen.getByRole("button", {
@@ -476,9 +476,7 @@ describe("LocalAccessSettings", () => {
       await screen.findByRole("group", { name: "fileAccessTitle" });
 
       expect(settingIds()).toEqual(directIds);
-      expect(checkboxFor("localAccessRequirePasswordTitle").disabled).toBe(
-        false,
-      );
+      expect(switchFor("localAccessRequirePasswordTitle").disabled).toBe(false);
       expect(
         document.querySelector(
           '[data-settings-item="local-access-remote-logout"]',
@@ -491,7 +489,7 @@ describe("LocalAccessSettings", () => {
     bindingState.value = baseBinding;
     render(<LocalAccessSettings />);
 
-    const toggle = await screen.findByRole("checkbox", {
+    const toggle = await screen.findByRole("switch", {
       name: "localAccessRequirePasswordTitle",
     });
     expect(toggle).toHaveProperty("disabled", true);
@@ -507,7 +505,7 @@ describe("LocalAccessSettings", () => {
     render(<LocalAccessSettings />);
 
     fireEvent.click(
-      await screen.findByRole("checkbox", { name: "fileAccessHome" }),
+      await screen.findByRole("switch", { name: "fileAccessHome" }),
     );
 
     await waitFor(() =>
@@ -608,7 +606,7 @@ describe("LocalAccessSettings", () => {
 
     render(<LocalAccessSettings />);
 
-    const auditToggle = await screen.findByRole("checkbox", {
+    const auditToggle = await screen.findByRole("switch", {
       name: "localAccessApprovalAuditTitle",
     });
     expect(auditToggle).toHaveProperty("disabled", false);

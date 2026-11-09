@@ -192,7 +192,7 @@ describe("RemoteAccessSettings host identity", () => {
     render(<RemoteAccessSettings />);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "hostIdentityUsePreset:❤️" }),
+      screen.getByRole("radio", { name: "hostIdentityUsePreset:❤️" }),
     );
 
     await waitFor(() =>
@@ -260,7 +260,7 @@ describe("RemoteAccessSettings host identity", () => {
     const item = screen.getByText("hostAwakeTitle").closest(".settings-item");
     expect(item).not.toBeNull();
 
-    fireEvent.click(within(item as HTMLElement).getByRole("checkbox"));
+    fireEvent.click(within(item as HTMLElement).getByRole("switch"));
 
     await waitFor(() =>
       expect(mockUpdateSettings).toHaveBeenCalledWith({
@@ -403,10 +403,7 @@ describe("RemoteAccessSettings host identity", () => {
     render(<RemoteAccessSettings />);
 
     fireEvent.click(
-      screen
-        .getByText("advancedPublicShareTitle")
-        .closest(".settings-item")!
-        .querySelector('input[type="checkbox"]')!,
+      screen.getByRole("switch", { name: "advancedPublicShareTitle" }),
     );
 
     expect(confirm).toHaveBeenCalledWith("advancedPublicShareDisableConfirm");

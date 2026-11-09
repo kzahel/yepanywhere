@@ -17,6 +17,8 @@ import type { PublicShareStatusResponse } from "../../api/client";
 import { PublicShareManagerModal } from "../../components/PublicShareManagerModal";
 import { RemoteAccessSetup } from "../../components/RemoteAccessSetup";
 import { Button } from "../../components/ui/Button";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { Switch } from "../../components/ui/Switch";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { usePublicShareStatus } from "../../hooks/usePublicShareStatus";
 import { useHostAwakeStatus } from "../../hooks/useHostAwakeStatus";
@@ -26,6 +28,7 @@ import { useI18n } from "../../i18n";
 import { buildFrontendReloadUrl } from "../../lib/frontendReload";
 import { getHostById } from "../../lib/hostStorage";
 import { markSwitchHostReload } from "../../lib/switchHostReload";
+import styles from "./RemoteAccessSettings.module.css";
 import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
 import { HideInSettingsSearch } from "./SettingsSearchContext";
@@ -85,28 +88,21 @@ function HostIdentitySettings({
       className="settings-item--wide-control host-identity-settings"
     >
       <div className="host-identity-controls">
-        <div
-          className="host-identity-presets"
-          role="group"
+        <SegmentedControl
+          variant="cards"
           aria-label={t("hostIdentityPresetsAria")}
-        >
-          {HOST_IDENTITY_PRESETS.map((icon) => (
-            <button
-              key={icon}
-              type="button"
-              className={`host-identity-preset${currentIcon === icon ? " active" : ""}`}
-              aria-label={t("hostIdentityUsePreset", { icon })}
-              aria-pressed={currentIcon === icon}
-              disabled={disabled || saving}
-              onClick={() => {
-                setDraft(icon);
-                void save({ icon });
-              }}
-            >
-              {icon}
-            </button>
-          ))}
-        </div>
+          options={HOST_IDENTITY_PRESETS.map((icon) => ({
+            value: icon,
+            label: <span className={styles.presetEmoji}>{icon}</span>,
+            ariaLabel: t("hostIdentityUsePreset", { icon }),
+          }))}
+          value={currentIcon}
+          onChange={(icon) => {
+            setDraft(icon);
+            void save({ icon });
+          }}
+          disabled={disabled || saving}
+        />
         <form
           className="host-identity-custom"
           onSubmit={(event) => {
@@ -272,25 +268,22 @@ function HostAwakeSettings({
           </>
         }
       >
-        <label className="toggle-switch">
-          <input
-            type="checkbox"
-            checked={enabled}
-            disabled={
-              settingsLoading ||
-              statusLoading ||
-              saving ||
-              !status ||
-              (unavailable && !enabled)
-            }
-            onChange={(event) =>
-              void update({
-                hostAwakeMode: event.target.checked ? "idle" : "off",
-              })
-            }
-          />
-          <span className="toggle-slider" />
-        </label>
+        <Switch
+          checked={enabled}
+          disabled={
+            settingsLoading ||
+            statusLoading ||
+            saving ||
+            !status ||
+            (unavailable && !enabled)
+          }
+          onCheckedChange={(checked) =>
+            void update({
+              hostAwakeMode: checked ? "idle" : "off",
+            })
+          }
+          aria-label={t("hostAwakeTitle")}
+        />
       </SettingsItem>
 
       {enabled &&
@@ -500,15 +493,12 @@ export function RemoteAccessSettings() {
           </>
         }
       >
-        <label className="toggle-switch">
-          <input
-            type="checkbox"
-            checked={publicSharesEnabled}
-            disabled={isLoading}
-            onChange={(e) => void updatePublicSharesEnabled(e.target.checked)}
-          />
-          <span className="toggle-slider" />
-        </label>
+        <Switch
+          checked={publicSharesEnabled}
+          disabled={isLoading}
+          onCheckedChange={(checked) => void updatePublicSharesEnabled(checked)}
+          aria-label={t("advancedPublicShareTitle")}
+        />
       </SettingsItem>
 
       {/* Limited users live in Settings → Users, beside the list they govern. */}
@@ -586,20 +576,14 @@ export function RemoteAccessSettings() {
             </>
           }
         >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={settings?.persistRemoteSessionsToDisk ?? true}
-              disabled={isLoading}
-              onChange={(e) =>
-                void updateSetting(
-                  "persistRemoteSessionsToDisk",
-                  e.target.checked,
-                )
-              }
-            />
-            <span className="toggle-slider" />
-          </label>
+          <Switch
+            checked={settings?.persistRemoteSessionsToDisk ?? true}
+            disabled={isLoading}
+            onCheckedChange={(checked) =>
+              void updateSetting("persistRemoteSessionsToDisk", checked)
+            }
+            aria-label={t("developmentPersistRemoteTitle")}
+          />
         </SettingsItem>
       </div>
 

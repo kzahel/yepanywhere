@@ -7,6 +7,7 @@ import {
   rawTokenCount,
 } from "@yep-anywhere/shared";
 import { useState } from "react";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useI18n } from "../../i18n";
 import styles from "./UsersSettings.module.css";
 
@@ -94,24 +95,16 @@ export function UserUsageTable({ report }: UserUsageTableProps) {
       </p>
       {rows.length > 0 && (
         <>
-          <fieldset className={styles.usageWindow}>
-            <legend className={styles.usageWindowLegend}>
-              {t("userUsageWindowLabel")}
-            </legend>
-            {(["total", "lastWeek"] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={`${styles.usageWindowOption} ${
-                  usageWindow === key ? styles.usageWindowSelected : ""
-                }`}
-                aria-pressed={usageWindow === key}
-                onClick={() => setUsageWindow(key)}
-              >
-                {windowLabels[key]}
-              </button>
-            ))}
-          </fieldset>
+          <SegmentedControl
+            className={styles.usageWindow}
+            aria-label={t("userUsageWindowLabel")}
+            options={(["total", "lastWeek"] as const).map((key) => ({
+              value: key,
+              label: windowLabels[key],
+            }))}
+            value={usageWindow}
+            onChange={setUsageWindow}
+          />
           <div className={styles.usageScroll}>
             <table className={styles.usageTable}>
               {/* The switch above already shows the window; this names the

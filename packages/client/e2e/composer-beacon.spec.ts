@@ -233,7 +233,7 @@ test("composer beacon acknowledges real sends and leaves typing and title option
     await expect(composer).toHaveValue("next draft");
 
     await page.goto(`${origin}/settings/appearance`);
-    const setting = page.getByRole("checkbox", {
+    const setting = page.getByRole("switch", {
       name: "Composer Hotkey Beacon",
       exact: true,
     });

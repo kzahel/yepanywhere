@@ -50,7 +50,7 @@ for (const viewport of [
     await expect(showThinking).toBeVisible({ timeout: 10_000 });
     await expect(suggestions).toBeVisible();
     await expect(recap).toBeVisible({ timeout: 10_000 });
-    await recap.getByRole("button", { name: "Forked" }).click();
+    await recap.getByRole("radio", { name: "Forked" }).click();
 
     const duration = page.locator(".recap-after-seconds-control--inline");
     const seconds = duration.getByRole("spinbutton", {

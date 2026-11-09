@@ -93,14 +93,14 @@ describe("UserUsageTable", () => {
   it("names the calendar days the ledger spans in the all-recorded window", () => {
     renderTable(report());
     expect(
-      screen.getByRole("button", { name: "All recorded (14 days)" }),
+      screen.getByRole("radio", { name: "All recorded (14 days)" }),
     ).toBeTruthy();
   });
 
   it("says 7 days rather than 'last week', which reads as a calendar week", () => {
     renderTable(report());
     expect(
-      screen.getByRole("button", { name: "Over last 7 days" }),
+      screen.getByRole("radio", { name: "Over last 7 days" }),
     ).toBeTruthy();
     expect(screen.queryByText("Last week")).toBeNull();
   });
@@ -123,7 +123,7 @@ describe("UserUsageTable", () => {
         users: [{ username: null, total: totals(), lastWeek }],
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Over last 7 days" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Over last 7 days" }));
     expect(rowCells("Over last 7 days", OWNER).slice(1, 3)).toEqual([
       "2",
       "30",

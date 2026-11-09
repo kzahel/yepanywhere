@@ -309,7 +309,7 @@ describe("SpeechSettings", () => {
   it("offers default-off browser punctuation as an explicit opt-in", () => {
     render(<SpeechSettings />);
 
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "speechSettingsUnspokenPunctuationTitle",
     }) as HTMLInputElement;
     expect(toggle.checked).toBe(false);

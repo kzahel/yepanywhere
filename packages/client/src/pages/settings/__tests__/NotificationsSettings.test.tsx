@@ -158,9 +158,9 @@ describe("NotificationsSettings", () => {
     hookState.subscribed = false;
     render(<NotificationsSettings />);
 
-    expect(screen.getAllByRole("checkbox")).toHaveLength(5);
-    for (const checkbox of screen.getAllByRole("checkbox")) {
-      expect((checkbox as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getAllByRole("switch")).toHaveLength(5);
+    for (const toggle of screen.getAllByRole("switch")) {
+      expect((toggle as HTMLInputElement).disabled).toBe(true);
     }
     expect(screen.queryByText("notificationsDiagnosticsTitle")).toBeNull();
   });

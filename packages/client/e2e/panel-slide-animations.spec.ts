@@ -10,7 +10,7 @@ test("Appearance slide animations apply immediately and persist for App toggles"
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1200, height: 600 });
   await page.goto("/settings/appearance");
-  const animationToggle = page.getByRole("checkbox", {
+  const animationToggle = page.getByRole("switch", {
     name: "Slide animations",
     exact: true,
   });

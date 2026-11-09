@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { NativeNotificationStatus } from "../../components/NativeNotificationStatus";
 import { PushNotificationToggle } from "../../components/PushNotificationToggle";
 import { Button } from "../../components/ui/Button";
+import { Switch } from "../../components/ui/Switch";
 import { useConnectedDevices } from "../../hooks/useConnectedDevices";
 import {
   type NotificationSettings,
@@ -509,15 +510,13 @@ export function NotificationsSettings() {
               label={t(row.titleKey)}
               description={t(row.descriptionKey)}
             >
-              <label className="toggle-switch" title={gatedTooltip}>
-                <input
-                  type="checkbox"
-                  checked={settings?.[row.key] ?? row.defaultValue}
-                  onChange={(e) => updateSetting(row.key, e.target.checked)}
-                  disabled={settingsLoading || serverTogglesGated}
-                />
-                <span className="toggle-slider" />
-              </label>
+              <Switch
+                aria-label={t(row.titleKey)}
+                title={gatedTooltip}
+                checked={settings?.[row.key] ?? row.defaultValue}
+                onCheckedChange={(checked) => updateSetting(row.key, checked)}
+                disabled={settingsLoading || serverTogglesGated}
+              />
             </SettingsItem>
           ))}
         </div>
