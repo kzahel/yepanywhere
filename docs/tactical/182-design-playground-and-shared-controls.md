@@ -5,9 +5,11 @@ Topic: ui-design
 Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
-whole button family (census, swap, delete, ban) have landed. Next: the
-undefined-token pass, then family 2 (menus, popovers and dropdowns).
-Composer controls are excluded and get their own later pass.
+whole button family (census, swap, delete, ban) have landed. Order agreed
+with the maintainer on 2026-11-09: the token pass, then switches and
+segmented controls, menus and popovers, fields, banners/badges/spinners/
+tabs, the dialog pattern, and the composer last. Each step runs end to
+end (implement, independent review, commit) before the next starts.
 
 ## Why
 
@@ -157,6 +159,14 @@ and runs on demand, not in CI.
 
 ## Family order
 
+Order, from 2026-11-09: **0** token pass (below, "Supporting work"), then
+**3** switches and segmented controls (cheap, visible, census already
+built, and it clears most of the button allowlist), **2** menus and
+popovers (the largest behavior payoff, once tokens give it raised-surface
+and shadow values), **4** fields, **5** banners, badges, spinners and tabs,
+**7** the dialog pattern, and **6** the composer last. Numbers are stable
+names, not the order.
+
 ### 1 — buttons
 
 Scope (2026-11-08): 774 `<button>`s in scope across about 230 files, after
@@ -236,6 +246,19 @@ migrated field must still meet the sequential-typing requirement in
 
 Each with its own census, in that order.
 
+### 7 — dialog pattern
+
+`Modal` is shared, but what sits inside each dialog is not: header, body
+spacing, footer action rows, widths and how actions are ordered and
+coloured differ per feature. A `Dialog` pattern on top of `Modal` (title,
+optional description, body, a footer action row that applies the button
+variant rule: one primary, Cancel secondary, destructive confirms danger)
+and a confirm-dialog helper replace the per-feature layouts and the
+`window.confirm` calls where a styled confirm fits. Census first: every
+`Modal` caller with its width, header and footer shape. Also decide
+whether `Modal` moves onto `<dialog>` for its focus trap, if family 2 has
+not.
+
 ### 6 — composer controls
 
 A careful census and pass over the session input and new-session form
@@ -245,7 +268,7 @@ controls, which the earlier families exclude.
 
 These are not control families; each is scheduled where noted.
 
-- **Undefined-token pass** (before menus; anytime earlier is fine).
+- **Undefined-token pass** (first, before switches; menus need it).
   Rename the obvious misspellings onto real tokens (`--color-error` →
   `--error-color`, `--text-link` → `--link-color`, `--focus-ring` →
   `--focus-border`, `--app-text-*` → `--text-*`, `--vscode-*` onto theme

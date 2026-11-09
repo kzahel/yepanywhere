@@ -1057,8 +1057,12 @@ the token page, a `css:check` limit on undefined custom properties, and the
 button and switch census landed on 2026-11-08. The plan was then rewritten to
 unify one control family at a time as a quick cut (census, build, swap every
 use, delete the old CSS including global rules, ban the old way), accepting
-design changes. Buttons come first; composer controls get their own later
-pass.
+design changes. The button family landed on 2026-11-08 (every button on
+shared controls, legacy rules deleted, `pnpm buttons:check` in lint). On
+2026-11-09 the maintainer set the remaining order: the undefined-token pass,
+switches and segmented controls, menus and popovers, fields, banners,
+badges, spinners and tabs, a dialog pattern, and the composer last, each
+implemented, independently reviewed and committed before the next.
 
 ## Later directions
 
