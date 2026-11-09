@@ -99,10 +99,13 @@
   background: #398579;
 }
 
+.table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
 .table tr[data-selected="true"],
-.table tbody tr:hover,
 .unknownWord[aria-pressed="true"] {
-  background: var(--bg-input);
+  background: var(--bg-selected);
 }
 
 .word:focus-visible,

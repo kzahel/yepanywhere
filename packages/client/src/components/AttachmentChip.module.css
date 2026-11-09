@@ -62,7 +62,7 @@
   object-fit: contain;
   display: block;
   border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 

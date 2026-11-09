@@ -18,7 +18,7 @@
   margin-right: 0.5em;
   padding: 0 0.45em;
   border-radius: 999px;
-  background: var(--text-dimmed);
+  background: var(--text-muted);
   color: var(--bg-surface, #fff);
   font-size: 0.8em;
   font-variant-numeric: tabular-nums;

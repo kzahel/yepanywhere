@@ -13,6 +13,7 @@ const repoRoot = path.resolve(
   "..",
 );
 const clientSrcDir = path.join(repoRoot, "packages", "client", "src");
+const designDir = path.join(repoRoot, "packages", "client", "design");
 const baselinePath = path.join(
   repoRoot,
   "scripts",
@@ -140,19 +141,42 @@ for (const filePath of configuredGlobalPaths) {
 
 // Undefined custom properties: a var() read of a name no client source
 // defines silently takes its fallback, or drops the declaration when it has
-// none. Each recorded name may only lose uses; new names are rejected.
+// none. Each recorded name may only lose uses; new names are rejected. The
+// design playground's reads are checked too, against production definitions
+// plus its own; a playground definition never covers a production read.
 const recordedUndefined = baseline.undefinedCustomProperties ?? {};
-const propertySources = await Promise.all(
-  (await collectCustomPropertySources(clientSrcDir)).map(async (file) => ({
-    path: relativePath(file),
-    text: await readFile(file, "utf8"),
-  })),
-);
+async function readPropertySources(directory) {
+  return Promise.all(
+    (await collectCustomPropertySources(directory)).map(async (file) => ({
+      path: relativePath(file),
+      text: await readFile(file, "utf8"),
+    })),
+  );
+}
+const propertySources = await readPropertySources(clientSrcDir);
+const designSources = await readPropertySources(designDir);
 const currentUndefined = new Map(
   undefinedCustomProperties(scanCustomProperties(propertySources)).map(
     (entry) => [entry.name, entry],
   ),
 );
+const designPrefix = `${relativePath(designDir)}/`;
+for (const entry of undefinedCustomProperties(
+  scanCustomProperties([...propertySources, ...designSources]),
+)) {
+  const sites = entry.sites.filter((site) =>
+    site.path.startsWith(designPrefix),
+  );
+  if (sites.length === 0) continue;
+  const known = currentUndefined.get(entry.name);
+  const merged = [...(known?.sites ?? []), ...sites];
+  currentUndefined.set(entry.name, {
+    name: entry.name,
+    uses: merged.length,
+    withoutFallback: merged.filter((site) => !site.fallback).length,
+    sites: merged,
+  });
+}
 const undefinedBelow = [];
 for (const [name, entry] of currentUndefined) {
   const limit = recordedUndefined[name];

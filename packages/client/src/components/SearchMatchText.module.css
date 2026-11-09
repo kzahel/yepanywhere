@@ -23,7 +23,7 @@
   flex: 0 0 auto;
   overflow: hidden;
   color: inherit;
-  background: color-mix(in srgb, var(--warning-color) 42%, transparent);
+  background: color-mix(in srgb, var(--warning-color) 30%, transparent);
   border-radius: 2px;
   text-overflow: ellipsis;
   white-space: nowrap;

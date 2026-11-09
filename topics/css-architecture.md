@@ -74,7 +74,9 @@ not carry a migration queue.
   a CSS declaration or `@property`, or a TypeScript style key, `setProperty`
   call (with the name inline or in a `const` in the same file) or `--name:`
   string; the scan covers CSS and TypeScript under `packages/client/src`,
-  excluding tests. Read a theme token, define the property, or set it where
+  excluding tests, and the design playground's reads under
+  `packages/client/design` (which its own definitions may satisfy, but
+  production reads may not). Read a theme token, define the property, or set it where
   its owner renders. The
   [design playground](ui-design.md#shared-controls-and-the-design-playground)
   token page lists each name with its sites.

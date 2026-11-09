@@ -95,8 +95,16 @@ of slightly different styles.
   moved into one `[data-theme]` block, so a nested theme (a playground cell)
   resolves its own and `index.css` shrank by 36 lines. The scanner counts a
   name held in a `const` and passed to `setProperty`. The Tokens page shows
-  the `:root` colors and an elevation scale. The z-index scale waits for the
-  popover family, which will decide what layers exist.
+  the `:root` colors and an elevation scale. Reads that had been dropped now
+  apply, so some looks changed: cards and popovers gained their raised
+  background, borders and shadows, and the fork menu's touch items their
+  larger text. An Opus review (2026-11-09) found no blockers; its fixes
+  moved the `:root` accent and wordmark aliases into the shared block (they
+  had resolved against `<html>`'s theme in nested cells), raised the dark
+  `--bg-elevated` values above the panels, and repaired four contrast or
+  intent slips in the renames. `css:check` also reads the playground. The
+  z-index scale waits for the popover family, which will decide what layers
+  exist.
 - **Shared buttons** (`src/components/ui/Button.tsx`, Controls/Button page):
   `Button`, `IconButton`, `ButtonBase` and `buttonClassName`, built from the
   census prototypes, which the button census now renders instead.

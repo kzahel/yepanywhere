@@ -71,7 +71,7 @@
 
 .error {
   padding: 0.5rem;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--bg-error);
   border-radius: 4px;
   color: var(--error-color);
   font-size: var(--font-size-sm);

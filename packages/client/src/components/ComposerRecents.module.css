@@ -108,7 +108,7 @@
   position: fixed;
   z-index: 10000;
   pointer-events: none;
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   box-shadow: 0 8px 32px #0008;
   outline: 2px solid var(--border-input);
 }

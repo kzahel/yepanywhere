@@ -301,13 +301,6 @@
   --project-queue-new-session-action-bg: #5b21b6;
 
   /* Semantic Colors */
-  /* Selection/emphasis accent. The color names were used across the client but
-     never defined, so browsers dropped bare accent declarations. They alias
-     each theme's primary; the literals cover first paint before the theme
-     attribute lands. */
-  --accent-color: var(--primary-color, #3b82f6);
-  --accent-primary: var(--primary-color, #3b82f6);
-  --accent-contrast: #0b1220;
   --thinking-color: var(--app-claude-orange);
   /* Maximum-contrast tooltip polarity for dark and default themes. */
   --tooltip-background: #ffffff;
@@ -329,16 +322,6 @@
   --font-output-alegreya-sans: "YA Alegreya Sans", var(--font-sans);
   --font-math:
     "KaTeX_Main", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
-  --brand-wordmark-yep-full: color-mix(
-    in srgb,
-    var(--app-yep-green) 76%,
-    var(--text-primary) 24%
-  );
-  --brand-wordmark-anywhere: color-mix(
-    in srgb,
-    var(--app-claude-orange) 38%,
-    var(--text-primary) 62%
-  );
   --font-mono-system: "SF Mono", Monaco, "Cascadia Code", Consolas, monospace;
   --font-mono-iosevka: "YA Iosevka", var(--font-mono-system);
   --font-mono-ibm-plex: "YA IBM Plex Mono", var(--font-mono-system);
@@ -458,9 +441,24 @@
   --app-spinner-foreground: var(--thinking-color);
 }
 
-/* Dark defaults the theme blocks below override, set on every data-theme
-   element so a nested theme (a playground cell) resolves its own values. */
+/* Dark defaults the theme blocks below override, and values mixed from theme
+   colors, set on every data-theme element so a nested theme (a playground
+   cell) resolves its own; :root covers first paint before data-theme lands. */
+:root,
 [data-theme] {
+  /* Selection/emphasis accent, aliasing the theme's primary. */
+  --accent-color: var(--primary-color);
+  --accent-primary: var(--primary-color);
+  --brand-wordmark-yep-full: color-mix(
+    in srgb,
+    var(--app-yep-green) 76%,
+    var(--text-primary) 24%
+  );
+  --brand-wordmark-anywhere: color-mix(
+    in srgb,
+    var(--app-claude-orange) 38%,
+    var(--text-primary) 62%
+  );
   --accent-contrast: #0b1220;
   --bg-overlay: rgba(0, 0, 0, 0.5);
   --focus-border: #007acc;
@@ -494,7 +492,7 @@
 
   /* Backgrounds */
   --bg-surface: #181818;
-  --bg-elevated: #222222;
+  --bg-elevated: #2c2c2c;
   --bg-secondary: #1f1f1f;
   --bg-tertiary: #252525;
   --bg-hover: #2a2d2e;
@@ -549,7 +547,7 @@
 
   /* Backgrounds - lighter greys */
   --bg-surface: #2f2f2f;
-  --bg-elevated: #393939;
+  --bg-elevated: #444444;
   --bg-secondary: #363636;
   --bg-tertiary: #3d3d3d;
   --bg-hover: #454545;
@@ -682,7 +680,7 @@
 
   /* Default to dark (greyish) */
   --bg-surface: #2f2f2f;
-  --bg-elevated: #393939;
+  --bg-elevated: #444444;
   --bg-secondary: #363636;
   --bg-tertiary: #3d3d3d;
   --bg-hover: #454545;
