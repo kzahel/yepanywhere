@@ -16,18 +16,15 @@ ffmpeg = ">=7"
 [feature.stt.tasks]
 stt-install = "python -m pip install --requirement requirements/stt.txt"
 stt-install-parakeet = "python -m pip install --requirement requirements/stt-parakeet.txt"
-stt-install-nemo = "python -m pip install --requirement requirements/stt-nemo.txt"
 stt-install-granite = "python -m pip install --requirement requirements/stt-granite.txt"
 stt-install-qwen = "python -m pip install --requirement requirements/stt-qwen.txt"
 stt-check-qwen = "python -c \"from transformers import Qwen3ASRForConditionalGeneration, Qwen3ASRProcessor; print('qwen ASR import OK')\""
 stt-bootstrap-qwen = { depends-on = ["stt-install-qwen", "stt-check-qwen"] }
 stt-check = "python -c \"from faster_whisper import WhisperModel; print('faster-whisper import OK')\""
 stt-check-parakeet = "python -c \"import torch; from transformers import pipeline; print('parakeet transformers import OK')\""
-stt-check-nemo = "python -c \"import numpy as np; np.sctypes = getattr(np, 'sctypes', {'int': [np.int8, np.int16, np.int32, np.int64], 'uint': [np.uint8, np.uint16, np.uint32, np.uint64], 'float': [np.float16, np.float32, np.float64], 'complex': [np.complex64, np.complex128], 'others': [np.bool_, np.object_, np.bytes_, np.str_]}); import nemo.collections.asr; print('nemo asr import OK')\""
 stt-check-granite = "python -c \"import torchaudio, peft; from transformers import GraniteSpeechForConditionalGeneration; print('granite speech transformers import OK')\""
 stt-bootstrap = { depends-on = ["stt-install", "stt-check"] }
 stt-bootstrap-parakeet = { depends-on = ["stt-install-parakeet", "stt-check-parakeet"] }
-stt-bootstrap-nemo = { depends-on = ["stt-install-nemo", "stt-check-nemo"] }
 stt-bootstrap-granite = { depends-on = ["stt-install-granite", "stt-check-granite"] }
 stt-bootstrap-all = { depends-on = ["stt-bootstrap", "stt-bootstrap-parakeet"] }
 

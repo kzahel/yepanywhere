@@ -1126,7 +1126,7 @@ Deploy it in stages:
    that import probe fails for an explicitly enabled local backend, startup runs
    the matching pixi bootstrap task once (`stt-bootstrap` for `ya-whisper`,
    `stt-bootstrap-parakeet` for `ya-parakeet`, `stt-bootstrap-granite` for
-   `ya-granite`, `stt-bootstrap-nemo` for
+   `ya-granite`, `nemo-bootstrap` in the isolated `stt-nemo` environment for
    `ya-nemo`) and then probes again. `stt-bootstrap-all` intentionally covers
    Whisper plus Transformers Parakeet only; NeMo is a heavier optional add-on.
    Runtime validation and the warm worker use `pixi run --frozen -e stt
@@ -1269,7 +1269,8 @@ The 2026-06-16 coexistence spike found:
   packaging, and Hugging Face hub packages. Treat modern NeMo as a separate
   pixi environment unless those pins are deliberately moved together.
 - `nemo_toolkit[asr]==2.0.0` does coexist with the current pins when installed
-  through `requirements/stt-nemo.txt`. The install also needs
+  through the former `requirements/stt-nemo.txt` add-on (retired 2026-11-09;
+  see below). The install also needed
   `pytorch-lightning==2.4.0`; the resolver's newer default no longer exports
   `NeptuneLogger`, which NeMo 2.0.0 imports. `matplotlib` is also needed
   because NeMo ASR imports VAD plotting utilities during module import.
@@ -1302,7 +1303,14 @@ The 2026-06-16 coexistence spike found:
   the separate/newer-NeMo track.
 
 The current batch-only `ya-nemo` backend uses the isolated runtime below. The
-older shared add-on remains a recovery recipe, not its active runtime. Any
+older in-place NeMo 2.0.0 add-on (`requirements/stt-nemo.txt` and the
+`stt-install-nemo`/`stt-check-nemo`/`stt-bootstrap-nemo` pixi tasks) was
+retired on 2026-11-09: no YA code path used it, and NeMo before 2.6.2 loads
+model checkpoints in ways that allow remote code execution (for example
+[GHSA-m4jw-wgmf-889x](https://github.com/advisories/GHSA-m4jw-wgmf-889x)),
+while YA lets authenticated clients choose the model id. The isolated runtime
+pins NeMo 3.0.0, which is patched. An environment still
+carrying that add-on should be reset with the recovery steps above. Any
 NIM/NGC multilingual RNNT variant should be considered only if there is a
 host-installable local runtime that fits the Rocky 8 / pixi deployment
 constraints.
