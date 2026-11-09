@@ -2,9 +2,11 @@ import { getProjectIdentityKey } from "../projects/paths.js";
 import { stat } from "node:fs/promises";
 import {
   fromUrlProjectId,
+  isYaSessionId,
   type UrlProjectId,
   type RetainedSessionCollectionState,
 } from "@yep-anywhere/shared";
+import type { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
 import {
   catalogAdaptersForRows,
   catalogFileVersion,
@@ -37,6 +39,34 @@ export interface RetainedSessionCollectionsOptions {
   eventBus?: EventBus;
   projectStores?: () => readonly CatalogProjectStore[];
   shouldReadQuestions?: (row: Readonly<SessionCatalogRow>) => boolean;
+  /** The native id an event's session id names; undefined while unbound. */
+  nativeSessionId?: (sessionId: string) => string | undefined;
+  /** How long a created session may take to arrive by its own file. */
+  createdSessionGraceMs?: number;
+}
+
+/**
+ * Families whose provider watcher reports only internally
+ * (`internalOnly` in server-main's watcher specs), so their file changes never
+ * reach `invalidate(path)`. Every other family's watcher does.
+ */
+const INTERNALLY_OBSERVED_FAMILIES = new Set(["grok", "opencode"]);
+
+/**
+ * The native id an event's session id names. A public YA id resolves through
+ * its identity (undefined while unbound); any other id is already native.
+ * `isYaSessionId` accepts every opaque id, so only a registered identity
+ * distinguishes the two.
+ */
+export function catalogNativeSessionId(
+  identities?: Pick<SessionIdentityStore, "resolveYa">,
+): (sessionId: string) => string | undefined {
+  return (sessionId) => {
+    const identity = isYaSessionId(sessionId)
+      ? identities?.resolveYa(sessionId)
+      : undefined;
+    return identity ? identity.native?.id : sessionId;
+  };
 }
 
 /** One durable catalog and one finite refresh, shared by every collection query. */
@@ -61,6 +91,9 @@ export class RetainedSessionCollections {
   private projectProjectionKey?: string;
   private projectStoresKey?: string;
   private projectedStoresKey?: string;
+  /** Created session ids, each with the time its grace period ends. */
+  private readonly createdSessions = new Map<string, number>();
+  private createdTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly options: RetainedSessionCollectionsOptions) {
     this.catalog = new SessionCatalogService({
@@ -78,7 +111,13 @@ export class RetainedSessionCollections {
       if (this.controller.signal.aborted) return;
       this.unsubscribe = this.options.eventBus?.subscribe((event) => {
         if (event.type === "session-created") {
-          this.invalidate();
+          this.awaitCreated(event.session.id);
+        } else if (
+          event.type === "session-updated" ||
+          (event.type === "process-state-changed" &&
+            event.activity !== "in-turn")
+        ) {
+          this.refreshUnwatchedStore(event.sessionId);
         } else if (
           event.type === "file-change" &&
           event.fileType === "session"
@@ -227,6 +266,97 @@ export class RetainedSessionCollections {
     this.schedule();
   }
 
+  private nativeId(sessionId: string): string | undefined {
+    return this.options.nativeSessionId
+      ? this.options.nativeSessionId(sessionId)
+      : sessionId;
+  }
+
+  /**
+   * Session activity reaches most rows through their watched files. Stores
+   * observed only internally (Grok, OpenCode) are not, so activity on one of
+   * their sessions rescans that one store rather than every provider.
+   */
+  private refreshUnwatchedStore(sessionId: string): void {
+    const id = this.nativeId(sessionId);
+    if (!id) return;
+    void this.readPublishedRows()
+      .then(({ rows }) => {
+        for (const row of rows)
+          if (
+            row.sessionId === id &&
+            INTERNALLY_OBSERVED_FAMILIES.has(row.catalogFamily)
+          )
+            this.invalidate(row.storeKey);
+      })
+      .catch(() => {
+        // Disposed or unreadable: the next publication or reset covers it.
+      });
+  }
+
+  /**
+   * A created session normally arrives by its own file within one refresh.
+   * Discovery runs only for one still missing when its own grace period ends:
+   * its file appeared before its provider's watcher started, or in a store
+   * the catalog cannot classify a new file in.
+   */
+  private awaitCreated(sessionId: string): void {
+    if (this.controller.signal.aborted) return;
+    if (!this.createdSessions.has(sessionId))
+      this.createdSessions.set(
+        sessionId,
+        Date.now() + (this.options.createdSessionGraceMs ?? 3_000),
+      );
+    this.armCreatedTimer();
+  }
+
+  private armCreatedTimer(): void {
+    if (this.createdTimer || !this.createdSessions.size) return;
+    const due = Math.min(...this.createdSessions.values());
+    this.createdTimer = setTimeout(
+      () => {
+        this.createdTimer = undefined;
+        void this.confirmCreated()
+          .catch(() => {
+            // Disposed or unreadable: the next publication or reset covers it.
+          })
+          .finally(() => {
+            if (!this.controller.signal.aborted) this.armCreatedTimer();
+          });
+      },
+      Math.max(0, due - Date.now()),
+    );
+    this.createdTimer.unref?.();
+  }
+
+  private async confirmCreated(): Promise<void> {
+    const now = Date.now();
+    const due: string[] = [];
+    for (const [sessionId, deadline] of this.createdSessions)
+      if (deadline <= now) {
+        due.push(sessionId);
+        this.createdSessions.delete(sessionId);
+      }
+    // Let the refresh carrying the sessions' own files land first. A run
+    // already in flight may predate them, so settle until nothing targeted
+    // is pending (bounded: a busy catalog falls through to the check).
+    for (let pass = 0; pass < 3; pass++) {
+      if (this.work) await this.work;
+      else if (this.dirty && !this.discover && Date.now() >= this.retryAfter)
+        await this.refresh();
+      else break;
+    }
+    const { rows } = await this.readPublishedRows();
+    const known = new Set(rows.map((row) => row.sessionId));
+    if (
+      due.some((sessionId) => {
+        const id = this.nativeId(sessionId);
+        return !id || !known.has(id);
+      })
+    )
+      this.invalidate();
+  }
+
   private schedule(): void {
     if (
       !this.initialization ||
@@ -348,6 +478,8 @@ export class RetainedSessionCollections {
     this.unsubscribe?.();
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
+    if (this.createdTimer) clearTimeout(this.createdTimer);
+    this.createdTimer = undefined;
     this.catalog.stop();
     await this.work;
   }

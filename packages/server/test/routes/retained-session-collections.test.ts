@@ -25,7 +25,10 @@ import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChi
 import { afterEach, expect, it, vi } from "vitest";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
 import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
-import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import {
+  catalogNativeSessionId,
+  RetainedSessionCollections,
+} from "../../src/services/RetainedSessionCollections.js";
 import {
   createGlobalSessionsRoutes,
   type GlobalSessionsResponse,
@@ -629,6 +632,238 @@ it("keeps a reaped Claude session at its content time, not its shutdown mtime", 
     (await collections.read()).rows.find((row) => row.sessionId === sessionId)
       ?.updatedAt,
   ).toBe(contentAt);
+});
+
+it("adds a new Claude session in a known store without rediscovering providers", async () => {
+  dataDir = await mkdtemp(join(tmpdir(), "retained-claude-new-"));
+  const projectPath = join(dataDir, "project");
+  const sessionDir = join(dataDir, "sessions");
+  await mkdir(sessionDir, { recursive: true });
+  const project: Project = {
+    id: catalogProjectIdentity(projectPath).projectId,
+    path: projectPath,
+    name: "Project",
+    provider: "claude",
+    sessionDir,
+    sessionCount: 1,
+    activeOwnedCount: 0,
+    activeExternalCount: 0,
+    lastActivity: null,
+  };
+  const transcript = (prompt: string) =>
+    `${JSON.stringify({
+      type: "user",
+      uuid: "11111111-1111-4111-8111-111111111111",
+      parentUuid: null,
+      timestamp: "2026-09-08T00:00:00.000Z",
+      message: { content: prompt },
+    })}\n`;
+  const first = "55555555-5555-4555-8555-555555555555";
+  const second = "66666666-6666-4666-8666-666666666666";
+  await writeFile(join(sessionDir, `${first}.jsonl`), transcript("First"));
+  const scanner = new ProjectScanner({ projectsDir: join(dataDir, "unused") });
+  const discovery = vi
+    .spyOn(scanner, "listFileCatalogProjects")
+    .mockResolvedValue([project]);
+  const reader = new ClaudeSessionReader({ sessionDir });
+  const bus = new EventBus();
+  collections = new RetainedSessionCollections({
+    dataDir,
+    eventBus: bus,
+    createdSessionGraceMs: 0,
+    // Native ids with no YA identity, as the session index reports them.
+    nativeSessionId: catalogNativeSessionId({ resolveYa: () => undefined }),
+    adapters: (rows, signal, paths) =>
+      collectionCatalogAdapters(
+        {
+          scanner,
+          readerFactory: () => reader,
+          codexSessionsDir: join(dataDir, "unused-codex"),
+          codexReaderFactory: () => {
+            throw new Error("Unexpected Codex reader");
+          },
+          geminiScanner: {
+            getHashToCwd: async () => {
+              throw new Error("Unexpected Gemini lookup");
+            },
+          },
+          getCatalogFamilies: () => ["claude"],
+        },
+        rows,
+        signal,
+        paths,
+      ),
+  });
+  await collections.refresh();
+  expect(discovery).toHaveBeenCalledTimes(1);
+  discovery.mockClear();
+  const confirmations = vi.spyOn(
+    collections as unknown as { confirmCreated(): Promise<void> },
+    "confirmCreated",
+  );
+
+  const file = join(sessionDir, `${second}.jsonl`);
+  await writeFile(file, transcript("Second"));
+  const now = new Date().toISOString();
+  const created = (id: string) =>
+    bus.emit({
+      type: "session-created",
+      session: {
+        id,
+        projectId: project.id,
+        projectName: "Project",
+        title: null,
+        fullTitle: null,
+        createdAt: now,
+        updatedAt: now,
+        messageCount: 0,
+        ownership: { owner: "none" },
+        provider: "claude",
+      },
+      timestamp: now,
+    });
+  created(second);
+  bus.emit({
+    type: "file-change",
+    provider: "claude",
+    path: file,
+    relativePath: `${second}.jsonl`,
+    fileType: "session",
+    changeType: "create",
+    timestamp: now,
+  });
+  // Activity on a watched file family is the watcher's to report.
+  bus.emit({
+    type: "process-state-changed",
+    sessionId: first,
+    projectId: project.id,
+    activity: "idle",
+    timestamp: now,
+  });
+  await collections.refresh();
+  const added = (await collections.read()).rows.find(
+    (row) => row.sessionId === second,
+  );
+  expect(added).toMatchObject({
+    projectPath,
+    storeKey: sessionDir,
+    title: "Second",
+    location: { kind: "file", path: file },
+  });
+  // The created session was confirmed present, so nothing fell back to
+  // discovery (an explicit refresh would run a pending one at once). A
+  // session that never arrives by its own file does.
+  await vi.waitFor(() => expect(confirmations).toHaveBeenCalledTimes(1));
+  await confirmations.mock.results[0]!.value;
+  await collections.refresh();
+  expect(discovery).not.toHaveBeenCalled();
+  created("77777777-7777-4777-8777-777777777777");
+  await vi.waitFor(() => expect(discovery).toHaveBeenCalledTimes(1));
+});
+
+it("maps an event's session id to the native id the catalog keys rows by", () => {
+  dataDir = "";
+  const native = "88888888-8888-4888-8888-888888888888";
+  const identities = new Map<string, unknown>([
+    ["public-bound", { native: { id: native } }],
+    ["public-pending", { native: undefined }],
+  ]);
+  const resolve = catalogNativeSessionId({
+    resolveYa: (id) => identities.get(id) as never,
+  });
+  // A native id is opaque too, so only a registered identity is translated.
+  expect(resolve(native)).toBe(native);
+  expect(resolve("public-bound")).toBe(native);
+  expect(resolve("public-pending")).toBeUndefined();
+});
+
+it("rescans only the store of an unwatched session that reports activity", async () => {
+  dataDir = await mkdtemp(join(tmpdir(), "retained-unwatched-"));
+  const projectPath = join(dataDir, "project");
+  const row = (
+    catalogFamily: "claude" | "grok",
+    sessionId: string,
+  ): SessionCatalogRow => ({
+    catalogFamily,
+    storeKey: `${catalogFamily}-store`,
+    sessionId,
+    ...catalogProjectIdentity(projectPath),
+    updatedAt: "2026-09-08T00:00:00.000Z",
+    fidelity: "head",
+    sourceVersion: "v1",
+    location: { kind: "file", path: join(dataDir, `${sessionId}.jsonl`) },
+  });
+  const rows = [row("claude", "watched"), row("grok", "unwatched")];
+  const requests: (string[] | undefined)[] = [];
+  const bus = new EventBus();
+  collections = new RetainedSessionCollections({
+    dataDir,
+    eventBus: bus,
+    adapters: async (_rows, _signal, paths) => {
+      requests.push(paths && [...paths]);
+      return ["claude", "grok"].map((family) => ({
+        catalogFamily: family as "claude" | "grok",
+        storeKey: `${family}-store`,
+        scan: async () => ({
+          sourceVersion: "v1",
+          rows: rows.filter((candidate) => candidate.catalogFamily === family),
+        }),
+      }));
+    },
+  });
+  await collections.refresh();
+  expect(requests).toEqual([undefined]);
+  const event = (sessionId: string) => ({
+    type: "session-updated" as const,
+    sessionId,
+    projectId: catalogProjectIdentity(projectPath).projectId,
+    timestamp: new Date().toISOString(),
+  });
+  bus.emit(event("watched"));
+  bus.emit(event("unwatched"));
+  await vi.waitFor(() => expect(requests).toHaveLength(2));
+  expect(requests[1]).toEqual(["grok-store"]);
+});
+
+it("rescans a native store and rereads a known file from one changed set", async () => {
+  dataDir = await mkdtemp(join(tmpdir(), "retained-mixed-"));
+  const projectPath = join(dataDir, "project");
+  const sessionDir = join(dataDir, "claude");
+  const grokSessionsDir = join(dataDir, "grok");
+  await mkdir(grokSessionsDir, { recursive: true });
+  const file = join(sessionDir, "gone.jsonl");
+  const scanner = new ProjectScanner({ projectsDir: join(dataDir, "unused") });
+  const discovery = vi.spyOn(scanner, "listFileCatalogProjects");
+  const adapters = await collectionCatalogAdapters(
+    {
+      scanner,
+      readerFactory: () => new ClaudeSessionReader({ sessionDir }),
+      codexSessionsDir: join(dataDir, "unused-codex"),
+      codexReaderFactory: () => {
+        throw new Error("Unexpected Codex reader");
+      },
+      grokSessionsDir,
+      getCatalogFamilies: () => ["claude", "grok"],
+    },
+    [
+      {
+        catalogFamily: "claude",
+        storeKey: sessionDir,
+        sessionId: "gone",
+        ...catalogProjectIdentity(projectPath),
+        updatedAt: "2026-09-08T00:00:00.000Z",
+        fidelity: "head",
+        sourceVersion: "v1",
+        location: { kind: "file", path: file },
+      },
+    ],
+    new AbortController().signal,
+    new Set([file, grokSessionsDir]),
+  );
+  expect(discovery).not.toHaveBeenCalled();
+  expect(
+    adapters.map((adapter) => [adapter.catalogFamily, adapter.storeKey]),
+  ).toContainEqual(["grok", grokSessionsDir]);
 });
 
 it("reads a row an older build stored for an unchanged file once more", async () => {

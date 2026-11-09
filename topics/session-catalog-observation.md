@@ -84,9 +84,19 @@ size, modification time, and change time. An append or replacement during a
 read cannot certify the mixed result as a fresh projection.
 
 Known file changes update only those rows: they do not enumerate projects or
-list unrelated session files. New or unknown files and session identity changes
-request discovery. Notifications coalesce for 300 ms; events arriving during
-work survive into one trailing pass. The dirty-path set caps at 1,024 paths,
+list unrelated session files. A new Claude transcript in a store whose rows all
+belong to one project joins that project the same way. Other unknown files
+request discovery (Codex and Gemini still do, see
+[the gap](../gaps/session-catalog-rewrites-whole-generation-per-change.md)).
+A changed set that mixes native-store paths and files rescans those stores and
+rereads those files. Session activity events do not invalidate the catalog:
+most families hear of it from their watchers, and activity on a session in a
+store observed only internally (Grok, OpenCode) rescans that one store. Event
+session ids are native unless they name a registered YA identity. Each
+`session-created` event waits three seconds for its session to arrive by its
+own file, then requests discovery only if it is still missing. Notifications
+coalesce for 300 ms; events arriving during work survive into one trailing
+pass. The dirty-path set caps at 1,024 paths,
 then becomes a single discovery request. Unarchiving reconsiders deferred
 questions without rediscovery. No timer repeatedly scans an unchanged corpus.
 Failures keep the prior generation and impose a five-second admission backoff;
@@ -103,6 +113,8 @@ retain the existing complete-request behavior and capability meanings.
 
 The native-file integration check demonstrates two initial head reads, then
 one head read and zero project/file-list discovery calls for one changed file.
+A new Claude transcript with its `session-created` event, and activity on a
+watched session, likewise cause no discovery.
 The real route check serves twenty mixed Global Sessions/Inbox requests from
 a saved generation while the single provider refresh is blocked. Failure and
 shutdown checks preserve accepted rows and reject post-disposal publication.

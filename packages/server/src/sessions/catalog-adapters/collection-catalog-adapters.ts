@@ -1,5 +1,5 @@
 import { readdir, stat } from "node:fs/promises";
-import { basename, join, relative, isAbsolute } from "node:path";
+import { basename, dirname, join, relative, isAbsolute } from "node:path";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../../projects/scanner.js";
 import type { Project } from "../../supervisor/types.js";
@@ -209,8 +209,21 @@ async function refreshChangedRows(
       )
       .map((row) => (row.location.kind === "file" ? row.location.path : "")),
   );
-  // A newly observed file needs discovery to establish its project membership.
-  if ([...changedPaths].some((path) => !knownPaths.has(path))) return undefined;
+  // A new Claude transcript joins the project its store's rows belong to; any
+  // other newly observed file needs discovery to establish its membership.
+  const added: [string, Readonly<SessionCatalogRow>][] = [];
+  let claudeStores: ReturnType<typeof claudeStoreProjects> | undefined;
+  for (const path of changedPaths) {
+    if (knownPaths.has(path)) continue;
+    claudeStores ??= claudeStoreProjects(previousRows);
+    const name = basename(path);
+    const sibling =
+      name.endsWith(".jsonl") && !name.startsWith("agent-")
+        ? claudeStores.get(dirname(path))
+        : undefined;
+    if (!sibling) return undefined;
+    added.push([path, sibling]);
+  }
   const rows: SessionCatalogRow[] = [];
   const needsGemini = previousRows.some(
     (row) =>
@@ -222,12 +235,11 @@ async function refreshChangedRows(
     ...deps,
     geminiScanner: needsGemini ? deps.geminiScanner : undefined,
   });
-  for (const row of previousRows) {
-    signal.throwIfAborted();
-    if (row.location.kind !== "file" || !changedPaths.has(row.location.path)) {
-      rows.push(row);
-      continue;
-    }
+  const reread = async (
+    row: Readonly<SessionCatalogRow>,
+    file: { sessionId: string; filePath: string },
+    old?: Readonly<SessionCatalogRow>,
+  ) => {
     const project: Project = {
       id: row.projectId,
       path: row.projectPath,
@@ -247,16 +259,56 @@ async function refreshChangedRows(
       new Set([row.catalogFamily]),
     )[0];
     if (!source) throw new Error(`No catalog reader for ${row.catalogFamily}`);
-    const refreshed = await readFileRow(
-      deps,
-      project,
-      source,
+    const refreshed = await readFileRow(deps, project, source, file, old);
+    if (refreshed) rows.push(refreshed);
+  };
+  for (const row of previousRows) {
+    signal.throwIfAborted();
+    if (row.location.kind !== "file" || !changedPaths.has(row.location.path)) {
+      rows.push(row);
+      continue;
+    }
+    await reread(
+      row,
       { sessionId: row.sessionId, filePath: row.location.path },
       row,
     );
-    if (refreshed) rows.push(refreshed);
+  }
+  for (const [filePath, sibling] of added) {
+    signal.throwIfAborted();
+    await reread(sibling, {
+      sessionId: basename(filePath).slice(0, -".jsonl".length),
+      filePath,
+    });
   }
   return catalogAdaptersForRows(rows, sources);
+}
+
+/**
+ * Each Claude store directory with the one project all its rows agree on.
+ * Discovery files a store's transcripts under that project, so a new
+ * transcript there needs no rediscovery. A store whose rows disagree (two
+ * project paths encoding to one directory) maps to nothing.
+ */
+function claudeStoreProjects(
+  rows: readonly Readonly<SessionCatalogRow>[],
+): Map<string, Readonly<SessionCatalogRow>> {
+  const stores = new Map<string, Readonly<SessionCatalogRow> | null>();
+  for (const row of rows) {
+    if (
+      row.catalogFamily !== "claude" ||
+      row.location.kind !== "file" ||
+      dirname(row.location.path) !== row.storeKey
+    )
+      continue;
+    const seen = stores.get(row.storeKey);
+    if (seen === undefined) stores.set(row.storeKey, row);
+    else if (seen && seen.projectIdentityKey !== row.projectIdentityKey)
+      stores.set(row.storeKey, null);
+  }
+  const agreed = new Map<string, Readonly<SessionCatalogRow>>();
+  for (const [store, row] of stores) if (row) agreed.set(store, row);
+  return agreed;
 }
 
 export async function collectionCatalogAdapters(
@@ -269,7 +321,8 @@ export async function collectionCatalogAdapters(
     "catalogFamily" | "storeKey"
   >[] = [],
 ): Promise<NativeSessionCatalogAdapter[]> {
-  if (changedPaths?.size) {
+  if (changedPaths) {
+    // A path inside a native store rescans that store; the rest are files.
     const native = nativeCatalogAdapters(deps.getCatalogFamilies(), deps);
     const contains = (store: NativeSessionCatalogAdapter, path: string) => {
       const child = relative(store.storeKey, path);
@@ -279,40 +332,30 @@ export async function collectionCatalogAdapters(
         !isAbsolute(child)
       );
     };
-    if (
-      [...changedPaths].every((path) =>
-        native.some((store) => contains(store, path)),
-      )
-    ) {
-      const affected = native.filter((store) =>
-        [...changedPaths].some((path) => contains(store, path)),
-      );
-      const keys = new Set(
-        affected.map((store) =>
-          JSON.stringify([store.catalogFamily, store.storeKey]),
-        ),
-      );
-      const unaffected = (
-        row: Pick<NativeSessionCatalogAdapter, "catalogFamily" | "storeKey">,
-      ) => !keys.has(JSON.stringify([row.catalogFamily, row.storeKey]));
-      return [
-        ...catalogAdaptersForRows(
-          previousRows.filter(unaffected),
-          sources.filter(unaffected),
-        ),
-        ...affected,
-      ];
-    }
-  }
-  if (changedPaths) {
+    const filePaths = new Set(
+      [...changedPaths].filter(
+        (path) => !native.some((store) => contains(store, path)),
+      ),
+    );
+    const affected = native.filter((store) =>
+      [...changedPaths].some((path) => contains(store, path)),
+    );
+    const keys = new Set(
+      affected.map((store) =>
+        JSON.stringify([store.catalogFamily, store.storeKey]),
+      ),
+    );
+    const unaffected = (
+      row: Pick<NativeSessionCatalogAdapter, "catalogFamily" | "storeKey">,
+    ) => !keys.has(JSON.stringify([row.catalogFamily, row.storeKey]));
     const targeted = await refreshChangedRows(
       deps,
-      previousRows,
+      previousRows.filter(unaffected),
       signal,
-      changedPaths,
-      sources,
+      filePaths,
+      sources.filter(unaffected),
     );
-    if (targeted) return targeted;
+    if (targeted) return [...targeted, ...affected];
   }
   const families = new Set(deps.getCatalogFamilies());
   const fileFamilies = new Set(

@@ -268,7 +268,10 @@ import {
   getActiveSessionIndexOptions,
   isSessionAutoArchived,
 } from "./routes/session-list-options.js";
-import { RetainedSessionCollections } from "./services/RetainedSessionCollections.js";
+import {
+  catalogNativeSessionId,
+  RetainedSessionCollections,
+} from "./services/RetainedSessionCollections.js";
 import { collectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
 import { readClaudeCatalogHead } from "./sessions/claude-summary.js";
 import { readCodexRolloutMetadata } from "./sessions/codex-discovery.js";
@@ -3520,6 +3523,9 @@ export function createApp(options: AppOptions): AppResult {
     dataDir: effectiveDataDir,
     eventBus: options.eventBus,
     projectStores: nativeStores,
+    nativeSessionId: catalogNativeSessionId(
+      options.sessionMetadataService?.identities,
+    ),
     shouldReadQuestions: (row) =>
       !(
         metadataForNativeCatalogRow(row, options.sessionMetadataService)
@@ -3732,14 +3738,6 @@ export function createApp(options: AppOptions): AppResult {
         indexer.refresh(event.catalog);
       if (event.type === "session-metadata-changed" && event.projectId)
         indexer.store.updateProject(event.sessionId, event.projectId);
-      if (
-        indexer.settings().enabled &&
-        indexer.settings().scope === "recent" &&
-        (event.type === "session-updated" ||
-          (event.type === "process-state-changed" &&
-            event.activity !== "in-turn"))
-      )
-        catalog.invalidate();
     });
     if (unsubscribe) issueDisposers.push(unsubscribe);
     app.route(
@@ -3838,13 +3836,6 @@ export function createApp(options: AppOptions): AppResult {
     unsubscribeVocabulary = options.eventBus?.subscribe((event) => {
       if (event.type === "session-catalog-updated" && !event.catalog.refreshing)
         learning.scan(false);
-      if (
-        learning.store.settings().enabled &&
-        (event.type === "session-updated" ||
-          (event.type === "process-state-changed" &&
-            event.activity !== "in-turn"))
-      )
-        catalog.invalidate();
     });
     app.route("/api/speech", createSpeechVocabularyRoutes(learning));
     learning.scan(false);
