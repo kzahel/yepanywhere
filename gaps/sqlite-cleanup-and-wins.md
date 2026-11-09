@@ -278,8 +278,8 @@ patterns.
 
 **JSON-blob tables.** Two tables ported from JSON files keep one blob per
 key in `WITHOUT ROWID` tables. Rows over about 1 KB overflow, and the
-overflow pages are about half empty: 9.7 MB of 18.8 MB for summaries,
-3.3 MB of 6.1 MB for metadata (`dbstat`).
+overflow pages are about half empty: 10.1 MB of 19.7 MB for summaries,
+3.5 MB of 6.5 MB for metadata (`dbstat`).
 
 22. **`session_summary_index` should be a rowid table with `full_title` in
     a column.** `fullTitle` is 8.57 MB of the 13.15 MB of summary JSON,
@@ -292,9 +292,13 @@ overflow pages are about half empty: 9.7 MB of 18.8 MB for summaries,
     - `initialPrompt` is 2.53 MB of 4.19 MB of metadata JSON.
     - `goalCommand` stores 1,103 copies of 15 distinct descriptors
       (449 KB).
-    - `provider` equals `session_identities.provider` in every joined row,
-      and 1,519 rows hold nothing else, so item 3's provider scans should
-      use `session_identities` rather than an expression index.
+    - 1,578 rows hold nothing but `provider`. It does not duplicate
+      `session_identities.provider`: metadata records providers YA ran,
+      identities also cover natively discovered sessions. Here identities
+      hold 6 `claude-ollama` sessions metadata never recorded, so item 3's
+      Ollama check (`app.ts:723-733`) and `getRecordedProviders`
+      (`SessionMetadataService.ts:495`) cannot switch to identities. Give
+      `provider` its own column instead.
     - 379 rows (405 KB) have neither an identity nor a summary and are
       never pruned.
     - Relationship visibility parses the whole blob for
@@ -305,6 +309,8 @@ overflow pages are about half empty: 9.7 MB of 18.8 MB for summaries,
     full JSON strings to detect change (`IssueIndexer.ts:188-198`). Store a
     digest and the locator fields only. No path deletes a job: 371
     describe sessions idle since before 2026-10-10 and 64 `/tmp` projects.
+    Issue indexing is off by default (`shared/src/issues.ts:26-30`); this
+    host enables it at `recent` scope.
 
 The same prompt text is now stored about five times: catalog titles
 (8.6 MB), summary `fullTitle` (8.57 MB), issue job titles (4.42 MB),
@@ -316,19 +322,26 @@ metadata `initialPrompt` (2.53 MB) and creation payloads (620 KB). Items
 25. **`indexes/git-untracked/` persists the tracked tree.** The tilefun
     file is 4.6 MB with zero untracked files: 33,267 `headPaths` plus the
     same 33,267 `indexPaths`. It is rewritten on HEAD or index changes,
-    hourly, and when a queried path is due its recheck
+    on the first query after an hour, and when a queried path is due its
+    recheck
     (`GitUntrackedCacheService.ts:270-290`, `:359`, `:397-409`). Persist
     the HEAD sha and an index digest instead; this needs no table.
 26. **`agent-auth-router/private.json` never deletes an allocation.**
     325 allocations, 120 KB, rewritten with fsync on each change
     (`AgentAuthRouter.ts:409-422`); `retire` only marks `cancelled`
-    (`:994-1003`). Prune cancelled-and-acknowledged and gone sessions.
-    Entries hold tokens, so a table needs the same 0600 protection.
-27. **`projects/` is mostly August test pollution.** 274 of the 1,227
-    `review-comments.json` files carry the fixture anchor `src/a.ts`, and
-    none changed after 2026-08-27; about 369 author palettes hold
-    `t@example.com`. A test reached the default data dir (not found).
-    Delete the fixtures and find the test. Live review storage is fine.
+    (`:994-1003`), and only 9 are. Records also back the
+    `refusedBeforeCommit` retry check (`:1203-1207`), so pruning needs a
+    router-side cancel for sessions that are gone and a retention rule for
+    that check; it is not a plain deletion. Entries hold tokens, so a
+    table needs the same 0600 protection.
+27. **`projects/` holds August test fixtures.** By bytes it is 152 MB, of
+    which 146 MB is real attachments. But every one of the 1,227
+    `review-comments.json` files is a fixture (`src/a.ts`,
+    `src/missing.ts`, `src/present.ts` anchors), none changed after
+    2026-08-27, and about 369 author palettes hold the `t@example.com`
+    author of `test/git/blame.test.ts`. The source was
+    `test/routes/review-submissions.test.ts`, which built services without
+    a data dir; `7cbf87e34` made test homes hermetic. Delete the fixtures.
 28. **`indexes/project-scanner-cache.json` is rewritten per scan.** See
     item 31.
 
@@ -342,18 +355,22 @@ catalog table:
 30. The project view walks every row each generation
     (`RetainedSessionCollections.ts:234-260`, `catalog-projects.ts:33-80`).
     Its version includes `lastActivity`, so a `projects-changed` carrying
-    every project goes out whenever any session advances, and every
+    every project id goes out whenever any session advances, and every
     mounted project page refetches the whole-catalog inventory
     (item 15). Inferred: those refetches mostly coalesce with the
     catalog event's.
 31. The legacy `ProjectScanner` still rescans on every session file change
     (`scanner.ts:506-550`): one `readdir` of the changed Claude directory
     (1,253 entries for this repository), the Gemini path registration of
-    item 18, and a rewrite of its cache file. It duplicates the catalog's
-    project view; serve projects from the catalog instead.
-32. Smaller: the host agent process poll walks every row every 5 s while
-    the Agents page is open (`host-process-catalog.ts:40-55`);
-    `getRecordedProviders` runs 2–3 times per `scanner.getProject` and
+    item 18, a rewrite of its cache file, and its own `projects-changed`
+    with every project id (`scanner.ts:473-484`). Changes are coalesced
+    over 300 ms. It duplicates the catalog's project view; serving
+    projects from the catalog instead touches about 90 call sites.
+32. Smaller: while the Agents page polls, the host agent process lookup
+    walks every row about once a minute per process, behind a 60 s
+    correlation cache (`host-process-catalog.ts:40-55`,
+    `HostAgentProcessService.ts:18`); `getRecordedProviders` runs about
+    five times per `scanner.getProject` and
     `getAllMetadata()` copies the whole map per call (add both to item 3);
     limited-user grants expand every creation projection per request and
     per event (`app.ts:969-1031`, `:4570-4580`; off here).
@@ -362,23 +379,33 @@ catalog table:
 
 33. **Session creation has a lifetime ceiling.** `session_creation_capacity`
     counts operations up to 10,000 (`SessionCreationStore.ts:189`, `:823`)
-    and nothing decrements it, including deletion. This host is at 232
-    after five days, about 46 a day, so every YA-created session would be
-    refused from about mid-2027, sooner under automation.
-    [Session identity](../topics/session-identity.md) states the budget as
-    intended, so the fix is a maintainer decision: release operations for
-    consumed or deleted creations, or bound by live rows instead.
-34. Unbounded logs and caches: `logs/sdk-raw.jsonl` (728 MB, opt-in
+    and nothing decrements it, including deletion; the payload, attempt
+    and attachment budgets beside it are never released either. This host
+    is at 234 since 2026-11-04, about 43 a day, so every YA-created session
+    would be refused from about mid-2027, sooner under automation.
+    [Session identity](../topics/session-identity.md) deliberately counts
+    deleted tombstones, which keep retry identity so a replay cannot
+    launch twice. Any fix is a maintainer decision and needs a tombstone
+    retention policy: for example, evict consumed creations after a replay
+    window and bound the budget by live rows.
+34. Unbounded logs and caches: `logs/sdk-raw.jsonl` (747 MB, opt-in
     `LOG_SDK_MESSAGES`, about 37 MB/h, no rotation,
-    `sdk/messageLogger.ts:28-41`); dev-mode client logs written with
-    `appendFileSync` on the request path (`routes/client-logs.ts:73`);
+    `sdk/messageLogger.ts:28-41`); client logs written with
+    `appendFileSync` on the request path (`routes/client-logs.ts:73`,
+    mounted whenever a data dir is set; clients post only in developer
+    mode);
     audit log archives never pruned (`security/auditLog.ts`); preserved
-    tool-result media; 483 empty upload staging directories.
-35. `draft_receipts` keeps 30 days (12,998 rows, 8.1 MB) while write tickets
-    expire after 10 minutes, and each draft write counts all receipts for
-    its owner (`DraftStore.ts:181-184`). Shorten retention and keep a
-    counter. 372 of 529 `session_summary_scopes` are empty and never
-    removed.
+    tool-result media; 483 empty upload staging directories and 17 empty
+    queue ones. Attachments themselves (`uploads/` 395 MB, mostly legacy,
+    and 146 MB under `projects/*/attachments`) have no retention policy;
+    transcripts refer to them, so that is a product decision.
+35. `draft_receipts` holds 13,003 rows (8.1 MB). The 30-day / 20,000-receipt
+    retention is a documented replay contract
+    ([draft synchronization](../topics/draft-synchronization.md)), checked
+    before the 10-minute write ticket (`DraftStore.ts:140-146`), so it
+    stays. The per-write `count(*)` over the owner's receipts
+    (`:181-184`) can become a maintained counter. 372 of 529
+    `session_summary_scopes` are empty and never removed.
 
 **Client storage.** No server corpus is cached in localStorage or
 IndexedDB. Two paths parse more than they need:
@@ -398,13 +425,14 @@ though it already has SQLite.
 ### Recommended order
 
 1. Decide item 33 before anything else; it is a dated outage.
-2. Cheap deletions and caps with no schema work: items 25, 26, 27, 34, 35,
-   14 and 19.
+2. Cheap deletions and caps with no schema work: items 25, 27, 34, 14 and
+   19. Items 26 and 33 need a retention rule first.
 3. The catalog table
    ([session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md)),
    designed together with items 22–24 so titles and prompts are stored
    once and rows are keyed for joins. Its `changed_generation` delta then
-   fixes items 29–31 and 15 by construction.
+   fixes items 29–31 and 15 by construction. The catalog's own 30 MB of
+   generation directories go with it.
 4. Items 11 and 12 (list projection and metadata on demand), which depend
    on item 23's columns.
 5. Item 21 (Codex index as the change source) and the client items 36–37
