@@ -1390,7 +1390,28 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-11-06 (Claude Code 2.1.319 / SDK 0.3.319):
+Current source refresh, 2026-11-09 (Claude Code 2.1.321 / SDK 0.3.321):
+
+- The SDK advances from 0.3.319 to 0.3.321; the bundled executable reports
+  Claude Code 2.1.321. Compatibility markers advance together.
+- The declaration delta is additive and unused by YA: an optional
+  `CronDeleteOutput.endedLoopWakeup` and documentation edits.
+- The YA-visible change is the `fable` alias: under 2.1.319 a session
+  launched with `--model fable` reported `claude-fable-5-1`, under 2.1.321 it
+  reports `claude-fable-5-2`. Both versions already list
+  `claude-fable-5-2` first among Fable rows ("From gateway"), so on 0.3.319
+  `mergeClaudeModels` folded 5.2's metadata into a `fable` row that launched
+  5.1; the upgrade makes the row and the launch agree.
+- One user-approved live turn (`--model fable`, effort low, about $0.03) was
+  served by `claude-fable-5-2`.
+- `model-prices.ts` has no exact `claude-fable-5-2` row; it prefix-matches
+  the vendored `claude-fable-5` entry (cache read $1/MTok, versus $0.25 for
+  5.1). Add an exact row once 5.2 pricing is published.
+- Server type checking, the Claude provider suite and the Claude native
+  scenarios (67 passed, 4 skipped) pass. Existing provider-host workers must
+  restart to adopt the update.
+
+Previous source refresh, 2026-11-06 (Claude Code 2.1.319 / SDK 0.3.319):
 
 - The SDK and matching native packages advance from 0.3.318 to 0.3.319;
   the bundled Linux executable and the standalone install both report
