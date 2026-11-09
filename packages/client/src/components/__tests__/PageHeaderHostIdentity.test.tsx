@@ -6,13 +6,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HostIdentityProvider } from "../../contexts/HostIdentityContext";
 import { PageHeader } from "../PageHeader";
 
-const { settingsState, versionState } = vi.hoisted(() => ({
+const { layoutState, settingsState, versionState } = vi.hoisted(() => ({
+  layoutState: { isWideScreen: false, openSidebar: () => {} },
   settingsState: {
     hostIdentity: { icon: "💻" } as { icon: string } | undefined,
   },
   versionState: {
     capabilities: ["host-identity"] as string[],
   },
+}));
+
+vi.mock("../../layouts", () => ({
+  useNavigationLayout: () => layoutState,
 }));
 
 vi.mock("../../hooks/useServerSettings", () => ({
@@ -37,6 +42,7 @@ vi.mock("../../i18n", () => ({
 describe("PageHeader host identity", () => {
   afterEach(() => {
     cleanup();
+    layoutState.isWideScreen = false;
     settingsState.hostIdentity = { icon: "💻" };
     versionState.capabilities = [HOST_IDENTITY_CAPABILITY];
   });
@@ -44,7 +50,7 @@ describe("PageHeader host identity", () => {
   it("places a supported host marker between the sidebar control and title", () => {
     const view = render(
       <HostIdentityProvider>
-        <PageHeader title="Sessions" onOpenSidebar={vi.fn()} />
+        <PageHeader title="Sessions" />
       </HostIdentityProvider>,
     );
 
@@ -58,10 +64,9 @@ describe("PageHeader host identity", () => {
   });
 
   it("exposes the expanded new-session target on the sidebar opener", () => {
-    const openSidebar = vi.fn();
     const view = render(
       <HostIdentityProvider>
-        <PageHeader title="Sessions" onOpenSidebar={openSidebar} />
+        <PageHeader title="Sessions" />
       </HostIdentityProvider>,
     );
 
@@ -73,5 +78,18 @@ describe("PageHeader host identity", () => {
     expect(opener.getAttribute("title")).toBe(
       "actionOpenSidebar / [Shift] sidebarNewSession",
     );
+  });
+
+  it("leaves the toggle to the desktop sidebar on wide screens", () => {
+    // Pages once had to pass isWideScreen themselves; the ones that forgot
+    // showed this toggle beside the sidebar's own in every desktop mode.
+    layoutState.isWideScreen = true;
+    const view = render(
+      <HostIdentityProvider>
+        <PageHeader title="Sessions" />
+      </HostIdentityProvider>,
+    );
+
+    expect(view.container.querySelector(".sidebar-toggle")).toBeNull();
   });
 });

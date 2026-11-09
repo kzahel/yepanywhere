@@ -257,7 +257,7 @@ export function SettingsLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const basePath = useRemoteBasePath();
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const [settingsContainerRef, settingsContainerWidth] =
     useSettingsContainerWidth();
   const settingsScrollContainerRef = useRef<HTMLElement | null>(null);
@@ -519,8 +519,6 @@ export function SettingsLayout() {
           <PageHeader
             title={t("pageTitleSettings")}
             onTitleClick={handleSettingsTitleClick}
-            onOpenSidebar={openSidebar}
-            isWideScreen={isWideScreen}
           />
           <main
             ref={setSettingsScrollContainerRef}
@@ -553,7 +551,6 @@ export function SettingsLayout() {
       <MainContent isWideScreen={isWideScreen} innerRef={settingsContainerRef}>
         <PageHeader
           title={resolvedPaneTitle}
-          onOpenSidebar={openSidebar}
           showBack
           onBack={handleBack}
           actions={undoButton}
@@ -584,8 +581,6 @@ export function SettingsLayout() {
       <PageHeader
         title={resolvedPaneTitle}
         titleElement={settingsBreadcrumb}
-        onOpenSidebar={openSidebar}
-        isWideScreen={isWideScreen}
         actions={undoButton}
       />
       <main

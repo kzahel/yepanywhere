@@ -79,7 +79,7 @@ export function NewSessionPage() {
   const preferredExecutor = searchParams.get("executor") ?? undefined;
   const requestedDetached =
     !requestedProjectId && searchParams.get(DETACHED_PROJECT_PARAM) === "1";
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const { projectAppComposingEnabled } = useProjectAppComposing();
   const [appWorkspace, setAppWorkspace] = useState<{
     projectId: string;
@@ -241,11 +241,7 @@ export function NewSessionPage() {
   if (renderError) {
     return (
       <MainContent isWideScreen={isWideScreen}>
-        <PageHeader
-          title={t("newSessionTitle")}
-          onOpenSidebar={openSidebar}
-          isWideScreen={isWideScreen}
-        />
+        <PageHeader title={t("newSessionTitle")} />
         <main className="page-scroll-container">
           <div className="page-content-inner">
             <div className="error">
@@ -259,12 +255,7 @@ export function NewSessionPage() {
 
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader
-        title={t("newSessionTitle")}
-        onOpenSidebar={openSidebar}
-        isWideScreen={isWideScreen}
-        actions={projectAppButton}
-      />
+      <PageHeader title={t("newSessionTitle")} actions={projectAppButton} />
 
       <main className={`page-scroll-container ${styles.workspace}`}>
         <div

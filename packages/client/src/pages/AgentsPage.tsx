@@ -585,7 +585,7 @@ export function AgentsPage() {
   const basePath = useRemoteBasePath();
   const hostProcesses = useHostAgentProcesses();
 
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
 
   const [killingIds, setKillingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -677,10 +677,7 @@ export function AgentsPage() {
 
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader
-        title={t("agentsTitle" as never)}
-        onOpenSidebar={openSidebar}
-      />
+      <PageHeader title={t("agentsTitle" as never)} />
 
       <main className="page-scroll-container">
         <div className="page-content-inner">

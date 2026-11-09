@@ -439,7 +439,7 @@ export function BridgeRuntimePrompt({
 
 export function EmulatorPage() {
   const { t } = useI18n();
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const { version: versionInfo, refetch: refetchVersion } = useVersion();
   const bridgeRuntimeMode =
     versionInfo?.deviceBridgeState === "update-available"
@@ -476,11 +476,7 @@ export function EmulatorPage() {
 
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader
-        title="Devices"
-        onOpenSidebar={openSidebar}
-        isWideScreen={isWideScreen}
-      />
+      <PageHeader title="Devices" />
       <main className="page-scroll-container">
         <div className="page-content-inner">
           {bridgeRuntimeMode ? (

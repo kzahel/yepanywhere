@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useI18n } from "../i18n";
+import { useNavigationLayout } from "../layouts";
 import { truncateText } from "../lib/text";
 import { HostIdentityMarker } from "./HostIdentityMarker";
 import sessionHeaderStyles from "./SessionHeader.module.css";
@@ -12,10 +13,6 @@ interface PageHeaderProps {
   titleElement?: ReactNode;
   /** Optional action for clicking the default title text */
   onTitleClick?: () => void;
-  /** Mobile/overlay: opens the sidebar overlay */
-  onOpenSidebar?: () => void;
-  /** Whether we're in desktop mode (wide screen), where the sidebar owns its toggle */
-  isWideScreen?: boolean;
   /** Show a back button instead of sidebar toggle */
   showBack?: boolean;
   /** Callback when back button is clicked */
@@ -44,16 +41,16 @@ export function PageHeader({
   title,
   titleElement,
   onTitleClick,
-  onOpenSidebar,
-  isWideScreen = false,
   showBack = false,
   onBack,
   actions,
 }: PageHeaderProps) {
   const { t } = useI18n();
-  // Desktop keeps the toggle inside the sidebar itself, whether expanded or
-  // collapsed to the icon rail. Only the mobile/overlay case opens from here.
-  const handleToggle = isWideScreen ? undefined : onOpenSidebar;
+  // Desktop keeps the toggle inside the sidebar itself in every display mode.
+  // Read the layout here rather than trusting each page to pass it, so a page
+  // header can never duplicate the sidebar's own toggle.
+  const { isWideScreen, openSidebar } = useNavigationLayout();
+  const handleToggle = isWideScreen ? undefined : openSidebar;
   const toggleTitle = t("actionOpenSidebar");
   const hasLeadingControl = Boolean((showBack && onBack) || handleToggle);
 

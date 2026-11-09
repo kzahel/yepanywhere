@@ -104,8 +104,7 @@ function SessionSearchPage() {
     () => createSessionApi(runtime.transport.fetch.bind(runtime.transport)),
     [runtime],
   );
-  const { openSidebar, isWideScreen, setRightPaneExpanded } =
-    useNavigationLayout();
+  const { isWideScreen, setRightPaneExpanded } = useNavigationLayout();
   const { sessionRightPaneEnabled } = useSessionRightPaneSetting();
   const [detailHost, setDetailHost] = useState<HTMLDivElement | null>(null);
   const basePath = useRemoteBasePath();
@@ -675,8 +674,6 @@ function SessionSearchPage() {
     >
       <PageHeader
         title={t("globalSessionsTitle")}
-        onOpenSidebar={openSidebar}
-        isWideScreen={isWideScreen}
         titleElement={
           <SearchHeader
             query={query}

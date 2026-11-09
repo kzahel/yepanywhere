@@ -30,13 +30,13 @@ import styles from "./IssuesPage.module.css";
 
 export function IssuesPage() {
   const { t } = useI18n();
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const enabled = useIssuesEnabled();
   const runtime = useCurrentSourceRuntime();
   const [scopeParams] = useSearchParams();
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader title={t("issuesTitle")} onOpenSidebar={openSidebar} />
+      <PageHeader title={t("issuesTitle")} />
       {enabled ? (
         <IssueBrowser key={`${runtime.sourceKey}:${scopeParams.toString()}`} />
       ) : (

@@ -13,17 +13,13 @@ export function ProviderSignInPage() {
   const provider =
     parameter === "claude" || parameter === "codex" ? parameter : null;
   const { row, loading, error, refresh, sourceKey } = useProviderRow(provider);
-  const { isWideScreen, openSidebar } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const basePath = useRemoteBasePath();
   const { t } = useI18n();
   const name = provider === "claude" ? "Claude" : "Codex";
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader
-        title={t("providersSignIn", { provider: name })}
-        onOpenSidebar={openSidebar}
-        isWideScreen={isWideScreen}
-      />
+      <PageHeader title={t("providersSignIn", { provider: name })} />
       <main className={styles.page}>
         <section className={styles.card}>
           <h1>{t("providersSignIn", { provider: name })}</h1>

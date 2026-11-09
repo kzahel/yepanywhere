@@ -132,7 +132,7 @@ function BangHistoryEntryActions({
 export function BangCommandsPage() {
   const { t } = useI18n();
   const basePath = useRemoteBasePath();
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const [entries, setEntries] = useState<BangHistoryEntry[] | null>(null);
   const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null);
 
@@ -159,7 +159,7 @@ export function BangCommandsPage() {
 
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader title={t("bangHistoryTitle")} onOpenSidebar={openSidebar} />
+      <PageHeader title={t("bangHistoryTitle")} />
       <div className={styles.page}>
         {entries !== null && entries.length === 0 && (
           <div className={styles.empty}>{t("bangHistoryEmpty")}</div>

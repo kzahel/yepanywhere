@@ -20,7 +20,7 @@ import { BlameBrowser } from "./BlameBrowser";
  */
 export function LocalSourcePage() {
   const { t } = useI18n();
-  const { openSidebar, isWideScreen } = useNavigationLayout();
+  const { isWideScreen } = useNavigationLayout();
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const requestedPath = searchParams.get("path");
@@ -30,11 +30,7 @@ export function LocalSourcePage() {
 
   return (
     <MainContent isWideScreen={isWideScreen}>
-      <PageHeader
-        title={title}
-        onOpenSidebar={openSidebar}
-        isWideScreen={isWideScreen}
-      />
+      <PageHeader title={title} />
       <main className="page-scroll-container">
         <div className="page-content-inner">
           {!projectId || !requestedPath ? (
