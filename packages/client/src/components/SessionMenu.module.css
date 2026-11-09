@@ -108,7 +108,7 @@
 }
 
 .dropdown button.terminateButton:hover {
-  background: var(--error-bg-subtle, rgba(239, 68, 68, 0.1));
+  background: var(--bg-error);
 }
 
 .dropdown button.terminateButton:disabled {

@@ -20,12 +20,12 @@
 }
 
 .body:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--accent-color));
+  outline: 2px solid var(--focus-border);
   outline-offset: -2px;
 }
 
 .selected {
-  background: var(--bg-selected, rgba(56, 139, 253, 0.15));
+  background: var(--bg-selected);
   border-color: var(--border-subtle, #21262d);
 }
 

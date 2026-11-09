@@ -8,7 +8,7 @@
   box-sizing: border-box;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm, 4px);
-  background: var(--bg-primary);
+  background: var(--bg-input);
   padding: 0 6px;
   gap: 6px;
 }

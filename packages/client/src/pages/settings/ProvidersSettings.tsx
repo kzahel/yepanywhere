@@ -294,7 +294,7 @@ function CodexUpdatePanel() {
               <code
                 style={{
                   padding: "2px 6px",
-                  background: "var(--color-surface-raised, #f5f5f5)",
+                  background: "var(--bg-elevated)",
                   borderRadius: 4,
                   fontSize: "0.85em",
                 }}
@@ -318,7 +318,7 @@ function CodexUpdatePanel() {
       )}
 
       {error && (
-        <p className="settings-hint" style={{ color: "var(--color-error)" }}>
+        <p className="settings-hint" style={{ color: "var(--error-color)" }}>
           {error}
         </p>
       )}

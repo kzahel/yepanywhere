@@ -42,7 +42,7 @@ if (!rootElement) throw new Error("Missing CSS component fixture root");
 
 document.body.style.margin = "0";
 document.body.style.minHeight = "100vh";
-document.body.style.background = "var(--bg-primary)";
+document.body.style.background = "var(--bg-surface)";
 document.body.style.color = "var(--text-primary)";
 
 const root = createRoot(rootElement);

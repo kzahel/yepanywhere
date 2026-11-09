@@ -31,7 +31,7 @@ export function ThinkingIcon({ mode }: { mode: ThinkingMode }) {
             y="5"
             textAnchor="middle"
             dominantBaseline="central"
-            fill="var(--bg-primary, #1a1a2e)"
+            fill="var(--bg-surface)"
             fontSize="8"
             fontWeight="700"
             fontFamily="system-ui, sans-serif"

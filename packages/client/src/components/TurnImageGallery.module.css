@@ -29,7 +29,7 @@
   overflow: hidden;
   border: 1px solid transparent;
   border-radius: calc(var(--radius-md) - 1px);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   transition:
     border-color 0.12s ease,
     box-shadow 0.12s ease;

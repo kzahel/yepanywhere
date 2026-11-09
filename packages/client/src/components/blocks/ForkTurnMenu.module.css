@@ -61,6 +61,6 @@
 
   .menu button {
     min-height: 48px;
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-lg);
   }
 }

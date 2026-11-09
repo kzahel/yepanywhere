@@ -24,7 +24,7 @@
 
 .stale {
   opacity: 0.75;
-  border-color: var(--color-warning, #d29922);
+  border-color: var(--warning-color);
 }
 
 .rowHead {
@@ -39,7 +39,7 @@
 }
 
 .staleLabel {
-  color: var(--color-warning, #d29922);
+  color: var(--warning-color);
   font-size: var(--font-size-sm, 0.8em);
 }
 
@@ -77,7 +77,7 @@
   width: 100%;
   padding: 5px 8px;
   color: var(--text-primary, #e6edf3);
-  background: var(--bg-input, var(--bg-primary));
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm, 4px);
 }
@@ -90,7 +90,7 @@
 
 .targetError,
 .error {
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
 }
 
 .targetError {

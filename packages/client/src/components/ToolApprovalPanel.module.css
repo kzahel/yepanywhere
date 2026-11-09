@@ -82,7 +82,7 @@
 }
 
 .viewDetails {
-  color: var(--text-link, #58a6ff);
+  color: var(--link-color);
   font-size: var(--font-size-sm);
   text-align: left;
   opacity: 0.8;

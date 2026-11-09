@@ -3,8 +3,8 @@
   justify-content: center;
   gap: 24px;
   padding: 12px;
-  border-top: 1px solid var(--app-border);
-  background: var(--app-bg-secondary);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 /* Round 48 px device keys (census mapping); compounded so the shape does

@@ -79,7 +79,7 @@
   height: 100%;
   min-height: min(68vh, 720px);
   border: 0;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
 }
 
 .diffBody {

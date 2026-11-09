@@ -22,7 +22,7 @@
   min-height: 38px;
   padding: 0.4rem;
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 6px;
 }

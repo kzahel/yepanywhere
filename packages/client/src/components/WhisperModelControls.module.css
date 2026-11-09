@@ -13,7 +13,7 @@
   padding: 0.5rem;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
 }

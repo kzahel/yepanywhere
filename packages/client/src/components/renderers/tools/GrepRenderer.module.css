@@ -134,7 +134,7 @@
 }
 
 .summaryScopeText {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
 }
 
 .summaryArrow {
@@ -145,7 +145,7 @@
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
@@ -273,7 +273,7 @@ pre.content {
 .error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 

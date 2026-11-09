@@ -10,7 +10,7 @@
   min-width: 2.25rem;
   height: 2.25rem;
   padding: 0 0.625rem;
-  color: var(--color-warning, #d29922);
+  color: var(--warning-color);
   background: color-mix(in srgb, var(--bg-surface) 94%, currentColor 6%);
   border: 1px solid color-mix(in srgb, currentColor 65%, transparent);
   border-radius: 999px;
@@ -22,12 +22,12 @@
 }
 
 .trigger:hover {
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
   border-color: currentColor;
 }
 
 .trigger:focus-visible {
-  outline: 2px solid var(--focus-color);
+  outline: 2px solid var(--focus-border);
   outline-offset: 2px;
 }
 
@@ -120,12 +120,12 @@
 }
 
 .kind {
-  color: var(--color-warning, #d29922);
+  color: var(--warning-color);
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .kind[data-kind="invalid"] {
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
 }
 
 .path {

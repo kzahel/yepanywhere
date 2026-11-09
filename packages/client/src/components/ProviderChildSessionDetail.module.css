@@ -3,7 +3,7 @@
   min-width: 0;
   min-height: 100%;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--bg-surface);
   container-type: inline-size;
 }
 

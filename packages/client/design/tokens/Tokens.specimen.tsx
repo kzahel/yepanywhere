@@ -21,7 +21,10 @@ export default {
   },
 } satisfies SpecimenMeta;
 
-/** Names declared in any of the three theme blocks, in source order. */
+/**
+ * Color names declared in the shared [data-theme] defaults or any of the
+ * three theme blocks, in source order, then the colors declared on :root.
+ */
 function themeTokenNames(): string[] {
   const names = new Set<string>();
   const css = `${indexCss}\n${providerColorsCss}`.replace(
@@ -29,11 +32,14 @@ function themeTokenNames(): string[] {
     "",
   );
   const block =
-    /([^{}]*\[data-theme="(?:verydark|dark|light)"\][^{}]*)\{([^{}]*)\}/g;
+    /([^{}]*\[data-theme(?:="(?:verydark|dark|light)")?\][^{}]*)\{([^{}]*)\}/g;
   for (const match of css.matchAll(block)) {
     for (const declaration of (match[2] ?? "").matchAll(/(--[\w-]+)\s*:/g)) {
       names.add(declaration[1] ?? "");
     }
+  }
+  for (const [name, value] of rootDeclarations()) {
+    if (/^(?:#|rgba?\(|color-mix\()/.test(value)) names.add(name);
   }
   return [...names];
 }
@@ -102,10 +108,20 @@ export function Colors() {
 }
 Colors.storyName = "Theme colors";
 
+function rootDeclarations(): [string, string][] {
+  const root = (/:root\s*\{([\s\S]*?)\n\}/.exec(indexCss)?.[1] ?? "").replace(
+    /\/\*[\s\S]*?\*\//g,
+    "",
+  );
+  return [...root.matchAll(/(--[\w-]+)\s*:\s*([^;]*);/g)].map((match) => [
+    match[1] ?? "",
+    (match[2] ?? "").trim(),
+  ]);
+}
+
 function rootTokens(pattern: RegExp): string[] {
-  const root = /:root\s*\{([\s\S]*?)\n\}/.exec(indexCss)?.[1] ?? "";
-  return [...root.matchAll(/(--[\w-]+)\s*:/g)]
-    .map((match) => match[1] ?? "")
+  return rootDeclarations()
+    .map(([name]) => name)
     .filter((name) => pattern.test(name));
 }
 
@@ -136,6 +152,19 @@ export function Scales() {
         </div>
       </section>
       <section className={styles.group}>
+        <h3>Elevation</h3>
+        <div className={styles.scale}>
+          {rootTokens(/^--shadow-/).map((name) => (
+            <ScaleRow key={name} name={name}>
+              <span
+                className={styles.box}
+                style={{ boxShadow: `var(${name})` }}
+              />
+            </ScaleRow>
+          ))}
+        </div>
+      </section>
+      <section className={styles.group}>
         <h3>Type</h3>
         <div className={styles.scale}>
           {rootTokens(/^--font-size-(?:xs|sm|base|lg)$/).map((name) => (
@@ -150,7 +179,7 @@ export function Scales() {
     </div>
   );
 }
-Scales.storyName = "Spacing, radius and type";
+Scales.storyName = "Spacing, radius, elevation and type";
 
 function ScaleRow({ name, children }: { name: string; children: ReactNode }) {
   const probe = useRef<HTMLElement>(null);
@@ -221,6 +250,16 @@ const recordedNames = recorded.map(([name]) => name);
 
 export function Undefined() {
   const sites = useUndefinedSites(recordedNames);
+  if (!recorded.length)
+    return (
+      <div className={styles.tokens}>
+        <p className={styles.intro}>
+          Every custom property the app reads with <code>var()</code> is defined
+          by a client source. <code>pnpm css:check</code> rejects a read of an
+          undefined name.
+        </p>
+      </div>
+    );
   return (
     <div className={styles.tokens}>
       <p className={styles.intro}>

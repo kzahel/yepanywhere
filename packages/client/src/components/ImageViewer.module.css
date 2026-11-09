@@ -59,7 +59,7 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   container-type: size;
   touch-action: none;
 }
@@ -127,7 +127,7 @@
   min-width: 0;
   min-height: 1.75rem;
   place-items: center;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   color: var(--text-secondary);
   font-size: 0.8125rem;
   opacity: 1;

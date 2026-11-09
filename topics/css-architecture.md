@@ -66,15 +66,16 @@ not carry a migration queue.
   `pnpm css:check --record` in the same change. Recording only lowers limits;
   it never accepts growth.
 - A `var(--name)` read of a custom property that no production client source
-  defines fails `pnpm css:check`, beyond the per-name count recorded under
-  `undefinedCustomProperties` in `scripts/css-architecture-baseline.json`
-  (62 names and 291 reads when recorded on 2026-11-08). Such a read silently
-  takes its fallback, or drops its declaration when it has none. A definition
-  is a CSS declaration or `@property`, or a TypeScript style key,
-  `setProperty` call or `--name:` string; the scan covers CSS and TypeScript
-  under `packages/client/src`, excluding tests. Read a theme token, define the
-  property, or set it where its owner renders. When a name loses reads, record
-  in the same change; a name with none left drops out of the baseline. The
+  defines fails `pnpm css:check`. Such a read silently takes its fallback, or
+  drops its declaration when it has none. The undefined-token pass of
+  2026-11-09 emptied `undefinedCustomProperties` in
+  `scripts/css-architecture-baseline.json` (62 names and 291 reads when first
+  recorded on 2026-11-08), so every undefined read now fails. A definition is
+  a CSS declaration or `@property`, or a TypeScript style key, `setProperty`
+  call (with the name inline or in a `const` in the same file) or `--name:`
+  string; the scan covers CSS and TypeScript under `packages/client/src`,
+  excluding tests. Read a theme token, define the property, or set it where
+  its owner renders. The
   [design playground](ui-design.md#shared-controls-and-the-design-playground)
   token page lists each name with its sites.
 - CSS refactors preserve rendered appearance, responsive behavior, interaction

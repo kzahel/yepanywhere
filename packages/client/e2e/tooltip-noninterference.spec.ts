@@ -26,7 +26,7 @@ async function installTooltipFixture(page: Page, baseURL: string) {
       padding: "20px",
       border: "1px solid var(--border-color)",
       borderRadius: "10px",
-      background: "var(--bg-primary)",
+      background: "var(--bg-surface)",
       color: "var(--text-primary)",
       fontFamily: "var(--font-ui)",
     });

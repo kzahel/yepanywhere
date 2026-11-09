@@ -61,7 +61,7 @@
   width: 1.25rem;
   height: 1.25rem;
   flex: 0 0 auto;
-  border: 2px solid var(--border-muted);
+  border: 2px solid var(--border-subtle);
   border-top-color: var(--app-yep-green);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

@@ -21,7 +21,7 @@
 
 .code-block-error {
   border-color: var(--error-color);
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
 }
 
 .fixed-font-render-toggle {
@@ -69,7 +69,7 @@
 
 .fixed-font-render-toggle__button:hover {
   color: var(--text-primary);
-  border-color: var(--border-strong, var(--border-color));
+  border-color: var(--border-color);
 }
 
 .fixed-font-render-toggle__button.is-rendered {
@@ -110,7 +110,7 @@
 }
 
 .fixed-font-file-link {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: transparent;
@@ -182,7 +182,7 @@
 }
 
 .fixed-font-markdown-blockquote .fixed-font-rendered-line__content {
-  border-left: 3px solid var(--border-strong, var(--border-color));
+  border-left: 3px solid var(--border-color);
   padding-left: 0.65rem;
   color: var(--text-secondary, var(--text-muted));
 }
@@ -1314,7 +1314,7 @@ details[open] .collapsible__icon {
 }
 
 .tool-block.tool-error .tool-header {
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   color: var(--error-color);
 }
 
@@ -1328,7 +1328,7 @@ details[open] .collapsible__icon {
 }
 
 .tool-fallback-error {
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border: 1px solid var(--error-color);
 }
 
@@ -1594,12 +1594,12 @@ details[open] .collapsible__icon {
   align-items: center;
   gap: 0.75rem;
   background: transparent;
-  border: 1px solid var(--vscode-widget-border, #454545);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 0.5rem 0.75rem;
   font-family: "SF Mono", Monaco, monospace;
   font-size: var(--font-size-base);
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   cursor: pointer;
   text-align: left;
   transition:
@@ -1608,8 +1608,8 @@ details[open] .collapsible__icon {
 }
 
 .file-link-button:hover {
-  background: var(--vscode-list-hoverBackground, #2a2d2e);
-  border-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--bg-hover);
+  border-color: var(--focus-border);
 }
 
 .file-link-button .file-line-count {
@@ -1627,7 +1627,7 @@ details[open] .collapsible__icon {
   padding: 0;
   font-family: "SF Mono", Monaco, monospace;
   font-size: inherit;
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: transparent;
@@ -1746,7 +1746,7 @@ details[open] .collapsible__icon {
 .read-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -1876,7 +1876,7 @@ details[open] .collapsible__icon {
       transparent 1.25rem
     ),
     var(--bg-diff-removed, rgba(207, 34, 46, 0.15));
-  color: var(--text-diff-removed, var(--error-color));
+  color: var(--error-color);
 }
 
 .diff-added {
@@ -1887,7 +1887,7 @@ details[open] .collapsible__icon {
       transparent 1.25rem
     ),
     var(--bg-diff-added, rgba(26, 127, 55, 0.15));
-  color: var(--text-diff-added, var(--success-color));
+  color: var(--success-color);
 }
 
 .diff-context {
@@ -2675,12 +2675,12 @@ details[open] .collapsible__icon {
 }
 
 .badge-warning {
-  background: var(--bg-warning, rgba(154, 103, 0, 0.15));
+  background: var(--bg-warning);
   color: var(--warning-color);
 }
 
 .badge-error {
-  background: var(--bg-error, rgba(207, 34, 46, 0.15));
+  background: var(--bg-error);
   color: var(--error-color);
 }
 
@@ -2755,7 +2755,7 @@ details[open] .collapsible__icon {
 .write-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -2946,7 +2946,7 @@ details[open] .collapsible__icon {
 .todo-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -3014,7 +3014,7 @@ details[open] .collapsible__icon {
 .task-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -3035,7 +3035,7 @@ details[open] .collapsible__icon {
 }
 
 .task-error-message {
-  background: var(--bg-error, rgba(207, 34, 46, 0.08));
+  background: var(--bg-error);
   color: var(--text-primary);
   padding: 0.75rem;
   border-radius: 4px;
@@ -3284,7 +3284,7 @@ details[open] .collapsible__icon {
 .websearch-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -3346,7 +3346,7 @@ details[open] .collapsible__icon {
 .webfetch-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -3499,7 +3499,7 @@ details[open] .collapsible__icon {
   left: 0;
   right: 0;
   height: 1.5rem;
-  background: linear-gradient(to bottom, transparent, var(--bg-primary));
+  background: linear-gradient(to bottom, transparent, var(--bg-surface));
   pointer-events: none;
 }
 
@@ -3510,7 +3510,7 @@ details[open] .collapsible__icon {
 .webrun-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
   white-space: pre-wrap;
 }
@@ -3570,7 +3570,7 @@ details[open] .collapsible__icon {
 .bashoutput-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -3663,7 +3663,7 @@ details[open] .collapsible__icon {
 .taskoutput-error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
 
@@ -3678,7 +3678,7 @@ details[open] .collapsible__icon {
    ========================================================================== */
 
 .badge-success {
-  background: var(--bg-success, rgba(26, 127, 55, 0.15));
+  background: var(--bg-success);
   color: var(--success-color);
 }
 
@@ -3941,7 +3941,7 @@ details[open] .collapsible__icon {
 }
 
 .diff-context-error {
-  color: var(--text-error);
+  color: var(--error-color);
   font-size: var(--font-size-sm);
 }
 
@@ -4024,7 +4024,7 @@ pre.code-highlighter-plain code {
 }
 
 .file-viewer-image-link:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--accent-color));
+  outline: 2px solid var(--focus-border);
   outline-offset: 3px;
 }
 
@@ -4093,7 +4093,7 @@ pre.code-highlighter-plain code {
   padding: 0;
   font-family: "SF Mono", Monaco, monospace;
   font-size: inherit;
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: transparent;
@@ -4140,7 +4140,7 @@ pre.code-highlighter-plain code {
 
 .file-path-copy.copied {
   opacity: 1;
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
 }
 
 .file-path-copy svg {
@@ -4150,7 +4150,7 @@ pre.code-highlighter-plain code {
 
 /* Server-rendered file links (from markdown augments) */
 .file-link {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: transparent;
@@ -4652,7 +4652,7 @@ pre.code-highlighter-plain,
 }
 
 .source-diff-pane [data-diff-line]:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--accent-color));
+  outline: 2px solid var(--focus-border);
   outline-offset: -2px;
 }
 
@@ -4742,7 +4742,7 @@ pre.code-highlighter-plain,
   font-family: var(--font-mono, monospace);
   font-size: 0.68rem;
   white-space: nowrap;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 999px;
 }
@@ -5027,14 +5027,14 @@ pre.code-highlighter-plain,
   padding: 3px 8px;
   color: var(--text-primary, #e6edf3);
   font-size: 0.78rem;
-  background: var(--bg-primary);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 5px;
 }
 
 .changeset-file-filter-input:focus {
   border-color: var(--focus-border);
-  outline: 1px solid var(--focus-ring, var(--accent-color));
+  outline: 1px solid var(--focus-border);
   outline-offset: -1px;
 }
 
@@ -5058,7 +5058,7 @@ pre.code-highlighter-plain,
   font-weight: 600;
   line-height: 16px;
   text-align: center;
-  color: var(--bg-primary, #0d1117);
+  color: var(--bg-surface);
   background: var(--success-color);
   border-radius: 8px;
 }
@@ -5097,12 +5097,12 @@ pre.code-highlighter-plain,
 
 .commit-list-item.selected,
 .commit-file-item.selected {
-  background: var(--bg-selected, rgba(56, 139, 253, 0.15));
+  background: var(--bg-selected);
 }
 
 .commit-list-item:focus-visible,
 .commit-file-item:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--accent-color));
+  outline: 2px solid var(--focus-border);
   outline-offset: -2px;
 }
 
@@ -5207,7 +5207,7 @@ pre.code-highlighter-plain,
 }
 
 .commit-file-item .git-lines-deleted {
-  color: var(--danger, #f85149);
+  color: var(--error-color);
 }
 
 /* All-files blame browser. */
@@ -5267,7 +5267,7 @@ pre.code-highlighter-plain,
   font-size: 0.72rem;
   line-height: 1.25;
   text-align: center;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle, #21262d);
   border-radius: 4px;
   pointer-events: none;
@@ -5290,7 +5290,7 @@ pre.code-highlighter-plain,
 }
 
 .source-search-index-status.error {
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
 }
 
 .blame-file-list {
@@ -5324,7 +5324,7 @@ pre.code-highlighter-plain,
 }
 
 .blame-file-item.selected {
-  background: var(--bg-selected, rgba(56, 139, 253, 0.15));
+  background: var(--bg-selected);
 }
 
 @media (width <= 600px) {

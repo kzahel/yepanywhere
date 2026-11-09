@@ -7,7 +7,7 @@
   margin: 8px 0;
   background: var(--bg-tertiary, #2a2a2a);
   border-radius: 6px;
-  border-left: 3px solid var(--accent-secondary, #6b7280);
+  border-left: 3px solid var(--text-dimmed);
   font-family: var(--output-prose-font-family);
   font-size: var(--output-prose-font-size);
   line-height: var(--output-prose-line-height);

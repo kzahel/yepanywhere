@@ -94,7 +94,6 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-0);
   width: 100%;
   padding: var(--space-2) var(--space-3);
   background: transparent;
@@ -109,7 +108,7 @@
 }
 
 .option.selected {
-  background: var(--bg-active);
+  background: var(--bg-selected);
 }
 
 .name {

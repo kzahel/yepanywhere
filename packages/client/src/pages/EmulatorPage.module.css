@@ -15,7 +15,7 @@
   margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -25,8 +25,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: var(--app-card-bg);
-  border: 1px solid var(--app-border);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
 }
 
@@ -38,12 +38,12 @@
 
 .itemName {
   font-weight: 500;
-  color: var(--app-text-primary);
+  color: var(--text-primary);
 }
 
 .itemStatus {
   font-size: 0.8em;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
 }
 
 .itemStatus.running {
@@ -51,7 +51,7 @@
 }
 
 .itemStatus.stopped {
-  color: var(--app-text-tertiary);
+  color: var(--text-muted);
 }
 
 .itemActions {
@@ -74,12 +74,12 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .connectionState {
   font-size: 0.85em;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
   text-transform: capitalize;
   text-align: center;
 }
@@ -91,17 +91,17 @@
 
 .keyboardState {
   padding: 6px 16px;
-  border-bottom: 1px solid var(--app-border);
-  background: var(--app-bg-primary);
-  color: var(--app-text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
   font-size: 0.75em;
 }
 
 .profileState {
   padding: 8px 16px;
-  border-bottom: 1px solid var(--app-border);
-  background: var(--app-bg-secondary);
-  color: var(--app-text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   font-size: 0.8em;
 }
 
@@ -110,22 +110,22 @@
   flex-direction: column;
   gap: 4px;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--app-border);
-  background: var(--app-bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
 }
 
 .profileTimelineItem {
   display: flex;
   gap: 8px;
   font-size: 0.75em;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .profileTimelineItem.latest {
-  color: var(--app-text-primary);
+  color: var(--text-primary);
 }
 
 .profileTimelineTime {
@@ -154,14 +154,14 @@
 .empty {
   padding: 24px;
   text-align: center;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
 }
 
 .error {
   padding: 12px 16px;
   margin: 8px 0;
-  background: var(--app-error-bg, rgba(239, 68, 68, 0.1));
-  color: var(--app-error-text, #ef4444);
+  background: var(--bg-error);
+  color: var(--error-color);
   border-radius: 6px;
   font-size: 0.9em;
 }
@@ -169,14 +169,14 @@
 .connecting {
   padding: 24px;
   text-align: center;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* Download prompt */
 .downloadPrompt {
   padding: 32px 24px;
   text-align: center;
-  color: var(--app-text-secondary);
+  color: var(--text-secondary);
 }
 
 .downloadPrompt p {

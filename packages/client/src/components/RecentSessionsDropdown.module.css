@@ -53,7 +53,7 @@
 }
 
 .item:active {
-  background-color: var(--bg-active);
+  background-color: var(--bg-selected);
 }
 
 .content {
@@ -98,7 +98,7 @@
 }
 
 .star {
-  color: var(--accent-star);
+  color: var(--warning-color);
   flex-shrink: 0;
 }
 

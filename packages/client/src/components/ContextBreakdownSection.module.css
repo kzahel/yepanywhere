@@ -74,7 +74,7 @@
   bottom: 0;
   width: 2px;
   margin-left: -1px;
-  background: var(--color-warning, #d29922);
+  background: var(--warning-color);
 }
 
 .caption {

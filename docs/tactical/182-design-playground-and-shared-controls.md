@@ -5,8 +5,9 @@ Topic: ui-design
 Status: rewritten 2026-11-08 around one control family at a time. The
 playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
-whole button family (census, swap, delete, ban) have landed. Order agreed
-with the maintainer on 2026-11-09: the token pass, then switches and
+whole button family (census, swap, delete, ban) and the token pass have
+landed. Order agreed with the maintainer on 2026-11-09: the token pass
+(done), then switches and
 segmented controls, menus and popovers, fields, banners/badges/spinners/
 tabs, the dialog pattern, and the composer last. Each step runs end to
 end (implement, independent review, commit) before the next starts.
@@ -81,6 +82,21 @@ of slightly different styles.
   each theme, and every custom property read but never defined, with its
   sites. `pnpm css:check` rejects new undefined names and more reads of
   recorded ones (shared scanner `scripts/lib/css-custom-properties.mjs`).
+- **Token pass done (2026-11-09):** every custom property the client reads
+  is defined; the `undefinedCustomProperties` baseline is empty, so
+  `pnpm css:check` rejects any undefined read. Misspellings moved onto the
+  theme tokens (`--color-error` → `--error-color`, `--vscode-*`, `--app-*`,
+  `--text-link`, `--focus-ring`, `--border-muted`, …); the 56 reads of
+  `--bg-primary` became `--bg-surface`, `--bg-input` (fields) or
+  `--bg-elevated` (popovers). New tokens: `--bg-elevated` per theme, the
+  tints `--bg-error/-warning/-success/-selected` mixed from each theme's
+  colors, `--shadow-sm/md/lg`, `--radius-full`, `--space-6/8`. Values every
+  theme shared, the dark defaults the light themes override and the tints
+  moved into one `[data-theme]` block, so a nested theme (a playground cell)
+  resolves its own and `index.css` shrank by 36 lines. The scanner counts a
+  name held in a `const` and passed to `setProperty`. The Tokens page shows
+  the `:root` colors and an elevation scale. The z-index scale waits for the
+  popover family, which will decide what layers exist.
 - **Shared buttons** (`src/components/ui/Button.tsx`, Controls/Button page):
   `Button`, `IconButton`, `ButtonBase` and `buttonClassName`, built from the
   census prototypes, which the button census now renders instead.
@@ -226,7 +242,8 @@ First confirm how `popover="auto"` interacts with `Modal`'s layer stack,
 `useModalBackGesture` and Android back handling. `<dialog closedby>` is not in
 Safari, so `Modal` keeps its own `Escape` handling; moving `Modal` onto
 `<dialog>` (for the focus trap it lacks) is evaluated here. Needs the
-raised-surface and shadow tokens from the token pass below.
+raised-surface (`--bg-elevated`) and shadow tokens, which the token pass
+defined.
 
 ### 3 — switches and segmented controls
 
@@ -268,18 +285,8 @@ controls, which the earlier families exclude.
 
 These are not control families; each is scheduled where noted.
 
-- **Undefined-token pass** (first, before switches; menus need it).
-  Rename the obvious misspellings onto real tokens (`--color-error` →
-  `--error-color`, `--text-link` → `--link-color`, `--focus-ring` →
-  `--focus-border`, `--app-text-*` → `--text-*`, `--vscode-*` onto theme
-  tokens); delete reads with no fallback whose intent does not matter (they
-  do nothing today); and define the tokens the names ask for
-  (`--bg-elevated`, a shadow scale, tinted error/warning/success
-  backgrounds, `--radius-full`, `--space-6/8`), reviewed on the token page in
-  all three themes. Teach the scanner that a name held in a constant and
-  passed to `setProperty` is defined (four false positives). Ends with an
-  empty `undefinedCustomProperties` baseline, which closes the
-  [`--bg-primary` gap](../../gaps/client-banners-use-an-undefined-bg-primary-variable.md).
+- **Undefined-token pass:** done 2026-11-09 (What has landed); it closed
+  the `--bg-primary` gap.
 - **Service context for scenes** (when the first scene needs it). A client
   services context supplies `api` and the connection surfaces scenes need;
   production mounts the existing singletons, the playground mounts

@@ -440,14 +440,50 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
 
   /* Border Radius */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* Elevation: popovers and menus lg, floating cards md, chips sm. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.32);
 
   /* Spinner */
   --app-spinner-foreground: var(--thinking-color);
+}
+
+/* Dark defaults the theme blocks below override, set on every data-theme
+   element so a nested theme (a playground cell) resolves its own values. */
+[data-theme] {
+  --accent-contrast: #0b1220;
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --focus-border: #007acc;
+  --primary-color: #60a5fa;
+  --warning-badge-bg: #c2410c;
+  --patient-queue-action-bg: #b8860b;
+  --bg-error: color-mix(in srgb, var(--error-color) 12%, transparent);
+  --bg-warning: color-mix(in srgb, var(--warning-color) 14%, transparent);
+  --bg-success: color-mix(in srgb, var(--success-color) 14%, transparent);
+  --bg-selected: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  --shiki-background: transparent;
+  --shiki-foreground: #e1e4e8;
+  --shiki-token-constant: #79b8ff;
+  --shiki-token-string: #9ecbff;
+  --shiki-token-comment: #a0a8b3;
+  --shiki-token-keyword: #f97583;
+  --shiki-token-parameter: #ffab70;
+  --shiki-token-function: #b392f0;
+  --shiki-token-string-expression: #85e89d;
+  --shiki-token-punctuation: #e1e4e8;
+  --shiki-token-link: #79b8ff;
+  --shiki-token-deleted: #f97583;
+  --shiki-token-inserted: #85e89d;
 }
 
 /* ==========================================================================
@@ -458,12 +494,12 @@
 
   /* Backgrounds */
   --bg-surface: #181818;
+  --bg-elevated: #222222;
   --bg-secondary: #1f1f1f;
   --bg-tertiary: #252525;
   --bg-hover: #2a2d2e;
   --bg-code: #1f1f1f;
   --bg-input: #2a2a2a;
-  --bg-overlay: rgba(0, 0, 0, 0.5);
   --bg-user-message: #3a3a3a;
 
   /* Text Colors */
@@ -482,12 +518,7 @@
   --error-color: #c74e39;
   --success-color: #74c991;
   --warning-color: #e1c08d;
-  --warning-badge-bg: #c2410c;
-  --patient-queue-action-bg: #b8860b;
   --attention-color: #4daafc;
-  --focus-border: #007acc;
-  --primary-color: #60a5fa;
-  --accent-contrast: #0b1220;
 
   /* Timeline */
   --timeline-dot-default: #9d9d9d;
@@ -508,21 +539,6 @@
   --status-badge-running-text: #ffaa44;
   --status-badge-input-bg: #1a2a4a;
   --status-badge-input-text: #66aaff;
-
-  /* Shiki Syntax Highlighting (GitHub Dark inspired) */
-  --shiki-foreground: #e1e4e8;
-  --shiki-background: transparent;
-  --shiki-token-constant: #79b8ff;
-  --shiki-token-string: #9ecbff;
-  --shiki-token-comment: #a0a8b3;
-  --shiki-token-keyword: #f97583;
-  --shiki-token-parameter: #ffab70;
-  --shiki-token-function: #b392f0;
-  --shiki-token-string-expression: #85e89d;
-  --shiki-token-punctuation: #e1e4e8;
-  --shiki-token-link: #79b8ff;
-  --shiki-token-deleted: #f97583;
-  --shiki-token-inserted: #85e89d;
 }
 
 /* ==========================================================================
@@ -533,12 +549,12 @@
 
   /* Backgrounds - lighter greys */
   --bg-surface: #2f2f2f;
+  --bg-elevated: #393939;
   --bg-secondary: #363636;
   --bg-tertiary: #3d3d3d;
   --bg-hover: #454545;
   --bg-code: #292929;
   --bg-input: #3a3a3a;
-  --bg-overlay: rgba(0, 0, 0, 0.5);
   --bg-user-message: #484848;
 
   /* Text Colors - slightly brighter */
@@ -557,12 +573,7 @@
   --error-color: #e05545;
   --success-color: #7dd39a;
   --warning-color: #ebd09d;
-  --warning-badge-bg: #c2410c;
-  --patient-queue-action-bg: #b8860b;
   --attention-color: #5db5ff;
-  --focus-border: #007acc;
-  --primary-color: #60a5fa;
-  --accent-contrast: #0b1220;
 
   /* Timeline */
   --timeline-dot-default: #a0a0a0;
@@ -583,21 +594,6 @@
   --status-badge-running-text: #ffbb55;
   --status-badge-input-bg: #2a3a5a;
   --status-badge-input-text: #77bbff;
-
-  /* Shiki Syntax Highlighting (GitHub Dark inspired) */
-  --shiki-foreground: #e1e4e8;
-  --shiki-background: transparent;
-  --shiki-token-constant: #79b8ff;
-  --shiki-token-string: #9ecbff;
-  --shiki-token-comment: #a0a8b3;
-  --shiki-token-keyword: #f97583;
-  --shiki-token-parameter: #ffab70;
-  --shiki-token-function: #b392f0;
-  --shiki-token-string-expression: #85e89d;
-  --shiki-token-punctuation: #e1e4e8;
-  --shiki-token-link: #79b8ff;
-  --shiki-token-deleted: #f97583;
-  --shiki-token-inserted: #85e89d;
 }
 
 /* ==========================================================================
@@ -608,6 +604,7 @@
 
   /* Backgrounds - soft paper tones */
   --bg-surface: #f8f8f6;
+  --bg-elevated: #ffffff;
   --bg-secondary: #f2f1ed;
   --bg-tertiary: #e9e8e2;
   --bg-hover: #e1e0da;
@@ -634,8 +631,6 @@
   --error-color: #cf222e;
   --success-color: #1a7f37;
   --warning-color: #9a6700;
-  --warning-badge-bg: #c2410c;
-  --patient-queue-action-bg: #b8860b;
   --attention-color: #0066cc;
   --focus-border: #0066cc;
   --primary-color: #2563eb;
@@ -666,7 +661,6 @@
 
   /* Shiki Syntax Highlighting (GitHub Light inspired) */
   --shiki-foreground: #24292e;
-  --shiki-background: transparent;
   --shiki-token-constant: #005cc5;
   --shiki-token-string: #032f62;
   --shiki-token-comment: #59616b;
@@ -688,12 +682,12 @@
 
   /* Default to dark (greyish) */
   --bg-surface: #2f2f2f;
+  --bg-elevated: #393939;
   --bg-secondary: #363636;
   --bg-tertiary: #3d3d3d;
   --bg-hover: #454545;
   --bg-code: #292929;
   --bg-input: #3a3a3a;
-  --bg-overlay: rgba(0, 0, 0, 0.5);
   --bg-user-message: #484848;
 
   --text-primary: #e0e0e0;
@@ -709,12 +703,7 @@
   --error-color: #e05545;
   --success-color: #7dd39a;
   --warning-color: #ebd09d;
-  --warning-badge-bg: #c2410c;
-  --patient-queue-action-bg: #b8860b;
   --attention-color: #5db5ff;
-  --focus-border: #007acc;
-  --primary-color: #60a5fa;
-  --accent-contrast: #0b1220;
 
   --timeline-dot-default: #a0a0a0;
   --timeline-dot-tool: #7dd39a;
@@ -733,21 +722,6 @@
   --status-badge-running-text: #ffbb55;
   --status-badge-input-bg: #2a3a5a;
   --status-badge-input-text: #77bbff;
-
-  /* Shiki Syntax Highlighting (GitHub Dark inspired) */
-  --shiki-foreground: #e1e4e8;
-  --shiki-background: transparent;
-  --shiki-token-constant: #79b8ff;
-  --shiki-token-string: #9ecbff;
-  --shiki-token-comment: #a0a8b3;
-  --shiki-token-keyword: #f97583;
-  --shiki-token-parameter: #ffab70;
-  --shiki-token-function: #b392f0;
-  --shiki-token-string-expression: #85e89d;
-  --shiki-token-punctuation: #e1e4e8;
-  --shiki-token-link: #79b8ff;
-  --shiki-token-deleted: #f97583;
-  --shiki-token-inserted: #85e89d;
 }
 
 /* Auto theme: light mode override */
@@ -756,6 +730,7 @@
     color-scheme: light;
 
     --bg-surface: #f8f8f6;
+    --bg-elevated: #ffffff;
     --bg-secondary: #f2f1ed;
     --bg-tertiary: #e9e8e2;
     --bg-hover: #e1e0da;
@@ -779,8 +754,6 @@
     --error-color: #cf222e;
     --success-color: #1a7f37;
     --warning-color: #9a6700;
-    --warning-badge-bg: #c2410c;
-    --patient-queue-action-bg: #b8860b;
     --attention-color: #0066cc;
     --focus-border: #0066cc;
     --primary-color: #2563eb;
@@ -809,7 +782,6 @@
 
     /* Shiki Syntax Highlighting (GitHub Light inspired) */
     --shiki-foreground: #24292e;
-    --shiki-background: transparent;
     --shiki-token-constant: #005cc5;
     --shiki-token-string: #032f62;
     --shiki-token-comment: #59616b;
@@ -1557,7 +1529,7 @@ a.sidebar-toggle:hover {
 .sidebar-brand {
   font-weight: 600;
   font-size: 1.1rem;
-  color: var(--text-color);
+  color: var(--text-primary);
 }
 
 .yep-anywhere-logo {
@@ -1931,7 +1903,7 @@ a.sidebar-nav-item {
 
 .session-title-input:disabled {
   color: var(--text-muted);
-  background: var(--bg-muted, var(--bg-hover));
+  background: var(--bg-hover);
   cursor: not-allowed;
 }
 
@@ -2206,7 +2178,7 @@ a.sidebar-nav-item {
   padding: var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 72%, transparent);
   overscroll-behavior: contain;
 }
 
@@ -2874,7 +2846,7 @@ a.sidebar-nav-item {
   border: none;
   padding: 0;
   font: inherit;
-  color: var(--text-link);
+  color: var(--link-color);
 }
 
 .uploaded-file-clickable:hover {
@@ -3023,7 +2995,7 @@ a.sidebar-nav-item {
   bottom: 0;
   padding: 1px 4px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   box-shadow: 0 0 0 1px
     color-mix(in srgb, var(--border-subtle) 65%, transparent);
   color: var(--text-dimmed);
@@ -3409,16 +3381,8 @@ a.sidebar-nav-item {
 }
 
 .fork-summary-display-object-error {
-  border-color: color-mix(
-    in srgb,
-    var(--accent-danger, #d33) 45%,
-    var(--border-color)
-  );
-  background: color-mix(
-    in srgb,
-    var(--accent-danger, #d33) 10%,
-    var(--bg-code)
-  );
+  border-color: color-mix(in srgb, var(--error-color) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--error-color) 10%, var(--bg-code));
 }
 
 .fork-summary-display-object-error .fork-summary-display-object-cancel {
@@ -5046,7 +5010,7 @@ a.sidebar-nav-item {
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-input);
   font-size: var(--font-size-sm);
 }
 
@@ -5162,7 +5126,7 @@ a.sidebar-nav-item {
       repeat(auto-fit, minmax(6rem, max-content))
     );
   column-gap: var(--thinking-controls-inline-column-gap, 1rem);
-  row-gap: var(--thinking-controls-inline-row-gap, var(--space-3));
+  row-gap: var(--space-3);
   align-items: start;
   justify-content: start;
 }
@@ -6067,8 +6031,8 @@ a.sidebar-nav-item {
   text-align: center;
   background: linear-gradient(
     to bottom,
-    var(--bg-primary) 0%,
-    color-mix(in srgb, var(--bg-primary) 92%, transparent) 82%,
+    var(--bg-surface) 0%,
+    color-mix(in srgb, var(--bg-surface) 92%, transparent) 82%,
     transparent 100%
   );
   color: var(--text-muted);
@@ -6342,7 +6306,7 @@ a.sidebar-nav-item {
   margin: 8px 0;
   background: var(--bg-tertiary, #2a2a2a);
   border-radius: 6px;
-  border-left: 3px solid var(--accent-secondary, #6b7280);
+  border-left: 3px solid var(--text-dimmed);
   font-family: var(--output-prose-font-family);
   font-optical-sizing: var(--output-prose-font-optical-sizing);
   font-variation-settings: var(--output-prose-font-variation-settings);
@@ -6990,7 +6954,7 @@ a.sidebar-nav-item {
   padding: var(--space-2);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   color: var(--text-primary);
   font-family: var(--output-prose-font-family);
   font-optical-sizing: var(--output-prose-font-optical-sizing);
@@ -7152,7 +7116,7 @@ a.sidebar-nav-item {
   padding: var(--space-2);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
@@ -7210,7 +7174,7 @@ a.sidebar-nav-item {
   box-sizing: border-box;
   width: 100%;
   padding: var(--space-2);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
@@ -9006,7 +8970,7 @@ a.sidebar-nav-item {
 }
 
 .subscription-usage-window:first-child .subscription-usage-meter > span {
-  background: var(--color-warning, #d29922);
+  background: var(--warning-color);
 }
 
 .context-threshold-popover input[type="range"] {
@@ -10800,7 +10764,7 @@ a.sidebar-nav-item {
 .login-spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid var(--border-muted);
+  border: 2px solid var(--border-subtle);
   border-top-color: var(--app-yep-green);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -10826,7 +10790,7 @@ a.sidebar-nav-item {
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3);
-  border: 1px solid var(--border-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
   cursor: pointer;
@@ -10857,7 +10821,7 @@ a.sidebar-nav-item {
 }
 
 .login-mode-option-secondary:hover {
-  border-color: var(--border-muted);
+  border-color: var(--border-subtle);
 }
 
 .login-back-link {
@@ -10919,7 +10883,7 @@ a.sidebar-nav-item {
   gap: var(--space-1);
   padding: var(--space-3);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition:
@@ -10954,11 +10918,11 @@ a.sidebar-nav-item {
 }
 
 .host-picker-status-online {
-  background: var(--color-success);
+  background: var(--success-color);
 }
 
 .host-picker-status-offline {
-  background: var(--color-error);
+  background: var(--error-color);
 }
 
 .host-picker-status-checking {
@@ -10990,7 +10954,7 @@ a.sidebar-nav-item {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   padding: 2px 6px;
-  background: var(--bg-subtle);
+  background: var(--bg-secondary);
   border-radius: var(--radius-sm);
 }
 
@@ -11311,7 +11275,7 @@ a.sidebar-nav-item {
   padding: var(--space-3);
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-muted);
+  border: 1px solid var(--border-subtle);
 }
 
 .settings-item-form form {
@@ -12169,11 +12133,11 @@ a.sidebar-nav-item {
 }
 
 .subscription-usage-badge.tone-warning {
-  color: var(--color-warning, #d29922);
+  color: var(--warning-color);
 }
 
 .subscription-usage-badge.tone-danger {
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
   border-color: color-mix(in srgb, currentColor 45%, var(--border-color));
 }
 
@@ -12388,7 +12352,7 @@ a.sidebar-nav-item {
   gap: var(--space-3);
   padding: var(--space-3);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
 
@@ -12456,8 +12420,8 @@ a.sidebar-nav-item {
 .device-no-push {
   font-size: var(--font-size-xs);
   padding: 1px 4px;
-  background: var(--bg-muted);
-  border: 1px solid var(--border-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   margin-left: var(--space-2);
@@ -12503,7 +12467,7 @@ a.sidebar-nav-item {
 /* Info box for explaining things like "SW disabled only affects this device" */
 .settings-info-box {
   background: var(--bg-elevated);
-  border: 1px solid var(--border-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   font-size: var(--font-size-sm);
@@ -12729,7 +12693,7 @@ body:has(.session-page)
   min-height: 1.75rem;
   padding: 0.2rem 0.55rem;
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   opacity: 0.65;
@@ -12746,9 +12710,9 @@ body:has(.session-page)
   width: 1.4rem;
   height: 1.4rem;
   color: var(--text-muted);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-full);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 700;
@@ -12767,7 +12731,7 @@ body:has(.session-page)
   width: min(320px, calc(100dvw - 2rem));
   padding: var(--space-2) var(--space-3);
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);

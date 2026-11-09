@@ -52,7 +52,7 @@
   overflow-wrap: anywhere;
   border: 1px solid var(--border-input);
   border-radius: 8px;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   color: var(--text-primary);
   box-shadow: 0 4px 16px #0003;
   font-size: 14px;

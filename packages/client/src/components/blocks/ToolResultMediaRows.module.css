@@ -37,7 +37,7 @@
 }
 
 button.filename {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--link-color);
   cursor: pointer;
 }
 

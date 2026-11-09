@@ -19,7 +19,7 @@
   border: 1px solid var(--border-input);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-input);
   font-size: var(--font-size-sm);
 }
 

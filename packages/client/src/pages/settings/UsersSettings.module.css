@@ -107,7 +107,7 @@
   padding: 4px 8px;
   border: 1px solid var(--border-input, var(--border-color));
   border-radius: 4px;
-  background: var(--bg-primary);
+  background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
 }

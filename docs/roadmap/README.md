@@ -1062,7 +1062,9 @@ shared controls, legacy rules deleted, `pnpm buttons:check` in lint). On
 2026-11-09 the maintainer set the remaining order: the undefined-token pass,
 switches and segmented controls, menus and popovers, fields, banners,
 badges, spinners and tabs, a dialog pattern, and the composer last, each
-implemented, independently reviewed and committed before the next.
+implemented, independently reviewed and committed before the next. The
+token pass landed on 2026-11-09: every custom property the client reads is
+defined, with new raised-surface, tint, shadow and radius tokens.
 
 ## Later directions
 

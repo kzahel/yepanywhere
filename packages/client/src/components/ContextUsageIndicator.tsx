@@ -36,8 +36,8 @@ export function ContextUsageIndicator({
 
   // Fill color - lighter color that shows usage amount
   const getFillColor = () => {
-    if (clampedPercentage >= 90) return "var(--color-error, #dc3545)";
-    if (clampedPercentage >= 75) return "var(--color-warning, #ffc107)";
+    if (clampedPercentage >= 90) return "var(--error-color)";
+    if (clampedPercentage >= 75) return "var(--warning-color)";
     return "var(--text-muted, #9d9d9d)";
   };
 

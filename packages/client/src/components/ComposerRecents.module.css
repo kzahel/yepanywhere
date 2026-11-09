@@ -27,7 +27,7 @@
   padding: 12px;
   margin: 8px 0;
   border: 1px solid var(--border-input);
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border-radius: 8px;
 }
 .tiles {
@@ -63,7 +63,7 @@
   padding: 0;
   font-size: 28px;
   line-height: 1;
-  color: var(--text-error, #ef7777);
+  color: var(--error-color);
 }
 .recents .disclosure {
   display: flex;
@@ -93,7 +93,7 @@
   padding: 12px;
 }
 .actions .memo {
-  border-color: var(--text-error, #ef7777);
+  border-color: var(--error-color);
 }
 .tiles .metadata {
   display: flex;
@@ -108,7 +108,7 @@
   position: fixed;
   z-index: 10000;
   pointer-events: none;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   box-shadow: 0 8px 32px #0008;
   outline: 2px solid var(--border-input);
 }

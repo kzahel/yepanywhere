@@ -72,7 +72,7 @@
 }
 
 .inlineError {
-  color: var(--color-error);
+  color: var(--error-color);
 }
 
 /* Local media modal content */
@@ -147,7 +147,7 @@
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
 }
 
 .imageFrame {
@@ -163,10 +163,10 @@
   box-sizing: border-box;
   padding: var(--space-2) var(--space-3);
   transform: translateX(-50%);
-  border: 1px solid color-mix(in srgb, var(--color-error) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error-color) 45%, transparent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
-  color: var(--color-error);
+  color: var(--error-color);
   box-shadow: var(--shadow-md);
   text-align: center;
 }
@@ -185,7 +185,7 @@
 }
 
 .error {
-  color: var(--color-error);
+  color: var(--error-color);
 }
 
 /* The shared modal shell stays global; this module only sizes it. */
@@ -232,7 +232,7 @@
   width: 100%;
   min-height: 0;
   border: 0;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
 }
 
 .fileLoading,
@@ -247,5 +247,5 @@
 }
 
 .fileError {
-  color: var(--color-error);
+  color: var(--error-color);
 }

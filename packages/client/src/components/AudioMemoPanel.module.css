@@ -77,6 +77,6 @@
 }
 .error {
   margin: 0 18px 12px;
-  color: var(--text-error, #ef7777);
+  color: var(--error-color);
   font-size: 13px;
 }

@@ -146,7 +146,7 @@
 
 .root [data-ya-code-toggle]:hover {
   color: var(--text-primary);
-  border-color: var(--border-strong, var(--border-color));
+  border-color: var(--border-color);
 }
 
 .root [data-ya-code-toggle][aria-pressed="true"] {

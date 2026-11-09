@@ -38,7 +38,7 @@
   display: block;
   height: 100%;
   min-width: 2px;
-  background: var(--color-warning, #d29922);
+  background: var(--warning-color);
   border-radius: inherit;
 }
 

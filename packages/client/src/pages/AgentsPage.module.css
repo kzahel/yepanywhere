@@ -65,7 +65,7 @@
 
 @media (hover: hover) {
   .card:hover {
-    border-color: var(--border-hover);
+    border-color: var(--border-input);
   }
 }
 
@@ -246,7 +246,7 @@
 .metrics:hover,
 .metrics:focus-visible,
 .metrics[aria-expanded="true"] {
-  border-color: var(--border-hover);
+  border-color: var(--border-input);
   color: var(--text-primary);
 }
 

@@ -28,7 +28,7 @@
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: linear-gradient(
     to top,
-    color-mix(in srgb, var(--bg-primary) 88%, transparent),
+    color-mix(in srgb, var(--bg-surface) 88%, transparent),
     transparent
   );
   pointer-events: none;

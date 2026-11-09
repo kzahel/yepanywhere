@@ -106,7 +106,7 @@ function Fixture() {
             padding: 10,
             font: "16px sans-serif",
             color: "var(--text-primary)",
-            background: "var(--bg-primary)",
+            background: "var(--bg-surface)",
             border: "1px solid var(--border-color)",
             borderRadius: 8,
           }}

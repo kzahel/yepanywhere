@@ -11,11 +11,7 @@
 
 .error,
 .killed {
-  border-color: color-mix(
-    in srgb,
-    var(--accent-danger, #d33) 45%,
-    var(--border-color)
-  );
+  border-color: color-mix(in srgb, var(--error-color) 45%, var(--border-color));
 }
 
 .header {
@@ -71,12 +67,12 @@
 }
 
 .exitNonzero {
-  color: var(--accent-danger, #d33);
+  color: var(--error-color);
   font-weight: 600;
 }
 
 .error[role="alert"] {
-  color: var(--accent-danger, #d33);
+  color: var(--error-color);
 }
 
 .preview {

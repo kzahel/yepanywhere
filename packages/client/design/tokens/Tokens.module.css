@@ -87,12 +87,14 @@
 }
 
 .bar {
+  display: block;
   height: 12px;
   background: var(--accent-color);
   border-radius: 2px;
 }
 
 .box {
+  display: block;
   width: 40px;
   height: 28px;
   border: 1px solid var(--text-muted);

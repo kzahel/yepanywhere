@@ -9,7 +9,9 @@
  *
  * Definitions are CSS declarations (`--name:`), `@property --name`, and the
  * TypeScript forms that set one at runtime: `"--name":` in a style object,
- * `["--name" as …]`, `setProperty("--name", …)` and `--name:` inside a string.
+ * `["--name" as …]`, `setProperty("--name", …)`, `setProperty(NAME, …)` where
+ * the same file declares `const NAME = "--name"`, and `--name:` inside a
+ * string.
  */
 
 /** @typedef {{ path: string, text: string }} SourceText */
@@ -28,6 +30,11 @@ const SCRIPT_DEFINITION = new RegExp(
   String.raw`["'\x60](${NAME})["'\x60]\s*(?:as\s+[\w.<>"' |]+?)?\s*[:\]]|setProperty\(\s*["'\x60](${NAME})`,
   "g",
 );
+const NAME_CONSTANT = new RegExp(
+  String.raw`\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*["'\x60](${NAME})["'\x60]`,
+  "g",
+);
+const SET_PROPERTY_IDENTIFIER = /setProperty\(\s*([A-Za-z_$][\w$]*)\s*,/g;
 const USE = new RegExp(String.raw`var\(\s*(${NAME})\s*(,)?`, "g");
 
 /** Blank out comments while keeping offsets, so line numbers stay true. */
@@ -75,6 +82,13 @@ export function scanCustomProperties(sources) {
     if (script) {
       for (const match of text.matchAll(SCRIPT_DEFINITION))
         defined.add(match[1] ?? match[2]);
+      const constants = new Map(
+        [...text.matchAll(NAME_CONSTANT)].map((match) => [match[1], match[2]]),
+      );
+      for (const match of text.matchAll(SET_PROPERTY_IDENTIFIER)) {
+        const name = constants.get(match[1]);
+        if (name) defined.add(name);
+      }
     }
     const starts = lineStarts(text);
     for (const match of text.matchAll(USE)) {

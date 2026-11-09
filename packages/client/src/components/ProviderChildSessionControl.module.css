@@ -90,7 +90,7 @@
 
 .selectorItemSelected {
   border-color: color-mix(in srgb, var(--link-color) 42%, var(--border-color));
-  background: var(--bg-active);
+  background: var(--bg-selected);
   color: var(--text-primary);
 }
 

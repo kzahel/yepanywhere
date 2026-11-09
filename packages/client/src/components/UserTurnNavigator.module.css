@@ -208,8 +208,8 @@
   height: 6px;
   border-radius: 999px;
   border: 1px solid currentColor;
-  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-primary) 80%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-surface) 80%, transparent);
 }
 
 .trimMarker:hover,
@@ -222,7 +222,7 @@
 .trimMarker:focus-visible .trimDot {
   background: currentColor;
   box-shadow:
-    0 0 0 2px var(--bg-primary),
+    0 0 0 2px var(--bg-surface),
     0 0 0 4px color-mix(in srgb, var(--primary-color) 36%, transparent);
 }
 

@@ -13,7 +13,7 @@
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle, #21262d);
   border-radius: 50%;
   cursor: help;

@@ -6,7 +6,7 @@
   border: 1px solid var(--border-color, #30363d);
   border-radius: var(--radius-md, 8px);
   background: var(--bg-tertiary);
-  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.4));
+  box-shadow: var(--shadow-md);
 }
 
 .anchor {
@@ -39,7 +39,7 @@
 }
 
 .error {
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
   font-size: var(--font-size-sm, 0.85em);
 }
 
@@ -75,7 +75,7 @@
 
 .destinationError {
   align-self: center;
-  color: var(--color-error, #f85149);
+  color: var(--error-color);
   font-size: var(--font-size-sm, 0.85em);
 }
 

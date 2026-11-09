@@ -45,7 +45,7 @@
 }
 
 .open {
-  color: var(--color-warning, #d29922);
+  color: var(--warning-color);
 }
 
 .addressed {
@@ -53,7 +53,7 @@
 }
 
 .changed {
-  color: var(--color-success, #3fb950);
+  color: var(--success-color);
 }
 
 .unchanged,

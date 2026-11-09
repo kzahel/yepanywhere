@@ -96,7 +96,7 @@ function Fixture() {
         height: "100dvh",
         display: "flex",
         flexDirection: "column",
-        background: "var(--bg-primary)",
+        background: "var(--bg-surface)",
         color: "var(--text-primary)",
       }}
     >

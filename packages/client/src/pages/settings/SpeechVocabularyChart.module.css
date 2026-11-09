@@ -23,7 +23,7 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 8px;
-  background: var(--bg-primary);
+  background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
 }
@@ -102,7 +102,7 @@
 .table tr[data-selected="true"],
 .table tbody tr:hover,
 .unknownWord[aria-pressed="true"] {
-  background: var(--bg-primary);
+  background: var(--bg-input);
 }
 
 .word:focus-visible,

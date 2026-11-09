@@ -2,7 +2,7 @@
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 14px;

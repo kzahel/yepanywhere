@@ -109,10 +109,18 @@ what is left.
 depend on a higher one:
 
 1. **Tokens:** the theme custom properties in `src/styles/index.css`
-   (color, spacing, radius, type, and the planned shadow and z-index scales).
-   A token used in client CSS must be defined in every client theme. Reads of
-   properties no client source defines are frozen by `pnpm css:check`
-   ([CSS architecture](css-architecture.md#contract)).
+   (color, spacing, radius, type and shadow; a z-index scale is still
+   planned). A token used in client CSS must be defined in every client
+   theme, and `pnpm css:check` rejects a read of a property no client source
+   defines ([CSS architecture](css-architecture.md#contract)). Surfaces are
+   `--bg-surface` (the page), `--bg-secondary`/`--bg-tertiary` (panels),
+   `--bg-elevated` (popovers, menus, raised cards) and `--bg-input` (fields);
+   `--bg-error`, `--bg-warning`, `--bg-success` and `--bg-selected` are tints
+   mixed from each theme's status and primary colors; `--shadow-sm/md/lg`
+   is the elevation scale; `--radius-full` makes a pill. Values every theme
+   shares, the dark defaults and the tints live in one `[data-theme]` block
+   before the theme blocks, so a nested theme (a playground cell) resolves
+   its own.
 2. **Controls:** prop-driven shared components in `src/components/ui/`, each
    with its own CSS Module. The planned set is `Button`, `IconButton`,
    `Switch`, `SegmentedControl`, `Checkbox`, `Field`, `Popover`, `Menu`,
@@ -206,9 +214,9 @@ arguments exit 2. Inspect the images before claiming visual quality.
 
 The playground's pages:
 
-- **Tokens:** every theme color resolved in each theme, the spacing, radius
-  and type scales, and the undefined properties with their recorded counts,
-  how many reads lack a fallback, and their CSS sites.
+- **Tokens:** every theme color resolved in each theme, the spacing, radius,
+  elevation and type scales, and the undefined properties (none since the
+  2026-11-09 token pass; the page lists any a future baseline records).
 - **Controls/Button:** every variant, size and state of the shared button
   family.
 - **Census/Buttons:** every global and CSS Module class named like a

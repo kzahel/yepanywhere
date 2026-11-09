@@ -64,8 +64,16 @@ describe("custom property scan", () => {
         path: "b.tsx",
         text: `const style = { "--from-style": 1, ["--computed" as string]: 2 };
 el.style.setProperty("--set-at-runtime", "1");
+const SHIFT = "--held-in-constant";
+el.style.setProperty(
+  SHIFT,
+  "1px",
+);
+const UNSET = "--constant-never-set";
 el.style.getPropertyValue("--only-read");
-const css = "width: var(--from-style) var(--set-at-runtime) var(--computed)";`,
+const css = "width: var(--from-style) var(--set-at-runtime) var(--computed) var(--held-in-constant)";
+el.style.getPropertyValue(UNSET);
+const other = "var(--constant-never-set)";`,
       },
     ]);
     expect(undefinedCustomProperties(scan)).toEqual([
@@ -77,6 +85,12 @@ const css = "width: var(--from-style) var(--set-at-runtime) var(--computed)";`,
           { path: "a.css", line: 3, fallback: false },
           { path: "a.css", line: 4, fallback: true },
         ],
+      },
+      {
+        name: "--constant-never-set",
+        uses: 1,
+        withoutFallback: 1,
+        sites: [{ path: "b.tsx", line: 12, fallback: false }],
       },
     ]);
   });

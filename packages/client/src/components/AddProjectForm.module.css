@@ -73,6 +73,6 @@
   padding: 0.5rem;
   background: rgba(239, 68, 68, 0.1);
   border-radius: 4px;
-  color: var(--color-error, #ef4444);
+  color: var(--error-color);
   font-size: var(--font-size-sm);
 }

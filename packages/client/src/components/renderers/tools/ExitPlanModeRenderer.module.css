@@ -102,6 +102,6 @@
 .error {
   color: var(--error-color);
   padding: 0.5rem;
-  background: var(--bg-error, rgba(207, 34, 46, 0.1));
+  background: var(--bg-error);
   border-radius: 4px;
 }
