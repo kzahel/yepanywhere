@@ -7,11 +7,11 @@ playground, token page, undefined-property limit, button and switch census,
 the shared `Button`/`IconButton`/`ButtonBase`, the screen tour and the
 whole button family (census, swap, delete, ban), the token pass, the
 switch and segmented-control family, the menu and popover family, the
-field family and the banner, badge, spinner and tab family have landed.
-Order agreed with the maintainer on 2026-11-09: the token pass (done),
-switches and segmented controls (done), menus and popovers (done), fields
-(done), banners/badges/spinners/tabs (done), then the dialog pattern, and
-the composer last. Each step runs end to end
+field family, the banner, badge, spinner and tab family and the dialog
+pattern have landed. Order agreed with the maintainer on 2026-11-09: the
+token pass (done), switches and segmented controls (done), menus and
+popovers (done), fields (done), banners/badges/spinners/tabs (done), the
+dialog pattern (done), and the composer last, still open. Each step runs end to end
 (implement, independent review, commit) before the next starts.
 
 ## Why
@@ -289,6 +289,33 @@ of slightly different styles.
   attention badges blue again, unnamed count badges named, about ten
   missed error lines and count pills swapped, and weakened tests
   restored.
+- **Dialog pattern done (2026-11-10):** `Dialog` and `confirmDialog`/
+  `promptDialog` (`ui/Dialog.tsx`, `ui/ConfirmDialog.tsx`), a Controls
+  page whose states open their dialogs, tests, and a census page
+  (Census/Dialogs, `LEGACY_DIALOGS` and `CONFIRM_CALLS`). The census found
+  35 files calling `Modal`: 19 forms, choices and notices, each with its
+  own width hack (`:global(.modal):has(…)` in modules and global
+  stylesheets), padding and action row, the action row usually inside the
+  scrolling body and in varying order; viewers (diff, file, blame, media,
+  logs, process and tool details); three hand-rolled modal surfaces
+  (GoalPanel, SourceEditor, FilePathLink's file viewer); and 20 native
+  `window.confirm` calls plus one `window.prompt`. `Modal` stays a
+  portaled `div` rather than a modal `<dialog>`, because the tooltip
+  layer, hover cards and selection actions portal into the body and the
+  top layer would cover them and make them inert; it gained a Tab trap,
+  focus return to its opener, `aria-labelledby` its title (ReactNode
+  titles were unnamed), an `alertdialog` role and a footer slot. The 19
+  dialogs moved onto `Dialog` (`small`/`medium`/`large`, a description,
+  the action row as a footer with Cancel first and one primary or danger
+  action last, cards near the top on phones), the confirmations onto
+  `confirmDialog` with a question title, the old prompt as the message and
+  a named action, and the project copy name onto `promptDialog`. Viewers
+  stayed on `Modal`. About 190 lines of global CSS went (the model switch
+  action rows, onboarding footer and progress dots, schema warning frame,
+  share and provider editor widths). `pnpm buttons:check` now also bans
+  native confirm, alert and prompt calls, `aria-modal` and `alertdialog`
+  outside the shared dialogs, rules that reach into Modal's frame (viewers'
+  and the composer's are allowlisted) and the old frame and footer classes.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
@@ -444,7 +471,9 @@ and a confirm-dialog helper replace the per-feature layouts and the
 `window.confirm` calls where a styled confirm fits. Census first: every
 `Modal` caller with its width, header and footer shape. Also decide
 whether `Modal` moves onto `<dialog>` for its focus trap, if family 2 has
-not.
+not. **Done 2026-11-10** (What has landed): `Modal` stays a `div` with
+its own trap. Left for other families: the composer's full-pane form
+inside the handoff dialog (composer).
 
 ### 6 — composer controls
 

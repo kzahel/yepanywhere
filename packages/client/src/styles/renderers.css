@@ -2067,12 +2067,6 @@ details[open] .collapsible__icon {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-.modal:has(.providers-additional-models-editor) {
-  width: min(32rem, calc(100dvw - 1rem));
-  max-width: min(32rem, calc(100dvw - 1rem));
-  height: auto;
-}
-
 .modal--anchored {
   position: fixed;
   margin: 0;
@@ -2144,12 +2138,6 @@ details[open] .collapsible__icon {
     border: none;
   }
 
-  .modal:has(.providers-additional-models-editor) {
-    width: 100dvw;
-    max-width: 100dvw;
-    height: 100dvh;
-  }
-
   .modal-header {
     padding: 0.25rem 0.5rem;
     border-radius: 0;
@@ -2188,13 +2176,6 @@ details[open] .collapsible__icon {
 /* ==========================================================================
    Model Switch Modal
    ========================================================================== */
-
-.model-switch-content {
-  padding: 0.5rem;
-  width: min(100%, 46rem);
-  max-width: 46rem;
-  margin: 0 auto;
-}
 
 .model-switch-tabs {
   position: sticky;
@@ -2458,60 +2439,7 @@ details[open] .collapsible__icon {
   background: #991b1b;
 }
 
-.model-switch-actions {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding-top: 0.35rem;
-  background: var(--bg-surface);
-}
-
-/* A tall two-line action (label over a config badge) on the shared Button:
-   the compound selector outranks the control's single-line inline-flex. */
-.model-switch-actions .model-switch-action-button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-  min-width: 13rem;
-  height: auto;
-  padding-block: var(--space-2);
-  text-align: left;
-  white-space: normal;
-}
-
-.model-switch-action-label {
-  font-weight: 600;
-}
-
-.model-switch-action-badge-main {
-  min-width: 0;
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: inherit;
-  font-weight: 600;
-}
-
-.model-switch-action-badge-detail {
-  white-space: nowrap;
-}
-
 @media (width <= 768px) {
-  .model-switch-content {
-    padding: 0.75rem 0.625rem;
-    width: 100%;
-    max-width: none;
-  }
-
-  .model-switch-actions {
-    justify-content: stretch;
-    flex-direction: column-reverse;
-  }
-
   .model-switch-item-row,
   .model-switch-inline-save {
     flex: 1;
@@ -2522,8 +2450,7 @@ details[open] .collapsible__icon {
     flex-direction: column;
   }
 
-  .model-switch-inline-save,
-  .model-switch-action-button {
+  .model-switch-inline-save {
     width: 100%;
   }
 

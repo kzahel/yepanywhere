@@ -54,20 +54,34 @@
     "login-field-checkbox",
     "login-field-hint",
     "login-spinner",
+    "long-context-effort-warning",
     "mode-option",
     "mode-option-content",
     "mode-option-desc",
     "mode-option-label",
     "mode-options",
     "model-switch-action-badge",
+    "model-switch-action-badge-detail",
+    "model-switch-action-badge-main",
+    "model-switch-action-button",
+    "model-switch-action-label",
+    "model-switch-actions",
     "model-switch-chip",
+    "model-switch-content",
     "model-switch-error",
     "model-switch-tab",
     "new-session-helper-option",
     "new-session-helper-options",
+    "onboarding-footer",
+    "onboarding-footer-right",
+    "onboarding-modal-title",
+    "onboarding-progress",
+    "onboarding-progress-dot",
+    "onboarding-step-actions",
     "onboarding-theme-grid",
     "onboarding-theme-label",
     "onboarding-theme-option",
+    "onboarding-wizard",
     "output-appearance-number-wrap",
     "output-appearance-unit",
     "output-font-option",
@@ -83,12 +97,16 @@
     "provider-option-label",
     "provider-option-status",
     "provider-options",
+    "providers-additional-models-editor",
     "public-share-badge",
     "public-share-error",
     "public-share-spinner",
     "qr-toggle-button",
     "revoke-all-button",
     "revoke-button",
+    "schema-warning-footer",
+    "schema-warning-modal-content",
+    "schema-warning-modal-title",
     "session-archived-badge",
     "session-badge-executor",
     "session-badge-external",
@@ -97,10 +115,12 @@
     "session-list-header__select-all",
     "session-list-item__checkbox",
     "session-project-queue-badge",
+    "session-recap-modal",
     "session-rename-input",
     "session-share-error",
     "session-share-icon-button",
     "session-share-icon-button-danger",
+    "session-share-modal",
     "session-share-revoke-button",
     "session-share-small-button",
     "session-share-url-field",
@@ -399,6 +419,51 @@
     "styles/index.css": {
       "count": 1,
       "reason": "send-spin, the new-session submit's spinner: the composer pass."
+    }
+  },
+  "nativeDialogs": {},
+  "modalRoles": {
+    "components/GoalPanel.tsx": {
+      "count": 1,
+      "reason": "Goal editor: an anchored form panel beside its trigger with its own overlay, Tab trap and useModalLayer Escape; Dialog does not anchor below 600px. Kept on purpose (Census/Dialogs)."
+    },
+    "components/McpAppView.tsx": {
+      "count": 1,
+      "reason": "Inline approval prompt inside an MCP app frame (not modal): role=alertdialog announces it where it sits."
+    },
+    "components/SourceEditor.tsx": {
+      "count": 1,
+      "reason": "Full-screen source editing workspace with its own Tab trap and Ctrl+S, above Modal; not a dialog box. Kept on purpose (Census/Dialogs)."
+    }
+  },
+  "modalFrameRules": {
+    "components/FilePathLink.module.css": {
+      "count": 3,
+      "reason": "FilePathLink's hand-rolled file viewer overlay inside the session viewer layer (phone and docked placement). Kept on purpose."
+    },
+    "components/LocalMediaModal.module.css": {
+      "count": 5,
+      "reason": "Media viewer (a Modal viewer): image header title and close buttons laid out over the image, and the file modal's height. Viewers stay on Modal."
+    },
+    "components/NewSessionForm.module.css": {
+      "count": 7,
+      "reason": "Composer: the full-pane new-session form inside the handoff dialog takes the dialog's height and hides the body's other children. Composer pass."
+    },
+    "components/ProviderChildSessionControl.module.css": {
+      "count": 1,
+      "reason": "Provider child session viewer (a Modal viewer) fills the content area without padding. Viewers stay on Modal."
+    },
+    "components/session-search/SearchDetail.module.css": {
+      "count": 2,
+      "reason": "Search detail docked in the right pane through ModalChrome: header and content spacing of the docked panel. Viewers stay on Modal."
+    },
+    "components/session-search/SearchSessionMatches.module.css": {
+      "count": 2,
+      "reason": "Session search matches viewer (a Modal viewer): overlay and box height for the matches list. Viewers stay on Modal."
+    },
+    "styles/renderers.css": {
+      "count": 1,
+      "reason": "FilePathLink's hand-rolled file viewer overlay (a <dialog open> in .modal-overlay, portaled into the session layer): tighter padding. Kept on purpose."
     }
   }
 }

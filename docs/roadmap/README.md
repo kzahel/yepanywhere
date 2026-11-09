@@ -1081,7 +1081,14 @@ landed the same day: `Banner`, `Badge`, `Spinner` and `Tabs` replace the
 settings and form message styles, notice boxes, about 45 badge classes,
 eight spinner classes with their rotate keyframes and three tab strips,
 and lint bans the old classes, tab roles outside `Tabs` and rotating
-keyframes outside `Spinner`. The dialog pattern is next.
+keyframes outside `Spinner`. The dialog pattern landed on 2026-11-10:
+`Dialog` (sizes, description, footer action row) on `Modal`, which gained
+a focus trap, focus return and a title-labelled name, moves 19 forms,
+choices and notices off per-feature frames, `confirmDialog` and
+`promptDialog` replace every `window.confirm` and `window.prompt`, and
+lint bans native dialogs, `aria-modal` outside the shared dialogs and
+rules that reach into Modal's frame. The composer pass is the one family
+left.
 
 ## Later directions
 

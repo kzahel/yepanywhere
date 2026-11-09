@@ -38,7 +38,8 @@ Status: direction selected 2026-11-08.
 sequences the work. The playground, its token page, the undefined-property
 limit, the button and switch census, the shared button family, the
 shared switch and segmented control, the shared popover and menu, the
-shared fields, and the shared banner, badge, spinner and tabs have landed. For controls without a
+shared fields, the shared banner, badge, spinner and tabs, and the dialog
+pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
@@ -121,7 +122,14 @@ page, and 15 pre-existing `role="button"` elements.
   `@keyframes` set that rotates outside `ui/Spinner.module.css`, and the
   legacy banner, badge, spinner and tab classes (`settings-warning`,
   `form-error`, `badge-error`, `login-spinner`, `model-switch-tab`, …,
-  `LEGACY_STATUS`) once their rules are gone.
+  `LEGACY_STATUS`) once their rules are gone;
+- a native `window.confirm`, `alert` or `prompt` call outside
+  `ui/ConfirmDialog.tsx`, an `aria-modal` attribute or `alertdialog` role
+  outside `ui/Modal.tsx`, `ui/Dialog.tsx` and `ui/ConfirmDialog.tsx`, a
+  CSS Module rule outside `components/ui` that reaches into Modal's frame
+  (`:global(.modal…)`), a global `.modal…:has(…)` rule, and the old dialog
+  frame and footer classes (`model-switch-actions`, `onboarding-footer`, …,
+  `LEGACY_DIALOGS`) once their rules are gone.
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
@@ -216,8 +224,7 @@ popover's close request, so popovers need the layer stack anyway; and
 trigger's own click. CSS anchor positioning is missing from older iOS
 WebKit (the native shell). One script path places every popover, and
 `Modal`'s anchored mode shares its placement function. `Modal` stays a
-portal `div` rather than `<dialog>`: moving it is the dialog family's
-decision (plan 182, family 7).
+portal `div` rather than `<dialog>` (see Dialogs below).
 
 Which control: a list of actions is a `Menu`; a one-of-several choice in a
 dropdown is a `Menu` of radio items, and a filter with several selections a
@@ -329,6 +336,42 @@ work in progress is a `Spinner`, or `busy` on the button that started it;
 switching between panes of one surface is `Tabs`, choosing a value a
 `SegmentedControl`.
 
+**Dialogs.** `src/components/ui/Modal.tsx` is the modal surface: overlay,
+Escape through the layer stack, Android back (`closeOnBackGesture`),
+optional anchoring beside a trigger, a header with the title and close
+button, and a scrolling content area. It is named by its title
+(`aria-labelledby`), keeps Tab inside itself, and returns focus to the
+element that opened it when it closes. It stays a portaled `div` rather
+than a modal `<dialog>`: the tooltip layer, hover cards and selection
+actions portal into the body, and the top layer would draw over them and
+make them inert. Viewers (files, diffs, media, logs, process details) use
+`Modal` directly.
+
+`src/components/ui/Dialog.tsx` is the pattern for everything else shown
+over the page: a form, a choice, a notice. `size` is `small` (24rem, a
+confirmation or one field), `medium` (32rem, the default, a short form) or
+`large` (48rem, a long form, a list, a wizard); on phones small and medium
+stay cards near the top, clear of the keyboard, and large fills the screen.
+The body is padded and stacks its children with one gap; `description` is
+an intro sentence the dialog is described by; `footer` is the action row
+below the scrolling body, and `footerStart` holds actions for its other
+end (Back, Skip). The footer applies the button variant rule: Cancel and
+other secondary actions first, at most one `primary` action last, and a
+destructive confirmation `danger` instead of primary. A form keeps its
+`<form>` in the body and its submit button in the footer names it with the
+`form` attribute, so Enter in a field still submits. Width and padding come
+from `size`, never from a caller rule on Modal's frame.
+
+`confirmDialog({ title, message, confirmLabel, tone })` in
+`src/components/ui/ConfirmDialog.tsx` replaces `window.confirm`: a small
+`alertdialog` whose title asks the question ("Delete user?"), whose
+message says the consequence, and whose confirm button names the action;
+`tone="danger"` makes it a danger button and starts focus on Cancel. It
+resolves `true` or `false`, so the caller awaits it. One
+`ConfirmDialogHost` per entrypoint shows requests in turn; without one (a
+component test) it falls back to `window.confirm` with the message.
+`promptDialog` does the same for one text answer (`window.prompt`).
+
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
 
@@ -351,8 +394,8 @@ depend on a higher one:
 2. **Controls:** prop-driven shared components in `src/components/ui/`, each
    with its own CSS Module. The planned set is `Button`, `IconButton`,
    `Switch`, `SegmentedControl`, `Checkbox`, `Field`, `Popover`, `Menu`,
-   `Banner`, `Badge`, `Spinner` and `Tabs`, beside the existing `Modal` and
-   `TooltipLayer`. A control renders from props alone: no server, router or
+   `Banner`, `Badge`, `Spinner`, `Tabs`, `Modal` and `Dialog` (with
+   `confirmDialog`), beside `TooltipLayer`. A control renders from props alone: no server, router or
    app-level context. Needing a service makes it a pattern or a scene.
 3. **Patterns:** reusable compositions of controls, such as a settings row,
    a confirm dialog or an icon toolbar group.

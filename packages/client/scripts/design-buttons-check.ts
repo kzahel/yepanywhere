@@ -48,7 +48,16 @@
  *    tab strips use Tabs and busy indicators Spinner (family 5). Tab
  *    buttons are swept, so their raw buttons count under 2. The legacy
  *    banner, badge, spinner and tab classes (LEGACY_STATUS) are banned
- *    under 1 once their global rules are gone.
+ *    under 1 once their global rules are gone;
+ * 9. a native `window.confirm`, `alert` or `prompt` call outside
+ *    src/components/ui/ConfirmDialog.tsx, an `aria-modal` or
+ *    `role="alertdialog"` outside the shared Modal, Dialog and
+ *    ConfirmDialog, and a stylesheet rule that reaches into Modal's frame
+ *    (`:global(.modal…)` in a CSS Module outside components/ui, or a
+ *    `.modal…:has(…)` rule in a global stylesheet): confirmations use
+ *    confirmDialog, forms and notices Dialog with a `size`, and modal
+ *    surfaces Modal (family 7). The old dialog frame and footer classes
+ *    (LEGACY_DIALOGS) are banned under 1 once their global rules are gone.
  *
  * The allowlist (design/census/button-allowlist.json) gives each entry a
  * count and a reason; a later family inherits the entries that name it.
@@ -74,6 +83,7 @@ import {
 } from "../design/buttonFamilies";
 import {
   LEGACY_BUTTONS,
+  LEGACY_DIALOGS,
   LEGACY_FIELDS,
   LEGACY_STATUS,
   LEGACY_SWITCHES,
@@ -92,7 +102,9 @@ and a reason; --record lowers those counts to the current scan. Also
 reject menu roles outside the shared Menu and document or window pointer
 listeners (hand-rolled outside-press dismissal) outside the shared Popover,
 raw fields outside the shared field controls, tab roles outside the shared
-Tabs and rotating keyframes outside the shared Spinner.`;
+Tabs, rotating keyframes outside the shared Spinner, native confirm, alert
+and prompt calls, aria-modal outside the shared Modal and rules reaching
+into Modal's frame.`;
 
 const { values } = parseArgs({
   options: {
@@ -122,7 +134,10 @@ type AllowSection =
   | "rawFields"
   | "fieldLookRules"
   | "tabRoles"
-  | "spinKeyframes";
+  | "spinKeyframes"
+  | "nativeDialogs"
+  | "modalRoles"
+  | "modalFrameRules";
 interface Allowlist extends Record<AllowSection, Record<string, AllowEntry>> {
   bannedClasses: string[];
 }
@@ -179,6 +194,7 @@ const banned = [
       ...LEGACY_SWITCHES.flatMap((row) => row.classes?.split(/\s+/) ?? []),
       ...LEGACY_FIELDS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
       ...LEGACY_STATUS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
+      ...LEGACY_DIALOGS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
     ].filter((name) => !declared[name]),
   ]),
 ].sort();
@@ -459,6 +475,81 @@ for (const path of stylesheets) {
   }
 }
 
+// 9. Native dialogs, modal roles outside the shared dialog controls, and
+// rules that reach into Modal's frame.
+// A call to the global (`window.confirm(`, `confirm(`), not a method
+// (`draft.confirm()`) or a method definition (`confirm() {`).
+const NATIVE_DIALOG =
+  /(?<![\w.$])(?:(?:window|globalThis|self)\.)?(?:confirm|alert|prompt)\(/g;
+const nativeCounts = new Map<string, number>();
+const nativeSites = new Map<string, string[]>();
+for (const path of sources) {
+  const file = srcPath(path);
+  if (!/\.tsx?$/.test(file) || file === "components/ui/ConfirmDialog.tsx")
+    continue;
+  const text = await readFile(path, "utf8");
+  for (const match of text.matchAll(NATIVE_DIALOG)) {
+    const index = match.index ?? 0;
+    const lineStart = text.lastIndexOf("\n", index) + 1;
+    const lineEnd = text.indexOf("\n", index);
+    const before = text.slice(lineStart, index);
+    const line = text.slice(lineStart, lineEnd < 0 ? undefined : lineEnd);
+    if (/^\s*(?:\/\/|\/?\*)/.test(before)) continue;
+    // A method definition or signature: `confirm() {`, `prompt(): T;`.
+    if (
+      /^\s*(?:(?:async|public|private|protected)\s+)*$/.test(before) &&
+      (/\{\s*$/.test(line) || /^\s*[\w\s]*\([^)]*\)\s*:/.test(line))
+    )
+      continue;
+    tally(
+      nativeCounts,
+      nativeSites,
+      file,
+      `${file}:${lineAt(text, index)}: ${line.trim()}`,
+    );
+  }
+}
+// The attribute, not a `[aria-modal="true"]` selector string.
+const MODAL_ROLE =
+  /(?<!\[)aria-modal|(?<![\w[-])role(?:=(?:\{[^}\n]*?)?|:\s*)["'`]alertdialog["'`]/g;
+const [modalRoleCounts, modalRoleSites] = await countMatches(
+  MODAL_ROLE,
+  new Set([
+    "components/ui/Modal.tsx",
+    "components/ui/Dialog.tsx",
+    "components/ui/ConfirmDialog.tsx",
+  ]),
+);
+const frameCounts = new Map<string, number>();
+const frameSites = new Map<string, string[]>();
+const MODAL_FRAME = /\.modal(?:-[\w-]+)?(?![\w-])/;
+for (const path of stylesheets) {
+  const file = srcPath(path);
+  if (file.startsWith("components/ui/")) continue;
+  if (COMPOSER_FILE.test(file.replace(/\.module\.css$/, ".tsx"))) continue;
+  const isModule = file.endsWith(".module.css");
+  const text = (await readFile(path, "utf8")).replace(
+    /\/\*[\s\S]*?\*\//g,
+    (c) => c.replace(/[^\n]/g, " "),
+  );
+  for (const rule of text.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    const selector = (rule[1] ?? "").trim();
+    if (selector.startsWith("@")) continue;
+    const reaches = splitSelectorList(selector).some((part) =>
+      isModule
+        ? /:global\(\s*\.modal(?:-[\w-]+)?(?![\w-])/.test(part)
+        : MODAL_FRAME.test(part) && /\.modal(?:-[\w-]+)?:has\(/.test(part),
+    );
+    if (!reaches) continue;
+    tally(
+      frameCounts,
+      frameSites,
+      file,
+      `${file}:${lineAt(text, (rule.index ?? 0) + (rule[0].length - rule[0].trimStart().length))}: "${selector.replace(/\s+/g, " ")}"`,
+    );
+  }
+}
+
 function ratchet(
   kind: AllowSection,
   counts: Map<string, number>,
@@ -531,6 +622,19 @@ ratchet("tabRoles", tabCounts, (file, count, allowed) => [
 ratchet("spinKeyframes", spinCounts, (file, count, allowed) => [
   ...(spinSites.get(file) ?? []),
   `${file}: ${count} rotating keyframe set${count === 1 ? "" : "s"}, ${allowed} allowed; a busy indicator is Spinner from components/ui/Spinner (or Button's busy)`,
+]);
+
+ratchet("nativeDialogs", nativeCounts, (file, count, allowed) => [
+  ...(nativeSites.get(file) ?? []),
+  `${file}: ${count} native confirm, alert or prompt call${count === 1 ? "" : "s"}, ${allowed} allowed; use confirmDialog from components/ui/ConfirmDialog`,
+]);
+ratchet("modalRoles", modalRoleCounts, (file, count, allowed) => [
+  ...(modalRoleSites.get(file) ?? []),
+  `${file}: ${count} aria-modal or alertdialog role${count === 1 ? "" : "s"}, ${allowed} allowed; a modal surface is Modal, a form or notice Dialog, a confirmation confirmDialog (components/ui)`,
+]);
+ratchet("modalFrameRules", frameCounts, (file, count, allowed) => [
+  ...(frameSites.get(file) ?? []),
+  `${file}: ${count} rule${count === 1 ? "" : "s"} reaching into Modal's frame, ${allowed} allowed; give Dialog a size, or pass layout through its bodyClassName`,
 ]);
 
 if (values.record) {

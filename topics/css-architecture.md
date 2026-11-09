@@ -120,8 +120,8 @@ not carry a migration queue.
   classes retain one canonical identity; source tokenization must not split one
   runtime class into ASCII word fragments.
 - `pnpm lint` runs `pnpm buttons:check`, the ban for the button, switch,
-  segmented-control, menu, popover, field, banner, badge, spinner and tab
-  families
+  segmented-control, menu, popover, field, banner, badge, spinner, tab and
+  dialog families
   ([UI design](ui-design.md#shared-controls-and-the-design-playground)). It
   rejects a banned legacy button, switch or option class (rule-less in
   `design/census/mapping.ts` or recorded as banned), a raw `<button>`
@@ -143,7 +143,13 @@ not carry a migration queue.
   `.row:has(input:checked)` does not count; range, file and color inputs
   are not fields) with look or size properties. It also rejects a tab role
   outside `ui/Tabs.tsx` and a `@keyframes` set that rotates outside
-  `ui/Spinner.module.css`. Exceptions sit in
+  `ui/Spinner.module.css`; a native `window.confirm`, `alert` or `prompt`
+  call outside `ui/ConfirmDialog.tsx`; an `aria-modal` attribute or
+  `alertdialog` role outside `ui/Modal.tsx`, `ui/Dialog.tsx` and
+  `ui/ConfirmDialog.tsx`; and a rule that reaches into Modal's frame (a
+  CSS Module's `:global(.modal…)` outside `components/ui`, or a global
+  `.modal…:has(…)` rule), which sized dialogs per feature before `Dialog`
+  had a `size`. Exceptions sit in
   `packages/client/design/census/button-allowlist.json` with a count and a
   reason; counts only fall, and `--record` lowers them.
 - `pnpm css:unused` remains the investigative global-and-module report. Its
@@ -156,7 +162,7 @@ not carry a migration queue.
 | Command | Role | Exit/write contract |
 |---|---|---|
 | `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
-| `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner and tab ban | Exits 1 for a banned legacy button, switch, option, field or status class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role or a rotating keyframe set beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
+| `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |
 | `pnpm lint` | Combined repository gate | Runs containment, module contracts, the button ban, CSS lint, and Biome; any child failure fails lint. |
