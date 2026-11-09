@@ -1,0 +1,72 @@
+.banner {
+  --banner-color: var(--link-color);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--banner-color) 45%, transparent);
+  border-left-width: 3px;
+  border-left-color: var(--banner-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--banner-color) 10%, var(--bg-surface));
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.info {
+  --banner-color: var(--link-color);
+}
+
+.success {
+  --banner-color: var(--success-color);
+}
+
+.warning {
+  --banner-color: var(--warning-color);
+}
+
+.error {
+  --banner-color: var(--error-color);
+}
+
+.compact {
+  padding: var(--space-1) var(--space-2);
+}
+
+.body {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.body > :first-child {
+  margin-top: 0;
+}
+
+.body > :last-child {
+  margin-bottom: 0;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dismiss {
+  align-self: flex-start;
+  margin: -2px -4px -2px 0;
+}
+
+@media (forced-colors: active) {
+  .banner {
+    border-color: CanvasText;
+  }
+}

@@ -26,6 +26,7 @@ import type {
 } from "react";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import styles from "./Button.module.css";
+import { Spinner } from "./Spinner";
 
 export const BUTTON_VARIANTS = [
   "primary",
@@ -92,7 +93,7 @@ export interface ButtonProps extends NativeButtonProps {
 }
 
 function BusySpinner() {
-  return <span className={styles.spinner} aria-hidden="true" />;
+  return <Spinner size="small" />;
 }
 
 function guardBusyClick(

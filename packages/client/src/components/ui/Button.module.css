@@ -208,25 +208,3 @@
 .dangerOutline:hover:not(:disabled, [aria-disabled="true"]) {
   background: color-mix(in srgb, var(--error-color) 14%, transparent);
 }
-
-.spinner {
-  flex-shrink: 0;
-  width: 0.9em;
-  height: 0.9em;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 2.4s;
-  }
-}

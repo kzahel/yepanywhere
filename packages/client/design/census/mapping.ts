@@ -1339,3 +1339,135 @@ export const LEGACY_FIELDS: readonly LegacyField[] = [
     note: "The header title editor, the source editor's code textarea, the find bar and transcript search scope, the vhost address and search age fields: frames drawn by their owners (allowlisted with reasons).",
   },
 ];
+
+/**
+ * Family 5 (banners, badges, spinners and tabs): where each legacy status
+ * class went. One table, censused in the family's order.
+ */
+export type StatusFamily = "banner" | "badge" | "spinner" | "tabs";
+export type StatusDisposition = StatusFamily | "keep" | "composer";
+
+export interface LegacyStatus {
+  family: StatusFamily;
+  name: string;
+  /** Class whose use count represents the row. */
+  counted?: string;
+  /**
+   * Every global class the row covers. The ban (pnpm buttons:check) rejects
+   * each one once no global stylesheet styles it.
+   */
+  classes?: string;
+  to: StatusDisposition;
+  note?: string;
+}
+
+export const LEGACY_STATUS: readonly LegacyStatus[] = [
+  {
+    family: "banner",
+    name: "settings-warning, settings-status-warning",
+    counted: "settings-warning",
+    classes: "settings-warning settings-status-warning",
+    to: "banner",
+    note: "Red text under a settings row (~25 uses): an error Banner, or the Field's error when it belongs to one field.",
+  },
+  {
+    family: "banner",
+    name: "form-error, form-warning, form-success",
+    counted: "form-error",
+    classes: "form-error form-warning form-success",
+    to: "banner",
+    note: "Tinted message boxes in settings forms.",
+  },
+  {
+    family: "banner",
+    name: "login-error",
+    counted: "login-error",
+    classes: "login-error",
+    to: "banner",
+    note: "The login pages' centered error box.",
+  },
+  {
+    family: "banner",
+    name: "Feature notices",
+    counted: "provider-deprecation-notice",
+    classes:
+      "provider-deprecation-notice desktop-provider-notice source-projection-notice source-detail-banner public-share-error public-share-error--inline public-share-notice session-share-error btw-aside-error project-queue-inline-message-error file-access-settings-warning git-integration-options-warning external-session-warning",
+    to: "banner",
+    note: "One-off notice boxes and error lines, each with its own tint, border and padding.",
+  },
+  {
+    family: "banner",
+    name: "Notice components",
+    to: "banner",
+    note: "ReloadBanner, ProviderHostDegradedBanner, StorageFilesystemBanner, RemoteCompatibilityNotices, SessionCreationNotice, DraftSyncNotice, GoalNotice, PendingToolWarning and module error/notice blocks: their logic stays, their box is Banner.",
+  },
+  {
+    family: "banner",
+    name: "Not banners",
+    to: "keep",
+    note: "Toasts (transient, their own stack), tool output error text in the transcript, system message rows, empty states and the crash page.",
+  },
+  {
+    family: "badge",
+    name: "badge, badge-*",
+    counted: "badge",
+    classes:
+      "badge-warning badge-error badge-info badge-muted badge-running badge-pending badge-success",
+    to: "badge",
+    note: "The renderers' badge (~70 uses, most in tool rows): tones map onto Badge's. The bare `badge` name is too common (module classes share it) to ban; its global rules are gone.",
+  },
+  {
+    family: "badge",
+    name: "Session and list badges",
+    counted: "session-draft-badge",
+    classes:
+      "status-badge session-badge session-badge-btw session-badge-external session-badge-needs-input session-badge-executor session-archived-badge session-draft-badge archived-badge inbox-item-badge sidebar-nav-badge recent-sessions-badge session-project-queue-badge",
+    to: "badge",
+    note: "State and count badges in the session list, sidebar, header and inbox.",
+  },
+  {
+    family: "badge",
+    name: "Settings and feature badges",
+    counted: "settings-status-badge",
+    classes:
+      "settings-status-badge settings-status-detected settings-status-not-detected device-current-badge public-share-badge git-status-badge subscription-usage-badge client-log-recording-badge ignored-tool-badge hidden-content-badge git-integration-option-pill model-switch-action-badge source-comment-badge webrun-preview-more-badge",
+    to: "badge",
+    note: "Detected/running states, current-device and default markers, counts and kind labels, each with its own padding and colors.",
+  },
+  {
+    family: "badge",
+    name: "Badge components",
+    to: "badge",
+    note: "StatusBadge, ProviderBadge, IssueTypeBadge, TrackerStatusBadge, QueuedEffortBadge, ClearloopRemainingBadge, HiddenContentBadge: their data stays, their box is Badge (provider colors through --badge-color).",
+  },
+  {
+    family: "badge",
+    name: "Clickable chips",
+    to: "keep",
+    note: "Chips that are buttons or links (user and host chips, attachment chips, filter chips) stay buttons: a Badge is not interactive.",
+  },
+  {
+    family: "spinner",
+    name: "Spinner classes",
+    counted: "login-spinner",
+    classes:
+      "login-spinner public-share-spinner speech-transcribing-spinner fork-summary-display-object-spinner tool-spinner task-spinner",
+    to: "spinner",
+    note: "Eight spinner classes and about fourteen rotate keyframes (four of them a global `spin`), each with its own size, border and speed.",
+  },
+  {
+    family: "spinner",
+    name: "send-spinner",
+    counted: "send-spinner",
+    to: "composer",
+    note: "The new-session submit's spinner: the composer pass.",
+  },
+  {
+    family: "tabs",
+    name: "Tab strips",
+    counted: "model-switch-tab",
+    classes: "model-switch-tabs model-switch-tab",
+    to: "tabs",
+    note: "Three hand-rolled strips (source control modes, the model/info dialog, the question panel), only one with roving focus.",
+  },
+];

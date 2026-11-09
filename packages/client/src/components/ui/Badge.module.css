@@ -1,0 +1,94 @@
+.badge {
+  --badge-color: var(--text-secondary);
+  --badge-soft: var(--bg-hover);
+  --badge-on: var(--bg-surface);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--badge-soft);
+  color: var(--badge-color);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.neutral {
+  --badge-color: var(--text-secondary);
+  --badge-soft: var(--bg-hover);
+  --badge-on: var(--bg-surface);
+}
+
+.info {
+  --badge-color: var(--link-color);
+  --badge-soft: color-mix(in srgb, var(--link-color) 14%, transparent);
+  --badge-on: var(--accent-contrast);
+}
+
+.success {
+  --badge-color: var(--success-color);
+  --badge-soft: var(--bg-success);
+  --badge-on: var(--accent-contrast);
+}
+
+.warning {
+  --badge-color: var(--warning-color);
+  --badge-soft: var(--bg-warning);
+  --badge-on: var(--accent-contrast);
+}
+
+.danger {
+  --badge-color: var(--error-color);
+  --badge-soft: var(--bg-error);
+  --badge-on: #fff;
+}
+
+.accent {
+  --badge-color: var(--app-yep-green);
+  --badge-soft: color-mix(in srgb, var(--app-yep-green) 16%, transparent);
+  --badge-on: #fff;
+}
+
+.solid {
+  background: var(--badge-color);
+  color: var(--badge-on);
+}
+
+.small {
+  min-height: 15px;
+  padding: 0 4px;
+  font-size: var(--font-size-xs);
+}
+
+.count {
+  justify-content: center;
+  min-width: 18px;
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+.count.small {
+  min-width: 15px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+
+.icon {
+  display: inline-flex;
+  font-size: 1em;
+  line-height: 1;
+}
+
+@media (forced-colors: active) {
+  .badge {
+    border: 1px solid CanvasText;
+  }
+}

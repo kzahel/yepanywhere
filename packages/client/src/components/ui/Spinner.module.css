@@ -1,0 +1,38 @@
+.spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.125em;
+  animation: spin 0.8s linear infinite var(--ya-activity-play, running);
+}
+
+.small {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.default {
+  width: 16px;
+  height: 16px;
+}
+
+.large {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
