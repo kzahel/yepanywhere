@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  DETACHED_PROJECT_PATH,
   canonicalizeProjectPath,
   decodeProjectId,
   encodeProjectId,
@@ -394,5 +396,13 @@ describe("Project Path Utilities", () => {
       const cwd = await readCwdFromSessionFile(sessionFile);
       expect(cwd).toBe("/home/user/project");
     });
+  });
+});
+
+describe("DETACHED_PROJECT_PATH", () => {
+  it("uses the real temp dir so it matches the cwd providers record", () => {
+    expect(DETACHED_PROJECT_PATH).toBe(
+      join(realpathSync(tmpdir()), "yep-anywhere-no-project"),
+    );
   });
 });

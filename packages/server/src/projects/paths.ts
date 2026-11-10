@@ -58,6 +58,7 @@
  * 4. Use `getSessionFilePath()` to construct paths to specific session files.
  */
 
+import { realpathSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, sep } from "node:path";
@@ -80,7 +81,22 @@ export const CLAUDE_DIR =
   join(homedir(), ".claude");
 export const CLAUDE_PROJECTS_DIR =
   process.env.CLAUDE_SESSIONS_DIR ?? join(CLAUDE_DIR, "projects");
-export const DETACHED_PROJECT_PATH = join(tmpdir(), "yep-anywhere-no-project");
+/**
+ * Resolve the temp dir so the project path matches the cwd providers record.
+ * macOS tmpdir() is under the /var symlink, but Claude stores /private/var;
+ * two spellings would bind one transcript to two project ids.
+ */
+function realTmpdir(): string {
+  try {
+    return realpathSync(tmpdir());
+  } catch {
+    return tmpdir();
+  }
+}
+export const DETACHED_PROJECT_PATH = join(
+  realTmpdir(),
+  "yep-anywhere-no-project",
+);
 export const DETACHED_PROJECT_NAME = "No project";
 
 /** Stable private workspace; never grants access to the shared detached root. */

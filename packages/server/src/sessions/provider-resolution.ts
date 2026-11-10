@@ -282,7 +282,9 @@ async function publicSessionSummaries<T extends SessionListSummary>(
             excluded.add(offset + index);
             return null;
           }
-          if (native && source.provider === "opencode") {
+          // A session bound to another project belongs to that listing; one
+          // misattributed row must not fail the whole discovery batch.
+          if (native) {
             const bound = store.lookupNative(native);
             if (bound && bound.projectId !== summary.projectId) {
               excluded.add(offset + index);
