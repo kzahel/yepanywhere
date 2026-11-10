@@ -5180,3 +5180,22 @@ hook, route and startup browser checks cover the following correction. Use that
 bounded browser case in place of the full browser suite: this slice changes no
 rendering, transcript, transport or lifecycle behavior. Workspace-wide checks
 retain the concurrent-edit limitations reported with the correction.
+
+### Metadata legacy import and display recovery — 2026-11-10
+
+Plan 190 preparation extracts `importLegacyMetadata` into
+`metadata/legacy-session-metadata.ts` and the interrupted-display map into
+`metadata/interrupted-display-recovery.ts`. The legacy private method's file,
+connection, row codec and prepared statements become explicit parameters;
+the display callback takes its existing object array. Logic, log/error text,
+ordering, persistence and public facades are unchanged. The legacy helper
+uses the codec's accepted input type and has no service back-import.
+
+This move-only checkpoint reduces `SessionMetadataService.ts` from 1,533 to
+1,464 lines and retires its budget entry. An isolated exact checkpoint passes
+shared build, server tsc, lint and 85 existing metadata tests (1.3 seconds).
+Tier 2 checks run for the full work session. No UI, provider/transport,
+timer or route-registration boundary changes, so focused metadata and public
+route checks replace browser/SDK tripwires for this slice. The later behavior
+commit changes cold-state ownership and startup statement lifetimes separately;
+[plan 190 evidence](../research/190-cold-state-sql.md) records its checks/review.

@@ -1,3 +1,5 @@
+import { recoverInterruptedDisplayObjects } from "./interrupted-display-recovery.js";
+import { importLegacyMetadata } from "./legacy-session-metadata.js";
 /**
  * SessionMetadataService manages custom session metadata (titles, archive status).
  * This enables renaming sessions and archiving them to hide from default view.
@@ -192,12 +194,6 @@ export interface SessionMetadataState {
   sessions: Record<string, SessionMetadata>;
 }
 
-/** Shape of the legacy `session-metadata.json`, read only by the one-time import. */
-interface LegacySessionMetadataFile {
-  sessions?: Record<string, SessionMetadata>;
-  version?: number;
-}
-
 const MAX_RECAP_MESSAGES_PER_SESSION = 200;
 const MAX_SYNTHETIC_DONE_MESSAGES_PER_SESSION = 200;
 const MAX_CACHE_MISS_BILLING_EVENTS_PER_SESSION = 100;
@@ -348,7 +344,13 @@ export class SessionMetadataService {
    */
   async initialize(): Promise<void> {
     const marker = this.statements.selectImport.get<{ source: string }>();
-    if (!marker) await this.importLegacyFile();
+    if (!marker)
+      await importLegacyMetadata(
+        this.legacyFilePath,
+        this.database,
+        this.rows,
+        this.statements,
+      );
     else if (marker.source === "json")
       await fs.rm(this.legacyFilePath, { force: true }).catch(() => undefined);
     for (const [sessionId, metadata] of this.rows.all())
@@ -362,23 +364,9 @@ export class SessionMetadataService {
       if (!metadata.transcriptDisplayObjects) {
         continue;
       }
-      const recovered = metadata.transcriptDisplayObjects.map((object) => {
-        if (object.status === "generating") {
-          return {
-            ...object,
-            status: "error" as const,
-            error: "Fork summary interrupted by server restart",
-          };
-        }
-        if (object.kind === "bang-command" && object.status === "running") {
-          return {
-            ...object,
-            status: "killed" as const,
-            error: "Interrupted by server restart",
-          };
-        }
-        return object;
-      });
+      const recovered = recoverInterruptedDisplayObjects(
+        metadata.transcriptDisplayObjects,
+      );
       if (
         recovered.some(
           (object, index) =>
@@ -392,63 +380,6 @@ export class SessionMetadataService {
     }
     if (changed) {
       await this.save();
-    }
-  }
-
-  private async importLegacyFile(): Promise<void> {
-    const content = await fs
-      .readFile(this.legacyFilePath, "utf-8")
-      .catch((error) => {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT")
-          return undefined;
-        throw new Error(
-          `Cannot read ${this.legacyFilePath} for import into the database`,
-          { cause: error },
-        );
-      });
-    let sessions: Record<string, SessionMetadata> = {};
-    if (content !== undefined) {
-      let parsed: LegacySessionMetadataFile;
-      try {
-        parsed = JSON.parse(content) as LegacySessionMetadataFile;
-      } catch (error) {
-        throw new Error(
-          `Cannot import ${this.legacyFilePath}: it is not valid JSON. Repair or move it aside and restart.`,
-          { cause: error },
-        );
-      }
-      sessions = parsed.sessions ?? {};
-      if ((parsed.version ?? 0) < 3) {
-        for (const metadata of Object.values(sessions)) {
-          if (!metadata.parentSessionId) continue;
-          if (
-            /^\/btw(?:\s+|$)/i.test(metadata.customTitle?.trimStart() ?? "")
-          ) {
-            metadata.parentSessionKind = "btw-aside";
-          } else {
-            metadata.forkedFromSessionId ??= metadata.parentSessionId;
-            metadata.parentSessionId = undefined;
-            metadata.parentSessionKind = undefined;
-          }
-        }
-      }
-    }
-    const imported = this.database.transaction(() => {
-      // Another connection may have imported while the file was being read.
-      if (this.statements.selectImport.get()) return false;
-      for (const [sessionId, metadata] of Object.entries(sessions)) {
-        this.rows.write(sessionId, encodeMetadata(metadata));
-      }
-      this.statements.insertImport.run(
-        new Date().toISOString(),
-        content === undefined ? "none" : "json",
-      );
-      return true;
-    });
-    if (imported && content !== undefined) {
-      console.log(
-        `[SessionMetadataService] Imported ${Object.keys(sessions).length} sessions from ${this.legacyFilePath}; the file is no longer read or written`,
-      );
     }
   }
 
