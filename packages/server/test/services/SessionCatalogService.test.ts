@@ -199,6 +199,99 @@ describe("SessionCatalogService", () => {
     ]);
   });
 
+  it("retains bounded rows and publishes exact file deltas without a full read", async () => {
+    const service = createService();
+    await service.initialize();
+    const rows = Array.from({ length: 700 }, (_, i) =>
+      row({ sessionId: `row-${i}`, project: "a" }),
+    );
+    await service.reconcile([adapter(rows)]);
+    const database = openTestDiscoveryDatabase(dataDir);
+    const restarted = new SessionCatalogService({
+      database: {
+        ...database,
+        prepare(sql) {
+          if (sql.includes("WHERE c.deleted = 0 ORDER BY c.id"))
+            throw new Error("full catalog read");
+          return database.prepare(sql);
+        },
+      },
+    });
+    await restarted.initialize();
+    expect(restarted.getWorkingSetMetrics().rows).toBe(0);
+    for (const row of rows)
+      expect(
+        restarted.readRow(
+          JSON.stringify([row.catalogFamily, row.storeKey, row.sessionId]),
+        )?.sessionId,
+      ).toBe(row.sessionId);
+    expect(restarted.getWorkingSetMetrics().rows).toBeLessThanOrEqual(256);
+    const before = restarted.getToken();
+    const changed = { ...rows[0]!, title: "changed", sourceVersion: "v2" };
+    await restarted.reconcile({
+      replaceAll: false,
+      adapters: [
+        {
+          ...adapter([]),
+          scan: async () => ({
+            sourceVersion: "delta",
+            partial: true,
+            rows: [changed],
+            removed: [rows[1]!],
+          }),
+        },
+      ],
+    });
+    expect(restarted.getSnapshot().rowCount).toBe(699);
+    expect(restarted.readChanges(before)).toMatchObject({
+      full: false,
+      rows: [changed],
+      removed: [{ sessionId: rows[1]!.sessionId }],
+    });
+    expect(
+      restarted
+        .readFileRows(new Set(["/store/row-2.jsonl"]))
+        .map((r) => r.sessionId),
+    ).toEqual(["row-2"]);
+    restarted.stop();
+  });
+
+  it("queues concurrent partial publications from the same store", async () => {
+    const service = createService();
+    await service.initialize();
+    const rows = [
+      row({ sessionId: "a", project: "a" }),
+      row({ sessionId: "b", project: "a" }),
+    ];
+    await service.reconcile([adapter(rows)]);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const delta = (candidate: SessionCatalogRow, wait = false) => ({
+      replaceAll: false,
+      adapters: [
+        {
+          ...adapter([]),
+          scan: async () => {
+            if (wait) await held;
+            return { sourceVersion: "delta", partial: true, rows: [candidate] };
+          },
+        },
+      ],
+    });
+    const first = service.reconcile(
+      delta({ ...rows[0]!, title: "first" }, true),
+    );
+    const second = service.reconcile(delta({ ...rows[1]!, title: "second" }));
+    release();
+    await Promise.all([first, second]);
+    expect((await service.readRows()).rows.map((row) => row.title)).toEqual([
+      "first",
+      "second",
+    ]);
+  });
+
   it("publishes a change of store coverage alone", async () => {
     const service = createService();
     await service.initialize();

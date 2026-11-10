@@ -209,6 +209,31 @@ try {
     else globalThis.Bun?.gc(true);
     result.memory.push(process.memoryUsage());
   }
+  // Retire the working SQL owner, then include checkpoint import/index rebuild
+  // in the next first-page timing. Canonical services stay open in this diagnostic;
+  // the catalog residency probe separately uses a fresh process after seeding.
+  const { retainedSessionQuery, RetainedSessionQuery } = await fromDist(
+    "services/retained-session-query.js",
+  );
+  retainedSessionQuery(collections, deps).dispose();
+  touches = 0;
+  metadata.getMetadataBatch = ((original) =>
+    function (ids) {
+      touches += ids.length;
+      return original.call(this, ids);
+    })(metadata.getMetadataBatch);
+  const restartStart = performance.now();
+  const restoredQuery = new RetainedSessionQuery(collections, deps);
+  try {
+    const restored = await restoredQuery.page({ limit: 50 });
+    assert.equal(restored.stats.totalCount, count);
+    result.restored = {
+      ms: performance.now() - restartStart,
+      metadataRows: touches,
+    };
+  } finally {
+    restoredQuery.dispose();
+  }
   const first = (await request("list")).body.sessions[0].id;
   await metadata.setStarred(first, true);
   const changed = await request("list");
@@ -248,6 +273,10 @@ try {
     "routes/inbox.js",
     "services/retained-session-query.js",
     "services/session-collection-sql.js",
+    "services/session-query-checkpoint.js",
+    "metadata/SessionMetadataService.js",
+    "metadata/session-metadata-rows.js",
+    "storage/migrations/034-session-query-checkpoint.js",
   ]) {
     try {
       result.buildFiles[file] = createHash("sha256")

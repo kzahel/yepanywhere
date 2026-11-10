@@ -12,19 +12,20 @@ import type { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
 import { catalogFileVersion } from "../sessions/catalog-adapters/row.js";
 import type {
   NativeSessionCatalogAdapter,
+  CatalogFileLookup,
   SessionCatalogRow,
 } from "../sessions/catalog-types.js";
 import { readCodexAsyncQuestions } from "../sessions/codex-async-questions.js";
 import type { SqliteDatabase } from "../storage/sqlite.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import {
-  CatalogProjectsProjection,
   catalogStoreKey,
   type CatalogProjectsView,
   type CatalogProjectStore,
 } from "../projects/catalog-projects.js";
 import {
   type SessionCatalogChanges,
+  type SessionCatalogReconcilePlan,
   SessionCatalogService,
   type SessionCatalogToken,
 } from "./SessionCatalogService.js";
@@ -34,12 +35,16 @@ export interface RetainedSessionCollectionsOptions {
   dataDir: string;
   /** Profile database holding the catalog tables. */
   database: SqliteDatabase;
-  adapters: (
+  adapters: ((
     rows: readonly Readonly<SessionCatalogRow>[],
     signal: AbortSignal,
     changedPaths?: ReadonlySet<string>,
     sources?: readonly CatalogProjectStore[],
-  ) => Promise<NativeSessionCatalogAdapter[]>;
+    lookup?: CatalogFileLookup,
+  ) => Promise<NativeSessionCatalogAdapter[] | SessionCatalogReconcilePlan>) & {
+    /** Explicit opt-in: previous rows contain only the changed files. */
+    scoped?: boolean;
+  };
   eventBus?: EventBus;
   projectStores?: () => readonly CatalogProjectStore[];
   shouldReadQuestions?: (row: Readonly<SessionCatalogRow>) => boolean;
@@ -92,7 +97,7 @@ export class RetainedSessionCollections {
     complete: false,
     version: "uninitialized",
   };
-  private readonly projection = new CatalogProjectsProjection();
+  private readonly questionIds = new Set<string>();
   /** The catalog generation the project view was last brought to. */
   private projectedToken?: SessionCatalogToken;
   private projectStoresKey?: string;
@@ -135,6 +140,8 @@ export class RetainedSessionCollections {
             event.archived === false
           ) {
             // Reconsider deferred questions without rediscovering unchanged files.
+            const id = this.nativeId(event.sessionId);
+            if (id) this.questionIds.add(id);
             this.dirty = true;
             this.schedule();
           }
@@ -259,29 +266,17 @@ export class RetainedSessionCollections {
     const sameStores = storesKey === this.projectedStoresKey;
     if (sameStores && sameToken(token, this.projectedToken)) return;
     const startedAt = performance.now();
-    const changes = this.catalog.readChanges(
-      sameStores ? this.projectedToken : undefined,
-    );
-    const next = this.projection.apply(
-      changes,
-      this.catalog.getSnapshot().providerSources,
-      stores,
-    );
+    const next = this.catalog.readProjects(stores);
     getLogger().debug(
       {
-        full: changes.full,
-        rows: changes.rows.length,
-        removed: changes.removed.length,
         projects: next.projects.length,
-        changed: next.version !== this.projectView.version,
         durationMs: performance.now() - startedAt,
       },
       "SESSION_CATALOG: projected projects",
     );
     if (next.version !== this.projectView.version) this.projectView = next;
     this.projectedToken = {
-      catalogEpoch: changes.catalogEpoch,
-      catalogGeneration: changes.catalogGeneration,
+      ...token,
     };
     this.projectedStoresKey = storesKey;
     this.projectStoresKey = storesKey;
@@ -304,8 +299,8 @@ export class RetainedSessionCollections {
     return this.catalog.readRow(key);
   }
 
-  rowOrder(key: string): number | undefined {
-    return this.catalog.rowOrder(key);
+  compareRowOrder(left: string, right: string): number {
+    return this.catalog.compareRowOrder(left, right);
   }
 
   invalidate(path?: string): void {
@@ -329,18 +324,10 @@ export class RetainedSessionCollections {
   private refreshUnwatchedStore(sessionId: string): void {
     const id = this.nativeId(sessionId);
     if (!id) return;
-    void this.readPublishedRows()
-      .then(({ rows }) => {
-        for (const row of rows)
-          if (
-            row.sessionId === id &&
-            INTERNALLY_OBSERVED_FAMILIES.has(row.catalogFamily)
-          )
-            this.invalidate(row.storeKey);
-      })
-      .catch(() => {
-        // Disposed or unreadable: the next publication or reset covers it.
-      });
+    if (!this.initialized) return;
+    for (const row of this.catalog.readNativeRows(id))
+      if (INTERNALLY_OBSERVED_FAMILIES.has(row.catalogFamily))
+        this.invalidate(row.storeKey);
   }
 
   /**
@@ -395,12 +382,11 @@ export class RetainedSessionCollections {
         await this.refresh();
       else break;
     }
-    const { rows } = await this.readPublishedRows();
-    const known = new Set(rows.map((row) => row.sessionId));
+
     if (
       due.some((sessionId) => {
         const id = this.nativeId(sessionId);
-        return !id || !known.has(id);
+        return !id || !this.catalog.readNativeRows(id).length;
       })
     )
       this.invalidate();
@@ -463,24 +449,50 @@ export class RetainedSessionCollections {
   }
 
   private async reconcile(changedPaths?: ReadonlySet<string>): Promise<void> {
-    const previous = await this.catalog.readRows();
+    const before = this.catalog.getToken();
+    const rows =
+      changedPaths && this.options.adapters.scoped
+        ? this.catalog.readFileRows(changedPaths)
+        : (await this.catalog.readRows()).rows;
     const adapters = await this.options.adapters(
-      previous.rows,
+      rows,
       this.controller.signal,
       changedPaths,
-      previous.snapshot.providerSources,
+      this.catalog.getSnapshot().providerSources,
+      changedPaths && this.options.adapters.scoped
+        ? {
+            fileStoreProject: (family, store) =>
+              this.catalog.fileStoreProject(family, store),
+            readAllRows: async () => (await this.catalog.readRows()).rows,
+          }
+        : undefined,
     );
     this.controller.signal.throwIfAborted();
     await this.catalog.reconcile(adapters);
 
     // The first publication is usable before any optional tail is opened.
-    const accepted = await this.catalog.readRows();
+    const accepted = changedPaths
+      ? this.catalog.readChanges(before)
+      : { rows: this.catalog.readUnresolvedQuestions() };
     this.updateProjects();
     this.publish();
     // Questions found here are row upserts: one more generation carrying
     // just those rows, not a second publication of every row.
     const enriched: SessionCatalogRow[] = [];
-    for (const row of accepted.rows) {
+    const questions = new Map(
+      accepted.rows.map((row) => [
+        JSON.stringify([row.catalogFamily, row.storeKey, row.sessionId]),
+        row,
+      ]),
+    );
+    for (const id of this.questionIds)
+      for (const row of this.catalog.readNativeRows(id))
+        questions.set(
+          JSON.stringify([row.catalogFamily, row.storeKey, row.sessionId]),
+          row,
+        );
+    this.questionIds.clear();
+    for (const row of questions.values()) {
       this.controller.signal.throwIfAborted();
       if (
         row.catalogFamily !== "codex" ||

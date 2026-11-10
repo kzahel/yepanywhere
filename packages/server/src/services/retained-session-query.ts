@@ -1,3 +1,7 @@
+import { realpathSync } from "node:fs";
+import { SessionMetadataService } from "../metadata/SessionMetadataService.js";
+import { NotificationService } from "../notifications/NotificationService.js";
+import { SessionQueryCheckpoint } from "./session-query-checkpoint.js";
 import {
   pendingNonHumanUserTurn,
   type SessionMetadata,
@@ -61,6 +65,9 @@ export function retainedSessionQuery(
 
 export class RetainedSessionQuery {
   private readonly sql: SessionCollectionSql;
+  private checkpoint?: SessionQueryCheckpoint;
+  private checkpointSignature = "";
+  private needsRestoreIndexes = false;
   private token?: SessionCatalogToken;
   private nextOrdinal = 0;
   private nextControlOrdinal = 1_000_000_000;
@@ -78,6 +85,43 @@ export class RetainedSessionQuery {
   ) {
     this.sql = new SessionCollectionSql(service.queryDatabase);
     try {
+      const metadata = deps.sessionMetadataService,
+        seen = deps.notificationService;
+      const file = service.queryDatabase.prepare("PRAGMA database_list");
+      let databaseFile: string | undefined;
+      try {
+        databaseFile = file
+          .all<{ name: string; file: string }>()
+          .find((r) => r.name === "main")?.file;
+      } finally {
+        file.finalize();
+      }
+      const sameFile = (path: string) =>
+        !!databaseFile && realpathSync(path) === realpathSync(databaseFile);
+      if (
+        (!metadata ||
+          (metadata instanceof SessionMetadataService &&
+            sameFile(metadata.getFilePath()))) &&
+        (!seen ||
+          (seen instanceof NotificationService && sameFile(seen.getFilePath())))
+      ) {
+        this.checkpointSignature = JSON.stringify([
+          Boolean(metadata),
+          Boolean(seen),
+        ]);
+        this.checkpoint = new SessionQueryCheckpoint(
+          this.sql.db,
+          this.sql.prefix,
+        );
+        const restored = this.checkpoint.claim(this.checkpointSignature);
+        if (restored) {
+          this.token = restored.token;
+          this.nextOrdinal = restored.nextOrdinal;
+          this.nextControlOrdinal = restored.nextControlOrdinal;
+          this.names = new Map(restored.names);
+          this.needsRestoreIndexes = true;
+        }
+      }
       const dirty = (id: string) => {
         try {
           this.sql.markDirty(id);
@@ -85,10 +129,10 @@ export class RetainedSessionQuery {
           this.overflow = true;
         }
       };
-      const metadata = deps.sessionMetadataService
+      const unsubscribeMetadata = deps.sessionMetadataService
         ?.collectionState?.()
         .subscribe(dirty);
-      if (metadata) this.unsubscribers.push(metadata);
+      if (unsubscribeMetadata) this.unsubscribers.push(unsubscribeMetadata);
       const notification = deps.notificationService?.subscribeChanges?.(dirty);
       const creation =
         deps.sessionMetadataService?.creations?.subscribeChanges?.(dirty);
@@ -129,6 +173,13 @@ export class RetainedSessionQuery {
     return value !== undefined && Number.isFinite(value) ? value : undefined;
   }
   private async synchronize() {
+    if (this.needsRestoreIndexes) {
+      this.needsRestoreIndexes = false;
+      await this.sql.finishReplacement(this.service.querySignal);
+    }
+    const revision = this.checkpoint?.revision();
+    const overlayRevision =
+      this.deps.sessionMetadataService?.collectionState?.().overlayRevision;
     const changes = await this.service.readChanges(
       this.overflow ? undefined : this.token,
     );
@@ -148,6 +199,7 @@ export class RetainedSessionQuery {
       affected.add(process.sessionId);
     const sourceProjects = new Set<string>();
     if (full) {
+      this.checkpoint?.beginReplacement();
       this.sql.beginReplacement();
       this.names.clear();
       this.nextOrdinal = 0;
@@ -262,11 +314,7 @@ export class RetainedSessionQuery {
         : metadata?.getMetadata(id);
       const source = this.sql
         .sourcesFor(id)
-        .sort(
-          (a, b) =>
-            (this.service.rowOrder(a.key) ?? a.ordinal) -
-            (this.service.rowOrder(b.key) ?? b.ordinal),
-        )[0];
+        .sort((a, b) => this.service.compareRowOrder(a.key, b.key))[0];
       const control = metadata?.creations?.projectionForSession(id);
       let item: GlobalSessionItem | undefined,
         parent: NativeSessionRef | undefined;
@@ -350,12 +398,33 @@ export class RetainedSessionQuery {
       if (offset + 256 < updates.length)
         await new Promise<void>((resolve) => setImmediate(resolve));
     }
-    if (full) await this.sql.finishReplacement(this.service.querySignal);
+    if (full) {
+      await this.sql.finishReplacement(this.service.querySignal);
+      this.checkpoint?.finishReplacement();
+    }
     await this.sql.expire(cutoff, this.service.querySignal);
     this.token = {
       catalogEpoch: changes.catalogEpoch,
       catalogGeneration: changes.catalogGeneration,
     };
+    if (this.checkpoint && revision !== undefined)
+      this.checkpoint.save(
+        {
+          format: 1,
+          signature: this.checkpointSignature,
+          revision,
+          token: this.token,
+          nextOrdinal: this.nextOrdinal,
+          nextControlOrdinal: this.nextControlOrdinal,
+          names: [...this.names],
+        },
+        !this.overflow &&
+          overlayRevision === metadata?.collectionState?.().overlayRevision &&
+          revision === this.checkpoint.revision() &&
+          !this.pendingIds.size &&
+          !this.sql.hasDirty() &&
+          !metadata?.collectionState?.().pending.size,
+      );
   }
   private hydrate(
     row: CollectionStoredRow,

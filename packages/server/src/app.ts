@@ -273,7 +273,7 @@ import {
   catalogNativeSessionId,
   RetainedSessionCollections,
 } from "./services/RetainedSessionCollections.js";
-import { collectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
+import { createCollectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
 import { readClaudeCatalogHead } from "./sessions/claude-summary.js";
 import { readCodexRolloutMetadata } from "./sessions/codex-discovery.js";
 import {
@@ -3518,27 +3518,23 @@ export function createApp(options: AppOptions): AppResult {
             ?.activeAfterMs,
         )
       ),
-    adapters: (...scan) =>
-      collectionCatalogAdapters(
-        {
-          scanner,
-          readerFactory,
-          codexScanner,
-          codexSessionsDir,
-          codexReaderFactory,
-          geminiScanner,
-          geminiSessionsDir,
-          geminiReaderFactory,
-          grokSessionsDir,
-          grokReaderFactory,
-          piSessionsDir,
-          piReaderFactory,
-          sessionIndexService: options.sessionIndexService,
-          getCatalogFamilies,
-          antigravitySessionsDir: options.antigravitySessionsDir,
-        },
-        ...scan,
-      ),
+    adapters: createCollectionCatalogAdapters({
+      scanner,
+      readerFactory,
+      codexScanner,
+      codexSessionsDir,
+      codexReaderFactory,
+      geminiScanner,
+      geminiSessionsDir,
+      geminiReaderFactory,
+      grokSessionsDir,
+      grokReaderFactory,
+      piSessionsDir,
+      piReaderFactory,
+      sessionIndexService: options.sessionIndexService,
+      getCatalogFamilies,
+      antigravitySessionsDir: options.antigravitySessionsDir,
+    }),
   });
   const conversationCatalog = retainedCollections;
   conversationSubscriptions = new ConversationSubscriptions(

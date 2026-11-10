@@ -77,6 +77,9 @@ export interface SessionCatalogAdapterScan {
   sourceVersion: string;
   rows: Iterable<SessionCatalogRow> | AsyncIterable<SessionCatalogRow>;
   metrics?: Readonly<Record<string, number>>;
+  /** A point update leaves unmentioned keys in this source unchanged. */
+  partial?: boolean;
+  removed?: readonly SessionCatalogRowKey[];
 }
 
 /** One install-wide scan adapter per eligible native provider store. */
@@ -90,4 +93,13 @@ export function sessionCatalogRowKey(
   row: SessionCatalogRow | SessionCatalogRowKey,
 ): string {
   return JSON.stringify([row.catalogFamily, row.storeKey, row.sessionId]);
+}
+
+/** Indexed catalog facts for a changed-file publication, without a full scan. */
+export interface CatalogFileLookup {
+  fileStoreProject(
+    family: string,
+    store: string,
+  ): Readonly<SessionCatalogRow> | undefined;
+  readAllRows(): Promise<readonly Readonly<SessionCatalogRow>[]>;
 }

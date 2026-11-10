@@ -192,6 +192,9 @@ export class SessionCollectionSql {
       id,
     );
   }
+  hasDirty() {
+    return !!this.prepare(`SELECT id FROM ${this.prefix}_dirty LIMIT 1`).get();
+  }
   dirty() {
     const ids = this.prepare(`SELECT id FROM ${this.prefix}_dirty`).all<{
       id: string;

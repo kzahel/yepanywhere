@@ -38,8 +38,10 @@ Retained lists and Inbox share one lifecycle-owned SQL working index per
 Catalog deltas, keyed metadata/creation/seen changes and the finite live-process
 set update it. SQL applies grants, filters and page/tier limits before decoding
 response rows. Grouped counters serve unread and population statistics. This
-removes the former 20 ms full-projection walk cache. Native catalog snapshots
-and eager metadata remain separate owners pending their consumer migrations.
+removes the former 20 ms full-projection walk cache. Canonical metadata and native catalog reads now use bounded parsed working
+sets; complete callers materialize their own results. The catalog owner retains
+a generation descriptor and at most 256 point rows / 8 MiB estimated payload,
+not a parsed corpus.
 
 Both summary modes admit a row by the same query rules: the archived, starred,
 project, and cursor filters, and a `q` matched against title, custom title,
@@ -909,3 +911,31 @@ allocation quarantine; same-string rows in other stores cannot stand in for a
 known binding. Missing or ambiguous facts remain unknown, not authority to
 invoke another reader. Project Queue uses this path for target and named
 blocker titles, preserving custom-title precedence and nullable unknown titles.
+
+## SQL catalog ownership and partial publication
+
+SQLite owns accepted native rows, live row counts and provider store coverage.
+Startup reads the generation descriptor/coverage without decoding all native
+rows. Point, changed-file and project reads use indexed SQL predicates. Explicit
+complete reads remain available to discovery and consumers requiring a full
+replacement; they do not expand the retained parsed cache.
+
+A scoped publication distinguishes a complete scan of named stores from a delta
+with explicit removed native keys. Unnamed stores and their coverage survive.
+Only changed rows/deletions advance a generation, in one transaction with the
+row count. A failed scan/write keeps the prior generation. Existing source
+version guards reject stale optional enrichment. New Claude files may join a
+store only when its direct-file rows agree on one canonical project; ambiguous,
+empty or unrecognized stores conservatively rediscover. Unknown Codex/Gemini
+files retain discovery until their membership can be established safely.
+
+Known changed files do not read/yield unchanged native rows. The optional Codex
+question pass inspects changed rows; unarchiving explicitly reconsiders that
+session. Initial discovery inspects unresolved Codex rows. Creation confirmation
+and internally observed activity use native-ID lookups rather than full reads.
+Native project views hydrate SQL aggregates and retain only project-sized
+results. Aggregation still visits eligible native rows in SQL; it is not a
+constant-cost per-project rollup guarantee.
+
+Accepted source precedence is family/store order with stable SQL insertion order
+within a store. This remains stable on restart, including duplicate aliases.

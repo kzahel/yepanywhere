@@ -1,3 +1,5 @@
+import { SESSION_QUERY_CHECKPOINT_SCHEMA } from "./migrations/034-session-query-checkpoint.js";
+import { CATALOG_QUERY_OWNERSHIP_SCHEMA } from "./migrations/033-catalog-query-ownership.js";
 import { SESSION_COLD_STATE_SCHEMA } from "./migrations/032-session-cold-state.js";
 import { SESSION_RELATIONSHIPS_SCHEMA } from "./migrations/026-session-relationships.js";
 import { RELATIONSHIP_PENDING_SCHEMA } from "./migrations/027-relationship-pending.js";
@@ -84,6 +86,8 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 30, sql: SESSION_SUMMARY_FULL_TITLE_SCHEMA },
   { version: 31, sql: SESSION_METADATA_COLUMNS_SCHEMA },
   { version: 32, sql: SESSION_COLD_STATE_SCHEMA },
+  { version: 33, sql: CATALOG_QUERY_OWNERSHIP_SCHEMA },
+  { version: 34, sql: SESSION_QUERY_CHECKPOINT_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

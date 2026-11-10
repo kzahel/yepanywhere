@@ -1420,6 +1420,7 @@ export class SessionMetadataService {
     } else {
       this.workingSet.set(resolvedSessionId, cleaned);
     }
+    this.rows.pendingChanged(resolvedSessionId);
   }
 
   /**
@@ -1431,6 +1432,7 @@ export class SessionMetadataService {
     if (this.getMetadata(resolvedSessionId)) {
       this.dirtySessionIds.add(resolvedSessionId);
       this.workingSet.set(resolvedSessionId, undefined);
+      this.rows.pendingChanged(resolvedSessionId);
       await this.save();
     }
   }

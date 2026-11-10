@@ -51,7 +51,10 @@ import type {
 import { ProjectScanner } from "../../src/projects/scanner.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
-import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
+import {
+  collectionCatalogAdapters,
+  createCollectionCatalogAdapters,
+} from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import {
   catalogFileVersion,
@@ -267,26 +270,20 @@ it("publishes native heads before questions and refreshes only a modified sessio
     database: openTestDiscoveryDatabase(dataDir),
     eventBus: bus,
     shouldReadQuestions: (row) => row.sessionId === ids[0],
-    adapters: (rows, signal, paths) =>
-      collectionCatalogAdapters(
-        {
-          scanner,
-          readerFactory: () => {
-            throw new Error("Unexpected Claude reader");
-          },
-          codexSessionsDir: dataDir,
-          codexReaderFactory: () => reader,
-          geminiScanner: {
-            getHashToCwd: async () => {
-              throw new Error("Unexpected Gemini lookup");
-            },
-          },
-          getCatalogFamilies: () => ["codex"],
+    adapters: createCollectionCatalogAdapters({
+      scanner,
+      readerFactory: () => {
+        throw new Error("Unexpected Claude reader");
+      },
+      codexSessionsDir: dataDir,
+      codexReaderFactory: () => reader,
+      geminiScanner: {
+        getHashToCwd: async () => {
+          throw new Error("Unexpected Gemini lookup");
         },
-        rows,
-        signal,
-        paths,
-      ),
+      },
+      getCatalogFamilies: () => ["codex"],
+    }),
   });
   await collections.refresh();
   const base = await publications[0]!;
@@ -573,26 +570,20 @@ it("keeps a reaped Claude session at its content time, not its shutdown mtime", 
     dataDir,
     database: openTestDiscoveryDatabase(dataDir),
     eventBus: bus,
-    adapters: (rows, signal, paths) =>
-      collectionCatalogAdapters(
-        {
-          scanner,
-          readerFactory: () => reader,
-          codexSessionsDir: join(dataDir, "unused-codex"),
-          codexReaderFactory: () => {
-            throw new Error("Unexpected Codex reader");
-          },
-          geminiScanner: {
-            getHashToCwd: async () => {
-              throw new Error("Unexpected Gemini lookup");
-            },
-          },
-          getCatalogFamilies: () => ["claude"],
+    adapters: createCollectionCatalogAdapters({
+      scanner,
+      readerFactory: () => reader,
+      codexSessionsDir: join(dataDir, "unused-codex"),
+      codexReaderFactory: () => {
+        throw new Error("Unexpected Codex reader");
+      },
+      geminiScanner: {
+        getHashToCwd: async () => {
+          throw new Error("Unexpected Gemini lookup");
         },
-        rows,
-        signal,
-        paths,
-      ),
+      },
+      getCatalogFamilies: () => ["claude"],
+    }),
   });
   await collections.refresh();
   const row = (await collections.read()).rows.find(
@@ -676,26 +667,20 @@ it("adds a new Claude session in a known store without rediscovering providers",
     createdSessionGraceMs: 0,
     // Native ids with no YA identity, as the session index reports them.
     nativeSessionId: catalogNativeSessionId({ resolveYa: () => undefined }),
-    adapters: (rows, signal, paths) =>
-      collectionCatalogAdapters(
-        {
-          scanner,
-          readerFactory: () => reader,
-          codexSessionsDir: join(dataDir, "unused-codex"),
-          codexReaderFactory: () => {
-            throw new Error("Unexpected Codex reader");
-          },
-          geminiScanner: {
-            getHashToCwd: async () => {
-              throw new Error("Unexpected Gemini lookup");
-            },
-          },
-          getCatalogFamilies: () => ["claude"],
+    adapters: createCollectionCatalogAdapters({
+      scanner,
+      readerFactory: () => reader,
+      codexSessionsDir: join(dataDir, "unused-codex"),
+      codexReaderFactory: () => {
+        throw new Error("Unexpected Codex reader");
+      },
+      geminiScanner: {
+        getHashToCwd: async () => {
+          throw new Error("Unexpected Gemini lookup");
         },
-        rows,
-        signal,
-        paths,
-      ),
+      },
+      getCatalogFamilies: () => ["claude"],
+    }),
   });
   await collections.refresh();
   expect(discovery).toHaveBeenCalledTimes(1);
@@ -866,7 +851,10 @@ it("rescans a native store and rereads a known file from one changed set", async
   );
   expect(discovery).not.toHaveBeenCalled();
   expect(
-    adapters.map((adapter) => [adapter.catalogFamily, adapter.storeKey]),
+    (Array.isArray(adapters) ? adapters : adapters.adapters).map((adapter) => [
+      adapter.catalogFamily,
+      adapter.storeKey,
+    ]),
   ).toContainEqual(["grok", grokSessionsDir]);
 });
 
@@ -939,26 +927,20 @@ it("reads a row an older build stored for an unchanged file once more", async ()
     dataDir,
     database: openTestDiscoveryDatabase(dataDir),
     eventBus: new EventBus(),
-    adapters: (rows, signal, paths) =>
-      collectionCatalogAdapters(
-        {
-          scanner,
-          readerFactory: () => {
-            throw new Error("Unexpected Claude reader");
-          },
-          codexSessionsDir: dataDir,
-          codexReaderFactory: () => reader,
-          geminiScanner: {
-            getHashToCwd: async () => {
-              throw new Error("Unexpected Gemini lookup");
-            },
-          },
-          getCatalogFamilies: () => ["codex"],
+    adapters: createCollectionCatalogAdapters({
+      scanner,
+      readerFactory: () => {
+        throw new Error("Unexpected Claude reader");
+      },
+      codexSessionsDir: dataDir,
+      codexReaderFactory: () => reader,
+      geminiScanner: {
+        getHashToCwd: async () => {
+          throw new Error("Unexpected Gemini lookup");
         },
-        rows,
-        signal,
-        paths,
-      ),
+      },
+      getCatalogFamilies: () => ["codex"],
+    }),
   });
   await collections.refresh();
   const reread = (await collections.read()).rows.find(
@@ -1468,4 +1450,44 @@ it("joins durable scoped children into retained global rows after SQL reopen whi
     await index.close();
     sql.close();
   }
+});
+
+it("keeps complete previous input for unmarked legacy adapter factories", async () => {
+  dataDir = await mkdtemp(join(tmpdir(), "retained-legacy-factory-"));
+  const row = (id: string): SessionCatalogRow => ({
+    catalogFamily: "claude",
+    storeKey: dataDir,
+    sessionId: id,
+    ...catalogProjectIdentity("/project"),
+    updatedAt: "2026-11-10T00:00:00Z",
+    fidelity: "head",
+    sourceVersion: "v1",
+    location: { kind: "file", path: join(dataDir, `${id}.jsonl`) },
+  });
+  const seed = openTestCatalog(dataDir);
+  await seed.initialize();
+  const adapter = (rows: readonly Readonly<SessionCatalogRow>[]) => ({
+    catalogFamily: "claude" as const,
+    storeKey: dataDir,
+    scan: async () => ({ sourceVersion: "fixture", rows }),
+  });
+  await seed.reconcile([adapter([row("a"), row("b")])]);
+  seed.stop();
+  const factory = vi.fn(
+    async (rows: readonly Readonly<SessionCatalogRow>[]) => [adapter(rows)],
+  );
+  collections = new RetainedSessionCollections({
+    dataDir,
+    database: openTestDiscoveryDatabase(dataDir),
+    adapters: factory,
+  });
+  await collections.refresh();
+  factory.mockClear();
+  collections.invalidate(join(dataDir, "a.jsonl"));
+  await collections.refresh();
+  expect(factory.mock.calls[0]![0].map((row) => row.sessionId)).toEqual([
+    "a",
+    "b",
+  ]);
+  expect((await collections.read()).rows).toHaveLength(2);
 });

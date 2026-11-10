@@ -98,6 +98,7 @@ describe("SessionCatalogSqliteStore", () => {
       { catalogFamily: "codex", storeKey: "/store" },
     ]);
     expect(store.readState()).toEqual({
+      rowCount: VARIED_ROWS.length,
       epoch: "epoch-a",
       generation: 5,
       tombstoneHorizon: 5,

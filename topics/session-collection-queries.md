@@ -15,7 +15,8 @@ canonical authorities. The query index is disposable derived state, never a
 second durable authority. Its TEMP tables live on the profile's portable
 SQLite connection and disappear on owner retirement or process exit. Default
 TEMP storage is unchanged (file-backed defaults in the checked Node 25/Bun 1.3.14
-builds); no forced in-memory database or additional persistent migration.
+builds). A derived durable checkpoint can restore the working tables; it has
+no authority over canonical facts.
 
 A WeakMap shares the owner across lists, Inbox and tabs. Replacing dependencies
 retires it. Collection abort removes subscriptions, finalizes its bounded
@@ -29,8 +30,9 @@ them through triggers in the row-update transaction.
 
 - Accepted catalog changes identify added/changed/deleted native keys. SQL
   records native-to-public source links. The first source in accepted catalog
-  publication order wins when aliases share a public ID.
-- Metadata row writes/removals publish keyed invalidations. Dirty unsaved
+  source order (family/store, then stable SQL row order) wins when aliases share a public ID.
+- Metadata working-overlay changes and row writes/removals publish keyed
+  invalidations. An overlay revision fences edit/revert races during builds. Dirty unsaved
   metadata overlays remain visible, including failed commits and cancellation
   back to an already committed value. Observers do not decide durability.
 - Creation changes publish keyed invalidations; point queries read compact
@@ -58,21 +60,42 @@ merging. Archive expiry visits indexed rows crossing the cutoff, in chunks witho
 clock reversal or disabling automatic archive; explicit metadata wins.
 Recaps advance display time, never provider unread time.
 
+## Restart restoration
+
+A completed query checkpoints its derived rows, native/public source links,
+project facts, catalog token and ordering counters in profile SQLite. Changed
+working rows mirror transactionally; a partially applied query invalidates the
+checkpoint before it changes durable derived data. Metadata, seen, identity and
+creation mutations advance a canonical revision in their own transaction.
+Only a checkpoint at that exact revision, with a compatible format/dependency
+signature and no observed pending metadata, may restore. Otherwise it rebuilds
+from canonical facts. This deliberately rebuilds after a canonical change while
+the owner was absent; keyed catch-up across absence is not implemented.
+
+Each working owner remains isolated. A replacement claims the single checkpoint;
+a superseded owner cannot overwrite or certify it. Real metadata/notification
+services must name the same profile database before checkpoint reuse is enabled.
+Fake or differently stored services retain normal full reconstruction. Restored
+previous/current live IDs, project display names, archive cutoffs and selected
+ownership/children are refreshed under the normal query rules. Inbox always
+reads current queue IDs/time. A checkpoint never makes a saved process live.
+
+Restoration copies and indexes SQL rows without decoding the cold catalog or
+normalizing every metadata row in JavaScript. This is still population-sized
+SQL work, not a page-sized restart guarantee. The first-ever build is also
+population-sized. Stable checkpoint restores avoid repeating that JS build;
+failed/partial builds and incompatible checkpoints use the same complete path.
+
 ## Costs still open
 
-Initial construction is population-sized and currently costs more than the
-old single first walk. The index is reused beyond the old 20 ms sharing window;
-its value is eliminating repeated population projection, not startup savings.
-Durable projection/startup, changed-file catalog publication,
-other catalog consumers and client delta delivery remain plan 190 work.
+Other catalog consumers and client delta delivery remain plan 190 work.
 Canonical metadata is now loaded on demand, with pinned dirty overlays and
 bounded batch snapshots. The projection consumes those snapshots directly;
 large or pinned batches do not depend on fitting in the clean LRU. Legacy
 metadata acquisition during identity adoption is batched only for candidates
 that need it; bound identities do not acquire metadata for repeat projection.
 [Cold-state ownership evidence](../docs/research/190-cold-state-sql.md) records
-restart/seen-write and retained-memory observations. This does not make the
-TEMP projection itself durable or remove the initial population projection.
+restart/seen-write and retained-memory observations. First-ever or invalidated projection construction remains population-sized.
 
 Optional substring search scans normalized SQL text. To preserve existing
 `localeCompare` ordering across Node/Bun, a page expands keys at its boundary

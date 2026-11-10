@@ -144,29 +144,19 @@ interface ReconcileInFlight {
   promise: Promise<Omit<SessionCatalogReconcileResult, "status">>;
 }
 
-interface IndexEntry {
-  position: number;
-  hash: string;
+export interface SessionCatalogReconcilePlan {
+  adapters: readonly NativeSessionCatalogAdapter[];
+  /** False replaces only scanned stores; partial scans name explicit removals. */
+  replaceAll: boolean;
 }
-
-/** The published generation, as stored, kept parsed in memory. */
 interface Published {
   epoch: string;
   generation: number;
   completedAt: string;
   tombstoneHorizon: number;
-  /**
-   * The oldest generation the change log answers from: the tombstone
-   * horizon, or a generation stored whole over tables that had moved, whose
-   * `changed_gen` values say nothing about what memory published before it.
-   */
   changeFloor: number;
-  rows: readonly Readonly<SessionCatalogRow>[];
-  /** Row key to its position in `rows` and its stored hash. */
-  index: ReadonlyMap<string, IndexEntry>;
+  rowCount: number;
   sources: readonly SessionCatalogSqliteSource[];
-  /** Built on the first project read of this generation. */
-  byProject?: Map<string, readonly Readonly<SessionCatalogRow>[]>;
 }
 
 /**
@@ -174,8 +164,8 @@ interface Published {
  * scans run outside request paths; a publication diffs the scanned rows
  * against the published ones by row hash and writes only what changed, in one
  * transaction that advances the generation. A scan that changes nothing
- * advances nothing. The published generation's rows stay parsed in memory,
- * loaded from the tables at startup, so reads never query SQLite.
+ * advances nothing. SQLite owns the published rows; only bounded point reads stay parsed.
+ * Complete reads materialize caller-owned results, outside the retained cache.
  */
 export class SessionCatalogService {
   private readonly database: SqliteDatabase;
@@ -236,27 +226,20 @@ export class SessionCatalogService {
       return;
     }
     try {
-      const { rows, sources } = this.withStore((store) => ({
-        rows: store.readRowsWithHashes(),
-        sources: store.readSources(),
-      }));
-      const index = new Map<string, IndexEntry>();
-      const published: Readonly<SessionCatalogRow>[] = [];
-      for (const { row, hash } of rows) {
-        index.set(rowKey(row.catalogFamily, row.storeKey, row.sessionId), {
-          position: published.length,
-          hash,
-        });
-        published.push(Object.freeze(row));
-      }
+      const sources = this.withStore((store) => {
+        if (store.hasInvalidRows())
+          throw new SessionCatalogRowError(
+            "Unreadable session catalog questions",
+          );
+        return store.readSources();
+      });
       this.published = {
         epoch: stored.epoch,
         generation: stored.generation,
         completedAt: stored.completedAt,
         tombstoneHorizon: stored.tombstoneHorizon,
         changeFloor: stored.tombstoneHorizon,
-        rows: Object.freeze(published),
-        index,
+        rowCount: stored.rowCount,
         sources: Object.freeze(sources),
       };
     } catch (error) {
@@ -363,8 +346,7 @@ export class SessionCatalogService {
       ...state,
       tombstoneHorizon: 0,
       changeFloor: 0,
-      rows: Object.freeze([]),
-      index: new Map(),
+      rowCount: 0,
       sources: Object.freeze([]),
     };
   }
@@ -374,7 +356,7 @@ export class SessionCatalogService {
     return {
       ...tokenFrom(published),
       completedAt: published.completedAt,
-      rowCount: published.rows.length,
+      rowCount: published.rowCount,
       providerSources: published.sources.map((source) => ({ ...source })),
     };
   }
@@ -384,106 +366,231 @@ export class SessionCatalogService {
     return tokenFrom(this.requirePublished());
   }
 
-  /** The published generation's rows, from memory. */
+  /** Clean native rows/misses are bounded; SQL remains the publication owner. */
+  private readonly hotRows = new Map<
+    string,
+    { row: Readonly<SessionCatalogRow>; bytes: number; order: number }
+  >();
+  private hotBytes = 0;
+  private remember(entry: { row: SessionCatalogRow; order: number }) {
+    const key = rowKey(
+      entry.row.catalogFamily,
+      entry.row.storeKey,
+      entry.row.sessionId,
+    );
+    const known = this.hotRows.get(key);
+    if (known) return known.row;
+    const row = Object.freeze(entry.row),
+      bytes = JSON.stringify(row).length * 2 + 512;
+    if (bytes <= 8 * 1024 * 1024) {
+      this.hotRows.set(key, { row, bytes, order: entry.order });
+      this.hotBytes += bytes;
+      while (this.hotRows.size > 256 || this.hotBytes > 8 * 1024 * 1024) {
+        const [old, item] = this.hotRows.entries().next().value!;
+        this.hotRows.delete(old);
+        this.hotBytes -= item.bytes;
+      }
+    }
+    return row;
+  }
+  private clearHotRows() {
+    this.hotRows.clear();
+    this.hotBytes = 0;
+  }
+  getWorkingSetMetrics() {
+    return {
+      rows: this.hotRows.size,
+      estimatedPayloadBytes: this.hotBytes,
+      rowBudget: 256,
+      payloadByteBudget: 8 * 1024 * 1024,
+    };
+  }
+  private allRows() {
+    return this.withStore((store) => store.readRowsWithHashes())
+      .sort((a, b) => sourceOrder(a.row, b.row) || a.order - b.order)
+      .map((row) => this.remember(row));
+  }
   async readRows(): Promise<{
     snapshot: SessionCatalogSnapshot;
     rows: ReadonlyArray<Readonly<SessionCatalogRow>>;
   }> {
     this.ensureRunning();
-    const published = this.requirePublished();
-    return { snapshot: this.getSnapshot(), rows: published.rows };
+    return { snapshot: this.getSnapshot(), rows: this.allRows() };
   }
-
-  /** The published row stored under `key` (`sessionCatalogRowKey`). */
   readRow(key: string): Readonly<SessionCatalogRow> | undefined {
     this.ensureRunning();
-    const published = this.requirePublished();
-    const entry = published.index.get(key);
-    return entry && published.rows[entry.position];
+    const known = this.hotRows.get(key);
+    if (known) {
+      this.hotRows.delete(key);
+      this.hotRows.set(key, known);
+      return known.row;
+    }
+    const parts = JSON.parse(key) as [
+      SessionCatalogRow["catalogFamily"],
+      string,
+      string,
+    ];
+    const found = this.withStore((store) =>
+      store.readRow({
+        catalogFamily: parts[0],
+        storeKey: parts[1],
+        sessionId: parts[2],
+      }),
+    );
+    return found && this.remember(found);
   }
-
-  /** Position in the accepted publication, for duplicate native/public views. */
-  rowOrder(key: string): number | undefined {
-    return this.requirePublished().index.get(key)?.position;
+  compareRowOrder(left: string, right: string): number {
+    const a = JSON.parse(left) as string[],
+      b = JSON.parse(right) as string[];
+    const bySource = `${a[0]}:${a[1]}`.localeCompare(`${b[0]}:${b[1]}`);
+    if (bySource) return bySource;
+    const order = (key: string, parts: string[]) =>
+      this.hotRows.get(key)?.order ??
+      this.withStore((store) =>
+        store.readRow({
+          catalogFamily: parts[0] as SessionCatalogRow["catalogFamily"],
+          storeKey: parts[1]!,
+          sessionId: parts[2]!,
+        }),
+      )?.order ??
+      0;
+    return order(left, a) - order(right, b);
   }
-
-  /**
-   * The rows written and the keys removed after `since`, from the
-   * `changed_gen` index, so a consumer that follows publications reads what
-   * changed rather than every row. Every row comes back (`full`) when the
-   * log cannot answer for `since`.
-   */
+  readFileRows(paths: ReadonlySet<string>) {
+    return this.scopedRows("path", JSON.stringify([...paths]));
+  }
+  readNativeRows(id: string) {
+    return this.scopedRows("native", id);
+  }
+  readUnresolvedQuestions() {
+    return this.scopedRows("questions", "");
+  }
+  readProjects(
+    stores: readonly SessionCatalogSqliteSource[],
+  ): import("../projects/catalog-projects.js").CatalogProjectsView {
+    const projects = new Map<
+      string,
+      import("../projects/catalog-projects.js").CatalogProject
+    >();
+    if (stores.length)
+      for (const row of this.withStore((sql) => sql.readProjectFacts(stores))) {
+        let project = projects.get(row.project_key);
+        if (!project) {
+          project = {
+            path: row.path,
+            provider: row.family,
+            counts: {},
+            lastActivity: row.latest,
+          };
+          projects.set(row.project_key, project);
+        }
+        if (row.family < project.provider) project.provider = row.family;
+        project.counts[row.family] = row.members;
+        if (row.latest > project.lastActivity)
+          project.lastActivity = row.latest;
+      }
+    for (const p of projects.values())
+      p.counts = Object.fromEntries(
+        Object.entries(p.counts).sort(([a], [b]) => a.localeCompare(b)),
+      );
+    const accepted = new Set(
+      this.requirePublished().sources.map((s) =>
+        JSON.stringify([s.catalogFamily, s.storeKey]),
+      ),
+    );
+    const complete = stores.every((s) =>
+      accepted.has(JSON.stringify([s.catalogFamily, s.storeKey])),
+    );
+    const ordered = [...projects.values()].sort((a, b) =>
+      a.path.localeCompare(b.path),
+    );
+    return {
+      projects: ordered,
+      complete,
+      version: JSON.stringify([complete, ordered]),
+    };
+  }
+  fileStoreProject(family: string, store: string) {
+    return this.withStore((sql) => sql.fileStoreProject(family, store));
+  }
+  private scopedRows(
+    kind: "path" | "native" | "questions" | "project",
+    value: string,
+  ) {
+    this.ensureRunning();
+    return this.withStore((store) => store.readScopedRows(kind, value)).map(
+      (row) => this.remember(row),
+    );
+  }
   readChanges(since?: SessionCatalogToken): SessionCatalogChanges {
     this.ensureRunning();
-    const published = this.requirePublished();
-    const token = tokenFrom(published);
-    const everything = {
+    const current = this.requirePublished();
+    const token = tokenFrom(current);
+    const everything = () => ({
       ...token,
       full: true,
-      rows: published.rows,
+      rows: this.allRows(),
       removed: [],
-    };
+    });
     if (
       !since ||
-      since.catalogEpoch !== published.epoch ||
-      since.catalogGeneration > published.generation ||
-      since.catalogGeneration < published.changeFloor
+      since.catalogEpoch !== current.epoch ||
+      since.catalogGeneration > current.generation ||
+      since.catalogGeneration < current.changeFloor
     )
-      return everything;
-    if (since.catalogGeneration === published.generation)
+      return everything();
+    if (since.catalogGeneration === current.generation)
       return { ...token, full: false, rows: [], removed: [] };
-    let changed: ReturnType<SessionCatalogSqliteStore["readChangedKeys"]>;
     try {
-      const read = this.withStore((store) => {
-        const stored = store.readState();
-        return stored?.epoch === published.epoch &&
-          stored.generation === published.generation
+      const keys = this.withStore((store) => {
+        const state = store.readState();
+        return state?.epoch === current.epoch &&
+          state.generation === current.generation
           ? store.readChangedKeys(since.catalogGeneration)
           : undefined;
       });
-      if (!read) return everything;
-      changed = read;
+      if (!keys) return everything();
+      const rows: Readonly<SessionCatalogRow>[] = [],
+        removed: SessionCatalogSqliteKey[] = [];
+      for (const { key, deleted } of keys) {
+        if (deleted) removed.push(key);
+        else {
+          const row = this.readRow(
+            rowKey(key.catalogFamily, key.storeKey, key.sessionId),
+          );
+          if (!row) return everything();
+          rows.push(row);
+        }
+      }
+      return { ...token, full: false, rows, removed };
     } catch {
-      // A busy or failing database costs this reader a full read from
-      // memory, never the refresh it runs in.
-      return everything;
+      return everything();
     }
-    const rows: Readonly<SessionCatalogRow>[] = [];
-    const removed: SessionCatalogSqliteKey[] = [];
-    for (const { key, deleted } of changed) {
-      const entry = published.index.get(
-        rowKey(key.catalogFamily, key.storeKey, key.sessionId),
-      );
-      // The tables and memory are written in one synchronous step, so they
-      // agree; if they ever do not, the reader starts over.
-      if (deleted ? entry : !entry) return everything;
-      if (entry) rows.push(published.rows[entry.position]!);
-      else removed.push(key);
-    }
-    return { ...token, full: false, rows, removed };
   }
-
-  /** One project's rows of the published generation, newest first. */
   async readProjectRows(
     projectIdentityKey: string,
   ): Promise<SessionCatalogProjectRows> {
-    this.ensureRunning();
-    const published = this.requirePublished();
-    published.byProject ??= groupByProject(published.rows);
     return {
-      ...tokenFrom(published),
-      rows: published.byProject.get(projectIdentityKey) ?? [],
+      ...this.getToken(),
+      rows: this.scopedRows("project", projectIdentityKey).sort(
+        (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+      ),
     };
   }
 
   async reconcile(
-    adapters: readonly NativeSessionCatalogAdapter[],
+    input: readonly NativeSessionCatalogAdapter[] | SessionCatalogReconcilePlan,
     mode: SessionCatalogScanMode = { kind: "complete" },
   ): Promise<SessionCatalogReconcileResult> {
     this.ensureRunning();
     this.reconciliationRequests += 1;
-    const normalizedAdapters = normalizeAdapters(adapters);
-    const signature = reconciliationSignature(normalizedAdapters, mode);
+    const plan: SessionCatalogReconcilePlan = Array.isArray(input)
+      ? { adapters: input, replaceAll: true }
+      : (input as SessionCatalogReconcilePlan);
+    const normalizedAdapters = normalizeAdapters(plan.adapters);
+    const signature =
+      reconciliationSignature(normalizedAdapters, mode) +
+      (plan.replaceAll ? "full" : randomUUID());
     let existing = this.reconcileInFlight;
     while (existing && existing.signature !== signature) {
       this.reconciliationQueuedBehindDifferentScope += 1;
@@ -507,6 +614,7 @@ export class SessionCatalogService {
       normalizedAdapters,
       mode,
       controller.signal,
+      plan.replaceAll,
     ).catch((error) => {
       this.reconciliationFailures += 1;
       throw error;
@@ -536,23 +644,21 @@ export class SessionCatalogService {
     }
     this.ensureRunning();
     const current = this.requirePublished();
-    const next = [...current.rows];
-    const index = new Map(current.index);
+    const changes: SessionCatalogSqliteChange[] = [];
     for (const candidate of rows) {
-      const { row, key, hash } = this.prepareRow(candidate, candidate);
-      const entry = index.get(key);
-      if (!entry || entry.hash === hash) continue;
-      if (next[entry.position]!.sourceVersion !== row.sourceVersion) continue;
-      next[entry.position] = row;
-      index.set(key, { position: entry.position, hash });
+      const { row, key } = this.prepareRow(candidate, candidate);
+      const previous = this.readRow(key);
+      if (previous?.sourceVersion === row.sourceVersion)
+        changes.push({ type: "upsert", row });
     }
-    this.commit(next, index, current.sources);
+    this.commitPartial(changes, current.sources);
     return this.getToken();
   }
 
   stop(): void {
     this.stopped = true;
     this.reconcileInFlight?.controller.abort();
+    this.clearHotRows();
   }
 
   getMetrics(): SessionCatalogServiceMetrics {
@@ -572,7 +678,7 @@ export class SessionCatalogService {
       legacyImport: this.legacyImport,
       catalogEpoch: this.published?.epoch ?? null,
       catalogGeneration: this.published?.generation ?? 0,
-      rowCount: this.published?.rows.length ?? 0,
+      rowCount: this.published?.rowCount ?? 0,
     };
   }
 
@@ -580,12 +686,15 @@ export class SessionCatalogService {
     adapters: readonly NativeSessionCatalogAdapter[],
     mode: SessionCatalogScanMode,
     signal: AbortSignal,
+    replaceAll: boolean,
   ): Promise<Omit<SessionCatalogReconcileResult, "status">> {
-    const basis = this.requirePublished();
-    const startedAt = this.now();
-    const rows: Readonly<SessionCatalogRow>[] = [];
-    const index = new Map<string, IndexEntry>();
-    const sources: SessionCatalogSqliteSource[] = [];
+    const basis = this.requirePublished(),
+      startedAt = this.now();
+    const rows: Readonly<SessionCatalogRow>[] = [],
+      index = new Map<string, number>(),
+      removed: SessionCatalogSqliteKey[] = [],
+      completeStores: SessionCatalogSqliteSource[] = [];
+    const sources = replaceAll ? [] : [...basis.sources];
     let rowsScanned = 0;
     for (const adapter of adapters) {
       throwIfAborted(signal);
@@ -598,29 +707,61 @@ export class SessionCatalogService {
       requireNonEmpty(scan.sourceVersion, "adapter sourceVersion");
       for await (const candidate of scan.rows) {
         throwIfAborted(signal);
-        const { row, key, hash } = this.prepareRow(candidate, adapter, basis);
-        rowsScanned += 1;
-        const existing = index.get(key);
-        if (existing) {
-          // The store keeps one row per key, so memory keeps the same one.
-          this.duplicateRows += 1;
-          rows[existing.position] = row;
-          index.set(key, { position: existing.position, hash });
+        const { row, key } = this.prepareRow(candidate, adapter);
+        rowsScanned++;
+        const previous = index.get(key);
+        if (previous !== undefined) {
+          this.duplicateRows++;
+          rows[previous] = row;
         } else {
-          index.set(key, { position: rows.length, hash });
+          index.set(key, rows.length);
           rows.push(row);
         }
       }
-      sources.push({
+      for (const key of scan.removed ?? []) {
+        if (
+          key.catalogFamily !== adapter.catalogFamily ||
+          key.storeKey !== adapter.storeKey
+        )
+          throw new Error("Catalog removal does not belong to adapter");
+        requireNonEmpty(key.sessionId, "removed session id");
+        removed.push(key);
+      }
+      const source = {
         catalogFamily: adapter.catalogFamily,
         storeKey: adapter.storeKey,
-      });
+      };
+      if (
+        !sources.some(
+          (s) =>
+            s.catalogFamily === source.catalogFamily &&
+            s.storeKey === source.storeKey,
+        )
+      )
+        sources.push(source);
+      if (!scan.partial) completeStores.push(source);
     }
     throwIfAborted(signal);
-    // Diffed against the generation published now, not the scan's basis, so
-    // a publication that landed meanwhile is not undone by key.
-    const write = this.commit(rows, index, sources);
-    const metrics: SessionCatalogReconcileMetrics = {
+    let write: SessionCatalogWrite | null;
+    if (replaceAll) write = this.commitRows(rows, sources);
+    else {
+      for (const source of completeStores)
+        for (const key of this.withStore((store) =>
+          store.readStoreKeys(source.catalogFamily, source.storeKey),
+        ))
+          if (
+            !index.has(rowKey(key.catalogFamily, key.storeKey, key.sessionId))
+          )
+            removed.push(key);
+      write = this.commitPartial(
+        [
+          ...rows.map((row) => ({ type: "upsert" as const, row })),
+          ...removed.map((key) => ({ type: "delete" as const, key })),
+        ],
+        sources,
+      );
+    }
+    const metrics = {
       durationMs: this.now() - startedAt,
       adapterScans: adapters.length,
       rowsScanned,
@@ -635,124 +776,121 @@ export class SessionCatalogService {
     );
     return { snapshot: this.getSnapshot(), metrics };
   }
-
-  /**
-   * Validate and key one row. A row equal to the published row of its key
-   * reuses that row and its hash: most of a scan is unchanged rows, and
-   * serializing and hashing all of them cost about 30 ms of event loop per
-   * publication on 7,500 rows.
-   */
   private prepareRow(
     candidate: SessionCatalogRow,
     adapter: Pick<NativeSessionCatalogAdapter, "catalogFamily" | "storeKey">,
-    published?: Published,
-  ): { row: Readonly<SessionCatalogRow>; key: string; hash: string } {
-    const normalized = normalizeRow(candidate, adapter);
-    const key = rowKey(
-      normalized.catalogFamily,
-      normalized.storeKey,
-      normalized.sessionId,
-    );
-    const entry = published?.index.get(key);
-    const previous = entry && published!.rows[entry.position];
-    if (entry && previous && sameRow(previous, normalized))
-      return { row: previous, key, hash: entry.hash };
-    const row = Object.freeze(normalized);
+  ) {
+    const row = Object.freeze(normalizeRow(candidate, adapter));
     const json = JSON.stringify(row);
-    if (Buffer.byteLength(json) + 1 > this.maxRowBytes) {
+    if (Buffer.byteLength(json) + 1 > this.maxRowBytes)
       throw new Error(
         `Session catalog row exceeds ${this.maxRowBytes} bytes: ${row.catalogFamily}:${row.storeKey}:${row.sessionId}`,
       );
-    }
-    return { row, key, hash: sessionCatalogJsonHash(json) };
+    return {
+      row,
+      key: rowKey(row.catalogFamily, row.storeKey, row.sessionId),
+      hash: sessionCatalogJsonHash(json),
+    };
   }
-
-  /**
-   * Publish `rows` as the next generation if they or the store coverage
-   * differ from the published generation: one synchronous transaction, then
-   * memory. Returns null when nothing changed.
-   */
-  private commit(
+  private commitRows(
     rows: readonly Readonly<SessionCatalogRow>[],
-    index: ReadonlyMap<string, IndexEntry>,
     sources: readonly SessionCatalogSqliteSource[],
-  ): SessionCatalogWrite | null {
-    this.ensureRunning();
-    const current = this.requirePublished();
-    const changes: SessionCatalogSqliteChange[] = [];
-    for (const [key, entry] of index) {
-      if (current.index.get(key)?.hash !== entry.hash)
-        changes.push({ type: "upsert", row: rows[entry.position]! });
-    }
-    for (const [key, entry] of current.index) {
-      if (index.has(key)) continue;
-      const row = current.rows[entry.position]!;
-      changes.push({
-        type: "delete",
-        key: {
-          catalogFamily: row.catalogFamily,
-          storeKey: row.storeKey,
-          sessionId: row.sessionId,
-        },
-      });
-    }
-    if (
-      changes.length === 0 &&
-      sourceSetKey(sources) === sourceSetKey(current.sources)
-    ) {
-      this.unchangedReconciliations += 1;
+  ) {
+    const current = this.requirePublished(),
+      state = {
+        epoch: current.epoch,
+        generation: current.generation + 1,
+        completedAt: new Date(this.now()).toISOString(),
+      },
+      start = performance.now();
+    const result = this.withStore((store) => {
+      const previous = store.readState();
+      const follows =
+        previous?.epoch === current.epoch &&
+        previous.generation === current.generation;
+      const written = store.writeGeneration(
+        state,
+        rows,
+        sources,
+        true,
+        this.purgeHorizon(state.generation),
+      );
+      return { written, state: store.readState()!, follows };
+    });
+    if (result.state.generation === current.generation && result.follows) {
+      this.unchangedReconciliations++;
       return null;
     }
-    const state = {
-      epoch: current.epoch,
-      generation: current.generation + 1,
-      completedAt: new Date(this.now()).toISOString(),
-    };
-    const purgeTo = state.generation - this.tombstoneGenerations;
-    const horizon =
-      purgeTo - current.tombstoneHorizon >=
-      Math.max(1, Math.floor(this.tombstoneGenerations / 10))
-        ? purgeTo
-        : 0;
-    const startedAt = performance.now();
-    const { written, tombstoneHorizon, follows } = this.withStore((store) => {
-      const stored = store.readState();
-      const follows =
-        stored?.epoch === current.epoch &&
-        stored.generation === current.generation;
-      const written = follows
-        ? store.applyChanges(
-            state,
-            current.generation,
-            changes,
-            sources,
-            horizon,
-          )
-        : // The tables no longer hold what this process published (changed
-          // from outside, or restored): store the whole generation instead.
-          store.writeGeneration(state, rows, sources);
-      return {
-        written,
-        follows,
-        tombstoneHorizon: store.readState()?.tombstoneHorizon ?? 0,
-      };
+    return this.acceptWrite(
+      result.written,
+      result.state,
+      sources,
+      result.follows,
+      start,
+    );
+  }
+  private commitPartial(
+    changes: readonly SessionCatalogSqliteChange[],
+    sources: readonly SessionCatalogSqliteSource[],
+  ) {
+    const current = this.requirePublished(),
+      state = {
+        epoch: current.epoch,
+        generation: current.generation + 1,
+        completedAt: new Date(this.now()).toISOString(),
+      },
+      start = performance.now();
+    const horizon = this.purgeHorizon(state.generation);
+    const result = this.withStore((store) => {
+      const written = store.applyChanges(
+        state,
+        current.generation,
+        changes,
+        sources,
+        horizon,
+        true,
+      );
+      return { written, state: store.readState()! };
     });
-    const write: SessionCatalogWrite = {
-      ...written,
-      generation: state.generation,
-      durationMs: performance.now() - startedAt,
-    };
+    if (result.state.generation === current.generation) {
+      this.unchangedReconciliations++;
+      return null;
+    }
+    return this.acceptWrite(result.written, result.state, sources, true, start);
+  }
+  private purgeHorizon(generation: number) {
+    const purgeTo = generation - this.tombstoneGenerations;
+    return purgeTo - this.requirePublished().tombstoneHorizon >=
+      Math.max(1, Math.floor(this.tombstoneGenerations / 10))
+      ? purgeTo
+      : 0;
+  }
+  private acceptWrite(
+    written: SessionCatalogSqliteWrite,
+    state: SessionCatalogSqliteState,
+    sources: readonly SessionCatalogSqliteSource[],
+    follows: boolean,
+    start: number,
+  ) {
+    const previous = this.requirePublished();
     this.published = {
-      ...state,
-      tombstoneHorizon,
+      epoch: state.epoch,
+      generation: state.generation,
+      completedAt: state.completedAt,
+      tombstoneHorizon: state.tombstoneHorizon,
+      rowCount: state.rowCount,
       changeFloor: follows
-        ? Math.max(current.changeFloor, tombstoneHorizon)
+        ? Math.max(previous.changeFloor, state.tombstoneHorizon)
         : state.generation,
-      rows: Object.freeze([...rows]),
-      index,
       sources: Object.freeze([...sources]),
     };
-    this.publications += 1;
+    this.clearHotRows();
+    this.publications++;
+    const write = {
+      ...written,
+      generation: state.generation,
+      durationMs: performance.now() - start,
+    };
     this.lastWrite = write;
     return write;
   }
@@ -789,56 +927,13 @@ function tokenFrom(published: Published): SessionCatalogToken {
   };
 }
 
-function groupByProject(
-  rows: readonly Readonly<SessionCatalogRow>[],
-): Map<string, readonly Readonly<SessionCatalogRow>[]> {
-  const groups = new Map<string, Readonly<SessionCatalogRow>[]>();
-  for (const row of rows) {
-    const group = groups.get(row.projectIdentityKey);
-    if (group) group.push(row);
-    else groups.set(row.projectIdentityKey, [row]);
-  }
-  for (const group of groups.values()) {
-    group.sort(
-      (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-    );
-    Object.freeze(group);
-  }
-  return groups;
-}
-
-/**
- * Whether two normalized rows serialize identically: the same keys, in the
- * order normalization fixes, with equal values.
- */
-function sameRow(
-  left: Readonly<SessionCatalogRow>,
-  right: Readonly<SessionCatalogRow>,
-): boolean {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) return false;
-  for (let index = 0; index < leftKeys.length; index += 1) {
-    const key = leftKeys[index]!;
-    if (key !== rightKeys[index]) return false;
-    const a = (left as Record<string, unknown>)[key];
-    const b = (right as Record<string, unknown>)[key];
-    if (a === b) continue;
-    if (typeof a !== "object" || typeof b !== "object" || !a || !b)
-      return false;
-    if (JSON.stringify(a) !== JSON.stringify(b)) return false;
-  }
-  return true;
-}
-
-function sourceSetKey(sources: readonly SessionCatalogSqliteSource[]): string {
-  return [
-    ...new Set(
-      sources.map((source) => rowKey(source.catalogFamily, source.storeKey)),
-    ),
-  ]
-    .sort()
-    .join("\n");
+function sourceOrder(
+  a: Pick<SessionCatalogRow, "catalogFamily" | "storeKey">,
+  b: Pick<SessionCatalogRow, "catalogFamily" | "storeKey">,
+) {
+  return `${a.catalogFamily}:${a.storeKey}`.localeCompare(
+    `${b.catalogFamily}:${b.storeKey}`,
+  );
 }
 
 async function exists(path: string): Promise<boolean> {

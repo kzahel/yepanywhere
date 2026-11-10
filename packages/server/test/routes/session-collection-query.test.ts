@@ -20,6 +20,7 @@ import {
   openTestDiscoveryDatabase,
   closeTestDiscoveryDatabases,
 } from "../utils/session-metadata-database.js";
+import { SessionCollectionSql } from "../../src/services/session-collection-sql.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import type { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
@@ -337,3 +338,129 @@ it("uses publication order when a new native alias precedes an existing public r
     (await f.get()).sessions.find((s: { id: string }) => s.id === id).title,
   ).toBe("Title 0");
 });
+
+it("restores a SQL query checkpoint without rehydrating cold metadata", async () => {
+  const f = await fixture(600);
+  await f.get();
+  const expected = await f.get();
+  const { retainedSessionQuery, RetainedSessionQuery } = await import(
+    "../../src/services/retained-session-query.js"
+  );
+  retainedSessionQuery(f.collections, f.deps).dispose();
+  const metadata = vi.spyOn(f.metadata, "getMetadataBatch");
+  const restored = new RetainedSessionQuery(f.collections, f.deps);
+  try {
+    const page = await restored.page({ limit: 10 });
+    expect(page.sessions).toEqual(expected.sessions);
+    expect(page.stats).toEqual(expected.stats);
+    expect(metadata).not.toHaveBeenCalled();
+  } finally {
+    restored.dispose();
+  }
+});
+
+it("rejects a checkpoint after canonical changes and interrupted builds", async () => {
+  const f = await fixture(20);
+  await f.get();
+  await f.get();
+  const { retainedSessionQuery, RetainedSessionQuery } = await import(
+    "../../src/services/retained-session-query.js"
+  );
+  retainedSessionQuery(f.collections, f.deps).dispose();
+  await f.notifications.markSeen(
+    f.id(0),
+    new Date(Date.now() + 1000).toISOString(),
+  );
+  const metadata = vi.spyOn(f.metadata, "getMetadataBatch");
+  let query = new RetainedSessionQuery(f.collections, f.deps);
+  try {
+    const page = await query.page({ limit: 10 });
+    expect(metadata).toHaveBeenCalled();
+    expect(page.sessions.find((row) => row.id === f.id(0))?.hasUnread).toBe(
+      false,
+    );
+  } finally {
+    query.dispose();
+  }
+  const database = openTestDiscoveryDatabase(f.directory);
+  database.exec(
+    "UPDATE collection_checkpoint SET valid=0; DELETE FROM collection_cache_rows",
+  );
+  metadata.mockClear();
+  query = new RetainedSessionQuery(f.collections, f.deps);
+  try {
+    expect((await query.page({ limit: 10 })).sessions).toHaveLength(10);
+    expect(metadata).toHaveBeenCalled();
+  } finally {
+    query.dispose();
+  }
+});
+
+it.each([false, true])(
+  "does not checkpoint optimistic facts reverted during a yielded synchronization (overflow=%s)",
+  async (overflow) => {
+    const f = await fixture(300);
+    const id = f.id(0);
+    await f.metadata.setTitle(id, "Original");
+    const internals = f.metadata as unknown as { save(): Promise<void> };
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const save = vi.spyOn(internals, "save").mockReturnValue(held);
+    let pending: Promise<void> | undefined;
+    if (overflow)
+      vi.spyOn(SessionCollectionSql.prototype, "markDirty").mockImplementation(
+        () => {
+          throw new Error("dirty insert failed");
+        },
+      );
+    const batch = f.metadata.getMetadataBatch.bind(f.metadata);
+    let reverted: Promise<void> | undefined;
+    vi.spyOn(f.metadata, "getMetadataBatch").mockImplementation((ids) => {
+      if (ids.includes(id) && !reverted) {
+        pending = f.metadata.setTitle(id, "Pending");
+        const result = batch(ids);
+        reverted = f.metadata.setTitle(id, "Original");
+        // The real writer sees the durable value, clears pins, and writes no row.
+        void (f.metadata as unknown as { doSave(): Promise<void> }).doSave();
+        expect(f.metadata.collectionState().pending.size).toBe(0);
+        return result;
+      }
+      return batch(ids);
+    });
+    const { retainedSessionQuery, RetainedSessionQuery } = await import(
+      "../../src/services/retained-session-query.js"
+    );
+    try {
+      await f.get();
+      const state = openTestDiscoveryDatabase(f.directory).prepare(
+        "SELECT valid FROM collection_checkpoint WHERE id=1",
+      );
+      try {
+        expect(state.get<{ valid: number }>()!.valid).toBe(0);
+      } finally {
+        state.finalize();
+      }
+      expect(
+        (await f.get()).sessions.find((s: { id: string }) => s.id === id)
+          ?.customTitle,
+      ).toBe("Original");
+      retainedSessionQuery(f.collections, f.deps).dispose();
+      const restored = new RetainedSessionQuery(f.collections, f.deps);
+      try {
+        expect(
+          (await restored.page({ limit: 10 })).sessions.find((s) => s.id === id)
+            ?.customTitle,
+        ).toBe("Original");
+      } finally {
+        restored.dispose();
+      }
+    } finally {
+      save.mockRestore();
+      release();
+      await pending;
+      await reverted;
+    }
+  },
+);

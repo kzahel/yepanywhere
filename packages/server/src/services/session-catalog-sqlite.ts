@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { createHash } from "node:crypto";
 import type { ProviderName, UrlProjectId } from "@yep-anywhere/shared";
 import type {
@@ -19,6 +20,7 @@ export interface SessionCatalogSqliteState {
   epoch: string;
   generation: number;
   tombstoneHorizon: number;
+  rowCount: number;
   completedAt: string;
 }
 
@@ -146,8 +148,8 @@ export class SessionCatalogSqliteStore {
            project_id, project_path, project_name, provider, title, title_null,
            created_at, updated_at, last_human_turn_at, async_questions, fidelity,
            row_format, source_version, location_kind, location_path,
-           location_record_id, row_hash, changed_gen, deleted)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+           location_record_id, row_hash, changed_gen, deleted,direct_file)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0,?)
          ON CONFLICT(family, store_key, native_id) DO UPDATE SET
            native_storage_scope = excluded.native_storage_scope,
            native_directory_project_id = excluded.native_directory_project_id,
@@ -170,7 +172,7 @@ export class SessionCatalogSqliteStore {
            location_record_id = excluded.location_record_id,
            row_hash = excluded.row_hash,
            changed_gen = excluded.changed_gen,
-           deleted = 0`,
+           deleted = 0,direct_file=excluded.direct_file`,
       );
       this.upsertText = prepare(
         `INSERT INTO session_catalog_text (catalog_id, full_title)
@@ -200,7 +202,7 @@ export class SessionCatalogSqliteStore {
       );
       // Text rows go with them (ON DELETE CASCADE).
       this.purgeTombstones = prepare(
-        "DELETE FROM session_catalog WHERE deleted = 1 AND changed_gen <= ?",
+        "DELETE FROM session_catalog WHERE deleted = 1 AND changed_gen <= ? RETURNING id",
       );
       this.selectSources = prepare(
         "SELECT family, store_key FROM catalog_sources",
@@ -226,6 +228,100 @@ export class SessionCatalogSqliteStore {
     }
   }
 
+  private scoped = new Map<string, SqliteStatement>();
+  private query(sql: string) {
+    let statement = this.scoped.get(sql);
+    if (!statement) {
+      statement = this.database.prepare(sql);
+      this.scoped.set(sql, statement);
+      this.statements.push(statement);
+    }
+    return statement;
+  }
+  readRow(key: SessionCatalogSqliteKey) {
+    const columns =
+      this.query(`SELECT ${ROW_COLUMNS} FROM session_catalog c LEFT JOIN session_catalog_text t ON t.catalog_id=c.id
+      WHERE c.family=? AND c.store_key=? AND c.native_id=? AND c.deleted=0`).get<CatalogColumns>(
+        key.catalogFamily,
+        key.storeKey,
+        key.sessionId,
+      );
+    return (
+      columns && {
+        row: rowFromColumns(columns),
+        hash: columns.row_hash,
+        order: columns.id,
+      }
+    );
+  }
+  readScopedRows(
+    where: "path" | "project" | "native" | "store" | "questions",
+    value: string,
+  ) {
+    const condition = {
+      path: "c.location_kind='file' AND c.location_path IN (SELECT value FROM json_each(?))",
+      project: "c.project_key=?",
+      native: "c.native_id=?",
+      store:
+        "(c.family,c.store_key)=(SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(json_array(?)))",
+      questions:
+        "c.family='codex' AND c.location_kind='file' AND c.async_questions IS NULL AND ? IS NOT NULL",
+    }[where];
+    return this.query(
+      `SELECT ${ROW_COLUMNS} FROM session_catalog c LEFT JOIN session_catalog_text t ON t.catalog_id=c.id WHERE c.deleted=0 AND ${condition} ORDER BY c.id`,
+    )
+      .all<CatalogColumns>(value)
+      .map((c) => ({ row: rowFromColumns(c), hash: c.row_hash, order: c.id }));
+  }
+  readStoreKeys(family: string, store: string) {
+    return this.query(
+      "SELECT native_id FROM session_catalog WHERE family=? AND store_key=? AND deleted=0",
+    )
+      .all<{ native_id: string }>(family, store)
+      .map((r) => ({
+        catalogFamily: family as ProviderCatalogFamily,
+        storeKey: store,
+        sessionId: r.native_id,
+      }));
+  }
+  fileStoreProject(family: string, store: string) {
+    const projects = this.query(
+      "SELECT project_key FROM catalog_store_projects WHERE family=? AND store_key=? LIMIT 2",
+    ).all<{ project_key: string }>(family, store);
+    if (projects.length !== 1) return undefined;
+    const c =
+      this.query(`SELECT ${ROW_COLUMNS} FROM session_catalog c LEFT JOIN session_catalog_text t ON t.catalog_id=c.id
+      WHERE c.family=? AND c.store_key=? AND c.deleted=0 AND c.direct_file=1 AND c.project_key=? ORDER BY c.id LIMIT 1`).get<CatalogColumns>(
+        family,
+        store,
+        projects[0]!.project_key,
+      );
+    return c && rowFromColumns(c);
+  }
+  readProjectFacts(stores: readonly SessionCatalogSqliteSource[]) {
+    return this.query(`SELECT c.project_key,c.family,COUNT(*) AS members,MAX(c.updated_at) AS latest,
+      (SELECT project_path FROM session_catalog first WHERE first.deleted=0 AND first.project_key=c.project_key
+       AND (first.family,first.store_key) IN (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?)) ORDER BY first.id LIMIT 1) AS path
+      FROM session_catalog c WHERE c.deleted=0 AND (c.family,c.store_key) IN
+      (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?))
+      GROUP BY c.project_key,c.family`).all<{
+      project_key: string;
+      family: ProviderCatalogFamily;
+      members: number;
+      latest: string;
+      path: string;
+    }>(
+      ...Array(2).fill(
+        JSON.stringify(stores.map((s) => [s.catalogFamily, s.storeKey])),
+      ),
+    );
+  }
+  hasInvalidRows() {
+    return !!this.query(
+      "SELECT id FROM session_catalog WHERE async_questions IS NOT NULL AND NOT json_valid(async_questions) LIMIT 1",
+    ).get();
+  }
+
   readState(): SessionCatalogSqliteState | undefined {
     return stateFromRow(this.selectState.get<StateColumns>());
   }
@@ -236,9 +332,11 @@ export class SessionCatalogSqliteStore {
    * table over: change readers cannot follow a lineage backwards.
    */
   writeGeneration(
-    state: Omit<SessionCatalogSqliteState, "tombstoneHorizon">,
+    state: Omit<SessionCatalogSqliteState, "tombstoneHorizon" | "rowCount">,
     rows: Iterable<Readonly<SessionCatalogRow>>,
     sources: readonly SessionCatalogSqliteSource[],
+    skipUnchanged = false,
+    purgeTo = 0,
   ): SessionCatalogSqliteWrite {
     return this.database.transaction(() => {
       const previous = this.readState();
@@ -246,6 +344,13 @@ export class SessionCatalogSqliteStore {
         !previous ||
         previous.epoch !== state.epoch ||
         previous.generation > state.generation;
+      if (!previous)
+        this.writeState.run(
+          state.epoch,
+          state.generation,
+          state.generation,
+          state.completedAt,
+        );
       if (lineageReplaced) this.deleteAllRows.run();
       const stored = new Map<
         string,
@@ -287,19 +392,37 @@ export class SessionCatalogSqliteStore {
         this.deleteTextById.run(existing.id);
         rowsTombstoned += 1;
       }
-      this.writeSources(sources);
+      const sourcesChanged = this.writeSources(sources);
+      if (
+        skipUnchanged &&
+        !lineageReplaced &&
+        !sourcesChanged &&
+        rowsWritten === 0 &&
+        rowsTombstoned === 0
+      )
+        return {
+          rowsWritten,
+          rowsTombstoned,
+          tombstonesPurged: 0,
+          lineageReplaced: false,
+        };
+      const horizon = lineageReplaced
+        ? state.generation
+        : Math.max(previous!.tombstoneHorizon, purgeTo);
+      const tombstonesPurged =
+        !lineageReplaced && horizon > previous!.tombstoneHorizon
+          ? this.purgeTombstones.all(horizon).length
+          : 0;
       this.writeState.run(
         state.epoch,
         state.generation,
-        lineageReplaced
-          ? state.generation
-          : (previous?.tombstoneHorizon ?? state.generation),
+        horizon,
         state.completedAt,
       );
       return {
         rowsWritten,
         rowsTombstoned,
-        tombstonesPurged: 0,
+        tombstonesPurged,
         lineageReplaced,
       };
     });
@@ -317,11 +440,12 @@ export class SessionCatalogSqliteStore {
    * deletion after its generation, and one behind it must read in full.
    */
   applyChanges(
-    state: Omit<SessionCatalogSqliteState, "tombstoneHorizon">,
+    state: Omit<SessionCatalogSqliteState, "tombstoneHorizon" | "rowCount">,
     previousGeneration: number,
     changes: readonly SessionCatalogSqliteChange[],
     sources: readonly SessionCatalogSqliteSource[],
     tombstoneHorizon = 0,
+    skipUnchanged = false,
   ): SessionCatalogSqliteWrite {
     return this.database.transaction(() => {
       const previous = this.readState();
@@ -355,15 +479,20 @@ export class SessionCatalogSqliteStore {
           const { catalogFamily, storeKey, sessionId } = change.key;
           if (upserted.has(rowKey(catalogFamily, storeKey, sessionId)))
             continue;
-          const { changes: tombstoned } = this.tombstoneKey.run(
-            state.generation,
+          const existing = this.selectHash.get<{ deleted: number }>(
             catalogFamily,
             storeKey,
             sessionId,
           );
-          if (tombstoned > 0) {
+          if (existing?.deleted === 0) {
+            this.tombstoneKey.run(
+              state.generation,
+              catalogFamily,
+              storeKey,
+              sessionId,
+            );
             this.deleteText.run(catalogFamily, storeKey, sessionId);
-            rowsTombstoned += tombstoned;
+            rowsTombstoned++;
           }
           continue;
         }
@@ -377,14 +506,26 @@ export class SessionCatalogSqliteStore {
         this.writeRow(row, hash, state.generation);
         rowsWritten += 1;
       }
-      this.writeSources(sources);
+      const sourcesChanged = this.writeSources(sources);
+      if (
+        skipUnchanged &&
+        !sourcesChanged &&
+        rowsWritten === 0 &&
+        rowsTombstoned === 0
+      )
+        return {
+          rowsWritten,
+          rowsTombstoned,
+          tombstonesPurged: 0,
+          lineageReplaced: false,
+        };
       const horizon = Math.min(
         state.generation,
         Math.max(previous.tombstoneHorizon, tombstoneHorizon),
       );
       const tombstonesPurged =
         horizon > previous.tombstoneHorizon
-          ? this.purgeTombstones.run(horizon).changes
+          ? this.purgeTombstones.all(horizon).length
           : 0;
       this.writeState.run(
         state.epoch,
@@ -411,12 +552,17 @@ export class SessionCatalogSqliteStore {
    * longer reassembles throws {@link SessionCatalogRowError}; a database error
    * passes through.
    */
-  readRowsWithHashes(): { row: SessionCatalogRow; hash: string }[] {
+  readRowsWithHashes(): {
+    row: SessionCatalogRow;
+    hash: string;
+    order: number;
+  }[] {
     const stored = this.selectRows.all<CatalogColumns>();
     try {
       return stored.map((columns) => ({
         row: rowFromColumns(columns),
         hash: columns.row_hash,
+        order: columns.id,
       }));
     } catch (error) {
       throw new SessionCatalogRowError(
@@ -507,6 +653,9 @@ export class SessionCatalogSqliteStore {
       location.kind === "file" ? null : location.recordId,
       hash,
       generation,
+      Number(
+        location.kind === "file" && dirname(location.path) === row.storeKey,
+      ),
     );
     const key = [row.catalogFamily, row.storeKey, row.sessionId] as const;
     if (title !== null && title.length > CATALOG_TITLE_PREFIX_LENGTH) {
@@ -516,7 +665,10 @@ export class SessionCatalogSqliteStore {
     }
   }
 
-  private writeSources(sources: readonly SessionCatalogSqliteSource[]): void {
+  private writeSources(
+    sources: readonly SessionCatalogSqliteSource[],
+  ): boolean {
+    let changed = false;
     const stored = new Set(
       this.selectSources
         .all<{ family: string; store_key: string }>()
@@ -527,14 +679,18 @@ export class SessionCatalogSqliteStore {
       const key = rowKey(source.catalogFamily, source.storeKey);
       if (wanted.has(key)) continue;
       wanted.add(key);
-      if (!stored.has(key))
+      if (!stored.has(key)) {
         this.insertSource.run(source.catalogFamily, source.storeKey);
+        changed = true;
+      }
     }
     for (const key of stored) {
       if (wanted.has(key)) continue;
       const [family, storeKey] = JSON.parse(key) as [string, string];
       this.deleteSource.run(family, storeKey);
+      changed = true;
     }
+    return changed;
   }
 }
 
@@ -558,11 +714,12 @@ interface StateColumns {
   epoch: string;
   generation: number;
   tombstone_horizon: number;
+  row_count: number;
   completed_at: string;
 }
 
 const STATE_SQL =
-  "SELECT epoch, generation, tombstone_horizon, completed_at FROM catalog_state WHERE id = 1";
+  "SELECT epoch, generation, tombstone_horizon, row_count, completed_at FROM catalog_state WHERE id = 1";
 
 function stateFromRow(
   row: StateColumns | undefined,
@@ -572,6 +729,7 @@ function stateFromRow(
         epoch: row.epoch,
         generation: row.generation,
         tombstoneHorizon: row.tombstone_horizon,
+        rowCount: row.row_count,
         completedAt: row.completed_at,
       }
     : undefined;

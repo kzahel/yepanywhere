@@ -19,6 +19,7 @@ import {
 } from "../provider-catalog-family.js";
 import {
   type NativeSessionCatalogAdapter,
+  type CatalogFileLookup,
   SESSION_CATALOG_TITLE_MAX_LENGTH,
   type SessionCatalogRow,
   sessionCatalogRowKey,
@@ -199,6 +200,7 @@ async function refreshChangedRows(
     NativeSessionCatalogAdapter,
     "catalogFamily" | "storeKey"
   >[],
+  lookup?: CatalogFileLookup,
 ): Promise<NativeSessionCatalogAdapter[] | undefined> {
   const knownPaths = new Set(
     previousRows
@@ -215,11 +217,13 @@ async function refreshChangedRows(
   let claudeStores: ReturnType<typeof claudeStoreProjects> | undefined;
   for (const path of changedPaths) {
     if (knownPaths.has(path)) continue;
-    claudeStores ??= claudeStoreProjects(previousRows);
+    if (!lookup) claudeStores ??= claudeStoreProjects(previousRows);
     const name = basename(path);
     const sibling =
       name.endsWith(".jsonl") && !name.startsWith("agent-")
-        ? claudeStores.get(dirname(path))
+        ? lookup
+          ? lookup.fileStoreProject("claude", dirname(path))
+          : claudeStores!.get(dirname(path))
         : undefined;
     if (!sibling) return undefined;
     added.push([path, sibling]);
@@ -265,7 +269,7 @@ async function refreshChangedRows(
   for (const row of previousRows) {
     signal.throwIfAborted();
     if (row.location.kind !== "file" || !changedPaths.has(row.location.path)) {
-      rows.push(row);
+      if (!lookup) rows.push(row);
       continue;
     }
     await reread(
@@ -281,7 +285,22 @@ async function refreshChangedRows(
       filePath,
     });
   }
-  return catalogAdaptersForRows(rows, sources);
+  if (!lookup) return catalogAdaptersForRows(rows, sources);
+  const adapters = catalogAdaptersForRows(rows, previousRows);
+  const kept = new Set(rows.map(sessionCatalogRowKey));
+  return adapters.map((adapter) => ({
+    ...adapter,
+    scan: async (context) => ({
+      ...(await adapter.scan(context)),
+      partial: true,
+      removed: previousRows.filter(
+        (row) =>
+          row.catalogFamily === adapter.catalogFamily &&
+          row.storeKey === adapter.storeKey &&
+          !kept.has(sessionCatalogRowKey(row)),
+      ),
+    }),
+  }));
 }
 
 /**
@@ -320,7 +339,11 @@ export async function collectionCatalogAdapters(
     NativeSessionCatalogAdapter,
     "catalogFamily" | "storeKey"
   >[] = [],
-): Promise<NativeSessionCatalogAdapter[]> {
+  lookup?: CatalogFileLookup,
+): Promise<
+  | NativeSessionCatalogAdapter[]
+  | import("../../services/SessionCatalogService.js").SessionCatalogReconcilePlan
+> {
   if (changedPaths) {
     // A path inside a native store rescans that store; the rest are files.
     const native = nativeCatalogAdapters(deps.getCatalogFamilies(), deps);
@@ -354,9 +377,14 @@ export async function collectionCatalogAdapters(
       signal,
       filePaths,
       sources.filter(unaffected),
+      lookup,
     );
-    if (targeted) return [...targeted, ...affected];
+    if (targeted)
+      return lookup
+        ? { replaceAll: false, adapters: [...targeted, ...affected] }
+        : [...targeted, ...affected];
   }
+  if (lookup) previousRows = await lookup.readAllRows();
   const families = new Set(deps.getCatalogFamilies());
   const fileFamilies = new Set(
     [...families].filter((family) =>
@@ -458,4 +486,16 @@ export async function collectionCatalogAdapters(
   }
   adapters.push(...nativeCatalogAdapters([...families], deps));
   return adapters;
+}
+
+/** Explicit scoped-read factory; unmarked legacy factories receive full rows. */
+export function createCollectionCatalogAdapters(deps: CollectionCatalogDeps) {
+  return Object.assign(
+    (
+      ...scan: Parameters<
+        import("../../services/RetainedSessionCollections.js").RetainedSessionCollectionsOptions["adapters"]
+      >
+    ) => collectionCatalogAdapters(deps, ...scan),
+    { scoped: true },
+  );
 }

@@ -81,9 +81,10 @@ request the tab made and its WebSocket frames (header comment for usage).
    changed rows to clients
    (plan 189 step 8) or the list projection table
    ([SQLite cleanup](sqlite-cleanup-and-wins.md) items 11 and 16).
-3. **A publication still diffs every row** (`buildGeneration`, about 20 ms
-   per write with 7,500 rows): adapters yield all rows even when one file
-   changed ([session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md)).
+3. **Known changed-file publication is now scoped.** The former complete
+   generation walk and retained native catalog mirror are removed. Unknown
+   new-file membership, complete consumers and project SQL aggregation still
+   have population work ([remaining catalog costs](session-catalog-rewrites-whole-generation-per-change.md)).
 4. **Other threads take a third or more of the server's CPU** (12–14 s per
    three minutes of 27–41 s in total, unchanged by those fixes),
    probably V8's garbage-collection and compiler helpers (not attributed
@@ -108,3 +109,12 @@ request the tab made and its WebSocket frames (header comment for usage).
 
 Found 2026-11-10 while profiling, at the maintainer's request, the cost of
 keeping a browser open on a long active session after plan 189.
+
+
+2026-11-10 catalog ownership follow-up: the native parsed corpus and production
+project membership mirrors are removed. Known changed files publish indexed
+row/removal deltas; question enrichment and creation/activity lookups are scoped.
+Safe derived query checkpoints avoid cold JS reconstruction when canonical state
+has not changed. See [catalog evidence](../docs/research/190-catalog-sql-ownership.md).
+Unrecognized new files still rediscover; full SQL restore, project aggregation,
+remaining complete consumers and the long-transcript/client costs remain open.

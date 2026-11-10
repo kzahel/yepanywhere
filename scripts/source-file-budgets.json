@@ -76,7 +76,7 @@
       "maxLines": 1542
     },
     "packages/server/src/app.ts": {
-      "maxLines": 4594
+      "maxLines": 4590
     },
     "packages/server/src/augments/safe-markdown.ts": {
       "maxLines": 1951

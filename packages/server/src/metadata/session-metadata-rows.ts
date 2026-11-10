@@ -120,9 +120,15 @@ const same = (left: readonly Value[], right: readonly Value[]) =>
  */
 export class SessionMetadataRows {
   private readonly changes = new CollectionMetadataChanges();
+  private overlayRevision = 0;
+  pendingChanged(sessionId: string): void {
+    this.overlayRevision++;
+    this.changes.publish(sessionId);
+  }
   collectionState(pending: PendingMetadata) {
     return {
       pending,
+      overlayRevision: this.overlayRevision,
       subscribe: this.changes.subscribe,
     };
   }
