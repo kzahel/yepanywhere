@@ -184,7 +184,7 @@
 }
 
 @media (width >= 1100px) {
-  :global(.session-btw-pane-body) > .btwAsideTranscript {
+  [data-session-btw-pane-body] > .btwAsideTranscript {
     flex: 1;
     max-height: none;
   }

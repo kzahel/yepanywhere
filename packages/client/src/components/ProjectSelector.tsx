@@ -1,3 +1,4 @@
+import chromeSessionHeaderStyles from "./SessionHeader.module.css";
 import { projectDisplayName } from "@yep-anywhere/shared";
 import { useNavigate } from "react-router-dom";
 import { useProjects } from "../hooks/useProjects";
@@ -55,7 +56,14 @@ export function ProjectSelector({
 
   // Don't show selector if only one project
   if (!loading && projects.length <= 1) {
-    return <span className="session-title">{displayName}</span>;
+    return (
+      <span
+        className={`${chromeSessionHeaderStyles["session-title"]}`}
+        data-session-title
+      >
+        {displayName}
+      </span>
+    );
   }
 
   return (

@@ -232,7 +232,7 @@ test("a long-context effort change asks first and can fork at the new effort", a
     await expect(page.locator("[data-composer-input]")).toBeVisible({
       timeout: 30_000,
     });
-    await page.locator(".provider-badge-button").click();
+    await page.locator("[data-provider-badge-button]").click();
     const panel = page.getByRole("dialog").filter({ hasText: "Switch Model" });
     await expect(panel).toBeVisible({ timeout: 15_000 });
     await panel

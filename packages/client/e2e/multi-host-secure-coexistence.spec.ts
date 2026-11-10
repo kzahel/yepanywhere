@@ -473,7 +473,7 @@ test("separate host tabs retain scoped credentials through reconnect and restora
       [page, alpha],
       [other, beta],
     ] as const) {
-      await expect(tab.locator(".session-page")).toContainText(
+      await expect(tab.locator("[data-session-page]")).toContainText(
         host.expectedFixtureText,
       );
       await expect(tab.getByTestId("relay-login-form")).toHaveCount(0);
@@ -486,7 +486,7 @@ test("separate host tabs retain scoped credentials through reconnect and restora
         ["phone", { width: 375, height: 812 }],
       ] as const) {
         await page.setViewportSize(viewport);
-        await expect(page.locator(".session-page")).toContainText(
+        await expect(page.locator("[data-session-page]")).toContainText(
           alpha.expectedFixtureText,
         );
         await recordUiCapture(page, `credential-restoration-${name}`, viewport);

@@ -20,7 +20,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 async function waitForTranscript(page: Page) {
-  const transcript = page.locator(".session-messages");
+  const transcript = page.locator("[data-session-messages]");
   await expect(transcript.locator("[data-message-list]")).not.toHaveAttribute(
     "aria-busy",
     "true",

@@ -965,9 +965,9 @@ export function FileViewerModal({
     publicShareContext === null
       ? (sessionViewerLayer ??
         document.querySelector<HTMLElement>(
-          "[data-navigation-route-layer][data-navigation-active] .session-page",
+          "[data-navigation-route-layer][data-navigation-active] [data-session-page]",
         ) ??
-        document.querySelector<HTMLElement>(".session-page"))
+        document.querySelector<HTMLElement>("[data-session-page]"))
       : null;
 
   return createPortal(

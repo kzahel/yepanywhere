@@ -1,0 +1,31 @@
+.bottom-overscroll-reload {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  transform: translateX(-50%);
+  z-index: 190;
+  pointer-events: none;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  color: var(--text-secondary);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bottom-overscroll-reload--pull {
+  border-color: color-mix(
+    in srgb,
+    var(--provider-codex) 35%,
+    var(--border-color)
+  );
+}
+
+.bottom-overscroll-reload--armed {
+  background: var(--provider-codex);
+  border-color: var(--provider-codex);
+  color: #fff;
+}

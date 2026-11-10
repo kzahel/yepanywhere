@@ -121,7 +121,7 @@ function getFullPaneComposerMaxTextareaHeight(
   minimumHeight: number,
 ): number {
   const host = textarea.closest('[data-composer-full-pane="true"]');
-  const sessionSplit = textarea.closest(".session-split");
+  const sessionSplit = textarea.closest("[data-session-split]");
   const layoutHost = sessionSplit ?? host;
   const layoutHeight =
     layoutHost instanceof HTMLElement
@@ -135,7 +135,7 @@ function getFullPaneComposerMaxTextareaHeight(
   if (!Number.isFinite(availableHeight) || availableHeight <= 0) {
     return Number.POSITIVE_INFINITY;
   }
-  const sessionInput = textarea.closest(".session-input");
+  const sessionInput = textarea.closest("[data-session-input]");
   const surroundingChromeHeight =
     sessionSplit instanceof HTMLElement &&
     sessionInput instanceof HTMLElement &&

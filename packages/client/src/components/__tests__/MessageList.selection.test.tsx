@@ -445,7 +445,7 @@ describe("MessageList selection and copy", () => {
 
     const activeClass = "session-transcript-selection-active";
     const { container, unmount } = render(
-      <div className="session-page">
+      <div data-session-page>
         <MessageList
           messages={[
             assistantMessage("assistant-1", "selected assistant text"),
@@ -453,7 +453,7 @@ describe("MessageList selection and copy", () => {
         />
       </div>,
     );
-    const shell = container.querySelector(".session-page");
+    const shell = container.querySelector("[data-session-page]");
     const selectedText = screen.getByText("selected assistant text").firstChild;
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(selectedText).toBeTruthy();
@@ -497,13 +497,13 @@ describe("MessageList selection and copy", () => {
 
     const activeClass = "session-transcript-selection-active";
     const { container } = render(
-      <div className="session-page">
+      <div data-session-page>
         <MessageList
           messages={[assistantMessage("assistant-1", "desktop selected text")]}
         />
       </div>,
     );
-    const shell = container.querySelector(".session-page");
+    const shell = container.querySelector("[data-session-page]");
     const selectedText = screen.getByText("desktop selected text").firstChild;
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(selectedText).toBeTruthy();

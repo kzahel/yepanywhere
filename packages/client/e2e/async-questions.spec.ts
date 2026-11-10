@@ -209,7 +209,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       const badge = toolbar.getByRole("button", { name: /^3 questions/ });
       await expect(badge).toBeVisible();
       expect(sends).toHaveLength(viewport.name === "phone" ? 0 : 1);
-      const scroller = page.locator("main.session-messages");
+      const scroller = page.locator("main[data-session-messages]");
       // An unrevealed viewport also has bottom distance zero. Establish the
       // actual transcript volume before capturing the question's return position.
       await expect(
@@ -680,7 +680,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       await expect
         .poll(() =>
           page
-            .locator("main.session-messages")
+            .locator("main[data-session-messages]")
             .evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight),
         )
         .toBeLessThan(3);

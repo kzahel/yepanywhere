@@ -299,7 +299,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       await composer.fill("Why is this still running?");
       // Establish the contract's already-following reader before resizing the
       // transcript with a question card.
-      await page.locator("main.session-messages").hover();
+      await page.locator("main[data-session-messages]").hover();
       await page.mouse.wheel(0, 10000);
       await expect(
         page.getByText("Then summarize the results.", { exact: true }),
@@ -334,7 +334,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       await expect
         .poll(() =>
           page
-            .locator("main.session-messages")
+            .locator("main[data-session-messages]")
             .evaluate(
               (element) =>
                 element.scrollHeight - element.scrollTop - element.clientHeight,

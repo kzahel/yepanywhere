@@ -25,7 +25,7 @@ const saved = (route: Parameters<typeof json>[0]) =>
 
 async function startRename(page: Page) {
   await page
-    .locator(".session-header")
+    .locator("[data-session-header]")
     .getByRole("button", { name: "Session options" })
     .click();
   await page.getByRole("menuitem", { name: "Rename...", exact: true }).click();
@@ -38,7 +38,7 @@ test("Rename saves the typed title on Enter, and Escape cancels without a reques
 }) => {
   const session = await openSessionPage(page, baseURL, { owner: "none" });
   await session.answer("PUT", metadataPath, saved);
-  const title = session.header.locator(".session-title-text");
+  const title = session.header.locator("[data-session-title-text]");
   const original = (await title.textContent()) ?? "";
 
   let input = await startRename(page);
@@ -94,7 +94,7 @@ test("leaving the inline rename field saves a changed title and cancels an uncha
   await elsewhere.click();
   await expect.poll(session.requests).toEqual([`PUT ${metadataPath}`]);
   expect(session.calls[0]?.body).toEqual({ title: "Saved on blur" });
-  await expect(session.header.locator(".session-title-text")).toHaveText(
+  await expect(session.header.locator("[data-session-title-text]")).toHaveText(
     "Saved on blur",
   );
 });
@@ -111,7 +111,7 @@ test("Generate Title proposes from the current title, then saves the proposal", 
     }),
   );
   await session.answer("PUT", metadataPath, saved);
-  const title = session.header.locator(".session-title-text");
+  const title = session.header.locator("[data-session-title-text]");
   const original = (await title.textContent()) ?? "";
   await session.header.getByRole("button", { name: "Session options" }).click();
   await page
@@ -142,7 +142,7 @@ test("after Generate Title fails, Enter does nothing and Ctrl+Enter saves the ty
     json(route, 500, { error: "Retitle refused by pin" }),
   );
   await session.answer("PUT", metadataPath, saved);
-  const title = session.header.locator(".session-title-text");
+  const title = session.header.locator("[data-session-title-text]");
   const original = (await title.textContent()) ?? "";
   await session.header.getByRole("button", { name: "Session options" }).click();
   await page
@@ -152,7 +152,7 @@ test("after Generate Title fails, Enter does nothing and Ctrl+Enter saves the ty
   await expect.poll(session.requests).toEqual([`POST ${retitlePath}`]);
   await expect(page.getByText("Retitle refused by pin")).toBeVisible();
   // The retitle field, not the rename editor (which manual Rename opens).
-  const field = session.header.locator("input.session-title-input");
+  const field = session.header.locator("input[data-session-title-input]");
   await expect(field).toBeEditable();
   await expect(field).toHaveValue(original);
   await field.press("Enter");
@@ -182,7 +182,7 @@ test("/title saves a typed title, and bare /title generates and applies one", as
       generatorSessionId: "pin-generator",
     }),
   );
-  const title = session.header.locator(".session-title-text");
+  const title = session.header.locator("[data-session-title-text]");
   // Bare /title generates only once forks (and so title generation) are
   // offered.
   await session.forksOffered();

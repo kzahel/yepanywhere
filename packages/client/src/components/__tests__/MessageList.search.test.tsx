@@ -563,7 +563,7 @@ describe("MessageList reverse search", () => {
       value: vi.fn(),
     });
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     render(
@@ -1337,7 +1337,7 @@ describe("MessageList reverse search", () => {
 
   it("centers a clicked all-turn preview without a blur-time re-jump", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     render(
@@ -1399,7 +1399,7 @@ describe("MessageList reverse search", () => {
 
   it("Enter after arrowing to a match jumps like clicking that match", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     const rafQueue: FrameRequestCallback[] = [];
@@ -1470,7 +1470,7 @@ describe("MessageList reverse search", () => {
 
   it("Ctrl+R Enter after arrowing jumps to the highlighted user turn", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     render(
@@ -1514,7 +1514,7 @@ describe("MessageList reverse search", () => {
 
   it("Enter after arrowing in conversation view pins the same match", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     const rafQueue: FrameRequestCallback[] = [];

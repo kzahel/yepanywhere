@@ -4771,7 +4771,7 @@ export const MessageList = memo(function MessageList({
     !isScrolledToBottom && typeof document !== "undefined"
       ? followButtonPortalTarget === undefined
         ? querySessionRouteLayerElement<HTMLElement>(
-            ".session-input-inner",
+            "[data-session-input-inner]",
             containerRef.current,
           )
         : followButtonPortalTarget

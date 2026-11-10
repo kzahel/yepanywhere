@@ -81,10 +81,10 @@ textarea {
    touch-selection shield; its pointer-coarse gate
    (shouldShieldTranscriptSelection) is the single decider, so these rules
    carry no media query of their own. */
-.session-page.session-transcript-selection-active .session-header,
-.session-page.session-transcript-selection-active .session-header *,
-.session-page.session-transcript-selection-active .session-input,
-.session-page.session-transcript-selection-active .session-input *,
+[data-session-page].session-transcript-selection-active [data-session-header],
+[data-session-page].session-transcript-selection-active [data-session-header] *,
+[data-session-page].session-transcript-selection-active [data-session-input],
+[data-session-page].session-transcript-selection-active [data-session-input] *,
 body.session-transcript-selection-active .reload-banner,
 body.session-transcript-selection-active .reload-banner * {
   -webkit-user-select: none;

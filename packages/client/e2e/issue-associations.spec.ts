@@ -203,7 +203,7 @@ test("automatically discovers Jira and GitHub references from viewed and recent 
       await expect(
         page.getByRole("main").getByText("Working on", { exact: false }),
       ).toBeVisible();
-      const share = page.locator(".session-header").getByRole("button", {
+      const share = page.locator("[data-session-header]").getByRole("button", {
         name: /active viewer|Open public share controls/,
       });
       if (size.width === 375) {

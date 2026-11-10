@@ -1,3 +1,84 @@
+.session-messages {
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding: 1rem;
+  padding-inline-end: var(--turn-rail-content-padding-inline-end);
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  /* Softly fade the bottom few px of scrolling content into the composer,
+     so text doesn't hard-cut right above the connection bar. */
+  --session-messages-fade: 6px;
+  mask-image: linear-gradient(
+    to bottom,
+    black calc(100% - var(--session-messages-fade)),
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black calc(100% - var(--session-messages-fade)),
+    transparent
+  );
+}
+.session-split {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (width >= 1100px) {
+  .session-split.session-split-with-aside {
+    display: grid;
+    grid-template:
+      "messages aside" minmax(0, 1fr)
+      "input    aside" auto
+      / minmax(0, 1fr) minmax(380px, 1fr);
+  }
+}
+
+@media (width >= 1100px) {
+  .session-split.session-split-with-aside.session-split-aside-collapsed {
+    grid-template-columns: minmax(0, 1fr) 28px;
+  }
+}
+
+@media (width >= 1100px) {
+  .session-split.session-split-with-aside > .session-messages {
+    grid-area: messages;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: auto;
+  }
+}
+
+@media (width >= 1100px) {
+  .session-split.session-split-with-aside > [data-session-input] {
+    grid-area: input;
+    min-width: 0;
+  }
+}
+
+@media (width >= 1100px) {
+  .session-split.session-split-with-aside > [data-session-btw-pane],
+  .session-split.session-split-with-aside > [data-session-btw-pane-handle] {
+    grid-area: aside;
+  }
+}
+@media (width <= 600px) {
+  .session-messages {
+    padding: 0.5rem 0.375rem;
+    padding-inline-end: var(--turn-rail-content-padding-inline-end);
+    scrollbar-gutter: auto;
+    scrollbar-width: none;
+  }
+}
+@media (width <= 600px) {
+  .session-messages::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .workspace[data-main-content-constrained],
 .workspace[data-main-content-mobile-inner] {
   position: relative;
@@ -13,7 +94,7 @@
   min-height: 0;
   overflow: hidden;
 }
-.sessionSplit:global(.session-split) {
+.sessionSplit.session-split {
   position: relative;
   display: grid;
   min-width: 0;
@@ -78,16 +159,14 @@
         var(--session-right-pane-width, 480px)
       );
   }
-  .sessionSplit:global(.session-split-with-aside) {
+  .sessionSplit.session-split-with-aside {
     grid-template:
       "messages aside" minmax(0, 1fr)
       "input aside" auto
       / minmax(0, 1fr) minmax(380px, 1fr);
   }
 
-  .sessionSplit:global(
-    .session-split-with-aside.session-split-aside-collapsed
-  ) {
+  .sessionSplit[data-session-split-with-aside][data-session-split-aside-collapsed] {
     grid-template-columns: minmax(0, 1fr) 28px;
   }
 }

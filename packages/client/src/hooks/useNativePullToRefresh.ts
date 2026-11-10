@@ -28,7 +28,9 @@ export function useNativePullToRefresh(onReload: () => void): Status {
       while (element) {
         // A nested scroll surface owns the gesture, even at its own top.
         if (
-          element.matches("[data-page-scroll-container], .session-messages")
+          element.matches(
+            "[data-page-scroll-container], [data-session-messages]",
+          )
         ) {
           if (element.scrollTop <= 2)
             gesture = {

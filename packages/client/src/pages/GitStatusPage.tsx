@@ -270,8 +270,12 @@ function SourceHeaderActions({
     }
     const controls = controlsRef.current;
     const tabs = tabsRef.current;
-    const header = controls?.closest<HTMLElement>(".session-header-inner");
-    const identity = header?.querySelector<HTMLElement>(".session-header-left");
+    const header = controls?.closest<HTMLElement>(
+      "[data-session-header-inner]",
+    );
+    const identity = header?.querySelector<HTMLElement>(
+      "[data-session-header-left]",
+    );
     const actionGroup = controls?.querySelector<HTMLElement>(
       "[data-source-action-group]",
     );

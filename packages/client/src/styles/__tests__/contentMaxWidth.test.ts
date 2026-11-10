@@ -41,7 +41,7 @@ function expectNormalSessionSelectorUsesContentWidth(
   ).toMatch(/max-width:\s*var\(--content-max-width\)\s*;/);
   expect(
     declarations,
-    `${selector} must not widen normal sessions with max-width: none. Keep any wide exception scoped to .session-split-with-aside.`,
+    `${selector} must not widen normal sessions with max-width: none. Keep any wide exception scoped to [data-session-split-with-aside].`,
   ).not.toMatch(/max-width:\s*none\s*;/);
 }
 
@@ -51,11 +51,11 @@ describe("session content width CSS contract", () => {
 
     expectNormalSessionSelectorUsesContentWidth(
       css,
-      ".mainContentConstrained .session-messages [data-message-list]",
+      ".mainContentConstrained [data-session-messages] [data-message-list]",
     );
     expectNormalSessionSelectorUsesContentWidth(
       css,
-      ".mainContentConstrained .session-input-inner",
+      ".mainContentConstrained [data-session-input-inner]",
     );
   });
 
@@ -63,7 +63,7 @@ describe("session content width CSS contract", () => {
     const css = await readStylesheet();
     const declarations = getRuleDeclarations(
       css,
-      ".mainContentMobileInner .session-input-inner,\n.mainContentMobileInner .session-messages [data-message-list]",
+      ".mainContentMobileInner [data-session-input-inner],\n.mainContentMobileInner [data-session-messages] [data-message-list]",
     );
 
     expect(
@@ -79,7 +79,7 @@ describe("session content width CSS contract", () => {
   it("keeps the /btw split-pane full-track exception explicit", async () => {
     const css = await readStylesheet();
     const splitOverride =
-      /\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\[data-session-read-scope\]\s+\[data-message-list\],\s*\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\[data-session-input\]\s+\.session-input-inner\s*\{[^}]*max-width:\s*none\s*;/m;
+      /\.mainContentConstrained\s+\[data-session-split\]\[data-session-split-with-aside\]\s*>\s*\[data-session-read-scope\]\s+\[data-message-list\],\s*\.mainContentConstrained\s+\[data-session-split\]\[data-session-split-with-aside\]\s*>\s*\[data-session-input\]\s+\[data-session-input-inner\]\s*\{[^}]*max-width:\s*none\s*;/m;
 
     expect(
       css,

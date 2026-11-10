@@ -637,7 +637,7 @@ describe("MessageList scroll and follow", () => {
 
   it("shows a composer follow control when scrolled away from latest", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
     const onFollowCurrent = vi.fn();
 
@@ -683,7 +683,7 @@ describe("MessageList scroll and follow", () => {
 
   it("publishes live-tail return state when Follow is activated", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
     const onScrollSnapshotChange = vi.fn();
     const promptTimestamp = "2026-08-26T12:00:00.000Z";
@@ -1202,7 +1202,7 @@ describe("MessageList scroll and follow", () => {
 
   it("keeps catching up after Follow while output grows", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     const { container } = render(
@@ -1438,7 +1438,7 @@ describe("MessageList scroll and follow", () => {
 
   it("does not follow visible thinking deltas until Follow is clicked", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     let resizeCallback: ResizeObserverCallback | null = null;
@@ -1546,7 +1546,7 @@ describe("MessageList scroll and follow", () => {
 
   it("re-pins an active follower to the new bottom when content shrinks", async () => {
     const composerTarget = document.createElement("div");
-    composerTarget.className = "session-input-inner";
+    composerTarget.setAttribute("data-session-input-inner", "");
     document.body.append(composerTarget);
 
     let resizeCallback: ResizeObserverCallback | null = null;

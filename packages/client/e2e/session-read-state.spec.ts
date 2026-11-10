@@ -177,7 +177,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         timeout: 30_000,
       });
       await expect.poll(() => listeners.length).toBeGreaterThan(0);
-      const transcript = page.locator("main.session-messages");
+      const transcript = page.locator("main[data-session-messages]");
       await transcript.focus();
       await page.keyboard.press("u");
       await expect.poll(() => hasUnread).toBe(true);
@@ -294,7 +294,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         .getByRole("complementary")
         .getByRole("button", { name: "Close sidebar", exact: true })
         .click();
-      const menu = page.locator(".session-header .session-menu-trigger");
+      const menu = page.locator("[data-session-header] .session-menu-trigger");
       await menu.click();
       await page
         .getByRole("menuitem", { name: "Mark as read", exact: true })

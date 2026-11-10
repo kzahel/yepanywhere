@@ -36,7 +36,7 @@ for (const viewport of [
     });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
-    const list = page.locator(".session-messages [data-message-list]");
+    const list = page.locator("[data-session-messages] [data-message-list]");
     await expect(list.locator('[data-render-id="history-user-9"]')).toBeVisible(
       {
         timeout: 10000,
@@ -138,7 +138,7 @@ for (const viewport of [
         const range = CSS.highlights.get("session-isearch")?.values().next()
           .value as Range | undefined;
         const port = document
-          .querySelector(".session-messages")
+          .querySelector("[data-session-messages]")
           ?.getBoundingClientRect();
         if (!range || !port) return null;
         const rect = range.getBoundingClientRect();

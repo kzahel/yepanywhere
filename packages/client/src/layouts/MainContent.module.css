@@ -1,12 +1,12 @@
 @media (width >= 1100px) {
   .mainContentConstrained
-    :global(.session-split):global(.session-split-with-aside)
+    [data-session-split][data-session-split-with-aside]
     > [data-session-read-scope]
     :global([data-message-list]),
   .mainContentConstrained
-    :global(.session-split):global(.session-split-with-aside)
+    [data-session-split][data-session-split-with-aside]
     > [data-session-input]
-    :global(.session-input-inner) {
+    [data-session-input-inner] {
     width: 100%;
     max-width: none;
     margin-left: 0;
@@ -28,10 +28,8 @@
   min-height: 0; /* Critical for nested flex overflow */
 }
 
-.mainContentMobileInner :global(.session-input-inner),
-.mainContentMobileInner
-  :global(.session-messages)
-  :global([data-message-list]) {
+.mainContentMobileInner [data-session-input-inner],
+.mainContentMobileInner [data-session-messages] :global([data-message-list]) {
   width: 100%;
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -44,7 +42,7 @@
 }
 
 @media (width <= 600px) {
-  .mainContentConstrained :global(.session-input) {
+  .mainContentConstrained [data-session-input] {
     padding-right: 2px;
     padding-left: 2px;
   }
@@ -75,7 +73,7 @@
 }
 
 @media (width >= 1100px) {
-  .mainContentConstrained :global(.session-messages) {
+  .mainContentConstrained [data-session-messages] {
     overflow-y: auto;
     scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
@@ -91,7 +89,7 @@
 }
 
 @media (width >= 1100px) {
-  .mainContentConstrained :global(.session-input-inner) {
+  .mainContentConstrained [data-session-input-inner] {
     width: 100%;
     max-width: var(--content-max-width);
     margin: 0 auto;
@@ -99,9 +97,7 @@
 }
 
 @media (width >= 1100px) {
-  .mainContentConstrained
-    :global(.session-messages)
-    :global([data-message-list]) {
+  .mainContentConstrained [data-session-messages] :global([data-message-list]) {
     width: 100%;
     max-width: var(--content-max-width);
     margin: 0 auto;

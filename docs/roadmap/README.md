@@ -1168,10 +1168,12 @@ single-owner pages, settings/onboarding, source browser/file-page chrome,
 collections/sidebar/navigation, shared page/modal shells and transcript/tool
 owners, including shared source/code/task/status/path modules and viewer/diff
 wrappers. Emitted Markdown/math/Shiki descendants retain one generated owner.
-Legacy lines are 4,385 (index 4,350; renderers 35; tool rows 0). The review repair
+Legacy lines are 3,716 (index 3,681; renderers 35; tool rows 0). The review repair
 restores mobile/focus hooks, rem sizes and explicit cross-module winners.
-Session chrome is next. Step 8 remains open. The composer CSS still moves unchanged last;
-its control swaps remain excluded.
+Session chrome has landed: shared page/header, viewport/split/messages/footer,
+/btw pane and status/warning owners preserve geometry and interaction states.
+The composer ownership move is next and remains unchanged; its control swaps
+stay excluded. Step 8 remains open.
 
 ## Later directions
 

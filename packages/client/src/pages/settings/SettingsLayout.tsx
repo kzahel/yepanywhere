@@ -1,3 +1,4 @@
+import chromeSessionHeaderStyles from "../../components/SessionHeader.module.css";
 import pageStyles from "../../layouts/PageLayout.module.css";
 import rowsStyles from "./SettingsRows.module.css";
 import layoutStyles from "./SettingsLayout.module.css";
@@ -483,7 +484,8 @@ export function SettingsLayout() {
   const settingsBreadcrumb = (
     <span className={layoutStyles.breadcrumb}>
       <ButtonBase
-        className={`session-title ${layoutStyles.breadcrumbRoot}`}
+        className={`${chromeSessionHeaderStyles["session-title"]} ${layoutStyles.breadcrumbRoot}`}
+        data-session-title
         onClick={handleSettingsTitleClick}
       >
         {t("pageTitleSettings")}

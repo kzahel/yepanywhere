@@ -125,7 +125,7 @@ test("directory mentions resolve per occurrence and session controls stay local"
   await recordUiCapture(page, "directory-links-phone");
   // Link changes can scroll the transcript asynchronously. That sibling scroll
   // must not dismiss a menu anchored to the stationary composer toolbar.
-  await page.locator(".session-messages").evaluate(async (transcript) => {
+  await page.locator("[data-session-messages]").evaluate(async (transcript) => {
     const scrolled = new Promise<void>((resolve) => {
       transcript.addEventListener("scroll", () => resolve(), { once: true });
     });

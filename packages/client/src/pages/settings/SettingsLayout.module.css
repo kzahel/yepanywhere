@@ -5,7 +5,7 @@
   min-width: 0;
   overflow: hidden;
 }
-.breadcrumb :global(.session-title).breadcrumbRoot {
+.breadcrumb [data-session-title].breadcrumbRoot {
   flex-shrink: 0;
 }
 

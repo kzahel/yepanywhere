@@ -209,8 +209,8 @@ test("right pane discovers tool apps, resizes, parks and preserves typing", asyn
   if (await skip.isVisible()) await skip.click();
   const pane = page.getByRole("complementary", { name: "Session pane" });
   const appAction = page.getByRole("button", { name: "App", exact: true });
-  const sessionHeader = page.locator(".session-header");
-  const title = sessionHeader.locator(".session-title-text");
+  const sessionHeader = page.locator("[data-session-header]");
+  const title = sessionHeader.locator("[data-session-title-text]");
   await (await failedLinks).finished();
   await expect(title).toHaveText("Review implementation");
   // The links request runs even when no app can be resolved. Its transport
@@ -268,10 +268,10 @@ test("right pane discovers tool apps, resizes, parks and preserves typing", asyn
     name: "Resize session pane",
   });
   const before = await pane.boundingBox();
-  const header = (await page.locator(".session-header").boundingBox())!;
+  const header = (await page.locator("[data-session-header]").boundingBox())!;
   expect(header.x + header.width).toBeLessThanOrEqual(before!.x + 1);
   expect(Math.abs(header.y - before!.y)).toBeLessThan(2);
-  const transcript = page.locator(".session-messages");
+  const transcript = page.locator("[data-session-messages]");
   await expect
     .poll(() =>
       transcript.evaluate(
@@ -442,7 +442,7 @@ test("right pane discovers tool apps, resizes, parks and preserves typing", asyn
   finishStop?.();
   expect((await stopped).ok()).toBe(true);
   await page.reload();
-  await expect(page.locator(".session-header")).toBeVisible();
+  await expect(page.locator("[data-session-header]")).toBeVisible();
   await expect(appAction).toHaveCount(0);
   await expect(appLink).toBeVisible();
   emit?.({ ...result, uuid: "new-launch" });

@@ -71,6 +71,14 @@ own their layout and states. Shared source typography, output status, paths and
 task presentation have one module each; DOM consumers and fixtures use stable
 data hooks. Native data markers must survive wrapper components and finite
 status maps; removing a styling class never removes an existing DOM contract.
+Session and generic page headers share one header module; navigation owns the
+viewport frame, while session split/messages and footer chrome own their geometry.
+The /btw pane, connection/status indicators, overscroll hint and warning content
+have local owners. Cross-owner header, transcript, split and footer relationships
+use stable `data-session-*` boundaries with the previous selector specificity.
+Conditional split boundaries are present only while their corresponding layout
+state is active. Document selection shielding targets those boundaries; its
+`session-transcript-selection-active` state remains document-owned.
 
 
 The target:

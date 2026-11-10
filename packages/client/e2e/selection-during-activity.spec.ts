@@ -382,7 +382,7 @@ test("a held button stops follow scrolling and a click resumes it", async ({
 }) => {
   test.setTimeout(180_000);
   const session = await openLiveSession(page);
-  const scroller = page.locator("main.session-messages");
+  const scroller = page.locator("main[data-session-messages]");
   const metrics = () =>
     scroller.evaluate((node) => ({
       height: node.scrollHeight,

@@ -1,3 +1,5 @@
+import chromeExternalSessionWarningStyles from "./ExternalSessionWarning.module.css";
+import styles from "./PendingToolWarning.module.css";
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import { useTheme } from "../hooks/useTheme";
@@ -65,9 +67,13 @@ export function PendingToolWarning({
       onDismiss={onDismiss}
       dismissLabel={t("sessionPendingElsewhereDismiss")}
     >
-      <div className="pending-tool-warning-copy">
+      <div
+        className={styles["pending-tool-warning-copy"]}
+        data-pending-tool-warning-copy
+      >
         <svg
-          className="pending-tool-warning-icon"
+          className={styles["pending-tool-warning-icon"]}
+          data-pending-tool-warning-icon
           width="14"
           height="14"
           viewBox="0 0 24 24"
@@ -123,9 +129,20 @@ function PendingToolRiskExplanation({
 }) {
   const { t } = useI18n();
   return (
-    <div className="external-session-risk-explanation">
-      <div className="pending-tool-warning-call">
-        <span className="pending-tool-warning-call-label">
+    <div
+      className={
+        chromeExternalSessionWarningStyles["external-session-risk-explanation"]
+      }
+      data-external-session-risk-explanation
+    >
+      <div
+        className={styles["pending-tool-warning-call"]}
+        data-pending-tool-warning-call
+      >
+        <span
+          className={styles["pending-tool-warning-call-label"]}
+          data-pending-tool-warning-call-label
+        >
           {toolRegistry.getDisplayName(toolName, "pending")}
         </span>
         {toolRegistry.renderToolUse(toolName, toolInput, {
@@ -148,7 +165,12 @@ function PendingToolRiskExplanation({
           {t("pendingToolRiskDiscardBody")}
         </li>
       </ul>
-      <p className="external-session-risk-caveat">
+      <p
+        className={
+          chromeExternalSessionWarningStyles["external-session-risk-caveat"]
+        }
+        data-external-session-risk-caveat
+      >
         {t("pendingToolRiskCaveat")}
       </p>
     </div>

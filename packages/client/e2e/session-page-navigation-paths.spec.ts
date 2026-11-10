@@ -107,7 +107,7 @@ async function arriveFromBangHistory(
 ) {
   await page.goto(`${baseURL}/bang-commands`);
   await page.getByRole("button", { name: action }).click();
-  await expect(page.locator(".session-title-skeleton")).toBeVisible();
+  await expect(page.locator("[data-session-title-skeleton]")).toBeVisible();
   await page.evaluate((text) => {
     (window as unknown as { pinProbe: { expect?: string } }).pinProbe.expect =
       text;

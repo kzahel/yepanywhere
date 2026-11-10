@@ -141,7 +141,7 @@ test("warns before compacting an active Codex turn and enables it when idle", as
 
       await composer.fill("");
       await page
-        .locator(".session-header")
+        .locator("[data-session-header]")
         .getByRole("button", { name: "Session options" })
         .click();
       const compact = page.getByRole("menuitem", {
@@ -154,7 +154,7 @@ test("warns before compacting an active Codex turn and enables it when idle", as
           path: join(captureDir, `${viewport.name}-menu.png`),
         });
       await page
-        .locator(".session-header")
+        .locator("[data-session-header]")
         .getByRole("button", { name: "Session options" })
         .click();
       await composer.fill("/compact");
@@ -174,7 +174,7 @@ test("warns before compacting an active Codex turn and enables it when idle", as
     ).toContainText("Compact conversation context");
     await composer.fill("");
     await page
-      .locator(".session-header")
+      .locator("[data-session-header]")
       .getByRole("button", { name: "Session options" })
       .click();
     await page.getByRole("menuitem", { name: "Compact", exact: true }).click();

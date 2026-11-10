@@ -335,7 +335,7 @@ export function installMessageListTestEnvironment() {
   });
 
   afterEach(() => {
-    document.querySelectorAll(".session-input-inner").forEach((node) => {
+    document.querySelectorAll("[data-session-input-inner]").forEach((node) => {
       node.remove();
     });
     document

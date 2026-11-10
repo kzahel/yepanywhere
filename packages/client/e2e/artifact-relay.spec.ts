@@ -576,7 +576,7 @@ test("keeps the mobile session mounted through artifact open, park, and Back", a
   await composer.fill("Keep this draft and mounted session");
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(artifactRequests).toHaveLength(idleRequests);
-  const sessionNode = await page.locator(".session-page").elementHandle();
+  const sessionNode = await page.locator("[data-session-page]").elementHandle();
   const composerNode = await composer.elementHandle();
   const transcriptNode = await page
     .locator("[data-message-list]")
@@ -634,7 +634,9 @@ test("keeps the mobile session mounted through artifact open, park, and Back", a
       "Keep artifact state",
     );
     const viewerBox = await viewer.boundingBox();
-    const composerBox = await page.locator(".session-input").boundingBox();
+    const composerBox = await page
+      .locator("[data-session-input]")
+      .boundingBox();
     expect(viewerBox).not.toBeNull();
     expect(composerBox).not.toBeNull();
     expect(viewerBox!.y + viewerBox!.height).toBeLessThanOrEqual(
@@ -654,12 +656,13 @@ test("keeps the mobile session mounted through artifact open, park, and Back", a
     await expect(viewer).toHaveCount(0);
     expect(
       await sessionNode?.evaluate(
-        (node) => node === document.querySelector(".session-page"),
+        (node) => node === document.querySelector("[data-session-page]"),
       ),
     ).toBe(true);
     expect(
       await composerNode?.evaluate(
-        (node) => node === document.querySelector(".session-input textarea"),
+        (node) =>
+          node === document.querySelector("[data-session-input] textarea"),
       ),
     ).toBe(true);
     expect(

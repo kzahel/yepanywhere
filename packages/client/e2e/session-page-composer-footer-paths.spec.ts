@@ -78,7 +78,7 @@ test("a pending approval replaces the composer; Yes approves it", async ({
 }) => {
   const session = await openWithRequest(page, baseURL, approvalRequest, true);
   await session.answer("POST", inputPath, accepted);
-  const panel = page.locator(".session-input-inner");
+  const panel = page.locator("[data-session-input-inner]");
   await expect(
     panel.getByRole("button", { name: "1 Yes", exact: true }),
   ).toBeVisible();
@@ -103,7 +103,7 @@ test("No denies a pending approval", async ({ page, baseURL }) => {
   const session = await openWithRequest(page, baseURL, approvalRequest, true);
   await session.answer("POST", inputPath, accepted);
   await page
-    .locator(".session-input-inner")
+    .locator("[data-session-input-inner]")
     .getByRole("button", { name: "2 No", exact: true })
     .click();
   await expect.poll(session.requests).toEqual([`POST ${inputPath}`]);
@@ -118,7 +118,7 @@ test("collapsing the approval panel leaves the toolbar's expand control, which b
   baseURL,
 }) => {
   await openWithRequest(page, baseURL, approvalRequest, true);
-  const footer = page.locator(".session-input-inner");
+  const footer = page.locator("[data-session-input-inner]");
   const yes = footer.getByRole("button", { name: "1 Yes", exact: true });
   await expect(yes).toBeVisible();
 
@@ -137,7 +137,7 @@ test("a pending question shows above a collapsed composer and Submit sends the a
 }) => {
   const session = await openWithRequest(page, baseURL, questionRequest, false);
   await session.answer("POST", inputPath, accepted);
-  const footer = page.locator(".session-input-inner");
+  const footer = page.locator("[data-session-input-inner]");
   await expect(footer.getByText("Which parser should I use?")).toBeVisible();
   // The composer stays beneath the question, collapsed.
   await expect(page.locator(".message-input")).toHaveClass(
@@ -197,7 +197,7 @@ test("an edit approval offers don't-ask-again, which approves and accepts edits"
   );
   await session.answer("POST", inputPath, accepted);
   await page
-    .locator(".session-input-inner")
+    .locator("[data-session-input-inner]")
     .getByRole("button", { name: /Yes, and don't ask again/ })
     .click();
   await expect.poll(session.requests).toEqual([`POST ${inputPath}`]);
@@ -213,7 +213,7 @@ test("a typed reason denies an approval with feedback, each key shown within 100
 }) => {
   const session = await openWithRequest(page, baseURL, approvalRequest, true);
   await session.answer("POST", inputPath, accepted);
-  const footer = page.locator(".session-input-inner");
+  const footer = page.locator("[data-session-input-inner]");
   await footer
     .getByRole("button", { name: "Tell the agent what to do instead" })
     .click();
@@ -243,7 +243,7 @@ test("a typed Other answer is sent, each key shown within 100 ms", async ({
 }) => {
   const session = await openWithRequest(page, baseURL, questionRequest, true);
   await session.answer("POST", inputPath, accepted);
-  const footer = page.locator(".session-input-inner");
+  const footer = page.locator("[data-session-input-inner]");
   await footer.getByRole("button", { name: /Other/ }).click();
   const other = footer.getByPlaceholder("Type your answer...");
   await typeEachKeyWithin100ms(other, "pratt parser", (typed) =>

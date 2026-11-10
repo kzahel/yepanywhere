@@ -119,15 +119,15 @@ describe("Source Control layout boundaries", () => {
     const css = await readFile(gitStatusPageStylesheetUrl, "utf8");
     const header = getLastRuleDeclarations(
       css,
-      ".sourceHeader :global(.session-header-inner)",
+      ".sourceHeader [data-session-header-inner]",
     );
     const identity = getLastRuleDeclarations(
       css,
-      ".sourceHeader :global(.session-header-left)",
+      ".sourceHeader [data-session-header-left]",
     );
     const actions = getLastRuleDeclarations(
       css,
-      ".sourceHeader :global(.session-header-actions)",
+      ".sourceHeader [data-session-header-actions]",
     );
     const titleActions = getLastRuleDeclarations(
       css,

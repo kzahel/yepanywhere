@@ -130,84 +130,12 @@
 }
 
 /* Session page layout */
-.session-page {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh; /* Dynamic viewport height - accounts for mobile browser chrome */
-  overflow: hidden; /* Prevent body scroll */
-  background: var(--bg-surface);
-}
-
-.session-header {
-  flex-shrink: 0; /* Never shrink the header */
-  background: var(--bg-surface);
-  position: relative;
-  z-index: 10;
-}
-
-.session-header-inner {
-  padding: calc(0.5rem - 1px) 1rem calc(0.5rem - 1px) 0.25rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 44px; /* Consistent height whether toggle button is present or not */
-}
-
-.session-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
 
 /* Source Control's header composition lives in `GitStatusPage.module.css`. */
-
-.session-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0; /* Allow text truncation */
-  flex: 1;
-}
-
-.session-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  row-gap: 2px;
-  flex-shrink: 0;
-  margin-left: 2px;
-}
 
 /* Sidebar toggle: layout for all; the look only for the <a> launchers. */
 
 /* Project breadcrumb in session header */
-.project-breadcrumb-wrapper {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.project-breadcrumb {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  text-decoration: none;
-  flex-shrink: 0;
-  white-space: nowrap;
-  padding: 2px 0;
-  max-width: 8.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.15s;
-}
-
-.project-breadcrumb:hover {
-  color: var(--text-primary);
-}
 
 /* ==========================================================================
    Sidebar
@@ -216,161 +144,10 @@
 /* Unified sidebar navigation section and items */
 
 /* Unified pulse animation for thinking/running state */
-@keyframes thinking-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(0.9);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.session-title {
-  color: var(--text-primary);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  /* Allow shrinking inside the header instead of leaving unused space. */
-  max-width: 100%;
-  font-size: var(--font-size-base);
-  font-family: var(--font-ui);
-  text-align: left;
-}
-
-.session-title:hover {
-  color: var(--text-secondary);
-}
 
 /* Settings header breadcrumb: clickable "Settings" root + active pane title. */
 
 /* Root segment keeps its size; the current-page segment ellipsizes. */
-
-.session-title-input {
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: inherit;
-  font-family: inherit;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 0.125rem 0.375rem;
-  flex: 1 1 16rem;
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-}
-
-.session-title-input:focus {
-  outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.session-title-input:disabled {
-  color: var(--text-muted);
-  background: var(--bg-hover);
-  cursor: not-allowed;
-}
-
-.session-title-edit {
-  display: flex;
-  flex: 1 1 16rem;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.session-title-edit-row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-.session-title-chevron-trigger {
-  flex-shrink: 0;
-}
-
-.session-title-retitle-accept.is-armed,
-.session-title-retitle-accept.is-armed:disabled {
-  color: var(--accent-primary);
-  opacity: 0.7;
-}
-
-.session-title-retitle-status {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  line-height: 1.1;
-}
-
-.session-title-retitle-status.is-ready {
-  color: var(--text-secondary);
-}
-
-.session-title-retitle-status.is-error {
-  color: var(--error-color);
-}
-
-.session-title-retitle-status.is-armed {
-  color: var(--accent-primary);
-}
-
-.session-title-skeleton {
-  display: inline-block;
-  width: 120px;
-  height: 1em;
-  background: var(--bg-hover);
-  border-radius: var(--radius-sm);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.session-title-recent-trigger {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  flex: 0 1 auto;
-}
-
-.session-title-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.session-title-chevron {
-  opacity: 0.6;
-  flex-shrink: 0;
-  transition: transform 0.15s ease;
-}
-
-.session-title-chevron-trigger.is-open .session-title-chevron {
-  opacity: 1;
-  transform: rotate(180deg);
-}
-
-.session-title-chevron-trigger:hover .session-title-chevron,
-.session-title-chevron-trigger:focus-visible .session-title-chevron {
-  opacity: 1;
-}
 
 /*
  * Recent sessions dropdown: RecentSessionsDropdown.module.css owns the panel,
@@ -380,274 +157,12 @@
  * .recent-sessions-badge hooks solely so these rules still match.
  */
 
-.session-messages {
-  flex: 1;
-  overflow: auto;
-  scrollbar-gutter: stable;
-  padding: 1rem;
-  padding-inline-end: var(--turn-rail-content-padding-inline-end);
-  min-height: 0;
-  -webkit-overflow-scrolling: touch;
-  /* Softly fade the bottom few px of scrolling content into the composer,
-     so text doesn't hard-cut right above the connection bar. */
-  --session-messages-fade: 6px;
-  mask-image: linear-gradient(
-    to bottom,
-    black calc(100% - var(--session-messages-fade)),
-    transparent
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    black calc(100% - var(--session-messages-fade)),
-    transparent
-  );
-}
-
 /* Full-width scroll container pattern for pages (like inbox, settings)
    Outer element handles scrolling, inner element is constrained to max-width on desktop */
 
-.session-input {
-  flex-shrink: 0; /* Never shrink the input area */
-  padding: calc(0.75rem - 1px) var(--composer-window-padding-inline);
-  background: var(--bg-surface);
-}
-
-.session-input-inner {
-  position: relative;
-}
-
 /* Wide-screen split layout: parent messages | focused /btw aside pane */
-.session-split {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.session-btw-pane {
-  display: none;
-}
-
-.session-btw-pane-handle {
-  display: none;
-}
-
-@media (width >= 1100px) {
-  /* Grid layout: messages top-left, footer bottom-left, aside (or handle)
-     spans the full right column. The footer narrows to the messages column
-     when an aside is focused; otherwise the layout falls back to the
-     default flex-column above. */
-  .session-split.session-split-with-aside {
-    display: grid;
-    grid-template:
-      "messages aside" minmax(0, 1fr)
-      "input    aside" auto
-      / minmax(0, 1fr) minmax(380px, 1fr);
-  }
-
-  .session-split.session-split-with-aside.session-split-aside-collapsed {
-    grid-template-columns: minmax(0, 1fr) 28px;
-  }
-
-  .session-split.session-split-with-aside > .session-messages {
-    grid-area: messages;
-    min-width: 0;
-    min-height: 0;
-    overflow-x: auto;
-  }
-
-  .session-split.session-split-with-aside > .session-input {
-    grid-area: input;
-    min-width: 0;
-  }
-
-  .session-split.session-split-with-aside > .session-btw-pane,
-  .session-split.session-split-with-aside > .session-btw-pane-handle {
-    grid-area: aside;
-  }
-
-  .session-btw-pane {
-    display: flex;
-    flex-direction: column;
-    width: auto;
-    min-width: 0;
-    height: 100%;
-    border-left: 3px solid var(--provider-codex);
-    background: color-mix(in srgb, var(--bg-code) 72%, var(--bg-surface));
-    overflow: hidden;
-  }
-
-  .session-btw-pane.is-failed {
-    border-left-color: var(--error-color);
-  }
-
-  .session-btw-pane.is-stopped {
-    border-left-color: var(--text-muted);
-  }
-
-  .session-btw-pane.is-complete {
-    border-left-color: var(--success-color);
-  }
-
-  .session-btw-pane-header {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: var(--space-2);
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border-subtle);
-    background: color-mix(
-      in srgb,
-      var(--bg-surface) 80%,
-      var(--provider-codex) 6%
-    );
-  }
-
-  .session-btw-pane-meta {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .session-btw-pane-title {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-primary);
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .session-btw-pane-actions {
-    display: flex;
-    flex-direction: row;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-
-  .session-btw-pane-body {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: 0.75rem;
-    overscroll-behavior: contain;
-  }
-
-  .session-btw-pane-empty {
-    color: var(--text-muted);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-  }
-
-  .session-btw-pane-handle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 100%;
-    border-left: 1px solid var(--border-color);
-    background: var(--bg-surface);
-    color: var(--text-secondary);
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    font-size: var(--font-size-sm);
-    letter-spacing: 0.08em;
-  }
-
-  .session-btw-pane-handle:hover,
-  .session-btw-pane-handle:focus-visible {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-
-  /* Sticky aside composer: anchored at the bottom of the pane so it stays
-     visible while the body scrolls. Intentionally minimal — textarea + send
-     button. Slash commands beyond /done are not parsed here; for those the
-     user can switch to Mother's footer. */
-  .session-btw-pane-composer {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-end;
-    gap: var(--space-2);
-    padding: 0.5rem 0.75rem;
-    border-top: 1px solid var(--border-subtle);
-    background: color-mix(
-      in srgb,
-      var(--bg-surface) 88%,
-      var(--provider-codex) 4%
-    );
-  }
-
-  .session-btw-pane-composer-textarea {
-    flex: 1;
-    min-width: 0;
-    max-height: 8rem;
-    padding: 0.4rem 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input, var(--bg-surface));
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: var(--font-size-sm);
-    line-height: 1.35;
-    resize: vertical;
-  }
-
-  .session-btw-pane-composer-textarea:focus-visible {
-    outline: none;
-    border-color: var(--provider-codex);
-  }
-}
 
 /* Mobile content wrappers - ensure flex layout propagates */
-@media (width <= 600px) {
-  .session-header {
-    padding: 0;
-  }
-
-  .session-header-inner {
-    padding: 0.375rem 0.375rem 0.375rem 0.25rem;
-  }
-
-  .session-header-left {
-    gap: 0.375rem;
-  }
-
-  .session-messages {
-    padding: 0.5rem 0.375rem;
-    padding-inline-end: var(--turn-rail-content-padding-inline-end);
-    scrollbar-gutter: auto;
-    scrollbar-width: none;
-  }
-
-  .session-messages::-webkit-scrollbar {
-    display: none;
-  }
-
-  .session-input {
-    padding: 0.5rem 0.375rem;
-    padding-bottom: calc(0.5rem - 1px);
-    padding-right: 2px;
-    padding-left: 2px;
-  }
-}
-@media (width < 1100px) {
-  .session-page {
-    /* Use fixed height instead of dvh to avoid layout shifts */
-    height: 100%;
-    position: fixed;
-    inset: 0;
-    /* Safe area insets for Tauri mobile (edge-to-edge) — keeps dark bg behind
-       status bar / nav bar while pushing content inside the safe area */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-}
 
 /* Message input wrapper with collapse toggle */
 .message-input-wrapper {
@@ -2942,105 +2457,14 @@
 }
 
 /* Status */
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.status-dot.status-idle {
-  background: var(--text-muted);
-}
-
-.status-dot.status-owned {
-  background: var(--success-color);
-}
-
-.status-dot.status-owned.process-running {
-  background: var(--thinking-color);
-  animation: thinking-pulse 1.5s ease-in-out infinite;
-}
-
-.status-dot.status-owned.process-waiting-input {
-  background: var(--warning-color);
-}
-
-.status-dot.status-external {
-  background: var(--warning-color);
-}
-
-.status-dot.disconnected {
-  background: var(--error-color);
-  animation: thinking-pulse 1s ease-in-out infinite;
-}
 
 /* External session warning banner. Kept compact (small font, tight leading
    and padding) so a multi-line warning doesn't eat the top of a phone screen. */
 
-.external-session-risk-explanation {
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-.external-session-risk-explanation p {
-  margin: 0 0 0.6rem;
-}
-
-.external-session-risk-explanation ul {
-  margin: 0 0 0.6rem;
-  padding-left: 1.1rem;
-}
-
-.external-session-risk-explanation li {
-  margin-bottom: 0.5rem;
-}
-
-.external-session-risk-explanation .external-session-risk-caveat {
-  margin-bottom: 0;
-  opacity: 0.85;
-}
-
 /* The actual unfinished tool call, shown at the top of the pending-tool
    explanation so "which call?" is concrete before the hedged effects. */
-.pending-tool-warning-call {
-  margin-bottom: 0.6rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-code);
-  overflow-x: auto;
-}
-
-.pending-tool-warning-call-label {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-weight: 600;
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  opacity: 0.7;
-}
 
 /* Pending tool warning - slightly different styling for informational message */
-
-.pending-tool-warning-copy {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.pending-tool-warning-icon {
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-  opacity: 0.8;
-}
 
 /* ==========================================================================
    Tool Approval Panel - VSCode-style approval with options
@@ -3063,38 +2487,6 @@
 /* ==========================================================================
    Reload Banner - Dev mode manual reload notifications
    ========================================================================== */
-
-.bottom-overscroll-reload {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
-  transform: translateX(-50%);
-  z-index: 190;
-  pointer-events: none;
-  padding: 0.5rem 0.875rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
-  color: var(--text-secondary);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.bottom-overscroll-reload--pull {
-  border-color: color-mix(
-    in srgb,
-    var(--provider-codex) 35%,
-    var(--border-color)
-  );
-}
-
-.bottom-overscroll-reload--armed {
-  background: var(--provider-codex);
-  border-color: var(--provider-codex);
-  color: #fff;
-}
 
 /* ==========================================================================
    Settings Page
@@ -3175,10 +2567,6 @@
 
 /* Container for multiple action controls (dropdown + button) */
 
-@container (max-width: 36rem) {
-  /* A picker keeps its options on one line where they fit. */
-}
-
 /* Keep a number input and its unit together as one wrap unit, so a narrow
    actions row breaks after the unit rather than between value and unit. The
    unit is muted, smaller, and baseline-aligned with the box's digits. */
@@ -3213,21 +2601,8 @@
    ========================================================================== */
 
 /* Session title row with action buttons */
-.session-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  min-width: 0;
-  flex: 1;
-  /* Note: Don't use overflow:hidden here - it clips the dropdown menu */
-}
 
 /* Star indicator next to title */
-.star-indicator-inline {
-  color: var(--warning-color);
-  margin-right: var(--space-1);
-  flex-shrink: 0;
-}
 
 /* Star button special styling */
 
@@ -3929,16 +3304,6 @@
 }
 
 /* Clickable provider badge button (in session header) */
-.provider-badge-button {
-  display: inline-flex;
-  border-radius: var(--radius-sm);
-  transition: opacity 0.15s;
-  transform: translateY(-1px);
-}
-
-.provider-badge-button:hover {
-  opacity: 0.8;
-}
 
 /* Model Selection Section */
 .new-session-model-section {
@@ -4304,43 +3669,9 @@
 
 /* Info box for explaining things like "SW disabled only affects this device" */
 
-@keyframes connection-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
 /* ==========================================================================
    Session Connection Bar
    ========================================================================== */
-
-.session-connection-bar {
-  height: 1px;
-  margin-bottom: 2px;
-  pointer-events: none;
-  transition: background-color 0.3s ease;
-}
-
-.session-connection-connected {
-  background-color: var(--success-color);
-}
-
-.session-connection-connecting {
-  background-color: var(--thinking-color);
-  animation: connection-pulse 1.5s ease-in-out infinite;
-}
-
-.session-connection-disconnected {
-  background-color: var(--error-color);
-}
-
-.session-connection-idle {
-  background-color: var(--border-subtle);
-}
 
 /* ---- Git Status Page ---- */
 

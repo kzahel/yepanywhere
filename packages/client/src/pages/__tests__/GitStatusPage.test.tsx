@@ -418,7 +418,9 @@ describe("GitStatusPage source header", () => {
       expect(mocks.listReviewComments).toHaveBeenCalledWith("project-a"),
     );
 
-    const header = document.querySelector(".session-header") as HTMLElement;
+    const header = document.querySelector(
+      "[data-session-header]",
+    ) as HTMLElement;
     expect(
       header.querySelectorAll('[data-testid="repo-status-bar"]'),
     ).toHaveLength(1);
@@ -480,12 +482,12 @@ describe("GitStatusPage source header", () => {
       const parent = element.parentElement;
       if (parent?.matches("[data-source-action-group]")) return 80;
       if (parent?.getAttribute("role") === "tablist") return 72;
-      if (parent?.classList.contains("session-header-left")) return 96;
+      if (parent?.hasAttribute("data-session-header-left")) return 96;
       return 0;
     };
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
       function (this: HTMLElement) {
-        return this.classList.contains("session-header-inner")
+        return this.hasAttribute("data-session-header-inner")
           ? headerWidth
           : widthOf(this);
       },
@@ -515,7 +517,9 @@ describe("GitStatusPage source header", () => {
     try {
       renderPage();
       await screen.findByTestId("working-tree-browser");
-      const header = document.querySelector(".session-header") as HTMLElement;
+      const header = document.querySelector(
+        "[data-session-header]",
+      ) as HTMLElement;
       expect(
         header.querySelector('[data-source-actions-placement="title"]'),
       ).not.toBeNull();
@@ -1139,7 +1143,9 @@ describe("GitStatusPage source header", () => {
 
     // Placement is the wrapping header row's decision, so a narrow viewport
     // keeps the same single selector rather than growing a second one.
-    const header = document.querySelector(".session-header") as HTMLElement;
+    const header = document.querySelector(
+      "[data-session-header]",
+    ) as HTMLElement;
     expect(
       header.querySelector('[data-testid="repo-status-bar"]'),
     ).not.toBeNull();

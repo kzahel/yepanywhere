@@ -147,7 +147,7 @@ for (const { dismiss, viewport } of [
     await expect(framed).not.toHaveClass(/landed/);
     await recordUiCapture(page, `selected-${dismiss}`, viewport);
     await page.waitForTimeout(100);
-    await page.locator(".session-messages").evaluate((port) => {
+    await page.locator("[data-session-messages]").evaluate((port) => {
       port.scrollTop -= 60;
     });
     const text = framed.getByText("The specimen is ready.", { exact: true });

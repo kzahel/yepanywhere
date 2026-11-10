@@ -142,19 +142,19 @@
    navigation in one wrapping header. Operations use the title row only when
    their measured intrinsic demand fits; otherwise they take a full row below
    identity and mode navigation. */
-.sourceHeader :global(.session-header-inner) {
+.sourceHeader [data-session-header-inner] {
   flex-wrap: wrap;
   column-gap: var(--space-2);
   row-gap: var(--space-1);
 }
 
-.sourceHeader :global(.session-header-left) {
+.sourceHeader [data-session-header-left] {
   min-width: 0;
   max-width: 100%;
   flex: 0 1 auto;
 }
 
-.sourceHeader :global(.session-header-actions) {
+.sourceHeader [data-session-header-actions] {
   display: contents;
 }
 

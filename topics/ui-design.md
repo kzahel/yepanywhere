@@ -82,6 +82,11 @@ input acknowledgement, hover/focus and phone geometry.
 Collection pages, compact session rows, sidebar density/collapse and navigation
 now retain their existing look through explicit shared modules. Page scrolling
 and retained-route lookup use stable data boundaries; the composer is unchanged.
+Shared page/session headers, viewport/split layout, /btw pane and footer chrome
+now have module owners. Header density, inline/dialog rename, connection states,
+selection shielding and content-width/overflow behavior retain their existing
+look. Stable data boundaries serve DOM consumers and browser fixtures; the
+composer controls remain unchanged until their final ownership-only move.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 

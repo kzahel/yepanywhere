@@ -1,0 +1,51 @@
+.session-input {
+  flex-shrink: 0; /* Never shrink the input area */
+  padding: calc(0.75rem - 1px) var(--composer-window-padding-inline);
+  background: var(--bg-surface);
+}
+
+.session-input-inner {
+  position: relative;
+}
+@media (width <= 600px) {
+  .session-input {
+    padding: 0.5rem 0.375rem;
+    padding-bottom: calc(0.5rem - 1px);
+    padding-right: 2px;
+    padding-left: 2px;
+  }
+}
+
+.session-connection-bar {
+  height: 1px;
+  margin-bottom: 2px;
+  pointer-events: none;
+  transition: background-color 0.3s ease;
+}
+
+.session-connection-connected {
+  background-color: var(--success-color);
+}
+
+.session-connection-connecting {
+  background-color: var(--thinking-color);
+  animation: connection-pulse 1.5s ease-in-out infinite;
+}
+
+.session-connection-disconnected {
+  background-color: var(--error-color);
+}
+
+.session-connection-idle {
+  background-color: var(--border-subtle);
+}
+
+@keyframes connection-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

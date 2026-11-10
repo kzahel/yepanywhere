@@ -160,7 +160,7 @@ for (const viewport of [
       page,
       testInfo,
       `${viewport.name}-session`,
-      page.locator(".session-messages"),
+      page.locator("[data-session-messages]"),
     );
     if (viewport.name === "mobile") {
       await second.scrollIntoViewIfNeeded();
@@ -168,7 +168,7 @@ for (const viewport of [
         page,
         testInfo,
         "mobile-session-tall",
-        page.locator(".session-messages"),
+        page.locator("[data-session-messages]"),
       );
     }
 

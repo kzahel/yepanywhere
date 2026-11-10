@@ -1,3 +1,4 @@
+import styles from "./StatusIndicator.module.css";
 import type { ProcessState } from "../hooks/useSession";
 import { useI18n } from "../i18n";
 import type { SessionStatus } from "../types";
@@ -49,15 +50,31 @@ export function StatusIndicator({
 
   return (
     <div
-      className="status-indicator"
+      className={styles["status-indicator"]}
+      data-status-indicator
       title={statusText}
       role="status"
       aria-label={statusText}
     >
       <span
-        className={`status-dot status-${getStatusClass(status)} process-${getProcessClass(
-          processState,
-        )}${!connected ? " disconnected" : ""}`}
+        className={[
+          styles["status-dot"],
+          {
+            idle: styles["status-idle"],
+            owned: styles["status-owned"],
+            external: styles["status-external"],
+          }[getStatusClass(status)],
+          processState === "in-turn"
+            ? styles["process-running"]
+            : processState === "waiting-input"
+              ? styles["process-waiting-input"]
+              : "",
+          !connected ? styles.disconnected : "",
+        ].join(" ")}
+        data-status-dot
+        data-status-owner={getStatusClass(status)}
+        data-process-state={getProcessClass(processState)}
+        data-disconnected={!connected || undefined}
       />
     </div>
   );

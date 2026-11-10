@@ -473,7 +473,7 @@ for (const viewport of [
     if (viewport.width <= 800) {
       const [modalBox, composerBox] = await Promise.all([
         page.locator("[data-file-viewer-modal]").boundingBox(),
-        page.locator(".session-input").boundingBox(),
+        page.locator("[data-session-input]").boundingBox(),
       ]);
       expect(modalBox?.x).toBe(0);
       expect(modalBox?.width).toBe(viewport.width);

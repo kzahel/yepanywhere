@@ -1,3 +1,4 @@
+import styles from "./BtwAsidePane.module.css";
 import btwStyles from "./BtwAsideTranscript.module.css";
 import listStyles from "./MessageList.module.css";
 import { type RefObject, useEffect, useMemo, useRef } from "react";
@@ -116,7 +117,14 @@ export function BtwAsideTranscript({
   }, [autoScrollLatest, latestAssistantSignature]);
 
   if (turns.length === 0) {
-    return <div className="session-btw-pane-empty">{t("btwAsideEmpty")}</div>;
+    return (
+      <div
+        className={styles["session-btw-pane-empty"]}
+        data-session-btw-pane-empty
+      >
+        {t("btwAsideEmpty")}
+      </div>
+    );
   }
 
   return (
@@ -259,19 +267,32 @@ export function BtwAsidePane({
 
   return (
     <aside
-      className={`session-btw-pane is-${aside.status}`}
+      className={`${styles["session-btw-pane"]} ${({ failed: styles["is-failed"], stopped: styles["is-stopped"], complete: styles["is-complete"] } as Record<string, string>)[aside.status] ?? ""}`}
+      data-session-btw-pane
       aria-label="/btw aside (Mother session continues alongside)"
     >
-      <header className="session-btw-pane-header">
-        <div className="session-btw-pane-meta">
+      <header
+        className={styles["session-btw-pane-header"]}
+        data-session-btw-pane-header
+      >
+        <div
+          className={styles["session-btw-pane-meta"]}
+          data-session-btw-pane-meta
+        >
           <span className={btwStyles.btwAsideMeta} data-btw-aside-meta>
             /btw {aside.status}
           </span>
-          <span className="session-btw-pane-title">
+          <span
+            className={styles["session-btw-pane-title"]}
+            data-session-btw-pane-title
+          >
             {aside.request || "New aside"}
           </span>
         </div>
-        <div className="session-btw-pane-actions">
+        <div
+          className={styles["session-btw-pane-actions"]}
+          data-session-btw-pane-actions
+        >
           <Button
             size="small"
             className={btwStyles.btwAsideAction}
@@ -303,7 +324,10 @@ export function BtwAsidePane({
           </Button>
         </div>
       </header>
-      <div className="session-btw-pane-body">
+      <div
+        className={styles["session-btw-pane-body"]}
+        data-session-btw-pane-body
+      >
         <BtwAsideTranscript
           aside={aside}
           autoScrollLatest
@@ -316,7 +340,8 @@ export function BtwAsidePane({
         )}
       </div>
       <form
-        className="session-btw-pane-composer"
+        className={styles["session-btw-pane-composer"]}
+        data-session-btw-pane-composer
         onSubmit={(event) => {
           event.preventDefault();
           submitDraft();
@@ -324,7 +349,8 @@ export function BtwAsidePane({
       >
         <textarea
           ref={composerRef}
-          className="session-btw-pane-composer-textarea"
+          className={styles["session-btw-pane-composer-textarea"]}
+          data-session-btw-pane-composer-textarea
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {

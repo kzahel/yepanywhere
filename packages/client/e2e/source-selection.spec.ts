@@ -299,7 +299,7 @@ test("keeps a dragged selection in a windowed transcript", async ({
 
   // The first marker is above the clipped transcript at the initial bottom
   // position. Reveal both endpoints before starting the native pointer drag.
-  await page.locator(".session-messages").hover();
+  await page.locator("[data-session-messages]").hover();
   await page.mouse.wheel(0, -180);
   await expect
     .poll(async () => (await markerPoint(page, "Windowed reply 28 part 10")).y)

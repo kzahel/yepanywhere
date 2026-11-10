@@ -1,3 +1,4 @@
+import styles from "./ExternalSessionWarning.module.css";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { RiskAffordance } from "./RiskAffordance";
@@ -94,7 +95,10 @@ export function ExternalSessionWarning({ active }: { active: boolean }) {
 function ExternalSessionRiskExplanation() {
   const { t } = useI18n();
   return (
-    <div className="external-session-risk-explanation">
+    <div
+      className={styles["external-session-risk-explanation"]}
+      data-external-session-risk-explanation
+    >
       <p>{t("sessionExternalRiskIntro")}</p>
       <ul>
         <li>
@@ -110,7 +114,10 @@ function ExternalSessionRiskExplanation() {
           {t("sessionExternalRiskLostBody")}
         </li>
       </ul>
-      <p className="external-session-risk-caveat">
+      <p
+        className={styles["external-session-risk-caveat"]}
+        data-external-session-risk-caveat
+      >
         {t("sessionExternalRiskCaveat")}
       </p>
     </div>

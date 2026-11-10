@@ -19,7 +19,9 @@ describe("turn rail horizontal clearance CSS contract", () => {
     const [css, renderersCss, turnRailCss] = await Promise.all([
       readClientStyles(
         "tokens",
-        "index",
+        "../pages/SessionPage.module",
+        "../components/SessionHeader.module",
+        "../components/SessionComposerFooter.module",
         "../components/blocks/UserPromptBlock.module",
       ),
       readFile(renderersStylesheetUrl, "utf8"),

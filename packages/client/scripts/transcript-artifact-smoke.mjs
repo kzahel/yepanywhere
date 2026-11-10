@@ -300,7 +300,7 @@ async function waitForStableTranscript(
   page,
   { minimumRenderRows, settleMs, timeoutMs },
 ) {
-  await page.waitForSelector(".session-messages [data-message-list]", {
+  await page.waitForSelector("[data-session-messages] [data-message-list]", {
     timeout: timeoutMs,
   });
 
@@ -310,7 +310,7 @@ async function waitForStableTranscript(
   while (Date.now() <= deadline) {
     const state = await page.evaluate(() => {
       const list = document.querySelector(
-        ".session-messages [data-message-list]",
+        "[data-session-messages] [data-message-list]",
       );
       const rows = Array.from(
         list?.querySelectorAll("[data-render-id][data-render-type]") ?? [],
@@ -387,9 +387,9 @@ async function collectTranscriptState(page) {
       ).join("");
     };
     const list = document.querySelector(
-      ".session-messages [data-message-list]",
+      "[data-session-messages] [data-message-list]",
     );
-    const scroll = document.querySelector(".session-messages");
+    const scroll = document.querySelector("[data-session-messages]");
     if (!(list instanceof HTMLElement) || !(scroll instanceof HTMLElement)) {
       throw new Error("Transcript containers are missing");
     }
@@ -450,7 +450,7 @@ async function collectTranscriptState(page) {
 }
 
 async function capturePosition(page, outputPath, position) {
-  const scroll = page.locator(".session-messages");
+  const scroll = page.locator("[data-session-messages]");
   await scroll.evaluate((element, wanted) => {
     element.scrollTop = wanted === "top" ? 0 : element.scrollHeight;
   }, position);

@@ -23,7 +23,9 @@ for (const degraded of [false, true]) {
       "/inbox",
     ]) {
       await page.goto(path);
-      const header = page.locator(".session-header").filter({ visible: true });
+      const header = page
+        .locator("[data-session-header]")
+        .filter({ visible: true });
       await expect(header).toBeVisible();
       if (path !== "/inbox") {
         await expect(
@@ -37,7 +39,7 @@ for (const degraded of [false, true]) {
       // resolved body/frame padding as an edge-to-edge Android browser; do
       // not change positioning, overflow, or the app's height calculation.
       await page.addStyleTag({
-        content: "body, .session-page { padding-bottom: 24px; }",
+        content: "body, [data-session-page] { padding-bottom: 24px; }",
       });
       for (const height of [812, 480, 812]) {
         await page.setViewportSize({ width: 375, height });
@@ -61,7 +63,7 @@ for (const degraded of [false, true]) {
           );
         }
         if (path !== "/inbox") {
-          const composer = page.locator("footer.session-input");
+          const composer = page.locator("footer[data-session-input]");
           await expect(composer).toBeVisible();
           await expect
             .poll(async () => {

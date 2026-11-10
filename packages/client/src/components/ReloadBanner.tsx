@@ -62,7 +62,7 @@ export function ReloadBannerStack({
       let lift = 0;
       const composer =
         avoidSessionComposer && window.innerWidth > 600
-          ? querySessionRouteLayerElement<HTMLElement>(".session-input")
+          ? querySessionRouteLayerElement<HTMLElement>("[data-session-input]")
           : null;
       if (composer) {
         const controls = composer.querySelectorAll<HTMLElement>(
@@ -108,7 +108,7 @@ export function ReloadBannerStack({
     window.addEventListener("resize", schedulePlacement);
 
     const composer = avoidSessionComposer
-      ? querySessionRouteLayerElement<HTMLElement>(".session-input")
+      ? querySessionRouteLayerElement<HTMLElement>("[data-session-input]")
       : null;
     const resizeObserver =
       typeof ResizeObserver === "undefined"

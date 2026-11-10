@@ -1,3 +1,23 @@
+.session-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh; /* Dynamic viewport height - accounts for mobile browser chrome */
+  overflow: hidden; /* Prevent body scroll */
+  background: var(--bg-surface);
+}
+@media (width < 1100px) {
+  .session-page {
+    /* Use fixed height instead of dvh to avoid layout shifts */
+    height: 100%;
+    position: fixed;
+    inset: 0;
+    /* Safe area insets for Tauri mobile (edge-to-edge) — keeps dark bg behind
+       status bar / nav bar while pushing content inside the safe area */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 .sidebarFloatingRestore {
   position: fixed;
   top: 2px;
@@ -66,7 +86,7 @@
   }
 }
 
-.frame:global(.session-page) {
+.frame.session-page {
   flex: 1;
   min-height: 0;
   height: auto;
@@ -84,7 +104,7 @@
 }
 
 @media (width >= 1100px) {
-  :global(.session-page).resizing {
+  .session-page.resizing {
     user-select: none;
   }
 }

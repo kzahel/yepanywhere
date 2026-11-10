@@ -245,14 +245,14 @@ describe("ReloadBanner", () => {
       .mockImplementation(function (this: HTMLElement) {
         if (this.classList.contains("reload-banner-stack"))
           return rect(814, 1014, 454, 54);
-        if (this.classList.contains("session-input"))
+        if (this.hasAttribute("data-session-input"))
           return rect(278, 918, 1002, 162);
         if (this.tagName === "BUTTON") return rect(1080, 1032, 100, 36);
         return rect(0, 0, 0, 0);
       });
     const view = (notice: boolean) => (
       <>
-        <footer className="session-input">
+        <footer data-session-input>
           <button type="button">Composer action</button>
         </footer>
         <ReloadBannerStack avoidSessionComposer>
@@ -261,7 +261,7 @@ describe("ReloadBanner", () => {
       </>
     );
     const { rerender, unmount } = render(view(false));
-    document.querySelector<HTMLElement>(".session-input")!.style.height =
+    document.querySelector<HTMLElement>("[data-session-input]")!.style.height =
       "162px";
     await Promise.resolve();
     fireEvent(window, new Event("resize"));
@@ -286,7 +286,7 @@ describe("ReloadBanner", () => {
         if (this.classList.contains("reload-banner-stack")) {
           return rect(814, 1014, 454, 54);
         }
-        if (this.classList.contains("session-input")) {
+        if (this.hasAttribute("data-session-input")) {
           return rect(278, 918, 1002, 162);
         }
         if (this.tagName === "BUTTON") {
@@ -297,7 +297,7 @@ describe("ReloadBanner", () => {
 
     const { unmount } = render(
       <>
-        <footer className="session-input">
+        <footer data-session-input>
           <button type="button">Composer action</button>
         </footer>
         <ReloadBannerStack avoidSessionComposer>

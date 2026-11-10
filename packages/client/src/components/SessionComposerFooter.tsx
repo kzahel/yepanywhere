@@ -1,3 +1,4 @@
+import chromeSessionComposerFooterStyles from "./SessionComposerFooter.module.css";
 import { type ComponentProps, lazy, Suspense } from "react";
 import { loadMessageInputModule } from "../lib/sessionRouteModules";
 import { SessionRouteModuleFallback } from "./SessionRouteModuleFallback";
@@ -384,7 +385,10 @@ export function SessionComposerFooter({
   const { t } = useI18n();
   const { showToast } = useToastContext();
   return (
-    <footer className={`${styles.input} session-input`} data-session-input>
+    <footer
+      className={`${styles.input} ${chromeSessionComposerFooterStyles["session-input"]}`}
+      data-session-input
+    >
       {creationRecovery?.key === creationKey && (
         <div role="status" className={styles.creationRecovery}>
           <span>
@@ -453,10 +457,13 @@ export function SessionComposerFooter({
         </div>
       )}
       <div
-        className={`session-connection-bar session-connection-${sessionConnectionStatus}`}
+        className={`${chromeSessionComposerFooterStyles["session-connection-bar"]} ${{ connected: chromeSessionComposerFooterStyles["session-connection-connected"], connecting: chromeSessionComposerFooterStyles["session-connection-connecting"], disconnected: chromeSessionComposerFooterStyles["session-connection-disconnected"], idle: chromeSessionComposerFooterStyles["session-connection-idle"] }[sessionConnectionStatus]}`}
       />
       <div data-selection-actions-mobile-slot />
-      <div className="session-input-inner">
+      <div
+        className={`${chromeSessionComposerFooterStyles["session-input-inner"]}`}
+        data-session-input-inner
+      >
         <BtwAsideStickyCards
           asides={composerStickyBtwAsides}
           focusedAsideId={focusedBtwAsideId}

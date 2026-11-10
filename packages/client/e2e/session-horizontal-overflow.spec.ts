@@ -19,7 +19,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 async function installWideTable(page: Page) {
-  const list = page.locator(".session-messages [data-message-list]");
+  const list = page.locator("[data-session-messages] [data-message-list]");
   await expect(list).not.toHaveAttribute("aria-busy", "true", {
     timeout: 10000,
   });
@@ -79,7 +79,9 @@ async function installWideTable(page: Page) {
   });
   await page.evaluate(async () => {
     await document.fonts.ready;
-    const transcript = document.querySelector<HTMLElement>(".session-messages");
+    const transcript = document.querySelector<HTMLElement>(
+      "[data-session-messages]",
+    );
     const fixture = document.querySelector<HTMLElement>(
       "[data-horizontal-overflow-fixture]",
     );
@@ -108,11 +110,11 @@ async function shellGeometry(page: Page) {
     };
     return {
       windowScrollX: window.scrollX,
-      header: rectangle(".session-header"),
-      headerInner: rectangle(".session-header-inner"),
-      projectBreadcrumb: rectangle(".project-breadcrumb"),
-      title: rectangle(".session-title-row"),
-      composer: rectangle(".session-input"),
+      header: rectangle("[data-session-header]"),
+      headerInner: rectangle("[data-session-header-inner]"),
+      projectBreadcrumb: rectangle("[data-project-breadcrumb]"),
+      title: rectangle("[data-session-title-row]"),
+      composer: rectangle("[data-session-input]"),
     };
   });
 }
@@ -132,8 +134,9 @@ for (const viewport of [
 
     const geometry = await page.evaluate(() => {
       const documentElement = document.documentElement;
-      const transcript =
-        document.querySelector<HTMLElement>(".session-messages");
+      const transcript = document.querySelector<HTMLElement>(
+        "[data-session-messages]",
+      );
       if (!transcript) throw new Error("Transcript missing");
       return {
         documentClientWidth: documentElement.clientWidth,
@@ -154,7 +157,7 @@ for (const viewport of [
     await attachScreenshot(page, testInfo, `${viewport.name}-left-edge`);
 
     const horizontalPosition = await page
-      .locator(".session-messages")
+      .locator("[data-session-messages]")
       .evaluate((transcript) => {
         transcript.scrollLeft = Math.min(
           360,

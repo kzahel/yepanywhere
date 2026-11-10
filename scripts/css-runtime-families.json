@@ -1,15 +1,5 @@
 [
   {
-    "pattern": "^is-(failed|stopped|complete)$",
-    "source": "packages/client/src/components/BtwAsidePane.tsx",
-    "reason": "Aside lifecycle status interpolated into the pane class; shared by sticky/history cards."
-  },
-  {
-    "pattern": "^is-(ready|error)$",
-    "source": "packages/client/src/components/SessionHeader.tsx",
-    "reason": "Generated session-retitle status interpolated into its result indicator."
-  },
-  {
     "pattern": "^is-(ok|warn|danger)$",
     "source": "packages/client/src/components/MessageInputToolbar.tsx",
     "reason": "Composer liveness and provider runtime tones interpolated into status chips."
@@ -23,16 +13,6 @@
     "pattern": "^thinking-effort-selector--(toolbar|settings)$",
     "source": "packages/client/src/components/ThinkingControls.tsx",
     "reason": "Selector variant interpolated into its root class."
-  },
-  {
-    "pattern": "^(status-(idle|owned|external)|process-(running|waiting-input))$",
-    "source": "packages/client/src/components/StatusIndicator.tsx",
-    "reason": "Status and process classes come from getStatusClass/getProcessClass."
-  },
-  {
-    "pattern": "^bottom-overscroll-reload--(pull|armed)$",
-    "source": "packages/client/src/components/BottomOverscrollReload.tsx",
-    "reason": "Pull gesture status interpolated into the indicator root."
   },
   {
     "pattern": "^thinking-(off|auto|on)$",
@@ -53,11 +33,6 @@
     "pattern": "^recap-after-seconds-control--(off|native|side-session|fork)$",
     "source": "packages/client/src/components/RecapAfterSecondsControl.tsx",
     "reason": "Recap mode interpolated into the root class."
-  },
-  {
-    "pattern": "^session-connection-(connected|connecting|disconnected|idle)$",
-    "source": "packages/client/src/components/SessionComposerFooter.tsx",
-    "reason": "Connection status interpolated into the footer bar."
   },
   {
     "pattern": "^fixed-font-markdown-heading-[1-6]$",
@@ -105,11 +80,6 @@
     "pattern": "^steer-mode$",
     "source": "packages/client/src/components/MessageInput.tsx",
     "reason": "Keyboard action kind interpolated into primary and alternate action classes."
-  },
-  {
-    "pattern": "^(session-title-(chevron-trigger|retitle-accept))$",
-    "source": "packages/client/src/components/SessionHeader.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
   },
   {
     "pattern": "^(bang-composer-chip|message-input-(collapsed-actions|keyboard-actions|keyboard-more))$",

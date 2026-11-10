@@ -259,7 +259,9 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       100,
     );
     const currentTitle = `Live update ${text.length - 1}`;
-    await expect(page.locator(".session-title-text")).toHaveText(currentTitle);
+    await expect(page.locator("[data-session-title-text]")).toHaveText(
+      currentTitle,
+    );
     const staleReply = page.waitForResponse(
       (response) =>
         response.request().method() === "GET" &&
@@ -275,7 +277,9 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     );
     await expect(input).toBeEditable();
     await expect(input).toHaveValue(text);
-    await expect(page.locator(".session-title-text")).toHaveText(currentTitle);
+    await expect(page.locator("[data-session-title-text]")).toHaveText(
+      currentTitle,
+    );
     const accountChip = page.getByRole("button", {
       name: /Open the Account tab/,
     });
@@ -313,7 +317,9 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     ).toHaveLength(1);
     expect(errors).toEqual([]);
     await page.reload();
-    await expect(page.locator(".session-title-text")).toHaveText(currentTitle);
+    await expect(page.locator("[data-session-title-text]")).toHaveText(
+      currentTitle,
+    );
     await expect(
       page.getByText("OWNED_CODEX_CREATION_REPLY", { exact: true }).first(),
     ).toBeVisible();

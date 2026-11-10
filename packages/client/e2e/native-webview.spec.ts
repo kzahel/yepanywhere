@@ -194,7 +194,7 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
     );
     await expect(page.locator("[data-message-list]")).toBeVisible();
     await expect(
-      page.locator(".session-messages").getByRole("status"),
+      page.locator("[data-session-messages]").getByRole("status"),
     ).toHaveCount(0);
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(
       sessionDocument,

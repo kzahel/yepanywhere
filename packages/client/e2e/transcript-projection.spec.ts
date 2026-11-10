@@ -20,7 +20,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 async function waitForCompletedTranscript(page: Page) {
-  const list = page.locator(".session-messages [data-message-list]");
+  const list = page.locator("[data-session-messages] [data-message-list]");
   await expect(list).toBeVisible({ timeout: 10000 });
   await expect(list).not.toHaveAttribute("aria-busy", "true", {
     timeout: 10000,
@@ -65,7 +65,7 @@ async function attachTranscriptScreenshots(
       [data-message-age], [data-turn-rail] { visibility: hidden !important; }
     `,
   });
-  const transcript = page.locator(".session-messages");
+  const transcript = page.locator("[data-session-messages]");
   for (const position of ["top", "tail"] as const) {
     await transcript.evaluate((element, wanted) => {
       element.scrollTop = wanted === "top" ? 0 : element.scrollHeight;
@@ -136,8 +136,9 @@ for (const specimen of [
     );
 
     const widths = await page.evaluate(() => {
-      const transcript =
-        document.querySelector<HTMLElement>(".session-messages");
+      const transcript = document.querySelector<HTMLElement>(
+        "[data-session-messages]",
+      );
       return {
         documentClient: document.documentElement.clientWidth,
         documentScroll: document.documentElement.scrollWidth,

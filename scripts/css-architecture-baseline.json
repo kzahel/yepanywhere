@@ -1,7 +1,7 @@
 {
   "legacyGlobalStyles": {
     "packages/client/src/styles/index.css": {
-      "maxLines": 4350,
+      "maxLines": 3681,
       "reason": "Legacy React-owned application rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/renderers.css": {
@@ -21,20 +21,8 @@
       "count": 2,
       "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
     },
-    "base:class:session-page": {
-      "count": 4,
-      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
-    },
     "base:class:session-transcript-selection-active": {
       "count": 6,
-      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
-    },
-    "base:class:session-header": {
-      "count": 2,
-      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
-    },
-    "base:class:session-input": {
-      "count": 2,
       "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
     },
     "base:class:reload-banner": {

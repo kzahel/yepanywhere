@@ -406,7 +406,7 @@ export function useSelectionActionCapture({
     const setTranscriptSelectionActive = (active: boolean) => {
       const currentRoot = containerRef.current;
       const sessionPage =
-        currentRoot?.closest<HTMLElement>(".session-page") ?? null;
+        currentRoot?.closest<HTMLElement>("[data-session-page]") ?? null;
       const body = currentRoot?.ownerDocument.body ?? null;
       if (activeSessionPage && activeSessionPage !== sessionPage) {
         activeSessionPage.classList.remove(TRANSCRIPT_SELECTION_ACTIVE_CLASS);

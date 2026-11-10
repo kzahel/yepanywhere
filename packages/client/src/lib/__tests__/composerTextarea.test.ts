@@ -208,9 +208,9 @@ describe("composer textarea sizing", () => {
 
   it("uses the session split as the in-session growth limit", () => {
     const split = document.createElement("div");
-    split.className = "session-split";
+    split.setAttribute("data-session-split", "");
     const input = document.createElement("div");
-    input.className = "session-input";
+    input.setAttribute("data-session-input", "");
     const host = document.createElement("div");
     host.dataset.composerFullPane = "true";
     const composer = document.createElement("div");

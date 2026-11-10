@@ -107,7 +107,7 @@ async function installStartupProbe(page: Page) {
         probe.genericPageShellSeen = true;
       }
 
-      const headerVisible = isVisible(".session-header");
+      const headerVisible = isVisible("[data-session-header]");
       const composerVisible = isVisible(".message-input-wrapper");
       headerSeen ||= headerVisible;
       composerSeen ||= composerVisible;
@@ -153,14 +153,14 @@ function expectMonotonicStartup(probe: StartupProbe, viewportHeight: number) {
 }
 
 async function expectSessionReady(page: Page) {
-  await expect(page.locator(".session-header")).toBeVisible({
+  await expect(page.locator("[data-session-header]")).toBeVisible({
     timeout: 15_000,
   });
   await expect(page.locator(".message-input-wrapper")).toBeVisible({
     timeout: 15_000,
   });
   await expect(
-    page.locator(".session-messages").getByText("Previous message"),
+    page.locator("[data-session-messages]").getByText("Previous message"),
   ).toBeVisible({ timeout: 15_000 });
 }
 

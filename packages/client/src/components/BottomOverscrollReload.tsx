@@ -1,3 +1,4 @@
+import styles from "./BottomOverscrollReload.module.css";
 import {
   type BottomOverscrollReloadStatus,
   useBottomOverscrollReload,
@@ -24,7 +25,8 @@ export function BottomOverscrollReload({
 
   return (
     <div
-      className={`bottom-overscroll-reload bottom-overscroll-reload--${status}`}
+      className={`${styles["bottom-overscroll-reload"]} ${status === "armed" ? styles["bottom-overscroll-reload--armed"] : styles["bottom-overscroll-reload--pull"]}`}
+      data-bottom-overscroll-reload
       aria-live="polite"
     >
       {getLabel(status)}

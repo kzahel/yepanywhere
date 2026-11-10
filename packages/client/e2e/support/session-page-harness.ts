@@ -251,7 +251,7 @@ export async function openSessionPage(
       ownership = { owner: "self", processId };
       processState = state;
     },
-    header: page.locator(".session-header"),
+    header: page.locator("[data-session-header]"),
     /**
      * Waits until the page offers forks. Fork support arrives with the
      * server's version after the page loads; until then the fork shortcut,

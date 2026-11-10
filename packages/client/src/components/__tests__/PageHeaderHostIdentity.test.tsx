@@ -54,7 +54,7 @@ describe("PageHeader host identity", () => {
       </HostIdentityProvider>,
     );
 
-    const left = view.container.querySelector(".session-header-left");
+    const left = view.container.querySelector("[data-session-header-left]");
     expect(left?.children[0]?.hasAttribute("data-sidebar-toggle")).toBe(true);
     expect(left?.children[1]).toBe(
       view.getByRole("img", { name: "hostIdentityMarkerAria:💻" }),

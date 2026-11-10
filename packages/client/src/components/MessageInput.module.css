@@ -100,7 +100,7 @@
   height: 15px;
 }
 
-:global(.session-input-inner):has(.fullPaneToggle)
+[data-session-input-inner]:has(.fullPaneToggle)
   > :global(.message-follow-toggle) {
   right: 46px;
 }

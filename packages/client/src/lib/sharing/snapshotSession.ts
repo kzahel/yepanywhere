@@ -23,7 +23,9 @@ export function snapshotSession(title?: string): string {
   }
 
   // 2. Clone the session messages container
-  const messagesEl = querySessionRouteLayerElement("main.session-messages");
+  const messagesEl = querySessionRouteLayerElement(
+    "main[data-session-messages]",
+  );
   if (!messagesEl) {
     throw new Error("Session messages not found");
   }
@@ -83,7 +85,7 @@ body {
   padding: 1rem;
   overflow-y: auto;
 }
-main.session-messages {
+main[data-session-messages] {
   overflow: visible;
   height: auto;
 }

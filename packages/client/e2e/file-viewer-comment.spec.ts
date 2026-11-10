@@ -160,7 +160,7 @@ for (const viewport of [
 
     const [modalBox, composerBox] = await Promise.all([
       page.locator("[data-file-viewer-modal]").boundingBox(),
-      page.locator(".session-input").boundingBox(),
+      page.locator("[data-session-input]").boundingBox(),
     ]);
     if (!modalBox || !composerBox) {
       throw new Error("Expected viewer and composer layout boxes");

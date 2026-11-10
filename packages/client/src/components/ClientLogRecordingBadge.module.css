@@ -15,7 +15,7 @@
   box-shadow: 0 0 0 2px rgba(254, 202, 202, 0.18);
 }
 
-body:has(:global(.session-page))
+body:has([data-session-page])
   .clientLogRecordingBadge:not(.clientLogRecordingBadgeInline) {
   display: none;
 }

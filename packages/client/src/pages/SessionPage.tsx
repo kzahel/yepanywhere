@@ -1,3 +1,5 @@
+import { sessionSplitAppearance } from "./sessionSplitAppearance";
+import chromeBtwAsidePaneStyles from "../components/BtwAsidePane.module.css";
 import {
   SessionPageInvalidRoute,
   getSessionLoadingProgressText,
@@ -3142,16 +3144,11 @@ function SessionPageContent({
           )}
 
         <div
-          className={`${styles.sessionSplit} session-split${
-            wantBtwSplitLayout ? " session-split-with-aside" : ""
-          }${
-            wantBtwSplitLayout && btwSidePaneCollapsed
-              ? " session-split-aside-collapsed"
-              : ""
-          }`}
+          {...sessionSplitAppearance(wantBtwSplitLayout, btwSidePaneCollapsed)}
         >
           <main
-            className={`${styles.messages} session-messages`}
+            className={`${styles.messages} ${styles["session-messages"]}`}
+            data-session-messages
             tabIndex={-1}
             data-session-read-scope={sessionId}
             {...transcriptComposerFocus}
@@ -3396,7 +3393,8 @@ function SessionPageContent({
           )}
           {wantBtwSplitLayout && btwSidePaneCollapsed && (
             <ButtonBase
-              className="session-btw-pane-handle"
+              className={`${chromeBtwAsidePaneStyles["session-btw-pane-handle"]}`}
+              data-session-btw-pane-handle
               onClick={() => setBtwSidePaneCollapsed(false)}
               title="Maximize /btw aside pane"
               aria-label="Maximize /btw aside pane"

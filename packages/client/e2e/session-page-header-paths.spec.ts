@@ -31,7 +31,7 @@ const refused = (route: Parameters<typeof json>[0]) =>
 
 async function menuItem(page: Page, name: string) {
   await page
-    .locator(".session-header")
+    .locator("[data-session-header]")
     .getByRole("button", { name: "Session options" })
     .click();
   await page.getByRole("menuitem", { name, exact: true }).click();
@@ -252,7 +252,7 @@ test("the breadcrumb's move menu lists other projects and moves the session", as
           transcriptProjectId: projectId,
         }),
   );
-  const breadcrumb = session.header.locator(".project-breadcrumb");
+  const breadcrumb = session.header.locator("[data-project-breadcrumb]");
   await expect(breadcrumb).toHaveAttribute(
     "href",
     `/sessions?project=${projectId}`,
@@ -310,7 +310,7 @@ test("the model badge opens the Model tab, a right click and Session info the In
   baseURL,
 }) => {
   const session = await openSessionPage(page, baseURL, { owner: "self" });
-  const badge = session.header.locator(".provider-badge-button");
+  const badge = session.header.locator("[data-provider-badge-button]");
   const dialog = page.getByRole("dialog");
   const tab = (name: string) => dialog.getByRole("tab", { name, exact: true });
 
@@ -413,8 +413,10 @@ test("the title and chevron toggle recent sessions, and the session menu closes 
   baseURL,
 }) => {
   const session = await openSessionPage(page, baseURL, { owner: "none" });
-  const title = session.header.locator(".session-title-recent-trigger");
-  const chevron = session.header.locator(".session-title-chevron-trigger");
+  const title = session.header.locator("[data-session-title-recent-trigger]");
+  const chevron = session.header.locator(
+    "[data-session-title-chevron-trigger]",
+  );
   const dropdown = page.getByRole("dialog", { name: "Recent sessions" });
 
   await expect(dropdown).toHaveCount(0);
@@ -480,7 +482,7 @@ test("keys typed into the retitle field each show within 100 ms during live upda
   );
   await session.answer("PUT", metadataPath, saved);
   await menuItem(page, "Generate Title (uses tokens)");
-  const field = session.header.locator("input.session-title-input");
+  const field = session.header.locator("input[data-session-title-input]");
   await expect(field).toBeEditable();
   await field.fill("");
   await typeEachKeyWithin100ms(field, "parser notes", (typed) =>

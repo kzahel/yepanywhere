@@ -30,7 +30,7 @@ test("search result and transcript clicks keep their own actions", async ({
   await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
   await dismissOnboardingIfVisible(page);
 
-  const transcript = page.locator(".session-messages");
+  const transcript = page.locator("[data-session-messages]");
   const list = transcript.locator("[data-message-list]");
   await expect(
     list.locator('[data-render-id="specimen-assistant-2"]'),
@@ -62,8 +62,9 @@ test("search result and transcript clicks keep their own actions", async ({
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const scrollport =
-          document.querySelector<HTMLElement>(".session-messages");
+        const scrollport = document.querySelector<HTMLElement>(
+          "[data-session-messages]",
+        );
         const row = document.querySelector<HTMLElement>(
           '[data-render-id="specimen-assistant-2"]',
         );

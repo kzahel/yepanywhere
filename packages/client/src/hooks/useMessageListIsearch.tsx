@@ -1162,7 +1162,7 @@ export function useMessageListIsearch({
   const searchPanelTarget =
     userTurnSearch.active && typeof document !== "undefined"
       ? querySessionRouteLayerElement<HTMLElement>(
-          ".session-input-inner",
+          "[data-session-input-inner]",
           containerRef.current,
         )
       : null;

@@ -20,14 +20,14 @@
     margin: max(8px, env(safe-area-inset-top, 0px)) auto 0;
   }
 
-  .floating ~ :global(.session-page) {
+  .floating ~ [data-session-page] {
     box-sizing: border-box;
     padding-top: calc(162px + env(safe-area-inset-top, 0px));
   }
 }
 
 @media (width <= 340px) {
-  .floating ~ :global(.session-page) {
+  .floating ~ [data-session-page] {
     padding-top: calc(205px + env(safe-area-inset-top, 0px));
   }
 }

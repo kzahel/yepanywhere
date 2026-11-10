@@ -401,9 +401,10 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
             <div
               ref={layoutFrameRef}
               data-desktop-layout={isWideScreen || undefined}
-              className={`${styles.frame} session-page ${isWideScreen ? styles.desktopLayout : ""} ${
+              className={`${styles.frame} ${styles["session-page"]} ${isWideScreen ? styles.desktopLayout : ""} ${
                 isContentFrameRoute ? "content-frame-layout" : ""
               } ${isResizing ? styles.resizing : ""}`}
+              data-session-page
               style={containerStyle}
             >
               {/* Desktop sidebar - always visible on wide screens; the minimized mode

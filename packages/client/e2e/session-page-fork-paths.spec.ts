@@ -268,7 +268,7 @@ test("a staged attachment refuses Fork with summary before the fork composer ope
 
 /** Reveals the turn rail at the transcript's right edge and opens a notch's menu. */
 async function openTurnNotchMenu(page: Page, preview: string) {
-  const box = await page.locator(".session-messages").boundingBox();
+  const box = await page.locator("[data-session-messages]").boundingBox();
   if (!box) throw new Error("Transcript scroll area is not laid out");
   await page.mouse.move(box.x + box.width - 6, box.y + box.height / 2);
   // The turn's "load from here" dot sits over its notch and opens the same

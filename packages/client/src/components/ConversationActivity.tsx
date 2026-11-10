@@ -69,7 +69,7 @@ const PREVIOUS_THINKING_STATE_ATTR = "previousThinking";
 const THINKING_HEIGHT_VAR = "--conversation-thinking-height";
 
 /**
- * The scrolling ancestor the row has to fit inside — `.session-messages` in an
+ * The scrolling ancestor the row has to fit inside — `[data-session-messages]` in an
  * ordinary session, the read-only shell's own scroller in a public share.
  * Resolved from computed overflow rather than a class name so both surfaces
  * work without naming either.

@@ -1,0 +1,48 @@
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.status-dot.status-idle {
+  background: var(--text-muted);
+}
+
+.status-dot.status-owned {
+  background: var(--success-color);
+}
+
+.status-dot.status-owned.process-running {
+  background: var(--thinking-color);
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+.status-dot.status-owned.process-waiting-input {
+  background: var(--warning-color);
+}
+
+.status-dot.status-external {
+  background: var(--warning-color);
+}
+
+.status-dot.disconnected {
+  background: var(--error-color);
+  animation: thinking-pulse 1s ease-in-out infinite;
+}
+@keyframes thinking-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

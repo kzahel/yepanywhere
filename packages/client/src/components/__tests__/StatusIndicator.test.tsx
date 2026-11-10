@@ -22,10 +22,10 @@ describe("StatusIndicator", () => {
       />,
     );
 
-    const dot = container.querySelector(".status-dot");
-    expect(dot?.classList.contains("status-owned")).toBe(true);
-    expect(dot?.classList.contains("process-running")).toBe(true);
-    expect(dot?.classList.contains("disconnected")).toBe(true);
+    const dot = container.querySelector("[data-status-dot]");
+    expect(dot?.getAttribute("data-status-owner") === "owned").toBe(true);
+    expect(dot?.getAttribute("data-process-state") === "running").toBe(true);
+    expect(dot?.hasAttribute("data-disconnected")).toBe(true);
   });
 
   it("keeps waiting-input styling for owned sessions", () => {
@@ -37,9 +37,11 @@ describe("StatusIndicator", () => {
       />,
     );
 
-    const dot = container.querySelector(".status-dot");
-    expect(dot?.classList.contains("status-owned")).toBe(true);
-    expect(dot?.classList.contains("process-waiting-input")).toBe(true);
+    const dot = container.querySelector("[data-status-dot]");
+    expect(dot?.getAttribute("data-status-owner") === "owned").toBe(true);
+    expect(dot?.getAttribute("data-process-state") === "waiting-input").toBe(
+      true,
+    );
   });
 
   it("maps external ownership to the external CSS class", () => {
@@ -49,8 +51,8 @@ describe("StatusIndicator", () => {
 
     expect(
       container
-        .querySelector(".status-dot")
-        ?.classList.contains("status-external"),
+        .querySelector("[data-status-dot]")
+        ?.getAttribute("data-status-owner") === "external",
     ).toBe(true);
   });
 });

@@ -97,7 +97,7 @@ test("left and right click open the same share manager", async ({
   await page.waitForTimeout(500);
 
   await page
-    .locator("header.session-header")
+    .locator("header[data-session-header]")
     .getByLabel("Session options")
     .click();
   await page.getByRole("menuitem", { name: "Share", exact: true }).click();
@@ -308,7 +308,7 @@ test("share type labels fit beside creation actions", async ({
     page.getByRole("main").getByText("Previous message"),
   ).toBeVisible({ timeout: 10000 });
   await page
-    .locator("header.session-header")
+    .locator("header[data-session-header]")
     .getByLabel("Session options")
     .click();
   await page.getByRole("menuitem", { name: "Share", exact: true }).click();

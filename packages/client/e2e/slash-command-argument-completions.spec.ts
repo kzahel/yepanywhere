@@ -311,7 +311,7 @@ test("restarts the provider only after verified stop and reloads saved turns", a
   await expect(composer).toBeVisible({ timeout: 30_000 });
   await composer.fill("Preserve my draft");
   const menu = page
-    .locator(".session-header")
+    .locator("[data-session-header]")
     .getByRole("button", { name: "Session options" });
   await menu.click();
   await capture(page, "restart-provider-desktop-1000x600.png");
