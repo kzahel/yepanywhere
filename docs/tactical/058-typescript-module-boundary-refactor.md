@@ -5209,3 +5209,14 @@ facade/method and ordering remain unchanged. No behavior, public response or
 provider schema change. This frees the frozen reader for the separately reviewed
 shared ingestion work in plan 190. Tier 1: server typecheck and all 56 Codex
 reader tests pass (two platform skips). Tier 2 checks recorded in the cycle log.
+
+### Plan 190: Claude message conversion boundary (2026-11-10)
+
+Moved `convertClaudeMessage` and its private queue-content helper verbatim from
+`sessions/normalization.ts` to `sessions/claude-message-conversion.ts`. The
+normalizer imports the converter; no public facade, output, ordering or runtime
+policy changes. This lets the separate bounded Claude reader reuse the exact
+conversion rules with full-projection row positions, without reselecting a
+partial forest. Sol 6.1 high/bypass review verified the original bodies.
+The frozen normalizer shrinks from 2,451 to 2,339 lines. Focused normalization
+and broader checks are recorded with the bounded-reader implementation evidence.
