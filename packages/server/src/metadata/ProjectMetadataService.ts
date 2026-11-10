@@ -93,6 +93,11 @@ export interface ProjectMetadataServiceOptions {
 
 export class ProjectMetadataService {
   private state: ProjectMetadataState;
+  /** The last reconciliation that changed nothing, by its inputs. */
+  private codeNameReconciliation?: {
+    key: string;
+    update: ProjectCodeNameUpdate;
+  };
   private dataDir: string;
   private filePath: string;
   /** One identity per hidden project; invalidated when hidden membership changes. */
@@ -259,15 +264,31 @@ export class ProjectMetadataService {
     projects: readonly { id: string; name: string }[],
   ): Promise<ProjectCodeNameUpdate> {
     this.state.projectCodeNames ??= {};
+    // Reconciling compares every recorded name with every project; the
+    // project list asks on every catalog change. The outcome is a function of
+    // the records and the projects, so an unchanged pair answers from memory.
+    const key = JSON.stringify([
+      this.state.projectCodeNames,
+      projects.map(({ id, name }) => [id, name]),
+    ]);
+    const known = this.codeNameReconciliation;
+    if (known?.key === key)
+      return {
+        assignments: [...known.update.assignments],
+        changedProjectIds: [...known.update.changedProjectIds],
+      };
     const update = reconcileProjectCodeNames(
       this.state.projectCodeNames,
       projects,
       (projectId) => this.canonicalProjectId(projectId),
     );
+    this.codeNameReconciliation = update.stateChanged
+      ? undefined
+      : { key, update };
     if (update.stateChanged) await this.save();
     return {
-      assignments: update.assignments,
-      changedProjectIds: update.changedProjectIds,
+      assignments: [...update.assignments],
+      changedProjectIds: [...update.changedProjectIds],
     };
   }
 

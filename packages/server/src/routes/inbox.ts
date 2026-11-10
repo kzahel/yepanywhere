@@ -25,6 +25,7 @@ import type {
   SessionProviderPhase,
 } from "@yep-anywhere/shared";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
+import type { GlobalSessionsDeps } from "./global-sessions.js";
 import { readRetainedSessionItems } from "./retained-session-collections.js";
 import type { SessionIndexService } from "../indexes/index.js";
 import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
@@ -83,6 +84,11 @@ export interface InboxDeps {
   sessionAutoArchiveDays?: number;
   /** Names a retained row's project; defaults to the path's name. */
   projectDisplayName?: ProjectDisplayNameResolver;
+  /**
+   * Inbox rows carry no ownership, but the retained walk it shares with the
+   * sidebar feeds reads it; the same tracker lets them share one walk.
+   */
+  externalTracker?: GlobalSessionsDeps["externalTracker"];
 }
 
 export interface InboxItem {

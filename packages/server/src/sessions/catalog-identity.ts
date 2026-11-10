@@ -26,14 +26,31 @@ export function nativeCatalogSessionRef(row: Readonly<SessionCatalogRow>) {
     : undefined;
 }
 
+/**
+ * The public id each published row object is bound to, per identity store.
+ * Bindings never change once written, so a bound row needs no second lookup.
+ */
+const boundSessionIds = new WeakMap<
+  object,
+  WeakMap<Readonly<SessionCatalogRow>, string>
+>();
+
 /** Metadata belongs to the public resource, never an unrelated native spelling. */
 export function metadataForNativeCatalogRow(
   row: Readonly<SessionCatalogRow>,
   metadata?: SessionMetadataService,
 ) {
   if (!metadata) return undefined;
+  let known = boundSessionIds.get(metadata.identities);
+  if (!known) {
+    known = new WeakMap();
+    boundSessionIds.set(metadata.identities, known);
+  }
+  const boundId = known.get(row);
+  if (boundId !== undefined) return metadata.getMetadata(boundId);
   const native = nativeCatalogSessionRef(row);
   const bound = native && metadata.identities.lookupNative(native);
+  if (bound) known.set(row, bound.sessionId);
   if (
     !bound &&
     (native

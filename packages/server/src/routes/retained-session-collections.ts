@@ -4,7 +4,6 @@ import {
   fromUrlProjectId,
   isUrlProjectId,
   isYaSessionId,
-  type NativeSessionRef,
 } from "@yep-anywhere/shared";
 import {
   nativeCatalogSessionRef,
@@ -55,23 +54,125 @@ export function compareProjectOptions(
   );
 }
 
+type RetainedItemsDeps = Pick<
+  GlobalSessionsDeps,
+  | "signal"
+  | "sessionMetadataService"
+  | "supervisor"
+  | "externalTracker"
+  | "notificationService"
+  | "sessionAutoArchiveDays"
+  | "projectDisplayName"
+  | "providerChildRelationships"
+>;
+
+/** The inputs a walk reads; requests whose inputs are identical share one. */
+const WALK_INPUTS = [
+  "signal",
+  "sessionMetadataService",
+  "supervisor",
+  "externalTracker",
+  "notificationService",
+  "sessionAutoArchiveDays",
+  "projectDisplayName",
+] as const satisfies readonly (keyof RetainedItemsDeps)[];
+
+interface RetainedWalk {
+  sessions: readonly GlobalSessionItem[];
+  stats: GlobalSessionStats;
+  projects: Array<{ id: string; name: string }>;
+  catalog: Awaited<ReturnType<RetainedSessionCollections["read"]>>["catalog"];
+  nativeRowsById: ReadonlyMap<string, ProjectedCatalogRow>;
+  seen: ReadonlySet<string>;
+}
+
+/**
+ * The walk that has been asked for but has not started, per collection. A
+ * tab asks for its three sidebar feeds and Inbox together after every
+ * catalog change, but their requests reach this code up to about 20 ms
+ * apart (measured: median 9 ms, 90th percentile 23 ms). A walk therefore
+ * starts {@link WALK_SHARE_MS} after the first request, and each request that
+ * arrives before it starts shares it, so every sharer gets a walk that began
+ * after it asked. Measured on a long active session: 181 list reads took 58
+ * walks, against 121 when sharing only within one event-loop turn. A lone
+ * request waits the same 20 ms.
+ */
+const WALK_SHARE_MS = 20;
+const scheduledWalks = new WeakMap<
+  RetainedSessionCollections,
+  { deps: RetainedItemsDeps; walk: Promise<RetainedWalk> }
+>();
+
+function sharedWalk(
+  service: RetainedSessionCollections,
+  deps: RetainedItemsDeps,
+): Promise<RetainedWalk> {
+  const scheduled = scheduledWalks.get(service);
+  if (
+    scheduled &&
+    WALK_INPUTS.every((key) => scheduled.deps[key] === deps[key])
+  )
+    return scheduled.walk;
+  const walk = new Promise<void>((resolve) =>
+    setTimeout(resolve, WALK_SHARE_MS),
+  ).then(() => {
+    if (scheduledWalks.get(service)?.walk === walk)
+      scheduledWalks.delete(service);
+    return walkRetainedItems(service, deps);
+  });
+  scheduledWalks.set(service, { deps, walk });
+  return walk;
+}
+
 export async function readRetainedSessionItems(
   service: RetainedSessionCollections,
-  deps: Pick<
-    GlobalSessionsDeps,
-    | "signal"
-    | "sessionMetadataService"
-    | "supervisor"
-    | "externalTracker"
-    | "notificationService"
-    | "sessionAutoArchiveDays"
-    | "projectDisplayName"
-    | "providerChildRelationships"
-  >,
+  deps: RetainedItemsDeps,
   selectChildParents?: (
     sessions: readonly GlobalSessionItem[],
   ) => readonly GlobalSessionItem[],
 ) {
+  const { sessions, stats, projects, catalog, nativeRowsById, seen } =
+    await sharedWalk(service, deps);
+  // The route selects its authorized, filtered page before any child queries.
+  // Stats and offscreen rows do not need relationship enrichment. Items are
+  // shared with other requests, so enriched ones are copies.
+  const enriched = new Map<GlobalSessionItem, GlobalSessionItem>();
+  for (const item of selectChildParents?.(sessions) ?? []) {
+    // Catalog identities are projected to public ids above; structural SQL
+    // keys retain the exact native id and scope, including private stores.
+    // This read cannot register a source or acquire provider persistence.
+    // A managed control row can precede native catalog publication. Its SQL
+    // identity is authoritative; an unscoped native catalog row is not.
+    const row = nativeRowsById.get(item.id);
+    const nativeParent =
+      deps.providerChildRelationships &&
+      ((row &&
+        nativeCatalogSessionRef({ ...row, sessionId: row.nativeSessionId })) ??
+        (!seen.has(item.id) && isYaSessionId(item.id)
+          ? deps.sessionMetadataService?.identities.resolveYa(item.id)?.native
+          : undefined));
+    const children = nativeParent
+      ? deps.providerChildRelationships?.accepted(nativeParent, item.id)
+      : undefined;
+    if (children !== undefined)
+      enriched.set(item, { ...item, providerChildren: children });
+  }
+  return {
+    sessions: sessions.map((item) => enriched.get(item) ?? item),
+    stats: {
+      ...stats,
+      providerCounts: { ...stats.providerCounts },
+      executorCounts: { ...stats.executorCounts },
+    },
+    projects: [...projects],
+    catalog,
+  };
+}
+
+async function walkRetainedItems(
+  service: RetainedSessionCollections,
+  deps: RetainedItemsDeps,
+): Promise<RetainedWalk> {
   const { rows: nativeRows, catalog } = await service.read();
   const rows = await projectCatalogIdentities(
     nativeRows,
@@ -94,7 +195,9 @@ export async function readRetainedSessionItems(
     deps.sessionAutoArchiveDays,
   )?.activeAfterMs;
   const nativeItems: GlobalSessionItem[] = [];
-  const nativeParents = new Map<string, NativeSessionRef>();
+  // Rows by public id; a page item's native parent is derived only for the
+  // rows the route selects, not for every row.
+  const nativeRowsById = new Map<string, ProjectedCatalogRow>();
   const seen = new Set<string>();
   const stats: GlobalSessionStats = {
     totalCount: 0,
@@ -138,17 +241,7 @@ export async function readRetainedSessionItems(
     // match living deeper in the first message is unreachable without a
     // server-side search the client would have to direct.
     const fullTitle = row.title ?? undefined;
-    // Catalog identities are projected to public ids above; structural SQL
-    // keys retain the exact native id and scope, including private stores.
-    // This read cannot register a source or acquire provider persistence.
-    const nativeParent =
-      selectChildParents &&
-      deps.providerChildRelationships &&
-      nativeCatalogSessionRef({
-        ...row,
-        sessionId: row.nativeSessionId,
-      });
-    if (nativeParent) nativeParents.set(row.sessionId, nativeParent);
+    nativeRowsById.set(row.sessionId, row);
     const item: GlobalSessionItem = {
       id: row.sessionId,
       ...(row.title !== undefined
@@ -224,26 +317,12 @@ export async function readRetainedSessionItems(
   sessions.sort(
     (a, b) => times.get(b)! - times.get(a)! || a.id.localeCompare(b.id),
   );
-  // The route selects its authorized, filtered page before any child queries.
-  // Stats and offscreen rows do not need relationship enrichment.
-  for (const item of selectChildParents?.(sessions) ?? []) {
-    // A managed control row can precede native catalog publication. Its SQL
-    // identity is authoritative; an unscoped native catalog row is not.
-    const nativeParent =
-      deps.providerChildRelationships &&
-      (nativeParents.get(item.id) ??
-        (!seen.has(item.id) && isYaSessionId(item.id)
-          ? deps.sessionMetadataService?.identities.resolveYa(item.id)?.native
-          : undefined));
-    const children = nativeParent
-      ? deps.providerChildRelationships?.accepted(nativeParent, item.id)
-      : undefined;
-    if (children !== undefined) item.providerChildren = children;
-  }
   return {
     sessions,
     stats,
     projects: [...projects.values()].sort(compareProjectOptions),
     catalog,
+    nativeRowsById,
+    seen,
   };
 }

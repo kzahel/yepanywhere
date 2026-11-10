@@ -238,8 +238,10 @@ invalidation from the issue indexer, double publication) are recorded in
 
     These should be per-project or SQL point reads.
 16. Still open; each walk costs about a third of what it did after plan 189
-    step 7 (Inbox 85 to 24 ms, each feed 86–94 to 26–35 ms here), but the
-    feeds still share no result. Original finding:
+    step 7 (Inbox 85 to 24 ms, each feed 86–94 to 26–35 ms here), and since
+    2026-11-10 one tab's three feeds and Inbox share one walk when they ask
+    within 20 ms ([active session tab cost](active-session-tab-background-cost.md));
+    tabs still do not share. Original finding:
     **Inbox and the sidebar feeds each walk the whole catalog.** Each tab
     runs three retained sidebar feeds and Inbox. Each walk projects and
     overlays all rows before slicing a page, with no shared result between

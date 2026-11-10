@@ -138,3 +138,59 @@ it("orders project options with equal names by id, not by row order", async () =
   expect((await read(rows)).projects).toEqual(expected);
   expect((await read([...rows].reverse())).projects).toEqual(expected);
 });
+
+it("shares one walk between requests that ask before it starts", async () => {
+  const rows = [
+    row("a", "/p", { nativeStorageScope: undefined }),
+    row("b", "/p", {
+      nativeStorageScope: undefined,
+      updatedAt: "2026-11-02T00:00:00.000Z",
+    }),
+  ];
+  const read = vi.fn(async () => ({ rows, catalog: {} }));
+  const service = { read } as unknown as RetainedSessionCollections;
+  const deps = {};
+  const [first, second] = await Promise.all([
+    readRetainedSessionItems(service, deps),
+    readRetainedSessionItems(service, deps, (sessions) => sessions.slice(0, 1)),
+  ]);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(second.sessions).toEqual(first.sessions);
+  expect(second.sessions).not.toBe(first.sessions);
+  expect(second.stats).not.toBe(first.stats);
+
+  // Child enrichment is per request: one sharer's children never reach the
+  // other's items.
+  const accepted = vi.fn(() => []);
+  const scopedRows = rows.map((r) => ({ ...r, nativeStorageScope: "/store" }));
+  const scoped = {
+    read: vi.fn(async () => ({ rows: scopedRows, catalog: {} })),
+  } as unknown as RetainedSessionCollections;
+  const [withChildren, without] = await Promise.all([
+    readRetainedSessionItems(
+      scoped,
+      { providerChildRelationships: { accepted } } as never,
+      (sessions) => sessions,
+    ),
+    readRetainedSessionItems(scoped, {}),
+  ]);
+  expect(accepted).toHaveBeenCalledTimes(2);
+  expect(withChildren.sessions.map((s) => s.providerChildren)).toEqual([
+    [],
+    [],
+  ]);
+  expect(without.sessions.map((s) => "providerChildren" in s)).toEqual([
+    false,
+    false,
+  ]);
+
+  // A request after the walk started gets a walk of its own.
+  await readRetainedSessionItems(service, deps);
+  expect(read).toHaveBeenCalledTimes(2);
+  // Different inputs never share.
+  await Promise.all([
+    readRetainedSessionItems(service, deps),
+    readRetainedSessionItems(service, { sessionAutoArchiveDays: 0 }),
+  ]);
+  expect(read).toHaveBeenCalledTimes(4);
+});

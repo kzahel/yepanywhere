@@ -3230,9 +3230,8 @@ export function createApp(options: AppOptions): AppResult {
           !options.sessionMetadataService?.creations?.listProjections().length
         )
           return [];
-        const published = await retainedCollections?.readPublishedRows();
         const rows = await projectCatalogIdentities(
-          published?.rows ?? [],
+          (await retainedCollections?.readPublishedRows())?.rows ?? [],
           options.sessionMetadataService,
           sessionReadLifetime.signal,
         );
@@ -3827,6 +3826,7 @@ export function createApp(options: AppOptions): AppResult {
       scanner,
       readerFactory,
       supervisor,
+      externalTracker,
       notificationService: options.notificationService,
       sessionIndexService: options.sessionIndexService,
       sessionMetadataService: options.sessionMetadataService,

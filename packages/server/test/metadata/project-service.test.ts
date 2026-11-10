@@ -224,6 +224,33 @@ describe("ProjectMetadataService", () => {
       });
     });
 
+    it("answers a repeated reconciliation from memory until the records change", async () => {
+      const alpha = { id: encodeProjectId("/alpha"), name: "Alpha" };
+      const beta = { id: encodeProjectId("/beta"), name: "Beta" };
+      await service.ensureProjectCodeNames([alpha, beta]);
+      const stable = await service.ensureProjectCodeNames([alpha, beta]);
+      const again = await service.ensureProjectCodeNames([alpha, beta]);
+      expect(again).toEqual(stable);
+      // Answered from memory: the same assignments, not a new reconciliation.
+      expect(again.assignments[0]).toBe(stable.assignments[0]);
+      await service.setProjectCodeName(beta.id, "ALP", [alpha, beta]);
+      expect(
+        (await service.ensureProjectCodeNames([alpha, beta])).assignments,
+      ).toEqual([
+        { projectId: alpha.id, codeName: "alph" },
+        { projectId: beta.id, codeName: "ALP" },
+      ]);
+      // A renamed project is a different input.
+      expect(
+        (
+          await service.ensureProjectCodeNames([
+            alpha,
+            { ...beta, name: "Alpine" },
+          ])
+        ).assignments,
+      ).toContainEqual({ projectId: beta.id, codeName: "ALP" });
+    });
+
     it("reports automatic collision reassignments in code-unit order", async () => {
       const alpha = { id: encodeProjectId("/über/alpha"), name: "Álpha" };
       const first = await service.ensureProjectCodeNames([alpha]);
