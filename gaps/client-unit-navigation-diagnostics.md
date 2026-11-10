@@ -38,3 +38,10 @@ no-flash/typing checks are clean. Neither navigation event can be attributed
 from these stacks, so changing global links or suppressing jsdom diagnostics
 would expand this presentation fix into an unrelated fixture audit. Evidence:
 ignored `tasks/creation-notice-test-node24.log`.
+
+2026-11-10: CSS ownership plan 191 step 1's passing final workspace run emits
+five timer-only navigation diagnostics, with 7,333 client and 7,256 server
+cases passing. The 91 focused CSS-tooling/Git Status cases emit none. No
+navigation implementation was changed; attribution still requires a separate
+fixture audit rather than global link suppression. Evidence: ignored
+`.artifacts/design-tour/191-comparison/logs/workspace-final.log`.

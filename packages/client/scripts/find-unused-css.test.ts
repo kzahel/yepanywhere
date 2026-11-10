@@ -6,6 +6,8 @@
  * so its tests live here. Fixtures are in
  * `scripts/fixtures/find-unused-css/`.
  */
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -21,6 +23,8 @@ import {
   findSourceFiles,
   moduleContractIssues,
   parseArgs,
+  pruneUnusedGlobalRules,
+  validateRuntimeFamilies,
   splitGlobalReferences,
 } from "../../../scripts/find-unused-css.ts";
 
@@ -125,7 +129,7 @@ describe("global class analysis", () => {
     );
   });
 
-  it("ignores source comments and sees non-client producers", () => {
+  it("ignores source comments and sees production literals in a custom source tree", () => {
     const result = analyzeFixtures();
     expect(result.globalUnused.map((cls) => cls.name)).toContain(
       "fixture-comment-only",
@@ -135,13 +139,90 @@ describe("global class analysis", () => {
     );
   });
 
-  it("sees a class pinned only by a regex-literal selector", () => {
-    const used = analyzeFixtures().globalUsed.find(
-      (cls) => cls.name === "fixture-regex-selector",
+  it("reports selector vocabulary named only by tests as unused", () => {
+    expect(analyzeFixtures().globalUnused.map((cls) => cls.name)).toContain(
+      "fixture-regex-selector",
     );
-    expect(used?.usedIn.map((file) => path.basename(file))).toEqual([
-      "stylesheet-contract.test.ts",
-    ]);
+  });
+
+  it("requires declared families for generated markup and ignores arbitrary dynamic prefixes", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "css-unused-"));
+    const cssDir = path.join(root, "styles");
+    const srcDir = path.join(root, "packages");
+    const client = path.join(srcDir, "client/src");
+    const server = path.join(srcDir, "server/src");
+    try {
+      fs.mkdirSync(cssDir, { recursive: true });
+      fs.mkdirSync(client, { recursive: true });
+      fs.mkdirSync(server, { recursive: true });
+      fs.writeFileSync(
+        path.join(cssDir, "global.css"),
+        ".card-live, .card-dead, .generated, .test-only { color: red; }",
+      );
+      fs.writeFileSync(
+        path.join(client, "Owner.tsx"),
+        "const className = `card-live card-$" + "{status}`;",
+      );
+      fs.writeFileSync(
+        path.join(client, "Owner.test.ts"),
+        'const selector = ".test-only";',
+      );
+      fs.writeFileSync(
+        path.join(client, "Owner.specimen.tsx"),
+        'const className = "test-only";',
+      );
+      fs.mkdirSync(path.join(client, "__fixtures__"));
+      fs.writeFileSync(
+        path.join(client, "__fixtures__/Owner.tsx"),
+        'const className = "test-only";',
+      );
+      fs.writeFileSync(
+        path.join(server, "emitter.ts"),
+        'const html = `<span class="generated">`;',
+      );
+      const options = { cssDir, srcDir };
+      expect(
+        analyze(options).result.globalUnused.map((cls) => cls.name),
+      ).toEqual(["card-dead", "generated", "test-only"]);
+      const family = {
+        pattern: "^generated$",
+        source: "scripts/fixtures/find-unused-css/generated.ts",
+        reason: "Fixture generated vocabulary",
+      };
+      expect(
+        analyze({ ...options, families: [family] }).result.globalUnused.map(
+          (cls) => cls.name,
+        ),
+      ).toEqual(["card-dead", "test-only"]);
+      expect(() =>
+        validateRuntimeFamilies(
+          [{ ...family, source: "missing-emitter.ts" }],
+          ["generated"],
+        ),
+      ).toThrow(/source does not exist/);
+      expect(() => validateRuntimeFamilies([family], ["different"])).toThrow(
+        /matches no global class/,
+      );
+      expect(() =>
+        validateRuntimeFamilies(
+          [{ ...family, pattern: "generated" }],
+          ["generated"],
+        ),
+      ).toThrow(/Invalid CSS runtime family/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("removes every dead selector branch while retaining live siblings and nested logic", () => {
+    const input =
+      ".live, .dead:hover { color: red; }\n.dead { color: blue; }\n@media (width < 400px) { .dead { color: green; } }\n.live:not(.dead) { color: purple; }";
+    const result = pruneUnusedGlobalRules(input, new Set(["dead"]));
+    expect(result.removed).toBe(3);
+    expect(result.css).toContain(".live { color: red; }");
+    expect(result.css).toContain(".live:not(.dead)");
+    expect(result.css).not.toContain("@media");
+    expect(result.skippedClasses).toEqual(["dead"]);
   });
 
   it("does not read regex punctuation or bare words as selectors", () => {
@@ -349,6 +430,20 @@ describe("parsing helpers", () => {
     expect(source.exact.get("café")).toContain("generated.ts");
     expect(source.exact.has("escaped")).toBe(false);
     expect(source.exact.has("state")).toBe(false);
+  });
+
+  it("does not promote interpolation fragments to whole class tokens", () => {
+    const source = buildSourceUsageIndex(
+      new Map([
+        [
+          "Owner.tsx",
+          "const classes = `whole prefix-$" +
+            "{value}-suffix tail $" +
+            "{other} end`;",
+        ],
+      ]),
+    );
+    expect([...source.exact.keys()].sort()).toEqual(["end", "tail", "whole"]);
   });
 
   it("keeps module-global anchors local to their selector branch", () => {

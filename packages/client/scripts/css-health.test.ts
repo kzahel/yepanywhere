@@ -53,9 +53,7 @@ describe("CSS health summary", () => {
     expect(health.modules.contractIssues).toBeGreaterThan(0);
     expect(health.escapeHatches.globalInteropReferences).toBeGreaterThan(0);
     expect(health.escapeHatches.invalidReferences).toBeGreaterThan(0);
-    expect(
-      health.deadCode.potentiallyUnusedGlobalClassSelectors,
-    ).toBeGreaterThan(0);
+    expect(health.deadCode.unusedGlobalClassSelectors).toBeGreaterThan(0);
     expect(health.ownership.rules).toEqual(
       expect.objectContaining({ owned: expect.any(Number) }),
     );

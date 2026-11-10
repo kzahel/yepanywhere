@@ -436,7 +436,6 @@ describe("GitStatusPage source header", () => {
     expect(
       screen.getByRole("tab", { name: /sourceTabComments/ }),
     ).toBeDefined();
-    expect(document.querySelector(".source-control-action-row")).toBeNull();
     expect(
       document.querySelector('.git-status > [data-testid="repo-status-bar"]'),
     ).toBeNull();
@@ -1148,7 +1147,6 @@ describe("GitStatusPage source header", () => {
     expect(
       header.querySelector('[data-source-actions-placement="fallback"]'),
     ).not.toBeNull();
-    expect(document.querySelector(".source-control-action-row")).toBeNull();
   });
 
   it("keeps the source-header hooks on a modular project selector", async () => {

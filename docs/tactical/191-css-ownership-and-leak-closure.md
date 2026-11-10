@@ -2,7 +2,9 @@
 
 Topic: css-architecture
 
-Status: plan selected 2026-11-10; no step has landed. The maintainer
+Status: step 1 implemented 2026-11-10, awaiting review/commit: exact detection,
+46 declared families, 49 global class names and 572 lines deleted. Steps 2–8
+remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -25,11 +27,11 @@ tooling under-reports it. Measured on 2026-11-10 with ad hoc scripts
 | Modules reaching into globals | 207 `:global(...)` references in 42 files |
 | Dead global CSS | `css:unused` reports 12; 225 of 1,502 global classes have no literal use in production source |
 
-`css:unused` treats any class that starts with a detected "dynamic prefix"
-as used. The detected list holds about 400 prefixes, including `-`,
+Before step 1, `css:unused` treated any class starting with a detected
+"dynamic prefix" as used. That list held about 400 prefixes, including `-`,
 `session-`, `settings-`, `tool-`, `file-` and `is-`, so most classes can
-never be reported. Of the 225, about 140 are plausibly built at runtime,
-about 37 are generated markup (ANSI, KaTeX) and 24 are named only by tests.
+never be reported. Of the 225, about 140 were plausibly built at runtime,
+about 37 were generated markup (ANSI, KaTeX) and 24 were named only by tests.
 
 Global CSS is 17,224 lines (43% of client CSS): `index.css` 11,390,
 `renderers.css` 5,070, `tool-rows.css` 709, `provider-colors.css` 38,
@@ -80,19 +82,58 @@ line ceilings freeze the rest in place; they do not shrink it.
 
 ### 1 — make dead-class detection exact and delete dead rules
 
-Replace the dynamic-prefix heuristic in `scripts/find-unused-css.ts` with a
-reviewed list of runtime-built and generated class families (file, pattern,
-reason), kept beside the other CSS baselines. A global class outside those
-families needs a whole-token use in production source. Classes named only
-by tests count as unused; the tests that pin them are rewritten to roles,
-labels or data attributes, or removed under
-[test value and CI cost](../development/testing.md#test-value-and-ci-cost).
+Implemented 2026-11-10. `scripts/css-runtime-families.json` declares 46
+reviewed runtime/generated families with anchored patterns, source paths and
+reasons. Missing emitters and patterns matching no global class fail the check.
+Production client whole tokens and production-reachable module interop count;
+tests and server/shared literals do not. Prefixes are no longer liveness
+exemptions, and interpolation fragments are not whole tokens.
 
-Delete every rule the exact scan finds dead, lower the line ceilings with
-`pnpm css:check --record`, and make an unused global class fail `pnpm lint`.
+Repository-wide searches (including server, shared, site and E2E) verified the
+48 unused class names before deletion. Removed 96 selector-list branches,
+keeping live siblings; the dead branches also held the only `.archived`
+selector, so the global vocabulary dropped from 1,502 to 1,453 (49 names).
+Deleted 572 lines: `index.css` 11,390 → 10,871, `renderers.css` 5,070 → 5,051,
+`tool-rows.css` 709 → 675. Global CSS is now 16,652 lines. Removed eight
+custom-property reads whose only definitions were in dead rules, preserving
+their existing fallbacks. `pnpm css:check --record` lowered all three ceilings.
 
-Done when `pnpm css:unused` exits 0, lint runs it, and the declared
-families are the only way a class without a literal use survives.
+Lint runs `css:unused`, covering both exact global usage and module contracts.
+The CSS health dead-code row uses the same exact analysis. Parser-based
+`--remove`/`--dry-run` prune all global occurrences and only dead selector-list
+branches; writes recheck remaining debt, JSON honors both modes, and nested
+selector logic is left for deliberate review. No uncertain deletions were made.
+
+Removed two redundant negative `.source-control-action-row` assertions;
+surviving role/tab and data-placement assertions cover that header behavior.
+Tooling regression coverage checks test-only and non-client evidence, declared
+families and stale entries, interpolation boundaries, and mixed-selector pruning.
+
+Verification: `pnpm lint`, `pnpm format:check`, `pnpm typecheck` and the
+final `pnpm test` all exit 0 (7,333 client and 7,256 server cases pass;
+94 server cases skip). The 91 focused CSS-tooling/Git Status cases pass without
+warnings. `css:unused` reports 0/1,453 unused globals and 0 module issues;
+`css:health`, `css:touched`, `css:check --record`, `buttons:check --record`
+and `console:scan` were also run. A disposable CLI integration check verified
+JSON dry-run immutability, duplicate-class removal across files and the final
+rescan exit code.
+
+Warning-free full-suite acceptance remains unmet: five unowned jsdom navigation
+diagnostics recur ([existing gap](../../gaps/client-unit-navigation-diagnostics.md)),
+as do the negative-fixture server warnings tracked in
+[full-suite diagnostics](../../gaps/full-suite-timing-and-diagnostics.md).
+Lint has zero warnings and one existing informational regex-escape diagnostic
+in `design-buttons-check.ts:492`. One intermediate full run exposed an unchanged
+[Commit Browser fixture race](../../gaps/commit-browser-reclick-hunk-navigation-intermittent.md);
+the isolated file and final full rerun pass. These independent fixture repairs
+were deferred, with no log suppression or unrelated implementation edits.
+
+Both final screen tours pass 34 screens / 196 captures apiece. Pixel comparison
+finds 160 identical pairs; inspected differences are fixture paths, ports,
+timestamps, browser registration and About's dirty-checkout metadata. No
+CSS-caused visual change was found. Originals are under
+`.artifacts/design-tour/{before,after}/`; the artifact-capture facility presents
+`.artifacts/design-tour/191-comparison/index.html` with the complete comparison.
 
 ### 2 — make shared controls own their look
 

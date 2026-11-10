@@ -82,7 +82,7 @@ export interface CssHealth {
   deadCode: {
     globalClassSelectors: number;
     usedGlobalClassSelectors: number;
-    potentiallyUnusedGlobalClassSelectors: number;
+    unusedGlobalClassSelectors: number;
   };
 }
 
@@ -278,7 +278,7 @@ export function composeCssHealth(
     deadCode: {
       globalClassSelectors: analysis.globalClasses.length,
       usedGlobalClassSelectors: analysis.globalUsed.length,
-      potentiallyUnusedGlobalClassSelectors: analysis.globalUnused.length,
+      unusedGlobalClassSelectors: analysis.globalUnused.length,
     },
   };
 }
@@ -331,9 +331,9 @@ function printHealth(health: CssHealth): void {
     `  global interop: ${health.escapeHatches.globalInteropReferences} references in ${health.escapeHatches.filesUsingGlobalInterop} files (${health.escapeHatches.selectorReferences} selectors, ${health.escapeHatches.globalComposes} composes), ${health.escapeHatches.invalidReferences} invalid`,
   );
 
-  console.log("Potential dead code");
+  console.log("Unused global CSS (whole tokens and reviewed families)");
   console.log(
-    `  ${health.deadCode.potentiallyUnusedGlobalClassSelectors}/${health.deadCode.globalClassSelectors} unique global class selectors are potentially unused (${percent(health.deadCode.potentiallyUnusedGlobalClassSelectors, health.deadCode.globalClassSelectors)})`,
+    `  ${health.deadCode.unusedGlobalClassSelectors}/${health.deadCode.globalClassSelectors} unique global class selectors are unused (${percent(health.deadCode.unusedGlobalClassSelectors, health.deadCode.globalClassSelectors)})`,
   );
   console.log(
     "Observational only: use css:check, lint, and css:unused for their documented exit behavior.",

@@ -224,8 +224,8 @@ button.tool-summary {
 }
 
 .ran-tool-row .tool-summary {
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: var(--font-size-base);
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
   color: var(--text-primary, #ccc);
 }
 
@@ -634,12 +634,6 @@ button.tool-summary {
    Status-specific styles
    ========================================================================== */
 
-.tool-pending-message {
-  color: var(--text-muted, #888);
-  font-style: italic;
-  font-size: var(--font-size-base);
-}
-
 .tool-row.status-pending .tool-summary {
   color: var(--text-muted, #888);
 }
@@ -678,32 +672,4 @@ button.tool-summary {
 .tool-incomplete-label {
   color: var(--text-muted, #888);
   font-style: italic;
-}
-
-/* ==========================================================================
-   JSON fallback content
-   ========================================================================== */
-
-.tool-content-json {
-  margin: 0;
-  padding: 8px;
-  background: var(--bg-code, #1e1e1e);
-  border-radius: 4px;
-  overflow-x: auto;
-}
-
-.tool-content-json code {
-  color: var(--text-primary, #ccc);
-}
-
-/* Fixed-font output appearance */
-.ran-tool-row .tool-summary,
-.tool-content-json,
-.tool-content-json code {
-  font-family: var(--font-mono);
-}
-
-.ran-tool-row .tool-summary,
-.tool-content-json {
-  font-size: var(--fixed-font-size-base);
 }

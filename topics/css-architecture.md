@@ -16,9 +16,10 @@ describes the checks that run today.
 YA's authored client CSS grew into globally loaded stylesheets of more than
 31,000 lines. Earlier campaigns (plans 070, 074, 076) moved component styles
 into modules and froze the rest at line ceilings, then stopped at a
-"contained steady state". That left 17,224 global lines (43% of client CSS),
-dead-class detection that guesses by prefix, and shared controls whose look
-any caller can override.
+"contained steady state". That left 17,224 global lines (43% of client CSS) and
+shared controls whose look any caller can override. Step 1 of plan 191
+replaced prefix guessing with exact dead-class detection and removed 572
+global lines (49 class names); 16,652 global lines remain.
 
 The target:
 
@@ -115,7 +116,8 @@ not carry a migration queue.
   dynamic evidence. All other owners are labeled `DEFER` with concrete reasons.
   Either result, and a clean/module-only diff, exits successfully because the
   command is advisory. Invalid arguments or a failed git comparison exit 2.
-- `pnpm lint` runs `pnpm css:modules:check` before Biome. The module check is a
+- `pnpm lint` runs `pnpm css:unused` before Biome, including the module
+  contracts also available alone as `pnpm css:modules:check`. The module check is a
   blocking, parser-backed contract: every module needs production reach; every
   declared selector needs a statically known production use; every
   `styles.foo`/`styles["foo"]` access must name a local selector; and computed
@@ -168,10 +170,31 @@ not carry a migration queue.
   had a `size`. Exceptions sit in
   `packages/client/design/census/button-allowlist.json` with a count and a
   reason; counts only fall, and `--record` lowers them.
-- `pnpm css:unused` remains the investigative global-and-module report. Its
-  known legacy findings may make that command exit nonzero without breaking
-  ordinary lint. `--remove` remains limited to global rules; module rules are
-  deleted deliberately with their owner.
+- A global class needs a complete class token in production client source
+  (`packages/client/src`, excluding tests), a global reference from a
+  production-reachable CSS Module, or a reviewed entry in
+  `scripts/css-runtime-families.json`. Tests, E2E fixtures, package scripts,
+  design specimens and server/shared source strings do not establish production
+  client use. Generated server/shared markup belongs in the declared families.
+- Each family names an anchored regular expression, its repository-relative
+  constructor/emitter source path, and a reason. Review the emitter before
+  declaring a family. A missing source, empty reason, invalid pattern, or pattern
+  matching no authored global class fails the check. Keep families finite and
+  narrow; inferred template prefixes never establish global liveness.
+- Parser-backed tokenization preserves decoded CSS identities and complete
+  class-list tokens. Interpolation fragments do not become whole tokens;
+  even a base class joined directly to an optional state class needs a declared
+  family when its complete token is not present elsewhere.
+- `pnpm css:unused` is the blocking global-and-module report run by lint.
+  `--dry-run` previews global selector-branch removals and leaves the exit code
+  failing while debt remains. `--remove` prunes every occurrence across global
+  stylesheets, preserves live siblings in selector lists, and checks the result
+  again; skipped nested selectors or module contract issues still fail. A class
+  nested in negation or alternation is left for deliberate review. CSS Modules
+  are never rewritten. JSON output supports the same preview/write modes.
+  Custom `--src-dir` trees exclude test sources too; a `packages` root admits
+  only its `client/src` subtree as literal global evidence. Custom CSS trees
+  omit the repository family list (the analysis API can supply explicit families).
 
 ## Command roles and exit behavior
 
@@ -181,10 +204,10 @@ not carry a migration queue.
 | `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |
-| `pnpm lint` | Combined repository gate | Runs containment, module contracts, the button ban, CSS lint, and Biome; any child failure fails lint. |
+| `pnpm lint` | Combined repository gate | Runs containment, exact global usage and module contracts, the button ban, CSS lint, and Biome; any child failure fails lint. |
 | `pnpm css:touched` | Advisory feature-diff prompt | Exits 0 for opportunity, deferral, or no matching owner; exits 2 for invalid arguments or a failed git comparison. It never edits files. |
 | `pnpm css:inventory` | Advisory ownership drill-down | A valid report exits 0 and never edits files; invalid arguments exit 2. |
-| `pnpm css:unused` | Advisory dead-code investigation | Exits 1 while potential global dead code or a module contract issue remains. `--dry-run` previews; explicit `--remove` may delete only reviewed global rules, never module selectors. |
+| `pnpm css:unused` | Hard global usage and module contract gate | Exits 1 for an unused global class, invalid/stale runtime family, module contract issue, or unusable scan. `--dry-run` previews; `--remove` prunes global selector branches and rechecks, never module selectors. |
 | `pnpm css:health` | Observational cross-signal summary | A successful scan exits 0 regardless of reported debt; invalid arguments or unreadable/unparseable input exit 2. It never builds or writes. |
 
 ## CSS lint rules
@@ -379,7 +402,7 @@ single score or maintained as a standing dashboard:
   side-effect imports;
 - **escape hatches and complexity** — `:global(...)`, `!important`, duplicate
   declarations, descending specificity, and excessive selector depth;
-- **dead code** — potentially unused legacy classes and safely removable rules;
+- **dead code** — unused global classes under the whole-token/family contract;
   and
 - **shipping context** — total authored CSS and built CSS bytes, so moving
   ownership is not mistaken for reducing delivered code.
@@ -404,7 +427,7 @@ declarations, and excessive selector depth remain visible through the blocking
 Biome lint policy.
 
 The health command is observational and exits 0 after a successful scan even
-when it reports ratchet problems, module issues, or potential dead code; the
+when it reports ratchet problems, module issues, or unused global classes; the
 owning checks retain their documented blocking behavior. Invalid arguments or
 an unreadable/unparseable input exits 2. Do not use a saved health JSON file as
 a baseline or add a composite threshold—the current analyzers are the source of
@@ -552,19 +575,19 @@ After editing:
 
 1. Search again for stale selectors and old literal class names. `pnpm
    css:unused` reports global classes by name and module selectors per owning
-   file; it treats a computed key, a side-effect-only import, and an unimported
-   module as undetermined rather than unused, and never rewrites module rules.
-   Its CSS and TypeScript parsers scan every authored `packages/*/src`,
-   `packages/*/e2e`, and `packages/*/scripts` producer, including `.mjs` and
-   `.cjs` harnesses. They keep whitespace-delimited string tokens whole,
-   parser-decode dot-led selector strings, read generated-markup class
-   attributes as class lists, and record class selectors a regular-expression
-   literal spells out after an escaped dot. A stylesheet-contract test that
-   asserts on CSS text is therefore a visible producer.
-   Bare words, other regex punctuation, and pattern flags are not vocabulary.
-   Dynamic prefixes remain conservative, and a test-only reference can still be
-   an intentional DOM contract, so confirm a verdict against the reported
-   producer before deleting.
+   file; computed keys and side-effect-only imports make usage undetermined,
+   unimported modules are production-unreachable, and module rules are never
+   rewritten.
+   Its CSS and TypeScript parsers scan authored package source, E2E, and script
+   roots, including `.mjs` and `.cjs` harnesses, for module contracts and
+   ownership evidence. Global liveness admits only production client whole
+   tokens, production-reachable module interop, and the reviewed runtime/generated
+   families. The tokenizer parser-decodes dot-led selector strings and preserves
+   complete whitespace-delimited tokens and generated-markup class attributes.
+   Regex selector vocabulary remains visible to ownership investigation but
+   test-only references cannot keep global rules alive. Find the emitter in the
+   whole repository before deleting a reported class; declare its narrow family
+   if it is built at runtime or generated outside the client.
 2. Confirm callers no longer depend on removed child selectors.
 3. Run focused component and consumer tests.
 4. Prefer roles, labels, and stable data attributes in tests; module hashes and

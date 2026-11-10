@@ -508,8 +508,7 @@
    Text Blocks
    ========================================================================== */
 
-.text-block,
-.text-content {
+.text-block {
   font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--text-primary);
@@ -1093,7 +1092,6 @@ details[open] .collapsible__icon {
   padding: var(--space-2) 0 var(--space-2) var(--space-4);
 }
 
-.collapsible__content .text-content,
 .collapsible__content .thinking-text,
 .thinking-content .thinking-text {
   color: var(--text-muted);
@@ -1104,7 +1102,6 @@ details[open] .collapsible__icon {
   line-height: var(--thinking-prose-line-height);
 }
 
-.collapsible__content .text-content,
 .thinking-text-plain {
   white-space: pre-wrap;
 }
@@ -2647,16 +2644,6 @@ details[open] .collapsible__icon {
   font-size: var(--font-size-base);
   padding: 0.25rem 0.5rem;
   font-style: italic;
-}
-
-/* ==========================================================================
-   Grep Tool
-   ========================================================================== */
-
-.grep-match-truncated {
-  padding: 0.5rem 0;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
 }
 
 /* ==========================================================================
@@ -4463,12 +4450,6 @@ pre.code-highlighter-plain,
   padding-inline: 1px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-.source-control-action-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
 }
 
 /* Commit browser: commits · files · diff. */

@@ -1,0 +1,232 @@
+[
+  {
+    "pattern": "^is-(failed|stopped|complete)$",
+    "source": "packages/client/src/components/BtwAsidePane.tsx",
+    "reason": "Aside lifecycle status interpolated into the pane class; shared by sticky/history cards."
+  },
+  {
+    "pattern": "^is-(ready|error)$",
+    "source": "packages/client/src/components/SessionHeader.tsx",
+    "reason": "Generated session-retitle status interpolated into its result indicator."
+  },
+  {
+    "pattern": "^is-(ok|warn|danger)$",
+    "source": "packages/client/src/components/MessageInputToolbar.tsx",
+    "reason": "Composer liveness and provider runtime tones interpolated into status chips."
+  },
+  {
+    "pattern": "^btw-aside-turn-(user|assistant)$",
+    "source": "packages/client/src/components/BtwAsidePane.tsx",
+    "reason": "Aside turn role interpolated into the turn class."
+  },
+  {
+    "pattern": "^mode-(default|acceptEdits|plan|bypassPermissions|auto)$",
+    "source": "packages/client/src/components/ModeSelector.tsx",
+    "reason": "Permission-mode dots use the selected mode and menu mode values."
+  },
+  {
+    "pattern": "^thinking-effort-selector--(toolbar|settings)$",
+    "source": "packages/client/src/components/ThinkingControls.tsx",
+    "reason": "Selector variant interpolated into its root class."
+  },
+  {
+    "pattern": "^(status-(idle|owned|external)|process-(running|waiting-input))$",
+    "source": "packages/client/src/components/StatusIndicator.tsx",
+    "reason": "Status and process classes come from getStatusClass/getProcessClass."
+  },
+  {
+    "pattern": "^bottom-overscroll-reload--(pull|armed)$",
+    "source": "packages/client/src/components/BottomOverscrollReload.tsx",
+    "reason": "Pull gesture status interpolated into the indicator root."
+  },
+  {
+    "pattern": "^output-font-option-(system|source-serif-4|inter|alegreya-sans)$",
+    "source": "packages/client/src/pages/settings/AppearanceSettings.tsx",
+    "reason": "Prose font option id interpolated into option className."
+  },
+  {
+    "pattern": "^output-fixed-font-option-(system|iosevka|ibm-plex-mono|fira-mono)$",
+    "source": "packages/client/src/pages/settings/AppearanceSettings.tsx",
+    "reason": "Fixed font option id interpolated into option className."
+  },
+  {
+    "pattern": "^thinking-(off|auto|on)$",
+    "source": "packages/client/src/components/ThinkingControls.tsx",
+    "reason": "Thinking mode interpolated into option dots."
+  },
+  {
+    "pattern": "^settings-category-icon-(flat|flat-white|emoji|appearance|toolbar|model|message-delivery|agent-context|notifications|webhooks|devices|remote|providers|speech|environment|about|emulator|development)$",
+    "source": "packages/client/src/pages/settings/SettingsCategoryIcons.tsx",
+    "reason": "Settings category id and icon style interpolated into icon classes."
+  },
+  {
+    "pattern": "^provider-(claude|claude-gateway|claude-ollama|codex|codex-oss|gemini|gemini-acp|grok|opencode|pi|local)$",
+    "source": "packages/client/src/components/NewSessionOptionsPanel.tsx",
+    "reason": "Provider option dots interpolate the provider id; model settings uses the same vocabulary."
+  },
+  {
+    "pattern": "^(recap-(off|native|side-session|fork)|suggestion-(off|native)|keepalive-(off|auto))$",
+    "source": "packages/client/src/pages/settings/ModelSettings.tsx",
+    "reason": "Recap, suggestion and keepalive option dots interpolate their finite mode values."
+  },
+  {
+    "pattern": "^recap-after-seconds-control--(off|native|side-session|fork)$",
+    "source": "packages/client/src/components/RecapAfterSecondsControl.tsx",
+    "reason": "Recap mode interpolated into the root class."
+  },
+  {
+    "pattern": "^host-picker-status-(online|offline|checking|unknown)$",
+    "source": "packages/client/src/pages/HostPickerPage.tsx",
+    "reason": "Host status interpolated into the status dot."
+  },
+  {
+    "pattern": "^multi-host-(card|status)--(connecting|connected|offline|sign-in-required)$",
+    "source": "packages/client/src/pages/MultiHostMonitorPage.tsx",
+    "reason": "Host state interpolated into monitor card and status classes."
+  },
+  {
+    "pattern": "^theme-preview-(auto|light|dark|verydark)$",
+    "source": "packages/client/src/components/onboarding/steps/ThemeStep.tsx",
+    "reason": "Theme name interpolated into preview tiles."
+  },
+  {
+    "pattern": "^session-connection-(connected|connecting|disconnected|idle)$",
+    "source": "packages/client/src/components/SessionComposerFooter.tsx",
+    "reason": "Connection status interpolated into the footer bar."
+  },
+  {
+    "pattern": "^fixed-font-markdown-heading-[1-6]$",
+    "source": "packages/client/src/components/ui/FixedFontMathToggle.tsx",
+    "reason": "Heading marker length generates the fixed-font heading level."
+  },
+  {
+    "pattern": "^ya-umath(__tex|__text)?$",
+    "source": "packages/server/src/augments/safe-markdown.ts",
+    "reason": "Server markdown rendering emits Unicode math text/TeX toggle markup."
+  },
+  {
+    "pattern": "^katex(-display|-error)?$",
+    "source": "packages/server/src/augments/safe-markdown.ts",
+    "reason": "Server calls KaTeX renderToString; KaTeX emits inline/display and error wrappers."
+  },
+  {
+    "pattern": "^ya-uscript(__source|--sup|--sub)?$",
+    "source": "packages/server/src/augments/unicode-math.ts",
+    "reason": "Unicode script rendering emits source wrappers and interpolated sup/sub classes."
+  },
+  {
+    "pattern": "^ansi-((fg|bg)-(bright-)?(black|red|green|yellow|blue|magenta|cyan|white)|bold|italic|underline|strikethrough|inverse)$",
+    "source": "packages/shared/src/ansi-renderer.ts",
+    "reason": "Shared SGR renderer emits named palette colors and active text decorations."
+  },
+  {
+    "pattern": "^local-media-(link|link-group|inline-toggle|type|inline-preview)$",
+    "source": "packages/server/src/augments/safe-markdown.ts",
+    "reason": "Server markdown media renderer emits media links, toggles and preview placeholders."
+  },
+  {
+    "pattern": "^edit-(result|collapsed)-(error|warning|muted)$",
+    "source": "packages/client/src/components/renderers/tools/EditRenderer.tsx",
+    "reason": "Edit summary outcome classSuffix interpolated into result and collapsed wrappers."
+  },
+  {
+    "pattern": "^tone-(off|auto|low|medium|high|xhigh|max)$",
+    "source": "packages/client/src/components/ThinkingControls.tsx",
+    "reason": "Effort option values interpolated into indicator dots; model switch and new session share them."
+  },
+  {
+    "pattern": "^todo-status-(pending|completed)$",
+    "source": "packages/client/src/components/renderers/tools/TaskListRenderer.tsx",
+    "reason": "Normalized task status interpolated into todo rows; todo-write and update-plan share the vocabulary."
+  },
+  {
+    "pattern": "^file-link$",
+    "source": "packages/shared/src/filePathDetection.ts",
+    "reason": "Shared path linkifier emits clickable file anchors into generated output."
+  },
+  {
+    "pattern": "^markdown-preview-(span(-start)?|line-boundary(-start|-end)?)$",
+    "source": "packages/server/src/augments/markdown-file-preview.ts",
+    "reason": "Server markdown preview emits line-target boundaries and rendered chunk wrappers."
+  },
+  {
+    "pattern": "^source-pane-splitter-(revisions|files)$",
+    "source": "packages/client/src/components/ResizableSourceColumns.tsx",
+    "reason": "Column boundary name interpolated into the splitter class."
+  },
+  {
+    "pattern": "^status-(pending|complete|aborted|incomplete)$",
+    "source": "packages/client/src/components/blocks/ToolCallRow.tsx",
+    "reason": "Normalized tool item status interpolated into timeline tool rows."
+  },
+  {
+    "pattern": "^modal(-overlay)?--image-viewer$",
+    "source": "packages/client/src/components/ui/Modal.tsx",
+    "reason": "The image-viewer variant interpolates the overlay and dialog suffixes."
+  },
+  {
+    "pattern": "^sidebar-project-queue-item--failed$",
+    "source": "packages/client/src/components/Sidebar.tsx",
+    "reason": "Queue item status interpolated into sidebar links, including failed launches."
+  },
+  {
+    "pattern": "^steer-mode$",
+    "source": "packages/client/src/components/MessageInput.tsx",
+    "reason": "Keyboard action kind interpolated into primary and alternate action classes."
+  },
+  {
+    "pattern": "^git-status-action-(success|warning)$",
+    "source": "packages/client/src/pages/GitStatusPage.tsx",
+    "reason": "Completed repository action tone interpolated into the action button."
+  },
+  {
+    "pattern": "^(session-title-(chevron-trigger|retitle-accept))$",
+    "source": "packages/client/src/components/SessionHeader.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(bang-composer-chip|message-input-(collapsed-actions|keyboard-actions|keyboard-more))$",
+    "source": "packages/client/src/components/MessageInput.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(client-log-recording-badge)$",
+    "source": "packages/client/src/components/ClientLogRecordingBadge.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(system-message--details|conversation-recent-activities)$",
+    "source": "packages/client/src/components/RenderItemComponent.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(new-session-container)$",
+    "source": "packages/client/src/components/NewSessionForm.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(composer-recall-preview)$",
+    "source": "packages/client/src/components/ComposerRecallMenu.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(speech-control-menu)$",
+    "source": "packages/client/src/components/SpeechControlMenu.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(session-toolbar-presence-tick)$",
+    "source": "packages/client/src/pages/settings/ToolbarSettings.tsx",
+    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
+  },
+  {
+    "pattern": "^(shiki|line)$",
+    "source": "packages/server/src/highlighting/highlight-worker.mjs",
+    "reason": "The server highlighter calls Shiki codeToHtml, which emits the pre.shiki shell and span.line wrappers."
+  },
+  {
+    "pattern": "^(line-(context|deleted|inserted|hunk)|diff-(prefix|word-added|word-removed))$",
+    "source": "packages/server/src/augments/edit-augments.ts",
+    "reason": "Server diff rendering emits line-kind classes, prefix spans and word-change wrappers."
+  }
+]

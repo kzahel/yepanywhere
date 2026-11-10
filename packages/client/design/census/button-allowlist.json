@@ -410,7 +410,7 @@
       "reason": "Composer (the session input and new-session form): its own later pass."
     },
     "styles/index.css": {
-      "count": 11,
+      "count": 9,
       "reason": "The UI-font inheritance reset for form controls, and the composer's textareas and steer-now toggle (composer pass)."
     }
   },

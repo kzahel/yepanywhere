@@ -917,34 +917,6 @@ textarea {
   background: var(--bg-hover);
 }
 
-/* Lists */
-.project-list,
-.session-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.project-list li,
-.session-list li {
-  margin-bottom: 0.5rem;
-}
-
-.project-list a,
-.session-list a {
-  display: block;
-  padding: 1rem;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  text-decoration: none;
-  color: inherit;
-}
-
-.project-list a:hover,
-.session-list a:hover {
-  background: var(--bg-hover);
-}
-
 /* Project cards (new style matching SessionListItem cards) */
 .project-list-cards {
   list-style: none;
@@ -1473,29 +1445,6 @@ a.sidebar-toggle:hover {
   padding: var(--sidebar-actions-padding-top, 0) 0 0;
   display: flex;
   flex-direction: column;
-}
-
-.sidebar-new-session {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.sidebar-new-session textarea {
-  flex: 1;
-  resize: none;
-  padding: 0.5rem;
-  font-size: var(--font-size-sm);
-  background: var(--bg-code);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-ui);
-}
-
-.sidebar-new-session textarea:focus {
-  outline: none;
-  border-color: var(--focus-border);
 }
 
 .sidebar-sessions {
@@ -2654,24 +2603,6 @@ a.sidebar-nav-item {
   cursor: default;
 }
 
-.uploaded-file {
-  cursor: default;
-  color: var(--text-secondary);
-}
-
-.uploaded-file-clickable {
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--link-color);
-}
-
-.uploaded-file-clickable:hover {
-  text-decoration: underline;
-}
-
 .uploaded-image-modal {
   display: flex;
   justify-content: center;
@@ -2773,35 +2704,6 @@ a.sidebar-nav-item {
 
 .message-render-row {
   position: relative;
-}
-
-.queued-context-return {
-  position: sticky;
-  top: var(--space-2);
-  z-index: 12;
-  width: 30px;
-  height: 30px;
-  margin: 0 0 -30px -38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--accent-color);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 800;
-  box-shadow: var(--shadow-md);
-}
-
-.queued-context-return:hover,
-.queued-context-return:focus-visible {
-  border-color: var(--focus-border);
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  outline: none;
 }
 
 .message-render-content {
@@ -4130,42 +4032,6 @@ a.sidebar-nav-item {
   color: white;
 }
 
-.send-patient-mark {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 13px;
-  padding: 1px 2px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--patient-queue-action-bg);
-  font-size: 8px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.patient-queue-ack {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 7px);
-  box-sizing: border-box;
-  width: max-content;
-  max-width: min(300px, calc(100dvw - 24px));
-  padding: 4px 7px;
-  border: 1px solid
-    color-mix(in srgb, var(--warning-color) 45%, var(--border-color));
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
-  font-size: 11px;
-  line-height: 1.2;
-  pointer-events: none;
-  white-space: normal;
-  z-index: 130;
-}
-
 .steer-now-toggle {
   display: inline-flex;
   box-sizing: border-box;
@@ -4281,51 +4147,6 @@ a.sidebar-nav-item {
   color: var(--project-queue-action-bg);
 }
 
-.deferred-message-edit {
-  appearance: none;
-  border-top: 0;
-  border-right: 0;
-  border-bottom: 0;
-  color: inherit;
-  cursor: text;
-  font: inherit;
-  text-align: left;
-  touch-action: manipulation;
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-.deferred-message-edit:hover,
-.deferred-message-edit:focus-visible {
-  opacity: 0.9;
-  outline: 1px solid var(--attention-color);
-  outline-offset: 2px;
-}
-
-.deferred-message-inline-editor {
-  appearance: none;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 44px;
-  max-height: 220px;
-  resize: none;
-  overflow-y: auto;
-  border-top: 0;
-  border-right: 0;
-  border-bottom: 0;
-  color: inherit;
-  font: inherit;
-  line-height: inherit;
-  text-align: left;
-  background: var(--bg-user-message);
-}
-
-.deferred-message-inline-editor:focus-visible {
-  opacity: 1;
-  outline: 2px solid var(--attention-color);
-  outline-offset: 2px;
-}
-
 .deferred-message-action-copy.copied {
   color: var(--success-color, #4a4);
 }
@@ -4357,19 +4178,6 @@ a.sidebar-nav-item {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-}
-
-.deferred-message-context-icon {
-  line-height: 1;
-}
-
-.deferred-message-steer-icon {
-  line-height: 1;
-}
-
-.deferred-message-action-cancel-edit:hover,
-.deferred-message-action-cancel-edit:focus-visible {
-  color: var(--error-color);
 }
 
 @media (hover: none), (pointer: coarse), (width <= 600px) {
@@ -4721,11 +4529,8 @@ a.sidebar-nav-item {
    toolbar popover: keep Thinking + Show thinking in reading order on the first
    row and let Effort own the second row. */
 .thinking-controls-panel--inline {
-  grid-template-columns: var(
-      --thinking-controls-inline-columns,
-      repeat(auto-fit, minmax(6rem, max-content))
-    );
-  column-gap: var(--thinking-controls-inline-column-gap, 1rem);
+  grid-template-columns: repeat(auto-fit, minmax(6rem, max-content));
+  column-gap: 1rem;
   row-gap: var(--space-3);
   align-items: start;
   justify-content: start;
@@ -4750,22 +4555,21 @@ a.sidebar-nav-item {
 .thinking-toolbar-menu-options {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--thinking-toolbar-options-gap, var(--space-1));
+  gap: var(--space-1);
 }
 
 .thinking-toolbar-option {
   display: inline-flex;
   align-items: center;
-  gap: var(--thinking-toolbar-option-gap, 0.35rem);
-  min-height: var(--thinking-toolbar-option-min-height, 2rem);
-  padding: var(--thinking-toolbar-option-padding-block, 0.35rem)
-    var(--thinking-toolbar-option-padding-inline, 0.55rem);
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-code);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: var(--thinking-toolbar-option-font-size, var(--font-size-sm));
+  font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.2;
 }
@@ -5983,13 +5787,6 @@ a.sidebar-nav-item {
   }
 }
 
-.tool-approval-name {
-  font-family: var(--font-mono);
-  background: var(--bg-code);
-  padding: 0.125rem 0.375rem;
-  border-radius: var(--radius-sm);
-}
-
 /* Options list - VSCode style */
 
 /* ==========================================================================
@@ -6817,21 +6614,6 @@ a.sidebar-nav-item {
   font-size: var(--font-size-sm);
 }
 
-.model-settings-subsection {
-  margin-bottom: calc(var(--space-2) * -1);
-}
-
-.model-settings-subsection h3 {
-  margin: 0 0 var(--space-1);
-  font-size: var(--font-size-base);
-}
-
-.model-settings-subsection p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-}
-
 .model-settings-item {
   flex-direction: column;
   align-items: stretch;
@@ -6930,13 +6712,6 @@ a.sidebar-nav-item {
     .thinking-toolbar-menu-options {
     flex-wrap: wrap;
   }
-}
-
-.session-default-section-description {
-  margin: calc(var(--space-1) * -1) 0 var(--space-2);
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1.35;
 }
 
 .settings-session-defaults-panel
@@ -7761,80 +7536,10 @@ a.sidebar-nav-item {
 /* Star button special styling */
 
 /* Star indicator in session list */
-.star-indicator {
-  display: inline-flex;
-  align-items: center;
-  color: var(--warning-color);
-  margin-right: var(--space-1);
-  vertical-align: middle;
-}
 
 /* Rename modal */
 
-.rename-input {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-  font-family: inherit;
-  resize: vertical;
-}
-
-.rename-input:focus {
-  outline: none;
-  border-color: var(--focus-border);
-}
-
 /* Filter bar */
-.filter-bar {
-  display: flex;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.filter-search {
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-}
-
-.filter-search:focus {
-  outline: none;
-  border-color: var(--focus-border);
-}
-
-.filter-search::placeholder {
-  color: var(--text-dimmed);
-}
-
-.filter-search-form {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
-}
-
-.filter-search-form .filter-search {
-  flex: 1;
-  min-width: 0;
-  max-width: none;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: none;
-}
 
 .global-sessions-project-cta {
   display: flex;
@@ -7847,23 +7552,6 @@ a.sidebar-nav-item {
   border: 1px solid
     color-mix(in srgb, var(--app-yep-green) 25%, var(--border-color));
   border-radius: var(--radius-lg);
-}
-
-.global-sessions-project-cta__copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.global-sessions-project-cta__copy strong {
-  color: var(--text-primary);
-}
-
-.global-sessions-project-cta__copy span {
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  overflow-wrap: anywhere;
 }
 
 .global-sessions-project-cta__token {
@@ -7879,42 +7567,9 @@ a.sidebar-nav-item {
   overflow-wrap: anywhere;
 }
 
-/* Session list header with select-all */
-.session-list-header {
-  display: flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: var(--space-2);
-}
-
 /* Bulk action bar styles live in components/BulkActionBar.module.css */
 
-@media (width <= 768px) {
-  .session-list-header {
-    display: none;
-  }
-
-  /* Show header when in selection mode */
-  .session-list--selection-mode + .session-list-header {
-    display: flex;
-  }
-}
-
-/* Archived session in list */
-.session-list li.archived > a {
-  opacity: 0.6;
-}
-
-.session-list li.archived > a strong {
-  color: var(--text-muted);
-}
-
 /* Read sessions - slightly dimmer, unread uses bold + primary for distinction */
-.session-list li > a strong {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
 
 .sidebar-session-list li > a {
   color: var(--text-secondary);
@@ -7922,10 +7577,6 @@ a.sidebar-nav-item {
 }
 
 /* Unread session - Gmail-style bold/bright instead of badge */
-.session-list li.unread > a strong {
-  color: var(--text-primary);
-  font-weight: 700;
-}
 
 .sidebar-session-list li.unread > a {
   color: var(--text-primary);
@@ -8261,33 +7912,9 @@ a.sidebar-nav-item {
 
 /* Mobile adjustments for session metadata UI */
 @media (width <= 600px) {
-  .filter-bar {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-2);
-    align-items: stretch;
-  }
-
-  .filter-search-form {
-    grid-column: 1 / -1;
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-  }
-
-  .filter-search {
-    max-width: none;
-  }
-
   .global-sessions-project-cta {
     flex-direction: column;
     align-items: stretch;
-  }
-}
-
-@media (360px <= width <= 600px) {
-  .filter-bar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -8521,8 +8148,7 @@ a.sidebar-nav-item {
   border-color: var(--text-dimmed);
 }
 
-.new-session-project-option.selected,
-.new-session-project-option-custom {
+.new-session-project-option.selected {
   border-color: var(--app-yep-green);
   background: rgba(217, 119, 87, 0.08);
 }
@@ -8548,39 +8174,6 @@ a.sidebar-nav-item {
 .new-session-input-area {
   margin-bottom: 0;
   container-type: inline-size;
-}
-
-/* Detach the thinking subpanel from the composer group: the gap above it
-   must clearly exceed the tight composer↔toolbar gap (.new-session-form-toolbar
-   margin-top, 0.35rem) so the toolbar still reads as part of the composer.
-   Font-relative so it scales with the user's root size rather than being
-   pinned to a fixed px token. */
-.new-session-thinking-controls {
-  margin-top: 1.25rem;
-  --thinking-controls-inline-columns: max-content max-content;
-  --thinking-controls-inline-column-gap: 0.9rem;
-}
-
-@container (max-width: 27rem) {
-  .new-session-thinking-controls {
-    --thinking-controls-inline-column-gap: 0.65rem;
-    --thinking-toolbar-options-gap: 0.3rem;
-    --thinking-toolbar-option-gap: 0.28rem;
-    --thinking-toolbar-option-min-height: 1.85rem;
-    --thinking-toolbar-option-padding-block: 0.3rem;
-    --thinking-toolbar-option-padding-inline: 0.48rem;
-    --thinking-toolbar-option-font-size: var(--font-size-xs);
-  }
-}
-
-@container (max-width: 21rem) {
-  .new-session-thinking-controls {
-    --thinking-controls-inline-columns: 1fr;
-  }
-
-  .new-session-thinking-controls .thinking-controls-section--effort {
-    grid-column: auto;
-  }
 }
 
 .new-session-form-toolbar .toolbar-button,
@@ -8737,14 +8330,6 @@ a.sidebar-nav-item {
   opacity: 0.8;
 }
 
-.provider-badge-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
 /* Model Selection Section */
 .new-session-model-section {
   display: grid;
@@ -8753,13 +8338,11 @@ a.sidebar-nav-item {
   margin-bottom: 0.65rem;
 }
 
-.new-session-model-field,
-.new-session-speech-field {
+.new-session-model-field {
   min-width: 0;
 }
 
-.new-session-model-field h3,
-.new-session-speech-field h3 {
+.new-session-model-field h3 {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-muted);
@@ -8768,26 +8351,17 @@ a.sidebar-nav-item {
   margin: 0 0 var(--space-2);
 }
 
-.new-session-helper-section,
-.new-session-helper-model {
+.new-session-helper-section {
   margin-bottom: 0.65rem;
 }
 
-.new-session-helper-section h3,
-.new-session-helper-model h3 {
+.new-session-helper-section h3 {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0 0 var(--space-2);
-}
-
-.new-session-helper-note {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1.35;
 }
 
 .recap-mode-caption {
@@ -8810,7 +8384,6 @@ a.sidebar-nav-item {
 }
 
 .new-session-provider-slot > .new-session-model-section,
-.new-session-provider-slot > .new-session-speech-field,
 .new-session-provider-slot > .new-session-helper-section,
 .new-session-provider-slot > .new-session-mode-section {
   margin-bottom: 0;
@@ -9065,18 +8638,8 @@ a.sidebar-nav-item {
 }
 
 /* Executor options (Run On section) */
-.new-session-executor-section {
-  margin-top: 0.9rem;
-}
 
-.new-session-executor-section h3 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-base);
-  font-weight: 500;
-}
-
-.settings-empty,
-.settings-loading {
+.settings-empty {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
   padding: var(--space-2);
@@ -9204,7 +8767,6 @@ a.sidebar-nav-item {
 
   /* Collapsed sidebar - hide text, show icons only */
   .sidebar-collapsed .sidebar-nav-text,
-  .sidebar-collapsed .sidebar-nav-label,
   .sidebar-collapsed .sidebar-section,
   .sidebar-collapsed .sidebar-empty {
     display: none;
@@ -9419,12 +8981,6 @@ a.sidebar-nav-item {
 /* ==========================================================================
    Global Sessions Page
    ========================================================================== */
-
-.global-sessions-load-more {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-4);
-}
 
 /* ==========================================================================
    Login Page
@@ -9963,26 +9519,6 @@ a.sidebar-nav-item {
    Settings Form Styles (Password Change, etc.)
    ========================================================================== */
 
-.settings-item-form {
-  width: 100%;
-  padding: var(--space-3);
-  background: var(--bg-elevated);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-}
-
-.settings-item-form form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.form-buttons {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
 /* ==========================================================================
    RemoteAccessSetup Component
    ========================================================================== */
@@ -10428,31 +9964,6 @@ a.sidebar-nav-item {
    badge ModelSubscriptionUsage renders as option meta.
    ========================================================================== */
 
-.status-filter-placeholder {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.status-filter-icon {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-
-.status-filter-icon--unread {
-  color: var(--attention-color);
-}
-
-.status-filter-icon--starred {
-  color: var(--warning-color);
-}
-
-.status-filter-icon--archived {
-  color: var(--text-muted);
-}
-
 /* ==========================================================================
    Onboarding Wizard
    ========================================================================== */
@@ -10863,30 +10374,6 @@ body:has(.session-page)
   font-size: 0.82rem;
 }
 
-.git-status-upgrade {
-  display: flex;
-  max-width: 640px;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-6) auto;
-  padding: var(--space-4);
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-
-.git-status-upgrade h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1rem;
-}
-
-.git-status-upgrade p {
-  margin: 0;
-  line-height: 1.45;
-}
-
 .git-status-empty {
   color: var(--text-muted);
   font-style: italic;
@@ -11205,12 +10692,6 @@ body:has(.session-page)
   padding-top: var(--public-share-header-height);
   background: var(--bg-surface);
   color: var(--text-primary);
-}
-
-.public-share-page--center {
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
 }
 
 .public-share-header {

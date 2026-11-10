@@ -6,7 +6,8 @@
  * different namespaces (see topics/css-architecture.md):
  *
  * - Global stylesheets share one document-wide class namespace, so a class is
- *   used when any source file emits it from a string or template literal.
+ *   used when production client source names a whole token or a reviewed
+ *   runtime/generated family declares its emitter.
  * - `*.module.css` selectors are scoped per file and reached only through the
  *   binding an importer gives them (`styles.foo`, `styles["foo"]`), so usage is
  *   resolved per module rather than by name. Two modules may both define
@@ -124,7 +125,7 @@ export interface AnalysisResult {
   modules: ModuleReport[];
   moduleUnused: ClassInfo[];
   moduleProductionUnused: ModuleSelectorInfo[];
-  dynamicPrefixes: string[];
+  runtimeFamilies: RuntimeClassFamily[];
   cssFileCount: number;
   moduleFileCount: number;
   srcFileCount: number;
@@ -254,9 +255,11 @@ export function findSourceFiles(dir: string, extensions: string[]): string[] {
 export function isTestSourceFile(file: string): boolean {
   const normalized = file.split(path.sep).join("/");
   return (
-    /(^|\/)(__tests__|tests?|e2e)(\/|\.|$)/.test(normalized) ||
+    /(^|\/)(__tests__|__fixtures__|__mocks__|tests?|e2e)(\/|\.|$)/.test(
+      normalized,
+    ) ||
     /(^|\/)packages\/[^/]+\/scripts\//.test(normalized) ||
-    /\.(test|spec)\.[cm]?[jt]sx?$/.test(normalized)
+    /\.(test|spec|specimen|stories)\.[cm]?[jt]sx?$/.test(normalized)
   );
 }
 
@@ -714,6 +717,22 @@ function addRegexClassTokens(
   }
 }
 
+/** Interpolation edges are fragments, not whole runtime class tokens. */
+function addTemplateTokens(
+  exact: Map<string, Set<string>>,
+  value: string,
+  filename: string,
+  startsAtBoundary: boolean,
+  endsAtBoundary: boolean,
+): void {
+  let complete = value;
+  if (!startsAtBoundary) complete = complete.replace(/^\S+/u, "");
+  if (!endsAtBoundary) complete = complete.replace(/\S+$/u, "");
+  addSourceStringTokens(exact, complete, filename);
+  // Complete quoted attributes may sit inside a template that also interpolates.
+  addMarkupClassTokens(exact, value, filename);
+}
+
 /** Build an exact, comment-free source index using the TypeScript parser. */
 export function buildSourceUsageIndex(
   srcFiles: Map<string, string>,
@@ -740,11 +759,17 @@ export function buildSourceUsageIndex(
         addRegexClassTokens(exact, node.text, filename);
       }
       if (ts.isTemplateExpression(node)) {
-        addSourceStringTokens(exact, node.head.text, filename);
+        addTemplateTokens(exact, node.head.text, filename, true, false);
         addDynamicPrefix(dynamic, node.head.text, filename);
         for (let index = 0; index < node.templateSpans.length; index++) {
           const literal = node.templateSpans[index].literal.text;
-          addSourceStringTokens(exact, literal, filename);
+          addTemplateTokens(
+            exact,
+            literal,
+            filename,
+            false,
+            index === node.templateSpans.length - 1,
+          );
           if (index < node.templateSpans.length - 1) {
             addDynamicPrefix(dynamic, literal, filename);
           }
@@ -1070,16 +1095,7 @@ export function buildClassProducerUsageIndex(
   return { exact, dynamic };
 }
 
-/**
- * Extract dynamic class prefixes from template literals like `mode-${m}` or `status-${status}`.
- * Returns an array of prefixes found (e.g., ["mode-", "status-"]).
- */
-export function extractDynamicPrefixes(
-  srcFiles: Map<string, string>,
-): string[] {
-  return Array.from(buildSourceUsageIndex(srcFiles).dynamic.keys());
-}
-
+/** Advisory ownership evidence for css:inventory; never global liveness. */
 export function findDynamicUsage(
   className: string,
   sourceIndex: SourceUsageIndex,
@@ -1092,23 +1108,65 @@ export function findDynamicUsage(
   return Array.from(files);
 }
 
-function searchSourceIndex(
-  className: string,
-  sourceIndex: SourceUsageIndex,
-): string[] {
-  return Array.from(
-    new Set([
-      ...(sourceIndex.exact.get(className) ?? []),
-      ...findDynamicUsage(className, sourceIndex),
-    ]),
-  );
+export interface RuntimeClassFamily {
+  pattern: string;
+  source: string;
+  reason: string;
+}
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+const clientSourceRoot = path.join(repoRoot, "packages/client/src");
+
+/** Families are reviewed evidence, never inferred from arbitrary templates. */
+export function validateRuntimeFamilies(
+  families: RuntimeClassFamily[],
+  globalNames: Iterable<string>,
+): Map<string, Set<string>> {
+  const names = [...globalNames];
+  const usage = new Map<string, Set<string>>();
+  for (const family of families) {
+    if (
+      !family.pattern?.startsWith("^") ||
+      !family.pattern.endsWith("$") ||
+      !family.source ||
+      !family.reason?.trim()
+    ) {
+      throw new Error(`Invalid CSS runtime family: ${JSON.stringify(family)}`);
+    }
+    const source = path.resolve(repoRoot, family.source);
+    if (
+      !source.startsWith(`${repoRoot}${path.sep}`) ||
+      !fs.existsSync(source) ||
+      !fs.statSync(source).isFile()
+    ) {
+      throw new Error(
+        `CSS runtime family ${family.pattern}: source does not exist: ${family.source}`,
+      );
+    }
+    const pattern = new RegExp(`^(?:${family.pattern})$`, "u");
+    const matches = names.filter((name) => pattern.test(name));
+    if (matches.length === 0) {
+      throw new Error(
+        `CSS runtime family ${family.pattern}: matches no global class; remove the stale family`,
+      );
+    }
+    for (const name of matches) addSourceFact(usage, name, family.source);
+  }
+  return usage;
 }
 
 function resolveSpecifier(fromFile: string, specifier: string): string {
   return path.resolve(path.dirname(fromFile), specifier);
 }
 
-export function analyze(options: Pick<Options, "cssDir" | "srcDir">): {
+export function analyze(
+  options: Pick<Options, "cssDir" | "srcDir"> & {
+    families?: RuntimeClassFamily[];
+  },
+): {
   result: AnalysisResult;
   srcContents: Map<string, string>;
 } {
@@ -1420,9 +1478,10 @@ export function analyze(options: Pick<Options, "cssDir" | "srcDir">): {
     });
   }
 
-  // A module's `:global(...)` selector is a real consumer of global vocabulary.
+  // Only production-reachable module interop is usage of global vocabulary.
   const globalRefsFromModules = new Map<string, string[]>();
   for (const report of moduleReports.values()) {
+    if (!report.productionReachable) continue;
     for (const name of report.globalRefs) {
       const files = globalRefsFromModules.get(name) ?? [];
       files.push(report.cssFile);
@@ -1430,14 +1489,41 @@ export function analyze(options: Pick<Options, "cssDir" | "srcDir">): {
     }
   }
 
-  const sourceIndex = buildSourceUsageIndex(srcContents);
-  const dynamicPrefixes = Array.from(sourceIndex.dynamic.keys());
+  const packageScan =
+    path.basename(path.resolve(options.srcDir)) === "packages";
+  const productionRoot = packageScan
+    ? path.resolve(options.srcDir, "client/src")
+    : path.resolve(options.srcDir);
+  const productionSources = new Map(
+    [...srcContents].filter(
+      ([file]) =>
+        !isTestSourceFile(file) &&
+        (!packageScan ||
+          path.resolve(file).startsWith(`${productionRoot}${path.sep}`)),
+    ),
+  );
+  const sourceIndex = buildSourceUsageIndex(productionSources);
+  const runtimeFamilies: RuntimeClassFamily[] =
+    options.families ??
+    (path.resolve(options.cssDir) === clientSourceRoot
+      ? JSON.parse(
+          fs.readFileSync(
+            path.join(repoRoot, "scripts/css-runtime-families.json"),
+            "utf8",
+          ),
+        )
+      : []);
+  const familyUsage = validateRuntimeFamilies(
+    runtimeFamilies,
+    uniqueGlobalClasses.keys(),
+  );
   const globalUsed: ClassInfo[] = [];
   const globalUnused: ClassInfo[] = [];
 
   for (const cls of uniqueGlobalClasses.values()) {
     cls.usedIn = [
-      ...searchSourceIndex(cls.name, sourceIndex),
+      ...(sourceIndex.exact.get(cls.name) ?? []),
+      ...(familyUsage.get(cls.name) ?? []),
       ...(globalRefsFromModules.get(cls.name) ?? []),
     ];
     if (cls.usedIn.length === 0) {
@@ -1457,7 +1543,7 @@ export function analyze(options: Pick<Options, "cssDir" | "srcDir">): {
       ),
       moduleUnused,
       moduleProductionUnused,
-      dynamicPrefixes,
+      runtimeFamilies,
       cssFileCount: globalCssFiles.length,
       moduleFileCount: moduleFiles.length,
       srcFileCount: srcFiles.length,
@@ -1466,122 +1552,45 @@ export function analyze(options: Pick<Options, "cssDir" | "srcDir">): {
   };
 }
 
-interface CssRule {
-  startLine: number; // 0-indexed
-  endLine: number; // 0-indexed, inclusive
-  selector: string;
-  isPartOfGroup: boolean; // true if selector is comma-separated with others
-}
-
-/**
- * Find the CSS rule that contains the given class on the given line.
- * Returns the line range to delete, or null if it can't be safely removed.
- */
-function findRuleForClass(
-  lines: string[],
-  _className: string,
-  lineNum: number,
-): CssRule | null {
-  // lineNum is 1-indexed from ClassInfo, convert to 0-indexed
-  const lineIdx = lineNum - 1;
-
-  // Find the start of the selector (scan backwards for { or })
-  let selectorStart = lineIdx;
-  for (let i = lineIdx; i >= 0; i--) {
-    if (lines[i].includes("{")) {
-      // This line has the opening brace, selector starts here or before
-      selectorStart = i;
-      break;
-    }
-    if (lines[i].includes("}") && i !== lineIdx) {
-      // Previous rule ends here, selector starts after
-      selectorStart = i + 1;
-      break;
-    }
-    selectorStart = i;
-  }
-
-  // Find the opening brace
-  let braceLineIdx = -1;
-  for (let i = selectorStart; i < lines.length; i++) {
-    if (lines[i].includes("{")) {
-      braceLineIdx = i;
-      break;
-    }
-  }
-
-  if (braceLineIdx === -1) return null;
-
-  // Get the full selector text
-  const selectorLines = lines.slice(selectorStart, braceLineIdx + 1);
-  const selectorText = selectorLines.join("\n").replace(/\{.*$/, "").trim();
-
-  // Check if it's a grouped selector (has commas at the top level)
-  // Simple heuristic: if there's a comma not inside parens/brackets
-  const isGrouped = /,(?![^(]*\))/.test(selectorText);
-
-  if (isGrouped) {
-    // Can't safely remove just one selector from a group
-    return {
-      startLine: selectorStart,
-      endLine: braceLineIdx,
-      selector: selectorText,
-      isPartOfGroup: true,
-    };
-  }
-
-  // Find the closing brace by counting braces
-  let braceCount = 0;
-  let ruleEndIdx = -1;
-
-  for (let i = braceLineIdx; i < lines.length; i++) {
-    for (const char of lines[i]) {
-      if (char === "{") braceCount++;
-      if (char === "}") braceCount--;
-    }
-    if (braceCount === 0) {
-      ruleEndIdx = i;
-      break;
-    }
-  }
-
-  if (ruleEndIdx === -1) return null;
-
-  // Check for preceding comment (look for lines starting with /* or *)
-  let commentStart = selectorStart;
-  for (let i = selectorStart - 1; i >= 0; i--) {
-    const trimmed = lines[i].trim();
-    if (trimmed.startsWith("/*") || trimmed.startsWith("*") || trimmed === "") {
-      commentStart = i;
-    } else if (trimmed.endsWith("*/")) {
-      // End of a previous comment, don't include
-      break;
-    } else {
-      break;
-    }
-  }
-
-  // Don't include standalone comments that aren't directly attached
-  // (i.e., there's a blank line between comment and selector)
-  if (commentStart < selectorStart) {
-    let hasBlankBetween = false;
-    for (let i = commentStart; i < selectorStart; i++) {
-      if (lines[i].trim() === "") {
-        hasBlankBetween = true;
-        break;
+/** Prune only selector-list branches that require an unused global class. */
+export function pruneUnusedGlobalRules(
+  content: string,
+  unusedNames: Set<string>,
+): { css: string; removed: number; skippedClasses: string[] } {
+  const root = postcss.parse(content);
+  let removed = 0;
+  const skippedClasses = new Set<string>();
+  root.walkRules((rule) => {
+    const selectors = selectorParser().astSync(rule.selector);
+    const deadBranches = selectors.nodes.filter((branch) => {
+      let dead = false;
+      branch.walkClasses((node) => {
+        if (!unusedNames.has(node.value)) return;
+        // Negation/alternation is not evidence the entire branch is dead.
+        // Leave such selectors for deliberate review rather than changing logic.
+        if (node.parent !== branch) skippedClasses.add(node.value);
+        else dead = true;
+      });
+      return dead;
+    });
+    if (deadBranches.length === 0) return;
+    removed += deadBranches.length;
+    if (deadBranches.length === selectors.nodes.length) {
+      const parent = rule.parent;
+      rule.remove();
+      // Remove only containers emptied by this deletion, never unrelated ones.
+      let empty = parent;
+      while (empty?.type === "atrule" && empty.nodes?.length === 0) {
+        const next = empty.parent;
+        empty.remove();
+        empty = next;
       }
+    } else {
+      for (const branch of deadBranches) branch.remove();
+      rule.selector = selectors.toString().trim();
     }
-    if (hasBlankBetween) {
-      commentStart = selectorStart;
-    }
-  }
-
-  return {
-    startLine: commentStart,
-    endLine: ruleEndIdx,
-    selector: selectorText,
-    isPartOfGroup: false,
-  };
+  });
+  return { css: root.toString(), removed, skippedClasses: [...skippedClasses] };
 }
 
 interface RemovalResult {
@@ -1591,88 +1600,25 @@ interface RemovalResult {
   skippedClasses: string[];
 }
 
-/**
- * Remove unused CSS rules from files.
- *
- * Only global stylesheets are eligible. Module rules are left to their owning
- * component: the line-based parser cannot yet remove a complete module rule
- * (including `composes` dependents) safely.
- */
+/** All occurrences are pruned, including duplicate names in other files. */
 function removeUnusedRules(
-  unusedByFile: Map<string, ClassInfo[]>,
+  cssDir: string,
+  unusedNames: Set<string>,
   dryRun: boolean,
 ): RemovalResult[] {
-  const results: RemovalResult[] = [];
-
-  for (const [file, classes] of unusedByFile) {
-    if (isModuleStylesheet(file)) continue;
-    const content = fs.readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-
-    // Find all rules to remove, sorted by line number descending
-    // (so we can remove from bottom to top without messing up line numbers)
-    const rulesToRemove: CssRule[] = [];
-    const skippedClasses: string[] = [];
-
-    for (const cls of classes) {
-      const rule = findRuleForClass(lines, cls.name, cls.line);
-      if (rule && !rule.isPartOfGroup) {
-        // Check if we already have a rule that overlaps
-        const overlaps = rulesToRemove.some(
-          (r) =>
-            (rule.startLine >= r.startLine && rule.startLine <= r.endLine) ||
-            (rule.endLine >= r.startLine && rule.endLine <= r.endLine),
-        );
-        if (!overlaps) {
-          rulesToRemove.push(rule);
-        }
-      } else if (rule?.isPartOfGroup) {
-        skippedClasses.push(cls.name);
-      }
-    }
-
-    // Sort by startLine descending
-    rulesToRemove.sort((a, b) => b.startLine - a.startLine);
-
-    if (rulesToRemove.length === 0) {
-      results.push({
+  return findFiles(cssDir, [".css"])
+    .filter((file) => !isModuleStylesheet(file))
+    .map((file) => {
+      const content = fs.readFileSync(file, "utf8");
+      const result = pruneUnusedGlobalRules(content, unusedNames);
+      if (!dryRun && result.css !== content) fs.writeFileSync(file, result.css);
+      return {
         file,
-        removed: 0,
-        skipped: skippedClasses.length,
-        skippedClasses,
-      });
-      continue;
-    }
-
-    // Remove rules from bottom to top
-    for (const rule of rulesToRemove) {
-      // Remove lines from startLine to endLine inclusive
-      lines.splice(rule.startLine, rule.endLine - rule.startLine + 1);
-    }
-
-    // Clean up multiple consecutive blank lines
-    const cleanedLines: string[] = [];
-    let prevBlank = false;
-    for (const line of lines) {
-      const isBlank = line.trim() === "";
-      if (isBlank && prevBlank) continue;
-      cleanedLines.push(line);
-      prevBlank = isBlank;
-    }
-
-    if (!dryRun) {
-      fs.writeFileSync(file, cleanedLines.join("\n"));
-    }
-
-    results.push({
-      file,
-      removed: rulesToRemove.length,
-      skipped: skippedClasses.length,
-      skippedClasses,
+        removed: result.removed,
+        skipped: result.skippedClasses.length,
+        skippedClasses: result.skippedClasses,
+      };
     });
-  }
-
-  return results;
 }
 
 const UNKNOWN_REASON_TEXT: Record<ModuleUnknownReason, string> = {
@@ -1875,13 +1821,23 @@ function main() {
   }
 
   if (options.json) {
+    const removals =
+      options.remove || options.dryRun
+        ? removeUnusedRules(
+            options.cssDir,
+            new Set(result.globalUnused.map((cls) => cls.name)),
+            options.dryRun,
+          )
+        : undefined;
     console.log(
       JSON.stringify(
         {
+          removals,
           summary: {
             totalClasses: result.globalClasses.length,
             usedClasses: result.globalUsed.length,
             unusedClasses: result.globalUnused.length,
+            runtimeFamilies: result.runtimeFamilies.length,
             cssFiles: result.cssFileCount,
             srcFiles: result.srcFileCount,
             moduleFiles: result.moduleFileCount,
@@ -1919,7 +1875,10 @@ function main() {
         2,
       ),
     );
-    process.exitCode = exitCode(result, options);
+    process.exitCode = exitCode(
+      options.remove && !options.dryRun ? analyze(options).result : result,
+      options,
+    );
     return;
   }
 
@@ -1930,11 +1889,9 @@ function main() {
     `Found ${result.modules.reduce((total, r) => total + r.selectors.length, 0)} module selectors in ${result.moduleFileCount} CSS Modules`,
   );
   console.log(`Searching ${result.srcFileCount} source files...`);
-  if (result.dynamicPrefixes.length > 0) {
-    console.log(
-      `Detected dynamic prefixes: ${result.dynamicPrefixes.join(", ")}`,
-    );
-  }
+  console.log(
+    `Reviewed runtime/generated families: ${result.runtimeFamilies.length}`,
+  );
   console.log();
 
   // Group unused global classes by CSS file
@@ -1948,9 +1905,7 @@ function main() {
   if (result.globalUnused.length === 0) {
     console.log("No unused global classes found!");
   } else {
-    console.log(
-      `Found ${result.globalUnused.length} potentially unused global classes:\n`,
-    );
+    console.log(`Found ${result.globalUnused.length} unused global classes:\n`);
 
     for (const [file, classes] of byFile) {
       const relPath = path.relative(process.cwd(), file);
@@ -2020,7 +1975,11 @@ function main() {
         : "\nRemoving unused rules...",
     );
 
-    const results = removeUnusedRules(byFile, options.dryRun);
+    const results = removeUnusedRules(
+      options.cssDir,
+      new Set(result.globalUnused.map((cls) => cls.name)),
+      options.dryRun,
+    );
 
     let totalRemoved = 0;
     let totalSkipped = 0;
@@ -2033,7 +1992,7 @@ function main() {
         );
         if (removal.skippedClasses.length > 0 && options.verbose) {
           console.log(
-            `    Skipped (grouped selectors): ${removal.skippedClasses.join(", ")}`,
+            `    Skipped (nested selectors): ${removal.skippedClasses.join(", ")}`,
           );
         }
       }
@@ -2042,7 +2001,7 @@ function main() {
     }
 
     console.log(
-      `\n${options.dryRun ? "Would remove" : "Removed"} ${totalRemoved} rules, skipped ${totalSkipped} (grouped selectors)`,
+      `\n${options.dryRun ? "Would remove" : "Removed"} ${totalRemoved} selector branches, skipped ${totalSkipped} (nested selectors)`,
     );
     if (result.moduleProductionUnused.length > 0) {
       console.log(
@@ -2051,11 +2010,16 @@ function main() {
     }
   }
 
-  process.exit(exitCode(result, options));
+  process.exit(
+    exitCode(
+      options.remove && !options.dryRun ? analyze(options).result : result,
+      options,
+    ),
+  );
 }
 
-function exitCode(result: AnalysisResult, options: Options): number {
-  const globalOutstanding = options.remove ? 0 : result.globalUnused.length;
+function exitCode(result: AnalysisResult, _options: Options): number {
+  const globalOutstanding = result.globalUnused.length;
   return globalOutstanding + moduleContractIssues(result).length > 0 ? 1 : 0;
 }
 
