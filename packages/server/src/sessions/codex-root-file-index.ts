@@ -5,7 +5,7 @@ import {
   plainCodexRolloutPath,
 } from "../utils/codexRolloutFiles.js";
 import {
-  CodexSessionMap,
+  type CodexSessionMap,
   codexSharedScanCache,
   isNewerCodexSessionFile,
   type CodexSessionFile,
