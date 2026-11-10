@@ -30,6 +30,10 @@ Retired class bans live independently of the playground's rows in
 lift a ban. Before removing a rule-less row, preserve all its retired class
 names in `bannedClasses`. Recording exception counts never removes those bans.
 
+Step 6 separates the three continuing global purposes from the remaining
+React-owned legacy rules. `index.css` remains the shared import entry; it no
+longer owns tokens or document defaults. No rendered styles change.
+
 The target:
 
 - **Three global purposes.** Tokens and themes, the base reset, and styles
@@ -77,20 +81,59 @@ not carry a migration queue.
 
 - A React component's new styles belong in a co-located `*.module.css`, imported
   as `styles` by the owning component.
-- `packages/client/src/styles/index.css`, `renderers.css`, `tool-rows.css`, and
-  `emulator.css` are legacy global stylesheets. Each is frozen at the line limit
-  in `scripts/css-architecture-baseline.json`.
-- Feature work must not raise those limits. If a global rule is genuinely
-  necessary, offset it by extracting at least as many legacy lines from the
-  same file; prefer a reviewed, narrowly owned global exception when offsetting
-  would obscure ownership.
-- A new authored non-module stylesheet under `packages/client/src` fails
-  `pnpm css:check` unless it is explicitly added to the reviewed allowlist with
-  a reason. This prevents replacing one global monolith with several unowned
-  global files.
-- When extraction takes a legacy file below its ceiling, run
-  `pnpm css:check --record` in the same change. Recording only lowers limits;
-  it never accepts growth.
+- The only continuing authored global stylesheets are under
+  `packages/client/src/styles/`: `tokens.css`, `base.css` and `generated.css`.
+  Their parser-backed purpose check runs in `pnpm css:check` and `pnpm lint`.
+  `tokens.css` permits custom-property declarations on root/theme selectors,
+  `@font-face` and `@property` descriptors, with media/supports wrappers.
+  Theme `color-scheme` belongs in `base.css`, not in the token declarations.
+- `base.css` owns resets, element defaults, document layout/state, scrollbars,
+  selection/highlights and focus defaults. Component scrollbars/focus treatments
+  remain with their component. Its class selectors are limited to the documented
+  source-pane drag state (`source-pane-resizing`) and transcript selection shield
+  (`session-transcript-selection-active`), including their existing session-page,
+  header, input and reload-banner targets. Each class reference is counted in
+  `globalPurposeExceptions` in `scripts/css-architecture-baseline.json`.
+- `generated.css` owns styles targeting HTML the client does not author as React
+  elements: server markdown, Shiki, ANSI, KaTeX, unicode math, server edit/diff
+  augments, markdown-preview line boundaries, path linkifiers and local media.
+  The fixed-font renderer's inserted HTML strings also belong here. Generated
+  class families carry `generated: true` in `scripts/css-runtime-families.json`;
+  a runtime-built React class is not a generated family. Shared vocabulary
+  listed in a family's `reactAuthored` field needs a purely generated class
+  ancestor/subject in the selector (for example a Shiki line's diff prefix).
+  Negated or relational arguments do not establish that ancestry. React
+  ancestor/context references are counted exceptions with reasons in `globalPurposeExceptions`.
+  A React shell cannot become the styled subject merely by being a context.
+  Initial exception counts are 18 base references in six entries and 135
+  generated-context references in 18 entries; tokens has zero exceptions.
+- React-authored vocabulary shared with emitted HTML stays with its React owner
+  unless the rule targets only emitted content. Thus the local-media group/type
+  and fallback diff-prefix rules stay legacy, while server-only media toggles
+  and Shiki line rules move. Coupled typography selector groups stay intact in
+  `renderers.css` until their React owners drain; splitting those groups could
+  change equal-specificity order. `EmulatorStream.module.css` owns its video.
+- `index.css`, `renderers.css` and `tool-rows.css` contain only remaining legacy
+  component rules and coupled groups, with a **target of zero** and per-file
+  lower-only line ceilings in `scripts/css-architecture-baseline.json`.
+  Feature work never raises these ceilings. New component styles use modules.
+  `provider-colors.css` is folded into `tokens.css`; `emulator.css` is removed.
+- `index.css` is the common import entry, in this order: third-party KaTeX,
+  tokens, generated content, legacy renderers, legacy tool rows, base, then its
+  own legacy application rules. The main/remote app (including public share),
+  extension side panel, playground, mockups and browser fixtures share that
+  entry. A fixture importing only a legacy file must include any purpose globals
+  its rendered markup needs; do not assume legacy renderers still define them.
+- A new non-module stylesheet fails `pnpm css:check`; the three purpose globals
+  are fixed, not an extensible substitute for component ownership. When legacy
+  lines or purpose findings fall, run `pnpm css:check --record` in the same
+  change. It only lowers/removes entries, refuses all unreviewed growth before
+  writing, and keeps the reasons. Stale purpose counts fail ordinary checking.
+- Moving a rule between purposes must preserve declarations, selector
+  specificity and the order of competing rules in every entry. Compare the
+  flattened cascade before/after with a disposable parser script, investigate
+  equal-specificity reversals, and inspect the screen-tour pairs. CSS layers or
+  specificity changes are not move-only fixes for an ordering conflict.
 - A `var(--name)` read of a custom property that no production client source
   defines fails `pnpm css:check`. Such a read silently takes its fallback, or
   drops its declaration when it has none. The undefined-token pass of
@@ -314,7 +357,7 @@ steps 6–7 of plan 191. The type and radius scales live in
 
 | Command | Role | Exit/write contract |
 |---|---|---|
-| `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
+| `pnpm css:check` | Hard global purpose/legacy containment gate | Exits 1 for purpose violations beyond counted reasons, stale purpose counts, legacy growth (target zero), an unreviewed global file, a stale/invalid baseline entry, or newly undefined properties/reads. `--record` only lowers ceilings and exceptions, refusing unreviewed growth before writing. |
 | `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, a hand-drawn ButtonBase surface without a counted reason, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and preserves permanent class bans. |
 | `pnpm controls:check` | Hard shared-control caller-class ownership gate | Exits 1 for look/size overrides beyond the per-file reasoned allowlist, invalid entries, or stale counts. `--record` only lowers counts/removes cleared entries and refuses unreviewed increases. |
 | `pnpm tokens:check` | Hard module/TSX type and radius token gate | Exits 1 for unreviewed literal values, invalid entries or stale counts. `--record` only lowers/removes exceptions and refuses increases. |
@@ -355,9 +398,9 @@ Rules that shape new CSS:
   an override, place it after its base; when moving rules to satisfy this,
   check that no rule whose order flips has equal specificity, an
   overlapping property, and a subject that can be the same element.
-- A selector appears once per file and media context. The diff palette in
-  `index.css` is the one deliberate exception: it is grouped separately from
-  the theme blocks under a scoped disable comment.
+- A selector appears once per file and media context. The provider, ANSI and diff palettes in
+  `tokens.css` deliberately repeat root/theme selectors with disjoint properties,
+  retaining their original order under a documented disable comment.
 - `no-unknown-animations` checks `animation` names against keyframes in the
   same file. That is the CSS Modules contract too: a module's keyframe names
   are renamed per module, so it cannot use a global keyframe by bare name.
@@ -379,7 +422,8 @@ Global CSS remains appropriate for:
 - HTML produced outside the owning React component, including server-rendered
   markdown, Shiki markup, ANSI/fixed-font transforms, or stable provider
   renderer vocabularies; and
-- narrowly documented composition primitives shared across unrelated owners.
+- the existing counted React-context anchors for emitted descendants; these
+  do not authorize new global composition primitives.
 
 Generated markup does not justify placing an entire surrounding feature in a
 global file. Keep the generated vocabulary global and move the React-owned
@@ -401,8 +445,8 @@ missing reference is not.
 - The component that creates an element owns its class.
 - A parent that needs to place a child should prefer a wrapper or an explicit
   `className`/variant prop over reaching into the child's generated class name.
-- Reusable visual primitives may expose a deliberate shared global class, but
-  accidental global selectors are not a component API.
+- Reusable visual primitives own a module and expose props or a module class;
+  remaining shared global composition is legacy debt, not a new component API.
 - Keep design values in existing custom properties. Moving a selector into a
   module does not require copying theme values or introducing JavaScript style
   objects.
@@ -423,7 +467,7 @@ pnpm css:inventory
 pnpm css:inventory -- --owner <component-or-path>
 ```
 
-The inventory parses legacy CSS with a CSS parser and authored package source,
+The inventory excludes the three purpose globals and parses only legacy CSS with a CSS parser and authored package source,
 Playwright, and script roots with the TypeScript parser, including JS module
 and CommonJS harnesses. It distinguishes exact string-literal and
 regex-selector callsites, dynamic template prefixes, test references,
@@ -510,7 +554,8 @@ not measure total CSS reduction or, by itself, module quality. CSS health should
 be inspected on demand across separate dimensions rather than collapsed into a
 single score or maintained as a standing dashboard:
 
-- **containment** — legacy lines per file and reviewed global exceptions;
+- **containment** — legacy lines per file (target zero), the three purpose
+  globals, and counted purpose exceptions;
 - **ownership** — owned, coupled, generated, unresolved, and low-confidence
   rules or lines;
 - **module contracts** — unused or undeclared selectors, test-only usage,
@@ -648,9 +693,11 @@ Check what a moved declaration was actually defending against before calling it
 redundant. `.repo-status-bar .copy-button` restated `.copy-button`'s own values
 and looked like dead weight, but a second, unrelated `.copy-button` later in
 `index.css` was winning against it — `renderers.css` is `@import`ed at the top of
-`index.css`, so its rules are the earliest in the cascade, not the latest. A
-module class that replaces a descendant selector needs the same specificity the
-selector had, or the outcome silently becomes stylesheet order.
+`index.css`, so its rules preceded the application rules. The current entry
+still places legacy renderers before legacy application rules, after
+tokens/generated content. A module class that replaces a descendant selector
+needs the same specificity the selector had, or the outcome silently becomes
+stylesheet order.
 
 When a caller rule that survives in a legacy stylesheet used to win through
 descendant specificity, keep it at that specificity — scope it under the

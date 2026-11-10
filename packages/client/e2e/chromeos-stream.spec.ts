@@ -117,7 +117,7 @@ test("streams ChromeOS video over WebRTC when host is configured", async ({
     page.locator('[data-testid="device-connection-state"]'),
   ).toHaveText("connected", { timeout: 30_000 });
 
-  const video = page.locator("video.emulator-video");
+  const video = page.locator('video[aria-label="Device stream"]');
   await expect(video).toBeVisible();
 
   await expect(async () => {
@@ -125,7 +125,7 @@ test("streams ChromeOS video over WebRTC when host is configured", async ({
       () =>
         (
           document.querySelector(
-            "video.emulator-video",
+            'video[aria-label="Device stream"]',
           ) as HTMLVideoElement | null
         )?.readyState ?? 0,
     );

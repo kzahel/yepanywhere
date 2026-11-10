@@ -19,6 +19,7 @@ import {
   findDynamicUsage,
   findFiles,
   findSourceFiles,
+  isPurposeStylesheet,
   type SourceUsageIndex,
 } from "./find-unused-css.ts";
 
@@ -370,7 +371,7 @@ export function buildInventory(
   options: Pick<Options, "cssDir" | "srcDir" | "ownerDir">,
 ): InventoryResult {
   const cssFiles = findFiles(options.cssDir, [".css"]).filter(
-    (file) => !file.endsWith(".module.css"),
+    (file) => !file.endsWith(".module.css") && !isPurposeStylesheet(file),
   );
   const sourceFiles = findSourceFiles(options.srcDir, [
     ".tsx",

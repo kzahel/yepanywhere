@@ -2,8 +2,8 @@
 
 Topic: css-architecture
 
-Status: steps 1–4 landed 2026-11-10; step 5 implemented 2026-11-10 for review.
-Steps 6–8 remain open. The maintainer
+Status: steps 1–5 landed 2026-11-10; step 6 implemented 2026-11-10 for review.
+Steps 7–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -181,7 +181,7 @@ heading; no suitable token within 1px. Global literals wait for steps 6–7.
 
 ### 5 — reduce the census pages to open work
 
-Implemented 2026-11-10 for review. Census shrank from 457 rows / 8 pages
+Landed 2026-11-10. Census shrank from 457 rows / 8 pages
 to 319 rows / 6 pages (each state counted once, without theme copies).
 Swept-family samples, the 1,747-line mapping and the directory inventory are
 removed; the enforcement scanner now reports only raw buttons and button roles.
@@ -196,13 +196,18 @@ generated-markup/specialized exceptions, whose closure conditions remain visible
 
 ### 6 — split the global stylesheets by purpose
 
-Create `styles/tokens.css` (custom properties, themes, font faces),
-`styles/base.css` (reset, document and root layout) and
-`styles/generated.css` (markup the client does not author). Move matching
-rules out of `index.css` and `renderers.css` unchanged, preserving cascade
-order. `css:check` treats those three as the permitted globals and the
-remaining files as legacy with a target of zero. `provider-colors.css`
-folds into tokens; `emulator.css` into its component's module.
+Implemented 2026-11-10 for review; move-only, with all declarations preserved.
+`tokens.css` 886 lines, `base.css` 92, `generated.css` 803; provider colors fold
+into tokens and EmulatorStream's video moves to its 8-line module.
+Legacy ceilings: index 10,708 → 9,829; renderers 4,922 → 4,063; tool rows 670.
+Global lines: 16,355 → 16,343. Purpose checks run in lint: zero token exceptions,
+18 base references / 6 entries, 135 generated contexts / 18 entries; recording
+only lowers counts. Inventory/touched exclude purpose globals; health and all
+style scanners include them. The playground reads tokens from their new owner.
+Cascade audit: 8,395 declarations, 274,340 cross-file specificity ties; three
+candidate reversals are DOM-disjoint. All 24 computed-style snapshots match.
+Deferred to step 7: coupled React/generated typography groups and shared React
+media/fallback-diff vocabulary, to preserve their cascade and ownership.
 
 ### 7 — drain the legacy stylesheets by owner
 

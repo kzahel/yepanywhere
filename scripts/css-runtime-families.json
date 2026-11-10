@@ -97,32 +97,39 @@
   {
     "pattern": "^fixed-font-markdown-heading-[1-6]$",
     "source": "packages/client/src/components/ui/FixedFontMathToggle.tsx",
-    "reason": "Heading marker length generates the fixed-font heading level."
+    "reason": "Heading marker length generates the fixed-font heading level.",
+    "generated": true
   },
   {
     "pattern": "^ya-umath(__tex|__text)?$",
     "source": "packages/server/src/augments/safe-markdown.ts",
-    "reason": "Server markdown rendering emits Unicode math text/TeX toggle markup."
+    "reason": "Server markdown rendering emits Unicode math text/TeX toggle markup.",
+    "generated": true
   },
   {
     "pattern": "^katex(-display|-error)?$",
     "source": "packages/server/src/augments/safe-markdown.ts",
-    "reason": "Server calls KaTeX renderToString; KaTeX emits inline/display and error wrappers."
+    "reason": "Server calls KaTeX renderToString; KaTeX emits inline/display and error wrappers.",
+    "generated": true
   },
   {
     "pattern": "^ya-uscript(__source|--sup|--sub)?$",
     "source": "packages/server/src/augments/unicode-math.ts",
-    "reason": "Unicode script rendering emits source wrappers and interpolated sup/sub classes."
+    "reason": "Unicode script rendering emits source wrappers and interpolated sup/sub classes.",
+    "generated": true
   },
   {
     "pattern": "^ansi-((fg|bg)-(bright-)?(black|red|green|yellow|blue|magenta|cyan|white)|bold|italic|underline|strikethrough|inverse)$",
     "source": "packages/shared/src/ansi-renderer.ts",
-    "reason": "Shared SGR renderer emits named palette colors and active text decorations."
+    "reason": "Shared SGR renderer emits named palette colors and active text decorations.",
+    "generated": true
   },
   {
     "pattern": "^local-media-(link|link-group|inline-toggle|type|inline-preview)$",
     "source": "packages/server/src/augments/safe-markdown.ts",
-    "reason": "Server markdown media renderer emits media links, toggles and preview placeholders."
+    "reason": "Server markdown media renderer emits media links, toggles and preview placeholders.",
+    "generated": true,
+    "reactAuthored": ["local-media-link-group", "local-media-type"]
   },
   {
     "pattern": "^edit-(result|collapsed)-(error|warning|muted)$",
@@ -142,12 +149,14 @@
   {
     "pattern": "^file-link$",
     "source": "packages/shared/src/filePathDetection.ts",
-    "reason": "Shared path linkifier emits clickable file anchors into generated output."
+    "reason": "Shared path linkifier emits clickable file anchors into generated output.",
+    "generated": true
   },
   {
     "pattern": "^markdown-preview-(span(-start)?|line-boundary(-start|-end)?)$",
     "source": "packages/server/src/augments/markdown-file-preview.ts",
-    "reason": "Server markdown preview emits line-target boundaries and rendered chunk wrappers."
+    "reason": "Server markdown preview emits line-target boundaries and rendered chunk wrappers.",
+    "generated": true
   },
   {
     "pattern": "^source-pane-splitter-(revisions|files)$",
@@ -222,11 +231,20 @@
   {
     "pattern": "^(shiki|line)$",
     "source": "packages/server/src/highlighting/highlight-worker.mjs",
-    "reason": "The server highlighter calls Shiki codeToHtml, which emits the pre.shiki shell and span.line wrappers."
+    "reason": "The server highlighter calls Shiki codeToHtml, which emits the pre.shiki shell and span.line wrappers.",
+    "generated": true
   },
   {
     "pattern": "^(line-(context|deleted|inserted|hunk)|diff-(prefix|word-added|word-removed))$",
     "source": "packages/server/src/augments/edit-augments.ts",
-    "reason": "Server diff rendering emits line-kind classes, prefix spans and word-change wrappers."
+    "reason": "Server diff rendering emits line-kind classes, prefix spans and word-change wrappers.",
+    "generated": true,
+    "reactAuthored": ["line-hunk", "diff-prefix"]
+  },
+  {
+    "pattern": "^fixed-font-(rendered-line(__content)?|file-link|markdown-(heading|list-line|list-marker|list-body|blockquote|rule|block|table)|leading-indent|diff-(gutter(-cell)?|added|removed))$",
+    "source": "packages/client/src/components/ui/FixedFontMathToggle.tsx",
+    "reason": "Fixed-font renderer builds HTML strings, including per-line classes, table markup and path anchors, then inserts that markup; these are not React elements.",
+    "generated": true
   }
 ]

@@ -1,27 +1,117 @@
 {
   "legacyGlobalStyles": {
-    "packages/client/src/styles/emulator.css": {
-      "maxLines": 17,
-      "reason": "Device stream video vocabulary produced by EmulatorStream."
-    },
     "packages/client/src/styles/index.css": {
-      "maxLines": 10708,
-      "reason": "Legacy application shell plus global tokens, themes, and base rules."
-    },
-    "packages/client/src/styles/provider-colors.css": {
-      "maxLines": 38,
-      "reason": "Theme-dependent provider badge color tokens shared by every badge surface."
+      "maxLines": 9829,
+      "reason": "Legacy React-owned application rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/renderers.css": {
-      "maxLines": 4922,
-      "reason": "Legacy generated-content and renderer class vocabulary."
+      "maxLines": 4063,
+      "reason": "Legacy React-owned renderer rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/tool-rows.css": {
       "maxLines": 670,
-      "reason": "Shared tool-row state and generated renderer composition."
+      "reason": "Legacy React-owned tool-row rules and coupled appearance groups; drain by owner to a target of zero."
     }
   },
   "updated": "2026-11-10",
-  "note": "Chapter 11 containment baseline for authored non-module CSS under packages/client/src. Limits may only ratchet downward. New client stylesheets must be CSS Modules unless a reviewed generated-content or truly global exception is added here with a reason.",
-  "undefinedCustomProperties": {}
+  "note": "Only tokens.css, base.css and generated.css are permitted global purposes. Remaining legacy files have reasoned lower-only line ceilings with a target of zero. Purpose exceptions are counted and reasoned; --record only lowers them.",
+  "undefinedCustomProperties": {},
+  "globalPurposeExceptions": {
+    "base:class:source-pane-resizing": {
+      "count": 2,
+      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
+    },
+    "base:class:session-page": {
+      "count": 4,
+      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
+    },
+    "base:class:session-transcript-selection-active": {
+      "count": 6,
+      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
+    },
+    "base:class:session-header": {
+      "count": 2,
+      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
+    },
+    "base:class:session-input": {
+      "count": 2,
+      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
+    },
+    "base:class:reload-banner": {
+      "count": 2,
+      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
+    },
+    "generated:context:fixed-font-rendered__content": {
+      "count": 6,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:text-block-content": {
+      "count": 5,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:text-block-local-rendered": {
+      "count": 6,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:markdown-preview": {
+      "count": 20,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:markdown-rendered": {
+      "count": 18,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:assistant-turn": {
+      "count": 9,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:text-block-assistant": {
+      "count": 8,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:streaming-blocks": {
+      "count": 14,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:streaming-block": {
+      "count": 14,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:streaming-pending": {
+      "count": 3,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:has-turn-image-gallery": {
+      "count": 1,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:local-file-text": {
+      "count": 1,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:text-block": {
+      "count": 16,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:highlighted-diff": {
+      "count": 8,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:file-viewer-code-highlighted": {
+      "count": 2,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:shiki-container": {
+      "count": 2,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:diff-gutter-aligned": {
+      "count": 1,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    },
+    "generated:context:output-preview-math": {
+      "count": 1,
+      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    }
+  }
 }

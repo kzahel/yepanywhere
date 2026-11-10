@@ -3,7 +3,8 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../index.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
+
 const renderersStylesheetUrl = new URL("../renderers.css", import.meta.url);
 const turnRailStylesheetUrl = new URL(
   "../../components/UserTurnNavigator.module.css",
@@ -13,7 +14,7 @@ const turnRailStylesheetUrl = new URL(
 describe("turn rail horizontal clearance CSS contract", () => {
   it("grows linearly to measured separation at 1600px without a sidebar step", async () => {
     const [css, renderersCss, turnRailCss] = await Promise.all([
-      readFile(stylesheetUrl, "utf8"),
+      readClientStyles("tokens", "index"),
       readFile(renderersStylesheetUrl, "utf8"),
       readFile(turnRailStylesheetUrl, "utf8"),
     ]);

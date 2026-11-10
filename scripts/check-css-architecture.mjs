@@ -8,6 +8,12 @@ import {
   undefinedCustomProperties,
 } from "./lib/css-custom-properties.mjs";
 
+import {
+  globalPurposeFindings,
+  permittedGlobalStyles,
+  ratchetPurposeExceptions,
+} from "./lib/css-global-purposes.mjs";
+
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -24,12 +30,13 @@ function usage() {
   console.log(`Usage: node scripts/check-css-architecture.mjs [options]
 
 Options:
-  --record     Lower legacy global CSS limits and undefined custom-property
+  --record     Lower legacy global CSS limits, purpose exceptions and undefined custom-property
                counts to the current values.
   -h, --help   Show help.
 
 The check rejects:
-  - growth above a legacy global stylesheet's recorded line limit; and
+  - global rules outside tokens, base or declared generated families;
+  - growth above a legacy global stylesheet's recorded line limit (target zero);
   - a new non-module client stylesheet without a reviewed baseline entry;
   - a var(--name) read of a custom property that no client source defines,
     beyond the recorded count for that name.
@@ -102,20 +109,32 @@ const moduleFiles = cssFiles.filter((file) => file.endsWith(".module.css"));
 const globalFiles = cssFiles.filter((file) => !file.endsWith(".module.css"));
 const currentGlobalPaths = new Set(globalFiles.map(relativePath));
 const configuredGlobalPaths = new Set(Object.keys(legacyGlobalStyles));
+const permittedPaths = new Set(Object.keys(permittedGlobalStyles));
+const legacyPaths = new Set(
+  ["index", "renderers", "tool-rows"].map(
+    (name) => `packages/client/src/styles/${name}.css`,
+  ),
+);
 const errors = [];
 const belowBaseline = [];
 const currentCounts = new Map();
 
 for (const file of globalFiles) {
   const filePath = relativePath(file);
-  if (!configuredGlobalPaths.has(filePath)) {
+  if (!configuredGlobalPaths.has(filePath) && !permittedPaths.has(filePath)) {
     errors.push(
-      `${filePath}: new non-module stylesheet; use a co-located *.module.css or add a reviewed global exception with a reason`,
+      `${filePath}: new non-module stylesheet; use a co-located *.module.css; tokens.css, base.css and generated.css are the only continuing globals`,
     );
   }
 }
 
 for (const filePath of configuredGlobalPaths) {
+  if (!legacyPaths.has(filePath)) {
+    errors.push(
+      `${filePath}: only the three draining legacy files may have line ceilings`,
+    );
+    continue;
+  }
   if (!currentGlobalPaths.has(filePath)) {
     errors.push(
       `${filePath}: baseline entry has no matching file; remove the stale reviewed exception`,
@@ -126,6 +145,11 @@ for (const filePath of configuredGlobalPaths) {
   const text = await readFile(path.join(repoRoot, filePath), "utf8");
   const actual = lineCount(text);
   const limit = legacyGlobalStyles[filePath].maxLines;
+  if (!legacyGlobalStyles[filePath].reason?.trim()) {
+    errors.push(
+      `${filePath}: legacy ceiling needs a reason and a target of zero`,
+    );
+  }
   currentCounts.set(filePath, actual);
 
   if (!Number.isInteger(limit) || limit < 0) {
@@ -137,6 +161,41 @@ for (const filePath of configuredGlobalPaths) {
   } else if (actual < limit) {
     belowBaseline.push({ filePath, actual, limit });
   }
+}
+
+const families = JSON.parse(
+  await readFile(
+    path.join(repoRoot, "scripts/css-runtime-families.json"),
+    "utf8",
+  ),
+);
+const purposeFindings = [];
+for (const [filePath, purpose] of Object.entries(permittedGlobalStyles)) {
+  if (!currentGlobalPaths.has(filePath)) {
+    errors.push(`${filePath}: required ${purpose} stylesheet is missing`);
+    continue;
+  }
+  const findings = globalPurposeFindings(
+    await readFile(path.join(repoRoot, filePath), "utf8"),
+    purpose,
+    families,
+  );
+  purposeFindings.push(...findings);
+  console.log(
+    `  ${purpose}: ${findings.length} counted purpose exceptions  ${filePath}`,
+  );
+}
+const purposeState = ratchetPurposeExceptions(
+  purposeFindings,
+  baseline.globalPurposeExceptions ?? {},
+);
+errors.push(...purposeState.errors);
+if (!options.record) {
+  errors.push(
+    ...purposeState.stale.map(
+      (key) => `${key}: stale purpose count; run pnpm css:check --record`,
+    ),
+  );
 }
 
 // Undefined custom properties: a var() read of a name no client source
@@ -183,7 +242,7 @@ for (const [name, entry] of currentUndefined) {
   if (limit === undefined) {
     const site = entry.sites[0];
     errors.push(
-      `var(${name}) is read ${entry.uses} time${entry.uses === 1 ? "" : "s"} (first at ${site.path}:${site.line}) but no client source defines it; use a theme token from packages/client/src/styles/index.css, define the property, or set it where its owner renders`,
+      `var(${name}) is read ${entry.uses} time${entry.uses === 1 ? "" : "s"} (first at ${site.path}:${site.line}) but no client source defines it; use a theme token from packages/client/src/styles/tokens.css, define the property, or set it where its owner renders`,
     );
   } else if (!Number.isInteger(limit) || limit < 1) {
     errors.push(`${name}: recorded undefined uses must be a positive integer`);
@@ -230,6 +289,7 @@ if (errors.length > 0) {
 }
 
 const pending = [
+  ...purposeState.stale,
   ...belowBaseline.map(
     ({ filePath, actual, limit }) => `${filePath} ${limit}->${actual}`,
   ),
@@ -239,6 +299,7 @@ const pending = [
 ];
 
 if (options.record) {
+  baseline.globalPurposeExceptions = purposeState.lowered;
   for (const { filePath, actual } of belowBaseline) {
     legacyGlobalStyles[filePath].maxLines = actual;
   }

@@ -13,7 +13,8 @@ import katex from "katex";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../renderers.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
+
 const semanticClipboardUrl = new URL(
   "../../lib/semanticHtmlClipboard.ts",
   import.meta.url,
@@ -27,7 +28,7 @@ let server: Server;
 
 describe("Markdown preview rich-text copy", () => {
   beforeAll(async () => {
-    const css = await readFile(stylesheetUrl, "utf8");
+    const css = await readClientStyles("generated", "renderers");
     const semanticClipboardJs = transpileModule(
       await readFile(semanticClipboardUrl, "utf8"),
       {

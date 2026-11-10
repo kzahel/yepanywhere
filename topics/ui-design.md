@@ -22,7 +22,7 @@ for a session, and `pages/settings/` for settings. These paths are relative to
 reusing it. [UI architecture](ui-architecture.md) owns rendering boundaries;
 [CSS architecture](css-architecture.md) owns styles and their containment.
 
-`src/styles/index.css` supplies the existing dark/light/verydark themes,
+`src/styles/tokens.css` supplies the existing dark/light/verydark themes,
 semantic colors, spacing, typography, and bundled font faces; component-owned
 styles live beside their components in CSS Modules. Reuse those tokens and
 component SVGs. The normal UI font is the system sans; the example explicitly
@@ -43,7 +43,7 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; steps 1–4 landed, step 5 implemented) closes the leaks around shared
+2026-11-10; steps 1–5 landed, step 6 implemented) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
 that still list swept work. `controls:check` now enforces caller-class ownership
@@ -51,7 +51,13 @@ with a counted, reasoned allowlist; Census/Control overrides shows the exception
 `buttons:check` also rejects hand-drawn ButtonBase surfaces or link actions,
 with rich/specialized exceptions listed in Census/ButtonBase exceptions.
 `tokens:check` enforces token-owned module and inline type sizes/radii, with
-counted reasons for remaining exceptions ([CSS contract](css-architecture.md#type-sizes-and-radii)).
+counted reasons for remaining exceptions ([CSS contract](css-architecture.md#type-sizes-and-radii)). The
+purpose split preserves appearance: `tokens.css` owns themes/fonts,
+`base.css` owns document defaults/state, and `generated.css` styles emitted
+HTML. `index.css` remains the common ordered import entry plus legacy React
+rules; `renderers.css` and `tool-rows.css` also drain to zero. The playground
+reads token data from `tokens.css`; generated-content wrappers retain counted
+context exceptions ([global contract](css-architecture.md#contract)).
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
@@ -449,7 +455,7 @@ component test) it falls back to `window.confirm` with the message.
 **Layers.** The design language has four layers. Each lower layer may not
 depend on a higher one:
 
-1. **Tokens:** the theme custom properties in `src/styles/index.css`
+1. **Tokens:** the theme custom properties in `src/styles/tokens.css`
    (color, spacing, radius, type, shadow and the layer scale `--z-modal`,
    `--z-popover`, `--z-confirm`, `--z-tooltip`). Other fixed surfaces still carry their
    own numbers, some above `--z-modal` (the source editor, the fullscreen

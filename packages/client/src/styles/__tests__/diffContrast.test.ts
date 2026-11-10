@@ -1,9 +1,9 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const indexStylesheetUrl = new URL("../index.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
+
 const MINIMUM_SYNTAX_CONTRAST = 3.5;
 const TOKEN_NAMES = [
   "foreground",
@@ -74,7 +74,7 @@ describe("diff syntax contrast", () => {
   ])(
     "keeps every %s token readable on added and removed lines",
     async (_theme, selector) => {
-      const css = await readFile(indexStylesheetUrl, "utf8");
+      const css = await readClientStyles("tokens");
       const declarations = getLastRuleDeclarations(css, selector);
       const backgrounds = [
         readHexVariable(declarations, "--bg-diff-added"),

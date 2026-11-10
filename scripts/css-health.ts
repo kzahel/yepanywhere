@@ -15,6 +15,7 @@ import {
   analyze,
   findFiles,
   isModuleStylesheet,
+  isPurposeStylesheet,
   moduleContractIssues,
   type AnalysisResult,
 } from "./find-unused-css.ts";
@@ -195,7 +196,10 @@ export function collectContainment(
     else atLimit.push(state);
   }
 
-  const configuredPaths = new Set(Object.keys(configured));
+  const configuredPaths = new Set([
+    ...Object.keys(configured),
+    ...globalFiles.filter(isPurposeStylesheet).map(normalize),
+  ]);
   const unreviewed = Array.from(globalCounts.keys()).filter(
     (file) => !configuredPaths.has(file),
   );

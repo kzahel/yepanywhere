@@ -1,16 +1,14 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const indexStylesheetUrl = new URL("../index.css", import.meta.url);
-const rendererStylesheetUrl = new URL("../renderers.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
 
 describe("prose line height", () => {
   it("floors body prose so the tightest line spacing cannot overlap", async () => {
     const [indexCss, rendererCss] = await Promise.all([
-      readFile(indexStylesheetUrl, "utf8"),
-      readFile(rendererStylesheetUrl, "utf8"),
+      readClientStyles("tokens"),
+      readClientStyles("generated", "renderers"),
     ]);
 
     expect(indexCss).toMatch(
@@ -25,7 +23,7 @@ describe("prose line height", () => {
   });
 
   it("resolves heading line height against the heading's own font size", async () => {
-    const rendererCss = await readFile(rendererStylesheetUrl, "utf8");
+    const rendererCss = await readClientStyles("generated", "renderers");
 
     // An inherited em line height computes at body size, so a wrapped heading
     // would draw its second line on top of the first.

@@ -16,6 +16,8 @@ import {
   type OwnerInventory,
 } from "./css-inventory.ts";
 
+import { isPurposeStylesheet } from "./find-unused-css.ts";
+
 interface Options {
   base?: string;
   json: boolean;
@@ -219,6 +221,7 @@ export function buildTouchedReport(
     (file) =>
       file.endsWith(".css") &&
       !file.endsWith(".module.css") &&
+      !isPurposeStylesheet(file) &&
       (!scope.cssDir ||
         file.startsWith(`${normalize(scope.cssDir).replace(/\/$/, "")}/`)),
   );

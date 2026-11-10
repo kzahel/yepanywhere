@@ -1,0 +1,886 @@
+/* eslint-disable cssicorn/no-duplicate-selectors -- provider, ANSI and diff palettes retain their original order; declarations are disjoint */
+/*
+ * Provider badge hues are theme-dependent. Each pair keeps the provider's
+ * identity while meeting 4.5:1 contrast against that theme's surface
+ * (--bg-surface). Hue may shift slightly; a single mid-gray for every
+ * provider is not the contract.
+ */
+
+:root,
+[data-theme="verydark"],
+[data-theme="dark"],
+[data-theme="auto"] {
+  --provider-claude: #f0a43a;
+  --provider-codex: #3dcea6;
+  --provider-gemini: #7ab0ff;
+  --provider-grok: #e7e5e4;
+  --provider-opencode: #c084fc;
+  --provider-pi: #2dd4bf;
+}
+
+[data-theme="light"] {
+  --provider-claude: #b45309;
+  --provider-codex: #047857;
+  --provider-gemini: #1d4ed8;
+  --provider-grok: #111827;
+  --provider-opencode: #7e22ce;
+  --provider-pi: #0f766e;
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --provider-claude: #b45309;
+    --provider-codex: #047857;
+    --provider-gemini: #1d4ed8;
+    --provider-grok: #111827;
+    --provider-opencode: #7e22ce;
+    --provider-pi: #0f766e;
+  }
+}
+
+/* ==========================================================================
+   ANSI terminal colors (SGR escape rendering)
+
+   Palette is tuned against a mid-to-dark background. Overridable per
+   theme via the `--ansi-*` custom properties. See ansi-renderer in
+   @yep-anywhere/shared for the HTML shape.
+   ========================================================================== */
+:root {
+  --ansi-black: #4f5254;
+  --ansi-red: #cd3131;
+  --ansi-green: #0dbc79;
+  --ansi-yellow: #cca700;
+  --ansi-blue: #2472c8;
+  --ansi-magenta: #bc3fbc;
+  --ansi-cyan: #11a8cd;
+  --ansi-white: #d4d4d4;
+  --ansi-bright-black: #7c7c7c;
+  --ansi-bright-red: #f14c4c;
+  --ansi-bright-green: #23d18b;
+  --ansi-bright-yellow: #f5f543;
+  --ansi-bright-blue: #3b8eea;
+  --ansi-bright-magenta: #d670d6;
+  --ansi-bright-cyan: #29b8db;
+  --ansi-bright-white: #ffffff;
+}
+
+[data-theme="light"] {
+  --ansi-black: #000000;
+  --ansi-red: #c5252f;
+  --ansi-green: #0a7a3a;
+  --ansi-yellow: #8a6200;
+  --ansi-blue: #1a5aa0;
+  --ansi-magenta: #9d2f9d;
+  --ansi-cyan: #0a7e96;
+  --ansi-white: #505050;
+  --ansi-bright-black: #696969;
+  --ansi-bright-red: #d73a3a;
+  --ansi-bright-green: #1a9d5b;
+  --ansi-bright-yellow: #b18400;
+  --ansi-bright-blue: #2d7bd0;
+  --ansi-bright-magenta: #bd57bd;
+  --ansi-bright-cyan: #1c9cba;
+  --ansi-bright-white: #1a1a1a;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../assets/fonts/source-serif-4/source-serif-4-latin-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../assets/fonts/source-serif-4/source-serif-4-latin-italic.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "YA Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/inter/inter-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "YA Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/inter/inter-latin-500-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "YA Inter";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/inter/inter-latin-400-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "YA Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/inter/inter-latin-700-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "YA Alegreya Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/alegreya-sans/alegreya-sans-latin-400-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "YA Alegreya Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/alegreya-sans/alegreya-sans-latin-500-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "YA Alegreya Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/alegreya-sans/alegreya-sans-latin-400-italic.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "YA Alegreya Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/alegreya-sans/alegreya-sans-latin-700-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "YA Iosevka";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/iosevka/iosevka-latin-400-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "YA Fira Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("Fira Mono"),
+    local("FiraMono-Regular"),
+    url("../assets/fonts/fira-mono/fira-mono-symbols2-400-normal.woff2")
+    format("woff2");
+  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;
+}
+
+@font-face {
+  font-family: "YA Fira Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("Fira Mono"),
+    local("FiraMono-Regular"),
+    url("../assets/fonts/fira-mono/fira-mono-latin-ext-400-normal.woff2")
+    format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "YA Fira Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("Fira Mono"),
+    local("FiraMono-Regular"),
+    url("../assets/fonts/fira-mono/fira-mono-latin-400-normal.woff2")
+    format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "YA IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono/ibm-plex-mono-cyrillic-ext-400-normal.woff2")
+    format("woff2");
+  unicode-range:
+    U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: "YA IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono/ibm-plex-mono-cyrillic-400-normal.woff2")
+    format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "YA IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono/ibm-plex-mono-vietnamese-400-normal.woff2")
+    format("woff2");
+  unicode-range:
+    U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169,
+    U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323,
+    U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: "YA IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono/ibm-plex-mono-latin-ext-400-normal.woff2")
+    format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "YA IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono/ibm-plex-mono-latin-400-normal.woff2")
+    format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ==========================================================================
+   CSS Design Tokens - Claude Anywhere Multi-Theme Support
+   ========================================================================== */
+
+:root {
+  /* Brand Colors (theme-agnostic) */
+  --app-yep-green: #059669;
+  --app-yep-green-dark: #047857;
+  --app-yep-yellow: #f59e0b;
+  --app-claude-ivory: #faf9f5;
+  --app-claude-slate: #141413;
+  --app-claude-orange: #d97706;
+
+  --project-queue-action-bg: #7c3aed;
+  --project-queue-new-session-action-bg: #5b21b6;
+  /* Semantic Colors */
+  --thinking-color: var(--app-claude-orange);
+  /* Maximum-contrast tooltip polarity for dark and default themes. */
+  --tooltip-background: #ffffff;
+  --tooltip-foreground: #000000;
+  --tooltip-border: #000000;
+  /* Typography */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+  /* UI chrome font (composer, titles, captions). Defaults to the system
+     sans; the Output Typography "UI font" control overrides it. Kept
+     separate from --font-sans so prose "System" stays the OS sans. */
+  --font-ui: var(--font-sans);
+  --font-brand:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Baskerville,
+    Georgia, "Times New Roman", ui-serif, serif;
+  --font-output-serif: "Source Serif 4", Georgia, ui-serif, serif;
+  --font-output-inter: "YA Inter", var(--font-sans);
+  --font-output-alegreya-sans: "YA Alegreya Sans", var(--font-sans);
+  --font-math:
+    "KaTeX_Main", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
+  --font-mono-system: "SF Mono", Monaco, "Cascadia Code", Consolas, monospace;
+  --font-mono-iosevka: "YA Iosevka", var(--font-mono-system);
+  --font-mono-ibm-plex: "YA IBM Plex Mono", var(--font-mono-system);
+  --font-mono-fira: "YA Fira Mono", var(--font-mono-system);
+  --font-mono: var(--font-mono-system);
+  --font-size-xs: 10px;
+  --font-size-caption: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 18px;
+  --output-prose-font-family: var(--font-sans);
+  --output-prose-font-optical-sizing: auto;
+  --output-prose-font-variation-settings: normal;
+  --output-prose-font-size: var(--font-size-base);
+  --thinking-prose-font-size: calc(var(--output-prose-font-size) - 1px);
+  --output-math-font-size-offset: 1px;
+  --fixed-font-size-offset: 0px;
+  --fixed-font-size-xs-raw: calc(
+    var(--output-prose-font-size) -
+    3px +
+    var(--fixed-font-size-offset)
+  );
+  --fixed-font-size-sm-raw: calc(
+    var(--output-prose-font-size) -
+    1px +
+    var(--fixed-font-size-offset)
+  );
+  --fixed-font-size-base-raw: calc(
+    var(--output-prose-font-size) +
+    var(--fixed-font-size-offset)
+  );
+  --fixed-font-size-xs: max(9px, var(--fixed-font-size-xs-raw));
+  --fixed-font-size-sm: max(9px, var(--fixed-font-size-sm-raw));
+  --fixed-font-size-base: max(10px, var(--fixed-font-size-base-raw));
+  --fixed-font-size-inline: max(
+    9px,
+    calc(0.9em + var(--fixed-font-size-offset))
+  );
+  --fixed-inline-code-line-height: 1.15;
+  --fixed-inline-code-baseline-shift: 0.04em;
+  --thinking-prose-line-height-offset: 0px;
+  --thinking-prose-line-height: max(
+    1.1em,
+    calc(1.5em + var(--thinking-prose-line-height-offset))
+  );
+  --thinking-prose-font-variation-settings: var(
+    --output-prose-font-variation-settings
+  );
+  --output-prose-vspace-offset: 0px;
+  --output-prose-line-height-offset: 0px;
+  --output-prose-line-height: max(
+    1.1em,
+    calc(1.5em + var(--output-prose-line-height-offset))
+  );
+  --source-code-font-size: max(
+    10px,
+    calc(var(--fixed-font-size-base-raw) + var(--source-font-size-offset, 0px))
+  );
+  --source-code-line-height: calc(
+    1.5em +
+    var(--output-prose-line-height-offset) +
+    var(--source-vspace-offset, 0px)
+  );
+  --output-prose-paragraph-gap: max(
+    0px,
+    calc(var(--space-2) + var(--output-prose-vspace-offset))
+  );
+  --output-prose-list-gap: max(
+    0px,
+    calc(var(--space-1) + var(--output-prose-vspace-offset))
+  );
+  --output-prose-heading-top-gap: max(
+    2px,
+    calc(var(--space-3) + var(--output-prose-vspace-offset))
+  );
+  --output-prose-heading-bottom-gap: max(
+    0px,
+    calc(var(--space-2) + var(--output-prose-vspace-offset))
+  );
+  --tab-size: 2;
+  --content-max-width: 830px;
+  /* The 22px marker target ends at the scroll container's client edge.
+     Content overlap decreases linearly from 600px to exact separation at
+     1600px, independent of the 1100px sidebar mode switch. Floats reserve
+     the remaining overlap plus a 2px activation gap. */
+  --turn-rail-content-padding-inline-end: clamp(12px, calc(1vw + 6px), 22px);
+  --turn-rail-float-inset-inline-end: max(
+    2px,
+    calc(24px - var(--turn-rail-content-padding-inline-end))
+  );
+  /* Preserve the 2px phone edge, then grow continuously to the 8px desktop
+     edge at 1600px. A breakpoint jump here visibly reverses the composer's
+     right edge while the viewport is growing. */
+  --composer-window-padding-inline: clamp(2px, calc(0.6vw - 1.6px), 8px);
+  --blame-author-color-lightness: 0.78;
+  --blame-author-color-chroma: 0.13;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  /* Border Radius */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+  /* Elevation: popovers and menus lg, floating cards md, chips sm. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.32);
+
+  /* Layers: modals, then popovers and menus (which open from them), then
+     confirmations (above every full-screen surface, which may ask one),
+     then tooltips. Other fixed surfaces still use their own numbers, some
+     above --z-modal (topics/ui-design.md, Layers). */
+  --z-modal: 9999;
+  --z-popover: 10010;
+  --z-confirm: 10020;
+  --z-tooltip: 2147483647;
+
+  /* Spinner */
+  --app-spinner-foreground: var(--thinking-color);
+}
+
+/* Dark defaults the theme blocks below override, and values mixed from theme
+   colors, set on every data-theme element so a nested theme (a playground
+   cell) resolves its own; :root covers first paint before data-theme lands. */
+:root,
+[data-theme] {
+  /* Selection/emphasis accent, aliasing the theme's primary. */
+  --accent-color: var(--primary-color);
+  --accent-primary: var(--primary-color);
+  --brand-wordmark-yep-full: color-mix(
+    in srgb,
+    var(--app-yep-green) 76%,
+    var(--text-primary) 24%
+  );
+  --brand-wordmark-anywhere: color-mix(
+    in srgb,
+    var(--app-claude-orange) 38%,
+    var(--text-primary) 62%
+  );
+  --accent-contrast: #0b1220;
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --focus-border: #007acc;
+  --primary-color: #60a5fa;
+  --warning-badge-bg: #c2410c;
+  --patient-queue-action-bg: #b8860b;
+  --bg-error: color-mix(in srgb, var(--error-color) 12%, transparent);
+  --bg-warning: color-mix(in srgb, var(--warning-color) 14%, transparent);
+  --bg-success: color-mix(in srgb, var(--success-color) 14%, transparent);
+  --bg-selected: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  --shiki-background: transparent;
+  --shiki-foreground: #e1e4e8;
+  --shiki-token-constant: #79b8ff;
+  --shiki-token-string: #9ecbff;
+  --shiki-token-comment: #a0a8b3;
+  --shiki-token-keyword: #f97583;
+  --shiki-token-parameter: #ffab70;
+  --shiki-token-function: #b392f0;
+  --shiki-token-string-expression: #85e89d;
+  --shiki-token-punctuation: #e1e4e8;
+  --shiki-token-link: #79b8ff;
+  --shiki-token-deleted: #f97583;
+  --shiki-token-inserted: #85e89d;
+}
+
+/* ==========================================================================
+   Theme: Very Dark (default - current black style)
+   ========================================================================== */
+[data-theme="verydark"] {
+  /* Backgrounds */
+  --bg-surface: #181818;
+  --bg-elevated: #2c2c2c;
+  --bg-secondary: #1f1f1f;
+  --bg-tertiary: #252525;
+  --bg-hover: #2a2d2e;
+  --bg-code: #1f1f1f;
+  --bg-input: #2a2a2a;
+  --bg-user-message: #3a3a3a;
+
+  /* Text Colors */
+  --text-primary: #cccccc;
+  --text-secondary: #b8b8b8;
+  --text-muted: #9d9d9d;
+  --text-dimmed: #666666;
+
+  /* Border Colors */
+  --border-color: #3c3c3c;
+  --border-subtle: #333333;
+  --border-input: #444444;
+
+  /* Semantic Colors */
+  --link-color: #4daafc;
+  --error-color: #c74e39;
+  --success-color: #74c991;
+  --warning-color: #e1c08d;
+  --attention-color: #4daafc;
+
+  /* Timeline */
+  --timeline-dot-default: #9d9d9d;
+  --timeline-dot-tool: #74c991;
+  --timeline-dot-error: #c74e39;
+  --timeline-dot-warning: #e1c08d;
+  --timeline-dot-working: #d97757;
+  --timeline-line-color: #3c3c3c;
+
+  /* Status Colors */
+  --status-badge-idle-bg: #333333;
+  --status-badge-idle-text: #888888;
+  --status-badge-owned-bg: #1a3a1a;
+  --status-badge-owned-text: #44ff44;
+  --status-badge-external-bg: #3a3a1a;
+  --status-badge-external-text: #ffff44;
+  --status-badge-running-bg: #3a2a1a;
+  --status-badge-running-text: #ffaa44;
+  --status-badge-input-bg: #1a2a4a;
+  --status-badge-input-text: #66aaff;
+}
+
+/* ==========================================================================
+   Theme: Dark (greyish like claude.ai)
+   ========================================================================== */
+[data-theme="dark"] {
+  /* Backgrounds - lighter greys */
+  --bg-surface: #2f2f2f;
+  --bg-elevated: #444444;
+  --bg-secondary: #363636;
+  --bg-tertiary: #3d3d3d;
+  --bg-hover: #454545;
+  --bg-code: #292929;
+  --bg-input: #3a3a3a;
+  --bg-user-message: #484848;
+
+  /* Text Colors - slightly brighter */
+  --text-primary: #e0e0e0;
+  --text-secondary: #c0c0c0;
+  --text-muted: #a0a0a0;
+  --text-dimmed: #707070;
+
+  /* Border Colors */
+  --border-color: #4a4a4a;
+  --border-subtle: #444444;
+  --border-input: #555555;
+
+  /* Semantic Colors */
+  --link-color: #5db5ff;
+  --error-color: #e05545;
+  --success-color: #7dd39a;
+  --warning-color: #ebd09d;
+  --attention-color: #5db5ff;
+
+  /* Timeline */
+  --timeline-dot-default: #a0a0a0;
+  --timeline-dot-tool: #7dd39a;
+  --timeline-dot-error: #e05545;
+  --timeline-dot-warning: #ebd09d;
+  --timeline-dot-working: #d97757;
+  --timeline-line-color: #4a4a4a;
+
+  /* Status Colors */
+  --status-badge-idle-bg: #444444;
+  --status-badge-idle-text: #999999;
+  --status-badge-owned-bg: #2a4a2a;
+  --status-badge-owned-text: #55ff55;
+  --status-badge-external-bg: #4a4a2a;
+  --status-badge-external-text: #ffff55;
+  --status-badge-running-bg: #4a3a2a;
+  --status-badge-running-text: #ffbb55;
+  --status-badge-input-bg: #2a3a5a;
+  --status-badge-input-text: #77bbff;
+}
+
+/* ==========================================================================
+   Theme: Light (warm ivory like claude.ai)
+   ========================================================================== */
+[data-theme="light"] {
+  /* Backgrounds - soft paper tones */
+  --bg-surface: #f8f8f6;
+  --bg-elevated: #ffffff;
+  --bg-secondary: #f2f1ed;
+  --bg-tertiary: #e9e8e2;
+  --bg-hover: #e1e0da;
+  --bg-code: #eeeee9;
+  --bg-input: #fbfbf9;
+  --bg-overlay: rgba(0, 0, 0, 0.3);
+  --bg-user-message: #e6e5df;
+
+  /* Text Colors */
+  --text-primary: #2d2a26;
+  --text-secondary: #4a4741;
+  --text-muted: #716e68;
+  --text-dimmed: #98948c;
+  --blame-author-color-lightness: 0.43;
+  --blame-author-color-chroma: 0.12;
+
+  /* Border Colors */
+  --border-color: #d6d4cc;
+  --border-subtle: #e3e1da;
+  --border-input: #c9c6bd;
+
+  /* Semantic Colors - adjusted for light background */
+  --link-color: #0066cc;
+  --error-color: #cf222e;
+  --success-color: #1a7f37;
+  --warning-color: #9a6700;
+  --attention-color: #0066cc;
+  --focus-border: #0066cc;
+  --primary-color: #2563eb;
+  --accent-contrast: #ffffff;
+  --tooltip-background: #000000;
+  --tooltip-foreground: #ffffff;
+  --tooltip-border: #ffffff;
+
+  /* Timeline */
+  --timeline-dot-default: #98948c;
+  --timeline-dot-tool: #1a7f37;
+  --timeline-dot-error: #cf222e;
+  --timeline-dot-warning: #9a6700;
+  --timeline-dot-working: #d97757;
+  --timeline-line-color: #d6d4cc;
+
+  /* Status Colors */
+  --status-badge-idle-bg: #e6e5df;
+  --status-badge-idle-text: #716e68;
+  --status-badge-owned-bg: #d4f5d4;
+  --status-badge-owned-text: #1a7f37;
+  --status-badge-external-bg: #fff3cd;
+  --status-badge-external-text: #9a6700;
+  --status-badge-running-bg: #fde5d8;
+  --status-badge-running-text: #c6613f;
+  --status-badge-input-bg: #dbeafe;
+  --status-badge-input-text: #2563eb;
+
+  /* Shiki Syntax Highlighting (GitHub Light inspired) */
+  --shiki-foreground: #24292e;
+  --shiki-token-constant: #005cc5;
+  --shiki-token-string: #032f62;
+  --shiki-token-comment: #59616b;
+  --shiki-token-keyword: #d73a49;
+  --shiki-token-parameter: #e36209;
+  --shiki-token-function: #6f42c1;
+  --shiki-token-string-expression: #22863a;
+  --shiki-token-punctuation: #24292e;
+  --shiki-token-link: #005cc5;
+  --shiki-token-deleted: #d73a49;
+  --shiki-token-inserted: #22863a;
+}
+
+/* ==========================================================================
+   Theme: Auto (follows system preference)
+   ========================================================================== */
+[data-theme="auto"] {
+  /* Default to dark (greyish) */
+  --bg-surface: #2f2f2f;
+  --bg-elevated: #444444;
+  --bg-secondary: #363636;
+  --bg-tertiary: #3d3d3d;
+  --bg-hover: #454545;
+  --bg-code: #292929;
+  --bg-input: #3a3a3a;
+  --bg-user-message: #484848;
+
+  --text-primary: #e0e0e0;
+  --text-secondary: #c0c0c0;
+  --text-muted: #a0a0a0;
+  --text-dimmed: #707070;
+
+  --border-color: #4a4a4a;
+  --border-subtle: #444444;
+  --border-input: #555555;
+
+  --link-color: #5db5ff;
+  --error-color: #e05545;
+  --success-color: #7dd39a;
+  --warning-color: #ebd09d;
+  --attention-color: #5db5ff;
+
+  --timeline-dot-default: #a0a0a0;
+  --timeline-dot-tool: #7dd39a;
+  --timeline-dot-error: #e05545;
+  --timeline-dot-warning: #ebd09d;
+  --timeline-dot-working: #d97757;
+  --timeline-line-color: #4a4a4a;
+
+  --status-badge-idle-bg: #444444;
+  --status-badge-idle-text: #999999;
+  --status-badge-owned-bg: #2a4a2a;
+  --status-badge-owned-text: #55ff55;
+  --status-badge-external-bg: #4a4a2a;
+  --status-badge-external-text: #ffff55;
+  --status-badge-running-bg: #4a3a2a;
+  --status-badge-running-text: #ffbb55;
+  --status-badge-input-bg: #2a3a5a;
+  --status-badge-input-text: #77bbff;
+}
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --bg-surface: #f8f8f6;
+    --bg-elevated: #ffffff;
+    --bg-secondary: #f2f1ed;
+    --bg-tertiary: #e9e8e2;
+    --bg-hover: #e1e0da;
+    --bg-code: #eeeee9;
+    --bg-input: #fbfbf9;
+    --bg-overlay: rgba(0, 0, 0, 0.3);
+    --bg-user-message: #e6e5df;
+
+    --text-primary: #2d2a26;
+    --text-secondary: #4a4741;
+    --text-muted: #716e68;
+    --text-dimmed: #98948c;
+    --blame-author-color-lightness: 0.43;
+    --blame-author-color-chroma: 0.12;
+
+    --border-color: #d6d4cc;
+    --border-subtle: #e3e1da;
+    --border-input: #c9c6bd;
+
+    --link-color: #0066cc;
+    --error-color: #cf222e;
+    --success-color: #1a7f37;
+    --warning-color: #9a6700;
+    --attention-color: #0066cc;
+    --focus-border: #0066cc;
+    --primary-color: #2563eb;
+    --accent-contrast: #ffffff;
+    --tooltip-background: #000000;
+    --tooltip-foreground: #ffffff;
+    --tooltip-border: #ffffff;
+
+    --timeline-dot-default: #98948c;
+    --timeline-dot-tool: #1a7f37;
+    --timeline-dot-error: #cf222e;
+    --timeline-dot-warning: #9a6700;
+    --timeline-dot-working: #d97757;
+    --timeline-line-color: #d6d4cc;
+
+    --status-badge-idle-bg: #e6e5df;
+    --status-badge-idle-text: #716e68;
+    --status-badge-owned-bg: #d4f5d4;
+    --status-badge-owned-text: #1a7f37;
+    --status-badge-external-bg: #fff3cd;
+    --status-badge-external-text: #9a6700;
+    --status-badge-running-bg: #fde5d8;
+    --status-badge-running-text: #c6613f;
+    --status-badge-input-bg: #dbeafe;
+    --status-badge-input-text: #2563eb;
+
+    /* Shiki Syntax Highlighting (GitHub Light inspired) */
+    --shiki-foreground: #24292e;
+    --shiki-token-constant: #005cc5;
+    --shiki-token-string: #032f62;
+    --shiki-token-comment: #59616b;
+    --shiki-token-keyword: #d73a49;
+    --shiki-token-parameter: #e36209;
+    --shiki-token-function: #6f42c1;
+    --shiki-token-string-expression: #22863a;
+    --shiki-token-punctuation: #24292e;
+    --shiki-token-link: #005cc5;
+    --shiki-token-deleted: #d73a49;
+    --shiki-token-inserted: #22863a;
+  }
+}
+
+/* Auto theme: light mode override */
+
+/* Diff palettes are audited against the uniform added/removed line fills at
+   3.5:1. Keep these opaque: every diff block for a theme must present syntax
+   colors against the same two known backgrounds. They own every --bg-diff-*
+   token and stay grouped here rather than in the theme blocks above. */
+[data-theme="verydark"] {
+  --bg-diff-added: #252b27;
+  --bg-diff-removed: #2b2221;
+  --bg-diff-gutter-added: #33483a;
+  --bg-diff-gutter-removed: #4b2b26;
+  --diff-gutter-added-foreground: #85e89d;
+  --diff-gutter-removed-foreground: #f97583;
+  --diff-shiki-foreground: #e1e4e8;
+  --diff-shiki-token-constant: #79b8ff;
+  --diff-shiki-token-string: #9ecbff;
+  --diff-shiki-token-comment: #767e87;
+  --diff-shiki-token-keyword: #f97583;
+  --diff-shiki-token-parameter: #ffab70;
+  --diff-shiki-token-function: #b392f0;
+  --diff-shiki-token-string-expression: #85e89d;
+  --diff-shiki-token-punctuation: #e1e4e8;
+  --diff-shiki-token-link: #79b8ff;
+  --diff-shiki-token-deleted: #f97583;
+  --diff-shiki-token-inserted: #85e89d;
+}
+
+[data-theme="dark"],
+[data-theme="auto"] {
+  --bg-diff-added: #2f3531;
+  --bg-diff-removed: #362c2b;
+  --bg-diff-gutter-added: #3b4e42;
+  --bg-diff-gutter-removed: #553430;
+  --diff-gutter-added-foreground: #85e89d;
+  --diff-gutter-removed-foreground: #f97583;
+  --diff-shiki-foreground: #e1e4e8;
+  --diff-shiki-token-constant: #79b8ff;
+  --diff-shiki-token-string: #9ecbff;
+  --diff-shiki-token-comment: #828992;
+  --diff-shiki-token-keyword: #f97583;
+  --diff-shiki-token-parameter: #ffab70;
+  --diff-shiki-token-function: #b392f0;
+  --diff-shiki-token-string-expression: #85e89d;
+  --diff-shiki-token-punctuation: #e1e4e8;
+  --diff-shiki-token-link: #79b8ff;
+  --diff-shiki-token-deleted: #f97583;
+  --diff-shiki-token-inserted: #85e89d;
+}
+
+[data-theme="light"] {
+  --bg-diff-added: #ceddce;
+  --bg-diff-removed: #e9cfcd;
+  --bg-diff-gutter-added: #b7d1bb;
+  --bg-diff-gutter-removed: #e6b9b8;
+  --diff-gutter-added-foreground: #155f2b;
+  --diff-gutter-removed-foreground: #9f2531;
+  --diff-shiki-foreground: #24292e;
+  --diff-shiki-token-constant: #005cc5;
+  --diff-shiki-token-string: #032f62;
+  --diff-shiki-token-comment: #666e78;
+  --diff-shiki-token-keyword: #c83644;
+  --diff-shiki-token-parameter: #b34d07;
+  --diff-shiki-token-function: #6f42c1;
+  --diff-shiki-token-string-expression: #207d36;
+  --diff-shiki-token-punctuation: #24292e;
+  --diff-shiki-token-link: #005cc5;
+  --diff-shiki-token-deleted: #c83644;
+  --diff-shiki-token-inserted: #207d36;
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --bg-diff-added: #ceddce;
+    --bg-diff-removed: #e9cfcd;
+    --bg-diff-gutter-added: #b7d1bb;
+    --bg-diff-gutter-removed: #e6b9b8;
+    --diff-gutter-added-foreground: #155f2b;
+    --diff-gutter-removed-foreground: #9f2531;
+    --diff-shiki-foreground: #24292e;
+    --diff-shiki-token-constant: #005cc5;
+    --diff-shiki-token-string: #032f62;
+    --diff-shiki-token-comment: #666e78;
+    --diff-shiki-token-keyword: #c83644;
+    --diff-shiki-token-parameter: #b34d07;
+    --diff-shiki-token-function: #6f42c1;
+    --diff-shiki-token-string-expression: #207d36;
+    --diff-shiki-token-punctuation: #24292e;
+    --diff-shiki-token-link: #005cc5;
+    --diff-shiki-token-deleted: #c83644;
+    --diff-shiki-token-inserted: #207d36;
+  }
+}

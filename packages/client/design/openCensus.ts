@@ -51,7 +51,7 @@ function cssClasses(text: string, file: string, module = false) {
 export async function collectOpenCensus(srcDir: string) {
   const globals = (
     await Promise.all(
-      ["index", "renderers", "tool-rows", "provider-colors", "emulator"].map(
+      ["tokens", "generated", "renderers", "tool-rows", "base", "index"].map(
         async (name) => {
           const file = `styles/${name}.css`;
           return cssClasses(await readFile(join(srcDir, file), "utf8"), file);
@@ -130,9 +130,10 @@ export async function collectOpenCensus(srcDir: string) {
     element: family.pattern,
     where: `${family.source} · ${names.filter((name) => new RegExp(family.pattern, "u").test(name)).length} / ${names.length} global classes`,
     reason: family.reason,
-    close: /packages\/(server|shared)\//.test(family.source)
-      ? "Keep the documented generated-markup boundary; remove this family only when the emitter and its global rules disappear."
-      : "Move the authored owner and its runtime states into a CSS Module during plan 191's ownership pass; remove the family when no global matches remain.",
+    close:
+      "generated" in family && family.generated === true
+        ? "Keep the documented generated-markup boundary; remove this family only when the emitter and its global rules disappear."
+        : "Move the authored owner and its runtime states into a CSS Module during plan 191's ownership pass; remove the family when no global matches remain.",
   }));
   return { composer, runtime, globalClasses: names.length };
 }

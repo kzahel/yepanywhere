@@ -6,8 +6,7 @@ import {
   useState,
 } from "react";
 import baseline from "../../../../scripts/css-architecture-baseline.json";
-import indexCss from "../../src/styles/index.css?raw";
-import providerColorsCss from "../../src/styles/provider-colors.css?raw";
+import tokensCss from "../../src/styles/tokens.css?raw";
 import type { SpecimenMeta } from "../specimen";
 import styles from "./Tokens.module.css";
 
@@ -17,7 +16,7 @@ export default {
     layer: "token",
     width: "fill",
     description:
-      "Theme custom properties from src/styles/index.css, resolved in each theme's cell, and the properties the app reads but never defines.",
+      "Theme custom properties from src/styles/tokens.css, resolved in each theme's cell, and the properties the app reads but never defines.",
   },
 } satisfies SpecimenMeta;
 
@@ -27,17 +26,20 @@ export default {
  */
 function themeTokenNames(): string[] {
   const names = new Set<string>();
-  const css = `${indexCss}\n${providerColorsCss}`.replace(
-    /\/\*[\s\S]*?\*\//g,
-    "",
-  );
+  // Preserve the existing palette order/content after merging its source files.
+  // ANSI remains an output palette rather than a new playground color group.
+  const providerNames = new Set<string>();
+  const css = tokensCss.replace(/\/\*[\s\S]*?\*\//g, "");
   const block =
     /([^{}]*\[data-theme(?:="(?:verydark|dark|light)")?\][^{}]*)\{([^{}]*)\}/g;
   for (const match of css.matchAll(block)) {
     for (const declaration of (match[2] ?? "").matchAll(/(--[\w-]+)\s*:/g)) {
-      names.add(declaration[1] ?? "");
+      const name = declaration[1] ?? "";
+      if (name.startsWith("--provider-")) providerNames.add(name);
+      else if (!name.startsWith("--ansi-")) names.add(name);
     }
   }
+  for (const name of providerNames) names.add(name);
   for (const [name, value] of rootDeclarations()) {
     if (/^(?:#|rgba?\(|color-mix\()/.test(value)) names.add(name);
   }
@@ -109,14 +111,13 @@ export function Colors() {
 Colors.storyName = "Theme colors";
 
 function rootDeclarations(): [string, string][] {
-  const root = (/:root\s*\{([\s\S]*?)\n\}/.exec(indexCss)?.[1] ?? "").replace(
-    /\/\*[\s\S]*?\*\//g,
-    "",
-  );
-  return [...root.matchAll(/(--[\w-]+)\s*:\s*([^;]*);/g)].map((match) => [
-    match[1] ?? "",
-    (match[2] ?? "").trim(),
-  ]);
+  const root = [...tokensCss.matchAll(/(?:^|\n):root\s*\{([\s\S]*?)\n\}/g)]
+    .map((match) => match[1])
+    .join("\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  return [...root.matchAll(/(--[\w-]+)\s*:\s*([^;]*);/g)]
+    .filter((match) => !match[1]?.startsWith("--ansi-"))
+    .map((match) => [match[1] ?? "", (match[2] ?? "").trim()]);
 }
 
 function rootTokens(pattern: RegExp): string[] {
@@ -199,18 +200,12 @@ function ScaleRow({ name, children }: { name: string; children: ReactNode }) {
 
 const stylesheets = {
   ...import.meta.glob<string>(
-    [
-      "../../src/**/*.css",
-      "!../../src/styles/index.css",
-      "!../../src/styles/provider-colors.css",
-    ],
+    ["../../src/**/*.css", "!../../src/styles/tokens.css"],
     { query: "?raw", import: "default" },
   ),
   // Already loaded for the token palette; keep them in the census without
   // importing the same stylesheet both statically and dynamically at build.
-  "../../src/styles/index.css": () => Promise.resolve(indexCss),
-  "../../src/styles/provider-colors.css": () =>
-    Promise.resolve(providerColorsCss),
+  "../../src/styles/tokens.css": () => Promise.resolve(tokensCss),
 };
 
 interface Site {

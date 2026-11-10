@@ -3,7 +3,8 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../index.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
+
 const deliveryGlyphStylesheetUrl = new URL(
   "../../components/DeliveryGlyph.module.css",
   import.meta.url,
@@ -25,7 +26,9 @@ function getRuleDeclarations(css: string, selector: string): string {
 }
 
 function getHexCustomProperty(css: string, property: string): string {
-  const rootDeclarations = getRuleDeclarations(css, ":root");
+  const rootDeclarations = [...css.matchAll(/:root\s*\{([^}]*)\}/g)]
+    .map((match) => match[1])
+    .join("\n");
   const match = new RegExp(
     `${escapeRegExp(property)}:\\s*(#[0-9a-fA-F]{6})\\s*;`,
   ).exec(rootDeclarations);
@@ -51,7 +54,7 @@ function relativeLuminance(hex: string): number {
 
 describe("Project Queue action CSS contract", () => {
   it("makes the new-session action darker than the current-session action", async () => {
-    const css = await readFile(stylesheetUrl, "utf8");
+    const css = await readClientStyles("tokens", "index");
     const currentSessionColor = getHexCustomProperty(
       css,
       "--project-queue-action-bg",

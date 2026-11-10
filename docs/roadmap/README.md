@@ -1155,11 +1155,16 @@ and production TSX, reducing 448 findings to 85 reasoned exceptions in 33 files.
 The expanded type scale is 10/11/12/13/14/16/18px (scaled by UI preference);
 radii are 3/4/6/8/999px. Composer, configured output/source typography and
 uncommon geometric/optical sizes retain explicit reasons.
-Step 5 is implemented for review: Census is 319 rows on six open-work pages
+Step 5 landed: Census is 319 rows on six open-work pages
 (previously 457 rows on eight pages), all using element, location/count, reason
 and closure fields. Swept-family samples/mapping and the duplicate directory
 inventory are removed; all 150 class bans remain independent of those pages.
-Steps 6–8 remain open. It runs before the composer pass, which
+Step 6 is implemented for review: tokens/themes/fonts, document defaults/state
+and emitted HTML have separate purpose-checked globals, with 153 counted
+context/state references; provider colors fold into tokens and emulator video
+becomes modular. Legacy lines fall to 14,562 across three files (target zero);
+coupled React/generated groups stay ordered for step 7. Steps 7–8 remain open.
+It runs before the composer pass, which
 keeps its own exclusion.
 
 ## Later directions

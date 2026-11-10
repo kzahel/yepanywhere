@@ -52,239 +52,6 @@
   line-height: var(--output-prose-line-height);
 }
 
-.fixed-font-rendered-line {
-  display: grid;
-  grid-template-columns: 1.35rem minmax(0, 1fr);
-  column-gap: 0.25rem;
-}
-
-.fixed-font-rendered-line__content {
-  min-width: 0;
-}
-
-.fixed-font-file-link {
-  color: var(--link-color);
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  transition: text-decoration-color 0.15s;
-}
-
-.fixed-font-file-link:hover {
-  text-decoration-color: currentColor;
-}
-
-.fixed-font-rendered__content code {
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: 0.92em;
-  background: var(--bg-code);
-  border: 1px solid var(--border-subtle, var(--border-color));
-  border-radius: 4px;
-  padding: 0.05rem 0.22rem;
-}
-
-.fixed-font-rendered__content strong {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.fixed-font-markdown-heading {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.fixed-font-markdown-heading-1 {
-  font-size: 1.35em;
-}
-
-.fixed-font-markdown-heading-2 {
-  font-size: 1.2em;
-}
-
-.fixed-font-markdown-heading-3,
-.fixed-font-markdown-heading-4,
-.fixed-font-markdown-heading-5,
-.fixed-font-markdown-heading-6 {
-  font-size: 1.08em;
-}
-
-.fixed-font-markdown-list-line .fixed-font-rendered-line__content {
-  display: grid;
-  grid-template-columns:
-    calc(var(--fixed-font-list-indent-ch, 0) * 1ch)
-    calc(var(--fixed-font-list-marker-ch, 2) * 1ch)
-    minmax(0, 1fr);
-  column-gap: 0;
-}
-
-.fixed-font-markdown-list-marker {
-  color: var(--text-muted);
-  grid-column: 2;
-  text-align: left;
-}
-
-.fixed-font-markdown-list-body {
-  grid-column: 3;
-  min-width: 0;
-}
-
-.fixed-font-leading-indent {
-  display: inline-block;
-  width: calc(var(--fixed-font-leading-ch, 0) * 1ch);
-  white-space: nowrap;
-}
-
-.fixed-font-markdown-blockquote .fixed-font-rendered-line__content {
-  border-left: 3px solid var(--border-color);
-  padding-left: 0.65rem;
-  color: var(--text-secondary, var(--text-muted));
-}
-
-.fixed-font-markdown-rule {
-  display: block;
-  border-top: 1px solid var(--border-color);
-  margin: 0.65rem 0;
-}
-
-.fixed-font-diff-gutter {
-  display: inline-block;
-  width: 1.1rem;
-  color: var(--text-muted);
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  text-align: center;
-  user-select: none;
-}
-
-.fixed-font-diff-added {
-  background: var(--bg-diff-added, rgba(26, 127, 55, 0.15));
-}
-
-.fixed-font-diff-removed {
-  background: var(--bg-diff-removed, rgba(207, 34, 46, 0.15));
-}
-
-.fixed-font-rendered-line.fixed-font-diff-added > .fixed-font-diff-gutter {
-  background: var(--bg-diff-gutter-added, rgba(26, 127, 55, 0.26));
-  color: var(--success-color);
-  font-weight: 700;
-}
-
-.fixed-font-rendered-line.fixed-font-diff-removed > .fixed-font-diff-gutter {
-  background: var(--bg-diff-gutter-removed, rgba(207, 34, 46, 0.26));
-  color: var(--error-color);
-  font-weight: 700;
-}
-
-.fixed-font-markdown-block {
-  overflow-x: auto;
-  white-space: normal;
-}
-
-.fixed-font-markdown-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.25rem 0;
-  white-space: normal;
-}
-
-.fixed-font-markdown-table th,
-.fixed-font-markdown-table td {
-  border: 1px solid var(--border-color);
-  padding: 0.35rem 0.5rem;
-  vertical-align: top;
-  overflow-wrap: break-word;
-  word-break: normal;
-}
-
-.fixed-font-markdown-table th {
-  background: var(--bg-tertiary);
-  font-weight: 600;
-}
-
-.fixed-font-markdown-table .fixed-font-diff-gutter-cell {
-  width: 1.35rem;
-  min-width: 1.35rem;
-  padding-left: 0;
-  padding-right: 0;
-  text-align: center;
-  background: color-mix(in srgb, var(--bg-tertiary) 70%, transparent);
-}
-
-.fixed-font-markdown-table
-  .fixed-font-diff-added
-  > .fixed-font-diff-gutter-cell {
-  background: var(--bg-diff-gutter-added, rgba(26, 127, 55, 0.26));
-}
-
-.fixed-font-markdown-table
-  .fixed-font-diff-removed
-  > .fixed-font-diff-gutter-cell {
-  background: var(--bg-diff-gutter-removed, rgba(207, 34, 46, 0.26));
-}
-
-.fixed-font-markdown-table
-  .fixed-font-diff-added
-  > .fixed-font-diff-gutter-cell
-  .fixed-font-diff-gutter {
-  color: var(--success-color);
-  font-weight: 700;
-}
-
-.fixed-font-markdown-table
-  .fixed-font-diff-removed
-  > .fixed-font-diff-gutter-cell
-  .fixed-font-diff-gutter {
-  color: var(--error-color);
-  font-weight: 700;
-}
-
-.fixed-font-rendered__content .katex-display {
-  margin: 0.35rem 0;
-}
-
-.fixed-font-rendered__content .katex-display,
-.text-block-content .katex-display,
-.text-block-local-rendered .katex-display,
-.markdown-preview .markdown-rendered .katex-display {
-  max-width: 100%;
-  overflow: auto hidden;
-}
-
-.fixed-font-rendered__content .katex,
-.text-block-content .katex,
-.text-block-local-rendered .katex,
-.markdown-preview .markdown-rendered .katex {
-  font-family: var(--font-math);
-  font-size: max(10px, calc(1em + var(--output-math-font-size-offset)));
-  font-optical-sizing: auto;
-  font-variation-settings: normal;
-}
-
-.fixed-font-rendered__content .katex-error {
-  color: var(--error-color);
-}
-
-/* Unicode script runs (ˢ, ₁) drawn from server-supplied plain text; the
-   authored glyphs stay at zero size so copy keeps them. */
-.ya-uscript__source {
-  font-size: 0;
-}
-
-.ya-uscript::before {
-  content: attr(data-ya-script);
-  font-size: 0.75em;
-  line-height: 0;
-  position: relative;
-}
-
-.ya-uscript--sup::before {
-  top: -0.5em;
-}
-
-.ya-uscript--sub::before {
-  top: 0.3em;
-}
-
 /* ==========================================================================
    File Path Display - dirname prefix dimmed, filename normal
    ========================================================================== */
@@ -296,165 +63,6 @@
 .file-path-display-dir {
   color: var(--text-dimmed, #666);
   opacity: 0.85;
-}
-
-/* ==========================================================================
-   ANSI terminal colors (SGR escape rendering)
-
-   Palette is tuned against a mid-to-dark background. Overridable per
-   theme via the `--ansi-*` custom properties. See ansi-renderer in
-   @yep-anywhere/shared for the HTML shape.
-   ========================================================================== */
-:root {
-  --ansi-black: #4f5254;
-  --ansi-red: #cd3131;
-  --ansi-green: #0dbc79;
-  --ansi-yellow: #cca700;
-  --ansi-blue: #2472c8;
-  --ansi-magenta: #bc3fbc;
-  --ansi-cyan: #11a8cd;
-  --ansi-white: #d4d4d4;
-  --ansi-bright-black: #7c7c7c;
-  --ansi-bright-red: #f14c4c;
-  --ansi-bright-green: #23d18b;
-  --ansi-bright-yellow: #f5f543;
-  --ansi-bright-blue: #3b8eea;
-  --ansi-bright-magenta: #d670d6;
-  --ansi-bright-cyan: #29b8db;
-  --ansi-bright-white: #ffffff;
-}
-
-[data-theme="light"] {
-  --ansi-black: #000000;
-  --ansi-red: #c5252f;
-  --ansi-green: #0a7a3a;
-  --ansi-yellow: #8a6200;
-  --ansi-blue: #1a5aa0;
-  --ansi-magenta: #9d2f9d;
-  --ansi-cyan: #0a7e96;
-  --ansi-white: #505050;
-  --ansi-bright-black: #696969;
-  --ansi-bright-red: #d73a3a;
-  --ansi-bright-green: #1a9d5b;
-  --ansi-bright-yellow: #b18400;
-  --ansi-bright-blue: #2d7bd0;
-  --ansi-bright-magenta: #bd57bd;
-  --ansi-bright-cyan: #1c9cba;
-  --ansi-bright-white: #1a1a1a;
-}
-
-.ansi-fg-black {
-  color: var(--ansi-black);
-}
-.ansi-fg-red {
-  color: var(--ansi-red);
-}
-.ansi-fg-green {
-  color: var(--ansi-green);
-}
-.ansi-fg-yellow {
-  color: var(--ansi-yellow);
-}
-.ansi-fg-blue {
-  color: var(--ansi-blue);
-}
-.ansi-fg-magenta {
-  color: var(--ansi-magenta);
-}
-.ansi-fg-cyan {
-  color: var(--ansi-cyan);
-}
-.ansi-fg-white {
-  color: var(--ansi-white);
-}
-.ansi-fg-bright-black {
-  color: var(--ansi-bright-black);
-}
-.ansi-fg-bright-red {
-  color: var(--ansi-bright-red);
-}
-.ansi-fg-bright-green {
-  color: var(--ansi-bright-green);
-}
-.ansi-fg-bright-yellow {
-  color: var(--ansi-bright-yellow);
-}
-.ansi-fg-bright-blue {
-  color: var(--ansi-bright-blue);
-}
-.ansi-fg-bright-magenta {
-  color: var(--ansi-bright-magenta);
-}
-.ansi-fg-bright-cyan {
-  color: var(--ansi-bright-cyan);
-}
-.ansi-fg-bright-white {
-  color: var(--ansi-bright-white);
-}
-
-.ansi-bg-black {
-  background-color: var(--ansi-black);
-}
-.ansi-bg-red {
-  background-color: var(--ansi-red);
-}
-.ansi-bg-green {
-  background-color: var(--ansi-green);
-}
-.ansi-bg-yellow {
-  background-color: var(--ansi-yellow);
-}
-.ansi-bg-blue {
-  background-color: var(--ansi-blue);
-}
-.ansi-bg-magenta {
-  background-color: var(--ansi-magenta);
-}
-.ansi-bg-cyan {
-  background-color: var(--ansi-cyan);
-}
-.ansi-bg-white {
-  background-color: var(--ansi-white);
-}
-.ansi-bg-bright-black {
-  background-color: var(--ansi-bright-black);
-}
-.ansi-bg-bright-red {
-  background-color: var(--ansi-bright-red);
-}
-.ansi-bg-bright-green {
-  background-color: var(--ansi-bright-green);
-}
-.ansi-bg-bright-yellow {
-  background-color: var(--ansi-bright-yellow);
-}
-.ansi-bg-bright-blue {
-  background-color: var(--ansi-bright-blue);
-}
-.ansi-bg-bright-magenta {
-  background-color: var(--ansi-bright-magenta);
-}
-.ansi-bg-bright-cyan {
-  background-color: var(--ansi-bright-cyan);
-}
-.ansi-bg-bright-white {
-  background-color: var(--ansi-bright-white);
-}
-
-.ansi-bold {
-  font-weight: 600;
-}
-.ansi-italic {
-  font-style: italic;
-}
-.ansi-underline {
-  text-decoration: underline;
-}
-.ansi-strikethrough {
-  text-decoration: line-through;
-}
-.ansi-inverse {
-  filter: invert(1);
 }
 
 /* ==========================================================================
@@ -481,15 +89,6 @@
   font-optical-sizing: var(--output-prose-font-optical-sizing);
   font-variation-settings: var(--output-prose-font-variation-settings);
   font-size: var(--output-prose-font-size);
-  line-height: var(--output-prose-line-height);
-}
-
-.assistant-turn .text-block-assistant .text-block-content p,
-.assistant-turn .text-block-assistant .text-block-content li,
-.assistant-turn .text-block-assistant .text-block-content blockquote,
-.assistant-turn .text-block-assistant .text-block-local-rendered p,
-.assistant-turn .text-block-assistant .text-block-local-rendered li,
-.assistant-turn .text-block-assistant .text-block-local-rendered blockquote {
   line-height: var(--output-prose-line-height);
 }
 
@@ -588,28 +187,6 @@
   top: 0;
 }
 
-/* Viewer find (useViewerFind): all matches, then the current one on top.
-   Same yellow as transcript isearch; frames get their own copy of these. */
-::highlight(yep-find) {
-  background-color: rgba(255, 220, 112, 0.55);
-  color: inherit;
-}
-
-::highlight(yep-find-current) {
-  background-color: #ff9632;
-  color: #171717;
-}
-
-::highlight(comment-tint) {
-  background-color: rgba(5, 150, 105, 0.18);
-  background-color: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 18%,
-    transparent
-  );
-  color: inherit;
-}
-
 /* The floating quote button is positioned (top/left) relative to the
    .message-list rect in JS, so .message-list must be its containing block.
    Without this it resolves against a farther positioned ancestor and lands in
@@ -626,18 +203,6 @@
 .text-block-local-rendered {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.text-block-local-rendered .katex-display {
-  margin: 0.5rem 0;
-}
-
-.assistant-turn .text-block-assistant p {
-  margin: 0 0 var(--output-prose-paragraph-gap) 0;
-}
-
-.assistant-turn .text-block-assistant p:last-child {
-  margin-bottom: 0;
 }
 
 /* Streaming cursor animation - attach to text content so controls stay outside content flow */
@@ -682,91 +247,11 @@
   line-height: var(--output-prose-line-height);
 }
 
-/* Ensure streaming blocks have appropriate paragraph spacing */
-.streaming-blocks p,
-.streaming-block p {
-  margin: 0 0 var(--output-prose-paragraph-gap) 0;
-  line-height: var(--output-prose-line-height);
-}
-
-.streaming-blocks p:last-child,
-.streaming-block p:last-child {
-  margin-bottom: 0;
-}
-
-/* Code styling in streaming blocks */
-.streaming-blocks code,
-.streaming-block code,
-.streaming-pending code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  background: var(--bg-code);
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  overflow-wrap: anywhere;
-}
-
-/* Pre blocks in streaming */
-.streaming-blocks pre,
-.streaming-block pre {
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.streaming-blocks pre code,
-.streaming-block pre code {
-  background: none;
-  padding: 0;
-}
-
-/* Lists in streaming blocks */
-.streaming-blocks ul,
-.streaming-blocks ol,
-.streaming-block ul,
-.streaming-block ol {
-  margin: var(--output-prose-paragraph-gap) 0;
-  padding-left: 24px;
-}
-
-.streaming-blocks li,
-.streaming-block li {
-  margin: var(--output-prose-list-gap) 0;
-  line-height: var(--output-prose-line-height);
-}
-
-/* Links in streaming blocks */
-.streaming-blocks a,
-.streaming-block a,
-.streaming-pending a {
-  color: var(--link-color);
-  text-decoration: none;
-}
-
-.streaming-blocks a:hover,
-.streaming-block a:hover,
-.streaming-pending a:hover {
-  text-decoration: underline;
-}
-
 /* Local media links (clickable placeholders for images/videos in markdown) */
 .local-media-link-group {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
-}
-
-.local-media-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  cursor: pointer;
 }
 
 .local-media-type {
@@ -784,20 +269,6 @@
   gap: 0.25em;
   white-space: nowrap;
   cursor: pointer;
-}
-
-.local-media-inline-preview {
-  display: block;
-  margin: var(--space-2) 0;
-}
-
-.local-media-inline-preview[data-expanded="false"] {
-  display: none;
-}
-
-.assistant-turn.has-turn-image-gallery
-  .local-media-inline-preview[data-media-type="image"] {
-  display: none;
 }
 
 .modal-overlay.modal-overlay--image-viewer {
@@ -824,24 +295,6 @@
   }
 }
 
-/* LocalFileModal keeps the global .local-file-text class on its <pre> so the
-   shared fixed-font selectors below can still compose it. This rule stays at
-   its original cascade position, ahead of those later shared rules. */
-.local-file-text code {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-base);
-}
-
-/* Blockquotes in streaming blocks */
-.streaming-blocks blockquote,
-.streaming-block blockquote {
-  margin: var(--output-prose-paragraph-gap) 0;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--border-color);
-  color: var(--text-muted);
-  line-height: var(--output-prose-line-height);
-}
-
 /* Headers in streaming blocks */
 .streaming-blocks :is(h1, h2, h3, h4, h5, h6),
 .streaming-block :is(h1, h2, h3, h4, h5, h6) {
@@ -862,15 +315,6 @@
   );
 }
 
-/* Tables in streaming blocks */
-.streaming-blocks table,
-.streaming-block table {
-  border-collapse: collapse;
-  margin: var(--space-2) 0;
-  width: 100%;
-  font-size: var(--font-size-sm);
-}
-
 .streaming-blocks :is(th, td),
 .streaming-block :is(th, td) {
   border: 1px solid var(--border-color);
@@ -878,96 +322,9 @@
   text-align: left;
 }
 
-.streaming-blocks th,
-.streaming-block th {
-  background: var(--bg-secondary);
-  font-weight: 600;
-}
-
-.text-block code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  background: var(--bg-code);
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  overflow-wrap: anywhere;
-}
-
-.text-block pre {
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.text-block pre code {
-  background: none;
-  padding: 0;
-}
-
-.text-block ul,
-.text-block ol {
-  margin: var(--space-2) 0;
-  padding-left: 24px;
-}
-
-.text-block li {
-  margin: var(--space-1) 0;
-}
-
-.text-block a {
-  color: var(--link-color);
-  text-decoration: none;
-}
-
-.text-block a:hover {
-  text-decoration: underline;
-}
-
-.text-block blockquote {
-  margin: var(--space-2) 0;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--border-color);
-  color: var(--text-muted);
-}
-
 .text-block :is(h1, h2, h3, h4, h5, h6) {
   margin: var(--space-3) 0 var(--space-2) 0;
   font-weight: 600;
-}
-
-.text-block hr {
-  border: none;
-  border-top: 1px solid var(--border-color);
-  margin: var(--space-3) 0;
-}
-
-.text-block table {
-  border-collapse: collapse;
-  margin: var(--space-2) 0;
-  width: 100%;
-  font-size: var(--font-size-sm);
-}
-
-.text-block th,
-.text-block td {
-  border: 1px solid var(--border-color);
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
-}
-
-.text-block th {
-  background: var(--bg-secondary);
-  font-weight: 600;
-}
-
-.text-block tr:hover {
-  background: rgba(255, 255, 255, 0.02);
 }
 
 /* ==========================================================================
@@ -1777,69 +1134,6 @@ details[open] .collapsible__icon {
   tab-size: var(--tab-size);
 }
 
-.highlighted-diff pre.shiki {
-  margin: 0;
-  padding: 0.5rem;
-  background: var(--bg-code) !important;
-  border-radius: 4px;
-  overflow-x: auto;
-}
-
-.highlighted-diff code {
-  background: transparent;
-  /* Remove whitespace between line spans */
-  display: flex;
-  flex-direction: column;
-  /* Collapse whitespace text nodes (from \n between spans) */
-  font-size: 0;
-  /* Expand to fit content so all lines get same width */
-  width: max-content;
-  min-width: 100%;
-}
-
-.highlighted-diff .line {
-  padding: 0 0.5rem;
-  /* Restore the shared source metrics collapsed on the code wrapper above. */
-  font-size: var(--source-code-font-size);
-  line-height: var(--source-code-line-height);
-}
-
-/* Override any token background colors from Shiki syntax tokens */
-.highlighted-diff .line span[style] {
-  background-color: transparent !important;
-}
-
-/* Diff line background colors */
-.highlighted-diff .line-deleted {
-  background:
-    linear-gradient(
-      to right,
-      var(--bg-diff-gutter-removed, rgba(207, 34, 46, 0.26)) 0 1.25rem,
-      transparent 1.25rem
-    ),
-    var(--bg-diff-removed, rgba(207, 34, 46, 0.15)) !important;
-}
-
-.highlighted-diff .line-inserted {
-  background:
-    linear-gradient(
-      to right,
-      var(--bg-diff-gutter-added, rgba(26, 127, 55, 0.26)) 0 1.25rem,
-      transparent 1.25rem
-    ),
-    var(--bg-diff-added, rgba(26, 127, 55, 0.15)) !important;
-}
-
-.highlighted-diff .line-deleted > .diff-prefix {
-  color: var(--error-color);
-  font-weight: 700;
-}
-
-.highlighted-diff .line-inserted > .diff-prefix {
-  color: var(--success-color);
-  font-weight: 700;
-}
-
 /* Word-level diff highlighting - subtle emphasis within lines */
 
 /* When nested inside already-highlighted lines, slightly more prominent */
@@ -1890,13 +1184,13 @@ details[open] .collapsible__icon {
   z-index: 1;
   pointer-events: none;
 }
-
-/* Always show the copy button on mobile (no hover on touch devices) */
 @media (width <= 600px) {
   .diff-copy-button {
     opacity: 1;
   }
 }
+
+/* Always show the copy button on mobile (no hover on touch devices) */
 
 /* ==========================================================================
    Shared Modal Component
@@ -1983,8 +1277,6 @@ details[open] .collapsible__icon {
   overflow: hidden;
   padding: 0;
 }
-
-/* Mobile: Make modals nearly full-screen with minimal chrome */
 @media (width <= 600px) {
   .modal-overlay {
     align-items: flex-end;
@@ -2034,6 +1326,8 @@ details[open] .collapsible__icon {
     border-radius: 0;
   }
 }
+
+/* Mobile: Make modals nearly full-screen with minimal chrome */
 
 /* ==========================================================================
    Model Switch Modal
@@ -3270,14 +2564,6 @@ details[open] .collapsible__icon {
   font-size: var(--font-size-lg);
 }
 
-/* ==========================================================================
-   Badge Success (for status badges)
-   ========================================================================== */
-
-/* ==========================================================================
-   Mobile Adjustments
-   ========================================================================== */
-
 @media (width <= 600px) {
   .code-block {
     font-size: var(--font-size-sm);
@@ -3304,6 +2590,14 @@ details[open] .collapsible__icon {
     padding: 0.5rem;
   }
 }
+
+/* ==========================================================================
+   Badge Success (for status badges)
+   ========================================================================== */
+
+/* ==========================================================================
+   Mobile Adjustments
+   ========================================================================== */
 
 /* ==========================================================================
    Subagent Items - messages from Task subagents
@@ -3418,13 +2712,6 @@ details[open] .collapsible__icon {
   padding: 0.375rem var(--file-viewer-code-x-padding, 0.625rem);
 }
 
-.file-viewer-code-highlighted .shiki-container pre.shiki {
-  margin: 0;
-  padding: 0;
-  background: transparent !important;
-  overflow: visible;
-}
-
 .file-viewer-code-highlighted .shiki-container code {
   display: block;
   font-family: inherit;
@@ -3473,15 +2760,6 @@ details[open] .collapsible__icon {
   bottom: 0;
   left: 2.75rem;
   right: 0;
-}
-
-/* ShikiHtml makes each line a pre-wrapped block; this adds the wrap gutter. */
-.file-viewer-code-highlighted .shiki-container code .line {
-  min-height: var(--file-viewer-code-line-box, 1.24em);
-  padding-left: var(--file-viewer-wrap-gutter, 1.15rem);
-  text-indent: calc(-1 * var(--file-viewer-wrap-gutter, 1.15rem));
-  overflow-wrap: anywhere;
-  border-left: 1px solid rgba(148, 163, 184, 0.28);
 }
 
 .file-viewer-truncated {
@@ -3721,19 +2999,6 @@ pre.code-highlighter-plain code {
   transition: opacity 0.15s;
 }
 
-/* Server-rendered file links (from markdown augments) */
-.file-link {
-  color: var(--link-color);
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  transition: text-decoration-color 0.15s;
-}
-
-.file-link:hover {
-  text-decoration-color: currentColor;
-}
-
 /* ==========================================================================
    File Page (Standalone)
    ========================================================================== */
@@ -3799,8 +3064,6 @@ pre.code-highlighter-plain code {
 .file-page-content .file-viewer-header {
   border-radius: 0;
 }
-
-/* Mobile adjustments */
 @media (width <= 800px) {
   .file-viewer-code {
     min-width: max-content;
@@ -3822,6 +3085,8 @@ pre.code-highlighter-plain code {
     border-left: none;
   }
 }
+
+/* Mobile adjustments */
 
 /* Markdown preview toggle */
 .markdown-view-toggle {
@@ -3892,17 +3157,6 @@ pre.code-highlighter-plain code {
   color: var(--text-primary);
 }
 
-.markdown-preview .markdown-preview-span {
-  scroll-margin-block-start: 10vh;
-}
-
-.markdown-preview .markdown-preview-line-boundary {
-  height: 1px;
-  background: var(--error-color);
-  opacity: 0.42;
-  pointer-events: none;
-}
-
 .markdown-preview .markdown-preview-line-boundary-start {
   margin-right: 2.75rem;
 }
@@ -3919,82 +3173,6 @@ pre.code-highlighter-plain code {
 
 .markdown-preview .markdown-rendered :is(h1, h2, h3):first-child {
   margin-top: 0;
-}
-
-.markdown-preview .markdown-rendered p {
-  margin: var(--markdown-preview-block-gap) 0;
-}
-
-.markdown-preview .markdown-rendered ul,
-.markdown-preview .markdown-rendered ol {
-  margin: var(--markdown-preview-block-gap) 0;
-  padding-left: 1.5rem;
-}
-
-.markdown-preview .markdown-rendered li {
-  margin: var(--markdown-preview-list-gap) 0;
-}
-
-.markdown-preview .markdown-rendered code {
-  background: var(--bg-code);
-  color: inherit;
-  padding: 0.125rem 0.25rem;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-
-.markdown-preview .markdown-rendered pre {
-  background: var(--bg-code);
-  color: var(--text-primary);
-  padding: 0.75rem;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: var(--markdown-preview-block-gap) 0;
-}
-
-.markdown-preview .markdown-rendered pre code {
-  background: none;
-  padding: 0;
-}
-
-.markdown-preview .markdown-rendered blockquote {
-  border-left: 3px solid var(--border-color);
-  padding-left: 1rem;
-  margin: var(--markdown-preview-block-gap) 0;
-  color: var(--text-muted);
-}
-
-.markdown-preview .markdown-rendered a {
-  color: var(--link-color);
-  text-decoration: underline;
-}
-
-.markdown-preview .markdown-rendered a:hover {
-  text-decoration: underline;
-}
-
-.markdown-preview .markdown-rendered table {
-  border-collapse: collapse;
-  margin: var(--markdown-preview-block-gap) 0;
-  width: 100%;
-}
-
-.markdown-preview .markdown-rendered th,
-.markdown-preview .markdown-rendered td {
-  border: 1px solid var(--border-color);
-  padding: 0.5rem;
-  text-align: left;
-}
-
-.markdown-preview .markdown-rendered th {
-  background: var(--bg-secondary);
-  /* Chromium copies a local background but omits an inherited foreground. */
-  color: var(--text-primary);
-}
-
-.markdown-preview .markdown-rendered img {
-  max-width: 100%;
-  height: auto;
 }
 
 /* Fixed-font output appearance */
@@ -4076,13 +3254,6 @@ pre.code-highlighter-plain,
 .output-preview-prose code {
   line-height: var(--fixed-inline-code-line-height);
   vertical-align: var(--fixed-inline-code-baseline-shift);
-}
-
-.streaming-blocks pre code,
-.streaming-block pre code,
-.text-block pre code,
-.markdown-preview .markdown-rendered pre code {
-  font-size: inherit;
 }
 
 /* Source-review commenting over a diff (topic: source-review-to-session). */
@@ -4185,10 +3356,6 @@ pre.code-highlighter-plain,
   .fixed-font-rendered-line.fixed-font-diff-removed
   > .fixed-font-diff-gutter {
   color: var(--diff-gutter-removed-foreground);
-}
-
-.diff-gutter-aligned .fixed-font-rendered-line {
-  color: var(--diff-shiki-foreground);
 }
 
 .source-diff-pane [data-diff-line]:focus-visible {
@@ -4447,12 +3614,6 @@ pre.code-highlighter-plain,
     border-color: var(--accent-color);
     outline: none;
   }
-}
-
-.source-pane-resizing,
-.source-pane-resizing * {
-  cursor: col-resize !important;
-  user-select: none !important;
 }
 
 .commit-list {
@@ -4890,26 +4051,6 @@ pre.code-highlighter-plain,
   .source-detail-action-text {
     display: inline;
   }
-}
-
-.local-media-inline-toggle {
-  width: 1.35em;
-  height: 1.35em;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.local-media-inline-toggle:hover {
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
 }
 
 .file-link-label {

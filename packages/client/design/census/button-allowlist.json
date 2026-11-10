@@ -256,9 +256,9 @@
       "count": 3,
       "reason": "The composer's mic action (ComposerMicAction), a raw button in the viewer actions row: composer pass."
     },
-    "styles/index.css": {
+    "styles/base.css": {
       "count": 1,
-      "reason": "The base form-control font reset (`button, input, select, textarea { font-family }`), which every control inherits deliberately."
+      "reason": "Document-level native form controls inherit the UI font before their owning module chooses typography; this is the continuing base inheritance default."
     }
   },
   "selectionRoles": {
@@ -411,8 +411,12 @@
       "reason": "Composer (the session input and new-session form): its own later pass."
     },
     "styles/index.css": {
-      "count": 9,
-      "reason": "The UI-font inheritance reset for form controls, and the composer's textareas and steer-now toggle (composer pass)."
+      "count": 8,
+      "reason": "The composer's textareas and steer-row toggle (composer pass)."
+    },
+    "styles/base.css": {
+      "count": 1,
+      "reason": "Document-level native form controls inherit the UI font before their owning module chooses typography; this is the continuing base inheritance default."
     }
   },
   "tabRoles": {},

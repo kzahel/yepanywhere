@@ -1,16 +1,14 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const indexStylesheetUrl = new URL("../index.css", import.meta.url);
-const rendererStylesheetUrl = new URL("../renderers.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
 
 describe("shared source-code typography", () => {
   it("drives source views from the fixed-font Appearance metrics", async () => {
     const [indexCss, rendererCss] = await Promise.all([
-      readFile(indexStylesheetUrl, "utf8"),
-      readFile(rendererStylesheetUrl, "utf8"),
+      readClientStyles("tokens", "index"),
+      readClientStyles("generated", "renderers"),
     ]);
 
     expect(indexCss).toMatch(
@@ -26,8 +24,8 @@ describe("shared source-code typography", () => {
 
   it("restores shared metrics inside zero-sized highlighted wrappers", async () => {
     const [indexCss, rendererCss] = await Promise.all([
-      readFile(indexStylesheetUrl, "utf8"),
-      readFile(rendererStylesheetUrl, "utf8"),
+      readClientStyles("tokens", "index"),
+      readClientStyles("generated", "renderers"),
     ]);
 
     expect(rendererCss).toMatch(

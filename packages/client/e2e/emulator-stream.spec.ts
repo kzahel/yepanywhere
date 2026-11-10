@@ -113,7 +113,7 @@ async function assertAutoStreamConnects(
   ).toHaveText(/connected$/, { timeout: 30_000 });
 
   // Video element must be visible
-  const video = page.locator("video.emulator-video");
+  const video = page.locator('video[aria-label="Device stream"]');
   await expect(video).toBeVisible();
 
   // WebRTC media must be attached. In some headless environments, H264 decode can
@@ -121,7 +121,7 @@ async function assertAutoStreamConnects(
   await expect(async () => {
     const media = await page.evaluate(() => {
       const video = document.querySelector(
-        "video.emulator-video",
+        'video[aria-label="Device stream"]',
       ) as HTMLVideoElement | null;
       const readyState = video?.readyState ?? 0;
       const trackCount =

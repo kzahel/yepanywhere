@@ -135,13 +135,13 @@ async function connectToPhysicalDeviceStream(
     page.locator('[data-testid="device-connection-state"]'),
   ).toHaveText(/connected$/, { timeout: 30_000 });
 
-  const video = page.locator("video.emulator-video");
+  const video = page.locator('video[aria-label="Device stream"]');
   await expect(video).toBeVisible();
 
   await expect(async () => {
     const media = await page.evaluate(() => {
       const video = document.querySelector(
-        "video.emulator-video",
+        'video[aria-label="Device stream"]',
       ) as HTMLVideoElement | null;
       const readyState = video?.readyState ?? 0;
       const paused = video?.paused ?? true;
@@ -176,7 +176,7 @@ async function captureStreamHealth(page: Page): Promise<StreamHealthSnapshot> {
       document.querySelector('[data-testid="device-connection-state"]')
         ?.textContent ?? "";
     const video = document.querySelector(
-      "video.emulator-video",
+      'video[aria-label="Device stream"]',
     ) as HTMLVideoElement | null;
     if (!video) {
       return {

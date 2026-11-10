@@ -1,0 +1,92 @@
+/* Viewer find (useViewerFind): all matches, then the current one on top.
+   Same yellow as transcript isearch; frames get their own copy of these. */
+::highlight(yep-find) {
+  background-color: rgba(255, 220, 112, 0.55);
+  color: inherit;
+}
+
+::highlight(yep-find-current) {
+  background-color: #ff9632;
+  color: #171717;
+}
+
+::highlight(comment-tint) {
+  background-color: rgba(5, 150, 105, 0.18);
+  background-color: color-mix(
+    in srgb,
+    var(--app-yep-green, #059669) 18%,
+    transparent
+  );
+  color: inherit;
+}
+
+.source-pane-resizing,
+.source-pane-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+[data-theme="verydark"] {
+  color-scheme: dark;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="auto"] {
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    color-scheme: light;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-ui);
+  margin: 0;
+  padding: 0;
+  /* Safe area insets for Tauri mobile (edge-to-edge mode) and PWA standalone.
+     On regular browsers these resolve to 0. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+h1 {
+  margin: 0 0 1.5rem;
+}
+h2 {
+  margin: 2rem 0 1rem;
+}
+
+/* Form controls don't inherit font-family by default, so without this they
+   keep the UA font and ignore the UI font (--font-ui via body). Mono/code
+   fields set their own font-family on a more specific selector and win. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* session-transcript-selection-active is applied only by MessageList's
+   touch-selection shield; its pointer-coarse gate
+   (shouldShieldTranscriptSelection) is the single decider, so these rules
+   carry no media query of their own. */
+.session-page.session-transcript-selection-active .session-header,
+.session-page.session-transcript-selection-active .session-header *,
+.session-page.session-transcript-selection-active .session-input,
+.session-page.session-transcript-selection-active .session-input *,
+body.session-transcript-selection-active .reload-banner,
+body.session-transcript-selection-active .reload-banner * {
+  -webkit-user-select: none;
+  user-select: none;
+}

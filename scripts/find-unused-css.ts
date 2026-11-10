@@ -263,6 +263,14 @@ export function isTestSourceFile(file: string): boolean {
   );
 }
 
+/** The three purpose globals are not component-migration candidates. */
+export function isPurposeStylesheet(file: string): boolean {
+  const absolute = path.resolve(file);
+  return ["tokens.css", "base.css", "generated.css"].some(
+    (name) => absolute === path.resolve("packages/client/src/styles", name),
+  );
+}
+
 export function isModuleStylesheet(file: string): boolean {
   return file.endsWith(".module.css");
 }

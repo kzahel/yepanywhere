@@ -1,10 +1,9 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../index.css", import.meta.url);
+import { readClientStyles } from "./read-client-styles";
 
 let browser: Browser;
 let page: Page;
@@ -37,7 +36,7 @@ async function measureSteerAtWidth(width: number): Promise<{
 
 describe("mobile keyboard Steer sizing", () => {
   beforeAll(async () => {
-    const css = await readFile(stylesheetUrl, "utf8");
+    const css = await readClientStyles("tokens", "base", "index");
     browser = await chromium.launch({ chromiumSandbox: true });
     page = await browser.newPage();
     await page.setContent(`<!doctype html>

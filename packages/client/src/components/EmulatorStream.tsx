@@ -8,6 +8,8 @@ import {
   type EmulatorFps,
 } from "../hooks/useEmulatorSettings";
 
+import styles from "./EmulatorStream.module.css";
+
 interface EmulatorStreamProps {
   /** Remote MediaStream from WebRTC */
   stream: MediaStream | null;
@@ -605,7 +607,7 @@ export function EmulatorStream({
   return (
     <video
       ref={videoRef}
-      className="emulator-video"
+      className={styles.video}
       autoPlay
       playsInline
       muted
