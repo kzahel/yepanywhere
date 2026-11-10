@@ -562,7 +562,10 @@ const { chromium } = await import(
     path.join(repo, "packages/client/node_modules/@playwright/test/index.mjs"),
   ).href
 );
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  chromiumSandbox: true,
+});
 const context = await browser.newContext({
   viewport: { width: 1400, height: 1000 },
 });

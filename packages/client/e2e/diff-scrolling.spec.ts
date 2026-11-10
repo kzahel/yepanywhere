@@ -209,11 +209,15 @@ test("hunks and long-line runs scroll independently without adding vertical scro
   for (const character of "Review long lines while the view refreshes") {
     typed += character;
     await page.keyboard.type(character);
+    // Samples land two frames after each key; the default 100 ms first poll
+    // interval made this loop cost ~200 ms per character and exhaust the
+    // test timeout on slow CI runners.
     await expect
       .poll(
         async () =>
           JSON.parse((await comment.getAttribute("data-samples")) ?? "[]")
             .length,
+        { intervals: [16] },
       )
       .toBe(typed.length);
     const samples = JSON.parse(
