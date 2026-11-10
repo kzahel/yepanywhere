@@ -143,16 +143,5 @@
     "source": "packages/server/src/augments/markdown-file-preview.ts",
     "reason": "Server markdown preview emits line-target boundaries and rendered chunk wrappers.",
     "generated": true
-  },
-  {
-    "pattern": "^highlighted-line(-start|-end)?$",
-    "source": "packages/client/src/components/FileViewer.tsx",
-    "reason": "File-viewer HTML line annotation emits range tint and boundary classes on highlighted code.",
-    "generated": true,
-    "reactAuthored": [
-      "highlighted-line",
-      "highlighted-line-start",
-      "highlighted-line-end"
-    ]
   }
 ]

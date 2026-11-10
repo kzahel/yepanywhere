@@ -15,7 +15,7 @@
             const deadline = performance.now() + 5000;
             let frames = 0;
             const check = () => {
-              const button = document.querySelector('.sidebar-switch-host');
+              const button = document.querySelector('[data-sidebar-switch-host]');
               const rect = button?.getBoundingClientRect();
               const hit = rect && document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
               const settled = button?.closest('aside')?.getAnimations().every(animation => animation.playState !== 'running');
@@ -37,7 +37,7 @@
           });
           let count = 0, issued = 0, max = 0, maxKey = 0, domMax = 0, taskMax = 0, dropped = 0, stream = 0;
           new MutationObserver(records => {
-            if (issued > 0 && issued < 37 && document.activeElement?.matches?.('textarea[data-composer-input]') && records.some(record => (record.target.closest?.('.message-list') || record.target.parentElement?.closest?.('.message-list')))) stream++;
+            if (issued > 0 && issued < 37 && document.activeElement?.matches?.('textarea[data-composer-input]') && records.some(record => (record.target.closest?.('[data-message-list]') || record.target.parentElement?.closest?.('[data-message-list]')))) stream++;
           }).observe(document, {subtree:true,childList:true,characterData:true});
           document.addEventListener('beforeinput', event => {
             const input = event.target;

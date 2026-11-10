@@ -305,10 +305,9 @@ export interface SidebarNavButtonProps {
 
 /**
  * Action variant of {@link SidebarNavItem}: emits the identical markup
- * (`sidebar-nav-item` > icon + `sidebar-nav-text` label) as a <button>
- * instead of a <Link>, so action items inherit the same styling and the
- * collapsed-rail icon-only CSS contract (`.sidebar-collapsed .sidebar-nav-text
- * { display: none }`) rather than re-implementing them with a bespoke guard.
+ * (the `data-sidebar-nav-item` boundary, icon and `data-sidebar-nav-text`
+ * label) as a <button> instead of a <Link>. Both share the module-owned
+ * collapsed-rail icon-only presentation through `data-sidebar-collapsed`.
  */
 export function SidebarNavButton({
   icon,
@@ -317,6 +316,7 @@ export function SidebarNavButton({
   title,
   className = "",
   onLongPress,
+  ...buttonProps
 }: SidebarNavButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const press = useLongPress(() => {
@@ -325,6 +325,7 @@ export function SidebarNavButton({
   });
   return (
     <ButtonBase
+      {...buttonProps}
       ref={buttonRef}
       className={`${styles.sidebarNavItem} ${className}`.trim()}
       data-sidebar-nav-item

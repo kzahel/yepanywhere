@@ -798,7 +798,7 @@ describe("FileViewer", () => {
     Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
       configurable: true,
       value(this: HTMLElement) {
-        const top = this.classList.contains("highlighted-line-start") ? 200 : 0;
+        const top = this.hasAttribute("data-highlighted-line-start") ? 200 : 0;
         return {
           bottom: top,
           height: 0,
@@ -842,17 +842,19 @@ describe("FileViewer", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector(".highlighted-line-start")).not.toBeNull();
+      expect(
+        container.querySelector("[data-highlighted-line-start]"),
+      ).not.toBeNull();
     });
 
     expect(
       container
-        .querySelector(".highlighted-line-start")
+        .querySelector("[data-highlighted-line-start]")
         ?.getAttribute("data-line"),
     ).toBe("2");
     expect(
       container
-        .querySelector(".highlighted-line-end")
+        .querySelector("[data-highlighted-line-end]")
         ?.getAttribute("data-line"),
     ).toBe("3");
     const code = container.querySelector("[data-shiki-container] code");
@@ -861,7 +863,7 @@ describe("FileViewer", () => {
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent === "\n",
       ),
     ).toBe(false);
-    expect(container.querySelector(".highlighted-line")).toBeNull();
+    expect(container.querySelector("[data-highlighted-line]")).toBeNull();
     const sourceLines = container.querySelectorAll<HTMLElement>(
       "[data-shiki-container] .line",
     );
@@ -930,14 +932,20 @@ describe("FileViewer", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector(".highlighted-line")).not.toBeNull();
+      expect(container.querySelector("[data-highlighted-line]")).not.toBeNull();
     });
 
     expect(
-      container.querySelector(".highlighted-line")?.getAttribute("data-line"),
+      container
+        .querySelector("[data-highlighted-line]")
+        ?.getAttribute("data-line"),
     ).toBe("41");
-    expect(container.querySelector(".highlighted-line-start")).not.toBeNull();
-    expect(container.querySelector(".highlighted-line-end")).not.toBeNull();
+    expect(
+      container.querySelector("[data-highlighted-line-start]"),
+    ).not.toBeNull();
+    expect(
+      container.querySelector("[data-highlighted-line-end]"),
+    ).not.toBeNull();
   });
 
   it("shows actual file line numbers in plain range windows", async () => {
@@ -982,12 +990,12 @@ describe("FileViewer", () => {
     expect(gutter).toEqual(["40", "41", "42"]);
     expect(
       container
-        .querySelector(".highlighted-line-start")
+        .querySelector("[data-highlighted-line-start]")
         ?.getAttribute("data-line"),
     ).toBe("41");
     expect(
       container
-        .querySelector(".highlighted-line-end")
+        .querySelector("[data-highlighted-line-end]")
         ?.getAttribute("data-line"),
     ).toBe("42");
 

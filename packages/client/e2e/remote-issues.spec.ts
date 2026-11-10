@@ -76,7 +76,7 @@ for (const mode of ["direct", "relay"] as const) {
         }),
       ).toBeVisible();
       if (!(await issuesLink.isVisible())) await openSidebar.click();
-      await expect(issuesLink).toHaveClass(/\bactive\b/);
+      await expect(issuesLink).toHaveAttribute("data-sidebar-active");
 
       const deepLink = `${remotePreviewURL}${prefix}/issues?sessionId=route-test&projectId=route-project`;
       await page.goto(deepLink);

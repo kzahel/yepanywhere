@@ -655,7 +655,7 @@ function getRangeTextWithinElement(
   beforeRange.setEnd(clippedRange.startContainer, clippedRange.startOffset);
 
   const sourceModeElements = Array.from(
-    element.querySelectorAll<HTMLElement>(".text-block-source"),
+    element.querySelectorAll<HTMLElement>("[data-text-block-source]"),
   );
   const selectedText = getRangeTextWithoutIgnoredContent(clippedRange);
 

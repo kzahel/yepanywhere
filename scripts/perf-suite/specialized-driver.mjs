@@ -318,7 +318,8 @@ async function measureSemanticActionReplay({
             harness?.kind === "semantic-ui-action-harness"
               ? harness.snapshot()
               : harness,
-          modalText: document.querySelector(".modal-overlay")?.textContent,
+          modalText: document.querySelector("[data-modal-overlay]")
+            ?.textContent,
         };
       });
       throw new Error(

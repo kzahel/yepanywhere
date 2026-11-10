@@ -155,11 +155,6 @@
     gap: 0.25rem;
   }
 }
-@media (width <= 600px) {
-  .bashModalCode {
-    border-radius: 0;
-  }
-}
 
 .bashModalCode {
   margin: 0;
@@ -170,6 +165,12 @@
   overflow-x: auto;
   font-family: var(--font-mono);
   font-size: var(--fixed-font-size-base);
+}
+
+@media (width <= 600px) {
+  .bashModalCode {
+    border-radius: 0;
+  }
 }
 
 .bashPreviewOutput pre {

@@ -230,7 +230,7 @@ async function measureComposerTyping(page, label) {
 async function measureTranscriptScroll(page, label) {
   await resetInteractionProbe(page);
   const result = await page.evaluate(async () => {
-    const list = document.querySelector(".message-list");
+    const list = document.querySelector("[data-message-list]");
     const scroll = list?.parentElement;
     if (!(scroll instanceof HTMLElement)) {
       throw new Error("message-list scroll owner was not available");
@@ -332,7 +332,7 @@ async function measureTooltip(page, configuredDelayMs) {
   await page.waitForSelector("#ya-global-tooltip", { state: "detached" });
   const target = await markFirstVisibleTarget(
     page,
-    '[data-tooltip]:not([data-tooltip=""]):not(.session-list-item *)',
+    '[data-tooltip]:not([data-tooltip=""]):not([data-session-list-item] *)',
     "data-ya-perf-tooltip-target",
   );
   await resetInteractionProbe(page);
@@ -361,7 +361,7 @@ async function measureTooltip(page, configuredDelayMs) {
 
 async function measureSessionHoverCard(page, configuredDelayMs) {
   let openedSidebar = false;
-  const visibleRows = page.locator(".session-list-item:visible");
+  const visibleRows = page.locator("[data-session-list-item]:visible");
   if ((await visibleRows.count()) === 0) {
     const openSidebar = page.getByRole("button", {
       exact: true,
@@ -376,7 +376,7 @@ async function measureSessionHoverCard(page, configuredDelayMs) {
   }
   const target = await markFirstVisibleTarget(
     page,
-    ".session-list-item",
+    "[data-session-list-item]",
     "data-ya-perf-hover-card-target",
   );
   await page.mouse.move(2, 2);
@@ -443,7 +443,7 @@ async function measureProjectionTransition(page) {
     });
     window.__yaPerfInteraction.rowCountBefore =
       document.querySelectorAll("[data-render-id]").length;
-    const messageList = document.querySelector(".message-list");
+    const messageList = document.querySelector("[data-message-list]");
     if (messageList) {
       window.__yaPerfInteraction.rowObserver.observe(messageList, {
         childList: true,
@@ -523,7 +523,7 @@ async function measureOlderHistoryDisclosure(page) {
 }
 
 async function ensureSidebarSessionLinks(page) {
-  const visibleLinks = page.locator(".session-list-item__link:visible");
+  const visibleLinks = page.locator("[data-session-list-item__link]:visible");
   if ((await visibleLinks.count()) < 2) {
     const openSidebar = page.getByRole("button", {
       exact: true,
@@ -534,7 +534,8 @@ async function ensureSidebarSessionLinks(page) {
     }
     await openSidebar.click();
     await page.waitForFunction(
-      () => document.querySelectorAll(".session-list-item__link").length >= 2,
+      () =>
+        document.querySelectorAll("[data-session-list-item__link]").length >= 2,
     );
   }
   return visibleLinks;
@@ -1363,7 +1364,7 @@ export async function measureBrowserMode({
 
           await navigateSpa(page, `${server.baseUrl}/projects`);
           await page.waitForFunction(
-            () => !document.querySelector(".message-list"),
+            () => !document.querySelector("[data-message-list]"),
             undefined,
             { timeout: config.server.requestTimeoutMs },
           );
@@ -1421,7 +1422,7 @@ export async function measureBrowserMode({
           const proofTarget = workingSet[0];
           await navigateSpa(page, `${server.baseUrl}/projects`);
           await page.waitForFunction(
-            () => !document.querySelector(".message-list"),
+            () => !document.querySelector("[data-message-list]"),
             undefined,
             { timeout: config.server.requestTimeoutMs },
           );

@@ -312,11 +312,11 @@ export async function clientTelemetry(page) {
             : null,
           dom: {
             nodes: document.getElementsByTagName("*").length,
-            messageRows: document.querySelectorAll(".message-render-row")
+            messageRows: document.querySelectorAll("[data-message-render-row]")
               .length,
             streamingBlocks:
               document.querySelectorAll(".streaming-block").length,
-            toolRows: document.querySelectorAll(".tool-row").length,
+            toolRows: document.querySelectorAll("[data-tool-row]").length,
           },
           transcriptMemory: detailStore.getSessionTranscriptMemoryStats(),
         };
@@ -397,9 +397,9 @@ export async function addBuiltClientReadinessObserver(
       };
       window.__yaPerfBuiltClientReadiness = state;
       const inspect = () => {
-        const row = [...document.querySelectorAll(".message-render-row")].find(
-          (candidate) => candidate.textContent?.includes(marker),
-        );
+        const row = [
+          ...document.querySelectorAll("[data-message-render-row]"),
+        ].find((candidate) => candidate.textContent?.includes(marker));
         if (
           state.readableTailAtMs === null &&
           document.body?.innerText.includes(marker)
@@ -526,7 +526,7 @@ export async function waitForFinalDisplay(
       await page.waitForFunction(
         ({ marker, title }) => {
           const row = [
-            ...document.querySelectorAll(".message-render-row"),
+            ...document.querySelectorAll("[data-message-render-row]"),
           ].find((candidate) => candidate.textContent?.includes(marker));
           return [
             ...(row?.querySelectorAll("[data-glossary-term]") ?? []),
@@ -541,9 +541,9 @@ export async function waitForFinalDisplay(
       );
     } catch (error) {
       const diagnosis = await page.evaluate((marker) => {
-        const row = [...document.querySelectorAll(".message-render-row")].find(
-          (candidate) => candidate.textContent?.includes(marker),
-        );
+        const row = [
+          ...document.querySelectorAll("[data-message-render-row]"),
+        ].find((candidate) => candidate.textContent?.includes(marker));
         return {
           enabled: localStorage.getItem("yep-anywhere-glossary-hints-enabled"),
           rowGlossaryTitles: [
@@ -568,9 +568,9 @@ export async function waitForFinalDisplay(
   if (projectPathsSupported) {
     await page.waitForFunction(
       ({ expectedPaths, marker }) => {
-        const row = [...document.querySelectorAll(".message-render-row")].find(
-          (candidate) => candidate.textContent?.includes(marker),
-        );
+        const row = [
+          ...document.querySelectorAll("[data-message-render-row]"),
+        ].find((candidate) => candidate.textContent?.includes(marker));
         if (!row) return false;
         const paths = [
           ...row.querySelectorAll('a[data-ya-resource="local-file"]'),
@@ -590,9 +590,9 @@ export async function waitForFinalDisplay(
     );
     const wronglyLinked = await page.evaluate(
       ({ marker, negativePaths }) => {
-        const row = [...document.querySelectorAll(".message-render-row")].find(
-          (candidate) => candidate.textContent?.includes(marker),
-        );
+        const row = [
+          ...document.querySelectorAll("[data-message-render-row]"),
+        ].find((candidate) => candidate.textContent?.includes(marker));
         if (!row) return negativePaths;
         const linkedText = [
           ...row.querySelectorAll('a[data-ya-resource="local-file"]'),
@@ -979,9 +979,9 @@ export async function prepareClientAppendProfile(
       };
       window.__yaPerfAppendDisplay = state;
       const check = () => {
-        const row = [...document.querySelectorAll(".message-render-row")].find(
-          (candidate) => candidate.textContent?.includes(marker),
-        );
+        const row = [
+          ...document.querySelectorAll("[data-message-render-row]"),
+        ].find((candidate) => candidate.textContent?.includes(marker));
         if (!row) return;
         const nowMs = performance.now();
         state.readableTailAtMs ??= nowMs;

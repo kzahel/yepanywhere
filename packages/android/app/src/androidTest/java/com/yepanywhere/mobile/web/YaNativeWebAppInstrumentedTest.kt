@@ -97,7 +97,7 @@ class YaNativeWebAppInstrumentedTest {
             val projectId = projects.getJSONArray("projects").getJSONObject(0).getString("id")
             evaluate(scenario, "location.href = '/projects/$projectId/sessions/android-preview-session'; true")
             await(scenario, "document.body.textContent.includes('Preview message 50') && !!document.querySelector('textarea[data-composer-input]')")
-            await(scenario, "!document.querySelector('.session-title-skeleton, .session-page .loading') && document.fonts.status === 'loaded'")
+            await(scenario, "!document.querySelector('[data-session-title-skeleton], [data-session-page] [data-loading]') && document.fonts.status === 'loaded'")
             evaluate(scenario, "window.nativeCaptureReady = false; requestAnimationFrame(() => requestAnimationFrame(() => { window.nativeCaptureReady = true; })); true")
             await(scenario, "window.nativeCaptureReady === true")
             instrumentation.waitForIdleSync()
@@ -199,7 +199,7 @@ class YaNativeWebAppInstrumentedTest {
             }
 
             device.pressBack() // Hide the keyboard before opening native chrome.
-            evaluate(scenario, "window.warmDocument = {identity: Math.random()}; window.warmComposerNode = document.querySelector('textarea[data-composer-input]'); window.warmComposer = window.warmComposerNode.value; window.warmScrollNode = document.querySelector('.message-list').parentElement; window.warmScrollTarget = (window.warmScrollNode.scrollHeight - window.warmScrollNode.clientHeight) / 2; window.warmScrollNode.scrollTop = window.warmScrollTarget; true")
+            evaluate(scenario, "window.warmDocument = {identity: Math.random()}; window.warmComposerNode = document.querySelector('textarea[data-composer-input]'); window.warmComposer = window.warmComposerNode.value; window.warmScrollNode = document.querySelector('[data-message-list]').parentElement; window.warmScrollTarget = (window.warmScrollNode.scrollHeight - window.warmScrollNode.clientHeight) / 2; window.warmScrollNode.scrollTop = window.warmScrollTarget; true")
             await(scenario, "window.warmScrollTarget > 0 && Math.abs(window.warmScrollNode.scrollTop - window.warmScrollTarget) < 1")
             val scrollPosition = evaluate(scenario, "window.warmScrollNode.scrollTop").toDouble()
             val identity = evaluate(scenario, "JSON.stringify([performance.timeOrigin, window.warmDocument.identity])")
@@ -308,9 +308,9 @@ class YaNativeWebAppInstrumentedTest {
             await(scenario, "location.pathname.endsWith('/sessions/android-preview-session') && document.body.textContent.includes('Preview message 50')")
             assertSafeAreasAppliedOnce(scenario)
             assertEquals(200, runBlocking { sibling.request("GET", "/version").status })
-            evaluate(scenario, "if (!document.querySelector('.sidebar-switch-host')) document.querySelector('.sidebar-toggle')?.click(); true")
-            await(scenario, "!!document.querySelector('.sidebar-switch-host')")
-            evaluate(scenario, "document.querySelector('.sidebar-switch-host').click(); true")
+            evaluate(scenario, "if (!document.querySelector('[data-sidebar-switch-host]')) document.querySelector('[data-sidebar-toggle]')?.click(); true")
+            await(scenario, "!!document.querySelector('[data-sidebar-switch-host]')")
+            evaluate(scenario, "document.querySelector('[data-sidebar-switch-host]').click(); true")
             assertTrue("Switch Host did not open native management", device.wait(Until.hasObject(By.text("Servers")), 5_000))
             assertTrue(device.wait(Until.hasObject(By.text(hostLabel)), 5_000))
             scenario.close()

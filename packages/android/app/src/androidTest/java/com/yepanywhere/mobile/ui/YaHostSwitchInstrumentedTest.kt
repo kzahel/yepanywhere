@@ -89,9 +89,9 @@ class YaHostSwitchInstrumentedTest {
                     waitFor { control("resume-hold", false).getInt("heldResumes") > 0 }
                     assertNull(runBlocking { runtime.pairedServers.snapshot(profile.id)?.resumeCredential })
                 }
-                evaluate("if (!document.querySelector('.sidebar-switch-host')) document.querySelector('.sidebar-toggle')?.click(); true")
-                waitFor { evaluate("!!document.querySelector('.sidebar-switch-host')") == "true" }
-                evaluate("document.querySelector('.sidebar-switch-host').click(); true")
+                evaluate("if (!document.querySelector('[data-sidebar-switch-host]')) document.querySelector('[data-sidebar-toggle]')?.click(); true")
+                waitFor { evaluate("!!document.querySelector('[data-sidebar-switch-host]')") == "true" }
+                evaluate("document.querySelector('[data-sidebar-switch-host]').click(); true")
                 assertTrue(device.wait(Until.hasObject(By.text("Servers")), 5_000))
                 runBlocking { withTimeout(10_000) {
                     manager.state.first { it.phase == YaConnectionPhase.IDLE }

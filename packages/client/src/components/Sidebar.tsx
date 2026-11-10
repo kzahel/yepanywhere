@@ -1293,7 +1293,7 @@ export function Sidebar({
             {/* Relay-connected Switch Host uses nav-item markup so the mini rail stays icon-only. */}
             {remoteConnection && (
               <SidebarNavButton
-                className="sidebar-switch-host"
+                data-sidebar-switch-host
                 onClick={handleSwitchHost}
                 onLongPress={handleOpenSwitchHostMenu}
                 label={t("sidebarSwitchHost")}

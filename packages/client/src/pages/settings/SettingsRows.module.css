@@ -441,7 +441,7 @@
   flex-direction: column;
   align-items: stretch;
 }
-.modelChipGroup {
+.modelChipGroup.modelChipGroup {
   display: flex;
   flex-wrap: wrap;
   align-self: flex-start;

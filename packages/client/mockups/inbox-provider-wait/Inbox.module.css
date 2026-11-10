@@ -80,23 +80,6 @@
   border-color: var(--text-dimmed);
 }
 
-/*
- * Proposal-mode row rules: the meta line wraps so a long work pill drops
- * below project and age instead of squeezing them, and the link is
- * constrained so the pill's ellipsis applies. Shipped rows get the same
- * from SessionListItem.module.css.
- */
-/* biome-ignore format: keep the two parallel selectors on one line */
-.page:not([data-shipped]) :global(.session-list-item--card .session-list-item__link) {
-  min-width: 0;
-}
-
-/* biome-ignore format: keep the two parallel selectors on one line */
-.page:not([data-shipped]) :global(.session-list-item--card .session-list-item__meta) {
-  flex-wrap: wrap;
-  row-gap: var(--space-1);
-}
-
 /* Doubled class beats the global badge's flex-shrink: 0. */
 .workPill.workPill {
   flex-shrink: 1;

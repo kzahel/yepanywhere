@@ -883,9 +883,9 @@ async function getPageStats(page: Page): Promise<PageStats> {
           : null,
         dom: {
           nodes: document.getElementsByTagName("*").length,
-          messageRows: document.querySelectorAll(".message-render-row").length,
+          messageRows: document.querySelectorAll("[data-message-render-row]").length,
           turnGroups: document.querySelectorAll(".turn-group").length,
-          toolRows: document.querySelectorAll(".tool-row").length,
+          toolRows: document.querySelectorAll("[data-tool-row]").length,
           streamingBlocks: document.querySelectorAll(".streaming-block").length,
           searchPreviewLabels: document.querySelectorAll(
             ".user-turn-preview-label",

@@ -134,6 +134,10 @@ test.beforeEach(async ({ page, remotePreviewURL }) => {
     );
   });
   await page.goto(`${remotePreviewURL}/remote.html`);
+  await expect(page.locator("[data-brand-wordmark]")).toHaveCSS(
+    "font-size",
+    "14px",
+  );
   await expect(
     page.locator("[data-conversation-activity-summary]"),
   ).toHaveCount(1);

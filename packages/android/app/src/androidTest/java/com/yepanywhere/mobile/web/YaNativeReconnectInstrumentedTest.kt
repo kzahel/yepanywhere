@@ -189,7 +189,7 @@ class YaNativeReconnectInstrumentedTest {
         // Prime both pages, then change server data while the real foreground
         // lease is absent. Session, cached Inbox and sidebar must agree on wake.
         session.navigate("/inbox")
-        await(session.scenario, "!!document.querySelector('.inbox-toolbar') && document.querySelector('main').textContent.includes('Android conversation fixture')")
+        await(session.scenario, "!!document.querySelector('[data-inbox-toolbar]') && document.querySelector('main').textContent.includes('Android conversation fixture')")
         session.navigate(session.sessionPath)
         session.awaitSession()
         val document = evaluate(session.scenario, "performance.timeOrigin")
@@ -205,7 +205,7 @@ class YaNativeReconnectInstrumentedTest {
             session.assertRecoveredWithoutSyntheticErrors()
             await(session.scenario, "document.body.textContent.includes(${org.json.JSONObject.quote(message)}) && document.querySelector('header').textContent.includes('$title')")
             session.navigate("/inbox")
-            await(session.scenario, "!!document.querySelector('.inbox-toolbar') && document.querySelector('main').textContent.includes('$title') && !document.querySelector('[data-connection-status]')")
+            await(session.scenario, "!!document.querySelector('[data-inbox-toolbar]') && document.querySelector('main').textContent.includes('$title') && !document.querySelector('[data-connection-status]')")
             await(session.scenario, """!!document.querySelector('[aria-label="Open sidebar"]')""")
             evaluate(session.scenario, """document.querySelector('[aria-label="Open sidebar"]').click(); true""")
             await(session.scenario, "document.querySelector('#sidebar-starred-list')?.textContent.includes('$title') === true")
@@ -269,7 +269,7 @@ class YaNativeReconnectInstrumentedTest {
                 session.device.executeShellCommand("svc data enable")
                 // No typing, page reload or synthetic JS online event. The
                 // real platform callback must recover before the 60 s timer.
-                await(session.scenario, "!!document.querySelector('.inbox-toolbar') && !document.querySelector('[data-connection-status]')")
+                await(session.scenario, "!!document.querySelector('[data-inbox-toolbar]') && !document.querySelector('[data-connection-status]')")
                 assertEquals("Radio loss must not become a page error or sign-in", "\"[]\"", evaluate(session.scenario, "JSON.stringify(window.__pageProblems)"))
                 session.navigate(session.sessionPath)
                 session.assertRecoveredWithoutSyntheticErrors()

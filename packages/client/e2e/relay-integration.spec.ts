@@ -914,7 +914,7 @@ test.describe("Full Relay Integration", () => {
         page.getByText("!! Command History", { exact: true }),
       ).toBeVisible({ timeout: 10_000 });
       await openSidebar.click();
-      await expect(bangHistoryLink).toHaveClass(/\bactive\b/);
+      await expect(bangHistoryLink).toHaveAttribute("data-sidebar-active");
     } finally {
       await setBangHistoryVisibility(baseURL, false);
     }

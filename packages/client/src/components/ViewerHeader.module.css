@@ -35,7 +35,7 @@
 /* Content-width, so a row the actions land on alone is only as tall and as
    wide as the buttons need, and trailing-aligned so they stay anchored to the
    header's edge wherever they end up. */
-.actions {
+.actions.actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;

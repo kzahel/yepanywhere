@@ -69,13 +69,13 @@ test("a cited line links separately from its path", async ({
   await recordUiCapture(page, "file-line-links-desktop");
 
   await page.getByRole("link", { name: ":44", exact: true }).click();
-  await expect(page.locator(".highlighted-line-start")).toContainText(
+  await expect(page.locator("[data-highlighted-line-start]")).toContainText(
     "const line44",
   );
   await page.keyboard.press("Escape");
   await pathLinks.last().click();
   await expect(page.getByText("const line1 = 0;")).toBeVisible();
-  await expect(page.locator(".highlighted-line-start")).toHaveCount(0);
+  await expect(page.locator("[data-highlighted-line-start]")).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   await page.setViewportSize({ width: 375, height: 812 });

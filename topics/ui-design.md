@@ -87,6 +87,12 @@ now have module owners. Header density, inline/dialog rename, connection states,
 selection shielding and content-width/overflow behavior retain their existing
 look. Stable data boundaries serve DOM consumers and browser fixtures; the
 composer controls remain unchanged until their final ownership-only move.
+Ownership repairs keep Bash/Web copied feedback visible after hover/focus ends
+for its existing three-second interval; source-view partial copy remains exact.
+Rendered Edit panels and Grep directory labels share their established owners.
+Viewer range tints and fallback source resets are modular; only emitted Shiki
+inline paint is reset globally. Composed caller layout and brand sizing have
+explicit specificity, including shared wordmarks and page workspaces.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 

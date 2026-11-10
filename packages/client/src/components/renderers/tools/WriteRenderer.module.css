@@ -78,3 +78,13 @@
 .writeCollapsedPreview:hover {
   border-color: var(--border-input, var(--border-color));
 }
+
+.writePreviewContent pre {
+  margin: 0;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary, var(--text-muted));
+}

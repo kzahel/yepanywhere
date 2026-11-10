@@ -42,7 +42,7 @@
   min-height: 24px;
   font-size: var(--font-size-sm);
 }
-.chip {
+.chip.chip {
   position: absolute;
   right: calc(100% + 4px);
   width: 40px;

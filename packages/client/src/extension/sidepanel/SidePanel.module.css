@@ -92,7 +92,6 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  text-align: left;
 }
 .row:disabled {
   cursor: default;

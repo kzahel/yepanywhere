@@ -65,13 +65,13 @@
 }
 
 @media (width <= 600px) {
-  .testRow {
+  .testRow.testRow {
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-3);
   }
 
-  .testActions {
+  .testActions.testActions {
     align-self: stretch;
     flex-direction: column;
     align-items: stretch;

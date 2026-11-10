@@ -240,6 +240,30 @@ describe("extractMarkdownSnippetsFromSelection", () => {
     root.remove();
   });
 
+  it("keeps a partial Show source selection exact instead of remapping it", () => {
+    const root = document.createElement("div");
+    const source = document.createElement("div");
+    const raw = document.createElement("pre");
+    raw.setAttribute("data-text-block-source", "");
+    raw.textContent = "## Debug switches";
+    source.append(raw);
+    root.append(source);
+    document.body.append(root);
+    const unregister = registerMarkdownCopySource(source, "## Debug switches");
+    const range = document.createRange();
+    range.setStart(raw.firstChild!, 3);
+    range.setEnd(raw.firstChild!, 8);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    expect(extractMarkdownSnippetsFromSelection(root)).toMatchObject([
+      { markdown: "Debug", selectedText: "Debug", sourceElement: source },
+    ]);
+    selection.removeAllRanges();
+    unregister();
+    root.remove();
+  });
+
   it("copies only a selected inline token from a rendered list item", () => {
     const root = document.createElement("div");
     const source = document.createElement("div");

@@ -980,21 +980,21 @@
 [data-fixed-font-rendered__content] .katex-error {
   color: var(--error-color);
 }
-[data-file-viewer-code] code {
+[data-file-viewer-code] pre.shiki code {
   font-family: inherit !important;
   background: transparent !important;
   box-shadow: none !important;
 }
-[data-file-viewer-code] code * {
+[data-file-viewer-code] pre.shiki code * {
   background: transparent !important;
   box-shadow: none !important;
 }
-[data-file-viewer-code] pre {
+[data-file-viewer-code] pre.shiki {
   margin: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
 }
-[data-file-viewer-code] pre * {
+[data-file-viewer-code] pre.shiki * {
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -1004,65 +1004,6 @@
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
-}
-
-[data-file-viewer-code] .highlighted-line {
-  margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
-  margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
-  padding-left: calc(
-    var(--file-viewer-code-x-padding, 0.625rem) +
-    var(--file-viewer-wrap-gutter, 1.15rem)
-  );
-  padding-right: var(--file-viewer-code-x-padding, 0.625rem);
-  position: relative;
-  background-color: rgba(244, 63, 94, 0.08) !important;
-}
-
-[data-file-viewer-code] .highlighted-line-start {
-  margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
-  margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
-  padding-left: calc(
-    var(--file-viewer-code-x-padding, 0.625rem) +
-    var(--file-viewer-wrap-gutter, 1.15rem)
-  );
-  padding-right: var(--file-viewer-code-x-padding, 0.625rem);
-  position: relative;
-  scroll-margin-block-start: 10vh;
-}
-
-[data-file-viewer-code] .highlighted-line-end {
-  margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
-  margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
-  padding-left: calc(
-    var(--file-viewer-code-x-padding, 0.625rem) +
-    var(--file-viewer-wrap-gutter, 1.15rem)
-  );
-  padding-right: var(--file-viewer-code-x-padding, 0.625rem);
-  position: relative;
-}
-
-[data-file-viewer-code] .highlighted-line-start::before {
-  content: "";
-  position: absolute;
-  height: 1px;
-  background: var(--error-color);
-  opacity: 0.52;
-  pointer-events: none;
-  top: 0;
-  left: 0;
-  right: 2.75rem;
-}
-
-[data-file-viewer-code] .highlighted-line-end::after {
-  content: "";
-  position: absolute;
-  height: 1px;
-  background: var(--error-color);
-  opacity: 0.52;
-  pointer-events: none;
-  bottom: 0;
-  left: 2.75rem;
-  right: 0;
 }
 @media (width <= 800px) {
   [data-file-viewer-code-highlighted] [data-shiki-container] pre.shiki {
@@ -1160,12 +1101,6 @@
   margin-bottom: 0;
 }
 
-[data-write-preview-content] pre {
-  margin: 0;
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: var(--font-size-base);
-  line-height: 1.4;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--text-secondary, var(--text-muted));
+[data-file-viewer-code] pre.shiki code > .line {
+  background: var(--file-viewer-highlight-background, transparent) !important;
 }

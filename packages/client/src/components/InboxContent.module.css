@@ -5,11 +5,8 @@
  * headers override the shared header rule by descendant specificity and
  * the mobile header override depends on source order.
  *
- * Several inbox-prefixed literals stay global and unchanged because other
- * components produce them:
- *   - `inbox-toolbar` is also rendered by `pages/ProjectsPage.tsx` and
- *     `pages/GlobalSessionsPage.tsx`.
- *   - `inbox-empty` is also rendered by both of those pages.
+ * Shared collection toolbar and empty-state geometry belongs to
+ * CollectionLayout.module.css; its data boundaries also serve the other lists.
  * The refresh button is a shared Button showing its `busy` spinner.
  */
 

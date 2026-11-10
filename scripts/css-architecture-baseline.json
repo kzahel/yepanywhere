@@ -30,24 +30,24 @@
       "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
     },
     "generated:authored-subject": {
-      "count": 7,
+      "count": 2,
       "reason": "Shared emitted/React media roots and highlighted range-line markers have one generated styling owner. Close by unifying those markup producers; React wrapper geometry remains in modules."
     },
     "generated:context-attribute:data-highlighted-diff": {
       "count": 13,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "Diff root scopes server-produced Shiki/diff line, gutter and prefix spans; React fallback rows use DiffOutput.module.css. Close when the emitted diff producer exposes the complete scoped source surface."
     },
     "generated:context-attribute:data-file-viewer-code-highlighted": {
       "count": 5,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "Highlighted FileViewer root supplies wrapping geometry and source typography to emitted Shiki pre/code/line elements. Close with a FileViewer-specific generated source surface."
     },
     "generated:context-attribute:data-shiki-container": {
       "count": 5,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "ShikiHtml inserts server-highlighted pre/code/line markup beneath this React boundary. These rules reset inline Shiki paint and retain emitted line geometry; close with a scoped highlighter stylesheet."
     },
     "generated:context-attribute:data-diff-gutter-aligned": {
       "count": 4,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "React diff wrapper supplies gutter variables to server-produced Shiki/diff descendants. Close when the diff producer owns the gutter geometry; fallback React rows are modular."
     },
     "generated:context-attribute:data-unicode-math": {
       "count": 2,
@@ -55,11 +55,11 @@
     },
     "generated:context-attribute:data-markdown-preview": {
       "count": 23,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "FileViewer and source preview wrappers contain server-generated Markdown and line-boundary spans. These rules style emitted paragraphs, code and source anchors, while the wrapper layout is modular."
     },
     "generated:context-attribute:data-markdown-rendered": {
       "count": 19,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "TextBlock wraps server-rendered Markdown with this boundary. Only emitted Markdown descendants use these prose rules; wrapper appearance and controls are modular."
     },
     "generated:context-attribute:data-streaming-blocks": {
       "count": 16,
@@ -71,7 +71,7 @@
     },
     "generated:context-attribute:data-text-block": {
       "count": 16,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "TextBlock supplies output typography to the HTML islands it inserts. These counted ancestors scope generated Markdown/ANSI descendants; React block layout is local."
     },
     "generated:context-attribute:data-text-block-root": {
       "count": 1,
@@ -79,19 +79,19 @@
     },
     "generated:context-attribute:data-text-block-content": {
       "count": 5,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "The TextBlock content boundary scopes emitted Markdown typography and paragraph endings. React content-wrapper layout lives in TextBlock.module.css."
     },
     "generated:context-attribute:data-text-block-local-rendered": {
       "count": 5,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "Local fixed-font rendering inserts HTML for Markdown/math rather than React children. This boundary retains its emitted prose spacing and user-selected typography."
     },
     "generated:context-attribute:data-fixed-font-rendered__content": {
       "count": 6,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "reason": "FixedFontMathToggle and tool output insert generated fixed-font lines/math here. These descendant rules retain glyph sizing and math error colors, while the React shell is modular."
     },
     "generated:context-attribute:data-file-viewer-code": {
-      "count": 9,
-      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+      "count": 5,
+      "reason": "FileViewer source root scopes only Shiki inline-paint resets and the emitted line background variable. React source wrappers and range geometry live in FileViewer.module.css. Close when Shiki emits its own unpainted source surface."
     },
     "generated:context:has-review-comment": {
       "count": 1,
@@ -99,15 +99,11 @@
     },
     "generated:context-attribute:data-assistant-turn": {
       "count": 8,
-      "reason": "Transcript turn or Write-preview HTML-island boundary scopes emitted paragraph/code descendants at the original specificity. Close when the emitted producer owns a scoped stylesheet; authored root layout remains modular."
+      "reason": "The assistant-turn ancestor distinguishes emitted assistant Markdown paragraph rhythm from user/setup content. The turn layout and authored blocks remain modular."
     },
     "generated:context-attribute:data-text-block-assistant": {
       "count": 8,
-      "reason": "Transcript turn or Write-preview HTML-island boundary scopes emitted paragraph/code descendants at the original specificity. Close when the emitted producer owns a scoped stylesheet; authored root layout remains modular."
-    },
-    "generated:context-attribute:data-write-preview-content": {
-      "count": 1,
-      "reason": "Transcript turn or Write-preview HTML-island boundary scopes emitted paragraph/code descendants at the original specificity. Close when the emitted producer owns a scoped stylesheet; authored root layout remains modular."
+      "reason": "Assistant TextBlock marks its generated Markdown island so emitted paragraph/blockquote spacing follows assistant prose preferences; React block shells remain modular."
     }
   }
 }

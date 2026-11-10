@@ -24,7 +24,7 @@
   font-family: var(--font-mono);
 }
 
-.versionItem {
+.versionItem.versionItem {
   align-items: stretch;
   flex-direction: column;
 }

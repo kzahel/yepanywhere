@@ -1,4 +1,9 @@
 import {
+  annotateHighlightedHtmlLines,
+  getHighlightRange,
+  getFileViewerTargetScrollTop,
+} from "./fileViewerLineHighlights";
+import {
   FileViewerSelectionActions,
   RefreshIcon,
   RawSourceIcon,
@@ -303,19 +308,6 @@ function getProjectPath(projectId: string): string | null {
   }
 }
 
-function getHighlightRange(
-  lineNumber?: number,
-  lineEnd?: number,
-): { end: number; start: number } | null {
-  if (lineNumber === undefined) {
-    return null;
-  }
-  return {
-    end: Math.max(lineNumber, lineEnd ?? lineNumber),
-    start: lineNumber,
-  };
-}
-
 function getContentStartLine(fileData: FileContentResponse | null): number {
   return fileData?.contentStartLine ?? 1;
 }
@@ -517,38 +509,6 @@ function SessionFileCommentEditor({
   );
 }
 
-function annotateHighlightedHtmlLines(
-  html: string | undefined,
-  contentStartLine: number,
-  lineNumber?: number,
-  lineEnd?: number,
-): string | undefined {
-  if (!html) {
-    return html;
-  }
-  const range = getHighlightRange(lineNumber, lineEnd);
-  const singleLine = range?.start === range?.end;
-  let currentLine = 0;
-  return html.replace(/<span class="([^"]*)">/g, (match, className: string) => {
-    if (!className.split(/\s+/).includes("line")) {
-      return match;
-    }
-    currentLine += 1;
-    const actualLine = contentStartLine + currentLine - 1;
-    const inRange =
-      range !== null && actualLine >= range.start && actualLine <= range.end;
-    const classes = [
-      className,
-      singleLine && inRange ? "highlighted-line" : "",
-      actualLine === range?.start ? "highlighted-line-start" : "",
-      actualLine === range?.end ? "highlighted-line-end" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    return `<span class="${classes}" data-line="${actualLine}">`;
-  });
-}
-
 const DEFAULT_FILE_VIEWER_SOURCE: FileViewerSource = {
   loadFile: (projectId, filePath, highlight, lineNumber, lineEnd, viewMode) =>
     api.getFile(projectId, filePath, highlight, lineNumber, lineEnd, viewMode),
@@ -591,31 +551,6 @@ function versionedRawFileUrl(
   if (metadata.modifiedAt === undefined) return url;
   const separator = url.includes("?") ? "&" : "?";
   return `${url}${separator}v=${metadata.modifiedAt}-${metadata.size}`;
-}
-
-function getTargetTopWithinContainer(
-  container: HTMLElement,
-  target: HTMLElement,
-): number {
-  const containerRect = container.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  return targetRect.top - containerRect.top + container.scrollTop;
-}
-
-function getFileViewerTargetScrollTop(
-  container: HTMLElement,
-  target: HTMLElement,
-): number {
-  if (container.scrollHeight <= container.clientHeight) {
-    return 0;
-  }
-  const targetTop = getTargetTopWithinContainer(container, target);
-  const leadIn = container.clientHeight * 0.1;
-  const maxScrollTop = Math.max(
-    0,
-    container.scrollHeight - container.clientHeight,
-  );
-  return Math.max(0, Math.min(maxScrollTop, targetTop - leadIn));
 }
 
 /**
@@ -1446,7 +1381,7 @@ export const FileViewer = memo(function FileViewer({
     const highlightedLine =
       highlightedLineRef ??
       fileViewerBodyRef.current?.querySelector<HTMLElement>(
-        ".highlighted-line-start, .markdown-preview-span-start",
+        "[data-highlighted-line-start], .markdown-preview-span-start",
       );
     const viewerBody = fileViewerBodyRef.current;
     if (highlightedLine && viewerBody) {
@@ -1987,9 +1922,13 @@ export const FileViewer = memo(function FileViewer({
                     num >= highlightStart &&
                     num <= highlightEnd;
                   const classes = [
-                    singleLineHighlight && inRange ? "highlighted-line" : "",
-                    num === highlightStart ? "highlighted-line-start" : "",
-                    num === highlightEnd ? "highlighted-line-end" : "",
+                    singleLineHighlight && inRange
+                      ? viewerStyles.highlightedLine
+                      : "",
+                    num === highlightStart
+                      ? viewerStyles.highlightedLineStart
+                      : "",
+                    num === highlightEnd ? viewerStyles.highlightedLineEnd : "",
                   ]
                     .filter(Boolean)
                     .join(" ");
@@ -2004,6 +1943,15 @@ export const FileViewer = memo(function FileViewer({
                       }
                       className={classes || undefined}
                       data-line={num}
+                      data-highlighted-line={
+                        (singleLineHighlight && inRange) || undefined
+                      }
+                      data-highlighted-line-start={
+                        num === highlightStart || undefined
+                      }
+                      data-highlighted-line-end={
+                        num === highlightEnd || undefined
+                      }
                     >
                       {line || " "}
                     </div>

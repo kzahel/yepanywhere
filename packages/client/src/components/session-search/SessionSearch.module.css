@@ -10,7 +10,8 @@
   display: flex;
   gap: 4px;
 }
-.withDetail {
+.withDetail[data-main-content-constrained],
+.withDetail[data-main-content-mobile-inner] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 40%);
   grid-template-rows: auto minmax(0, 1fr);
@@ -23,7 +24,8 @@
   border-left: 1px solid var(--border-color);
 }
 @media (width < 1100px) {
-  .withDetail {
+  .withDetail[data-main-content-constrained],
+  .withDetail[data-main-content-mobile-inner] {
     display: flex;
   }
   .detailHost {
@@ -88,7 +90,7 @@
   line-height: 15px;
   color: var(--text-secondary);
 }
-.statusDetails {
+.statusDetails.statusDetails {
   width: max-content;
   max-width: 280px;
 }

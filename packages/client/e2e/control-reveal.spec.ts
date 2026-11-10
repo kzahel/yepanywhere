@@ -82,7 +82,7 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
       ["tool", "bash", "text", "edit"].includes(siteName!) &&
       buttonSelector!.includes("copy")
     ) {
-      await expect(button).toHaveClass(/copied/);
+      await expect(button).toHaveAttribute("data-copied");
       if (siteName === "tool" || siteName === "bash") {
         await site.locator("[data-before]").focus();
         await page.mouse.move(0, 0);
@@ -100,11 +100,63 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "bash clipboard witness",
   );
+  const exact = page.locator("[data-site=source-exact]");
+  await exact.locator("[data-text-block]").hover();
+  await exact.locator("[data-text-block-toggle]").click();
+  await expect(exact.locator("[data-text-block-source]")).toBeVisible();
+  const copiedSource = await exact.evaluate(async (element) => {
+    const raw = element.querySelector("[data-text-block-source]")!;
+    const text = document
+      .createTreeWalker(raw, NodeFilter.SHOW_TEXT)
+      .nextNode()!;
+    const range = document.createRange();
+    range.setStart(text, 3);
+    range.setEnd(text, 8);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+    const modulePath = "/src/lib/markdownSelectionCopy.ts";
+    const { extractMarkdownSnippetsFromSelection } = await import(modulePath);
+    const markdown = extractMarkdownSnippetsFromSelection(element)[0]?.markdown;
+    getSelection()!.removeAllRanges();
+    return markdown;
+  });
+  expect(copiedSource).toBe("Debug");
+  const diff = page.locator(
+    "[data-site=edit-rendered] [data-fixed-font-rendered-panel]",
+  );
+  await expect(diff).toHaveCSS("overflow-x", "auto");
+  await expect(diff).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(diff.locator(":scope > div")).not.toHaveCSS(
+    "padding-left",
+    "0px",
+  );
+  const grep = page.locator("[data-site=grep-files]");
+  await expect(grep.locator("[data-file-dir]")).toContainText("src/a.ts");
+  await expect(grep.locator("[data-file-dir]")).toHaveCSS(
+    "font-family",
+    /Mono|monospace/,
+  );
+  for (const copy of await page
+    .locator("[data-site=bash-modal] [data-bash-section-copy]")
+    .all()) {
+    await copy.locator("..").hover();
+    await copy.click();
+    await page.locator("[data-before=tool]").focus();
+    await page.mouse.move(0, 0);
+    await expect(copy).toHaveAttribute("data-copied");
+    await expect(copy).toHaveCSS("opacity", "1");
+  }
   for (const viewport of [
     { width: 1000, height: 600 },
     { width: 375, height: 812 },
   ]) {
     await page.setViewportSize(viewport);
+    await expect(
+      page.locator("[data-site=bash-modal] [data-bash-modal-code]").first(),
+    ).toHaveCSS(
+      "border-top-left-radius",
+      viewport.width <= 600 ? "0px" : "4px",
+    );
     await page.locator("[data-site=tool]").hover();
     await recordUiCapture(page, `reveal-${viewport.width}`);
   }
@@ -291,7 +343,7 @@ for (const theme of ["dark", "light"]) {
         ).toBe(true);
         const files = root.locator("[data-case=files]");
         for (const header of await files
-          .locator("[data-tool-row-header]:not(.non-expandable)")
+          .locator("[data-tool-row-header]:not([data-non-expandable])")
           .all())
           await header.click();
         for (const link of await files

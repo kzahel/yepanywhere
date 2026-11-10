@@ -4,7 +4,7 @@
   gap: var(--space-3);
 }
 
-.modelSwitchTabs {
+.modelSwitchTabs.modelSwitchTabs {
   position: sticky;
   top: 0;
   z-index: 1;

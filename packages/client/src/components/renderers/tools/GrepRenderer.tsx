@@ -272,7 +272,7 @@ function FileListView({
             <span className={codeStyles.filePath} data-file-path>
               {getFileName(makeDisplayPath(file, projectPath))}
             </span>
-            <span className="file-dir">
+            <span className={globStyles.fileDir} data-file-dir>
               {makeDisplayPath(file, projectPath)}
             </span>
           </div>
@@ -697,7 +697,8 @@ function GrepSummaryPattern({
 
   return (
     <span
-      className={`${styles.summaryPattern}${expanded ? " is-expanded" : ""}`}
+      className={styles.summaryPattern}
+      data-is-expanded={expanded || undefined}
     >
       <span className={styles.summaryPatternRow} ref={rowRef}>
         {clipContent}

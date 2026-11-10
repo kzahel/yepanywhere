@@ -203,7 +203,7 @@
   flex: 0 0 auto;
 }
 
-.htmlPreviewFrame {
+.htmlPreviewFrame.htmlPreviewFrame {
   width: 100%;
   height: 100%;
   min-height: min(68vh, 720px);
@@ -353,4 +353,82 @@ pre.codeHighlighterPlain code {
 .quoteReplySurface:focus-within [data-text-block-quote] {
   opacity: 1;
   pointer-events: auto;
+}
+.fileViewerCode.fileViewerCode code {
+  font-family: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+.fileViewerCode.fileViewerCode code * {
+  background: transparent;
+  box-shadow: none;
+}
+.fileViewerCode.fileViewerCode pre {
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.fileViewerCode.fileViewerCode pre * {
+  background: transparent;
+  box-shadow: none;
+}
+
+.fileViewerCode .highlightedLine {
+  margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
+  margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
+  padding-left: calc(
+    var(--file-viewer-code-x-padding, 0.625rem) +
+    var(--file-viewer-wrap-gutter, 1.15rem)
+  );
+  padding-right: var(--file-viewer-code-x-padding, 0.625rem);
+  position: relative;
+  background-color: rgba(244, 63, 94, 0.08);
+  --file-viewer-highlight-background: rgba(244, 63, 94, 0.08);
+}
+
+.fileViewerCode .highlightedLineStart {
+  margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
+  margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
+  padding-left: calc(
+    var(--file-viewer-code-x-padding, 0.625rem) +
+    var(--file-viewer-wrap-gutter, 1.15rem)
+  );
+  padding-right: var(--file-viewer-code-x-padding, 0.625rem);
+  position: relative;
+  scroll-margin-block-start: 10vh;
+}
+
+.fileViewerCode .highlightedLineEnd {
+  margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
+  margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
+  padding-left: calc(
+    var(--file-viewer-code-x-padding, 0.625rem) +
+    var(--file-viewer-wrap-gutter, 1.15rem)
+  );
+  padding-right: var(--file-viewer-code-x-padding, 0.625rem);
+  position: relative;
+}
+
+.fileViewerCode .highlightedLineStart::before {
+  content: "";
+  position: absolute;
+  height: 1px;
+  background: var(--error-color);
+  opacity: 0.52;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  right: 2.75rem;
+}
+
+.fileViewerCode .highlightedLineEnd::after {
+  content: "";
+  position: absolute;
+  height: 1px;
+  background: var(--error-color);
+  opacity: 0.52;
+  pointer-events: none;
+  bottom: 0;
+  left: 2.75rem;
+  right: 0;
 }

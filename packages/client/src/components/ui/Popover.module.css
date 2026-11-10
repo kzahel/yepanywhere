@@ -9,7 +9,7 @@
   left: 0;
   z-index: var(--z-popover);
   box-sizing: border-box;
-  max-width: calc(100dvw - 16px);
+  max-width: var(--popover-max-width, calc(100dvw - 16px));
   max-height: var(--popover-available-height, calc(100dvh - 16px));
   overflow: auto;
   overscroll-behavior: contain;

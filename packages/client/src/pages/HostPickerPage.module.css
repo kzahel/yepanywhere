@@ -11,10 +11,6 @@
   flex-direction: column;
   gap: var(--space-1);
   cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background-color 0.15s;
-  text-align: left;
   width: 100%;
   position: relative;
 }

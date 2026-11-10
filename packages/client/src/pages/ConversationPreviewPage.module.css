@@ -128,7 +128,6 @@
   flex-direction: column;
   gap: 5px;
   width: 100%;
-  text-align: left;
 }
 .session span {
   display: -webkit-box;

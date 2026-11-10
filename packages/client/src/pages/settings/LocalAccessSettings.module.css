@@ -97,7 +97,7 @@
 }
 
 /* The password choice nested under Require Password (SettingsRows.subsection). */
-.passwordBlock {
+.passwordBlock.passwordBlock {
   margin-top: 0;
   margin-bottom: var(--space-3);
 }

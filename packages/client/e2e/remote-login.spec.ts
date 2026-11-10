@@ -591,7 +591,7 @@ test.describe("Encrypted Data Flow", () => {
       await bangHistoryLink.click();
 
       await expect(page).toHaveURL(/\/bang-commands$/);
-      await expect(bangHistoryLink).toHaveClass(/\bactive\b/);
+      await expect(bangHistoryLink).toHaveAttribute("data-sidebar-active");
       await expect(
         page.getByText("!! Command History", { exact: true }),
       ).toBeVisible({ timeout: 10_000 });

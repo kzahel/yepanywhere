@@ -205,7 +205,7 @@
   justify-content: flex-end;
 }
 
-.settingsIconStylePreview {
+.settingsIconStylePreview.settingsIconStylePreview {
   width: 26px;
   height: 28px;
   font-size: 1.35rem;

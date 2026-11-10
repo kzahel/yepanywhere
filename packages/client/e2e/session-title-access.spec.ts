@@ -261,12 +261,14 @@ test("reads the full session title on phone and desktop without losing the draft
       .getByRole("menuitem", { name: "Session info", exact: true })
       .click();
     const info = page.getByRole("dialog");
-    await expect(info.locator(".modal-title")).toHaveText("Session Info");
+    await expect(info.locator("[data-modal-title]")).toHaveText("Session Info");
     await expect(
       info.getByRole("tab", { name: "Session Info" }),
     ).toHaveAttribute("aria-selected", "true");
     const titleSection = info.getByRole("region", { name: "Session title" });
-    await expect(titleSection.locator(".message-user-prompt")).toBeVisible();
+    await expect(
+      titleSection.locator("[data-message-user-prompt]"),
+    ).toBeVisible();
     await expect(
       titleSection.getByRole("button", { name: "Show more" }),
     ).toBeVisible();
@@ -276,7 +278,7 @@ test("reads the full session title on phone and desktop without losing the draft
     ).toBeVisible();
     await titleSection.getByRole("button", { name: "Show less" }).click();
     await info
-      .locator(".modal-content")
+      .locator("[data-modal-content]")
       .evaluate((element) => element.scrollTo({ top: 0 }));
     await recordUiCapture(page, `session-info-title-${size.width}`);
     await titleSection.hover();

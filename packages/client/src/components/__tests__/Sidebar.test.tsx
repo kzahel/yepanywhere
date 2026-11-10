@@ -467,8 +467,8 @@ describe("Sidebar collapsed toggle", () => {
     renderSidebar();
 
     // Switch Host must share the exact representation of standard nav items
-    // (a `.sidebar-nav-item` with a `.sidebar-nav-text` label) so it inherits
-    // the shared `.sidebar-collapsed .sidebar-nav-text { display: none }` rule
+    // (data-sidebar-nav-item with a data-sidebar-nav-text label) so it inherits
+    // the shared data-sidebar-collapsed icon-only presentation
     // in the mini rail, rather than relying on a bespoke per-item guard. The
     // visual icon-only outcome is a CSS concern, verified at the browser level.
     const switchHost = screen.getByRole("button", { name: "Switch Host" });

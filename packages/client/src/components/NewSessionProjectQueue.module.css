@@ -55,10 +55,6 @@
   width: 100%;
   min-width: 0;
   gap: 0.2rem;
-  text-align: left;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
 }
 
 .itemHeading {

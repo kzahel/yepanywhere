@@ -31,7 +31,9 @@ test("Read diff shortcuts reveal once and open without leaving the session", asy
   await expect(viewer.locator("[data-diff-line]").first()).toBeVisible();
   expect(page.url()).toBe(sessionUrl);
   await page.reload();
-  await expect(page.locator(`.file-viewer ${activeDiff}`)).toHaveText("Δ");
+  await expect(page.locator(`[data-file-viewer] ${activeDiff}`)).toHaveText(
+    "Δ",
+  );
   expect(page.url()).toBe(sessionUrl);
   await recordUiCapture(page, "inline-diff-in-session");
 });

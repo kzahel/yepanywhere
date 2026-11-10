@@ -259,9 +259,9 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         .filter({ hasText: "Completed session" })
         .first();
       await expect(sidebarRow).toBeVisible();
-      await expect(sidebarRow).not.toHaveClass(/\bunread\b/);
+      await expect(sidebarRow).not.toHaveAttribute("data-session-unread");
       setReadState(true);
-      await expect(sidebarRow).toHaveClass(/\bunread\b/);
+      await expect(sidebarRow).toHaveAttribute("data-session-unread");
       // Focus on another row must target that session without changing the
       // open conversation's read state, route or keyboard focus.
       const otherRow = page
@@ -271,7 +271,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       const otherLink = otherRow.locator("a").first();
       await otherLink.focus();
       await page.keyboard.press("r");
-      await expect(otherRow).not.toHaveClass(/\bunread\b/);
+      await expect(otherRow).not.toHaveAttribute("data-session-unread");
       await expect(otherLink).toBeFocused();
       expect(hasUnread).toBe(true);
       await expect(page).toHaveURL(
@@ -279,17 +279,17 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       );
       await sidebarRow.locator("a").first().focus();
       await page.keyboard.press("r");
-      await expect(sidebarRow).not.toHaveClass(/\bunread\b/);
+      await expect(sidebarRow).not.toHaveAttribute("data-session-unread");
       await page.keyboard.press("u");
-      await expect(sidebarRow).toHaveClass(/\bunread\b/);
+      await expect(sidebarRow).toHaveAttribute("data-session-unread");
       await sidebarRow.locator(".session-menu-trigger").click();
       await page
         .getByRole("menuitem", { name: "Mark as read", exact: true })
         .click();
-      await expect(sidebarRow).not.toHaveClass(/\bunread\b/);
+      await expect(sidebarRow).not.toHaveAttribute("data-session-unread");
       // A later event must supersede the prior manual toggle.
       setReadState(true);
-      await expect(sidebarRow).toHaveClass(/\bunread\b/);
+      await expect(sidebarRow).toHaveAttribute("data-session-unread");
       await page
         .getByRole("complementary")
         .getByRole("button", { name: "Close sidebar", exact: true })
@@ -322,11 +322,11 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         .filter({ hasText: "Completed session" })
         .last();
       await expect(inboxRow).toBeVisible();
-      await expect(inboxRow).not.toHaveClass(/\bunread\b/);
+      await expect(inboxRow).not.toHaveAttribute("data-session-unread");
       setReadState(true);
-      await expect(inboxRow).toHaveClass(/\bunread\b/);
+      await expect(inboxRow).toHaveAttribute("data-session-unread");
       setReadState(false);
-      await expect(inboxRow).not.toHaveClass(/\bunread\b/);
+      await expect(inboxRow).not.toHaveAttribute("data-session-unread");
     }
     expect(errors).toEqual([]);
   } finally {

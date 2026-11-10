@@ -80,7 +80,7 @@
   flex: 0 0 auto;
 }
 
-.folderChildren {
+.folderChildren.folderChildren {
   margin: 0 0 0 0.95rem;
   padding: 0 0 0 0.45rem;
   list-style: none;

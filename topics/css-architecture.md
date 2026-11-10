@@ -158,9 +158,10 @@ not carry a migration queue.
   A React shell cannot become the styled subject merely by being a context.
   Current counted contexts live in the baseline, with a lasting reason per entry;
   tokens has zero exceptions.
-- Shared generated/React media roots and range-line markers have one generated
-  style owner, with counted authored-subject exceptions and explicit closure
-  conditions. React wrapper geometry stays modular. Shiki's inline-style resets
+- Shared generated/React media roots retain counted generated-owner exceptions
+  and explicit closure conditions. FileViewer owns range markers and fallback
+  pre/code resets in its module; emitted Shiki inline-paint resets stay global.
+  React wrapper geometry stays modular. Shiki's inline-style resets
   retain `!important` only in generated.css; fallback React gutter tints use
   stronger local selectors so review/hover tint cannot reorder their winner.
   Coupled typography moves preserve specificity and the final legacy values.
@@ -233,7 +234,7 @@ not carry a migration queue.
   class present in an authored global stylesheet and carry a module-local class
   anchor in the same selector-list branch. An anchor in a sibling comma branch
   does not scope the global use. The shared-shell form
-  `:global(.modal):has(.localContent)` is valid because `.localContent` makes
+  `[data-modal-frame]:has(.localContent)` is valid because `.localContent` makes
   ownership and scope explicit.
 - CSS analysis compares selector-parser-decoded class values with complete
   whitespace-delimited class tokens from source. Selector-shaped strings are
@@ -484,7 +485,7 @@ shell, controls, and layout into modules.
 Use `:global(...)` inside a module only for a narrow interop boundary that the
 module cannot own. The global selector should be evident beside the local
 selector it affects. `HostOfflineModal.module.css`, for example, uses the
-shared global `.modal` shell only to size the modal containing its local
+shared `[data-modal-frame]` boundary only to size the modal containing its local
 content.
 
 The module contract reports the count of reviewed global references as
@@ -663,6 +664,21 @@ repository before editing:
   naming any moved class (search the whole source, including multiline calls); and
 - caller selectors that reach into the component.
 
+Search consumers outside production React too: unit/browser fixtures, Kotlin and
+Swift probes, performance scripts, mockups, site code and current documentation
+examples. Inspect class tokens in helper arguments, HTML builders, selectors and
+`classList`, not just `className`. Semantic hooks without CSS rules need the same
+audit. Tests use positive/negative data-attribute assertions for states; a word
+boundary regex cannot recognize Vite's `_local_hash_line` names reliably, and a
+negative assertion can otherwise pass vacuously. Historical diagnostic prose is
+reference data, not a live selector consumer.
+
+For each area, use a disposable audit of module selectors under media/container
+conditions and of elements composing classes from different modules, including
+classes forwarded through component props. A conditional rule follows its
+same-specificity base. Conflicting properties have an explicit winner rather
+than depending on import order; shared controls own restated look properties.
+
 Classify each rule as component-owned, caller layout, shared primitive,
 document-level state, generated vocabulary, third-party override, or stale.
 Ambiguous ownership is a reason to pause, not a reason to use broad
@@ -784,7 +800,7 @@ Use a narrow global selector only where the module cannot own the other side:
   color: var(--text-primary);
 }
 
-:global(.modal):has(.content) {
+[data-modal-frame]:has(.content) {
   max-width: 30rem;
 }
 ```

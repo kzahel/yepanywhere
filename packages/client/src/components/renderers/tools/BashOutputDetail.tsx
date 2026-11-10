@@ -15,7 +15,7 @@ import type { BashInput, BashResult } from "./types";
 import styles from "./BashRenderer.module.css";
 export function renderFixedFontMathPanel(
   html: string,
-  className = codeStyles.codeBlock,
+  className: string | undefined = codeStyles.codeBlock,
 ) {
   return (
     <div

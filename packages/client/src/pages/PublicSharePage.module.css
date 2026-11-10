@@ -68,7 +68,7 @@
   white-space: nowrap;
 }
 
-.brandWordmark {
+.brandWordmark[data-brand-wordmark] {
   --brand-wordmark-size: 14px;
   flex-shrink: 0;
 }

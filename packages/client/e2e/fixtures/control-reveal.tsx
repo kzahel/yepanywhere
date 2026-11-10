@@ -1,3 +1,6 @@
+import { grepRenderer } from "../../src/components/renderers/tools/GrepRenderer";
+import { DiffMathView } from "../../src/components/renderers/tools/EditDiffPresentation";
+import { BashModalContent } from "../../src/components/renderers/tools/BashOutputDetail";
 import bashStyles from "../../src/components/renderers/tools/BashRenderer.module.css";
 import hostStyles from "../../src/pages/HostPickerPage.module.css";
 import { Corrections } from "./control-corrections";
@@ -115,6 +118,44 @@ function Fixture() {
           Output{" "}
           <OutputCopyButton text="bash clipboard witness" label="Copy output" />
         </div>
+      </Site>
+      <Site name="source-exact">
+        <TextBlock
+          text="## Debug switches"
+          augmentHtml="<h2>Debug switches</h2>"
+        />
+      </Site>
+      <Site name="edit-rendered">
+        <DiffMathView
+          sourceText={"$x^2$\n\tresult"}
+          sourceView={<pre>source</pre>}
+          diffAware={false}
+          initialMode="rendered"
+        />
+      </Site>
+      <Site name="bash-modal">
+        <BashModalContent
+          input={{ command: "printf witness" }}
+          result={{
+            stdout: "stdout witness",
+            stderr: "stderr witness",
+            interrupted: false,
+          }}
+          isError={false}
+        />
+      </Site>
+      <Site name="grep-files">
+        {grepRenderer
+          .prepare({
+            input: { pattern: "witness", output_mode: "files_with_matches" },
+            result: {
+              mode: "files_with_matches",
+              filenames: ["/tmp/src/a.ts"],
+              numFiles: 1,
+            },
+            status: "complete",
+          })
+          .renderToolResult({ isStreaming: false, theme: "dark" })}
       </Site>
       <Site name="text">
         <TextBlock

@@ -289,7 +289,8 @@ function DiffCopyButton({ text }: { text: string }) {
     <IconButton
       variant={copied ? "success-outline" : "outline"}
       size="small"
-      className={`${diffStyles.diffCopyButton} ${copied ? "copied" : ""}`}
+      className={diffStyles.diffCopyButton}
+      data-copied={copied || undefined}
       data-diff-copy-button
       onMouseDown={(event) => event.stopPropagation()}
       onClick={handleCopy}
@@ -413,7 +414,7 @@ export function DiffMathView({
           {...tooltipAttributes}
         >
           <div className={diffStyles.diffView} data-diff-view>
-            {renderFixedFontMathPanel(html, "diff-content")}
+            {renderFixedFontMathPanel(html, diffStyles.diffContent ?? "")}
           </div>
           {effectiveCopyText && <DiffCopyButton text={effectiveCopyText} />}
           {truncated && (

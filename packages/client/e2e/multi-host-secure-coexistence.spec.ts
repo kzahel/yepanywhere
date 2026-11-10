@@ -584,7 +584,7 @@ for (const transportMode of ["legacy", "mux"] as const) {
 
       for (const host of harness.hosts) {
         await enrollRelayHostThroughUi(page, host, harness.relayUrl);
-        await page.locator(".sidebar-switch-host").click();
+        await page.locator("[data-sidebar-switch-host]").click();
         await expect(page.getByTestId("saved-hosts-list")).toBeVisible();
         await harness.waitForWaitingHosts();
       }

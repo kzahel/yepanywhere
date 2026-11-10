@@ -179,7 +179,8 @@
 .inlineSettings .details dd {
   margin: 0;
 }
-.workspace {
+.workspace[data-main-content-constrained],
+.workspace[data-main-content-mobile-inner] {
   display: flex;
   flex-direction: row;
   flex: 1;

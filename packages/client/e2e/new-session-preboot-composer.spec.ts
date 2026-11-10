@@ -96,8 +96,8 @@ test("keys typed before the app loads reach the new-session composer", async ({
   );
 
   await expect(page.locator("[data-sidebar-desktop]")).toBeVisible();
-  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
-    /sidebar-collapsed/,
+  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveAttribute(
+    "data-sidebar-collapsed",
   );
   await expect(page.locator("[data-sidebar-floating-restore]")).toHaveCount(0);
   const adoptedBox = await page
@@ -468,19 +468,19 @@ test("refresh preserves saved sidebar modes on New Session", async ({
     } else {
       await expect(page.locator("[data-sidebar-desktop]")).toBeVisible();
       if (mode === "collapsed")
-        await expect(page.locator("[data-sidebar-desktop]")).toHaveClass(
-          /sidebar-collapsed/,
+        await expect(page.locator("[data-sidebar-desktop]")).toHaveAttribute(
+          "data-sidebar-collapsed",
         );
       else
-        await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
-          /sidebar-collapsed/,
-        );
+        await expect(
+          page.locator("[data-sidebar-desktop]"),
+        ).not.toHaveAttribute("data-sidebar-collapsed");
     }
   }
   await page.goto(`${baseURL}/new-session?sidebar=expanded`);
   await expect(page.locator("[data-sidebar-desktop]")).toBeVisible();
-  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
-    /sidebar-collapsed/,
+  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveAttribute(
+    "data-sidebar-collapsed",
   );
 });
 

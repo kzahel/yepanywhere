@@ -9,7 +9,7 @@
       "maxLines": 1693
     },
     "packages/client/src/components/FileViewer.tsx": {
-      "maxLines": 2524
+      "maxLines": 2472
     },
     "packages/client/src/components/LocalMediaModal.tsx": {
       "maxLines": 1899

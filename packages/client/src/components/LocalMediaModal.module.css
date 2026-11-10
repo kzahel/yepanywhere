@@ -89,7 +89,7 @@
   min-width: 0;
 }
 
-.imageHeaderActions {
+.imageHeaderActions.imageHeaderActions {
   display: contents;
 }
 
@@ -173,7 +173,7 @@
   overflow-wrap: anywhere;
 }
 
-.fileHtmlFrame {
+.fileHtmlFrame.fileHtmlFrame {
   flex: 1;
   width: 100%;
   min-height: 0;

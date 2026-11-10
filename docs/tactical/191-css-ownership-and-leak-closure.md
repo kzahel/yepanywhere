@@ -218,10 +218,10 @@ Landing by area, composer unchanged and last (2026-11-10–11).
 - Area 4 landed: collections, session rows, sidebar/navigation, shared page shell and /btw appearance. Remaining: 5,774/3,316/670.
 - Area 5 landed: modal/model sections, share management, schema warning and recording badge. Remaining: 5,542/2,927/670.
 - Area 6 landed: transcript/blocks/tool rows/renderers and shared code/task/status/path/viewer/diff owners. Remaining: 4,350/35/0.
-- Review repair landed: DOM hooks/folder focus, rem typography, explicit cross-module winners and durable layout guards.
+- Review repairs landed: DOM/platform/perf hooks, exact source copy, Edit/Grep/copy feedback, media/base ordering, explicit composed winners and modular viewer range/source styles.
 - Area 7 landed: shared page/session headers, viewport/split/messages/footer chrome, /btw pane, status/overscroll/warnings. Remaining: 3,681/35/0 (3,716).
-- Census: 174 token exceptions / 80 files; 27 runtime families; zero unused globals/module selectors; 158 generated and 10 base purpose findings.
-- Deferred: composer unchanged last; existing 49.375px header oracle/account-pane browser mismatches, login recovery and reload overlap. Protected concurrent `session-title-access.spec.ts` selectors were not edited.
+- Census: 174 token exceptions / 80 files; 26 runtime families; zero unused globals/module selectors; generated findings 148, base 10.
+- Deferred: composer unchanged last; existing 49.375px header oracle/account-pane browser mismatches, login recovery and reload overlap. Only three approved selector hunks staged in the protected title spec.
 - Next: area 8 composer, then step 8's string-class ban and legacy-file removal.
 
 ### 8 — ban string class names in drained owners

@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   min-width: 180px;
-  max-width: min(360px, calc(100dvw - 16px));
+  --popover-max-width: min(360px, calc(100dvw - 16px));
 }
 
 .item {
