@@ -78,6 +78,7 @@ import {
   useStreamingContent,
 } from "./useStreamingContent";
 import { getStreamingEnabled } from "./useStreamingEnabled";
+import { shouldRefreshSessionMetadata } from "../lib/sessionDetail/sessionMetadataRefresh";
 
 export type ProcessState = "idle" | "in-turn" | "waiting-input";
 
@@ -1730,12 +1731,7 @@ export function useSession(
           }),
         };
       });
-      if (
-        Object.keys(event).every((key) =>
-          ["type", "sessionId", "timestamp"].includes(key),
-        )
-      )
-        void fetchSessionMetadata();
+      if (shouldRefreshSessionMetadata(event)) void fetchSessionMetadata();
       if (event.recapAfterSeconds !== undefined) {
         setStatus((prev) =>
           prev.owner === "self"

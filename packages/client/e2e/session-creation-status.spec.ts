@@ -53,8 +53,21 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       posts++;
   });
   await page.route("**/api/projects/*/sessions/*/metadata", async (route) => {
-    if (route.request().method() !== "GET" || metadataCaptured)
-      return route.continue();
+    if (route.request().method() !== "GET") return route.continue();
+    if (metadataCaptured) {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.session.routerBinding = {
+        id: "fixture-binding",
+        routerId: "fixture-router",
+        accountId: "codex-extra",
+        accountDisplayName: "codex-extra",
+        provider: "codex",
+        poolId: "fixture-pool",
+        poolName: "personal-codex",
+      };
+      return route.fulfill({ response, json: body });
+    }
     metadataCaptured = true;
     const sessionId = new URL(route.request().url()).pathname
       .split("/")
@@ -263,6 +276,17 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     await expect(input).toBeEditable();
     await expect(input).toHaveValue(text);
     await expect(page.locator(".session-title-text")).toHaveText(currentTitle);
+    const accountChip = page.getByRole("button", {
+      name: /Open the Account tab/,
+    });
+    await expect(accountChip).toContainText("personal-codex");
+    await accountChip.click();
+    await expect(
+      page.getByText("Current account: personal-codex · codex-extra", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     await capture("creation-confirmed-with-newer-draft");
     await page
       .getByRole("button", { name: "Open sidebar", exact: true })

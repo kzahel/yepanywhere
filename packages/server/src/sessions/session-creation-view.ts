@@ -48,6 +48,7 @@ export function savedCreationView(
       isArchived: stored?.isArchived,
       isStarred: stored?.isStarred,
       creationProvenance: stored?.creationProvenance,
+      routerBinding: stored?.routerBinding,
       effectiveLaunchSettings: stored?.effectiveLaunchSettings,
       workingProjectId: stored?.workingProjectId,
       transcriptProjectId: stored?.transcriptProjectId,

@@ -83,6 +83,15 @@ it("reads saved/failed sessions through authorized APIs without a native project
         });
         sessionId = saved.sessionId;
       }
+      const routerBinding = {
+        id: "saved-router-binding",
+        routerId: "saved-router",
+        accountId: "saved-account",
+        provider: "claude" as const,
+        poolId: "saved-pool",
+        poolName: "Personal Claude",
+      };
+      if (!restart) await metadata.updateMetadata(sessionId, { routerBinding });
       const sdk = new ScriptedClaudeProvider(),
         start = vi.spyOn(sdk, "startSession");
       instance = createApp({
@@ -120,6 +129,7 @@ it("reads saved/failed sessions through authorized APIs without a native project
           projectId: restart ? workingId : projectId,
           provider: "claude",
           messageCount: 0,
+          routerBinding,
           initialPrompt: "  original saved prompt\n\n",
           creationProvenance: {
             surface: "desktop",
@@ -136,6 +146,9 @@ it("reads saved/failed sessions through authorized APIs without a native project
         pendingInputRequest: null,
       });
       expect(saved.body.transcriptSnapshotUpdatedAt).toBe("");
+      expect(
+        (await read(alice, "/metadata")).body.session.routerBinding,
+      ).toEqual(routerBinding);
       expect((await read(bobby)).response.status).toBe(404);
       expect((await read(superuser)).response.status).toBe(200);
       const privateFields = JSON.stringify(saved.body);

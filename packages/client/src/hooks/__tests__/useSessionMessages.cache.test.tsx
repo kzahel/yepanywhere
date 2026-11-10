@@ -4088,8 +4088,21 @@ describe("useSessionMessages cache", () => {
       title: "Reviewer",
       updatedAt: "2026-11-04T00:00:00.000Z",
     };
+    const routerBinding = {
+      id: "binding",
+      routerId: "router",
+      accountId: "codex-extra",
+      provider: "codex" as const,
+      poolId: "pool",
+      poolName: "personal-codex",
+    };
     apiMocks.getSessionMetadata.mockResolvedValueOnce({
-      session: { providerChildren: [child] },
+      session: {
+        providerChildren: [child],
+        routerBinding,
+        model: "stale-model",
+        title: "stale-title",
+      },
     });
     const { result } = renderHook(() =>
       useSessionMessages({ projectId: "proj-1", sessionId: "sess-1" }),
@@ -4120,6 +4133,9 @@ describe("useSessionMessages cache", () => {
     await waitFor(() =>
       expect(result.current.session?.providerChildren).toEqual([child]),
     );
+    expect(result.current.session?.routerBinding).toEqual(routerBinding);
+    expect(result.current.session?.model).not.toBe("stale-model");
+    expect(result.current.session?.title).not.toBe("stale-title");
     expect(apiMocks.getSessionMetadata).toHaveBeenCalledTimes(2);
     expect(apiMocks.getSession).toHaveBeenCalledTimes(1);
     expect(result.current.messages).toBe(messages);
@@ -4130,7 +4146,10 @@ describe("useSessionMessages cache", () => {
     ).toEqual(scroll);
     const acceptedSession = result.current.session;
     apiMocks.getSessionMetadata.mockResolvedValueOnce({
-      session: { providerChildren: [{ ...child }] },
+      session: {
+        providerChildren: [{ ...child }],
+        routerBinding: { ...routerBinding },
+      },
     });
     await act(async () => {
       await result.current.fetchSessionMetadata();

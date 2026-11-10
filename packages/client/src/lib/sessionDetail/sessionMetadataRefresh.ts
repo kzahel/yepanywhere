@@ -1,4 +1,5 @@
 import type { SessionMetadata } from "../../types";
+import type { SessionMetadataChangedEvent } from "../activityBus";
 
 function sameProviderChildren(
   left: SessionMetadata["providerChildren"],
@@ -28,18 +29,33 @@ export function mergeSessionMetadataRefresh(
   incoming: Partial<SessionMetadata>,
 ): SessionMetadata | null {
   if (!prev) return prev;
-  const { creation, providerChildren } = incoming;
+  const { creation, providerChildren, routerBinding } = incoming;
   const creationChanged =
     creation !== undefined &&
     JSON.stringify(creation) !== JSON.stringify(prev.creation);
   const childrenChanged =
     providerChildren !== undefined &&
     !sameProviderChildren(prev.providerChildren, providerChildren);
-  return creationChanged || childrenChanged
+  const bindingChanged =
+    routerBinding !== undefined &&
+    JSON.stringify(routerBinding) !== JSON.stringify(prev.routerBinding);
+  return creationChanged || childrenChanged || bindingChanged
     ? {
         ...prev,
         ...(creationChanged ? { creation } : {}),
         ...(childrenChanged ? { providerChildren } : {}),
+        ...(bindingChanged ? { routerBinding } : {}),
       }
     : prev;
+}
+
+export function shouldRefreshSessionMetadata(
+  event: SessionMetadataChangedEvent,
+): boolean {
+  return (
+    event.nativeSessionId !== undefined ||
+    Object.keys(event).every((key) =>
+      ["type", "sessionId", "timestamp"].includes(key),
+    )
+  );
 }

@@ -627,6 +627,22 @@ still happens when starting a session. Recovery and usage diagnostics remain in
 Settings. Browser tests cover desktop/phone layouts and sequential prompt typing
 during discovery; synthetic AAR integration tests prove the native boundaries.
 
+## Session account display during startup
+
+Saved-session detail and metadata responses include the current public
+`routerBinding` when allocation has recorded it, even before a native
+transcript exists. The client reconciles that pin through its existing,
+coalesced metadata refresh when the provider binds its native session. The
+header and Account tab update without reloading or replacing the transcript,
+newer title, model or composer draft. No additional polling is introduced.
+
+This correction reuses the existing optional field and endpoints, with no new
+capability or version gate. A missing field leaves the client's known pin
+unchanged; older servers can retain their startup display until a full detail
+read supplies the pin. Older clients ignore the additive startup field. The
+existing router capability and allocation, failure and direct-login rules keep
+their meanings.
+
 ## New Session defaults
 
 Since 2026-10-13, explicit Pool and Router account selections automatically
