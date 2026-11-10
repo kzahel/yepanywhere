@@ -39,8 +39,8 @@ describe("AgentContextSettings", () => {
 
     const preview = screen
       .getByText("agentContextSuggestedLatexPreviewTitle")
-      .closest(".settings-item")
-      ?.querySelector("pre");
+      .closest("[data-settings-info]")
+      ?.parentElement?.querySelector("pre");
     expect(preview).not.toBeNull();
     expect(preview?.textContent).toBe(
       `[Client capabilities]\n${LATEX_MATH_RENDERING_CLIENT_CAPABILITY}`,

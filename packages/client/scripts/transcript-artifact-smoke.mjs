@@ -285,7 +285,7 @@ export function compareReports(baseline, current) {
 }
 
 async function dismissOnboarding(page) {
-  const skip = page.locator(".onboarding-skip-all");
+  const skip = page.getByRole("button", { name: "Skip all", exact: true });
   if (
     await skip
       .waitFor({ state: "visible", timeout: 750 })

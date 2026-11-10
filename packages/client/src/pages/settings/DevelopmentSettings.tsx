@@ -1,3 +1,6 @@
+import rowsStyles from "./SettingsRows.module.css";
+import developmentStyles from "./DevelopmentSettings.module.css";
+import aboutStyles from "./AboutSettings.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSchemaValidationContext } from "../../contexts/SchemaValidationContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
@@ -170,7 +173,7 @@ export function DevelopmentSettings() {
 
   return (
     <SettingsSection>
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("developmentSchemaTitle")}
           description={t("developmentSchemaDescription")}
@@ -189,7 +192,7 @@ export function DevelopmentSettings() {
               <>
                 <strong>{t("developmentIgnoredToolsTitle")}</strong>
                 <p>{t("developmentIgnoredToolsDescription")}</p>
-                <div className="ignored-tools-list">
+                <div className={developmentStyles.ignoredToolsList}>
                   {ignoredTools.map((tool) => (
                     <Badge key={tool} mono>
                       {tool}
@@ -273,7 +276,7 @@ export function DevelopmentSettings() {
         </SettingsItem>
       </div>
 
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("developmentSessionScrollMemoryTitle")}
           description={t("developmentSessionScrollMemoryDescription")}
@@ -288,12 +291,12 @@ export function DevelopmentSettings() {
           valueText={t(
             sessionScrollMemoryModeLabelKeys[sessionScrollBehaviorMode],
           )}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
           info={
             <>
               <strong>{t("developmentSessionScrollMemoryTitle")}</strong>
               <p>{t("developmentSessionScrollMemoryDescription")}</p>
-              <ul className="settings-option-description-list">
+              <ul className={developmentStyles.optionDescriptionList}>
                 {SESSION_SCROLL_BEHAVIOR_MODES.map((mode) => (
                   <li key={mode}>
                     <strong>{t(sessionScrollMemoryModeLabelKeys[mode])}</strong>
@@ -306,7 +309,7 @@ export function DevelopmentSettings() {
             </>
           }
         >
-          <div className="settings-item-actions">
+          <div className={rowsStyles.itemActions}>
             <Select
               value={sessionScrollBehaviorMode}
               onChange={(event) =>
@@ -327,7 +330,7 @@ export function DevelopmentSettings() {
       </div>
 
       {isManualReloadMode && (
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           <SettingsItem
             label={t("developmentRestartTitle")}
             description={t("developmentRestartDescription")}
@@ -341,7 +344,7 @@ export function DevelopmentSettings() {
                 <p>
                   {t("developmentRestartDescription")}
                   {pendingReloads.backend && (
-                    <span className="settings-pending">
+                    <span className={aboutStyles.pending}>
                       {" "}
                       {t("developmentChangesPending")}
                     </span>

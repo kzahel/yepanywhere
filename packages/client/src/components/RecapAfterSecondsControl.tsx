@@ -1,3 +1,4 @@
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
   MAX_RECAP_AFTER_SECONDS,
@@ -128,7 +129,10 @@ export function RecapAfterSecondsControl({
       <span className="recap-after-seconds-label">
         {label ?? t("recapAfterSecondsLabel")}
       </span>
-      <span className="output-appearance-slider-row recap-after-seconds-row">
+      <span
+        className={`${rowsStyles.outputAppearanceSliderRow} recap-after-seconds-row`}
+        data-range-number
+      >
         <CommittedRangeInput
           min={MIN_RECAP_AFTER_SECONDS}
           max={RECAP_AFTER_SECONDS_SLIDER_MAX}

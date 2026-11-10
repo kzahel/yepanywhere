@@ -1,3 +1,4 @@
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import listStyles from "./SessionListLayout.module.css";
 /**
  * RemoteAccessSetup - Single-screen component for configuring remote access.
@@ -718,7 +719,7 @@ export function RemoteAccessSetup({
               </Button>
             )}
           </div>
-          <p className="settings-hint">
+          <p className={rowsStyles.hint}>
             {t("remoteSetupSessionsDescription" as never)}
           </p>
           {sessions.length === 0 ? (

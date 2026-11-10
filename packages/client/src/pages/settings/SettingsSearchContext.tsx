@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { Fragment, type ReactNode, createContext, useContext } from "react";
 import { splitSettingsMatchSegments } from "./settingsSearchMatch";
 
@@ -67,7 +68,7 @@ export function renderSettingsSearchHighlight(
   if (!segments.some((segment) => segment.match)) return text;
   return segments.map((segment, index) =>
     segment.match ? (
-      <mark key={index} className="settings-search-mark">
+      <mark key={index} className={rowsStyles.searchMark}>
         {segment.text}
       </mark>
     ) : (

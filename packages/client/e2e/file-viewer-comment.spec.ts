@@ -14,7 +14,7 @@ const sessionId = "file-viewer-absolute-001";
 test.use({ draftSessionIds: [sessionId] });
 
 async function dismissOnboardingIfVisible(page: Page) {
-  const skip = page.locator(".onboarding-skip-all");
+  const skip = page.getByRole("button", { name: "Skip all", exact: true });
   if (
     await skip
       .waitFor({ state: "visible", timeout: 750 })

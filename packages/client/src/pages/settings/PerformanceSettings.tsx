@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import {
   HOST_AGENT_PROCESS_OBSERVABILITY_CAPABILITY,
   serverHasCapability,
@@ -319,16 +320,16 @@ export function PerformanceSettings() {
 
   return (
     <SettingsSection description={t("performanceSectionDescription")}>
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("performanceSearchConcurrencyTitle")}
           description={t("performanceSearchConcurrencyDescription")}
           valueText={t("performanceSearchConcurrencyValue", {
             count: searchConcurrency,
           })}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
         >
-          <div className="settings-item-actions">
+          <div className={rowsStyles.itemActions}>
             <CommittedRangeInput
               min={1}
               max={MAX_SEARCH_CONCURRENCY}
@@ -337,7 +338,7 @@ export function PerformanceSettings() {
               onCommit={setSearchConcurrency}
               aria-label={t("performanceSearchConcurrencyTitle")}
             />
-            <span className="settings-input-unit">{searchConcurrency}</span>
+            <span className={rowsStyles.inputUnit}>{searchConcurrency}</span>
           </div>
         </SettingsItem>
         <SettingsItem
@@ -402,9 +403,9 @@ export function PerformanceSettings() {
             label: "initial history scope",
           }}
           valueText={historyLabel}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
         >
-          <div className="settings-item-actions">
+          <div className={rowsStyles.itemActions}>
             <CommittedRangeInput
               min={0}
               max={MAX_SESSION_INITIAL_HISTORY_COMPACTIONS}
@@ -414,7 +415,7 @@ export function PerformanceSettings() {
               onCommit={commitHistory}
               aria-label={t("performanceInitialHistoryTitle")}
             />
-            <span className="settings-input-unit">{historyLabel}</span>
+            <span className={rowsStyles.inputUnit}>{historyLabel}</span>
           </div>
         </SettingsItem>
         <SettingsItem
@@ -449,7 +450,7 @@ export function PerformanceSettings() {
           label={t("performanceTranscriptCacheTitle")}
           description={t("performanceTranscriptCacheDescription")}
           valueText={budgetLabel}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
           info={
             <>
               <strong>{t("performanceTranscriptCacheTitle")}</strong>
@@ -459,7 +460,7 @@ export function PerformanceSettings() {
             </>
           }
         >
-          <div className="settings-item-actions">
+          <div className={rowsStyles.itemActions}>
             <CommittedRangeInput
               min={0}
               max={TRANSCRIPT_CACHE_BUDGET_MB_STOPS.length - 1}
@@ -469,16 +470,16 @@ export function PerformanceSettings() {
               onCommit={commitBudget}
               aria-label={t("performanceTranscriptCacheTitle")}
             />
-            <span className="settings-input-unit">{budgetLabel}</span>
+            <span className={rowsStyles.inputUnit}>{budgetLabel}</span>
           </div>
         </SettingsItem>
         <SettingsItem
           label={t("performanceTranscriptCacheTtlTitle")}
           description={t("performanceTranscriptCacheTtlDescription")}
           valueText={ttlLabel}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
         >
-          <div className="settings-item-actions">
+          <div className={rowsStyles.itemActions}>
             <CommittedRangeInput
               min={0}
               max={TRANSCRIPT_CACHE_TTL_HOUR_STOPS.length - 1}
@@ -489,7 +490,7 @@ export function PerformanceSettings() {
               disabled={budgetMb === 0}
               aria-label={t("performanceTranscriptCacheTtlTitle")}
             />
-            <span className="settings-input-unit">{ttlLabel}</span>
+            <span className={rowsStyles.inputUnit}>{ttlLabel}</span>
           </div>
         </SettingsItem>
         <SettingsItem

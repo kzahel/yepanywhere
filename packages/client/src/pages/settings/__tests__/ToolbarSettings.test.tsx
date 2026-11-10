@@ -247,7 +247,7 @@ describe("ToolbarSettings", () => {
 
     const row = screen
       .getByText("Remote Browser Debugging")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(row).toBeTruthy();
     const slider = within(row as HTMLElement).getByRole<HTMLInputElement>(
       "slider",
@@ -274,7 +274,7 @@ describe("ToolbarSettings", () => {
 
     const shortcutRow = screen
       .getByText("Queue as New Session Shortcut")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(shortcutRow).toBeTruthy();
     expect(
       within(shortcutRow as HTMLElement).getByRole<HTMLInputElement>("slider", {
@@ -288,7 +288,7 @@ describe("ToolbarSettings", () => {
 
     const row = screen
       .getByText("Message recall button")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(row).toBeTruthy();
     const slider = within(row as HTMLElement).getByRole<HTMLInputElement>(
       "slider",
@@ -307,7 +307,7 @@ describe("ToolbarSettings", () => {
 
     const row = screen
       .getByText("/done Button")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(row).toBeTruthy();
     const slider = within(row as HTMLElement).getByRole<HTMLInputElement>(
       "slider",
@@ -390,7 +390,7 @@ describe("ToolbarSettings", () => {
 
     const waveformRow = screen
       .getByText("Live Microphone Waveform")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(waveformRow).toBeTruthy();
     const slider = within(
       waveformRow as HTMLElement,
@@ -410,7 +410,7 @@ describe("ToolbarSettings", () => {
 
     const row = screen
       .getByText("Render Mode")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(row).toBeTruthy();
     const slider = within(row as HTMLElement).getByRole<HTMLInputElement>(
       "slider",
@@ -438,9 +438,7 @@ describe("ToolbarSettings", () => {
   it("groups shown controls by toolbar side", () => {
     render(<ToolbarSettings />);
 
-    const shownZone = screen
-      .getByText("Shown")
-      .closest(".session-toolbar-zone");
+    const shownZone = screen.getByText("Shown").closest("[data-toolbar-zone]");
     expect(shownZone).toBeTruthy();
 
     const leftGroup = within(shownZone as HTMLElement).getByText(
@@ -468,18 +466,16 @@ describe("ToolbarSettings", () => {
   it("keeps rows in their entry section after visibility changes", () => {
     render(<ToolbarSettings />);
 
-    const shownZone = screen
-      .getByText("Shown")
-      .closest(".session-toolbar-zone");
+    const shownZone = screen.getByText("Shown").closest("[data-toolbar-zone]");
     const hiddenZone = screen
       .getByText("Hidden")
-      .closest(".session-toolbar-zone");
+      .closest("[data-toolbar-zone]");
     expect(shownZone).toBeTruthy();
     expect(hiddenZone).toBeTruthy();
 
     const modeRow = within(shownZone as HTMLElement)
       .getByText("Mode Selector")
-      .closest(".session-toolbar-control-row");
+      .closest("[data-toolbar-control]");
     expect(modeRow).toBeTruthy();
 
     const slider = within(modeRow as HTMLElement).getByRole<HTMLInputElement>(

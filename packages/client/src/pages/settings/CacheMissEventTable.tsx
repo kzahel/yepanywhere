@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import type { CacheMissBillingRecord } from "@yep-anywhere/shared";
 import {
   type CSSProperties,
@@ -313,7 +314,7 @@ export function CacheMissEventTable({
       </div>
 
       {groups.length === 0 ? (
-        <p className="settings-empty">
+        <p className={rowsStyles.empty}>
           {events.length === 0
             ? t("cacheMissBillingEventsEmpty")
             : outcomeFilteredEvents.length === 0

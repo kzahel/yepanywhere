@@ -1,3 +1,4 @@
+import iconsStyles from "./SettingsCategoryIcons.module.css";
 import { IssueIcon } from "../../components/IssueIcon";
 import type { ReactNode } from "react";
 import { useSettingsIconStyle } from "../../hooks/useSettingsIconStyle";
@@ -323,6 +324,31 @@ export const settingsCategoryIcons: Record<string, ReactNode> = {
   ),
 };
 
+const CATEGORY_CLASSES: Record<string, string | undefined> = {
+  appearance: iconsStyles.iconAppearance,
+  toolbar: iconsStyles.iconToolbar,
+  model: iconsStyles.iconModel,
+  "message-delivery": iconsStyles.iconMessageDelivery,
+  "agent-context": iconsStyles.iconAgentContext,
+  notifications: iconsStyles.iconNotifications,
+  webhooks: iconsStyles.iconWebhooks,
+  devices: iconsStyles.iconDevices,
+  "local-access": iconsStyles.iconLocalAccess,
+  remote: iconsStyles.iconRemote,
+  providers: iconsStyles.iconProviders,
+  speech: iconsStyles.iconSpeech,
+  environment: iconsStyles.iconEnvironment,
+  about: iconsStyles.iconAbout,
+  emulator: iconsStyles.iconEmulator,
+  development: iconsStyles.iconDevelopment,
+};
+
+export const settingsIconStyleClasses = {
+  flat: iconsStyles.iconFlat,
+  "flat-white": iconsStyles.iconFlatWhite,
+  emoji: iconsStyles.iconEmoji,
+};
+
 export function SettingsCategoryIcon({
   id,
   active = false,
@@ -337,10 +363,10 @@ export function SettingsCategoryIcon({
       : settingsCategoryIcons[id];
   if (!icon) return null;
   const className = [
-    "settings-category-icon",
-    active ? "active" : "",
-    `settings-category-icon-${id}`,
-    `settings-category-icon-${settingsIconStyle}`,
+    iconsStyles.icon,
+    active ? iconsStyles.active : "",
+    CATEGORY_CLASSES[id] ?? "",
+    settingsIconStyleClasses[settingsIconStyle],
   ].join(" ");
   return (
     <span className={className} aria-hidden="true">

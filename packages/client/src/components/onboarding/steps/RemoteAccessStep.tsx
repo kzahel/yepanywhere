@@ -1,3 +1,4 @@
+import onboardingStyles from "../OnboardingStep.module.css";
 import { useNavigate } from "react-router-dom";
 import { useRemoteBasePath } from "../../../hooks/useRemoteBasePath";
 import { useI18n } from "../../../i18n";
@@ -12,12 +13,12 @@ export function RemoteAccessStep() {
   const { t } = useI18n();
 
   return (
-    <div className="onboarding-step-content">
-      <p className="onboarding-step-description">
+    <div className={onboardingStyles.stepContent}>
+      <p className={onboardingStyles.stepDescription}>
         {t("onboardingRemoteDescription")}
       </p>
 
-      <div className="onboarding-info-box">
+      <div className={onboardingStyles.infoBox}>
         <h4>{t("onboardingRemoteRequirementsTitle")}</h4>
         <ul>
           <li>{t("onboardingRemoteRequirementRelayUrl")}</li>
@@ -26,7 +27,7 @@ export function RemoteAccessStep() {
         </ul>
       </div>
 
-      <p className="onboarding-step-hint">{t("onboardingRemoteHint")}</p>
+      <p className={onboardingStyles.stepHint}>{t("onboardingRemoteHint")}</p>
     </div>
   );
 }

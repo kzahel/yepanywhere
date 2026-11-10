@@ -1,3 +1,5 @@
+import rowsStyles from "./SettingsRows.module.css";
+import aboutStyles from "./AboutSettings.module.css";
 import { useClientSummarySourceKey } from "../../lib/clientSummaryStore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fetchJSON, type VersionInfo } from "../../api/client";
@@ -159,7 +161,7 @@ export function AboutSettings() {
 
   return (
     <SettingsSection>
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         {/* Only show Install option if install is possible or already installed */}
         {(canInstall || isInstalled) && (
           <SettingsItem
@@ -178,9 +180,9 @@ export function AboutSettings() {
           </SettingsItem>
         )}
         <HideInSettingsSearch>
-          <div className="settings-item settings-version-item">
-            <div className="settings-version-item__row">
-              <div className="settings-item-info">
+          <div className={`${rowsStyles.item} ${aboutStyles.versionItem}`}>
+            <div className={aboutStyles.versionItem__row}>
+              <div className={rowsStyles.itemInfo} data-settings-info>
                 <strong>{t("aboutVersionTitle")}</strong>
                 {desktopRuntime ? (
                   <>
@@ -208,7 +210,7 @@ export function AboutSettings() {
                           {parseSemver(versionInfo.current) &&
                           versionInfo.updateAvailable &&
                           versionInfo.latest ? (
-                            <span className="settings-update-available">
+                            <span className={aboutStyles.updateAvailable}>
                               {" "}
                               {t("aboutVersionAvailable", {
                                 version: versionInfo.latest,
@@ -216,7 +218,7 @@ export function AboutSettings() {
                             </span>
                           ) : parseSemver(versionInfo.current) &&
                             versionInfo.latest ? (
-                            <span className="settings-up-to-date">
+                            <span className={aboutStyles.upToDate}>
                               {" "}
                               {t("aboutUpToDate")}
                             </span>
@@ -236,7 +238,7 @@ export function AboutSettings() {
                           versionInfo.sourceRevision.committedAt,
                         )}
                         {versionInfo.sourceRevision.modified && (
-                          <span className="settings-update-available">
+                          <span className={aboutStyles.updateAvailable}>
                             {" "}
                             {versionInfo.sourceRevision.modifiedAt
                               ? t("aboutServerModifiedAt", {
@@ -273,12 +275,12 @@ export function AboutSettings() {
                 {!desktopRuntime &&
                   versionInfo?.updateAvailable &&
                   !remoteCompatibilityNotice && (
-                    <p className="settings-update-hint">
+                    <p className={aboutStyles.updateHint}>
                       {t("aboutUpdateHint")}
                     </p>
                   )}
               </div>
-              <div className="settings-item-actions">
+              <div className={rowsStyles.itemActions}>
                 <Button
                   onClick={() => void handleCheckUpdates()}
                   disabled={versionLoading}

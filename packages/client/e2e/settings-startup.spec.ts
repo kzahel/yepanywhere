@@ -54,7 +54,7 @@ test("Settings controls do not wait for sidebar sessions", async ({
       page.getByRole("searchbox", { name: "Search settings" }),
     ).toBeVisible();
     const light = page
-      .locator(".settings-content-panel")
+      .locator("[data-settings-content-panel]")
       .getByRole("radio", { name: "Light", exact: true });
     await light.click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -87,17 +87,17 @@ test("search loads inactive panes without blocking existing editable results", a
     expect(speechRequested).toBe(false);
     await search.fill("theme");
     await expect.poll(() => speechRequested).toBe(true);
-    const results = page.locator(".settings-search-results");
+    const results = page.locator("[data-settings-search-results]");
     await expect(results).toHaveAttribute("aria-busy", "true");
     await results.getByRole("radio", { name: "Light", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await search.fill("zzzz-no-such-setting");
-    await expect(page.locator(".settings-search-no-results")).toHaveCount(0);
+    await expect(page.locator("[data-settings-search-empty]")).toHaveCount(0);
     release();
     await expect(results).toHaveAttribute("aria-busy", "false", {
       timeout: 15000,
     });
-    await expect(page.locator(".settings-search-no-results")).toBeVisible();
+    await expect(page.locator("[data-settings-search-empty]")).toBeVisible();
     await search.fill("speech");
     await expect(
       results.locator('[data-category="speech"] [data-settings-item]').first(),

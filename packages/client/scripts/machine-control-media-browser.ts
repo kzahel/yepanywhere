@@ -99,7 +99,9 @@ export async function createMachineControlMediaBrowser(
             await page
               .getByRole("button", { name: "Skip all", exact: true })
               .click();
-            await expect(page.locator(".onboarding-skip-all")).toBeHidden();
+            await expect(
+              page.getByRole("button", { name: "Skip all", exact: true }),
+            ).toBeHidden();
           }
         }
         await expect(page.locator(".message-input")).toBeVisible({

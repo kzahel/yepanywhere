@@ -1,0 +1,197 @@
+.icon {
+  --settings-category-icon-accent: var(--app-yep-green);
+  --settings-category-icon-offset-x: 0px;
+  --settings-category-icon-offset-y: 0px;
+  flex-shrink: 0;
+  width: 30px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-right: 2px;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    color 0.15s;
+}
+
+.icon svg {
+  width: 22px;
+  height: 22px;
+  color: inherit;
+  flex-shrink: 0;
+  transform: translate(
+    var(--settings-category-icon-offset-x),
+    var(--settings-category-icon-offset-y)
+  );
+}
+
+.iconFlat {
+  color: color-mix(
+    in srgb,
+    var(--settings-category-icon-accent) 82%,
+    var(--text-primary)
+  );
+  background: color-mix(
+    in srgb,
+    var(--settings-category-icon-accent) 16%,
+    transparent
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--settings-category-icon-accent) 34%,
+      var(--border-color)
+    );
+}
+
+.iconFlat.active {
+  color: #fff;
+  background: color-mix(
+    in srgb,
+    var(--settings-category-icon-accent) 64%,
+    #111827
+  );
+  box-shadow:
+    inset 0 0 0 1px
+    color-mix(in srgb, #fff 24%, var(--settings-category-icon-accent)),
+    0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.iconFlatWhite {
+  --settings-category-icon-white-bg: #273449;
+  --settings-category-icon-white-active-bg: color-mix(
+    in srgb,
+    #111827 92%,
+    var(--bg-code)
+  );
+  --settings-category-icon-white-ring: rgba(255, 255, 255, 0.28);
+  --settings-category-icon-white-shadow: rgba(0, 0, 0, 0.26);
+
+  color: #fff;
+  background: var(--settings-category-icon-white-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--settings-category-icon-white-ring),
+    0 1px 3px var(--settings-category-icon-white-shadow);
+}
+
+.iconFlatWhite.active {
+  background: var(--settings-category-icon-white-active-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--settings-category-icon-white-ring),
+    0 1px 3px var(--settings-category-icon-white-shadow);
+}
+
+[data-theme="light"] .iconFlatWhite {
+  --settings-category-icon-white-bg: #475569;
+  --settings-category-icon-white-active-bg: color-mix(
+    in srgb,
+    #334155 92%,
+    var(--bg-code)
+  );
+  --settings-category-icon-white-ring: rgba(255, 255, 255, 0.36);
+  --settings-category-icon-white-shadow: rgba(0, 0, 0, 0.34);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] .iconFlatWhite {
+    --settings-category-icon-white-bg: #475569;
+    --settings-category-icon-white-active-bg: color-mix(
+      in srgb,
+      #334155 92%,
+      var(--bg-code)
+    );
+    --settings-category-icon-white-ring: rgba(255, 255, 255, 0.36);
+    --settings-category-icon-white-shadow: rgba(0, 0, 0, 0.34);
+  }
+}
+
+.iconEmoji {
+  color: var(--text-primary);
+  background: transparent;
+  box-shadow: none;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.iconAppearance {
+  --settings-category-icon-accent: #16a34a;
+}
+
+.iconToolbar {
+  --settings-category-icon-accent: #2563eb;
+  --settings-category-icon-offset-x: 0.5px;
+}
+
+.iconModel {
+  --settings-category-icon-accent: #7c3aed;
+}
+
+.iconMessageDelivery {
+  --settings-category-icon-accent: #0891b2;
+  --settings-category-icon-offset-x: -0.5px;
+}
+
+.iconAgentContext {
+  --settings-category-icon-accent: #d97706;
+  --settings-category-icon-offset-x: 0.5px;
+  --settings-category-icon-offset-y: -0.5px;
+}
+
+.iconNotifications {
+  --settings-category-icon-accent: #dc2626;
+  --settings-category-icon-offset-x: 0.25px;
+  --settings-category-icon-offset-y: 0.25px;
+}
+
+.iconWebhooks {
+  --settings-category-icon-accent: #db2777;
+}
+
+.iconDevices {
+  --settings-category-icon-accent: #0d9488;
+}
+
+.iconLocalAccess {
+  --settings-category-icon-accent: #ca8a04;
+  --settings-category-icon-offset-x: 0.2px;
+  --settings-category-icon-offset-y: -0.5px;
+}
+
+.iconRemote {
+  --settings-category-icon-accent: #0284c7;
+  --settings-category-icon-offset-x: 0.25px;
+}
+
+.iconProviders {
+  --settings-category-icon-accent: #9333ea;
+  --settings-category-icon-offset-x: 0.5px;
+  --settings-category-icon-offset-y: 0.5px;
+}
+
+.iconSpeech {
+  --settings-category-icon-accent: #059669;
+  --settings-category-icon-offset-x: 0.2px;
+}
+
+.iconEnvironment {
+  --settings-category-icon-accent: #65a30d;
+  --settings-category-icon-offset-x: 0.5px;
+}
+
+.iconAbout {
+  --settings-category-icon-accent: #475569;
+  --settings-category-icon-offset-x: 0.5px;
+}
+
+.iconEmulator {
+  --settings-category-icon-accent: #ea580c;
+}
+
+.iconDevelopment {
+  --settings-category-icon-accent: #be123c;
+}

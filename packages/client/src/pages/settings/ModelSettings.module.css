@@ -1,20 +1,170 @@
-/*
- * Session Defaults grid additions.
- *
- * The panel's own grid and the per-section rules still live in the legacy
- * global sheet under `.settings-session-defaults-panel`; `pnpm css:touched`
- * defers extracting that slice (165 owned lines, 117 coupled rules), so only
- * these bounded rules are owned here.
- *
- * They reach global class names because the rows are rendered by SettingsItem,
- * whose vocabulary is global. Specificity matches the selectors these replaced
- * (`.settings-session-defaults-panel > .settings-item`, 0-2-0), so they still
- * beat the 0-1-0 `.settings-item` base rule regardless of injection order.
- */
+.empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.relatedDivider strong {
+  font-size: var(--font-size-base);
+}
+
+.relatedDivider span {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.defaultsPanel {
+  display: grid;
+  /* Container-driven column count: tracks pack to the panel's own width
+     rather than to viewport breakpoints, so a wide panel fills with 3+
+     columns and a phone collapses to one — no fixed tier, and the count
+     follows the actual space the panel was given. align-items:start lets
+     short controls sit at natural height instead of stretching to the
+     tallest cell in their row. */
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+  container-type: inline-size;
+}
+
+.defaultsPanel .sessionDefaultRecapSection {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 36rem) {
+  .defaultsPanel .sessionDefaultSandboxSection {
+    grid-column: span 2;
+  }
+}
+.defaultsPanel .sessionDefaultProviderSection {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.15rem;
+  padding-top: 0.75rem;
+}
+
+.defaultsPanel .sessionDefaultModelSection,
+.defaultsPanel .sessionDefaultThinkingSection {
+  grid-column: 1 / -1;
+}
+
+.defaultsPanel .sessionDefaultThinkingControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.65rem 1rem;
+}
+
+.defaultsPanel .sessionDefaultThinkingControls [data-thinking-section="mode"] {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.defaultsPanel
+  .sessionDefaultThinkingControls
+  [data-thinking-section="mode"]
+  :global(.thinking-toolbar-menu-options) {
+  flex-wrap: nowrap;
+}
+
+.defaultsPanel
+  .sessionDefaultThinkingControls
+  :global(.thinking-controls-section--effort) {
+  flex: 1 1 24rem;
+  min-width: min(100%, 18rem);
+  grid-column: auto;
+}
+
+@container (max-width: 24rem) {
+  .defaultsPanel
+    .sessionDefaultThinkingControls
+    [data-thinking-section="mode"]
+    :global(.thinking-toolbar-menu-options) {
+    flex-wrap: wrap;
+  }
+}
+
+.defaultsPanel .sessionDefaultForkSummarySection [data-settings-info] strong {
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
+}
+
+@container (min-width: 36rem) {
+  .defaultsPanel .sessionDefaultForkSummarySection {
+    grid-column: span 2;
+  }
+}
+
+@container (min-width: 36rem) {
+  .defaultsPanel .sessionDefaultCompactSection {
+    grid-column: span 2;
+  }
+}
+
+.defaultsPanel :global(.new-session-provider-section),
+.defaultsPanel :global(.new-session-model-section) {
+  margin-bottom: 0;
+}
+
+.defaultsPanel :global(.new-session-helper-section),
+.defaultsPanel :global(.new-session-mode-section) {
+  margin-bottom: 0;
+}
+
+:global(.mode-option-dot).keepaliveOff {
+  background: var(--text-muted);
+}
+
+:global(.mode-option-dot).keepaliveAuto {
+  background: var(--success-color);
+}
+
+.promptCacheKeepaliveCadence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.sessionDefaultCacheKeepaliveSection {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.defaultsPanel .sessionDefaultCacheKeepaliveSection {
+  grid-column: 1 / -1;
+}
+
+.sessionDefaultCacheKeepaliveControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.6rem;
+}
+
+@container (min-width: 30rem) {
+  .defaultsPanel .sessionDefaultCacheKeepaliveSection {
+    grid-template-columns: minmax(12rem, 1fr) max-content;
+    align-items: end;
+  }
+}
+
+@container (min-width: 30rem) {
+  .defaultsPanel .sessionDefaultCacheKeepaliveControls {
+    justify-content: flex-end;
+  }
+}
+.defaultsPanel .sessionDefaultModeSection {
+  grid-column: 1 / -1;
+}
+
+/* Session Defaults layout owns its grid and opts into row data boundaries. */
 
 /* Searchable SettingsItem rows fill the panel grid as stacked cards. */
-.sessionDefaultsPanel > :global(.settings-item),
-.captionPair > :global(.settings-item) {
+.sessionDefaultsPanel > [data-settings-item],
+.captionPair > [data-settings-item] {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
@@ -23,8 +173,8 @@
   height: 100%;
 }
 
-.sessionDefaultsPanel > :global(.settings-item) > :global(.settings-item-info),
-.captionPair > :global(.settings-item) > :global(.settings-item-info) {
+.sessionDefaultsPanel > [data-settings-item] > [data-settings-info],
+.captionPair > [data-settings-item] > [data-settings-info] {
   flex: 0 0 auto;
 }
 
@@ -35,7 +185,7 @@
   gap: 0.75rem 1rem;
 }
 
-.captionPair > :global(.settings-search-match):only-child {
+.captionPair > [data-settings-search-match]:only-child {
   grid-column: 1 / -1;
 }
 
@@ -67,13 +217,4 @@
   margin-top: var(--space-2);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-color);
-}
-
-.relatedDivider strong {
-  font-size: var(--font-size-base);
-}
-
-.relatedDivider span {
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
 }

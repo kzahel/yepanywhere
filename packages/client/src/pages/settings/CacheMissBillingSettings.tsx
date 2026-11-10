@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import {
   DEFAULT_CACHE_MISS_BILLING_SETTINGS,
   type CacheMissBillingRecord,
@@ -241,7 +242,7 @@ export function CacheMissBillingSettings() {
         description={t("cacheMissBillingDescription")}
         doc="topics/cache-miss-accounting.md"
       >
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           <SettingsItem
             as="label"
             label={t("cacheMissBillingEnableTitle")}
@@ -274,9 +275,9 @@ export function CacheMissBillingSettings() {
           <SettingsItem
             label={t("cacheMissBillingClaudeFreshWindowTitle")}
             description={t("cacheMissBillingClaudeFreshWindowDescription")}
-            className="settings-item--wide-control"
+            className={rowsStyles.itemWideControl}
           >
-            <div className="settings-item-actions">
+            <div className={rowsStyles.itemActions}>
               <TextInput
                 key={`fresh-claude-${providerFreshWindowMinutes(effective, "claude")}`}
                 type="number"
@@ -311,9 +312,9 @@ export function CacheMissBillingSettings() {
           <SettingsItem
             label={t("cacheMissBillingCodexFreshWindowTitle")}
             description={t("cacheMissBillingCodexFreshWindowDescription")}
-            className="settings-item--wide-control"
+            className={rowsStyles.itemWideControl}
           >
-            <div className="settings-item-actions">
+            <div className={rowsStyles.itemActions}>
               <TextInput
                 key={`fresh-codex-${providerFreshWindowMinutes(effective, "codex")}`}
                 type="number"
@@ -348,9 +349,9 @@ export function CacheMissBillingSettings() {
           <SettingsItem
             label={t("cacheMissBillingMinimumTokensTitle")}
             description={t("cacheMissBillingMinimumTokensDescription")}
-            className="settings-item--wide-control"
+            className={rowsStyles.itemWideControl}
           >
-            <div className="settings-item-actions">
+            <div className={rowsStyles.itemActions}>
               <TextInput
                 key={`minimum-${effective.minimumWastedTokens}`}
                 type="number"
@@ -382,9 +383,9 @@ export function CacheMissBillingSettings() {
           <SettingsItem
             label={t("cacheMissBillingRecentActivityTitle")}
             description={t("cacheMissBillingRecentActivityDescription")}
-            className="settings-item--wide-control"
+            className={rowsStyles.itemWideControl}
           >
-            <div className="settings-item-actions">
+            <div className={rowsStyles.itemActions}>
               <TextInput
                 key={`recent-${effective.recentActivityMinutes}`}
                 type="number"
@@ -415,9 +416,9 @@ export function CacheMissBillingSettings() {
           <SettingsItem
             label={t("cacheMissBillingIgnoreAfterTitle")}
             description={t("cacheMissBillingIgnoreAfterDescription")}
-            className="settings-item--wide-control"
+            className={rowsStyles.itemWideControl}
           >
-            <div className="settings-item-actions">
+            <div className={rowsStyles.itemActions}>
               <TextInput
                 key={`ignore-after-${effective.ignoreAfterMinutes}`}
                 type="number"

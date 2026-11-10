@@ -1,3 +1,5 @@
+import rowLayoutStyles from "./SettingsRows.module.css";
+import rowsStyles from "./SettingsRows.module.css";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
   DEFAULT_PROMPT_CACHE_KEEPALIVE_INACTIVITY_MINUTES,
@@ -590,9 +592,9 @@ export function ModelSettings() {
         "fork summary",
       ]}
     >
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <div
-          className={`settings-session-defaults-panel ${styles.sessionDefaultsPanel}`}
+          className={`${styles.defaultsPanel} ${styles.sessionDefaultsPanel}`}
         >
           <p className={styles.intro}>
             {t("modelSettingsNewSessionDefaultsIntro")}
@@ -611,7 +613,7 @@ export function ModelSettings() {
               ...availableProviders.map((p) => p.displayName),
             ]}
             valueText={selectedProvider?.displayName}
-            className="new-session-provider-section session-default-provider-section settings-item--session-default-block settings-item--wide-control"
+            className={`new-session-provider-section ${styles.sessionDefaultProviderSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
           >
             <SegmentedControl
               activation="manual"
@@ -647,7 +649,7 @@ export function ModelSettings() {
               sessionDefaultCopy.model.title,
             ]}
             valueText={selectedModel ?? undefined}
-            className="new-session-model-section session-default-model-section settings-item--session-default-block settings-item--wide-control"
+            className={`new-session-model-section ${styles.sessionDefaultModelSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
           >
             <div className="new-session-model-field">
               {selectedModels.length > 0 ? (
@@ -664,9 +666,7 @@ export function ModelSettings() {
                   fullWidth
                 />
               ) : (
-                <span className="model-settings-empty">
-                  {t("modelSwitchEmpty")}
-                </span>
+                <span className={styles.empty}>{t("modelSwitchEmpty")}</span>
               )}
             </div>
           </SettingsItem>
@@ -678,7 +678,7 @@ export function ModelSettings() {
               description={sessionDefaultCopy.thinking.description}
               keywords={sessionDefaultCopy.thinking.settings?.keywords}
               valueText={`${effectiveThinkingMode} ${effectiveEffortLevel ?? ""}`.trim()}
-              className="new-session-helper-section session-default-thinking-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-helper-section ${styles.sessionDefaultThinkingSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <ThinkingControlsPanel
                 mode={effectiveThinkingMode}
@@ -700,7 +700,7 @@ export function ModelSettings() {
                 showThinkingControl={false}
                 provider={selectedProvider?.name}
                 t={t}
-                className="thinking-controls-panel--inline session-default-thinking-controls"
+                className={`thinking-controls-panel--inline ${styles.sessionDefaultThinkingControls}`}
               />
             </SettingsItem>
           )}
@@ -711,7 +711,7 @@ export function ModelSettings() {
               label={sessionDefaultCopy.permission.title}
               keywords={sessionDefaultCopy.permission.settings?.keywords}
               valueText={modeLabels[effectiveDefaultPermissionMode]}
-              className="new-session-mode-section session-default-mode-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-mode-section ${styles.sessionDefaultModeSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <SegmentedControl
                 activation="manual"
@@ -753,7 +753,7 @@ export function ModelSettings() {
                   ? t("newSessionSandboxLabel")
                   : undefined
               }
-              className="new-session-helper-section session-default-sandbox-section settings-item--session-default-block"
+              className={`new-session-helper-section ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
             >
               <Switch
                 checked={savedDefaults?.sandboxLevel === "project-write"}
@@ -788,7 +788,7 @@ export function ModelSettings() {
                   ? t("newSessionSandboxNetworkFirewallLabel")
                   : undefined
               }
-              className="new-session-helper-section session-default-sandbox-section settings-item--session-default-block"
+              className={`new-session-helper-section ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
             >
               <Switch
                 checked={
@@ -816,7 +816,7 @@ export function ModelSettings() {
               description={sessionDefaultCopy.showThinking.description}
               keywords={sessionDefaultCopy.showThinking.settings?.keywords}
               valueText={String(showThinking)}
-              className="new-session-helper-section session-default-show-thinking-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-helper-section session-default-show-thinking-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <ShowThinkingControls
                 value={showThinking}
@@ -836,7 +836,7 @@ export function ModelSettings() {
               valueText={
                 promptSuggestionModeLabels[selectedPromptSuggestionMode]
               }
-              className="new-session-helper-section session-default-suggestions-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-helper-section session-default-suggestions-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <SegmentedControl
                 activation="manual"
@@ -874,7 +874,7 @@ export function ModelSettings() {
             doc="topics/recaps.md#configuration-and-native-capability"
             keywords={sessionDefaultCopy.recap.settings?.keywords}
             valueText={recapModeLabels[selectedRecapMode]}
-            className="new-session-helper-section session-default-recap-section settings-item--session-default-block settings-item--wide-control"
+            className={`new-session-helper-section ${styles.sessionDefaultRecapSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             after={
               selectedRecapMode !== "off" ? (
                 <RecapAfterSecondsControl
@@ -924,7 +924,7 @@ export function ModelSettings() {
               doc="topics/side-session-config.md"
               keywords={sessionDefaultCopy.helperModel.settings?.keywords}
               valueText={selectedHelperSideModel}
-              className="new-session-helper-section session-default-helper-model-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-helper-section session-default-helper-model-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <FilterDropdown
                 label={sessionDefaultCopy.helperModel.title}
@@ -963,7 +963,7 @@ export function ModelSettings() {
                 ? t("modelSettingsForkSummaryAutoOpenLabel")
                 : undefined
             }
-            className="new-session-helper-section session-default-fork-summary-section settings-item--session-default-block"
+            className={`new-session-helper-section ${styles.sessionDefaultForkSummarySection} settings-item--session-default-block`}
           >
             <Switch
               checked={forkSummaryAutoOpen}
@@ -981,7 +981,7 @@ export function ModelSettings() {
               map={settings?.clientDefaults?.compactAtContextPercent}
               updateSetting={updateSetting}
               disabled={settingsLoading}
-              className="new-session-helper-section session-default-compact-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-helper-section ${styles.sessionDefaultCompactSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             />
           )}
 
@@ -1046,9 +1046,9 @@ export function ModelSettings() {
                 "inactivity",
               ]}
               valueText={`${selectedPromptCacheKeepalive.mode} ${selectedPromptCacheKeepalive.inactivityMinutes}m`}
-              className="new-session-helper-section session-default-cache-keepalive-section settings-item--session-default-block settings-item--wide-control"
+              className={`new-session-helper-section ${styles.sessionDefaultCacheKeepaliveSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
-              <div className="session-default-cache-keepalive-controls">
+              <div className={styles.sessionDefaultCacheKeepaliveControls}>
                 <SegmentedControl
                   activation="manual"
                   variant="cards"
@@ -1060,7 +1060,7 @@ export function ModelSettings() {
                       tooltip: promptCacheKeepaliveModeDescriptions[modeValue],
                       icon: (
                         <span
-                          className={`mode-option-dot keepalive-${modeValue}`}
+                          className={`mode-option-dot ${modeValue === "off" ? styles.keepaliveOff : styles.keepaliveAuto}`}
                         />
                       ),
                     }),
@@ -1071,7 +1071,7 @@ export function ModelSettings() {
                   }
                   disabled={settingsLoading}
                 />
-                <label className="prompt-cache-keepalive-cadence">
+                <label className={styles.promptCacheKeepaliveCadence}>
                   <span>{t("promptCacheKeepaliveCadenceLabel")}</span>
                   <TextInput
                     key={`${selectedProvider.name}-${selectedPromptCacheKeepalive.inactivityMinutes}`}
@@ -1117,14 +1117,14 @@ export function ModelSettings() {
       </div>
 
       {selectedProvider?.name === "claude" && (
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           <SettingsItem
             label={t("modelSettingsModelTitle")}
             description={t("modelSettingsModelDescription")}
-            className="model-settings-item"
+            className={rowLayoutStyles.modelItem}
           >
             <SegmentedControl
-              className="model-settings-chip-group"
+              className={rowLayoutStyles.modelChipGroup}
               aria-label={t("modelSettingsModelTitle")}
               options={MODEL_OPTIONS.map((opt) => ({
                 value: opt.value,

@@ -1,3 +1,5 @@
+import rowLayoutStyles from "./SettingsRows.module.css";
+import rowsStyles from "./SettingsRows.module.css";
 import {
   SPEECH_BACKEND_SETUP_CAPABILITY,
   serverHasCapability,
@@ -196,10 +198,10 @@ export function SpeechBackendSetup() {
         "install",
         "restart",
       ]}
-      className="model-settings-item"
+      className={rowLayoutStyles.modelItem}
     >
       <div className={styles.wrap}>
-        <p className="settings-hint">
+        <p className={rowsStyles.hint}>
           {t("speechBackendSetupModelAdvice")}{" "}
           <a href={ENGLISH_WER_SOURCE} target="_blank" rel="noreferrer">
             {t("speechBackendSetupWerSource")}
@@ -265,7 +267,7 @@ export function SpeechBackendSetup() {
               )}
               <code className={styles.model}>{row.defaultModel}</code>
               {row.id === "ya-whisper" && (
-                <span className="settings-hint">
+                <span className={rowsStyles.hint}>
                   {t("speechBackendSetupWhisperPerformance")}
                 </span>
               )}
@@ -279,25 +281,25 @@ export function SpeechBackendSetup() {
                       disabled={saving || (!row.enabled && !row.advertised)}
                       onCheckedChange={(checked) => void setWhisperGpu(checked)}
                     />
-                    <p className="settings-hint" id={`${row.id}-gpu-help`}>
+                    <p className={rowsStyles.hint} id={`${row.id}-gpu-help`}>
                       {t("speechBackendSetupWhisperGpuHelp")}
                     </p>
                   </div>
                 )}
               {row.defaultModel === "distil-large-v3.5" && (
-                <span className="settings-hint">756M parameters</span>
+                <span className={rowsStyles.hint}>756M parameters</span>
               )}
               {row.id === "ya-nemo" && (
-                <p className="settings-hint">
+                <p className={rowsStyles.hint}>
                   {t("speechBackendSetupStreamingAdvice")}
                 </p>
               )}
               {row.id === "ya-nemo" && (
-                <span className="settings-hint">
+                <span className={rowsStyles.hint}>
                   {t("speechBackendSetupNemoSize")}
                 </span>
               )}
-              <span className="settings-hint">
+              <span className={rowsStyles.hint}>
                 {englishModelWer(row.defaultModel)}
               </span>
               <div className={styles.backendActions}>
@@ -402,12 +404,12 @@ export function SpeechBackendSetup() {
             )}
           </Button>
           {status?.liveEnablement && (
-            <p className="settings-hint">
+            <p className={rowsStyles.hint}>
               {t("speechBackendSetupRestartOnlyDisable")}
             </p>
           )}
           {status?.restartAvailable === false && (
-            <p className="settings-hint">
+            <p className={rowsStyles.hint}>
               {t("speechBackendSetupRestartHint")}
             </p>
           )}

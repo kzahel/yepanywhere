@@ -1,11 +1,11 @@
 {
   "legacyGlobalStyles": {
     "packages/client/src/styles/index.css": {
-      "maxLines": 8929,
+      "maxLines": 7058,
       "reason": "Legacy React-owned application rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/renderers.css": {
-      "maxLines": 4063,
+      "maxLines": 4062,
       "reason": "Legacy React-owned renderer rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/tool-rows.css": {

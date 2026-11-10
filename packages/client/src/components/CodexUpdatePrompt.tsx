@@ -1,3 +1,4 @@
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import { useEffect, useState } from "react";
 import { canServerUpdateCodex } from "../api/codexUpdateStatus";
 import { useCanAdministerHost } from "../hooks/useActingPrincipal";
@@ -172,7 +173,7 @@ export function CodexUpdatePrompt() {
           href={status.releaseUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={`settings-link ${styles.releaseLink}`}
+          className={`${rowsStyles.link} ${styles.releaseLink}`}
         >
           {t("providersCodexUpdateReleaseNotes")}
         </a>
@@ -180,7 +181,7 @@ export function CodexUpdatePrompt() {
 
       {installCommand && (
         <div className={styles.commandBlock}>
-          <span className="settings-hint">
+          <span className={rowsStyles.hint}>
             {canInstall
               ? t("codexUpdateWillRunCommand")
               : t("providersCodexUpdateWithInstaller")}
@@ -189,7 +190,7 @@ export function CodexUpdatePrompt() {
         </div>
       )}
 
-      {manualHint && <p className="settings-hint">{t(manualHint)}</p>}
+      {manualHint && <p className={rowsStyles.hint}>{t(manualHint)}</p>}
 
       {canInstall && (
         <Checkbox
@@ -201,7 +202,7 @@ export function CodexUpdatePrompt() {
       )}
 
       {isInstalling && (
-        <p className="settings-hint">{t("codexUpdateProgress")}</p>
+        <p className={rowsStyles.hint}>{t("codexUpdateProgress")}</p>
       )}
 
       {installAttempted && installSucceeded === true && (
@@ -229,7 +230,7 @@ export function CodexUpdatePrompt() {
       )}
 
       {installSucceeded === null && !isInstalling && (
-        <p className="settings-hint">{t("codexUpdateDismissHint")}</p>
+        <p className={rowsStyles.hint}>{t("codexUpdateDismissHint")}</p>
       )}
     </Dialog>
   );

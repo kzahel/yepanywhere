@@ -222,7 +222,7 @@
   min-height: var(--composer-primary-control-size);
 }
 
-:global(.toolbar-control-preview) .waveformPreviewRegion {
+[data-toolbar-control-preview] .waveformPreviewRegion {
   width: var(--composer-primary-control-size);
   min-width: var(--composer-primary-control-size);
   flex: 0 0 var(--composer-primary-control-size);

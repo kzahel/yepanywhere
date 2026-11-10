@@ -1,3 +1,4 @@
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
@@ -61,7 +62,9 @@ export function LongContextEffortWarningModal({
       }
     >
       {canFork && (
-        <p className="settings-hint">{t("longContextEffortWarningForkHint")}</p>
+        <p className={rowsStyles.hint}>
+          {t("longContextEffortWarningForkHint")}
+        </p>
       )}
     </Dialog>
   );

@@ -1,3 +1,5 @@
+import rowLayoutStyles from "../pages/settings/SettingsRows.module.css";
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
   HELPER_SIDE_MODEL_CHEAPEST,
@@ -208,13 +210,13 @@ export function SessionRecapModal({
       }
     >
       {error && <Banner tone="error">{error}</Banner>}
-      <div className="settings-item model-settings-item">
-        <div className="settings-item-info">
+      <div className={`${rowsStyles.item} ${rowLayoutStyles.modelItem}`}>
+        <div className={rowsStyles.itemInfo} data-settings-info>
           <strong>{t("sessionRecapModeTitle")}</strong>
           <p>{t("sessionRecapModeDescription")}</p>
         </div>
         <SegmentedControl
-          className="model-settings-chip-group"
+          className={rowLayoutStyles.modelChipGroup}
           aria-label={t("sessionRecapModeTitle")}
           options={RECAP_MODE_ORDER.map((mode) => ({
             value: mode,
@@ -241,8 +243,8 @@ export function SessionRecapModal({
       )}
 
       {recapMode === "side-session" && (
-        <label className="settings-item model-settings-item">
-          <div className="settings-item-info">
+        <label className={`${rowsStyles.item} ${rowLayoutStyles.modelItem}`}>
+          <div className={rowsStyles.itemInfo} data-settings-info>
             <strong>{t("helperSideModelTitle")}</strong>
             <p>{t("helperSideModelDescription")}</p>
           </div>

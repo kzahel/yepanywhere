@@ -1,3 +1,5 @@
+import rowsStyles from "./SettingsRows.module.css";
+import layoutStyles from "./SettingsLayout.module.css";
 import {
   memo,
   startTransition,
@@ -109,8 +111,9 @@ export const SettingsSearchResults = memo(function SettingsSearchResults({
           container.querySelectorAll("[data-settings-pane-ready]").length,
       );
       setMatchCount(
-        container.querySelectorAll("[data-settings-item].settings-search-match")
-          .length,
+        container.querySelectorAll(
+          "[data-settings-item][data-settings-search-match]",
+        ).length,
       );
     };
     recount();
@@ -129,15 +132,16 @@ export const SettingsSearchResults = memo(function SettingsSearchResults({
 
   return (
     <div
-      className="settings-search-results"
+      className={rowsStyles.searchResults}
+      data-settings-search-results
       aria-busy={acquiringPanes || hasIncompletePanes}
     >
       {categoryMatches.length > 0 && (
         <div className="settings-search-category-matches">
-          <h3 className="settings-search-heading">
+          <h3 className={rowsStyles.searchHeading}>
             {t("settingsSearchCategoriesHeading")}
           </h3>
-          <div className="settings-category-list">
+          <div className={layoutStyles.categoryList}>
             {categoryMatches.map((category) => (
               <SettingsCategoryItem
                 key={category.id}
@@ -169,11 +173,11 @@ export const SettingsSearchResults = memo(function SettingsSearchResults({
         })}
       </div>
       {!hasResults && !acquiringPanes && !hasIncompletePanes && (
-        <p className="settings-search-no-results">
+        <p className={rowsStyles.searchNoResults} data-settings-search-empty>
           {t("settingsSearchNoResults", { query })}
         </p>
       )}
-      <span className="settings-search-live-count" aria-live="polite">
+      <span className={rowsStyles.searchLiveCount} aria-live="polite">
         {t("settingsSearchResultCount", {
           count: (matchCount ?? 0) + categoryMatches.length,
         })}
@@ -211,10 +215,10 @@ function SettingsSearchPane({
   );
 
   return (
-    <section className="settings-search-pane" data-category={category.id}>
-      <h3 className="settings-search-pane-title">
+    <section className={rowsStyles.searchPane} data-category={category.id}>
+      <h3 className={rowsStyles.searchPaneTitle}>
         <ButtonBase
-          className="settings-search-pane-link"
+          className={rowsStyles.searchPaneLink}
           onClick={() => onOpenCategory(category.id)}
         >
           {category.label} ›

@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 /**
  * Compact-threshold controls shared by Session Defaults and Providers → Claude
  * so both knobs appear next to each other (same storage, two access points).
@@ -80,7 +81,7 @@ export function ClaudeAutoCompactPercentOverrideControl({
       valueText={
         value === undefined ? t("providersClaudeAutoCompactOff") : `${value}%`
       }
-      className="settings-item--wide-control"
+      className={rowsStyles.itemWideControl}
     >
       <CommittedRangeNumberInput
         id={`${id}-input`}
@@ -181,10 +182,13 @@ export function YaCompactContextEarlyControl({
         ...(keywords ?? []),
       ]}
       valueText={valueHint}
-      className={className ?? "settings-item--wide-control"}
+      className={className ?? rowsStyles.itemWideControl}
     >
       <div>
-        <span className="output-appearance-slider-row">
+        <span
+          className={rowsStyles.outputAppearanceSliderRow}
+          data-range-number
+        >
           <CommittedRangeInput
             min={0}
             max={99}
@@ -208,7 +212,7 @@ export function YaCompactContextEarlyControl({
             onBlur={() => commit(draft)}
           />
         </span>
-        <span className="settings-hint">{valueHint}</span>
+        <span className={rowsStyles.hint}>{valueHint}</span>
       </div>
     </SettingsItem>
   );

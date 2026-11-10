@@ -40,24 +40,9 @@
     "reason": "Pull gesture status interpolated into the indicator root."
   },
   {
-    "pattern": "^output-font-option-(system|source-serif-4|inter|alegreya-sans)$",
-    "source": "packages/client/src/pages/settings/AppearanceSettings.tsx",
-    "reason": "Prose font option id interpolated into option className."
-  },
-  {
-    "pattern": "^output-fixed-font-option-(system|iosevka|ibm-plex-mono|fira-mono)$",
-    "source": "packages/client/src/pages/settings/AppearanceSettings.tsx",
-    "reason": "Fixed font option id interpolated into option className."
-  },
-  {
     "pattern": "^thinking-(off|auto|on)$",
     "source": "packages/client/src/components/ThinkingControls.tsx",
     "reason": "Thinking mode interpolated into option dots."
-  },
-  {
-    "pattern": "^settings-category-icon-(flat|flat-white|emoji|appearance|toolbar|model|message-delivery|agent-context|notifications|webhooks|devices|remote|providers|speech|environment|about|emulator|development)$",
-    "source": "packages/client/src/pages/settings/SettingsCategoryIcons.tsx",
-    "reason": "Settings category id and icon style interpolated into icon classes."
   },
   {
     "pattern": "^provider-(claude|claude-gateway|claude-ollama|codex|codex-oss|gemini|gemini-acp|grok|opencode|pi|local)$",
@@ -65,19 +50,14 @@
     "reason": "Provider option dots interpolate the provider id; model settings uses the same vocabulary."
   },
   {
-    "pattern": "^(recap-(off|native|side-session|fork)|suggestion-(off|native)|keepalive-(off|auto))$",
+    "pattern": "^(recap-(off|native|side-session|fork)|suggestion-(off|native))$",
     "source": "packages/client/src/pages/settings/ModelSettings.tsx",
-    "reason": "Recap, suggestion and keepalive option dots interpolate their finite mode values."
+    "reason": "Recap and suggestion option dots interpolate their finite mode values; keepalive now uses its local module."
   },
   {
     "pattern": "^recap-after-seconds-control--(off|native|side-session|fork)$",
     "source": "packages/client/src/components/RecapAfterSecondsControl.tsx",
     "reason": "Recap mode interpolated into the root class."
-  },
-  {
-    "pattern": "^theme-preview-(auto|light|dark|verydark)$",
-    "source": "packages/client/src/components/onboarding/steps/ThemeStep.tsx",
-    "reason": "Theme name interpolated into preview tiles."
   },
   {
     "pattern": "^session-connection-(connected|connecting|disconnected|idle)$",
@@ -211,11 +191,6 @@
   {
     "pattern": "^(speech-control-menu)$",
     "source": "packages/client/src/components/SpeechControlMenu.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
-  },
-  {
-    "pattern": "^(session-toolbar-presence-tick)$",
-    "source": "packages/client/src/pages/settings/ToolbarSettings.tsx",
     "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
   },
   {

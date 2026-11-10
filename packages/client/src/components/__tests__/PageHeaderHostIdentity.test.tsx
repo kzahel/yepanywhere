@@ -56,8 +56,8 @@ describe("PageHeader host identity", () => {
 
     const left = view.container.querySelector(".session-header-left");
     expect(left?.children[0]?.classList.contains("sidebar-toggle")).toBe(true);
-    expect(left?.children[1]?.classList.contains("host-identity-marker")).toBe(
-      true,
+    expect(left?.children[1]).toBe(
+      view.getByRole("img", { name: "hostIdentityMarkerAria:💻" }),
     );
     expect(left?.children[2]?.textContent).toBe("Sessions");
     expect(view.getByLabelText("hostIdentityMarkerAria:💻")).toBeTruthy();

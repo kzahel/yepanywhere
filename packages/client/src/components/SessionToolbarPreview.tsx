@@ -1,3 +1,4 @@
+import previewStyles from "./SessionToolbarPreview.module.css";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -227,8 +228,8 @@ export function SessionToolbarPreview() {
   const inertRef = useInertPreviewRef();
 
   return (
-    <div className="session-toolbar-preview" aria-hidden="true">
-      <div ref={inertRef} className="session-toolbar-preview-content">
+    <div className={previewStyles.preview} aria-hidden="true">
+      <div ref={inertRef} className={previewStyles.previewContent}>
         <MessageInputToolbarView
           t={t}
           visibility={visibility}
@@ -329,7 +330,7 @@ export function ToolbarControlPreview({
   };
 
   const previewContent = (
-    <div ref={inertRef} className="session-toolbar-preview-content">
+    <div ref={inertRef} className={previewStyles.previewContent}>
       <MessageInputToolbarView
         t={t}
         visibility={visibilityForOnly(controlKey)}
@@ -357,7 +358,8 @@ export function ToolbarControlPreview({
   if (!onActivate) {
     return (
       <div
-        className="toolbar-control-preview session-toolbar-preview"
+        className={`${previewStyles.toolbarControlPreview} ${previewStyles.preview}`}
+        data-toolbar-control-preview
         aria-hidden={true}
       >
         {previewContent}
@@ -367,7 +369,8 @@ export function ToolbarControlPreview({
 
   return (
     <div
-      className="toolbar-control-preview session-toolbar-preview is-interactive"
+      className={`${previewStyles.toolbarControlPreview} ${previewStyles.preview} ${previewStyles.isInteractive}`}
+      data-toolbar-control-preview
       aria-label={activationLabel}
       onClick={onActivate}
       onKeyDown={handlePreviewKeyDown}

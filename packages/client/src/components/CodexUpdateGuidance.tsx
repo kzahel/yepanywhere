@@ -1,3 +1,4 @@
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import type {
   CodexInstallSource,
   CodexUpdateStatus,
@@ -16,7 +17,7 @@ const INSTALL_SOURCE_LABELS: Record<CodexInstallSource, MessageKey> = {
 /** Names the executable the server uses and what installed it. */
 export function CodexDetectedInstall({
   status,
-  className = "settings-hint",
+  className = rowsStyles.hint,
 }: {
   status: CodexUpdateStatus;
   className?: string;

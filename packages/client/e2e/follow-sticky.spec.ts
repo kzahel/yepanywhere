@@ -23,7 +23,7 @@ const viewports = [
 test.use({ serviceWorkers: "block" });
 
 async function dismissOnboardingIfVisible(page: Page) {
-  const skip = page.locator(".onboarding-skip-all");
+  const skip = page.getByRole("button", { name: "Skip all", exact: true });
   if (await skip.isVisible().catch(() => false)) await skip.click();
 }
 

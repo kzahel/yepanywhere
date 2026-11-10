@@ -38,7 +38,7 @@ test("agent API discovery previews its bootstrap and acknowledges typing during 
   try {
     await page.setViewportSize({ width: 1000, height: 600 });
     await page.goto(`${baseURL}/settings/local-access`);
-    const skip = page.locator(".onboarding-skip-all");
+    const skip = page.getByRole("button", { name: "Skip all", exact: true });
     if (await skip.isVisible()) await skip.click();
     const toggle = page.getByRole("switch", {
       name: "Agent API discovery",

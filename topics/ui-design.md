@@ -61,6 +61,10 @@ context exceptions ([global contract](css-architecture.md#contract)).
 Login pages share `LoginLayout.module.css`; host/monitor/share pages and relay
 setup own modules. `YepAnywhereLogo` owns its login/monitor variants; callers
 do not reach into its glyph or wordmark. These ownership moves preserve appearance.
+Settings row/search visibility, category icons/navigation, toolbar specimens,
+shared device/command content and onboarding now use their owning modules.
+The settings and onboarding move preserves all shared control states and
+geometry; preview-specific data attributes mark the remaining composer boundary.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 

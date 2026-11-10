@@ -1,3 +1,5 @@
+import deviceListStyles from "./DeviceList.module.css";
+import rowsStyles from "./SettingsRows.module.css";
 import { useCallback, useMemo, useState } from "react";
 import { NativeNotificationStatus } from "../../components/NativeNotificationStatus";
 import { PushNotificationToggle } from "../../components/PushNotificationToggle";
@@ -488,7 +490,7 @@ export function NotificationsSettings() {
             : t("notificationsThisBrowserDescription")
         }
       >
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           {inApp ? <NativeNotificationStatus /> : <PushNotificationToggle />}
         </div>
       </SettingsSection>
@@ -499,12 +501,14 @@ export function NotificationsSettings() {
       >
         <HideInSettingsSearch>
           {serverTogglesGated && !devicesLoading && (
-            <div className="settings-info-box settings-subsection-hint">
+            <div
+              className={`${rowsStyles.infoBox} ${rowsStyles.subsectionHint}`}
+            >
               <p>{t("notificationsNoSubscribedDevices")}</p>
             </div>
           )}
         </HideInSettingsSearch>
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           {SERVER_NOTIFICATION_ROWS.map((row) => (
             <SettingsItem
               key={row.key}
@@ -530,21 +534,21 @@ export function NotificationsSettings() {
         description={t("notificationsDevicesDescription")}
       >
         <HideInSettingsSearch>
-          <div className="settings-group">
+          <div className={rowsStyles.group} data-settings-group>
             {isLoading ? (
-              <p className="settings-hint">
+              <p className={rowsStyles.hint}>
                 {t("notificationsLoadingDevices")}
               </p>
             ) : unifiedDevices.length === 0 ? (
-              <p className="settings-hint">{t("notificationsNoDevices")}</p>
+              <p className={rowsStyles.hint}>{t("notificationsNoDevices")}</p>
             ) : (
-              <div className="device-list">
+              <div className={deviceListStyles.list}>
                 {unifiedDevices.map((device) => (
                   <div
                     key={device.browserProfileId}
-                    className="device-list-item"
+                    className={deviceListStyles.listItem}
                   >
-                    <div className="device-list-info">
+                    <div className={deviceListStyles.listInfo}>
                       <strong>
                         {device.displayName}
                         {device.browserType && ` ${device.browserType}`}
@@ -557,7 +561,9 @@ export function NotificationsSettings() {
                       <p>
                         {/* Status indicator */}
                         {device.isConnected ? (
-                          <span className="device-status device-status-online">
+                          <span
+                            className={`${deviceListStyles.status} ${deviceListStyles.statusOnline}`}
+                          >
                             {device.tabCount === 1
                               ? t("notificationsOneTab")
                               : t("notificationsTabs", {
@@ -565,19 +571,21 @@ export function NotificationsSettings() {
                                 })}
                           </span>
                         ) : (
-                          <span className="device-status device-status-offline">
+                          <span
+                            className={`${deviceListStyles.status} ${deviceListStyles.statusOffline}`}
+                          >
                             {t("notificationsOffline")}
                           </span>
                         )}
                         {/* No push indicator for connected-only devices */}
                         {!device.isSubscribed && (
-                          <span className="device-no-push">
+                          <span className={deviceListStyles.noPush}>
                             {t("notificationsNoPush")}
                           </span>
                         )}
                         {/* Subscription date for subscribed devices */}
                         {device.subscribedAt && (
-                          <span className="device-subscribed-date">
+                          <span className={deviceListStyles.subscribedDate}>
                             {t("notificationsSubscribed", {
                               date: formatDate(device.subscribedAt, t),
                             })}
@@ -587,7 +595,7 @@ export function NotificationsSettings() {
                     </div>
                     {/* Only show remove button for subscribed devices */}
                     {device.isSubscribed && (
-                      <div className="device-list-actions">
+                      <div className={deviceListStyles.listActions}>
                         <Button
                           onClick={() => sendTestToDevice(device)}
                           disabled={testingDeviceIds.has(
@@ -625,27 +633,27 @@ export function NotificationsSettings() {
                 </span>
               </summary>
               <div className={styles.diagnosticsBody}>
-                <div className="settings-group">
+                <div className={rowsStyles.group} data-settings-group>
                   <div
-                    className={`settings-item push-test-controls ${styles.testRow}`}
+                    className={`${rowsStyles.item} push-test-controls ${styles.testRow}`}
                   >
-                    <div className="settings-item-info">
+                    <div className={rowsStyles.itemInfo} data-settings-info>
                       <strong>{t("notificationsTestPushTitle")}</strong>
                       <p>{t("notificationsTestPushDescription")}</p>
-                      <div className="push-test-status" aria-live="polite">
+                      <div className={styles.pushTestStatus} aria-live="polite">
                         {testStatus?.kind === "error" ? (
                           <Banner tone="error" role="none" compact>
                             {testStatus.message}
                           </Banner>
                         ) : (
-                          <p className="settings-hint">
+                          <p className={rowsStyles.hint}>
                             {testStatus?.message ?? "\u00a0"}
                           </p>
                         )}
                       </div>
                     </div>
                     <div
-                      className={`settings-item-actions ${styles.testActions}`}
+                      className={`${rowsStyles.itemActions} ${styles.testActions}`}
                     >
                       <Select
                         aria-label={t("pushToggleDisplayBehavior")}

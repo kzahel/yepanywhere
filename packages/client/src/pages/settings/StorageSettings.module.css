@@ -1,4 +1,4 @@
-.setting:global(.settings-item) {
+.setting[data-settings-item] {
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-3);

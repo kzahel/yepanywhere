@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import {
   AGENT_SERVER_ACCESS_CAPABILITY,
   SERVER_CAPABILITIES,
@@ -528,14 +529,14 @@ export function LocalAccessSettings() {
           t("fileAccessCustomDescription"),
         ]}
         layout="custom"
-        className="file-access-settings-panel"
+        className={styles.panel}
         containerProps={{
           role: "group",
           "aria-labelledby": "file-access-settings-title",
           "aria-describedby": "file-access-settings-description",
         }}
       >
-        <div className="file-access-settings-header">
+        <div className={styles.header}>
           <strong id="file-access-settings-title">
             {t("fileAccessTitle")}
           </strong>
@@ -545,9 +546,11 @@ export function LocalAccessSettings() {
         </div>
 
         {fileAccessInfo?.envPinned ? (
-          <div className="file-access-settings-list">
-            <div className="file-access-setting-row file-access-setting-row--readonly">
-              <div className="settings-item-info">
+          <div className={styles.list}>
+            <div
+              className={`${styles.fileAccessSettingRow} ${styles.fileAccessSettingRowReadonly}`}
+            >
+              <div className={rowsStyles.itemInfo} data-settings-info>
                 <strong>{t("fileAccessAllowedFoldersTitle")}</strong>
                 <p>{t("fileAccessEnvPinnedHint")}</p>
               </div>
@@ -555,7 +558,7 @@ export function LocalAccessSettings() {
                 {fileAccessInfo.envPaths.length > 0
                   ? fileAccessInfo.envPaths.join(", ")
                   : t("fileAccessNone")}{" "}
-                <span className="settings-hint">
+                <span className={rowsStyles.hint}>
                   {t("fileAccessSetViaEnv")}
                 </span>
               </span>
@@ -563,9 +566,9 @@ export function LocalAccessSettings() {
           </div>
         ) : (
           <>
-            <div className="file-access-settings-list">
-              <div className="file-access-setting-row">
-                <div className="settings-item-info">
+            <div className={styles.list}>
+              <div className={styles.fileAccessSettingRow}>
+                <div className={rowsStyles.itemInfo} data-settings-info>
                   <strong>{t("fileAccessProjects")}</strong>
                   <p>{t("fileAccessProjectsDescription")}</p>
                 </div>
@@ -577,8 +580,8 @@ export function LocalAccessSettings() {
                   }
                 />
               </div>
-              <div className="file-access-setting-row">
-                <div className="settings-item-info">
+              <div className={styles.fileAccessSettingRow}>
+                <div className={rowsStyles.itemInfo} data-settings-info>
                   <strong>{t("fileAccessUploads")}</strong>
                 </div>
                 <Switch
@@ -589,11 +592,11 @@ export function LocalAccessSettings() {
                   }
                 />
               </div>
-              <div className="file-access-setting-row">
-                <div className="settings-item-info">
+              <div className={styles.fileAccessSettingRow}>
+                <div className={rowsStyles.itemInfo} data-settings-info>
                   <strong>{t("fileAccessTemp")}</strong>
                   {fileAccessInfo && fileAccessInfo.tempPaths.length > 0 && (
-                    <p className="settings-hint">
+                    <p className={rowsStyles.hint}>
                       {fileAccessInfo.tempPaths.join(", ")}
                     </p>
                   )}
@@ -606,8 +609,8 @@ export function LocalAccessSettings() {
                   }
                 />
               </div>
-              <div className="file-access-setting-row">
-                <div className="settings-item-info">
+              <div className={styles.fileAccessSettingRow}>
+                <div className={rowsStyles.itemInfo} data-settings-info>
                   <strong>{t("fileAccessHome")}</strong>
                   <p>{t("fileAccessHomeDescription")}</p>
                 </div>
@@ -622,8 +625,10 @@ export function LocalAccessSettings() {
                   }
                 />
               </div>
-              <div className="file-access-setting-row file-access-setting-row--field">
-                <div className="settings-item-info">
+              <div
+                className={`${styles.fileAccessSettingRow} ${styles.fileAccessSettingRowField}`}
+              >
+                <div className={rowsStyles.itemInfo} data-settings-info>
                   <strong>{t("fileAccessCustomTitle")}</strong>
                   <p>{t("fileAccessCustomDescription")}</p>
                 </div>
@@ -954,9 +959,9 @@ export function LocalAccessSettings() {
     <SettingsSection description={t("localAccessDescription")}>
       {/* Current status */}
       <HideInSettingsSearch>
-        <div className="settings-group">
-          <div className="settings-item">
-            <div className="settings-item-info">
+        <div className={rowsStyles.group} data-settings-group>
+          <div className={rowsStyles.item}>
+            <div className={rowsStyles.itemInfo} data-settings-info>
               <strong>{t("localAccessStatusTitle")}</strong>
               <p>
                 {serverInfo
@@ -1021,7 +1026,8 @@ export function LocalAccessSettings() {
 
       {/* Network Configuration */}
       <form
-        className="settings-group"
+        className={rowsStyles.group}
+        data-settings-group
         onSubmit={(e) => {
           e.preventDefault();
           handleApplyChanges();
@@ -1040,7 +1046,7 @@ export function LocalAccessSettings() {
               {binding?.localhost.overriddenByCli ? (
                 <span className="settings-value-readonly">
                   {binding.localhost.port}{" "}
-                  <span className="settings-hint">
+                  <span className={rowsStyles.hint}>
                     {t("localAccessSetViaPort")}
                   </span>
                 </span>
@@ -1069,7 +1075,7 @@ export function LocalAccessSettings() {
               {binding?.network.overriddenByCli ? (
                 <span className="settings-value-readonly">
                   {binding.network.host}:{binding.network.port}{" "}
-                  <span className="settings-hint">
+                  <span className={rowsStyles.hint}>
                     {t("localAccessSetViaHost")}
                   </span>
                 </span>
@@ -1129,7 +1135,7 @@ export function LocalAccessSettings() {
             <SettingsItem
               label={t("localAccessCustomIpTitle")}
               description={t("localAccessCustomIpDescription")}
-              className="settings-item-inline-field"
+              className={rowsStyles.itemInlineField}
             >
               <TextInput
                 className={styles.inlineField}
@@ -1159,7 +1165,7 @@ export function LocalAccessSettings() {
           <SettingsItem
             label={t("localAccessAllowedHostsTitle")}
             description={t("localAccessAllowedHostsDescription")}
-            className="settings-item-inline-field"
+            className={rowsStyles.itemInlineField}
           >
             <TextInput
               className={styles.inlineField}
@@ -1208,7 +1214,7 @@ export function LocalAccessSettings() {
           !localAuth.authDisabledByEnv &&
           (requirePassword || localAuth.authEnabled) && (
             <div
-              className={`settings-subsection ${styles.passwordBlock}`}
+              className={`${rowsStyles.subsection} ${styles.passwordBlock}`}
               data-local-access-password-block="true"
             >
               <HideInSettingsSearch>
@@ -1254,7 +1260,7 @@ export function LocalAccessSettings() {
                         ? t("localAccessPasswordKeepCurrent")
                         : t("localAccessPasswordMinLength")
                     }
-                    className="settings-item-inline-field"
+                    className={rowsStyles.itemInlineField}
                   >
                     <TextInput
                       type="password"
@@ -1281,7 +1287,7 @@ export function LocalAccessSettings() {
                   {(enablingAuth || changingPassword) && (
                     <SettingsItem
                       label={t("localAccessConfirmPasswordTitle")}
-                      className="settings-item-inline-field"
+                      className={rowsStyles.itemInlineField}
                     >
                       <TextInput
                         type="password"
@@ -1396,7 +1402,7 @@ export function LocalAccessSettings() {
 
         {/* Apply button - always visible */}
         <HideInSettingsSearch>
-          <div className="settings-item">
+          <div className={rowsStyles.item}>
             {formError && <Banner tone="error">{formError}</Banner>}
             <Button
               type="submit"
@@ -1410,11 +1416,13 @@ export function LocalAccessSettings() {
         </HideInSettingsSearch>
       </form>
 
-      <div className="settings-group">{renderApprovalAuditSettings()}</div>
+      <div className={rowsStyles.group} data-settings-group>
+        {renderApprovalAuditSettings()}
+      </div>
 
       {/* The session's own logout: a cookie login or this Remote Access link. */}
       {auth?.authEnabled && auth.isAuthenticated && (
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           <SettingsItem
             id="local-access-logout"
             label={t("remoteAccessLogoutTitle")}
@@ -1427,7 +1435,7 @@ export function LocalAccessSettings() {
         </div>
       )}
       {remoteConnection && (
-        <div className="settings-group">
+        <div className={rowsStyles.group} data-settings-group>
           <SettingsItem
             id="local-access-remote-logout"
             label={t("remoteAccessLogoutTitle")}

@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import {
   type HTMLAttributes,
   type ReactNode,
@@ -120,7 +121,7 @@ export function SettingsItem({
   doc,
   valueText,
   className,
-  baseClassName = "settings-item",
+  baseClassName = rowsStyles.item,
   layout = "standard",
   containerProps,
   info,
@@ -212,8 +213,8 @@ export function SettingsItem({
       ? styles.descriptionFullWidthOnNarrow
       : null,
     layout === "custom" ? "settings-item--custom-layout" : null,
-    scope ? "settings-search-match" : null,
-    flash ? "settings-item--jump-flash" : null,
+    scope ? rowsStyles.searchMatch : null,
+    flash ? rowsStyles.itemJumpFlash : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -221,7 +222,8 @@ export function SettingsItem({
   const origin = scope && originLabel && (
     <Button
       variant="link"
-      className="settings-search-origin"
+      className={rowsStyles.searchOrigin}
+      data-settings-origin
       aria-label={t("settingsSearchJumpTo", { location: originLabel })}
       onClick={() => scope.jumpToItem(resolvedId)}
     >
@@ -257,6 +259,8 @@ export function SettingsItem({
         }}
         className={itemClassName}
         data-settings-item={resolvedId}
+        data-settings-search-match={scope ? "" : undefined}
+        data-settings-jump-flash={flash ? "" : undefined}
         data-description-layout={
           descriptionLayout === "default" ? undefined : descriptionLayout
         }
@@ -270,7 +274,7 @@ export function SettingsItem({
           </>
         ) : (
           <>
-            <div className="settings-item-info">
+            <div className={rowsStyles.itemInfo} data-settings-info>
               {infoBody}
               {RowElement !== "label" && origin}
             </div>

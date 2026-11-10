@@ -177,7 +177,7 @@ for (const width of [375, 1000, 1100, 1200, 1400]) {
         await expect
           .poll(() =>
             row.evaluate((element) => {
-              const info = element.querySelector(".settings-item-info");
+              const info = element.querySelector("[data-settings-info]");
               if (!info) throw new Error("Missing setting explanation");
               return (
                 info.getBoundingClientRect().width /

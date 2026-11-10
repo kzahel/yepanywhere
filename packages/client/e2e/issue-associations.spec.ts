@@ -102,7 +102,7 @@ test("automatically discovers Jira and GitHub references from viewed and recent 
   await settings(false);
   await page.setViewportSize({ width: 1000, height: 600 });
   await page.goto(`${baseURL}/settings/issues`);
-  const skip = page.locator(".onboarding-skip-all");
+  const skip = page.getByRole("button", { name: "Skip all", exact: true });
   if (await skip.isVisible()) await skip.click();
   await expect(
     page.getByLabel("Enable automatic issue discovery (experimental)"),

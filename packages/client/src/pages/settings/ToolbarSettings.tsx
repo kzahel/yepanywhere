@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import type {
   BusyComposerDefaultAction,
   CollapsedComposerButtonPreference,
@@ -186,10 +187,10 @@ function ControlPresenceSlider({
   const captionId = `${inputId}-caption`;
   const clearDraft = () => setDraftNotch(null);
   return (
-    <span className="session-toolbar-presence">
+    <span className={toolbarSettingsStyles.presence}>
       <CommittedRangeInput
         id={inputId}
-        className="session-toolbar-presence-range"
+        className={toolbarSettingsStyles.presenceRange}
         min={0}
         max={max}
         step={1}
@@ -209,17 +210,17 @@ function ControlPresenceSlider({
         aria-valuetext={caption}
         aria-describedby={captionId}
       />
-      <span className="session-toolbar-presence-ticks" aria-hidden="true">
+      <span className={toolbarSettingsStyles.presenceTicks} aria-hidden="true">
         {Array.from({ length: max + 1 }, (_, tick) => (
           <span
             key={tick}
-            className={`session-toolbar-presence-tick${
-              tick <= shownNotch ? " is-reached" : ""
+            className={`${toolbarSettingsStyles.presenceTick}${
+              tick <= shownNotch ? ` ${toolbarSettingsStyles.isReached}` : ""
             }`}
           />
         ))}
       </span>
-      <span className="session-toolbar-presence-labels" aria-hidden="true">
+      <span className={toolbarSettingsStyles.presenceLabels} aria-hidden="true">
         <span>
           {t(
             control.canDisable
@@ -229,7 +230,7 @@ function ControlPresenceSlider({
         </span>
         <span>{t("appearanceToolbarShowAlways")}</span>
       </span>
-      <span className="session-toolbar-presence-caption" id={captionId}>
+      <span className={toolbarSettingsStyles.presenceCaption} id={captionId}>
         {caption}
       </span>
     </span>
@@ -529,16 +530,17 @@ export function ToolbarSettings() {
     placement: "hidden" | "shown",
   ) => (
     <div
-      className={`session-toolbar-control-row is-${placement} ${
+      className={`${toolbarSettingsStyles.controlRow} ${placement === "hidden" ? toolbarSettingsStyles.isHidden : ""} ${
         toolbarPresence[control.key] === "hidden" ||
         toolbarPresence[control.key] === "off"
           ? "is-currently-hidden"
           : "is-currently-shown"
       }`}
+      data-toolbar-control={control.key}
       key={control.key}
     >
       {control.hasToolbarPreview && (
-        <span className="session-toolbar-control-preview-cell">
+        <span className={toolbarSettingsStyles.controlPreviewCell}>
           <ToolbarControlPreview
             activationLabel={t("appearanceToolbarActivateControl", {
               control: control.title,
@@ -550,7 +552,7 @@ export function ToolbarSettings() {
           />
         </span>
       )}
-      <span className="session-toolbar-control-copy">
+      <span className={toolbarSettingsStyles.controlCopy}>
         <strong>{control.title}</strong>
         <span>{control.description}</span>
         {control.key === "waveform" && (
@@ -576,7 +578,7 @@ export function ToolbarSettings() {
           </span>
         )}
       </span>
-      <span className="session-toolbar-control-actions">
+      <span className={toolbarSettingsStyles.controlActions}>
         <ControlPresenceSlider
           control={control}
           presence={toolbarPresence[control.key]}
@@ -605,7 +607,7 @@ export function ToolbarSettings() {
 
   return (
     <SettingsSection description={t("appearanceSessionToolbarDescription")}>
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("audioMemoDefaultAction")}
           description={t("audioMemoDefaultActionDescription")}
@@ -685,7 +687,7 @@ export function ToolbarSettings() {
           description={t(
             "appearanceToolbarConversationViewTurnLimitDescription",
           )}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
         >
           <CommittedRangeNumberInput
             id="conversation-view-turn-limit"
@@ -718,7 +720,7 @@ export function ToolbarSettings() {
             "hide",
             "overflow",
           ]}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
         >
           <CommittedRangeNumberInput
             id="question-reminder-turns"
@@ -748,8 +750,8 @@ export function ToolbarSettings() {
         >
           <SessionToolbarPreview />
 
-          <div className="session-toolbar-zone">
-            <div className="session-toolbar-zone-heading">
+          <div className={toolbarSettingsStyles.zone} data-toolbar-zone>
+            <div className={toolbarSettingsStyles.zoneHeading}>
               <strong>{t("appearanceToolbarHiddenHeading")}</strong>
               <span>{t("appearanceToolbarHiddenDescription")}</span>
             </div>
@@ -767,10 +769,10 @@ export function ToolbarSettings() {
             </div>
           </div>
 
-          <div className="session-toolbar-zone-separator" />
+          <div className={toolbarSettingsStyles.zoneSeparator} />
 
-          <div className="session-toolbar-zone">
-            <div className="session-toolbar-zone-heading">
+          <div className={toolbarSettingsStyles.zone} data-toolbar-zone>
+            <div className={toolbarSettingsStyles.zoneHeading}>
               <strong>{t("appearanceToolbarShownHeading")}</strong>
               <span>{t("appearanceToolbarShownDescription")}</span>
             </div>
@@ -788,7 +790,7 @@ export function ToolbarSettings() {
             </div>
           </div>
 
-          <div className="settings-item-actions">
+          <div className={rowsStyles.itemActions}>
             <Button
               onClick={() => {
                 resetPresence();

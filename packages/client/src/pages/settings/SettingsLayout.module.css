@@ -1,0 +1,74 @@
+.breadcrumb {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow: hidden;
+}
+.breadcrumb :global(.session-title).breadcrumbRoot {
+  flex-shrink: 0;
+}
+
+.breadcrumbSep {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.breadcrumbCurrent {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-family: var(--font-ui);
+  font-size: calc(0.95em - 1pt);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumbDescription {
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.categoryList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.categoryListShell {
+  padding-inline: 0.25rem;
+}
+.twoColumn {
+  display: grid;
+  grid-template-columns: max-content minmax(0, var(--content-max-width));
+  gap: var(--space-4);
+  min-height: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+.categoryNav {
+  max-width: 18rem;
+  overflow-y: auto;
+}
+
+.twoColumn [data-settings-category-label] {
+  white-space: nowrap;
+}
+
+.contentPanel {
+  min-width: 0;
+  max-width: var(--content-max-width);
+  overflow-y: auto;
+}
+.twoColumn [data-settings-category-chevron] {
+  display: none;
+}

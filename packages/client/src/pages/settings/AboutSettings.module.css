@@ -1,0 +1,38 @@
+.pending {
+  color: var(--warning-color);
+}
+
+.updateAvailable {
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.upToDate {
+  color: var(--text-muted);
+}
+
+.updateHint {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.updateHint code {
+  background: var(--bg-hover);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
+.versionItem {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.versionItem__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+}

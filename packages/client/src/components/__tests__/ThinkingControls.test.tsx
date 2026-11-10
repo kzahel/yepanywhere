@@ -96,9 +96,9 @@ describe("ThinkingControls", () => {
       container.querySelectorAll(".thinking-controls-section"),
     );
 
-    expect(
-      sections[0]?.classList.contains("thinking-controls-section--mode"),
-    ).toBe(true);
+    expect(sections[0]?.getAttribute("data-thinking-section") === "mode").toBe(
+      true,
+    );
     expect(
       sections[1]?.classList.contains(
         "thinking-controls-section--show-thinking",

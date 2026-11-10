@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { useCallback } from "react";
 import { canServerUpdateCodex } from "../../api/codexUpdateStatus";
 import {
@@ -63,7 +64,7 @@ export function CodexUpdatePanel() {
             {status.installed} → {status.latest}
           </span>
         ) : (
-          <span className="settings-hint">
+          <span className={rowsStyles.hint}>
             {t("providersCodexUpdateUpToDate", {
               version: status.installed,
             })}
@@ -79,13 +80,13 @@ export function CodexUpdatePanel() {
             href={status.releaseUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="settings-link"
+            className={rowsStyles.link}
           >
             {t("providersCodexUpdateReleaseNotes")}
           </a>
         )}
         <div className={styles.policy}>
-          <span className="settings-hint">
+          <span className={rowsStyles.hint}>
             {t("providersCodexUpdatePolicyTitle")}
           </span>
           <SegmentedControl
@@ -112,7 +113,7 @@ export function CodexUpdatePanel() {
 
       <CodexDetectedInstall
         status={status}
-        className={`settings-hint ${styles.detected}`}
+        className={`${rowsStyles.hint} ${styles.detected}`}
       />
 
       {status.belowMinimum && status.minimumSupported && (
@@ -133,7 +134,7 @@ export function CodexUpdatePanel() {
                 : t("providersCodexUpdateNow")}
             </Button>
           ) : status.manualInstallCommand ? (
-            <span className="settings-hint">
+            <span className={rowsStyles.hint}>
               {t("providersCodexUpdateWithInstaller")}
             </span>
           ) : null}
@@ -151,7 +152,9 @@ export function CodexUpdatePanel() {
               </Button>
             </>
           )}
-          {manualHint && <span className="settings-hint">{t(manualHint)}</span>}
+          {manualHint && (
+            <span className={rowsStyles.hint}>{t(manualHint)}</span>
+          )}
         </div>
       )}
 
@@ -162,7 +165,7 @@ export function CodexUpdatePanel() {
       )}
       {installOutput && (
         <details className={styles.output}>
-          <summary className="settings-hint">
+          <summary className={rowsStyles.hint}>
             {t("providersCodexUpdateInstallOutput")}
           </summary>
           <pre className={styles.outputText}>{installOutput}</pre>

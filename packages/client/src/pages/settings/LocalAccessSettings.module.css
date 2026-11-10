@@ -1,3 +1,59 @@
+.panel {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.header strong {
+  color: var(--text-primary);
+}
+
+.header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.fileAccessSettingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.fileAccessSettingRow:first-child {
+  border-top: 0;
+}
+
+.fileAccessSettingRowField,
+.fileAccessSettingRowReadonly {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.fileAccessSettingRowField [data-settings-info],
+.fileAccessSettingRowReadonly [data-settings-info] {
+  flex: 1 1 18rem;
+}
+
 .agentApiPreview {
   min-width: 0;
   max-width: 100%;

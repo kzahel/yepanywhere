@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import type { CacheMissBillingRecord } from "@yep-anywhere/shared";
 import { useI18n } from "../../i18n";
 import styles from "./CacheMissInactivityChart.module.css";
@@ -131,7 +132,7 @@ export function CacheMissInactivityChart({
     );
   const buckets = bucketByInactivity(events);
   if (buckets.length === 0) {
-    return <p className="settings-empty">{t("cacheMissChartEmpty")}</p>;
+    return <p className={rowsStyles.empty}>{t("cacheMissChartEmpty")}</p>;
   }
 
   const peak = Math.max(...buckets.map((bucket) => bucket.wastedTokens), 1);
@@ -142,7 +143,7 @@ export function CacheMissInactivityChart({
 
   return (
     <div className={styles.chart}>
-      <p className="settings-hint">
+      <p className={rowsStyles.hint}>
         {t("cacheMissChartTotal", { tokens: formatTokens(totalWasted) })}
       </p>
       <ol className={styles.bars}>
@@ -197,12 +198,12 @@ export function CacheMissProbabilityChart({
   );
   const buckets = bucketByInactivity(completeEvents);
   if (buckets.length === 0) {
-    return <p className="settings-empty">{t("cacheMissProbabilityEmpty")}</p>;
+    return <p className={rowsStyles.empty}>{t("cacheMissProbabilityEmpty")}</p>;
   }
 
   return (
     <div className={styles.chart}>
-      <p className="settings-hint">{t("cacheMissProbabilitySampleNote")}</p>
+      <p className={rowsStyles.hint}>{t("cacheMissProbabilitySampleNote")}</p>
       <ol className={styles.bars}>
         {buckets.map((bucket) => {
           const rate = missRate(bucket);
@@ -277,12 +278,12 @@ export function CacheMissProviderChart({
     );
   const buckets = bucketByProvider(events);
   if (buckets.length === 0) {
-    return <p className="settings-empty">{t("cacheMissProviderEmpty")}</p>;
+    return <p className={rowsStyles.empty}>{t("cacheMissProviderEmpty")}</p>;
   }
 
   return (
     <div className={styles.chart}>
-      <p className="settings-hint">{t("cacheMissProbabilitySampleNote")}</p>
+      <p className={rowsStyles.hint}>{t("cacheMissProbabilitySampleNote")}</p>
       <ol className={styles.bars}>
         {buckets.map((bucket) => {
           const rate = missRate(bucket);

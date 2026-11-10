@@ -43,7 +43,7 @@ principle this design follows).
   category order. Each matched row is the real control, operable in place —
   toggling/selecting in the result list is the same act as in the pane —
   with matched substrings marked in the label/description (subtle
-  accent-tinted `settings-search-mark`, not browser-default highlight).
+  accent-tinted module-owned mark, not browser-default highlight).
   Each row also carries a jump link labeled `{Category} › {Section} ›`
   that leaves search, opens the category pane, scrolls the row into view
   centered, and flashes it briefly (`prefers-reduced-motion` suppresses
@@ -99,7 +99,7 @@ checkbox rather than choosing one behavior:
 
 Per [ui-architecture](ui-architecture.md)'s render-boundary principle, the
 searchable corpus is declared where the row renders: `SettingsItem`
-(pages/settings/SettingsItem.tsx) renders the canonical `.settings-item`
+(pages/settings/SettingsItem.tsx) renders the canonical `[data-settings-item]`
 markup and, inside a search scope, filters itself, highlights, and offers
 the jump link. Its custom layout and custom base-class forms preserve panels
 whose DOM cannot use the standard info/control columns while retaining the
@@ -117,9 +117,9 @@ undo/title registrations are no-op'd inside the search mount; Undo remains
 a pane-context affordance.
 
 Visibility inside a mounted search pane is a small CSS contract (see the
-"Settings search" block in `packages/client/src/styles/index.css`): matched
-rows render with `settings-search-match`; a fully-matched section adds
-`settings-search-section-match` and reveals everything inside it;
+visibility rules in `packages/client/src/pages/settings/SettingsRows.module.css`): matched
+rows expose `data-settings-search-match`; a fully-matched section exposes
+`data-settings-section-match` and reveals everything inside it;
 `:has()` collapses groups, sections, and panes left with no match; and
 non-row content is either row-owned (`after` prop), wrapped in
 `HideInSettingsSearch`, or hidden by default in search mode.

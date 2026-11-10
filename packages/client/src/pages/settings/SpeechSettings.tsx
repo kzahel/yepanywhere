@@ -1,3 +1,6 @@
+import rowLayoutStyles from "./SettingsRows.module.css";
+import rowsStyles from "./SettingsRows.module.css";
+import speechStyles from "./SpeechSettings.module.css";
 import {
   VOICE_INPUT_CAPABILITY,
   SPEECH_BACKEND_SETUP_CAPABILITY,
@@ -336,7 +339,7 @@ export function SpeechSettings() {
       description={t("speechSettingsDescription")}
       doc="site/src/content/docs/notifications-and-voice.md#browser-voice-input"
     >
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         {canAdministerHost && (
           <SettingsItem
             id="speech-vocabulary"
@@ -383,7 +386,7 @@ export function SpeechSettings() {
               <strong>{t("speechSettingsVoiceInputTitle")}</strong>
               <p>{t("speechSettingsVoiceInputDescription")}</p>
               {!serverVoiceEnabled && (
-                <p className="settings-hint">
+                <p className={rowsStyles.hint}>
                   {t("speechSettingsServerDisabled")}
                 </p>
               )}
@@ -402,9 +405,9 @@ export function SpeechSettings() {
           <SettingsItem
             label={t("speechSettingsParakeetModelTitle")}
             description={t("speechSettingsParakeetModelDescription")}
-            className="model-settings-item"
+            className={rowLayoutStyles.modelItem}
           >
-            <div className="speech-backend-settings-field">
+            <div className={speechStyles.field}>
               <Select
                 id={parakeetModelPresetId}
                 value={selectedParakeetPreset}
@@ -469,7 +472,7 @@ export function SpeechSettings() {
                 onKeyDown={handleParakeetModelKeyDown}
                 aria-label={t("speechSettingsParakeetModelInputLabel")}
               />
-              <p className="settings-hint">
+              <p className={rowsStyles.hint}>
                 {t("speechSettingsParakeetModelHint")}
               </p>
             </div>
@@ -480,7 +483,7 @@ export function SpeechSettings() {
           <SettingsItem
             label={t("speechSettingsWhisperModelTitle")}
             description={t("speechSettingsWhisperModelDescription")}
-            className="model-settings-item"
+            className={rowLayoutStyles.modelItem}
           >
             <WhisperModelControls
               model={whisperSpeechModel}
@@ -493,18 +496,18 @@ export function SpeechSettings() {
           label={t("speechSettingsBackendTitle")}
           description={t("speechSettingsBackendDescription")}
           valueText={selectedBackendLabel}
-          className="model-settings-item"
+          className={rowLayoutStyles.modelItem}
           after={
             relayTransport &&
             !relayedServerSpeechAvailable &&
             selectedBackend === "ya-grok" && (
-              <p className="settings-hint">
+              <p className={rowsStyles.hint}>
                 {t("speechSettingsStreamingRelayUnavailable")}
               </p>
             )
           }
         >
-          <div className="speech-backend-settings-field">
+          <div className={speechStyles.field}>
             <FilterDropdown
               label={t("speechSettingsBackendTitle")}
               options={backendOptions}
@@ -537,7 +540,7 @@ export function SpeechSettings() {
               fullWidth
             />
             {serverBackends.length === 0 && (
-              <p className="settings-hint">
+              <p className={rowsStyles.hint}>
                 {t("speechSettingsNoServerBackends")}
               </p>
             )}
@@ -547,7 +550,7 @@ export function SpeechSettings() {
         <SettingsItem
           label={t("speechSettingsXaiKeyTitle")}
           description={t("speechSettingsXaiKeyDescription")}
-          className="model-settings-item"
+          className={rowLayoutStyles.modelItem}
         >
           <TextInput
             type="password"
@@ -614,7 +617,7 @@ export function SpeechSettings() {
             backend: selectedBackendLabel,
           })}
           doc="topics/mic-button-speech-ui.md#speech-input-ux-overview"
-          className="model-settings-item"
+          className={rowLayoutStyles.modelItem}
         >
           {supportsSelectedSmartTurn ? (
             <SpeechSmartTurnControls
@@ -622,14 +625,14 @@ export function SpeechSettings() {
               onChange={setSpeechSmartTurnSettings}
             />
           ) : (
-            <p className="settings-hint">{smartTurnUnavailableHint}</p>
+            <p className={rowsStyles.hint}>{smartTurnUnavailableHint}</p>
           )}
         </SettingsItem>
 
         <SettingsItem
           label={t("speechSettingsMessagePrefixTitle")}
           description={t("speechSettingsMessagePrefixDescription")}
-          className="model-settings-item"
+          className={rowLayoutStyles.modelItem}
         >
           <SpeechMessagePrefixControls showDescription={false} />
         </SettingsItem>

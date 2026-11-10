@@ -1,3 +1,4 @@
+import onboardingStyles from "./OnboardingStep.module.css";
 import { useState } from "react";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
@@ -90,12 +91,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         <>
           {/* The last step's own Skip finishes, so Skip all would repeat it. */}
           {!isLastStep && (
-            // `onboarding-skip-all` is a hook: e2e specs dismiss the wizard by it.
-            <Button
-              variant="ghost"
-              className="onboarding-skip-all"
-              onClick={handleSkipAll}
-            >
+            <Button variant="ghost" onClick={handleSkipAll}>
               Skip all
             </Button>
           )}
@@ -110,7 +106,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         />
       }
     >
-      <h2 className="onboarding-step-title">{currentStep.title}</h2>
+      <h2 className={onboardingStyles.stepTitle}>{currentStep.title}</h2>
       <StepComponent />
     </Dialog>
   );

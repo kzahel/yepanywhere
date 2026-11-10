@@ -95,7 +95,7 @@ describe("SettingsItem under search scope", () => {
       </SettingsSearchScopeProvider>,
     );
     expect(screen.getByLabelText("Theme")).toBeTruthy();
-    const mark = document.querySelector("mark.settings-search-mark");
+    const mark = document.querySelector("mark");
     expect(mark?.textContent).toBe("Theme");
   });
 
@@ -312,7 +312,7 @@ describe("SettingsSection under search scope", () => {
     expect(screen.getByLabelText("Theme")).toBeTruthy();
     expect(screen.getByLabelText("Tab Size")).toBeTruthy();
     expect(
-      document.querySelector(".settings-search-section-match"),
+      document.querySelector("[data-settings-section-match]"),
     ).toBeTruthy();
   });
 });
@@ -333,7 +333,7 @@ describe("SettingsItem jump target (normal mode)", () => {
     );
     expect(consume).toHaveBeenCalled();
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect(document.querySelector(".settings-item--jump-flash")).toBeTruthy();
+    expect(document.querySelector("[data-settings-jump-flash]")).toBeTruthy();
   });
 
   it("ignores a jump target for another row", () => {
@@ -346,7 +346,7 @@ describe("SettingsItem jump target (normal mode)", () => {
       </SettingsJumpTargetProvider>,
     );
     expect(consume).not.toHaveBeenCalled();
-    expect(document.querySelector(".settings-item--jump-flash")).toBeNull();
+    expect(document.querySelector("[data-settings-jump-flash]")).toBeNull();
   });
 });
 

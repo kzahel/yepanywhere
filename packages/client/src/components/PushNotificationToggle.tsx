@@ -1,3 +1,4 @@
+import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import { useNotifyInApp } from "../hooks/useNotifyInApp";
 import {
   PUSH_PERMISSION_REQUEST_TIMED_OUT,
@@ -54,7 +55,7 @@ export function PushNotificationToggle() {
             <p>{error || t("pushToggleUnsupported")}</p>
             {isDevModeDisabled && (
               <div
-                className="settings-info-box"
+                className={rowsStyles.infoBox}
                 style={{ marginTop: "0.5rem" }}
               >
                 <p>{t("pushToggleThisDeviceOnly")}</p>

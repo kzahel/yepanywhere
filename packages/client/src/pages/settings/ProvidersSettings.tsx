@@ -1,3 +1,5 @@
+import commandStyles from "./SettingsCommand.module.css";
+import rowsStyles from "./SettingsRows.module.css";
 import { AgentAuthRouterSettings } from "../../components/AgentAuthRouterControls";
 import { Link } from "react-router-dom";
 import { useRemoteBasePath } from "../../hooks/useRemoteBasePath";
@@ -320,21 +322,21 @@ function ClaudeGatewaySettings({
   return (
     <div
       id="provider-claude-gateway-configuration"
-      className="settings-subsection"
+      className={rowsStyles.subsection}
     >
       <h3>{t("providersClaudeGatewayTitle")}</h3>
-      <p className="settings-hint">
+      <p className={rowsStyles.hint}>
         {t("providersClaudeGatewayDescription")}{" "}
         <SettingsDocLink doc="topics/gateway-services.md" />
       </p>
       <form
-        className="claude-gateway-settings-control"
+        className={styles.claudeGatewaySettingsControl}
         onSubmit={(event) => {
           event.preventDefault();
           if (canSave) void handleSave();
         }}
       >
-        <div className="claude-gateway-settings-row">
+        <div className={styles.claudeGatewaySettingsRow}>
           <TextInput
             type="url"
             className={styles.gatewayUrl}
@@ -366,7 +368,7 @@ function ClaudeGatewaySettings({
           />
         </Field>
 
-        <p className="settings-hint">
+        <p className={rowsStyles.hint}>
           {t("providersClaudeGatewayIsolationHint")}
         </p>
       </form>
@@ -392,7 +394,7 @@ function ClaudeGatewayToggleSetting({
   const hintId = useId();
 
   return (
-    <div id={id} className="settings-subsection">
+    <div id={id} className={rowsStyles.subsection}>
       <Switch
         label={title}
         aria-describedby={hintId}
@@ -418,9 +420,9 @@ function ProviderLoginCommandPanel({
   const { t } = useI18n();
 
   return (
-    <div className="settings-command-panel">
+    <div className={commandStyles.panel}>
       <div
-        className="settings-command-preview"
+        className={commandStyles.preview}
         role="group"
         aria-label={t("providersLoginCommandPreviewAria", { provider })}
       >
@@ -624,12 +626,12 @@ function ClaudeAdditionalModelsSettings({
         label={t("providersAdditionalModelsTitle")}
         description={t("providersAdditionalModelsDescription")}
         valueText={summary}
-        className="providers-additional-models-setting"
+        className={styles.additionalModelsSetting}
       >
         <Button
           ref={triggerRef}
           variant="outline"
-          className="providers-additional-models-trigger"
+          className={styles.additionalModelsTrigger}
           onClick={openEditor}
           aria-haspopup="dialog"
         >
@@ -646,11 +648,11 @@ function ClaudeAdditionalModelsSettings({
           anchorRect={anchorRect}
         >
           {error && <Banner tone="error">{error}</Banner>}
-          <div className="providers-additional-models-list">
+          <div className={styles.additionalModelsList}>
             {choices.map((model) => (
               <Checkbox
                 key={model.id}
-                className="providers-additional-model-option"
+                className={styles.additionalModelOption}
                 label={
                   <>
                     <strong>{model.name}</strong> <code>{model.id}</code>
@@ -663,12 +665,12 @@ function ClaudeAdditionalModelsSettings({
               />
             ))}
           </div>
-          <details className="providers-additional-models-custom">
+          <details className={styles.additionalModelsCustom}>
             <summary>{t("providersAdditionalModelsCustomTitle")}</summary>
-            <p className="settings-hint">
+            <p className={rowsStyles.hint}>
               {t("providersAdditionalModelsCustomHint")}
             </p>
-            <div className="providers-additional-models-custom-row">
+            <div className={styles.additionalModelsCustomRow}>
               <TextInput
                 className={styles.customModelId}
                 value={customId}
@@ -691,7 +693,9 @@ function ClaudeAdditionalModelsSettings({
               </Button>
             </div>
           </details>
-          {isSaving && <p className="settings-hint">{t("providersSaving")}</p>}
+          {isSaving && (
+            <p className={rowsStyles.hint}>{t("providersSaving")}</p>
+          )}
         </Dialog>
       )}
     </>
@@ -750,7 +754,7 @@ function LongContextEffortWarningControl({
         "fork",
         "warning",
       ]}
-      className="settings-item--wide-control"
+      className={rowsStyles.itemWideControl}
       valueText={
         enabledCount === 0
           ? t("providersLongContextEffortWarningOff")
@@ -775,7 +779,7 @@ function LongContextEffortWarningControl({
             void save({ ...value, thresholdTokens: Math.round(tokens) });
           }}
         />
-        <p className="settings-hint">
+        <p className={rowsStyles.hint}>
           {t("providersLongContextEffortWarningThresholdHint")}
         </p>
         <div className={styles.providerToggles}>
@@ -923,12 +927,12 @@ export function ProvidersSettings() {
         SERVER_CAPABILITIES.agentAuthRouter.name,
       ) && <AgentAuthRouterSettings />}
 
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           id="providers-subagent-max-depth"
           label={t("providersSubagentMaxDepthLabel")}
           description={t("providersSubagentMaxDepthDescription")}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
           valueText={
             subagentMaxDepth === null
               ? t("providersSubagentMaxDepthProviderDefault")
@@ -967,7 +971,7 @@ export function ProvidersSettings() {
               <option value="3" />
               <option value={MAX_SUBAGENT_MAX_DEPTH} />
             </datalist>
-            <p className="settings-hint">
+            <p className={rowsStyles.hint}>
               {t("providersSubagentMaxDepthCoverage")}
             </p>
           </div>
@@ -976,7 +980,7 @@ export function ProvidersSettings() {
           id="providers-idle-reap-hours"
           label={t("providersIdleReapHoursLabel")}
           description={t("providersIdleReapHoursDescription")}
-          className="settings-item--wide-control"
+          className={rowsStyles.itemWideControl}
           valueText={
             idleReapHours < 0
               ? t("providersIdleReapNever")
@@ -1015,7 +1019,7 @@ export function ProvidersSettings() {
               <option value="48" />
               <option value={MAX_IDLE_REAP_HOURS} />
             </datalist>
-            <p className="settings-hint">{t("providersIdleReapNeverHint")}</p>
+            <p className={rowsStyles.hint}>{t("providersIdleReapNeverHint")}</p>
           </div>
         </SettingsItem>
         {settings?.instructionRestoration !== undefined && (
@@ -1075,7 +1079,7 @@ export function ProvidersSettings() {
               }
               info={
                 <>
-                  <div className="settings-item-header">
+                  <div className={rowsStyles.itemHeader}>
                     <strong>{provider.displayName}</strong>
                     {provider.installed ? (
                       <Badge tone="success">{t("providersRuntimeReady")}</Badge>
@@ -1086,7 +1090,7 @@ export function ProvidersSettings() {
                   <p>{provider.metadata.description}</p>
                   {(provider.id === "claude" || provider.id === "codex") &&
                     provider.applicationDetected !== undefined && (
-                      <p className="settings-hint">
+                      <p className={rowsStyles.hint}>
                         {t("providersDesktopApplicationStatus", {
                           status: provider.applicationDetected
                             ? t("providersDetected")
@@ -1095,7 +1099,7 @@ export function ProvidersSettings() {
                       </p>
                     )}
                   {provider.installed && (
-                    <p className="settings-hint">
+                    <p className={rowsStyles.hint}>
                       {t("providersAuthenticationStatus", {
                         status:
                           provider.authenticated || provider.enabled
@@ -1105,7 +1109,7 @@ export function ProvidersSettings() {
                     </p>
                   )}
                   {provider.metadata.limitations.length > 0 && (
-                    <ul className="settings-limitations">
+                    <ul className={rowsStyles.limitations}>
                       {provider.metadata.limitations.map((limitation) => (
                         <li key={limitation}>{limitation}</li>
                       ))}
@@ -1115,7 +1119,7 @@ export function ProvidersSettings() {
                     provider.installed &&
                     !provider.authenticated && (
                       <div style={{ marginTop: "var(--space-2)" }}>
-                        <p className="settings-hint">
+                        <p className={rowsStyles.hint}>
                           {t("providersLoginHint", {
                             provider: provider.displayName,
                           })}
@@ -1150,7 +1154,7 @@ export function ProvidersSettings() {
                   {(provider.id === "claude" || provider.id === "codex") &&
                     provider.applicationDetected === true &&
                     !provider.installed && (
-                      <p className="settings-hint">
+                      <p className={rowsStyles.hint}>
                         {t("providersApplicationWithoutRuntimeHint", {
                           provider: provider.displayName,
                         })}
@@ -1211,7 +1215,7 @@ export function ProvidersSettings() {
                   href={provider.metadata.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="settings-link"
+                  className={rowsStyles.link}
                 >
                   {t("providersWebsite")}
                 </a>

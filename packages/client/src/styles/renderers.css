@@ -3250,8 +3250,7 @@ pre.code-highlighter-plain,
 .streaming-pending :not(pre) > code,
 .text-block :not(pre) > code,
 .thinking-inline-code,
-.markdown-preview .markdown-rendered :not(pre) > code,
-.output-preview-prose code {
+.markdown-preview .markdown-rendered :not(pre) > code {
   line-height: var(--fixed-inline-code-line-height);
   vertical-align: var(--fixed-inline-code-baseline-shift);
 }

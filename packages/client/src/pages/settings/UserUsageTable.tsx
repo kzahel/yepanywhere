@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import {
   type UsageReport,
   type UsageTokenBucket,
@@ -86,7 +87,7 @@ export function UserUsageTable({ report }: UserUsageTableProps) {
   return (
     <div className={styles.usage}>
       <h3 className={styles.editorTitle}>{t("userUsageTitle")}</h3>
-      <p className="settings-hint">
+      <p className={rowsStyles.hint}>
         {report.since === null
           ? t("userUsageEmpty")
           : days === 1

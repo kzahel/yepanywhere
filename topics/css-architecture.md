@@ -38,6 +38,13 @@ connection pulse reuse have one shared module each; logo sizes are owned
 variants. Public-share transcript reach-ins remain narrowly scoped in its
 module until the transcript owner drains. The legacy global pulse still
 controls tool rows and must retain its current winning keyframes until then.
+Settings rows and search visibility share `SettingsRows.module.css`; categories,
+previews, device lists, command samples and onboarding have explicit owners.
+Cross-owner row/preview selectors use the child’s stable data boundaries
+(`data-settings-item`, `data-settings-info`, `data-settings-origin`,
+`data-thinking-section`, `data-range-number`, `data-toolbar-control-preview`)
+under a local class anchor. These attributes preserve class specificity and
+DOM relationships; they do not authorize unscoped global styling.
 
 The target:
 

@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { useCallback, useMemo } from "react";
 import { Badge } from "../../components/ui/Badge";
 import { Banner } from "../../components/ui/Banner";
@@ -91,7 +92,7 @@ export function StorageSettings() {
       keywords={[".yep", ".attachments", "YEP_DATA_DIR"]}
       doc="topics/storage-settings.md"
     >
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           id="project-data-location"
           className={styles.setting}

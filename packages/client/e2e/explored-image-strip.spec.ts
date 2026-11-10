@@ -17,7 +17,7 @@ const sessionId = "explored-images-001";
 
 async function openExploredGroup(page: Page, baseURL: string) {
   await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
-  const skip = page.locator(".onboarding-skip-all");
+  const skip = page.getByRole("button", { name: "Skip all", exact: true });
   if (
     await skip
       .waitFor({ state: "visible", timeout: 750 })

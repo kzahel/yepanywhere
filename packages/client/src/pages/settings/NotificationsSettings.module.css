@@ -1,3 +1,7 @@
+.pushTestStatus {
+  min-height: 2.6em;
+}
+
 .diagnostics {
   margin-top: var(--space-3);
   overflow: hidden;

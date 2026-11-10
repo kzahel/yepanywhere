@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { type FormEventHandler, type ReactNode, useMemo } from "react";
 import { SettingsCaption, type SettingsDoc } from "./SettingsDocLink";
 import {
@@ -61,9 +62,9 @@ export function SettingsSection({
   );
 
   const sectionClassName = [
-    "settings-section",
+    rowsStyles.section,
     className,
-    scope && sectionMatched ? "settings-search-section-match" : null,
+    scope && sectionMatched ? rowsStyles.searchSectionMatch : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -72,6 +73,7 @@ export function SettingsSection({
   const body = (
     <SectionElement
       className={sectionClassName}
+      data-settings-section-match={scope && sectionMatched ? "" : undefined}
       onSubmit={onSubmit}
       noValidate={onSubmit ? true : undefined}
     >
@@ -81,7 +83,7 @@ export function SettingsSection({
         </h2>
       )}
       {(description || doc) && (
-        <p className="settings-section-description">
+        <p className={rowsStyles.sectionDescription}>
           <SettingsCaption
             text={
               scope && description

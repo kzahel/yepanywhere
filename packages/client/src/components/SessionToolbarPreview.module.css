@@ -1,0 +1,118 @@
+.preview {
+  display: block;
+  padding: var(--space-2);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.previewContent {
+  min-width: 760px;
+  pointer-events: none;
+}
+
+.preview :global(.message-input-toolbar) {
+  width: 100%;
+}
+
+.preview :global(.message-input-actions) :global(.context-usage-indicator) {
+  position: static;
+  transform: none;
+  background: transparent;
+  box-shadow: none;
+}
+.toolbarControlPreview {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  overflow: visible;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.toolbarControlPreview.isInteractive {
+  cursor: pointer;
+}
+
+.toolbarControlPreview.isInteractive:hover,
+.toolbarControlPreview.isInteractive:focus-visible {
+  border-color: var(--focus-border);
+  outline: none;
+}
+
+.toolbarControlPreview.isInteractive .previewContent {
+  pointer-events: none;
+}
+
+.toolbarControlPreview .previewContent {
+  min-width: 0;
+}
+
+.toolbarControlPreview :global(.message-input-toolbar) {
+  width: max-content;
+  justify-content: flex-start;
+  gap: 4px;
+}
+
+.toolbarControlPreview :global(.message-input-left),
+.toolbarControlPreview :global(.message-input-actions) {
+  gap: 4px;
+}
+
+.toolbarControlPreview :global(.composer-status-ages) {
+  margin-left: 0;
+  position: static;
+}
+
+@media (width <= 600px) {
+  .preview {
+    overflow-x: visible;
+  }
+}
+
+@media (width <= 600px) {
+  .previewContent {
+    min-width: 0;
+  }
+}
+
+@media (width <= 600px) {
+  .preview :global(.message-input-actions) {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+}
+
+@media (width <= 600px) {
+  .preview :global(.message-input-toolbar) {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--space-1);
+  }
+}
+
+@media (width <= 600px) {
+  .preview :global(.message-input-left) {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+    overflow: visible;
+  }
+}
+
+@media (width <= 600px) {
+  .preview :global(.composer-status-ages) {
+    position: static;
+    flex: 1 1 auto;
+    margin-left: 0;
+    max-width: none;
+    transform: none;
+    justify-content: flex-start;
+  }
+}

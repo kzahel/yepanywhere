@@ -1,3 +1,4 @@
+import onboardingStyles from "../OnboardingStep.module.css";
 import { getThemeLabel, THEMES, useTheme } from "../../../hooks/useTheme";
 import { useI18n } from "../../../i18n";
 import { Button } from "../../ui/Button";
@@ -8,13 +9,20 @@ import type { OnboardingStepProps } from "../types";
  * Onboarding step for selecting a theme.
  * Shows visual previews of each theme option.
  */
+const THEME_PREVIEW_CLASSES = {
+  auto: onboardingStyles.themePreviewAuto,
+  light: onboardingStyles.themePreviewLight,
+  dark: onboardingStyles.themePreviewDark,
+  verydark: onboardingStyles.themePreviewVerydark,
+};
+
 export function ThemeStep() {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="onboarding-step-content">
-      <p className="onboarding-step-description">
+    <div className={onboardingStyles.stepContent}>
+      <p className={onboardingStyles.stepDescription}>
         {t("onboardingThemeDescription")}
       </p>
 
@@ -27,7 +35,7 @@ export function ThemeStep() {
           label: getThemeLabel(themeName),
           icon: (
             <span
-              className={`onboarding-theme-preview theme-preview-${themeName}`}
+              className={`${onboardingStyles.themePreview} ${THEME_PREVIEW_CLASSES[themeName]}`}
             />
           ),
         }))}

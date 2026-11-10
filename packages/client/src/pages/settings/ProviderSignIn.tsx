@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import type { ProviderLoginFlow, ProviderName } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
@@ -158,11 +159,11 @@ export function ProviderSignIn({
             {t("providersSignInOpenPage", { provider: displayName })}
           </a>
         ) : (
-          <p className="settings-hint">{t("providersSignInStarting")}</p>
+          <p className={rowsStyles.hint}>{t("providersSignInStarting")}</p>
         )}
         {flow.userCode && (
           <div className={styles.row}>
-            <span className="settings-hint">
+            <span className={rowsStyles.hint}>
               {t("providersSignInEnterCode")}
             </span>
             <code className={styles.userCode}>{flow.userCode}</code>
@@ -176,7 +177,7 @@ export function ProviderSignIn({
           </div>
         )}
         {flow.acceptsCode && flow.url && !flow.codeSubmitted && (
-          <p className="settings-hint">{t("providersSignInCodeHint")}</p>
+          <p className={rowsStyles.hint}>{t("providersSignInCodeHint")}</p>
         )}
         {flow.acceptsCode && flow.url && !flow.codeSubmitted && (
           <form
@@ -206,7 +207,7 @@ export function ProviderSignIn({
           </form>
         )}
         {flow.codeSubmitted && (
-          <p className="settings-hint">{t("providersSignInVerifying")}</p>
+          <p className={rowsStyles.hint}>{t("providersSignInVerifying")}</p>
         )}
         {flow.output && (
           <pre
@@ -236,7 +237,7 @@ export function ProviderSignIn({
       )}
       {flow && flow.state !== "succeeded" && (
         <>
-          <p className="settings-hint">
+          <p className={rowsStyles.hint}>
             {t(
               flow.state === "expired"
                 ? "providersSignInExpired"

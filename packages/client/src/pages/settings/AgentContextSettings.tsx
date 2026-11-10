@@ -1,3 +1,6 @@
+import commandStyles from "./SettingsCommand.module.css";
+import rowsStyles from "./SettingsRows.module.css";
+import agentStyles from "./AgentContextSettings.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LATEX_MATH_RENDERING_CLIENT_CAPABILITY,
@@ -137,7 +140,7 @@ export function AgentContextSettings() {
         t("agentContextSuggestedLatexDescription"),
       ]}
     >
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("agentContextGlobalInstructions")}
           description={t("agentContextGlobalInstructionsDescription")}
@@ -146,7 +149,7 @@ export function AgentContextSettings() {
             style: { flexDirection: "column", alignItems: "stretch" },
           }}
         >
-          <div className="settings-item-info">
+          <div className={rowsStyles.itemInfo} data-settings-info>
             <strong>{t("agentContextGlobalInstructions")}</strong>
             <p>{t("agentContextGlobalInstructionsDescription")}</p>
           </div>
@@ -170,7 +173,7 @@ export function AgentContextSettings() {
               marginTop: "var(--space-2)",
             }}
           >
-            <span className="settings-hint">
+            <span className={rowsStyles.hint}>
               {t("agentContextCharacters", {
                 current: instructions.length.toLocaleString(),
                 max: MAX_LENGTH.toLocaleString(),
@@ -187,7 +190,7 @@ export function AgentContextSettings() {
         </SettingsItem>
 
         <HideInSettingsSearch>
-          <div className="settings-subsection-heading">
+          <div className={agentStyles.heading}>
             <strong>{t("agentContextSuggestedHintsTitle")}</strong>
             <p>{t("agentContextSuggestedHintsDescription")}</p>
           </div>
@@ -199,7 +202,7 @@ export function AgentContextSettings() {
           description={t("agentContextSuggestedLatexDescription")}
           layout="custom"
         >
-          <div className="settings-item-info">
+          <div className={rowsStyles.itemInfo} data-settings-info>
             <strong>{t("agentContextSuggestedLatexTitle")}</strong>
             <p>{t("agentContextSuggestedLatexDescription")}</p>
           </div>
@@ -218,23 +221,23 @@ export function AgentContextSettings() {
 
         <HideInSettingsSearch>
           <div
-            className="settings-item"
+            className={rowsStyles.item}
             style={{ flexDirection: "column", alignItems: "stretch" }}
           >
-            <div className="settings-item-info">
+            <div className={rowsStyles.itemInfo} data-settings-info>
               <strong>{t("agentContextSuggestedLatexPreviewTitle")}</strong>
               <p>{t("agentContextSuggestedLatexPreviewDescription")}</p>
             </div>
-            <pre className="settings-command-preview">
+            <pre className={commandStyles.preview}>
               {`[Client capabilities]\n${LATEX_MATH_RENDERING_CLIENT_CAPABILITY}`}
             </pre>
           </div>
 
           <details>
-            <summary className="settings-hint">
+            <summary className={rowsStyles.hint}>
               {t("agentContextPreviewSummary")}
             </summary>
-            <pre className="settings-command-preview">
+            <pre className={commandStyles.preview}>
               {effectiveAgentContext ?? t("agentContextPreviewEmpty")}
             </pre>
           </details>

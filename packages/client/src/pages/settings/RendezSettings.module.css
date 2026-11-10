@@ -5,7 +5,7 @@
   border-radius: var(--radius-md);
 }
 
-.card > :global(.settings-item) {
+.card > [data-settings-item] {
   padding-bottom: var(--space-2);
   background: none;
 }

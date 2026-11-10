@@ -7,28 +7,28 @@
     row-gap: var(--space-2);
   }
 
-  .descriptionFullWidthOnNarrow > :global(.settings-item-info) {
+  .descriptionFullWidthOnNarrow > [data-settings-info] {
     display: contents;
   }
 
-  .descriptionFullWidthOnNarrow > :global(.settings-item-info) > strong {
+  .descriptionFullWidthOnNarrow > [data-settings-info] > strong {
     grid-column: 1;
     grid-row: 1;
     margin-bottom: 0;
   }
 
-  .descriptionFullWidthOnNarrow > :global(.settings-item-info) > p {
+  .descriptionFullWidthOnNarrow > [data-settings-info] > p {
     grid-column: 1 / -1;
     grid-row: 2;
   }
 
   .descriptionFullWidthOnNarrow
-    > :global(.settings-item-info)
-    > :global(.settings-search-origin) {
+    > [data-settings-info]
+    > [data-settings-origin] {
     grid-column: 1 / -1;
   }
 
-  .descriptionFullWidthOnNarrow > :global(.settings-item-info) + * {
+  .descriptionFullWidthOnNarrow > [data-settings-info] + * {
     grid-column: 2;
     grid-row: 1;
     align-self: start;

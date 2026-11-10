@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { api, type EnvSettingEntry } from "../../api/client";
 import { Badge } from "../../components/ui/Badge";
@@ -98,11 +99,15 @@ export function EnvironmentSettings() {
         )}
 
         {!error && entries && !showAll && groups.length === 0 && (
-          <p className="settings-empty">{t("environmentEmptySet")}</p>
+          <p className={rowsStyles.empty}>{t("environmentEmptySet")}</p>
         )}
       </HideInSettingsSearch>
       {groups.map((group) => (
-        <div key={group.group} className={`settings-group ${styles.group}`}>
+        <div
+          key={group.group}
+          className={`${rowsStyles.group} ${styles.group}`}
+          data-settings-group
+        >
           <HideInSettingsSearch>
             <h3 className={styles.groupTitle}>{group.group}</h3>
           </HideInSettingsSearch>

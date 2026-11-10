@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 /**
  * Editor for the configured model-serving endpoints ("gateway services").
  *
@@ -556,9 +557,9 @@ export function GatewayServicesSettings({
   );
 
   return (
-    <div id="provider-gateway-services" className="settings-subsection">
+    <div id="provider-gateway-services" className={rowsStyles.subsection}>
       <h3>{t("providersGatewayServicesTitle")}</h3>
-      <p className="settings-hint">
+      <p className={rowsStyles.hint}>
         {t("providersGatewayServicesDescription")}{" "}
         <SettingsDocLink doc="topics/gateway-services.md" />
       </p>
@@ -566,9 +567,13 @@ export function GatewayServicesSettings({
           none is allowed: both are facts about the list rather than about any
           one entry, so they are stated once here instead of being repeated
           under every card's CodexOSS checkbox. */}
-      <p className="settings-hint">{t("providersGatewayServicesCodexHint")}</p>
+      <p className={rowsStyles.hint}>
+        {t("providersGatewayServicesCodexHint")}
+      </p>
       {services.length > 1 && (
-        <p className="settings-hint">{t("providersGatewayServiceOrderHint")}</p>
+        <p className={rowsStyles.hint}>
+          {t("providersGatewayServiceOrderHint")}
+        </p>
       )}
       <div className={styles.setting}>
         <Switch

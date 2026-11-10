@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import type { SteeringMode, SteeringModeSettings } from "@yep-anywhere/shared";
 import { Select } from "../../components/ui/Field";
 import { useProviders } from "../../hooks/useProviders";
@@ -40,7 +41,7 @@ export function ProviderSteeringSettings({
           doc="topics/steer-queue-provider-differences.md#shared-steering-contract"
           after={
             owners.length > 0 && (
-              <p className="settings-hint">
+              <p className={rowsStyles.hint}>
                 {t("providerSteeringOwners", {
                   modes: [
                     ...new Set(

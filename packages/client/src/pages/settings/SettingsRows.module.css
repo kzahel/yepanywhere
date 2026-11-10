@@ -1,0 +1,449 @@
+@keyframes settings-item-jump-flash {
+  0% {
+    box-shadow: 0 0 0 2px var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 16%, var(--bg-code));
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background: var(--bg-code);
+  }
+}
+
+.link {
+  color: var(--text-muted);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition:
+    color 0.15s,
+    background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.link:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.section {
+  margin-bottom: var(--space-4);
+}
+
+.section h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  container-type: inline-size;
+}
+
+.group:last-child {
+  margin-bottom: 0;
+}
+.itemGroup {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-code);
+  border-radius: var(--radius-md);
+}
+
+.itemGroupRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3);
+}
+
+.itemGroupRow + .itemGroupRow {
+  padding-top: 0;
+}
+
+.itemGroupRowField {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  background: var(--bg-code);
+  border-radius: var(--radius-md);
+}
+
+.itemInlineField {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.outputAppearanceSliderRow {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) max-content;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.outputAppearanceSliderRow input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--app-yep-green);
+}
+
+.outputAppearanceNumber {
+  width: 4.25rem;
+}
+@container output-controls (max-width: 26rem) {
+  .outputAppearanceSliderRow {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+}
+
+@media (width <= 600px) {
+  .outputAppearanceNumber {
+    width: 4rem;
+  }
+}
+
+.itemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemInlineField .itemInfo {
+  flex: 1 1 18rem;
+}
+
+.itemInfo strong {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.itemInfo p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.tooltipSettingsActions {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  width: min(100%, 32rem);
+  flex: 1 1 26rem;
+  flex-wrap: nowrap;
+}
+
+.tooltipSettingsActions .outputAppearanceSliderRow {
+  grid-template-columns: minmax(3rem, 1fr) max-content;
+}
+
+.tooltipSettingsActions .outputAppearanceNumber {
+  box-sizing: border-box;
+  width: 3.75rem;
+}
+
+@container (max-width: 50rem) {
+  .itemTooltipControl {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+}
+
+@container (max-width: 50rem) {
+  .itemTooltipControl > .itemInfo {
+    width: 100%;
+    flex: 0 1 auto;
+  }
+}
+
+@container (max-width: 50rem) {
+  .itemTooltipControl > .tooltipSettingsActions {
+    align-self: flex-end;
+    flex: 0 1 auto;
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemWideControl {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemGroupRowWideControl {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemWideControl > .itemInfo {
+    width: 100%;
+    flex: 0 1 auto;
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemGroupRowWideControl > .itemInfo {
+    width: 100%;
+    flex: 0 1 auto;
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemWideControl > .itemActions {
+    align-self: flex-end;
+    justify-content: flex-end;
+    width: fit-content;
+    max-width: min(100%, 16rem);
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemGroupRowWideControl > .itemActions {
+    align-self: flex-end;
+    justify-content: flex-end;
+    width: fit-content;
+    max-width: min(100%, 16rem);
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemWideControl > .itemActions:has(> [role="radiogroup"]) {
+    max-width: 100%;
+  }
+}
+
+@container (max-width: 36rem) {
+  .itemWideControl > .tooltipSettingsActions {
+    align-self: stretch;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+.inputUnit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+.itemActions input[type="range"] {
+  accent-color: var(--app-yep-green);
+}
+
+.sectionDescription {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+.subsection {
+  margin-top: var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--border-color);
+}
+
+.subsection h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1em; /* Matches the row label it titles, not the hints below it. */
+}
+
+.subsectionHint {
+  margin-bottom: var(--space-3);
+}
+
+.itemHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.itemHeader strong {
+  margin-bottom: 0;
+}
+
+.limitations {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.limitations li {
+  margin-bottom: var(--space-1);
+}
+
+.limitations li:last-child {
+  margin-bottom: 0;
+}
+
+.searchMark {
+  background: color-mix(in srgb, var(--primary-color) 24%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+}
+
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.searchHeading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.searchPane {
+  margin-bottom: var(--space-4);
+}
+
+.searchPaneTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+}
+
+.searchPaneLink {
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.searchPaneLink:hover {
+  color: var(--text-primary);
+}
+
+.searchOrigin {
+  display: block;
+  margin-top: var(--space-1);
+  cursor: pointer;
+  text-align: left;
+}
+
+.searchNoResults {
+  margin: var(--space-3) 0;
+  color: var(--text-muted);
+}
+
+.searchLiveCount {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.searchPane [data-settings-item]:not(.searchMatch),
+.searchPane .hint {
+  display: none;
+}
+
+.searchPane .itemGroupRow,
+.searchPane .group:not(:has(.searchMatch)) {
+  display: none;
+}
+
+.searchPane .section:not(.searchSectionMatch):not(:has(.searchMatch)),
+.searchPane:not(:has(.searchMatch, .searchSectionMatch)) {
+  display: none;
+}
+.searchPane .searchSectionMatch .item {
+  display: flex;
+}
+
+.searchPane .searchSectionMatch .hint {
+  display: block;
+}
+
+.searchPane .searchSectionMatch .itemGroupRow,
+.searchPane .searchSectionMatch .itemGroup {
+  display: flex;
+}
+
+.searchPane .searchSectionMatch .group {
+  display: flex;
+}
+
+.itemJumpFlash {
+  animation: settings-item-jump-flash 1.6s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .itemJumpFlash {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--primary-color);
+  }
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2);
+}
+.infoBox {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.infoBox p {
+  margin: 0 0 var(--space-2);
+}
+
+.infoBox p:last-child {
+  margin-bottom: 0;
+}
+
+.infoBox a {
+  color: var(--link-color);
+}
+
+.modelItem {
+  flex-direction: column;
+  align-items: stretch;
+}
+.modelChipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  max-width: 100%;
+}

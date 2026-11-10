@@ -1,0 +1,35 @@
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.description {
+  display: block;
+  font-size: calc(var(--font-size-sm) - 1px);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.chevron {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}

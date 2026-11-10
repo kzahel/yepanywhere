@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { Textarea, TextInput } from "../../components/ui/Field";
@@ -64,7 +65,7 @@ function OllamaUrlInput() {
           {isSaving ? t("providersSaving") : t("providersSave")}
         </Button>
       </div>
-      <span className="settings-hint">{t("providersOllamaUrlHint")}</span>
+      <span className={rowsStyles.hint}>{t("providersOllamaUrlHint")}</span>
     </form>
   );
 }
@@ -87,7 +88,7 @@ function OllamaUseFullSystemPrompt() {
       />
       <p
         id={hintId}
-        className="settings-hint"
+        className={rowsStyles.hint}
         style={{ margin: "var(--space-1) 0 0" }}
       >
         {t("providersUseFullPromptHint")}
@@ -144,7 +145,9 @@ function OllamaSystemPromptInput() {
           marginTop: "var(--space-2)",
         }}
       >
-        <span className="settings-hint">{t("providersOllamaPromptHint")}</span>
+        <span className={rowsStyles.hint}>
+          {t("providersOllamaPromptHint")}
+        </span>
         <Button
           variant="primary"
           disabled={!hasChanges || isSaving}

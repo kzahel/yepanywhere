@@ -234,7 +234,7 @@ test("Settings acquires settings and version before the UI runtime executes", as
     await Promise.all(held.map((route) => route.continue()));
   }
   await expect(
-    page.locator(".settings-content-panel [data-settings-item]").first(),
+    page.locator("[data-settings-content-panel] [data-settings-item]").first(),
   ).toBeVisible();
 });
 

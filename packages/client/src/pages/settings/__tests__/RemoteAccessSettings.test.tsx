@@ -262,7 +262,9 @@ describe("RemoteAccessSettings host identity", () => {
       batteryFloorPercent: 10,
     };
     render(<RemoteAccessSettings />);
-    const item = screen.getByText("hostAwakeTitle").closest(".settings-item");
+    const item = screen
+      .getByText("hostAwakeTitle")
+      .closest("[data-settings-item]");
     expect(item).not.toBeNull();
 
     fireEvent.click(within(item as HTMLElement).getByRole("switch"));

@@ -1,3 +1,4 @@
+import rowsStyles from "../../pages/settings/SettingsRows.module.css";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -161,9 +162,10 @@ export function CommittedRangeNumberInput(
     <span
       className={
         className
-          ? `output-appearance-slider-row ${className}`
-          : "output-appearance-slider-row"
+          ? `${rowsStyles.outputAppearanceSliderRow} ${className}`
+          : rowsStyles.outputAppearanceSliderRow
       }
+      data-range-number
     >
       <CommittedRangeInput
         id={id}
@@ -185,8 +187,8 @@ export function CommittedRangeNumberInput(
         type="number"
         size="small"
         unit={unit || undefined}
-        className={unit ? undefined : "output-appearance-number"}
-        inputClassName="output-appearance-number"
+        className={unit ? undefined : rowsStyles.outputAppearanceNumber}
+        inputClassName={rowsStyles.outputAppearanceNumber}
         min={numberMin}
         max={numberMax}
         step={snapTextToStep ? step : "any"}

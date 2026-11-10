@@ -177,7 +177,7 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
       .catch((error) => {
         throw new Error(`${error.message}\n${errors.join("\n")}`);
       });
-    const skip = page.locator(".onboarding-skip-all");
+    const skip = page.getByRole("button", { name: "Skip all", exact: true });
     if (await skip.isVisible().catch(() => false)) await skip.click();
     const composer = page.locator("textarea[data-composer-input]");
     await expect(composer).toBeVisible();

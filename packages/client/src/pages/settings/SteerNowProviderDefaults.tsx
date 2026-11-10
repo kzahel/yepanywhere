@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import {
   type ClientDefaults,
   DEFAULT_STEER_NOW_ENABLED,
@@ -131,7 +132,7 @@ export function SteerNowProviderOverrides({
   ).length;
   return (
     <details className={styles.overrides} open={overridden > 0}>
-      <summary className="settings-hint">
+      <summary className={rowsStyles.hint}>
         {t("providerSteerNowDefaultOverrides")}
         {overridden > 0 ? ` (${overridden})` : ""}
       </summary>

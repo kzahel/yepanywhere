@@ -281,7 +281,10 @@ export function ThinkingControlsPanel({
 
   return (
     <div className={`thinking-controls-panel ${className ?? ""}`.trim()}>
-      <div className="thinking-toolbar-menu-section thinking-controls-section thinking-controls-section--mode">
+      <div
+        className="thinking-toolbar-menu-section thinking-controls-section"
+        data-thinking-section="mode"
+      >
         <div className="thinking-toolbar-menu-label">
           {t("modelSettingsThinkingTitle")}
         </div>

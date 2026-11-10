@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { Link } from "react-router-dom";
 import {
   buildYaClientPublicShareBaseUrl,
@@ -89,9 +90,9 @@ function HostIdentitySettings({
     <SettingsItem
       label={t("hostIdentityTitle")}
       description={t("hostIdentityDescription")}
-      className="settings-item--wide-control host-identity-settings"
+      className={`${rowsStyles.itemWideControl} host-identity-settings`}
     >
-      <div className="host-identity-controls">
+      <div className={styles.controls}>
         <SegmentedControl
           activation="manual"
           variant="cards"
@@ -109,7 +110,7 @@ function HostIdentitySettings({
           disabled={disabled || saving}
         />
         <form
-          className="host-identity-custom"
+          className={styles.custom}
           onSubmit={(event) => {
             event.preventDefault();
             if (normalizedDraft && normalizedDraft !== currentIcon) {
@@ -118,7 +119,7 @@ function HostIdentitySettings({
           }}
         >
           <TextInput
-            className="host-identity-input"
+            className={styles.input}
             value={draft}
             invalid={draftInvalid}
             aria-describedby={draftInvalid ? invalidId : undefined}
@@ -238,7 +239,7 @@ function HostAwakeSettings({
   })();
 
   return (
-    <div className="settings-group">
+    <div className={rowsStyles.group} data-settings-group>
       <SettingsItem
         label={t("hostAwakeTitle")}
         description={t("hostAwakeDescription")}
@@ -251,10 +252,10 @@ function HostAwakeSettings({
                 {statusText}
               </Banner>
             ) : (
-              <p className="settings-hint">{statusText}</p>
+              <p className={rowsStyles.hint}>{statusText}</p>
             )}
             {status?.batteryPercent !== undefined && (
-              <p className="settings-hint">
+              <p className={rowsStyles.hint}>
                 {t("hostAwakeBatteryObserved", {
                   percent: status.batteryPercent,
                   time: status.powerObservedAt
@@ -298,10 +299,10 @@ function HostAwakeSettings({
           <SettingsItem
             label={t("hostAwakeBatteryFloorTitle")}
             description={t("hostAwakeBatteryFloorDescription")}
-            className="settings-item--wide-control"
+            className={rowsStyles.itemWideControl}
           >
             <form
-              className="host-awake-floor-controls"
+              className={styles.hostAwakeFloorControls}
               onSubmit={(event) => {
                 event.preventDefault();
                 if (validFloor) {
@@ -477,7 +478,7 @@ export function RemoteAccessSettings() {
   // Public read-only share only works once Remote Access (relay) is configured,
   // so its controls live at the top of this tab.
   const publicShareConfig = (
-    <div className="settings-group">
+    <div className={rowsStyles.group} data-settings-group>
       <SettingsItem
         label={t("advancedPublicShareTitle")}
         description={t("advancedPublicShareDescription")}
@@ -493,10 +494,10 @@ export function RemoteAccessSettings() {
                 {shareReadinessMessage.text}
               </Banner>
             ) : shareReadinessMessage ? (
-              <p className="settings-hint">{shareReadinessMessage.text}</p>
+              <p className={rowsStyles.hint}>{shareReadinessMessage.text}</p>
             ) : null}
             {publicShareStatus?.relayUrl && (
-              <p className="settings-hint" style={{ wordBreak: "break-all" }}>
+              <p className={rowsStyles.hint} style={{ wordBreak: "break-all" }}>
                 {t("advancedPublicShareRelayEffective", {
                   username: publicShareStatus.relayUsername ?? "",
                   url: publicShareStatus.relayUrl,
@@ -573,7 +574,7 @@ export function RemoteAccessSettings() {
 
   const persistSessionsToggle = (
     <>
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("developmentPersistRemoteTitle")}
           doc="topics/mobile-server-pairing.md#current-srp-resume-facts"
@@ -613,7 +614,7 @@ export function RemoteAccessSettings() {
     ? getHostById(remoteConnection.currentHostId)
     : null;
   const remoteSessionGroup = remoteConnection && (
-    <div className="settings-group">
+    <div className={rowsStyles.group} data-settings-group>
       <SettingsItem
         id="remote-access-session-host"
         label={t("remoteAccessCurrentHostTitle")}
@@ -623,7 +624,7 @@ export function RemoteAccessSettings() {
           t("remoteAccessDefaultHost")
         }
       >
-        <div className="settings-item-actions">
+        <div className={rowsStyles.itemActions}>
           <Button onClick={handleSwitchHost}>{t("sidebarSwitchHost")}</Button>
         </div>
       </SettingsItem>
@@ -655,7 +656,9 @@ export function RemoteAccessSettings() {
       <AppsSettingsLink />
       {remoteSessionGroup}
       {hostIdentityItem && (
-        <div className="settings-group">{hostIdentityItem}</div>
+        <div className={rowsStyles.group} data-settings-group>
+          {hostIdentityItem}
+        </div>
       )}
       {hostAwakeConfig}
       {publicShareConfig}
@@ -671,7 +674,7 @@ export function RemoteAccessSettings() {
           label={t("connectionsPairedServers")}
           description={t("connectionsPasswordChangesHint")}
         >
-          <Link className="settings-link" to="/settings/server-connections">
+          <Link className={rowsStyles.link} to="/settings/server-connections">
             {t("settingsServerConnectionsTitle")}
           </Link>
         </SettingsItem>

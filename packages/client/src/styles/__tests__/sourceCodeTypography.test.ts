@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { readClientStyles } from "./read-client-styles";
@@ -23,10 +24,7 @@ describe("shared source-code typography", () => {
   });
 
   it("restores shared metrics inside zero-sized highlighted wrappers", async () => {
-    const [indexCss, rendererCss] = await Promise.all([
-      readClientStyles("tokens", "index"),
-      readClientStyles("generated", "renderers"),
-    ]);
+    const rendererCss = await readClientStyles("generated", "renderers");
 
     expect(rendererCss).toMatch(
       /\.highlighted-diff code\s*\{[\s\S]*?font-size:\s*0;[\s\S]*?\}/,
@@ -40,8 +38,16 @@ describe("shared source-code typography", () => {
     expect(rendererCss).toMatch(
       /--file-viewer-code-line-box:\s*var\(--source-code-line-height\);/,
     );
-    expect(indexCss).toMatch(
-      /\.output-preview-fixed\s*\{[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
+    expect(
+      await readFile(
+        new URL(
+          "../../pages/settings/AppearanceSettings.module.css",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ).toMatch(
+      /\.outputPreviewFixed\s*\{[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
     );
     expect(rendererCss).not.toMatch(
       /\.source-diff-pane[\s\S]{0,160}font-size:/,

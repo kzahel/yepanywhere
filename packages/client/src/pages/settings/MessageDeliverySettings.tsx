@@ -1,3 +1,5 @@
+import rowLayoutStyles from "./SettingsRows.module.css";
+import rowsStyles from "./SettingsRows.module.css";
 import {
   type BusyComposerDefaultAction,
   type ClientDefaults,
@@ -129,9 +131,9 @@ function PatientCompactThresholdItem({
       label={label}
       description={description}
       valueText={valueHint}
-      className="model-settings-item"
+      className={rowLayoutStyles.modelItem}
     >
-      <span className="output-appearance-slider-row">
+      <span className={rowsStyles.outputAppearanceSliderRow} data-range-number>
         <CommittedRangeInput
           min={1}
           max={PATIENT_COMPACT_OFF_PERCENT}
@@ -153,7 +155,7 @@ function PatientCompactThresholdItem({
           onBlur={() => commit(draft)}
         />
       </span>
-      <span className="settings-hint">{valueHint}</span>
+      <span className={rowsStyles.hint}>{valueHint}</span>
     </SettingsItem>
   );
 }
@@ -690,7 +692,7 @@ export function MessageDeliverySettings() {
 
   return (
     <SettingsSection description={t("messageDeliveryDescription")}>
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         {supportsRendez ? (
           <RendezSettings
             value={shownRendez}
@@ -706,7 +708,7 @@ export function MessageDeliverySettings() {
             descriptionLayout="full-width-on-narrow"
             keywords={["rendez", ".rendez", "rendezvous", "upload", "watch"]}
           >
-            <span className="settings-hint">{t("rendezUnavailable")}</span>
+            <span className={rowsStyles.hint}>{t("rendezUnavailable")}</span>
           </SettingsItem>
         )}
         <SettingsItem
@@ -747,9 +749,12 @@ export function MessageDeliverySettings() {
           label={t("messageDeliveryJoinWindowTitle")}
           description={t("messageDeliveryJoinWindowDescription")}
           valueText={shownJoinWindowText}
-          className="model-settings-item"
+          className={rowLayoutStyles.modelItem}
         >
-          <span className="output-appearance-slider-row">
+          <span
+            className={rowsStyles.outputAppearanceSliderRow}
+            data-range-number
+          >
             <CommittedRangeInput
               id="message-delivery-join-window"
               min={0}
@@ -772,7 +777,7 @@ export function MessageDeliverySettings() {
               aria-label={t("messageDeliveryJoinWindowTitle")}
             />
           </span>
-          <span className="settings-hint">
+          <span className={rowsStyles.hint}>
             {shownJoinWindowSeconds === 0
               ? t("messageDeliveryJoinWindowOffHint")
               : t("messageDeliveryJoinWindowOnHint", {
@@ -791,9 +796,12 @@ export function MessageDeliverySettings() {
                 ? shownClearloopInactivityText
                 : formatDurationSeconds(shownClearloopInactivitySeconds)
             }
-            className="model-settings-item"
+            className={rowLayoutStyles.modelItem}
           >
-            <span className="output-appearance-slider-row">
+            <span
+              className={rowsStyles.outputAppearanceSliderRow}
+              data-range-number
+            >
               <CommittedRangeInput
                 id="message-delivery-clearloop-inactivity"
                 min={MIN_CLEARLOOP_INACTIVITY_SECONDS}
@@ -817,7 +825,7 @@ export function MessageDeliverySettings() {
                 invalid={shownClearloopInactivitySeconds === null}
               />
             </span>
-            <span className="settings-hint">
+            <span className={rowsStyles.hint}>
               {shownClearloopInactivitySeconds === null
                 ? t("messageDeliveryClearloopInvalid")
                 : t("messageDeliveryClearloopHint", {
@@ -838,9 +846,12 @@ export function MessageDeliverySettings() {
               label={t("messageDeliveryProjectQueueQuietTitle")}
               description={t("messageDeliveryProjectQueueQuietDescription")}
               valueText={shownProjectQueueQuietText}
-              className="model-settings-item"
+              className={rowLayoutStyles.modelItem}
             >
-              <span className="output-appearance-slider-row">
+              <span
+                className={rowsStyles.outputAppearanceSliderRow}
+                data-range-number
+              >
                 <CommittedRangeInput
                   id="message-delivery-project-queue-quiet"
                   min={0}
@@ -860,7 +871,7 @@ export function MessageDeliverySettings() {
                   aria-label={t("messageDeliveryProjectQueueQuietTitle")}
                 />
               </span>
-              <span className="settings-hint">
+              <span className={rowsStyles.hint}>
                 {shownProjectQueueQuietSeconds === 0
                   ? t("messageDeliveryProjectQueueQuietOffHint")
                   : t("messageDeliveryProjectQueueQuietOnHint", {

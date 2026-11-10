@@ -2,7 +2,7 @@
 
 Topic: css-architecture
 
-Status: steps 1–6 landed 2026-11-10; step 7 is landing by area.
+Status: steps 1–6 landed 2026-11-10; step 7 areas 1–2 landed.
 Steps 7–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
@@ -211,17 +211,18 @@ media/fallback-diff vocabulary, to preserve their cascade and ownership.
 
 ### 7 — drain the legacy stylesheets by owner
 
-Landing by area, in the maintainer's order; composer moves unchanged last.
-- Single-owner pages landed 2026-11-10: monitor, public share, RemoteAccessSetup,
-  five login/host pages and logo; shared login/list/pulse modules own reuse.
-  Legacy lines remaining: index 8,929; renderers 4,063; tool rows 670 (13,662).
-  Token exceptions: 86 / 34 files; runtime families: 45; unused globals: zero.
-- Deferred within area 1: shared settings hints move with settings; public-share
-  transcript interop moves with transcript. Global pulse remains because legacy
-  tool rows consume its later definition. Existing login-hint defect stays
-  unchanged ([gap](../../gaps/login-recovery-hint-unstyled.md)).
-- Next: settings/onboarding, source viewing/review, collections/navigation,
-  shared shell/modals, transcript, session chrome, composer; one commit per area.
+Landing by area, composer unchanged and last (2026-11-10).
+- Area 1 landed: monitor/share/relay setup, five login pages and logo; shared
+  login/list/pulse owners. Remaining index/renderers/tool rows: 8,929/4,063/670.
+- Area 2 landed: settings rows/search, categories, page content, toolbar previews,
+  device/command reuse and onboarding. Remaining: 7,058/4,062/670 (11,790).
+  Tokens: 97 exceptions / 41 files; runtime families: 40; unused globals: zero.
+- Deferred: shared page shell to navigation; Model's 17 inline-modifier lines to
+  ThinkingControls/RecapAfterSecondsControl in the composer pass; transcript
+  samples/share interop and the tool-row global pulse to their transcript owner.
+  The login recovery-hint [defect](../../gaps/login-recovery-hint-unstyled.md) stays unchanged.
+- Next: source viewing/review, collections/navigation, shared shell/modals,
+  transcript, session chrome, composer; one commit per area.
 
 ### 8 — ban string class names in drained owners
 

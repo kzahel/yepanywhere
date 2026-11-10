@@ -1,3 +1,4 @@
+import rowsStyles from "./SettingsRows.module.css";
 import { useCallback, useMemo, useState } from "react";
 import {
   EMULATOR_FPS_OPTIONS,
@@ -139,7 +140,7 @@ export function EmulatorSettings() {
     <SettingsSection>
       <p className="settings-description">{t("emulatorSectionDescription")}</p>
 
-      <div className="settings-group">
+      <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
           label={t("emulatorEnableTitle")}
           description={t("emulatorEnableDescription")}
@@ -158,7 +159,7 @@ export function EmulatorSettings() {
 
       {!deviceBridgeEnabled ? null : (
         <>
-          <div className="settings-group">
+          <div className={rowsStyles.group} data-settings-group>
             <h3>{t("emulatorStreamQualityTitle")}</h3>
             <p className="settings-description">
               {t("emulatorStreamQualityDescription")}
@@ -222,7 +223,7 @@ export function EmulatorSettings() {
             </SettingsItem>
           </div>
 
-          <div className="settings-group">
+          <div className={rowsStyles.group} data-settings-group>
             <h3>{t("emulatorChromeOsHostsTitle")}</h3>
             <p className="settings-description">
               {t("emulatorChromeOsHostsDescription")}
@@ -235,7 +236,7 @@ export function EmulatorSettings() {
               description={t("emulatorAddHostAliasDescription")}
             >
               <form
-                className="settings-item-actions"
+                className={rowsStyles.itemActions}
                 onSubmit={(event) => {
                   event.preventDefault();
                   void addHost();
@@ -268,8 +269,8 @@ export function EmulatorSettings() {
                 <p className="settings-muted">{t("emulatorNoChromeOsHosts")}</p>
               ) : (
                 chromeOsHosts.map((host) => (
-                  <div key={host} className="settings-item">
-                    <div className="settings-item-info">
+                  <div key={host} className={rowsStyles.item}>
+                    <div className={rowsStyles.itemInfo} data-settings-info>
                       <span className="settings-item-label">{host}</span>
                       <span className="settings-item-description">
                         Device ID: chromeos:{host}
@@ -293,7 +294,7 @@ export function EmulatorSettings() {
           </div>
 
           <HideInSettingsSearch>
-            <div className="settings-group">
+            <div className={rowsStyles.group} data-settings-group>
               <h3>{t("emulatorDiscoveredDevicesTitle")}</h3>
 
               {loading && (
@@ -306,8 +307,8 @@ export function EmulatorSettings() {
               )}
 
               {emulators.map((device) => (
-                <div key={device.id} className="settings-item">
-                  <div className="settings-item-info">
+                <div key={device.id} className={rowsStyles.item}>
+                  <div className={rowsStyles.itemInfo} data-settings-info>
                     <span className="settings-item-label">
                       {device.label || device.avd || device.id}
                     </span>

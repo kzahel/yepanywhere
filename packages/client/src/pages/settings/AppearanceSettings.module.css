@@ -1,3 +1,290 @@
+.settings {
+  container-name: output-appearance;
+  container-type: inline-size;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.controls {
+  display: grid;
+  gap: var(--space-2);
+  container-type: inline-size;
+  container-name: output-controls;
+}
+
+.control {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.36fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.outputFontSelector {
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.outputFontOptionSystem {
+  font-family: var(--font-sans);
+}
+
+.outputFontOptionSourceSerif4 {
+  font-family: var(--font-output-serif);
+}
+
+.outputFontOptionInter {
+  font-family: var(--font-output-inter);
+}
+
+.outputFontOptionAlegreyaSans {
+  font-family: var(--font-output-alegreya-sans);
+}
+
+.outputFixedFontOptionSystem {
+  font-family: var(--font-mono-system);
+}
+
+.outputFixedFontOptionIosevka {
+  font-family: var(--font-mono-iosevka);
+}
+
+.outputFixedFontOptionIbmPlexMono {
+  font-family: var(--font-mono-ibm-plex);
+}
+
+.outputFixedFontOptionFiraMono {
+  font-family: var(--font-mono-fira);
+}
+.specimen {
+  display: grid;
+  justify-self: stretch;
+  width: 100%;
+  gap: var(--space-1);
+}
+
+.specimenHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.specimenLabel {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.preview {
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  gap: var(--output-prose-paragraph-gap);
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--output-prose-font-variation-settings);
+  font-size: var(--output-prose-font-size);
+  line-height: var(--output-prose-line-height);
+}
+
+.outputPreviewSystem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: var(--output-prose-line-height);
+}
+
+.outputPreviewSystemIcon {
+  padding: 0 0.3rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--success-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.outputPreviewProse {
+  min-width: 0;
+}
+
+.outputPreviewProse p {
+  margin: 0 0 var(--output-prose-paragraph-gap);
+  line-height: var(--output-prose-line-height);
+}
+
+.outputPreviewProse p:last-child {
+  margin-bottom: 0;
+}
+
+.outputPreviewProse ul {
+  margin: 0 0 var(--output-prose-paragraph-gap);
+  padding-left: 1.25rem;
+}
+
+.outputPreviewProse li {
+  margin: var(--output-prose-list-gap) 0;
+  line-height: var(--output-prose-line-height);
+}
+
+.outputPreviewProse code {
+  padding: 0.05rem 0.22rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-inline);
+  line-height: var(--fixed-inline-code-line-height);
+  vertical-align: var(--fixed-inline-code-baseline-shift);
+}
+
+.outputPreviewFixed {
+  margin: 0 0 var(--output-prose-paragraph-gap);
+  padding: var(--space-2);
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  font-family: var(--font-mono);
+  font-size: var(--source-code-font-size);
+  line-height: var(--source-code-line-height);
+  white-space: pre-wrap;
+}
+
+.outputPreviewFixed code {
+  font: inherit;
+}
+
+.outputPreviewDiff {
+  display: grid;
+  gap: var(--output-prose-list-gap);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  line-height: var(--output-prose-line-height);
+}
+
+.outputPreviewDiff > div {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
+.outputPreviewDiffGutter {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: center;
+  user-select: none;
+}
+.outputPreviewUi {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-ui);
+}
+
+.outputPreviewUiTitle {
+  font-family: var(--font-ui);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.outputPreviewUiComposer {
+  padding: var(--space-2);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+}
+
+.outputPreviewUiCaption {
+  font-family: var(--font-ui);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+@container output-appearance (min-width: 26rem) {
+  .panel {
+    display: flex;
+    flex-direction: row;
+    align-items: start;
+    gap: var(--space-4);
+  }
+}
+@container output-appearance (min-width: 26rem) {
+  .controls {
+    flex: 1 1 16rem;
+    min-width: 0;
+  }
+}
+@container output-appearance (min-width: 26rem) {
+  .specimen {
+    flex: 1 1 17.6rem;
+    justify-self: auto;
+    width: auto;
+    min-width: 14.3rem;
+    max-width: 17.6rem;
+  }
+}
+@container output-controls (max-width: 26rem) {
+  .control {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
+
+.tooltipModeSelector {
+  flex-shrink: 0;
+}
+.settingsHovercardLines {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.settingsIconStyleSelector {
+  justify-content: flex-end;
+}
+
+.settingsIconStylePreview {
+  width: 26px;
+  height: 28px;
+  font-size: 1.35rem;
+}
+
+.settingsIconStylePreview svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* The language select keeps its intrinsic width beside the row's text. */
 .select {
   width: auto;

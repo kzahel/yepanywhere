@@ -50,10 +50,12 @@ describe("AppearanceSettings", () => {
   });
 
   it("keeps style and delay in one row and valid delay edits select themed", () => {
-    const { container } = renderAppearanceSettings();
-    const row = container.querySelector(".tooltip-settings-actions");
+    renderAppearanceSettings();
+    const row = screen
+      .getByRole("spinbutton", { name: "Tooltip Style and Delay" })
+      .closest("[data-settings-item]");
     expect(row).toBeTruthy();
-    expect(row?.querySelector(".tooltip-mode-selector")).toBeTruthy();
+    expect(row?.querySelector('[role="radiogroup"]')).toBeTruthy();
     expect(row?.querySelector('input[type="range"]')).toBeTruthy();
     expect(row?.querySelector('input[type="number"]')).toBeTruthy();
 
@@ -132,7 +134,7 @@ describe("AppearanceSettings", () => {
     expect(densityRow?.querySelector("p")?.textContent).toContain(
       "spacing for sidebar rows and sections",
     );
-    expect(densityRow?.closest(".output-appearance-settings")).toBeNull();
+    expect(densityRow?.closest("[data-output-appearance]")).toBeNull();
 
     expect(
       screen.getByRole("radio", { name: "Comfortable", checked: true }),

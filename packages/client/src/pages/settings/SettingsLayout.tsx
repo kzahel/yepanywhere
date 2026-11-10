@@ -1,3 +1,5 @@
+import rowsStyles from "./SettingsRows.module.css";
+import layoutStyles from "./SettingsLayout.module.css";
 import {
   BROWSER_SETTINGS_BACKUP_CAPABILITY,
   type ServerCapabilitySource,
@@ -453,7 +455,7 @@ export function SettingsLayout() {
         title={unservedCategory.label}
         description={unservedCategory.description}
       >
-        <p className="settings-hint">
+        <p className={rowsStyles.hint}>
           {unservedCategory.requires.unsupportedMessage}
         </p>
       </SettingsSection>
@@ -478,19 +480,21 @@ export function SettingsLayout() {
   // "Settings" root plus the active pane title, so the strip names the page
   // instead of just "Settings".
   const settingsBreadcrumb = (
-    <span className="settings-breadcrumb">
+    <span className={layoutStyles.breadcrumb}>
       <ButtonBase
-        className="session-title settings-breadcrumb-root"
+        className={`session-title ${layoutStyles.breadcrumbRoot}`}
         onClick={handleSettingsTitleClick}
       >
         {t("pageTitleSettings")}
       </ButtonBase>
-      <span className="settings-breadcrumb-sep" aria-hidden="true">
+      <span className={layoutStyles.breadcrumbSep} aria-hidden="true">
         ›
       </span>
-      <span className="settings-breadcrumb-current">{resolvedPaneTitle}</span>
+      <span className={layoutStyles.breadcrumbCurrent}>
+        {resolvedPaneTitle}
+      </span>
       {breadcrumbDescription && (
-        <span className="settings-breadcrumb-description">
+        <span className={layoutStyles.breadcrumbDescription}>
           {breadcrumbDescription}
         </span>
       )}
@@ -524,10 +528,12 @@ export function SettingsLayout() {
             ref={setSettingsScrollContainerRef}
             className="page-scroll-container"
           >
-            <div className="page-content-inner settings-category-list-shell">
+            <div
+              className={`page-content-inner ${layoutStyles.categoryListShell}`}
+            >
               {searchBar}
               {searchResults ?? (
-                <div className="settings-category-list">
+                <div className={layoutStyles.categoryList}>
                   {visibleCategories.map((cat) => (
                     <SettingsCategoryItem
                       key={cat.id}
@@ -587,10 +593,10 @@ export function SettingsLayout() {
         ref={setSettingsScrollContainerRef}
         className="page-scroll-container"
       >
-        <div className="settings-two-column">
-          <nav className="settings-category-nav">
+        <div className={layoutStyles.twoColumn}>
+          <nav className={layoutStyles.categoryNav} data-settings-category-nav>
             {searchBar}
-            <div className="settings-category-list">
+            <div className={layoutStyles.categoryList}>
               {visibleCategories.map((cat) => (
                 <SettingsCategoryItem
                   key={cat.id}
@@ -603,7 +609,10 @@ export function SettingsLayout() {
               {principalResolved && <SettingsClipboardTransfer />}
             </div>
           </nav>
-          <div className="settings-content-panel">
+          <div
+            className={layoutStyles.contentPanel}
+            data-settings-content-panel
+          >
             {searchResults ?? (
               <SettingsJumpTargetProvider value={jumpTargetValue}>
                 <SettingsPaneTitleProvider value={setPaneTitle}>

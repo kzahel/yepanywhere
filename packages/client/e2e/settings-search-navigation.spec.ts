@@ -8,7 +8,10 @@ test("selecting a settings category clears the search", async ({
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${baseURL}/settings`);
 
-  const skipOnboarding = page.locator(".onboarding-skip-all");
+  const skipOnboarding = page.getByRole("button", {
+    name: "Skip all",
+    exact: true,
+  });
   if (await skipOnboarding.isVisible()) {
     await skipOnboarding.click();
   }
@@ -19,7 +22,7 @@ test("selecting a settings category clears the search", async ({
   await expect(search).toHaveValue("theme");
 
   await page
-    .locator(".settings-category-nav")
+    .locator("[data-settings-category-nav]")
     .getByRole("button", { name: /Speech backends/ })
     .click();
 
@@ -45,7 +48,7 @@ for (const viewport of [
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await theme.locator("strong").click();
     await expect(page).toHaveURL(/\/settings\/appearance$/);
-    await expect(theme).toHaveClass(/settings-item--jump-flash/);
+    await expect(theme).toHaveAttribute("data-settings-jump-flash", "");
 
     await page.goto(`${baseURL}/settings`);
     await search.fill("Webhook URL");

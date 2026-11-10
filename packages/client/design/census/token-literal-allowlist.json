@@ -35,6 +35,10 @@
     "count": 1,
     "reason": "16px phone bottom-sheet top corners; no matching radius token."
   },
+  "components/HostIdentityMarker.module.css": {
+    "count": 1,
+    "reason": "The 1.15rem emoji marker preserves its optical size beside the page header title."
+  },
   "components/MessageInputToolbar.module.css": {
     "count": 7,
     "reason": "composer pass"
@@ -70,6 +74,10 @@
   "components/blocks/TextBlock.module.css": {
     "count": 1,
     "reason": "User-configured fixed-width transcript size and font offset."
+  },
+  "components/onboarding/OnboardingStep.module.css": {
+    "count": 1,
+    "reason": "Move-only 1.25rem wizard title preserves its existing hierarchy at every UI scale."
   },
   "components/renderers/tools/ExitPlanModeRenderer.module.css": {
     "count": 1,
@@ -119,6 +127,10 @@
     "count": 1,
     "reason": "Source-code typography follows the user-selected source font size and offset."
   },
+  "pages/settings/AppearanceSettings.module.css": {
+    "count": 4,
+    "reason": "Three user-configured output/source specimen sizes and the 1.35rem icon-style sample preserve their measured typography and optical scale."
+  },
   "pages/settings/NotificationsSettings.module.css": {
     "count": 1,
     "reason": "1.25rem notification setup heading; preserve heading hierarchy without adding a rarely used scale step."
@@ -130,6 +142,22 @@
   "pages/settings/ServerConnectionsSettings.module.css": {
     "count": 4,
     "reason": "20/24/25/28px service, profile and empty-state glyphs are optically fitted to their containers."
+  },
+  "pages/settings/SettingsCategoryIcons.module.css": {
+    "count": 1,
+    "reason": "The 1.5rem emoji/icon container preserves its existing optical size beside navigation labels."
+  },
+  "pages/settings/SettingsCategoryItem.module.css": {
+    "count": 2,
+    "reason": "Navigation description is exactly 1px smaller than the small token; the 1.25rem chevron keeps its optical scale."
+  },
+  "pages/settings/SettingsLayout.module.css": {
+    "count": 1,
+    "reason": "The breadcrumb current-pane label keeps its relative 0.95em minus 1pt optical offset."
+  },
+  "pages/settings/SettingsRows.module.css": {
+    "count": 1,
+    "reason": "Search highlights retain their 2px corners; changing to the 3px token would alter their rendered geometry."
   },
   "pages/settings/SpeechVocabularyControls.module.css": {
     "count": 1,
