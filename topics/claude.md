@@ -370,15 +370,47 @@ Each load owns and closes its descriptor. Path-specific invalidation retires
 only that path's owner; invalidated callers join/retry the current owner even
 when the obsolete read rejects.
 
-The existing Claude cache owns decoded entries and summary state, capped at
-192 MiB of source bytes and 128 files. Summary projections share one result
-per parse version/request context, including current model-window resolution;
-returned summaries are isolated from caller mutation. No second transcript
-payload cache or background loop is introduced. Source-byte accounting does
-not measure exact decoded heap. Oversized transcripts remain uncached and
-full reads still start at byte zero. Bounded compaction lookup and incremental
-visible-branch normalization remain open in plan 190; streamed acquisition
-alone does not solve that history-dependent work.
+The existing process cache owns either complete decoded entries or an indexed
+selection for a file, with one in-flight source owner. Full and indexed callers
+join acquisition but retry incompatible representations. Summary peeks preserve
+the current representation. There is a 128-file ceiling and 192 MiB budget;
+complete mode charges source bytes, while indexed mode estimates source metadata,
+lightweight projections/task state and provisional payload plus decoded-window
+source bytes. The legacy stats name `retainedSourceBytes` is an estimate in this
+mode, not exact heap accounting. Oversized indexes/windows decline retention
+and preserve the complete-reader fallback.
+
+Bounded detail builds a compact source/compaction index once, dropping historical
+text, thinking, images and ordinary tool output. The existing forest and visible
+selector operate on metadata; compaction positions belong to that selected
+sequence. Selected row references are hydrated and passed through the existing
+converter with global queue positions and turn ordinals. Task state includes the
+omitted visible prefix. Complete source-order metadata also preserves the
+historical nested-harness extractor's block slots and eligibility/launch/result
+facts. This specialized evidence is not a generic raw transcript.
+
+Ordinary unique, timestamp-consistent tip extensions update visible references,
+orphans, task state and compact summary witnesses from appended records. Common
+queue deliveries update a bounded recent suffix. Rewinds, sibling changes,
+historical queue insertion and provisional views can rebuild metadata selection.
+Snapshots capture source generation; selection and hydration validate it and the
+projection generation before publication. Counts are captured before awaits.
+Indexed selections retain full-response pagination totals and existing public
+message IDs/turn numbers. Unsupported structural rows and task results preceding
+their calls use the complete reader.
+
+Summary projections share one result per parse version/request context, including
+current model-window resolution; returned summaries are isolated from caller
+mutation. Indexed summaries retain exact branch counts and the bounded witnesses
+needed by the existing selectors. Add new fields and their witness/parity rules
+together. Summary and renderer branch membership remain distinct.
+
+An unseen transcript still needs one streaming index build, and restart/eviction
+repeats it. The metadata graph remains O(history) under the cache budget, although
+full historical payload is not retained. Durable profile-owned indexing and cold
+open/memory qualification remain open in plan 190. Complete history and oversized
+catch-up retain their established costs. See
+[implementation/evidence](../docs/research/190-claude-source-index.md).
 
 ## Transcript Structure: Forest, Connector Rows, Dead Segments
 

@@ -241,6 +241,15 @@ reconciliation; they must not erase unrelated v0 or YA-created edges. Preserve
 source history when the producer's evidence supports it, and never interpret a
 failed read as an authoritative empty set.
 
+Indexed Claude detail supplies the same historical harness extractor with a
+complete-source metadata projection in original parsed-row/content-block order.
+It retains the eligibility flags, recognized scoped launch commands and result
+success/error facts the extractor uses, excluding unrelated payload. Committed
+row count, source identity/version and native copy witnesses remain required.
+This prevents a bounded visible selection from silently suppressing historical
+acquisition; it grants no new admission or authority. See the
+[Claude reader contract](claude.md#transcript-acquisition-and-retention).
+
 ## Provider acquisition
 
 Every adapter describes its source/version, enumeration semantics and accepted

@@ -7,8 +7,9 @@ first bounded-working-set slice; correctness, measurements and qualification
 are recorded below. Retained list/Inbox SQL queries form the second slice,
 canonical seen/lazy metadata the third, and SQL catalog ownership plus safe
 query restoration the fourth. Stage 3 now has a shared transcript ingestion
-and resolved-provider dispatch slice; bounded Claude branch projection remains
-open. Full scenario targets remain open.
+and resolved-provider dispatch slice; Claude indexed warm windows are
+implemented. Durable indexing and cold/restart qualification remain open.
+Full scenario targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -50,7 +51,7 @@ request paths need a justification beyond improving one benchmark.
 |---|---|---|---|
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
 | 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas and safe checkpoint restoration implemented; qualification/remaining consumers open |
-| 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition, append evidence and provisional replay implemented; Codex dispatch repaired; Claude bounded history/branch projection remains open |
+| 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition/Codex dispatch and indexed Claude warm windows implemented; first index build, persistence and exceptional metadata work remain open |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
 
@@ -61,16 +62,15 @@ apply throughout, rather than waiting for the last stage.
 
 ### Current focus — bounded transcript ingestion
 
-The SQL ownership slices below have landed. The selected next workstream is
-stage 3: one shared acquisition/framing contract, with provider-specific
-semantics and bounded decoded working sets. The first slice is recorded in
-[transcript ingestion evidence](../research/190-transcript-ingestion.md).
-It removes duplicate JSONL framing, carries accepted-source evidence through
-append acquisition, and fixes actual-provider dispatch that suppressed Codex
-catch-up in Claude-default projects. It does not complete original step 2:
-Claude still rebuilds its visible branch and cannot retain a transcript over
-192 MiB. Next, implement the Claude compaction index and bounded branch
-projection, preserving full-rebuild parity for rewinds and dead branches.
+The SQL ownership slices below have landed. Stage 3 now shares acquisition and
+serves Claude bounded windows from a compact source/branch index, extending
+ordinary updates without rebuilding historical payload. The
+[Claude index outcome](../research/190-claude-source-index.md) owns semantics,
+review, parity and measurements. First-time construction and eviction/restart
+still scan source history; the metadata working set is bounded but O(history).
+Durable profile-owned indexing is the next architectural boundary, serving
+cold open, restart and resident memory together. Full active-tab qualification
+and client authoritative change delivery remain open.
 
 ### Previous focus — SQL-owned catalog and bounded working set
 
@@ -237,6 +237,27 @@ and 112 MB Codex copies. Protocol, hashes, checks and qualifications are in
 [the evidence](../research/190-transcript-ingestion.md). These do not qualify
 the full active-tab targets; Claude above-budget reads and branch normalization,
 old-anchor complete fallbacks, client reloads and polling remain open.
+
+### Claude source index — implementation outcome
+
+The existing cache owns a compact metadata/compaction index plus the decoded
+logical window, preserving full-source branch, queue/turn, task, rewind and
+historical harness semantics. Ordinary tip extensions and fresh queue delivery
+extend projections; exceptional changes reuse the existing metadata selector.
+Acquisition mode, source/projection generation, provisional retention and
+hydration are fenced. Public message/pagination shape and full counts remain.
+
+[Implementation/evidence](../research/190-claude-source-index.md) records median
+cursor updates of 25.74 → 1.50 ms at 20 compactions and 2,127.28 → 1.46 ms at
+200, plus real-copy full-rebuild parity. First detail regresses from 2.35 to
+2.93 seconds at 200 because it builds the index. Indexed metadata retains
+225.8 MiB heap versus 43.2 MiB after the old uncached reader's GC, while RSS
+falls from 1,448.8 to 596.1 MiB after repeated updates. These are isolated
+diagnostics, not full target qualification. The first
+unseen-source index build still streams history, restart/eviction repeats it,
+and metadata itself remains O(history) under the budget. These costs keep
+original step 2 and cold-open/memory targets open; client reload/poll/render
+costs are unchanged. No full-scenario target is newly certified here.
 
 ## Scenario
 
@@ -428,8 +449,9 @@ after a restart.
 
 ### 2 — read a long session incrementally
 
-Agreed as required. Shared acquisition and Codex resolved-provider dispatch
-are implemented; bounded Claude history/branch projection is the next slice.
+Agreed as required. Shared acquisition, Codex dispatch and indexed Claude warm windows are
+implemented. First index construction, durable restoration, exceptional metadata
+projection and full-host qualification remain open.
 The original measured baseline below remains historical evidence:
 
 

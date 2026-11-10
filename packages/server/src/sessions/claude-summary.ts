@@ -77,6 +77,8 @@ export interface ClaudeSummaryParseState {
   firstUserTitleContent?: string;
   firstUserTitleCaptured: boolean;
   metrics: ParseMetrics;
+  /** Exact branch count when the reader supplies a condensed branch projection. */
+  projectedMessageCount?: number;
 }
 
 export interface ReadClaudeSessionSummaryOptions {
@@ -741,6 +743,7 @@ export function cloneParseState(
     firstUserTitleContent: state.firstUserTitleContent,
     firstUserTitleCaptured: state.firstUserTitleCaptured,
     metrics: { ...state.metrics },
+    projectedMessageCount: state.projectedMessageCount,
   };
 }
 
@@ -749,9 +752,9 @@ export function buildSummaryFromState(
   options: ReadClaudeSessionSummaryOptions,
 ): SessionSummary | null {
   const activeBranch = buildActiveBranch(state);
-  const messageCount = activeBranch.filter((node) =>
-    CONVERSATION_TYPES.has(node.type),
-  ).length;
+  const messageCount =
+    state.projectedMessageCount ??
+    activeBranch.filter((node) => CONVERSATION_TYPES.has(node.type)).length;
 
   const firstUserMessage = state.firstUserTitleContent;
   const fullTitle = firstUserMessage?.trim() || null;

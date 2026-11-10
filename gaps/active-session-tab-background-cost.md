@@ -56,26 +56,19 @@ request the tab made and its WebSocket frames (header comment for usage).
 
 ## What it spends, largest first
 
-1. **The detail of a long Claude session is rebuilt whole on every write.**
-   For Claude the reader returns every entry and the route normalizes all of
-   them (DAG, visible entries, task snapshots) before slicing after the
-   client's anchor (the resolved reader still receives full forest context).
-   In the baseline, the summary's active branch was rebuilt from the whole
-   parse state twice per write: once for the detail
-   (`reader.getSession`) and once for the catalog row
-   (`getSessionSummaryFromDir`). Synthetic world: normalization 4.9 s and
-   summaries 4.9 s of about 22 s of main-thread CPU in two minutes; it grows
-   with the session's length. Past the 192 MB parse budget the file is also
-   reread whole per request (3.2 s per request at 465 MB). Codex is no
-   better in the original baseline: each update reads and normalizes the
-   whole rollout (2.1 s at 488 MB). The cause is now fixed: route dispatch
-   stripped actual Codex cursor/window intent in Claude-default projects.
-   Shared chunked framing, provisional replay and accepted-source fencing
-   now serve both readers; Claude summaries reuse a parse-version projection.
-   [Ingestion evidence](../docs/research/190-transcript-ingestion.md) records
-   the isolated gain and remaining limits. Fix: keep normalized messages and the active branch
-   incremental over appends, or at least share one summary per parse-state
-   version (plan 190 step 2).
+1. **Claude warm updates are indexed; cold index construction remains whole-file.**
+   Bounded detail now retains source/branch metadata and hydrates selected rows,
+   extending ordinary writes without rereading historical payload. Global IDs,
+   turns, task state, branch selection, rewound groups and harness evidence are
+   preserved. [Claude index evidence](../docs/research/190-claude-source-index.md)
+   records the comparison and limits. An unseen file still needs a streaming
+   metadata-index build; restart/eviction repeats it. Metadata remains O(history)
+   under the shared cache budget; exceptional projection changes can revisit it.
+   Complete/oversized catch-up remains expensive. Durable profile-owned indexing
+   and cold-open/memory qualification remain open. Codex's former whole-rollout
+   updates in Claude-default projects were fixed by resolved-provider dispatch;
+   [shared ingestion evidence](../docs/research/190-transcript-ingestion.md)
+   records that earlier slice. No full active-tab target is closed here.
 2. **Each write makes every tab refetch six whole-catalog lists:** the three
    feeds, Inbox, `/api/projects` and `/api/project-queue`. Sharing leaves
    about one walk per write per tab in the recorded baseline. The retained

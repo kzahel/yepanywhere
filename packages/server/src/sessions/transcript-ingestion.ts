@@ -15,6 +15,10 @@ export interface TranscriptAppendFence {
   head: Buffer;
   boundary: Buffer;
 }
+export interface TranscriptLineInfo {
+  committed: boolean;
+  byteLength: number;
+}
 export interface TranscriptRange<T> {
   entries: T[];
   /** Entries from newline-terminated records; the last entry may be provisional. */
@@ -39,7 +43,11 @@ export async function readTranscriptRange<T>(
   filePath: string,
   start: number,
   length: number,
-  parse: (line: string, sourceByteOffset: number) => T | null,
+  parse: (
+    line: string,
+    sourceByteOffset: number,
+    info: TranscriptLineInfo,
+  ) => T | null,
   initialPartialLine: Buffer = Buffer.alloc(0),
   readStartedAt = Date.now(),
 ): Promise<TranscriptRange<T>> {
@@ -60,7 +68,10 @@ export async function readTranscriptRange<T>(
     maxLineLength = Math.max(maxLineLength, line.length);
     if (line.trim()) {
       try {
-        const entry = parse(line.trim(), lineOffset);
+        const entry = parse(line.trim(), lineOffset, {
+          committed,
+          byteLength: bytes.length,
+        });
         if (entry !== null) entries.push(entry);
         else if (committed) malformedLines++;
       } catch (error) {
@@ -124,7 +135,11 @@ export async function readTranscriptFile<T>(
   filePath: string,
   start: number,
   length: number,
-  parse: (line: string, sourceByteOffset: number) => T | null,
+  parse: (
+    line: string,
+    sourceByteOffset: number,
+    info: TranscriptLineInfo,
+  ) => T | null,
   previous?: TranscriptAppendFence,
 ): Promise<TranscriptRange<T>> {
   try {
@@ -201,7 +216,7 @@ export async function readObservedTranscriptRange<T>(
   filePath: string,
   start: number,
   length: number,
-  parse: (line: string, offset: number) => T | null,
+  parse: (line: string, offset: number, info: TranscriptLineInfo) => T | null,
   initialPartialLine: Buffer = Buffer.alloc(0),
   readStartedAt = Date.now(),
   previous?: TranscriptAppendFence,

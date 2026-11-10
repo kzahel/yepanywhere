@@ -234,7 +234,7 @@ function isSyntheticUserTurn(m: Message): boolean {
   return typeof text === "string" && isLocalCommandTranscriptText(text);
 }
 
-function isUserTurn(m: Message): boolean {
+export function isUserTurn(m: Message): boolean {
   const record = m as Message & {
     role?: unknown;
     message?: { role?: unknown };

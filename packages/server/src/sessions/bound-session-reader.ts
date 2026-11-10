@@ -50,10 +50,12 @@ export class BoundSessionReads {
   ) {}
 
   async read(input: BoundSessionRead): Promise<LoadedSession | null> {
-    // Claude branch selection needs complete forest context until its indexed
-    // projection is available. The resolved native family owns this decision.
+    // Indexed reads own Claude branch context. Complete fallback reads retain
+    // the full forest before route slicing.
     const afterMessageId =
-      input.native.family === "claude" ? undefined : input.afterMessageId;
+      input.native.family === "claude" && !input.options?.tailCompactions
+        ? undefined
+        : input.afterMessageId;
     const reader = this.deps.readerFactory(
       { ...input.transcriptProject, provider: input.provider },
       input.native,

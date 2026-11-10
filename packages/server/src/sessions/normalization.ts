@@ -278,9 +278,7 @@ function getCodexMessageCacheKey(entries: CodexSessionEntry[]): object {
   return entries;
 }
 
-// Keyed by the reader's cache-stable entries array (claude-transcript-cache):
-// an unchanged transcript skips DAG rebuild + per-message conversion, and
-// eviction of the parsed transcript releases this copy via WeakMap semantics.
+// Complete reads cache by their parse-array identity.
 const claudeMessageCache = new WeakMap<
   ClaudeSessionEntry[],
   {
@@ -326,6 +324,8 @@ export function normalizeSession(
   options: NormalizeSessionOptions = {},
 ): Session {
   const { summary, data } = loaded;
+  if (loaded.projectedMessages)
+    return { ...summary, messages: loaded.projectedMessages };
 
   switch (data.provider) {
     case "claude":

@@ -165,3 +165,7 @@ reader. Source-byte budgets are not exact decoded-heap measurements. Summary
 construction outside the detail request and catalog publication remain separate
 costs. Client list reloads/polling, transcript deltas/rendering, idle/startup
 qualification and end-to-end memory/typing targets are open.
+
+Subsequent work: [indexed Claude windows](190-claude-source-index.md) now
+implements the warm bounded reader. First index construction, persistence and
+exceptional metadata work remain explicitly open in that outcome.

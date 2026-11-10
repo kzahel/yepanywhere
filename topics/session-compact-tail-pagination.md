@@ -113,9 +113,9 @@ the boundary's stable message id. If a turn selector narrows the visible window
 past that boundary, the cursor encodes the first visible row's source position
 without replacing that row's durable message identity. In either case
 `hasOlderMessages` and `truncatedBeforeMessageId` remain authoritative.
-`totalMessageCount` and `totalCompactions` describe the reader's available
-source window rather than the complete provider file because skipped bytes were
-intentionally never normalized or counted. The route rejects a provider-bounded
+For Codex byte windows, `totalMessageCount` and `totalCompactions` describe
+the available source window because skipped bytes were not counted. Indexed
+Claude selections retain full-projection totals, as described below. The route rejects a provider-bounded
 response whose omitted prefix lacks the older-history boolean or cursor instead
 of presenting the suffix as the beginning of the session.
 
@@ -142,6 +142,27 @@ rewritten rather than appended to, so its index describes different bytes and
 is refused. A hint claiming to be newer than the file means the rollout was
 replaced or rewound, and also falls back to the complete reader.
 
+#### Indexed Claude selections
+
+Claude bounded detail uses a source/compaction index under the existing cache
+owner. Compaction positions follow the complete visible forest projection,
+including rewound groups and sibling work. Hydration may read noncontiguous row
+references; private `indexed-selection` metadata therefore describes logical
+pagination, not a contiguous source range. Older selections end at their UUID
+cursor, and global queue IDs/turn ordinals and full-selection pagination totals
+remain unchanged. Task snapshots include omitted prefix state. Valid cursor
+catch-up hydrates the anchor and subsequent selected rows, including late queue
+delivery. Complete history and over-budget/unsupported cases retain the complete
+reader. Source generation is captured with the summary and validated before
+selection; projection generation and append evidence fence hydration.
+
+The first unseen-source index build still streams history, and metadata
+reselection can revisit history after branch/provisional changes. Persistence,
+restart and full-host qualification remain open. The
+[Claude index evidence](../docs/research/190-claude-source-index.md) distinguishes
+warm append gains from those remaining costs. No client capability or public
+response shape changes.
+
 #### Incremental catch-up
 
 For a large plain Codex rollout with usable indexed head fields, an
@@ -154,9 +175,9 @@ Message ids and the API response shape remain unchanged.
 
 Cursor selection happens after actual provider resolution. A Claude-default
 project can contain Codex sessions; both managed and unbound Codex sessions
-must retain cursor/window intent. The resolved Claude reader receives complete
-forest context before route-level slicing. This fixes route suppression of
-Codex's existing bounded path without adding a new provider request path.
+must retain cursor/window intent. The resolved Claude indexed reader retains forest metadata while hydrating the
+requested selection; complete fallback reads retain full forest context before
+route slicing. This fixes route suppression without relying on project defaults.
 
 Shared append validation may read fixed head probes of at most 1 KiB, even for
 a bounded suffix. Those probes do not parse or hydrate the omitted history.

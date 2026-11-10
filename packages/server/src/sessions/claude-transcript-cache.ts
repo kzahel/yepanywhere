@@ -1,3 +1,4 @@
+import { ClaudeSourceIndex } from "./claude-source-index.js";
 import {
   TranscriptAppendMismatchError,
   readTranscriptFile,
@@ -51,11 +52,16 @@ export interface ClaudeTranscriptSnapshot {
   summaryState: ClaudeSummaryParseState;
   stats: Stats;
   malformedLines: number;
+  sourceIndex?: ClaudeSourceIndex;
+  sourceGeneration?: number;
+  appendFence?: TranscriptAppendFence;
 }
 
 type LoadOutcome = "hit" | "incremental" | "full" | "uncached";
 
 interface CacheEntry {
+  retainedCharge?: number;
+  sourceIndex?: ClaudeSourceIndex;
   filePath: string;
   entries: ClaudeSessionEntry[];
   summaryState: ClaudeSummaryParseState;
@@ -100,7 +106,11 @@ export class ClaudeTranscriptCache {
   private readonly entriesByPath: LruMap<string, CacheEntry> = createLruMap();
   private readonly inFlight = new Map<
     string,
-    { token: { invalidated: boolean }; promise: Promise<CacheEntry | null> }
+    {
+      token: { invalidated: boolean };
+      promise: Promise<CacheEntry | null>;
+      indexed: boolean;
+    }
   >();
   private readonly maxSourceBytes: number;
   private retainedSourceBytes = 0;
@@ -129,7 +139,36 @@ export class ClaudeTranscriptCache {
     if (!this.entriesByPath.has(filePath) && !this.inFlight.has(filePath)) {
       return null;
     }
-    return this.loadInternal(filePath, { populate: false });
+    return this.loadInternal(filePath, {
+      populate: false,
+      indexed:
+        !!this.entriesByPath.get(filePath)?.sourceIndex ||
+        !!this.inFlight.get(filePath)?.indexed,
+    });
+  }
+
+  /** Build/extend compact source metadata without retaining historical payload. */
+  async loadIndexed(
+    filePath: string,
+  ): Promise<ClaudeTranscriptSnapshot | null> {
+    if (this.maxSourceBytes <= 0) return null;
+    return this.loadInternal(filePath, { populate: true, indexed: true });
+  }
+  budgetBytes(): number {
+    return this.maxSourceBytes;
+  }
+  invalidateIndexed(filePath: string, index: ClaudeSourceIndex): void {
+    if (this.entriesByPath.get(filePath)?.sourceIndex === index)
+      this.invalidate(filePath);
+  }
+  accountIndexedWindow(filePath: string, index: ClaudeSourceIndex): void {
+    const entry = this.entriesByPath.get(filePath);
+    if (!entry || entry.sourceIndex !== index) return;
+    const charge = retainedBytes(entry);
+    this.retainedSourceBytes += charge - (entry.retainedCharge ?? 0);
+    entry.retainedCharge = charge;
+    if (charge > this.maxSourceBytes) this.forget(filePath);
+    this.enforceBudget(filePath);
   }
 
   /** Fixed-cost process diagnostics without exposing retained file identities. */
@@ -164,29 +203,35 @@ export class ClaudeTranscriptCache {
     }
     const existing = this.entriesByPath.get(filePath);
     if (existing) {
-      this.retainedSourceBytes -= existing.stats.size;
+      this.retainedSourceBytes -=
+        existing.retainedCharge ?? retainedBytes(existing);
       this.entriesByPath.delete(filePath);
     }
   }
 
   private async loadInternal(
     filePath: string,
-    options: { populate: boolean },
+    options: { populate: boolean; indexed?: boolean },
   ): Promise<ClaudeTranscriptSnapshot | null> {
     const pending = this.inFlight.get(filePath);
-    if (pending) return this.finishLoad(filePath, options, pending);
+    if (pending) {
+      const snapshot = await this.finishLoad(filePath, options, pending);
+      if (snapshot && !!snapshot.sourceIndex !== !!options.indexed)
+        return this.loadInternal(filePath, options);
+      return snapshot;
+    }
     const token = { invalidated: false };
     const work = this.refresh(filePath, options, token).finally(() => {
       if (this.inFlight.get(filePath)?.token === token)
         this.inFlight.delete(filePath);
     });
-    const owner = { token, promise: work };
+    const owner = { token, promise: work, indexed: !!options.indexed };
     this.inFlight.set(filePath, owner);
     return this.finishLoad(filePath, options, owner);
   }
   private async finishLoad(
     filePath: string,
-    options: { populate: boolean },
+    options: { populate: boolean; indexed?: boolean },
     owner: {
       token: { invalidated: boolean };
       promise: Promise<CacheEntry | null>;
@@ -195,7 +240,11 @@ export class ClaudeTranscriptCache {
     try {
       const entry = await owner.promise;
       if (owner.token.invalidated) return this.loadInternal(filePath, options);
-      return entry ? toSnapshot(entry) : null;
+      if (!entry) return null;
+      const snapshot = toSnapshot(entry);
+      if (entry.sourceIndex)
+        this.accountIndexedWindow(filePath, entry.sourceIndex);
+      return snapshot;
     } catch (error) {
       if (owner.token.invalidated) return this.loadInternal(filePath, options);
       throw error;
@@ -204,7 +253,7 @@ export class ClaudeTranscriptCache {
 
   private async refresh(
     filePath: string,
-    options: { populate: boolean },
+    options: { populate: boolean; indexed?: boolean },
     token: { invalidated: boolean },
   ): Promise<CacheEntry | null> {
     let stats: Stats;
@@ -219,7 +268,11 @@ export class ClaudeTranscriptCache {
       return null;
     }
 
-    const cached = this.entriesByPath.get(filePath);
+    let cached = this.entriesByPath.get(filePath);
+    if (cached && !!cached.sourceIndex !== !!options.indexed) {
+      this.forget(filePath);
+      cached = undefined;
+    }
     if (cached) {
       if (sameFileSnapshot(cached.stats, stats)) {
         this.touch(cached);
@@ -243,6 +296,7 @@ export class ClaudeTranscriptCache {
       cached ? await stat(filePath) : stats,
       options.populate,
       token,
+      options.indexed,
     );
   }
 
@@ -258,7 +312,15 @@ export class ClaudeTranscriptCache {
         cached.filePath,
         cached.parsedBytes,
         stats.size - cached.parsedBytes,
-        (line) => JSON.parse(line) as ClaudeSessionEntry,
+        (line, offset, info) => {
+          const raw = JSON.parse(line) as ClaudeSessionEntry;
+          if (raw === null) return null;
+          if (cached.sourceIndex)
+            Object.defineProperty(raw, INDEX_RANGE, {
+              value: { offset, info },
+            });
+          return raw;
+        },
         cached.appendFence,
       );
     } catch (error) {
@@ -271,26 +333,45 @@ export class ClaudeTranscriptCache {
     if (!sameFileIdentity(stats, after) || after.size < stats.size) return null;
     if (token.invalidated || this.entriesByPath.get(cached.filePath) !== cached)
       return null;
+    const previousBytes = cached.retainedCharge ?? retainedBytes(cached);
+    cached.sourceIndex?.clearProvisional();
     if (cached.hasProvisionalTail)
       cached.entries.length = cached.committedEntries;
     for (const candidate of parsed.entries.slice(0, parsed.committedEntries)) {
-      addEntryToState(
-        cached.summaryState,
-        candidate,
-        cached.summaryState.metrics.parsedEntries,
-      );
-      cached.entries.push(candidate);
+      if (cached.sourceIndex) {
+        const { offset, info } = (candidate as IndexedRangeRow)[INDEX_RANGE]!;
+        cached.entries.push(
+          cached.sourceIndex.capture(candidate, offset, info),
+        );
+      } else {
+        addEntryToState(
+          cached.summaryState,
+          candidate,
+          cached.summaryState.metrics.parsedEntries,
+        );
+        cached.entries.push(candidate);
+      }
     }
     cached.provisionalSummaryState = undefined;
     cached.malformedLines += parsed.malformedLines;
     cached.parsedBytes = stats.size - parsed.partialLine.length;
     cached.committedEntries = cached.entries.length;
     cached.hasProvisionalTail = parsed.entries.length > parsed.committedEntries;
-    if (cached.hasProvisionalTail)
-      cached.entries.push(parsed.entries[parsed.committedEntries]!);
+    if (cached.hasProvisionalTail) {
+      const row = parsed.entries[parsed.committedEntries]!;
+      const range = (row as IndexedRangeRow)[INDEX_RANGE];
+      cached.entries.push(
+        cached.sourceIndex && range
+          ? cached.sourceIndex.capture(row, range.offset, range.info)
+          : row,
+      );
+    }
+    if (cached.sourceIndex && !parsed.partialLine.length)
+      cached.sourceIndex.clearProvisional();
     cached.appendFence = fence;
-    this.retainedSourceBytes += stats.size - cached.stats.size;
     cached.stats = stats;
+    cached.retainedCharge = retainedBytes(cached);
+    this.retainedSourceBytes += cached.retainedCharge - previousBytes;
     this.touch(cached);
     this.enforceBudget(cached.filePath);
     this.logOutcome(
@@ -307,26 +388,34 @@ export class ClaudeTranscriptCache {
     stats: Stats,
     populate: boolean,
     token: { invalidated: boolean },
+    indexed = false,
   ): Promise<CacheEntry | null> {
     const startedAt = performance.now();
+    const sourceIndex = indexed ? new ClaudeSourceIndex() : undefined;
     const parsed = await readTranscriptFile(
       filePath,
       0,
       stats.size,
-      (line) => JSON.parse(line) as ClaudeSessionEntry,
+      (line, offset, info) => {
+        const raw = JSON.parse(line) as ClaudeSessionEntry;
+        if (raw === null) return null;
+        return sourceIndex ? sourceIndex.capture(raw, offset, info) : raw;
+      },
     );
-    const summaryState = createParseState();
-    for (const candidate of parsed.entries.slice(0, parsed.committedEntries))
-      addEntryToState(
-        summaryState,
-        candidate,
-        summaryState.metrics.parsedEntries,
-      );
+    const summaryState = sourceIndex?.summaryState ?? createParseState();
+    if (!sourceIndex)
+      for (const candidate of parsed.entries.slice(0, parsed.committedEntries))
+        addEntryToState(
+          summaryState,
+          candidate,
+          summaryState.metrics.parsedEntries,
+        );
     const appendFence = parsed.appendFence;
     const after = await stat(filePath);
     if (!sameFileIdentity(stats, after) || after.size < stats.size) return null;
     const entry: CacheEntry = {
       filePath,
+      sourceIndex,
       entries: parsed.entries,
       summaryState,
       stats,
@@ -338,10 +427,13 @@ export class ClaudeTranscriptCache {
     };
 
     const retain =
-      populate && !token.invalidated && stats.size <= this.maxSourceBytes;
+      populate &&
+      !token.invalidated &&
+      retainedBytes(entry) <= this.maxSourceBytes;
     if (retain) {
       this.entriesByPath.set(filePath, entry);
-      this.retainedSourceBytes += stats.size;
+      entry.retainedCharge = retainedBytes(entry);
+      this.retainedSourceBytes += entry.retainedCharge;
       this.enforceBudget(filePath);
     }
     this.logOutcome(
@@ -368,7 +460,7 @@ export class ClaudeTranscriptCache {
         break;
       if (path === justUsedPath) continue;
       this.entriesByPath.delete(path);
-      this.retainedSourceBytes -= entry.stats.size;
+      this.retainedSourceBytes -= entry.retainedCharge ?? retainedBytes(entry);
       getLogger().debug(
         {
           event: "claude_transcript_cache_evict",
@@ -408,6 +500,19 @@ export class ClaudeTranscriptCache {
  * so the next refresh can re-read it once the writer finishes the line.
  */
 function toSnapshot(entry: CacheEntry): ClaudeTranscriptSnapshot {
+  if (entry.sourceIndex) {
+    const sourceIndex = entry.sourceIndex.view();
+    return {
+      entries: entry.entries,
+      committedEntries: entry.committedEntries,
+      summaryState: sourceIndex.summary(),
+      stats: entry.stats,
+      malformedLines: entry.malformedLines,
+      sourceIndex,
+      sourceGeneration: sourceIndex.generation,
+      appendFence: entry.appendFence,
+    };
+  }
   if (!entry.hasProvisionalTail) {
     return {
       entries: entry.entries,
@@ -433,6 +538,19 @@ function toSnapshot(entry: CacheEntry): ClaudeTranscriptSnapshot {
     stats: entry.stats,
     malformedLines: entry.malformedLines,
   };
+}
+
+const INDEX_RANGE = Symbol("claudeIndexRange");
+type IndexedRangeRow = ClaudeSessionEntry & {
+  [INDEX_RANGE]?: {
+    offset: number;
+    info: import("./transcript-ingestion.js").TranscriptLineInfo;
+  };
+};
+function retainedBytes(entry: CacheEntry) {
+  return entry.sourceIndex
+    ? entry.sourceIndex.retainedBytes + entry.sourceIndex.decodedBytes
+    : entry.stats.size;
 }
 
 function resolveBudgetFromEnv(): number | null {

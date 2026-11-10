@@ -160,6 +160,12 @@ try {
     "sessions/claude-transcript-cache.js",
     "sessions/transcript-ingestion.js",
     "sessions/claude-summary-projection.js",
+    "sessions/reader.js",
+    "sessions/claude-source-index.js",
+    "sessions/claude-index-summary.js",
+    "sessions/claude-message-conversion.js",
+    "sessions/normalization.js",
+    "sessions/pagination.js",
     "sessions/codex-entry-ingestion.js",
   ]) {
     try {
@@ -170,7 +176,16 @@ try {
       if (error.code !== "ENOENT") throw error;
     }
   }
+  globalThis.gc?.();
+  const readerCache =
+    provider === "claude"
+      ? (
+          await load("sessions/claude-transcript-cache.js")
+        ).claudeTranscriptCache.getStats()
+      : undefined;
   const result = {
+    readerCache,
+    memory: process.memoryUsage(),
     scenario: {
       provider,
       compactions: count,

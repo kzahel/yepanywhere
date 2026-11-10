@@ -103,6 +103,8 @@ export function toSessionListSummary(
 export interface GetSessionOptions {
   /** Include orphaned tool use detection (default: true, only applicable for Claude) */
   includeOrphans?: boolean;
+  /** Same-session projection records; never provider input. */
+  rewindRecords?: readonly import("@yep-anywhere/shared").SessionRewindRecord[];
   /** Bound a provider-native detail read to this many recent compactions. */
   tailCompactions?: number;
   /** Bound an older-page read to source content before this normalized id. */
@@ -141,6 +143,18 @@ export interface GetSessionSummaryOptions {
 
 // Return type that includes both the computed summary and the raw provider data
 export interface LoadedSession {
+  /** Private reader projection; already uses the full-source branch and turn ordinals. */
+  projectedMessages?: Message[];
+  /** Exact full-selection totals retained alongside a bounded Claude projection. */
+  projectionTotals?: {
+    messages: number;
+    compactions: number;
+    userTurns: number;
+  };
+  /** Full-source metadata in original row/block order for the existing harness extractor. */
+  harnessHistoryRows?: WeakRef<
+    readonly import("@yep-anywhere/shared").ClaudeSessionEntry[]
+  >;
   summary: SessionSummary;
   /** Source timestamp captured with the transcript rows in this snapshot. */
   transcriptSnapshotUpdatedAt: string;
@@ -155,6 +169,12 @@ export interface LoadedSession {
   };
   /** Provider read window used to avoid retaining known-hidden source bytes. */
   readWindow?:
+    | {
+        /** A logical selection of indexed rows; source extents need not be contiguous. */
+        kind: "indexed-selection";
+        omittedPrefix: boolean;
+        before: boolean;
+      }
     | {
         kind: "compact-tail";
         omittedPrefix: true;

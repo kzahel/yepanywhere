@@ -28,6 +28,7 @@ const bytes = await readFile(args.source),
   provider = args.provider ?? "claude";
 const load = (build, name) =>
   import(pathToFileURL(resolve(args[build + "-dist"], name)).href);
+const indexedClaude = args["claude-indexed"] === "1";
 const implementations = {};
 for (const build of ["before", "after"]) {
   const { normalizeSession } = await load(build, "sessions/normalization.js");
@@ -42,14 +43,29 @@ for (const build of ["before", "after"]) {
     );
     implementations[build] = {
       normalizeSession,
+      pagination: await load(build, "sessions/pagination.js"),
+      tasks: await load(build, "augments/task-list-augments.js"),
       owner: () =>
         new ClaudeTranscriptCache({
           maxSourceBytes: build === "before" ? 0 : 192 * 1024 ** 2,
         }),
       read: async (owner) => {
-        const snapshot = await owner.load(file);
+        const snapshot = await (build === "after" && indexedClaude
+          ? owner.loadIndexed(file)
+          : owner.load(file));
         assert(snapshot);
+        const projected =
+          build === "after" && indexedClaude
+            ? await snapshot.sourceIndex.window(file, {
+                compactions: 2,
+                generation: snapshot.sourceGeneration,
+                maxBytes: owner.budgetBytes(),
+                fence: snapshot.appendFence,
+              })
+            : undefined;
+        if (indexedClaude && build === "after") assert(projected);
         return {
+          ...(projected ? { projectedMessages: projected.messages } : {}),
           summary: buildSummaryFromState(snapshot.summaryState, {
             filePath: file,
             stats: snapshot.stats,
@@ -96,7 +112,18 @@ for (const build of ["before", "after"]) {
 }
 const digest = (session) => {
   const hash = createHash("sha256");
-  for (const message of session.messages) hash.update(JSON.stringify(message));
+  const canonical = (value) =>
+    Array.isArray(value)
+      ? value.map(canonical)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.keys(value)
+              .sort()
+              .map((k) => [k, canonical(value[k])]),
+          )
+        : value;
+  for (const message of session.messages)
+    hash.update(JSON.stringify(canonical(message)));
   return { messages: session.messages.length, sha256: hash.digest("hex") };
 };
 const candidate = implementations.after.owner(),
@@ -114,12 +141,28 @@ try {
     try {
       const actualLoaded = await implementations.after.read(candidate);
       const expectedLoaded = await implementations.before.read(reference);
-      const actual = digest(
-        implementations.after.normalizeSession(actualLoaded),
-      );
-      const expected = digest(
-        implementations.before.normalizeSession(expectedLoaded),
-      );
+      const project = (build, loaded) => {
+        let normalized = implementations[build].normalizeSession(loaded);
+        if (indexedClaude) {
+          if (!loaded.projectedMessages)
+            normalized = {
+              ...normalized,
+              messages: implementations[build].tasks.projectTaskListSnapshots(
+                normalized.messages,
+              ),
+            };
+          normalized = {
+            ...normalized,
+            messages: implementations[
+              build
+            ].pagination.sliceAtCompactBoundaries(normalized.messages, 2)
+              .messages,
+          };
+        }
+        return normalized;
+      };
+      const actual = digest(project("after", actualLoaded));
+      const expected = digest(project("before", expectedLoaded));
       assert.deepEqual(actual, expected, `Projection differs at byte ${end}`);
       assert.deepEqual(
         actualLoaded.summary,

@@ -1,3 +1,5 @@
+import { ClaudeProjectionChangedError } from "./claude-source-index.js";
+import { TranscriptAppendMismatchError } from "./transcript-ingestion.js";
 import { projectClaudeSummary } from "./claude-summary-projection.js";
 import {
   readIssueTextBatch,
@@ -351,6 +353,85 @@ export class ClaudeSessionReader implements ISessionReader {
     const filePath = await this.findSessionFile(sessionId);
     if (!filePath) return null;
 
+    if (_options?.tailCompactions && _options.tailCompactions > 0) {
+      const indexed = await claudeTranscriptCache.loadIndexed(filePath);
+      if (indexed?.sourceIndex) {
+        let projected: Awaited<
+          ReturnType<NonNullable<typeof indexed.sourceIndex>["window"]>
+        >;
+        try {
+          projected = await indexed.sourceIndex.window(filePath, {
+            compactions: _options.tailCompactions,
+            generation: indexed.sourceGeneration!,
+            afterMessageId,
+            beforeMessageId: _options.beforeMessageId,
+            rewindRecords: _options.rewindRecords,
+            maxBytes: claudeTranscriptCache.budgetBytes(),
+            fence: indexed.appendFence,
+          });
+        } catch (error) {
+          if (error instanceof ClaudeProjectionChangedError)
+            return this.getSession(
+              sessionId,
+              projectId,
+              afterMessageId,
+              _options,
+            );
+          if (!(error instanceof TranscriptAppendMismatchError)) throw error;
+          claudeTranscriptCache.invalidateIndexed(
+            filePath,
+            indexed.sourceIndex,
+          );
+          return this.getSession(
+            sessionId,
+            projectId,
+            afterMessageId,
+            _options,
+          );
+        }
+        claudeTranscriptCache.accountIndexedWindow(
+          filePath,
+          indexed.sourceIndex,
+        );
+        if (projected) {
+          const summary = this.summaryFromSnapshot(
+            indexed,
+            filePath,
+            sessionId,
+            projectId,
+          );
+          if (!summary) return null;
+          return {
+            summary,
+            transcriptSnapshotUpdatedAt: indexed.stats.mtime.toISOString(),
+            projectedMessages: projected.messages,
+            projectionTotals: projected.totals,
+            harnessHistoryRows: new WeakRef(indexed.entries),
+            committedEntries: indexed.committedEntries,
+            transcriptSourceVersion: {
+              id: JSON.stringify([indexed.stats.dev, indexed.stats.ino]),
+              size: indexed.stats.size,
+              mtime: indexed.stats.mtimeMs,
+              ctime: indexed.stats.ctimeMs,
+            },
+            ...(!afterMessageId
+              ? {
+                  readWindow: {
+                    kind: "indexed-selection" as const,
+                    omittedPrefix: projected.omitted,
+                    before: !!_options.beforeMessageId,
+                  },
+                }
+              : {}),
+            data: {
+              provider: summary.provider as ClaudeProviderName,
+              session: { messages: projected.entries },
+            },
+          };
+        }
+      }
+    }
+
     // One cached parse serves both the summary and the message list; the
     // previous shape read and parsed the full file twice per request.
     const snapshot = await claudeTranscriptCache.load(filePath);
@@ -371,7 +452,7 @@ export class ClaudeSessionReader implements ISessionReader {
     // But typically they do.
     let finalMessages = rawMessages;
     let committedEntries = snapshot.committedEntries;
-    if (afterMessageId) {
+    if (afterMessageId && !_options?.tailCompactions) {
       const afterIndex = rawMessages.findIndex(
         (m) => "uuid" in m && m.uuid === afterMessageId,
       );
