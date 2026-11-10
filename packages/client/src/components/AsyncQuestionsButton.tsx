@@ -24,7 +24,13 @@ function QuestionIcon() {
       aria-hidden="true"
     >
       <path d="M21 11a9 9 0 0 1-9 9 10 10 0 0 1-4-.9L3 21l1.8-5A9 9 0 1 1 21 11Z" />
-      <path d="M9.6 8a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 1.7-2.4 3.5M12 15h.01" />
+      {/* The mark is drawn heavier than the bubble so it survives 18px. */}
+      <path
+        d="M9 8.3a3.1 3.1 0 0 1 6.1.8c0 2.1-3.1 2.3-3.1 4.4M12 16.4h.01"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -69,20 +75,22 @@ function QuestionMenuRow({
     state.update(question.id, { dismissed: !dismissed });
     setContextPoint(null);
   };
+  const age =
+    question.age > 0
+      ? t(
+          question.age === 1
+            ? "asyncQuestionOneTurnAgo"
+            : "asyncQuestionTurnsAgo",
+          { count: question.age },
+        )
+      : null;
   return (
     <li className={styles.menuRow}>
-      <span
-        className={styles.turnAge}
-        role="img"
-        aria-label={t("asyncQuestionTurnsAgo", { count: question.age })}
-      >
-        {question.age}
-      </span>
       <div className={styles.previewBox}>
         <ButtonBase
           ref={previewRef}
           className={styles.preview}
-          title={question.title}
+          title={age ? `${question.title}\n${age}` : question.title}
           aria-label={question.title}
           onClick={() => {
             if (held.current) {
@@ -120,17 +128,22 @@ function QuestionMenuRow({
             />
           )}
         </ButtonBase>
-        <IconButton
+        <Button
+          variant="ghost"
           size="small"
           className={styles.dismiss}
           onClick={dismiss}
-          label={t(
+          aria-label={t(
             dismissed ? "asyncQuestionRestore" : "asyncQuestionDismiss",
             { question: question.title },
           )}
         >
-          {dismissed && showDismissed ? "↶" : "×"}
-        </IconButton>
+          {t(
+            dismissed && showDismissed
+              ? "asyncQuestionRestoreShort"
+              : "asyncQuestionDismissShort",
+          )}
+        </Button>
         <Menu
           open={contextPoint !== null}
           onClose={() => setContextPoint(null)}
@@ -230,8 +243,24 @@ export function AsyncQuestionsButton({
     (!overflow && retired && !open && !focused)
   )
     return null;
+  // A question asked in the current turn has no age worth stating.
+  const newestAge =
+    newest && newest.age > 0
+      ? t(
+          newest.age === 1
+            ? "asyncQuestionOneTurnAgo"
+            : "asyncQuestionTurnsAgo",
+          { count: newest.age },
+        )
+      : null;
+  const count = t(
+    recent.length === 1 ? "asyncQuestionSingle" : "asyncQuestionCount",
+    { count: recent.length },
+  );
   const label = newest
-    ? `${t(recent.length === 1 ? "asyncQuestionSingle" : "asyncQuestionCount", { count: recent.length })} · ${t(newest.age === 1 ? "asyncQuestionOneTurnAgo" : "asyncQuestionTurnsAgo", { count: newest.age })}`
+    ? newestAge
+      ? `${count} · ${newestAge}`
+      : count
     : t("asyncQuestionsTitle");
   return (
     <>
@@ -269,17 +298,7 @@ export function AsyncQuestionsButton({
                 )}
               </span>
             )}
-            {compact === "none" && (
-              <span>
-                ·{" "}
-                {t(
-                  newest.age === 1
-                    ? "asyncQuestionOneTurnAgo"
-                    : "asyncQuestionTurnsAgo",
-                  { count: newest.age },
-                )}
-              </span>
-            )}
+            {compact === "none" && newestAge && <span>· {newestAge}</span>}
           </>
         ) : (
           // The tightest tier (sidebar rows, the Inbox entry, a crowded
@@ -363,18 +382,31 @@ export function AsyncQuestionsButton({
         {omitted && (
           <p className={styles.hint}>{t("asyncQuestionsEarlierOmitted")}</p>
         )}
-        <Button
-          variant="ghost"
-          size="small"
-          className={styles.showDismissed}
-          onClick={() => setShowDismissed(!showDismissed)}
-        >
-          {t(
-            showDismissed
-              ? "asyncQuestionHideDismissed"
-              : "asyncQuestionShowDismissed",
+        <div className={styles.menuFooter}>
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={() => setShowDismissed(!showDismissed)}
+          >
+            {t(
+              showDismissed
+                ? "asyncQuestionHideDismissed"
+                : "asyncQuestionShowDismissed",
+            )}
+          </Button>
+          {reminders.length > 1 && (
+            <Button
+              variant="ghost"
+              size="small"
+              onClick={() => {
+                for (const question of reminders)
+                  state.update(question.id, { dismissed: true });
+              }}
+            >
+              {t("asyncQuestionDismissAll")}
+            </Button>
           )}
-        </Button>
+        </div>
       </Popover>
     </>
   );

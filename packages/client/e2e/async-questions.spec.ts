@@ -233,11 +233,13 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       await badge.click();
       const menu = page.getByRole("dialog", { name: "Questions", exact: true });
       await expect(menu).toBeVisible();
-      await expect(menu.locator("li > span")).toHaveText(["0", "0", "0"]);
-      if (captures)
-        await page.screenshot({
-          path: join(captures, `${viewport.name}-menu.png`),
-        });
+      await expect(
+        menu.getByRole("button", { name: /^Dismiss question: / }),
+      ).toHaveCount(3);
+      await expect(
+        menu.getByRole("button", { name: "Dismiss all", exact: true }),
+      ).toBeVisible();
+      await recordUiCapture(page, `${viewport.name}-menu`, viewport);
       await menu
         .getByRole("button", { name: questions[0]!.title, exact: true })
         .click();
@@ -262,10 +264,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       ).toBeVisible();
       await expect(field).toHaveValue("Inline draft survives progress");
       await expect(field).toBeFocused();
-      if (captures)
-        await page.screenshot({
-          path: join(captures, `${viewport.name}-reply.png`),
-        });
+      await recordUiCapture(page, `${viewport.name}-reply`, viewport);
       await page
         .getByRole("button", { name: questions[0]!.options![1], exact: true })
         .click();
@@ -365,6 +364,13 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       await expect(
         menu.getByText("No pending questions in loaded history."),
       ).toBeVisible();
+      const dismissedCard = page
+        .locator("[data-async-question-reply]")
+        .filter({ hasText: questions[2]!.title });
+      await expect(
+        dismissedCard.getByRole("button", { name: "Restore", exact: true }),
+      ).toBeVisible();
+      await expect(dismissedCard.getByRole("button")).toHaveCount(1);
       await menu
         .getByRole("button", { name: "Show dismissed", exact: true })
         .click();
@@ -529,7 +535,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       .filter({ hasText: "A new question?" });
     await question
       .getByRole("button", {
-        name: "Quote reply in main composer",
+        name: "Reply in composer",
         exact: true,
       })
       .click();

@@ -211,20 +211,28 @@ and ordinary input after it ends. Source message id plus question index identify
 the local question; neither a `Q:` prefix nor a random subsequent user turn
 establishes answer identity. Successful submission shows **Reply sent**, which
 does not assert provider consumption. Failure retains the draft and pending
-state. **Quote reply in main composer** is a secondary action: reveal the
+state. **Reply in composer** is a secondary action: reveal the
 question, insert its full quote through the existing composer insertion/undo
 path, preserve existing text, and focus the main composer. Moving the reply to
 the main composer immediately marks the question answered locally and clears
 its reminders, including cross-session counts. The transcript says the reply
 was moved to the main composer; it does not claim delivery to the provider.
-Return uses a back-arrow icon and Quote uses a circled right chevron, with
-accessible action labels and tooltips.
+The card's actions are worded buttons, not icons: **Write a reply** (or, with
+the inline composer open, **Cancel**), **Reply in composer**, and **Dismiss**,
+with **Send reply** at the trailing edge of the open composer.
+
+**Dismiss** on the card is the same local dismissal as in the menu. A
+dismissed, unanswered card keeps its question text, muted, and replaces the
+options and actions with **Dismissed** and **Restore**. Opening a dismissed
+question from the menu still shows its inline composer.
 
 Before visiting a question, save the reading anchor, offset, and Follow intent.
 Navigating among questions retains that first return destination. Successful
-inline submission, or **Return to previous position**, restores the saved
+inline submission, **Cancel**, Escape in the inline composer, or dismissing
+the open question closes the inline composer and restores the saved
 anchor with Follow off, or the current live bottom with Follow restored, then
-focuses the main composer without browser-induced scrolling. Failure does not
+focuses the main composer without browser-induced scrolling. Cancel and Escape
+keep the inline draft. Failure does not
 perform this transition. New navigation, focus movement, or pointer/wheel
 interaction while submission is pending takes precedence over stale return
 state. A render row without connected, measurable geometry is not a completed
@@ -233,20 +241,28 @@ Initial progressive transcript loading must finish revealing the rows before
 the question jump consumes its scroll and focus request.
 
 The persistent composer toolbar, including its collapsed form, offers a muted
-amber outlined speech-bubble/question-mark button. With room it reads
-**3 questions · 1 turn ago**, using the youngest counted question's age.
+amber outlined speech-bubble button whose question mark is drawn heavier than
+the bubble and fills most of it. With room it reads
+**3 questions · 1 turn ago**, using the youngest counted question's age,
+and omits the age while that question is still in the current turn.
 Actual toolbar space removes the age first and then the noun, retaining the
 icon and count with a full accessible label. There is no pulse or focus theft.
 The wider, viewport-capped menu opens upward and may cover the composer.
 Oldest questions appear at the top, newest at the bottom. Each ellipsized,
-single-line preview has an outlined background, a bare muted turn-age numeral
-outside its left edge, a right-side **×**, and a separator between rows.
+single-line preview has an outlined background, a right-side worded
+**Dismiss** button, and a separator between rows. The row tooltip adds the
+question's age in turns once it is at least one turn old. **×** appears only
+in the menu heading, where it closes the menu.
 Opening focuses the newest row; arrow keys navigate and Escape closes.
 
-**×** silently dismisses a reminder without navigating, deleting transcript
-content, or asserting an answer. Right-click or long-press opens a one-action
-dismiss menu; holding alone deletes nothing. **Show dismissed** permits
-recovery. Opening or closing the menu resolves nothing. An unseen dot clears
+**Dismiss** silently dismisses a reminder without navigating, deleting
+transcript content, or asserting an answer. Right-click or long-press opens a
+one-action dismiss menu; holding alone deletes nothing. With two or more
+undismissed questions listed, **Dismiss all** in the menu footer dismisses
+every one of them: one session's in the composer menu, every listed session's
+in the Inbox and sidebar menus. **Show dismissed** permits recovery, where
+each row's button reads **Restore**. Opening or closing the menu resolves
+nothing. An unseen dot clears
 only after at least 60% of the actual question title is visible in an active
 tab. Seen and sent are independent states.
 

@@ -48,17 +48,8 @@
   min-block-size: 0;
 }
 .menuRow {
-  display: grid;
-  grid-template-columns: 2.3em minmax(0, 1fr);
-  align-items: center;
   padding-block: 5px;
   border-block-end: 1px solid var(--border-color);
-}
-.turnAge {
-  color: var(--text-secondary);
-  text-align: center;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
 }
 .previewBox {
   display: flex;
@@ -91,8 +82,10 @@
 .dismiss {
   flex-shrink: 0;
 }
-.showDismissed {
-  align-self: flex-start;
+.menuFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
 }
 .inlineQuestion {
   padding: 10px;
@@ -146,11 +139,19 @@
 .replyForm {
   margin-block-start: 8px;
 }
-.replyActions {
+.replyActions,
+.cardActions {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
   margin-block-start: 4px;
+}
+.replyActions > :last-child {
+  margin-inline-start: auto;
+}
+.dismissedQuestion {
+  color: var(--text-secondary);
 }
 .sent {
   color: var(--text-secondary);
