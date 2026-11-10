@@ -267,13 +267,33 @@ export class ClaudeTranscriptCache {
           entry?.sourceIndex &&
           !(entry.sourceIndex instanceof DurableClaudeSourceIndex) &&
           !token.invalidated
-        )
+        ) {
+          const rewindContext = JSON.stringify(
+            entry.sourceIndex.durableState().rewindRecords,
+          );
           await this.durableStore?.publish(
             filePath,
             entry.sourceIndex,
             entry,
             () => !token.invalidated && !this.closed,
           );
+          if (
+            this.durableStore &&
+            !token.invalidated &&
+            !entry.hasProvisionalTail &&
+            !entry.sourceIndex.durableUnsupported()
+          ) {
+            const durable = await this.durableStore.load(filePath, entry.stats);
+            if (
+              durable &&
+              !token.invalidated &&
+              durable.sourceHeader.stats.size === entry.stats.size &&
+              JSON.stringify(durable.sourceHeader.state.rewindRecords) ===
+                rewindContext
+            )
+              this.installDurable(entry, durable);
+          }
+        }
         return entry;
       })
       .finally(() => {
@@ -305,7 +325,10 @@ export class ClaudeTranscriptCache {
         await this.accountIndexedWindow(filePath, entry.sourceIndex);
       return snapshot;
     } catch (error) {
-      if (error instanceof ClaudeProjectionChangedError) {
+      if (
+        error instanceof ClaudeProjectionChangedError ||
+        error instanceof TranscriptAppendMismatchError
+      ) {
         if (!owner.token.invalidated && !this.inFlight.has(filePath))
           this.forget(filePath);
         return this.loadInternal(filePath, options);
@@ -418,6 +441,16 @@ export class ClaudeTranscriptCache {
     );
   }
 
+  private installDurable(entry: CacheEntry, source: DurableClaudeSourceIndex) {
+    const before = entry.retainedCharge ?? retainedBytes(entry);
+    entry.sourceIndex = source;
+    entry.entries = [];
+    entry.summaryState = source.summary();
+    entry.retainedCharge = retainedBytes(entry);
+    if (this.entriesByPath.get(entry.filePath) === entry)
+      this.retainedSourceBytes += entry.retainedCharge - before;
+  }
+
   private async materialize(
     cached: CacheEntry,
     token: { invalidated: boolean },
@@ -436,6 +469,8 @@ export class ClaudeTranscriptCache {
         );
       cached.sourceIndex = restored;
       cached.entries = cached.sourceIndex.rows.slice();
+      if (cached.sourceIndex.provisionalEntry)
+        cached.entries.push(cached.sourceIndex.provisionalEntry);
       cached.summaryState = cached.sourceIndex.summaryState;
       cached.retainedCharge = retainedBytes(cached);
       this.retainedSourceBytes += cached.retainedCharge - before;
@@ -448,7 +483,6 @@ export class ClaudeTranscriptCache {
     token: { invalidated: boolean },
   ): Promise<CacheEntry | null> {
     const startedAt = performance.now();
-    await this.materialize(cached, token);
     let parsed: TranscriptRange<ClaudeSessionEntry>;
     try {
       parsed = await readTranscriptFile(
@@ -476,6 +510,124 @@ export class ClaudeTranscriptCache {
     if (!sameFileIdentity(stats, after) || after.size < stats.size) return null;
     if (token.invalidated || this.entriesByPath.get(cached.filePath) !== cached)
       return null;
+    const fromSql = cached.sourceIndex instanceof DurableClaudeSourceIndex;
+    if (cached.sourceIndex instanceof DurableClaudeSourceIndex) {
+      const source = cached.sourceIndex;
+      const owned = () =>
+        !token.invalidated &&
+        this.entriesByPath.get(cached.filePath) === cached;
+      const candidates = parsed.entries.map((raw) => ({
+        raw,
+        ...(raw as IndexedRangeRow)[INDEX_RANGE]!,
+      }));
+      const input = {
+        stats,
+        parsedBytes: stats.size - parsed.partialLine.length,
+        committedEntries: cached.committedEntries + parsed.committedEntries,
+        malformedLines: cached.malformedLines + parsed.malformedLines,
+        appendFence: fence,
+        hasProvisionalTail: !!parsed.partialLine.length,
+      };
+      let durable: DurableClaudeSourceIndex | null = null;
+      let committed = source;
+      if (parsed.partialLine.length) {
+        // Preflight all new rows without publishing a provisional record.
+        const preview = await source.store.appendRows(
+          source,
+          candidates,
+          input,
+          owned,
+        );
+        if (preview) {
+          if (input.parsedBytes > source.accepted.header.parsedBytes) {
+            let prefix: TranscriptRange<null>;
+            try {
+              prefix = await readTranscriptFile(
+                cached.filePath,
+                input.parsedBytes,
+                0,
+                () => null,
+                fence,
+              );
+            } catch (error) {
+              if (error instanceof TranscriptAppendMismatchError) return null;
+              throw error;
+            }
+            const prefixStats = Object.assign(
+              Object.create(Object.getPrototypeOf(stats)),
+              stats,
+              { size: input.parsedBytes },
+            ) as Stats;
+            const published = await source.store.appendRows(
+              source,
+              candidates.slice(0, parsed.committedEntries),
+              {
+                ...input,
+                stats: prefixStats,
+                appendFence: prefix.appendFence,
+                hasProvisionalTail: false,
+              },
+              owned,
+            );
+            if (published) committed = published;
+            else committed = source;
+          }
+          if (
+            committed !== source ||
+            input.parsedBytes === source.accepted.header.parsedBytes
+          ) {
+            durable = await source.store.appendRows(
+              committed,
+              candidates.slice(parsed.committedEntries),
+              input,
+              owned,
+            );
+            if (!durable && committed !== source) {
+              if (!owned()) return null;
+              this.installDurable(cached, committed);
+              cached.stats = Object.assign(
+                Object.create(Object.getPrototypeOf(stats)),
+                stats,
+                { size: input.parsedBytes },
+              );
+              cached.parsedBytes = input.parsedBytes;
+              cached.committedEntries = committed.sourceHeader.committedEntries;
+              cached.malformedLines = committed.sourceHeader.malformedLines;
+              cached.hasProvisionalTail = false;
+              cached.appendFence = committed.fence;
+              parsed = {
+                ...parsed,
+                entries: parsed.entries.slice(parsed.committedEntries),
+                committedEntries: 0,
+                malformedLines: 0,
+              };
+            }
+          }
+        }
+      } else
+        durable = await source.store.appendRows(
+          source,
+          candidates,
+          { ...input, hasProvisionalTail: false },
+          owned,
+        );
+      if (durable) {
+        if (!owned()) return null;
+        this.installDurable(cached, durable);
+        cached.stats = stats;
+        cached.parsedBytes = input.parsedBytes;
+        cached.committedEntries = durable.accepted.header.committedEntries;
+        cached.malformedLines = durable.sourceHeader.malformedLines;
+        cached.hasProvisionalTail =
+          parsed.entries.length > parsed.committedEntries;
+        cached.appendFence = fence;
+        this.touch(cached);
+        this.enforceBudget(cached.filePath);
+        return cached;
+      }
+    }
+    await this.materialize(cached, token);
+    if (fromSql) cached.sourceIndex?.rebuildProjection();
     const previousBytes = cached.retainedCharge ?? retainedBytes(cached);
     cached.sourceIndex?.clearProvisional();
     if (cached.hasProvisionalTail)

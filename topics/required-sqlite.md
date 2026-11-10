@@ -254,6 +254,13 @@ remains in the native file; profile-owned detail acquisition populates the index
 See [Claude acquisition](claude.md#transcript-acquisition-and-retention) and
 [the implementation evidence](../docs/research/190-claude-durable-index.md).
 
+Version 36 adds rebuildable Claude node/tool ownership, source-offset lookup,
+pending queues and a semantic task-reducer checkpoint. The profile-owned writer
+updates affected rows and its source header in one transaction; ordinary appends
+no longer restore the complete source graph. Old checkpoints bootstrap these
+facts lazily on a changed read, with no migration-time transcript reads/backfill.
+See [SQL writer ownership/evidence](../docs/research/190-claude-sql-writer.md).
+
 One statically registered, consecutive migration sequence owns `user_version`.
 Historical SQL lives in frozen named modules; released migrations are append-only.
 Do not edit, renumber or reuse them, or import mutable current feature schemas.

@@ -84,7 +84,11 @@ export class ClaudeSourceIndex {
     raw: ClaudeSessionEntry;
     offset: number;
     info: TranscriptLineInfo;
+    reduced: ClaudeSessionEntry;
   };
+  get provisionalEntry() {
+    return this.provisional?.reduced;
+  }
   estimatedBytes = 0;
   private projectionBytes = 0;
   private pendingTaskRefs = new Map<string, ClaudeVisibleRef>();
@@ -92,17 +96,11 @@ export class ClaudeSourceIndex {
     return (
       this.estimatedBytes +
       this.projectionBytes +
-      this.changedVisible.size * 32 +
-      this.changedTools.size * 64 +
       this.rewindBytes +
       (this.provisional?.info.byteLength ?? 0)
     );
   }
   private visible: ClaudeVisibleRef[] = [];
-  /** Pending SQL publication; owner acknowledges only after a successful commit. */
-  readonly changedVisible = new Set<ClaudeVisibleRef>();
-  readonly changedTools = new Set<string>();
-  projectionRebuilt = true;
   get projectionVersion() {
     return this.version;
   }
@@ -172,7 +170,7 @@ export class ClaudeSourceIndex {
     if (info.committed) {
       this.provisional = undefined;
       this.commit(record, raw);
-    } else this.provisional = { raw, offset, info };
+    } else this.provisional = { raw, offset, info, reduced };
     return reduced;
   }
 
@@ -279,12 +277,6 @@ export class ClaudeSourceIndex {
   private commit(record: ClaudeRecordRef, raw: ClaudeSessionEntry) {
     this.version++;
     this.sourceGeneration++;
-    for (const b of blocks(raw)) {
-      if (b.type === "tool_use" && typeof b.id === "string")
-        this.changedTools.add(b.id);
-      if (b.type === "tool_result" && typeof b.tool_use_id === "string")
-        this.changedTools.add(b.tool_use_id);
-    }
     const uuid = id(raw);
     const wasKnown = uuid
       ? this.summaryState.nodeMap.has(uuid) ||
@@ -382,7 +374,6 @@ export class ClaudeSourceIndex {
     )
       this.paginationTurns++;
     this.visible.push(ref);
-    this.changedVisible.add(ref);
     if (
       typeof (raw as { queueDeliveredAt?: unknown }).queueDeliveredAt ===
       "string"
@@ -413,7 +404,6 @@ export class ClaudeSourceIndex {
     charge(ref);
     for (const r of affected) {
       charge(r);
-      this.changedVisible.add(r);
     }
     for (const b of blocks(raw)) {
       if (
@@ -479,7 +469,6 @@ export class ClaudeSourceIndex {
           this.byId.delete(
             `queue-operation-${old.position}-${timestamp(old.raw)}`,
           );
-        this.changedVisible.add(old);
         old.position++;
         if (pending.record.realTurn) {
           old.turnPrefix++;
@@ -491,9 +480,7 @@ export class ClaudeSourceIndex {
             old,
           );
       }
-      this.projectionRebuilt = true;
       this.visible.splice(position, 0, ref);
-      this.changedVisible.add(ref);
       this.remember(ref);
       let lo = 0,
         hi = this.boundaries.length;
@@ -567,8 +554,6 @@ export class ClaudeSourceIndex {
     this.deliveredQueues = this.deliveredQueues
       .filter((q) => Number.isFinite(q.time))
       .sort((a, b) => a.time - b.time);
-    this.projectionRebuilt = true;
-    this.changedVisible.clear();
     this.dirty = false;
   }
   /** Compact facts only; never historical text/media/tool output. */
@@ -610,12 +595,70 @@ export class ClaudeSourceIndex {
       visibleCount: this.visible.length,
       compactionCount: this.boundaries.length,
       userTurns: this.paginationTurns,
+      continuation: {
+        tip: this.tip,
+        tipTimestamp: this.tipTimestamp,
+        realTurns: this.turnCount,
+        rewindsClosed: this.rewindRecords.every(
+          (r) =>
+            !!r.droppedThroughMessageId &&
+            this.summaryState.nodeMap.has(r.droppedThroughMessageId) &&
+            this.summaryState.nodeMap.has(r.cutMessageId),
+        ),
+      },
     };
   }
-  acknowledgePublication() {
-    this.changedVisible.clear();
-    this.changedTools.clear();
-    this.projectionRebuilt = false;
+  rebuildProjection() {
+    this.dirty = true;
+  }
+  durableUnsupported() {
+    return this.requiresCompleteProjection;
+  }
+  *nodeFacts(): Generator<{ uuid: string; active: boolean }> {
+    for (const raw of this.rows) {
+      const uuid = id(raw);
+      if (uuid) yield { uuid, active: this.activeIds.has(uuid) };
+    }
+  }
+  *toolFacts(): Generator<ClaudeToolFact> {
+    for (const [tool, owner] of this.toolOwners)
+      yield {
+        tool,
+        owner,
+        hasResult: this.results.has(tool),
+        task: this.taskIds.has(tool),
+      };
+    for (const tool of this.results)
+      if (!this.toolOwners.has(tool))
+        yield { tool, hasResult: true, task: this.taskIds.has(tool) };
+  }
+  *queuedFacts() {
+    for (const pending of this.pendingQueues)
+      yield { record: pending.record, position: pending.position };
+  }
+  durableTasks(): ClaudeTaskCheckpoint {
+    return {
+      state: this.tasks.checkpoint(),
+      refs: [...this.pendingTaskRefs].flatMap(([key, ref]) =>
+        ref.record ? [[key, ref.record.offset] as [string, number]] : [],
+      ),
+    };
+  }
+  static appendDecoder(
+    state: ClaudeDurableState,
+    tasks: Iterable<string>,
+    results: Iterable<string>,
+  ) {
+    const index = new ClaudeSourceIndex();
+    Object.assign(index.summaryState, {
+      firstTimestamp: state.firstTimestamp,
+      firstUserTitleContent: state.firstUserTitleContent,
+      firstUserTitleCaptured: state.firstUserTitleCaptured,
+      metrics: { ...state.metrics },
+    });
+    index.taskIds = new Set(tasks);
+    index.results = new Set(results);
+    return index;
   }
   static restore(
     state: ClaudeDurableState,
@@ -998,4 +1041,20 @@ export interface ClaudeDurableState {
   visibleCount: number;
   compactionCount: number;
   userTurns: number;
+  continuation?: {
+    tip?: string;
+    tipTimestamp: string;
+    realTurns: number;
+    rewindsClosed?: boolean;
+  };
+}
+export interface ClaudeToolFact {
+  tool: string;
+  owner?: string;
+  hasResult: boolean;
+  task: boolean;
+}
+export interface ClaudeTaskCheckpoint {
+  state: import("../augments/task-list-augments.js").TaskListCheckpoint;
+  refs: Array<[string, number]>;
 }

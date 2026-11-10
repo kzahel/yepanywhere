@@ -9,6 +9,10 @@ transcript payload remaining the authority. This slice implements bounded
 unchanged-source restoration. It deliberately leaves the first post-restart
 write's complete compact-metadata restoration as the next writer migration.
 
+The subsequent [SQL writer slice](190-claude-sql-writer.md) removes that ordinary
+changed-read restoration and active graph residency. Figures in this document
+remain the historical measurements of this earlier implementation.
+
 ## Ownership and acquisition
 
 Migration 035 adds rebuildable source headers, compact source records, logical

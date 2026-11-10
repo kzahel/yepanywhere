@@ -56,19 +56,20 @@ request the tab made and its WebSocket frames (header comment for usage).
 
 ## What it spends, largest first
 
-1. **Claude windows restore from SQL; first construction and writer restoration remain.**
-   Bounded detail now retains source/branch metadata and hydrates selected rows,
-   extending ordinary writes without rereading historical payload. Global IDs,
-   turns, task state, branch selection, rewound groups and harness evidence are
-   preserved. [Claude index evidence](../docs/research/190-claude-source-index.md)
-   records the warm comparison and limits. [Durable SQL facts](../docs/research/190-claude-durable-index.md)
-   now serve unchanged restart/eviction windows without a history graph. An unseen
-   file still needs a streaming build, and the first changed read restores complete
-   compact metadata from SQL. Active metadata remains O(history) under the cache
-   budget; exceptional projections can revisit it. Complete/oversized catch-up,
-   SQL-owned incremental writer state and full cold-open/memory qualification remain open. Codex's former whole-rollout
-   updates in Claude-default projects were fixed by resolved-provider dispatch;
-   [shared ingestion evidence](../docs/research/190-transcript-ingestion.md)
+1. **Claude ordinary reads/writes are SQL-owned; first construction and exceptional work remain.**
+   Bounded windows and ordinary appends, including the first write after restart,
+   use SQL facts without retaining the historical source graph. Native bytes
+   remain authoritative, and the original selector/converter/task reducer preserve
+   global IDs, turns, task state, rewinds and harness evidence.
+   [SQL writer evidence](../docs/research/190-claude-sql-writer.md) follows the
+   earlier [warm index](../docs/research/190-claude-source-index.md) and
+   [durable cold windows](../docs/research/190-claude-durable-index.md).
+   Unseen-source construction, old-checkpoint writer bootstrap, branch/open-rewind
+   fallback, ambiguous/historical queue delivery and complete/oversized catch-up
+   can still revisit history. Semantic task state can grow with tasks, with an
+   8,388,608-character SQL read cap. Full cold-open/memory qualification remains open. Codex's
+   former whole-rollout updates in Claude-default projects were fixed by
+   resolved-provider dispatch; [shared ingestion evidence](../docs/research/190-transcript-ingestion.md)
    records that earlier slice. No full active-tab target is closed here.
 2. **Each write makes every tab refetch six whole-catalog lists:** the three
    feeds, Inbox, `/api/projects` and `/api/project-queue`. Sharing leaves

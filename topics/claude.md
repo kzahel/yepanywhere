@@ -661,7 +661,7 @@ Suspected contributing areas to check before declaring this fixed:
   a slash-command wrapper uses the command and arguments as its automatic title,
   including after loading a persisted summary index from an older YA version.
 
-### Durable source facts and unchanged-session restoration
+### Durable source facts and incremental writer ownership
 
 The app owns one Claude transcript cache and SQL writer per YA profile. Detail
 acquisition persists compact source facts, logical positions, task overlays,
@@ -678,21 +678,42 @@ a full rebuild. Already acquired historical harness evidence is addressed by
 original parsed row ordinal, within the existing extraction/admission budgets.
 A stale SQL generation cannot publish evidence or a mixed detail response.
 
-Ordinary warm writes commit appended source facts, affected visible rows and
-orphans with their header atomically. Replacement projections stage bounded
-batches under an owned renewable lease; accepted generation/revision, source
-evidence and cache ownership fence publication. Cleanup cannot delete an
-accepted generation or a live peer build. Reopening a source performs at most
-one bounded expired-stage recovery batch. Provisional rows are replayed and
-never committed to SQL before their newline. Format changes invalidate derived
-checkpoints; they do not change provider persistence or public message shape.
+Ordinary appends, including the first write after restart, use SQL point facts
+for the winning tip, node/tool ownership, logical positions and pending queues.
+The existing decoder, summary witnesses and task reducer produce a staged delta;
+source facts, affected visible rows, task checkpoints and the accepted header
+commit atomically. A task-related append restores only its semantic task state,
+not historical messages. Task state can itself grow with outstanding tasks; an
+8,388,608-character checkpoint read cap declines this path rather than decoding oversized state.
 
-An unseen file still requires a streaming first build. The first changed read
-after restart restores complete compact metadata from SQL before extending it;
-that active graph remains within the existing 128-file/192 MiB estimate but is
-still proportional to history. Rewinds/branch changes and complete catch-up
-retain their explicit exceptional costs. SQL-owned incremental branch/task
-state, source-deletion/disk-retention policy and full-host targets remain open.
-[Durable-index evidence](../docs/research/190-claude-durable-index.md) records
-measurements and qualification; unchanged cold reuse is not a claim that first
-construction or first post-restart writes are bounded.
+A valid unterminated row is a noncommitted overlay on the same SQL window
+selector. Only complete prefix lines advance the accepted byte/count fence;
+invalidating a provisional row retracts its overlay. Reacquisition preserves
+valid provisional metadata when rewind context changes without a file write.
+The cache releases the historical graph after accepted complete publication,
+including summary-only acquisition with an existing rewind context.
+
+The incremental guard requires a unique UUID, the current winning parent,
+nondecreasing timestamps and compatible tool ownership. Closed rewind bounds
+must already be known. Recent unambiguous queue delivery can shift at most 256
+visible rows. Branch changes, open/missing rewind bounds, ambiguous/historical
+queue changes and unsupported facts use the original full metadata selector,
+then publish a complete fresh generation and release the graph. This preserves
+branch and task semantics instead of guessing which history to discard.
+
+Replacement projections stage bounded batches under an owned renewable lease;
+accepted generation/revision, source evidence and cache ownership fence
+publication. Cleanup cannot delete an accepted generation or a live peer build.
+Reopening performs at most one bounded expired-stage recovery batch. No provider
+format or public message shape changes. Existing writerless SQL checkpoints
+bootstrap writer facts lazily on their first changed read; migration does no
+startup backfill.
+
+An unseen file still requires a streaming first build, and exceptional metadata
+selection still has history-dependent transient cost. A provisional tail plus a
+context-changing fallback can temporarily retain that graph until complete
+publication. Complete catch-up, source-deletion/disk-retention policy and full-host
+targets remain open. [SQL writer evidence](../docs/research/190-claude-sql-writer.md)
+records the ordinary-write memory and restart measurements; the earlier
+[durable-index evidence](../docs/research/190-claude-durable-index.md) remains a
+historical baseline.

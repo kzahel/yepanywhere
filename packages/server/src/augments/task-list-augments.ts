@@ -342,15 +342,34 @@ function collectSnapshotHolders(messages: Message[]): SnapshotHolder[] {
   return holders;
 }
 
+export interface TaskListCheckpoint {
+  version: 1;
+  tasks: Array<[string, TaskState]>;
+  pending: Array<[string, PendingTaskEvent]>;
+  nextOrder: number;
+}
 export interface TaskListAugmenter {
+  checkpoint(): TaskListCheckpoint;
   processMessage(message: Record<string, unknown>): void;
 }
 
-export function createTaskListAugmenter(): TaskListAugmenter {
+export function createTaskListAugmenter(
+  checkpoint?: TaskListCheckpoint,
+  pendingInput?: (
+    id: string,
+    input: Record<string, unknown>,
+  ) => Record<string, unknown>,
+): TaskListAugmenter {
   const processedMessages = new WeakSet<Record<string, unknown>>();
-  const pendingEvents = new Map<string, PendingTaskEvent>();
-  const tasks = new Map<string, TaskState>();
-  let nextOrder = 0;
+  const restored = checkpoint && structuredClone(checkpoint);
+  const pendingEvents = new Map<string, PendingTaskEvent>(
+    restored?.pending.map(([id, event]) => [
+      id,
+      { ...event, input: pendingInput?.(id, event.input) ?? event.input },
+    ]),
+  );
+  const tasks = new Map<string, TaskState>(restored?.tasks);
+  let nextOrder = restored?.nextOrder ?? 0;
 
   function upsertPlaceholder(taskId: string): TaskState {
     const existing = tasks.get(taskId);
@@ -486,6 +505,14 @@ export function createTaskListAugmenter(): TaskListAugmenter {
   }
 
   return {
+    checkpoint() {
+      return structuredClone({
+        version: 1 as const,
+        tasks: [...tasks],
+        pending: [...pendingEvents],
+        nextOrder,
+      });
+    },
     processMessage(message) {
       if (processedMessages.has(message)) {
         return;
