@@ -1,3 +1,4 @@
+import { readCodexIncrementalSnapshot } from "./codex-incremental-snapshot.js";
 import type {
   ProviderChildSource,
   ProviderChildObservation,
@@ -2861,79 +2862,19 @@ export class CodexSessionReader implements ISessionReader {
     afterMessageId: string,
     summary: SessionSummary,
   ): Promise<CodexCompactTailSnapshot | null> {
-    const cached = this.entryCache.get(sessionId);
-    let startByte = cached?.startByte ?? 0;
-    let snapshot: CodexEntrySnapshot | undefined;
-    if (
-      cached?.filePath === filePath &&
-      startByte > 0 &&
-      (cached.size < stats.size ||
-        (cached.size === stats.size &&
-          cached.mtimeMs === stats.mtimeMs &&
-          cached.ctimeMs === stats.ctimeMs))
-    ) {
-      snapshot = await this.readEntries(sessionId, filePath, {
-        purpose: "detail",
-        startByte,
-      });
-      if (
-        snapshot.entries.filter((entry) => entry.type === "compacted")
-          .length !== compactBoundaries
-      ) {
-        snapshot = undefined;
-        stats = await stat(filePath);
-      }
-    }
-    if (!snapshot) {
-      const locatedStart = await this.rolloutWindowReader.findCompactTailStart(
-        filePath,
-        stats,
-        compactBoundaries,
-      );
-      if (locatedStart === null) return null;
-      startByte = locatedStart;
-      snapshot = await this.readEntries(sessionId, filePath, {
-        purpose: "detail",
-        startByte,
-      });
-    }
-    if (snapshot.entries[0]?.type !== "compacted") return null;
-    const provider = summary.provider === "codex-oss" ? "codex-oss" : "codex";
-    const normalized = normalizeSession({
-      summary,
-      transcriptSnapshotUpdatedAt: snapshot.transcriptSnapshotUpdatedAt,
-      data: { provider, session: { entries: snapshot.entries } },
-    });
-    // An older or unknown durable id must take the complete catch-up path.
-    if (
-      !normalized.messages.some(
-        (message) => (message.uuid ?? message.id) === afterMessageId,
-      )
-    ) {
-      return null;
-    }
-    // Results whose calls precede the window need the prefix's tool context.
-    const toolCalls = new Set<string>();
-    for (const message of normalized.messages) {
-      const content = message.message?.content;
-      if (!Array.isArray(content)) continue;
-      for (const block of content) {
-        if (block.type === "tool_use" && block.id) toolCalls.add(block.id);
-        if (
-          block.type === "tool_result" &&
-          block.tool_use_id &&
-          !toolCalls.has(block.tool_use_id)
-        )
-          return null;
-      }
-    }
-    return {
-      ...snapshot,
-      kind: "compact-tail",
-      omittedPrefix: true,
-      startByte,
+    return readCodexIncrementalSnapshot(
+      {
+        cached: this.entryCache.get(sessionId),
+        readEntries: (...args) => this.readEntries(...args),
+        windowReader: this.rolloutWindowReader,
+      },
+      sessionId,
+      filePath,
+      stats,
       compactBoundaries,
-    };
+      afterMessageId,
+      summary,
+    );
   }
 
   private async readCompactTailSnapshot(

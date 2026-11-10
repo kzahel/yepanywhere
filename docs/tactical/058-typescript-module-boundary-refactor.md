@@ -5199,3 +5199,13 @@ timer or route-registration boundary changes, so focused metadata and public
 route checks replace browser/SDK tripwires for this slice. The later behavior
 commit changes cold-state ownership and startup statement lifetimes separately;
 [plan 190 evidence](../research/190-cold-state-sql.md) records its checks/review.
+
+### Plan 190: Codex bounded catch-up decision boundary (2026-11-10)
+
+Moved `readIncrementalSnapshot` body verbatim from `sessions/codex-reader.ts`
+to `sessions/codex-incremental-snapshot.ts`. The module-private dependencies
+(cached source, entry reads, window reader) are explicit parameters; the reader
+facade/method and ordering remain unchanged. No behavior, public response or
+provider schema change. This frees the frozen reader for the separately reviewed
+shared ingestion work in plan 190. Tier 1: server typecheck and all 56 Codex
+reader tests pass (two platform skips). Tier 2 checks recorded in the cycle log.

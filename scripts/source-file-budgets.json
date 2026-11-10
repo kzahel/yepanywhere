@@ -136,7 +136,7 @@
       "maxLines": 1588
     },
     "packages/server/src/sessions/codex-reader.ts": {
-      "maxLines": 3962
+      "maxLines": 3903
     },
     "packages/server/src/sessions/normalization.ts": {
       "maxLines": 2451
