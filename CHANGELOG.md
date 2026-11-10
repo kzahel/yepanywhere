@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-10
+
+### Added
+- Preserve YA-owned session identities through provider creation, forks and
+  clones, and expose recorded session relationships in Session Info.
+- Show provider-waiting sessions in the Inbox Background section.
+- Configure provider steering defaults and switch a session's router account
+  from its header where supported.
+
+### Changed
+- Move retained session summaries and the session catalog into SQLite, with
+  bounded discovery and fewer repeated catalog and identity lookups.
+- Refresh the shared controls, menus, fields, dialogs and status indicators.
+- Update Claude Agent SDK compatibility to 0.3.322 / Claude Code 2.1.322,
+  Codex to 0.167.0, Pi to 1.5.0 and Grok to 1.0.70.
+- Retain Gemini's ACP integration while removing its retired direct adapter;
+  keep the opt-in Antigravity integration explicitly experimental.
+
+### Fixed
+- Preserve correction drafts and attachments across composer transitions.
+- Keep nested provider output associated with its source session.
+- Recover progressing native uploads without an unconditional two-minute
+  deadline, and improve managed artifact viewing over encrypted connections.
+- Bound server, SDK and client log retention.
+
+### Security
+- Refresh patched HTTP, authentication, routing and rendering dependencies.
+- Keep hosted features capability-gated for supported installed servers.
+
 ## [0.11.0] - 2026-10-24
 
 ### Added

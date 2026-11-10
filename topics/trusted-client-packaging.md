@@ -107,7 +107,7 @@ the uploaded package.
 
 CI codes are `10000 + run_number * 100 + run_attempt`; attempts must remain
 below 100. These monotonically advance for new workflow runs without a source
-version bump. The human version is `0.1.3-ci.<run>.<attempt>`. Local fixed-version
+version bump. The human version is `0.1.4-ci.<run>.<attempt>`. Local fixed-version
 builds retain their checked-in version. After CI delivery starts, local manual
 uploads must explicitly choose a code above the current Play release.
 

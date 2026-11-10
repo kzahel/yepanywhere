@@ -87,7 +87,7 @@ android {
             require(it.toIntOrNull() in 1..2100000000) { "Invalid yaVersionCode" }
             it.toInt()
         } ?: 1002
-        versionName = providers.gradleProperty("yaVersionName").orNull ?: "0.1.3"
+        versionName = providers.gradleProperty("yaVersionName").orNull ?: "0.1.4"
         ndk {
             // Keep the app's established modern Android ABI set and prevent
             // JNA's AAR from reintroducing obsolete armeabi/MIPS binaries.

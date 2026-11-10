@@ -118,5 +118,5 @@
     "tssrp6a": "^3.0.0",
     "tweetnacl": "^1.0.3"
   },
-  "version": "0.7.0"
+  "version": "0.12.0"
 }
