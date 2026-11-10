@@ -1,3 +1,4 @@
+import statusStyles from "./SourceStatus.module.css";
 import type {
   GitFileChange,
   GitIntegrationOptionReason,
@@ -433,7 +434,7 @@ function SourceHeaderControls({
           }
           onClick={onToggleWorktreePaused}
         >
-          <span className="git-status-action-indicator" aria-hidden="true">
+          <span className={styles.actionIndicator} aria-hidden="true">
             <SourceActionGlyph action={worktreePaused ? "play" : "pause"} />
           </span>
           <span className={styles.actionLabel}>
@@ -490,7 +491,11 @@ function SourceActionButton({
     <Button
       size="small"
       className={`${className} ${
-        showOutcome ? `git-status-action-${tone}` : ""
+        showOutcome
+          ? tone === "success"
+            ? styles.actionSuccess
+            : styles.actionWarning
+          : ""
       } ${running ? "git-status-action-running" : ""}`}
       title={feedbackTitle}
       aria-label={
@@ -503,7 +508,7 @@ function SourceActionButton({
       onClick={onClick}
       disabled={disabled}
     >
-      <span className="git-status-action-indicator" aria-hidden="true">
+      <span className={styles.actionIndicator} aria-hidden="true">
         {running ? (
           <Spinner size="small" />
         ) : showOutcome ? (
@@ -529,7 +534,8 @@ function SourceActionGlyph({
   if (action === "pause") {
     return (
       <svg
-        className="git-status-action-glyph"
+        className={styles.actionGlyph}
+        data-source-action-glyph
         aria-hidden="true"
         viewBox="0 0 16 16"
         fill="currentColor"
@@ -542,7 +548,8 @@ function SourceActionGlyph({
   if (action === "play") {
     return (
       <svg
-        className="git-status-action-glyph"
+        className={styles.actionGlyph}
+        data-source-action-glyph
         aria-hidden="true"
         viewBox="0 0 16 16"
         fill="currentColor"
@@ -554,7 +561,8 @@ function SourceActionGlyph({
   if (action === "check") {
     return (
       <svg
-        className="git-status-action-glyph"
+        className={styles.actionGlyph}
+        data-source-action-glyph
         aria-hidden="true"
         viewBox="0 0 16 16"
         fill="none"
@@ -571,7 +579,8 @@ function SourceActionGlyph({
   const isPull = action === "pull";
   return (
     <svg
-      className="git-status-action-glyph"
+      className={styles.actionGlyph}
+      data-source-action-glyph
       aria-hidden="true"
       viewBox="0 0 16 16"
       fill="none"
@@ -783,13 +792,13 @@ export function GitStatusPage() {
   return (
     <MainContent
       isWideScreen={isWideScreen}
-      innerClassName={`source-control-main-content ${styles.sourceHeader}`}
+      innerClassName={`${styles.sourceControlMainContent} ${styles.sourceHeader}`}
     >
       <PageHeader
         title={project?.name ?? t("gitStatusTitle")}
         titleElement={
           effectiveProjectId ? (
-            <div className="source-header-identity">
+            <div className={styles.sourceHeaderIdentity}>
               <ProjectSelector
                 currentProjectId={effectiveProjectId}
                 currentProjectName={project?.name}
@@ -799,7 +808,7 @@ export function GitStatusPage() {
                 <RepoStatusBar
                   status={gitStatus}
                   projectId={effectiveProjectId}
-                  className="source-header-repo-status"
+                  className={styles.sourceHeaderRepoStatus}
                   onSelectChanges={() => setHeaderTab("changes")}
                   {...headCommitLink}
                   t={t}
@@ -842,7 +851,7 @@ export function GitStatusPage() {
             supportsWorkingTreeSections ? (
             <GlossaryProjectBoundary projectId={effectiveProjectId}>
               <ProjectWorktreePauseContext.Provider value={worktreeLeasePaused}>
-                <div className="git-status">
+                <div className={styles.gitStatus} data-source-status>
                   <BlameBrowser
                     projectId={effectiveProjectId}
                     isWideScreen={isWideScreen}
@@ -857,7 +866,9 @@ export function GitStatusPage() {
               </ProjectWorktreePauseContext.Provider>
             </GlossaryProjectBoundary>
           ) : gitStatus && !gitStatus.isGitRepo ? (
-            <div className="git-status-empty">{t("gitStatusNotRepo")}</div>
+            <div className={statusStyles.statusEmpty} data-source-empty>
+              {t("gitStatusNotRepo")}
+            </div>
           ) : gitStatus && effectiveProjectId ? (
             <GlossaryProjectBoundary projectId={effectiveProjectId}>
               <ProjectWorktreePauseContext.Provider value={worktreeLeasePaused}>
@@ -986,7 +997,7 @@ function GitStatusContent({
     <Banner
       elevated
       tone="error"
-      className="source-projection-notice"
+      className={styles.sourceProjectionNotice}
       onDismiss={() => setProjectionRequestError(null)}
       dismissLabel={t("sourceDismissProjectionError")}
     >
@@ -1061,7 +1072,7 @@ function GitStatusContent({
     );
   }, [location.state, setSearchParams]);
   return (
-    <div className="git-status">
+    <div className={styles.gitStatus} data-source-status>
       <GitActionNotices gitActions={gitActions} t={t} />
       {projectionNotice &&
         (projectionNoticeNeedsPortal
@@ -1179,7 +1190,7 @@ function GitActionNotices({
   }
 
   return (
-    <div className="git-status-action-notices">
+    <div className={styles.actionNotices}>
       {gitActions.actionFeedback && gitActions.actionFeedbackTone && (
         <GitActionFeedback
           message={gitActions.actionFeedback}
@@ -1229,7 +1240,7 @@ function GitIntegrationOptionsPanel({
   if (options.status === "available") {
     return (
       <Banner role="none" actions={<GitIntegrationOptionsHelp t={t} />}>
-        <span className="git-integration-options-label">
+        <span className={styles.gitIntegrationOptionsLabel}>
           {t("gitStatusAutoOptionsLabel")}
         </span>{" "}
         <Badge tooltip={t("gitStatusAutoActionNotEnabled")}>

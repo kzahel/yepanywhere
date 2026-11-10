@@ -1,4 +1,113 @@
-.revisionsHidden > :global(.commit-list-column) {
+.splitter {
+  display: none;
+}
+
+@media (width >= 1100px) {
+  .splitter {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    bottom: 0;
+    display: block;
+    width: 1px;
+    pointer-events: none;
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterRevisions {
+    left: calc(var(--source-revision-column-width, 300px) + 6px);
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterFiles {
+    left: calc(var(--source-files-column-width, 380px) + 6px);
+  }
+}
+
+@media (width >= 1100px) {
+  [data-source-column-layout="history"] > .splitterFiles {
+    left: calc(
+      var(--source-revision-column-width, 300px) +
+      var(--source-files-column-width, 340px) +
+      18px
+    );
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterGuide {
+    position: absolute;
+    inset: 0;
+    width: 1px;
+    background: var(--accent-color);
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+}
+
+@media (width >= 1100px) {
+  .splitter:hover .splitterGuide,
+  .splitter:focus-within .splitterGuide,
+  .splitter.dragging .splitterGuide {
+    opacity: 0.42;
+  }
+}
+
+@media (width >= 1100px) {
+  .splitter.dragging .splitterGuide {
+    opacity: 0.85;
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterHandle {
+    position: absolute;
+    left: 50%;
+    display: grid;
+    width: 26px;
+    height: 18px;
+    place-items: center;
+    padding: 0;
+    color: var(--text-muted);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    line-height: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle, #21262d);
+    border-radius: 5px;
+    cursor: col-resize;
+    pointer-events: auto;
+    touch-action: none;
+    transform: translateX(-50%);
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterHandle.top {
+    top: 3px;
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterHandle.bottom {
+    bottom: 3px;
+  }
+}
+
+@media (width >= 1100px) {
+  .splitterHandle:hover,
+  .splitterHandle:focus-visible,
+  .splitter.dragging .splitterHandle {
+    color: var(--text-primary, #e6edf3);
+    background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+    border-color: var(--accent-color);
+    outline: none;
+  }
+}
+
+.revisionsHidden > [data-source-column="revisions"] {
   visibility: hidden;
   overflow: hidden;
   pointer-events: none;

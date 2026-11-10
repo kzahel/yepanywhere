@@ -1,3 +1,4 @@
+import filterStyles from "./ChangesetFileFilter.module.css";
 import { useEffect, useRef, useState } from "react";
 import type { TranslationFn } from "../i18n";
 import { IconButton } from "./ui/Button";
@@ -35,7 +36,9 @@ export function ChangesetFileFilter({
   };
 
   return (
-    <span className={`changeset-file-filter ${open ? "open" : ""}`}>
+    <span
+      className={`${filterStyles.fileFilter} ${open ? filterStyles.open : ""}`}
+    >
       <IconButton
         size="small"
         label={t("sourceFilterFiles")}

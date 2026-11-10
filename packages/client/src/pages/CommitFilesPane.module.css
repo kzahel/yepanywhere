@@ -85,7 +85,7 @@
     flex-direction: column;
   }
 
-  .desktopColumn > :global(.source-detail-banner),
+  .desktopColumn > [data-source-detail-banner],
   .desktopColumn > .selectedPath {
     flex-shrink: 0;
   }
@@ -96,7 +96,7 @@
     overflow-y: auto;
   }
 
-  .desktopColumn > :global(.commit-file-list) {
+  .desktopColumn > [data-source-file-list] {
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;

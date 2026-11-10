@@ -129,11 +129,6 @@
     "generated": true
   },
   {
-    "pattern": "^source-pane-splitter-(revisions|files)$",
-    "source": "packages/client/src/components/ResizableSourceColumns.tsx",
-    "reason": "Column boundary name interpolated into the splitter class."
-  },
-  {
     "pattern": "^status-(pending|complete|aborted|incomplete)$",
     "source": "packages/client/src/components/blocks/ToolCallRow.tsx",
     "reason": "Normalized tool item status interpolated into timeline tool rows."
@@ -152,11 +147,6 @@
     "pattern": "^steer-mode$",
     "source": "packages/client/src/components/MessageInput.tsx",
     "reason": "Keyboard action kind interpolated into primary and alternate action classes."
-  },
-  {
-    "pattern": "^git-status-action-(success|warning)$",
-    "source": "packages/client/src/pages/GitStatusPage.tsx",
-    "reason": "Completed repository action tone interpolated into the action button."
   },
   {
     "pattern": "^(session-title-(chevron-trigger|retitle-accept))$",

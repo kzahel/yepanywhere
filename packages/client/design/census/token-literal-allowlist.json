@@ -55,6 +55,10 @@
     "count": 1,
     "reason": "10px image attachment frame corners preserve the inset media border geometry."
   },
+  "components/ResizableSourceColumns.module.css": {
+    "count": 2,
+    "reason": "Preserve the 0.72rem resize glyph and 5px handle corner geometry in the move-only source layout pass."
+  },
   "components/SpeechPrefixActionCue.module.css": {
     "count": 1,
     "reason": "Tiny 0.42rem speech-prefix action glyph must fit its measured cue slot."
@@ -107,6 +111,10 @@
     "count": 7,
     "reason": "Boot/fatal fallback UI with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
   },
+  "pages/CommitBrowser.module.css": {
+    "count": 3,
+    "reason": "Preserve the 0.78/0.82rem commit metadata and full-message hierarchy in the move-only source browser pass."
+  },
   "pages/ConversationPreviewPage.module.css": {
     "count": 3,
     "reason": "22/20px empty-preview glyphs and 12px preview frame corners; preserve the sparse empty-state geometry."
@@ -114,6 +122,18 @@
   "pages/DiffHunk.module.css": {
     "count": 3,
     "reason": "Source-code typography follows the user-selected source font size and offset, including diff gutters."
+  },
+  "pages/FilePageLayout.module.css": {
+    "count": 1,
+    "reason": "Preserve the 1.25rem standalone file error heading in the move-only file-page pass."
+  },
+  "pages/GitStatusDiffPreview.module.css": {
+    "count": 7,
+    "reason": "Preserve compact filename, path, hunk and whitespace glyph sizing plus skipped-state hierarchy in the move-only diff preview pass."
+  },
+  "pages/GitStatusPage.module.css": {
+    "count": 1,
+    "reason": "Preserve the 0.72rem repository action indicator beside its fixed-width glyph in the move-only source header pass."
   },
   "pages/MultiHostMonitorPage.module.css": {
     "count": 1,
@@ -123,9 +143,33 @@
     "count": 1,
     "reason": "12px sign-in card corners; no matching radius token."
   },
+  "pages/SourceDetail.module.css": {
+    "count": 3,
+    "reason": "Preserve the 0.78/0.8rem detail hierarchy and 0.75rem count; Chromium rounds its nominally equal pixel token differently at 115%, changing text rasterization."
+  },
+  "pages/SourcePreviewLayout.module.css": {
+    "count": 1,
+    "reason": "Preserve the 0.86rem shared file-preview title; diff toolbar retains its more specific compact override."
+  },
+  "pages/SourceRows.module.css": {
+    "count": 1,
+    "reason": "Preserve 0.75rem change counts; Chromium rounds the nominally equal pixel token differently at 115%, changing text rasterization in this move-only pass."
+  },
+  "pages/SourceSearch.module.css": {
+    "count": 2,
+    "reason": "Preserve 0.72rem shortcut and indexing-status sizing beside source search during the move-only pass."
+  },
   "pages/UnifiedDiff.module.css": {
     "count": 1,
     "reason": "Source-code typography follows the user-selected source font size and offset."
+  },
+  "pages/WorkingTreeBrowser.module.css": {
+    "count": 1,
+    "reason": "Preserve 0.82rem clean-state supporting copy in the move-only worktree pass."
+  },
+  "pages/WorktreeStateMarker.module.css": {
+    "count": 1,
+    "reason": "Preserve the 0.66rem staged/partial marker beside the compact file status and path."
   },
   "pages/settings/AppearanceSettings.module.css": {
     "count": 4,

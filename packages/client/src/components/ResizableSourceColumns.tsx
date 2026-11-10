@@ -215,7 +215,7 @@ export function ResizableSourceColumns({
       const computedStyle = getComputedStyle(root);
       const parsedGap = Number.parseFloat(computedStyle.columnGap);
       const handle = root.querySelector<HTMLElement>(
-        ".source-pane-splitter-handle",
+        "[data-source-splitter-edge]",
       );
       const next = {
         containerWidth: root.clientWidth,
@@ -257,7 +257,9 @@ export function ResizableSourceColumns({
     const fitFiles = () => {
       frame = null;
       if (filesUserSizedRef.current) return;
-      const column = root.querySelector<HTMLElement>(".commit-files-column");
+      const column = root.querySelector<HTMLElement>(
+        '[data-source-column="files"]',
+      );
       if (!column) return;
       filesFitRef.current = Math.max(
         filesFitRef.current,
@@ -280,7 +282,7 @@ export function ResizableSourceColumns({
     // Rows arrive and change after mount (status loads, folder expansion);
     // churn in the detail pane is not the file list's concern.
     const observer = new MutationObserver((records) => {
-      const column = root.querySelector(".commit-files-column");
+      const column = root.querySelector('[data-source-column="files"]');
       if (
         records.some(
           (record) =>
@@ -516,21 +518,24 @@ export function ResizableSourceColumns({
           : ""
       }`.trimEnd()}
       style={style}
+      data-source-column-layout={layout}
     >
       {children}
       {enabled &&
         boundaries.map((boundary) => (
           <div
             key={boundary}
-            className={`source-pane-splitter source-pane-splitter-${boundary} ${
-              dragging?.boundary === boundary ? "dragging" : ""
+            data-source-splitter={boundary}
+            className={`${styles.splitter} ${boundary === "revisions" ? styles.splitterRevisions : styles.splitterFiles} ${
+              dragging?.boundary === boundary ? styles.dragging : ""
             }`}
           >
-            <span className="source-pane-splitter-guide" aria-hidden="true" />
+            <span className={styles.splitterGuide} aria-hidden="true" />
             {(["top", "bottom"] as const).map((edge) => (
               <hr
                 key={edge}
-                className={`source-pane-splitter-handle ${styles.handleGlyph} ${edge}`}
+                data-source-splitter-edge={edge}
+                className={`${styles.splitterHandle} ${styles.handleGlyph} ${edge === "top" ? styles.top : styles.bottom}`}
                 aria-label={t(
                   boundary === "revisions"
                     ? "sourceResizeRevisionPane"

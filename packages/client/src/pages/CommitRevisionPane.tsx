@@ -1,3 +1,7 @@
+import columnsStyles from "../components/SourceColumnLayout.module.css";
+import searchStyles from "./SourceSearch.module.css";
+import statusStyles from "./SourceStatus.module.css";
+import rowsStyles from "./SourceRows.module.css";
 import type { GitRecentCommit, GitStatusInfo } from "@yep-anywhere/shared";
 import {
   type KeyboardEvent,
@@ -191,7 +195,7 @@ export function CommitRevisionPane({
     }
     const selectedRevision =
       revisionListRef.current?.querySelector<HTMLElement>(
-        ".commit-list-item.selected",
+        "[data-source-revision-item][data-source-selected]",
       );
     if (!selectedRevision) return;
     initialRevisionFocusPending.current = false;
@@ -200,13 +204,16 @@ export function CommitRevisionPane({
   }, [isWideScreen, loadingList, selectedKey]);
   return (
     <>
-      <div className="commit-list-column">
-        <div className="source-search-field">
+      <div
+        className={columnsStyles.commitListColumn}
+        data-source-column="revisions"
+      >
+        <div className={searchStyles.field}>
           <TextInput
             ref={searchInputRef}
             type="search"
             size="small"
-            className="source-search-input"
+            className={searchStyles.input}
             value={searchQuery}
             placeholder={t("sourceSearchCommits")}
             aria-label={t("sourceShortcutSearch")}
@@ -223,11 +230,11 @@ export function CommitRevisionPane({
               onSearchQueryChange(event.target.value);
             }}
           />
-          <kbd className="source-search-shortcut">/</kbd>
+          <kbd className={searchStyles.shortcut}>/</kbd>
           <SourceShortcutHelp t={t} />
         </div>
         {searchIndexRequested && searchIndexing && (
-          <div className="source-search-index-status">
+          <div className={searchStyles.indexStatus} data-source-search-status>
             {totalCount > 0
               ? t("sourceIndexingCommits", {
                   indexed: indexedCount,
@@ -237,38 +244,44 @@ export function CommitRevisionPane({
           </div>
         )}
         {loadingList && !searchActive && noVisibleRevisions ? (
-          <div className="git-diff-loading">{t("gitStatusLoading")}</div>
+          <div className={statusStyles.diffLoading}>
+            {t("gitStatusLoading")}
+          </div>
         ) : listError && !searchActive && noVisibleRevisions ? (
           <Banner tone="error">{listError}</Banner>
         ) : searchActive && searchIndexing && noVisibleRevisions ? (
-          <div className="git-diff-loading">{t("sourceSearching")}</div>
+          <div className={statusStyles.diffLoading}>{t("sourceSearching")}</div>
         ) : searchActive && searchError && noVisibleRevisions ? (
           <Banner tone="error">{searchError}</Banner>
         ) : noVisibleRevisions ? (
-          <div className="git-status-empty">
+          <div className={statusStyles.statusEmpty} data-source-empty>
             {searchActive ? t("sourceNoMatches") : t("sourceNoCommits")}
           </div>
         ) : (
           <>
             <ol
               ref={revisionListRef}
-              className="commit-list"
+              className={styles.list}
               onKeyDown={handleSourceListKeyDown}
             >
               {showWorkingTreeRevision && (
                 <li
-                  className={`commit-list-row commit-list-working-tree ${sourceRowMenuSurface}`}
+                  className={`${rowsStyles.commitListRow} ${sourceRowMenuSurface}`}
+                  data-source-revision-row
+                  data-source-working-tree-revision
                 >
                   <a
-                    className={`commit-list-item ${styles.link} unread ${
+                    className={`${rowsStyles.commitListItem} ${styles.link} ${styles.unread} ${
                       workingTreeClean ? "" : styles.dirty
-                    } ${selectedIsWorkingTree ? "selected" : ""} ${
+                    } ${selectedIsWorkingTree ? rowsStyles.selected : ""} ${
                       !workingTreeClean && selectedIsWorkingTree
                         ? styles.dirtySelected
                         : ""
                     }`}
+                    data-source-revision-item
                     href={revisionHref(WORKING_TREE_KEY)}
                     data-source-list-item
+                    data-source-selected={selectedIsWorkingTree || undefined}
                     onFocus={() => {
                       if (isWideScreen) onFocusRevision(WORKING_TREE_KEY);
                     }}
@@ -287,8 +300,11 @@ export function CommitRevisionPane({
                       workingTreeTargetProps.onClick();
                     }}
                   >
-                    <span className="commit-subject-row">
-                      <span className="commit-subject">
+                    <span className={styles.subjectRow}>
+                      <span
+                        className={styles.subject}
+                        data-source-commit-subject
+                      >
                         {t("sourceWorkingTree")}
                       </span>
                       <SourceCommentCountBadge
@@ -296,7 +312,7 @@ export function CommitRevisionPane({
                         t={t}
                       />
                     </span>
-                    <span className="commit-meta">
+                    <span className={styles.meta}>
                       {workingTreeClean ? (
                         <>
                           <span className={styles.cleanLabel}>
@@ -341,14 +357,19 @@ export function CommitRevisionPane({
                 return (
                   <li
                     key={commit.hash}
-                    className={`commit-list-row ${sourceRowMenuSurface}`}
+                    className={`${rowsStyles.commitListRow} ${sourceRowMenuSurface}`}
+                    data-source-revision-row
                   >
                     <a
-                      className={`commit-list-item ${styles.link} ${
-                        selectedKey === commit.hash ? "selected" : ""
-                      } ${isRead(commit.authorDate) ? "read" : "unread"}`}
+                      className={`${rowsStyles.commitListItem} ${styles.link} ${
+                        selectedKey === commit.hash ? rowsStyles.selected : ""
+                      } ${isRead(commit.authorDate) ? styles.read : styles.unread}`}
+                      data-source-revision-item
                       href={revisionHref(commit.hash)}
                       data-source-list-item
+                      data-source-selected={
+                        selectedKey === commit.hash || undefined
+                      }
                       onFocus={() => {
                         if (isWideScreen) onFocusRevision(commit.hash);
                       }}
@@ -367,9 +388,10 @@ export function CommitRevisionPane({
                         targetProps.onClick();
                       }}
                     >
-                      <span className="commit-subject-row">
+                      <span className={styles.subjectRow}>
                         <SearchMatchText
-                          className="commit-subject"
+                          className={styles.subject}
+                          data-source-commit-subject
                           text={commit.subject}
                           query={
                             match?.field === "subject" ? searchQuery : undefined
@@ -378,9 +400,9 @@ export function CommitRevisionPane({
                         />
                         <SourceCommentCountBadge count={commentCount} t={t} />
                       </span>
-                      <span className="commit-meta">
+                      <span className={styles.meta}>
                         <SearchMatchText
-                          className="commit-hash"
+                          className={styles.hash}
                           text={commit.shortHash}
                           query={
                             match?.field === "shortHash"
@@ -389,14 +411,14 @@ export function CommitRevisionPane({
                           }
                         />
                         <SearchMatchText
-                          className="commit-author"
+                          className={styles.author}
                           text={commit.authorName}
                           query={
                             match?.field === "author" ? searchQuery : undefined
                           }
                         />
                         <SearchMatchText
-                          className="commit-date"
+                          className={styles.date}
                           text={formattedDate}
                           query={
                             match?.field === "date" &&

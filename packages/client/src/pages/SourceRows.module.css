@@ -1,0 +1,118 @@
+.commitListRow,
+.commitFileRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.commitListItem,
+.commitFileItem {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  text-align: left;
+  color: var(--text-primary, #e6edf3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.commitFileItem {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.commitListItem:hover,
+.commitFileItem:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.commitFileItem:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.commitListItem.selected,
+.commitFileItem.selected {
+  background: var(--bg-selected);
+}
+
+.commitListItem:focus-visible,
+.commitFileItem:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: -2px;
+}
+
+.commitFileList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gitLinesAdded {
+  color: var(--success-color);
+}
+
+.gitLinesDeleted {
+  color: var(--error-color);
+}
+
+.commitFileItem .gitLinesAdded {
+  color: var(--success-color);
+}
+
+.commitFileItem .gitLinesDeleted {
+  color: var(--error-color);
+}
+
+.blameFileItem {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  text-align: left;
+  color: var(--text-primary, #e6edf3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.blameFileItem:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.blameFileItem.selected {
+  background: var(--bg-selected);
+}
+
+@media (width <= 600px) {
+  .commitListItem,
+  .commitFileItem,
+  .blameFileItem {
+    min-height: 44px;
+    padding-block: 7px;
+  }
+}
+
+@media (width <= 600px) {
+  .commitListRow:not(:last-child),
+  .commitFileRow:not(:last-child) {
+    border-bottom: 1px solid var(--border-subtle, #21262d);
+  }
+}
+
+.gitLineCounts {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--space-2);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+}

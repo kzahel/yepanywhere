@@ -52,11 +52,11 @@ test("narrow diff panes keep wrapping identity and controls separate", async ({
   );
   await dismissOnboardingIfVisible(page);
 
-  const toolbar = page.locator(".git-diff-pane-toolbar");
-  const identity = toolbar.locator(".git-diff-file-identity");
-  const title = identity.locator(".git-diff-preview-title");
+  const toolbar = page.locator("[data-source-diff-toolbar]");
+  const identity = toolbar.locator("[data-source-diff-identity]");
+  const title = identity.locator("[data-source-preview-title]");
   const splitter = page
-    .locator(".source-pane-splitter-files .source-pane-splitter-handle.top")
+    .locator("[data-source-splitter=files] [data-source-splitter-edge=top]")
     .first();
   await expect(toolbar).toBeVisible();
   await expect(title).toHaveText(fileName);
@@ -65,7 +65,7 @@ test("narrow diff panes keep wrapping identity and controls separate", async ({
 
   const identityBox = await identity.boundingBox();
   const controlBoxes = await toolbar
-    .locator(".diff-context-buttons, .git-diff-preview-header-actions")
+    .locator("[data-diff-context-buttons], [data-source-preview-actions]")
     .evaluateAll((groups) =>
       groups.map((group) => {
         const box = group.getBoundingClientRect();

@@ -161,7 +161,7 @@ describe("BlameBrowser", () => {
       ]),
     );
     const row = document.querySelector<HTMLButtonElement>(
-      ".blame-file-item.selected",
+      "[data-source-blame-item][data-source-selected]",
     );
     expect(row).not.toBeNull();
     if (!row) throw new Error("Expected selected file row");

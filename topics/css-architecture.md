@@ -45,6 +45,15 @@ Cross-owner row/preview selectors use the child’s stable data boundaries
 `data-thinking-section`, `data-range-number`, `data-toolbar-control-preview`)
 under a local class anchor. These attributes preserve class specificity and
 DOM relationships; they do not authorize unscoped global styling.
+Source browsers share column, row, search, detail and preview modules; standalone
+file pages share their page chrome. Resize/focus/selection queries use stable
+`data-source-*` boundaries, and the source header uses `data-project-selector*`
+boundaries under its local identity class. Diff context controls have one shared
+module for source previews and EditRenderer. Local preview anchors retain the
+mixed generated/React `line-hunk` vocabulary through a class-token attribute
+selector. Viewer body typography and diff gutters remain coupled to transcript
+Read/Write/Edit output until that coordinated move; review and blame grids retain
+their existing module owners.
 
 The target:
 

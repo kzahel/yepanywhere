@@ -1,3 +1,7 @@
+import columnsStyles from "../components/SourceColumnLayout.module.css";
+import detailStyles from "./SourceDetail.module.css";
+import commitStyles from "./CommitBrowser.module.css";
+import previewLayoutStyles from "./SourcePreviewLayout.module.css";
 import type {
   GitCommitDetail,
   GitStatusInfo,
@@ -437,11 +441,11 @@ export function CommitBrowser({
   }, [isWideScreen, selectedKey]);
 
   return (
-    <div className="commit-browser" ref={browserRef}>
+    <div className={columnsStyles.commitBrowser} ref={browserRef}>
       <ResizableSourceColumns
         layout="history"
         revisionPaneVisible={showRevisionPane}
-        className="commit-browser-columns"
+        className={columnsStyles.commitBrowserColumns!}
         t={t}
       >
         {showRevisionPane && (isWideScreen || !selectedKey) ? (
@@ -484,7 +488,11 @@ export function CommitBrowser({
             t={t}
           />
         ) : !showRevisionPane ? (
-          <div className="commit-list-column" aria-hidden="true" />
+          <div
+            className={columnsStyles.commitListColumn}
+            data-source-column="revisions"
+            aria-hidden="true"
+          />
         ) : null}
 
         {selectedIsWorkingTree && status && (
@@ -686,7 +694,7 @@ function RevisionJump({
   t: TranslationFn;
 }) {
   return (
-    <span className="source-detail-jump">
+    <span className={detailStyles.jump}>
       <Button
         size="small"
         title={t("sourceNewerCommit")}
@@ -694,10 +702,10 @@ function RevisionJump({
         disabled={!newerKey}
         onClick={() => newerKey && onSelect(newerKey)}
       >
-        <span className="commit-jump-glyph" aria-hidden="true">
+        <span className={commitStyles.jumpGlyph} aria-hidden="true">
           ↑
         </span>
-        <span className="commit-jump-touch-label">
+        <span className={commitStyles.jumpTouchLabel}>
           {t("sourceNewerCommit")}
         </span>
       </Button>
@@ -708,10 +716,10 @@ function RevisionJump({
         disabled={!olderKey}
         onClick={() => olderKey && onSelect(olderKey)}
       >
-        <span className="commit-jump-glyph" aria-hidden="true">
+        <span className={commitStyles.jumpGlyph} aria-hidden="true">
           ↓
         </span>
-        <span className="commit-jump-touch-label">
+        <span className={commitStyles.jumpTouchLabel}>
           {t("sourceOlderCommit")}
         </span>
       </Button>
@@ -771,21 +779,27 @@ function CommitMessageView({
     ? `${detail.subject}\n\n${detail.body}`
     : detail.subject;
   return (
-    <section className="git-diff-preview-pane">
-      <div className="git-diff-preview-header">
-        <h3 className="git-diff-preview-title" title={detail.hash}>
+    <section className={previewLayoutStyles.pane} data-source-preview-pane>
+      <div className={previewLayoutStyles.header}>
+        <h3
+          className={previewLayoutStyles.title}
+          data-source-preview-title
+          title={detail.hash}
+        >
           {detail.shortHash}
         </h3>
-        <span className="commit-message-time">
+        <span className={commitStyles.messageTime}>
           {formatCommitDateTime(detail.authorDate)}
         </span>
       </div>
-      <div className="git-diff-preview-body">
-        <div className="commit-message-view">
-          <div className="commit-message-view-meta">
+      <div className={previewLayoutStyles.body} data-source-preview-body>
+        <div className={commitStyles.messageView} data-source-commit-view>
+          <div className={commitStyles.messageViewMeta}>
             {detail.authorName} · {t("sourceCommitMessage")}
           </div>
-          <pre className="commit-message-full">{full}</pre>
+          <pre className={commitStyles.messageFull} data-source-commit-message>
+            {full}
+          </pre>
         </div>
       </div>
     </section>

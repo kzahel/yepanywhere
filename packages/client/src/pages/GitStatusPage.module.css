@@ -1,3 +1,143 @@
+.sourceHeaderIdentity {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sourceHeaderIdentity [data-project-selector] {
+  min-width: 0;
+  max-width: min(16rem, 30vw);
+  flex: 0 0 auto;
+}
+
+.sourceHeaderIdentity [data-project-selector-button] {
+  min-width: 0;
+  max-width: calc(100% + 2 * var(--space-2));
+}
+
+.sourceHeaderIdentity [data-project-selector-text] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (width <= 480px) {
+  .sourceHeaderIdentity {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+@media (width <= 480px) {
+  .sourceHeaderIdentity [data-project-selector] {
+    width: fit-content;
+    max-width: 100%;
+  }
+}
+
+@media (width <= 480px) {
+  .sourceHeaderIdentity [data-project-selector-text] {
+    max-width: calc(100dvw - 120px);
+  }
+}
+
+@media (width <= 480px) {
+  .sourceHeaderIdentity .sourceHeaderRepoStatus {
+    width: 100%;
+  }
+}
+
+:global(.main-content-constrained).sourceControlMainContent
+  :global(.page-content-inner) {
+  max-width: none;
+  margin: 0;
+  width: 100%;
+}
+
+.gitStatus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.actionIndicator {
+  display: inline-flex;
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 0.75rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.actionGlyph {
+  width: 0.75rem;
+  height: 0.75rem;
+  display: block;
+}
+
+.actionSuccess .actionIndicator {
+  color: var(--success-color);
+}
+
+.actionWarning .actionIndicator {
+  color: var(--warning-color);
+}
+
+.actionNotices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (width <= 600px) {
+  .sourceProjectionNotice {
+    position: fixed;
+    right: var(--space-2);
+    bottom: max(var(--space-2), env(safe-area-inset-bottom));
+    left: var(--space-2);
+    z-index: 10000;
+  }
+}
+
+.gitIntegrationOptionsLabel {
+  color: var(--text-muted);
+}
+
+@media (width >= 1100px) {
+  .sourceControlMainContent
+    > :global(.page-scroll-container)
+    > :global(.page-content-inner) {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+  }
+}
+
+@media (width >= 1100px) {
+  .sourceControlMainContent .gitStatus {
+    min-height: 0;
+    flex: 1;
+  }
+}
+
+@media (width >= 1100px) {
+  .sourceControlMainContent [data-source-preview-pane] {
+    position: relative;
+    top: auto;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
 /* Source Control keeps project/branch identity, repository operations, and mode
    navigation in one wrapping header. Operations use the title row only when
    their measured intrinsic demand fits; otherwise they take a full row below

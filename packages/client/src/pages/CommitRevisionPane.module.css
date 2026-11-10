@@ -1,3 +1,65 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.subjectRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-source-revision-item].unread .subject {
+  font-weight: 600;
+}
+
+[data-source-revision-item].read .subject {
+  font-weight: 400;
+  color: var(--text-secondary, #8b949e);
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary, #8b949e);
+}
+
+.hash {
+  font-family: var(--font-mono, monospace);
+}
+
+.author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (width <= 600px) {
+  .subject {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
 .link {
   text-decoration: none;
 }

@@ -1,3 +1,4 @@
+import filePageStyles from "./FilePageLayout.module.css";
 import { DEFAULT_RELAY_URL, normalizeRelayUrl } from "@yep-anywhere/shared";
 import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -88,15 +89,15 @@ export function PublicShareFilePage() {
   }, [filePath, publicShareContext, relayConfig.error]);
 
   const content = (
-    <div className="file-page">
+    <div className={filePageStyles.root}>
       {!standaloneFile && (
-        <div className="file-page-nav">
-          <Link to={shareHref} className="file-page-back-link">
+        <div className={filePageStyles.nav}>
+          <Link to={shareHref} className={filePageStyles.backLink}>
             <span>{t("publicShareBackToShare" as never)}</span>
           </Link>
         </div>
       )}
-      <div className="file-page-content">
+      <div className={filePageStyles.content}>
         {source ? (
           <FileViewer
             projectId={projectId ?? ""}

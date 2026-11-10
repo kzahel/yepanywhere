@@ -1,3 +1,4 @@
+import pageStyles from "./GitStatusPage.module.css";
 import type { LocalSourceRoot } from "@yep-anywhere/shared";
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -38,7 +39,7 @@ export function LocalSourcePage() {
             <Banner tone="error">{t("fileInvalidUrl" as never)}</Banner>
           ) : (
             <GlossaryProjectBoundary projectId={projectId}>
-              <div className="git-status">
+              <div className={pageStyles.gitStatus} data-source-status>
                 <BlameBrowser
                   key={requestedPath}
                   projectId={projectId}

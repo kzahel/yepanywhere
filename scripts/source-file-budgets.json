@@ -31,7 +31,7 @@
       "maxLines": 2689
     },
     "packages/client/src/components/renderers/tools/EditRenderer.tsx": {
-      "maxLines": 1807
+      "maxLines": 1784
     },
     "packages/client/src/components/RenderItemComponent.tsx": {
       "maxLines": 1723
@@ -64,16 +64,13 @@
       "maxLines": 1940
     },
     "packages/client/src/pages/GitStatusDiffPreview.tsx": {
-      "maxLines": 1681
+      "maxLines": 1653
     },
     "packages/client/src/pages/SessionPage.tsx": {
       "maxLines": 3620
     },
     "packages/client/src/pages/settings/AppearanceSettings.tsx": {
       "maxLines": 1821
-    },
-    "packages/client/src/pages/WorkingTreeBrowser.tsx": {
-      "maxLines": 1542
     },
     "packages/server/src/app.ts": {
       "maxLines": 4590

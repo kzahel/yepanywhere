@@ -245,10 +245,12 @@ test("sticky hunk controls clear the real file toolbar", async ({ page }) => {
   await page.goto(`${url}?workbench`);
   const hunk = page.locator("[data-diff-hunk]").nth(1);
   await expect(hunk).toHaveAttribute("data-diff-scroll-mode", "runs");
-  await page.locator(".git-diff-preview-body").evaluate((element) => {
+  await page.locator("[data-source-preview-body]").evaluate((element) => {
     element.scrollTop = 240;
   });
-  const toolbar = await page.locator(".git-diff-pane-toolbar").boundingBox();
+  const toolbar = await page
+    .locator("[data-source-diff-toolbar]")
+    .boundingBox();
   const header = await hunk.locator("[data-diff-hunk-header]").boundingBox();
   expect(toolbar).not.toBeNull();
   expect(header?.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height - 1);

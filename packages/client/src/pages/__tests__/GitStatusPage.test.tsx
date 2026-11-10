@@ -437,7 +437,9 @@ describe("GitStatusPage source header", () => {
       screen.getByRole("tab", { name: /sourceTabComments/ }),
     ).toBeDefined();
     expect(
-      document.querySelector('.git-status > [data-testid="repo-status-bar"]'),
+      document.querySelector(
+        '[data-source-status] > [data-testid="repo-status-bar"]',
+      ),
     ).toBeNull();
   });
 
@@ -880,7 +882,7 @@ describe("GitStatusPage source header", () => {
       name: "sourcePauseLiveUpdates",
       pressed: false,
     });
-    expect(pause.querySelector(".git-status-action-glyph")).not.toBeNull();
+    expect(pause.querySelector("[data-source-action-glyph]")).not.toBeNull();
     expect(pause.textContent).not.toMatch(/[Ⅱ▶]/);
     expect(browser.getAttribute("data-worktree-paused")).toBe("false");
 
@@ -889,7 +891,7 @@ describe("GitStatusPage source header", () => {
       name: "sourceResumeLiveUpdates",
       pressed: true,
     });
-    expect(play.querySelector(".git-status-action-glyph")).not.toBeNull();
+    expect(play.querySelector("[data-source-action-glyph]")).not.toBeNull();
     expect(play.textContent).not.toMatch(/[Ⅱ▶]/);
     expect(browser.getAttribute("data-worktree-paused")).toBe("true");
 
@@ -1097,14 +1099,14 @@ describe("GitStatusPage source header", () => {
       name: "gitStatusCheckRemote",
     });
     expect(check.textContent).toBe("gitStatusCheckRemote");
-    expect(check.querySelector(".git-status-action-glyph")).not.toBeNull();
+    expect(check.querySelector("[data-source-action-glyph]")).not.toBeNull();
     fireEvent.click(check);
 
     const checking = await screen.findByRole("button", {
       name: "gitStatusCheckRemote: gitStatusCheckingRemote",
     });
     expect(checking.textContent).toBe("gitStatusCheckRemote");
-    expect(checking.querySelector(".git-status-action-glyph")).toBeNull();
+    expect(checking.querySelector("[data-source-action-glyph]")).toBeNull();
     expect(checking.classList.contains("git-status-action-running")).toBe(true);
 
     resolveCheck?.({
@@ -1160,17 +1162,16 @@ describe("GitStatusPage source header", () => {
     );
 
     const container = document.querySelector(
-      ".project-selector-container",
+      "[data-project-selector]",
     ) as HTMLElement;
     const trigger = container.querySelector("button") as HTMLElement;
     const text = trigger.querySelector("span") as HTMLElement;
 
-    // The `.source-header-identity` rules in styles/index.css still reach
-    // in by these literals, so each element carries both vocabularies.
+    // Source header layout uses stable child boundaries beside local classes.
     expect(container.className).toContain(selectorStyles.container);
-    expect(trigger.className).toContain("project-selector-button");
+    expect(trigger.hasAttribute("data-project-selector-button")).toBe(true);
     expect(trigger.className).toContain(selectorStyles.button);
-    expect(text.className).toContain("project-selector-text");
+    expect(text.hasAttribute("data-project-selector-text")).toBe(true);
     expect(text.className).toContain(selectorStyles.text);
 
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");

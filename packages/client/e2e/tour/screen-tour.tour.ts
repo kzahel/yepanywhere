@@ -137,7 +137,7 @@ const SCREENS: Screen[] = [
         page.getByText("report.qmd", { exact: true }).first(),
       ).toBeVisible(),
     open: async (page) => {
-      await page.locator(".project-selector-button").first().click();
+      await page.locator("[data-project-selector-button]").first().click();
       await expect(page.getByRole("menu")).toBeVisible();
     },
   },

@@ -501,12 +501,12 @@ describe("GitDiffBody", () => {
     );
 
     await screen.findByText("compact");
-    expect(document.querySelector(".git-diff-toolbar-path")?.textContent).toBe(
+    expect(document.querySelector("[data-source-diff-path]")?.textContent).toBe(
       "packages/client/src",
     );
-    expect(document.querySelector(".git-diff-preview-title")?.textContent).toBe(
-      "very-long-file-name.ts",
-    );
+    expect(
+      document.querySelector("[data-source-preview-title]")?.textContent,
+    ).toBe("very-long-file-name.ts");
     expect(
       screen.getByRole("button", { name: "gitStatusIgnoreWhitespace" })
         .textContent,
@@ -520,9 +520,9 @@ describe("GitDiffBody", () => {
       }).textContent,
     ).toBe("");
     await waitFor(() =>
-      expect(document.querySelector(".diff-hunk-indicator")?.textContent).toBe(
-        "1/1",
-      ),
+      expect(
+        document.querySelector("[data-source-hunk-position]")?.textContent,
+      ).toBe("1/1"),
     );
   });
 
@@ -579,9 +579,9 @@ describe("GitDiffBody", () => {
     expect(screen.getByText("gitStatusDiffPlainMode")).toBeTruthy();
     expect(document.querySelectorAll(".line-hunk")).toHaveLength(1);
     await waitFor(() =>
-      expect(document.querySelector(".diff-hunk-indicator")?.textContent).toBe(
-        "1/1",
-      ),
+      expect(
+        document.querySelector("[data-source-hunk-position]")?.textContent,
+      ).toBe("1/1"),
     );
     expect(
       screen.getByRole("button", { name: "sourcePreviousHunkShortcut" }),

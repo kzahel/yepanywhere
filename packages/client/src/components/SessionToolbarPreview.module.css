@@ -43,10 +43,6 @@
   outline: none;
 }
 
-.toolbarControlPreview.isInteractive .previewContent {
-  pointer-events: none;
-}
-
 .toolbarControlPreview .previewContent {
   min-width: 0;
 }

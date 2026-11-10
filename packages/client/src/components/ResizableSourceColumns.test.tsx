@@ -1,3 +1,4 @@
+import columnsStyles from "./SourceColumnLayout.module.css";
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -87,16 +88,16 @@ describe("Source Control file-pane resize bound", () => {
     const rendered = render(
       <ResizableSourceColumns
         layout="history"
-        className="commit-browser-columns"
+        className={columnsStyles.commitBrowserColumns!}
         t={(key) => key}
       >
-        <div className="commit-list-column">commits</div>
+        <div data-source-column="revisions">commits</div>
         <div>files</div>
         <div>detail</div>
       </ResizableSourceColumns>,
     );
     const root = rendered.container.querySelector<HTMLElement>(
-      ".commit-browser-columns",
+      "[data-source-column-layout=history]",
     )!;
     const handle = screen.getAllByRole("separator", {
       name: "sourceResizeRevisionPane",
@@ -129,14 +130,14 @@ describe("Source Control file-pane resize bound", () => {
     const rendered = render(
       <ResizableSourceColumns
         layout="history"
-        className="commit-browser-columns"
+        className={columnsStyles.commitBrowserColumns!}
         t={(key) => key}
       >
         <div>pane contents</div>
       </ResizableSourceColumns>,
     );
     const root = rendered.container.querySelector<HTMLElement>(
-      ".commit-browser-columns",
+      "[data-source-column-layout=history]",
     )!;
     const handle = screen.getAllByRole("separator", {
       name: "sourceResizeRevisionPane",

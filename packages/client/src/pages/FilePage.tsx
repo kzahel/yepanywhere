@@ -1,3 +1,4 @@
+import filePageStyles from "./FilePageLayout.module.css";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { BackArrowIcon } from "../components/BackArrowIcon";
 import { FileViewer } from "../components/FileViewer";
@@ -28,11 +29,11 @@ export function FilePage() {
 
   if (!projectId) {
     return (
-      <div className="file-page file-page-error">
-        <div className="file-page-error-content">
+      <div className={`${filePageStyles.root} ${filePageStyles.error}`}>
+        <div className={filePageStyles.errorContent}>
           <h1>{t("fileInvalidUrl" as never)}</h1>
           <p>{t("fileMissingProjectId" as never)}</p>
-          <Link to={`${basePath}/projects`} className="file-page-back-link">
+          <Link to={`${basePath}/projects`} className={filePageStyles.backLink}>
             {t("fileGoToProjects" as never)}
           </Link>
         </div>
@@ -42,13 +43,13 @@ export function FilePage() {
 
   if (!filePath) {
     return (
-      <div className="file-page file-page-error">
-        <div className="file-page-error-content">
+      <div className={`${filePageStyles.root} ${filePageStyles.error}`}>
+        <div className={filePageStyles.errorContent}>
           <h1>{t("fileInvalidUrl" as never)}</h1>
           <p>{t("fileMissingPath" as never)}</p>
           <Link
             to={`${basePath}/projects/${projectId}`}
-            className="file-page-back-link"
+            className={filePageStyles.backLink}
           >
             {t("fileGoToProject" as never)}
           </Link>
@@ -59,8 +60,8 @@ export function FilePage() {
 
   return (
     <GlossaryProjectBoundary projectId={projectId}>
-      <div className="file-page">
-        <div className="file-page-content">
+      <div className={filePageStyles.root}>
+        <div className={filePageStyles.content}>
           <FileViewer
             projectId={projectId}
             filePath={filePath}

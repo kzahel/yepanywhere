@@ -1,3 +1,188 @@
+.sourceDiffPane [data-diff-line]:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: -2px;
+}
+.paneToolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 36px;
+  padding: 2px var(--space-2, 8px);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+.fileIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.paneToolbar [data-source-preview-title] {
+  flex: 0 1 auto;
+  min-width: 2ch;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.74rem;
+}
+
+.toolbarPath {
+  min-width: 0;
+  flex: 0 1000 auto;
+  overflow: hidden;
+  color: var(--text-muted);
+  direction: rtl;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbarSeparator {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+}
+.previewHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.paneToolbar [data-diff-context-buttons],
+.paneToolbar .previewHeaderActions {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.diffWhitespaceGlyph {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  letter-spacing: -0.08em;
+}
+
+[data-source-preview-body] > .sourceDiffPane {
+  overflow: visible;
+}
+
+/* Both generated diff spans and React hunk headers emit this vocabulary. */
+.sourceDiffPane [class~="line-hunk"] {
+  scroll-margin-top: 52px;
+}
+
+.diffHunkNavigation {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  color: var(--text-secondary, #8b949e);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+.diffHunkIndicator {
+  min-width: 1.9rem;
+  padding-inline: 1px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (width <= 600px) {
+  .sourceDiffContextControls {
+    justify-content: flex-start;
+    margin-bottom: 0;
+    padding: 6px 8px;
+  }
+}
+
+@media (width <= 600px) {
+  .sourceDiffContextControls [data-diff-context-path] {
+    display: none;
+  }
+}
+
+@media (width <= 600px) {
+  .sourceDiffContextControls [data-diff-context-buttons] {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+.placeholder {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.previewSkipped {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--text-secondary);
+}
+
+.previewSkippedTitle {
+  color: var(--text-primary);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+.previewSkippedMessage {
+  max-width: 52rem;
+  line-height: 1.45;
+}
+
+.previewSkippedDetails {
+  display: grid;
+  max-width: 52rem;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.previewSkippedDetails > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.previewSkippedDetails dt {
+  color: var(--text-muted);
+}
+
+.previewSkippedDetails dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary);
+}
+
+.emptyProjection {
+  padding: var(--space-6) var(--space-4);
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .notice {
   margin: var(--space-1) var(--space-2);
 }

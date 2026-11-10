@@ -65,6 +65,12 @@ Settings row/search visibility, category icons/navigation, toolbar specimens,
 shared device/command content and onboarding now use their owning modules.
 The settings and onboarding move preserves all shared control states and
 geometry; preview-specific data attributes mark the remaining composer boundary.
+Source browser columns, search, file/revision rows, detail banners, diff controls
+and file-page chrome now have shared module owners. Their compact typography,
+resize geometry, selected/read cues, focus rings and phone layout stay unchanged;
+source previews and EditRenderer import the same context-control look. Viewer
+body typography and diff gutters stay ordered with transcript output until their
+shared migration.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 

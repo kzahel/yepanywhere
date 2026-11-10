@@ -101,7 +101,7 @@ for (const width of [1200, 375]) {
           await expect.poll(() => contentReads).toBeGreaterThan(0);
         }
       }
-      await expect(page.locator(".blame-file-item")).toHaveCount(1);
+      await expect(page.locator("[data-source-blame-item]")).toHaveCount(1);
       await expect(
         page.locator('[data-source-path="retirement-fixture/item-649.ts"]'),
       ).toBeVisible();

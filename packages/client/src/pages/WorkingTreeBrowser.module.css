@@ -1,3 +1,61 @@
+.detailTitleRow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.detailTitleRow [data-source-detail-subject] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cleanLanding {
+  display: flex;
+  min-height: min(24rem, 48vh);
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cleanState {
+  display: flex;
+  min-height: 12rem;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.cleanIcon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success-color) 30%, transparent);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.cleanState p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.cleanState [data-source-empty] {
+  padding: 0;
+  color: var(--text-primary);
+  font-style: normal;
+  font-weight: 600;
+}
+
 .folderGroup {
   min-width: 0;
   list-style: none;

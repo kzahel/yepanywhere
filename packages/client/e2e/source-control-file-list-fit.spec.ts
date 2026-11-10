@@ -26,7 +26,7 @@ test("the uncommitted file list fits its rows instead of a fixed width", async (
   await page.setViewportSize({ width: 1200, height: 600 });
   await page.goto(`${baseURL}/git-status?projectId=${projectId}`);
   await dismissOnboardingIfVisible(page);
-  const column = page.locator(".working-tree-files-column");
+  const column = page.locator("[data-source-working-files]");
   await expect(column.locator("[data-source-file-item]").first()).toBeVisible();
 
   const measureFit = async () =>

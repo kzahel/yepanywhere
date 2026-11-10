@@ -330,7 +330,7 @@ describe("CommitBrowser", () => {
     );
     expect(
       document
-        .querySelector(".commit-file-item.selected")
+        .querySelector("[data-source-file-item][data-source-selected]")
         ?.querySelector("[data-source-path]")
         ?.getAttribute("data-source-path"),
     ).toBe("src/linked.ts");
@@ -368,7 +368,9 @@ describe("CommitBrowser", () => {
     expect(await screen.findAllByText("older blamed commit")).toHaveLength(2);
     expect(getGitCommit).toHaveBeenCalledWith("p1", DIRECT_SHA);
     expect(
-      document.querySelector(".commit-list-item.selected")?.textContent,
+      document.querySelector(
+        "[data-source-revision-item][data-source-selected]",
+      )?.textContent,
     ).toContain("ccccccc");
   });
 
@@ -447,7 +449,7 @@ describe("CommitBrowser", () => {
     );
     expect(
       document
-        .querySelector(".commit-file-item.selected")
+        .querySelector("[data-source-file-item][data-source-selected]")
         ?.querySelector("[data-source-path]")
         ?.getAttribute("data-source-path"),
     ).toBe("src/x.ts");
@@ -701,7 +703,9 @@ describe("CommitBrowser", () => {
     );
 
     expect(await screen.findByTestId("working-tree-browser")).toBeDefined();
-    const workingTreeRow = document.querySelector(".commit-list-working-tree");
+    const workingTreeRow = document.querySelector(
+      "[data-source-working-tree-revision]",
+    );
     expect(workingTreeRow?.textContent).toContain("sourceUncommitted");
     expect(workingTreeRow?.textContent).toContain("sourceChangedFileCount");
     const workingTreeLink = workingTreeRow?.querySelector("a");
@@ -742,20 +746,20 @@ describe("CommitBrowser", () => {
 
     await waitFor(() => expect(getGitCommit).toHaveBeenCalledWith("p1", SHA));
     const workingTreeRow = document.querySelector(
-      ".commit-list-working-tree .commit-list-item",
+      "[data-source-working-tree-revision] [data-source-revision-item]",
     ) as HTMLButtonElement;
     const commitRow = document.querySelector(
-      ".commit-list-row:not(.commit-list-working-tree) .commit-list-item",
+      "[data-source-revision-row]:not([data-source-working-tree-revision]) [data-source-revision-item]",
     ) as HTMLButtonElement;
-    expect(workingTreeRow.classList.contains("selected")).toBe(false);
-    expect(commitRow.classList.contains("selected")).toBe(true);
+    expect(workingTreeRow.hasAttribute("data-source-selected")).toBe(false);
+    expect(commitRow.hasAttribute("data-source-selected")).toBe(true);
     expect(screen.getByText("gitStatusClean")).toBeDefined();
     expect(screen.getByText("sourceWorkingTreeCleanDescription")).toBeDefined();
     expect(screen.queryByText("sourceUncommitted")).toBeNull();
     expect(screen.queryByText("gitStatusWorkingTreeClean")).toBeNull();
 
     fireEvent.click(workingTreeRow);
-    expect(workingTreeRow.classList.contains("selected")).toBe(true);
+    expect(workingTreeRow.hasAttribute("data-source-selected")).toBe(true);
     expect(await screen.findByTestId("working-tree-browser")).toBeDefined();
     expect(await screen.findByText("gitStatusWorkingTreeClean")).toBeDefined();
     expect(screen.getByText("first commit")).toBeDefined();
@@ -932,7 +936,9 @@ describe("CommitBrowser", () => {
     expect(row.getAttribute("href")).toBe(`/git-status?rev=${SHA}`);
     expect(
       document
-        .querySelector(".commit-list-working-tree .commit-list-item")
+        .querySelector(
+          "[data-source-working-tree-revision] [data-source-revision-item]",
+        )
         ?.getAttribute("href"),
     ).toBe("/git-status");
 
@@ -1027,7 +1033,7 @@ describe("CommitBrowser", () => {
       expect(getGitCommitSearchManifest).toHaveBeenCalledWith("p1"),
     );
     await waitFor(() =>
-      expect(document.querySelector(".source-search-index-status")).toBeNull(),
+      expect(document.querySelector("[data-source-search-status]")).toBeNull(),
     );
   });
 
@@ -1410,16 +1416,18 @@ describe("CommitBrowser", () => {
       .mockReturnValue({ isCollapsed: false } as Selection);
     try {
       fireEvent.click(compactBody);
-      expect(document.querySelector(".commit-message-full")).toBeNull();
+      expect(document.querySelector("[data-source-commit-message]")).toBeNull();
 
       getSelection.mockReturnValue(null);
       fireEvent.click(compactBody);
       await waitFor(() =>
-        expect(document.querySelector(".commit-message-full")).not.toBeNull(),
+        expect(
+          document.querySelector("[data-source-commit-message]"),
+        ).not.toBeNull(),
       );
-      expect(document.querySelector(".commit-message-full")?.textContent).toBe(
-        `first commit\n\n${first}\n${second}`,
-      );
+      expect(
+        document.querySelector("[data-source-commit-message]")?.textContent,
+      ).toBe(`first commit\n\n${first}\n${second}`);
     } finally {
       getSelection.mockRestore();
     }
@@ -1449,7 +1457,9 @@ describe("CommitBrowser", () => {
       });
 
       await waitFor(() =>
-        expect(document.querySelector(".commit-message-full")).not.toBeNull(),
+        expect(
+          document.querySelector("[data-source-commit-message]"),
+        ).not.toBeNull(),
       );
     },
   );
@@ -1614,7 +1624,9 @@ describe("CommitBrowser", () => {
       fireEvent.click(message);
     });
     await waitFor(() =>
-      expect(document.querySelector(".commit-message-view")).not.toBeNull(),
+      expect(
+        document.querySelector("[data-source-commit-view]"),
+      ).not.toBeNull(),
     );
     await act(async () => {
       fireEvent.keyDown(window, { key: "]" });
@@ -1626,7 +1638,7 @@ describe("CommitBrowser", () => {
           ?.getAttribute("data-source-selected-path"),
       ).toBe("src/first.ts"),
     );
-    expect(document.querySelector(".commit-message-view")).toBeNull();
+    expect(document.querySelector("[data-source-commit-view]")).toBeNull();
     const revealedFirst = await findSourcePath("src/first.ts");
     expect(document.activeElement).toBe(revealedFirst.closest("button"));
     expect(sourcePath("src/second.ts")).toBeDefined();
@@ -1636,7 +1648,7 @@ describe("CommitBrowser", () => {
     ).toHaveLength(1);
 
     const diffBody = document.querySelector<HTMLElement>(
-      ".git-diff-preview-body",
+      "[data-source-preview-body]",
     )!;
     Object.defineProperties(diffBody, {
       clientHeight: { configurable: true, value: 200 },
@@ -1767,7 +1779,9 @@ describe("CommitBrowser", () => {
     );
     await waitFor(() => {
       expect(document.querySelector("[data-blame-row]")).not.toBeNull();
-      expect(document.querySelector(".commit-files-column")).not.toBeNull();
+      expect(
+        document.querySelector("[data-source-column=files]"),
+      ).not.toBeNull();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "sourceToggleBlame" }));
@@ -1838,7 +1852,7 @@ describe("CommitBrowser", () => {
       await waitFor(() =>
         expect(document.querySelectorAll(".line-hunk")).toHaveLength(2),
       );
-      fireEvent.click(document.querySelector(".commit-file-item")!);
+      fireEvent.click(document.querySelector("[data-source-file-item]")!);
 
       expect(scrollIntoView.fn).toHaveBeenCalledWith({
         block: "start",

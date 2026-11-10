@@ -241,7 +241,7 @@ test("clean Changes landing and latest-commit preference stay distinct", async (
   await expect(
     page.getByText("Seed source control fixture", { exact: true }).first(),
   ).toBeVisible();
-  const workingTreeRow = page.locator(".commit-list-working-tree");
+  const workingTreeRow = page.locator("[data-source-working-tree-revision]");
   await expect(
     workingTreeRow.getByText("Clean", { exact: true }),
   ).toBeVisible();
@@ -586,7 +586,9 @@ test("reviews collapsed commit files with bracket navigation", async ({
   const message = page.getByRole("button", {
     name: /^Add grouped browser fixture/,
   });
-  const selectedRevision = page.locator(".commit-list-item.selected");
+  const selectedRevision = page.locator(
+    "[data-source-revision-item][data-source-selected]",
+  );
   await page.reload();
   await expect(selectedRevision).toBeVisible();
   await expect(selectedRevision).toBeFocused();
@@ -602,7 +604,7 @@ test("reviews collapsed commit files with bracket navigation", async ({
     pageScrollTop,
   );
   await expect(selectedRevision).toBeInViewport();
-  await expect(page.locator(".git-diff-preview-pane")).toBeInViewport();
+  await expect(page.locator("[data-source-preview-pane]")).toBeInViewport();
   await expect(message).toBeInViewport();
   await expect
     .poll(() =>
@@ -620,7 +622,7 @@ test("reviews collapsed commit files with bracket navigation", async ({
     pageScrollTop,
   );
   await expect(selectedRevision).toBeInViewport();
-  await expect(page.locator(".git-diff-preview-pane")).toBeInViewport();
+  await expect(page.locator("[data-source-preview-pane]")).toBeInViewport();
 
   await expect(message).toBeVisible();
 
@@ -646,7 +648,7 @@ test("reviews collapsed commit files with bracket navigation", async ({
 
   await message.click();
   await expect(
-    page.locator(".git-diff-preview-body:has(.commit-message-view)"),
+    page.locator("[data-source-preview-body]:has([data-source-commit-view])"),
   ).toBeVisible();
   await expect(
     page.getByRole("button", {
@@ -672,7 +674,7 @@ test("reviews collapsed commit files with bracket navigation", async ({
     paths.map((path) => path.getAttribute("data-source-path") ?? ""),
   );
 
-  const diffBody = page.locator(".git-diff-preview-body");
+  const diffBody = page.locator("[data-source-preview-body]");
   await expect
     .poll(() =>
       diffBody.evaluate(

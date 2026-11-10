@@ -1,0 +1,41 @@
+.jumpTouchLabel {
+  display: none;
+}
+
+.messageTime {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8b949e);
+}
+
+.messageView {
+  padding: var(--space-3, 12px);
+}
+
+.messageViewMeta {
+  margin-bottom: var(--space-2, 8px);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.messageFull {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+  color: var(--text-primary, #e6edf3);
+}
+
+@media (width <= 600px) {
+  .jumpGlyph {
+    display: none;
+  }
+}
+
+@media (width <= 600px) {
+  .jumpTouchLabel {
+    display: inline;
+  }
+}

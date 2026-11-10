@@ -1,3 +1,14 @@
+.fileList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fileList > [data-source-file-row] {
+  content-visibility: auto;
+  contain-intrinsic-size: 34px;
+}
+
 .inventory {
   min-width: 0;
 }

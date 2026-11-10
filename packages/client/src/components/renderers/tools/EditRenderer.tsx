@@ -1,3 +1,5 @@
+import { diffTextToNewSide, truncateByLines } from "./editDiffText";
+import diffControlsStyles from "../../DiffContextControls.module.css";
 import { FileActionButton } from "../../ui/FileActionButton";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
@@ -281,40 +283,6 @@ function getPatchFileLineRange(
   return {
     lineNumber,
     lineEnd: lineEnd > lineNumber ? lineEnd : undefined,
-  };
-}
-
-function diffTextToNewSide(diffText: string): string {
-  const lines = diffText.split("\n");
-  const newSideLines: string[] = [];
-  for (const line of lines) {
-    const prefix = line[0];
-    if (prefix === "-") {
-      continue;
-    }
-    if (prefix === "+" || prefix === " ") {
-      newSideLines.push(line.slice(1));
-      continue;
-    }
-    if (line.trim().length > 0 && !line.startsWith("@@")) {
-      newSideLines.push(line);
-    }
-  }
-  return newSideLines.join("\n");
-}
-
-function truncateByLines(
-  text: string,
-  maxLines: number,
-): { hiddenLineCount: number; text: string; truncated: boolean } {
-  const lines = text.split("\n");
-  if (lines.length <= maxLines) {
-    return { hiddenLineCount: 0, text, truncated: false };
-  }
-  return {
-    hiddenLineCount: lines.length - maxLines,
-    text: lines.slice(0, maxLines).join("\n"),
-    truncated: true,
   };
 }
 
@@ -921,7 +889,7 @@ function DiffModalContent({
 
   return (
     <div className="diff-modal-content" ref={contentRef}>
-      <div className="diff-context-controls">
+      <div className={diffControlsStyles.controls} data-diff-context-controls>
         {sessionMetadata?.projectId ? (
           <FilePathLink
             projectId={sessionMetadata.projectId}
@@ -933,7 +901,9 @@ function DiffModalContent({
             showVersionControlLinks={false}
           />
         ) : (
-          <span className="diff-context-path">{displayPath}</span>
+          <span className={diffControlsStyles.path} data-diff-context-path>
+            {displayPath}
+          </span>
         )}
         {canExpandContext && (
           <Button onClick={handleToggle} busy={loading}>
@@ -944,7 +914,7 @@ function DiffModalContent({
                 : "Show full context"}
           </Button>
         )}
-        {error && <span className="diff-context-error">{error}</span>}
+        {error && <span className={diffControlsStyles.error}>{error}</span>}
       </div>
 
       {fullContextFile ? (
@@ -1413,8 +1383,15 @@ function EditInteractiveSummary({
             onClose={() => setShowModal(false)}
           >
             <div className="diff-modal-content">
-              <div className="diff-context-controls">
-                <span className="diff-context-path" title={fileTitle}>
+              <div
+                className={diffControlsStyles.controls}
+                data-diff-context-controls
+              >
+                <span
+                  className={diffControlsStyles.path}
+                  data-diff-context-path
+                  title={fileTitle}
+                >
                   {displayPaths.length > 0 ? displayPaths[0] : fileName}
                 </span>
               </div>

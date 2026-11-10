@@ -1,3 +1,4 @@
+import statusStyles from "./SourceStatus.module.css";
 import {
   DEFAULT_SNIPPET_CONTEXT_RADIUS,
   type FileContentResponse,
@@ -411,7 +412,7 @@ export function BlameView({
   if (contentLoading && !blame) {
     return (
       <section className={`blame-view ${styles.root}`}>
-        <div className="git-diff-loading">{t("gitStatusLoading")}</div>
+        <div className={statusStyles.diffLoading}>{t("gitStatusLoading")}</div>
       </section>
     );
   }
@@ -479,7 +480,9 @@ export function BlameView({
         </Banner>
       )}
       {file && !file.metadata.isText && !blame && (
-        <div className="git-status-empty">{t("fileViewerBinary")}</div>
+        <div className={statusStyles.statusEmpty} data-source-empty>
+          {t("fileViewerBinary")}
+        </div>
       )}
       <div
         className={styles.lines}

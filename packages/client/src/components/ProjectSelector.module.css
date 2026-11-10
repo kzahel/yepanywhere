@@ -3,13 +3,7 @@
  * rows and the phone bottom sheet belong to the shared Menu
  * (components/ui/Menu.tsx); `.menu` only sets its width.
  *
- * Three literals stay on the elements alongside these module classes:
- * `project-selector-container`, `project-selector-button`, and
- * `project-selector-text`. The source-header layout in
- * `styles/index.css` reaches into the selector by those exact names to
- * constrain and truncate the identity row, and
- * `styles/__tests__/sourceControlLayout.test.ts` asserts those
- * selectors. Those five rules stay global and unchanged.
+ * The source header constrains its identity through stable data boundaries.
  */
 
 .container {

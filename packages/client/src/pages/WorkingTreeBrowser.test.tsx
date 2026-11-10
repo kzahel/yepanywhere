@@ -385,8 +385,10 @@ describe("WorkingTreeBrowser", () => {
     ).toBe("sourceWorktreePartialDescription");
     expect(screen.queryByText("sourceWorktreeUnstaged")).toBeNull();
     expect(screen.queryByText("sourceWorktreeUntracked")).toBeNull();
-    expect(document.querySelectorAll(".commit-file-item")).toHaveLength(1);
-    const row = document.querySelector(".commit-file-item");
+    expect(document.querySelectorAll("[data-source-file-item]")).toHaveLength(
+      1,
+    );
+    const row = document.querySelector("[data-source-file-item]");
     expect(row?.getAttribute("data-tooltip")).toBe("src/dirty.ts");
     expect(
       row?.querySelector('[role="img"]')?.getAttribute("data-tooltip"),
@@ -1084,7 +1086,7 @@ describe("WorkingTreeBrowser", () => {
     const finalPath = document.querySelector(
       '[data-source-path="generated/file-399.ts"]',
     );
-    const finalRow = finalPath?.closest(".commit-file-item");
+    const finalRow = finalPath?.closest("[data-source-file-item]");
     if (!finalRow) throw new Error("Final generated file row is missing");
     getFile.mockImplementation(() => new Promise(() => {}));
     translationCalls = 0;
@@ -1231,27 +1233,30 @@ describe("WorkingTreeBrowser", () => {
     );
     const stagedRow = document
       .querySelector('[data-source-path="src/staged.ts"]')
-      ?.closest(".commit-file-item");
+      ?.closest("[data-source-file-item]");
     if (!stagedRow) throw new Error("Staged file row is missing");
-    expect(stagedRow.querySelector(".worktree-file-state")?.textContent).toBe(
-      "✓",
-    );
+    expect(
+      stagedRow.querySelector("[role=img][aria-label^=sourceWorktree]")
+        ?.textContent,
+    ).toBe("✓");
     expect(
       stagedRow
-        .querySelector(".worktree-file-state")
+        .querySelector("[role=img][aria-label^=sourceWorktree]")
         ?.getAttribute("data-tooltip"),
     ).toBe("sourceWorktreeStaged");
     expect(
       document
         .querySelector('[data-source-path="src/unstaged.ts"]')
-        ?.closest(".commit-file-item")
-        ?.querySelector(".worktree-file-state"),
+        ?.closest("[data-source-file-item]")
+        ?.querySelector("[role=img][aria-label^=sourceWorktree]"),
     ).toBeNull();
     const untrackedRow = document
       .querySelector('[data-source-path="src/untracked.ts"]')
-      ?.closest(".commit-file-item");
+      ?.closest("[data-source-file-item]");
     if (!untrackedRow) throw new Error("Untracked file row is missing");
-    expect(untrackedRow.querySelector(".worktree-file-state")).toBeNull();
+    expect(
+      untrackedRow.querySelector("[role=img][aria-label^=sourceWorktree]"),
+    ).toBeNull();
     expect(
       untrackedRow.querySelector('[role="img"]')?.getAttribute("data-tooltip"),
     ).toBe("? — sourceFileStatusUntracked");
@@ -1656,7 +1661,7 @@ describe("WorkingTreeBrowser", () => {
             .getAttribute("aria-pressed"),
         ).toBe("true");
         const scrollRootSelector = isWideScreen
-          ? ".git-diff-preview-body"
+          ? "[data-source-preview-body]"
           : ".modal-content";
         const firstScrollRoot =
           document.querySelector<HTMLElement>(scrollRootSelector);
