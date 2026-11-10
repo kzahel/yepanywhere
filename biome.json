@@ -92,7 +92,7 @@
                       "**/design/**",
                       "virtual:ya-design-data"
                     ],
-                    "message": "The design playground and its example files are dev-only; production client code must not import them (topics/ui-design.md)."
+                    "message": "The design playground and its example files belong to a separate entry; app code must not import them (topics/ui-design.md)."
                   }
                 ]
               }

@@ -80,7 +80,7 @@ export default defineConfig(({ command }) => ({
     newSessionPreloadPlugin(),
     // Content Security Policy (stricter in production, permissive in dev for HMR)
     cspPlugin({ isRemote: false }),
-    // Census data for the dev-only design playground (design.html).
+    // Census data for the separate design playground (design.html).
     designDataPlugin(resolve(__dirname, "src")),
   ],
   resolve: {

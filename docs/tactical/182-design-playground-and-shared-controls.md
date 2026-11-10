@@ -75,11 +75,14 @@ of slightly different styles.
 ## What has landed
 
 - **Playground** (`packages/client/design.html`, `packages/client/design/`):
-  dev-only entry with a sidebar, global theme and width settings kept in the
+  separate entry with a sidebar, global theme and width settings kept in the
   URL, per-theme grids, phone frames, and chromeless isolated states.
   `pnpm -s design:index` lists every example statically; `pnpm -s
   design:shot` captures states through the artifact-capture presentation.
   Biome rejects production imports of the playground or example files.
+  On 2026-11-10 the maintainer requested hosted availability: the remote build
+  now includes `design.html` and its source census snapshot in the normal
+  deployment output, including Latest. Publishing awaits deployment of this change.
 - **Token page and undefined-property limit:** theme colors and scales in
   each theme, and every custom property read but never defined, with its
   sites. `pnpm css:check` rejects new undefined names and more reads of
@@ -333,7 +336,7 @@ of slightly different styles.
   owns the contract).
 - **Button and switch census:** proposed canonical variants beside every
   mapped legacy style, unmapped global classes with live use counts from a
-  dev-only Vite plugin, and every matching CSS Module class. Proposed
+  design-data Vite plugin, and every matching CSS Module class. Proposed
   mapping in `design/census/mapping.ts`.
 
 The [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
@@ -534,7 +537,6 @@ These are not control families; each is scheduled where noted.
 ## Not in scope
 
 - Visual-regression tests in CI.
-- Publishing the playground on relay or hosted clients.
 - Converting all 96 `api` importers to context.
 
 ## Sources consulted

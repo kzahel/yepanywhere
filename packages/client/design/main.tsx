@@ -1,7 +1,6 @@
 /*
- * Design playground entry, served only by the Vite dev server at
- * /design.html. No production build lists design.html as an input, and
- * production modules may not import this directory or any *.specimen.tsx
+ * Separate design playground entry at /design.html in dev and hosted builds.
+ * App modules may not import this directory or any *.specimen.tsx
  * (enforced by biome.json). See topics/ui-design.md.
  */
 import { createRoot } from "react-dom/client";

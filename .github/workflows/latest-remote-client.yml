@@ -93,6 +93,7 @@ jobs:
             --previous-origin "$PREVIOUS_DEPLOYMENT_ORIGIN" \
             "${bootstrap_args[@]}"
           test -f packages/client/dist-remote/index.html
+          test -f packages/client/dist-remote/design.html
           test -f packages/client/dist-remote/_headers
           test -f packages/client/dist-remote/asset-generation.json
 

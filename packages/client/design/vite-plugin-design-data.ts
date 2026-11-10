@@ -1,5 +1,5 @@
 /**
- * Dev-server data for the design playground's census pages.
+ * Source census data for the design playground, live in dev and frozen at build.
  *
  * `virtual:ya-design-data` exports every class selector declared in the
  * legacy global stylesheets, with how many times production TypeScript
@@ -13,7 +13,7 @@
  *
  * It also appends Storybook's `__namedExportsOrder` to each *.specimen.tsx.
  *
- * `apply: "serve"` keeps it out of every build; only design.html imports it.
+ * Only design.html imports the virtual data; the app entry does not include it.
  */
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
@@ -95,7 +95,6 @@ export async function collectDesignData(srcDir: string) {
 export function designDataPlugin(srcDir: string): Plugin {
   return {
     name: "ya-design-data",
-    apply: "serve",
     resolveId(id) {
       return id === VIRTUAL_ID ? RESOLVED_ID : undefined;
     },

@@ -1059,7 +1059,7 @@ no shared button, switch, popover, menu, field or banner. It has two competing
 global button families, about 71 pasted copies of the switch markup, about 40
 hand-rolled popovers and menus, and several tokens that are used but never
 defined. [Plan 182](../tactical/182-design-playground-and-shared-controls.md)
-builds a self-built, dev-only design playground (`design.html`) with
+builds a self-built, separate design playground (`design.html`) with
 Storybook-compatible example files. It runs a census of existing variants
 before migrating each control, starting with `Switch` and then `Button`, and
 adds a ratchet so legacy patterns can only shrink. It replaces and then
@@ -1067,7 +1067,10 @@ deletes the checked-in feature mockups and gives proposal scenes an
 owner-bound lifecycle check. Scenes receive server data through injected
 services, alongside the ongoing client refactor. There are no visual tests in
 CI. The [UI design topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
-owns the contract. The dev-only playground with `design:index`/`design:shot`,
+owns the contract. On 2026-11-10 the maintainer requested hosted availability:
+the remote build now includes `/design.html` alongside the app, with publication
+pending deployment of this change through the normal Latest pipeline.
+The playground with `design:index`/`design:shot`,
 the token page, a `css:check` limit on undefined custom properties, and the
 button and switch census landed on 2026-11-08. The plan was then rewritten to
 unify one control family at a time as a quick cut (census, build, swap every

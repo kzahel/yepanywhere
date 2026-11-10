@@ -2,13 +2,14 @@
  * Vite config for remote (static) client build.
  *
  * This builds a standalone static site that can be deployed to GitHub Pages.
- * It uses remote.html as the entry point instead of index.html.
+ * It uses remote.html as the app entry and also publishes the design playground.
  */
 
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
+import { designDataPlugin } from "./design/vite-plugin-design-data";
 import { warningFreeBuildLogger } from "./vite-build-policy";
 import { cspPlugin, shouldInlineClientAsset } from "./vite-plugin-csp";
 import { prebootComposerPlugin } from "./vite-plugin-preboot-composer";
@@ -82,6 +83,7 @@ export default defineConfig(({ command }) => ({
     react(),
     prebootComposerPlugin(),
     cspPlugin({ isRemote: true }),
+    designDataPlugin(resolve(__dirname, "src")),
   ],
   resolve: {
     alias: {
@@ -112,6 +114,7 @@ export default defineConfig(({ command }) => ({
       input: {
         main: resolve(__dirname, "remote.html"),
         play: resolve(__dirname, "play.html"),
+        design: resolve(__dirname, "design.html"),
       },
       output: {
         manualChunks: {

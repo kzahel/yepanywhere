@@ -197,10 +197,21 @@ function ScaleRow({ name, children }: { name: string; children: ReactNode }) {
   );
 }
 
-const stylesheets = import.meta.glob<string>("../../src/**/*.css", {
-  query: "?raw",
-  import: "default",
-});
+const stylesheets = {
+  ...import.meta.glob<string>(
+    [
+      "../../src/**/*.css",
+      "!../../src/styles/index.css",
+      "!../../src/styles/provider-colors.css",
+    ],
+    { query: "?raw", import: "default" },
+  ),
+  // Already loaded for the token palette; keep them in the census without
+  // importing the same stylesheet both statically and dynamically at build.
+  "../../src/styles/index.css": () => Promise.resolve(indexCss),
+  "../../src/styles/provider-colors.css": () =>
+    Promise.resolve(providerColorsCss),
+};
 
 interface Site {
   path: string;

@@ -1,7 +1,7 @@
 # UI design and mockup exports
 
 > YA's design language is moving onto a small set of shared controls that are
-> shown and captured in a dev-only design playground. UI proposals use real
+> shown and captured in a separate design playground. UI proposals use real
 > client components in isolated Vite fixtures, exported as relocatable HTML,
 > CSS, JavaScript, fonts and linked captures.
 
@@ -430,9 +430,15 @@ depend on a higher one:
   its old classes outright, and new code uses the shared control.
 
 **Playground.** `packages/client/design.html` is a separate entry served by
-the Vite dev server, so it opens at `/design.html` on the YA dev port (local
-or Tailscale). No production build lists it as an input, and it is not
-reachable on relay or hosted clients. Biome rejects any import of
+the Vite dev server at `/design.html` on the YA dev port (local or Tailscale).
+The remote static build also includes it, so the normal Latest deployment
+publishes it at `https://latest.yepanywhere.com/design.html` alongside the app,
+without a separate release or a running YA server. The same build works below
+a configured base path (for example `/remote/design.html` on the website).
+Census data reflects the deployed source revision; development recomputes it
+as sources change. Hash links, themes, phone frames and isolated states work
+in both builds. The local packaged client does not include the playground.
+Biome rejects any import of
 `packages/client/design/`, a `*.specimen.tsx` file or the playground's data
 module from production client code.
 
@@ -530,7 +536,7 @@ The playground's pages:
   standalone, kept as a regression view.
 
 Global class counts are static whole-token counts in production
-TypeScript, served by a dev-only Vite plugin and refreshed when sources
+TypeScript, supplied by a Vite plugin and refreshed when development sources
 change; classes built at runtime are not seen.
 
 No visual-regression test of the playground runs in CI. Screenshots are
