@@ -97,7 +97,11 @@ export class CodexEntryCacheBudget {
 
   private enforce(justUsed: object): void {
     for (const [key, entry] of this.retained) {
-      if (this.retainedSourceBytes <= this.maxSourceBytes) break;
+      if (
+        this.retainedSourceBytes <= this.maxSourceBytes &&
+        this.retained.size <= 128
+      )
+        break;
       if (key === justUsed) continue;
       this.retained.delete(key);
       this.retainedSourceBytes -= entry.sourceBytes;

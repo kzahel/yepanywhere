@@ -152,6 +152,15 @@ response does not acquire older-page pagination metadata merely because the
 reader omitted a prefix: the client already owns the cursor's earlier rows.
 Message ids and the API response shape remain unchanged.
 
+Cursor selection happens after actual provider resolution. A Claude-default
+project can contain Codex sessions; both managed and unbound Codex sessions
+must retain cursor/window intent. The resolved Claude reader receives complete
+forest context before route-level slicing. This fixes route suppression of
+Codex's existing bounded path without adding a new provider request path.
+
+Shared append validation may read fixed head probes of at most 1 KiB, even for
+a bounded suffix. Those probes do not parse or hydrate the omitted history.
+
 The reader retains and incrementally extends only that source suffix. An
 unchanged file reuses its normalized projection without a reverse scan;
 appends parse only new bytes. A new compaction or a changed requested boundary

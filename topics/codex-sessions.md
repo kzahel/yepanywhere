@@ -290,9 +290,28 @@ identified a rollout, a detail-read failure is reported as a reader failure
 rather than being converted into session absence.
 
 A reference-backed warm cache also retains the leaf's expected next ordinal.
-Every appended complete record must continue that ordinal sequence before the
-reader publishes any of the new entries, so warm and cold reads reject the same
+Every visible appended record, including a valid unterminated row, must continue
+that ordinal sequence before publication. Only newline-committed rows advance
+the retained ordinal cursor, so warm and cold reads reject the same
 malformed lineage.
+
+### Shared transcript acquisition
+
+Plain rollout ranges use the same chunked JSONL framer as Claude. The reader's
+existing source-start-aware cache owns decoded rows; it retains at most 128
+snapshots within its 256 MiB source-byte budget. No additional payload owner or
+poller is added. Valid unterminated rows are visible but provisional: replay
+replaces them before committing the following newline. Malformed continuation
+therefore cannot leave a formerly valid provisional row behind.
+
+Append acquisition carries the prior device/inode and bounded head/end probes
+through the read, checking them before publication. Replacement, truncation or
+changed evidence discards the old candidate and retries; unrelated errors still
+propagate. This assumes append-only provider history between observed rewrites;
+it does not hash every prefix byte. Compression and immutable lineage keep
+their established complete-read semantics. See
+[plan 190 evidence](../docs/research/190-transcript-ingestion.md) for parity and
+measurement limits.
 
 ### Compact-tail source reads
 

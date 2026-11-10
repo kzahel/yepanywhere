@@ -6,7 +6,9 @@ Status: in progress. Shared Codex discovery ownership is implemented as the
 first bounded-working-set slice; correctness, measurements and qualification
 are recorded below. Retained list/Inbox SQL queries form the second slice,
 canonical seen/lazy metadata the third, and SQL catalog ownership plus safe
-query restoration the fourth. Full scenario targets remain open.
+query restoration the fourth. Stage 3 now has a shared transcript ingestion
+and resolved-provider dispatch slice; bounded Claude branch projection remains
+open. Full scenario targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -48,7 +50,7 @@ request paths need a justification beyond improving one benchmark.
 |---|---|---|---|
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
 | 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas and safe checkpoint restoration implemented; qualification/remaining consumers open |
-| 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Deferred until the selected foundation has a qualified slice |
+| 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition, append evidence and provisional replay implemented; Codex dispatch repaired; Claude bounded history/branch projection remains open |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
 
@@ -57,7 +59,20 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — SQL-owned catalog and bounded working set
+### Current focus — bounded transcript ingestion
+
+The SQL ownership slices below have landed. The selected next workstream is
+stage 3: one shared acquisition/framing contract, with provider-specific
+semantics and bounded decoded working sets. The first slice is recorded in
+[transcript ingestion evidence](../research/190-transcript-ingestion.md).
+It removes duplicate JSONL framing, carries accepted-source evidence through
+append acquisition, and fixes actual-provider dispatch that suppressed Codex
+catch-up in Claude-default projects. It does not complete original step 2:
+Claude still rebuilds its visible branch and cannot retain a transcript over
+192 MiB. Next, implement the Claude compaction index and bounded branch
+projection, preserving full-rebuild parity for rewinds and dead branches.
+
+### Previous focus — SQL-owned catalog and bounded working set
 
 Research: [cold session ownership and query boundaries](../research/190-cold-session-ownership.md).
 The selected focus spans original steps 4 and 5: neither removing resident
@@ -168,7 +183,8 @@ newly certified by this isolated query diagnostic.
 Canonical seen-state persistence and lazy metadata are now implemented below.
 SQL-owned catalog publication and safe query checkpoint restoration follow
 below. They address native residency and repeated first-list reconstruction.
-Long-transcript incremental ingestion remains required and unimplemented.
+Long-transcript bounded ingestion remains required; the shared ingestion slice
+below is implemented, while Claude bounded projection remains open.
 
 ### Canonical cold state in SQL — implementation outcome
 
@@ -200,6 +216,27 @@ isolated residency, write, restoration and review/check results. Full SQL restor
 and eligible-project aggregation still scale with their SQL populations. Other
 complete consumers, unknown-file classification, long transcripts and client
 change delivery remain open. No full active-tab target is certified here.
+
+### Shared transcript acquisition — implementation outcome
+
+Both plain-provider readers now use one chunked, byte-position-preserving JSONL
+framer. Their existing reader caches own decoded rows, with source-byte budgets
+and a 128-file cap. Valid unterminated records remain provisional and replay
+before commitment; append reads validate the prior accepted source around
+acquisition. Invalidated Claude waiters retry the current owner on success or
+failure. Summary projections are shared per Claude parse version and context.
+No transcript format, public API, protocol capability or client behavior changes.
+
+The Codex baseline was caused by route dispatch, not an inherently failing
+window reader: a Claude-default project stripped the actual Codex cursor/window
+intent. Cursor selection now uses the resolved provider at the reader boundary.
+The isolated real-reader/Hono diagnostic reduces median cursor update wall
+time at 488 MB from 1,249.54 to 2.15 ms; the new 49 MB case is 2.63 ms.
+Warm replay matches fresh full rebuilds at three cuts on real 81 MB Claude
+and 112 MB Codex copies. Protocol, hashes, checks and qualifications are in
+[the evidence](../research/190-transcript-ingestion.md). These do not qualify
+the full active-tab targets; Claude above-budget reads and branch normalization,
+old-anchor complete fallbacks, client reloads and polling remain open.
 
 ## Scenario
 
@@ -289,6 +326,12 @@ uses per-row seen commits. Its isolated service-restart/memory evidence is in
 residency and derived query reconstruction remain; these component figures do
 not replace the full active-tab baseline below.
 
+Stage 3 now shares plain transcript acquisition and repairs Codex cursor/window
+dispatch after actual provider resolution. Component detail-path and real-copy
+parity evidence is in [the ingestion outcome](../research/190-transcript-ingestion.md).
+This leaves Claude's bounded compaction/branch work open and does not replace
+the original full-scenario target table below.
+
 Baseline measured 2026-11-10 with the repro on the maintainer's host (Apple
 Silicon): production builds of server and client code as of `f196db4c7`,
 profiler off, Codex thread index present. Runs `base2-claude` and
@@ -330,9 +373,10 @@ phase (61 Claude and 87 Codex requests).
   (`bound-session-reader.ts`), yet each one read the whole rollout (1.4 s)
   and normalized all of it (about 59,000 messages, 0.6 s): the windowed
   incremental read (`readIncrementalSnapshot`, `codex-reader.ts`) fell back.
-  Which of its exits fires is not yet established; the generated rollouts
-  follow the current format and compact only between turns, so it is not an
-  artifact of orphaned tool results. The cold open's tail-window request read
+  The baseline attribution was incomplete: stage 3 subsequently found route
+  dispatch stripped the Codex cursor/window in Claude-default projects,
+  before the window helper could be selected. The generated rollouts follow
+  the current format and compact only between turns. The cold open's tail-window request read
   the window only, but the open also issued a whole-file incremental request
   and a preview refresh (about 1.5 s each). So Codex needs step 2 as well.
 - **Lists.** A list page or Inbox costs 167–215 ms of server time alone at
@@ -384,8 +428,10 @@ after a restart.
 
 ### 2 — read a long session incrementally
 
-Agreed as required. For Claude first, then Codex, whose incremental
-requests are not windowed today (baseline):
+Agreed as required. Shared acquisition and Codex resolved-provider dispatch
+are implemented; bounded Claude history/branch projection is the next slice.
+The original measured baseline below remains historical evidence:
+
 
 - Keep an index of compaction boundaries per transcript, so a cold open and
   the first detail read start at the requested tail window, never at byte 0.
@@ -489,7 +535,8 @@ Found by the baseline; independent of steps 2–7.
 
 - Whether the Codex window's normalization per request already meets the
   target once measured, or needs the same incremental treatment. Answered by
-  the baseline: a tab's updates fall back to reading and normalizing the
-  whole rollout, so it needs step 2.
+  the baseline initially showed whole-rollout updates. The stage 3 slice
+  fixes actual-provider dispatch and measures bounded Codex catch-up; full
+  active-tab CPU qualification and complete-fallback costs remain open.
 - How many compactions a tail window should hold by default once opening is
   flat in history length.

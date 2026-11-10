@@ -1,3 +1,7 @@
+import {
+  readObservedTranscriptRange,
+  type TranscriptAppendFence,
+} from "./transcript-ingestion.js";
 import type { CodexSessionEntry } from "@yep-anywhere/shared";
 import { parseCodexSessionEntry } from "@yep-anywhere/shared";
 import {
@@ -27,6 +31,10 @@ export interface CodexParsedEntrySnapshot {
   maxLineLength: number;
   /** Decoded JSONL bytes the entries were parsed from. */
   sourceBytes: number;
+  nextLeafOrdinal?: number;
+  leafStartOrdinal?: number;
+  committedEntries?: number;
+  appendFence?: TranscriptAppendFence;
 }
 
 interface CodexEntrySnapshot {
@@ -68,89 +76,21 @@ export class CodexRolloutWindowReader {
     length: number,
     readStartedAt = Date.now(),
     initialPartialLine: Buffer = Buffer.alloc(0),
+    previous?: TranscriptAppendFence,
   ): Promise<CodexParsedEntrySnapshot> {
-    const entries: CodexSessionEntry[] = [];
-    let partialLineChunks =
-      initialPartialLine.length > 0 ? [initialPartialLine] : [];
-    let partialLineBytes = initialPartialLine.length;
-    let partialLineStart = start - initialPartialLine.length;
-    let lineCount = 0;
-    let maxLineLength = 0;
-    let parseMs = 0;
-
-    const parseLine = (lineBytes: Buffer, sourceByteOffset: number): void => {
-      const parseStartedAt = Date.now();
-      const line = lineBytes.toString("utf8");
-      lineCount += 1;
-      maxLineLength = Math.max(maxLineLength, line.length);
-      const trimmed = line.trim();
-      if (trimmed) {
-        const entry = parseCodexSessionEntry(trimmed);
-        if (entry) {
-          entries.push(tagCodexEntrySourceByteOffset(entry, sourceByteOffset));
-        }
-      }
-      parseMs += Date.now() - parseStartedAt;
-    };
-
-    let totalBytesRead = 0;
-    while (totalBytesRead < length) {
-      const bytesToRead = Math.min(READ_CHUNK_BYTES, length - totalBytesRead);
-      const buffer = await this.readExactRange(
-        filePath,
-        start + totalBytesRead,
-        bytesToRead,
-      );
-      totalBytesRead += buffer.length;
-
-      let segmentStart = 0;
-      for (;;) {
-        const newline = buffer.indexOf(0x0a, segmentStart);
-        if (newline < 0) break;
-
-        const segment = buffer.subarray(segmentStart, newline);
-        const lineBytes =
-          partialLineChunks.length === 0
-            ? segment
-            : Buffer.concat(
-                [...partialLineChunks, segment],
-                partialLineBytes + segment.length,
-              );
-        parseLine(lineBytes, partialLineStart);
-        partialLineStart += partialLineBytes + segment.length + 1;
-        partialLineChunks = [];
-        partialLineBytes = 0;
-        segmentStart = newline + 1;
-      }
-
-      if (segmentStart < buffer.length) {
-        const segment = Buffer.from(buffer.subarray(segmentStart));
-        partialLineChunks.push(segment);
-        partialLineBytes += segment.length;
-      }
-    }
-
-    let partialLine =
-      partialLineChunks.length === 0
-        ? Buffer.alloc(0)
-        : Buffer.concat(partialLineChunks, partialLineBytes);
-    if (partialLine.length > 0) {
-      const entryCountBeforeFinalLine = entries.length;
-      parseLine(partialLine, partialLineStart);
-      if (entries.length > entryCountBeforeFinalLine) {
-        partialLine = Buffer.alloc(0);
-      }
-    }
-
-    return {
-      entries,
-      partialLine,
-      readLinesMs: Math.max(0, Date.now() - readStartedAt - parseMs),
-      parseMs,
-      lineCount,
-      maxLineLength,
-      sourceBytes: totalBytesRead,
-    };
+    return readObservedTranscriptRange(
+      this.readExactRange,
+      filePath,
+      start,
+      length,
+      (line, offset) => {
+        const entry = parseCodexSessionEntry(line);
+        return entry ? tagCodexEntrySourceByteOffset(entry, offset) : null;
+      },
+      initialPartialLine,
+      readStartedAt,
+      previous,
+    );
   }
 
   async readCompactTailSnapshot(

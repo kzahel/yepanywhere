@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { nativeSessionRef, parseNativeSessionId } from "@yep-anywhere/shared";
 import type {
   CodexSessionEntry,
   DurableLocalCommandMessage,
@@ -228,6 +229,87 @@ async function createGrokRedirectFixture(): Promise<{
 }
 
 describe("Sessions metadata route", () => {
+  it.each([false, true])(
+    "keeps actual Codex incremental context in a Claude-default project (bound=%s)",
+    async (bound) => {
+      const dir = await mkdtemp(join(tmpdir(), "mixed-detail-")),
+        source = join(dir, "native");
+      await mkdir(source);
+      const nativeId = "12345678-1234-4000-8000-123456789012",
+        file = join(source, nativeId + ".jsonl");
+      await writeFile(file, "{}\n");
+      const project = {
+        ...createProject(),
+        id: encodeProjectId(dir),
+        path: dir,
+        sessionDir: join(dir, "claude"),
+      };
+      const summary = {
+        ...createSummary(),
+        id: nativeId,
+        projectId: project.id,
+      };
+      const native = nativeSessionRef(
+        "codex",
+        source,
+        parseNativeSessionId(nativeId),
+      );
+      const metadata = createTestSessionMetadataService(dir);
+      await metadata.initialize();
+      const identity = bound
+        ? metadata.identities.adoptDiscovered({
+            native,
+            provider: "codex",
+            projectId: project.id,
+            createdAt: summary.createdAt!,
+          })
+        : undefined;
+      const reader = {
+        getSessionSummary: vi.fn(async () => summary),
+        getSession: vi.fn(async () => ({
+          ...createLoadedCodexSession(),
+          summary,
+        })),
+        getSessionFilePath: async () => file,
+        getNativeSessionRef: async () => native,
+      } as unknown as ISessionReader;
+      const claude = {
+        getSessionSummary: async () => null,
+        getSession: async () => null,
+      } as unknown as ISessionReader;
+      try {
+        const routes = createSessionsRoutes({
+          supervisor: {
+            getProcessForSession: () => undefined,
+            wasEverOwned: () => false,
+          } as unknown as SessionsDeps["supervisor"],
+          scanner: {
+            getOrCreateProject: async () => project,
+          } as unknown as SessionsDeps["scanner"],
+          readerFactory: (_project, ref) =>
+            ref?.family === "codex" ? reader : claude,
+          codexSessionsDir: source,
+          codexReaderFactory: () => reader as unknown as CodexSessionReader,
+          sessionMetadataService: metadata,
+        });
+        const response = await routes.request(
+          `/projects/${project.id}/sessions/${identity?.sessionId ?? nativeId}?afterMessageId=cursor`,
+        );
+        expect(response.status).toBe(200);
+        expect(reader.getSession).toHaveBeenCalledWith(
+          nativeId,
+          project.id,
+          "cursor",
+          { includeOrphans: false, tailCompactions: 2 },
+        );
+      } finally {
+        await metadata.flushPendingWrites();
+        closeTestDiscoveryDatabases();
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("opens an unowned setup-only Claude session through metadata and detail", async () => {
     const sessionDir = await mkdtemp(join(tmpdir(), "empty-claude-route-"));
     try {

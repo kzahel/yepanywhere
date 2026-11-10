@@ -525,45 +525,95 @@ describe("Codex reference-backed rollout lineage", () => {
     );
   });
 
-  it("rejects a non-contiguous ordinal appended to a warm lineage cache", async () => {
-    const rootPrefix = [
+  it("replays provisional leaf metadata without replacing inherited entries or losing ordinal validation", async () => {
+    const root = [
       sessionMeta({ id: ROOT_ID, ordinal: 0 }),
-      userMessage(1, "Inherited root prompt"),
-      assistantMessage(2, "Inherited root answer"),
+      userMessage(1, "Inherited prompt"),
+      assistantMessage(2, "Inherited answer"),
     ];
-    await writeFile(rolloutPath(sessionsDir, ROOT_ID), jsonl(rootPrefix));
-
+    await writeFile(rolloutPath(sessionsDir, ROOT_ID), jsonl(root));
     const childPath = rolloutPath(sessionsDir, CHILD_ID);
     await writeFile(
       childPath,
-      jsonl([
+      JSON.stringify(
         sessionMeta({
           id: CHILD_ID,
           ordinal: 3,
-          historyBase: prefixPosition(ROOT_ID, rootPrefix),
+          historyBase: prefixPosition(ROOT_ID, root),
         }),
-        userMessage(4, "Valid child prompt"),
-      ]),
+      ),
     );
-
     const reader = new CodexSessionReader({ sessionsDir });
-    await expect(
-      reader.getSession(CHILD_ID, PROJECT_ID),
-    ).resolves.not.toBeNull();
-
+    const initial = await reader.getSession(CHILD_ID, PROJECT_ID);
+    expect(initial?.data.session.entries.map((e) => e.ordinal)).toEqual([
+      3, 1, 2,
+    ]);
+    await appendFile(childPath, "\n" + jsonl([userMessage(4, "Local prompt")]));
+    const replay = await reader.getSession(CHILD_ID, PROJECT_ID);
+    const rebuilt = await new CodexSessionReader({ sessionsDir }).getSession(
+      CHILD_ID,
+      PROJECT_ID,
+    );
+    expect(replay?.data.session.entries).toEqual(rebuilt?.data.session.entries);
+    expect(replay?.data.session.entries.map((e) => e.ordinal)).toEqual([
+      3, 1, 2, 4,
+    ]);
     await appendFile(childPath, jsonl([assistantMessage(99, "Invalid gap")]));
-    const errorLog = vi
-      .spyOn(getLogger(), "error")
-      .mockImplementation(() => undefined);
-
+    vi.spyOn(getLogger(), "error").mockImplementation(() => undefined);
     await expect(reader.getSession(CHILD_ID, PROJECT_ID)).rejects.toThrow(
       "non-contiguous leaf ordinal",
     );
-    await expect(
-      new CodexSessionReader({ sessionsDir }).getSession(CHILD_ID, PROJECT_ID),
-    ).rejects.toThrow("non-contiguous leaf ordinal");
-    expect(errorLog).toHaveBeenCalledTimes(2);
   });
+
+  it.each([true, false])(
+    "rejects a non-contiguous ordinal with trailing newline %s in warm and cold lineage reads",
+    async (newline) => {
+      const rootPrefix = [
+        sessionMeta({ id: ROOT_ID, ordinal: 0 }),
+        userMessage(1, "Inherited root prompt"),
+        assistantMessage(2, "Inherited root answer"),
+      ];
+      await writeFile(rolloutPath(sessionsDir, ROOT_ID), jsonl(rootPrefix));
+
+      const childPath = rolloutPath(sessionsDir, CHILD_ID);
+      await writeFile(
+        childPath,
+        jsonl([
+          sessionMeta({
+            id: CHILD_ID,
+            ordinal: 3,
+            historyBase: prefixPosition(ROOT_ID, rootPrefix),
+          }),
+          userMessage(4, "Valid child prompt"),
+        ]),
+      );
+
+      const reader = new CodexSessionReader({ sessionsDir });
+      await expect(
+        reader.getSession(CHILD_ID, PROJECT_ID),
+      ).resolves.not.toBeNull();
+
+      await appendFile(
+        childPath,
+        JSON.stringify(assistantMessage(99, "Invalid gap")) +
+          (newline ? "\n" : ""),
+      );
+      const errorLog = vi
+        .spyOn(getLogger(), "error")
+        .mockImplementation(() => undefined);
+
+      await expect(reader.getSession(CHILD_ID, PROJECT_ID)).rejects.toThrow(
+        "non-contiguous leaf ordinal",
+      );
+      await expect(
+        new CodexSessionReader({ sessionsDir }).getSession(
+          CHILD_ID,
+          PROJECT_ID,
+        ),
+      ).rejects.toThrow("non-contiguous leaf ordinal");
+      expect(errorLog).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("follows nested lineage through an archived ancestor", async () => {
     const archivedDir = join(codexHome, "archived_sessions");

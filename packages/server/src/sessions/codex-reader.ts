@@ -1,3 +1,14 @@
+import {
+  type CodexEntryState,
+  isCodexEntrySnapshot,
+  codexEntrySourceState,
+  canAppendCodexSource,
+  validateCodexSourceOrdinals,
+  projectCodexLeafEntries,
+  appendCodexEntrySource,
+  nextCodexLeafOrdinal,
+  recoverCodexAppendMismatch,
+} from "./codex-entry-ingestion.js";
 import { readCodexIncrementalSnapshot } from "./codex-incremental-snapshot.js";
 import type {
   ProviderChildSource,
@@ -249,32 +260,9 @@ export interface CodexSessionReaderScanMetrics {
   discovery: CodexRolloutDiscoveryStats;
 }
 
-interface CodexEntryCache {
-  filePath: string;
-  startByte: number;
-  mtimeMs: number;
-  ctimeMs: number;
-  size: number;
-  entries: CodexSessionEntry[];
-  /**
-   * Decoded JSONL bytes behind `entries`, charged to the retention budget.
-   * Not `size`: a zstd rollout's file size understates its parsed heap
-   * several-fold, and lineage entries come from other rollout files.
-   */
-  sourceBytes: number;
-  partialLine: Buffer;
-  nextLeafOrdinal?: number;
-  normalizationSource: object;
-  /**
-   * True once the retention budget declined or evicted this entry. Its
-   * contents remain a valid snapshot for the read that produced it.
-   */
-  uncached?: boolean;
-}
+type CodexEntryCache = CodexEntryState;
 
-interface CodexReadEntrySnapshot extends CodexParsedEntrySnapshot {
-  nextLeafOrdinal?: number;
-}
+type CodexReadEntrySnapshot = CodexParsedEntrySnapshot;
 
 interface CodexEntrySnapshot {
   entries: CodexSessionEntry[];
@@ -2396,14 +2384,7 @@ export class CodexSessionReader implements ISessionReader {
       const stats = await stat(filePath);
       const cached = this.entryCache.get(sessionId);
 
-      if (
-        cached &&
-        cached.filePath === filePath &&
-        cached.startByte === startByte &&
-        cached.size === stats.size &&
-        cached.mtimeMs === stats.mtimeMs &&
-        cached.ctimeMs === stats.ctimeMs
-      ) {
+      if (cached && isCodexEntrySnapshot(cached, filePath, startByte, stats)) {
         this.entryCacheBudget.touch(cached);
         this.cacheAgentMappingsFromEntries({
           sessionId,
@@ -2462,11 +2443,21 @@ export class CodexSessionReader implements ISessionReader {
         purpose,
         revision,
         startByte,
-      }).finally(() => {
-        if (this.entryReadOwners.get(sessionId) === owner) {
-          this.entryReadOwners.delete(sessionId);
-        }
-      });
+      })
+        .catch((error) =>
+          recoverCodexAppendMismatch(
+            error,
+            this.entryCache,
+            this.entryCacheBudget,
+            sessionId,
+            cached,
+          ),
+        )
+        .finally(() => {
+          if (this.entryReadOwners.get(sessionId) === owner) {
+            this.entryReadOwners.delete(sessionId);
+          }
+        });
       owner = { promise, joinedCallers: 0 };
       this.entryReadOwners.set(sessionId, owner);
 
@@ -2534,40 +2525,26 @@ export class CodexSessionReader implements ISessionReader {
     const stats = await stat(filePath);
     const cached = this.entryCache.get(sessionId);
 
-    if (
-      cached &&
-      cached.filePath === filePath &&
-      cached.startByte === startByte &&
-      cached.size === stats.size &&
-      cached.mtimeMs === stats.mtimeMs &&
-      cached.ctimeMs === stats.ctimeMs
-    ) {
+    if (cached && isCodexEntrySnapshot(cached, filePath, startByte, stats)) {
       this.entryCacheBudget.touch(cached);
       return cached;
     }
 
-    if (
-      cached &&
-      cached.filePath === filePath &&
-      cached.startByte === startByte &&
-      !isCompressedCodexRolloutPath(filePath) &&
-      cached.size < stats.size
-    ) {
+    if (cached && canAppendCodexSource(filePath, cached, stats, startByte)) {
       const parsed = await this.rolloutWindowReader.readEntryRange(
         filePath,
         cached.size,
         stats.size - cached.size,
         Date.now(),
         cached.partialLine,
+        cached.appendFence,
       );
-      const nextLeafOrdinal =
-        cached.nextLeafOrdinal === undefined
-          ? undefined
-          : validateContiguousCodexOrdinals(
-              parsed.entries,
-              filePath,
-              cached.nextLeafOrdinal,
-            );
+      const nextLeafOrdinal = nextCodexLeafOrdinal(
+        cached,
+        parsed,
+        filePath,
+        validateContiguousCodexOrdinals,
+      );
 
       if (
         revision !== this.entryCacheRevision ||
@@ -2576,10 +2553,7 @@ export class CodexSessionReader implements ISessionReader {
         return null;
       }
 
-      cached.entries.push(...parsed.entries);
-      cached.sourceBytes += parsed.sourceBytes;
-      cached.partialLine = parsed.partialLine;
-      cached.nextLeafOrdinal = nextLeafOrdinal;
+      appendCodexEntrySource(cached, parsed, nextLeafOrdinal);
       cached.size = stats.size;
       cached.mtimeMs = stats.mtimeMs;
       cached.ctimeMs = stats.ctimeMs;
@@ -2634,10 +2608,7 @@ export class CodexSessionReader implements ISessionReader {
       mtimeMs: stats.mtimeMs,
       ctimeMs: stats.ctimeMs,
       size: stats.size,
-      entries: parsed.entries,
-      sourceBytes: parsed.sourceBytes,
-      partialLine: parsed.partialLine,
-      nextLeafOrdinal: parsed.nextLeafOrdinal,
+      ...codexEntrySourceState(parsed),
       normalizationSource: {},
     };
     if (cached) {
@@ -2751,25 +2722,18 @@ export class CodexSessionReader implements ISessionReader {
             `Codex rollout has no matching leaf metadata: ${filePath}`,
           );
         }
-        const nextLeafOrdinal = validateContiguousCodexOrdinals(
-          leaf.entries,
+        const nextLeafOrdinal = validateCodexSourceOrdinals(
+          leaf,
           filePath,
+          validateContiguousCodexOrdinals,
         );
-        const localEntries: CodexSessionEntry[] = [];
-        for (const entry of leaf.entries) {
-          const numericOrdinal = Number(
-            (entry as { ordinal?: unknown }).ordinal,
-          );
-          if (
-            entry.type !== "session_meta" &&
-            numericOrdinal >= leafSegment.startOrdinal
-          ) {
-            localEntries.push(entry);
-          }
-        }
+        const local = projectCodexLeafEntries(leaf, leafSegment.startOrdinal);
         const parseMs = inherited.parseMs + leaf.parseMs;
         return {
-          entries: [...inherited.entries, ...localEntries],
+          entries: [...inherited.entries, ...local.entries],
+          committedEntries: inherited.entries.length + local.committedEntries,
+          leafStartOrdinal: leafSegment.startOrdinal,
+          appendFence: leaf.appendFence,
           partialLine: leaf.partialLine,
           nextLeafOrdinal,
           readLinesMs: Math.max(0, Date.now() - readStartedAt - parseMs),

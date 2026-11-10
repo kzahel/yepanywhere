@@ -214,7 +214,11 @@ describe("session detail compact-tail pagination", () => {
       const current = await request("afterMessageId=msg-3");
       expect(current.messages).toEqual([]);
       expect(reads.mock.calls.length).toBeGreaterThan(0);
-      expect(reads.mock.calls.every(([, start]) => start > 0)).toBe(true);
+      expect(
+        reads.mock.calls.every(
+          ([, start, length]) => start > 0 || length <= 1024,
+        ),
+      ).toBe(true);
       await appendFile(sessionPath, `${JSON.stringify(row("appended"))}\n`);
       eventBus.emit({
         type: "file-change",
@@ -232,7 +236,11 @@ describe("session detail compact-tail pagination", () => {
         "appended",
       ]);
       expect(reads.mock.calls.length).toBeGreaterThan(0);
-      expect(reads.mock.calls.every(([, start]) => start > 0)).toBe(true);
+      expect(
+        reads.mock.calls.every(
+          ([, start, length]) => start > 0 || length <= 1024,
+        ),
+      ).toBe(true);
       const old = await request("afterMessageId=old");
       expect(old.messages.map((m: { uuid: string }) => m.uuid)).toContain(
         "msg-1",

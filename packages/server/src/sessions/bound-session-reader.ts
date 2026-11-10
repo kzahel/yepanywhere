@@ -50,6 +50,10 @@ export class BoundSessionReads {
   ) {}
 
   async read(input: BoundSessionRead): Promise<LoadedSession | null> {
+    // Claude branch selection needs complete forest context until its indexed
+    // projection is available. The resolved native family owns this decision.
+    const afterMessageId =
+      input.native.family === "claude" ? undefined : input.afterMessageId;
     const reader = this.deps.readerFactory(
       { ...input.transcriptProject, provider: input.provider },
       input.native,
@@ -93,7 +97,7 @@ export class BoundSessionReads {
             await reader.getSession(
               input.native.id,
               input.projectId,
-              input.afterMessageId,
+              afterMessageId,
               options,
             ),
           )
@@ -132,7 +136,7 @@ export class BoundSessionReads {
         input.native.id,
         filePath,
         input.projectId,
-        input.afterMessageId,
+        afterMessageId,
         options,
       ]),
       sourceVersion: observed,
@@ -140,7 +144,7 @@ export class BoundSessionReads {
         reader.getSession(
           input.native.id,
           input.projectId,
-          input.afterMessageId,
+          afterMessageId,
           options,
         ),
       isCurrent: async (version) => {

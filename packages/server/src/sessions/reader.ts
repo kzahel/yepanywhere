@@ -1,3 +1,4 @@
+import { projectClaudeSummary } from "./claude-summary-projection.js";
 import {
   readIssueTextBatch,
   type IssueReadOptions,
@@ -47,7 +48,6 @@ import {
 } from "./agent-excerpt.js";
 import { collectVisibleClaudeEntries } from "./claude-messages.js";
 import {
-  buildSummaryFromState,
   lastAgentExcerptFromState,
   readClaudeSessionSummary,
 } from "./claude-summary.js";
@@ -223,7 +223,7 @@ export class ClaudeSessionReader implements ISessionReader {
     options?: GetSessionSummaryOptions,
   ): SessionSummary | null {
     if (snapshot.summaryState.metrics.parsedEntries === 0) return null;
-    return buildSummaryFromState(snapshot.summaryState, {
+    return projectClaudeSummary(snapshot.summaryState, {
       filePath,
       stats: snapshot.stats,
       sessionId,

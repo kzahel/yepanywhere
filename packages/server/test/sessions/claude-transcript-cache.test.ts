@@ -1,3 +1,4 @@
+import * as ingestion from "../../src/sessions/transcript-ingestion.js";
 import { randomUUID } from "node:crypto";
 import {
   appendFile,
@@ -10,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { UrlProjectId } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildSummaryFromState } from "../../src/sessions/claude-summary.js";
 import { ClaudeTranscriptCache } from "../../src/sessions/claude-transcript-cache.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
@@ -59,6 +60,68 @@ describe("ClaudeTranscriptCache", () => {
   afterEach(async () => {
     await rm(testDir, { recursive: true, force: true });
   });
+
+  it.each(["other-path", "same-path", "replacement", "rejected"])(
+    "fences a %s invalidation while an append is being acquired",
+    async (mode) => {
+      const other = join(testDir, "other.jsonl");
+      await writeFile(filePath, userLine("u1", null, "old") + "\n");
+      await writeFile(other, userLine("other", null, "other") + "\n");
+      await cache.load(filePath);
+      await cache.load(other);
+      await appendFile(filePath, assistantLine("a1", "u1", "append") + "\n");
+      const original = ingestion.readTranscriptFile;
+      let started!: () => void, release!: () => void;
+      const observed = new Promise<void>((resolve) => {
+          started = resolve;
+        }),
+        gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      let held = false;
+      const spy = vi
+        .spyOn(ingestion, "readTranscriptFile")
+        .mockImplementation(async (...args) => {
+          if (args[0] === filePath && args[1] > 0 && !held) {
+            held = true;
+            started();
+            await gate;
+            if (mode === "rejected") throw new Error("obsolete read rejected");
+          }
+          return original(...args);
+        });
+      let newer: Awaited<ReturnType<typeof cache.load>> | undefined;
+      try {
+        const pending = cache.load(filePath);
+        await observed;
+        if (mode === "other-path") cache.invalidate(other);
+        if (mode === "same-path" || mode === "rejected") {
+          cache.invalidate(filePath);
+          newer = await cache.load(filePath);
+        }
+        if (mode === "replacement") {
+          const path = join(testDir, "replacement.jsonl");
+          await writeFile(
+            path,
+            userLine("new", null, "replacement".repeat(200)) + "\n",
+          );
+          await rename(path, filePath);
+        }
+        release();
+        const accepted = await pending;
+        expect(accepted).not.toBeNull();
+        const fresh = await new ClaudeTranscriptCache({
+          maxSourceBytes: 0,
+        }).load(filePath);
+        expect(accepted?.entries).toEqual(fresh?.entries);
+        if (newer)
+          expect((await cache.load(filePath))?.entries).toBe(newer.entries);
+      } finally {
+        release();
+        spy.mockRestore();
+      }
+    },
+  );
 
   it("parses entries and reuses the array for an unchanged file", async () => {
     await writeFile(

@@ -59,17 +59,21 @@ request the tab made and its WebSocket frames (header comment for usage).
 1. **The detail of a long Claude session is rebuilt whole on every write.**
    For Claude the reader returns every entry and the route normalizes all of
    them (DAG, visible entries, task snapshots) before slicing after the
-   client's anchor (`routes/session-detail-routes.ts`, `primaryReaderAfterMessageId`
-   is undefined for Claude). The summary's active branch is also rebuilt from
-   the whole parse state twice per write: once for the detail
+   client's anchor (the resolved reader still receives full forest context).
+   In the baseline, the summary's active branch was rebuilt from the whole
+   parse state twice per write: once for the detail
    (`reader.getSession`) and once for the catalog row
    (`getSessionSummaryFromDir`). Synthetic world: normalization 4.9 s and
    summaries 4.9 s of about 22 s of main-thread CPU in two minutes; it grows
    with the session's length. Past the 192 MB parse budget the file is also
    reread whole per request (3.2 s per request at 465 MB). Codex is no
-   better for a tab's updates: its windowed incremental read falls back
-   (cause not yet established), so each update reads and normalizes the
-   whole rollout (2.1 s at 488 MB). Fix: keep the normalized messages and the active branch
+   better in the original baseline: each update reads and normalizes the
+   whole rollout (2.1 s at 488 MB). The cause is now fixed: route dispatch
+   stripped actual Codex cursor/window intent in Claude-default projects.
+   Shared chunked framing, provisional replay and accepted-source fencing
+   now serve both readers; Claude summaries reuse a parse-version projection.
+   [Ingestion evidence](../docs/research/190-transcript-ingestion.md) records
+   the isolated gain and remaining limits. Fix: keep normalized messages and the active branch
    incremental over appends, or at least share one summary per parse-state
    version (plan 190 step 2).
 2. **Each write makes every tab refetch six whole-catalog lists:** the three

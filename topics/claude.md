@@ -357,6 +357,29 @@ rather than promising every historical session or every YA provider. This
 imports chats into ChatGPT and does not establish shared Claude process
 ownership or same-transcript continuation.
 
+## Transcript acquisition and retention
+
+Plain Claude and Codex JSONL share `sessions/transcript-ingestion.ts` for
+chunked reads, UTF-8 byte positions and provisional-line replay. A valid JSON
+record without its newline may be visible, but is not committed: the next
+append reparses that record before extending provider state. A cached append
+carries inode/device, bounded head and accepted-end probes through acquisition;
+replacement, truncation or a changed probe falls back to a fresh read. These
+are append-only source checks, not verification of every historical byte.
+Each load owns and closes its descriptor. Path-specific invalidation retires
+only that path's owner; invalidated callers join/retry the current owner even
+when the obsolete read rejects.
+
+The existing Claude cache owns decoded entries and summary state, capped at
+192 MiB of source bytes and 128 files. Summary projections share one result
+per parse version/request context, including current model-window resolution;
+returned summaries are isolated from caller mutation. No second transcript
+payload cache or background loop is introduced. Source-byte accounting does
+not measure exact decoded heap. Oversized transcripts remain uncached and
+full reads still start at byte zero. Bounded compaction lookup and incremental
+visible-branch normalization remain open in plan 190; streamed acquisition
+alone does not solve that history-dependent work.
+
 ## Transcript Structure: Forest, Connector Rows, Dead Segments
 
 Claude JSONL transcripts are a single-parent branching forest: `parentUuid`

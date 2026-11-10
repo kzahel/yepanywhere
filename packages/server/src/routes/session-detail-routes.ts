@@ -428,7 +428,7 @@ export function registerSessionDetailRoute(
       const loaded = await source.reader.getSession(
         legacy.nativeSessionId,
         projectId,
-        afterMessageId,
+        isClaudeSdkProviderName(source.provider) ? undefined : afterMessageId,
         summaryHint ? { ...options, summaryHint } : options,
       );
       if (loaded) {
@@ -568,11 +568,6 @@ export function registerSessionDetailRoute(
       ...localCommandMessages,
     ]);
     const providerAfterMessageId = overlayCursor ? undefined : afterMessageId;
-    const primaryReaderAfterMessageId =
-      isClaudeSdkProviderName(project.provider) ||
-      isClaudeSdkProviderName(metadataProvider)
-        ? undefined
-        : providerAfterMessageId;
 
     const {
       session: loadedSession,
@@ -583,7 +578,7 @@ export function registerSessionDetailRoute(
       sessionId,
       transcriptProjectId,
       metadataProvider ?? process?.provider,
-      primaryReaderAfterMessageId,
+      providerAfterMessageId,
       {
         // Only include orphaned tool info if:
         // 1. We previously owned this session (not external)
@@ -596,7 +591,7 @@ export function registerSessionDetailRoute(
           : {}),
         ...(!fullHistory &&
         ((!afterMessageId && effectiveTailCompactions !== undefined) ||
-          primaryReaderAfterMessageId)
+          providerAfterMessageId)
           ? {
               tailCompactions:
                 effectiveTailCompactions ??
