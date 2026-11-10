@@ -148,6 +148,13 @@ shell-startup and test-hermeticity rules for the local `BASH_ENV` bridge.
   [Fable 5.1
   progress updates](https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1#progress-updates-between-tool-calls-beta)
   and [thinking display](https://platform.claude.com/docs/en/build-with-claude/thinking#progress-updates).
+- Completion-time estimates are not a currently qualified native Claude
+  signal. The [2026-11-10 Fable 5.2 probes](../docs/testing/fable-completion-estimates-2026-11-10.md)
+  obtained estimates in text and, with an explicit custom SDK tool, typed
+  reports. SDK 0.3.322's `thinking_tokens.estimated_tokens` measures generated
+  thinking, not time remaining. Do not derive a completion countdown from
+  that counter or arbitrary progress prose; the reporting-tool proof is not
+  a shipped YA feature or an accuracy qualification.
 - Claude's primary model catalog remains the provider-native, latest-oriented
   experience. Previous concrete versions and custom exact ids appear only
   after a server-persisted, individual opt-in in Providers settings; projected
