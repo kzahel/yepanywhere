@@ -1,3 +1,4 @@
+import { DurableClaudeSourceIndex } from "./claude-durable-index.js";
 import { ClaudeProjectionChangedError } from "./claude-source-index.js";
 import { TranscriptAppendMismatchError } from "./transcript-ingestion.js";
 import { projectClaudeSummary } from "./claude-summary-projection.js";
@@ -55,6 +56,7 @@ import {
 } from "./claude-summary.js";
 import {
   type ClaudeTranscriptSnapshot,
+  type ClaudeTranscriptCache,
   claudeTranscriptCache,
 } from "./claude-transcript-cache.js";
 import { SummaryParserClient } from "./summary-parser-worker-client.js";
@@ -65,6 +67,7 @@ import type {
 
 export interface ClaudeSessionReaderOptions {
   sessionDir: string;
+  transcriptCache?: ClaudeTranscriptCache;
   /** Additional session dirs from cross-machine merged projects */
   additionalDirs?: string[];
   /** Optional context window resolver (from ModelInfoService) */
@@ -129,6 +132,7 @@ interface AgentMeta {
  */
 export class ClaudeSessionReader implements ISessionReader {
   private retired = false;
+  private readonly transcriptCache: ClaudeTranscriptCache;
   private retirementListeners = new Set<() => void>();
   private allSessionDirs: string[];
   private resolveContextWindow: (
@@ -139,6 +143,7 @@ export class ClaudeSessionReader implements ISessionReader {
   private summaryParserClient?: SummaryParserClient;
 
   constructor(options: ClaudeSessionReaderOptions) {
+    this.transcriptCache = options.transcriptCache ?? claudeTranscriptCache;
     this.allSessionDirs = [
       options.sessionDir,
       ...(options.additionalDirs ?? []),
@@ -247,7 +252,7 @@ export class ClaudeSessionReader implements ISessionReader {
     try {
       // A warm transcript cache entry (detail-loaded session) revalidates
       // incrementally; summary-only callers never populate the cache.
-      const cached = await claudeTranscriptCache.peek(filePath);
+      const cached = await this.transcriptCache.peek(filePath);
       if (cached) {
         return this.summaryFromSnapshot(
           cached,
@@ -354,7 +359,10 @@ export class ClaudeSessionReader implements ISessionReader {
     if (!filePath) return null;
 
     if (_options?.tailCompactions && _options.tailCompactions > 0) {
-      const indexed = await claudeTranscriptCache.loadIndexed(filePath);
+      const indexed = await this.transcriptCache.loadIndexed(
+        filePath,
+        _options.rewindRecords ?? [],
+      );
       if (indexed?.sourceIndex) {
         let projected: Awaited<
           ReturnType<NonNullable<typeof indexed.sourceIndex>["window"]>
@@ -366,22 +374,25 @@ export class ClaudeSessionReader implements ISessionReader {
             afterMessageId,
             beforeMessageId: _options.beforeMessageId,
             rewindRecords: _options.rewindRecords,
-            maxBytes: claudeTranscriptCache.budgetBytes(),
+            maxBytes: this.transcriptCache.budgetBytes(),
             fence: indexed.appendFence,
           });
         } catch (error) {
-          if (error instanceof ClaudeProjectionChangedError)
+          if (error instanceof ClaudeProjectionChangedError) {
+            if (indexed.sourceIndex instanceof DurableClaudeSourceIndex)
+              this.transcriptCache.invalidateIndexed(
+                filePath,
+                indexed.sourceIndex,
+              );
             return this.getSession(
               sessionId,
               projectId,
               afterMessageId,
               _options,
             );
+          }
           if (!(error instanceof TranscriptAppendMismatchError)) throw error;
-          claudeTranscriptCache.invalidateIndexed(
-            filePath,
-            indexed.sourceIndex,
-          );
+          this.transcriptCache.invalidateIndexed(filePath, indexed.sourceIndex);
           return this.getSession(
             sessionId,
             projectId,
@@ -389,7 +400,7 @@ export class ClaudeSessionReader implements ISessionReader {
             _options,
           );
         }
-        claudeTranscriptCache.accountIndexedWindow(
+        await this.transcriptCache.accountIndexedWindow(
           filePath,
           indexed.sourceIndex,
         );
@@ -406,7 +417,9 @@ export class ClaudeSessionReader implements ISessionReader {
             transcriptSnapshotUpdatedAt: indexed.stats.mtime.toISOString(),
             projectedMessages: projected.messages,
             projectionTotals: projected.totals,
-            harnessHistoryRows: new WeakRef(indexed.entries),
+            ...(indexed.sourceIndex instanceof DurableClaudeSourceIndex
+              ? { harnessHistorySource: indexed.sourceIndex.historyEvidence }
+              : { harnessHistoryRows: new WeakRef(indexed.entries) }),
             committedEntries: indexed.committedEntries,
             transcriptSourceVersion: {
               id: JSON.stringify([indexed.stats.dev, indexed.stats.ino]),
@@ -434,7 +447,7 @@ export class ClaudeSessionReader implements ISessionReader {
 
     // One cached parse serves both the summary and the message list; the
     // previous shape read and parsed the full file twice per request.
-    const snapshot = await claudeTranscriptCache.load(filePath);
+    const snapshot = await this.transcriptCache.load(filePath);
     if (!snapshot) return null;
 
     const summary = this.summaryFromSnapshot(
@@ -852,7 +865,7 @@ export class ClaudeSessionReader implements ISessionReader {
     if (!filePath) return undefined;
     // A warm transcript avoids re-reading the file and yields the same
     // active-branch excerpt the summary path computes.
-    const cached = await claudeTranscriptCache.peek(filePath);
+    const cached = await this.transcriptCache.peek(filePath);
     if (cached && cached.summaryState.metrics.parsedEntries > 0) {
       const excerpt = lastAgentExcerptFromState(cached.summaryState);
       if (excerpt) return excerpt;

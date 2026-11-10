@@ -185,3 +185,7 @@ metadata graph in RAM. It must preserve accepted-prefix/generation fencing,
 rewind/task/harness semantics and bounded source queries. Client authoritative
 changes/reconnect catch-up follow independently; list polling/reloads, rendering,
 idle/startup work and end-to-end typing/per-write CPU targets remain open.
+
+Subsequent slice: [durable Claude source facts](190-claude-durable-index.md)
+implements profile SQL storage and bounded unchanged-source restoration. Its
+first changed-read writer restoration and active metadata residency remain open.

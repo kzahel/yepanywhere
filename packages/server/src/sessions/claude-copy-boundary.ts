@@ -1,3 +1,7 @@
+import {
+  claudeHistoryRow,
+  type ClaudeHistoryRows,
+} from "./claude-history-rows.js";
 /** Private provider-owned fence, captured from the rows actually written by a copy. */
 export interface ClaudeCopyBoundary {
   kind: "claude-rows";
@@ -34,14 +38,14 @@ export function isClaudeCopyBoundary(
 
 /** No new read: callers supply the exact parsed rows they just copied. */
 export function captureClaudeCopyBoundary(
-  rows: readonly unknown[],
+  rows: ClaudeHistoryRows,
 ): ClaudeCopyBoundary | undefined {
   for (
     let index = rows.length - 1;
     index >= Math.max(0, rows.length - 256);
     index--
   ) {
-    const id = object(rows[index])?.uuid;
+    const id = object(claudeHistoryRow(rows, index))?.uuid;
     if (uuid(id))
       return {
         kind: "claude-rows",
@@ -55,12 +59,13 @@ export function captureClaudeCopyBoundary(
 /** A tail window, truncated/replaced prefix or missing native fence stays unknown. */
 export function matchesClaudeCopyBoundary(
   boundary: unknown,
-  rows: readonly unknown[],
+  rows: ClaudeHistoryRows,
   committed: number,
 ): boundary is ClaudeCopyBoundary {
   return (
     isClaudeCopyBoundary(boundary) &&
     boundary.entries <= committed &&
-    object(rows[boundary.anchor.index])?.uuid === boundary.anchor.uuid
+    object(claudeHistoryRow(rows, boundary.anchor.index))?.uuid ===
+      boundary.anchor.uuid
   );
 }

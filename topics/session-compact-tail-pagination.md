@@ -293,3 +293,13 @@ starts one older-history demand. Previous-turn `Home` starts one demand when no
 earlier loaded user turn exists. Key repeat does not start additional demands;
 after a batch settles, another distinct key press may request the next bounded
 batch. The same prepend anchoring and per-demand user-turn/safety limits apply.
+
+Claude may restore the logical selection from its profile-owned SQL source
+index after restart/eviction. Compaction ordinals, cursor ranks, group starts and
+late deliveries are indexed; only selected payload is acquired from the native
+file. Persisted source evidence, projection revision and rewind context must
+match before publication. The same full totals, task/turn overlays and enclosing
+rewind groups survive restoration. A changed rewind context reconstructs the
+existing selector from compact SQL facts; it does not treat a physical tail
+marker as complete branch evidence. Unknown/oversized selections retain the
+existing complete catch-up behavior.

@@ -1,4 +1,11 @@
-import { ClaudeSourceIndex } from "./claude-source-index.js";
+import {
+  ClaudeDurableIndexStore,
+  DurableClaudeSourceIndex,
+} from "./claude-durable-index.js";
+import {
+  ClaudeSourceIndex,
+  ClaudeProjectionChangedError,
+} from "./claude-source-index.js";
 import {
   TranscriptAppendMismatchError,
   readTranscriptFile,
@@ -7,7 +14,10 @@ import {
 } from "./transcript-ingestion.js";
 import type { Stats } from "node:fs";
 import { stat } from "node:fs/promises";
-import type { ClaudeSessionEntry } from "@yep-anywhere/shared";
+import type {
+  ClaudeSessionEntry,
+  SessionRewindRecord,
+} from "@yep-anywhere/shared";
 import { type LruMap, createLruMap } from "../lib/lruCollections.js";
 import { getLogger } from "../logging/logger.js";
 import {
@@ -80,6 +90,7 @@ interface CacheEntry {
 export interface ClaudeTranscriptCacheOptions {
   /** LRU budget for retained transcripts, measured in source bytes. */
   maxSourceBytes?: number;
+  durableStore?: ClaudeDurableIndexStore;
 }
 
 export interface ClaudeTranscriptCacheStats {
@@ -114,8 +125,11 @@ export class ClaudeTranscriptCache {
   >();
   private readonly maxSourceBytes: number;
   private retainedSourceBytes = 0;
+  private readonly durableStore?: ClaudeDurableIndexStore;
+  private closed = false;
 
   constructor(options: ClaudeTranscriptCacheOptions = {}) {
+    this.durableStore = options.durableStore;
     this.maxSourceBytes =
       options.maxSourceBytes ??
       resolveBudgetFromEnv() ??
@@ -150,9 +164,14 @@ export class ClaudeTranscriptCache {
   /** Build/extend compact source metadata without retaining historical payload. */
   async loadIndexed(
     filePath: string,
+    rewindRecords: readonly SessionRewindRecord[] = [],
   ): Promise<ClaudeTranscriptSnapshot | null> {
     if (this.maxSourceBytes <= 0) return null;
-    return this.loadInternal(filePath, { populate: true, indexed: true });
+    return this.loadInternal(filePath, {
+      populate: true,
+      indexed: true,
+      rewindRecords,
+    });
   }
   budgetBytes(): number {
     return this.maxSourceBytes;
@@ -161,7 +180,10 @@ export class ClaudeTranscriptCache {
     if (this.entriesByPath.get(filePath)?.sourceIndex === index)
       this.invalidate(filePath);
   }
-  accountIndexedWindow(filePath: string, index: ClaudeSourceIndex): void {
+  async accountIndexedWindow(
+    filePath: string,
+    index: ClaudeSourceIndex,
+  ): Promise<void> {
     const entry = this.entriesByPath.get(filePath);
     if (!entry || entry.sourceIndex !== index) return;
     const charge = retainedBytes(entry);
@@ -169,6 +191,14 @@ export class ClaudeTranscriptCache {
     entry.retainedCharge = charge;
     if (charge > this.maxSourceBytes) this.forget(filePath);
     this.enforceBudget(filePath);
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
+    const pending = [...this.inFlight.values()].map((owner) => owner.promise);
+    this.invalidate();
+    await Promise.allSettled(pending);
+    this.durableStore?.close();
   }
 
   /** Fixed-cost process diagnostics without exposing retained file identities. */
@@ -211,8 +241,13 @@ export class ClaudeTranscriptCache {
 
   private async loadInternal(
     filePath: string,
-    options: { populate: boolean; indexed?: boolean },
+    options: {
+      populate: boolean;
+      indexed?: boolean;
+      rewindRecords?: readonly SessionRewindRecord[];
+    },
   ): Promise<ClaudeTranscriptSnapshot | null> {
+    if (this.closed) return null;
     const pending = this.inFlight.get(filePath);
     if (pending) {
       const snapshot = await this.finishLoad(filePath, options, pending);
@@ -221,17 +256,41 @@ export class ClaudeTranscriptCache {
       return snapshot;
     }
     const token = { invalidated: false };
-    const work = this.refresh(filePath, options, token).finally(() => {
-      if (this.inFlight.get(filePath)?.token === token)
-        this.inFlight.delete(filePath);
-    });
+    const work = this.refresh(filePath, options, token)
+      .then(async (entry) => {
+        if (
+          entry?.sourceIndex &&
+          !(entry.sourceIndex instanceof DurableClaudeSourceIndex)
+        )
+          entry.sourceIndex.prepare(options.rewindRecords);
+        if (
+          entry?.sourceIndex &&
+          !(entry.sourceIndex instanceof DurableClaudeSourceIndex) &&
+          !token.invalidated
+        )
+          await this.durableStore?.publish(
+            filePath,
+            entry.sourceIndex,
+            entry,
+            () => !token.invalidated && !this.closed,
+          );
+        return entry;
+      })
+      .finally(() => {
+        if (this.inFlight.get(filePath)?.token === token)
+          this.inFlight.delete(filePath);
+      });
     const owner = { token, promise: work, indexed: !!options.indexed };
     this.inFlight.set(filePath, owner);
     return this.finishLoad(filePath, options, owner);
   }
   private async finishLoad(
     filePath: string,
-    options: { populate: boolean; indexed?: boolean },
+    options: {
+      populate: boolean;
+      indexed?: boolean;
+      rewindRecords?: readonly SessionRewindRecord[];
+    },
     owner: {
       token: { invalidated: boolean };
       promise: Promise<CacheEntry | null>;
@@ -243,9 +302,14 @@ export class ClaudeTranscriptCache {
       if (!entry) return null;
       const snapshot = toSnapshot(entry);
       if (entry.sourceIndex)
-        this.accountIndexedWindow(filePath, entry.sourceIndex);
+        await this.accountIndexedWindow(filePath, entry.sourceIndex);
       return snapshot;
     } catch (error) {
+      if (error instanceof ClaudeProjectionChangedError) {
+        if (!owner.token.invalidated && !this.inFlight.has(filePath))
+          this.forget(filePath);
+        return this.loadInternal(filePath, options);
+      }
       if (owner.token.invalidated) return this.loadInternal(filePath, options);
       throw error;
     }
@@ -253,7 +317,11 @@ export class ClaudeTranscriptCache {
 
   private async refresh(
     filePath: string,
-    options: { populate: boolean; indexed?: boolean },
+    options: {
+      populate: boolean;
+      indexed?: boolean;
+      rewindRecords?: readonly SessionRewindRecord[];
+    },
     token: { invalidated: boolean },
   ): Promise<CacheEntry | null> {
     let stats: Stats;
@@ -273,6 +341,56 @@ export class ClaudeTranscriptCache {
       this.forget(filePath);
       cached = undefined;
     }
+    if (!cached && options.indexed && this.durableStore) {
+      const durable = await this.durableStore
+        .load(filePath, stats)
+        .catch((error) => {
+          if (error instanceof TranscriptAppendMismatchError) return undefined;
+          throw error;
+        });
+      if (durable && !token.invalidated) {
+        const header = durable.sourceHeader;
+        const observed = Object.assign(
+          Object.create(Object.getPrototypeOf(stats)),
+          stats,
+          header.stats,
+          {
+            mtime: new Date(header.stats.mtimeMs),
+            ctime: new Date(header.stats.ctimeMs),
+          },
+        ) as Stats;
+        cached = {
+          filePath,
+          sourceIndex: durable,
+          entries: [],
+          summaryState: durable.summary(),
+          stats: observed,
+          malformedLines: header.malformedLines,
+          parsedBytes: header.parsedBytes,
+          committedEntries: header.committedEntries,
+          hasProvisionalTail: false,
+          appendFence: durable.fence,
+        };
+        this.entriesByPath.set(filePath, cached);
+        cached.retainedCharge = retainedBytes(cached);
+        this.retainedSourceBytes += cached.retainedCharge;
+        this.enforceBudget(filePath);
+      }
+    }
+    if (
+      cached?.sourceIndex instanceof DurableClaudeSourceIndex &&
+      !cached.sourceIndex.store.current(filePath, cached.sourceIndex.accepted)
+    ) {
+      if (this.entriesByPath.get(filePath) === cached) this.forget(filePath);
+      return this.refresh(filePath, options, token);
+    }
+    if (
+      cached?.sourceIndex instanceof DurableClaudeSourceIndex &&
+      options.rewindRecords !== undefined &&
+      JSON.stringify(cached.sourceIndex.sourceHeader.state.rewindRecords) !==
+        JSON.stringify(options.rewindRecords)
+    )
+      await this.materialize(cached, token);
     if (cached) {
       if (sameFileSnapshot(cached.stats, stats)) {
         this.touch(cached);
@@ -300,12 +418,37 @@ export class ClaudeTranscriptCache {
     );
   }
 
+  private async materialize(
+    cached: CacheEntry,
+    token: { invalidated: boolean },
+  ): Promise<void> {
+    if (cached.sourceIndex instanceof DurableClaudeSourceIndex) {
+      const before = cached.retainedCharge ?? retainedBytes(cached);
+      const source = cached.sourceIndex;
+      const restored = await source.store.materialize(source);
+      if (
+        token.invalidated ||
+        this.entriesByPath.get(cached.filePath) !== cached ||
+        cached.sourceIndex !== source
+      )
+        throw new ClaudeProjectionChangedError(
+          "Claude materialization owner retired",
+        );
+      cached.sourceIndex = restored;
+      cached.entries = cached.sourceIndex.rows.slice();
+      cached.summaryState = cached.sourceIndex.summaryState;
+      cached.retainedCharge = retainedBytes(cached);
+      this.retainedSourceBytes += cached.retainedCharge - before;
+    }
+  }
+
   private async tryIncremental(
     cached: CacheEntry,
     stats: Stats,
     token: { invalidated: boolean },
   ): Promise<CacheEntry | null> {
     const startedAt = performance.now();
+    await this.materialize(cached, token);
     let parsed: TranscriptRange<ClaudeSessionEntry>;
     try {
       parsed = await readTranscriptFile(
@@ -562,3 +705,12 @@ function resolveBudgetFromEnv(): number | null {
 
 /** Process-wide singleton: reader instances are created per project/request. */
 export const claudeTranscriptCache = new ClaudeTranscriptCache();
+
+/** One cache and durable writer for the lifetime of a YA profile. */
+export function createClaudeTranscriptCache(
+  database: import("../storage/sqlite.js").SqliteDatabase,
+) {
+  return new ClaudeTranscriptCache({
+    durableStore: new ClaudeDurableIndexStore(database),
+  });
+}

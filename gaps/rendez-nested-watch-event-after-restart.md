@@ -368,3 +368,11 @@ in 149.20 seconds; all relationship source remains identical to published
 `ddda13a4a`. No watcher code, assertion, budget or retries changed. Evidence:
 ignored `tasks/session-relationships/slice-32-root.log`. This workspace run
 remains red and is not replaced by a passing isolated retry.
+
+2026-11-10: plan 190 durable transcript indexing's full server candidate run
+again misses the first nested delivery at line 353 (zero observed, one expected).
+The focused file and final complete run pass; final server has 7,311 other
+passes, 94 skips and only the 11 separately known Claude executable-version
+guards. No Rendez/watch source, assertion, timeout or retry changed. Evidence:
+`/tmp/p190/durable/server-final.log`, `focused-final.log`, `server-complete.log`.
+The intermittent finding remains open.

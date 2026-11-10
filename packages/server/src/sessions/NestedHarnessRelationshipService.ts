@@ -1,4 +1,8 @@
 import {
+  currentClaudeHistoryRows,
+  type ClaudeHistoryRows,
+} from "./claude-history-rows.js";
+import {
   matchesClaudeCopyBoundary,
   type ClaudeCopyBoundary,
 } from "./claude-copy-boundary.js";
@@ -11,7 +15,6 @@ import {
   type HarnessHistoryState,
   type HarnessHistoryVersion,
 } from "./claude-harness-history.js";
-import type { ClaudeSessionEntry } from "@yep-anywhere/shared";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
@@ -80,7 +83,7 @@ type Event =
   | { kind: "probe" }
   | { kind: "end" };
 interface HistoryView {
-  rows: WeakRef<readonly ClaudeSessionEntry[]>;
+  rows: WeakRef<ClaudeHistoryRows>;
   projectPath: string;
   committed: number;
   version?: HarnessHistoryVersion;
@@ -321,7 +324,7 @@ export class NestedHarnessRelationshipService
   /** Read-only historical evidence from rows the authorized route already acquired. */
   observeTranscript(
     context: Omit<HarnessProcessContext, "id" | "confined">,
-    rows: readonly ClaudeSessionEntry[],
+    rows: ClaudeHistoryRows,
     committed = Math.max(0, rows.length - 1),
     version?: HarnessHistoryVersion,
   ): void {
@@ -759,6 +762,7 @@ export class NestedHarnessRelationshipService
       source = this.source(work);
     if (
       !rows ||
+      !currentClaudeHistoryRows(rows) ||
       !admission ||
       admission.deleted ||
       (admission.copy &&
@@ -1002,7 +1006,7 @@ export class NestedHarnessRelationshipService
     if (history && this.current(work, generation)) {
       const rows = history.view.rows.deref(),
         native = this.source(work);
-      if (!rows || !native) {
+      if (!rows || !currentClaudeHistoryRows(rows) || !native) {
         if (work.history === history.view) work.history = undefined;
         return;
       }

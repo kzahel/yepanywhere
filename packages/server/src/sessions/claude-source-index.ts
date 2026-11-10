@@ -39,17 +39,17 @@ import {
 export class ClaudeProjectionChangedError extends Error {}
 
 const SOURCE = Symbol("claudeIndexedSource");
-interface RecordRef {
+export interface ClaudeRecordRef {
   offset: number;
   length: number;
   raw: ClaudeSessionEntry;
   realTurn: boolean;
   paginationTurn: boolean;
 }
-type IndexedRow = ClaudeSessionEntry & { [SOURCE]?: RecordRef };
-interface VisibleRef {
+type IndexedRow = ClaudeSessionEntry & { [SOURCE]?: ClaudeRecordRef };
+export interface ClaudeVisibleRef {
   raw: ClaudeSessionEntry;
-  record?: RecordRef;
+  record?: ClaudeRecordRef;
   position: number;
   turnPrefix: number;
   turn?: number;
@@ -87,19 +87,29 @@ export class ClaudeSourceIndex {
   };
   estimatedBytes = 0;
   private projectionBytes = 0;
-  private pendingTaskRefs = new Map<string, VisibleRef>();
+  private pendingTaskRefs = new Map<string, ClaudeVisibleRef>();
   get retainedBytes() {
     return (
       this.estimatedBytes +
       this.projectionBytes +
+      this.changedVisible.size * 32 +
+      this.changedTools.size * 64 +
       this.rewindBytes +
       (this.provisional?.info.byteLength ?? 0)
     );
   }
-  private visible: VisibleRef[] = [];
+  private visible: ClaudeVisibleRef[] = [];
+  /** Pending SQL publication; owner acknowledges only after a successful commit. */
+  readonly changedVisible = new Set<ClaudeVisibleRef>();
+  readonly changedTools = new Set<string>();
+  projectionRebuilt = true;
+  get projectionVersion() {
+    return this.version;
+  }
+
   private boundaries: number[] = [];
-  private groupStarts = new Map<string, VisibleRef>();
-  private byId = new Map<string, VisibleRef>();
+  private groupStarts = new Map<string, ClaudeVisibleRef>();
+  private byId = new Map<string, ClaudeVisibleRef>();
   private results = new Set<string>();
   private orphans = new Set<string>();
   private toolOwners = new Map<string, string>();
@@ -127,19 +137,20 @@ export class ClaudeSourceIndex {
   private rewindRecords: readonly SessionRewindRecord[] = [];
   private tasks: TaskListAugmenter = createTaskListAugmenter();
   private decoded = new Map<
-    RecordRef,
+    ClaudeRecordRef,
     { raw: ClaudeSessionEntry; message: Message }
   >();
   decodedBytes = 0;
-  private deliveredQueues: Array<{ time: number; ref: VisibleRef }> = [];
-  private pendingQueues: Array<{ record: RecordRef; position?: number }> = [];
+  private deliveredQueues: Array<{ time: number; ref: ClaudeVisibleRef }> = [];
+  private pendingQueues: Array<{ record: ClaudeRecordRef; position?: number }> =
+    [];
 
   capture(
     raw: ClaudeSessionEntry,
     offset: number,
     info: TranscriptLineInfo,
   ): ClaudeSessionEntry {
-    const record: RecordRef = {
+    const record: ClaudeRecordRef = {
       offset,
       length: info.byteLength,
       raw: raw,
@@ -265,9 +276,15 @@ export class ClaudeSourceIndex {
         : {}),
     } as ClaudeSessionEntry;
   }
-  private commit(record: RecordRef, raw: ClaudeSessionEntry) {
+  private commit(record: ClaudeRecordRef, raw: ClaudeSessionEntry) {
     this.version++;
     this.sourceGeneration++;
+    for (const b of blocks(raw)) {
+      if (b.type === "tool_use" && typeof b.id === "string")
+        this.changedTools.add(b.id);
+      if (b.type === "tool_result" && typeof b.tool_use_id === "string")
+        this.changedTools.add(b.tool_use_id);
+    }
     const uuid = id(raw);
     const wasKnown = uuid
       ? this.summaryState.nodeMap.has(uuid) ||
@@ -351,7 +368,7 @@ export class ClaudeSourceIndex {
   }
   private appendVisible(raw: ClaudeSessionEntry) {
     const record = (raw as IndexedRow)[SOURCE];
-    const ref: VisibleRef = {
+    const ref: ClaudeVisibleRef = {
       raw,
       record,
       position: this.visible.length,
@@ -365,6 +382,7 @@ export class ClaudeSourceIndex {
     )
       this.paginationTurns++;
     this.visible.push(ref);
+    this.changedVisible.add(ref);
     if (
       typeof (raw as { queueDeliveredAt?: unknown }).queueDeliveredAt ===
       "string"
@@ -385,15 +403,18 @@ export class ClaudeSourceIndex {
     const affected = blocks(raw)
       .filter((b) => b.type === "tool_result")
       .map((b) => this.pendingTaskRefs.get(String(b.tool_use_id)))
-      .filter((r): r is VisibleRef => !!r);
+      .filter((r): r is ClaudeVisibleRef => !!r);
     this.tasks.processMessage(normalized as Record<string, unknown>);
-    const charge = (r: VisibleRef) => {
+    const charge = (r: ClaudeVisibleRef) => {
       const next = Buffer.byteLength(JSON.stringify(r.projected));
       this.projectionBytes += next - (r.projectionCharge ?? 0);
       r.projectionCharge = next;
     };
     charge(ref);
-    for (const r of affected) charge(r);
+    for (const r of affected) {
+      charge(r);
+      this.changedVisible.add(r);
+    }
     for (const b of blocks(raw)) {
       if (
         b.type === "tool_use" &&
@@ -404,7 +425,7 @@ export class ClaudeSourceIndex {
         this.pendingTaskRefs.delete(String(b.tool_use_id));
     }
   }
-  private remember(ref: VisibleRef) {
+  private remember(ref: ClaudeVisibleRef) {
     const uuid = id(ref.raw);
     if (uuid) this.byId.set(uuid, ref);
     else if (ref.raw.type === "queue-operation")
@@ -414,7 +435,7 @@ export class ClaudeSourceIndex {
       );
     if (compact(ref.raw)) this.boundaries.push(ref.position);
   }
-  private queue(record: RecordRef, raw: ClaudeSessionEntry) {
+  private queue(record: ClaudeRecordRef, raw: ClaudeSessionEntry) {
     if (raw.type !== "queue-operation") return;
     if (raw.operation === "enqueue") {
       const content = (record.raw as { content?: unknown }).content;
@@ -438,7 +459,7 @@ export class ClaudeSourceIndex {
         ...pending.record.raw,
         queueDeliveredAt: timestamp(raw),
       } as unknown as ClaudeSessionEntry;
-      const ref: VisibleRef = {
+      const ref: ClaudeVisibleRef = {
         raw: queued,
         record: pending.record,
         position,
@@ -458,6 +479,7 @@ export class ClaudeSourceIndex {
           this.byId.delete(
             `queue-operation-${old.position}-${timestamp(old.raw)}`,
           );
+        this.changedVisible.add(old);
         old.position++;
         if (pending.record.realTurn) {
           old.turnPrefix++;
@@ -469,7 +491,9 @@ export class ClaudeSourceIndex {
             old,
           );
       }
+      this.projectionRebuilt = true;
       this.visible.splice(position, 0, ref);
+      this.changedVisible.add(ref);
       this.remember(ref);
       let lo = 0,
         hi = this.boundaries.length;
@@ -543,7 +567,93 @@ export class ClaudeSourceIndex {
     this.deliveredQueues = this.deliveredQueues
       .filter((q) => Number.isFinite(q.time))
       .sort((a, b) => a.time - b.time);
+    this.projectionRebuilt = true;
+    this.changedVisible.clear();
     this.dirty = false;
+  }
+  /** Compact facts only; never historical text/media/tool output. */
+  *sourceRecords(from = 0): Generator<ClaudeStoredRecord> {
+    for (let ordinal = from; ordinal < this.rows.length; ordinal++) {
+      const raw = this.rows[ordinal]!;
+      const record = (raw as IndexedRow)[SOURCE]!;
+      yield {
+        ordinal,
+        record,
+        node: id(raw) ? this.summaryState.nodeMap.get(id(raw)!) : undefined,
+      };
+    }
+  }
+  *visibleRecords(): Generator<ClaudeVisibleRef> {
+    yield* this.visible;
+  }
+  isOrphanTool(tool: string) {
+    return this.orphans.has(tool);
+  }
+  orphanTools(): Iterable<string> {
+    return this.orphans;
+  }
+  setOrphanTools(tools: Iterable<string>) {
+    this.orphans = new Set(tools);
+  }
+  durableState(): ClaudeDurableState {
+    this.prepare();
+    return {
+      firstTimestamp: this.summaryState.firstTimestamp,
+      firstUserTitleContent: this.summaryState.firstUserTitleContent,
+      firstUserTitleCaptured: this.summaryState.firstUserTitleCaptured,
+      metrics: this.summaryState.metrics,
+      requiresCompleteProjection: this.requiresCompleteProjection,
+      estimatedBytes: this.estimatedBytes,
+      rewindRecords: this.rewindRecords,
+      witnesses: this.witnesses,
+      branchCount: this.branchCount,
+      visibleCount: this.visible.length,
+      compactionCount: this.boundaries.length,
+      userTurns: this.paginationTurns,
+    };
+  }
+  acknowledgePublication() {
+    this.changedVisible.clear();
+    this.changedTools.clear();
+    this.projectionRebuilt = false;
+  }
+  static restore(
+    state: ClaudeDurableState,
+    records: Iterable<ClaudeStoredRecord>,
+  ): ClaudeSourceIndex {
+    const index = new ClaudeSourceIndex();
+    Object.assign(index.summaryState, {
+      firstTimestamp: state.firstTimestamp,
+      firstUserTitleContent: state.firstUserTitleContent,
+      firstUserTitleCaptured: state.firstUserTitleCaptured,
+      metrics: { ...state.metrics },
+    });
+    index.requiresCompleteProjection = state.requiresCompleteProjection;
+    index.estimatedBytes = state.estimatedBytes;
+    index.rewindRecords = state.rewindRecords;
+    for (const { record, node } of records) {
+      Object.defineProperty(record.raw, SOURCE, {
+        value: record,
+        enumerable: true,
+      });
+      index.rows.push(record.raw);
+      const uuid = id(record.raw);
+      if (uuid && record.raw.type === "progress")
+        index.summaryState.progressUuids.add(uuid);
+      if (node) index.summaryState.nodeMap.set(node.uuid, node);
+      for (const b of blocks(record.raw)) {
+        if (b.type === "tool_use" && typeof b.id === "string") {
+          if (uuid) index.toolOwners.set(b.id, uuid);
+          if (b.name === "TaskCreate" || b.name === "TaskUpdate")
+            index.taskIds.add(b.id);
+        }
+        if (b.type === "tool_result" && typeof b.tool_use_id === "string")
+          index.results.add(b.tool_use_id);
+      }
+    }
+    index.sourceGeneration = index.rows.length;
+    index.prepare();
+    return index;
   }
   clearProvisional() {
     this.provisional = undefined;
@@ -608,7 +718,6 @@ export class ClaudeSourceIndex {
       );
     if (this.requiresCompleteProjection) return null;
     this.prepare(records);
-    const version = this.version;
     const end = before
       ? (this.byId.get(before)?.position ?? 0)
       : this.visible.length;
@@ -683,6 +792,30 @@ export class ClaudeSourceIndex {
       maxBytes
     )
       return null;
+    return this.hydrateSelection(filePath, selected, totals, {
+      omitted,
+      end,
+      boundaryEnd,
+      maxBytes,
+      fence,
+    });
+  }
+
+  /** Shared payload hydration for in-memory and SQL-selected logical windows. */
+  async hydrateSelection(
+    filePath: string,
+    selected: ClaudeVisibleRef[],
+    totals: { messages: number; compactions: number; userTurns: number },
+    selection: {
+      omitted: boolean;
+      end: number;
+      boundaryEnd: number;
+      maxBytes: number;
+      fence?: TranscriptAppendFence;
+    },
+  ) {
+    const { omitted, end, boundaryEnd, fence } = selection;
+    const version = this.version;
     const handle = await open(filePath, "r").catch((error) => {
       if (fence && (error as NodeJS.ErrnoException).code === "ENOENT")
         throw new TranscriptAppendMismatchError(
@@ -711,7 +844,9 @@ export class ClaudeSourceIndex {
     const messages: Message[] = [],
       entries: ClaudeSessionEntry[] = [];
     const keep = new Set(
-      selected.map((ref) => ref.record).filter((r): r is RecordRef => !!r),
+      selected
+        .map((ref) => ref.record)
+        .filter((r): r is ClaudeRecordRef => !!r),
     );
     for (const key of this.decoded.keys())
       if (!keep.has(key)) {
@@ -843,4 +978,24 @@ export class ClaudeSourceIndex {
       totals,
     };
   }
+}
+
+export interface ClaudeStoredRecord {
+  ordinal: number;
+  record: ClaudeRecordRef;
+  node?: CompactClaudeSummaryNode;
+}
+export interface ClaudeDurableState {
+  firstTimestamp?: string;
+  firstUserTitleContent?: string;
+  firstUserTitleCaptured: boolean;
+  metrics: ClaudeSummaryParseState["metrics"];
+  requiresCompleteProjection: boolean;
+  estimatedBytes: number;
+  rewindRecords: readonly SessionRewindRecord[];
+  witnesses: CompactClaudeSummaryNode[];
+  branchCount: number;
+  visibleCount: number;
+  compactionCount: number;
+  userTurns: number;
 }

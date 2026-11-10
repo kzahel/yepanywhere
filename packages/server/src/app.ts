@@ -1,3 +1,4 @@
+import { createClaudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { createSessionReaderAdmission } from "./sessions/session-reader-admission.js";
 import {
   agentApiCallerLaunch,
@@ -645,7 +646,7 @@ export interface AppResult {
   supervisor: Supervisor;
   /** Project scanner for debug API access */
   scanner: ProjectScanner;
-  /** Session reader factory for debug API access */
+  claudeTranscripts: ReturnType<typeof createClaudeTranscriptCache>;
   readerFactory: (
     project: Project,
     native?: NativeSessionRef,
@@ -1590,7 +1591,7 @@ export function createApp(options: AppOptions): AppResult {
           eventBus: options.eventBus,
         })
       : null;
-  /** Least recently used first; bounded by `maxReaderCacheSize`. */
+  /** Least recently used first; admission is capped at 500 readers. */
   const readerCache = createLruMap<string, ISessionReader>();
   const sessionReadLifetime = new AbortController();
   const relationshipRead = options.sessionMetadataService
@@ -1684,7 +1685,9 @@ export function createApp(options: AppOptions): AppResult {
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
-  const maxReaderCacheSize = 500;
+  const claudeTranscripts = createClaudeTranscriptCache(
+    discoverySqlite.getDatabase(),
+  );
   const closeReader = async (
     key: string,
     reader: ISessionReader,
@@ -1880,6 +1883,7 @@ export function createApp(options: AppOptions): AppResult {
       if (draftCleanup) clearInterval(draftCleanup);
       draftStore?.close();
       await retainedCollections?.dispose();
+      await claudeTranscripts.close();
       if (ownsDiscoverySqlite) discoverySqlite.close();
       await projectQueueScheduler?.dispose();
       artifactPreviews.close();
@@ -1899,14 +1903,9 @@ export function createApp(options: AppOptions): AppResult {
 
   const getOrCreateReader = createSessionReaderAdmission(
     readerCache,
-    maxReaderCacheSize,
+    500,
     closeReader,
   );
-
-  /**
-   * Create a session reader appropriate for the project's provider.
-   * Routes call this with the project to get the right reader.
-   */
   const readerFactory = (
     project: Project,
     native?: NativeSessionRef,
@@ -1923,6 +1922,7 @@ export function createApp(options: AppOptions): AppResult {
             () =>
               new ClaudeSessionReader({
                 sessionDir: native.storageScope,
+                transcriptCache: claudeTranscripts,
                 summaryParserWorkerMode: options.claudeSummaryParserWorkerMode,
                 getContextWindow: mis
                   ? (model, provider) => mis.getContextWindow(model, provider)
@@ -2108,8 +2108,6 @@ export function createApp(options: AppOptions): AppResult {
       case "claude-gateway":
       case "claude-ollama": {
         const mis = options.modelInfoService;
-        // A project from the scanner already lists these among its merged
-        // directories; one built elsewhere from an id may not.
         const sandboxSessionDirs = (
           claudeSandboxSessionDirs().get(project.id) ?? []
         ).filter((dir) => !project.mergedSessionDirs?.includes(dir));
@@ -2126,6 +2124,7 @@ export function createApp(options: AppOptions): AppResult {
           () =>
             new ClaudeSessionReader({
               sessionDir: project.sessionDir,
+              transcriptCache: claudeTranscripts,
               additionalDirs: allAdditionalDirs,
               summaryParserWorkerMode: options.claudeSummaryParserWorkerMode,
               getContextWindow: mis
@@ -4513,6 +4512,7 @@ export function createApp(options: AppOptions): AppResult {
     supervisor,
     scanner,
     readerFactory,
+    claudeTranscripts,
     disposeSessionReaders,
     stopNotifications,
     glossaryIndexService,

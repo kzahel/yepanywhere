@@ -28,12 +28,24 @@ const bytes = await readFile(args.source),
   provider = args.provider ?? "claude";
 const load = (build, name) =>
   import(pathToFileURL(resolve(args[build + "-dist"], name)).href);
-const indexedClaude = args["claude-indexed"] === "1";
+const durableClaude = args["claude-durable"] === "1";
+const indexedClaude = durableClaude || args["claude-indexed"] === "1";
+let afterDatabase;
+if (durableClaude) {
+  const { openDiscoveryDatabase } = await load(
+    "after",
+    "storage/discovery-sqlite.js",
+  );
+  afterDatabase = openDiscoveryDatabase({
+    dataDir: join(out, "profile"),
+    probeNetworkFilesystem: () => undefined,
+  });
+}
 const implementations = {};
 for (const build of ["before", "after"]) {
   const { normalizeSession } = await load(build, "sessions/normalization.js");
   if (provider === "claude") {
-    const { ClaudeTranscriptCache } = await load(
+    const { ClaudeTranscriptCache, createClaudeTranscriptCache } = await load(
       build,
       "sessions/claude-transcript-cache.js",
     );
@@ -46,9 +58,11 @@ for (const build of ["before", "after"]) {
       pagination: await load(build, "sessions/pagination.js"),
       tasks: await load(build, "augments/task-list-augments.js"),
       owner: () =>
-        new ClaudeTranscriptCache({
-          maxSourceBytes: build === "before" ? 0 : 192 * 1024 ** 2,
-        }),
+        build === "after" && durableClaude
+          ? createClaudeTranscriptCache(afterDatabase)
+          : new ClaudeTranscriptCache({
+              maxSourceBytes: build === "before" ? 0 : 192 * 1024 ** 2,
+            }),
       read: async (owner) => {
         const snapshot = await (build === "after" && indexedClaude
           ? owner.loadIndexed(file)
@@ -66,6 +80,9 @@ for (const build of ["before", "after"]) {
         if (indexedClaude && build === "after") assert(projected);
         return {
           ...(projected ? { projectedMessages: projected.messages } : {}),
+          restoredFromSql:
+            snapshot.sourceIndex?.constructor.name ===
+            "DurableClaudeSourceIndex",
           summary: buildSummaryFromState(snapshot.summaryState, {
             filePath: file,
             stats: snapshot.stats,
@@ -126,15 +143,16 @@ const digest = (session) => {
     hash.update(JSON.stringify(canonical(message)));
   return { messages: session.messages.length, sha256: hash.digest("hex") };
 };
-const candidate = implementations.after.owner(),
-  results = [];
+let candidate = implementations.after.owner();
+const results = [];
 let previous = 0;
 try {
-  for (const end of [
+  const cuts = [
     Math.floor(bytes.length * 0.8),
     Math.floor(bytes.length * 0.9),
     bytes.length,
-  ]) {
+  ].map((end) => (durableClaude ? bytes.lastIndexOf(10, end - 1) + 1 : end));
+  for (const end of cuts) {
     await appendFile(file, bytes.subarray(previous, end));
     previous = end;
     const reference = implementations.before.owner();
@@ -169,7 +187,32 @@ try {
         expectedLoaded.summary,
         `Summary differs at byte ${end}`,
       );
-      results.push({ bytes: end, ...actual });
+      let reopened;
+      if (durableClaude) {
+        await candidate.close();
+        candidate = implementations.after.owner();
+        const loaded = await implementations.after.read(candidate);
+        assert(
+          loaded.restoredFromSql,
+          "Committed prefix must restore from SQL",
+        );
+        reopened = digest(project("after", loaded));
+        assert.deepEqual(
+          reopened,
+          expected,
+          `Restored projection differs at byte ${end}`,
+        );
+        assert.deepEqual(
+          loaded.summary,
+          expectedLoaded.summary,
+          `Restored summary differs at byte ${end}`,
+        );
+      }
+      results.push({
+        bytes: end,
+        ...actual,
+        ...(reopened ? { reopened } : {}),
+      });
     } finally {
       await reference.close?.();
       reference.invalidate?.();
@@ -184,5 +227,8 @@ try {
 } finally {
   await candidate.close?.();
   candidate.invalidate?.();
+  afterDatabase?.close();
+  if (durableClaude)
+    await rm(join(out, "profile"), { recursive: true, force: true });
   await rm(file, { force: true });
 }

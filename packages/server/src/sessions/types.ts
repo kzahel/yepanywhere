@@ -152,6 +152,7 @@ export interface LoadedSession {
     userTurns: number;
   };
   /** Full-source metadata in original row/block order for the existing harness extractor. */
+  harnessHistorySource?: import("./claude-history-rows.js").ClaudeHistorySource;
   harnessHistoryRows?: WeakRef<
     readonly import("@yep-anywhere/shared").ClaudeSessionEntry[]
   >;

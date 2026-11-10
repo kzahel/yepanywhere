@@ -247,6 +247,13 @@ over; the cache rebuilds them from transcripts. Version 31 gives
 canonical session seen rows/import markers and guarded partial indexes for
 metadata feature/recovery queries.
 
+Version 35 adds rebuildable Claude transcript source headers, compact source
+facts, visible row positions, orphan tool facts and leased staging manifests.
+It performs no provider reads or backfill at migration/startup. Source payload
+remains in the native file; profile-owned detail acquisition populates the index.
+See [Claude acquisition](claude.md#transcript-acquisition-and-retention) and
+[the implementation evidence](../docs/research/190-claude-durable-index.md).
+
 One statically registered, consecutive migration sequence owns `user_version`.
 Historical SQL lives in frozen named modules; released migrations are append-only.
 Do not edit, renumber or reuse them, or import mutable current feature schemas.

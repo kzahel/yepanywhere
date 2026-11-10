@@ -370,7 +370,7 @@ Each load owns and closes its descriptor. Path-specific invalidation retires
 only that path's owner; invalidated callers join/retry the current owner even
 when the obsolete read rejects.
 
-The existing process cache owns either complete decoded entries or an indexed
+The app profile cache owns either complete decoded entries or an indexed
 selection for a file, with one in-flight source owner. Full and indexed callers
 join acquisition but retry incompatible representations. Summary peeks preserve
 the current representation. There is a 128-file ceiling and 192 MiB budget;
@@ -405,12 +405,14 @@ mutation. Indexed summaries retain exact branch counts and the bounded witnesses
 needed by the existing selectors. Add new fields and their witness/parity rules
 together. Summary and renderer branch membership remain distinct.
 
-An unseen transcript still needs one streaming index build, and restart/eviction
-repeats it. The metadata graph remains O(history) under the cache budget, although
-full historical payload is not retained. Durable profile-owned indexing and cold
-open/memory qualification remain open in plan 190. Complete history and oversized
-catch-up retain their established costs. See
-[implementation/evidence](../docs/research/190-claude-source-index.md).
+An unseen transcript still needs one streaming index build. Unchanged sources
+can restore SQL window queries after restart/eviction, as specified below. The
+first changed read restores complete compact SQL metadata, and its active graph
+remains O(history) under the cache budget. Full historical payload is not
+retained. Bounded SQL incremental state and full cold-open/memory qualification
+remain open in plan 190. Complete history and oversized catch-up retain their
+established costs. See [warm-reader evidence](../docs/research/190-claude-source-index.md)
+and [durable-index evidence](../docs/research/190-claude-durable-index.md).
 
 ## Transcript Structure: Forest, Connector Rows, Dead Segments
 
@@ -658,3 +660,39 @@ Suspected contributing areas to check before declaring this fixed:
 - A Claude session that opens with an `isMeta` local-command caveat followed by
   a slash-command wrapper uses the command and arguments as its automatic title,
   including after loading a persisted summary index from an older YA version.
+
+### Durable source facts and unchanged-session restoration
+
+The app owns one Claude transcript cache and SQL writer per YA profile. Detail
+acquisition persists compact source facts, logical positions, task overlays,
+orphan facts, summary witnesses and rewind context in the existing required
+profile database. It stores no full historical text/media/thinking/tool-output
+copy. Native transcript bytes remain authoritative. No project/provider writes,
+new watcher or background scan is authorized by this index.
+
+After restart or eviction, an unchanged accepted source uses bounded identity/
+head/end validation and indexed logical-window queries. It does not hydrate the
+complete history graph to serve that read. Global IDs, turns, full pagination
+counts, task snapshots, enclosing rewind groups and late queues remain equal to
+a full rebuild. Already acquired historical harness evidence is addressed by
+original parsed row ordinal, within the existing extraction/admission budgets.
+A stale SQL generation cannot publish evidence or a mixed detail response.
+
+Ordinary warm writes commit appended source facts, affected visible rows and
+orphans with their header atomically. Replacement projections stage bounded
+batches under an owned renewable lease; accepted generation/revision, source
+evidence and cache ownership fence publication. Cleanup cannot delete an
+accepted generation or a live peer build. Reopening a source performs at most
+one bounded expired-stage recovery batch. Provisional rows are replayed and
+never committed to SQL before their newline. Format changes invalidate derived
+checkpoints; they do not change provider persistence or public message shape.
+
+An unseen file still requires a streaming first build. The first changed read
+after restart restores complete compact metadata from SQL before extending it;
+that active graph remains within the existing 128-file/192 MiB estimate but is
+still proportional to history. Rewinds/branch changes and complete catch-up
+retain their explicit exceptional costs. SQL-owned incremental branch/task
+state, source-deletion/disk-retention policy and full-host targets remain open.
+[Durable-index evidence](../docs/research/190-claude-durable-index.md) records
+measurements and qualification; unchanged cold reuse is not a claim that first
+construction or first post-restart writes are bounded.

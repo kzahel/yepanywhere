@@ -138,7 +138,6 @@ import {
   registerSpeechBackends,
 } from "./services/voice/registry.js";
 import { SpeechBackendInstallService } from "./services/voice/speechBackendInstall.js";
-import { claudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { codexEntryCacheBudget } from "./sessions/codex-entry-cache-budget.js";
 import { observeCodexRolloutTree } from "./sessions/codex-shared-scan-cache.js";
 import { codexSessionWatcherSpec } from "./sessions/codex-thread-index.js";
@@ -1092,6 +1091,7 @@ async function startServer() {
     supervisor,
     scanner,
     readerFactory,
+    claudeTranscripts,
     disposeSessionReaders,
     stopNotifications,
     glossaryIndexService,
@@ -1785,7 +1785,7 @@ async function startServer() {
       mainServerPort: effectivePort,
       getDiagnostics: () => ({
         caches: {
-          claudeTranscript: claudeTranscriptCache.getStats(),
+          claudeTranscript: claudeTranscripts.getStats(),
           codexEntries: codexEntryCacheBudget.getStats(),
           markdownAugments: markdownAugmentCacheDiagnostics(),
           projectPaths: projectPathCacheDiagnostics(),

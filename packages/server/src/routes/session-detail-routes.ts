@@ -612,7 +612,9 @@ export function registerSessionDetailRoute(
     );
 
     const readEndMs = performance.now();
-    const indexedHistoryRows = loadedSession?.harnessHistoryRows?.deref();
+    const indexedHistoryRows =
+      loadedSession?.harnessHistorySource ??
+      loadedSession?.harnessHistoryRows?.deref();
     if (
       !publicShare &&
       loadedSession &&

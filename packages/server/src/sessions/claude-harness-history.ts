@@ -1,7 +1,10 @@
+import {
+  claudeHistoryRow,
+  type ClaudeHistoryRows,
+} from "./claude-history-rows.js";
 import { isAbsolute } from "node:path";
 import {
   detectScopedNestedHarnessLaunch,
-  type ClaudeSessionEntry,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
 
@@ -49,7 +52,7 @@ const validId = (id: unknown): id is string =>
  * handoff to its durable evidence queue. No raw row, command or output is kept.
  */
 export function collectHarnessHistory(
-  entries: readonly ClaudeSessionEntry[],
+  entries: ClaudeHistoryRows,
   previous: HarnessHistoryState,
   nativeId: string,
   admittedAt: string,
@@ -68,7 +71,7 @@ export function collectHarnessHistory(
   // Reader evidence excludes provisional unterminated rows. Older callers
   // without that private fence conservatively omit their last row.
   while (state.entry < committedEntries && budget > 0 && hints.length < limit) {
-    const row = object(entries[state.entry]),
+    const row = object(claudeHistoryRow(entries, state.entry)),
       message = object(row?.message),
       content = message?.content;
     if (
@@ -160,7 +163,7 @@ export function collectHarnessHistory(
 /** Private extraction cursor, never a wire response or a transcript copy. */
 export function encodeHarnessHistory(
   state: HarnessHistoryState,
-  rows: readonly ClaudeSessionEntry[],
+  rows: ClaudeHistoryRows,
   native: NativeSessionRef,
   version?: HarnessHistoryVersion,
 ): string {
@@ -169,13 +172,13 @@ export function encodeHarnessHistory(
   while (
     index >= 0 &&
     last - index < 256 &&
-    !validId(object(rows[index])?.uuid)
+    !validId(object(claudeHistoryRow(rows, index))?.uuid)
   )
     index--;
-  const uuid = object(rows[index])?.uuid;
+  const uuid = object(claudeHistoryRow(rows, index))?.uuid;
   let origin: { index: number; uuid: string } | null = null;
   for (let i = 0; i < Math.min(rows.length, 256); i++) {
-    const id = object(rows[i])?.uuid;
+    const id = object(claudeHistoryRow(rows, i))?.uuid;
     if (validId(id)) {
       origin = { index: i, uuid: id };
       break;
@@ -196,7 +199,7 @@ export function encodeHarnessHistory(
 }
 function decodeHarnessHistory(
   cursor: string | undefined,
-  rows: readonly ClaudeSessionEntry[],
+  rows: ClaudeHistoryRows,
   native: NativeSessionRef,
   committed: number,
   version?: HarnessHistoryVersion,
@@ -250,7 +253,7 @@ function decodeHarnessHistory(
       anchor.index > expected ||
       expected - anchor.index >= 256 ||
       !validId(anchor.uuid) ||
-      object(rows[anchor.index])?.uuid !== anchor.uuid
+      object(claudeHistoryRow(rows, anchor.index))?.uuid !== anchor.uuid
     )
       return emptyHarnessHistory();
   }
@@ -320,7 +323,7 @@ export function restoreHarnessHistory(
 /** An earlier completed read must not rewind a later snapshot of the same file. */
 export function isOlderHarnessHistory(
   cursor: string | undefined,
-  rows: readonly ClaudeSessionEntry[],
+  rows: ClaudeHistoryRows,
   native: NativeSessionRef,
   version: HarnessHistoryVersion | undefined,
 ): boolean {
@@ -349,7 +352,7 @@ export function isOlderHarnessHistory(
       origin.index >= 0 &&
       origin.index < 256 &&
       validId(origin.uuid) &&
-      object(rows[origin.index])?.uuid === origin.uuid
+      object(claudeHistoryRow(rows, origin.index))?.uuid === origin.uuid
     );
   } catch {
     return false;

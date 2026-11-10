@@ -693,3 +693,11 @@ Hold discovery blocked and prove that the initial transcript still arrives;
 then publish children and verify stable rows/scroll and sequential typing
 within the existing 100 ms acknowledgement requirement. Linux/macOS/Windows
 qualification and released-client/native-mobile compatibility remain explicit.
+
+SQL-restored Claude detail exposes already acquired compact historical evidence
+as original-row-ordinal lookups, with a source length and accepted generation
+check. Historical extraction retains its record/block/command budgets and
+native/copy/admission/version fences. The service holds the source weakly, and
+checks that it is current before staging and before committing a historical
+turn. Source retirement never substitutes a partial visible window for full
+historical evidence or authorizes a native transcript rescan.
