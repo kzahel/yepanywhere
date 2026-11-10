@@ -13,7 +13,7 @@ import {
 import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import styles from "./SessionMenu.module.css";
-import { IconButton } from "./ui/Button";
+import { type ButtonSize, IconButton } from "./ui/Button";
 import { TextInput } from "./ui/Field";
 import { Menu, MenuGroup, MenuItem, useMenuTrigger } from "./ui/Menu";
 
@@ -88,6 +88,7 @@ export interface SessionMenuProps {
   shareLabel?: ReactNode;
   additionalItems?: (close: () => void) => ReactNode;
   triggerClassName?: string;
+  triggerSize?: ButtonSize;
   /** Additional class for the wrapper */
   className?: string;
   /** Remove the trigger from layout so its caller can overlay it on a row. */
@@ -133,6 +134,7 @@ export function SessionMenu({
   shareLabel,
   additionalItems,
   triggerClassName,
+  triggerSize = "small",
   useEllipsisIcon = false,
   className = "",
   overlayTrigger = false,
@@ -250,7 +252,7 @@ export function SessionMenu({
     <div className={wrapperClasses}>
       <IconButton
         {...menu.triggerProps}
-        size="small"
+        size={triggerSize}
         label={t("sessionMenuOptions")}
         className={["session-menu-trigger", triggerClassName]
           .filter(Boolean)

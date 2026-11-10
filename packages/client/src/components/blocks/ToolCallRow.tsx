@@ -56,7 +56,8 @@ import { getOutputTailTooltip } from "../renderers/tools/outputPreview";
 import { shellPollOutcome } from "../renderers/tools/shellPollOutcome";
 import type { RenderContext } from "../renderers/types";
 import { getToolSummary } from "../tools/summaries";
-import { ButtonBase, IconButton } from "../ui/Button";
+import { ButtonBase } from "../ui/Button";
+import { ToolHeaderCopyButton } from "./ToolHeaderCopyButton";
 import { HiddenContentBadge } from "../ui/HiddenContentBadge";
 import { Spinner } from "../ui/Spinner";
 import type { WorkflowAnnotation } from "@yep-anywhere/shared/transcript/workflowTags";
@@ -1854,74 +1855,5 @@ function ToolResultExpanded({
     <div className="tool-result-expanded">
       {prepared.renderToolResult(context)}
     </div>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      aria-hidden="true"
-    >
-      <rect x="5" y="5" width="8" height="8" rx="1.5" />
-      <path d="M3 10.5H2.5A1.5 1.5 0 0 1 1 9V2.5A1.5 1.5 0 0 1 2.5 1H9a1.5 1.5 0 0 1 1.5 1.5V3" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 8.5 6.5 12 13 4" />
-    </svg>
-  );
-}
-
-function ToolHeaderCopyButton({
-  text,
-  label,
-}: {
-  text: string;
-  label: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <IconButton
-      variant="outline"
-      size="dense"
-      className={`tool-header-copy ${copied ? "copied" : ""}`}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        navigator.clipboard
-          .writeText(text)
-          .then(() => {
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 3000);
-          })
-          .catch((error) => {
-            console.error("Failed to copy tool header text:", error);
-          });
-      }}
-      label={copied ? "Copied" : label}
-    >
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </IconButton>
   );
 }

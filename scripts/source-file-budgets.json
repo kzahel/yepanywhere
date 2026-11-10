@@ -6,10 +6,10 @@
       "maxLines": 1913
     },
     "packages/client/src/components/blocks/ToolCallRow.tsx": {
-      "maxLines": 1927
+      "maxLines": 1859
     },
     "packages/client/src/components/FileViewer.tsx": {
-      "maxLines": 2709
+      "maxLines": 2707
     },
     "packages/client/src/components/LocalMediaModal.tsx": {
       "maxLines": 1900
@@ -21,7 +21,7 @@
       "maxLines": 3802
     },
     "packages/client/src/components/MessageList.tsx": {
-      "maxLines": 5701,
+      "maxLines": 5676,
       "raise": {
         "from": 5702,
         "reason": "Removing the export-star renderSelectors barrel splits its one import into per-module imports from the owning sessionDetail concern modules. Maintainer-approved 2026-11-06."

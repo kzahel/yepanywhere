@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { useI18n } from "../i18n";
 import styles from "./FilterDropdown.module.css";
 import { Badge } from "./ui/Badge";
-import { Button } from "./ui/Button";
+import { Button, type ButtonSize } from "./ui/Button";
 import {
   Menu,
   MenuGroup,
@@ -63,6 +63,7 @@ export interface FilterDropdownProps<T extends string> {
   fullWidth?: boolean;
   /** "chip" is the borderless trigger used in composer toolbars. */
   triggerVariant?: "default" | "chip";
+  triggerSize?: ButtonSize;
   /** "model" top-aligns option rows for badge + description layout. */
   panelVariant?: "default" | "model";
   /**
@@ -70,7 +71,7 @@ export interface FilterDropdownProps<T extends string> {
    * single-select, as a select's list does, and a check for multi-select.
    */
   selection?: MenuSelectionStyle;
-  /** Caller-owned class for the trigger button, for caller-specific sizing. */
+  /** Caller-owned class for the trigger button, for caller-specific layout. */
   triggerClassName?: string;
   /** Caller-owned class for the container around the trigger. */
   className?: string;
@@ -100,6 +101,7 @@ export function FilterDropdown<T extends string>({
   align = "left",
   fullWidth = false,
   triggerVariant = "default",
+  triggerSize = "default",
   panelVariant = "default",
   selection = multiSelect ? "mark" : "highlight",
   triggerClassName,
@@ -214,11 +216,11 @@ export function FilterDropdown<T extends string>({
       <Button
         {...menu.triggerProps}
         variant={triggerVariant === "chip" ? "ghost" : "secondary"}
+        size={triggerSize}
+        data-selected={selected.length > 0 || undefined}
         className={cx(
           styles.button,
-          selected.length > 0 && styles.hasSelection,
           fullWidth && styles.fullWidth,
-          triggerVariant === "chip" && styles.chip,
           triggerClassName,
         )}
         title={triggerTitle ?? menuLabel}
@@ -229,8 +231,8 @@ export function FilterDropdown<T extends string>({
         </span>
         <svg
           className={styles.chevron}
-          width="12"
-          height="12"
+          width={triggerVariant === "chip" ? 10 : 12}
+          height={triggerVariant === "chip" ? 10 : 12}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

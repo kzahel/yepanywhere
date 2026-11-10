@@ -43,6 +43,8 @@ export type BannerProps = Dismiss & {
   role?: "alert" | "status" | "note" | "none";
   /** Tighter padding for a banner inside a row or small panel. */
   compact?: boolean;
+  /** Elevation for a notice floating above page content. */
+  elevated?: boolean;
   className?: string;
   id?: string;
   "data-testid"?: string;
@@ -65,6 +67,7 @@ export function Banner({
   dismissLabel,
   role,
   compact = false,
+  elevated = false,
   className,
   ref,
   ...rest
@@ -74,6 +77,7 @@ export function Banner({
     styles.banner,
     TONE_CLASS[tone],
     compact && styles.compact,
+    elevated && styles.elevated,
     className,
   ]
     .filter(Boolean)

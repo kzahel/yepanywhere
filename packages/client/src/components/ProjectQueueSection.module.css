@@ -344,14 +344,6 @@
   gap: var(--space-1);
 }
 
-/* Force start bypasses the dispatch gate: a warning outline sets it apart
-   from Start now. Doubled so it outranks the shared variant regardless of
-   stylesheet order. */
-.forceStart.forceStart {
-  color: var(--warning-color);
-  border-color: var(--warning-color);
-}
-
 @media (width <= 640px) {
   .header {
     flex-direction: column;

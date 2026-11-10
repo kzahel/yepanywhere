@@ -4,7 +4,7 @@
  * bottom sheet belong to the shared Menu (components/ui/Menu.tsx).
  *
  * Caller-facing presentation is expressed as props (fullWidth, triggerVariant,
- * panelVariant, triggerClassName), not as ancestor selectors reaching into
+ * panelVariant, triggerSize, triggerClassName), not as ancestor selectors reaching into
  * these class names.
  */
 
@@ -13,7 +13,7 @@
 }
 
 /* The trigger is a shared Button: secondary by default, ghost for the chip
- * variant. These rules keep its layout and the selected-filter state. */
+ * variant. The shared variant also owns its pressed/selected state. */
 .buttonLabel {
   flex: 1 1 auto;
   min-width: 0;
@@ -24,19 +24,6 @@
 .chevron {
   flex-shrink: 0;
   transition: transform 0.15s ease;
-}
-
-/* Chip trigger: a ghost Button with a smaller chevron. */
-.button.chip .chevron {
-  width: 10px;
-  height: 10px;
-}
-
-/* An active filter marks the trigger; compounded so it outranks the
- * Button variant regardless of stylesheet order. */
-.button.hasSelection {
-  border-color: var(--app-yep-green);
-  color: var(--text-primary);
 }
 
 /*

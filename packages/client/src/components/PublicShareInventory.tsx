@@ -92,22 +92,20 @@ export function PublicShareInventoryRow({
             label={freezeAction.label}
             variant="secondary"
             size="small"
-            className={styles.iconButtonFreeze}
             disabled={freezeAction.disabled}
             onClick={freezeAction.onClick}
           >
-            {freezeAction.working ? "…" : <PublicShareFreezeIcon />}
+            {freezeAction.working ? "…" : <PublicShareFreezeIcon size={14} />}
           </IconButton>
         )}
         <IconButton
           label={revokeAction.label}
           variant="danger-outline"
           size="small"
-          className={styles.iconButtonDanger}
           disabled={revokeAction.disabled}
           onClick={revokeAction.onClick}
         >
-          {revokeAction.working ? "…" : <PublicShareRevokeIcon />}
+          {revokeAction.working ? "…" : <PublicShareRevokeIcon size={13} />}
         </IconButton>
       </div>
     </div>
@@ -154,9 +152,12 @@ export function PublicShareFeedback({
   return <Banner tone={tone === "error" ? "error" : "info"}>{children}</Banner>;
 }
 
-export function PublicSharePlusIcon() {
+export function PublicSharePlusIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
+      width={size}
+      height={size}
+      className={styles.actionIcon}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
@@ -169,9 +170,12 @@ export function PublicSharePlusIcon() {
   );
 }
 
-export function PublicShareRevokeIcon() {
+export function PublicShareRevokeIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
+      width={size}
+      height={size}
+      className={styles.actionIcon}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
@@ -184,9 +188,12 @@ export function PublicShareRevokeIcon() {
   );
 }
 
-export function PublicShareFreezeIcon() {
+export function PublicShareFreezeIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
+      width={size}
+      height={size}
+      className={styles.actionIcon}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
@@ -201,9 +208,12 @@ export function PublicShareFreezeIcon() {
   );
 }
 
-export function PublicShareConfirmIcon() {
+export function PublicShareConfirmIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
+      width={size}
+      height={size}
+      className={styles.actionIcon}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"

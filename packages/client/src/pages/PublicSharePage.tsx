@@ -630,6 +630,7 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
           ref={setFloatingControlsElement}
         >
           <IconButton
+            elevated
             className="public-share-conversation-toggle"
             onClick={() => setConversationViewEnabled((enabled) => !enabled)}
             label={

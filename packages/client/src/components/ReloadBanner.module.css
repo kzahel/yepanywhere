@@ -41,7 +41,6 @@
   width: max-content;
   max-width: 100%;
   box-sizing: border-box;
-  box-shadow: var(--shadow-lg);
 }
 
 .content {

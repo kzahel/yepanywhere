@@ -73,14 +73,6 @@
   align-self: stretch;
 }
 
-.addButton svg,
-.freezeTypeButton svg,
-.revokeTypeButton svg {
-  display: block;
-  height: 16px;
-  width: 16px;
-}
-
 /* Scope options stack in the first column on the parent's rows (subgrid),
    so each revoke button sits beside its option. */
 .scopeGroup {

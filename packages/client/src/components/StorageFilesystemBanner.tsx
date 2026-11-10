@@ -66,6 +66,7 @@ export function StorageFilesystemBanner() {
 
   return (
     <Banner
+      elevated
       tone="warning"
       role="alert"
       className={styles.root}

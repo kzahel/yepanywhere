@@ -51,5 +51,8 @@
 
 .zoomControls .zoomLevel {
   min-width: 4.5rem;
+}
+
+.zoomValue {
   font-variant-numeric: tabular-nums;
 }

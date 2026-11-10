@@ -92,3 +92,14 @@ export function Compact() {
     </div>
   );
 }
+
+export function Elevated() {
+  return (
+    <div style={column}>
+      <Banner elevated tone="warning" title="Floating notice">
+        This notice stays distinct above page content.
+      </Banner>
+      <Banner tone="warning">Inline notice without elevation.</Banner>
+    </div>
+  );
+}

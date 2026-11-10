@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import { ClearloopRemainingBadge } from "../ClearloopRemainingBadge";
-import styles from "../ClearloopRemainingBadge.module.css";
 
 const badge: SessionClearloopBadge = {
   remaining: 2,
@@ -60,9 +59,11 @@ describe("ClearloopRemainingBadge", () => {
     expect(controls.onSetPatient).toHaveBeenCalledWith(true);
   });
 
-  it("offers the reverse toggle and reads purple while patient", () => {
+  it("names the patient wait and offers the reverse toggle", () => {
     const { controls, target } = renderBadge({ patient: true });
-    expect(target.className).toContain(styles.patient);
+    expect(target.getAttribute("aria-label")).toContain(
+      "waiting for the project",
+    );
 
     fireEvent.contextMenu(target);
     fireEvent.click(screen.getByRole("menuitem", { name: /^Impatient/ }));

@@ -23,18 +23,6 @@
 .actions > button:not([class]):hover {
   background: var(--bg-hover);
 }
-/* Reload states signal the watch, so they outrank the ghost look (compound
-   selectors keep that independent of stylesheet order). Newer content is
-   there to load. */
-.actions > .reloadStale.reloadStale,
-.actions > .reloadStale.reloadStale:hover {
-  color: var(--accent-contrast, #fff);
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-}
-.actions > .reloadStale.reloadStale:hover {
-  filter: brightness(1.08);
-}
 /* Waiting to reload once on the next change. */
 .actions > .reloadArmed.reloadArmed,
 .actions > .reloadArmed.reloadArmed:hover {
@@ -48,17 +36,6 @@
   color: var(--accent-color);
   border-color: var(--accent-color);
   box-shadow: inset 0 0 0 1px var(--accent-color);
-}
-.actions > .linkActive.linkActive,
-.actions > .linkActive.linkActive:hover {
-  color: var(--success-color);
-}
-.actions > .linkInactive {
-  color: var(--text-secondary);
-}
-.actions > .destructive.destructive,
-.actions > .destructive.destructive:hover {
-  color: var(--error-color, #e05252);
 }
 .actions svg {
   display: block;

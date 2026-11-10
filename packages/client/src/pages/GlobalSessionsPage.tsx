@@ -729,7 +729,7 @@ function SessionSearchPage() {
               className={styles.dropdownContainer}
               placeholder={t("sessionSearchProjects")}
               align="right"
-              triggerClassName={styles.dropdown}
+              triggerSize="small"
               options={[
                 // An explicit first row, so returning to every project is a
                 // visible choice rather than a re-click on the current one.
@@ -760,7 +760,7 @@ function SessionSearchPage() {
               className={styles.dropdownContainer}
               placeholder={t("sessionSearchProviders")}
               align="right"
-              triggerClassName={styles.dropdown}
+              triggerSize="small"
               options={ALL_PROVIDERS.filter((p) =>
                 sessions.some((s) => s.provider === p),
               ).map((p) => ({
@@ -781,7 +781,7 @@ function SessionSearchPage() {
               <FilterDropdown
                 label={t("globalSessionsFilterExecutor")}
                 placeholder={t("globalSessionsFilterMachinePlaceholder")}
-                triggerClassName={styles.dropdown}
+                triggerSize="small"
                 options={Object.keys(feed.stats.executorCounts).map(
                   (value) => ({ value, label: value }),
                 )}
@@ -794,7 +794,7 @@ function SessionSearchPage() {
                 label={t("sessionSearchCreatedFrom")}
                 placeholder={t("sessionSearchCreatedFromPlaceholder")}
                 align="right"
-                triggerClassName={styles.dropdown}
+                triggerSize="small"
                 options={[
                   { value: "web", label: t("sessionSearchCreatedWeb") },
                   {

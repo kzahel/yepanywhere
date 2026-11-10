@@ -399,6 +399,7 @@ export function SessionHeader({
           {!isWideScreen && (
             <IconButton
               className="sidebar-toggle"
+              size="large"
               onClick={openSidebar}
               label={t("sessionOpenSidebar")}
             >
@@ -929,6 +930,7 @@ export function SessionHeader({
               onReload={() => window.location.reload()}
               onShare={publicShareActionAvailable ? handleShare : undefined}
               triggerClassName={sessionHeaderStyles.menuTrigger}
+              triggerSize="large"
               shareLabel={
                 hideHeaderSecondary ? (
                   <SessionShareMenuLabel

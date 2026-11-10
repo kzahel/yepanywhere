@@ -2196,10 +2196,8 @@ export const FileViewer = memo(function FileViewer({
           <IconButton
             label={t("fileViewerReload" as never)}
             tooltip={reloadTooltip}
-            className={
-              freshness?.state === "stale"
-                ? viewerStyles.reloadStale
-                : undefined
+            variant={
+              freshness?.state === "stale" ? "attention-outline" : "ghost"
             }
             onMouseEnter={checkFreshness}
             onFocus={checkFreshness}

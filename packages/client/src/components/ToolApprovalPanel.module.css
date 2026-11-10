@@ -124,7 +124,7 @@
   text-align: left;
 }
 
-.option kbd {
+.shortcut {
   display: inline-flex;
   align-items: center;
   justify-content: center;

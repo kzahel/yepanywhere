@@ -10,8 +10,3 @@
 .reopen:focus-visible {
   opacity: 1;
 }
-
-.reopen svg {
-  width: 14px;
-  height: 14px;
-}

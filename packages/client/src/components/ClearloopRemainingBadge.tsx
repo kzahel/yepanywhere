@@ -96,7 +96,7 @@ export function ClearloopRemainingBadge({
   return (
     <>
       <ButtonBase
-        className={`${styles.badge}${patient} ${styles.cancelable}`}
+        className={`${styles.badge} ${badge.patient ? styles.patientButton : ""} ${styles.cancelable}`}
         aria-label={label}
         title={label}
         {...targetProps}

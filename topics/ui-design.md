@@ -43,17 +43,28 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10, not yet landed) closes the leaks that remain around the shared
+2026-11-10; step 1 landed, step 2 implemented) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
-that still list swept work. Until its checks land, the "layout only" rule
-for a caller's `className` below is a convention, not enforced.
+that still list swept work. `controls:check` now enforces caller-class ownership
+with a counted, reasoned allowlist; Census/Control overrides shows the exceptions.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
 - `Button`: variants `primary` (brand green), `secondary` (the default),
-  `outline`, `ghost`, `danger` and `danger-outline`; sizes `default`,
-  `small` and `dense`. `dense` (22 px) is for controls inside dense rows
+  `outline`, `ghost`, `link`, `success-outline`, `attention-outline`, `danger` and `danger-outline`;
+  sizes `default`, `small`, `dense` and `large`. `link` is link-colored text,
+  transparent with an underline on hover. It inherits the surrounding font size
+  and line height, has no horizontal padding or minimum height on fine pointers,
+  and keeps the focus ring. Coarse pointers get an invisible hit area of at
+  least 44 px without growing the text line. `success-outline` is the green
+  outline used by copied transcript/tool/diff actions and active viewer links.
+  `attention-outline` is the shared warning outline for both newer-content
+  Reload actions and Force start. `elevated` gives Button/IconButton an opaque
+  surface and shadow over content: bulk select, public-share toggle/follow and
+  gallery arrows share it; filled variants retain their opaque tone.
+  `large` is 36 px (44 px on coarse pointers), used by page/header navigation
+  and the session-header menu. `dense` (22 px) is for controls inside dense rows
   (tool rows, code lines, hover-revealed copy actions): on coarse pointers
   it keeps its drawn size and extends its hit area invisibly, so the row
   does not grow.
@@ -62,7 +73,11 @@ for a caller's `className` below is a convention, not enforced.
   `TooltipLayer` when themed, `title` when native). `tooltip` replaces the
   tooltip text when it should say more than the name (a gesture hint, a
   freshness state). Defaults to `ghost`; a ghost with `aria-pressed="true"`
-  shows as a bordered, filled chip.
+  shows as a bordered, filled chip. A pressed secondary has a green border,
+  and weight 600; a pressed outline also gains the green border, weight 600
+  and hover surface. User chips use outline so their unselected border remains.
+  A menu trigger uses `data-selected="true"` for the same secondary selection
+  border, alongside `aria-haspopup` and `aria-expanded`; it is not a toggle.
 - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
   arrows and chips. Its reset has zero specificity, so the owner's styles
   always win, including ancestor rules such as `.list button`; it keeps the
@@ -79,17 +94,23 @@ submission while keeping focus. Coarse pointers get 44 px (default and
 icon) and 36 px (small) controls. A text glyph used as an icon (×, ↑)
 renders larger than label text. A caller's `className` adds layout only
 (margins, flex placement, width); the control owns colors, borders,
-padding, size and type. A caller rule that must override the control's look is compounded
-(`.chip.disabled`), because two single-class rules resolve by stylesheet
-order.
+padding, size and type. Look/size overrides require a counted reason in
+`design/census/control-override-allowlist.json`; `pnpm controls:check` (in lint)
+resolves module/global classes, states, media queries, descendant rules and
+obvious prop forwarding. `--record` only lowers counts. This applies to every
+shared control below, including field input and dialog body class props.
+Hover-revealed copy actions remain keyboard reachable; Enter/Space on the
+tool-header copy action copies without toggling the enclosing disclosure.
+Caller-supplied SVGs and keyboard hints may be styled as children; descendants
+owned by the shared control retain its look. See [CSS ownership](css-architecture.md#shared-control-caller-classes).
 
 Which variant: the single main submit or confirm action of a form or
 dialog is `primary`; a destructive confirm is `danger`; a destructive action
 beside others (Remove, Delete, Revoke, Forget) is `danger-outline`; Cancel,
 Close and every other action is `secondary`; an inline text action ("Show
 more", "Copy", "Edit") is `ghost` `small`; an icon-only button is an
-`IconButton`. `outline` remains for the few places that must differ from a
-neighbouring secondary.
+`IconButton`. A text action that should read as a link uses `link`. `outline`
+remains for the few places that must differ from a neighbouring secondary.
 
 Client buttons are on the shared controls except those the allowlist
 below names: listbox options, the composer's controls, the crash fallback
@@ -220,7 +241,8 @@ keep the menu open. A radio menu opens on its checked item. `Menu`'s
 `selection` says how checked items look: `mark` (default) puts a dot or
 check in a leading column; `highlight` tints the checked row instead, for
 select-style lists whose rows lead with their own dots or badges.
-`FilterDropdown` uses `highlight` for single-select. `MenuGroup`
+`FilterDropdown` uses `highlight` for single-select. Its `triggerSize` passes
+a shared Button size through; `triggerClassName` adds layout only. `MenuGroup`
 labels a group and `MenuSeparator` divides. `useMenuTrigger()` wires the
 trigger: `aria-haspopup="menu"`, `aria-expanded`, toggle on click,
 ArrowDown to open.
@@ -290,7 +312,8 @@ so it is not read out on load or on every poll. A live region announces
 changes to content already on the page, so a result that replaces an
 earlier one (saved, then failed, then saved) keeps one mounted status
 element and changes its text, with an error banner beside it. `compact`
-tightens it for a row or small panel. An error or warning that belongs to
+tightens it for a row or small panel. `elevated` supplies the shared large shadow
+for notices floating above page content; caller classes supply their placement. An error or warning that belongs to
 one field is that `Field`'s `error` or `hint`, never an alert that fires
 as the user types. Toasts,
 tool output error text in the transcript, system message rows and empty
@@ -528,6 +551,8 @@ The playground's pages:
   composer's files) are counted apart from those still to swap. The scan
   (`design/buttonElements.ts`, classification in `design/buttonFamilies.ts`)
   parses production TSX with the TypeScript compiler.
+- **Census/Control overrides:** remaining button-family and other-control
+  exceptions from the lint allowlist, with their source file, count and reason.
 - **Controls/Field:** text inputs, selects and textareas in every state,
   `Field` with hint and error, and checkboxes and radios.
 - **Controls/Banner**, **Controls/Badge**, **Controls/Spinner** and

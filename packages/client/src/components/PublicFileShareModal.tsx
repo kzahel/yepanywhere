@@ -193,7 +193,6 @@ export function PublicFileShareModal({
             {new URL(projectAppLink).host}
           </a>
           <Button
-            className={styles.createButton}
             onClick={() => {
               void writeClipboardTextLater(
                 Promise.resolve(projectAppLink),
@@ -222,7 +221,6 @@ export function PublicFileShareModal({
       {canUseBearerGrants && (
         <Button
           variant="primary"
-          className={styles.createButton}
           disabled={working !== null}
           onClick={() => void createAndCopyShare()}
         >
@@ -316,6 +314,7 @@ function FileIcon() {
 function LinkIcon() {
   return (
     <svg
+      className={styles.linkIcon}
       viewBox="0 0 20 20"
       fill="none"
       stroke="currentColor"

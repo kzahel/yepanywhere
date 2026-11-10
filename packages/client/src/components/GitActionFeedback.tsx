@@ -26,6 +26,7 @@ export function GitActionFeedback({
               value={failure.detail}
               title={t("gitStatusCopyErrorDetails")}
               className={styles.copy}
+              size="default"
             />
             <pre>{failure.detail}</pre>
           </div>

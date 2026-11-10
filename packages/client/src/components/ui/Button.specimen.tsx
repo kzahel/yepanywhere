@@ -53,7 +53,11 @@ const TRASH = (
 );
 
 function sampleText(variant: string) {
-  return variant.startsWith("danger") ? "Delete" : "Save changes";
+  return variant === "link"
+    ? "Show more"
+    : variant.startsWith("danger")
+      ? "Delete"
+      : "Save changes";
 }
 
 export function Variants() {
@@ -101,6 +105,22 @@ export function Small() {
     </div>
   );
 }
+
+/** The three header navigation/menu uses need 36px mouse and 44px touch targets. */
+export function Large() {
+  return (
+    <div style={row}>
+      <IconButton size="large" label="Open sidebar">
+        {PLUS}
+      </IconButton>
+      <IconButton size="large" label="Session options">
+        ⋯
+      </IconButton>
+      <Button size="large">Header action</Button>
+    </div>
+  );
+}
+Large.storyName = "Large (header targets)";
 
 export function WithIcon() {
   return (
@@ -171,3 +191,40 @@ export function Base() {
   );
 }
 Base.storyName = "ButtonBase (owner styles)";
+
+export function InlineAndSelected() {
+  return (
+    <div style={column}>
+      <p style={{ fontSize: "var(--font-size-lg)", lineHeight: 1.5 }}>
+        Read the <Button variant="link">documentation</Button> before
+        continuing. The inline action follows this text's font and baseline.
+      </p>
+      <div style={row}>
+        <Button variant="secondary">Unselected</Button>
+        <Button variant="secondary" aria-pressed>
+          Selected
+        </Button>
+        <Button variant="outline" aria-pressed>
+          Selected user
+        </Button>
+        <Button
+          data-selected
+          variant="secondary"
+          aria-haspopup="menu"
+          aria-expanded={false}
+        >
+          Filter with selection
+        </Button>
+      </div>
+      <div style={row}>
+        <Button elevated>Floating action</Button>
+        <IconButton elevated label="Floating add">
+          {PLUS}
+        </IconButton>
+        <Button elevated variant="primary">
+          Select filtered
+        </Button>
+      </div>
+    </div>
+  );
+}

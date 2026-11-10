@@ -10327,7 +10327,6 @@ body:has(.session-page)
     bottom: max(var(--space-2), env(safe-area-inset-bottom));
     left: var(--space-2);
     z-index: 10000;
-    box-shadow: var(--shadow-lg);
   }
 }
 
@@ -10796,9 +10795,6 @@ body:has(.session-page)
   position: static;
   top: auto;
   right: auto;
-  background: color-mix(in srgb, var(--bg-code) 94%, transparent);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(8px);
 }
 
 .public-share-preview {

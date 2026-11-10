@@ -87,8 +87,6 @@
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
-  box-shadow: var(--shadow-md);
 }
 
 .navigation.visible {

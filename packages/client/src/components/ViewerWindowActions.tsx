@@ -111,14 +111,13 @@ export function ViewerWindowActions({
     <div className={`${styles.actions} ${className ?? ""}`}>
       {onReload && (
         <IconButton
+          variant={reloadState === "stale" ? "attention-outline" : "ghost"}
           className={
-            reloadState === "stale"
-              ? styles.reloadStale
-              : reloadState === "armed"
-                ? styles.reloadArmed
-                : reloadState === "auto"
-                  ? styles.reloadAuto
-                  : undefined
+            reloadState === "armed"
+              ? styles.reloadArmed
+              : reloadState === "auto"
+                ? styles.reloadAuto
+                : undefined
           }
           label={reloadName}
           tooltip={reloadTooltip}
@@ -149,15 +148,10 @@ export function ViewerWindowActions({
       {copyLink && (
         <a
           className={buttonClassName({
-            variant: "ghost",
+            variant: copyLinkActive ? "success-outline" : "ghost",
             icon: !copyLabel,
-            className:
-              copyLinkActive === undefined
-                ? undefined
-                : copyLinkActive
-                  ? styles.linkActive
-                  : styles.linkInactive,
           })}
+          data-link-active={copyLinkActive}
           href={absoluteUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -239,7 +233,7 @@ export function ViewerWindowActions({
       {onClose && (
         <IconButton
           ref={closeRef}
-          className={destructiveClose ? styles.destructive : undefined}
+          variant={destructiveClose ? "danger-outline" : "ghost"}
           disabled={closeDisabled}
           onClick={onClose}
           label={closeLabel ?? t("modalClose")}

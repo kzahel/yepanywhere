@@ -70,3 +70,7 @@
     border-color: CanvasText;
   }
 }
+
+.elevated {
+  box-shadow: var(--shadow-lg);
+}

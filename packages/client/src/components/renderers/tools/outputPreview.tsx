@@ -150,7 +150,7 @@ export function OutputCopyButton({
 
   return (
     <IconButton
-      variant="outline"
+      variant={copied ? "success-outline" : "outline"}
       size="dense"
       className={`bash-section-copy ${copied ? "copied" : ""}`}
       onClick={handleCopy}

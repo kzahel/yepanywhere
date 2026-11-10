@@ -104,6 +104,7 @@ export function RemoteCompatibilityNoticeCard({
 
   return (
     <Banner
+      elevated={placement !== "inline"}
       tone={severityTones[notice.severity]}
       className={[
         placementClassNames[placement],

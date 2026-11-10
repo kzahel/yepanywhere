@@ -76,16 +76,6 @@
   background: color-mix(in srgb, var(--app-yep-green) 62%, #111827);
 }
 
-.iconButtonFreeze svg {
-  height: 14px;
-  width: 14px;
-}
-
-.iconButtonDanger svg {
-  height: 13px;
-  width: 13px;
-}
-
 .empty {
   color: var(--text-secondary);
   padding: 24px 12px;
@@ -101,4 +91,8 @@
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+.actionIcon {
+  display: block;
 }

@@ -569,6 +569,7 @@ export function ImageViewer({
           >
             <IconButton
               variant="secondary"
+              elevated
               className={cx(styles.navigationButton, styles.previous)}
               label={t("imageViewerPrevious")}
               onClick={() => {
@@ -581,6 +582,7 @@ export function ImageViewer({
             </IconButton>
             <IconButton
               variant="secondary"
+              elevated
               className={cx(styles.navigationButton, styles.next)}
               label={t("imageViewerNext")}
               onClick={() => {

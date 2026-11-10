@@ -65,6 +65,7 @@ export function BulkActionBar({
         <div className={styles.actions}>
           <Button
             variant="primary"
+            elevated
             className={styles.actionButton}
             onClick={onSelectAllFiltered}
             disabled={isPending}

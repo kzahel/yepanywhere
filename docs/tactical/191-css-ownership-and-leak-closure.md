@@ -2,9 +2,8 @@
 
 Topic: css-architecture
 
-Status: step 1 implemented 2026-11-10, awaiting review/commit: exact detection,
-46 declared families, 49 global class names and 572 lines deleted. Steps 2–8
-remain open. The maintainer
+Status: step 1 landed 2026-11-10; step 2 implemented 2026-11-10.
+Steps 3–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -82,7 +81,7 @@ line ceilings freeze the rest in place; they do not shrink it.
 
 ### 1 — make dead-class detection exact and delete dead rules
 
-Implemented 2026-11-10. `scripts/css-runtime-families.json` declares 46
+Landed 2026-11-10. `scripts/css-runtime-families.json` declares 46
 reviewed runtime/generated families with anchored patterns, source paths and
 reasons. Missing emitters and patterns matching no global class fail the check.
 Production client whole tokens and production-reachable module interop count;
@@ -137,24 +136,18 @@ CSS-caused visual change was found. Originals are under
 
 ### 2 — make shared controls own their look
 
-Add a check (in `buttons:check` or beside it) that resolves each class
-passed to `Button`, `IconButton`, `Switch`, `SegmentedControl`, `Field`
-controls, `Checkbox`, `Badge`, `Banner`, `Tabs`, `Menu` items and `Dialog`
-and rejects look or size declarations in its rules: color, background,
-border, radius, shadow, font, padding, height and min-height. Record the
-current violations in an allowlist.
-
-Then drain the allowlist for buttons, by area:
-
-- a class that restates the variant's look is deleted;
-- a class that needs another existing variant or size changes the prop;
-- a look several sites share and no variant covers becomes a variant or
-  size, shown on Controls/Button. Expected: `link`; possibly an attention
-  tone. Each addition is justified by its sites in the commit message;
-- what remains is allowlisted with its reason.
-
-Done when the check runs in lint and the button allowlist holds only
-reviewed, reasoned entries.
+Implemented 2026-11-10. `controls:check` runs in lint; parser-backed class,
+helper/prop, ancestor, custom-property and inline-style findings fail closed.
+Final census: 21/600 button sites in 12 files; 29 other sites in 24 files.
+Census/Control overrides shows counts/reasons; `--record` only lowers them.
+Shared inline `link`, copy `success-outline`, newer-content/Force-start
+`attention-outline`, 36/44 px `large`, pressed cues and elevation own repeated looks.
+Copy hover/Tab/post-copy works; activation no longer toggles the tool row.
+Deferred: gallery/device shape, quote/overlay placement, countdown/watch states,
+multiline bulk actions, queued raw-copy feedback, disabled-account cues; Badge branding,
+field adornments/touch rows, tabs and choice content need their later passes.
+Composer unchanged (`composer pass`). Server sign-in accepts 44→32 px mouse
+minimum; coarse pointers keep 44. Global CSS now 16,629 lines (23 removed).
 
 ### 3 — put hand-drawn `ButtonBase` buttons on shared controls
 

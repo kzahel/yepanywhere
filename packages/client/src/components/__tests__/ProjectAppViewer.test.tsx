@@ -567,9 +567,11 @@ it("marks a copied launch link live until a confirmed restart revokes it", async
   );
   await waitFor(() => expect(container.querySelector("iframe")).toBeTruthy());
   const link = () => screen.getByRole("button", { name: "Copy viewer link" });
-  expect(link().className).toMatch(/linkInactive/);
+  expect(link().getAttribute("data-link-active")).toBe("false");
   fireEvent.click(link());
-  await waitFor(() => expect(link().className).toMatch(/linkActive/));
+  await waitFor(() =>
+    expect(link().getAttribute("data-link-active")).toBe("true"),
+  );
   // Declining leaves the app and its link alone.
   confirm.mockReturnValueOnce(false);
   fireEvent.click(screen.getByRole("button", { name: "Restart app" }));
@@ -583,7 +585,7 @@ it("marks a copied launch link live until a confirmed restart revokes it", async
       "app-2",
     ),
   );
-  expect(link().className).toMatch(/linkInactive/);
+  expect(link().getAttribute("data-link-active")).toBe("false");
   // A right-click (or held press) restarts without asking.
   confirm.mockClear();
   fireEvent.contextMenu(screen.getByRole("button", { name: "Restart app" }));
@@ -639,7 +641,9 @@ it("lights reload for newer static files, arms a one-shot reload, and holds to a
       window.dispatchEvent(new Event("focus"));
     });
   };
-  expect(reload().className).not.toMatch(/reload(Stale|Armed|Auto)/);
+  expect(reload().className).not.toMatch(
+    /(attentionOutline|reloadArmed|reloadAuto)/,
+  );
   // With no activity the viewer reads nothing, even as the files change.
   stamp = "2026-10-18T00:00:02.000Z";
   const quiet = infoReads();
@@ -654,14 +658,16 @@ it("lights reload for newer static files, arms a one-shot reload, and holds to a
   act(() => {
     activity.emit({ projectId: "test", sessionId: "s1", activity: "idle" });
   });
-  await waitFor(() => expect(reload().className).toMatch(/reloadStale/));
+  await waitFor(() => expect(reload().className).toMatch(/attentionOutline/));
   // Newer files light the button; clicking loads them and clears it.
   await act(async () => {
     fireEvent.click(reload());
   });
   await waitFor(() => expect(container.querySelector("iframe")).toBeTruthy());
   await waitFor(() =>
-    expect(reload().className).not.toMatch(/reload(Stale|Armed|Auto)/),
+    expect(reload().className).not.toMatch(
+      /(attentionOutline|reloadArmed|reloadAuto)/,
+    ),
   );
   // A click with nothing new arms one reload for the next change.
   // Await the open and its focus-listener effect before returning to the page.
@@ -674,7 +680,9 @@ it("lights reload for newer static files, arms a one-shot reload, and holds to a
   await poll();
   await waitFor(() => expect(opens()).toBe(armedOpens + 1));
   await waitFor(() =>
-    expect(reload().className).not.toMatch(/reload(Stale|Armed|Auto)/),
+    expect(reload().className).not.toMatch(
+      /(attentionOutline|reloadArmed|reloadAuto)/,
+    ),
   );
   // Holding (right-click here) reloads on every change, and is remembered.
   fireEvent.contextMenu(reload());

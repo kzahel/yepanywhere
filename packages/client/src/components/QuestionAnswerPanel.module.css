@@ -226,7 +226,7 @@
   min-width: 90px;
 }
 
-.btn kbd {
+.shortcut {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   font-weight: 400;

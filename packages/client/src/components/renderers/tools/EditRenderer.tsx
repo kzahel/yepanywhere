@@ -342,7 +342,7 @@ function DiffCopyButton({ text }: { text: string }) {
 
   return (
     <IconButton
-      variant="outline"
+      variant={copied ? "success-outline" : "outline"}
       size="small"
       className={`diff-copy-button ${copied ? "copied" : ""}`}
       onMouseDown={(event) => event.stopPropagation()}

@@ -9,14 +9,9 @@
   margin: 0 0 var(--space-2);
 }
 
-.userChip[aria-pressed="true"] {
-  border-color: var(--accent-color, currentColor);
-  font-weight: 600;
-}
-
 /* A disabled account stays listed, visibly out of service. Compounded so
    it outranks the Button variant's color regardless of stylesheet order. */
-.userChip.userChipDisabled {
+.userChipDisabled.userChipDisabled {
   color: var(--text-muted);
   text-decoration: line-through;
 }

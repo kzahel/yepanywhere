@@ -1132,10 +1132,15 @@ little global CSS. It makes dead-class detection exact, rejects caller
 classes that restyle a shared control, moves hand-drawn `ButtonBase` buttons
 onto shared controls (adding a `link` variant), requires tokens for type
 sizes and radii, trims the census pages to open work, and then splits and
-drains the global CSS by owner. Step 1 is implemented for review: exact
+drains the global CSS by owner. Step 1 landed: exact
 whole-token/family detection runs in lint, 46 runtime/generated families are
 declared, and 49 global class names / 572 lines are deleted, leaving 16,652
-global lines. Steps 2–8 remain open. It runs before the composer pass, which
+global lines before the control sweep. Step 2 is implemented: lint resolves
+caller-class/inline overrides with a counted allowlist (21/600 button uses in
+12 files; 29 other-control sites in 24 files, including Badge custom properties),
+the playground lists the exceptions, and shared inline link, success/attention
+outlines, elevation and 36/44 px large buttons replace recurring treatments.
+Steps 3–8 remain open. It runs before the composer pass, which
 keeps its own exclusion.
 
 ## Later directions

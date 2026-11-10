@@ -1,11 +1,11 @@
 .floating {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 4px);
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   z-index: 195;
   width: min(920px, calc(100dvw - 24px));
-  transform: translateX(-50%);
-  box-shadow: var(--shadow-lg);
 }
 
 .belowHeader {

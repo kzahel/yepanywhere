@@ -23,6 +23,10 @@
 
 .row :global(.sidebar-toggle) {
   min-width: var(--header-control-size);
+}
+
+/* The anchor launcher is not a shared Button; preserve its header target. */
+.row :global(a.sidebar-toggle) {
   min-height: var(--header-control-size);
 }
 
@@ -107,7 +111,6 @@
 
 .header .menuTrigger {
   min-width: var(--header-control-size);
-  min-height: var(--header-control-size);
 }
 
 .header .project {

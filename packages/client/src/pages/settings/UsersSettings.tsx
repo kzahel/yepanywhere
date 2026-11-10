@@ -410,7 +410,8 @@ export function UsersSettings() {
             return (
               <Button
                 key={user.username}
-                className={`${styles.userChip} ${user.disabled ? styles.userChipDisabled : ""}`}
+                variant="outline"
+                className={user.disabled ? styles.userChipDisabled : undefined}
                 aria-pressed={selected}
                 title={user.disabled ? t("usersDisabledTitle") : undefined}
                 onClick={() =>
@@ -424,7 +425,7 @@ export function UsersSettings() {
             );
           })}
           <Button
-            className={styles.userChip}
+            variant="outline"
             aria-pressed={selection?.kind === "create"}
             disabled={busy}
             onClick={() =>

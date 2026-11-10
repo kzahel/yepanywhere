@@ -36,7 +36,7 @@
  * Patient loops also wait for the project to go idle, so they wear the same
  * purple the rest of the Project Queue surface uses.
  */
-.patient {
+.patientButton {
   background: var(--project-queue-action-bg);
 }
 

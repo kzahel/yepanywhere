@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { writeClipboardText, writeClipboardTextLater } from "../lib/clipboard";
-import { IconButton } from "./ui/Button";
+import { type ButtonSize, IconButton } from "./ui/Button";
 
 /**
  * A small copy-to-clipboard button used by the source-control copy affordances
@@ -15,6 +15,7 @@ export function CopyButton({
   className,
   disabled = false,
   icon = "copy",
+  size = "small",
 }: {
   value: string | (() => Promise<string>);
   /** Tooltip + accessible label (e.g. "Copy branch name"). */
@@ -22,6 +23,7 @@ export function CopyButton({
   className?: string;
   disabled?: boolean;
   icon?: "copy" | "path" | "content";
+  size?: ButtonSize;
 }) {
   const [copied, setCopied] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -34,7 +36,7 @@ export function CopyButton({
 
   return (
     <IconButton
-      size="small"
+      size={size}
       label={title}
       className={className}
       disabled={disabled || copying}

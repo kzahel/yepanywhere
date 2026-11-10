@@ -64,6 +64,7 @@ export function PageHeader({
             <IconButton
               label={t("actionBack")}
               className="sidebar-toggle"
+              size="large"
               onClick={onBack}
             >
               <BackIcon />

@@ -73,6 +73,10 @@
   font-size: var(--font-size-xs);
 }
 
+.large {
+  min-height: 36px;
+}
+
 .dense {
   min-height: 22px;
   padding: 0 var(--space-1);
@@ -96,6 +100,10 @@
 .icon.small {
   width: 26px;
   font-size: calc(var(--font-size-base) + 4px);
+}
+
+.icon.large {
+  width: 36px;
 }
 
 .icon.dense {
@@ -125,6 +133,10 @@
      hit area extends invisibly around them instead. */
   .dense {
     min-height: 22px;
+  }
+
+  .icon.large {
+    width: 44px;
   }
 
   .icon.dense {
@@ -157,6 +169,21 @@
   color: var(--text-primary);
 }
 
+.secondary[aria-pressed="true"],
+.secondary[data-selected="true"] {
+  border-color: var(--app-yep-green);
+}
+
+.secondary[aria-pressed="true"],
+.outline[aria-pressed="true"] {
+  font-weight: 600;
+}
+
+.outline[aria-pressed="true"] {
+  background: var(--bg-hover);
+  border-color: var(--app-yep-green);
+}
+
 .secondary:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--border-color);
 }
@@ -183,7 +210,8 @@
 
 /* On is a filled, bordered chip: a background alone is too faint to read as
    a state in a row of toggles. */
-.ghost[aria-pressed="true"] {
+.ghost[aria-pressed="true"],
+.ghost[data-selected="true"] {
   background: var(--bg-hover);
   border-color: var(--border-color);
   color: var(--text-primary);
@@ -207,4 +235,67 @@
 
 .dangerOutline:hover:not(:disabled, [aria-disabled="true"]) {
   background: color-mix(in srgb, var(--error-color) 14%, transparent);
+}
+
+/* Text actions share the link color without drawing a background on hover. */
+.link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--link-color);
+  font-size: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+
+:where(.link) {
+  position: relative;
+}
+
+@media (pointer: coarse) {
+  .link::before {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 44px) / 2)) -8px;
+  }
+}
+
+/* Floating actions share an opaque surface. Filled variants already supply one. */
+.button.elevated {
+  box-shadow: var(--shadow-md);
+}
+
+.elevated:is(.secondary, .outline, .ghost) {
+  background: var(--bg-surface);
+}
+
+.elevated:is(.secondary, .outline, .ghost):hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.attentionOutline {
+  background: transparent;
+  color: var(--warning-color);
+  border-color: var(--warning-color);
+}
+
+.attentionOutline:hover:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--warning-color) 14%, transparent);
+}
+
+.link:hover:not(:disabled, [aria-disabled="true"]) {
+  text-decoration: underline;
+}
+
+/* Copy feedback shares one successful outline across transcript and viewers. */
+.successOutline {
+  background: transparent;
+  border-color: var(--success-color);
+  color: var(--success-color);
+}
+
+.successOutline:hover:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--success-color) 14%, transparent);
 }

@@ -3,12 +3,12 @@
 .floating {
   position: fixed;
   top: max(12px, env(safe-area-inset-top, 0px));
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   z-index: 240;
   box-sizing: border-box;
   width: min(780px, calc(100dvw - 24px));
-  transform: translateX(-50%);
-  box-shadow: var(--shadow-lg);
 }
 
 @media (width <= 700px) {
@@ -18,7 +18,6 @@
     left: auto;
     width: calc(100dvw - 16px);
     margin: max(8px, env(safe-area-inset-top, 0px)) auto 0;
-    transform: none;
   }
 
   .floating ~ :global(.session-page) {

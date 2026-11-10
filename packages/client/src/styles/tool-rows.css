@@ -280,7 +280,6 @@ button.tool-summary {
 }
 
 .tool-header-copy {
-  flex-shrink: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -292,10 +291,6 @@ button.tool-summary {
 .tool-header-copy.copied {
   opacity: 1;
   pointer-events: auto;
-}
-
-.tool-header-copy.copied {
-  color: var(--app-yep-green, #059669);
 }
 
 /* Expand chevron */

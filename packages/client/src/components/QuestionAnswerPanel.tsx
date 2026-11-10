@@ -436,7 +436,7 @@ export function QuestionAnswerPanel({
               disabled={submitting}
             >
               {t("questionPanelCancel")}
-              <kbd>esc</kbd>
+              <kbd className={styles.shortcut}>esc</kbd>
             </Button>
 
             {isLastQuestion ? (
@@ -447,7 +447,7 @@ export function QuestionAnswerPanel({
                 disabled={!allAnswered || submitting}
               >
                 {t("questionPanelSubmit")}
-                <kbd>↵</kbd>
+                <kbd className={styles.shortcut}>↵</kbd>
               </Button>
             ) : (
               <Button
@@ -456,7 +456,7 @@ export function QuestionAnswerPanel({
                 disabled={!currentQuestionAnswered || submitting}
               >
                 {t("questionPanelNext")}
-                <kbd>↵</kbd>
+                <kbd className={styles.shortcut}>↵</kbd>
               </Button>
             )}
           </div>

@@ -19,7 +19,8 @@ into modules and froze the rest at line ceilings, then stopped at a
 "contained steady state". That left 17,224 global lines (43% of client CSS) and
 shared controls whose look any caller can override. Step 1 of plan 191
 replaced prefix guessing with exact dead-class detection and removed 572
-global lines (49 class names); 16,652 global lines remain.
+global lines (49 class names). Step 2 adds the caller-control ownership gate
+and moves repeated button looks and sizes into the shared family.
 
 The target:
 
@@ -196,15 +197,56 @@ not carry a migration queue.
   only its `client/src` subtree as literal global evidence. Custom CSS trees
   omit the repository family list (the analysis API can supply explicit families).
 
+## Shared control caller classes
+
+`pnpm controls:check` runs in lint alongside `buttons:check`. For every
+production use of Button, IconButton, `buttonClassName()`, Switch,
+SegmentedControl, Field/TextInput/Textarea/Select, Checkbox/Radio, Badge,
+Banner, Tabs, MenuItem/MenuLinkItem and Dialog, it resolves caller classes
+through their CSS Module import or the global stylesheets. Import aliases,
+local variables, finite computed keys, templates, conditionals, class combiners,
+object spreads and obvious forwarded props count. Dedicated `inputClassName`
+and `bodyClassName` props have the same contract.
+
+A caller class may set layout, placement, width limits, truncation and
+visibility. It may not declare color, background, border (including radius),
+shadow, outline, font, line height, letter spacing, text transformation or
+decoration, padding, height limits, transforms, filters, text shadows, SVG fill/stroke
+or fractional opacity. Binary `opacity: 0|1`, pointer events and visibility are
+reveal behaviour and remain allowed. Custom properties read with `var(--x)`
+by the control's own module count as look overrides; the checker derives those
+reads rather than maintaining a separate property list. Inline styles follow
+the same ownership contract. All matching selector branches,
+media queries, nested rules, states, pseudo-elements and descendant styling
+count. Negated/relational arguments and unrelated siblings do not assert the
+class on the control; an anchor-only rule cannot style a Button. A control's
+own implementation owns its variants. Descendant rules aimed at caller-supplied
+icons or labels are exempt; rules reaching control-owned children still count.
+Same-component ancestor rules aimed at the control count too. Local helper
+returns, memo callbacks and named memo/forwardRef prop wrappers are resolved;
+an unresolved class expression is a counted finding, never silently accepted.
+
+Reviewed exceptions live in
+`packages/client/design/census/control-override-allowlist.json`, split into
+button-family and other-control counts by production source file, with a
+specific reason per entry. Composer entries use the reason `composer pass`.
+A new file, increased count, invalid reason or stale count fails. `--record`
+only lowers counts and removes cleared entries; it refuses to write if any
+increase is unreviewed. `--json` reports classes, selectors and source lines.
+Census/Control overrides shows the same remaining entries and reasons. The
+step 2 census is 21 button sites in 12 files (600 uses scanned) and 29 other
+control sites in 24 files, including provider/status Badge custom properties.
+
 ## Command roles and exit behavior
 
 | Command | Role | Exit/write contract |
 |---|---|---|
 | `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
 | `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
+| `pnpm controls:check` | Hard shared-control caller-class ownership gate | Exits 1 for look/size overrides beyond the per-file reasoned allowlist, invalid entries, or stale counts. `--record` only lowers counts/removes cleared entries and refuses unreviewed increases. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |
-| `pnpm lint` | Combined repository gate | Runs containment, exact global usage and module contracts, the button ban, CSS lint, and Biome; any child failure fails lint. |
+| `pnpm lint` | Combined repository gate | Runs containment, exact global usage and module contracts, the button ban, shared-control ownership, CSS lint, and Biome; any child failure fails lint. |
 | `pnpm css:touched` | Advisory feature-diff prompt | Exits 0 for opportunity, deferral, or no matching owner; exits 2 for invalid arguments or a failed git comparison. It never edits files. |
 | `pnpm css:inventory` | Advisory ownership drill-down | A valid report exits 0 and never edits files; invalid arguments exit 2. |
 | `pnpm css:unused` | Hard global usage and module contract gate | Exits 1 for an unused global class, invalid/stale runtime family, module contract issue, or unusable scan. `--dry-run` previews; `--remove` prunes global selector branches and rechecks, never module selectors. |
@@ -517,11 +559,10 @@ layout.
 Migrating a component that callers already reach into inverts this: once its
 classes are hashed, `.caller .child-class` cannot be written at all, so each
 existing override must become part of the component's API before the move.
-`FilterDropdown` classifies its overrides three ways — a named boolean for a
-recurring need (`fullWidth`), a named variant for a meaningful presentation
-(`triggerVariant`, `panelVariant`), and a pass-through class for caller-specific
-sizing (`triggerClassName`). A pass-through targets one documented element; it
-is not a licence to restyle the subtree.
+`FilterDropdown` expresses recurring presentation through props: `fullWidth`,
+`triggerVariant`, `panelVariant`, and the shared Button's `triggerSize`.
+`triggerClassName` adds caller-specific placement. A pass-through targets one
+documented element; it is not a licence to restyle the subtree.
 
 When the reach-in runs the other way — several ancestors styling a control they
 do not render, as four row lists did to the source row-menu trigger — the child

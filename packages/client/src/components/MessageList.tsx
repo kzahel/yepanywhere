@@ -48,6 +48,7 @@ import { useTranscriptRenderWindow } from "../hooks/useTranscriptRenderWindow";
 import { useTranscriptDragSelection } from "../hooks/useTranscriptDragSelection";
 import { useTranscriptMarginNavigation } from "../hooks/useTranscriptMarginNavigation";
 import { useI18n } from "../i18n";
+import { MessageFollowButton } from "./MessageFollowButton";
 import {
   createRememberedDisclosureStateRegistry,
   RememberedDisclosureStateProvider,
@@ -4918,39 +4919,13 @@ export const MessageList = memo(function MessageList({
           )
         : followButtonPortalTarget
       : null;
-  const followButtonLabel = newOutputBelowVisible
-    ? t("sessionNewOutputBelow")
-    : t("sessionFollow");
-  const followButtonTitle = newOutputBelowVisible
-    ? t("sessionNewOutputBelowTitle")
-    : t("sessionFollowLatestOutput");
   const followButton =
     showFollowButton && !isScrolledToBottom ? (
-      <Button
-        size="small"
-        className={`message-follow-toggle${
-          newOutputBelowVisible ? " is-new-output" : ""
-        }`}
+      <MessageFollowButton
+        elevated={!!followButtonPortalTarget}
+        newOutputBelow={newOutputBelowVisible}
         onClick={handleFollowClick}
-        aria-label={followButtonTitle}
-        title={followButtonTitle}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M12 5v14" />
-          <path d="m19 12-7 7-7-7" />
-        </svg>
-        <span>{followButtonLabel}</span>
-      </Button>
+      />
     ) : null;
   return createElement(
     RememberedDisclosureStateProvider,

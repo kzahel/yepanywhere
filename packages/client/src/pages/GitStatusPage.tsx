@@ -984,6 +984,7 @@ function GitStatusContent({
   }, [ignoreWhitespace]);
   const projectionNotice = projectionRequestError ? (
     <Banner
+      elevated
       tone="error"
       className="source-projection-notice"
       onDismiss={() => setProjectionRequestError(null)}

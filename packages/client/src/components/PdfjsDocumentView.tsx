@@ -189,7 +189,7 @@ export function PdfjsDocumentView({
           onClick={() => zoomAboutCenter(1 / zoom)}
           aria-label={t("pdfjsZoomFit" as never)}
         >
-          {Math.round(zoom * 100)}%
+          <span className={styles.zoomValue}>{Math.round(zoom * 100)}%</span>
         </Button>
         <IconButton
           onClick={() => zoomAboutCenter(ZOOM_STEP)}

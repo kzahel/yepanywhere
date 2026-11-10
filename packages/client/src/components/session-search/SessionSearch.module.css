@@ -204,13 +204,7 @@
 .ageField:focus-within {
   border-color: var(--accent-primary);
 }
-.dropdown {
-  min-height: 28px;
-  font:
-    12px / 16px system-ui,
-    sans-serif;
-  padding: 4px 6px;
-}
+
 .filters .dropdownContainer {
   width: auto;
   min-width: 0;

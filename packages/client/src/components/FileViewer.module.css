@@ -87,13 +87,6 @@
   background: var(--bg-code);
 }
 
-/* Changed on disk: the warning tint outranks the ghost look and its hover
-   (compound selectors keep that independent of stylesheet order). */
-.actions .reloadStale.reloadStale,
-.actions .reloadStale.reloadStale:hover {
-  color: var(--warning-color, #d08a00);
-}
-
 .provenanceRow {
   display: flex;
   align-items: center;

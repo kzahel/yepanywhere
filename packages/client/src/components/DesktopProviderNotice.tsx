@@ -66,6 +66,7 @@ export function DesktopProviderNotice() {
 
   return (
     <Banner
+      elevated
       tone="warning"
       className={styles.floating}
       title={t("desktopProviderNoticeTitle")}

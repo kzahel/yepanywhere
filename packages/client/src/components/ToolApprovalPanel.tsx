@@ -341,7 +341,7 @@ export function ToolApprovalPanel({
                   onClick={handleApproveAcceptEdits}
                   disabled={!armed || submitting || !onApproveAcceptEdits}
                 >
-                  <kbd>1</kbd>
+                  <kbd className={styles.shortcut}>1</kbd>
                   <span>{t("toolApprovalYesAuto")}</span>
                 </Button>
                 <Button
@@ -349,7 +349,7 @@ export function ToolApprovalPanel({
                   onClick={handleApprove}
                   disabled={!armed || submitting}
                 >
-                  <kbd>2</kbd>
+                  <kbd className={styles.shortcut}>2</kbd>
                   <span>{t("toolApprovalYesManual")}</span>
                 </Button>
                 <Button
@@ -357,7 +357,7 @@ export function ToolApprovalPanel({
                   onClick={handleDeny}
                   disabled={!armed || submitting}
                 >
-                  <kbd>3</kbd>
+                  <kbd className={styles.shortcut}>3</kbd>
                   <span>{t("toolApprovalNoKeepPlanning")}</span>
                 </Button>
               </>
@@ -369,7 +369,7 @@ export function ToolApprovalPanel({
                   onClick={handleApprove}
                   disabled={!armed || submitting}
                 >
-                  <kbd>1</kbd>
+                  <kbd className={styles.shortcut}>1</kbd>
                   <span>{t("toolApprovalYes")}</span>
                 </Button>
 
@@ -379,7 +379,7 @@ export function ToolApprovalPanel({
                     onClick={handleApproveAcceptEdits}
                     disabled={!armed || submitting}
                   >
-                    <kbd>2</kbd>
+                    <kbd className={styles.shortcut}>2</kbd>
                     <span>{t("toolApprovalYesDontAsk")}</span>
                   </Button>
                 )}
@@ -389,7 +389,9 @@ export function ToolApprovalPanel({
                   onClick={handleDeny}
                   disabled={!armed || submitting}
                 >
-                  <kbd>{isEditTool && onApproveAcceptEdits ? "3" : "2"}</kbd>
+                  <kbd className={styles.shortcut}>
+                    {isEditTool && onApproveAcceptEdits ? "3" : "2"}
+                  </kbd>
                   <span>{t("toolApprovalNo")}</span>
                 </Button>
               </>

@@ -1,0 +1,150 @@
+{
+  "buttons": {
+    "components/BulkActionBar.tsx": {
+      "count": 7,
+      "reason": "Phone bulk-selection actions stack icon and label with vertical padding; this multiline dock presentation has no ordinary button-size equivalent. Floating elevation now belongs to the shared control."
+    },
+    "components/EmulatorNavButtons.tsx": {
+      "count": 3,
+      "reason": "The three device Back/Home/Overview keys are 48 px circles, unlike ordinary app actions; retain their distinct device-navigation target."
+    },
+    "components/ImageViewer.tsx": {
+      "count": 2,
+      "reason": "Gallery previous/next controls retain their round 44 px shape and centering transform over an image. Their opaque surface and shadow now come from shared elevation."
+    },
+    "components/InboxContent.tsx": {
+      "count": 1,
+      "reason": "The section help trigger inherits its tier heading color so its question mark and count identify the same attention tier."
+    },
+    "components/LastSessionFile.tsx": {
+      "count": 1,
+      "reason": "The restore-last-viewer affordance keeps its vertical centering transform and 55% opacity until hover/focus so it remains subordinate to the active viewer."
+    },
+    "components/ParagraphQuoteRail.tsx": {
+      "count": 1,
+      "reason": "Paragraph quote targets translate up by their own height to align with the measured paragraph bottom. Binary hover/focus reveal is allowed behaviour; only the placement transform remains counted."
+    },
+    "components/SessionHeader.tsx": {
+      "count": 1,
+      "reason": "Retitle Accept has an armed-countdown accent and fractional disabled opacity. The caller-owned chevron transform and binary reveal no longer count."
+    },
+    "components/ViewerWindowActions.tsx": {
+      "count": 1,
+      "reason": "One-shot reload watch uses a dashed accent border; continuous watch uses an inset accent ring. Both newer-content reloads now share attention-outline with Force start."
+    },
+    "extension/sidepanel/SidePanel.tsx": {
+      "count": 1,
+      "reason": "New-session actions wrap long host names in a narrow extension panel; their vertical padding prevents multiline labels touching the border."
+    },
+    "pages/settings/UsersSettings.tsx": {
+      "count": 1,
+      "reason": "Disabled accounts remain selectable for administration, with muted struck-through names rather than disabled buttons; pressed styling is now shared."
+    },
+    "pages/settings/SettingsSearchBar.tsx": {
+      "count": 1,
+      "reason": "The small clear action translates by half its own height to remain centered over both desktop and coarse-pointer search inputs. Preserve that placement until shared field adornments own the clear action."
+    },
+    "components/MessageList.tsx": {
+      "count": 1,
+      "reason": "Queued CopyTextButton still draws a ButtonBase with buttonClassName and appends copied feedback color. Moving that raw wrapper onto the shared copy treatment belongs to the ButtonBase pass in step 3; the floating Follow action now uses shared elevation."
+    }
+  },
+  "controls": {
+    "components/AudioMemoPanel.tsx": {
+      "count": 1,
+      "reason": "Transcript opt-in has a 44 px touch row; retain until the checkbox touch-target contract is reconciled."
+    },
+    "components/FileVhostSection.tsx": {
+      "count": 3,
+      "reason": "Access select, password input and replacement checkbox require 44 px coarse-pointer targets together; the current small-field/checkbox sizes are shorter."
+    },
+    "components/ModelSwitchModal.tsx": {
+      "count": 1,
+      "reason": "The tab strip uses the surrounding model-switch panel background; leave the shared Tabs surface decision to the non-button pass."
+    },
+    "components/ProviderBadge.tsx": {
+      "count": 1,
+      "reason": "Provider identity uses provider brand colors and soft fills via Badge custom properties. Caller-owned effort children keep their own compact layout; generic tones do not express provider branding."
+    },
+    "components/RemoteCompatibilityNotices.tsx": {
+      "count": 1,
+      "reason": "The read-only multiline command field sizes to its explicit rows instead of the shared textarea minimum. Floating notice elevation now belongs to Banner."
+    },
+    "components/SourceEditor.tsx": {
+      "count": 1,
+      "reason": "The target-file Field has panel padding around its chooser; retain the editor target-picker grouping."
+    },
+    "components/SpeechMessagePrefixControls.tsx": {
+      "count": 1,
+      "reason": "The native select reserves left padding for its caller-owned prefix icon; a field-leading-icon API is deferred."
+    },
+    "components/session-search/SearchControls.tsx": {
+      "count": 2,
+      "reason": "The search-option checkboxes align and size to the compact toolbar, with a separate touch minimum; reconcile with the checkbox family later."
+    },
+    "pages/BlameBrowser.tsx": {
+      "count": 1,
+      "reason": "Search input reserves right padding for the overlaid clear/search action, with a coarse-pointer adjustment; shared field adornments are deferred."
+    },
+    "pages/CommitRevisionPane.tsx": {
+      "count": 1,
+      "reason": "Search input reserves right padding for the overlaid clear/search action, with a coarse-pointer adjustment; shared field adornments are deferred."
+    },
+    "pages/ConversationPreviewPage.tsx": {
+      "count": 1,
+      "reason": "Source checkboxes are padded weighted host-selection rows; preserve the preview selector until the non-button pass."
+    },
+    "pages/GlobalSessionsPage.tsx": {
+      "count": 1,
+      "reason": "Manager-scope checkbox needs vertical row padding in the global-search selection toolbar."
+    },
+    "pages/settings/GatewayServicesSettings.tsx": {
+      "count": 1,
+      "reason": "The editable service id uses semibold text beside the service heading; defer the field typography decision."
+    },
+    "pages/settings/ProvidersSettings.tsx": {
+      "count": 1,
+      "reason": "Additional-model checkboxes have padded hover rows and caller-owned code labels; defer the choice-row presentation."
+    },
+    "pages/settings/SettingsSearchBar.tsx": {
+      "count": 1,
+      "reason": "Search input reserves space for its overlaid clear button at desktop and touch sizes; shared field adornments are deferred."
+    },
+    "pages/settings/UserTemplateGrant.tsx": {
+      "count": 1,
+      "reason": "Template grant checkboxes have vertical row padding for the permission list."
+    },
+    "components/ClearloopRemainingBadge.tsx": {
+      "count": 1,
+      "reason": "The passive patient counter uses its existing patient accent via --badge-color; the standard Badge tones do not express this Clearloop timing state."
+    },
+    "components/InboxContent.tsx": {
+      "count": 2,
+      "reason": "Tier counts inherit each section heading attention color via --badge-color, keeping the count aligned with the caller-owned tier heading and help cue."
+    },
+    "components/SessionProviderPhase.tsx": {
+      "count": 1,
+      "reason": "Waiting-for-input phase pills blend the warning tint with the transcript surface via Badge custom properties; preserve this phase-specific state until the non-button pass."
+    },
+    "components/ThinkingIndicator.tsx": {
+      "count": 1,
+      "reason": "The provider thinking pill uses --thinking-color and its matching soft fill via Badge custom properties; no current Badge tone follows the configurable thinking color."
+    },
+    "components/TrackerStatusBadge.tsx": {
+      "count": 1,
+      "reason": "Merged tracker status uses the existing purple merge accent and contrasting text via Badge custom properties; preserve the cross-provider status vocabulary."
+    },
+    "pages/AgentsPage.tsx": {
+      "count": 2,
+      "reason": "Provider badges use the six provider brand colors and matching soft fills via Badge custom properties; generic semantic tones would erase provider identity."
+    },
+    "pages/IssueTypeBadge.tsx": {
+      "count": 1,
+      "reason": "Issue-type badges retain Jira, pull-request and issue brand colors with contrasting text via Badge custom properties."
+    },
+    "components/LocalMediaModal.tsx": {
+      "count": 1,
+      "reason": "The image-load error Banner uses a horizontal centering transform while retaining its shrink-to-fit width over the media frame. Replacing it with stretching insets changes the error box width."
+    }
+  }
+}

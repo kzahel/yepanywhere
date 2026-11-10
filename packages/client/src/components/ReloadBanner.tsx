@@ -303,6 +303,7 @@ export function ReloadBanner({
     // `reload-banner` stays literal: the global transcript-selection rule in
     // styles/index.css and the transcript artifact smoke script name it.
     <Banner
+      elevated
       tone={showWarning ? "error" : "warning"}
       role="status"
       className={`reload-banner ${styles.banner}`}
