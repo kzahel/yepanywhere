@@ -145,7 +145,10 @@ continuation, remote executors, limited users and sandboxes cannot change a pin.
 
 **Switching an existing session's account**
 ([plan 185](../docs/tactical/185-switch-session-router-account.md)). The
-Account tab lists the provider's pool accounts and Direct.
+Account tab lists the provider's pool accounts and Direct. A direct session's
+header shows a "Direct" chip only when the router has a pool with an enabled
+account for that session's provider; a connected router serving only the other
+provider shows nothing.
 Picking one calls `POST /api/agent-auth-router/sessions/:id/switch`
 (`{routerPoolId, routerAccountId}` or `{direct: true}`), which:
 
@@ -156,7 +159,9 @@ Picking one calls `POST /api/agent-auth-router/sessions/:id/switch`
 2. saves the new binding, or removes it for Direct; a router pick saves the
    concrete model as the requested model, since the router refuses aliases;
 3. kills the provider process whatever its state, as Kill does (not
-   `/terminate`), because it holds the old credential;
+   `/terminate`), because it holds the old credential. It does not wait for
+   an in-flight turn or background work
+   ([gap](../gaps/router-switch-kills-in-flight-work.md));
 4. cancels the old allocation (best effort; cleanup stays retryable).
 
 A process that obtained the old token just before the switch and registers

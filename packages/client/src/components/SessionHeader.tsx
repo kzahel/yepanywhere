@@ -679,6 +679,7 @@ export function SessionHeader({
                 ) && (
                   <SessionRouterAccountChip
                     binding={session?.routerBinding}
+                    provider={effectiveProvider ?? null}
                     canSwitch={
                       serverHasCapability(
                         versionInfo,

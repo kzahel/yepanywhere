@@ -20,7 +20,6 @@ const { mockSwitch, mockShowToast } = vi.hoisted(() => ({
 vi.mock("../../api/client", () => ({
   api: {
     switchSessionRouterAccount: mockSwitch,
-    routerStatus: async () => ({ state: "connected", routerId: "r" }),
   },
 }));
 vi.mock("../../contexts/ToastContext", () => ({
@@ -122,11 +121,36 @@ describe("Session router account controls", () => {
     expect(onSwitched).not.toHaveBeenCalled();
   });
 
+  it("offers Direct only when a router pool serves the provider", async () => {
+    const { rerender } = render(
+      <SessionRouterAccountChip
+        binding={undefined}
+        provider="codex"
+        canSwitch
+        onDetails={() => {}}
+      />,
+    );
+    // The connected router's only pool is Claude's.
+    expect(screen.queryByRole("button")).toBeNull();
+    rerender(
+      <SessionRouterAccountChip
+        binding={undefined}
+        provider="claude"
+        canSwitch
+        onDetails={() => {}}
+      />,
+    );
+    expect((await screen.findByRole("button")).getAttribute("aria-label")).toBe(
+      "routerSwitchDirectTitle",
+    );
+  });
+
   it("opens the shared account tab without a dropdown", () => {
     const onDetails = vi.fn();
     render(
       <SessionRouterAccountChip
         binding={binding}
+        provider="claude"
         canSwitch={false}
         onDetails={onDetails}
       />,
