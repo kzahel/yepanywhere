@@ -591,8 +591,8 @@ fetches, range reads and XHTML still receive the original bytes.
 
 ### Configuration and delivery
 
-Settings → Apps owns artifact and static-vhost settings. Local Access and
-Remote Access link to that category.
+Settings → Apps owns artifact and static-vhost settings. Remote Access links
+to that category.
 Listener serving defaults off. Managed relay previews do not enable this
 listener. Enabling local access pre-fills
 `http://artifacts.localhost:<YA port>`; the complete address remains editable.

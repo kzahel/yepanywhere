@@ -33,7 +33,6 @@ import { HideInSettingsSearch } from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndo } from "./SettingsUndoContext";
 import styles from "./LocalAccessSettings.module.css";
-import { AppsSettingsLink } from "./AppsSettings";
 
 /** File-access form state — `custom` is edited as newline-separated text. */
 interface FileAccessForm {
@@ -1443,7 +1442,6 @@ export function LocalAccessSettings() {
           </SettingsItem>
         </div>
       )}
-      <AppsSettingsLink />
     </SettingsSection>
   );
 }
