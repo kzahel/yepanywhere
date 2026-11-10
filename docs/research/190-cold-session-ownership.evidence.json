@@ -1,0 +1,1974 @@
+{
+  "schemaVersion": 1,
+  "classification": "diagnostic; no production change or plan target pass",
+  "capacity": {
+    "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+    "keyFields": {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "cpuModels": ["Apple M4 Pro"],
+      "hostLogicalCpuCount": 14,
+      "affinityLogicalCpuCount": 14,
+      "cgroupCpuQuota": null,
+      "cpusetLogicalCpuCount": null,
+      "effectiveLogicalCpuCount": 14,
+      "hostMemoryBucketBytes": 51539607552,
+      "effectiveMemoryBucketBytes": 51539607552
+    },
+    "cpu": {
+      "models": ["Apple M4 Pro"],
+      "hostLogicalCpuCount": 14,
+      "affinityLogicalCpuCount": 14,
+      "cgroupQuota": null,
+      "cpusetLogicalCpuCount": null,
+      "effectiveLogicalCpuCount": 14
+    },
+    "memory": {
+      "hostTotalBytes": 51539607552,
+      "cgroupLimitBytes": null,
+      "effectiveLimitBytes": 51539607552
+    },
+    "platform": {
+      "name": "darwin",
+      "release": "25.6.0",
+      "architecture": "arm64"
+    },
+    "runtime": {
+      "node": "v25.8.2",
+      "v8": "14.1.146.11-node.24"
+    },
+    "ci": {
+      "provider": "local",
+      "runnerOs": null,
+      "runnerArch": null,
+      "runnerEnvironment": null,
+      "imageOs": null,
+      "imageVersion": null
+    }
+  },
+  "method": {
+    "runtime": "Node v25.8.2",
+    "serverSourceRevision": "ed2535a42527c2d70696f0d292dbd781f8067824",
+    "browserOpened": false,
+    "cpuProfiler": false,
+    "resourceSampler": false,
+    "inspectorPrototypePreload": true,
+    "heapSampling": "seven HeapProfiler.collectGarbage calls per stage; minimum heap and median RSS",
+    "releaseExperiment": "ordered, destructive, disposable server only; release deltas are not safe production evictions or additive exact owner sizes",
+    "limits": [
+      "one run per configuration",
+      "suite Darwin CPU/swap fields missing, so suite eligibility remains diagnostic",
+      "no source-format or provider-runtime changes",
+      "query examples omit full application filters/overlays and do not establish response parity",
+      "no Bun or other-OS qualification"
+    ],
+    "sqliteVersion": "3.53.4"
+  },
+  "runs": [
+    {
+      "label": "cold500p200",
+      "sessions": 500,
+      "projects": 200,
+      "codexShare": 0.5,
+      "extraTinyClaudeSession": 1,
+      "metadataPromptBytesRequested": 0,
+      "sourceRevision": "ed2535a42527c2d70696f0d292dbd781f8067824",
+      "startup": {
+        "listeningMs": 653,
+        "completeMs": 1412
+      },
+      "warmStartup": null,
+      "metadataStartup": null,
+      "hostBaseline": {
+        "durationMs": 3002,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.278,
+        "minimumEffectiveAvailableMemoryBytes": 32429260800,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "hostEligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.278,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 32429260800,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T08:52:32.359Z",
+        "loadAverage": [4.474, 4.753, 5.454],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 16909287424,
+          "hostAvailableBytes": 32564248576,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 32564248576,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "readerInstances": 200,
+      "readerFileMapSlots": 50000,
+      "readerPathMapSlots": 50000,
+      "catalogProjectProjectionInstances": [
+        {
+          "rowProject": {
+            "kind": "Map",
+            "size": 0
+          },
+          "members": {
+            "kind": "Map",
+            "size": 0
+          },
+          "folded": {
+            "kind": "Map",
+            "size": 0
+          }
+        }
+      ],
+      "metadataCensus": null,
+      "stages": [
+        {
+          "name": "catalog-settled",
+          "at": "2026-11-10T08:52:25.433Z",
+          "heapUsedBytes": 66725720,
+          "rssBytes": 215973888,
+          "heapSamplesBytes": [
+            66725720, 66725720, 66725720, 66725720, 66725720, 66725720, 66725720
+          ],
+          "rssSamplesBytes": [
+            215908352, 215908352, 215973888, 215973888, 215973888, 215973888,
+            215973888
+          ]
+        },
+        {
+          "name": "after-lists",
+          "at": "2026-11-10T08:52:26.856Z",
+          "heapUsedBytes": 67686808,
+          "rssBytes": 216776704,
+          "heapSamplesBytes": [
+            67686808, 67686808, 67687120, 67687120, 67687120, 67687120, 67687120
+          ],
+          "rssSamplesBytes": [
+            216645632, 216760320, 216776704, 216776704, 216776704, 216776704,
+            216776704
+          ]
+        },
+        {
+          "name": "before-destructive-release",
+          "at": "2026-11-10T08:52:29.942Z",
+          "heapUsedBytes": 67208344,
+          "rssBytes": 245743616,
+          "heapSamplesBytes": [
+            67208344, 67209280, 67209280, 67209280, 67209280, 67209280, 67209280
+          ],
+          "rssSamplesBytes": [
+            245743616, 245743616, 245743616, 245743616, 245743616, 245743616,
+            245743616
+          ]
+        },
+        {
+          "name": "release-CatalogProjectsProjection",
+          "at": "2026-11-10T08:52:30.353Z",
+          "heapUsedBytes": 67202880,
+          "rssBytes": 247906304,
+          "heapSamplesBytes": [
+            67202880, 67203816, 67203816, 67203816, 67203816, 67203984, 67203816
+          ],
+          "rssSamplesBytes": [
+            247906304, 247906304, 247906304, 247906304, 247906304, 247906304,
+            247906304
+          ]
+        },
+        {
+          "name": "release-SessionMetadataService",
+          "at": "2026-11-10T08:52:30.686Z",
+          "heapUsedBytes": 67202880,
+          "rssBytes": 251592704,
+          "heapSamplesBytes": [
+            67202880, 67203816, 67224656, 67205640, 67205640, 67205640, 67205808
+          ],
+          "rssSamplesBytes": [
+            251576320, 251576320, 251609088, 251592704, 251592704, 251592704,
+            251592704
+          ]
+        },
+        {
+          "name": "release-NotificationService",
+          "at": "2026-11-10T08:52:31.010Z",
+          "heapUsedBytes": 67202880,
+          "rssBytes": 252936192,
+          "heapSamplesBytes": [
+            67202880, 67203816, 67203816, 67203816, 67203816, 67203816, 67203984
+          ],
+          "rssSamplesBytes": [
+            252936192, 252936192, 252936192, 252936192, 252936192, 252936192,
+            252936192
+          ]
+        },
+        {
+          "name": "release-SessionCatalogService",
+          "at": "2026-11-10T08:52:31.332Z",
+          "heapUsedBytes": 66233224,
+          "rssBytes": 252149760,
+          "heapSamplesBytes": [
+            66233224, 66234160, 66234160, 66234160, 66234160, 66234160, 66234328
+          ],
+          "rssSamplesBytes": [
+            252166144, 252149760, 252149760, 252149760, 252149760, 252149760,
+            252149760
+          ]
+        },
+        {
+          "name": "release-SessionIndexService",
+          "at": "2026-11-10T08:52:31.651Z",
+          "heapUsedBytes": 66149672,
+          "rssBytes": 252198912,
+          "heapSamplesBytes": [
+            66149672, 66150608, 66150608, 66150608, 66150608, 66150608, 66150776
+          ],
+          "rssSamplesBytes": [
+            252182528, 252198912, 252198912, 252198912, 252198912, 252198912,
+            252198912
+          ]
+        },
+        {
+          "name": "release-CodexSessionReader",
+          "at": "2026-11-10T08:52:31.963Z",
+          "heapUsedBytes": 61718456,
+          "rssBytes": 247922688,
+          "heapSamplesBytes": [
+            61718456, 61719392, 61719392, 61719392, 61719392, 61719392, 61719392
+          ],
+          "rssSamplesBytes": [
+            247922688, 247906304, 247906304, 247906304, 247922688, 247922688,
+            247922688
+          ]
+        },
+        {
+          "name": "release-CodexSessionScanner",
+          "at": "2026-11-10T08:52:32.253Z",
+          "heapUsedBytes": 61654488,
+          "rssBytes": 247939072,
+          "heapSamplesBytes": [
+            61654488, 61655424, 61655424, 61655424, 61655424, 61655424, 61655424
+          ],
+          "rssSamplesBytes": [
+            247939072, 247939072, 247939072, 247939072, 247939072, 247939072,
+            247939072
+          ]
+        }
+      ],
+      "nativeStart": {
+        "at": "2026-11-10T08:52:05.834Z",
+        "cpus": [
+          {
+            "user": 432984010,
+            "nice": 0,
+            "sys": 282771490,
+            "idle": 1173560120,
+            "irq": 0
+          },
+          {
+            "user": 384903390,
+            "nice": 0,
+            "sys": 230542640,
+            "idle": 1278673960,
+            "irq": 0
+          },
+          {
+            "user": 330302340,
+            "nice": 0,
+            "sys": 180909610,
+            "idle": 1388316710,
+            "irq": 0
+          },
+          {
+            "user": 296357520,
+            "nice": 0,
+            "sys": 147426300,
+            "idle": 1460272620,
+            "irq": 0
+          },
+          {
+            "user": 233721920,
+            "nice": 0,
+            "sys": 52707200,
+            "idle": 1624399350,
+            "irq": 0
+          },
+          {
+            "user": 226555260,
+            "nice": 0,
+            "sys": 50421200,
+            "idle": 1634096420,
+            "irq": 0
+          },
+          {
+            "user": 222012860,
+            "nice": 0,
+            "sys": 49023550,
+            "idle": 1640213760,
+            "irq": 0
+          },
+          {
+            "user": 219397420,
+            "nice": 0,
+            "sys": 48268940,
+            "idle": 1643698790,
+            "irq": 0
+          },
+          {
+            "user": 217746380,
+            "nice": 0,
+            "sys": 47756350,
+            "idle": 1645955200,
+            "irq": 0
+          },
+          {
+            "user": 320070440,
+            "nice": 0,
+            "sys": 78484290,
+            "idle": 1510069210,
+            "irq": 0
+          },
+          {
+            "user": 301648290,
+            "nice": 0,
+            "sys": 71545910,
+            "idle": 1535742330,
+            "irq": 0
+          },
+          {
+            "user": 279910910,
+            "nice": 0,
+            "sys": 63740840,
+            "idle": 1565858490,
+            "irq": 0
+          },
+          {
+            "user": 273070870,
+            "nice": 0,
+            "sys": 61570830,
+            "idle": 1575155100,
+            "irq": 0
+          },
+          {
+            "user": 269610310,
+            "nice": 0,
+            "sys": 60213660,
+            "idle": 1580215190,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "nativeBaselineEnd": {
+        "at": "2026-11-10T08:52:08.838Z",
+        "cpus": [
+          {
+            "user": 432985020,
+            "nice": 0,
+            "sys": 282772030,
+            "idle": 1173561520,
+            "irq": 0
+          },
+          {
+            "user": 384904360,
+            "nice": 0,
+            "sys": 230543100,
+            "idle": 1278675490,
+            "irq": 0
+          },
+          {
+            "user": 330303260,
+            "nice": 0,
+            "sys": 180909980,
+            "idle": 1388318390,
+            "irq": 0
+          },
+          {
+            "user": 296358380,
+            "nice": 0,
+            "sys": 147426630,
+            "idle": 1460274400,
+            "irq": 0
+          },
+          {
+            "user": 233721950,
+            "nice": 0,
+            "sys": 52707210,
+            "idle": 1624402310,
+            "irq": 0
+          },
+          {
+            "user": 226555270,
+            "nice": 0,
+            "sys": 50421210,
+            "idle": 1634099400,
+            "irq": 0
+          },
+          {
+            "user": 222012870,
+            "nice": 0,
+            "sys": 49023550,
+            "idle": 1640216750,
+            "irq": 0
+          },
+          {
+            "user": 219397430,
+            "nice": 0,
+            "sys": 48268940,
+            "idle": 1643701780,
+            "irq": 0
+          },
+          {
+            "user": 217746390,
+            "nice": 0,
+            "sys": 47756350,
+            "idle": 1645958190,
+            "irq": 0
+          },
+          {
+            "user": 320070620,
+            "nice": 0,
+            "sys": 78484490,
+            "idle": 1510071830,
+            "irq": 0
+          },
+          {
+            "user": 301648440,
+            "nice": 0,
+            "sys": 71546080,
+            "idle": 1535745020,
+            "irq": 0
+          },
+          {
+            "user": 279911090,
+            "nice": 0,
+            "sys": 63740950,
+            "idle": 1565861210,
+            "irq": 0
+          },
+          {
+            "user": 273071050,
+            "nice": 0,
+            "sys": 61570960,
+            "idle": 1575157790,
+            "irq": 0
+          },
+          {
+            "user": 269610450,
+            "nice": 0,
+            "sys": 60213830,
+            "idle": 1580217880,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "nativeEnd": {
+        "at": "2026-11-10T08:52:32.356Z",
+        "cpus": [
+          {
+            "user": 432992880,
+            "nice": 0,
+            "sys": 282776080,
+            "idle": 1173572830,
+            "irq": 0
+          },
+          {
+            "user": 384912150,
+            "nice": 0,
+            "sys": 230546560,
+            "idle": 1278687490,
+            "irq": 0
+          },
+          {
+            "user": 330310210,
+            "nice": 0,
+            "sys": 180912980,
+            "idle": 1388331710,
+            "irq": 0
+          },
+          {
+            "user": 296365250,
+            "nice": 0,
+            "sys": 147429210,
+            "idle": 1460288290,
+            "irq": 0
+          },
+          {
+            "user": 233723030,
+            "nice": 0,
+            "sys": 52707280,
+            "idle": 1624424660,
+            "irq": 0
+          },
+          {
+            "user": 226556240,
+            "nice": 0,
+            "sys": 50421270,
+            "idle": 1634121890,
+            "irq": 0
+          },
+          {
+            "user": 222013770,
+            "nice": 0,
+            "sys": 49023600,
+            "idle": 1640239310,
+            "irq": 0
+          },
+          {
+            "user": 219398350,
+            "nice": 0,
+            "sys": 48268980,
+            "idle": 1643724340,
+            "irq": 0
+          },
+          {
+            "user": 217747300,
+            "nice": 0,
+            "sys": 47756390,
+            "idle": 1645980760,
+            "irq": 0
+          },
+          {
+            "user": 320072680,
+            "nice": 0,
+            "sys": 78485060,
+            "idle": 1510092680,
+            "irq": 0
+          },
+          {
+            "user": 301649940,
+            "nice": 0,
+            "sys": 71546560,
+            "idle": 1535766530,
+            "irq": 0
+          },
+          {
+            "user": 279912450,
+            "nice": 0,
+            "sys": 63741230,
+            "idle": 1565883070,
+            "irq": 0
+          },
+          {
+            "user": 273072460,
+            "nice": 0,
+            "sys": 61571230,
+            "idle": 1575179610,
+            "irq": 0
+          },
+          {
+            "user": 269611720,
+            "nice": 0,
+            "sys": 60214160,
+            "idle": 1580239780,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      }
+    },
+    {
+      "label": "cold5000",
+      "sessions": 5000,
+      "projects": 200,
+      "codexShare": 0.5,
+      "extraTinyClaudeSession": 1,
+      "metadataPromptBytesRequested": 1024,
+      "sourceRevision": "ed2535a42527c2d70696f0d292dbd781f8067824",
+      "startup": {
+        "listeningMs": 667,
+        "completeMs": 3132
+      },
+      "warmStartup": {
+        "listeningMs": 713,
+        "completeMs": 713
+      },
+      "metadataStartup": {
+        "listeningMs": 705,
+        "completeMs": 705
+      },
+      "hostBaseline": {
+        "durationMs": 3002,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.332,
+        "minimumEffectiveAvailableMemoryBytes": 31428395008,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "hostEligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.332,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 31428395008,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T08:46:07.581Z",
+        "loadAverage": [4.814, 6.309, 6.278],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 14815789056,
+          "hostAvailableBytes": 31387009024,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 31387009024,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "readerInstances": 200,
+      "readerFileMapSlots": 500000,
+      "readerPathMapSlots": 500000,
+      "catalogProjectProjectionInstances": [
+        {
+          "rowProject": {
+            "kind": "Map",
+            "size": 0
+          },
+          "members": {
+            "kind": "Map",
+            "size": 0
+          },
+          "folded": {
+            "kind": "Map",
+            "size": 0
+          }
+        }
+      ],
+      "metadataCensus": [
+        {
+          "sessions": 5001,
+          "promptCharacters": 5053791
+        }
+      ],
+      "stages": [
+        {
+          "name": "catalog-settled",
+          "at": "2026-11-10T08:45:31.870Z",
+          "heapUsedBytes": 135856968,
+          "rssBytes": 354828288,
+          "heapSamplesBytes": [
+            135868568, 135856968, 135856968, 135856968, 135856968, 135856968,
+            135856968
+          ],
+          "rssSamplesBytes": [
+            354811904, 354828288, 354828288, 354828288, 354828288, 354828288,
+            354828288
+          ]
+        },
+        {
+          "name": "after-lists",
+          "at": "2026-11-10T08:45:33.521Z",
+          "heapUsedBytes": 139469544,
+          "rssBytes": 356794368,
+          "heapSamplesBytes": [
+            139469544, 139469544, 139469928, 139469928, 139470240, 139470240,
+            139470240
+          ],
+          "rssSamplesBytes": [
+            356794368, 356794368, 356794368, 356794368, 356794368, 356794368,
+            356794368
+          ]
+        },
+        {
+          "name": "before-destructive-release",
+          "at": "2026-11-10T08:45:38.985Z",
+          "heapUsedBytes": 138810832,
+          "rssBytes": 426557440,
+          "heapSamplesBytes": [
+            138810832, 138810832, 138811768, 138811768, 138811768, 138811768,
+            138811768
+          ],
+          "rssSamplesBytes": [
+            426557440, 426557440, 426557440, 426557440, 426557440, 426557440,
+            426557440
+          ]
+        },
+        {
+          "name": "release-CatalogProjectsProjection",
+          "at": "2026-11-10T08:45:39.646Z",
+          "heapUsedBytes": 138809936,
+          "rssBytes": 426672128,
+          "heapSamplesBytes": [
+            138809936, 138809936, 138810872, 138811040, 138810872, 138810872,
+            138810872
+          ],
+          "rssSamplesBytes": [
+            426672128, 426672128, 426672128, 426672128, 426672128, 426672128,
+            426672128
+          ]
+        },
+        {
+          "name": "release-SessionMetadataService",
+          "at": "2026-11-10T08:45:40.365Z",
+          "heapUsedBytes": 138809936,
+          "rssBytes": 426672128,
+          "heapSamplesBytes": [
+            138809936, 138809936, 138811040, 138810872, 138810872, 138810872,
+            138810872
+          ],
+          "rssSamplesBytes": [
+            426672128, 426672128, 426672128, 426672128, 426672128, 426672128,
+            426672128
+          ]
+        },
+        {
+          "name": "release-NotificationService",
+          "at": "2026-11-10T08:45:41.039Z",
+          "heapUsedBytes": 138811680,
+          "rssBytes": 426672128,
+          "heapSamplesBytes": [
+            138812688, 138811680, 138812616, 138812784, 138812616, 138812616,
+            138812616
+          ],
+          "rssSamplesBytes": [
+            426672128, 426672128, 426672128, 426672128, 426672128, 426672128,
+            426672128
+          ]
+        },
+        {
+          "name": "release-SessionCatalogService",
+          "at": "2026-11-10T08:45:41.684Z",
+          "heapUsedBytes": 129210976,
+          "rssBytes": 417497088,
+          "heapSamplesBytes": [
+            129210976, 129210976, 129211912, 129212080, 129211912, 129211912,
+            129211912
+          ],
+          "rssSamplesBytes": [
+            417677312, 417497088, 417497088, 417497088, 417497088, 417497088,
+            417497088
+          ]
+        },
+        {
+          "name": "release-SessionIndexService",
+          "at": "2026-11-10T08:45:42.275Z",
+          "heapUsedBytes": 129124664,
+          "rssBytes": 417497088,
+          "heapSamplesBytes": [
+            129124664, 129124664, 129125600, 129125768, 129125600, 129125600,
+            129125600
+          ],
+          "rssSamplesBytes": [
+            417497088, 417497088, 417497088, 417497088, 417497088, 417497088,
+            417497088
+          ]
+        },
+        {
+          "name": "release-CodexSessionReader",
+          "at": "2026-11-10T08:45:42.789Z",
+          "heapUsedBytes": 67285992,
+          "rssBytes": 354877440,
+          "heapSamplesBytes": [
+            67285992, 67285992, 67286928, 67286928, 67286928, 67286928, 67287096
+          ],
+          "rssSamplesBytes": [
+            354861056, 354861056, 354861056, 354877440, 354877440, 354877440,
+            354877440
+          ]
+        },
+        {
+          "name": "release-CodexSessionScanner",
+          "at": "2026-11-10T08:45:43.116Z",
+          "heapUsedBytes": 67285992,
+          "rssBytes": 354893824,
+          "heapSamplesBytes": [
+            67285992, 67285992, 67286928, 67286928, 67286928, 67286928, 67287096
+          ],
+          "rssSamplesBytes": [
+            354877440, 354877440, 354893824, 354893824, 354893824, 354893824,
+            354893824
+          ]
+        },
+        {
+          "name": "warm-restart-settled",
+          "at": "2026-11-10T08:45:54.207Z",
+          "heapUsedBytes": 138823680,
+          "rssBytes": 279248896,
+          "heapSamplesBytes": [
+            138823680, 138824408, 138824408, 138824408, 138824408, 138824408,
+            138824408
+          ],
+          "rssSamplesBytes": [
+            279248896, 279216128, 279232512, 279248896, 279248896, 279248896,
+            279248896
+          ]
+        },
+        {
+          "name": "warm-after-lists",
+          "at": "2026-11-10T08:45:54.821Z",
+          "heapUsedBytes": 139769024,
+          "rssBytes": 279969792,
+          "heapSamplesBytes": [
+            139769024, 139787720, 139780888, 139780888, 139781824, 139781824,
+            139781824
+          ],
+          "rssSamplesBytes": [
+            279871488, 279887872, 279969792, 279969792, 279969792, 279969792,
+            279969792
+          ]
+        },
+        {
+          "name": "metadata-restart-settled",
+          "at": "2026-11-10T08:46:06.456Z",
+          "heapUsedBytes": 145403328,
+          "rssBytes": 285032448,
+          "heapSamplesBytes": [
+            145403328, 145404056, 145404056, 145404056, 145404056, 145404056,
+            145404056
+          ],
+          "rssSamplesBytes": [
+            284934144, 284983296, 285032448, 285032448, 285032448, 285065216,
+            285065216
+          ]
+        },
+        {
+          "name": "metadata-after-lists",
+          "at": "2026-11-10T08:46:07.037Z",
+          "heapUsedBytes": 146288168,
+          "rssBytes": 285605888,
+          "heapSamplesBytes": [
+            146288168, 146306864, 146294688, 146294688, 146295624, 146295904,
+            146295328
+          ],
+          "rssSamplesBytes": [
+            285589504, 285605888, 285605888, 285605888, 285605888, 285605888,
+            285605888
+          ]
+        }
+      ]
+    },
+    {
+      "label": "cold50000",
+      "sessions": 50000,
+      "projects": 200,
+      "codexShare": 0.5,
+      "extraTinyClaudeSession": 1,
+      "metadataPromptBytesRequested": 1024,
+      "sourceRevision": "ed2535a42527c2d70696f0d292dbd781f8067824",
+      "startup": {
+        "listeningMs": 655,
+        "completeMs": 24858
+      },
+      "warmStartup": {
+        "listeningMs": 1305,
+        "completeMs": 1305
+      },
+      "metadataStartup": {
+        "listeningMs": 1525,
+        "completeMs": 1525
+      },
+      "hostBaseline": {
+        "durationMs": 3002,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.291,
+        "minimumEffectiveAvailableMemoryBytes": 32126255104,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "hostEligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.291,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 32126255104,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T08:50:18.624Z",
+        "loadAverage": [3.981, 4.779, 5.577],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 14881603584,
+          "hostAvailableBytes": 32421675008,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 32421675008,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "readerInstances": 200,
+      "readerFileMapSlots": 5000000,
+      "readerPathMapSlots": 5000000,
+      "catalogProjectProjectionInstances": [
+        {
+          "rowProject": {
+            "kind": "Map",
+            "size": 0
+          },
+          "members": {
+            "kind": "Map",
+            "size": 0
+          },
+          "folded": {
+            "kind": "Map",
+            "size": 0
+          }
+        }
+      ],
+      "metadataCensus": [
+        {
+          "sessions": 50001,
+          "promptCharacters": 50628793
+        }
+      ],
+      "stages": [
+        {
+          "name": "catalog-settled",
+          "at": "2026-11-10T08:47:51.500Z",
+          "heapUsedBytes": 714118096,
+          "rssBytes": 1145798656,
+          "heapSamplesBytes": [
+            714118096, 714118096, 714118096, 714118096, 714118096, 714118096,
+            714118096
+          ],
+          "rssSamplesBytes": [
+            1168670720, 1145503744, 1145765888, 1145798656, 1145798656,
+            1145798656, 1145798656
+          ]
+        },
+        {
+          "name": "after-lists",
+          "at": "2026-11-10T08:47:56.201Z",
+          "heapUsedBytes": 749917808,
+          "rssBytes": 1188151296,
+          "heapSamplesBytes": [
+            749917808, 749917808, 749918120, 749918120, 749918120, 749918120,
+            749918120
+          ],
+          "rssSamplesBytes": [
+            1188888576, 1188118528, 1188118528, 1188134912, 1188151296,
+            1188151296, 1188151296
+          ]
+        },
+        {
+          "name": "before-destructive-release",
+          "at": "2026-11-10T08:48:24.551Z",
+          "heapUsedBytes": 749231976,
+          "rssBytes": 1561837568,
+          "heapSamplesBytes": [
+            749231976, 749232912, 749232912, 749232912, 749232912, 749232912,
+            749232912
+          ],
+          "rssSamplesBytes": [
+            1561837568, 1561837568, 1561837568, 1561837568, 1561837568,
+            1561837568, 1561837568
+          ]
+        },
+        {
+          "name": "release-CatalogProjectsProjection",
+          "at": "2026-11-10T08:48:28.677Z",
+          "heapUsedBytes": 749231792,
+          "rssBytes": 1561853952,
+          "heapSamplesBytes": [
+            749231792, 749232560, 749232560, 749232560, 749232560, 749232560,
+            749232560
+          ],
+          "rssSamplesBytes": [
+            1561853952, 1561853952, 1561853952, 1561853952, 1561853952,
+            1561853952, 1561853952
+          ]
+        },
+        {
+          "name": "release-SessionMetadataService",
+          "at": "2026-11-10T08:48:32.821Z",
+          "heapUsedBytes": 749230096,
+          "rssBytes": 1562132480,
+          "heapSamplesBytes": [
+            749230096, 749230864, 749230864, 749230864, 749246832, 749232560,
+            749232560
+          ],
+          "rssSamplesBytes": [
+            1562132480, 1562132480, 1562132480, 1562132480, 1562132480,
+            1562132480, 1562132480
+          ]
+        },
+        {
+          "name": "release-NotificationService",
+          "at": "2026-11-10T08:48:36.839Z",
+          "heapUsedBytes": 749230096,
+          "rssBytes": 1562132480,
+          "heapSamplesBytes": [
+            749230096, 749230864, 749230864, 749230864, 749230864, 749230864,
+            749230864
+          ],
+          "rssSamplesBytes": [
+            1562132480, 1562132480, 1562132480, 1562132480, 1562132480,
+            1562132480, 1562132480
+          ]
+        },
+        {
+          "name": "release-SessionCatalogService",
+          "at": "2026-11-10T08:48:40.751Z",
+          "heapUsedBytes": 653595072,
+          "rssBytes": 1480228864,
+          "heapSamplesBytes": [
+            653595072, 653595840, 653595840, 653595840, 653595840, 653595840,
+            653595840
+          ],
+          "rssSamplesBytes": [
+            1480261632, 1480228864, 1480228864, 1480228864, 1480228864,
+            1480228864, 1480228864
+          ]
+        },
+        {
+          "name": "release-SessionIndexService",
+          "at": "2026-11-10T08:48:43.943Z",
+          "heapUsedBytes": 653502976,
+          "rssBytes": 1480245248,
+          "heapSamplesBytes": [
+            653502976, 653503744, 653504680, 653504176, 653504176, 653504176,
+            653504176
+          ],
+          "rssSamplesBytes": [
+            1480228864, 1480228864, 1480228864, 1480245248, 1480245248,
+            1480245248, 1480245248
+          ]
+        },
+        {
+          "name": "release-CodexSessionReader",
+          "at": "2026-11-10T08:48:46.389Z",
+          "heapUsedBytes": 126539488,
+          "rssBytes": 944357376,
+          "heapSamplesBytes": [
+            126539488, 126540424, 126540592, 126540424, 126540424, 126540424,
+            126540424
+          ],
+          "rssSamplesBytes": [
+            944357376, 944324608, 944340992, 944340992, 944357376, 944357376,
+            944357376
+          ]
+        },
+        {
+          "name": "release-CodexSessionScanner",
+          "at": "2026-11-10T08:48:47.139Z",
+          "heapUsedBytes": 120464928,
+          "rssBytes": 939147264,
+          "heapSamplesBytes": [
+            120464928, 120465864, 120465864, 120466032, 120465864, 120465864,
+            120465864
+          ],
+          "rssSamplesBytes": [
+            939147264, 939114496, 939130880, 939147264, 939147264, 939147264,
+            939147264
+          ]
+        },
+        {
+          "name": "warm-restart-settled",
+          "at": "2026-11-10T08:48:59.825Z",
+          "heapUsedBytes": 755647488,
+          "rssBytes": 943980544,
+          "heapSamplesBytes": [
+            755647744, 755647744, 755660232, 755647488, 755647600, 755647488,
+            755647488
+          ],
+          "rssSamplesBytes": [
+            951402496, 942833664, 943898624, 943898624, 943980544, 943980544,
+            943980544
+          ]
+        },
+        {
+          "name": "warm-after-lists",
+          "at": "2026-11-10T08:49:03.199Z",
+          "heapUsedBytes": 756600576,
+          "rssBytes": 949043200,
+          "heapSamplesBytes": [
+            756613944, 756600576, 756601512, 756601512, 756601512, 756601512,
+            756601512
+          ],
+          "rssSamplesBytes": [
+            949026816, 949010432, 949026816, 949043200, 949059584, 949059584,
+            949059584
+          ]
+        },
+        {
+          "name": "metadata-restart-settled",
+          "at": "2026-11-10T08:50:12.457Z",
+          "heapUsedBytes": 825594984,
+          "rssBytes": 1013317632,
+          "heapSamplesBytes": [
+            825595240, 825595240, 825607728, 825594984, 825594984, 825594984,
+            825594984
+          ],
+          "rssSamplesBytes": [
+            1013334016, 1013301248, 1013317632, 1013317632, 1013317632,
+            1013317632, 1013317632
+          ]
+        },
+        {
+          "name": "metadata-after-lists",
+          "at": "2026-11-10T08:50:15.833Z",
+          "heapUsedBytes": 826550184,
+          "rssBytes": 1018888192,
+          "heapSamplesBytes": [
+            826562976, 826550184, 826551400, 826550824, 826550824, 826550824,
+            826550824
+          ],
+          "rssSamplesBytes": [
+            1016725504, 1017823232, 1017823232, 1018888192, 1018888192,
+            1018888192, 1018904576
+          ]
+        }
+      ]
+    },
+    {
+      "label": "cold5000p20",
+      "sessions": 5000,
+      "projects": 20,
+      "codexShare": 0.5,
+      "extraTinyClaudeSession": 1,
+      "metadataPromptBytesRequested": 16384,
+      "sourceRevision": "ed2535a42527c2d70696f0d292dbd781f8067824",
+      "startup": {
+        "listeningMs": 667,
+        "completeMs": 2879
+      },
+      "warmStartup": {
+        "listeningMs": 715,
+        "completeMs": 715
+      },
+      "metadataStartup": {
+        "listeningMs": 704,
+        "completeMs": 704
+      },
+      "hostBaseline": {
+        "durationMs": 3002,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.383,
+        "minimumEffectiveAvailableMemoryBytes": 32596721664,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "hostEligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.383,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 32596721664,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T08:51:28.232Z",
+        "loadAverage": [4.785, 4.924, 5.571],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 16672129024,
+          "hostAvailableBytes": 32518946816,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 32518946816,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "readerInstances": 20,
+      "readerFileMapSlots": 50000,
+      "readerPathMapSlots": 50000,
+      "catalogProjectProjectionInstances": [
+        {
+          "rowProject": {
+            "kind": "Map",
+            "size": 0
+          },
+          "members": {
+            "kind": "Map",
+            "size": 0
+          },
+          "folded": {
+            "kind": "Map",
+            "size": 0
+          }
+        }
+      ],
+      "metadataCensus": [
+        {
+          "sessions": 5001,
+          "promptCharacters": 81869151
+        }
+      ],
+      "stages": [
+        {
+          "name": "catalog-settled",
+          "at": "2026-11-10T08:50:56.411Z",
+          "heapUsedBytes": 79329504,
+          "rssBytes": 315359232,
+          "heapSamplesBytes": [
+            79329504, 79329504, 79329504, 79329504, 79329504, 79329504, 79329504
+          ],
+          "rssSamplesBytes": [
+            315342848, 315359232, 315359232, 315359232, 315359232, 315359232,
+            315359232
+          ]
+        },
+        {
+          "name": "after-lists",
+          "at": "2026-11-10T08:50:57.990Z",
+          "heapUsedBytes": 82909384,
+          "rssBytes": 319242240,
+          "heapSamplesBytes": [
+            82909384, 82909384, 82909696, 82909696, 82909696, 82909696, 82909696
+          ],
+          "rssSamplesBytes": [
+            319258624, 319225856, 319225856, 319225856, 319242240, 319242240,
+            319242240
+          ]
+        },
+        {
+          "name": "before-destructive-release",
+          "at": "2026-11-10T08:51:01.821Z",
+          "heapUsedBytes": 82252560,
+          "rssBytes": 361758720,
+          "heapSamplesBytes": [
+            82252560, 82253496, 82253496, 82253496, 82253496, 82253496, 82253496
+          ],
+          "rssSamplesBytes": [
+            361742336, 361742336, 361742336, 361758720, 361758720, 361758720,
+            361758720
+          ]
+        },
+        {
+          "name": "release-CatalogProjectsProjection",
+          "at": "2026-11-10T08:51:02.261Z",
+          "heapUsedBytes": 82252208,
+          "rssBytes": 361758720,
+          "heapSamplesBytes": [
+            82252208, 82253144, 82253144, 82253144, 82253144, 82253144, 82253144
+          ],
+          "rssSamplesBytes": [
+            361758720, 361758720, 361758720, 361758720, 361758720, 361758720,
+            361758720
+          ]
+        },
+        {
+          "name": "release-SessionMetadataService",
+          "at": "2026-11-10T08:51:02.690Z",
+          "heapUsedBytes": 82252664,
+          "rssBytes": 361955328,
+          "heapSamplesBytes": [
+            82252664, 82253600, 82253600, 82253600, 82253600, 82253768, 82253600
+          ],
+          "rssSamplesBytes": [
+            361955328, 361955328, 361955328, 361955328, 361955328, 361955328,
+            361955328
+          ]
+        },
+        {
+          "name": "release-NotificationService",
+          "at": "2026-11-10T08:51:03.126Z",
+          "heapUsedBytes": 82252120,
+          "rssBytes": 362446848,
+          "heapSamplesBytes": [
+            82252120, 82253056, 82253056, 82253056, 82253056, 82253224, 82253056
+          ],
+          "rssSamplesBytes": [
+            362430464, 362430464, 362446848, 362446848, 362446848, 362446848,
+            362446848
+          ]
+        },
+        {
+          "name": "release-SessionCatalogService",
+          "at": "2026-11-10T08:51:03.542Z",
+          "heapUsedBytes": 72588728,
+          "rssBytes": 352206848,
+          "heapSamplesBytes": [
+            72588728, 72589664, 72589664, 72589664, 72589664, 72589832, 72589664
+          ],
+          "rssSamplesBytes": [
+            352256000, 352190464, 352190464, 352206848, 352206848, 352206848,
+            352206848
+          ]
+        },
+        {
+          "name": "release-SessionIndexService",
+          "at": "2026-11-10T08:51:03.906Z",
+          "heapUsedBytes": 72579832,
+          "rssBytes": 352206848,
+          "heapSamplesBytes": [
+            72579832, 72580768, 72580768, 72580768, 72580768, 72580768, 72580768
+          ],
+          "rssSamplesBytes": [
+            352206848, 352206848, 352206848, 352206848, 352206848, 352206848,
+            352206848
+          ]
+        },
+        {
+          "name": "release-CodexSessionReader",
+          "at": "2026-11-10T08:51:04.264Z",
+          "heapUsedBytes": 66395848,
+          "rssBytes": 346898432,
+          "heapSamplesBytes": [
+            66395848, 66396784, 66396784, 66396784, 66396784, 66396784, 66396952
+          ],
+          "rssSamplesBytes": [
+            346914816, 346898432, 346898432, 346898432, 346898432, 346898432,
+            346898432
+          ]
+        },
+        {
+          "name": "release-CodexSessionScanner",
+          "at": "2026-11-10T08:51:04.609Z",
+          "heapUsedBytes": 65770912,
+          "rssBytes": 346488832,
+          "heapSamplesBytes": [
+            65770912, 65771848, 65771848, 65771848, 65771848, 65771848, 65772016
+          ],
+          "rssSamplesBytes": [
+            346472448, 346488832, 346488832, 346488832, 346488832, 346488832,
+            346488832
+          ]
+        },
+        {
+          "name": "warm-restart-settled",
+          "at": "2026-11-10T08:51:15.605Z",
+          "heapUsedBytes": 82392200,
+          "rssBytes": 205389824,
+          "heapSamplesBytes": [
+            82392200, 82392200, 82392200, 82392200, 82392200, 82392200, 82392200
+          ],
+          "rssSamplesBytes": [
+            205324288, 205389824, 205389824, 205389824, 205389824, 205389824,
+            205389824
+          ]
+        },
+        {
+          "name": "warm-after-lists",
+          "at": "2026-11-10T08:51:16.132Z",
+          "heapUsedBytes": 83250040,
+          "rssBytes": 206077952,
+          "heapSamplesBytes": [
+            83263408, 83250040, 83250976, 83250976, 83250976, 83250976, 83250976
+          ],
+          "rssSamplesBytes": [
+            206143488, 205979648, 206045184, 206077952, 206077952, 206077952,
+            206077952
+          ]
+        },
+        {
+          "name": "metadata-restart-settled",
+          "at": "2026-11-10T08:51:27.219Z",
+          "heapUsedBytes": 165741968,
+          "rssBytes": 295829504,
+          "heapSamplesBytes": [
+            165741968, 165741968, 165741968, 165741968, 165741968, 165741968,
+            165741968
+          ],
+          "rssSamplesBytes": [
+            295845888, 295829504, 295829504, 295829504, 295829504, 295829504,
+            295878656
+          ]
+        },
+        {
+          "name": "metadata-after-lists",
+          "at": "2026-11-10T08:51:27.788Z",
+          "heapUsedBytes": 166676016,
+          "rssBytes": 299565056,
+          "heapSamplesBytes": [
+            166688808, 166676016, 166676952, 166676952, 166676952, 166676952,
+            166676952
+          ],
+          "rssSamplesBytes": [
+            299581440, 299565056, 299565056, 299565056, 299565056, 299565056,
+            299565056
+          ]
+        }
+      ],
+      "nativeStart": {
+        "at": "2026-11-10T08:50:35.323Z",
+        "cpus": [
+          {
+            "user": 432953310,
+            "nice": 0,
+            "sys": 282754820,
+            "idle": 1173518200,
+            "irq": 0
+          },
+          {
+            "user": 384873500,
+            "nice": 0,
+            "sys": 230528040,
+            "idle": 1278629060,
+            "irq": 0
+          },
+          {
+            "user": 330274040,
+            "nice": 0,
+            "sys": 180896740,
+            "idle": 1388268350,
+            "irq": 0
+          },
+          {
+            "user": 296331970,
+            "nice": 0,
+            "sys": 147415370,
+            "idle": 1460219380,
+            "irq": 0
+          },
+          {
+            "user": 233719180,
+            "nice": 0,
+            "sys": 52706600,
+            "idle": 1624312220,
+            "irq": 0
+          },
+          {
+            "user": 226552800,
+            "nice": 0,
+            "sys": 50420760,
+            "idle": 1634008880,
+            "irq": 0
+          },
+          {
+            "user": 222010600,
+            "nice": 0,
+            "sys": 49023070,
+            "idle": 1640126040,
+            "irq": 0
+          },
+          {
+            "user": 219395190,
+            "nice": 0,
+            "sys": 48268520,
+            "idle": 1643610980,
+            "irq": 0
+          },
+          {
+            "user": 217744070,
+            "nice": 0,
+            "sys": 47755990,
+            "idle": 1645867410,
+            "irq": 0
+          },
+          {
+            "user": 320064810,
+            "nice": 0,
+            "sys": 78482170,
+            "idle": 1509986590,
+            "irq": 0
+          },
+          {
+            "user": 301644060,
+            "nice": 0,
+            "sys": 71544470,
+            "idle": 1535657610,
+            "irq": 0
+          },
+          {
+            "user": 279907200,
+            "nice": 0,
+            "sys": 63739880,
+            "idle": 1565772760,
+            "irq": 0
+          },
+          {
+            "user": 273067420,
+            "nice": 0,
+            "sys": 61569900,
+            "idle": 1575069070,
+            "irq": 0
+          },
+          {
+            "user": 269607010,
+            "nice": 0,
+            "sys": 60212820,
+            "idle": 1580128910,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "nativeBaselineEnd": {
+        "at": "2026-11-10T08:50:38.328Z",
+        "cpus": [
+          {
+            "user": 432954340,
+            "nice": 0,
+            "sys": 282755420,
+            "idle": 1173519540,
+            "irq": 0
+          },
+          {
+            "user": 384874420,
+            "nice": 0,
+            "sys": 230528550,
+            "idle": 1278630600,
+            "irq": 0
+          },
+          {
+            "user": 330275040,
+            "nice": 0,
+            "sys": 180897210,
+            "idle": 1388269860,
+            "irq": 0
+          },
+          {
+            "user": 296332800,
+            "nice": 0,
+            "sys": 147415750,
+            "idle": 1460221150,
+            "irq": 0
+          },
+          {
+            "user": 233719180,
+            "nice": 0,
+            "sys": 52706610,
+            "idle": 1624315220,
+            "irq": 0
+          },
+          {
+            "user": 226552800,
+            "nice": 0,
+            "sys": 50420760,
+            "idle": 1634011880,
+            "irq": 0
+          },
+          {
+            "user": 222010600,
+            "nice": 0,
+            "sys": 49023070,
+            "idle": 1640129040,
+            "irq": 0
+          },
+          {
+            "user": 219395190,
+            "nice": 0,
+            "sys": 48268520,
+            "idle": 1643613980,
+            "irq": 0
+          },
+          {
+            "user": 217744080,
+            "nice": 0,
+            "sys": 47755990,
+            "idle": 1645870410,
+            "irq": 0
+          },
+          {
+            "user": 320064870,
+            "nice": 0,
+            "sys": 78482210,
+            "idle": 1509989500,
+            "irq": 0
+          },
+          {
+            "user": 301644090,
+            "nice": 0,
+            "sys": 71544480,
+            "idle": 1535660580,
+            "irq": 0
+          },
+          {
+            "user": 279907210,
+            "nice": 0,
+            "sys": 63739880,
+            "idle": 1565775740,
+            "irq": 0
+          },
+          {
+            "user": 273067420,
+            "nice": 0,
+            "sys": 61569900,
+            "idle": 1575072060,
+            "irq": 0
+          },
+          {
+            "user": 269607030,
+            "nice": 0,
+            "sys": 60212820,
+            "idle": 1580131900,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "nativeEnd": {
+        "at": "2026-11-10T08:51:28.229Z",
+        "cpus": [
+          {
+            "user": 432971440,
+            "nice": 0,
+            "sys": 282764260,
+            "idle": 1173542860,
+            "irq": 0
+          },
+          {
+            "user": 384890960,
+            "nice": 0,
+            "sys": 230536330,
+            "idle": 1278655590,
+            "irq": 0
+          },
+          {
+            "user": 330290660,
+            "nice": 0,
+            "sys": 180904000,
+            "idle": 1388296840,
+            "irq": 0
+          },
+          {
+            "user": 296346870,
+            "nice": 0,
+            "sys": 147421580,
+            "idle": 1460250730,
+            "irq": 0
+          },
+          {
+            "user": 233721330,
+            "nice": 0,
+            "sys": 52706860,
+            "idle": 1624362680,
+            "irq": 0
+          },
+          {
+            "user": 226554590,
+            "nice": 0,
+            "sys": 50421040,
+            "idle": 1634059660,
+            "irq": 0
+          },
+          {
+            "user": 222012230,
+            "nice": 0,
+            "sys": 49023290,
+            "idle": 1640177050,
+            "irq": 0
+          },
+          {
+            "user": 219396730,
+            "nice": 0,
+            "sys": 48268760,
+            "idle": 1643662060,
+            "irq": 0
+          },
+          {
+            "user": 217745700,
+            "nice": 0,
+            "sys": 47756180,
+            "idle": 1645918450,
+            "irq": 0
+          },
+          {
+            "user": 320068820,
+            "nice": 0,
+            "sys": 78483430,
+            "idle": 1510034120,
+            "irq": 0
+          },
+          {
+            "user": 301647300,
+            "nice": 0,
+            "sys": 71545370,
+            "idle": 1535706300,
+            "irq": 0
+          },
+          {
+            "user": 279910270,
+            "nice": 0,
+            "sys": 63740470,
+            "idle": 1565821930,
+            "irq": 0
+          },
+          {
+            "user": 273070340,
+            "nice": 0,
+            "sys": 61570510,
+            "idle": 1575118380,
+            "irq": 0
+          },
+          {
+            "user": 269609860,
+            "nice": 0,
+            "sys": 60213350,
+            "idle": 1580178380,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      }
+    }
+  ],
+  "queryProbes": [
+    {
+      "catalogRows": 5001,
+      "diagnosticOnly": true,
+      "rows": [
+        {
+          "label": "page-existing-indexes",
+          "sql": "SELECT c.native_id,c.project_id,c.title FROM session_catalog c WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": ["SCAN c", "USE TEMP B-TREE FOR ORDER BY"],
+          "medianMs": 1.3895839999999993
+        },
+        {
+          "label": "joined-page-existing-indexes",
+          "sql": "SELECT c.native_id,c.title,m.is_starred FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN session_metadata m ON m.session_id=i.session_id\n WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": [
+            "SCAN c",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH m USING INDEX sqlite_autoindex_session_metadata_1 (session_id=?) LEFT-JOIN",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ],
+          "medianMs": 4.637999999999991
+        },
+        {
+          "label": "counts-existing-indexes",
+          "sql": "SELECT count(*) AS total,count(CASE WHEN c.updated_at>coalesce(n.seen_at,'') THEN 1 END) AS unread\n FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN p190_seen n ON n.session_id=i.session_id WHERE c.deleted=0",
+          "plan": [
+            "SCAN c",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH n USING INDEX sqlite_autoindex_p190_seen_1 (session_id=?) LEFT-JOIN"
+          ],
+          "medianMs": 4.581917000000004
+        },
+        {
+          "label": "page-candidate-index",
+          "sql": "SELECT c.native_id,c.project_id,c.title FROM session_catalog c WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": ["SCAN c USING INDEX p190_page"],
+          "medianMs": 0.025167000000010376
+        },
+        {
+          "label": "joined-page-candidate-index",
+          "sql": "SELECT c.native_id,c.title,m.is_starred FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN session_metadata m ON m.session_id=i.session_id\n WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": [
+            "SCAN c USING INDEX p190_page",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH m USING INDEX sqlite_autoindex_session_metadata_1 (session_id=?) LEFT-JOIN"
+          ],
+          "medianMs": 0.051625000000001364
+        },
+        {
+          "label": "counts-with-page-index",
+          "sql": "SELECT count(*) AS total,count(CASE WHEN c.updated_at>coalesce(n.seen_at,'') THEN 1 END) AS unread\n FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN p190_seen n ON n.session_id=i.session_id WHERE c.deleted=0",
+          "plan": [
+            "SCAN c USING INDEX p190_page",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH n USING INDEX sqlite_autoindex_p190_seen_1 (session_id=?) LEFT-JOIN"
+          ],
+          "medianMs": 5.1248749999999745
+        }
+      ]
+    },
+    {
+      "catalogRows": 50001,
+      "diagnosticOnly": true,
+      "rows": [
+        {
+          "label": "page-existing-indexes",
+          "sql": "SELECT c.native_id,c.project_id,c.title FROM session_catalog c WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": ["SCAN c", "USE TEMP B-TREE FOR ORDER BY"],
+          "medianMs": 10.593957999999986
+        },
+        {
+          "label": "joined-page-existing-indexes",
+          "sql": "SELECT c.native_id,c.title,m.is_starred FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN session_metadata m ON m.session_id=i.session_id\n WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": [
+            "SCAN c",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH m USING INDEX sqlite_autoindex_session_metadata_1 (session_id=?) LEFT-JOIN",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ],
+          "medianMs": 47.62129099999993
+        },
+        {
+          "label": "counts-existing-indexes",
+          "sql": "SELECT count(*) AS total,count(CASE WHEN c.updated_at>coalesce(n.seen_at,'') THEN 1 END) AS unread\n FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN p190_seen n ON n.session_id=i.session_id WHERE c.deleted=0",
+          "plan": [
+            "SCAN c",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH n USING INDEX sqlite_autoindex_p190_seen_1 (session_id=?) LEFT-JOIN"
+          ],
+          "medianMs": 57.24674999999979
+        },
+        {
+          "label": "page-candidate-index",
+          "sql": "SELECT c.native_id,c.project_id,c.title FROM session_catalog c WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": ["SCAN c USING INDEX p190_page"],
+          "medianMs": 0.023000000000138243
+        },
+        {
+          "label": "joined-page-candidate-index",
+          "sql": "SELECT c.native_id,c.title,m.is_starred FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN session_metadata m ON m.session_id=i.session_id\n WHERE c.deleted=0 ORDER BY c.updated_at DESC,c.native_id ASC LIMIT 51",
+          "plan": [
+            "SCAN c USING INDEX p190_page",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH m USING INDEX sqlite_autoindex_session_metadata_1 (session_id=?) LEFT-JOIN"
+          ],
+          "medianMs": 0.05458300000009331
+        },
+        {
+          "label": "counts-with-page-index",
+          "sql": "SELECT count(*) AS total,count(CASE WHEN c.updated_at>coalesce(n.seen_at,'') THEN 1 END) AS unread\n FROM session_catalog c\n LEFT JOIN session_identities i ON i.native_family=c.family AND i.native_scope=c.native_storage_scope AND i.native_id=c.native_id\n LEFT JOIN p190_seen n ON n.session_id=i.session_id WHERE c.deleted=0",
+          "plan": [
+            "SCAN c USING INDEX p190_page",
+            "SEARCH i USING COVERING INDEX session_native_binding (native_family=? AND native_scope=? AND native_id=?) LEFT-JOIN",
+            "SEARCH n USING INDEX sqlite_autoindex_p190_seen_1 (session_id=?) LEFT-JOIN"
+          ],
+          "medianMs": 58.67116699999997
+        }
+      ]
+    }
+  ]
+}

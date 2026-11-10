@@ -97,6 +97,16 @@ ordinary append/mtime/size changes. It does not change the underlying
 enumeration cost: discovering an uncached or invalidated Codex tree still walks
 provider-owned rollout files.
 
+The shared enumeration does not yet imply shared retained lookup ownership.
+Each project-scoped reader initially hydrates the whole tree into its own
+`sessionFileCache` and `rolloutPathById`; unchanged-version hits avoid the
+subsequent re-merge, but retain those mirrors. The
+[plan 190 ownership audit](../docs/research/190-cold-session-ownership.md#isolated-ownership-measurements)
+measured 200 readers with five million slots in each map family for 25,000
+Codex sessions. Shared root-scope lookup ownership is the selected next slice;
+it is not implemented. Project/native identity checks, watcher-epoch recovery,
+exact observations and rollout precedence remain required at that boundary.
+
 Cached Codex metadata is treated as suspect and reread when the file identity
 changes for the same representation, when a plain file shrinks below the
 cached observation, or when compressed size changes for an indexed compressed

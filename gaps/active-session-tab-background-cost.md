@@ -14,6 +14,17 @@ remains.
 target state for this at 50,000 sessions and a 200-compaction session, and
 orders the work below into steps.
 
+Priority update, 2026-11-10: the maintainer selected architecture-led stages
+in plan 190, focusing first on the SQL-owned catalog and bounded session
+working set. The [source audit](../docs/research/190-cold-session-ownership.md)
+connects list/Inbox queries, metadata retention, changed-file publication and
+secondary projections. Isolated diagnostics now find project-scoped Codex
+reader maps are the dominant tested cold owner: 200 readers each mirror all
+25,000 Codex sessions in two maps; their destructive release freed 502.6 MiB
+at 50,000 mixed sessions, versus 91.2 MiB for catalog release. Shared
+root-scope discovery ownership is selected first. These are diagnostic
+attribution figures, not a working optimization; no cost below is closed.
+
 ## How it was measured
 
 `scripts/perf-repro/active-session.mjs` builds an isolated world, starts a

@@ -1037,6 +1037,21 @@ saved/failed sessions. The [source audit](../../gaps/session-creation-source-mis
 is now narrowed to uncorrelated native-copy result loss; the six caller omissions
 are repaired by common admission.
 
+## Active maintenance focus: session data ownership at scale
+
+Selected 2026-11-10: [plan 190](../tactical/190-active-session-cost-at-scale.md#architectural-stages-and-priority)
+now prioritizes a SQL-owned catalog and bounded session working set across
+Inbox/lists, catalog updates, cold metadata and restart. The
+[initial source audit](../research/190-cold-session-ownership.md) identifies
+shared dependencies. Isolated retention diagnostics select shared Codex
+root-scope discovery ownership first: per-project readers currently mirror
+the complete Codex file index. SQL list/Inbox queries and lazy cold metadata
+follow; their complete query/writer design remains open. No runtime change
+has landed at this research checkpoint. Large-transcript incremental reads
+remain required, followed by client change delivery/rendering. The benchmark
+baseline is complete; no performance target is met yet. This maintenance
+work does not displace release delivery or the concurrent design work below.
+
 ## Design language unification
 
 Selected by the maintainer on 2026-11-08 as active client work. The client has

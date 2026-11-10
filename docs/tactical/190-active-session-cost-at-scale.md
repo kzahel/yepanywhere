@@ -2,14 +2,20 @@
 
 Topic: catalog-identity-projection-cost
 
-Status: in progress. Proposed 2026-11-10; the maintainer agreed the
-scenario, the targets and that step 2 (reading a long session incrementally)
-must happen. Step 1 (the scenario and a measured baseline) is done; at the
-scenario's scale both providers saturate the server (below). What was fixed
-before the plan (a draft-index request storm, shared list walks, per-row
+Status: in progress; the SQL-owned catalog/bounded working-set research
+checkpoint is complete at diagnostic scope. The selected first implementation
+is shared ownership of Codex discovery maps; runtime changes have not begun.
+Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
+(reading a long session incrementally) must happen. Step 1 (the scenario and
+a measured baseline) is done; at the scenario's scale both providers saturate
+the server (below). What was fixed before the plan (a draft-index request
+storm, shared list walks, per-row
 lookups after each catalog update) is in `77e1feba4` and `f196db4c7`; the
 costs that remain are in
 [active session tab cost](../../gaps/active-session-tab-background-cost.md).
+The maintainer subsequently selected architecture-led prioritization over
+following the original step order. The stages and selected focus below own
+that order; the numbered steps remain implementation/evidence references.
 
 ## Goal
 
@@ -24,8 +30,91 @@ Non-goals:
   page shows.
 - Older clients keep working: anything sent differently to tabs goes behind
   a capability, with today's full reload kept as the fallback.
-- Not a general memory plan. Memory targets here cover only what this
-  scenario holds.
+- Memory work covers the catalog, session metadata and their dependent
+  projections/working sets. This is not an unrelated whole-server cache or
+  memory-pressure redesign. The scenario's memory target remains unchanged.
+
+## Architectural stages and priority
+
+Selected 2026-11-10: performance should follow from explicit ownership,
+bounded reads/retention and updates to affected records. Each implementation
+slice moves a real consumer to the intended architecture and removes its old
+path where compatibility permits. Additional caches and provider-specific
+request paths need a justification beyond improving one benchmark.
+
+| Order | Stage | Scope and relation to original steps | Status |
+|---|---|---|---|
+| 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; first ownership slice specified, later SQL query design open |
+| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | **Current focus: shared provider discovery ownership, selected from measured retention** |
+| 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Deferred until the selected foundation has a qualified slice |
+| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
+| 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
+
+These are architectural dependencies, not five large all-or-nothing rewrites.
+An implementation slice must stand on its own with response parity and an
+observable reduction in whole-corpus work. Measurement and correctness gates
+apply throughout, rather than waiting for the last stage.
+
+### Current focus — SQL-owned catalog and bounded working set
+
+Research: [cold session ownership and query boundaries](../research/190-cold-session-ownership.md).
+The selected focus spans original steps 4 and 5: neither removing resident
+objects alone nor paging only the visible rows resolves the current design.
+Lists also need population statistics, unread state, identity and overlays;
+catalog writers and secondary projections currently expect all rows in RAM.
+
+Why first: this foundation serves Inbox, sidebar/global/project lists,
+catalog publication, startup and cold-session memory across providers. It
+also gives later client deltas one authoritative source. It does not solve
+large-transcript ingestion, which remains the next required workstream.
+The isolated source/retention audit found the largest tested cold owner:
+200 project-scoped Codex readers each mirror the 25,000-session Codex tree in
+two maps. At 50,000 mixed sessions, ordered destructive release freed
+502.6 MiB from reader maps versus 91.2 MiB from the published catalog.
+These are diagnostic release observations, not implementation savings or an
+exact additive decomposition of the original baseline.
+
+Research and implementation checkpoints, in dependency order:
+
+1. Attribute retained memory and startup/query work on isolated worlds:
+   catalog, metadata, provider indexes, project projections and transient
+   list construction. Vary cold-session count separately from metadata size
+   and active transcript size. Record unexplained residuals.
+2. Specify the smallest SQL query/update boundary that preserves existing
+   identity, filters, ordering, aggregates, unread and live-overlay semantics.
+   Prefer existing tables/joins; add a maintained projection only where
+   measured query work or missing facts require one. Name each writer and
+   transaction boundary. Do not substitute a SQL full scan for a JS full scan
+   and call the request bounded.
+3. First implementation slice, selected by the diagnostic: put Codex
+   discovered-file and rollout-path lookup under the existing root-scope
+   owner; project readers use scoped views, without whole-tree mirrors.
+   Preserve source precedence, exact observations, watcher epochs,
+   active-window scopes, lineage and independent reader retirement. The
+   research note specifies the boundary and verification gate.
+4. Build the SQL-backed seen-state and shared list/Inbox query foundation,
+   including statistics/project options that currently force the population
+   walk. Preserve API response shapes. Migration/projection schema and the
+   complete SQL query/writer design are still open.
+5. Replace changed-file whole-generation construction and remaining
+   whole-catalog consumers with point, paged or change queries; include
+   optional question enrichment and per-session project membership mirrors.
+6. Remove eager metadata/catalog loading only after those consumers are
+   migrated. Bound hot objects and negative lookups; retain dirty mutations
+   until commit and preserve recovery, deletion and transaction semantics.
+7. Qualify list/Inbox parity, changed-row work, restart and retained memory
+   at scale on Node and Bun. Record what remains in other stages instead of
+   claiming all plan targets are met.
+
+Research checkpoint, 2026-11-10: the source audit, four isolated scale/project
+configurations, paired metadata restarts and SQL query-shape probes are
+recorded in the research/evidence. At 5,000 sessions, changing 200 projects to
+20 reduces the reader-map release from 59.0 to 5.9 MiB. This selects
+checkpoint 3 before the formerly provisional seen-state migration. Heap
+sampling/inspector release and incomplete Darwin eligibility make these
+**diagnostic-only** figures; no plan target is newly met. The next runtime
+commit must prove shared ownership while preserving existing reader behavior,
+then measure a functioning server. Full SQL-list design remains a later gate.
 
 ## Scenario
 
@@ -93,6 +182,14 @@ checked. Write-to-visible is measured from the append to the moment the
 write's marker appears in the tab's DOM.
 
 ## Where it stands
+
+Architecture checkpoint, 2026-11-10: the source audit and isolated retention
+experiments select shared Codex discovery ownership as the first foundation
+slice (above). The 50,000-session no-detail case retained 715.2 MiB after
+lists; releasing duplicated reader maps freed 502.6 MiB. See the research
+for project-count controls, metadata-size variation and SQL plans. These are
+new diagnostic measurements of unchanged code, not an after-build or a target
+pass. All original baseline figures below remain unchanged.
 
 Baseline measured 2026-11-10 with the repro on the maintainer's host (Apple
 Silicon): production builds of server and client code as of `f196db4c7`,
