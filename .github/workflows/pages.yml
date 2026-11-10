@@ -56,6 +56,7 @@ jobs:
           mkdir -p deploy
           cp -r site/dist/. deploy/
           cp -r packages/client/dist-remote deploy/remote
+          test -f deploy/remote/design.html
           # GitHub Pages needs index.html to serve the /remote/ directory
           cp deploy/remote/remote.html deploy/remote/index.html
           # Root 404.html enables SPA routing for /remote/* paths (GitHub Pages only uses root 404)

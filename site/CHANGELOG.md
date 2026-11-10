@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [site-v1.14.1] - 2026-11-10
+
+### Added
+- Publish the design playground at `/remote/design.html`, including theme
+  selection, phone frames, shared-control examples and source census data.
+
 ## [site-v1.14.0] - 2026-11-10
 
 ### Changed

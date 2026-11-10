@@ -1079,8 +1079,9 @@ owner-bound lifecycle check. Scenes receive server data through injected
 services, alongside the ongoing client refactor. There are no visual tests in
 CI. The [UI design topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
 owns the contract. On 2026-11-10 the maintainer requested hosted availability:
-the remote build now includes `/design.html` alongside the app, with publication
-pending deployment of this change through the normal Latest pipeline.
+the remote build now includes `/design.html` alongside the app. Website
+1.14.1 publishes it at `/remote/design.html`; Latest uses the same entry
+through its normal successful-CI deployment pipeline.
 The playground with `design:index`/`design:shot`,
 the token page, a `css:check` limit on undefined custom properties, and the
 button and switch census landed on 2026-11-08. The plan was then rewritten to

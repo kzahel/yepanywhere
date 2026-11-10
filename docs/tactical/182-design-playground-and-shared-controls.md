@@ -82,7 +82,8 @@ of slightly different styles.
   Biome rejects production imports of the playground or example files.
   On 2026-11-10 the maintainer requested hosted availability: the remote build
   now includes `design.html` and its source census snapshot in the normal
-  deployment output, including Latest. Publishing awaits deployment of this change.
+  deployment output, including Latest. Website 1.14.1 publishes it at
+  `/remote/design.html`; Latest retains its normal successful-CI deployment gate.
 - **Token page and undefined-property limit:** theme colors and scales in
   each theme, and every custom property read but never defined, with its
   sites. `pnpm css:check` rejects new undefined names and more reads of
