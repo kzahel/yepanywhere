@@ -402,6 +402,11 @@ export class SessionCatalogService {
     return entry && published.rows[entry.position];
   }
 
+  /** Position in the accepted publication, for duplicate native/public views. */
+  rowOrder(key: string): number | undefined {
+    return this.requirePublished().index.get(key)?.position;
+  }
+
   /**
    * The rows written and the keys removed after `since`, from the
    * `changed_gen` index, so a consumer that follows publications reads what

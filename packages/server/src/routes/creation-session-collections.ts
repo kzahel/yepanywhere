@@ -23,11 +23,13 @@ export function mergeCreationGlobalItems(
     signal?: AbortSignal;
     projectDisplayName?: ProjectDisplayNameResolver;
     sessionAutoArchiveDays?: number;
+    controlRows?: ReturnType<typeof creationCollectionRows>;
   } = {},
 ): GlobalSessionItem[] {
   if (options.signal?.aborted) return [];
   if (!metadata) return native;
-  const rows = creationCollectionRows(metadata, options.signal),
+  const rows =
+      options.controlRows ?? creationCollectionRows(metadata, options.signal),
     byId = new Map(rows.map((row) => [String(row.sessionId), row]));
   const result = native.flatMap((item) => {
     const row = byId.get(item.id);

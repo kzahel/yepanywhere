@@ -1,4 +1,9 @@
 import {
+  CREATION_PROJECTION_SQL,
+  creationProjection,
+  type ProjectionRow,
+} from "./creation-collection-rows.js";
+import {
   isClaudeCopyBoundary,
   type ClaudeCopyBoundary,
 } from "./claude-copy-boundary.js";
@@ -95,22 +100,6 @@ export interface SessionCreationProjection {
   nativeBound: boolean;
   deleted: boolean;
   creation: SessionCreationStatus;
-}
-interface ProjectionRow {
-  creation_id: string;
-  generation: number;
-  session_id: string;
-  project_id: string;
-  provider: ProviderName;
-  created_at: string;
-  updated_at: string;
-  native_bound: number;
-  deleted: number;
-  input_expected: number;
-  attempt_id: string;
-  state: CreationState;
-  delivery: CreationDelivery;
-  detail_json: string;
 }
 export interface CreationAttemptFence {
   readonly creationId: string;
@@ -529,9 +518,7 @@ export class SessionCreationStore {
       advanceGeneration: database.prepare(
         "UPDATE session_creation_capacity SET generation = generation + 1 WHERE id = 1",
       ),
-      projections: database.prepare(
-        "SELECT c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, c.input_expected, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
-      ),
+      projections: database.prepare(CREATION_PROJECTION_SQL),
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
       publicByKey: database.prepare(
         "SELECT session_id FROM session_creations WHERE owner_key = ? AND request_key = ?",
@@ -636,36 +623,23 @@ export class SessionCreationStore {
 
   /** At most 10,000 compact rows; never fetch/parse saved request payloads. */
   listProjections(): SessionCreationProjection[] {
-    return this.statements.projections.all<ProjectionRow>().map((row) => {
-      assertUrlProjectId(row.project_id);
-      const detail: Pick<
-        SessionCreationStatus,
-        "failure" | "failureDetail" | "kind"
-      > = JSON.parse(row.detail_json);
-      return {
-        sessionId: parseYaSessionId(row.session_id),
-        projectId: row.project_id,
-        provider: row.provider,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        nativeBound: row.native_bound === 1,
-        deleted: row.deleted === 1,
-        creation: {
-          state: row.state,
-          attemptId: row.attempt_id,
-          updatedAt: row.updated_at,
-          delivery: row.delivery,
-          ...(row.input_expected === 0
-            ? { initialInputExpected: false as const }
-            : {}),
-          ...(detail.kind === "copy" ? { kind: "copy" as const } : {}),
-          ...(detail.failure ? { failure: detail.failure } : {}),
-          ...(detail.failureDetail
-            ? { failureDetail: detail.failureDetail }
-            : {}),
-        },
-      };
-    });
+    return this.statements.projections
+      .all<ProjectionRow>()
+      .map(creationProjection);
+  }
+
+  /** One fixed optional statement, retained until the store closes. */
+  private projectionBySession?: SqliteStatement;
+
+  /** Indexed compact control facts, without reading saved input payloads. */
+  projectionForSession(
+    sessionId: string,
+  ): SessionCreationProjection | undefined {
+    this.projectionBySession ??= this.database.prepare(
+      `${CREATION_PROJECTION_SQL} WHERE i.session_id = ?`,
+    );
+    const row = this.projectionBySession.get<ProjectionRow>(sessionId);
+    return row && creationProjection(row);
   }
 
   /** Point status avoids decoding the immutable request/context payload. */
@@ -1356,6 +1330,7 @@ export class SessionCreationStore {
   }
   close(): void {
     this.listeners.clear();
+    this.projectionBySession?.finalize();
     for (const statement of Object.values(this.statements))
       statement.finalize();
   }

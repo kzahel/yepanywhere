@@ -26,7 +26,8 @@ import type {
 } from "@yep-anywhere/shared";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
 import type { GlobalSessionsDeps } from "./global-sessions.js";
-import { readRetainedSessionItems } from "./retained-session-collections.js";
+import { retainedSessionQuery } from "../services/retained-session-query.js";
+import { accessibleProjectIdsForRequest } from "./global-sessions.js";
 import type { SessionIndexService } from "../indexes/index.js";
 import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
 import { getLogger } from "../logging/logger.js";
@@ -131,6 +132,7 @@ const INBOX_RETENTION_BYTES = 8 * 1024 * 1024;
 
 /** One session, walked and enriched, before any tier decision is made. */
 interface EnrichedInboxSession {
+  nonHumanUserTurn?: InboxItem["nonHumanUserTurn"];
   creation?: InboxItem["creation"];
   creationProvenance?: InboxItem["creationProvenance"];
   session: SessionListSummary;
@@ -358,9 +360,17 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
     // 30 minutes, 8 hours, 24 hours — so retaining a tiered response would
     // freeze those windows at the instant of the walk, and a session would
     // stay in "Recent Activity" for as long as nothing on the bus moved.
+    const activeProjectQueueSessionIds = getActiveProjectQueueSessionIds(
+      deps.projectQueueService,
+    );
     const retained =
       c.req.query("summaryMode") === "retained" && deps.retainedCollections
-        ? await readRetainedSessionItems(deps.retainedCollections, deps)
+        ? await retainedSessionQuery(deps.retainedCollections, deps).inbox({
+            projectId: filterProjectId,
+            accessibleProjectIds: accessibleProjectIdsForRequest(c),
+            queueIds: [...activeProjectQueueSessionIds],
+            now,
+          })
         : undefined;
     const allSessions: EnrichedInboxSession[] = retained
       ? retained.sessions
@@ -388,12 +398,10 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
             customTitle: item.customTitle,
             creationProvenance: item.creationProvenance,
             creation: item.creation,
+            nonHumanUserTurn: item.nonHumanUserTurn,
             isStarred: item.isStarred,
           }))
       : await readInbox(filterProjectId);
-    const activeProjectQueueSessionIds = getActiveProjectQueueSessionIds(
-      deps.projectQueueService,
-    );
 
     // Build the inbox response by categorizing into tiers
     const needsAttention: InboxItem[] = [];
@@ -408,10 +416,9 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
     // Helper to convert to InboxItem
     const toInboxItem = (
       item: EnrichedInboxSession,
-      nonHumanUserTurn = nonHumanUserTurnField(
-        deps.sessionMetadataService,
-        item.session.id,
-      ),
+      nonHumanUserTurn = item.nonHumanUserTurn !== undefined
+        ? item.nonHumanUserTurn
+        : nonHumanUserTurnField(deps.sessionMetadataService, item.session.id),
     ): InboxItem => ({
       nonHumanUserTurn,
       sessionId: item.session.id,
@@ -443,10 +450,10 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
 
     // Tier 1: needsAttention - sessions with pending input
     for (const item of allSessions) {
-      const nonHumanUserTurn = nonHumanUserTurnField(
-        deps.sessionMetadataService,
-        item.session.id,
-      );
+      const nonHumanUserTurn =
+        item.nonHumanUserTurn !== undefined
+          ? item.nonHumanUserTurn
+          : nonHumanUserTurnField(deps.sessionMetadataService, item.session.id);
       if (item.pendingInputType || nonHumanUserTurn) {
         needsAttention.push(toInboxItem(item, nonHumanUserTurn));
         assignedSessionIds.add(item.session.id);

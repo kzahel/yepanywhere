@@ -1878,8 +1878,8 @@ export function createApp(options: AppOptions): AppResult {
       await vocabularyLearning?.close();
       if (draftCleanup) clearInterval(draftCleanup);
       draftStore?.close();
-      if (ownsDiscoverySqlite) discoverySqlite.close();
       await retainedCollections?.dispose();
+      if (ownsDiscoverySqlite) discoverySqlite.close();
       await projectQueueScheduler?.dispose();
       artifactPreviews.close();
       await artifactServer.close();

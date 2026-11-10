@@ -43,7 +43,6 @@ import {
   encodeMetadata,
   type EncodedMetadata,
   type MetadataCounts,
-  type PendingMetadata,
   SessionMetadataRows,
 } from "./session-metadata-rows.js";
 
@@ -467,32 +466,32 @@ export class SessionMetadataService {
     return { ...this.state.sessions };
   }
 
-  /** Uncommitted sessions, which the indexed queries answer from memory. */
-  private pending(): PendingMetadata {
-    return new Map(
-      [...this.dirtySessionIds].map((id) => [id, this.state.sessions[id]]),
-    );
+  /** Pending overlays and keyed collection invalidation from this owner. */
+  collectionState() {
+    return this.rows.collectionState(this.state.sessions, this.dirtySessionIds);
   }
 
   /** Distinct providers persisted by prior successful YA session boundaries. */
   getRecordedProviders(): ProviderName[] {
-    return this.rows.providers(this.pending()) as ProviderName[];
+    return this.rows.providers(
+      this.collectionState().pending,
+    ) as ProviderName[];
   }
 
   hasRecordedProvider(provider: ProviderName): boolean {
-    return this.rows.hasProvider(provider, this.pending());
+    return this.rows.hasProvider(provider, this.collectionState().pending);
   }
 
   /** Sessions launched with a `project-write` sandbox. */
   getProjectWriteSandboxSessions(): SessionMetadata[] {
     return this.rows
-      .sandboxedSessionIds(this.pending())
+      .sandboxedSessionIds(this.collectionState().pending)
       .flatMap((id) => this.state.sessions[id] ?? []);
   }
 
   /** Session, star and archive counts, for diagnostics. */
   getCounts(): MetadataCounts {
-    return this.rows.counts(this.pending());
+    return this.rows.counts(this.collectionState().pending);
   }
 
   getPendingNonHumanUserTurn(sessionId: string): NonHumanUserTurn | undefined {

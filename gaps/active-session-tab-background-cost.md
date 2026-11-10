@@ -26,7 +26,11 @@ root-scope discovery ownership is implemented first: project readers now
 share one root locator index. Functioning-server before/after memory evidence
 and review are recorded in the research outcome. This removes the measured
 project × session multiplier; the catalog, Inbox/list and transcript costs
-below remain open, and no full active-tab target is closed.
+below remain open, and no full active-tab target is closed. A second slice now
+replaces retained list/Inbox projection walks with a shared SQL query owner;
+[query evidence](../docs/research/190-sql-collection-queries.md) records warm
+query gains and the remaining first-build/legacy costs. Polling and catalog
+publication still occur; client deltas remain separate work.
 
 ## How it was measured
 
@@ -67,8 +71,10 @@ request the tab made and its WebSocket frames (header comment for usage).
    version (plan 190 step 2).
 2. **Each write makes every tab refetch six whole-catalog lists:** the three
    feeds, Inbox, `/api/projects` and `/api/project-queue`. Sharing leaves
-   about one walk per write per tab, but each still builds an item per row
-   (about 25 ms here), and tabs do not share. The real fix is sending
+   about one walk per write per tab in the recorded baseline. The retained
+   path now shares one SQL working index across tabs and hydrates selected
+   rows, removing that population projection walk. Poll/request fan-out
+   remains. The next client-side fix is sending
    changed rows to clients
    (plan 189 step 8) or the list projection table
    ([SQLite cleanup](sqlite-cleanup-and-wins.md) items 11 and 16).

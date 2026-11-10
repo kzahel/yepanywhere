@@ -1,6 +1,15 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import { openTestCatalog } from "../utils/session-catalog.js";
+import {
+  openTestDiscoveryDatabase,
+  closeTestDiscoveryDatabases,
+} from "../utils/session-metadata-database.js";
 import { toUrlProjectId, type UrlProjectId } from "@yep-anywhere/shared";
 import { Hono } from "hono";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type Principal,
   PRINCIPAL_VARIABLE,
@@ -695,6 +704,17 @@ describe("Global Sessions Routes", () => {
   });
 
   describe("retained summary mode", () => {
+    const owned: Array<{
+      collections: RetainedSessionCollections;
+      directory: string;
+    }> = [];
+    afterEach(async () => {
+      for (const { collections } of owned) await collections.dispose();
+      closeTestDiscoveryDatabases();
+      for (const { directory } of owned.splice(0))
+        await rm(directory, { recursive: true, force: true });
+    });
+
     function createCatalogRow(
       sessionId: string,
       projectId: string,
@@ -719,20 +739,26 @@ describe("Global Sessions Routes", () => {
       };
     }
 
-    function retainedCollections(
+    async function retainedCollections(
       rows: SessionCatalogRow[],
-    ): GlobalSessionsDeps["retainedCollections"] {
-      return {
-        read: async () => ({
-          rows,
-          catalog: {
-            catalogEpoch: "epoch",
-            catalogGeneration: 1,
-            complete: true,
-            refreshing: false,
-          },
-        }),
-      } as unknown as GlobalSessionsDeps["retainedCollections"];
+    ): Promise<RetainedSessionCollections> {
+      const directory = await mkdtemp(join(tmpdir(), "global-query-"));
+      const adapter = {
+        catalogFamily: "claude" as const,
+        storeKey: "store",
+        scan: async () => ({ sourceVersion: "v1", rows }),
+      };
+      const seed = openTestCatalog(directory);
+      await seed.initialize();
+      await seed.reconcile([adapter]);
+      seed.stop();
+      const collections = new RetainedSessionCollections({
+        dataDir: directory,
+        database: openTestDiscoveryDatabase(directory),
+        adapters: async () => [adapter],
+      });
+      owned.push({ collections, directory });
+      return collections;
     }
 
     it("matches a word carried only by the initial prompt", async () => {
@@ -745,7 +771,7 @@ describe("Global Sessions Routes", () => {
       });
 
       const result = await makeRequest("?summaryMode=retained&q=webhook", {
-        retainedCollections: retainedCollections(rows),
+        retainedCollections: await retainedCollections(rows),
       });
 
       expect(result.sessions.map((session) => session.id)).toEqual(["sess1"]);
@@ -762,7 +788,7 @@ describe("Global Sessions Routes", () => {
 
       const complete = await makeRequest("?q=flaky");
       const retained = await makeRequest("?summaryMode=retained&q=flaky", {
-        retainedCollections: retainedCollections([
+        retainedCollections: await retainedCollections([
           createCatalogRow("sess1", "proj1", minutesAgo(5)),
         ]),
       });
@@ -781,7 +807,7 @@ describe("Global Sessions Routes", () => {
         createCatalogRow("elsewhere", "proj2", minutesAgo(10)),
       ];
       metadataMap.set("archived", { isArchived: true });
-      const deps = { retainedCollections: retainedCollections(rows) };
+      const deps = { retainedCollections: await retainedCollections(rows) };
 
       const defaults = await makeRequest("?summaryMode=retained", deps);
       expect(defaults.sessions.map((s) => s.id)).toEqual([
@@ -821,7 +847,7 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeLimitedRequest(
         "?summaryMode=retained&limit=1&includeStats=true",
-        { retainedCollections: retainedCollections(rows) },
+        { retainedCollections: await retainedCollections(rows) },
       );
 
       expect(result.sessions.map((session) => session.id)).toEqual(["visible"]);

@@ -1,0 +1,1859 @@
+{
+  "kind": "diagnostic-only; not full plan190 acceptance or a timing ratchet",
+  "beforeSource": "a63f683a3",
+  "afterSource": "reviewed SQL collection query implementation; source and compiled hashes recorded",
+  "sourceSha256": {
+    "packages/server/src/app.ts": "396ce054f1d155da8a910476a7eb22b5584928bdd06a25be697229b1e3025aa0",
+    "packages/server/src/metadata/SessionMetadataService.ts": "d6853dc0bdd1188d37d6ed91b9ea1430f51a41f910e6183cb9ec1dba889b57a4",
+    "packages/server/src/metadata/session-metadata-rows.ts": "ce0de756a72552fe364e60596ac1eb7d05fbaccbc1db1dbd99ef6af28a88d234",
+    "packages/server/src/notifications/NotificationService.ts": "189930c74c268ad8d6b2ce8dd4a993f2ce0d2d3a0b700b3375c0da127d916d5f",
+    "packages/server/src/routes/creation-session-collections.ts": "367aa90d4e4085a165ad409f3f5962a4e68879e23e888bc44816ecc011a194fc",
+    "packages/server/src/routes/global-sessions.ts": "5e96d7b901c21bf8324b5e210430878c2d449d9019d3139c60aa637bbfa75be1",
+    "packages/server/src/routes/inbox.ts": "ec0a3872e8af76894ec50daea2e1cb12f1a6443eae58eb1e0a55fa2be21f0f95",
+    "packages/server/src/routes/retained-session-collections.ts": "2d75fc4f0eb0ea2f4ff059329ae76155b942e875d2e52b828a94a6c92310f975",
+    "packages/server/src/services/RetainedSessionCollections.ts": "6e1bc84fe701892cf64fcc7ef9d5d263b7f052c5ced37904d40c00020a3b67d0",
+    "packages/server/src/services/SessionCatalogService.ts": "b66483393bc5ac3c792157c577ec55f5b663572177ea6cfdc6badf8449704e05",
+    "packages/server/src/sessions/SessionCreationStore.ts": "9f927efc083084c48d69eb5098715963f55e79587b7ae8cb10d23f87768a715e",
+    "packages/server/src/metadata/collection-metadata-changes.ts": "c4f1f1f60b216c4d5fd8340276a469b5bbc19fa0b7eca3b3ed6083eb007a2047",
+    "packages/server/src/routes/retained-session-item.ts": "c754625ad3bc4e9747b0774c623434100177f568bf421c0441454694b3288205",
+    "packages/server/src/services/retained-session-query.ts": "e83ca8bc6812ed6c3d5f230bc4f1189ed2219f9ea3fd4caf83d000c8201011d2",
+    "packages/server/src/services/session-collection-sql.ts": "fd6ffaa52bc03398e05c5ecf41d1882ae80439a7b968a5c19b75bbe64d8c0856",
+    "packages/server/src/sessions/creation-collection-rows.ts": "44113b73a8c47bc510d74bb762baecf578a67a744fe890ab8d7c657321934b43"
+  },
+  "compiledSha256": {
+    "packages/server/src/app.ts": "3b0bf58b7c285cc31b020ed440bd19daa0dabd8bd98310de60a7c72aad8a1877",
+    "packages/server/src/metadata/SessionMetadataService.ts": "851c491be5cee7c1bd3db676f10228e15bccc8bcd1e5ec4717e0d38b9db3d0cc",
+    "packages/server/src/metadata/session-metadata-rows.ts": "a3e71d871ef6ccd568563f4fe27ee34628a5e5d4e2e748638c84b73bf1588ff1",
+    "packages/server/src/notifications/NotificationService.ts": "ce1efdeaafeb4ca8a9a95c691fae639550241f41c16b95929ce3c7f369a08d9e",
+    "packages/server/src/routes/creation-session-collections.ts": "d1e7aa6ef0d8d904e36136a8402d766960e89b75714aaf1fdd3cf9c75a0e0697",
+    "packages/server/src/routes/global-sessions.ts": "e1d18d3af381aab4211cba864101e2a28107a3287256d56b54c054e367062751",
+    "packages/server/src/routes/inbox.ts": "77c2e0f6798e81abc69e4d54547e83c5ada0c36e66ee8cbf954507c91d637e93",
+    "packages/server/src/routes/retained-session-collections.ts": "1954d79b0a63438a4b3bccd148a138afe41f99c8a4b0dbfc131d968dd8f5f5aa",
+    "packages/server/src/services/RetainedSessionCollections.ts": "37b38ae9651d43205b478a74f4269392024f7806a5fe8447e737cc8ee752c4d1",
+    "packages/server/src/services/SessionCatalogService.ts": "543b9060498cc4a7e582f17783fb9f98cef20cb822d49a87b2fbe5687227eedb",
+    "packages/server/src/sessions/SessionCreationStore.ts": "c995ee15d1197570a36fe51370ba1df6c6514ce3a274ef9653e229e11af3240f",
+    "packages/server/src/metadata/collection-metadata-changes.ts": "86e2732eb04a41dfc129b052b5c429a690f8c70a94028d6a2313a3ded4303c7c",
+    "packages/server/src/routes/retained-session-item.ts": "f1564e128a7d89eb84df1401d121131a2ad513e728d45d6d2b72b328f4b6344f",
+    "packages/server/src/services/retained-session-query.ts": "99089d0a3eba1aea75fe0eeb054d18941ae114a656a7941afe260c5df7a36b81",
+    "packages/server/src/services/session-collection-sql.ts": "db82e8f5b9fd56e15c5380b34c880546b380285294c1521193eed9537d66b414",
+    "packages/server/src/sessions/creation-collection-rows.ts": "a71cbd0f8de8ad952a802a082c103f8109fc7f0869249c2ac65e213244bf91fb"
+  },
+  "order": [
+    "reviewed-before1",
+    "reviewed-after1",
+    "reviewed-before2",
+    "reviewed-after2"
+  ],
+  "rawRuns": [
+    {
+      "label": "reviewed-before1",
+      "scenario": {
+        "sessions": 50000,
+        "projects": 200,
+        "claudeShare": 0.5,
+        "metadataInitiallyEmpty": true,
+        "providerProcesses": 0,
+        "browser": false
+      },
+      "runtime": {
+        "node": "v25.8.2",
+        "bun": null,
+        "v8": "14.1.146.11-node.24"
+      },
+      "revision": "8364b038851c7bbc31175d63459796929b7984b5",
+      "capacity": {
+        "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+        "keyFields": {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "cpuModels": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupCpuQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14,
+          "hostMemoryBucketBytes": 51539607552,
+          "effectiveMemoryBucketBytes": 51539607552
+        },
+        "cpu": {
+          "models": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14
+        },
+        "memory": {
+          "hostTotalBytes": 51539607552,
+          "cgroupLimitBytes": null,
+          "effectiveLimitBytes": 51539607552
+        },
+        "platform": {
+          "name": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "runtime": {
+          "node": "v25.8.2",
+          "v8": "14.1.146.11-node.24"
+        },
+        "ci": {
+          "provider": "local",
+          "runnerOs": null,
+          "runnerArch": null,
+          "runnerEnvironment": null,
+          "imageOs": null,
+          "imageVersion": null
+        }
+      },
+      "baseline": {
+        "durationMs": 3006,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.347,
+        "minimumEffectiveAvailableMemoryBytes": 28766093312,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "eligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.347,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 28766093312,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "nativeStart": {
+        "at": "2026-11-10T14:09:33.168Z",
+        "cpus": [
+          {
+            "user": 441382130,
+            "nice": 0,
+            "sys": 286288900,
+            "idle": 1180520450,
+            "irq": 0
+          },
+          {
+            "user": 392805230,
+            "nice": 0,
+            "sys": 233616980,
+            "idle": 1286589110,
+            "irq": 0
+          },
+          {
+            "user": 337736140,
+            "nice": 0,
+            "sys": 183644370,
+            "idle": 1397062410,
+            "irq": 0
+          },
+          {
+            "user": 303383690,
+            "nice": 0,
+            "sys": 149863040,
+            "idle": 1469751520,
+            "irq": 0
+          },
+          {
+            "user": 237341450,
+            "nice": 0,
+            "sys": 53520590,
+            "idle": 1638974720,
+            "irq": 0
+          },
+          {
+            "user": 230137160,
+            "nice": 0,
+            "sys": 51213810,
+            "idle": 1648731810,
+            "irq": 0
+          },
+          {
+            "user": 225572720,
+            "nice": 0,
+            "sys": 49803070,
+            "idle": 1654885510,
+            "irq": 0
+          },
+          {
+            "user": 222942420,
+            "nice": 0,
+            "sys": 49043020,
+            "idle": 1658391560,
+            "irq": 0
+          },
+          {
+            "user": 221282680,
+            "nice": 0,
+            "sys": 48524290,
+            "idle": 1660663340,
+            "irq": 0
+          },
+          {
+            "user": 324369600,
+            "nice": 0,
+            "sys": 79573340,
+            "idle": 1523671150,
+            "irq": 0
+          },
+          {
+            "user": 305765370,
+            "nice": 0,
+            "sys": 72519750,
+            "idle": 1549646790,
+            "irq": 0
+          },
+          {
+            "user": 283791740,
+            "nice": 0,
+            "sys": 64610570,
+            "idle": 1580110600,
+            "irq": 0
+          },
+          {
+            "user": 276882360,
+            "nice": 0,
+            "sys": 62411230,
+            "idle": 1589509980,
+            "irq": 0
+          },
+          {
+            "user": 273382770,
+            "nice": 0,
+            "sys": 61037640,
+            "idle": 1594629130,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "initial": {
+        "list": 657.1104159999995,
+        "inbox": 410.39391700000033
+      },
+      "warm": {
+        "list": [
+          97.18083399999978, 94.72541699999965, 94.05083299999933,
+          93.10704100000021, 95.50500000000011, 95.15099999999984,
+          98.89137500000015, 102.30408299999999, 94.61416699999972,
+          96.32833399999981, 95.05783299999985, 94.86841600000025
+        ],
+        "inbox": [
+          142.48204199999964, 143.55112499999996, 140.90799999999945,
+          164.79958299999998, 153.135542, 222.0878329999996, 134.69875000000047,
+          139.08879100000013, 134.36654200000066, 137.09962499999983,
+          133.49616700000115, 135.05141700000058
+        ]
+      },
+      "metadataTouches": {
+        "list": 100000,
+        "inbox": 150288
+      },
+      "memory": [
+        {
+          "rss": 816414720,
+          "heapTotal": 405192704,
+          "heapUsed": 159206872,
+          "external": 3857421,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 817020928,
+          "heapTotal": 340705280,
+          "heapUsed": 159173128,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 817020928,
+          "heapTotal": 326287360,
+          "heapUsed": 159163672,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 817741824,
+          "heapTotal": 313966592,
+          "heapUsed": 159147272,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 817741824,
+          "heapTotal": 305577984,
+          "heapUsed": 159147416,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 817741824,
+          "heapTotal": 305577984,
+          "heapUsed": 159147560,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 817741824,
+          "heapTotal": 305577984,
+          "heapUsed": 159147704,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        }
+      ],
+      "forcedGc": true,
+      "buildFiles": {
+        "routes/global-sessions.js": "043133b155d1ba662b5d746050dab4a8adfda15f6dbe2a2a2757b12333b66bb9",
+        "routes/inbox.js": "67cc47f65fe65e5c9e6f5be4504a49847764e352777968d636323ecc25875aac"
+      },
+      "metadataMutationQueryMs": 161.26837499999965,
+      "queryOwners": 0,
+      "nativeEnd": {
+        "at": "2026-11-10T14:09:42.245Z",
+        "cpus": [
+          {
+            "user": 441386260,
+            "nice": 0,
+            "sys": 286290080,
+            "idle": 1180524160,
+            "irq": 0
+          },
+          {
+            "user": 392808750,
+            "nice": 0,
+            "sys": 233617990,
+            "idle": 1286593600,
+            "irq": 0
+          },
+          {
+            "user": 337738990,
+            "nice": 0,
+            "sys": 183645180,
+            "idle": 1397067770,
+            "irq": 0
+          },
+          {
+            "user": 303386390,
+            "nice": 0,
+            "sys": 149863710,
+            "idle": 1469757200,
+            "irq": 0
+          },
+          {
+            "user": 237343140,
+            "nice": 0,
+            "sys": 53520910,
+            "idle": 1638981780,
+            "irq": 0
+          },
+          {
+            "user": 230138840,
+            "nice": 0,
+            "sys": 51214090,
+            "idle": 1648738910,
+            "irq": 0
+          },
+          {
+            "user": 225574360,
+            "nice": 0,
+            "sys": 49803380,
+            "idle": 1654892630,
+            "irq": 0
+          },
+          {
+            "user": 222943950,
+            "nice": 0,
+            "sys": 49043270,
+            "idle": 1658398840,
+            "irq": 0
+          },
+          {
+            "user": 221284180,
+            "nice": 0,
+            "sys": 48524600,
+            "idle": 1660670600,
+            "irq": 0
+          },
+          {
+            "user": 324371210,
+            "nice": 0,
+            "sys": 79573560,
+            "idle": 1523678380,
+            "irq": 0
+          },
+          {
+            "user": 305766680,
+            "nice": 0,
+            "sys": 72519950,
+            "idle": 1549654340,
+            "irq": 0
+          },
+          {
+            "user": 283792850,
+            "nice": 0,
+            "sys": 64610840,
+            "idle": 1580118290,
+            "irq": 0
+          },
+          {
+            "user": 276883600,
+            "nice": 0,
+            "sys": 62411410,
+            "idle": 1589517620,
+            "irq": 0
+          },
+          {
+            "user": 273384100,
+            "nice": 0,
+            "sys": 61037820,
+            "idle": 1594636690,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T14:09:42.248Z",
+        "loadAverage": [4.782, 4.51, 5.14],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 13999095808,
+          "hostAvailableBytes": 30184980480,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 30184980480,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "hostWindow": {
+        "durationMs": 9081,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.347,
+        "minimumEffectiveAvailableMemoryBytes": 28766093312,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      }
+    },
+    {
+      "label": "reviewed-after1",
+      "scenario": {
+        "sessions": 50000,
+        "projects": 200,
+        "claudeShare": 0.5,
+        "metadataInitiallyEmpty": true,
+        "providerProcesses": 0,
+        "browser": false
+      },
+      "runtime": {
+        "node": "v25.8.2",
+        "bun": null,
+        "v8": "14.1.146.11-node.24"
+      },
+      "revision": "8364b038851c7bbc31175d63459796929b7984b5",
+      "capacity": {
+        "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+        "keyFields": {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "cpuModels": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupCpuQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14,
+          "hostMemoryBucketBytes": 51539607552,
+          "effectiveMemoryBucketBytes": 51539607552
+        },
+        "cpu": {
+          "models": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14
+        },
+        "memory": {
+          "hostTotalBytes": 51539607552,
+          "cgroupLimitBytes": null,
+          "effectiveLimitBytes": 51539607552
+        },
+        "platform": {
+          "name": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "runtime": {
+          "node": "v25.8.2",
+          "v8": "14.1.146.11-node.24"
+        },
+        "ci": {
+          "provider": "local",
+          "runnerOs": null,
+          "runnerArch": null,
+          "runnerEnvironment": null,
+          "imageOs": null,
+          "imageVersion": null
+        }
+      },
+      "baseline": {
+        "durationMs": 3005,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.349,
+        "minimumEffectiveAvailableMemoryBytes": 30853857280,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "eligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.349,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 30853857280,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "nativeStart": {
+        "at": "2026-11-10T14:09:42.374Z",
+        "cpus": [
+          {
+            "user": 441386310,
+            "nice": 0,
+            "sys": 286290100,
+            "idle": 1180524230,
+            "irq": 0
+          },
+          {
+            "user": 392808810,
+            "nice": 0,
+            "sys": 233618010,
+            "idle": 1286593650,
+            "irq": 0
+          },
+          {
+            "user": 337739010,
+            "nice": 0,
+            "sys": 183645190,
+            "idle": 1397067870,
+            "irq": 0
+          },
+          {
+            "user": 303386440,
+            "nice": 0,
+            "sys": 149863720,
+            "idle": 1469757260,
+            "irq": 0
+          },
+          {
+            "user": 237343140,
+            "nice": 0,
+            "sys": 53520910,
+            "idle": 1638981900,
+            "irq": 0
+          },
+          {
+            "user": 230138840,
+            "nice": 0,
+            "sys": 51214090,
+            "idle": 1648739040,
+            "irq": 0
+          },
+          {
+            "user": 225574360,
+            "nice": 0,
+            "sys": 49803380,
+            "idle": 1654892750,
+            "irq": 0
+          },
+          {
+            "user": 222943950,
+            "nice": 0,
+            "sys": 49043270,
+            "idle": 1658398970,
+            "irq": 0
+          },
+          {
+            "user": 221284180,
+            "nice": 0,
+            "sys": 48524600,
+            "idle": 1660670730,
+            "irq": 0
+          },
+          {
+            "user": 324371230,
+            "nice": 0,
+            "sys": 79573560,
+            "idle": 1523678480,
+            "irq": 0
+          },
+          {
+            "user": 305766720,
+            "nice": 0,
+            "sys": 72519960,
+            "idle": 1549654430,
+            "irq": 0
+          },
+          {
+            "user": 283792860,
+            "nice": 0,
+            "sys": 64610840,
+            "idle": 1580118410,
+            "irq": 0
+          },
+          {
+            "user": 276883630,
+            "nice": 0,
+            "sys": 62411430,
+            "idle": 1589517700,
+            "irq": 0
+          },
+          {
+            "user": 273384100,
+            "nice": 0,
+            "sys": 61037820,
+            "idle": 1594636820,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "initial": {
+        "list": 2471.508167,
+        "inbox": 3.5288330000003043
+      },
+      "warm": {
+        "list": [
+          1.2764170000000377, 1.1635830000004717, 1.1042500000003201,
+          1.0223329999998896, 1.0293750000000728, 1.018000000000029,
+          1.0402500000000146, 1.0610829999995985, 1.0197919999991427,
+          0.9795839999997042, 0.9868750000005093, 0.9340829999991911
+        ],
+        "inbox": [
+          2.6052499999996144, 2.500332999999955, 2.556083000000399,
+          2.526875000000473, 2.4710839999997916, 2.8347090000006574,
+          2.9311670000006416, 2.5679589999999735, 2.560375000000022,
+          3.4322089999996024, 2.697374999999738, 2.917000000000371
+        ]
+      },
+      "metadataTouches": {
+        "list": 0,
+        "inbox": 0
+      },
+      "memory": [
+        {
+          "rss": 608944128,
+          "heapTotal": 353517568,
+          "heapUsed": 131674664,
+          "external": 4209977,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609042432,
+          "heapTotal": 316555264,
+          "heapUsed": 131605544,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609042432,
+          "heapTotal": 301613056,
+          "heapUsed": 131594032,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 610402304,
+          "heapTotal": 287195136,
+          "heapUsed": 131543832,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 610402304,
+          "heapTotal": 275922944,
+          "heapUsed": 131543976,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 610402304,
+          "heapTotal": 275922944,
+          "heapUsed": 131544120,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 610402304,
+          "heapTotal": 275922944,
+          "heapUsed": 131544264,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        }
+      ],
+      "forcedGc": true,
+      "buildFiles": {
+        "routes/global-sessions.js": "e1d18d3af381aab4211cba864101e2a28107a3287256d56b54c054e367062751",
+        "routes/inbox.js": "77c2e0f6798e81abc69e4d54547e83c5ada0c36e66ee8cbf954507c91d637e93",
+        "services/retained-session-query.js": "99089d0a3eba1aea75fe0eeb054d18941ae114a656a7941afe260c5df7a36b81",
+        "services/session-collection-sql.js": "db82e8f5b9fd56e15c5380b34c880546b380285294c1521193eed9537d66b414"
+      },
+      "metadataMutationQueryMs": 1.8224170000003141,
+      "queryOwners": 1,
+      "activeTierPlan": [
+        {
+          "id": 5,
+          "parent": 0,
+          "notused": 61,
+          "detail": "SEARCH collection_query_1_rows USING INDEX collection_query_1_active (archived=? AND active=?)"
+        }
+      ],
+      "nativeEnd": {
+        "at": "2026-11-10T14:09:49.318Z",
+        "cpus": [
+          {
+            "user": 441389350,
+            "nice": 0,
+            "sys": 286290960,
+            "idle": 1180527220,
+            "irq": 0
+          },
+          {
+            "user": 392811390,
+            "nice": 0,
+            "sys": 233618700,
+            "idle": 1286597270,
+            "irq": 0
+          },
+          {
+            "user": 337741470,
+            "nice": 0,
+            "sys": 183645750,
+            "idle": 1397071760,
+            "irq": 0
+          },
+          {
+            "user": 303388780,
+            "nice": 0,
+            "sys": 149864200,
+            "idle": 1469761360,
+            "irq": 0
+          },
+          {
+            "user": 237343230,
+            "nice": 0,
+            "sys": 53520920,
+            "idle": 1638988750,
+            "irq": 0
+          },
+          {
+            "user": 230138890,
+            "nice": 0,
+            "sys": 51214090,
+            "idle": 1648745930,
+            "irq": 0
+          },
+          {
+            "user": 225574410,
+            "nice": 0,
+            "sys": 49803380,
+            "idle": 1654899640,
+            "irq": 0
+          },
+          {
+            "user": 222943990,
+            "nice": 0,
+            "sys": 49043270,
+            "idle": 1658405860,
+            "irq": 0
+          },
+          {
+            "user": 221284220,
+            "nice": 0,
+            "sys": 48524600,
+            "idle": 1660677640,
+            "irq": 0
+          },
+          {
+            "user": 324372150,
+            "nice": 0,
+            "sys": 79573970,
+            "idle": 1523684090,
+            "irq": 0
+          },
+          {
+            "user": 305767790,
+            "nice": 0,
+            "sys": 72520230,
+            "idle": 1549660010,
+            "irq": 0
+          },
+          {
+            "user": 283793760,
+            "nice": 0,
+            "sys": 64611000,
+            "idle": 1580124280,
+            "irq": 0
+          },
+          {
+            "user": 276884530,
+            "nice": 0,
+            "sys": 62411640,
+            "idle": 1589523530,
+            "irq": 0
+          },
+          {
+            "user": 273384910,
+            "nice": 0,
+            "sys": 61038010,
+            "idle": 1594642740,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T14:09:49.320Z",
+        "loadAverage": [4.809, 4.525, 5.138],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 14071119872,
+          "hostAvailableBytes": 30179917824,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 30179917824,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "hostWindow": {
+        "durationMs": 6947,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.344,
+        "minimumEffectiveAvailableMemoryBytes": 30179917824,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      }
+    },
+    {
+      "label": "reviewed-before2",
+      "scenario": {
+        "sessions": 50000,
+        "projects": 200,
+        "claudeShare": 0.5,
+        "metadataInitiallyEmpty": true,
+        "providerProcesses": 0,
+        "browser": false
+      },
+      "runtime": {
+        "node": "v25.8.2",
+        "bun": null,
+        "v8": "14.1.146.11-node.24"
+      },
+      "revision": "8364b038851c7bbc31175d63459796929b7984b5",
+      "capacity": {
+        "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+        "keyFields": {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "cpuModels": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupCpuQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14,
+          "hostMemoryBucketBytes": 51539607552,
+          "effectiveMemoryBucketBytes": 51539607552
+        },
+        "cpu": {
+          "models": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14
+        },
+        "memory": {
+          "hostTotalBytes": 51539607552,
+          "cgroupLimitBytes": null,
+          "effectiveLimitBytes": 51539607552
+        },
+        "platform": {
+          "name": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "runtime": {
+          "node": "v25.8.2",
+          "v8": "14.1.146.11-node.24"
+        },
+        "ci": {
+          "provider": "local",
+          "runnerOs": null,
+          "runnerArch": null,
+          "runnerEnvironment": null,
+          "imageOs": null,
+          "imageVersion": null
+        }
+      },
+      "baseline": {
+        "durationMs": 3006,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.344,
+        "minimumEffectiveAvailableMemoryBytes": 30765875200,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "eligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.344,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 30765875200,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "nativeStart": {
+        "at": "2026-11-10T14:09:49.506Z",
+        "cpus": [
+          {
+            "user": 441389430,
+            "nice": 0,
+            "sys": 286290980,
+            "idle": 1180527300,
+            "irq": 0
+          },
+          {
+            "user": 392811440,
+            "nice": 0,
+            "sys": 233618720,
+            "idle": 1286597390,
+            "irq": 0
+          },
+          {
+            "user": 337741530,
+            "nice": 0,
+            "sys": 183645770,
+            "idle": 1397071870,
+            "irq": 0
+          },
+          {
+            "user": 303388830,
+            "nice": 0,
+            "sys": 149864210,
+            "idle": 1469761480,
+            "irq": 0
+          },
+          {
+            "user": 237343230,
+            "nice": 0,
+            "sys": 53520920,
+            "idle": 1638988940,
+            "irq": 0
+          },
+          {
+            "user": 230138890,
+            "nice": 0,
+            "sys": 51214090,
+            "idle": 1648746120,
+            "irq": 0
+          },
+          {
+            "user": 225574410,
+            "nice": 0,
+            "sys": 49803380,
+            "idle": 1654899830,
+            "irq": 0
+          },
+          {
+            "user": 222943990,
+            "nice": 0,
+            "sys": 49043270,
+            "idle": 1658406050,
+            "irq": 0
+          },
+          {
+            "user": 221284220,
+            "nice": 0,
+            "sys": 48524600,
+            "idle": 1660677820,
+            "irq": 0
+          },
+          {
+            "user": 324372150,
+            "nice": 0,
+            "sys": 79573970,
+            "idle": 1523684280,
+            "irq": 0
+          },
+          {
+            "user": 305767840,
+            "nice": 0,
+            "sys": 72520240,
+            "idle": 1549660140,
+            "irq": 0
+          },
+          {
+            "user": 283793780,
+            "nice": 0,
+            "sys": 64611020,
+            "idle": 1580124430,
+            "irq": 0
+          },
+          {
+            "user": 276884530,
+            "nice": 0,
+            "sys": 62411640,
+            "idle": 1589523720,
+            "irq": 0
+          },
+          {
+            "user": 273384950,
+            "nice": 0,
+            "sys": 61038030,
+            "idle": 1594642870,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "initial": {
+        "list": 666.5476250000002,
+        "inbox": 416.0232909999995
+      },
+      "warm": {
+        "list": [
+          100.79849999999988, 98.97495900000013, 99.32091700000001, 99.132791,
+          99.12924999999996, 97.2637080000004, 98.18837500000063,
+          98.22537499999999, 98.39470799999981, 96.8895420000008,
+          97.0777079999998, 98.42074999999932
+        ],
+        "inbox": [
+          150.49562499999956, 166.13345900000058, 216.823625,
+          140.02241700000013, 147.59262500000023, 145.30695800000012,
+          143.46029199999975, 142.79220900000018, 137.63145800000075,
+          139.8561669999999, 140.62862500000028, 139.53645900000083
+        ]
+      },
+      "metadataTouches": {
+        "list": 100000,
+        "inbox": 150288
+      },
+      "memory": [
+        {
+          "rss": 982253568,
+          "heapTotal": 434552832,
+          "heapUsed": 159178328,
+          "external": 3857421,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 982466560,
+          "heapTotal": 342016000,
+          "heapUsed": 159177512,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 982958080,
+          "heapTotal": 327598080,
+          "heapUsed": 159166112,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 982958080,
+          "heapTotal": 316063744,
+          "heapUsed": 159149728,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 982958080,
+          "heapTotal": 306364416,
+          "heapUsed": 159149872,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 983433216,
+          "heapTotal": 306364416,
+          "heapUsed": 159150016,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 983433216,
+          "heapTotal": 306364416,
+          "heapUsed": 159150160,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        }
+      ],
+      "forcedGc": true,
+      "buildFiles": {
+        "routes/global-sessions.js": "043133b155d1ba662b5d746050dab4a8adfda15f6dbe2a2a2757b12333b66bb9",
+        "routes/inbox.js": "67cc47f65fe65e5c9e6f5be4504a49847764e352777968d636323ecc25875aac"
+      },
+      "metadataMutationQueryMs": 170.88737500000025,
+      "queryOwners": 0,
+      "nativeEnd": {
+        "at": "2026-11-10T14:09:58.667Z",
+        "cpus": [
+          {
+            "user": 441393430,
+            "nice": 0,
+            "sys": 286292070,
+            "idle": 1180531330,
+            "irq": 0
+          },
+          {
+            "user": 392814970,
+            "nice": 0,
+            "sys": 233619600,
+            "idle": 1286602080,
+            "irq": 0
+          },
+          {
+            "user": 337744720,
+            "nice": 0,
+            "sys": 183646480,
+            "idle": 1397077070,
+            "irq": 0
+          },
+          {
+            "user": 303391790,
+            "nice": 0,
+            "sys": 149864790,
+            "idle": 1469767070,
+            "irq": 0
+          },
+          {
+            "user": 237344450,
+            "nice": 0,
+            "sys": 53520970,
+            "idle": 1638996820,
+            "irq": 0
+          },
+          {
+            "user": 230140220,
+            "nice": 0,
+            "sys": 51214140,
+            "idle": 1648753890,
+            "irq": 0
+          },
+          {
+            "user": 225575610,
+            "nice": 0,
+            "sys": 49803450,
+            "idle": 1654907710,
+            "irq": 0
+          },
+          {
+            "user": 222945240,
+            "nice": 0,
+            "sys": 49043320,
+            "idle": 1658413910,
+            "irq": 0
+          },
+          {
+            "user": 221285430,
+            "nice": 0,
+            "sys": 48524670,
+            "idle": 1660685700,
+            "irq": 0
+          },
+          {
+            "user": 324372670,
+            "nice": 0,
+            "sys": 79574090,
+            "idle": 1523692780,
+            "irq": 0
+          },
+          {
+            "user": 305768150,
+            "nice": 0,
+            "sys": 72520330,
+            "idle": 1549668890,
+            "irq": 0
+          },
+          {
+            "user": 283794010,
+            "nice": 0,
+            "sys": 64611070,
+            "idle": 1580133300,
+            "irq": 0
+          },
+          {
+            "user": 276884690,
+            "nice": 0,
+            "sys": 62411660,
+            "idle": 1589532690,
+            "irq": 0
+          },
+          {
+            "user": 273385260,
+            "nice": 0,
+            "sys": 61038050,
+            "idle": 1594651700,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T14:09:58.669Z",
+        "loadAverage": [4.61, 4.491, 5.118],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 13848461312,
+          "hostAvailableBytes": 29874749440,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 29874749440,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "hostWindow": {
+        "durationMs": 9164,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.344,
+        "minimumEffectiveAvailableMemoryBytes": 29874749440,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      }
+    },
+    {
+      "label": "reviewed-after2",
+      "scenario": {
+        "sessions": 50000,
+        "projects": 200,
+        "claudeShare": 0.5,
+        "metadataInitiallyEmpty": true,
+        "providerProcesses": 0,
+        "browser": false
+      },
+      "runtime": {
+        "node": "v25.8.2",
+        "bun": null,
+        "v8": "14.1.146.11-node.24"
+      },
+      "revision": "8364b038851c7bbc31175d63459796929b7984b5",
+      "capacity": {
+        "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+        "keyFields": {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "cpuModels": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupCpuQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14,
+          "hostMemoryBucketBytes": 51539607552,
+          "effectiveMemoryBucketBytes": 51539607552
+        },
+        "cpu": {
+          "models": ["Apple M4 Pro"],
+          "hostLogicalCpuCount": 14,
+          "affinityLogicalCpuCount": 14,
+          "cgroupQuota": null,
+          "cpusetLogicalCpuCount": null,
+          "effectiveLogicalCpuCount": 14
+        },
+        "memory": {
+          "hostTotalBytes": 51539607552,
+          "cgroupLimitBytes": null,
+          "effectiveLimitBytes": 51539607552
+        },
+        "platform": {
+          "name": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "runtime": {
+          "node": "v25.8.2",
+          "v8": "14.1.146.11-node.24"
+        },
+        "ci": {
+          "provider": "local",
+          "runnerOs": null,
+          "runnerArch": null,
+          "runnerEnvironment": null,
+          "imageOs": null,
+          "imageVersion": null
+        }
+      },
+      "baseline": {
+        "durationMs": 3007,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.329,
+        "minimumEffectiveAvailableMemoryBytes": 30870552576,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      },
+      "eligibility": {
+        "checks": [
+          {
+            "metric": "effectiveLogicalCpuCount",
+            "actual": 14,
+            "minimum": 2,
+            "pass": true
+          },
+          {
+            "metric": "baselineCpuBusyFraction",
+            "actual": null,
+            "maximum": 0.8,
+            "pass": false
+          },
+          {
+            "metric": "baselineIdleLogicalCpuCount",
+            "actual": null,
+            "minimum": 1,
+            "pass": false
+          },
+          {
+            "metric": "baselineLoadPerEffectiveCpu",
+            "actual": 0.329,
+            "maximum": 2,
+            "pass": true
+          },
+          {
+            "metric": "minimumEffectiveAvailableMemoryBytes",
+            "actual": 30870552576,
+            "minimum": 1073741824,
+            "pass": true
+          },
+          {
+            "metric": "baselineSwapGrowthBytes",
+            "actual": null,
+            "maximum": 16777216,
+            "pass": false
+          }
+        ],
+        "pass": false,
+        "grade": "diagnostic"
+      },
+      "nativeStart": {
+        "at": "2026-11-10T14:09:58.798Z",
+        "cpus": [
+          {
+            "user": 441393490,
+            "nice": 0,
+            "sys": 286292090,
+            "idle": 1180531380,
+            "irq": 0
+          },
+          {
+            "user": 392815010,
+            "nice": 0,
+            "sys": 233619630,
+            "idle": 1286602140,
+            "irq": 0
+          },
+          {
+            "user": 337744770,
+            "nice": 0,
+            "sys": 183646500,
+            "idle": 1397077140,
+            "irq": 0
+          },
+          {
+            "user": 303391840,
+            "nice": 0,
+            "sys": 149864800,
+            "idle": 1469767130,
+            "irq": 0
+          },
+          {
+            "user": 237344450,
+            "nice": 0,
+            "sys": 53520970,
+            "idle": 1638996950,
+            "irq": 0
+          },
+          {
+            "user": 230140220,
+            "nice": 0,
+            "sys": 51214140,
+            "idle": 1648754020,
+            "irq": 0
+          },
+          {
+            "user": 225575610,
+            "nice": 0,
+            "sys": 49803450,
+            "idle": 1654907840,
+            "irq": 0
+          },
+          {
+            "user": 222945240,
+            "nice": 0,
+            "sys": 49043320,
+            "idle": 1658414050,
+            "irq": 0
+          },
+          {
+            "user": 221285430,
+            "nice": 0,
+            "sys": 48524670,
+            "idle": 1660685830,
+            "irq": 0
+          },
+          {
+            "user": 324372670,
+            "nice": 0,
+            "sys": 79574100,
+            "idle": 1523692900,
+            "irq": 0
+          },
+          {
+            "user": 305768160,
+            "nice": 0,
+            "sys": 72520340,
+            "idle": 1549669010,
+            "irq": 0
+          },
+          {
+            "user": 283794040,
+            "nice": 0,
+            "sys": 64611080,
+            "idle": 1580133390,
+            "irq": 0
+          },
+          {
+            "user": 276884730,
+            "nice": 0,
+            "sys": 62411670,
+            "idle": 1589532780,
+            "irq": 0
+          },
+          {
+            "user": 273385290,
+            "nice": 0,
+            "sys": 61038060,
+            "idle": 1594651800,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "initial": {
+        "list": 2485.753208,
+        "inbox": 3.692167000000154
+      },
+      "warm": {
+        "list": [
+          1.310124999999971, 1.17712500000016, 1.0999999999994543,
+          1.025416999999834, 1.0062089999992168, 1.0117090000003373,
+          1.0241670000004888, 1.047208999999384, 0.9975000000004002,
+          0.9475000000002183, 0.933708999999908, 0.9522500000002765
+        ],
+        "inbox": [
+          2.5900830000000497, 2.4307920000001104, 2.4386249999997744,
+          2.3932080000004134, 2.407499999999345, 2.3667499999992287,
+          2.3984580000005735, 2.382292000000234, 2.419583999999304,
+          3.119416000000456, 2.515041000000565, 2.4389579999997295
+        ]
+      },
+      "metadataTouches": {
+        "list": 0,
+        "inbox": 0
+      },
+      "memory": [
+        {
+          "rss": 608780288,
+          "heapTotal": 354566144,
+          "heapUsed": 131638800,
+          "external": 4209977,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609714176,
+          "heapTotal": 318390272,
+          "heapUsed": 131602608,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609714176,
+          "heapTotal": 303972352,
+          "heapUsed": 131591216,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609714176,
+          "heapTotal": 289554432,
+          "heapUsed": 131541016,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609714176,
+          "heapTotal": 277495808,
+          "heapUsed": 131541160,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609730560,
+          "heapTotal": 277495808,
+          "heapUsed": 131541304,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        },
+        {
+          "rss": 609730560,
+          "heapTotal": 277495808,
+          "heapUsed": 131541448,
+          "external": 3799557,
+          "arrayBuffers": 4226351
+        }
+      ],
+      "forcedGc": true,
+      "buildFiles": {
+        "routes/global-sessions.js": "e1d18d3af381aab4211cba864101e2a28107a3287256d56b54c054e367062751",
+        "routes/inbox.js": "77c2e0f6798e81abc69e4d54547e83c5ada0c36e66ee8cbf954507c91d637e93",
+        "services/retained-session-query.js": "99089d0a3eba1aea75fe0eeb054d18941ae114a656a7941afe260c5df7a36b81",
+        "services/session-collection-sql.js": "db82e8f5b9fd56e15c5380b34c880546b380285294c1521193eed9537d66b414"
+      },
+      "metadataMutationQueryMs": 1.647541999999703,
+      "queryOwners": 1,
+      "activeTierPlan": [
+        {
+          "id": 5,
+          "parent": 0,
+          "notused": 61,
+          "detail": "SEARCH collection_query_1_rows USING INDEX collection_query_1_active (archived=? AND active=?)"
+        }
+      ],
+      "nativeEnd": {
+        "at": "2026-11-10T14:10:05.747Z",
+        "cpus": [
+          {
+            "user": 441396440,
+            "nice": 0,
+            "sys": 286293020,
+            "idle": 1180534390,
+            "irq": 0
+          },
+          {
+            "user": 392817600,
+            "nice": 0,
+            "sys": 233620400,
+            "idle": 1286605690,
+            "irq": 0
+          },
+          {
+            "user": 337747020,
+            "nice": 0,
+            "sys": 183647180,
+            "idle": 1397081120,
+            "irq": 0
+          },
+          {
+            "user": 303394060,
+            "nice": 0,
+            "sys": 149865370,
+            "idle": 1469771270,
+            "irq": 0
+          },
+          {
+            "user": 237344590,
+            "nice": 0,
+            "sys": 53520980,
+            "idle": 1639003750,
+            "irq": 0
+          },
+          {
+            "user": 230140300,
+            "nice": 0,
+            "sys": 51214150,
+            "idle": 1648760880,
+            "irq": 0
+          },
+          {
+            "user": 225575670,
+            "nice": 0,
+            "sys": 49803450,
+            "idle": 1654914730,
+            "irq": 0
+          },
+          {
+            "user": 222945300,
+            "nice": 0,
+            "sys": 49043320,
+            "idle": 1658420930,
+            "irq": 0
+          },
+          {
+            "user": 221285500,
+            "nice": 0,
+            "sys": 48524670,
+            "idle": 1660692710,
+            "irq": 0
+          },
+          {
+            "user": 324373820,
+            "nice": 0,
+            "sys": 79574420,
+            "idle": 1523698360,
+            "irq": 0
+          },
+          {
+            "user": 305769340,
+            "nice": 0,
+            "sys": 72520610,
+            "idle": 1549674480,
+            "irq": 0
+          },
+          {
+            "user": 283795030,
+            "nice": 0,
+            "sys": 64611310,
+            "idle": 1580139110,
+            "irq": 0
+          },
+          {
+            "user": 276885740,
+            "nice": 0,
+            "sys": 62411870,
+            "idle": 1589538500,
+            "irq": 0
+          },
+          {
+            "user": 273386180,
+            "nice": 0,
+            "sys": 61038330,
+            "idle": 1594657580,
+            "irq": 0
+          }
+        ],
+        "swap": "total = 1024.00M  used = 249.75M  free = 774.25M  (encrypted)"
+      },
+      "hostEnd": {
+        "observedAt": "2026-11-10T14:10:05.749Z",
+        "loadAverage": [4.481, 4.466, 5.105],
+        "cpuCounters": null,
+        "memory": {
+          "hostFreeBytes": 14305427456,
+          "hostAvailableBytes": 30572478464,
+          "availabilitySource": "node-available-memory",
+          "cgroupCurrentBytes": null,
+          "cgroupAvailableBytes": null,
+          "effectiveAvailableBytes": 30572478464,
+          "swapTotalBytes": null,
+          "swapFreeBytes": null
+        },
+        "pressure": {
+          "cpu": null,
+          "memory": null
+        }
+      },
+      "hostWindow": {
+        "durationMs": 6952,
+        "cpuBusyFraction": null,
+        "maximumLoadPerEffectiveCpu": 0.329,
+        "minimumEffectiveAvailableMemoryBytes": 30572478464,
+        "swapUsedBytesAtStart": null,
+        "swapUsedBytesAtEnd": null
+      }
+    }
+  ],
+  "functionalRuntimeChecks": {
+    "node-reviewed": {
+      "runtime": {
+        "node": "v25.8.2",
+        "bun": null,
+        "v8": "14.1.146.11-node.24"
+      },
+      "scenario": {
+        "sessions": 400,
+        "projects": 20,
+        "claudeShare": 0.5,
+        "metadataInitiallyEmpty": true,
+        "providerProcesses": 0,
+        "browser": false
+      },
+      "archiveRoundtrip": {
+        "archived": 400,
+        "restored": 400
+      },
+      "queryOwners": 1,
+      "forcedGc": true,
+      "metadataTouches": {
+        "list": 0,
+        "inbox": 0
+      }
+    },
+    "bun-reviewed": {
+      "runtime": {
+        "node": "v24.3.0",
+        "bun": "1.3.14",
+        "v8": "13.6.233.10-node.18"
+      },
+      "scenario": {
+        "sessions": 400,
+        "projects": 20,
+        "claudeShare": 0.5,
+        "metadataInitiallyEmpty": true,
+        "providerProcesses": 0,
+        "browser": false
+      },
+      "archiveRoundtrip": {
+        "archived": 400,
+        "restored": 400
+      },
+      "queryOwners": 1,
+      "forcedGc": true,
+      "metadataTouches": {
+        "list": 0,
+        "inbox": 0
+      }
+    }
+  },
+  "harnessSha256": "56493ed578ad068cc6a09232d31f0a92857060bb7b341c47602b08489b1f9b03",
+  "runtimeChecks": {
+    "nodeSqliteContract": "pass: Node 25.8.2",
+    "bunSqliteContract": "pass: Bun 1.3.14 (repository-pinned arm64 binary; manifest checksum verified)",
+    "review": {
+      "sessionId": "c0a90675-4131-4c01-b0b4-200defc0ed8a",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "mode": "bypassPermissions",
+      "outcome": "mustfix disposal and shouldfix archive expiry corrected; follow-up no remaining findings"
+    }
+  },
+  "checks": {
+    "rootLint": "pass; one pre-existing client regex info diagnostic",
+    "rootFormat": "pass",
+    "rootTypecheck": "pass",
+    "sourceBudgets": "pass; metadata1534->1533, app unchanged4594",
+    "server": {
+      "exitCode": 1,
+      "passed": 7269,
+      "failed": 11,
+      "skipped": 94,
+      "failureReason": "all11pre-existing Claude native version guards: fixture2.1.322 installed2.1.321"
+    },
+    "client": {
+      "exitCode": 0,
+      "passed": 7331
+    },
+    "regressionsOnOldSource": "warm population metadata touch bound fails on a63f683a3; both review regressions fail on pre-fix SQL query source"
+  }
+}

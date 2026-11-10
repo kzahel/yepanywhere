@@ -127,7 +127,9 @@ Each needs a one-time import like `session_metadata`'s. Keep small, bounded
 or human-edited files as JSON: recents (100), security clients, browser
 profiles, remote sessions, project metadata/queues, settings and secrets.
 
-8. **`notifications.json`** (1,441 entries). `NotificationService.ts:137`,
+8. Still open: keyed query invalidation now feeds derived SQL unread counters,
+   but durability remains JSON and its in-memory owner remains.
+   **`notifications.json`** (1,441 entries). `NotificationService.ts:137`,
    `:208` rewrite the pretty-printed file on every mark-seen; entries are
    never removed on session deletion (`clearSession` only from mark-unread,
    `routes/sessions.ts:9011`). Use `session_last_seen(session_id PK, ...)`,
@@ -144,7 +146,13 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
 
 ## Structural work, in order
 
-11. Still open. Plan 189 step 7 (2026-11-09) cut the walk's fixed costs (bound
+11. Query consumer implemented 2026-11-10: retained lists and Inbox now use
+    one derived TEMP SQL index per collection, keyed source changes, grouped
+    unread/count aggregates and page/tier hydration. The retained full walk
+    is removed. See [query ownership](../topics/session-collection-queries.md)
+    and [evidence](../docs/research/190-sql-collection-queries.md). Durable seen
+    state and lazy metadata still remain prerequisites for dropping their
+    canonical resident mirrors. Historical finding: Plan 189 step 7 (2026-11-09) cut the walk's fixed costs (bound
     identity projections kept per row object, one time parse per row for the
     sort, cached display titles; retained feeds 86–94 ms to 26–35 ms here) and
     found this item blocks paging in SQL: every retained response carries
@@ -160,7 +168,9 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
     recap time) in the metadata save transaction; serve page-only fields by
     point read and full-prompt search by SQL when `q` is present. This is
     also where a per-project creation-surface rollup lives.
-12. **Load metadata on demand.** Make `getMetadata` read through a bounded
+12. Still open. Item 11 has migrated the retained list/Inbox consumer, but
+    other iterators, pending mutation ownership and restart recovery remain.
+    **Load metadata on demand.** Make `getMetadata` read through a bounded
     cache and drop the startup `SELECT` of every row
     (`SessionMetadataService.ts:340`, `:369`; 2.8 s on the Linux host).
     Prerequisites: items 3 and 11, and SQL replacements for the remaining
@@ -237,7 +247,9 @@ invalidation from the issue indexer, double publication) are recorded in
       `:290`).
 
     These should be per-project or SQL point reads.
-16. Still open; each walk costs about a third of what it did after plan 189
+16. Retained walks removed 2026-11-10 by item 11's shared SQL query owner.
+    Tabs still poll/refetch; change delivery remains open. Historical finding:
+    each walk costs about a third of what it did after plan 189
     step 7 (Inbox 85 to 24 ms, each feed 86–94 to 26–35 ms here), and since
     2026-11-10 one tab's three feeds and Inbox share one walk when they ask
     within 20 ms ([active session tab cost](active-session-tab-background-cost.md));

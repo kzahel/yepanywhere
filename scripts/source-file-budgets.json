@@ -85,7 +85,7 @@
       "maxLines": 2396
     },
     "packages/server/src/metadata/SessionMetadataService.ts": {
-      "maxLines": 1534
+      "maxLines": 1533
     },
     "packages/server/src/projects/projectWorktreeSubscriptionManager.ts": {
       "maxLines": 1741

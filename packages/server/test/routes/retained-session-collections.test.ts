@@ -1,3 +1,4 @@
+import { seedRetainedCollection } from "../utils/retained-query-fixture.js";
 import {
   appendFile,
   chmod,
@@ -364,28 +365,24 @@ it("keeps a retained row's whole title searchable and truncates for display", as
   const long = `${"Context before ".repeat(30)}quasarneedle ${"context after ".repeat(30)}`;
   dataDir = await mkdtemp(join(tmpdir(), "retained-title-"));
   const projectPath = join(dataDir, "project");
-  const service = {
-    read: async () => ({
-      rows: [
-        {
-          catalogFamily: "claude" as const,
-          storeKey: "store",
-          sessionId: "session",
-          ...catalogProjectIdentity(projectPath),
-          projectId: catalogProjectIdentity(projectPath).projectId,
-          updatedAt: "2026-09-08T00:00:00.000Z",
-          title: long,
-          fidelity: "head" as const,
-          sourceVersion: "v1",
-          location: {
-            kind: "file" as const,
-            path: join(projectPath, "session.jsonl"),
-          },
-        } satisfies SessionCatalogRow,
-      ],
-      catalog: {},
-    }),
-  } as unknown as RetainedSessionCollections;
+  const service = await seedRetainedCollection(dataDir, [
+    {
+      catalogFamily: "claude" as const,
+      storeKey: "store",
+      sessionId: "session",
+      ...catalogProjectIdentity(projectPath),
+      projectId: catalogProjectIdentity(projectPath).projectId,
+      updatedAt: "2026-09-08T00:00:00.000Z",
+      title: long,
+      fidelity: "head" as const,
+      sourceVersion: "v1",
+      location: {
+        kind: "file" as const,
+        path: join(projectPath, "session.jsonl"),
+      },
+    } satisfies SessionCatalogRow,
+  ]);
+  collections = service;
 
   const { sessions } = await readRetainedSessionItems(
     service,
@@ -408,27 +405,23 @@ it("names retained rows and the project filter by the project's current chosen n
   await projectMetadata.setProjectNameOverride(identity.projectId, "YA");
   // A row stored before the rename still carries the directory name, and an
   // unchanged file is never read again to replace it.
-  const service = {
-    read: async () => ({
-      rows: [
-        {
-          catalogFamily: "claude" as const,
-          storeKey: "store",
-          sessionId: "session",
-          ...identity,
-          projectName: "yepanywhere",
-          updatedAt: "2026-09-08T00:00:00.000Z",
-          fidelity: "head" as const,
-          sourceVersion: "v1",
-          location: {
-            kind: "file" as const,
-            path: join(projectPath, "session.jsonl"),
-          },
-        } satisfies SessionCatalogRow,
-      ],
-      catalog: {},
-    }),
-  } as unknown as RetainedSessionCollections;
+  const service = await seedRetainedCollection(dataDir, [
+    {
+      catalogFamily: "claude" as const,
+      storeKey: "store",
+      sessionId: "session",
+      ...identity,
+      projectName: "yepanywhere",
+      updatedAt: "2026-09-08T00:00:00.000Z",
+      fidelity: "head" as const,
+      sourceVersion: "v1",
+      location: {
+        kind: "file" as const,
+        path: join(projectPath, "session.jsonl"),
+      },
+    } satisfies SessionCatalogRow,
+  ]);
+  collections = service;
   const deps = {
     projectDisplayName: (path: string) =>
       projectMetadata.getProjectDisplayName(path),

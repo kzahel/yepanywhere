@@ -148,7 +148,7 @@ export class RetainedSessionCollections {
     return this.initialization;
   }
 
-  private state(): RetainedSessionCollectionState {
+  getState(): RetainedSessionCollectionState {
     const snapshot = this.catalog.getSnapshot();
     return {
       catalogEpoch: snapshot.catalogEpoch,
@@ -157,6 +157,14 @@ export class RetainedSessionCollections {
       refreshing: Boolean(this.work || this.timer),
       ...(this.refreshError ? { refreshError: this.refreshError } : {}),
     };
+  }
+
+  /** The collection query owner shares this profile's portable SQL connection. */
+  get queryDatabase(): SqliteDatabase {
+    return this.options.database;
+  }
+  get querySignal(): AbortSignal {
+    return this.controller.signal;
   }
 
   /** Cache invalidation follows accepted catalog publications, not raw events. */
@@ -194,7 +202,7 @@ export class RetainedSessionCollections {
     return {
       rows: result.rows,
       catalog: {
-        ...this.state(),
+        ...this.getState(),
         catalogEpoch: result.snapshot.catalogEpoch,
         catalogGeneration: result.snapshot.catalogGeneration,
         complete: result.snapshot.catalogGeneration > 0,
@@ -294,6 +302,10 @@ export class RetainedSessionCollections {
     await this.initialize();
     this.controller.signal.throwIfAborted();
     return this.catalog.readRow(key);
+  }
+
+  rowOrder(key: string): number | undefined {
+    return this.catalog.rowOrder(key);
   }
 
   invalidate(path?: string): void {
@@ -445,7 +457,7 @@ export class RetainedSessionCollections {
   private publish(): void {
     this.options.eventBus?.emit({
       type: "session-catalog-updated",
-      catalog: this.state(),
+      catalog: this.getState(),
       timestamp: new Date().toISOString(),
     });
   }

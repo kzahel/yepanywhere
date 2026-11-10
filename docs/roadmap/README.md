@@ -1056,10 +1056,14 @@ Inbox/lists, catalog updates, cold metadata and restart. The
 [initial source audit](../research/190-cold-session-ownership.md) identifies
 shared dependencies. The first implementation shares Codex discovery and
 rollout-path ownership at the existing native root, removing complete index
-copies from project readers. Functioning-server memory qualification is in
-the research outcome; the remaining catalog and metadata owners stay resident.
-SQL list/Inbox queries and lazy cold metadata follow; their complete
-query/writer design remains open. Large-transcript incremental reads
+copies from project readers. Retained lists and Inbox now share an SQL
+query owner with keyed updates, grouped counts and page/tier hydration;
+[query evidence](../research/190-sql-collection-queries.md) records its cold
+cost and remaining scope. Changed-file publication, seen persistence and lazy
+metadata remain open. No full plan target is newly certified. Functioning-server
+memory qualification is in the ownership research outcome; the remaining
+canonical catalog and metadata owners stay resident. Their lazy SQL read/write
+migration follows the query consumer boundary. Large-transcript incremental reads
 remain required, followed by client change delivery/rendering. The benchmark
 baseline is complete; no performance target is met yet. This maintenance
 work does not displace release delivery or the concurrent design work below.

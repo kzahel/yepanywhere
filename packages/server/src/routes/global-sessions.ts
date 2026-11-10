@@ -1,3 +1,4 @@
+import { retainedSessionQuery } from "../services/retained-session-query.js";
 import { mergeCreationGlobalItems } from "./creation-session-collections.js";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import { creationCollectionRows } from "../sessions/session-creation-view.js";
@@ -23,10 +24,7 @@ import { type Principal, PRINCIPAL_VARIABLE } from "../auth/principal.js";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
 import type { RetainedSessionCollectionState } from "@yep-anywhere/shared";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
-import {
-  compareProjectOptions,
-  readRetainedSessionItems,
-} from "./retained-session-collections.js";
+import { compareProjectOptions } from "./retained-session-collections.js";
 import { createSessionContentSearchRoutes } from "./session-content-search.js";
 import type { SessionIndexService } from "../indexes/index.js";
 import type { SessionIndexListOptions } from "../indexes/types.js";
@@ -235,7 +233,7 @@ interface CollectionRequest {
   generation: number;
 }
 
-function accessibleProjectIdsForRequest(c: {
+export function accessibleProjectIdsForRequest(c: {
   get: (key: string) => unknown;
 }): string[] | undefined {
   const principal = c.get(PRINCIPAL_VARIABLE) as Principal | undefined;
@@ -585,9 +583,6 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
       MAX_LIMIT,
     );
     const accessibleProjectIds = accessibleProjectIdsForRequest(c);
-    const accessibleProjectIdSet = accessibleProjectIds
-      ? new Set(accessibleProjectIds)
-      : undefined;
 
     // Read before the walk, never after: a change landing mid-walk must leave
     // the client's token behind the current generation, so its next
@@ -595,40 +590,23 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
     // post-walk value would certify rows the response does not contain.
     const generation = collectionGeneration.current;
     if (c.req.query("summaryMode") === "retained" && deps.retainedCollections) {
-      const matches = (row: GlobalSessionItem) =>
-        (!accessibleProjectIdSet ||
-          accessibleProjectIdSet.has(row.projectId)) &&
-        matchesGlobalSessionQuery(row, {
-          filterProjectId,
-          searchQuery,
-          includeArchived,
-          starredOnly,
-          categorizedOnly,
-        }) &&
-        isBeforeCursor(row.updatedAt, afterCursor);
-      const retained = await readRetainedSessionItems(
-        deps.retainedCollections,
-        deps,
-        (sessions) => sessions.filter(matches).slice(0, limit),
-      );
-      const accessibleSessions = retained.sessions.filter(
-        (row) =>
-          !accessibleProjectIdSet || accessibleProjectIdSet.has(row.projectId),
-      );
-      const rows = accessibleSessions.filter(matches);
-      return c.json({
-        ...retained,
-        sessions: rows.slice(0, limit),
-        hasMore: rows.length > limit,
-        stats: accessibleProjectIdSet
-          ? statsForSessionItems(accessibleSessions)
-          : retained.stats,
-        projects: retained.projects.filter(
-          (project) =>
-            !accessibleProjectIdSet || accessibleProjectIdSet.has(project.id),
+      return c.json(
+        await retainedSessionQuery(deps.retainedCollections, deps).page(
+          {
+            filterProjectId,
+            searchQuery,
+            afterCursor,
+            includeArchived,
+            starredOnly,
+            categorizedOnly,
+            limit,
+            accessibleProjectIds,
+          },
+          deps.providerChildRelationships,
         ),
-      });
+      );
     }
+
     // A cursor page is not a whole-collection read, so it never short-circuits;
     // the token only means "the collection behind an identical query is
     // unchanged", which is why the client must replay it against the same

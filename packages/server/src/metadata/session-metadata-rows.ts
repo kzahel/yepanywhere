@@ -1,3 +1,4 @@
+import { CollectionMetadataChanges } from "./collection-metadata-changes.js";
 /**
  * Session metadata rows (plan 189 step 6, migration 031). Queried fields are
  * columns; the rest of the object is JSON in `extra`. A key whose value has
@@ -102,6 +103,16 @@ const same = (left: readonly Value[], right: readonly Value[]) =>
  * and repeat each partial index's condition exactly (gap item 3).
  */
 export class SessionMetadataRows {
+  private readonly changes = new CollectionMetadataChanges();
+  collectionState(
+    sessions: Record<string, SessionMetadata>,
+    dirtyIds: ReadonlySet<string>,
+  ) {
+    return {
+      pending: new Map([...dirtyIds].map((id) => [id, sessions[id]])),
+      subscribe: this.changes.subscribe,
+    };
+  }
   readonly #statements = new Map<string, SqliteStatement>();
   constructor(private readonly database: SqliteDatabase) {}
 
@@ -139,12 +150,14 @@ export class SessionMetadataRows {
       `INSERT INTO session_metadata (session_id, ${NAMES}) VALUES (?${", ?".repeat(COLUMNS.length + 1)})
        ON CONFLICT (session_id) DO UPDATE SET ${[...COLUMNS.map(([, column]) => column), "extra"].map((column) => `${column} = excluded.${column}`).join(", ")}`,
     ).run(sessionId, ...encoded);
+    this.changes.publish(sessionId);
   }
 
   remove(sessionId: string): void {
     this.#prepare("DELETE FROM session_metadata WHERE session_id = ?").run(
       sessionId,
     );
+    this.changes.publish(sessionId);
   }
 
   /** Sessions launched with a `project-write` sandbox. */

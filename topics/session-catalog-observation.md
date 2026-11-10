@@ -33,6 +33,14 @@ ownership, recap, and notification overlays. Recaps may advance display order
 but do not make provider content unread. Counts describe the accepted catalog,
 so they may change when reconciliation discovers additional sessions.
 
+Retained lists and Inbox share one lifecycle-owned SQL working index per
+`RetainedSessionCollections`; see [collection query ownership](session-collection-queries.md).
+Catalog deltas, keyed metadata/creation/seen changes and the finite live-process
+set update it. SQL applies grants, filters and page/tier limits before decoding
+response rows. Grouped counters serve unread and population statistics. This
+removes the former 20 ms full-projection walk cache. Native catalog snapshots
+and eager metadata remain separate owners pending their consumer migrations.
+
 Both summary modes admit a row by the same query rules: the archived, starred,
 project, and cursor filters, and a `q` matched against title, custom title,
 project name, and initial prompt. A row either mode holds is therefore admitted

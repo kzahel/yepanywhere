@@ -4,8 +4,9 @@ Topic: catalog-identity-projection-cost
 
 Status: in progress. Shared Codex discovery ownership is implemented as the
 first bounded-working-set slice; correctness, measurements and qualification
-are recorded below. SQL list/Inbox design and the other plan targets remain
-open.
+are recorded below. Retained list/Inbox SQL queries are implemented as the
+second slice; seen persistence, lazy metadata, changed-file publication and
+the full scenario targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -45,8 +46,8 @@ request paths need a justification beyond improving one benchmark.
 
 | Order | Stage | Scope and relation to original steps | Status |
 |---|---|---|---|
-| 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; first ownership slice implemented, later SQL query design open |
-| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery ownership implemented; next SQL/query slice not yet selected |
+| 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
+| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; lazy metadata/seen writers and changed-file publication open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Deferred until the selected foundation has a qualified slice |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
@@ -95,8 +96,8 @@ Research and implementation checkpoints, in dependency order:
    research note specifies the boundary and verification gate.
 4. Build the SQL-backed seen-state and shared list/Inbox query foundation,
    including statistics/project options that currently force the population
-   walk. Preserve API response shapes. Migration/projection schema and the
-   complete SQL query/writer design are still open.
+   walk. The query consumer is implemented with a rebuildable TEMP index;
+   seen-state durability and cold metadata ownership remain open.
 5. Replace changed-file whole-generation construction and remaining
    whole-catalog consumers with point, paged or change queries; include
    optional question enrichment and per-session project membership mirrors.
@@ -144,10 +145,26 @@ skips). Four original ownership cases fail on the old reader; ten review
 regressions fail on the respective earlier revisions. Full checks and review
 are recorded in the research outcome.
 
-Next high-value candidates within the selected architectural stage are SQL
-list/Inbox/aggregate queries (then lazy cold metadata) and changed-file-only
-catalog publication. Required long-transcript incremental ingestion remains
-its own next workstream; this ownership fix does not implement it.
+### Retained SQL collection queries — implementation outcome
+
+Retained lists and Inbox now share a provider-independent SQL query owner.
+It applies filters/grants and limits before JSON hydration, maintains grouped
+counts, and consumes catalog/metadata/creation/seen changes by session key.
+The old retained full-walk implementation is removed. This is a derived TEMP
+working index, not a second durable authority or a main schema migration.
+
+[Research and evidence](../research/190-sql-collection-queries.md) record the
+50,000-row route comparison, cold-build cost, runtime checks and review.
+Warm list/Inbox queries no longer call metadata getters for the cold corpus.
+The first read still constructs a population-sized projection; optional
+substring search and large timestamp ties have additional documented costs.
+Legacy unstable identities retain revalidation. No full scenario target is
+newly certified by this isolated query diagnostic.
+
+Next candidates: changed-file-only catalog publication removes the remaining
+population work on each transcript write; SQL seen-state persistence and lazy
+cold metadata remove resident canonical mirrors and full JSON writes.
+Long-transcript incremental ingestion remains required and unimplemented.
 
 ## Scenario
 
@@ -225,6 +242,11 @@ diagnostic attribution measurements. The shared-root implementation outcome
 above records functioning-server memory comparisons and qualification; it
 removes the project × session map multiplier. No full active-tab target is
 passed. All original baseline figures below remain unchanged.
+
+The second foundation slice replaces retained list/Inbox full walks with
+SQL page/tier/count queries; its outcome and cold/legacy qualifications are
+above. The original end-to-end baseline is retained until a full scenario run
+qualifies the combined architecture.
 
 Baseline measured 2026-11-10 with the repro on the maintainer's host (Apple
 Silicon): production builds of server and client code as of `f196db4c7`,
@@ -351,7 +373,9 @@ clients.
 Unread state and the list fields in tables
 ([SQLite cleanup](../../gaps/sqlite-cleanup-and-wins.md) items 8 and 11), so
 list pages and stats are indexed queries, and then stop holding the whole
-catalog in memory (item 12).
+catalog in memory (item 12). The retained query consumer is now implemented
+with keyed updates and derived SQL counts. Durable seen-state and removal of
+eager metadata/catalog mirrors remain open; see the implementation outcome.
 
 ### 5 — update the catalog from the changed file
 

@@ -6,6 +6,8 @@ import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import type { AppResult } from "../../src/app.js";
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "./create-app.js";
+import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import { createTestSessionMetadataService } from "../utils/session-metadata-database.js";
 
 const apps: AppResult[] = [];
 const slot = { kind: "new-session" };
@@ -87,6 +89,45 @@ describe("full-app test fixture storage", () => {
     await app.disposeSessionReaders();
     apps.splice(apps.indexOf(app), 1);
     expect(app.supervisor.getMaintenanceScheduleMetrics().armedAtMs).toBeNull();
+  });
+
+  it("retires a retained SQL query owner before closing app-owned storage", async () => {
+    const dataDir = join(process.env.YEP_DATA_DIR!, `retained-${randomUUID()}`);
+    const metadata = createTestSessionMetadataService(dataDir);
+    await metadata.initialize();
+    const app = createApp({
+      provider: new ScriptedClaudeProvider(),
+      projectsDir: join(dataDir, "empty-projects"),
+      dataDir,
+      sessionMetadataService: metadata,
+    });
+    apps.push(app);
+    const response = await app.app.request(
+      "/api/sessions?summaryMode=retained",
+    );
+    expect(response.status).toBe(200);
+    const original = RetainedSessionCollections.prototype.dispose;
+    const retire = vi
+      .spyOn(RetainedSessionCollections.prototype, "dispose")
+      .mockImplementationOnce(async function (
+        this: RetainedSessionCollections,
+      ) {
+        const statement = this.queryDatabase.prepare(
+          "SELECT name FROM sqlite_temp_master WHERE name LIKE 'collection_query_%_rows'",
+        );
+        try {
+          expect(statement.all()).toHaveLength(1);
+        } finally {
+          statement.finalize();
+        }
+        await original.call(this);
+      });
+    try {
+      await app.disposeSessionReaders();
+      expect(retire).toHaveBeenCalledOnce();
+    } finally {
+      retire.mockRestore();
+    }
   });
 
   it("joins concurrent and repeated disposal before removing fixture storage", async () => {

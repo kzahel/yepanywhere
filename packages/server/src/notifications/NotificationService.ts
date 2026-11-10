@@ -37,6 +37,15 @@ export interface NotificationServiceOptions {
 }
 
 export class NotificationService {
+  /** Query-owner listeners; released with their retained collection. */
+  private readonly changeListeners = new Set<(sessionId: string) => void>();
+  subscribeChanges(listener: (sessionId: string) => void): () => void {
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
+  private changed(sessionId: string): void {
+    for (const listener of this.changeListeners) listener(sessionId);
+  }
   private state: NotificationState;
   private dataDir: string;
   private filePath: string;
@@ -124,6 +133,8 @@ export class NotificationService {
       messageId,
     };
 
+    this.changed(sessionId);
+
     // Emit event for other tabs/clients
     if (this.eventBus) {
       this.eventBus.emit({
@@ -172,6 +183,7 @@ export class NotificationService {
   async clearSession(sessionId: string): Promise<void> {
     if (this.state.lastSeen[sessionId]) {
       delete this.state.lastSeen[sessionId];
+      this.changed(sessionId);
       await this.save();
     }
   }
