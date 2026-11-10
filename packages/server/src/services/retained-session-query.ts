@@ -1,11 +1,6 @@
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
-import {
-  fromUrlProjectId,
-  isUrlProjectId,
-  isYaSessionId,
-  type NativeSessionRef,
-} from "@yep-anywhere/shared";
-import { getProjectName, isDetachedProjectPath } from "../projects/paths.js";
+import { isYaSessionId, type NativeSessionRef } from "@yep-anywhere/shared";
+import { getProjectName } from "../projects/paths.js";
 import {
   projectCatalogIdentities,
   nativeCatalogSessionRef,
@@ -19,7 +14,7 @@ import {
   compareProjectOptions,
   retainedNativeItem,
 } from "../routes/retained-session-item.js";
-import { type RetainedItemsDeps } from "../routes/retained-session-collections.js";
+import type { RetainedItemsDeps } from "../routes/retained-session-collections.js";
 import { getActiveSessionIndexOptions } from "../routes/session-list-options.js";
 import type { GlobalSessionItem } from "../routes/global-sessions.js";
 import type { SessionCatalogToken } from "./SessionCatalogService.js";

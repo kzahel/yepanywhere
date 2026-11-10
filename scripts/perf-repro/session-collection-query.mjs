@@ -87,7 +87,7 @@ await metadata.initialize();
 const notifications = new NotificationService({ dataDir: profile });
 await notifications.initialize();
 const now = Date.now();
-let rows = Array.from({ length: count }, (_, i) => {
+const rows = Array.from({ length: count }, (_, i) => {
   const projectPath = join(out, "projects", `p${i % projects}`);
   const family = i % 2 ? "claude" : "codex";
   const scope = join(out, "native", family);
