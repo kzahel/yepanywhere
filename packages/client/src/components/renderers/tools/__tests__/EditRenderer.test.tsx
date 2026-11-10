@@ -1100,10 +1100,10 @@ describe("EditRenderer collapsed preview fallback", () => {
     expect(screen.getByText("+1")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Show full diff" }));
 
-    const modal = document.body.querySelector(".modal");
+    const modal = document.body.querySelector("[data-modal-frame]");
     expect(modal?.textContent).toContain("Recent MT Adapter Progress");
     const titleLink = modal?.querySelector(
-      ".modal-title a.file-path-link",
+      "[data-modal-title] a.file-path-link",
     ) as HTMLAnchorElement | null;
     expect(titleLink?.textContent).toContain("progress-2026-05-18.md");
     expect(titleLink?.getAttribute("href")).toBe(
@@ -1116,7 +1116,7 @@ describe("EditRenderer collapsed preview fallback", () => {
       "/projects/project-1/file?path=research%2Fprogress-2026-05-18.md&line=1&lineEnd=13",
     );
     const copyPath = screen.getByRole("button", { name: "Copy path" });
-    expect(copyPath.closest(".modal-header-actions")).not.toBeNull();
+    expect(copyPath.closest("[data-modal-header-actions]")).not.toBeNull();
     expect(modal?.querySelector(".file-path-copy")).toBeNull();
     const modalToggle = within(modal as HTMLElement).getByRole("button", {
       name: "Show source",
@@ -1165,7 +1165,7 @@ describe("EditRenderer collapsed preview fallback", () => {
     expect(screen.getByRole("tooltip").textContent).toBe(
       "oracle — Best published system.",
     );
-    expect(document.body.querySelector(".modal")).toBeNull();
+    expect(document.body.querySelector("[data-modal-frame]")).toBeNull();
   });
 
   it("counts only hidden rendered diff lines in the +N badge", () => {
@@ -1241,7 +1241,7 @@ describe("EditRenderer collapsed preview fallback", () => {
     fireEvent.click(selectedText);
 
     await waitFor(() => {
-      const modal = document.body.querySelector(".modal");
+      const modal = document.body.querySelector("[data-modal-frame]");
       const selection = document.getSelection();
       expect(modal).not.toBeNull();
       expect(selection?.toString()).toBe("selected replacement");
@@ -1297,7 +1297,7 @@ describe("EditRenderer collapsed preview fallback", () => {
     fireEvent.click(selectedText);
 
     await waitFor(() => {
-      const modal = document.body.querySelector(".modal");
+      const modal = document.body.querySelector("[data-modal-frame]");
       const selection = document.getSelection();
       expect(modal).not.toBeNull();
       expect(
@@ -1377,7 +1377,9 @@ describe("EditRenderer collapsed preview fallback", () => {
     const toggle = await screen.findByRole("button", {
       name: "Show full context",
     });
-    const scrollRoot = document.querySelector<HTMLElement>(".modal-content");
+    const scrollRoot = document.querySelector<HTMLElement>(
+      "[data-modal-content]",
+    );
     if (!scrollRoot) throw new Error("Expected modal scroll root");
     scrollRoot.scrollTop = 40;
     const rectSpy = vi
@@ -1471,7 +1473,7 @@ describe("EditRenderer collapsed preview fallback", () => {
       expect(screen.getByText("unrelated")).toBeDefined();
     });
     expect(mocks.expandDiffContext).not.toHaveBeenCalled();
-    const modal = document.body.querySelector(".modal");
+    const modal = document.body.querySelector("[data-modal-frame]");
     expect(modal?.querySelector(".diff-added")).toBeNull();
     expect(modal?.textContent).not.toContain("+new");
   });

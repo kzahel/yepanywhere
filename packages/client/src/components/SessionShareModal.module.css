@@ -1,3 +1,120 @@
+.sessionShareReadonlyNote {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.sessionShareActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.sessionShareAction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sessionShareAction:disabled {
+  cursor: not-allowed;
+}
+
+.sessionShareOptionTitle {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.sessionShareOptionDescription {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+}
+
+.sessionShareViewerCount {
+  align-self: flex-start;
+}
+
+.sessionShareManagement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sessionShareManagementHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sessionShareGlobalControls {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sessionShareViewerList {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.sessionShareViewerRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sessionShareViewerRow:last-child {
+  border-bottom: none;
+}
+
+.sessionShareViewerMain {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sessionShareViewerToken {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sessionShareViewerMeta,
+.sessionShareViewerState {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.sessionShareViewerMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionShareViewerActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+@media (width <= 600px) {
+  .sessionShareActions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .managerLayout {
   display: grid;
   gap: 14px;

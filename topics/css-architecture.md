@@ -60,6 +60,12 @@ linger host own their states and geometry. The /btw badge and title treatment
 has one shared module. DOM consumers use data boundaries for scroll containers,
 route layers/active state, sidebar collapse and session rows; selector constants
 need the same migration audit as inline queries.
+Modal owns its frame in `ui/Modal.module.css`, including the custom file viewer.
+Consumers use `data-modal-*` frame/header/content boundaries under local anchors;
+the modal reach-in check recognizes these aliases and retains its counted debt.
+Model option sections have one shared owner across model switch and restart;
+share management, schema warnings and recording badges own their own modules.
+
 
 The target:
 
@@ -719,6 +725,10 @@ do not render, as four row lists did to the source row-menu trigger — the chil
 module exports an opt-in class for the ancestor to apply to itself, and owns the
 relationship locally (`.rowSurface:hover > .trigger`). The ancestor declares that
 it is the interaction surface; it does not decide what the reveal looks like.
+
+Stage new modules before running root lint, or lint those exact files explicitly:
+the Biome wrapper's `.` expansion includes tracked files only. New files need the
+same duplicate-declaration and selector-complexity checks as existing modules.
 
 Check cross-module ties on elements that combine owner classes. Make the
 intended winner explicit through a compound selector or one shared owner; import

@@ -854,7 +854,7 @@ function DiffModalContent({
     }
     const content = contentRef.current;
     const scrollRoot =
-      content?.closest<HTMLElement>(".modal-content") ?? content;
+      content?.closest<HTMLElement>("[data-modal-content]") ?? content;
     pendingScrollAnchorRef.current = captureScrollPositionAnchor(
       scrollRoot,
       content?.querySelector(CHANGED_DIFF_LINE_SELECTOR) ?? null,

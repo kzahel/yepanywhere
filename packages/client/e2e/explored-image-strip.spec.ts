@@ -60,7 +60,7 @@ test("grouped image reads show thumbnails that open the viewer", async ({
   await recordUiCapture(page, "explored-image-strip-desktop");
 
   await thumbnails.first().click();
-  await expect(page.locator(".modal--image-viewer")).toHaveCount(1, {
+  await expect(page.locator("[data-modal-image-viewer]")).toHaveCount(1, {
     timeout: 10000,
   });
   await page.keyboard.press("Escape");

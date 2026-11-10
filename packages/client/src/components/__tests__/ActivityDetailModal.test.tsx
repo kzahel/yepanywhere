@@ -96,12 +96,12 @@ describe("ActivityDetailModal", () => {
     expect(
       screen
         .getByRole("button", { name: "Copy file path" })
-        .closest(".modal-header-actions"),
+        .closest("[data-modal-header-actions]"),
     ).not.toBeNull();
     expect(
       screen
         .getByRole("button", { name: "Select all" })
-        .closest(".modal-header-actions"),
+        .closest("[data-modal-header-actions]"),
     ).not.toBeNull();
   });
 
@@ -140,7 +140,7 @@ describe("ActivityDetailModal", () => {
 
     expect(
       (await screen.findByRole("button", { name: "Copy detail path" })).closest(
-        ".modal-header-actions",
+        "[data-modal-header-actions]",
       ),
     ).not.toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Select all" }));

@@ -12,7 +12,7 @@
   z-index: 1;
 }
 
-.fileViewerModal {
+.fileViewerModal.fileViewerModal {
   width: min(calc(100dvw - 0.75rem), 1200px);
   max-width: 1200px;
   height: min(92vh, calc(100dvh - 0.75rem));
@@ -26,7 +26,7 @@
   height: 100%;
 }
 
-.fileViewerModalCompact {
+.fileViewerModalCompact.fileViewerModalCompact {
   height: auto;
   max-height: min(92vh, calc(100dvh - 0.75rem));
 }
@@ -42,12 +42,12 @@
 }
 
 @media (width <= 800px) {
-  :global(.modal-overlay):has(.fileViewerModal) {
+  [data-modal-overlay]:has(.fileViewerModal) {
     align-items: flex-end;
     padding: 0;
   }
 
-  .fileViewerModal {
+  .fileViewerModal.fileViewerModal {
     width: 100dvw;
     max-width: 100dvw;
     height: 100dvh;
@@ -57,13 +57,13 @@
   }
 
   @supports (height: 100dvh) {
-    .fileViewerModal {
+    .fileViewerModal.fileViewerModal {
       height: 100dvh;
       max-height: 100dvh;
     }
   }
 
-  .fileViewerModalCompact {
+  .fileViewerModalCompact.fileViewerModalCompact {
     height: auto;
     max-height: 100dvh;
   }
@@ -80,7 +80,7 @@
 }
 
 :global([data-session-viewer-layer])
-  > :global(.modal-overlay):has(.fileViewerModal) {
+  > [data-modal-overlay]:has(.fileViewerModal) {
   position: absolute;
   inset: 0;
   align-items: flex-end;
@@ -94,7 +94,7 @@
 
 @media (width <= 800px) {
   :global([data-session-viewer-layer])
-    > :global(.modal-overlay):has(.fileViewerModal) {
+    > [data-modal-overlay]:has(.fileViewerModal) {
     padding: 0;
   }
 

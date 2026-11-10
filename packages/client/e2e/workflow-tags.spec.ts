@@ -121,12 +121,12 @@ for (const viewport of [
       .click();
     await expect(output.getByText(progress, { exact: false })).toBeVisible();
     await output.getByRole("link", { name: "the report", exact: true }).click();
-    await expect(page.locator(".file-viewer-modal")).toBeVisible();
-    await expect(page.locator(".file-viewer-modal")).toContainText(
+    await expect(page.locator("[data-file-viewer-modal]")).toBeVisible();
+    await expect(page.locator("[data-file-viewer-modal]")).toContainText(
       "Publication checks",
     );
     await page.keyboard.press("Escape");
-    await expect(page.locator(".file-viewer-modal")).not.toBeVisible();
+    await expect(page.locator("[data-file-viewer-modal]")).not.toBeVisible();
     const captureDir =
       process.env.YEP_E2E_UI_CAPTURE_DIR ?? testInfo.outputPath("captures");
     mkdirSync(captureDir, { recursive: true });
@@ -142,8 +142,8 @@ for (const viewport of [
       exact: true,
     });
     await schemaLink.click();
-    await expect(page.locator(".file-viewer-modal")).toBeVisible();
-    await expect(page.locator(".file-viewer-modal")).toContainText(
+    await expect(page.locator("[data-file-viewer-modal]")).toBeVisible();
+    await expect(page.locator("[data-file-viewer-modal]")).toContainText(
       "ya-publish/1",
     );
   });

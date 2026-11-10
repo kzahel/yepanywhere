@@ -6,11 +6,11 @@
   min-width: 0;
   background: var(--bg-surface);
 }
-.panel > :global(.modal-header) {
+.panel > [data-modal-header] {
   flex-wrap: wrap;
   gap: 6px;
 }
-.panel > :global(.modal-content) {
+.panel > [data-modal-content] {
   flex: 1;
   min-height: 0;
   padding: 12px;

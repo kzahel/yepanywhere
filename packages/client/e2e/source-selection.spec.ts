@@ -108,7 +108,7 @@ async function selectSourceRange(
 
 async function quoteSelectionAndReadTint(page: Page) {
   const quote = page
-    .locator(".file-viewer-modal")
+    .locator("[data-file-viewer-modal]")
     .getByRole("button", { name: "Quote reply" });
   await expect(quote).toBeVisible();
   await quote.click();
@@ -293,6 +293,14 @@ test("keeps a dragged selection in a windowed transcript", async ({
     ),
   ).toBeGreaterThanOrEqual(200);
 
+  // The first marker is above the clipped transcript at the initial bottom
+  // position. Reveal both endpoints before starting the native pointer drag.
+  await page.locator(".session-messages").hover();
+  await page.mouse.wheel(0, -180);
+  await expect
+    .poll(async () => (await markerPoint(page, "Windowed reply 28 part 10")).y)
+    .toBeGreaterThan(80);
+
   const { copied, selected } = await dragSelectAndCopy(
     page,
     "Windowed reply 28 part 10",
@@ -449,7 +457,7 @@ test("places activity selection actions beside the selected range", async ({
   await page.locator(".conversation-activity-summary").click();
   await expect(page.locator(".bash-collapsed-preview")).toBeVisible();
   await page.locator(".bash-collapsed-preview").click();
-  const modal = page.locator(".modal");
+  const modal = page.locator("[data-modal-frame]");
   await expect(modal).toBeVisible();
 
   const geometry = await modal.evaluate((modalElement) => {
@@ -538,7 +546,7 @@ test("keeps a backward drag selected in a collapsed activity preview", async ({
     .toBe(false);
   await page.mouse.up();
 
-  await expect(page.locator(".modal")).not.toBeVisible();
+  await expect(page.locator("[data-modal-frame]")).not.toBeVisible();
   await expect
     .poll(() =>
       output.evaluate((element) => {

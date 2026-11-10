@@ -1,3 +1,4 @@
+import modalStyles from "./ui/Modal.module.css";
 import {
   fromUrlProjectId,
   isUrlProjectId,
@@ -931,7 +932,8 @@ export function FileViewerModal({
       : null;
   const modalContent = (
     <div
-      className="modal-overlay"
+      className={modalStyles.modalOverlay}
+      data-modal-overlay
       aria-hidden={minimized || undefined}
       style={minimized ? { display: "none" } : undefined}
       onClick={handleOverlayClick}
@@ -939,11 +941,11 @@ export function FileViewerModal({
     >
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: click only stops propagation, keyboard handled globally */}
       <dialog
-        className={`modal file-viewer-modal ${styles.fileViewerModal} ${
-          viewMode === "range"
-            ? `file-viewer-modal-compact ${styles.fileViewerModalCompact}`
-            : ""
+        className={`${modalStyles.modal} ${styles.fileViewerModal} ${
+          viewMode === "range" ? `${styles.fileViewerModalCompact}` : ""
         }`}
+        data-modal-frame
+        data-file-viewer-modal
         {...QUOTE_SELECTION_ROOT_ATTRIBUTES}
         open
         onClick={(e) => e.stopPropagation()}

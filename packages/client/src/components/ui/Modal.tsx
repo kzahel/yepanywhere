@@ -1,3 +1,4 @@
+import styles from "./Modal.module.css";
 import {
   type CSSProperties,
   type ReactNode,
@@ -418,14 +419,15 @@ export function ModalChrome({
 }) {
   const { t } = useI18n();
   const titleElement = (
-    <span className="modal-title" id={titleId}>
+    <span className={styles.modalTitle} data-modal-title id={titleId}>
       {title}
     </span>
   );
   return (
     <>
       <div
-        className={`modal-header${headerClassName ? ` ${headerClassName}` : ""}`}
+        className={`${styles.modalHeader}${headerClassName ? ` ${headerClassName}` : ""}`}
+        data-modal-header
       >
         {identityClassName ? (
           <span className={identityClassName}>{titleElement}</span>
@@ -433,27 +435,16 @@ export function ModalChrome({
           titleElement
         )}
         <span
-          className={`modal-header-actions${
-            headerActionsClassName ? ` ${headerActionsClassName}` : ""
-          }`}
-          style={
-            headerActionsClassName
-              ? undefined
-              : {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.375rem",
-                  marginLeft: "auto",
-                  flexShrink: 0,
-                }
-          }
+          className={headerActionsClassName || styles.modalHeaderActions}
+          data-modal-header-actions
         >
           {actions}
           {onMinimize && (
             <IconButton
               variant="ghost"
               size="small"
-              className="modal-close"
+              className={styles.modalClose}
+              data-modal-close
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -468,7 +459,8 @@ export function ModalChrome({
             variant="ghost"
             size="small"
             ref={closeButtonRef}
-            className="modal-close"
+            className={styles.modalClose}
+            data-modal-close
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -480,7 +472,7 @@ export function ModalChrome({
           </IconButton>
         </span>
       </div>
-      <div className="modal-content" ref={contentRef}>
+      <div className={styles.modalContent} data-modal-content ref={contentRef}>
         {children}
       </div>
       {footer}
@@ -658,9 +650,17 @@ export function Modal({
 
   const modalContent = (
     <div
-      className={`modal-overlay${isAnchored ? " modal-overlay--anchored" : ""}${
-        variant ? ` modal-overlay--${variant}` : ""
-      }${overlayClassName ? ` ${overlayClassName}` : ""}`}
+      className={[
+        styles.modalOverlay,
+        isAnchored && styles.modalOverlayAnchored,
+        variant === "image-viewer" && styles.modalOverlayImageViewer,
+        overlayClassName,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-modal-overlay
+      data-modal-overlay-anchored={isAnchored || undefined}
+      data-modal-overlay-image-viewer={variant === "image-viewer" || undefined}
       aria-hidden={minimized || undefined}
       style={minimized ? { display: "none" } : undefined}
       onClick={handleOverlayClick}
@@ -674,9 +674,17 @@ export function Modal({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the dialog box keeps Tab inside itself */}
       <div
         ref={modalRef}
-        className={`modal${isAnchored ? " modal--anchored" : ""}${
-          variant ? ` modal--${variant}` : ""
-        }${className ? ` ${className}` : ""}`}
+        className={[
+          styles.modal,
+          isAnchored && styles.modalAnchored,
+          variant === "image-viewer" && styles.modalImageViewer,
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        data-modal-frame
+        data-modal-anchored={isAnchored || undefined}
+        data-modal-image-viewer={variant === "image-viewer" || undefined}
         {...QUOTE_SELECTION_ROOT_ATTRIBUTES}
         role={role === "alertdialog" ? "alertdialog" : "dialog"}
         aria-modal="true"

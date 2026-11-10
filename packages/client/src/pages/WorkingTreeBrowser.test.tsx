@@ -1664,7 +1664,7 @@ describe("WorkingTreeBrowser", () => {
         ).toBe("true");
         const scrollRootSelector = isWideScreen
           ? "[data-source-preview-body]"
-          : ".modal-content";
+          : "[data-modal-content]";
         const firstScrollRoot =
           document.querySelector<HTMLElement>(scrollRootSelector);
         if (!firstScrollRoot) throw new Error("Diff scroll root is missing");
@@ -1788,7 +1788,9 @@ describe("WorkingTreeBrowser", () => {
           }),
         ),
       );
-      expect(document.querySelector(".modal") !== null).toBe(!isWideScreen);
+      expect(document.querySelector("[data-modal-frame]") !== null).toBe(
+        !isWideScreen,
+      );
     },
   );
 });

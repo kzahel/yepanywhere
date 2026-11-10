@@ -138,10 +138,12 @@ describe("LocalMediaModal loading transitions", () => {
       </I18nProvider>,
     );
 
-    expect(document.querySelector(".modal-overlay--image-viewer")).toBeTruthy();
-    expect(screen.getByRole("dialog").classList).toContain(
-      "modal--image-viewer",
-    );
+    expect(
+      document.querySelector("[data-modal-overlay-image-viewer]"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("dialog").hasAttribute("data-modal-image-viewer"),
+    ).toBe(true);
     expect(
       screen
         .getByRole("dialog")
@@ -249,9 +251,9 @@ describe("LocalMediaModal loading transitions", () => {
     expect(screen.getByRole("img", { name: "first.png" })).toBe(firstImage);
     expect(screen.getByRole("link", { name: "first.png" })).toBeTruthy();
     expect(screen.getByText("1 of 2")).toBeTruthy();
-    expect(screen.getByRole("dialog").classList).toContain(
-      "modal--image-viewer",
-    );
+    expect(
+      screen.getByRole("dialog").hasAttribute("data-modal-image-viewer"),
+    ).toBe(true);
     expect(revokeObjectUrl).not.toHaveBeenCalledWith("blob:first-image");
 
     nextImageDecoded.resolve();
@@ -594,7 +596,7 @@ describe("LocalMediaModal", () => {
     expect(
       screen
         .getByRole("toolbar", { name: "Image view controls" })
-        .closest(".modal-header"),
+        .closest("[data-modal-header]"),
     ).not.toBeNull();
     expect(
       screen.queryByRole("button", { name: "Close image viewer" }),

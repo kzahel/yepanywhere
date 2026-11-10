@@ -51,6 +51,14 @@
     "count": 7,
     "reason": "composer pass"
   },
+  "components/ModelOptionsSection.module.css": {
+    "count": 1,
+    "reason": "The 0.78rem model-choice section note follows browser root-font preferences; close with an approved source/control explanatory typography scale."
+  },
+  "components/ModelSwitchModal.module.css": {
+    "count": 3,
+    "reason": "The 0.72rem provider heading and two 0.5rem card radii follow browser root-font preferences; close with approved matching rem-based model-picker tokens."
+  },
   "components/NewSessionForm.module.css": {
     "count": 1,
     "reason": "0.5rem queue panel corners compute to 9.2px at the default 115% scale, over 1px from the 8px token."
@@ -66,6 +74,10 @@
   "components/ResizableSourceColumns.module.css": {
     "count": 2,
     "reason": "Preserve the 0.72rem resize glyph and 5px handle corner geometry in the move-only source layout pass."
+  },
+  "components/SchemaWarning.module.css": {
+    "count": 1,
+    "reason": "Fixed 10px warning glyph inside a 16px icon; close with an approved fixed-size glyph token, independent of UI font scaling."
   },
   "components/Sidebar.module.css": {
     "count": 1,
@@ -106,6 +118,10 @@
   "components/ui/Button.module.css": {
     "count": 1,
     "reason": "Mono inline buttons follow the user-configured fixed-width output font size."
+  },
+  "components/ui/Modal.module.css": {
+    "count": 2,
+    "reason": "The 0.9375/0.875rem viewer titles retain the browser root-font hierarchy; close with an approved matching rem-based title scale."
   },
   "components/ui/SelectionActionCluster.module.css": {
     "count": 2,

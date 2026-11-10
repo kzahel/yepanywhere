@@ -1,0 +1,81 @@
+.schemaWarning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-left: var(--space-2);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.schemaWarningIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--warning-color);
+  color: var(--bg-surface);
+  /* radius-percent: fixed square status glyph remains circular at every font size. */
+  border-radius: 50%;
+  user-select: none;
+}
+
+.schemaWarning:hover .schemaWarningIcon {
+  filter: brightness(1.2);
+}
+
+.schemaWarningSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.schemaWarningSectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.schemaWarningList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.schemaWarningItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--bg-code);
+  border-radius: var(--radius-sm);
+}
+
+.schemaWarningItem code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--warning-color);
+}
+
+.schemaWarningMessage {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.schemaWarningReportLink {
+  font-size: var(--font-size-sm);
+  color: var(--link-color);
+  text-decoration: none;
+}
+
+.schemaWarningReportLink:hover {
+  text-decoration: underline;
+}

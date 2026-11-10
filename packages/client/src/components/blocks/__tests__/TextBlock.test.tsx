@@ -733,7 +733,7 @@ describe("TextBlock", () => {
       "full",
     );
     expect(await screen.findByText(/Project doc/)).toBeTruthy();
-    const overlay = document.body.querySelector(".modal-overlay");
+    const overlay = document.body.querySelector("[data-modal-overlay]");
     expect(overlay).toBeTruthy();
     expect(overlay?.parentElement).toBe(document.body);
     expect(container.contains(overlay)).toBe(false);

@@ -228,7 +228,7 @@ export function SessionRecapModal({
           onChange={setRecapMode}
           disabled={isLoading || isSaving}
         />
-        <p className="recap-mode-caption">
+        <p className={styles.recapModeCaption} data-recap-mode-caption>
           {getRecapModeDescription(recapMode, t, recapAfterSeconds)}
         </p>
       </div>

@@ -19,7 +19,7 @@ export function getPostChangeText(hunks: PatchHunk[]): string | null {
 export function getDiffScrollRoot(content: HTMLElement): HTMLElement {
   return (
     content.closest<HTMLElement>(
-      "[data-source-preview-body], .modal-content",
+      "[data-source-preview-body], [data-modal-content]",
     ) ?? content
   );
 }

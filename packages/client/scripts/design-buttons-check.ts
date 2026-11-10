@@ -79,6 +79,7 @@ import { scanControlOverrides } from "../design/controlOverrides";
 import type { OverrideAllowance } from "../design/controlOverrideAllowlist";
 import { scanButtonElements } from "../design/buttonElements";
 import { scanFieldElements } from "../design/fieldElements";
+import { reachesModalFrame } from "../design/modalFrameSelectors";
 import { COMPOSER_FILE } from "../design/composerFiles";
 import { bannedClassUses } from "../design/bannedClasses";
 import { clientRoot } from "./design-index";
@@ -501,7 +502,6 @@ const [modalRoleCounts, modalRoleSites] = await countMatches(
 );
 const frameCounts = new Map<string, number>();
 const frameSites = new Map<string, string[]>();
-const MODAL_FRAME = /\.modal(?:-[\w-]+)?(?![\w-])/;
 for (const path of stylesheets) {
   const file = srcPath(path);
   if (file.startsWith("components/ui/")) continue;
@@ -515,12 +515,7 @@ for (const path of stylesheets) {
     const selector = (rule[1] ?? "").trim();
     if (selector.startsWith("@")) continue;
     const reaches = splitSelectorList(selector).some((part) =>
-      isModule
-        ? // `:global(.modal)`, `:global(.x .modal-content)`, `:global .modal`
-          /:global(?:\((?:[^()]|\([^()]*\))*?|\s+[^()]*?)\.modal(?:-[\w-]+)?(?![\w-])/.test(
-            part,
-          )
-        : MODAL_FRAME.test(part) && /\.modal(?:-[\w-]+)?:has\(/.test(part),
+      reachesModalFrame(part, isModule),
     );
     if (!reaches) continue;
     tally(

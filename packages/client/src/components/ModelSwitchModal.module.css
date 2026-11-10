@@ -1,0 +1,249 @@
+.modelSwitchPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.modelSwitchTabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface);
+}
+
+.modelSwitchActivate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.modelSwitchActivateNote {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.modelSwitchLoading {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  padding: 1rem;
+  text-align: center;
+}
+
+.modelSwitchStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.modelSwitchStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+
+.modelSwitchStatusRow.pending {
+  color: var(--text-primary);
+}
+
+.modelSwitchStatusMarker {
+  min-width: 3.25rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.modelSwitchStatusMain {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelSwitchStatusDetail {
+  margin-left: auto;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.modelSwitchGroupLabel {
+  padding: 0.45rem 0.35rem 0.15rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.modelSwitchChipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.modelSwitchList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.35rem;
+  max-height: min(55vh, 28rem);
+  overflow-y: auto;
+}
+
+.modelSwitchItemRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.modelSwitchItem {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.modelSwitchItem:hover {
+  background: var(--bg-hover);
+}
+
+.modelSwitchItem.current {
+  background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-secondary));
+  border-color: var(--accent-color);
+}
+
+.modelSwitchItem.active {
+  background: color-mix(in srgb, var(--accent-color) 16%, var(--bg-secondary));
+  border-color: color-mix(
+    in srgb,
+    var(--accent-color) 75%,
+    var(--border-color)
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--accent-color) 14%, transparent);
+}
+
+.modelSwitchItem.current.active {
+  background: color-mix(in srgb, var(--accent-color) 20%, var(--bg-secondary));
+  border-color: var(--accent-color);
+}
+
+.modelSwitchItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modelSwitchItemMain {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.modelSwitchNameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.modelSwitchName {
+  font-weight: 500;
+}
+
+.modelSwitchItem.active .modelSwitchName {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.modelSwitchDescription {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.modelSwitchItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.modelSwitchRadio {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.modelSwitchRadio.selected {
+  color: var(--accent-color);
+}
+
+@media (width <= 768px) {
+  .modelSwitchItemRow,
+  .modelSwitchInlineSave {
+    flex: 1;
+    text-align: left;
+  }
+}
+
+@media (width <= 768px) {
+  .modelSwitchItemRow {
+    flex-direction: column;
+  }
+}
+
+@media (width <= 768px) {
+  .modelSwitchInlineSave {
+    width: 100%;
+  }
+}
+
+@media (width <= 768px) {
+  .modelSwitchStatusRow {
+    flex-wrap: wrap;
+  }
+}
+
+@media (width <= 768px) {
+  .modelSwitchStatusMarker {
+    min-width: 2.75rem;
+  }
+}
+
+@media (width <= 768px) {
+  .modelSwitchStatusDetail {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (width <= 768px) {
+  .modelSwitchList {
+    grid-template-columns: 1fr;
+    max-height: min(28vh, 10rem);
+  }
+}

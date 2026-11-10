@@ -96,12 +96,12 @@
   min-width: 0;
 }
 
-.imageHeader {
+.imageHeader.imageHeader {
   justify-content: flex-start;
   gap: 0.375rem;
 }
 
-.imageHeader > :global(.modal-title) {
+.imageHeader > [data-modal-title] {
   min-width: 0;
   overflow: hidden;
   margin-right: auto;
@@ -112,12 +112,12 @@
 }
 
 @media (width <= 600px) {
-  .imageHeader {
+  .imageHeader.imageHeader {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
-  .imageHeader > :global(.modal-title) {
+  .imageHeader > [data-modal-title] {
     grid-column: 1;
     grid-row: 1;
     width: 100%;
@@ -130,12 +130,12 @@
     grid-row: 2;
   }
 
-  .imageHeaderActions > :global(.modal-close:first-of-type) {
+  .imageHeaderActions > [data-modal-close]:first-of-type {
     grid-column: 2;
     grid-row: 1;
   }
 
-  .imageHeaderActions > :global(.modal-close:last-of-type) {
+  .imageHeaderActions > [data-modal-close]:last-of-type {
     grid-column: 3;
     grid-row: 1;
   }
@@ -176,8 +176,8 @@
   color: var(--text-secondary);
 }
 
-/* The shared modal shell stays global; this module only sizes it. */
-:global(.modal):has(.fileModalContent) {
+/* The shared Modal frame owns its look; this viewer only sizes it. */
+[data-modal-frame]:has(.fileModalContent) {
   height: min(80vh, calc(100dvh - 1.5rem));
 }
 

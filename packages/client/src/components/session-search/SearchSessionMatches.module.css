@@ -1,7 +1,7 @@
-:global(.modal-overlay):has(.matches) {
+[data-modal-overlay]:has(.matches) {
   padding: 12px;
 }
-:global(.modal):has(.matches) {
+[data-modal-frame]:has(.matches) {
   width: calc(100dvw - 24px);
   max-width: none;
   height: calc(100dvh - 24px);

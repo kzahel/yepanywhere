@@ -1,3 +1,4 @@
+import styles from "./SessionShareModal.module.css";
 import { SelectableCard } from "./ui/SelectableCard";
 import type {
   PublicShareLinkedFileMode,
@@ -276,38 +277,55 @@ export function LegacySessionShareModal({
       onClose={onClose}
     >
       {canCreateShares ? (
-        <div className="session-share-actions">
+        <div className={styles.sessionShareActions} data-session-share-actions>
           <SelectableCard
-            className="session-share-action"
+            className={styles.sessionShareAction}
+            data-session-share-action
             onClick={() => void createAndCopyShare("frozen")}
             disabled={isWorking !== null}
           >
-            <span className="session-share-option-title">
+            <span
+              className={styles.sessionShareOptionTitle}
+              data-session-share-option-title
+            >
               {isWorking === "frozen"
                 ? t("sessionShareCopying")
                 : t("sessionShareCopyFrozenReadOnly")}
             </span>
-            <span className="session-share-option-description">
+            <span
+              className={styles.sessionShareOptionDescription}
+              data-session-share-option-description
+            >
               {t("sessionShareFrozenDescription")}
             </span>
           </SelectableCard>
           <SelectableCard
-            className="session-share-action"
+            className={styles.sessionShareAction}
+            data-session-share-action
             onClick={() => void createAndCopyShare("live")}
             disabled={isWorking !== null}
           >
-            <span className="session-share-option-title">
+            <span
+              className={styles.sessionShareOptionTitle}
+              data-session-share-option-title
+            >
               {isWorking === "live"
                 ? t("sessionShareCopying")
                 : t("sessionShareCopyLiveReadOnly")}
             </span>
-            <span className="session-share-option-description">
+            <span
+              className={styles.sessionShareOptionDescription}
+              data-session-share-option-description
+            >
               {t("sessionShareLiveDescription")}
             </span>
           </SelectableCard>
         </div>
       ) : (
-        <p className="session-share-readonly-note">
+        <p
+          className={styles.sessionShareReadonlyNote}
+          data-session-share-readonly-note
+        >
           {t("sessionShareDisabledInSettings")}
         </p>
       )}
@@ -345,14 +363,24 @@ export function LegacySessionShareModal({
       )}
 
       {hasActiveShares && (
-        <div className="session-share-management">
-          <div className="session-share-management-header">
+        <div
+          className={styles.sessionShareManagement}
+          data-session-share-management
+        >
+          <div
+            className={styles.sessionShareManagementHeader}
+            data-session-share-management-header
+          >
             <ViewerCountIndicator
-              className="session-share-viewer-count"
+              className={styles.sessionShareViewerCount}
+              data-session-share-viewer-count
               count={activeViewerCount}
               label={viewerSummary}
             />
-            <div className="session-share-global-controls">
+            <div
+              className={styles.sessionShareGlobalControls}
+              data-session-share-global-controls
+            >
               <Button
                 size="small"
                 onClick={() => void freezeAllLive()}
@@ -378,31 +406,48 @@ export function LegacySessionShareModal({
           </div>
           {viewers.length > 0 && (
             <>
-              <p className="session-share-readonly-note">
+              <p
+                className={styles.sessionShareReadonlyNote}
+                data-session-share-readonly-note
+              >
                 {t("sessionShareViewerOperationalWarning")}
               </p>
               <div
-                className="session-share-viewer-list"
+                className={styles.sessionShareViewerList}
+                data-session-share-viewer-list
                 role="list"
                 aria-label={t("sessionShareViewerList")}
               >
                 {viewers.map((viewer) => (
                   <div
-                    className="session-share-viewer-row"
+                    className={styles.sessionShareViewerRow}
+                    data-session-share-viewer-row
                     key={viewer.viewerId}
                   >
-                    <div className="session-share-viewer-main">
-                      <span className="session-share-viewer-token">
+                    <div
+                      className={styles.sessionShareViewerMain}
+                      data-session-share-viewer-main
+                    >
+                      <span
+                        className={styles.sessionShareViewerToken}
+                        data-session-share-viewer-token
+                      >
                         {viewer.shortId}
                       </span>
-                      <span className="session-share-viewer-meta">
+                      <span
+                        className={styles.sessionShareViewerMeta}
+                        data-session-share-viewer-meta
+                      >
                         {t("sessionShareViewerMeta", {
                           count: viewer.accessCount,
                           time: new Date(viewer.lastSeenAt).toLocaleString(),
                         })}
                       </span>
                     </div>
-                    <div className="session-share-viewer-state">
+                    <div
+                      className={styles.sessionShareViewerState}
+                      data-session-share-viewer-state
+                    >
                       {viewer.disconnected
                         ? t("sessionShareViewerDisconnectedState")
                         : viewer.frozen
@@ -411,7 +456,10 @@ export function LegacySessionShareModal({
                             ? t("sessionShareViewerActiveState")
                             : t("sessionShareViewerInactiveState")}
                     </div>
-                    <div className="session-share-viewer-actions">
+                    <div
+                      className={styles.sessionShareViewerActions}
+                      data-session-share-viewer-actions
+                    >
                       <IconButton
                         label={t("sessionShareFreezeViewerTitle", {
                           token: viewer.shortId,

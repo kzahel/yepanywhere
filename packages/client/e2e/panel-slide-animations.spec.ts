@@ -149,7 +149,7 @@ for (const animations of [false, true]) {
     await expect(
       viewer.getByText("Test Project", { exact: true }),
     ).toBeVisible();
-    await expect(page.locator(".file-viewer-modal")).toHaveCount(0);
+    await expect(page.locator("[data-file-viewer-modal]")).toHaveCount(0);
     await expect(pane).toHaveCSS(
       "transition-duration",
       animations ? "0.2s, 0s" : "0s, 0s",
@@ -279,7 +279,7 @@ test("nested files stay in the right pane and Back preserves the parent", async 
       pane.getByText("Hello from test file!", { exact: true }),
     ).toBeVisible();
     await expect(pane.locator(".file-viewer")).toHaveCount(2);
-    await expect(page.locator(".file-viewer-modal")).toHaveCount(0);
+    await expect(page.locator("[data-file-viewer-modal]")).toHaveCount(0);
     await pane
       .getByRole("button", { name: "Back", exact: true })
       .last()

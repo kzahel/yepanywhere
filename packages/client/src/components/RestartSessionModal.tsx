@@ -1,3 +1,4 @@
+import modelSectionStyles from "./ModelOptionsSection.module.css";
 import type {
   ModelInfo,
   ProviderInfo,
@@ -231,8 +232,14 @@ export function RestartSessionModal({
       )}
 
       {canFork && (
-        <section className="model-switch-section">
-          <div className="model-switch-section-header">
+        <section
+          className={modelSectionStyles.modelSwitchSection}
+          data-model-switch-section
+        >
+          <div
+            className={modelSectionStyles.modelSwitchSectionHeader}
+            data-model-switch-section-header
+          >
             <strong>{t("sessionRestartModeTitle")}</strong>
           </div>
           <SegmentedControl
@@ -253,7 +260,10 @@ export function RestartSessionModal({
             onChange={setRestartMode}
           />
           {isFork && (
-            <div className="model-switch-section-note">
+            <div
+              className={modelSectionStyles.modelSwitchSectionNote}
+              data-model-switch-section-note
+            >
               {t("sessionRestartForkKeepsProvider", {
                 provider:
                   sourceProviderInfo?.displayName ??
@@ -266,7 +276,10 @@ export function RestartSessionModal({
       )}
 
       {isRateLimited && sourceProviderInfo?.supportsForkSession === true && (
-        <div className="model-switch-section-note">
+        <div
+          className={modelSectionStyles.modelSwitchSectionNote}
+          data-model-switch-section-note
+        >
           {forkRetryAt
             ? t("sessionRestartForkRateLimitedUntil", { time: forkRetryAt })
             : t("sessionRestartForkRateLimited")}

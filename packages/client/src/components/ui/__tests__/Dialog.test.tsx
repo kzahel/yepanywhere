@@ -64,7 +64,7 @@ describe("Dialog", () => {
     ).toHaveProperty("textContent", "Give the session a name.");
     // The footer sits outside the scrolling content.
     const save = screen.getByRole("button", { name: "Save" });
-    expect(save.closest(".modal-content")).toBeNull();
+    expect(save.closest("[data-modal-content]")).toBeNull();
 
     // Close (the first stop) has focus; Shift+Tab wraps to Save, Tab back.
     const close = screen.getByRole("button", { name: "Close" });

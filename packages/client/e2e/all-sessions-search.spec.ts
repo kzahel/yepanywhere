@@ -84,7 +84,7 @@ for (const viewport of [
     await expandedDetail.locator('a[href*="searchMatch="]').first().click();
     const detail = page.getByRole("dialog");
     await expect(detail).toContainText("quasarneedle");
-    await expect(page.locator(".modal-overlay")).toHaveCount(0);
+    await expect(page.locator("[data-modal-overlay]")).toHaveCount(0);
     const link = detail.getByRole("link", { name: "Open turn in session" });
     await expect(link).toBeVisible();
     await recordUiCapture(page, `csv-detail-${viewport.name}`, viewport);
@@ -896,7 +896,7 @@ for (const viewport of [
       await expect(mark).toHaveText("quasarneedle");
       await expect(mark).toBeInViewport();
       const position = await mark.evaluate((element) => {
-        const scroller = element.closest(".modal-content")!;
+        const scroller = element.closest("[data-modal-content]")!;
         return (
           element.getBoundingClientRect().top -
           scroller.getBoundingClientRect().top -

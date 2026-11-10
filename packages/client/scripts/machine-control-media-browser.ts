@@ -128,7 +128,7 @@ export async function createMachineControlMediaBrowser(
         await expect(filename).toBeVisible({ timeout: 15_000 });
         await filename.scrollIntoViewIfNeeded();
         await filename.click();
-        const modal = page.locator(".modal--image-viewer");
+        const modal = page.locator("[data-modal-image-viewer]");
         await expect(modal).toBeVisible({ timeout: 10_000 });
         const image = modal.locator("img").first();
         await expect

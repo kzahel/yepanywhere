@@ -134,11 +134,6 @@
     "reason": "Normalized tool item status interpolated into timeline tool rows."
   },
   {
-    "pattern": "^modal(-overlay)?--image-viewer$",
-    "source": "packages/client/src/components/ui/Modal.tsx",
-    "reason": "The image-viewer variant interpolates the overlay and dialog suffixes."
-  },
-  {
     "pattern": "^steer-mode$",
     "source": "packages/client/src/components/MessageInput.tsx",
     "reason": "Keyboard action kind interpolated into primary and alternate action classes."
@@ -151,11 +146,6 @@
   {
     "pattern": "^(bang-composer-chip|message-input-(collapsed-actions|keyboard-actions|keyboard-more))$",
     "source": "packages/client/src/components/MessageInput.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
-  },
-  {
-    "pattern": "^(client-log-recording-badge)$",
-    "source": "packages/client/src/components/ClientLogRecordingBadge.tsx",
     "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
   },
   {

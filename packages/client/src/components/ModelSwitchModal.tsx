@@ -1,3 +1,5 @@
+import styles from "./ModelSwitchModal.module.css";
+import modelSectionStyles from "./ModelOptionsSection.module.css";
 import {
   type EffortLevel,
   type ModelInfo,
@@ -73,7 +75,8 @@ function MaybeTabPanel({
       tabsId={tabsId}
       value={value}
       focusable={value === "info"}
-      className="model-switch-pane"
+      className={styles.modelSwitchPane}
+      data-model-switch-pane
     >
       {children}
     </TabPanel>
@@ -477,7 +480,8 @@ export function ModelSwitchModal({
   };
   const renderInlineSave = () => (
     <Button
-      className="model-switch-inline-save"
+      className={styles.modelSwitchInlineSave}
+      data-model-switch-inline-save
       onClick={() => void applyConfig()}
       disabled={switching || !selectedModel}
     >
@@ -519,7 +523,8 @@ export function ModelSwitchModal({
       {hasTabs && (
         <Tabs
           id={tabsId}
-          className="model-switch-tabs"
+          className={styles.modelSwitchTabs}
+          data-model-switch-tabs
           value={activeTab}
           onChange={handleTabChange}
           tabs={[
@@ -539,16 +544,22 @@ export function ModelSwitchModal({
           <div className="model-switch-info-pane">{infoPane}</div>
         )}
         {(!hasTabs || activeTab === "model") && loading && (
-          <div className="model-switch-loading">
+          <div className={styles.modelSwitchLoading} data-model-switch-loading>
             <Spinner size="small" /> {t("modelSwitchLoading")}
           </div>
         )}
 
         {(!hasTabs || activeTab === "model") && !loading && (
           <>
-            <div className="model-switch-status">
-              <div className="model-switch-status-row">
-                <span className="model-switch-status-marker">
+            <div className={styles.modelSwitchStatus} data-model-switch-status>
+              <div
+                className={styles.modelSwitchStatusRow}
+                data-model-switch-status-row
+              >
+                <span
+                  className={styles.modelSwitchStatusMarker}
+                  data-model-switch-status-marker
+                >
                   {processId
                     ? t("modelSwitchCurrent")
                     : t("modelSwitchNextSend")}
@@ -557,19 +568,29 @@ export function ModelSwitchModal({
                   className={`model-switch-indicator-dot tone-${currentIndicatorTone}`}
                   aria-hidden="true"
                 />
-                <span className="model-switch-status-main">
+                <span
+                  className={styles.modelSwitchStatusMain}
+                  data-model-switch-status-main
+                >
                   {currentModelId ??
                     currentModel ??
                     t("processInfoDefaultModel")}
                 </span>
-                <span className="model-switch-status-detail">
+                <span
+                  className={styles.modelSwitchStatusDetail}
+                  data-model-switch-status-detail
+                >
                   {renderThinkingLabel(currentThinkingMode, currentEffortLevel)}
                 </span>
               </div>
               {dirty && (
-                <div className="model-switch-status-row pending">
+                <div
+                  className={`${styles.modelSwitchStatusRow} ${styles.pending}`}
+                  data-model-switch-status-row
+                >
                   <span
-                    className="model-switch-status-marker"
+                    className={styles.modelSwitchStatusMarker}
+                    data-model-switch-status-marker
                     aria-hidden="true"
                   >
                     →
@@ -578,12 +599,18 @@ export function ModelSwitchModal({
                     className={`model-switch-indicator-dot tone-${pendingIndicatorTone}`}
                     aria-hidden="true"
                   />
-                  <span className="model-switch-status-main">
+                  <span
+                    className={styles.modelSwitchStatusMain}
+                    data-model-switch-status-main
+                  >
                     {selectedModel ??
                       currentModelId ??
                       t("processInfoDefaultModel")}
                   </span>
-                  <span className="model-switch-status-detail">
+                  <span
+                    className={styles.modelSwitchStatusDetail}
+                    data-model-switch-status-detail
+                  >
                     {renderThinkingLabel(
                       effectiveThinkingMode,
                       effectiveEffortLevel,
@@ -593,13 +620,20 @@ export function ModelSwitchModal({
               )}
             </div>
             {!processId && (
-              <div className="model-switch-activate">
-                <span className="model-switch-activate-note">
+              <div
+                className={styles.modelSwitchActivate}
+                data-model-switch-activate
+              >
+                <span
+                  className={styles.modelSwitchActivateNote}
+                  data-model-switch-activate-note
+                >
                   {t("processInfoNoActiveProcess")}
                 </span>
                 {onActivate && (
                   <Button
-                    className="model-switch-inline-save"
+                    className={styles.modelSwitchInlineSave}
+                    data-model-switch-inline-save
                     onClick={handleActivate}
                     disabled={activating}
                   >
@@ -614,11 +648,20 @@ export function ModelSwitchModal({
             {error && <Banner tone="error">{error}</Banner>}
 
             {processId && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
+              <section
+                className={modelSectionStyles.modelSwitchSection}
+                data-model-switch-section
+              >
+                <div
+                  className={modelSectionStyles.modelSwitchSectionHeader}
+                  data-model-switch-section-header
+                >
                   <strong>{t("modelSwitchThinkingModeTitle")}</strong>
                 </div>
-                <div className="model-switch-chip-group">
+                <div
+                  className={styles.modelSwitchChipGroup}
+                  data-model-switch-chip-group
+                >
                   <SegmentedControl
                     variant="cards"
                     aria-label={t("modelSwitchThinkingModeTitle")}
@@ -662,11 +705,20 @@ export function ModelSwitchModal({
             )}
 
             {processId && showEffortOptions && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
+              <section
+                className={modelSectionStyles.modelSwitchSection}
+                data-model-switch-section
+              >
+                <div
+                  className={modelSectionStyles.modelSwitchSectionHeader}
+                  data-model-switch-section-header
+                >
                   <strong>{t("modelSettingsEffortTitle")}</strong>
                 </div>
-                <div className="model-switch-chip-group">
+                <div
+                  className={styles.modelSwitchChipGroup}
+                  data-model-switch-chip-group
+                >
                   <SegmentedControl
                     variant="cards"
                     aria-label={t("modelSettingsEffortTitle")}
@@ -705,8 +757,14 @@ export function ModelSwitchModal({
             )}
 
             {showServiceTierOptions && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
+              <section
+                className={modelSectionStyles.modelSwitchSection}
+                data-model-switch-section
+              >
+                <div
+                  className={modelSectionStyles.modelSwitchSectionHeader}
+                  data-model-switch-section-header
+                >
                   <strong>{t("modelSwitchSpeedLabel")}</strong>
                 </div>
                 <SegmentedControl
@@ -732,24 +790,36 @@ export function ModelSwitchModal({
                   }
                   disabled={switching || savingServiceTier}
                 />
-                <div className="model-switch-section-note">
+                <div
+                  className={modelSectionStyles.modelSwitchSectionNote}
+                  data-model-switch-section-note
+                >
                   {t("modelSwitchSpeedLiveHint")}
                 </div>
               </section>
             )}
 
             {processId && !error && models.length === 0 && (
-              <div className="model-switch-loading">
+              <div
+                className={styles.modelSwitchLoading}
+                data-model-switch-loading
+              >
                 {t("modelSwitchEmpty")}
               </div>
             )}
 
             {models.length > 0 && (
-              <section className="model-switch-section">
-                <div className="model-switch-section-header">
+              <section
+                className={modelSectionStyles.modelSwitchSection}
+                data-model-switch-section
+              >
+                <div
+                  className={modelSectionStyles.modelSwitchSectionHeader}
+                  data-model-switch-section-header
+                >
                   <strong>{t("newSessionModelTitle")}</strong>
                 </div>
-                <div className="model-switch-list">
+                <div className={styles.modelSwitchList} data-model-switch-list>
                   {models.map((model, index) => {
                     const isCurrent = currentModelId === model.id;
                     const isSelected = selectedModel === model.id;
@@ -758,14 +828,23 @@ export function ModelSwitchModal({
                     return (
                       <Fragment key={model.id}>
                         {startsAdditionalModelGroup(models, index) && (
-                          <div className="model-switch-group-label">
+                          <div
+                            className={styles.modelSwitchGroupLabel}
+                            data-model-switch-group-label
+                          >
                             {t("previousModelsGroup")}
                           </div>
                         )}
-                        <div className="model-switch-item-row">
+                        <div
+                          className={styles.modelSwitchItemRow}
+                          data-model-switch-item-row
+                        >
                           <button
                             type="button"
-                            className={`model-switch-item ${isCurrent ? "current" : ""} ${isSelected ? "active" : ""}`}
+                            className={`${styles.modelSwitchItem} ${isCurrent ? styles.current : ""} ${isSelected ? styles.active : ""}`}
+                            data-model-switch-item
+                            data-model-current={isCurrent || undefined}
+                            data-model-selected={isSelected || undefined}
                             onClick={() => {
                               if (selectedModel !== model.id) {
                                 setLastTouchedSection("model");
@@ -774,9 +853,18 @@ export function ModelSwitchModal({
                             }}
                             disabled={switching}
                           >
-                            <span className="model-switch-item-main">
-                              <span className="model-switch-name-row">
-                                <span className="model-switch-name">
+                            <span
+                              className={styles.modelSwitchItemMain}
+                              data-model-switch-item-main
+                            >
+                              <span
+                                className={styles.modelSwitchNameRow}
+                                data-model-switch-name-row
+                              >
+                                <span
+                                  className={styles.modelSwitchName}
+                                  data-model-switch-name
+                                >
                                   {model.name}
                                 </span>
                                 {provider && (
@@ -787,12 +875,18 @@ export function ModelSwitchModal({
                                 )}
                               </span>
                               {model.description && (
-                                <span className="model-switch-description">
+                                <span
+                                  className={styles.modelSwitchDescription}
+                                  data-model-switch-description
+                                >
                                   {model.description}
                                 </span>
                               )}
                             </span>
-                            <span className="model-switch-item-meta">
+                            <span
+                              className={styles.modelSwitchItemMeta}
+                              data-model-switch-item-meta
+                            >
                               <ModelSubscriptionUsage
                                 usage={subscriptionUsage}
                                 modelId={model.id}
@@ -803,7 +897,8 @@ export function ModelSwitchModal({
                                 </Badge>
                               )}
                               <span
-                                className={`model-switch-radio ${isSelected ? "selected" : ""}`}
+                                className={`${styles.modelSwitchRadio} ${isSelected ? styles.selected : ""}`}
+                                data-model-switch-radio
                                 aria-hidden="true"
                               >
                                 {isSelected ? "●" : "○"}

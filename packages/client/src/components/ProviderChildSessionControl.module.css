@@ -15,7 +15,7 @@
   stroke-linejoin: round;
 }
 
-:global(.modal-content):has(> .viewer) {
+[data-modal-content]:has(> .viewer) {
   display: flex;
   flex-direction: column;
   overflow: hidden;

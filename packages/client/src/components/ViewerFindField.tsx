@@ -30,7 +30,8 @@ function useHeaderRoom(field: HTMLElement | null): boolean {
   const [room, setRoom] = useState(false);
   useLayoutEffect(() => {
     const row =
-      field?.closest<HTMLElement>(".modal-header") ?? field?.parentElement;
+      field?.closest<HTMLElement>("[data-modal-header]") ??
+      field?.parentElement;
     if (!field || !row || typeof ResizeObserver === "undefined") return;
     const measure = () => {
       const style = getComputedStyle(row);

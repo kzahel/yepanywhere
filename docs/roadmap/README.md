@@ -1165,12 +1165,11 @@ context/state references; provider colors fold into tokens and emulator video
 becomes modular. Legacy lines fall to 14,562 across three files (target zero);
 coupled React/generated groups stay ordered for step 7. Step 7 has landed the
 single-owner pages, settings/onboarding, source browser/file-page chrome,
-collections/sidebar/navigation and the shared page shell,
+collections/sidebar/navigation, the shared page shell and modal frames,
 with shared row/search, preview, column and diff-control owners. Legacy lines
-are 9,760 (index 5,774; renderers 3,316; tool rows 670). The review repair
+are 9,139 (index 5,542; renderers 2,927; tool rows 670). The review repair
 restores mobile/focus hooks, rem sizes and explicit cross-module winners. Viewer body typography
-and diff gutters wait for the coupled transcript move; shared shell/modals
-is next. Step 8 remains open. The composer CSS still moves unchanged last;
+and diff gutters wait for the coupled transcript move, which is next. Step 8 remains open. The composer CSS still moves unchanged last;
 its control swaps remain excluded.
 
 ## Later directions

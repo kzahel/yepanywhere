@@ -186,7 +186,7 @@ page, and 15 pre-existing `role="button"` elements.
   `ui/ConfirmDialog.tsx`, an `aria-modal` attribute or `alertdialog` role
   outside `ui/Modal.tsx`, `ui/Dialog.tsx` and `ui/ConfirmDialog.tsx`, a
   CSS Module rule outside `components/ui` that reaches into Modal's frame
-  (`:global(.modal…)`), a global `.modal…:has(…)` rule, and the old dialog
+  (`:global(.modal…)` or `[data-modal-*]` frame hooks), a global `.modal…:has(…)` rule, and the old dialog
   frame and footer classes (`model-switch-actions`, `onboarding-footer`, …,
   recorded in `bannedClasses`).
 
@@ -438,7 +438,10 @@ disabled, goes back into the topmost modal. It stays a portaled `div` rather
 than a modal `<dialog>`: the tooltip layer, hover cards and selection
 actions portal into the body, and the top layer would draw over them and
 make them inert. Viewers (files, diffs, media, logs, process details) use
-`Modal` directly.
+`Modal` directly. `ui/Modal.module.css` owns the shared frame; stable
+`data-modal-*` hooks identify frame, overlay, header, title and scrolling content.
+Existing caller frame reach-ins remain counted exceptions, including attribute
+aliases, until shared variants replace their specific geometry requirements.
 
 `src/components/ui/Dialog.tsx` is the pattern for everything else shown
 over the page: a form, a choice, a notice. `size` is `small` (24rem, a

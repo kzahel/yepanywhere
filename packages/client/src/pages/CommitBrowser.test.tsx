@@ -1938,6 +1938,15 @@ describe("CommitBrowser", () => {
           />
         </MemoryRouter>,
       );
+      // The clean tree initially opens its newest commit on phone.
+      await waitFor(() =>
+        expect(
+          document.querySelector("[data-source-detail-subject]")?.textContent,
+        ).toBe("first commit"),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "sourceCommitHistory" }),
+      );
       const row = await waitFor(() => {
         const element = document.querySelector(
           "[data-source-working-tree-revision] a",

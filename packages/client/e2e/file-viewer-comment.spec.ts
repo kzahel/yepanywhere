@@ -35,7 +35,7 @@ async function openRenderedMarkdown(page: Page) {
   await dismissOnboardingIfVisible(page);
   await page.waitForTimeout(750);
   await sourceLink.click();
-  const preview = page.locator(".file-viewer-modal .markdown-preview");
+  const preview = page.locator("[data-file-viewer-modal] .markdown-preview");
   await expect(preview).toBeVisible();
   return preview;
 }
@@ -96,7 +96,9 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     const preview = await openRenderedMarkdown(page);
-    const viewerBody = page.locator(".file-viewer-modal .file-viewer-body");
+    const viewerBody = page.locator(
+      "[data-file-viewer-modal] .file-viewer-body",
+    );
     const paragraph = preview.getByText(
       "Viewer context remains available while reviewing this file.",
       { exact: true },
@@ -152,10 +154,10 @@ for (const viewport of [
       `re: ${join(fileBrowserProjectPath, "README.md")}:5\n> Viewer context remains available while reviewing this file.\n`,
     );
     await expect(composer).toBeFocused();
-    await expect(page.locator(".file-viewer-modal")).toBeVisible();
+    await expect(page.locator("[data-file-viewer-modal]")).toBeVisible();
 
     const [modalBox, composerBox] = await Promise.all([
-      page.locator(".file-viewer-modal").boundingBox(),
+      page.locator("[data-file-viewer-modal]").boundingBox(),
       page.locator(".session-input").boundingBox(),
     ]);
     if (!modalBox || !composerBox) {
@@ -194,7 +196,7 @@ for (const viewport of [
     const preview = await openRenderedMarkdown(page);
     const composer = page.locator("[data-composer-input]");
     await composer.fill("Main composer draft stays put.");
-    const viewer = page.locator(".file-viewer-modal");
+    const viewer = page.locator("[data-file-viewer-modal]");
     const commentToggle = viewer.getByRole("button", {
       name: "Comment",
       exact: true,
@@ -256,7 +258,7 @@ test("opens the viewer toolbar link with a native middle click", async ({
   await page.setViewportSize({ width: 1000, height: 600 });
   await openRenderedMarkdown(page);
   const openLink = page
-    .locator(".file-viewer-modal")
+    .locator("[data-file-viewer-modal]")
     .getByRole("button", { name: "Copy viewer link" });
   await expect(openLink).toHaveAttribute("target", "_blank");
 
@@ -266,7 +268,7 @@ test("opens the viewer toolbar link with a native middle click", async ({
   ]);
   await expect(openedPage).toHaveURL(/\/file\?path=/);
   await openedPage.close();
-  await expect(page.locator(".file-viewer-modal")).toBeVisible();
+  await expect(page.locator("[data-file-viewer-modal]")).toBeVisible();
 });
 
 for (const viewport of [

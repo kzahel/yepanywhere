@@ -13,7 +13,7 @@ export function SearchDetail({
   useModalLayer(props.onClose, !!paneTarget && !wide);
   useEffect(() => {
     if (!paneTarget) return;
-    paneTarget.querySelector<HTMLButtonElement>(".modal-close")?.focus();
+    paneTarget.querySelector<HTMLButtonElement>("[data-modal-close]")?.focus();
   }, [paneTarget]);
   if (!paneTarget) return <Modal {...props} />;
   return createPortal(

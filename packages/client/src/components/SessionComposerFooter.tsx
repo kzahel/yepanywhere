@@ -384,7 +384,7 @@ export function SessionComposerFooter({
   const { t } = useI18n();
   const { showToast } = useToastContext();
   return (
-    <footer className={`${styles.input} session-input`}>
+    <footer className={`${styles.input} session-input`} data-session-input>
       {creationRecovery?.key === creationKey && (
         <div role="status" className={styles.creationRecovery}>
           <span>

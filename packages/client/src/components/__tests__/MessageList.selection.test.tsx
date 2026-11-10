@@ -745,7 +745,7 @@ describe("MessageList selection and copy", () => {
     const quoteButton = await screen.findByRole("button", {
       name: "Quote reply",
     });
-    expect(quoteButton.closest(".modal")).toBeTruthy();
+    expect(quoteButton.closest("[data-modal-frame]")).toBeTruthy();
     expect(quoteButton.closest(".message-list")).toBeNull();
 
     fireEvent.click(quoteButton);
@@ -826,7 +826,7 @@ describe("MessageList selection and copy", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Select all" }));
 
-      const modal = document.querySelector<HTMLElement>(".modal");
+      const modal = document.querySelector<HTMLElement>("[data-modal-frame]");
       expect(document.getSelection()?.toString()).toBe("Selectable run output");
       expect(modal).toBeTruthy();
       expect(extractMarkdownSnippetsFromSelection(modal!)).toMatchObject([
@@ -839,7 +839,7 @@ describe("MessageList selection and copy", () => {
       expect(
         quoteButton.closest('[data-selection-action-cluster="true"]'),
       ).toBeTruthy();
-      expect(quoteButton.closest(".modal")).toBeTruthy();
+      expect(quoteButton.closest("[data-modal-frame]")).toBeTruthy();
     } finally {
       if (originalRangeRect) {
         Object.defineProperty(
@@ -884,7 +884,7 @@ describe("MessageList selection and copy", () => {
         </>,
       );
 
-      const modal = document.querySelector<HTMLElement>(".modal");
+      const modal = document.querySelector<HTMLElement>("[data-modal-frame]");
       const selectedElement = screen.getByText("Modal selected text");
       const selectedText = selectedElement.firstChild;
       expect(modal).toBeTruthy();

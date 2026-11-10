@@ -95,7 +95,7 @@ describe("ModelSwitchModal", () => {
       />,
     );
 
-    const modalContent = document.querySelector(".modal-content");
+    const modalContent = document.querySelector("[data-modal-content]");
     expect(modalContent).toBeInstanceOf(HTMLElement);
     const scrollTo = vi.fn();
     Object.defineProperty(modalContent, "scrollTo", { value: scrollTo });

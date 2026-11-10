@@ -465,10 +465,6 @@
     "components/session-search/SearchSessionMatches.module.css": {
       "count": 2,
       "reason": "Session search matches viewer (a Modal viewer): overlay and box height for the matches list. Viewers stay on Modal."
-    },
-    "styles/renderers.css": {
-      "count": 1,
-      "reason": "FilePathLink's hand-rolled file viewer overlay (a <dialog open> in .modal-overlay, portaled into the session layer): tighter padding. Kept on purpose."
     }
   }
 }

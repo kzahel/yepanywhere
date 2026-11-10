@@ -196,7 +196,8 @@ describe("MessageList rendering", () => {
     fireEvent.click(phoneLink as HTMLAnchorElement);
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("phone.png");
     expect(container.querySelector(`.${galleryStyles.gallery}`)).toBeTruthy();
     expect(
@@ -204,14 +205,16 @@ describe("MessageList rendering", () => {
     ).toBe("Phone result");
     fireEvent.keyDown(document, { key: "ArrowRight" });
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("desktop.png");
     fireEvent.keyDown(document, { key: "ArrowLeft" });
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("phone.png");
     fireEvent.click(
-      document.querySelector(".modal-close") as HTMLButtonElement,
+      document.querySelector("[data-modal-close]") as HTMLButtonElement,
     );
 
     fireEvent.click(
@@ -344,27 +347,31 @@ describe("MessageList rendering", () => {
     fireEvent.click(links[0] as HTMLAnchorElement);
     expect(container.querySelector(`.${galleryStyles.gallery}`)).toBeNull();
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("one.png");
 
     fireEvent.keyDown(document, { key: "ArrowRight" });
     expect(container.querySelector(`.${galleryStyles.gallery}`)).toBeNull();
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("two.png");
 
     fireEvent.keyDown(document, { key: "ArrowRight" });
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("one.png");
 
     fireEvent.keyDown(document, { key: "ArrowLeft" });
     expect(
-      screen.getByRole("dialog").querySelector(".modal-title")?.textContent,
+      screen.getByRole("dialog").querySelector("[data-modal-title]")
+        ?.textContent,
     ).toBe("two.png");
 
     fireEvent.click(
-      document.querySelector(".modal-close") as HTMLButtonElement,
+      document.querySelector("[data-modal-close]") as HTMLButtonElement,
     );
     expect(container.querySelector(`.${galleryStyles.gallery}`)).toBeNull();
   });

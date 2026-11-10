@@ -140,7 +140,7 @@ describe("GitDiffBody", () => {
 
     const rendered = render(
       <MemoryRouter>
-        <div className="modal-content">
+        <div data-modal-content>
           <GitDiffBody
             file={FILE}
             fileKey="src/live.ts:false"
@@ -151,7 +151,9 @@ describe("GitDiffBody", () => {
       </MemoryRouter>,
     );
     await screen.findByText("diff-a");
-    const scrollRoot = document.querySelector<HTMLElement>(".modal-content");
+    const scrollRoot = document.querySelector<HTMLElement>(
+      "[data-modal-content]",
+    );
     if (!scrollRoot) throw new Error("Expected diff scroll root");
     scrollRoot.scrollTop = 40;
     const rectSpy = vi
@@ -177,7 +179,7 @@ describe("GitDiffBody", () => {
 
     rendered.rerender(
       <MemoryRouter>
-        <div className="modal-content">
+        <div data-modal-content>
           <GitDiffBody
             file={{ ...FILE }}
             fileKey="src/live.ts:false"
