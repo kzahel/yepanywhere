@@ -1,3 +1,4 @@
+import btwStyles from "./BtwSessionAppearance.module.css";
 import type {
   SessionClearloopBadge,
   SessionProviderPhase,
@@ -528,7 +529,10 @@ export function SessionListItem({
     ((showProjectName && projectName) || compactActivityIndicator) ? (
       <>
         {showProjectName && projectName && (
-          <span className="session-list-item__project-compact">
+          <span
+            className={styles.sessionListItemProjectCompact}
+            data-session-list-item__project-compact
+          >
             {projectName}
           </span>
         )}
@@ -618,7 +622,7 @@ export function SessionListItem({
       menuOpenRef.current ||
       (searchPreviews !== undefined &&
         (!(e.target instanceof Element) ||
-          !e.target.closest(".session-list-item__link")))
+          !e.target.closest("[data-session-list-item__link]")))
     ) {
       clearPreview();
       return;
@@ -664,12 +668,14 @@ export function SessionListItem({
 
   // Build CSS classes
   const liClasses = [
-    "session-list-item",
+    styles.sessionListItem,
     searchPreviews !== undefined && styles.searchRow,
-    mode === "card" ? "session-list-item--card" : "session-list-item--compact",
-    isCurrent && "current",
-    hasUnread && "unread",
-    isBtwAside && "btw-aside-session",
+    mode === "card"
+      ? styles.sessionListItemCard
+      : styles.sessionListItemCompact,
+    isCurrent && styles.current,
+    hasUnread && styles.unread,
+    isBtwAside && btwStyles.btwAsideSession,
     isSelected && "selected",
     isArchived && "archived",
     mode === "compact" && styles.compactRow,
@@ -820,7 +826,8 @@ export function SessionListItem({
     size?: number;
   }) => (
     <svg
-      className="session-star-icon"
+      className={styles.sessionStarIcon}
+      data-session-star-icon
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -837,6 +844,11 @@ export function SessionListItem({
     <li
       ref={liRef}
       className={liClasses}
+      data-session-list-item
+      data-session-list-item--compact={mode === "compact" || undefined}
+      data-session-list-item--card={mode === "card" || undefined}
+      data-btw-aside-session={isBtwAside || undefined}
+      data-session-unread={hasUnread || undefined}
       onKeyDown={(event) => {
         const unread = sessionReadShortcut(event.nativeEvent);
         if (unread === null) return;
@@ -916,15 +928,17 @@ export function SessionListItem({
             onMouseDown={handleSessionMouseDown}
             onAuxClick={handleSessionAuxClick}
             onContextMenu={handleSessionContextMenu}
-            className={`session-list-item__link ${
+            className={`${styles.sessionListItemLink} ${
               mode === "compact" ? styles.compactLink : ""
             }`}
+            data-session-list-item__link
           >
             {mode === "card" ? (
               // Card mode: title on one line, meta on second line
               <>
                 <strong
-                  className="session-list-item__title"
+                  className={styles.sessionListItemTitle}
+                  data-session-list-item__title
                   {...titleTooltipAttributes}
                 >
                   {isStarred && <StarIcon filled size={12} />}
@@ -936,7 +950,9 @@ export function SessionListItem({
                   {isBtwAside && (
                     // biome-ignore lint/a11y/noStaticElementInteractions: clickable variant has link role and keyboard handling; inert variant only shows the badge
                     <span
-                      className="session-badge session-badge-btw"
+                      className={`${styles.sessionBadge} ${btwStyles.sessionBadgeBtw}`}
+                      data-session-badge-btw
+                      data-session-badge
                       title={
                         parentHref
                           ? "Open parent session with this /btw aside visible"
@@ -971,16 +987,23 @@ export function SessionListItem({
                   )}
                   {isArchived && <Badge size="small">Archived</Badge>}
                 </strong>
-                <span className="session-list-item__meta">
+                <span
+                  className={styles.sessionListItemMeta}
+                  data-session-list-item__meta
+                >
                   {provider && (
                     <ProviderBadge
                       provider={provider}
                       model={model}
-                      className="session-list-item__provider-badge"
+                      className={styles.sessionListItemProviderBadge}
+                      data-session-list-item__provider-badge
                     />
                   )}
                   {showProjectName && projectName && (
-                    <span className="session-list-item__project">
+                    <span
+                      className={styles.sessionListItemProject}
+                      data-session-list-item__project
+                    >
                       {projectName}
                     </span>
                   )}
@@ -1035,14 +1058,16 @@ export function SessionListItem({
                 </span>
                 {providerChildren.length > 0 && (
                   <span
-                    className="session-list-item__provider-children"
+                    className={styles.sessionListItemProviderChildren}
+                    data-session-list-item__provider-children
                     role="list"
                     aria-label={providerChildrenLabel}
                   >
                     {providerChildren.map((child) => (
                       <span key={child.id} role="listitem">
                         <ProviderChildNavTarget
-                          className={`session-list-item__provider-child ${styles.providerChildLink}`}
+                          className={`${styles.sessionListItemProviderChild} ${styles.providerChildLink}`}
+                          data-session-list-item__provider-child
                           href={providerChildSessionHref(
                             basePath,
                             projectId,
@@ -1051,7 +1076,10 @@ export function SessionListItem({
                           )}
                         >
                           <span aria-hidden>↳</span>
-                          <span className="session-list-item__provider-child-title">
+                          <span
+                            className={styles.sessionListItemProviderChildTitle}
+                            data-session-list-item__provider-child-title
+                          >
                             {providerChildTitle(
                               child,
                               t("providerChildFallback"),
@@ -1063,7 +1091,12 @@ export function SessionListItem({
                                 child,
                                 t("providerChildFallback"),
                               ) && (
-                              <span className="session-list-item__provider-child-type">
+                              <span
+                                className={
+                                  styles.sessionListItemProviderChildType
+                                }
+                                data-session-list-item__provider-child-type
+                              >
                                 {child.agentType}
                               </span>
                             )}
@@ -1075,17 +1108,23 @@ export function SessionListItem({
               </>
             ) : (
               // Compact mode: single line with badges
-              <span className="session-list-item__title-row">
+              <span
+                className={styles.sessionListItemTitleRow}
+                data-session-list-item__title-row
+              >
                 {isStarred && <StarIcon filled />}
                 <span
-                  className="session-list-item__title-text"
+                  className={styles.sessionListItemTitleText}
+                  data-session-list-item__title-text
                   {...titleTooltipAttributes}
                 >
                   {isNewSession && <ThinkingIndicator />}
                   {isBtwAside && (
                     // biome-ignore lint/a11y/noStaticElementInteractions: clickable variant has link role and keyboard handling; inert variant only shows the badge
                     <span
-                      className="session-badge session-badge-btw"
+                      className={`${styles.sessionBadge} ${btwStyles.sessionBadgeBtw}`}
+                      data-session-badge-btw
+                      data-session-badge
                       title={
                         parentHref
                           ? "Open parent session with this /btw aside visible"
@@ -1156,7 +1195,7 @@ export function SessionListItem({
             useEllipsisIcon
             overlayTrigger
             onOpenChange={handleMenuOpenChange}
-            className="session-list-item__menu"
+            className={styles.sessionListItemMenu}
           />
         )}
       </div>

@@ -1,0 +1,54 @@
+.brandWordmark {
+  --brand-wordmark-size: 16px;
+  font-family: var(--font-brand);
+  font-size: var(--brand-wordmark-size);
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+  text-transform: lowercase;
+  font-kerning: normal;
+  text-rendering: geometricPrecision;
+}
+
+.brandWordmarkShort {
+  color: var(--app-yep-green);
+}
+
+[data-theme="light"] .brandWordmarkShort {
+  color: var(--app-yep-green-dark);
+}
+
+.brandWordmarkFull {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.brandWordmarkYep {
+  color: var(--brand-wordmark-yep-full);
+}
+
+[data-theme="light"] .brandWordmarkYep {
+  color: color-mix(
+    in srgb,
+    var(--app-yep-green-dark) 74%,
+    var(--text-primary) 26%
+  );
+}
+
+.brandWordmarkAnywhere {
+  color: var(--brand-wordmark-anywhere);
+}
+
+[data-theme="light"] .brandWordmarkAnywhere {
+  color: color-mix(
+    in srgb,
+    var(--app-claude-orange) 44%,
+    var(--text-primary) 56%
+  );
+}
+
+[data-sidebar-brand-link]:hover .brandWordmarkAnywhere,
+[data-sidebar-brand-link]:hover .brandWordmarkShort {
+  filter: brightness(1.08);
+}

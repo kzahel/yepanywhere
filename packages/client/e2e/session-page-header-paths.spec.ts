@@ -462,7 +462,7 @@ test.describe("at phone width", () => {
     });
     await opener.click();
     await expect(
-      page.locator(".sidebar.open, .sidebar-overlay"),
+      page.locator("[data-sidebar].open, [data-sidebar-overlay]"),
     ).not.toHaveCount(0);
   });
 });

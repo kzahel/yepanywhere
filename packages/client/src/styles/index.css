@@ -5,70 +5,9 @@
 @import "./tool-rows.css";
 @import "./base.css";
 
-.page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-  /* Leave space for activity drawer (36px closed, 300px open) */
-  padding-bottom: 320px;
-}
-
-.loading {
-  padding: 2rem;
-  text-align: center;
-  animation: delayed-fade-in 0.2s ease-out forwards;
-  opacity: 0;
-}
-
-.loading-detail {
-  margin-top: 0.5rem;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-}
-
-@keyframes delayed-fade-in {
-  0%,
-  99% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.error {
-  padding: 2rem;
-  text-align: center;
-}
-
-.breadcrumb {
-  font-size: var(--font-size-lg);
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-}
-
-.breadcrumb a {
-  color: var(--link-color);
-}
-
 /* Page header with title and actions */
 
 /* Project cards (new style matching SessionListItem cards) */
-.project-list-cards {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.meta {
-  display: block;
-  font-size: var(--font-size-lg);
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
 
 /* Forms */
 .new-session-form {
@@ -200,38 +139,6 @@
   background: var(--bg-surface);
 }
 
-.navigation-route-stack {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  position: relative;
-  display: flex;
-  overflow: hidden;
-}
-
-.navigation-route-layer {
-  position: absolute;
-  inset: 0;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-surface);
-}
-
-.navigation-route-layer.is-active {
-  visibility: visible;
-  pointer-events: auto;
-  z-index: 1;
-}
-
-.navigation-route-layer.is-hidden,
-.session-dom-linger-layer.is-parked {
-  visibility: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
 .session-header {
   flex-shrink: 0; /* Never shrink the header */
   background: var(--bg-surface);
@@ -276,58 +183,6 @@
 }
 
 /* Sidebar toggle: layout for all; the look only for the <a> launchers. */
-.sidebar-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-a.sidebar-toggle {
-  color: var(--text-muted);
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background 0.15s;
-}
-
-a.sidebar-toggle:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.sidebar-floating-restore {
-  position: fixed;
-  top: 2px;
-  left: 2px;
-  z-index: 102;
-}
-
-.sidebar-minimize {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.sidebar-minimize:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
 
 /* Project breadcrumb in session header */
 .project-breadcrumb-wrapper {
@@ -359,275 +214,7 @@ a.sidebar-toggle:hover {
    Sidebar
    ========================================================================== */
 
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-overlay);
-  z-index: 100;
-  animation: fadeIn var(--panel-fade-duration, 0.15s) ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 280px;
-  max-width: 85vw;
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border-color);
-  z-index: 101;
-  display: flex;
-  flex-direction: column;
-  animation: slideIn var(--panel-slide-duration, 0.2s) ease-out;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--sidebar-header-padding, 0.75rem 1rem);
-}
-
-.sidebar-brand {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--text-primary);
-}
-
-.brand-wordmark {
-  --brand-wordmark-size: 16px;
-  font-family: var(--font-brand);
-  font-size: var(--brand-wordmark-size);
-  font-weight: 600;
-  letter-spacing: -0.06em;
-  line-height: 0.95;
-  text-transform: lowercase;
-  font-kerning: normal;
-  text-rendering: geometricPrecision;
-}
-
-.brand-wordmark--short {
-  color: var(--app-yep-green);
-}
-
-[data-theme="light"] .brand-wordmark--short {
-  color: var(--app-yep-green-dark);
-}
-
-.brand-wordmark--full {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-}
-
-.brand-wordmark__yep {
-  color: var(--brand-wordmark-yep-full);
-}
-
-[data-theme="light"] .brand-wordmark__yep {
-  color: color-mix(
-    in srgb,
-    var(--app-yep-green-dark) 74%,
-    var(--text-primary) 26%
-  );
-}
-
-.brand-wordmark__anywhere {
-  color: var(--brand-wordmark-anywhere);
-}
-
-[data-theme="light"] .brand-wordmark__anywhere {
-  color: color-mix(
-    in srgb,
-    var(--app-claude-orange) 44%,
-    var(--text-primary) 56%
-  );
-}
-
-.sidebar-brand-link {
-  text-decoration: none;
-}
-
-.sidebar-brand-link:hover .brand-wordmark__anywhere,
-.sidebar-brand-link:hover .brand-wordmark--short {
-  filter: brightness(1.08);
-}
-
-.sidebar-actions {
-  padding: var(--sidebar-actions-padding-top, 0) 0 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-sessions {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--sidebar-sessions-padding-top, 0.25rem) 0 1rem;
-}
-
 /* Unified sidebar navigation section and items */
-.sidebar-nav-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding: 0;
-  margin-bottom: var(--sidebar-section-gap, 1rem);
-}
-
-.sidebar-collapsed .sidebar-nav-section {
-  margin-bottom: 0;
-}
-
-a.sidebar-nav-item {
-  text-decoration: none;
-}
-
-.sidebar-nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sidebar-navigation-inline-spacing, 0.75rem);
-  padding: var(--sidebar-navigation-padding-block, 0.5rem)
-    var(--sidebar-navigation-inline-spacing, 0.75rem);
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  text-align: left;
-}
-
-.sidebar-nav-item:hover {
-  background: var(--bg-hover);
-}
-
-.sidebar-nav-item.active {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.sidebar-nav-item svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  min-width: 16px;
-}
-
-.sidebar-section {
-  margin-bottom: var(--sidebar-section-gap, 1rem);
-}
-
-.sidebar-session-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sidebar-session-list li {
-  margin: 0;
-}
-
-.sidebar-project-queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.sidebar-project-queue-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--sidebar-row-min-height, 34px);
-  padding: var(--sidebar-row-padding-block, var(--space-1)) 1ch;
-  color: var(--text-primary);
-  text-decoration: none;
-  border-left: 2px solid var(--project-queue-action-bg);
-  transition: background 0.15s;
-  line-height: var(--sidebar-row-line-height, 1.3);
-}
-
-@media (pointer: coarse) {
-  .sidebar-project-queue-item {
-    min-height: 40px;
-  }
-}
-
-.sidebar-project-queue-item:hover {
-  background: var(--bg-hover);
-}
-
-.sidebar-project-queue-item--failed {
-  border-left-color: var(--error-color);
-}
-
-.sidebar-project-queue-item__main {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.sidebar-project-queue-item__title,
-.sidebar-project-queue-item__project {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-project-queue-item__title {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-}
-
-.sidebar-project-queue-item__project {
-  flex-shrink: 0;
-  max-width: 100px;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-}
-
-.sidebar-project-queue-item__status {
-  flex-shrink: 0;
-  padding: 0.125rem 0.375rem;
-  border: 1px solid
-    color-mix(in srgb, var(--project-queue-action-bg) 32%, transparent);
-  border-radius: 999px;
-  color: var(--project-queue-action-bg);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.sidebar-project-queue-item--failed .sidebar-project-queue-item__status {
-  border-color: color-mix(in srgb, var(--error-color) 32%, transparent);
-  color: var(--error-color);
-}
 
 /* Unified pulse animation for thinking/running state */
 @keyframes thinking-pulse {
@@ -640,13 +227,6 @@ a.sidebar-nav-item {
     opacity: 1;
     transform: scale(1);
   }
-}
-
-.sidebar-empty {
-  color: var(--text-dimmed);
-  font-size: var(--font-size-sm);
-  padding: 1rem;
-  text-align: center;
 }
 
 .session-title {
@@ -800,20 +380,6 @@ a.sidebar-nav-item {
  * .recent-session-item, .btw-aside-session, .recent-session-title, and
  * .recent-sessions-badge hooks solely so these rules still match.
  */
-.recent-sessions-badge.btw,
-.session-badge-btw {
-  background: color-mix(in srgb, var(--provider-codex) 16%, transparent);
-  color: color-mix(in srgb, var(--provider-codex) 86%, var(--text-primary));
-  border: 1px solid
-    color-mix(in srgb, var(--provider-codex) 45%, var(--border-color));
-  font-family: var(--font-mono);
-}
-
-.recent-session-item.btw-aside-session .recent-session-title,
-.session-list-item.btw-aside-session .session-list-item__title,
-.session-list-item.btw-aside-session .session-list-item__title-text {
-  color: color-mix(in srgb, var(--provider-codex) 84%, var(--text-primary));
-}
 
 .session-messages {
   flex: 1;
@@ -840,17 +406,6 @@ a.sidebar-nav-item {
 
 /* Full-width scroll container pattern for pages (like inbox, settings)
    Outer element handles scrolling, inner element is constrained to max-width on desktop */
-.page-scroll-container {
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  min-height: 0;
-  -webkit-overflow-scrolling: touch;
-}
-
-.page-content-inner {
-  padding: 1rem;
-}
 
 .session-input {
   flex-shrink: 0; /* Never shrink the input area */
@@ -1073,21 +628,6 @@ a.sidebar-nav-item {
     min-width: 0;
   }
 
-  .main-content-constrained
-    .session-split.session-split-with-aside
-    > .session-messages
-    .message-list,
-  .main-content-constrained
-    .session-split.session-split-with-aside
-    > .session-input
-    .session-input-inner {
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
-    margin-right: 0;
-    min-width: 0;
-  }
-
   .session-split.session-split-with-aside > .session-btw-pane,
   .session-split.session-split-with-aside > .session-btw-pane-handle {
     grid-area: aside;
@@ -1237,26 +777,6 @@ a.sidebar-nav-item {
 }
 
 /* Mobile content wrappers - ensure flex layout propagates */
-.main-content-mobile {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Critical for nested flex overflow */
-}
-
-.main-content-mobile-inner {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Critical for nested flex overflow */
-}
-
-.main-content-mobile-inner .session-input-inner,
-.main-content-mobile-inner .session-messages .message-list {
-  width: 100%;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-}
 @media (width <= 600px) {
   .session-header {
     padding: 0;
@@ -1284,6 +804,8 @@ a.sidebar-nav-item {
   .session-input {
     padding: 0.5rem 0.375rem;
     padding-bottom: calc(0.5rem - 1px);
+    padding-right: 2px;
+    padding-left: 2px;
   }
 
   .btw-aside-card {
@@ -1316,11 +838,6 @@ a.sidebar-nav-item {
        status bar / nav bar while pushing content inside the safe area */
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .main-content-mobile,
-  .main-content-mobile-inner {
-    height: 100%;
   }
 }
 
@@ -4259,12 +3776,6 @@ a.sidebar-nav-item {
   color: var(--text-muted);
 }
 
-.session-render-progress.loading {
-  opacity: 1;
-  animation: none;
-  color: var(--text-primary);
-}
-
 .session-render-progress-bar {
   width: min(340px, 74vw);
   height: 8px;
@@ -4890,47 +4401,11 @@ a.sidebar-nav-item {
 
 /* Filter bar */
 
-.global-sessions-project-cta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  background: color-mix(in srgb, var(--app-yep-green) 10%, var(--bg-secondary));
-  border: 1px solid
-    color-mix(in srgb, var(--app-yep-green) 25%, var(--border-color));
-  border-radius: var(--radius-lg);
-}
-
-.global-sessions-project-cta__token {
-  display: inline-block;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-code) 82%, white 18%);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.92em;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 /* Bulk action bar styles live in components/BulkActionBar.module.css */
 
 /* Read sessions - slightly dimmer, unread uses bold + primary for distinction */
 
-.sidebar-session-list li > a {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-
 /* Unread session - Gmail-style bold/bright instead of badge */
-
-.sidebar-session-list li.unread > a {
-  color: var(--text-primary);
-  font-weight: 700;
-}
 
 /* ==========================================================================
    Context Usage Indicator - Pie chart showing context window usage
@@ -5073,17 +4548,6 @@ a.sidebar-nav-item {
 }
 
 @media (width <= 600px) {
-  .page {
-    padding-right: 2px;
-    padding-left: 2px;
-  }
-
-  .session-input,
-  .main-content-constrained .session-input {
-    padding-right: 2px;
-    padding-left: 2px;
-  }
-
   .message-input-toolbar {
     gap: 2px;
     --composer-control-size: 30px;
@@ -5233,12 +4697,6 @@ a.sidebar-nav-item {
 
   .mode-button-label {
     display: none;
-  }
-}
-@media (width <= 600px) {
-  .global-sessions-project-cta {
-    flex-direction: column;
-    align-items: stretch;
   }
 }
 
@@ -5547,10 +5005,6 @@ a.sidebar-nav-item {
   .new-session-project-summary-path {
     display: none;
   }
-}
-
-.main-content-constrained .page-content-inner.new-session-page-shell {
-  max-width: var(--content-max-width);
 }
 
 @media (width >= 900px) {
@@ -5933,162 +5387,15 @@ a.sidebar-nav-item {
 }
 
 @media (width >= 1100px) {
-  .desktop-layout {
-    flex-direction: row;
-  }
-
-  .sidebar-desktop {
-    flex-shrink: 0;
-    width: var(--sidebar-width, 280px);
-    height: 100%;
-    background: var(--bg-surface);
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    transition: width var(--panel-slide-duration, 0.2s) ease;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .sidebar-desktop.sidebar-collapsed {
-    width: 56px;
-  }
-
-  .sidebar-desktop.resizing {
-    transition: none;
-  }
-
-  /* Disable text selection during resize */
-  .session-page.resizing {
-    user-select: none;
-  }
-
-  .main-content-wrapper {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    min-width: 0;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .main-content-constrained {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
   /* On desktop, messages scroll container extends full width for scrollbar at edge */
-  .main-content-constrained .session-messages {
-    overflow-y: auto;
-    scrollbar-gutter: stable;
-    -webkit-overflow-scrolling: touch;
-  }
-
   /* Constrain content inside the full-width sections */
   /* Note: session-header-inner is NOT constrained so the toggle button aligns with sidebar edge */
-  .main-content-constrained .page-content-inner {
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-    width: 100%;
-  }
-
   /* Keep the normal session transcript/composer on the user's content-width
      preference. The /btw split-pane layout has a narrower-track override above. */
-  .main-content-constrained .session-input-inner {
-    width: 100%;
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-  }
-
-  .main-content-constrained .session-messages .message-list {
-    width: 100%;
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-  }
-
   /* Show sidebar toggle on desktop for collapse/expand functionality */
-  .desktop-layout .sidebar-toggle {
-    display: flex;
-  }
-
   /* Desktop sidebar styles */
-  .sidebar-desktop .sidebar {
-    position: static;
-    width: 100%;
-    max-width: none;
-    animation: none;
-    height: 100%;
-  }
-
-  .sidebar-desktop .sidebar-overlay {
-    display: none;
-  }
-
   /* Collapsed sidebar - hide text, show icons only */
-  .sidebar-collapsed .sidebar-nav-text,
-  .sidebar-collapsed .sidebar-section,
-  .sidebar-collapsed .sidebar-empty {
-    display: none;
-  }
-
-  .sidebar-collapsed .sidebar-close {
-    display: none;
-  }
-
-  .sidebar-collapsed .sidebar-header {
-    position: relative;
-    justify-content: center;
-    padding: 0.5rem;
-  }
-
-  .sidebar-collapsed .sidebar-actions {
-    padding: 0.5rem;
-    align-items: center;
-  }
-
-  .sidebar-collapsed .sidebar-sessions {
-    overflow: hidden;
-    padding: 0;
-  }
-
-  .sidebar-collapsed .sidebar-nav-section {
-    padding: 0.25rem;
-  }
-
-  .sidebar-collapsed .sidebar-nav-item {
-    justify-content: center;
-    padding: 0.5rem;
-  }
-
   /* Sidebar resize handle */
-  .sidebar-resize-handle {
-    position: absolute;
-    right: -3px;
-    top: 0;
-    bottom: 0;
-    width: 6px;
-    cursor: col-resize;
-    background: transparent;
-    z-index: 10;
-    transition: background 0.15s ease;
-  }
-
-  .sidebar-resize-handle:hover,
-  .sidebar-resize-handle.active {
-    background: var(--app-yep-green);
-    opacity: 0.6;
-  }
-
-  .sidebar-resize-handle.active {
-    opacity: 0.8;
-  }
-}
-@media (width < 1100px) {
-  .sidebar-desktop {
-    display: none;
-  }
 }
 
 /* Sidebar New Session Button */
@@ -6211,39 +5518,7 @@ a.sidebar-nav-item {
    Inbox Page
    ========================================================================== */
 
-.inbox-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
 /* Inbox empty state */
-.inbox-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 16px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.inbox-empty svg {
-  color: var(--success-color);
-  margin-bottom: var(--space-4);
-}
-
-.inbox-empty h3 {
-  margin: 0 0 var(--space-2);
-  font-size: 1.25rem;
-  color: var(--text-primary);
-}
-
-.inbox-empty p {
-  margin: 0;
-  font-size: var(--font-size-base);
-}
 
 /* Inbox badges (used by SessionListItem customBadge) */
 
@@ -6265,248 +5540,32 @@ a.sidebar-nav-item {
    SessionListItem Component
    ========================================================================== */
 
-.session-list-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 /* Card mode: larger padding, block style */
-.session-list-item--card .session-list-item__link {
-  display: block;
-  flex: 1;
-  padding: 1rem;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  text-decoration: none;
-  color: inherit;
-}
-
-.session-list-item--card .session-list-item__link:hover {
-  background: var(--bg-hover);
-}
-
-.session-list-item--card .session-list-item__title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: 600;
-  font-size: var(--font-size-base);
-}
-
-.session-list-item--card .session-list-item__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  margin-top: var(--space-1);
-}
-
-.session-list-item__provider-children {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: var(--space-2);
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 400;
-}
-
-.session-list-item__provider-child {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.session-list-item__provider-child-title {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.session-list-item__provider-child-type {
-  flex-shrink: 0;
-}
 
 /* Project name in card mode meta line */
-.session-list-item__project {
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
-}
-
-.session-list-item__project::after {
-  content: "\00B7"; /* middle dot separator */
-  margin-left: var(--space-2);
-}
 
 /* Compact mode: sidebar style, single line */
-.session-list-item--compact {
-  padding: 0;
-}
-
-.session-list-item--compact .session-list-item__link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: 1;
-  min-height: var(--sidebar-row-min-height, 34px);
-  padding: var(--sidebar-row-padding-block, var(--space-1)) 0.75ch;
-  padding-left: 1ch;
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  color: var(--text-primary);
-  overflow: hidden;
-  line-height: var(--sidebar-row-line-height, 1.3);
-  transition: background 0.15s;
-}
-
-.session-list-item--compact .session-list-item__link:hover {
-  background: var(--bg-hover);
-}
-
-.session-list-item--compact .session-list-item__title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 1;
-  min-width: 0;
-}
-
-.session-list-item--compact .session-list-item__title-text {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--font-size-sm);
-}
-
-@media (pointer: coarse) {
-  .sidebar-nav-item {
-    min-height: 40px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-  }
-
-  .session-list-item--compact .session-list-item__link {
-    min-height: 40px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-  }
-}
 
 /* Project name in compact mode */
-.session-list-item__project-compact {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100px;
-  flex-shrink: 0;
-}
-
-.session-list-item--compact.current .session-list-item__link {
-  background: var(--bg-hover);
-  font-weight: 500;
-}
 
 /* Star icon */
-.session-star-icon {
-  flex-shrink: 0;
-  color: var(--warning-color);
-}
 
 /* Session badges (Ext, Appr, Q) */
-.session-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--font-size-xs);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  flex-shrink: 0;
-}
 
 /* Session menu positioning - overlay on right side of text */
-.session-list-item__menu {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  /* Gradient fade to blend with background */
-  padding-left: 1rem;
-  padding-right: var(--space-2);
-  background: linear-gradient(to right, transparent, var(--bg-secondary) 60%);
-}
-
-.session-list-item--compact .session-list-item__menu {
-  background: linear-gradient(to right, transparent, var(--bg-surface) 60%);
-}
 
 /* :focus-visible, not :focus-within: a menu returns focus to its trigger
    after a mouse pick, which must not leave the trigger painted. */
-.session-list-item__link:focus-visible ~ .session-list-item__menu,
-.session-list-item__menu:has(:focus-visible),
-.session-list-item__menu.is-open {
-  opacity: 1;
-}
-
-@media (hover: none), (pointer: coarse) {
-  .session-list-item:focus-within .session-list-item__menu {
-    opacity: 1;
-  }
-}
 
 /* Adjust gradient for hover state */
-.session-list-item--card:hover .session-list-item__menu {
-  background: linear-gradient(to right, transparent, var(--bg-hover) 60%);
-}
 
 /* Provider+model badge in the All Sessions (card) meta row */
-.session-list-item__provider-badge {
-  flex-shrink: 0;
-}
 
 /* Checkbox for multi-select */
 
 /* Read state: slightly dimmer than unread */
-.session-list-item .session-list-item__title-text,
-.session-list-item .session-list-item__title {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
 
 /* Unread indicator: bright text and bold */
-.session-list-item.unread .session-list-item__title-text,
-.session-list-item.unread .session-list-item__title {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.session-list-item--compact.unread::before {
-  content: "";
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 6px;
-  background: var(--app-yep-green);
-  border-radius: 50%;
-}
 
 /* ==========================================================================
    FilterDropdown callers

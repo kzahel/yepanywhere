@@ -21,12 +21,12 @@
   );
 }
 
-.row :global(.sidebar-toggle) {
+.row [data-sidebar-toggle] {
   min-width: var(--header-control-size);
 }
 
 /* The anchor launcher is not a shared Button; preserve its header target. */
-.row :global(a.sidebar-toggle) {
+.row a[data-sidebar-toggle] {
   min-height: var(--header-control-size);
 }
 

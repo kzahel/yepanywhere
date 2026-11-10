@@ -144,7 +144,7 @@ test.describe("Remote Login Flow", () => {
 
     // Verify we're no longer on the login page
     // The main app should be visible (look for sidebar which is always present)
-    await expect(page.locator(".sidebar")).toBeVisible({
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
       timeout: 5000,
     });
     expect(
@@ -280,7 +280,7 @@ async function loginViaRemoteClient(
   });
 
   // Verify sidebar is visible (main app loaded)
-  await expect(page.locator(".sidebar")).toBeVisible({ timeout: 5000 });
+  await expect(page.locator("[data-sidebar]")).toBeVisible({ timeout: 5000 });
 }
 
 async function setBangHistoryVisibility(
@@ -348,7 +348,9 @@ test.describe("Session Resumption", () => {
     await page.click('[data-testid="login-button"]');
 
     // Wait for successful login (sidebar visible)
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 10000,
+    });
 
     // Verify credentials are stored (for debugging)
     const storedCreds = await page.evaluate(() => {
@@ -389,7 +391,9 @@ test.describe("Session Resumption", () => {
 
     // Should show auto-resume loading briefly, then main app
     // Wait for sidebar to be visible (auto-resume succeeded)
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 10000,
+    });
 
     // Verify login form is NOT visible (we're authenticated)
     await expect(page.locator('[data-testid="login-form"]')).not.toBeVisible();
@@ -422,7 +426,9 @@ test.describe("Session Resumption", () => {
     await page.click('[data-testid="login-button"]');
 
     // Wait for successful login
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 10000,
+    });
 
     // Change password via API (this should invalidate all sessions)
     const NEW_PASSWORD = "new-password-456";
@@ -459,7 +465,9 @@ test.describe("Session Resumption", () => {
     // But the new password should work
     await page.fill('[data-testid="password-input"]', NEW_PASSWORD);
     await page.click('[data-testid="login-button"]');
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test("session auto-resumes after brief disconnect", async ({
@@ -484,7 +492,9 @@ test.describe("Session Resumption", () => {
     await page.click('[data-testid="login-button"]');
 
     // Wait for successful login
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 10000,
+    });
 
     // Set up request interception to catch any direct API calls after navigation
     const directApiCalls: string[] = [];
@@ -512,7 +522,9 @@ test.describe("Session Resumption", () => {
     await page.goto(remoteClientURL);
 
     // Should auto-resume and show main app
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.locator('[data-testid="login-form"]')).not.toBeVisible();
 
     // Verify all API calls went through SecureConnection (WebSocket)
@@ -604,7 +616,7 @@ test.describe("Encrypted Data Flow", () => {
     // The sidebar shows recent sessions, which requires activity subscription
     // Check that the "Last 24 Hours" section is visible (populated by activity events)
     // Note: This section only appears if there are sessions, so we check for sidebar-section
-    const sidebarSections = page.locator(".sidebar-section");
+    const sidebarSections = page.locator("[data-sidebar-section]");
 
     // Should have at least one section (Starred or Last 24 Hours)
     // This proves the activity subscription is working

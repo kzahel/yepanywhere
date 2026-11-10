@@ -294,13 +294,13 @@
 
 /* The page or modal header remains visible. Everything below it yields to the
    editing surface until this mode is restored. */
-:global(.page-scroll-container):has(.fullPane) {
+[data-page-scroll-container]:has(.fullPane) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-:global(.page-content-inner):has(.fullPane) {
+[data-page-content-inner]:has(.fullPane) {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -382,8 +382,8 @@
   max-width: none;
 }
 
-:global(.main-content-constrained)
-  :global(.page-content-inner.new-session-page-shell):has(.fullPaneWide) {
+[data-main-content-constrained]
+  [data-page-content-inner][data-new-session-page-shell]:has(.fullPaneWide) {
   max-width: none;
 }
 

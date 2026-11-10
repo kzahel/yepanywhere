@@ -32,8 +32,8 @@ export function installObserver() {
         .filter(visible)
         .map((element) => element.getAttribute("data-connection-status"))
         .join(","),
-      errors: text('.error, [role="alert"], [class*="errorMessage"]'),
-      loading: text(".loading"),
+      errors: text('[data-error], [role="alert"], [class*="errorMessage"]'),
+      loading: text("[data-loading]"),
       draftNotice: text("[data-draft-notice]"),
       attachments: text(".attachment-list"),
       attachmentNames: [
@@ -49,7 +49,7 @@ export function installObserver() {
         ),
       ].some(visible),
       heading: text("h1, header"),
-      sidebar: text(".sidebar"),
+      sidebar: text("[data-sidebar]"),
       main: text("main").slice(-1600),
       draft: composer?.value ?? null,
       bodyEmpty,

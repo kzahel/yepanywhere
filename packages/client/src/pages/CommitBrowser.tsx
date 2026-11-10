@@ -230,7 +230,7 @@ export function CommitBrowser({
       );
       if (!isWideScreen) {
         const scroller = browserRef.current?.closest<HTMLElement>(
-          ".page-scroll-container",
+          "[data-page-scroll-container]",
         );
         mobileListScrollTopRef.current = scroller?.scrollTop ?? 0;
       }
@@ -423,7 +423,7 @@ export function CommitBrowser({
   useLayoutEffect(() => {
     if (isWideScreen) return;
     const scroller = browserRef.current?.closest<HTMLElement>(
-      ".page-scroll-container",
+      "[data-page-scroll-container]",
     );
     if (selectedKey) {
       const detailTarget =

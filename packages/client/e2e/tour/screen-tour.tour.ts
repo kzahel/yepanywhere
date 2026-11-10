@@ -163,7 +163,9 @@ const SCREENS: Screen[] = [
       name: `settings-${category}`,
       path: `/settings/${category}`,
       ready: (page) =>
-        expect(page.locator(".page-scroll-container").first()).toBeVisible(),
+        expect(
+          page.locator("[data-page-scroll-container]").first(),
+        ).toBeVisible(),
       tall: true,
     }),
   ),

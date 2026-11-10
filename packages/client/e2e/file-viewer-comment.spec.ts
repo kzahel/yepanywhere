@@ -281,7 +281,7 @@ for (const viewport of [
     await dismissOnboardingIfVisible(page);
 
     const viewer = page.locator("[data-file-page]");
-    const sidebar = page.locator(".sidebar");
+    const sidebar = page.locator("[data-sidebar]");
     const opener = page.getByRole("button", { name: "Open sidebar" });
     await expect(viewer).toBeVisible();
     await expect(opener).toBeVisible();

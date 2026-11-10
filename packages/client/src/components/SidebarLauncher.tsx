@@ -1,3 +1,4 @@
+import launcherStyles from "./SidebarLauncher.module.css";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { toBrowserAppHref } from "../lib/appHref";
@@ -64,7 +65,12 @@ export function SidebarLauncher({
 
   return (
     <a
-      className={className ? `sidebar-toggle ${className}` : "sidebar-toggle"}
+      className={
+        className
+          ? `${launcherStyles.sidebarToggle} ${className}`
+          : launcherStyles.sidebarToggle
+      }
+      data-sidebar-toggle
       href={newSessionHref}
       target="_blank"
       rel="noopener"

@@ -1,3 +1,4 @@
+import pageStyles from "../layouts/PageLayout.module.css";
 import {
   DEVICE_BRIDGE_CAPABILITY,
   DEVICE_BRIDGE_DOWNLOAD_CAPABILITY,
@@ -490,8 +491,11 @@ export function EmulatorPage() {
   return (
     <MainContent isWideScreen={isWideScreen}>
       <PageHeader title="Devices" />
-      <main className="page-scroll-container">
-        <div className="page-content-inner">
+      <main
+        className={pageStyles.pageScrollContainer}
+        data-page-scroll-container
+      >
+        <div className={pageStyles.pageContentInner} data-page-content-inner>
           {bridgeRuntimeMode ? (
             <BridgeRuntimePrompt
               mode={bridgeRuntimeMode}

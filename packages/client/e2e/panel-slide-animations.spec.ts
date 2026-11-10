@@ -14,7 +14,7 @@ test("Appearance slide animations apply immediately and persist for App toggles"
     name: "Slide animations",
     exact: true,
   });
-  const sidebar = page.locator(".sidebar-desktop");
+  const sidebar = page.locator("[data-sidebar-desktop]");
   await expect(animationToggle).toBeChecked();
   await expect(sidebar).toHaveCSS("transition-duration", "0.2s");
   await animationToggle.locator("..").click();
@@ -32,8 +32,11 @@ test("Appearance slide animations apply immediately and persist for App toggles"
   await recordUiCapture(page, "slide-animations-phone");
   await page.goto("/sessions");
   await page.getByRole("button", { name: "Open sidebar", exact: true }).click();
-  await expect(page.locator(".sidebar")).toHaveCSS("animation-duration", "0s");
-  await expect(page.locator(".sidebar-overlay")).toHaveCSS(
+  await expect(page.locator("[data-sidebar]")).toHaveCSS(
+    "animation-duration",
+    "0s",
+  );
+  await expect(page.locator("[data-sidebar-overlay]")).toHaveCSS(
     "animation-duration",
     "0s",
   );
@@ -105,15 +108,15 @@ test("Appearance slide animations apply immediately and persist for App toggles"
   const app = page.getByRole("button", { name: "App", exact: true });
   const pane = page.getByRole("complementary", { name: "Session pane" });
   await expect(app).toBeVisible();
-  await expect(sidebar).not.toHaveClass(/sidebar-collapsed/);
+  await expect(sidebar).not.toHaveAttribute("data-sidebar-collapsed", "true");
   await app.click();
   await expect(pane).toBeVisible();
   await expect(pane).toHaveCSS("transition-duration", "0s, 0s");
-  await expect(sidebar).toHaveClass(/sidebar-collapsed/);
+  await expect(sidebar).toHaveAttribute("data-sidebar-collapsed", "true");
   await expect(sidebar).toHaveCSS("transition-duration", "0s");
   await app.click();
   await expect(pane).toHaveCount(0);
-  await expect(sidebar).not.toHaveClass(/sidebar-collapsed/);
+  await expect(sidebar).not.toHaveAttribute("data-sidebar-collapsed", "true");
   await expect(sidebar).toHaveCSS("transition-duration", "0s");
 
   await page.goto("/settings/appearance");
@@ -160,7 +163,7 @@ for (const animations of [false, true]) {
       })
       .toBeGreaterThan(280);
     const [workspaceBounds, sessionBounds, paneBounds] = await Promise.all([
-      page.locator(".main-content-constrained").boundingBox(),
+      page.locator("[data-main-content-constrained]").boundingBox(),
       page.locator('[class*="sessionColumn"]').boundingBox(),
       pane.boundingBox(),
     ]);

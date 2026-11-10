@@ -599,7 +599,7 @@ try {
     .locator(
       surface === "session"
         ? "textarea[data-composer-input]"
-        : ".inbox-toolbar",
+        : "[data-inbox-toolbar]",
     )
     .waitFor();
   if (surface === "session")
@@ -641,7 +641,7 @@ try {
       })),
     );
     await navigate(`${prefix}/inbox`);
-    await page.locator(".inbox-toolbar").waitFor();
+    await page.locator("[data-inbox-toolbar]").waitFor();
     await device("shell", "input", "keyevent", "KEYCODE_HOME");
     await pause(1500);
     await device("shell", "am", "kill", "com.yepanywhere.mobile");

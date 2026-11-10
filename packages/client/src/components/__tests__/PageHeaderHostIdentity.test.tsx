@@ -55,7 +55,7 @@ describe("PageHeader host identity", () => {
     );
 
     const left = view.container.querySelector(".session-header-left");
-    expect(left?.children[0]?.classList.contains("sidebar-toggle")).toBe(true);
+    expect(left?.children[0]?.hasAttribute("data-sidebar-toggle")).toBe(true);
     expect(left?.children[1]).toBe(
       view.getByRole("img", { name: "hostIdentityMarkerAria:💻" }),
     );
@@ -90,6 +90,6 @@ describe("PageHeader host identity", () => {
       </HostIdentityProvider>,
     );
 
-    expect(view.container.querySelector(".sidebar-toggle")).toBeNull();
+    expect(view.container.querySelector("[data-sidebar-toggle]")).toBeNull();
   });
 });

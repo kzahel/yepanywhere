@@ -39,8 +39,8 @@ for (const touch of [false, true]) {
     );
     try {
       await page.goto(`${base}e2e/fixtures/session-menu.html`);
-      const rows = page.locator(".session-list-item");
-      const menus = page.locator(".session-list-item__menu");
+      const rows = page.locator("[data-session-list-item]");
+      const menus = page.locator("[data-session-menu]");
       await expect(rows).toHaveCount(17);
       await expect
         .poll(() =>
@@ -57,11 +57,11 @@ for (const touch of [false, true]) {
       );
 
       const first = rows.first();
-      const firstMenu = first.locator(".session-list-item__menu");
-      const secondMenu = rows.nth(1).locator(".session-list-item__menu");
+      const firstMenu = first.locator("[data-session-menu]");
+      const secondMenu = rows.nth(1).locator("[data-session-menu]");
       if (touch) {
         // Exercise touch focus without relying on emulated mouse hover.
-        await first.locator(".session-list-item__link").focus();
+        await first.locator("[data-session-list-item__link]").focus();
       } else {
         await first.hover();
       }
@@ -77,19 +77,19 @@ for (const touch of [false, true]) {
       await page.mouse.move(350, 10);
       await expect(firstMenu).toHaveCSS("opacity", "0");
 
-      const target = rows.nth(1).locator(".session-list-item__link");
+      const target = rows.nth(1).locator("[data-session-list-item__link]");
       if (touch) await target.tap({ position: { x: 40, y: 20 } });
       else await target.click({ position: { x: 40, y: 20 } });
       await expect(page.getByLabel("Opened session")).toHaveText(
         "/projects/project/sessions/session-1",
       );
-      const cardLink = rows.last().locator(".session-list-item__link");
+      const cardLink = rows.last().locator("[data-session-list-item__link]");
       // Establish keyboard modality after the pointer navigation above.
       // WebKit's default Tab traversal skips links; focus the same link in both engines.
       if (!touch) await page.keyboard.press("Tab");
       await cardLink.focus();
       await expect(cardLink).toBeFocused();
-      await expect(rows.last().locator(".session-list-item__menu")).toHaveCSS(
+      await expect(rows.last().locator("[data-session-menu]")).toHaveCSS(
         "opacity",
         "1",
       );

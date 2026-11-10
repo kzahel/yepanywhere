@@ -450,7 +450,7 @@ describe("NavigationLayout", () => {
     const restoreButton = screen.getByRole("button", {
       name: "Restore sidebar",
     });
-    expect(restoreButton.classList.contains("sidebar-floating-restore")).toBe(
+    expect(restoreButton.hasAttribute("data-sidebar-floating-restore")).toBe(
       true,
     );
     expect(window.localStorage.getItem(UI_KEYS.sidebarMinimized)).toBe("true");

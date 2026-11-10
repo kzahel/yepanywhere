@@ -1,0 +1,29 @@
+.sidebarToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+a.sidebarToggle {
+  color: var(--text-muted);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+a.sidebarToggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+@media (width >= 1100px) {
+  [data-desktop-layout] .sidebarToggle {
+    display: flex;
+  }
+}

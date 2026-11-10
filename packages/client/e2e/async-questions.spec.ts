@@ -642,15 +642,15 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
         localStorage.setItem("yep-anywhere-question-reminder-turns", "3");
       });
       await page.goto(`${origin}/inbox`);
-      const inbox = page.locator("main.page-scroll-container");
+      const inbox = page.locator("main[data-page-scroll-container]");
       const alpha = inbox
-        .locator("li.session-list-item")
+        .locator("li[data-session-list-item]")
         .filter({ hasText: "Alpha questions" });
       await expect(
         alpha.getByRole("button", { name: /^3 questions/ }),
       ).toBeVisible();
       const beta = inbox
-        .locator("li.session-list-item")
+        .locator("li[data-session-list-item]")
         .filter({ hasText: "Beta questions" });
       await expect(
         beta.getByRole("button", { name: /^1 question/ }),
@@ -695,10 +695,12 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
         name: "Open sidebar",
         exact: true,
       });
-      if (!(await page.locator(".sidebar-nav-section").first().isVisible()))
+      if (
+        !(await page.locator("[data-sidebar-nav-section]").first().isVisible())
+      )
         await sidebarToggle.click();
       const sidebarBeta = page
-        .locator(".sidebar .session-list-item")
+        .locator("[data-sidebar] [data-session-list-item]")
         .filter({ hasText: "Beta questions" })
         .first();
       await sidebarBeta.hover();
@@ -706,7 +708,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
         .getByRole("button", { name: /^1 question/ })
         .boundingBox();
       const menuBounds = await sidebarBeta
-        .locator(".session-list-item__menu")
+        .locator("[data-session-menu]")
         .boundingBox();
       expect(questionBounds).not.toBeNull();
       expect(menuBounds).not.toBeNull();
@@ -721,7 +723,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       await expect(menu).toBeVisible();
       await page.keyboard.press("Escape");
       const aggregate = page
-        .locator(".sidebar-nav-section")
+        .locator("[data-sidebar-nav-section]")
         .getByRole("button", { name: /^3 questions/ });
       await aggregate.click({ button: "right" });
       await expect(
@@ -744,7 +746,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       await expect(aggregate).toHaveCount(0);
       await expect(
         page
-          .locator(".sidebar-nav-section")
+          .locator("[data-sidebar-nav-section]")
           .getByRole("button", { name: /^2 questions/ }),
       ).toBeVisible();
       // A question arrives in an unopened session through the real activity
@@ -770,7 +772,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       });
       await expect(
         page
-          .locator(".sidebar-nav-section")
+          .locator("[data-sidebar-nav-section]")
           .getByRole("button", { name: /^3 questions/ }),
       ).toBeVisible();
     }

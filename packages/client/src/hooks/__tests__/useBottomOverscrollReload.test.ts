@@ -41,7 +41,7 @@ describe("useBottomOverscrollReload helpers", () => {
 
   it("finds the nearest supported scroll container when it has real overflow", () => {
     const container = document.createElement("main");
-    container.className = "page-scroll-container";
+    container.setAttribute("data-page-scroll-container", "");
     setScrollMetrics(container, {
       scrollHeight: 720,
       clientHeight: 400,
@@ -59,7 +59,7 @@ describe("useBottomOverscrollReload helpers", () => {
 
   it("ignores interactive targets and non-scrollable containers", () => {
     const container = document.createElement("main");
-    container.className = "page-scroll-container";
+    container.setAttribute("data-page-scroll-container", "");
     setScrollMetrics(container, {
       scrollHeight: 420,
       clientHeight: 400,

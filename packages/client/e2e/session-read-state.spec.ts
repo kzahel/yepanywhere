@@ -255,7 +255,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         .getByRole("button", { name: "Open sidebar", exact: true })
         .click();
       const sidebarRow = page
-        .locator(".sidebar:visible .session-list-item")
+        .locator("[data-sidebar]:visible [data-session-list-item]")
         .filter({ hasText: "Completed session" })
         .first();
       await expect(sidebarRow).toBeVisible();
@@ -265,7 +265,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       // Focus on another row must target that session without changing the
       // open conversation's read state, route or keyboard focus.
       const otherRow = page
-        .locator(".sidebar:visible .session-list-item")
+        .locator("[data-sidebar]:visible [data-session-list-item]")
         .filter({ hasText: "Other session" })
         .first();
       const otherLink = otherRow.locator("a").first();
@@ -318,7 +318,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         .click();
       await page.goto(`${origin}/inbox`);
       const inboxRow = page
-        .locator(".session-list-item")
+        .locator("[data-session-list-item]")
         .filter({ hasText: "Completed session" })
         .last();
       await expect(inboxRow).toBeVisible();

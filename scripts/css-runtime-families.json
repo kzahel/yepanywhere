@@ -139,11 +139,6 @@
     "reason": "The image-viewer variant interpolates the overlay and dialog suffixes."
   },
   {
-    "pattern": "^sidebar-project-queue-item--failed$",
-    "source": "packages/client/src/components/Sidebar.tsx",
-    "reason": "Queue item status interpolated into sidebar links, including failed launches."
-  },
-  {
     "pattern": "^steer-mode$",
     "source": "packages/client/src/components/MessageInput.tsx",
     "reason": "Keyboard action kind interpolated into primary and alternate action classes."

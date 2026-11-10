@@ -926,7 +926,7 @@ export function FileViewerModal({
   const sessionViewerLayer =
     publicShareContext === null
       ? (document.querySelector<HTMLElement>(
-          ".navigation-route-layer.is-active [data-session-viewer-layer]",
+          "[data-navigation-route-layer][data-navigation-active] [data-session-viewer-layer]",
         ) ?? document.querySelector<HTMLElement>("[data-session-viewer-layer]"))
       : null;
   const modalContent = (
@@ -957,7 +957,7 @@ export function FileViewerModal({
     publicShareContext === null
       ? (sessionViewerLayer ??
         document.querySelector<HTMLElement>(
-          ".navigation-route-layer.is-active .session-page",
+          "[data-navigation-route-layer][data-navigation-active] .session-page",
         ) ??
         document.querySelector<HTMLElement>(".session-page"))
       : null;

@@ -160,7 +160,7 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
       ).restoreNativeSource(),
     );
     await expect(page.locator("[data-connection-status]")).toHaveCount(0);
-    await expect(page.locator(".project-list-cards")).toBeVisible();
+    await expect(page.locator("[data-project-list-cards]")).toBeVisible();
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(
       coldDocument,
     );

@@ -1,3 +1,4 @@
+import layoutStyles from "../layouts/PageLayout.module.css";
 import pageStyles from "./GitStatusPage.module.css";
 import type { LocalSourceRoot } from "@yep-anywhere/shared";
 import { useState } from "react";
@@ -33,8 +34,11 @@ export function LocalSourcePage() {
   return (
     <MainContent isWideScreen={isWideScreen}>
       <PageHeader title={title} />
-      <main className="page-scroll-container">
-        <div className="page-content-inner">
+      <main
+        className={layoutStyles.pageScrollContainer}
+        data-page-scroll-container
+      >
+        <div className={layoutStyles.pageContentInner} data-page-content-inner>
           {!projectId || !requestedPath ? (
             <Banner tone="error">{t("fileInvalidUrl" as never)}</Banner>
           ) : (

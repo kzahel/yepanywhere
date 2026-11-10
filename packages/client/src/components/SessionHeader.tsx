@@ -1,3 +1,4 @@
+import launcherStyles from "./SidebarLauncher.module.css";
 import { useI18n } from "../i18n";
 import { ClearloopRemainingBadge } from "./ClearloopRemainingBadge";
 import { ClientLogRecordingBadge } from "./ClientLogRecordingBadge";
@@ -398,7 +399,8 @@ export function SessionHeader({
             sidebar owns its own toggle, expanded or collapsed. */}
           {!isWideScreen && (
             <IconButton
-              className="sidebar-toggle"
+              className={launcherStyles.sidebarToggle}
+              data-sidebar-toggle
               size="large"
               onClick={openSidebar}
               label={t("sessionOpenSidebar")}

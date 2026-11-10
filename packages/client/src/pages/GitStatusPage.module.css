@@ -50,8 +50,8 @@
   }
 }
 
-:global(.main-content-constrained).sourceControlMainContent
-  :global(.page-content-inner) {
+[data-main-content-constrained].sourceControlMainContent
+  [data-page-content-inner] {
   max-width: none;
   margin: 0;
   width: 100%;
@@ -112,8 +112,8 @@
 
 @media (width >= 1100px) {
   .sourceControlMainContent
-    > :global(.page-scroll-container)
-    > :global(.page-content-inner) {
+    > [data-page-scroll-container]
+    > [data-page-content-inner] {
     display: flex;
     height: 100%;
     min-height: 0;

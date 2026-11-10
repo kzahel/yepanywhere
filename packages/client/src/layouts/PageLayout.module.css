@@ -1,0 +1,70 @@
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  /* Leave space for activity drawer (36px closed, 300px open) */
+  padding-bottom: 320px;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  animation: delayed-fade-in 0.2s ease-out forwards;
+  opacity: 0;
+}
+
+.loadingDetail {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.error {
+  padding: 2rem;
+  text-align: center;
+}
+
+.breadcrumb {
+  font-size: var(--font-size-lg);
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.breadcrumb a {
+  color: var(--link-color);
+}
+
+.pageScrollContainer {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pageContentInner {
+  padding: 1rem;
+}
+
+:global(.session-render-progress).loading {
+  opacity: 1;
+  animation: none;
+  color: var(--text-primary);
+}
+
+@media (width <= 600px) {
+  .page {
+    padding-right: 2px;
+    padding-left: 2px;
+  }
+}
+
+@keyframes delayed-fade-in {
+  0%,
+  99% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}

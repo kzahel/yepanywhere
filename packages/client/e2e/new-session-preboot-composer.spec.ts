@@ -95,11 +95,11 @@ test("keys typed before the app loads reach the new-session composer", async ({
     "Saved prompt: typed before boot and after",
   );
 
-  await expect(page.locator(".sidebar-desktop")).toBeVisible();
-  await expect(page.locator(".sidebar-desktop")).not.toHaveClass(
+  await expect(page.locator("[data-sidebar-desktop]")).toBeVisible();
+  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
     /sidebar-collapsed/,
   );
-  await expect(page.locator(".sidebar-floating-restore")).toHaveCount(0);
+  await expect(page.locator("[data-sidebar-floating-restore]")).toHaveCount(0);
   const adoptedBox = await page
     .locator(".new-session-form .speech-draft-field")
     .boundingBox();
@@ -462,22 +462,24 @@ test("refresh preserves saved sidebar modes on New Session", async ({
       page.locator("textarea.new-session-form-textarea"),
     ).toBeVisible();
     if (mode === "minimized") {
-      await expect(page.locator(".sidebar-floating-restore")).toBeVisible();
+      await expect(
+        page.locator("[data-sidebar-floating-restore]"),
+      ).toBeVisible();
     } else {
-      await expect(page.locator(".sidebar-desktop")).toBeVisible();
+      await expect(page.locator("[data-sidebar-desktop]")).toBeVisible();
       if (mode === "collapsed")
-        await expect(page.locator(".sidebar-desktop")).toHaveClass(
+        await expect(page.locator("[data-sidebar-desktop]")).toHaveClass(
           /sidebar-collapsed/,
         );
       else
-        await expect(page.locator(".sidebar-desktop")).not.toHaveClass(
+        await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
           /sidebar-collapsed/,
         );
     }
   }
   await page.goto(`${baseURL}/new-session?sidebar=expanded`);
-  await expect(page.locator(".sidebar-desktop")).toBeVisible();
-  await expect(page.locator(".sidebar-desktop")).not.toHaveClass(
+  await expect(page.locator("[data-sidebar-desktop]")).toBeVisible();
+  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
     /sidebar-collapsed/,
   );
 });

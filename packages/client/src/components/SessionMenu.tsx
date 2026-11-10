@@ -249,7 +249,11 @@ export function SessionMenu({
     .join(" ");
 
   return (
-    <div className={wrapperClasses}>
+    <div
+      className={wrapperClasses}
+      data-session-menu
+      data-session-menu-open={isOpen || undefined}
+    >
       <IconButton
         {...menu.triggerProps}
         size={triggerSize}

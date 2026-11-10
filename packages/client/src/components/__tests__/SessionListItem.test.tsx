@@ -419,7 +419,7 @@ describe("SessionListItem links", () => {
 
     const link = screen.getByRole("link", { name: /Custom title/ });
     const title = link.querySelector<HTMLElement>(
-      ".session-list-item__title-text",
+      "[data-session-list-item__title-text]",
     );
     expect(title).toBeTruthy();
     expect(link.getAttribute("title")).toBeNull();
@@ -693,7 +693,7 @@ describe("SessionListItem links", () => {
     expect(refreshSpy).not.toHaveBeenCalled();
 
     const title = item?.querySelector<HTMLElement>(
-      ".session-list-item__title-text",
+      "[data-session-list-item__title-text]",
     );
     expect(title).toBeTruthy();
     let scrollWidth = 100;
@@ -1407,7 +1407,7 @@ describe("SessionListItem links", () => {
       sessionLink.getAttribute("href"),
     );
     const overlayHost = document.querySelector(
-      ".session-list-item__menu",
+      "[data-session-menu]",
     )?.parentElement;
     expect(overlayHost).not.toBeNull();
     expect(overlayHost?.contains(project)).toBe(false);

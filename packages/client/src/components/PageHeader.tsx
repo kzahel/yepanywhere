@@ -1,3 +1,4 @@
+import launcherStyles from "./SidebarLauncher.module.css";
 import type { ReactNode } from "react";
 import { useI18n } from "../i18n";
 import { useNavigationLayout } from "../layouts";
@@ -63,7 +64,8 @@ export function PageHeader({
           {showBack && onBack ? (
             <IconButton
               label={t("actionBack")}
-              className="sidebar-toggle"
+              className={launcherStyles.sidebarToggle}
+              data-sidebar-toggle
               size="large"
               onClick={onBack}
             >

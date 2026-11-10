@@ -74,6 +74,9 @@ resize geometry, selected/read cues, focus rings and phone layout stay unchanged
 source previews and EditRenderer import the same context-control look. Viewer
 body typography and diff gutters stay ordered with transcript output until their
 shared migration.
+Collection pages, compact session rows, sidebar density/collapse and navigation
+now retain their existing look through explicit shared modules. Page scrolling
+and retained-route lookup use stable data boundaries; the composer is unchanged.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 

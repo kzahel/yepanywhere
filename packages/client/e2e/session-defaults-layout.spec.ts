@@ -190,7 +190,7 @@ for (const viewport of [
       page.getByText("Server changed", { exact: false }),
     ).toHaveCount(0);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.locator(".page-scroll-container").evaluate((container) => {
+    await page.locator("[data-page-scroll-container]").evaluate((container) => {
       container.scrollTop = 0;
     });
     await capture(

@@ -15,7 +15,7 @@ test("a fresh Settings window starts collapsed without changing the saved prefer
   await expect(
     page.getByRole("searchbox", { name: "Search settings" }),
   ).toBeVisible();
-  await expect(page.locator(".sidebar-desktop")).toHaveClass(
+  await expect(page.locator("[data-sidebar-desktop]")).toHaveClass(
     /sidebar-collapsed/,
   );
   expect(
@@ -26,7 +26,7 @@ test("a fresh Settings window starts collapsed without changing the saved prefer
   ).toBe("true");
 
   await page.goto(`${baseURL}/settings?sidebar=expanded`);
-  await expect(page.locator(".sidebar-desktop")).not.toHaveClass(
+  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
     /sidebar-collapsed/,
   );
 });

@@ -1,3 +1,4 @@
+import brandStyles from "./BrandWordmark.module.css";
 interface BrandWordmarkProps {
   className?: string;
   variant?: "short" | "full";
@@ -10,17 +11,28 @@ export function BrandWordmark({
   if (variant === "full") {
     return (
       <span
-        className={`brand-wordmark brand-wordmark--full ${className}`.trim()}
+        className={`${brandStyles.brandWordmark} ${brandStyles.brandWordmarkFull} ${className}`.trim()}
+        data-brand-wordmark
+        data-brand-wordmark--full
       >
-        <span className="brand-wordmark__yep">yep</span>
-        <span className="brand-wordmark__anywhere">anywhere</span>
+        <span className={brandStyles.brandWordmarkYep} data-brand-wordmark__yep>
+          yep
+        </span>
+        <span
+          className={brandStyles.brandWordmarkAnywhere}
+          data-brand-wordmark__anywhere
+        >
+          anywhere
+        </span>
       </span>
     );
   }
 
   return (
     <span
-      className={`brand-wordmark brand-wordmark--short ${className}`.trim()}
+      className={`${brandStyles.brandWordmark} ${brandStyles.brandWordmarkShort} ${className}`.trim()}
+      data-brand-wordmark
+      data-brand-wordmark--short
     >
       yep
     </span>

@@ -472,8 +472,8 @@ describe("Sidebar collapsed toggle", () => {
     // in the mini rail, rather than relying on a bespoke per-item guard. The
     // visual icon-only outcome is a CSS concern, verified at the browser level.
     const switchHost = screen.getByRole("button", { name: "Switch Host" });
-    expect(switchHost.classList.contains("sidebar-nav-item")).toBe(true);
-    const label = switchHost.querySelector(".sidebar-nav-text");
+    expect(switchHost.hasAttribute("data-sidebar-nav-item")).toBe(true);
+    const label = switchHost.querySelector("[data-sidebar-nav-text]");
     expect(label?.textContent).toBe("Switch Host");
   });
 
@@ -790,7 +790,7 @@ describe("Sidebar collapsed toggle", () => {
     expect(
       screen
         .getByRole("link", { name: "Source Control" })
-        .classList.contains("active"),
+        .hasAttribute("data-sidebar-active"),
     ).toBe(true);
   });
 

@@ -7,6 +7,14 @@
     "count": 1,
     "reason": "14px audio-memo sheet corner geometry; no radius token within 1px."
   },
+  "components/BrandWordmark.module.css": {
+    "count": 1,
+    "reason": "Configured brand-wordmark size is independent of the UI type scale; close if the wordmark adopts a fixed shared brand typography token."
+  },
+  "components/CollectionLayout.module.css": {
+    "count": 1,
+    "reason": "The 1.25rem empty-state heading follows browser root-font preferences; close with an approved matching rem-based heading token."
+  },
   "components/ComposerRecents.module.css": {
     "count": 5,
     "reason": "composer pass"
@@ -58,6 +66,10 @@
   "components/ResizableSourceColumns.module.css": {
     "count": 2,
     "reason": "Preserve the 0.72rem resize glyph and 5px handle corner geometry in the move-only source layout pass."
+  },
+  "components/Sidebar.module.css": {
+    "count": 1,
+    "reason": "The 1.1rem sidebar brand line preserves its root-font geometry; close with an approved matching brand typography token."
   },
   "components/SpeechPrefixActionCue.module.css": {
     "count": 1,
@@ -133,7 +145,7 @@
   },
   "pages/GitStatusDiffPreview.module.css": {
     "count": 8,
-    "reason": "Filename/path, hunk and whitespace labels (0.68\u20130.9rem) and the 1rem skipped-preview heading preserve source-toolbar hierarchy and browser root-font preferences; close with an approved rem-based source typography scale."
+    "reason": "Filename/path, hunk and whitespace labels (0.68–0.9rem) and the 1rem skipped-preview heading preserve source-toolbar hierarchy and browser root-font preferences; close with an approved rem-based source typography scale."
   },
   "pages/GitStatusPage.module.css": {
     "count": 1,

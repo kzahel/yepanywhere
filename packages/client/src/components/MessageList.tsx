@@ -1,3 +1,4 @@
+import { TranscriptRenderProgress } from "./TranscriptRenderProgress";
 import type {
   MarkdownAugment,
   ProjectQueueItemStatus,
@@ -175,7 +176,6 @@ import { LinkifiedText } from "./ui/LinkifiedText";
 import { Spinner } from "./ui/Spinner";
 import styles from "./MessageList.module.css";
 import { useMcpAppViewsEnabled } from "../hooks/useMcpAppViewsEnabled";
-
 const EMPTY_TRANSCRIPT_DISPLAY_OBJECTS: readonly TranscriptDisplayObject[] = [];
 const PROGRESSIVE_INITIAL_RENDER_ITEM_TARGET = 120;
 const PROGRESSIVE_RENDER_ITEM_BATCH_TARGET = 90;
@@ -4980,31 +4980,10 @@ export const MessageList = memo(function MessageList({
         >
           {floatingSelectionActions}
           {progressiveRevealActive && (
-            <div className="session-render-progress loading" role="status">
-              <div>{t("sessionLoading")}</div>
-              {progressiveRenderStatusVisible && (
-                <>
-                  <div className="loading-detail session-render-progress-label">
-                    {t("sessionProgressiveRenderingStatus", {
-                      percent: progressiveRenderPercent,
-                    })}
-                  </div>
-                  <div
-                    className="session-render-progress-bar"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={progressiveRenderPercent}
-                    aria-label={t("sessionProgressiveRenderingAriaLabel")}
-                  >
-                    <div
-                      className="session-render-progress-fill"
-                      style={{ width: `${progressiveRenderPercent}%` }}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
+            <TranscriptRenderProgress
+              showDetails={progressiveRenderStatusVisible}
+              percent={progressiveRenderPercent}
+            />
           )}
           {!searchActive &&
             !historySearchWindow &&

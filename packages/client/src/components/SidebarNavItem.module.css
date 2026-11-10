@@ -1,3 +1,76 @@
+.sidebarNavSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0;
+  margin-bottom: var(--sidebar-section-gap, 1rem);
+}
+
+[data-sidebar-collapsed] .sidebarNavSection {
+  margin-bottom: 0;
+}
+
+a.sidebarNavItem {
+  text-decoration: none;
+}
+
+.sidebarNavItem {
+  display: flex;
+  align-items: center;
+  gap: var(--sidebar-navigation-inline-spacing, 0.75rem);
+  padding: var(--sidebar-navigation-padding-block, 0.5rem)
+    var(--sidebar-navigation-inline-spacing, 0.75rem);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.sidebarNavItem:hover {
+  background: var(--bg-hover);
+}
+
+.sidebarNavItem.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebarNavItem svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 16px;
+}
+
+@media (width >= 1100px) {
+  [data-sidebar-collapsed] .sidebarNavText {
+    display: none;
+  }
+}
+
+@media (width >= 1100px) {
+  [data-sidebar-collapsed] .sidebarNavSection {
+    padding: 0.25rem;
+  }
+}
+
+@media (width >= 1100px) {
+  [data-sidebar-collapsed] .sidebarNavItem {
+    justify-content: center;
+    padding: 0.5rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .sidebarNavItem {
+    min-height: 40px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -16,7 +89,7 @@
   align-items: center;
   margin-inline-end: 4px;
 }
-:global(.sidebar-collapsed) .row {
+[data-sidebar-collapsed] .row {
   flex-direction: column;
 }
 /* The count sits at the row's end and, like the label, leaves the collapsed
@@ -25,7 +98,7 @@
   margin-left: auto;
 }
 @media (width >= 1100px) {
-  :global(.sidebar-collapsed) .badge {
+  [data-sidebar-collapsed] .badge {
     display: none;
   }
 }

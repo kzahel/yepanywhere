@@ -42,7 +42,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.indexStatus:global(.error) {
+.indexStatus[data-error] {
   color: var(--error-color);
 }
 

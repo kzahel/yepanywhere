@@ -54,6 +54,12 @@ mixed generated/React `line-hunk` vocabulary through a class-token attribute
 selector. Viewer body typography and diff gutters remain coupled to transcript
 Read/Write/Edit output until that coordinated move; review and blame grids retain
 their existing module owners.
+Collections and navigation now share PageLayout, MainContent and
+CollectionLayout modules; Sidebar, SidebarNavItem, SessionListItem and the route
+linger host own their states and geometry. The /btw badge and title treatment
+has one shared module. DOM consumers use data boundaries for scroll containers,
+route layers/active state, sidebar collapse and session rows; selector constants
+need the same migration audit as inline queries.
 
 The target:
 

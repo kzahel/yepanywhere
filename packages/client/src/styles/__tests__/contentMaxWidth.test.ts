@@ -3,14 +3,20 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../index.css", import.meta.url);
+const stylesheetUrl = new URL(
+  "../../layouts/MainContent.module.css",
+  import.meta.url,
+);
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function readStylesheet(): Promise<string> {
-  return readFile(stylesheetUrl, "utf8");
+  return (await readFile(stylesheetUrl, "utf8")).replace(
+    /:global\(([^)]+)\)/g,
+    "$1",
+  );
 }
 
 function getRuleDeclarations(css: string, selector: string): string {
@@ -45,11 +51,11 @@ describe("session content width CSS contract", () => {
 
     expectNormalSessionSelectorUsesContentWidth(
       css,
-      ".main-content-constrained .session-messages .message-list",
+      ".mainContentConstrained .session-messages .message-list",
     );
     expectNormalSessionSelectorUsesContentWidth(
       css,
-      ".main-content-constrained .session-input-inner",
+      ".mainContentConstrained .session-input-inner",
     );
   });
 
@@ -57,7 +63,7 @@ describe("session content width CSS contract", () => {
     const css = await readStylesheet();
     const declarations = getRuleDeclarations(
       css,
-      ".main-content-mobile-inner .session-input-inner,\n.main-content-mobile-inner .session-messages .message-list",
+      ".mainContentMobileInner .session-input-inner,\n.mainContentMobileInner .session-messages .message-list",
     );
 
     expect(
@@ -73,7 +79,7 @@ describe("session content width CSS contract", () => {
   it("keeps the /btw split-pane full-track exception explicit", async () => {
     const css = await readStylesheet();
     const splitOverride =
-      /\.main-content-constrained\s+\.session-split\.session-split-with-aside\s*>\s*\.session-messages\s+\.message-list,\s*\.main-content-constrained\s+\.session-split\.session-split-with-aside\s*>\s*\.session-input\s+\.session-input-inner\s*\{[^}]*max-width:\s*none\s*;/m;
+      /\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\.session-messages\s+\.message-list,\s*\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\.session-input\s+\.session-input-inner\s*\{[^}]*max-width:\s*none\s*;/m;
 
     expect(
       css,

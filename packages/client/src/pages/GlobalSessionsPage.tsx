@@ -1,3 +1,5 @@
+import globalStyles from "./GlobalSessionsPage.module.css";
+import pageStyles from "../layouts/PageLayout.module.css";
 import {
   ALL_PROVIDERS,
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
@@ -563,7 +565,7 @@ function SessionSearchPage() {
   useLayoutEffect(() => {
     const anchor = limitAnchor.current;
     limitAnchor.current = undefined;
-    const scroller = anchor?.element.closest(".page-scroll-container");
+    const scroller = anchor?.element.closest("[data-page-scroll-container]");
     if (anchor && scroller)
       scroller.scrollTop +=
         anchor.element.getBoundingClientRect().top - anchor.top;
@@ -709,7 +711,10 @@ function SessionSearchPage() {
           />
         }
       />
-      <main className="page-scroll-container">
+      <main
+        className={pageStyles.pageScrollContainer}
+        data-page-scroll-container
+      >
         <div
           className={`${styles.content} ${selected.size ? styles.withBulkBar : ""}`}
         >
@@ -834,11 +839,17 @@ function SessionSearchPage() {
             pending={pending}
           />
           {activeProject && (
-            <div className={`global-sessions-project-cta ${styles.projectCta}`}>
+            <div
+              className={`${globalStyles.globalSessionsProjectCta} ${styles.projectCta}`}
+              data-global-sessions-project-cta
+            >
               <div>
                 <strong>
                   {t("sidebarNewSession")}{" "}
-                  <code className="global-sessions-project-cta__token">
+                  <code
+                    className={globalStyles.globalSessionsProjectCtaToken}
+                    data-global-sessions-project-cta__token
+                  >
                     {activeProject.name}
                   </code>
                 </strong>
@@ -846,7 +857,10 @@ function SessionSearchPage() {
                   {query.trim()
                     ? t("globalSessionsProjectCtaPromptLabel")
                     : t("globalSessionsProjectCtaHint")}{" "}
-                  <code className="global-sessions-project-cta__token">
+                  <code
+                    className={globalStyles.globalSessionsProjectCtaToken}
+                    data-global-sessions-project-cta__token
+                  >
                     {query.trim() || activeProject.name}
                   </code>
                 </span>

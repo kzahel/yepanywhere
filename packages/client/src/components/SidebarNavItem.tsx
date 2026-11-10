@@ -245,12 +245,16 @@ export function SidebarNavItem({
   const link = (
     <Link
       to={fullPath}
-      className={`sidebar-nav-item ${isActive ? "active" : ""}`}
+      data-sidebar-active={isActive || undefined}
+      className={`${styles.sidebarNavItem} ${isActive ? styles.active : ""}`}
+      data-sidebar-nav-item
       onClick={onClick}
       title={title ?? label}
     >
       {icon}
-      <span className="sidebar-nav-text">{label}</span>
+      <span className={styles.sidebarNavText} data-sidebar-nav-text>
+        {label}
+      </span>
       {hasDraft && (
         <Badge tone="warning" size="small">
           Draft
@@ -322,14 +326,17 @@ export function SidebarNavButton({
   return (
     <ButtonBase
       ref={buttonRef}
-      className={`sidebar-nav-item ${className}`.trim()}
+      className={`${styles.sidebarNavItem} ${className}`.trim()}
+      data-sidebar-nav-item
       {...(onLongPress ? press.handlers : {})}
       onClick={onLongPress ? press.click(onClick) : onClick}
       aria-label={label}
       title={title ?? label}
     >
       {icon}
-      <span className="sidebar-nav-text">{label}</span>
+      <span className={styles.sidebarNavText} data-sidebar-nav-text>
+        {label}
+      </span>
     </ButtonBase>
   );
 }
@@ -343,5 +350,9 @@ export interface SidebarNavSectionProps {
  * Provides consistent spacing between items.
  */
 export function SidebarNavSection({ children }: SidebarNavSectionProps) {
-  return <nav className="sidebar-nav-section">{children}</nav>;
+  return (
+    <nav className={styles.sidebarNavSection} data-sidebar-nav-section>
+      {children}
+    </nav>
+  );
 }

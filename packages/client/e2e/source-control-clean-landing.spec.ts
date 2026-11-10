@@ -335,7 +335,9 @@ test("unfocused cold load keeps the static workbench mounted", async ({
   await openSourceControl(page, baseURL);
 
   await expect(page.getByTestId("working-tree-browser")).toBeVisible();
-  await expect(page.locator(".page-content-inner > .loading")).toHaveCount(0);
+  await expect(
+    page.locator("[data-page-content-inner] > [data-loading]"),
+  ).toHaveCount(0);
   await expect(page.getByText("Loading...", { exact: true })).toBeVisible();
   await expect(page.getByText("No matches.", { exact: true })).toHaveCount(0);
   await capture(page, "source-control-unfocused-load-desktop-1000x600.png");
@@ -592,7 +594,7 @@ test("reviews collapsed commit files with bracket navigation", async ({
   await page.reload();
   await expect(selectedRevision).toBeVisible();
   await expect(selectedRevision).toBeFocused();
-  const pageScroller = page.locator(".page-scroll-container");
+  const pageScroller = page.locator("[data-page-scroll-container]");
   const pageScrollTop = await pageScroller.evaluate(
     (element) => element.scrollTop,
   );

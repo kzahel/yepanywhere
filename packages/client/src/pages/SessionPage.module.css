@@ -1,5 +1,5 @@
-.workspace:global(.main-content-constrained),
-.workspace:global(.main-content-mobile-inner) {
+.workspace[data-main-content-constrained],
+.workspace[data-main-content-mobile-inner] {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -63,7 +63,7 @@
     overflow: visible clip;
   }
 
-  .workspace:global(.main-content-constrained) {
+  .workspace[data-main-content-constrained] {
     grid-template-columns: minmax(0, 1fr) 0;
     transition: grid-template-columns var(--panel-slide-duration, 0.2s) ease;
   }
@@ -72,7 +72,7 @@
     transition: none;
   }
 
-  .workspace.rightPane:global(.main-content-constrained) {
+  .workspace.rightPane[data-main-content-constrained] {
     grid-template-columns: minmax(0, 1fr) min(
         60%,
         var(--session-right-pane-width, 480px)

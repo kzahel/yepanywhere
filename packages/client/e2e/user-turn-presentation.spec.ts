@@ -185,7 +185,7 @@ for (const viewport of [
       page,
       testInfo,
       `${viewport.name}-appearance`,
-      page.locator(".page-scroll-container"),
+      page.locator("[data-page-scroll-container]"),
     );
 
     expect(consoleFailures).toEqual([]);

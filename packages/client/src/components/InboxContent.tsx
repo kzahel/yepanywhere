@@ -1,3 +1,5 @@
+import pageStyles from "../layouts/PageLayout.module.css";
+import collectionStyles from "./CollectionLayout.module.css";
 import listStyles from "./SessionListLayout.module.css";
 import {
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
@@ -708,9 +710,15 @@ export function InboxContent({
   };
 
   return (
-    <main className="page-scroll-container">
-      <div className={`page-content-inner ${styles.root}`}>
-        <div className={`inbox-toolbar ${styles.toolbar}`}>
+    <main className={pageStyles.pageScrollContainer} data-page-scroll-container>
+      <div
+        className={`${pageStyles.pageContentInner} ${styles.root}`}
+        data-page-content-inner
+      >
+        <div
+          className={`${collectionStyles.inboxToolbar} ${styles.toolbar}`}
+          data-inbox-toolbar
+        >
           <SessionAsyncQuestionsButton
             projectId={projectId}
             basePath={basePath}
@@ -773,7 +781,11 @@ export function InboxContent({
           </Button>
         </div>
 
-        {pageLoading && <p className="loading">{t("inboxLoading")}</p>}
+        {pageLoading && (
+          <p className={pageStyles.loading} data-loading>
+            {t("inboxLoading")}
+          </p>
+        )}
 
         {error && (
           <Banner tone="error">
@@ -782,7 +794,7 @@ export function InboxContent({
         )}
 
         {!pageLoading && !error && isEmpty && (
-          <div className="inbox-empty">
+          <div className={collectionStyles.inboxEmpty} data-inbox-empty>
             <svg
               width="48"
               height="48"

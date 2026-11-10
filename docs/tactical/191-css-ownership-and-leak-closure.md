@@ -2,7 +2,7 @@
 
 Topic: css-architecture
 
-Status: steps 1–6 landed 2026-11-10; step 7 areas 1–3 landed.
+Status: steps 1–6 landed 2026-11-10; step 7 areas 1–4 landed.
 Steps 7–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
@@ -215,12 +215,13 @@ Landing by area, composer unchanged and last (2026-11-10).
 - Area 1 landed: monitor/share/relay setup, login/host pages and logo; shared login/list/pulse. Remaining index/renderers/tool rows: 8,929/4,063/670.
 - Area 2 landed: settings/search/categories, toolbar previews, device/command reuse and onboarding. Remaining: 7,058/4,062/670 (11,790).
 - Area 3 landed: source columns/rows/search/detail, diff controls, commit/blame browser and file-page chrome. Remaining: 6,733/3,316/670 (10,719).
+- Area 4 landed: collections, session rows, sidebar/navigation, shared page shell and /btw appearance. Remaining: 5,774/3,316/670 (9,760).
 - Review repair landed: DOM hooks/folder focus, rem typography and explicit cross-module winners; durable source layout guards restored.
-- Final census: 123 token exceptions / 53 files; 38 runtime families; zero unused globals/module selectors.
+- Final census: 126 token exceptions / 56 files; 37 runtime families; zero unused globals/module selectors.
 - Deferred: viewer/Markdown body typography and diff gutters share Read/Write/Edit and generated roots; move together with transcript to preserve cascade.
-- Shared page shell waits for navigation; Model's 17 inline-modifier lines wait for ThinkingControls/RecapAfterSecondsControl in the composer pass.
+- Model's 17 inline-modifier lines wait for ThinkingControls/RecapAfterSecondsControl in the composer pass.
 - Transcript samples/share interop and the tool-row global pulse wait for their transcript owner; the login recovery-hint [defect](../../gaps/login-recovery-hint-unstyled.md) stays unchanged.
-- Next: area 4 collections/sidebar/navigation, then shared shell/modals, transcript, session chrome and composer; one commit per area.
+- Next: shared shell/modals, transcript, session chrome and composer; one commit per area.
 
 ### 8 — ban string class names in drained owners
 

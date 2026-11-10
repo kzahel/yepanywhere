@@ -1,3 +1,4 @@
+import pageStyles from "../layouts/PageLayout.module.css";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
@@ -153,7 +154,8 @@ export function ActivityPage() {
 
   return (
     <div
-      className="page"
+      className={pageStyles.page}
+      data-page
       style={{
         maxWidth: "1000px",
         height: "100vh",
@@ -162,7 +164,7 @@ export function ActivityPage() {
         overflow: "hidden",
       }}
     >
-      <nav className="breadcrumb">
+      <nav className={pageStyles.breadcrumb} data-breadcrumb>
         <Link to="/projects">{t("pageTitleProjects")}</Link> /{" "}
         {t("activityBreadcrumb" as never)}
       </nav>

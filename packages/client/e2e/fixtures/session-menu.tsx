@@ -1,3 +1,4 @@
+import sidebarStyles from "../../src/components/Sidebar.module.css";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { SessionListItem } from "../../src/components/SessionListItem";
@@ -17,7 +18,7 @@ function Fixture() {
       }}
     >
       <h2>Starred</h2>
-      <ul className="sidebar-session-list">
+      <ul className={sidebarStyles.sidebarSessionList}>
         {Array.from({ length: 16 }, (_, index) => (
           <SessionListItem
             key={index}

@@ -1,3 +1,4 @@
+import pageStyles from "../layouts/PageLayout.module.css";
 import statusStyles from "./SourceStatus.module.css";
 import type {
   GitFileChange,
@@ -786,7 +787,11 @@ export function GitStatusPage() {
   };
 
   if (!effectiveProjectId && !projectsLoading && projects.length === 0) {
-    return <div className="error">{t("gitStatusNoProjects")}</div>;
+    return (
+      <div className={pageStyles.error} data-error>
+        {t("gitStatusNoProjects")}
+      </div>
+    );
   }
 
   return (
@@ -837,10 +842,16 @@ export function GitStatusPage() {
         }
       />
 
-      <main className="page-scroll-container" ref={pageScrollRef}>
-        <div className="page-content-inner">
+      <main
+        className={pageStyles.pageScrollContainer}
+        data-page-scroll-container
+        ref={pageScrollRef}
+      >
+        <div className={pageStyles.pageContentInner} data-page-content-inner>
           {projectsLoading || loading ? (
-            <div className="loading">{t("gitStatusLoading")}</div>
+            <div className={pageStyles.loading} data-loading>
+              {t("gitStatusLoading")}
+            </div>
           ) : error ? (
             <Banner tone="error">
               {t("gitStatusErrorPrefix")} {error.message}

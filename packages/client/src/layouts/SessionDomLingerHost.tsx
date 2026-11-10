@@ -1,3 +1,4 @@
+import lingerStyles from "./SessionDomLingerHost.module.css";
 import {
   Profiler,
   memo,
@@ -195,10 +196,13 @@ function SessionDomLingerLayer({
           layerRefs.current.delete(sessionRoute.key);
         }
       }}
-      className={`navigation-route-layer session-dom-linger-layer ${
-        parked ? "is-parked" : "is-active"
+      className={`${lingerStyles.navigationRouteLayer} ${lingerStyles.sessionDomLingerLayer} ${
+        parked ? lingerStyles.isParked : lingerStyles.isActive
       }`}
+      data-navigation-route-layer
+      data-session-dom-linger-layer
       aria-hidden={parked ? true : undefined}
+      data-navigation-active={!parked || undefined}
       data-session-dom-linger={parked ? "parked" : "active"}
     >
       {typeof window !== "undefined" &&
@@ -539,8 +543,9 @@ export function SessionDomLingerHost({
           progressiveRenderPauseSignal.activationVersion =
             (progressiveRenderPauseSignal.activationVersion ?? 0) + 1;
         progressiveRenderPauseSignal.current = !active;
-        element.classList.toggle("is-active", active);
-        element.classList.toggle("is-parked", !active);
+        element.classList.toggle(lingerStyles.isActive!, active);
+        element.toggleAttribute("data-navigation-active", active);
+        element.classList.toggle(lingerStyles.isParked!, !active);
         if (active) {
           element.removeAttribute("aria-hidden");
         } else {
@@ -575,7 +580,10 @@ export function SessionDomLingerHost({
 
   const renderRouteStack = useCallback(
     (foreground: ReactNode) => (
-      <div className="navigation-route-stack">
+      <div
+        className={lingerStyles.navigationRouteStack}
+        data-navigation-route-stack
+      >
         {sessionElement &&
           renderedSessionRoutes.map((route) => {
             const parked = route.key !== currentSessionRoute?.key;
@@ -592,9 +600,11 @@ export function SessionDomLingerHost({
             );
           })}
         <div
-          className={`navigation-route-layer navigation-route-foreground ${
-            currentSessionRoute ? "is-hidden" : "is-active"
+          className={`${lingerStyles.navigationRouteLayer} navigation-route-foreground ${
+            currentSessionRoute ? lingerStyles.isHidden : lingerStyles.isActive
           }`}
+          data-navigation-route-layer
+          data-navigation-active={!currentSessionRoute || undefined}
           aria-hidden={currentSessionRoute ? true : undefined}
         >
           {foreground}

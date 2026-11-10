@@ -35,7 +35,7 @@
   position: relative;
 }
 
-:global(.navigation-route-layer.is-active):has(.fileViewerOpen) {
+[data-navigation-route-layer][data-navigation-active]:has(.fileViewerOpen) {
   /* Release the active route's stacking level while its toolbar and viewer
      overlay must be hit-tested in one stack. */
   z-index: auto;

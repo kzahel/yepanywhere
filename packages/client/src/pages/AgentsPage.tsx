@@ -1,3 +1,4 @@
+import pageStyles from "../layouts/PageLayout.module.css";
 import type { HostAgentProcessObservation } from "@yep-anywhere/shared";
 import {
   type RefObject,
@@ -659,9 +660,16 @@ export function AgentsPage() {
     <MainContent isWideScreen={isWideScreen}>
       <PageHeader title={t("agentsTitle" as never)} />
 
-      <main className="page-scroll-container">
-        <div className="page-content-inner">
-          {loading && <p className="loading">{t("agentsLoading" as never)}</p>}
+      <main
+        className={pageStyles.pageScrollContainer}
+        data-page-scroll-container
+      >
+        <div className={pageStyles.pageContentInner} data-page-content-inner>
+          {loading && (
+            <p className={pageStyles.loading} data-loading>
+              {t("agentsLoading" as never)}
+            </p>
+          )}
 
           {error && (
             <Banner tone="error" className={styles.feedback}>

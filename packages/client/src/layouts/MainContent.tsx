@@ -1,3 +1,4 @@
+import mainStyles from "./MainContent.module.css";
 import type { ReactNode, Ref } from "react";
 
 interface MainContentProps {
@@ -21,17 +22,23 @@ export function MainContent({
 }: MainContentProps) {
   return (
     <div
+      data-main-content-wrapper={isWideScreen || undefined}
+      data-main-content-mobile={!isWideScreen || undefined}
       className={classNames(
-        isWideScreen ? "main-content-wrapper" : "main-content-mobile",
+        isWideScreen
+          ? mainStyles.mainContentWrapper
+          : mainStyles.mainContentMobile,
         className,
       )}
     >
       <div
         ref={innerRef}
+        data-main-content-constrained={isWideScreen || undefined}
+        data-main-content-mobile-inner={!isWideScreen || undefined}
         className={classNames(
           isWideScreen
-            ? "main-content-constrained"
-            : "main-content-mobile-inner",
+            ? mainStyles.mainContentConstrained
+            : mainStyles.mainContentMobileInner,
           innerClassName,
         )}
       >

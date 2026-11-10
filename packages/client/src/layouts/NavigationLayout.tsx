@@ -1,3 +1,4 @@
+import launcherStyles from "../components/SidebarLauncher.module.css";
 import {
   createContext,
   useCallback,
@@ -399,9 +400,10 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
             <ProviderHostDegradedBanner />
             <div
               ref={layoutFrameRef}
-              className={`${styles.frame} session-page ${isWideScreen ? "desktop-layout" : ""} ${
+              data-desktop-layout={isWideScreen || undefined}
+              className={`${styles.frame} session-page ${isWideScreen ? styles.desktopLayout : ""} ${
                 isContentFrameRoute ? "content-frame-layout" : ""
-              } ${isResizing ? "resizing" : ""}`}
+              } ${isResizing ? styles.resizing : ""}`}
               style={containerStyle}
             >
               {/* Desktop sidebar - always visible on wide screens; the minimized mode
@@ -415,7 +417,9 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
                       search: location.search,
                       hash: location.hash,
                     }}
-                    className="sidebar-toggle sidebar-floating-restore"
+                    className={`${launcherStyles.sidebarToggle} ${styles.sidebarFloatingRestore}`}
+                    data-sidebar-toggle
+                    data-sidebar-floating-restore
                     role="button"
                     onClick={(event) => {
                       if (
@@ -444,7 +448,9 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
                   </Link>
                 ) : (
                   <aside
-                    className={`sidebar-desktop ${effectivelyCollapsed ? "sidebar-collapsed" : ""} ${isResizing ? "resizing" : ""}`}
+                    className={`${styles.sidebarDesktop} ${effectivelyCollapsed ? styles.sidebarCollapsed : ""} ${isResizing ? styles.resizing : ""}`}
+                    data-sidebar-desktop
+                    data-sidebar-collapsed={effectivelyCollapsed || undefined}
                     style={desktopSidebarStyle}
                   >
                     <Sidebar

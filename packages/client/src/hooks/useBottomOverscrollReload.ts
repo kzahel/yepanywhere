@@ -3,7 +3,8 @@ import { hasTouchCapability } from "../lib/deviceDetection";
 
 export type BottomOverscrollReloadStatus = "hidden" | "pull" | "armed";
 
-const RELOAD_SCROLL_SELECTOR = ".session-messages, .page-scroll-container";
+const RELOAD_SCROLL_SELECTOR =
+  ".session-messages, [data-page-scroll-container]";
 const INTERACTIVE_TARGET_SELECTOR =
   "input, textarea, select, [contenteditable='true']";
 const MIN_SCROLL_OVERFLOW_PX = 48;

@@ -1,0 +1,31 @@
+.globalSessionsProjectCta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--app-yep-green) 10%, var(--bg-secondary));
+  border: 1px solid
+    color-mix(in srgb, var(--app-yep-green) 25%, var(--border-color));
+  border-radius: var(--radius-lg);
+}
+
+.globalSessionsProjectCtaToken {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-code) 82%, white 18%);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (width <= 600px) {
+  .globalSessionsProjectCta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

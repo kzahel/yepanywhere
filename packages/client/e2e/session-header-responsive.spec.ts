@@ -13,7 +13,7 @@ test.use({ serviceWorkers: "block", hasTouch: true });
 async function expectHeaderSizing(header: Locator, controlSize: number) {
   await expect.poll(async () => (await header.boundingBox())?.height).toBe(44);
   const controls = header.locator(
-    ".sidebar-toggle, .provider-badge-button, .session-menu-trigger",
+    "[data-sidebar-toggle], .provider-badge-button, .session-menu-trigger",
   );
   const row = (await header.boundingBox())!;
   for (const control of await controls.all()) {

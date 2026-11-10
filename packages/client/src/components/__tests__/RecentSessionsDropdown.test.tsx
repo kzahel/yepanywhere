@@ -196,7 +196,7 @@ describe("RecentSessionsDropdown", () => {
     );
   });
 
-  it("keeps the global /btw hooks the shared index.css rules match on", () => {
+  it("identifies /btw rows and their parent navigation", () => {
     globalSessionsState.sessions = [
       session({
         title: "/btw check the flaky test",
@@ -219,18 +219,12 @@ describe("RecentSessionsDropdown", () => {
     );
 
     const row = screen.getByRole("link", { name: /check the flaky test/ });
-    expect(row.classList.contains("recent-session-item")).toBe(true);
-    expect(row.classList.contains("btw-aside-session")).toBe(true);
+    expect(row.hasAttribute("data-btw-aside-session")).toBe(true);
 
-    const titleRow = row.firstElementChild?.firstElementChild as HTMLElement;
-    expect(titleRow.classList.contains("recent-session-title")).toBe(true);
-
-    const badge = screen.getByText("/btw");
-    expect(badge.classList.contains("recent-sessions-badge")).toBe(true);
-    expect(badge.classList.contains("btw")).toBe(true);
+    expect(screen.getByText("/btw")).toBeTruthy();
   });
 
-  it("does not put the /btw interop hooks on ordinary rows", () => {
+  it("does not mark ordinary rows as /btw", () => {
     globalSessionsState.sessions = [session()];
 
     render(
@@ -247,8 +241,7 @@ describe("RecentSessionsDropdown", () => {
     );
 
     const row = screen.getByRole("link");
-    expect(row.classList.contains("recent-session-item")).toBe(false);
-    expect(row.classList.contains("btw-aside-session")).toBe(false);
+    expect(row.hasAttribute("data-btw-aside-session")).toBe(false);
   });
 
   it("does not label an ordinary parent-linked Clone as /btw", () => {
@@ -274,7 +267,7 @@ describe("RecentSessionsDropdown", () => {
     );
 
     const row = screen.getByRole("link", { name: /Clone: investigate/ });
-    expect(row.classList.contains("btw-aside-session")).toBe(false);
+    expect(row.hasAttribute("data-btw-aside-session")).toBe(false);
     expect(screen.queryByText("/btw")).toBeNull();
   });
 });

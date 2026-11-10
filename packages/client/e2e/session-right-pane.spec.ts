@@ -256,7 +256,7 @@ test("right pane discovers tool apps, resizes, parks and preserves typing", asyn
     "aria-busy",
     "true",
   );
-  await expect(page.locator(".sidebar-desktop")).toHaveClass(
+  await expect(page.locator("[data-sidebar-desktop]")).toHaveClass(
     /sidebar-collapsed/,
   );
   const frame = pane.locator("iframe").contentFrame();
@@ -332,7 +332,7 @@ test("right pane discovers tool apps, resizes, parks and preserves typing", asyn
     .toBeLessThan(widest - 10);
   await pane.getByRole("button", { name: "Minimize session pane" }).click();
   await expect(pane).toBeHidden();
-  await expect(page.locator(".sidebar-desktop")).not.toHaveClass(
+  await expect(page.locator("[data-sidebar-desktop]")).not.toHaveClass(
     /sidebar-collapsed/,
   );
   const restore = page.getByRole("button", { name: /Restore.*plan\/review/ });

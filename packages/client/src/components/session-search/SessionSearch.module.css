@@ -299,7 +299,7 @@
 .manager small {
   color: var(--text-secondary);
 }
-.projectCta {
+.projectCta[data-global-sessions-project-cta] {
   display: flex;
   align-items: center;
   justify-content: space-between;

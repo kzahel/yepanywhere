@@ -259,7 +259,7 @@ test("left and right click open the same share manager", async ({
   await page.goto(`${baseURL}/sessions`);
   const sessionRow = page
     .getByRole("main")
-    .locator("li.session-list-item")
+    .locator("li[data-session-list-item]")
     .filter({ hasText: "Previous message" })
     .first();
   await expect(sessionRow).toBeVisible();

@@ -133,7 +133,7 @@ async function enrollRelayHostThroughUi(
   await page.getByRole("button", { name: /advanced/i }).click();
   await page.getByTestId("custom-relay-url-input").fill(relayUrl);
   await page.getByTestId("login-button").click();
-  await expect(page.locator(".sidebar")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-sidebar]")).toBeVisible({ timeout: 15_000 });
 }
 
 async function makeLastHostOffline(page: Page): Promise<void> {
@@ -350,7 +350,7 @@ test("separate host tabs retain scoped credentials through reconnect and restora
   const other = await context.newPage();
   try {
     await page.goto(routes[0]!);
-    await expect(page.locator(".sidebar")).toBeVisible();
+    await expect(page.locator("[data-sidebar]")).toBeVisible();
     const lifecycle =
       context.browser()?.browserType().name() === "chromium"
         ? await context.newCDPSession(page)
@@ -358,7 +358,7 @@ test("separate host tabs retain scoped credentials through reconnect and restora
     await lifecycle?.send("Page.setWebLifecycleState", { state: "frozen" });
     try {
       await other.goto(routes[1]!);
-      await expect(other.locator(".sidebar")).toBeVisible();
+      await expect(other.locator("[data-sidebar]")).toBeVisible();
     } finally {
       await lifecycle?.send("Page.setWebLifecycleState", { state: "active" });
       await lifecycle?.detach();
@@ -464,10 +464,10 @@ test("separate host tabs retain scoped credentials through reconnect and restora
       );
     }, alpha.username);
     await page.reload();
-    await expect(page.locator(".sidebar")).toBeVisible();
+    await expect(page.locator("[data-sidebar]")).toBeVisible();
     await expect(page).toHaveURL(routes[0]!);
     await other.reload();
-    await expect(other.locator(".sidebar")).toBeVisible();
+    await expect(other.locator("[data-sidebar]")).toBeVisible();
     await expect(other).toHaveURL(routes[1]!);
     for (const [tab, host] of [
       [page, alpha],

@@ -25,7 +25,7 @@ async function capture(page: Page, name: string) {
 
 async function readNavigationMetrics(page: Page) {
   return page
-    .locator(".sidebar-nav-item")
+    .locator("[data-sidebar-nav-item]")
     .filter({ hasText: "Inbox" })
     .first()
     .evaluate((item) => {
@@ -80,7 +80,7 @@ test("keeps sidebar density spatial and the create action recognizable", async (
     densityRow.locator("xpath=ancestor::*[@data-output-appearance]"),
   ).toHaveCount(0);
 
-  await expect(page.locator(".sidebar-brand")).toBeVisible();
+  await expect(page.locator("[data-sidebar-brand]")).toBeVisible();
   await expectRestoredNewSessionAction(page);
 
   const comfortableMetrics = await readNavigationMetrics(page);
@@ -94,7 +94,7 @@ test("keeps sidebar density spatial and the create action recognizable", async (
     "data-sidebar-spacing",
     "compact",
   );
-  await expect(page.locator(".sidebar-brand")).toBeVisible();
+  await expect(page.locator("[data-sidebar-brand]")).toBeVisible();
   await expectRestoredNewSessionAction(page);
 
   const compactMetrics = await readNavigationMetrics(page);
@@ -122,10 +122,10 @@ test("keeps sidebar density spatial and the create action recognizable", async (
 
   await page.goto(`${baseURL}/inbox`);
   await page.getByRole("button", { name: "Open sidebar" }).click();
-  await expect(page.locator(".sidebar-brand")).toBeVisible();
+  await expect(page.locator("[data-sidebar-brand]")).toBeVisible();
   await expectRestoredNewSessionAction(page);
   await expect
-    .poll(async () => (await page.locator(".sidebar").boundingBox())?.x)
+    .poll(async () => (await page.locator("[data-sidebar]").boundingBox())?.x)
     .toBe(0);
 
   const mobileMetrics = await readNavigationMetrics(page);

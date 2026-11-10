@@ -1,0 +1,105 @@
+@media (width >= 1100px) {
+  .mainContentConstrained
+    :global(.session-split):global(.session-split-with-aside)
+    > :global(.session-messages)
+    :global(.message-list),
+  .mainContentConstrained
+    :global(.session-split):global(.session-split-with-aside)
+    > :global(.session-input)
+    :global(.session-input-inner) {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    min-width: 0;
+  }
+}
+.mainContentMobile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Critical for nested flex overflow */
+}
+
+.mainContentMobileInner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Critical for nested flex overflow */
+}
+
+.mainContentMobileInner :global(.session-input-inner),
+.mainContentMobileInner :global(.session-messages) :global(.message-list) {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+@media (width < 1100px) {
+  .mainContentMobile,
+  .mainContentMobileInner {
+    height: 100%;
+  }
+}
+
+@media (width <= 600px) {
+  .mainContentConstrained :global(.session-input) {
+    padding-right: 2px;
+    padding-left: 2px;
+  }
+}
+
+.mainContentConstrained [data-page-content-inner][data-new-session-page-shell] {
+  max-width: var(--content-max-width);
+}
+
+@media (width >= 1100px) {
+  .mainContentWrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@media (width >= 1100px) {
+  .mainContentConstrained {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+}
+
+@media (width >= 1100px) {
+  .mainContentConstrained :global(.session-messages) {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (width >= 1100px) {
+  .mainContentConstrained [data-page-content-inner] {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+@media (width >= 1100px) {
+  .mainContentConstrained :global(.session-input-inner) {
+    width: 100%;
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+  }
+}
+
+@media (width >= 1100px) {
+  .mainContentConstrained :global(.session-messages) :global(.message-list) {
+    width: 100%;
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+  }
+}

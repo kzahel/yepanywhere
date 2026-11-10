@@ -86,7 +86,7 @@
  * at the same specificity this rule had, so exclude them here rather than
  * letting stylesheet order decide which colour wins.
  */
-.item.unread:not(:global(.btw-aside-session)) .title {
+.item.unread:not([data-btw-aside-session]) .title {
   color: var(--text-primary);
 }
 

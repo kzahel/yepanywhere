@@ -40,7 +40,7 @@ for (const viewport of [
       page.getByRole("radio", { name: "Last activity", exact: true }),
     ).toBeChecked();
     await page.getByRole("checkbox", { name: /^User/ }).check();
-    const rows = page.locator(".session-list-item--card");
+    const rows = page.locator("[data-session-list-item--card]");
     await expect(rows).toHaveCount(2, { timeout: 30000 });
     await expect(page.locator('[data-search-scanning="true"]')).toHaveCount(0);
     const ownOrder = [
@@ -72,7 +72,7 @@ for (const viewport of [
     const expand = rows.getByRole("button", {
       name: "Show all retained matches in this session",
     });
-    const sessionMenu = rows.locator(".session-list-item__menu");
+    const sessionMenu = rows.locator("[data-session-menu]");
     const a = (await expand.boundingBox())!;
     const b = (await sessionMenu.boundingBox())!;
     expect(
@@ -246,7 +246,7 @@ test("All Sessions keeps every typed character with a large title catalog", asyn
   expect(
     Math.max(...samples.map((sample) => sample.latency)),
   ).toBeLessThanOrEqual(100);
-  await expect(page.locator(".session-list-item--card")).toHaveCount(1);
+  await expect(page.locator("[data-session-list-item--card]")).toHaveCount(1);
 });
 
 test("All Sessions preserves copying and returns to the query end only when typing", async ({
@@ -483,7 +483,7 @@ for (const viewport of [
         exact: true,
       });
       await limit.fill("1");
-      const rows = page.locator(".session-list-item--card");
+      const rows = page.locator("[data-session-list-item--card]");
       await expect(rows).toHaveCount(6, { timeout: 30000 });
       await expect(page.locator('[data-search-scanning="true"]')).toHaveCount(
         0,
@@ -665,7 +665,7 @@ for (const viewport of [
       .getByRole("searchbox", { name: "Search sessions..." })
       .fill("quasarneedle");
     await page.getByRole("checkbox", { name: /^User/ }).check();
-    const rows = page.locator(".session-list-item--card");
+    const rows = page.locator("[data-session-list-item--card]");
     await expect(rows).toHaveCount(2);
     const diagnostic = page.locator("q", {
       hasText: "A transcript with a malformed record",
@@ -828,7 +828,7 @@ for (const viewport of [
         .getByRole("textbox", { name: "Turns/session", exact: true })
         .fill("1");
       const row = page
-        .locator(".session-list-item--card")
+        .locator("[data-session-list-item--card]")
         .filter({ hasText: "Search fixture expanded" });
       await expect(row.getByRole("button", { name: "Match menu" })).toHaveCount(
         2,
@@ -982,7 +982,7 @@ for (const viewport of [
       await search.fill("quasarneedle");
       // An earlier viewport case can leave another matching transcript on
       // this worker. Measure the fixture this case owns after turn search too.
-      const row = page.locator(".session-list-item--card").filter({
+      const row = page.locator("[data-session-list-item--card]").filter({
         has: page.locator(`a[href*="${id}"]`),
       });
       await expect(row).toHaveCount(1, { timeout: 30000 });
@@ -1091,7 +1091,7 @@ for (const viewport of [
       page.getByText("No sessions found", { exact: true }),
     ).toBeVisible();
     expect(requests).toHaveLength(0);
-    const rows = page.locator(".session-list-item--card");
+    const rows = page.locator("[data-session-list-item--card]");
     await search.press("Control+r");
     await expect(page.getByRole("checkbox", { name: /^User/ })).toBeChecked();
     await expect(assistant).not.toBeChecked();

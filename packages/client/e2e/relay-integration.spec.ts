@@ -248,7 +248,7 @@ test.describe("Full Relay Integration", () => {
     });
 
     // Verify we're in the main app (sidebar visible)
-    await expect(page.locator(".sidebar")).toBeVisible({
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
       timeout: 10000,
     });
 
@@ -284,7 +284,7 @@ test.describe("Full Relay Integration", () => {
       await expect(page).toHaveURL(
         `${remotePreviewURL}${relayAppPath("settings")}`,
       );
-      await expect(page.locator(".sidebar")).toBeVisible();
+      await expect(page.locator("[data-sidebar]")).toBeVisible();
 
       // A client-side handoff initially encounters the existing connection.
       // Leaving its route may then release that source's demand.
@@ -1006,7 +1006,9 @@ test.describe("Full Relay Integration", () => {
     await page.click('[data-testid="login-button"]');
 
     // Wait for successful login
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 15000,
+    });
 
     // Verify credentials are stored
     const storedCreds = await page.evaluate(() => {
@@ -1042,7 +1044,9 @@ test.describe("Full Relay Integration", () => {
 
     // Now wait for the sidebar OR detect failure states
     try {
-      await expect(page.locator(".sidebar")).toBeVisible({ timeout: 20000 });
+      await expect(page.locator("[data-sidebar]")).toBeVisible({
+        timeout: 20000,
+      });
     } catch {
       // If sidebar isn't visible, check if we're on a failure state and fail with better message
       const modePageVisible = await page
@@ -1573,7 +1577,9 @@ test.describe("Full Relay Integration", () => {
     await page.fill('[data-testid="srp-password-input"]', TEST_SRP_PASSWORD);
     await page.click('[data-testid="login-button"]');
 
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 15000,
+    });
 
     const savedHosts = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("yep-anywhere-saved-hosts") ?? "{}"),
@@ -1610,7 +1616,9 @@ test.describe("Full Relay Integration", () => {
     await page.click('[data-testid="login-button"]');
 
     // Wait for successful login
-    await expect(page.locator(".sidebar")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("[data-sidebar]")).toBeVisible({
+      timeout: 15000,
+    });
 
     // The mock project session should be visible in the sidebar
     // This proves session data is loaded via encrypted WebSocket through relay

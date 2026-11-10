@@ -1,3 +1,4 @@
+import btwStyles from "./BtwSessionAppearance.module.css";
 import { useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { GlobalSessionItem } from "../api/client";
@@ -23,14 +24,10 @@ import styles from "./RecentSessionsDropdown.module.css";
 
 const MAX_RECENT_SESSIONS = 10;
 
-/**
- * Literal class names kept on `/btw` aside rows and badges purely so the two
- * global rules in `index.css` that SessionListItem shares still match. They
- * carry no styling of their own; everything else is module-owned.
- */
-const BTW_ROW_INTEROP_CLASSES = "recent-session-item btw-aside-session";
-const BTW_TITLE_INTEROP_CLASS = "recent-session-title";
-const BTW_BADGE_INTEROP_CLASSES = "recent-sessions-badge btw";
+/** Shared /btw appearance, scoped by its owning CSS Module. */
+const BTW_ROW_INTEROP_CLASSES = `${btwStyles.recentSessionItem} ${btwStyles.btwAsideSession}`;
+const BTW_TITLE_INTEROP_CLASS = btwStyles.recentSessionTitle;
+const BTW_BADGE_INTEROP_CLASSES = `${btwStyles.recentSessionsBadge} ${btwStyles.btw}`;
 
 function classNames(...values: (string | false | null | undefined)[]): string {
   return values.filter(Boolean).join(" ");
@@ -187,6 +184,7 @@ export function RecentSessionsDropdown({
             return (
               <Link
                 key={session.id}
+                data-btw-aside-session={isBtwAside || undefined}
                 to={`${basePath}/projects/${session.projectId}/sessions/${session.id}`}
                 className={classNames(
                   styles.item,

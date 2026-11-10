@@ -1,3 +1,5 @@
+import pageStyles from "../layouts/PageLayout.module.css";
+import collectionStyles from "../components/CollectionLayout.module.css";
 import {
   projectDisplayName,
   PROJECT_CAPTIONS_CAPABILITY,
@@ -371,8 +373,11 @@ export function ProjectsPage() {
     <MainContent isWideScreen={isWideScreen}>
       <PageHeader title={t("pageTitleProjects")} />
 
-      <main className="page-scroll-container">
-        <div className="page-content-inner">
+      <main
+        className={pageStyles.pageScrollContainer}
+        data-page-scroll-container
+      >
+        <div className={pageStyles.pageContentInner} data-page-content-inner>
           {loading && projects.length === 0 && (
             <div role="status">{t("projectsLoading")}</div>
           )}
@@ -395,7 +400,7 @@ export function ProjectsPage() {
             </Banner>
           )}
           {/* Toolbar with Add Project button */}
-          <div className="inbox-toolbar">
+          <div className={collectionStyles.inboxToolbar} data-inbox-toolbar>
             {!showAddForm ? (
               <Button onClick={() => setShowAddForm(true)}>
                 <svg
@@ -510,7 +515,7 @@ export function ProjectsPage() {
           {isEmpty ? (
             !loading &&
             !error && (
-              <div className="inbox-empty">
+              <div className={collectionStyles.inboxEmpty} data-inbox-empty>
                 <svg
                   width="48"
                   height="48"
@@ -529,7 +534,7 @@ export function ProjectsPage() {
               </div>
             )
           ) : (
-            <ul className="project-list-cards">
+            <ul className={styles.projectListCards} data-project-list-cards>
               {sortedProjects.map((project) => (
                 <ProjectCard
                   appEnabled={serverHasCapability(

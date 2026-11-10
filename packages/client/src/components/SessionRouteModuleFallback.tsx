@@ -1,3 +1,4 @@
+import pageStyles from "../layouts/PageLayout.module.css";
 import { useI18n } from "../i18n";
 
 /**
@@ -12,7 +13,7 @@ export function SessionRouteModuleFallback({
 }) {
   const { t } = useI18n();
   return (
-    <div className="loading" role="status">
+    <div className={pageStyles.loading} data-loading role="status">
       {t(label)}
     </div>
   );

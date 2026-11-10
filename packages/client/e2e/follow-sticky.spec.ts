@@ -46,7 +46,7 @@ async function capture(page: Page, name: string) {
 }
 
 async function clickSidebarSession(page: Page, sessionPath: string) {
-  const sidebar = page.locator(".sidebar");
+  const sidebar = page.locator("[data-sidebar]");
   if (!(await sidebar.isVisible().catch(() => false))) {
     await page.getByRole("button", { name: "Open sidebar" }).click();
     await expect(sidebar).toBeVisible();

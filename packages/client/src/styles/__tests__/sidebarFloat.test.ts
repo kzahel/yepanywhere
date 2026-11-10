@@ -3,7 +3,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../index.css", import.meta.url);
+const stylesheetUrl = new URL(
+  "../../layouts/NavigationLayout.module.css",
+  import.meta.url,
+);
 
 function declarationsFor(css: string, selector: string): string {
   const declarations = new RegExp(
@@ -19,11 +22,7 @@ function declarationsFor(css: string, selector: string): string {
 describe("minimized desktop sidebar CSS contract", () => {
   it("keeps the restore toggle out of layout flow", async () => {
     const css = await readFile(stylesheetUrl, "utf8");
-    const restoreDeclarations = declarationsFor(
-      css,
-      ".sidebar-floating-restore",
-    );
-    declarationsFor(css, ".sidebar-minimize");
+    const restoreDeclarations = declarationsFor(css, ".sidebarFloatingRestore");
 
     // Fixed positioning is the contract: minimized mode reserves no layout
     // width (topics/ui-architecture.md § Desktop Sidebar Display Modes).

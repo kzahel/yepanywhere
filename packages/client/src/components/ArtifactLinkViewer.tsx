@@ -73,7 +73,7 @@ export function ArtifactLinkViewer({
   const layer =
     portalTarget ??
     document.querySelector<HTMLElement>(
-      ".navigation-route-layer.is-active [data-session-viewer-layer]",
+      "[data-navigation-route-layer][data-navigation-active] [data-session-viewer-layer]",
     ) ??
     document.querySelector<HTMLElement>("[data-session-viewer-layer]");
   if (!layer) return null;

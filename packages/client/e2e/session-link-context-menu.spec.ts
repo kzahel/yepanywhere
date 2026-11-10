@@ -27,7 +27,9 @@ test("session preview links suppress context menus and preserve link gestures", 
     .getByRole("button", { name: "Expand sidebar", exact: true })
     .click();
 
-  const link = page.locator(".sidebar .session-list-item__link").first();
+  const link = page
+    .locator("[data-sidebar] [data-session-list-item__link]")
+    .first();
   const href = await link.getAttribute("href");
   expect(href).toBeTruthy();
   await link.hover();

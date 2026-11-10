@@ -1,0 +1,31 @@
+.navigationRouteStack {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+
+.navigationRouteLayer {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+}
+
+.navigationRouteLayer.isActive {
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.navigationRouteLayer.isHidden,
+.sessionDomLingerLayer.isParked {
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}

@@ -1,3 +1,8 @@
+import {
+  SessionPageInvalidRoute,
+  getSessionLoadingProgressText,
+} from "./SessionLoadingProgress";
+import pageStyles from "../layouts/PageLayout.module.css";
 import { FileDropZone } from "../components/FileDropZone";
 import { SessionRouteModuleFallback } from "../components/SessionRouteModuleFallback";
 import { SessionComposerFooter } from "../components/SessionComposerFooter";
@@ -76,7 +81,6 @@ import {
 } from "../components/SessionManagedViewer";
 import { LastSessionFile } from "../components/LastSessionFile";
 import styles from "./SessionPage.module.css";
-
 import { BtwAsidePane } from "../components/BtwAsidePane";
 import { SessionRightPane } from "../components/SessionRightPane";
 import { useSessionRightPane } from "../hooks/useSessionRightPane";
@@ -142,7 +146,6 @@ import {
   useLongContextEffortGuard,
 } from "../hooks/useLongContextEffortGuard";
 import { useSessionLoadingProgress } from "../hooks/useSessionLoadingProgress";
-import type { SessionLoadProgress } from "../hooks/useSessionMessages";
 import { useSessionPerformanceSettings } from "../hooks/useSessionPerformanceSettings";
 import { useSessionToolbarPresence } from "../hooks/useSessionToolbarPresence";
 import { useLongPress } from "../hooks/useLongPress";
@@ -339,29 +342,6 @@ export function SessionPage({
       </StreamingMarkdownProvider>
     </GlossaryProjectProvider>
   );
-}
-
-function SessionPageInvalidRoute() {
-  const { t } = useI18n();
-  return <div className="error">{t("sessionInvalidUrl")}</div>;
-}
-
-function getSessionLoadingProgressText(
-  progress: SessionLoadProgress,
-  t: ReturnType<typeof useI18n>["t"],
-): string | null {
-  switch (progress.stage) {
-    case "fetching":
-      return null;
-    case "rendering":
-      return t("sessionLoadingRenderingTranscript", {
-        count: progress.messageCount ?? 0,
-      });
-    case "idle":
-    case "complete":
-    case "error":
-      return null;
-  }
 }
 
 const SESSION_LOADING_PROGRESS_DETAILS_DELAY_MS = 1500;
@@ -2906,7 +2886,11 @@ function SessionPageContent({
 
     if (isNotFound && actualSessionId) {
       return (
-        <div className="error" style={{ maxWidth: 520, margin: "40px auto" }}>
+        <div
+          className={pageStyles.error}
+          data-error
+          style={{ maxWidth: 520, margin: "40px auto" }}
+        >
           <h2 style={{ marginTop: 0 }}>{t("sessionNotFoundTitle")}</h2>
           <p style={{ color: "#666" }}>{t("sessionNotFoundDescription")}</p>
           <div
@@ -3185,10 +3169,10 @@ function SessionPageContent({
               </div>
             )}
             {loading ? (
-              <div className="loading">
+              <div className={pageStyles.loading} data-loading>
                 <div>{t("sessionLoading")}</div>
                 {sessionLoadingProgressText && (
-                  <div className="loading-detail">
+                  <div className={pageStyles.loadingDetail} data-loading-detail>
                     {sessionLoadingProgressText}
                   </div>
                 )}

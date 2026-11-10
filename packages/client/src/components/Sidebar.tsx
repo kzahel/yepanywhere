@@ -1,3 +1,4 @@
+import { SidebarSectionHeader } from "./SidebarSectionHeader";
 import { useIssuesEnabled } from "../hooks/useIssuesEnabled";
 import {
   projectDisplayName,
@@ -44,7 +45,6 @@ import {
   SwitchHostMenu,
 } from "./SwitchHostMenu";
 import { isNearScrollEnd } from "../lib/predictiveScroll";
-
 import { sessionCollectionRecordToGlobalSessionItem } from "../lib/sessionCollectionRecords";
 import type { SessionCollectionRecord } from "../lib/clientSummaryCollections";
 import {
@@ -268,82 +268,6 @@ function saveSidebarSectionExpansion(expansion: SidebarSectionExpansion): void {
   } catch {
     // localStorage is a UI convenience; in-memory state still applies.
   }
-}
-
-interface SidebarSectionHeaderProps {
-  title: string;
-  expanded: boolean;
-  onToggle: () => void;
-  controlsId: string;
-  expandLabel: string;
-  collapseLabel: string;
-  /** Rows in the section, shown only while it is collapsed. */
-  count?: number;
-  /** More rows exist than are loaded, so `count` is a lower bound. */
-  countIsPartial?: boolean;
-  /** A limited user's section: marked with a person glyph, name as typed. */
-  isPerson?: boolean;
-}
-
-/**
- * The whole header row toggles its section. A chevron after the name points
- * down while open and right while closed; a closed section shows its count.
- * Rows below are never indented, so every section keeps the same left edge.
- */
-function SidebarSectionHeader({
-  title,
-  expanded,
-  onToggle,
-  controlsId,
-  expandLabel,
-  collapseLabel,
-  count,
-  countIsPartial = false,
-  isPerson = false,
-}: SidebarSectionHeaderProps) {
-  const actionLabel = expanded ? collapseLabel : expandLabel;
-
-  return (
-    <h3 className={sidebarStyles.sectionHeading}>
-      <ButtonBase
-        className={sidebarStyles.sectionToggle}
-        onClick={onToggle}
-        aria-expanded={expanded}
-        aria-controls={controlsId}
-        aria-label={`${actionLabel}: ${title}`}
-      >
-        <span
-          className={isPerson ? sidebarStyles.sectionTitleAsTyped : undefined}
-        >
-          {title}
-        </span>
-        {isPerson && (
-          <svg
-            className={sidebarStyles.sectionPersonGlyph}
-            viewBox="0 0 10 10"
-            aria-hidden="true"
-          >
-            <circle cx="5" cy="3.2" r="2" />
-            <path d="M1.2 9.3C1.6 6.8 3.2 6 5 6s3.4.8 3.8 3.3" />
-          </svg>
-        )}
-        <svg
-          className={sidebarStyles.sectionChevron}
-          data-expanded={expanded}
-          viewBox="0 0 8 8"
-          aria-hidden="true"
-        >
-          <path d="M1 2.5 4 5.5 7 2.5" />
-        </svg>
-        {!expanded && count !== undefined && (
-          <span className={sidebarStyles.sectionCount} aria-hidden="true">
-            {count}
-            {countIsPartial ? "+" : ""}
-          </span>
-        )}
-      </ButtonBase>
-    </h3>
-  );
 }
 
 interface SidebarProps {
@@ -1022,7 +946,11 @@ export function Sidebar({
     const expanded = !sectionExpansion.collapsedGroups?.includes(key);
     const listId = `sidebar-group-${encodeURIComponent(key)}`;
     return (
-      <div className="sidebar-section" key={key}>
+      <div
+        className={sidebarStyles.sidebarSection}
+        data-sidebar-section
+        key={key}
+      >
         <SidebarSectionHeader
           title={name}
           expanded={expanded}
@@ -1037,7 +965,11 @@ export function Sidebar({
           isPerson={isPerson}
         />
         {expanded && (
-          <ul id={listId} className="sidebar-session-list">
+          <ul
+            id={listId}
+            className={sidebarStyles.sidebarSessionList}
+            data-sidebar-session-list
+          >
             {rows.map(renderCompactSession)}
           </ul>
         )}
@@ -1116,7 +1048,8 @@ export function Sidebar({
       {/* Only show overlay in non-desktop mode */}
       {!isDesktop && (
         <div
-          className="sidebar-overlay"
+          className={sidebarStyles.sidebarOverlay}
+          data-sidebar-overlay
           onClick={onClose}
           onKeyDown={(e) => e.key === "Escape" && onClose()}
           role="button"
@@ -1127,7 +1060,8 @@ export function Sidebar({
       <aside
         ref={sidebarRef}
         {...orderInteractionHandlers}
-        className="sidebar"
+        className={sidebarStyles.sidebar}
+        data-sidebar
         onTouchStart={!isDesktop ? handleTouchStart : undefined}
         onTouchMove={!isDesktop ? handleTouchMove : undefined}
         onTouchEnd={!isDesktop ? handleTouchEnd : undefined}
@@ -1137,7 +1071,7 @@ export function Sidebar({
             : undefined
         }
       >
-        <div className="sidebar-header">
+        <div className={sidebarStyles.sidebarHeader} data-sidebar-header>
           {isDesktop && isCollapsed ? (
             /* Desktop collapsed mode: expand from the main icon or minimize the rail. */
             <>
@@ -1150,7 +1084,8 @@ export function Sidebar({
               )}
               {onMinimize && (
                 <ButtonBase
-                  className="sidebar-minimize"
+                  className={sidebarStyles.sidebarMinimize}
+                  data-sidebar-minimize
                   onClick={onMinimize}
                   title={t("actionMinimizeSidebar")}
                   aria-label={t("actionMinimizeSidebar")}
@@ -1176,7 +1111,9 @@ export function Sidebar({
             <>
               <Link
                 to={newSessionHref}
-                className={`sidebar-brand sidebar-brand-link ${sidebarStyles.brandLink}`}
+                className={`${sidebarStyles.sidebarBrand} ${sidebarStyles.sidebarBrandLink} ${sidebarStyles.brandLink}`}
+                data-sidebar-brand
+                data-sidebar-brand-link
                 title={t("sidebarNewSession")}
               >
                 <YepAnywhereLogo />
@@ -1195,7 +1132,9 @@ export function Sidebar({
             <>
               <Link
                 to={newSessionHref}
-                className={`sidebar-brand sidebar-brand-link ${sidebarStyles.brandLink}`}
+                className={`${sidebarStyles.sidebarBrand} ${sidebarStyles.sidebarBrandLink} ${sidebarStyles.brandLink}`}
+                data-sidebar-brand
+                data-sidebar-brand-link
                 title={t("sidebarNewSession")}
                 onClick={onNavigate}
               >
@@ -1203,7 +1142,8 @@ export function Sidebar({
               </Link>
               <IconButton
                 label={t("actionCloseSidebar")}
-                className="sidebar-close"
+                className={sidebarStyles.sidebarClose}
+                data-sidebar-close
                 onClick={onClose}
               >
                 <svg
@@ -1223,7 +1163,7 @@ export function Sidebar({
           )}
         </div>
 
-        <div className="sidebar-actions">
+        <div className={sidebarStyles.sidebarActions} data-sidebar-actions>
           {/* New Session: link to most recent project's new session page */}
           <SidebarNavItem
             to={newSessionPath}
@@ -1237,7 +1177,8 @@ export function Sidebar({
 
         <div
           ref={sidebarSessionsRef}
-          className="sidebar-sessions"
+          className={sidebarStyles.sidebarSessions}
+          data-sidebar-sessions
           onScroll={maybeLoadMoreSidebarSessions}
         >
           {/* Navigation items that scroll with content */}
@@ -1393,7 +1334,7 @@ export function Sidebar({
           </SidebarNavSection>
 
           {pendingProjectQueueItems.length > 0 && (
-            <div className="sidebar-section">
+            <div className={sidebarStyles.sidebarSection} data-sidebar-section>
               <SidebarSectionHeader
                 title={t("sidebarSectionPendingSessions")}
                 expanded={projectQueueExpanded}
@@ -1407,7 +1348,8 @@ export function Sidebar({
               {projectQueueExpanded && (
                 <ul
                   id="sidebar-project-queue-list"
-                  className="sidebar-project-queue-list"
+                  className={sidebarStyles.sidebarProjectQueueList}
+                  data-sidebar-project-queue-list
                 >
                   {pendingProjectQueueItems.map((item) => {
                     const itemTitle =
@@ -1426,21 +1368,42 @@ export function Sidebar({
                           to={`${basePath}/projects?queueItem=${encodeURIComponent(
                             item.id,
                           )}`}
-                          className={`sidebar-project-queue-item sidebar-project-queue-item--${item.status} ${sidebarStyles.pendingQueueLink}`}
+                          className={`${sidebarStyles.sidebarProjectQueueItem} ${item.status === "failed" ? sidebarStyles.sidebarProjectQueueItemFailed : ""} ${sidebarStyles.pendingQueueLink}`}
+                          data-sidebar-project-queue-item
                           onClick={(event) =>
                             void handlePendingProjectQueueClick(event, item)
                           }
                           title={itemTitle}
                         >
-                          <span className="sidebar-project-queue-item__main">
-                            <span className="sidebar-project-queue-item__title">
+                          <span
+                            className={
+                              sidebarStyles.sidebarProjectQueueItemMain
+                            }
+                            data-sidebar-project-queue-item__main
+                          >
+                            <span
+                              className={
+                                sidebarStyles.sidebarProjectQueueItemTitle
+                              }
+                              data-sidebar-project-queue-item__title
+                            >
                               {itemTitle}
                             </span>
-                            <span className="sidebar-project-queue-item__project">
+                            <span
+                              className={
+                                sidebarStyles.sidebarProjectQueueItemProject
+                              }
+                              data-sidebar-project-queue-item__project
+                            >
                               {projectName}
                             </span>
                           </span>
-                          <span className="sidebar-project-queue-item__status">
+                          <span
+                            className={
+                              sidebarStyles.sidebarProjectQueueItemStatus
+                            }
+                            data-sidebar-project-queue-item__status
+                          >
                             {item.status === "failed"
                               ? t("projectQueueStatusFailed")
                               : t("projectQueueStatusQueued")}
@@ -1467,7 +1430,7 @@ export function Sidebar({
 
           {/* Global sessions list */}
           {displayed.starred.length > 0 && (
-            <div className="sidebar-section">
+            <div className={sidebarStyles.sidebarSection} data-sidebar-section>
               <SidebarSectionHeader
                 title={t("sidebarSectionStarred")}
                 expanded={starredExpanded}
@@ -1481,7 +1444,11 @@ export function Sidebar({
                 countIsPartial={hasMoreStarredSessions}
               />
               {starredExpanded && (
-                <ul id="sidebar-starred-list" className="sidebar-session-list">
+                <ul
+                  id="sidebar-starred-list"
+                  className={sidebarStyles.sidebarSessionList}
+                  data-sidebar-session-list
+                >
                   {displayed.starred.map(renderCompactSession)}
                 </ul>
               )}
@@ -1497,7 +1464,7 @@ export function Sidebar({
           )}
 
           {displayed.recent.length > 0 && (
-            <div className="sidebar-section">
+            <div className={sidebarStyles.sidebarSection} data-sidebar-section>
               <SidebarSectionHeader
                 title={t("sidebarSectionLast24Hours")}
                 expanded={recentDayExpanded}
@@ -1512,7 +1479,8 @@ export function Sidebar({
               {recentDayExpanded && (
                 <ul
                   id="sidebar-last-24-hours-list"
-                  className="sidebar-session-list"
+                  className={sidebarStyles.sidebarSessionList}
+                  data-sidebar-session-list
                 >
                   {displayed.recent.map(renderCompactSession)}
                   {displayed.hiddenRecent.length > 0 && (
@@ -1529,7 +1497,10 @@ export function Sidebar({
                         })}
                       </Button>
                       {showHiddenRecent && (
-                        <ul className="sidebar-session-list sidebar-hidden-sublist">
+                        <ul
+                          className={`${sidebarStyles.sidebarSessionList} sidebar-hidden-sublist`}
+                          data-sidebar-session-list
+                        >
                           {displayed.hiddenRecent.map(renderCompactSession)}
                         </ul>
                       )}
@@ -1549,7 +1520,7 @@ export function Sidebar({
           )}
 
           {displayed.older.length > 0 && (
-            <div className="sidebar-section">
+            <div className={sidebarStyles.sidebarSection} data-sidebar-section>
               <SidebarSectionHeader
                 title={t("sidebarSectionOlder")}
                 expanded={olderExpanded}
@@ -1563,7 +1534,11 @@ export function Sidebar({
                 countIsPartial={hasMoreGlobalSessions}
               />
               {olderExpanded && (
-                <ul id="sidebar-older-list" className="sidebar-session-list">
+                <ul
+                  id="sidebar-older-list"
+                  className={sidebarStyles.sidebarSessionList}
+                  data-sidebar-session-list
+                >
                   {displayed.older.map(renderCompactSession)}
                   {displayed.hiddenOlder.length > 0 && (
                     <li className="sidebar-hidden-dups">
@@ -1579,7 +1554,10 @@ export function Sidebar({
                         })}
                       </Button>
                       {showHiddenOlder && (
-                        <ul className="sidebar-session-list sidebar-hidden-sublist">
+                        <ul
+                          className={`${sidebarStyles.sidebarSessionList} sidebar-hidden-sublist`}
+                          data-sidebar-session-list
+                        >
                           {displayed.hiddenOlder.map(renderCompactSession)}
                         </ul>
                       )}
@@ -1596,7 +1574,7 @@ export function Sidebar({
             displayed.older.length === 0 &&
             displayedGroupKeys(CATEGORY_SECTION_PREFIX).length === 0 &&
             displayedGroupKeys(CREATOR_SECTION_PREFIX).length === 0 && (
-              <p className="sidebar-empty">
+              <p className={sidebarStyles.sidebarEmpty} data-sidebar-empty>
                 {sessionsLoading
                   ? t("sidebarLoadingSessions")
                   : t("sidebarNoSessions")}
@@ -1607,7 +1585,8 @@ export function Sidebar({
         {/* Resize handle - desktop only, when expanded */}
         {isDesktop && !isCollapsed && (
           <div
-            className={`sidebar-resize-handle ${isResizing ? "active" : ""}`}
+            className={`${sidebarStyles.sidebarResizeHandle} ${isResizing ? sidebarStyles.active : ""}`}
+            data-sidebar-resize-handle
             onMouseDown={handleResizeMouseDown}
             role="separator"
             aria-orientation="vertical"

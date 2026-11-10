@@ -37,10 +37,10 @@ test.describe("Project-scoped new session CTA", () => {
     await expect(page).toHaveURL(
       new RegExp(`/sessions\\?project=${projectId}&source=projects`),
     );
-    const cta = page.locator(".global-sessions-project-cta");
+    const cta = page.locator("[data-global-sessions-project-cta]");
     await expect(cta).toBeVisible();
     await expect(
-      cta.locator(".global-sessions-project-cta__token"),
+      cta.locator("[data-global-sessions-project-cta__token]"),
     ).toHaveCount(2);
     await expect(cta.getByText("Open session for")).toBeVisible();
     await expect(
@@ -73,7 +73,7 @@ test.describe("Project-scoped new session CTA", () => {
     await expect(page.getByText(query)).toBeVisible();
 
     await page
-      .locator(".global-sessions-project-cta")
+      .locator("[data-global-sessions-project-cta]")
       .getByRole("button", { name: "New Session" })
       .click();
 

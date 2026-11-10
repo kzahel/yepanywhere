@@ -1,4 +1,4 @@
-const ROUTE_LAYER_SELECTOR = ".navigation-route-layer";
+const ROUTE_LAYER_SELECTOR = "[data-navigation-route-layer]";
 
 /**
  * Find a session-scoped element such as the composer. With session DOM linger,
@@ -17,6 +17,6 @@ export function querySessionRouteLayerElement<T extends HTMLElement>(
   }
   const layer = owner
     ? owner.closest(ROUTE_LAYER_SELECTOR)
-    : document.querySelector(`${ROUTE_LAYER_SELECTOR}.is-active`);
+    : document.querySelector(`${ROUTE_LAYER_SELECTOR}[data-navigation-active]`);
   return (layer ?? document).querySelector<T>(selector);
 }

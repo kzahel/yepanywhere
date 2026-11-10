@@ -1,3 +1,4 @@
+import pageStyles from "../../layouts/PageLayout.module.css";
 import rowsStyles from "./SettingsRows.module.css";
 import layoutStyles from "./SettingsLayout.module.css";
 import {
@@ -526,10 +527,12 @@ export function SettingsLayout() {
           />
           <main
             ref={setSettingsScrollContainerRef}
-            className="page-scroll-container"
+            className={pageStyles.pageScrollContainer}
+            data-page-scroll-container
           >
             <div
-              className={`page-content-inner ${layoutStyles.categoryListShell}`}
+              className={`${pageStyles.pageContentInner} ${layoutStyles.categoryListShell}`}
+              data-page-content-inner
             >
               {searchBar}
               {searchResults ?? (
@@ -563,9 +566,10 @@ export function SettingsLayout() {
         />
         <main
           ref={setSettingsScrollContainerRef}
-          className="page-scroll-container"
+          className={pageStyles.pageScrollContainer}
+          data-page-scroll-container
         >
-          <div className="page-content-inner">
+          <div className={pageStyles.pageContentInner} data-page-content-inner>
             <SettingsJumpTargetProvider value={jumpTargetValue}>
               <SettingsPaneTitleProvider value={setPaneTitle}>
                 <SettingsUndoProvider value={setUndoRegistration}>
@@ -591,7 +595,8 @@ export function SettingsLayout() {
       />
       <main
         ref={setSettingsScrollContainerRef}
-        className="page-scroll-container"
+        className={pageStyles.pageScrollContainer}
+        data-page-scroll-container
       >
         <div className={layoutStyles.twoColumn}>
           <nav className={layoutStyles.categoryNav} data-settings-category-nav>

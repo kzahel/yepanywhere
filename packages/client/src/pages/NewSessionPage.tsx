@@ -1,3 +1,4 @@
+import pageStyles from "../layouts/PageLayout.module.css";
 import type {
   PermissionMode,
   ProviderName,
@@ -243,8 +244,11 @@ export function NewSessionPage() {
     return (
       <MainContent isWideScreen={isWideScreen}>
         <PageHeader title={t("newSessionTitle")} />
-        <main className="page-scroll-container">
-          <div className="page-content-inner">
+        <main
+          className={pageStyles.pageScrollContainer}
+          data-page-scroll-container
+        >
+          <div className={pageStyles.pageContentInner} data-page-content-inner>
             <Banner tone="error">
               {t("newSessionErrorPrefix")} {renderError.message}
             </Banner>
@@ -258,9 +262,14 @@ export function NewSessionPage() {
     <MainContent isWideScreen={isWideScreen}>
       <PageHeader title={t("newSessionTitle")} actions={projectAppButton} />
 
-      <main className={`page-scroll-container ${styles.workspace}`}>
+      <main
+        className={`${pageStyles.pageScrollContainer} ${styles.workspace}`}
+        data-page-scroll-container
+      >
         <div
-          className={`page-content-inner new-session-page-shell ${styles.formColumn}`}
+          className={`${pageStyles.pageContentInner} ${styles.formColumn}`}
+          data-new-session-page-shell
+          data-page-content-inner
           hidden={appOpen && !isWideScreen}
         >
           <NewSessionForm

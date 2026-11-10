@@ -22,7 +22,7 @@ function setup() {
   const reload = vi.fn();
   const { result } = renderHook(() => useNativePullToRefresh(reload));
   const page = document.createElement("main");
-  page.className = "page-scroll-container";
+  page.setAttribute("data-page-scroll-container", "");
   document.body.appendChild(page);
   return { reload, result, page };
 }
