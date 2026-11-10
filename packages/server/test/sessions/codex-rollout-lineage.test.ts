@@ -748,4 +748,50 @@ describe("Codex reference-backed rollout lineage", () => {
     expect(loaded?.summary.title).toBe("Compressed root prompt");
     expect(loaded?.summary.messageCount).toBe(2);
   });
+
+  itIfNativeZstd(
+    "refreshes a nonwinning ancestor locator when its authoritative plain representation appears",
+    async () => {
+      if (!zstdCompressSync) throw new Error("zstd compression is unavailable");
+      const prefix = [
+        sessionMeta({ id: ROOT_ID, ordinal: 0 }),
+        userMessage(1, "Ancestor plain representation"),
+        assistantMessage(2, "Inherited answer"),
+      ];
+      const compressed = rolloutPath(sessionsDir, ROOT_ID, ".jsonl.zst");
+      await writeFile(compressed, zstdCompressSync(Buffer.from(jsonl(prefix))));
+      await writeFile(
+        replacementRolloutPath(sessionsDir, ROOT_ID, REPLACEMENT_ID),
+        jsonl([
+          sessionMeta({
+            id: ROOT_ID,
+            ordinal: 3,
+            historyBase: prefixPosition(ROOT_ID, prefix),
+          }),
+          userMessage(4, "Newer rollout"),
+        ]),
+      );
+      const warm = new CodexSessionReader({ sessionsDir });
+      const fresh = new CodexSessionReader({ sessionsDir });
+      try {
+        expect(
+          (await warm.getSession(ROOT_ID, PROJECT_ID))?.summary.title,
+        ).toBe("Ancestor plain representation");
+        await writeFile(rolloutPath(sessionsDir, ROOT_ID), jsonl(prefix));
+        await writeFile(
+          compressed,
+          "corrupted older compressed representation",
+        );
+        const now = Date.now();
+        vi.spyOn(Date, "now").mockReturnValue(now + 60_000);
+        await warm.listSessionFiles(sessionsDir);
+        const loaded = await fresh.getSession(ROOT_ID, PROJECT_ID);
+        expect(loaded?.summary.title).toBe("Ancestor plain representation");
+        expect(loaded?.summary.messageCount).toBe(3);
+      } finally {
+        await warm.close();
+        await fresh.close();
+      }
+    },
+  );
 });

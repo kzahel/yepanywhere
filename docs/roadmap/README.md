@@ -1054,11 +1054,12 @@ Selected 2026-11-10: [plan 190](../tactical/190-active-session-cost-at-scale.md#
 now prioritizes a SQL-owned catalog and bounded session working set across
 Inbox/lists, catalog updates, cold metadata and restart. The
 [initial source audit](../research/190-cold-session-ownership.md) identifies
-shared dependencies. Isolated retention diagnostics select shared Codex
-root-scope discovery ownership first: per-project readers currently mirror
-the complete Codex file index. SQL list/Inbox queries and lazy cold metadata
-follow; their complete query/writer design remains open. No runtime change
-has landed at this research checkpoint. Large-transcript incremental reads
+shared dependencies. The first implementation shares Codex discovery and
+rollout-path ownership at the existing native root, removing complete index
+copies from project readers. Functioning-server memory qualification is in
+the research outcome; the remaining catalog and metadata owners stay resident.
+SQL list/Inbox queries and lazy cold metadata follow; their complete
+query/writer design remains open. Large-transcript incremental reads
 remain required, followed by client change delivery/rendering. The benchmark
 baseline is complete; no performance target is met yet. This maintenance
 work does not displace release delivery or the concurrent design work below.

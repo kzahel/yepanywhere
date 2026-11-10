@@ -22,7 +22,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, readdir, realpath, stat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import {
   type CodexSessionEntry,
   type NativeSessionRef,
@@ -42,6 +42,11 @@ import {
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
 import { getForkedSessionFile } from "./fork-discovery.js";
 import {
+  codexRootFileIndex,
+  type CodexRootFileIndex,
+  type CodexRootRead,
+} from "./codex-root-file-index.js";
+import {
   openCodexSpawnIndex,
   type CodexSpawnIndexLease,
 } from "./codex-spawn-index.js";
@@ -60,7 +65,6 @@ import {
   codexRolloutRepresentation,
   findCodexRolloutRepresentation,
   getCodexRolloutActivityTimeMs,
-  getCodexRolloutId,
   isCompressedCodexRolloutPath,
   isCodexRolloutFileName,
   plainCodexRolloutPath,
@@ -603,8 +607,6 @@ export class CodexSessionReader implements ISessionReader {
   private lastScanMetrics: CodexSessionReaderScanMetrics | null = null;
   private lastSummaryStreamMetrics: CodexSummaryStreamMetrics | null = null;
 
-  private sessionFileCache: Map<string, CodexSessionFile> = new Map();
-  private hydrated?: { sessions: CodexSessionMap; version: number };
   private entryCache: Map<string, CodexEntryCache> = new Map();
   private entryReadOwners: Map<string, CodexEntryReadOwner> = new Map();
   private entryCacheRevision = 0;
@@ -614,7 +616,6 @@ export class CodexSessionReader implements ISessionReader {
   private readonly entryCacheBudget: CodexEntryCacheBudget;
   private agentMappingCache: Map<string, CodexAgentMappingCache> = new Map();
   private readonly mappingListeners = new Set<(parentId: string) => void>();
-  private rolloutPathById: Map<string, string> = new Map();
   private readonly rolloutWindowReader: CodexRolloutWindowReader;
 
   constructor(options: CodexSessionReaderOptions) {
@@ -656,7 +657,6 @@ export class CodexSessionReader implements ISessionReader {
     // Existing leases may finish reads from retained native metadata after
     // retirement. Background relationship sources release this reader above.
     this.agentMappingCache.clear();
-    this.rolloutPathById.clear();
     const client = this.summaryParserClient;
     this.summaryParserClient = undefined;
     await client?.close();
@@ -664,14 +664,11 @@ export class CodexSessionReader implements ISessionReader {
 
   invalidateCache(): void {
     this.entryCacheRevision += 1;
-    this.sessionFileCache.clear();
-    this.hydrated = undefined;
     for (const cached of this.entryCache.values()) {
       this.entryCacheBudget.release(cached);
     }
     this.entryCache.clear();
     this.agentMappingCache.clear();
-    this.rolloutPathById.clear();
     codexSharedScanCache.delete(this.sessionsDir);
   }
 
@@ -1661,6 +1658,8 @@ export class CodexSessionReader implements ISessionReader {
         releaseIndex();
         if (signal.aborted || this.retired)
           throw new Error("Codex child observation retired");
+        const pointIndex = codexRootFileIndex(this.sessionsDir);
+        const pointRead = pointIndex.readVersion();
         if ((await realpath(this.sessionsDir)) !== parent.storageScope)
           throw new Error("Codex child observation scope mismatch");
         const lease = await openCodexSpawnIndex(this.sessionsDir);
@@ -1711,6 +1710,7 @@ export class CodexSessionReader implements ISessionReader {
             if (
               this.retired ||
               signal.aborted ||
+              !pointIndex.accepts(pointRead) ||
               !(await lease.isCurrent()) ||
               (await realpath(this.sessionsDir).catch(() => undefined)) !==
                 parent.storageScope ||
@@ -1721,8 +1721,7 @@ export class CodexSessionReader implements ISessionReader {
               if ((await readPoint(point.path, id)).proof !== point.proof)
                 return false;
             if (this.retired || signal.aborted) return false;
-            this.hydrateSessionFileCache([...sessions.values()]);
-            return true;
+            return pointIndex.observePoints([...sessions.values()], pointRead);
           };
           const observation = await finishObservation(entry, previousMetadata);
           const observedAnchors = new Map<string, string | undefined>(
@@ -1913,6 +1912,8 @@ export class CodexSessionReader implements ISessionReader {
       rootCache = new Map();
       codexSharedScanCache.set(this.sessionsDir, rootCache);
     }
+    const fileIndex = codexRootFileIndex(this.sessionsDir);
+    const lookupRead = fileIndex.readVersion();
     const cached = rootCache.get(cacheKey);
     const now = Date.now();
 
@@ -1935,23 +1936,34 @@ export class CodexSessionReader implements ISessionReader {
       });
       const startedAt = Date.now();
       if (cached.inFlight) {
-        const sessions = await cached.inFlight;
-        this.hydrateSessionFileCache(sessions);
+        await cached.inFlight;
+        if (!fileIndex.isCurrent() || rootCache.get(cacheKey) !== cached)
+          return this.scanSessions(options);
+        fileIndex.observe(cached.sessions, lookupRead);
         const visibleSessions = this.filterVisibleSessionsForScanMetrics(
-          sessions,
+          cached.sessions,
           metrics,
         );
         metrics.durationMs = Date.now() - startedAt;
         this.recordScanMetrics(metrics);
         return visibleSessions;
       }
-      if (!(await this.applyObservedRolloutChanges(cached, metrics))) {
+      if (
+        !(await this.applyObservedRolloutChanges(
+          cached,
+          metrics,
+          fileIndex,
+          lookupRead,
+        ))
+      ) {
         // A reported deletion may have hidden another file for the same
         // session; only a fresh enumeration can say which one remains.
         if (rootCache.get(cacheKey) === cached) rootCache.delete(cacheKey);
         return this.scanSessions(options);
       }
-      this.hydrateSessionFileCache(cached.sessions);
+      if (!fileIndex.isCurrent() || rootCache.get(cacheKey) !== cached)
+        return this.scanSessions(options);
+      fileIndex.observe(cached.sessions, lookupRead);
       const visibleSessions = this.filterVisibleSessionsForScanMetrics(
         cached.sessions,
         metrics,
@@ -1980,6 +1992,8 @@ export class CodexSessionReader implements ISessionReader {
       failedPaths: new Set(),
     };
     const inFlight = this.scanSessionsUncached(
+      fileIndex,
+      lookupRead,
       options,
       metrics,
       entry.failedPaths,
@@ -1998,16 +2012,20 @@ export class CodexSessionReader implements ISessionReader {
     rootCache.set(cacheKey, entry);
 
     try {
-      const sessions = await inFlight;
+      await inFlight;
+      if (!fileIndex.isCurrent() || rootCache.get(cacheKey) !== entry)
+        return this.scanSessions(options);
       // Keep the same map: an exact observation arriving during the scan must
       // survive its older result. Observations never extend scan freshness.
       entry.timestamp = Date.now();
       entry.inFlight = undefined;
       if (options?.activeAfterMs !== undefined)
         this.retainLatestCutoff(cacheKey);
-      this.hydrateSessionFileCache(sessions);
+      if (options?.activeAfterMs === undefined && !entry.incomplete)
+        fileIndex.completeEnumeration(entry.sessions, lookupRead);
+      else fileIndex.observe(entry.sessions, lookupRead, true);
       const visibleSessions = this.filterVisibleSessionsForScanMetrics(
-        sessions,
+        entry.sessions,
         metrics,
       );
       metrics.durationMs = Date.now() - startedAt;
@@ -2047,6 +2065,8 @@ export class CodexSessionReader implements ISessionReader {
   private async applyObservedRolloutChanges(
     entry: CodexSharedScanCacheEntry,
     metrics: CodexSessionReaderScanMetrics,
+    fileIndex: CodexRootFileIndex,
+    lookupRead: CodexRootRead,
   ): Promise<boolean> {
     while (entry.changedPaths.size > 0 || entry.applyingChanges) {
       if (entry.applyingChanges) {
@@ -2072,7 +2092,7 @@ export class CodexSessionReader implements ISessionReader {
             continue;
           }
           metrics.rolloutFilesFound += 1;
-          this.cacheRolloutPath(filePath);
+          fileIndex.rememberPaths([filePath], lookupRead);
           const session = await this.readSessionMeta(
             filePath,
             entry.activeAfterMs === undefined
@@ -2088,6 +2108,7 @@ export class CodexSessionReader implements ISessionReader {
             continue;
           }
           entry.failedPaths?.delete(plainPath);
+          fileIndex.observePoints([session], lookupRead);
           entry.incomplete =
             !!entry.failedPaths?.size || !!entry.directoryReadErrors;
           const current = entry.sessions.get(session.id);
@@ -2113,24 +2134,6 @@ export class CodexSessionReader implements ISessionReader {
     return `${this.sessionsDir}::activeAfter=${options?.activeAfterMs ?? "all"}`;
   }
 
-  private hydrateSessionFileCache(
-    sessions: readonly CodexSessionFile[] | CodexSessionMap,
-  ): void {
-    const shared = sessions instanceof CodexSessionMap ? sessions : undefined;
-    const since =
-      shared && this.hydrated?.sessions === shared
-        ? shared.changesSince(this.hydrated.version)
-        : undefined;
-    if (this.retired) return;
-    if (shared) this.hydrated = { sessions: shared, version: shared.version };
-    for (const session of since ?? sessions.values()) {
-      const current = this.sessionFileCache.get(session.id);
-      if (!current || isNewerCodexSessionFile(session, current))
-        this.sessionFileCache.set(session.id, session);
-      this.cacheRolloutPath(session.filePath);
-    }
-  }
-
   async observeNativeSessionFile(
     native: NativeSessionRef,
     filePath: string,
@@ -2143,8 +2146,11 @@ export class CodexSessionReader implements ISessionReader {
       native.storageScope !== this.sessionsDir
     )
       return false;
+    const fileIndex = codexRootFileIndex(this.sessionsDir);
+    const lookupRead = fileIndex.readVersion();
     const actual = await realpath(filePath).catch(() => null);
-    if (!actual || this.retired || signal?.aborted) return false;
+    if (!actual || this.retired || signal?.aborted || !fileIndex.isCurrent())
+      return false;
     const suffix = relative(this.sessionsDir, actual);
     if (
       !suffix ||
@@ -2157,6 +2163,7 @@ export class CodexSessionReader implements ISessionReader {
     if (
       this.retired ||
       signal?.aborted ||
+      !fileIndex.accepts(lookupRead) ||
       !session ||
       session.id !== native.id ||
       session.isSubagent ||
@@ -2177,74 +2184,19 @@ export class CodexSessionReader implements ISessionReader {
         changedPaths: new Set(),
       });
     }
-    // A cold reader must honor newer native evidence another reader accepted.
-    // Reconcile the existing root caches before admitting the observed path.
-    let incumbent = this.sessionFileCache.get(session.id);
-    for (const entry of codexSharedScanCache.get(this.sessionsDir)?.values() ??
-      []) {
-      const known = entry.sessions.get(session.id);
-      if (known && (!incumbent || isNewerCodexSessionFile(known, incumbent)))
-        incumbent = known;
-    }
-    if (incumbent) this.hydrateSessionFileCache([incumbent]);
-    this.hydrateSessionFileCache([session]);
-    for (const entry of codexSharedScanCache.get(this.sessionsDir)?.values() ??
-      []) {
-      if (
-        entry.activeAfterMs !== undefined &&
-        session.mtime < entry.activeAfterMs
-      )
-        continue;
-      const current = entry.sessions.get(session.id);
-      if (!current || isNewerCodexSessionFile(session, current))
-        entry.sessions.set(session.id, session);
-    }
-    return this.sessionFileCache.get(native.id)?.filePath === actual;
-  }
-
-  private cacheRolloutPath(filePath: string, overwrite = true): void {
-    const rolloutId = getCodexRolloutId(filePath);
-    if (rolloutId && (overwrite || !this.rolloutPathById.has(rolloutId))) {
-      this.rolloutPathById.set(rolloutId, filePath);
-    }
+    fileIndex.observePoints([session], lookupRead);
+    return fileIndex.getSession(native.id)?.filePath === actual;
   }
 
   private async findRolloutPathById(rolloutId: string): Promise<string | null> {
-    const cached = this.rolloutPathById.get(rolloutId);
-    if (cached) {
-      try {
-        await stat(cached);
-        return cached;
-      } catch {
-        // Codex may archive or unarchive an immutable referenced ancestor.
-        // Drop only the stale path and search both provider-owned roots again.
-        this.rolloutPathById.delete(rolloutId);
-      }
-    }
-
-    // Ordinary detail reads have already scanned active sessions. Direct
-    // summary-worker reads have not, so populate the immutable rollout-id map
-    // on demand before checking the archived sibling root.
-    const activeFiles = await this.findJsonlFiles(this.sessionsDir);
-    for (const filePath of activeFiles) {
-      this.cacheRolloutPath(filePath);
-    }
-    const active = this.rolloutPathById.get(rolloutId);
-    if (active) return active;
-
-    await this.hydrateArchivedRolloutPaths();
-    return this.rolloutPathById.get(rolloutId) ?? null;
-  }
-
-  private async hydrateArchivedRolloutPaths(): Promise<void> {
-    if (basename(this.sessionsDir) !== "sessions") return;
-    const archivedDir = join(dirname(this.sessionsDir), "archived_sessions");
-    const archivedFiles = await this.findJsonlFiles(archivedDir);
-    for (const filePath of archivedFiles) {
-      // An active representation wins if both roots briefly contain the same
-      // rollout during an archive transition.
-      this.cacheRolloutPath(filePath, false);
-    }
+    const index = codexRootFileIndex(this.sessionsDir);
+    const lookupRead = index.readVersion();
+    const path = await index.findRolloutPath(rolloutId, (directory) =>
+      this.findJsonlFiles(directory),
+    );
+    return index.accepts(lookupRead)
+      ? path
+      : this.findRolloutPathById(rolloutId);
   }
 
   private resolveRolloutLineage(
@@ -2282,6 +2234,8 @@ export class CodexSessionReader implements ISessionReader {
   }
 
   private async scanSessionsUncached(
+    fileIndex: CodexRootFileIndex,
+    lookupRead: CodexRootRead,
     options?: CodexScanOptions,
     metrics?: CodexSessionReaderScanMetrics,
     failedPaths?: Set<string>,
@@ -2290,14 +2244,16 @@ export class CodexSessionReader implements ISessionReader {
     try {
       await stat(this.sessionsDir);
       if (metrics) metrics.sessionsDirExists = true;
-    } catch {
-      return [];
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      if (metrics) metrics.directoryReadErrors += 1;
+      throw error;
     }
 
     const files = await this.findJsonlFiles(this.sessionsDir, metrics);
+    fileIndex.rememberPaths(files, lookupRead);
 
     for (const filePath of files) {
-      this.cacheRolloutPath(filePath);
       const activeWindowSkipsBefore = metrics?.discovery.activeWindowSkips ?? 0;
       const session = await this.readSessionMeta(filePath, options, metrics);
       if (session) {
@@ -2391,7 +2347,9 @@ export class CodexSessionReader implements ISessionReader {
     sessionId: string,
   ): Promise<CodexSessionFile | null> {
     // Check cache first
-    const cached = this.sessionFileCache.get(sessionId);
+    const fileIndex = codexRootFileIndex(this.sessionsDir);
+    const lookupRead = fileIndex.readVersion();
+    const cached = fileIndex.getSession(sessionId);
     if (cached) return cached;
 
     // Fork completion supplies an exact path before the scan cache catches up.
@@ -2409,15 +2367,17 @@ export class CodexSessionReader implements ISessionReader {
         (!this.projectIdentityKey ||
           getProjectIdentityKey(session.cwd) === this.projectIdentityKey)
       ) {
-        this.hydrateSessionFileCache([session]);
-        return session;
+        if (!fileIndex.accepts(lookupRead))
+          return this.findSessionFile(sessionId);
+        fileIndex.observePoints([session], lookupRead);
+        return fileIndex.getSession(sessionId) ?? null;
       }
       if (session) return null;
     }
 
     // Scan if cache miss
     await this.scanSessions();
-    return this.sessionFileCache.get(sessionId) ?? null;
+    return codexRootFileIndex(this.sessionsDir).getSession(sessionId) ?? null;
   }
 
   private async readEntries(

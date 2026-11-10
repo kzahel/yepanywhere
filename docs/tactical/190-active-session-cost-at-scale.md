@@ -2,9 +2,10 @@
 
 Topic: catalog-identity-projection-cost
 
-Status: in progress; the SQL-owned catalog/bounded working-set research
-checkpoint is complete at diagnostic scope. The selected first implementation
-is shared ownership of Codex discovery maps; runtime changes have not begun.
+Status: in progress. Shared Codex discovery ownership is implemented as the
+first bounded-working-set slice; correctness, measurements and qualification
+are recorded below. SQL list/Inbox design and the other plan targets remain
+open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -44,8 +45,8 @@ request paths need a justification beyond improving one benchmark.
 
 | Order | Stage | Scope and relation to original steps | Status |
 |---|---|---|---|
-| 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; first ownership slice specified, later SQL query design open |
-| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | **Current focus: shared provider discovery ownership, selected from measured retention** |
+| 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; first ownership slice implemented, later SQL query design open |
+| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery ownership implemented; next SQL/query slice not yet selected |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Deferred until the selected foundation has a qualified slice |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
@@ -115,6 +116,38 @@ sampling/inspector release and incomplete Darwin eligibility make these
 **diagnostic-only** figures; no plan target is newly met. The next runtime
 commit must prove shared ownership while preserving existing reader behavior,
 then measure a functioning server. Full SQL-list design remains a later gate.
+
+
+### Shared Codex discovery ownership — implementation outcome
+
+The selected first slice is implemented: project readers share discovered
+session/rollout locators with the existing source-root cache instead of
+retaining complete copies. Shared enumeration versions and visibility views
+also avoid per-project initial hydration. Source invalidation, exact point
+observations, filtered coverage, sibling retirement and authoritative deletion
+are protected by real-file/interleaving checks. No public API, provider
+format, SDK, SQL or client change is required.
+
+Two interleaved fresh-world comparisons at 50,000 mixed idle sessions / 200
+projects, no browser or long transcript open, reduce post-list retained heap
+from 715.2/715.1 MiB to 217.5/217.3 MiB. RSS falls from 1,124.9/1,136.1 MiB
+to 613.8/632.0 MiB. A census finds one root owner with 25,000 session and
+25,000 path entries, and no complete locator maps in 200 project readers.
+These are functioning-server samples, not destructive release estimates.
+
+[Research outcome and evidence](../research/190-cold-session-ownership.md#shared-discovery-implementation-outcome)
+own the protocol, hashes, native host evidence and limitations. The host is
+contended, suite Darwin CPU/swap evidence is incomplete, and no latency/CPU
+ratchet or full active-tab target is passed here. RSS still exceeds the plan's
+approximate 300 MB memory goal. The focused checks pass 97 cases (two platform
+skips). Four original ownership cases fail on the old reader; ten review
+regressions fail on the respective earlier revisions. Full checks and review
+are recorded in the research outcome.
+
+Next high-value candidates within the selected architectural stage are SQL
+list/Inbox/aggregate queries (then lazy cold metadata) and changed-file-only
+catalog publication. Required long-transcript incremental ingestion remains
+its own next workstream; this ownership fix does not implement it.
 
 ## Scenario
 
@@ -188,8 +221,10 @@ experiments select shared Codex discovery ownership as the first foundation
 slice (above). The 50,000-session no-detail case retained 715.2 MiB after
 lists; releasing duplicated reader maps freed 502.6 MiB. See the research
 for project-count controls, metadata-size variation and SQL plans. These are
-new diagnostic measurements of unchanged code, not an after-build or a target
-pass. All original baseline figures below remain unchanged.
+diagnostic attribution measurements. The shared-root implementation outcome
+above records functioning-server memory comparisons and qualification; it
+removes the project × session map multiplier. No full active-tab target is
+passed. All original baseline figures below remain unchanged.
 
 Baseline measured 2026-11-10 with the repro on the maintainer's host (Apple
 Silicon): production builds of server and client code as of `f196db4c7`,

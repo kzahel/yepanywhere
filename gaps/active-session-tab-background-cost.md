@@ -22,8 +22,11 @@ secondary projections. Isolated diagnostics now find project-scoped Codex
 reader maps are the dominant tested cold owner: 200 readers each mirror all
 25,000 Codex sessions in two maps; their destructive release freed 502.6 MiB
 at 50,000 mixed sessions, versus 91.2 MiB for catalog release. Shared
-root-scope discovery ownership is selected first. These are diagnostic
-attribution figures, not a working optimization; no cost below is closed.
+root-scope discovery ownership is implemented first: project readers now
+share one root locator index. Functioning-server before/after memory evidence
+and review are recorded in the research outcome. This removes the measured
+project × session multiplier; the catalog, Inbox/list and transcript costs
+below remain open, and no full active-tab target is closed.
 
 ## How it was measured
 

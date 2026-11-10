@@ -1,8 +1,10 @@
 # Cold session ownership and query boundaries
 
-Source audit and isolated diagnostics, 2026-11-10, at `ed2535a42`.
-No production behavior changed; measurements below are diagnostic, not target
-acceptance or a performance improvement. This note supports the selected foundation in
+Initial source audit and isolated diagnostics, 2026-11-10, at `ed2535a42`.
+That research checkpoint changed no runtime behavior. Its original attribution
+remains below; the later shared-lookup implementation and before/after
+qualification are recorded in the implementation outcome section. This note
+supports the selected foundation in
 [plan 190](../tactical/190-active-session-cost-at-scale.md#architectural-stages-and-priority);
 that plan owns scope, order and acceptance targets.
 
@@ -35,7 +37,7 @@ Existing investigations already identify this direction:
   was only a small fraction of measured heap. Do not assume lazy metadata
   alone removes most of the current process's memory.
 
-## Confirmed ownership and dependencies
+## Initial ownership audit and dependencies
 
 Paths below are source evidence, not retained-byte measurements.
 
@@ -317,6 +319,116 @@ Large-transcript rereads, client list reloads and render costs remain separate
 plan targets until their own stages land. This foundation must reduce shared
 complexity and retire population interfaces, rather than adding an optimized
 path alongside an indefinitely retained complete object model.
+
+## Shared discovery implementation outcome
+
+Implemented 2026-11-10: `codex-root-file-index.ts` attaches one locator owner
+with weak keys to the existing `codexSharedScanCache` root-cache object.
+`CodexSessionReader` no longer retains `sessionFileCache`, `rolloutPathById`
+or a per-reader hydration cursor. Accepted native points and shared
+versioned enumeration views use the root owner. Parsed transcripts, source
+versions, request/response shapes, provider formats and SDK pins are unchanged.
+The owning behavior contract is in
+[Codex metadata scanner](../../topics/codex-metadata-scanner.md).
+
+Root replacement fences old asynchronous completion. Closing one reader leaves
+siblings' finite shared work available. Filtered/incomplete reads never prove
+absence. Complete unfiltered scans retire missing heads and can select an
+older surviving rollout, preserving newer positive evidence per file rather
+than vetoing the entire replacement. Fresh enumeration stamps acquisition
+sequence; exact points stamp publication sequence, including unchanged winners.
+Fresh losing candidates retain one compact record per path until complete
+reconciliation clears them; they are root-owned, without project copies.
+Cache hits do not renew proof. Exact publication propagates its validated file,
+not another cached incumbent. Authoritative replacement evicts older scopes.
+Failed root I/O cannot certify absence. All rollout paths refresh independently
+of session-head selection, with sequence fencing and plain/compressed
+precedence. Unknown rollout ids are not negatively cached; active/archive
+fallback joins finite in-flight work.
+
+### Functioning-server comparison
+
+[Implementation evidence](190-shared-discovery-ownership.evidence.json)
+records two interleaved fresh-world pairs, each run after then before:
+50,000 idle mixed sessions, 200 projects, one tiny Claude session and no
+browser/detail read.
+Before runtime source is unchanged from `ed2535a42`; after is the working
+implementation, with source hashes and built JavaScript fingerprints recorded.
+The after build overlays only the two implementation modules on the baseline,
+excluding the unrelated project-scanner change that landed concurrently.
+Correctness checks run against the current working tree.
+All servers remained functional through sampling; **no destructive release**
+was used. Seven forced-GC samples per stage, minimum heap and median RSS, as
+in the attribution protocol above.
+
+| After lists, MiB | Before, pair 1 | After, pair 1 | Before, pair 2 | After, pair 2 |
+|---|---|---|---|---|
+| Retained heap | 715.2 | 217.5 | 715.1 | 217.3 |
+| RSS | 1,124.9 | 613.8 | 1,136.1 | 632.0 |
+
+Retained heap is about 498 MiB / 70% lower in both pairs. The after census
+finds 200 project readers with **zero** complete file/path locator maps and
+one root index with 25,000 session and 25,000 path entries. The original
+before census found five million slots in each per-reader map family at this
+same scale. The complete catalog, metadata and other scanner/index owners
+remain; this is not a claim that all cold data is now lazy or out of memory.
+
+The shared host was contended by unrelated work, and suite Darwin CPU/swap
+fields remain incomplete. Native capacity/CPU/swap evidence is retained with
+the results. These measurements establish diagnostic retained-memory/count
+improvement; they do not qualify latency/CPU targets or tighten ratchets.
+RSS remains above the plan's approximate 300 MB memory goal. The full
+200-compaction active-tab scenario and its per-write targets were not rerun
+for this locator-ownership slice.
+
+### Correctness and qualification
+
+Seven initial real-file retention/interleaving scenarios cover project views,
+newer exact observations versus older scans, invalidation, sibling retirement,
+filtered coverage, deletion, and surviving older rollouts. Four fail against
+the old reader: mirrored retention, invalidated completion, deletion and
+fallback. The old source was copied aside/restored; the expanded proof ran in
+an isolated source copy so the reviewer and measured builds could not observe
+an in-progress replacement. No stash was used.
+
+Independent review identified stale-scope resurrection in both completion
+orders, failed I/O treated as absence, nonwinning ancestor representation
+precedence, child publication after root replacement, unvalidated incumbent
+promotion, unchanged-winner freshness, newly discovered fallback proof and
+displaced-winner proof. Ten added regression cases fail on the respective
+earlier implementations and pass after authority, per-file proof and
+path-sequence fencing; a cache-hit control verifies that ordinary
+reads cannot renew evidence. These proofs ran against copied sources with
+restoration; the working tree was never stashed.
+
+The focused new/existing reader, watcher, identity, child-metadata and lineage
+checks pass: 97 tests / two platform skips, six files. They preserve existing
+archive/plain-zstd and native scope coverage. Pinned upstream `rust-v0.167.0`
+rollout lookup/list contracts were inspected; no Codex compatibility target or
+protocol update is part of this change.
+Validation on Node 25.8.2: root lint, formatting, typecheck and source budgets
+pass. The reader budget falls from 4,002 to 3,962 lines. Lint retains one
+pre-existing informational regex-escape diagnostic in the client design tool.
+The full client suite passes all 7,331 assertions; a browser-cleanup hook timed
+out under concurrent load and its two-test file passes separately. Two server
+timing failures from the same loaded run pass separately (40 tests). The final
+server run passes 7,263 tests, skips 94, and fails the same 11 Claude-native
+fixture version guards (expected 2.1.322, executable reports 2.1.321). Relevant
+native Codex cases pass. This is an explicit qualification limit, not a green
+full server run.
+
+Independent GPT-6.1-Sol high-effort, bypass-permissions review through
+localhost:3400 found no remaining must-fix, should-fix or nit findings after
+fixes. Initial sessions were `26456740-518c-4329-9c87-fb4c43dc91f9` and
+`f1539050-f16c-439a-98b1-6e92c5708424`; final review and follow-ups used
+`693da1ce-5008-43f5-962c-6a217a1c7a81`. The reviewer inspected source only,
+without edits, tests, database access or server operations. No SDK pin or global
+executable was changed; no SQL or client production source changed.
+
+The next broad architecture choices remain SQL-backed list/Inbox queries and
+aggregates, changed-file catalog publication, and bounded long-session
+transcript ingestion. This slice removes the measured project × session
+multiplier; it does not add a parallel provider-specific HTTP fast path.
 
 ## Checkpoint validation
 

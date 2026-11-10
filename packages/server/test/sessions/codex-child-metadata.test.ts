@@ -117,6 +117,53 @@ async function fixture(alias = false) {
     profile,
   };
 }
+
+it("does not publish point metadata into a root replaced during child validation", async () => {
+  const f = await fixture();
+  await f.child("child");
+  const signal = new AbortController().signal;
+  const observation = (await f.source.refreshMetadata!(signal))!;
+  expect(await f.source.isCurrent(observation.version)).toBe(true);
+  const internals = f.reader as unknown as {
+    readSessionMeta(path: string, ...args: unknown[]): Promise<unknown>;
+  };
+  const original = internals.readSessionMeta.bind(f.reader);
+  let release!: () => void,
+    entered!: () => void,
+    held = false;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ready = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  vi.spyOn(internals, "readSessionMeta").mockImplementation(async (path) => {
+    const result = await original(path, undefined, undefined, true);
+    if (path === f.file("child") && !held) {
+      held = true;
+      entered();
+      await waiting;
+    }
+    return result;
+  });
+  const pending = f.source.isCurrent(observation.version);
+  const sibling = new CodexSessionReader({
+    sessionsDir: f.scope,
+    projectPath: f.project,
+  });
+  try {
+    await ready;
+    sibling.invalidateCache();
+    await rm(f.file("parent"));
+    release();
+    expect(await pending).toBe(false);
+    expect(await sibling.getSessionFilePath("parent")).toBeNull();
+  } finally {
+    release();
+    await pending;
+    await sibling.close();
+  }
+});
 it("refreshes exact indexed locators without a corpus scan, fences WAL and own-header changes, and retains SQL history", async () => {
   const f = await fixture();
   await f.child("child");
