@@ -119,11 +119,6 @@
   display: none;
 }
 
-.providerChildrenCount {
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
 .executor {
   max-width: 80px;
 }

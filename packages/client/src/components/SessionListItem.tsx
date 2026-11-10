@@ -877,6 +877,7 @@ export function SessionListItem({
         <ButtonBase
           className={styles.providerChildrenDisclosure}
           aria-label={providerChildrenDisclosureLabel}
+          title={providerChildrenTooltip}
           aria-expanded={providerChildrenExpanded}
           aria-controls={providerChildrenOutlineId}
           onPointerEnter={(event) => {
@@ -1120,22 +1121,6 @@ export function SessionListItem({
                   >
                     Q
                   </Badge>
-                )}
-                {providerChildren.length > 0 && (
-                  <span
-                    className={styles.providerChildrenCount}
-                    role="img"
-                    title={providerChildrenTooltip}
-                    aria-label={providerChildrenLabel}
-                  >
-                    <Badge
-                      shape="count"
-                      size="small"
-                      emphasis={hasUnread ? "solid" : "soft"}
-                    >
-                      {providerChildren.length}
-                    </Badge>
-                  </span>
                 )}
               </span>
             )}

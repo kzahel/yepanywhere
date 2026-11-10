@@ -21,7 +21,6 @@ import { activityBus } from "../../lib/activityBus";
 import { UI_KEYS } from "../../lib/storageKeys";
 import "../../../test/pointerEventShim";
 import { SessionListItem } from "../SessionListItem";
-import badgeStyles from "../ui/Badge.module.css";
 
 const mockWindowOpen = vi.fn();
 const originalClipboard = navigator.clipboard;
@@ -1224,81 +1223,6 @@ describe("SessionListItem links", () => {
     expect(screen.getByTestId("location").textContent).toBe(
       "/projects/project-1/sessions/session-parent/agents/child-native-1",
     );
-  });
-
-  it("shows number-only child counts with read and unread emphasis", () => {
-    render(
-      <I18nProvider>
-        <MemoryRouter>
-          <ul>
-            <SessionListItem
-              sessionId="session-parent"
-              projectId="project-1"
-              projectName="yepanywhere"
-              showProjectName
-              title="Parent session"
-              provider="claude"
-              mode="compact"
-              providerChildren={[
-                {
-                  id: "child-native-1",
-                  parentSessionId: "session-parent",
-                  title: "First delegated task",
-                  updatedAt: "2026-07-19T12:00:00.000Z",
-                },
-                {
-                  id: "child-native-2",
-                  parentSessionId: "session-parent",
-                  title: "Second delegated task",
-                  updatedAt: "2026-07-19T12:01:00.000Z",
-                },
-              ]}
-            />
-            <SessionListItem
-              sessionId="session-unread"
-              projectId="project-1"
-              projectName="another-project"
-              showProjectName
-              hasUnread
-              title="Unread parent session"
-              provider="claude"
-              mode="compact"
-              providerChildren={[
-                {
-                  id: "child-native-3",
-                  parentSessionId: "session-unread",
-                  title: "New delegated task",
-                  updatedAt: "2026-07-19T12:02:00.000Z",
-                },
-              ]}
-            />
-          </ul>
-        </MemoryRouter>
-      </I18nProvider>,
-    );
-
-    const readBadge = screen.getByRole("img", {
-      name: "2 provider subagents",
-    });
-    const unreadBadge = screen.getByRole("img", {
-      name: "1 provider subagent",
-    });
-
-    expect(readBadge.textContent).toBe("2");
-    expect(readBadge.firstElementChild?.className).not.toContain(
-      badgeStyles.solid,
-    );
-    expect(readBadge.getAttribute("title")).toBe(
-      "2 provider subagents\nFirst delegated task\nSecond delegated task",
-    );
-    expect(unreadBadge.textContent).toBe("1");
-    expect(unreadBadge.firstElementChild?.className).toContain(
-      badgeStyles.solid,
-    );
-    expect(unreadBadge.getAttribute("title")).toBe(
-      "1 provider subagent\nNew delegated task",
-    );
-    expect(screen.getByText("yepanywhere")).toBeTruthy();
   });
 
   it("discloses compact provider children without opening the parent", () => {

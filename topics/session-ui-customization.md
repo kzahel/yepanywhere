@@ -305,6 +305,12 @@ expanded. The [pre-boot composer](early-typing-handoff.md#pre-boot-composer)
 reserves the same sidebar space so adopting early typing does not require
 hiding navigation; `?sidebar=expanded` still wins.
 
+## Session List Subagents
+
+Compact session rows with subagents show an expander without a visible count
+badge. Its tooltip retains the count and child names; expanding reveals the
+child sessions. The parent's unread state does not add emphasis to the expander.
+
 ## Session List Menu Visibility
 
 Session row menus remain hidden at rest on both desktop and touch screens.
