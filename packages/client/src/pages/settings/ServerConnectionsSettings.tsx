@@ -702,7 +702,8 @@ export function ServerConnectionsSettings() {
           footer={
             <>
               <Button
-                disabled={busy || !selectedPeer.outgoing.some((p) => p.active)}
+                busy={busy}
+                disabled={!selectedPeer.outgoing.some((p) => p.active)}
                 onClick={() =>
                   void act(
                     () => peerConnectionsApi.test(selectedPeer.serverId),
@@ -934,7 +935,7 @@ export function ServerConnectionsSettings() {
               </Button>
               <Button
                 variant="danger"
-                disabled={busy}
+                busy={busy}
                 onClick={() => void remove()}
               >
                 {removing.direction === "incoming"

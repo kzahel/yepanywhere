@@ -151,6 +151,7 @@ function PromptDialogView({
   return (
     <Dialog
       size="small"
+      layer="confirm"
       title={request.title}
       description={request.message}
       onClose={() => settle(request.id, null)}
@@ -204,6 +205,7 @@ function ConfirmDialogView({
   return (
     <Dialog
       size="small"
+      layer="confirm"
       role="alertdialog"
       title={request.title}
       description={request.message}

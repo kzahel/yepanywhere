@@ -410,6 +410,14 @@ function countMatches(
       if (COMPOSER_FILE.test(file)) continue;
       const text = await readFile(path, "utf8");
       for (const match of text.matchAll(pattern)) {
+        const lineStart = text.lastIndexOf("\n", match.index ?? 0) + 1;
+        // A comment may name a role; only code counts.
+        if (
+          /^\s*(?:\/\/|\/?\*|\{\/\*)/.test(
+            text.slice(lineStart, match.index ?? 0),
+          )
+        )
+          continue;
         counts.set(file, (counts.get(file) ?? 0) + 1);
         sites.set(file, [
           ...(sites.get(file) ?? []),
@@ -477,10 +485,11 @@ for (const path of stylesheets) {
 
 // 9. Native dialogs, modal roles outside the shared dialog controls, and
 // rules that reach into Modal's frame.
-// A call to the global (`window.confirm(`, `confirm(`), not a method
-// (`draft.confirm()`) or a method definition (`confirm() {`).
+// A call to the global (`window.confirm(`, `window.confirm?.(`,
+// `window["confirm"](`, `(window as X).confirm(`, a bare `confirm(`), not
+// a method (`draft.confirm()`) or a definition (`confirm() {`).
 const NATIVE_DIALOG =
-  /(?<![\w.$])(?:(?:window|globalThis|self)\.)?(?:confirm|alert|prompt)\(/g;
+  /(?:\b(?:window|globalThis|self)\s*(?:\?\.|\.|\[\s*["'`])\s*|\(\s*(?:window|globalThis|self)\s+as\s+[^()]*\)\s*\.\s*|(?<![\w.$\]\)]))(?:confirm|alert|prompt)(?:["'`]\s*\])?\s*(?:\?\.)?\(/g;
 const nativeCounts = new Map<string, number>();
 const nativeSites = new Map<string, string[]>();
 for (const path of sources) {
@@ -495,10 +504,15 @@ for (const path of sources) {
     const before = text.slice(lineStart, index);
     const line = text.slice(lineStart, lineEnd < 0 ? undefined : lineEnd);
     if (/^\s*(?:\/\/|\/?\*)/.test(before)) continue;
-    // A method definition or signature: `confirm() {`, `prompt(): T;`.
+    // A definition or signature: `confirm() {`, `prompt(): T;`,
+    // `function alert(x) { … }`.
     if (
-      /^\s*(?:(?:async|public|private|protected)\s+)*$/.test(before) &&
-      (/\{\s*$/.test(line) || /^\s*[\w\s]*\([^)]*\)\s*:/.test(line))
+      /(?:^|[{,;]\s*)(?:(?:async|public|private|protected|function|export)\s+)*$/.test(
+        before.trimStart(),
+      ) &&
+      /^\w+\s*\([^)]*\)\s*(?::|\{)/.test(
+        text.slice(index, lineEnd < 0 ? undefined : lineEnd),
+      )
     )
       continue;
     tally(
@@ -537,7 +551,10 @@ for (const path of stylesheets) {
     if (selector.startsWith("@")) continue;
     const reaches = splitSelectorList(selector).some((part) =>
       isModule
-        ? /:global\(\s*\.modal(?:-[\w-]+)?(?![\w-])/.test(part)
+        ? // `:global(.modal)`, `:global(.x .modal-content)`, `:global .modal`
+          /:global(?:\((?:[^()]|\([^()]*\))*?|\s+[^()]*?)\.modal(?:-[\w-]+)?(?![\w-])/.test(
+            part,
+          )
         : MODAL_FRAME.test(part) && /\.modal(?:-[\w-]+)?:has\(/.test(part),
     );
     if (!reaches) continue;

@@ -40,7 +40,7 @@ export function ProjectSessionDefaultsModal({
       title={title}
       size="large"
       onClose={onClose}
-      footer={<Button onClick={onClose}>{t("cancel")}</Button>}
+      footer={<Button onClick={onClose}>{t("modalClose")}</Button>}
     >
       {serverHasCapability(
         version,

@@ -309,20 +309,25 @@
   width: 100%;
 }
 
-:global(.modal):has(.fullPane) > :global(.modal-content) {
-  overflow: hidden;
-}
-
-:global(.modal):has(.fullPane) {
+/* Doubled so it outranks Dialog's size and phone card rules. */
+:global(.modal):has(.fullPane.fullPane) {
   height: calc(100dvh - 1.5rem);
   max-height: calc(100dvh - 1.5rem);
 }
 
+:global(.modal):has(.fullPane.fullPaneWide) {
+  width: min(1200px, 100%);
+  max-width: min(1200px, 100%);
+}
+
+/* The dialog body yields to the editor; the dialog's own Cancel stays. */
 :global(.modal-content) > :has(.fullPane) {
   display: flex;
+  box-sizing: border-box;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 :global(.modal-content) > :has(.fullPane) > :not(:has(.fullPane)) {
@@ -382,13 +387,12 @@
   max-width: none;
 }
 
-:global(.modal-content) > :has(.fullPaneWide) {
-  width: 100%;
-  max-width: none;
-}
-
 @media (width <= 600px) {
-  :global(.modal):has(.fullPane) {
+  :global(.modal-overlay):has(.fullPane.fullPane) {
+    padding: 0;
+  }
+
+  :global(.modal):has(.fullPane.fullPane) {
     height: 100dvh;
     max-height: 100dvh;
   }

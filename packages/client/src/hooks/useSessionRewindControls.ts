@@ -235,6 +235,7 @@ export function useSessionRewindControls({
             title: t("clearloopCancelConfirmTitle"),
             message: t("clearloopCancelConfirm"),
             confirmLabel: t("clearloopMenuStop"),
+            cancelLabel: t("clearloopCancelConfirmKeep"),
           })
         ) {
           void cancelClearloop();

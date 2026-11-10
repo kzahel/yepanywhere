@@ -69,7 +69,12 @@ function MaybeTabPanel({
   children: ReactNode;
 }) {
   return tabsId ? (
-    <TabPanel tabsId={tabsId} value={value} focusable={value === "info"}>
+    <TabPanel
+      tabsId={tabsId}
+      value={value}
+      focusable={value === "info"}
+      className="model-switch-pane"
+    >
       {children}
     </TabPanel>
   ) : (

@@ -520,6 +520,14 @@ test("edits mapped source from default sanitized HTML and preserves a stale prev
   await expect(
     dialog.getByText(/line references may now be stale/),
   ).toBeVisible();
+  // Choosing another target with unsaved edits asks above the full-screen
+  // editor (a covered button would fail the click).
+  await textarea.pressSequentially("ZQZQ");
+  await preview.getByText("The original paragraph.").click();
+  const discard = page.getByRole("alertdialog", { name: "Discard changes?" });
+  await discard.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(discard).toHaveCount(0);
+  await expect(textarea).toHaveValue(/ZQZQ/);
   await recordUiCapture(page, "source-editor-desktop", {
     width: 1200,
     height: 600,

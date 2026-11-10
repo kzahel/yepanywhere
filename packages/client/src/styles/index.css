@@ -360,10 +360,12 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.32);
 
   /* Layers: modals, then popovers and menus (which open from them), then
-     tooltips. Other fixed surfaces still use their own numbers, some above
-     --z-modal (topics/ui-design.md, Layers). */
+     confirmations (above every full-screen surface, which may ask one),
+     then tooltips. Other fixed surfaces still use their own numbers, some
+     above --z-modal (topics/ui-design.md, Layers). */
   --z-modal: 9999;
   --z-popover: 10010;
+  --z-confirm: 10020;
   --z-tooltip: 2147483647;
 
   /* Spinner */
@@ -10455,14 +10457,6 @@ a.sidebar-nav-item {
    Onboarding Wizard
    ========================================================================== */
 
-/* Override modal width when containing onboarding wizard */
-
-.onboarding-step-indicator {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
 .onboarding-step-title {
   font-size: 1.25rem;
   font-weight: 600;
@@ -10539,12 +10533,6 @@ a.sidebar-nav-item {
 .onboarding-info-box li {
   margin-bottom: var(--space-1);
 }
-
-/* Step actions (Skip/Next buttons) */
-
-/* Footer with skip all and progress */
-
-/* Progress dots */
 
 /* ==========================================================================
    Device List (Push Notifications Settings)

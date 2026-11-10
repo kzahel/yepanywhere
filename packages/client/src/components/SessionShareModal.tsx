@@ -268,6 +268,7 @@ export function LegacySessionShareModal({
 
   return (
     <Dialog
+      size="medium"
       anchorRect={anchorRect}
       title={t("sessionShareTitle")}
       description={t("sessionShareReadOnlyNote")}

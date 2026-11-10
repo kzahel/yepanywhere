@@ -82,35 +82,32 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   return (
     <Dialog
-      title={
-        <>
-          Welcome to yepanywhere{" "}
-          <span className="onboarding-step-indicator">
-            Step {currentStepIndex + 1} of {ONBOARDING_STEPS.length}
-          </span>
-        </>
-      }
-      size="large"
+      title="Welcome to yepanywhere"
+      description={`Step ${currentStepIndex + 1} of ${ONBOARDING_STEPS.length}`}
+      size="medium"
       onClose={handleSkipAll}
       footerStart={
-        // `onboarding-skip-all` is a hook: e2e specs dismiss the wizard by it.
-        <Button
-          variant="ghost"
-          className="onboarding-skip-all"
-          onClick={handleSkipAll}
-        >
-          Skip all
-        </Button>
+        <>
+          {/* The last step's own Skip finishes, so Skip all would repeat it. */}
+          {!isLastStep && (
+            // `onboarding-skip-all` is a hook: e2e specs dismiss the wizard by it.
+            <Button
+              variant="ghost"
+              className="onboarding-skip-all"
+              onClick={handleSkipAll}
+            >
+              Skip all
+            </Button>
+          )}
+          {!isFirstStep && <Button onClick={handleBack}>Back</Button>}
+        </>
       }
       footer={
-        <>
-          {!isFirstStep && <Button onClick={handleBack}>Back</Button>}
-          <StepActions
-            onNext={handleNext}
-            onSkip={handleSkip}
-            isLastStep={isLastStep}
-          />
-        </>
+        <StepActions
+          onNext={handleNext}
+          onSkip={handleSkip}
+          isLastStep={isLastStep}
+        />
       }
     >
       <h2 className="onboarding-step-title">{currentStep.title}</h2>

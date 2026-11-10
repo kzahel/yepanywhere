@@ -199,7 +199,7 @@ export function ReviewSubmitModal({
       footer={
         <>
           <Button onClick={onClose} disabled={busy}>
-            {t("cancel")}
+            {t("modalCancel")}
           </Button>
           <Button
             variant="primary"

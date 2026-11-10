@@ -74,6 +74,11 @@ describe("Dialog", () => {
     fireEvent.keyDown(save, { key: "Tab" });
     expect(document.activeElement).toBe(close);
 
+    // Focus lost to the body (a focused control removed) comes back in.
+    (document.activeElement as HTMLElement).blur();
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+
     // Closing returns focus to the opener.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -152,7 +157,8 @@ describe("confirmDialog", () => {
     const field = screen.getByRole("textbox", { name: "New project name" });
     expect(document.activeElement).toBe(field);
     fireEvent.change(field, { target: { value: "  app-two " } });
-    fireEvent.submit(field.closest("form") as HTMLFormElement);
+    // The footer's submit button reaches the body's form through `form`.
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     await expect(answer).resolves.toBe("app-two");
 
     act(() => {

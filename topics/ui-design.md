@@ -341,7 +341,10 @@ Escape through the layer stack, Android back (`closeOnBackGesture`),
 optional anchoring beside a trigger, a header with the title and close
 button, and a scrolling content area. It is named by its title
 (`aria-labelledby`), keeps Tab inside itself, and returns focus to the
-element that opened it when it closes. It stays a portaled `div` rather
+element that opened it when it closes (or to the menu trigger, when a
+menu item that opened it went away with its menu). A Tab pressed while
+focus is on nothing, because the focused control was removed or
+disabled, goes back into the topmost modal. It stays a portaled `div` rather
 than a modal `<dialog>`: the tooltip layer, hover cards and selection
 actions portal into the body, and the top layer would draw over them and
 make them inert. Viewers (files, diffs, media, logs, process details) use
@@ -350,8 +353,11 @@ make them inert. Viewers (files, diffs, media, logs, process details) use
 `src/components/ui/Dialog.tsx` is the pattern for everything else shown
 over the page: a form, a choice, a notice. `size` is `small` (24rem, a
 confirmation or one field), `medium` (32rem, the default, a short form) or
-`large` (48rem, a long form, a list, a wizard); on phones small and medium
-stay cards near the top, clear of the keyboard, and large fills the screen.
+`large` (48rem, a long form or a list); on phones every size is a
+full-width card near the top, as tall as its content and clear of the
+keyboard (content that needs the whole screen sets its own height).
+`layer="confirm"` (`--z-confirm`) draws above every full-screen surface,
+for a question one of them asks.
 The body is padded and stacks its children with one gap; `description` is
 an intro sentence the dialog is described by; `footer` is the action row
 below the scrolling body, and `footerStart` holds actions for its other
@@ -367,7 +373,10 @@ from `size`, never from a caller rule on Modal's frame.
 `alertdialog` whose title asks the question ("Delete user?"), whose
 message says the consequence, and whose confirm button names the action;
 `tone="danger"` makes it a danger button and starts focus on Cancel. It
-resolves `true` or `false`, so the caller awaits it. One
+draws on the confirm layer, above the source editor and other full-screen
+surfaces, and the same question asked again while open (a double click)
+is answered "no" at once. It resolves `true` or `false`, so the caller
+awaits it. One
 `ConfirmDialogHost` per entrypoint shows requests in turn; without one (a
 component test) it falls back to `window.confirm` with the message.
 `promptDialog` does the same for one text answer (`window.prompt`).
@@ -377,7 +386,7 @@ depend on a higher one:
 
 1. **Tokens:** the theme custom properties in `src/styles/index.css`
    (color, spacing, radius, type, shadow and the layer scale `--z-modal`,
-   `--z-popover`, `--z-tooltip`). Other fixed surfaces still carry their
+   `--z-popover`, `--z-confirm`, `--z-tooltip`). Other fixed surfaces still carry their
    own numbers, some above `--z-modal` (the source editor, the fullscreen
    file viewer and its toolbar, the prompt history rail); popovers stay
    above them, and moving them onto the scale is open. A token used in client CSS must be defined in every client

@@ -173,7 +173,7 @@ export function PublicFileShareModal({
 
   return (
     <Dialog
-      size="large"
+      size="medium"
       anchorRect={anchorRect}
       title={t("publicFileShareTitle")}
       description={t("publicFileShareDescription")}

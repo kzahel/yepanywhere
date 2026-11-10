@@ -91,6 +91,41 @@ function tabbablesIn(root: HTMLElement): HTMLElement[] {
   );
 }
 
+/** Open, unminimized modal boxes, the topmost last. */
+const openModalBoxes: HTMLElement[] = [];
+
+/**
+ * Tab while focus is on nothing (the focused control was removed or
+ * disabled) or outside every modal box goes back into the topmost box,
+ * rather than into the page behind it. Focus inside another modal surface
+ * (the source editor, a goal panel) is that surface's own.
+ */
+function handleStrayTab(event: KeyboardEvent) {
+  if (event.key !== "Tab" || event.defaultPrevented) return;
+  const top = openModalBoxes.at(-1);
+  const active = document.activeElement;
+  if (!top || (active && top.contains(active))) return;
+  if (active && active !== document.body && active.closest("[aria-modal]"))
+    return;
+  const stops = tabbablesIn(top);
+  const target = event.shiftKey ? stops.at(-1) : stops[0];
+  if (!target) return;
+  event.preventDefault();
+  target.focus();
+}
+
+function trackModalBox(box: HTMLElement): () => void {
+  if (openModalBoxes.length === 0)
+    document.addEventListener("keydown", handleStrayTab);
+  openModalBoxes.push(box);
+  return () => {
+    const index = openModalBoxes.lastIndexOf(box);
+    if (index >= 0) openModalBoxes.splice(index, 1);
+    if (openModalBoxes.length === 0)
+      document.removeEventListener("keydown", handleStrayTab);
+  };
+}
+
 /**
  * Keep Tab inside the dialog: from its last tabbable stop to its first and
  * back. Keys from a nested dialog (portaled elsewhere, bubbling through
@@ -488,9 +523,10 @@ export function Modal({
   const titleId = useId();
   // Taken while rendering the opening commit, before an autofocused field
   // inside the box moves focus.
-  const [opener] = useState(() =>
+  const [openerAtRender] = useState(() =>
     typeof document === "undefined" ? null : document.activeElement,
   );
+  const openerRef = useRef(openerAtRender);
   const overlayPointerStartedOnOverlayRef = useRef(false);
   useModalBackGesture(onClose, Boolean(closeOnBackGesture && !minimized));
   useModalBackspace(onClose, Boolean(closeOnBackspace && !minimized));
@@ -506,8 +542,22 @@ export function Modal({
   // by itself while the user is in an embedded app leaves its focus alone.
   useEffect(() => {
     if (minimized) return;
+    // A menu item that opened the dialog unmounts with its menu, whose
+    // focus return has run by now: the menu's trigger is the opener.
+    const active = document.activeElement;
+    if (
+      !openerRef.current?.isConnected &&
+      active &&
+      !modalRef.current?.contains(active)
+    )
+      openerRef.current = active;
+    const opener = openerRef.current;
+    const untrack = modalRef.current
+      ? trackModalBox(modalRef.current)
+      : undefined;
     programmaticFocus(initialFocusRef?.current ?? closeButtonRef.current);
     return () => {
+      untrack?.();
       // Back to the opener, unless focus already moved somewhere on purpose
       // (it is on the body once the focused box is gone or hidden).
       const active = document.activeElement;
@@ -521,7 +571,7 @@ export function Modal({
       )
         programmaticFocus(opener, { preventScroll: true });
     };
-  }, [minimized, initialFocusRef, opener]);
+  }, [minimized, initialFocusRef]);
 
   useLayoutEffect(() => {
     if (!isAnchored || !anchorRect) {

@@ -22,12 +22,16 @@
   padding: 0;
 }
 
+.cardOverlay.confirmLayer {
+  z-index: var(--z-confirm);
+}
+
 .body {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--text-primary);
 }
@@ -45,6 +49,7 @@
   color: var(--text-secondary);
   /* A confirmation's message may list reasons on separate lines. */
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .footer {
@@ -67,14 +72,15 @@
 }
 
 @media (width <= 600px) {
-  /* Small and medium stay cards near the top, clear of the keyboard. */
+  /* Every size is a card near the top, clear of the keyboard. */
   .cardOverlay.cardOverlay {
     align-items: flex-start;
     padding: 8dvh 12px 12px;
   }
 
   .dialog.small,
-  .dialog.medium {
+  .dialog.medium,
+  .dialog.large {
     width: 100%;
     max-width: 100%;
     height: auto;
@@ -95,8 +101,7 @@
   }
 
   .footer {
-    padding: var(--space-2) var(--space-3)
-      max(var(--space-2), env(safe-area-inset-bottom));
+    padding: var(--space-2) var(--space-3);
   }
 
   .footer > * {

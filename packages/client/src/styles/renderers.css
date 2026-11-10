@@ -2177,11 +2177,16 @@ details[open] .collapsible__icon {
    Model Switch Modal
    ========================================================================== */
 
+.model-switch-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 .model-switch-tabs {
   position: sticky;
   top: 0;
   z-index: 1;
-  margin-bottom: 0.6rem;
   background: var(--bg-surface);
 }
 
@@ -2209,17 +2214,10 @@ details[open] .collapsible__icon {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-bottom: 0.6rem;
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
-}
-
-.model-switch-info-action {
-  display: flex;
-  justify-content: flex-end;
-  margin: -0.25rem 0 0.6rem;
 }
 
 .model-switch-status-row {
@@ -2262,7 +2260,6 @@ details[open] .collapsible__icon {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin-bottom: 0.6rem;
 }
 
 .model-switch-section-header {
@@ -2283,7 +2280,6 @@ details[open] .collapsible__icon {
 }
 
 .model-switch-section-note {
-  margin-top: 0.35rem;
   font-size: 0.78rem;
   color: var(--text-secondary);
 }

@@ -293,7 +293,7 @@ of slightly different styles.
   `promptDialog` (`ui/Dialog.tsx`, `ui/ConfirmDialog.tsx`), a Controls
   page whose states open their dialogs, tests, and a census page
   (Census/Dialogs, `LEGACY_DIALOGS` and `CONFIRM_CALLS`). The census found
-  35 files calling `Modal`: 19 forms, choices and notices, each with its
+  32 files rendering `<Modal>`: 19 forms, choices and notices, each with its
   own width hack (`:global(.modal):has(…)` in modules and global
   stylesheets), padding and action row, the action row usually inside the
   scrolling body and in varying order; viewers (diff, file, blame, media,
@@ -307,7 +307,7 @@ of slightly different styles.
   titles were unnamed), an `alertdialog` role and a footer slot. The 19
   dialogs moved onto `Dialog` (`small`/`medium`/`large`, a description,
   the action row as a footer with Cancel first and one primary or danger
-  action last, cards near the top on phones), the confirmations onto
+  action last, cards near the top on phones at every size), the confirmations onto
   `confirmDialog` with a question title, the old prompt as the message and
   a named action, and the project copy name onto `promptDialog`. Viewers
   stayed on `Modal`. About 190 lines of global CSS went (the model switch
@@ -316,6 +316,18 @@ of slightly different styles.
   native confirm, alert and prompt calls, `aria-modal` and `alertdialog`
   outside the shared dialogs, rules that reach into Modal's frame (viewers'
   and the composer's are allowlisted) and the old frame and footer classes.
+  An Opus review (2026-11-10) found one blocker, fixed: confirmations drew
+  at `--z-modal`, under the full-screen source editor, so its discard and
+  rebuild questions were invisible yet focused (Enter approved an unseen
+  command); they now draw on a `--z-confirm` layer, with an E2E click that
+  fails if covered. Its other fixes: a Tab from a removed or disabled
+  control returns into the topmost modal, focus returns to the menu
+  trigger when a menu item opened the dialog, large dialogs are cards on
+  phones too (onboarding and the file share dialog are medium), the
+  handoff dialog's wide full-pane composer is wide again, model switch
+  sections no longer double their spacing, the ban catches
+  `window.confirm?.(`, `window["confirm"](`, cast and bare `:global .modal`
+  forms and skips definitions and comments, and copy and spacing nits.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).

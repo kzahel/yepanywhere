@@ -18,8 +18,9 @@
  *
  * Sizes: `small` (24rem) for a confirmation or one field, `medium` (32rem)
  * for a short form, `large` (48rem) for a long form or a list. On phones
- * small and medium stay cards near the top (clear of the keyboard); large
- * fills the screen like a viewer.
+ * every size is a full-width card near the top, as tall as its content
+ * (clear of the keyboard); content that needs the whole screen sets its
+ * own height.
  *
  * Viewers (files, diffs, media, logs) stay on Modal itself.
  */
@@ -54,6 +55,11 @@ export interface DialogProps {
   /** Open beside this rectangle on wide screens (a share button's menu). */
   anchorRect?: ModalAnchorRect | null;
   anchorAtAnyWidth?: boolean;
+  /**
+   * `confirm` draws above every full-screen surface (the source editor),
+   * for a question one of them asks (ConfirmDialog).
+   */
+  layer?: "modal" | "confirm";
   "data-testid"?: string;
 }
 
@@ -81,6 +87,7 @@ export function Dialog({
   contentRef,
   anchorRect,
   anchorAtAnyWidth,
+  layer = "modal",
   "data-testid": testId,
 }: DialogProps) {
   const descriptionId = useId();
@@ -96,7 +103,12 @@ export function Dialog({
       role={role}
       describedBy={description ? descriptionId : undefined}
       className={[styles.dialog, SIZE_CLASS[size]].filter(Boolean).join(" ")}
-      overlayClassName={size === "large" ? undefined : styles.cardOverlay}
+      overlayClassName={[
+        styles.cardOverlay,
+        layer === "confirm" && styles.confirmLayer,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       contentRef={contentRef}
       anchorRect={anchorRect}
       anchorAtAnyWidth={anchorAtAnyWidth}

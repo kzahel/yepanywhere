@@ -2750,6 +2750,7 @@
   "clearloopRemainingBadgeCancelHint": "Click to cancel the loop: the current turn finishes and no further rewind happens.",
   "clearloopCancelConfirm": "Cancel this clearloop? The current turn will finish; no further rewind or resend will happen.",
   "clearloopCancelConfirmTitle": "Stop this clearloop?",
+  "clearloopCancelConfirmKeep": "Keep running",
   "clearloopIterationBadgeTitle": "Iteration {completed} of {total} done. After the quiet window the session rewinds to the cut and resends this prompt. The x cancels the loop without stopping the current turn.",
   "clearloopCountdown": "Next rewind in {seconds}s of quiet",
   "clearloopCancel": "Cancel clearloop",
