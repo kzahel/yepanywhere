@@ -4,7 +4,7 @@ import {
   DRAFT_STORAGE_EVENT,
   confirmSyncedDraft,
 } from "./draftSyncStorage";
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { z } from "zod";
 
 const recordSchema = z.object({
@@ -171,8 +171,10 @@ export function updateQuestionRecord(
 }
 
 export function useQuestionRecords(key: string): Records {
-  return useSyncExternalStore(
-    (listener) => {
+  // A new subscribe function makes React resubscribe after every render, and
+  // each wildcard draft subscription rereads the whole synced draft index.
+  const subscribeRecords = useCallback(
+    (listener: () => void) => {
       const unsubscribe = subscribe(store(key).listeners, listener);
       const unobserve = subscribeDraftStorage(`${key}:*`, () => {});
       return () => {
@@ -180,8 +182,9 @@ export function useQuestionRecords(key: string): Records {
         unobserve();
       };
     },
-    () => store(key).records,
+    [key],
   );
+  return useSyncExternalStore(subscribeRecords, () => store(key).records);
 }
 
 const subscribeReminders = (listener: () => void) =>

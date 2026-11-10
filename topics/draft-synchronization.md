@@ -329,7 +329,15 @@ presence and do not trigger reads of untouched editors. A full refresh requested
 during partial catch-up waits for a coalesced full scan instead of treating the
 partial result as a complete index.
 
-Startup, foreground/focus and reconnect read the full index. A watch cursor
+Startup, foreground/focus and reconnect read the full index, and so does each
+new wildcard (`…:*`) subscription. A wildcard subscriber must therefore keep
+one subscription for as long as its key is unchanged: React's
+`useSyncExternalStore` resubscribes whenever its `subscribe` function changes,
+so an inline function made every render of an open session (one per
+transcript append) read all index pages. Measured 2026-11-10 on the
+maintainer's profile (327 drafts, four pages): about 800 index requests per
+three minutes from one tab before `useQuestionRecords` kept its subscription,
+none after. A watch cursor
 whose last successful refresh was at least a day ago, or whose counter is ahead
 of a reset account, also rebuilds from the full index. This keeps recovery
 independent of expired clear records. Earlier draft-sync implementations that
