@@ -6,8 +6,14 @@ const projectId = Buffer.from(join(e2ePaths.tempDir, "mockproject")).toString(
   "base64url",
 );
 const sessionId = "mock-session-001";
-const fullTitle =
-  "Make session titles readable on mobile: show the complete title in recent sessions and Session Info, with easy access from the header menu, while preserving the draft and live conversation.";
+const fullTitle = [
+  "Keep session controls readable on desktop and mobile.",
+  ...Array.from(
+    { length: 16 },
+    (_, index) => `Step ${index + 1}: Keep the draft intact.`,
+  ),
+  "The final requirement stays available through Show more.",
+].join("\n");
 
 test.use({ serviceWorkers: "block", hasTouch: true });
 
@@ -21,6 +27,58 @@ test("reads the full session title on phone and desktop without losing the draft
 }) => {
   const timestamp = new Date().toISOString();
   let live = true;
+  let accountId = "work-primary";
+  await page.route("**/api/version", async (route) => {
+    const response = await route.fetch();
+    const version = await response.json();
+    await route.fulfill({
+      json: {
+        ...version,
+        capabilities: [
+          ...new Set([
+            ...(version.capabilities ?? []),
+            "agent-auth-router",
+            "agent-auth-router-session-switch",
+          ]),
+        ],
+      },
+    });
+  });
+  await page.route("**/api/agent-auth-router/selection", (route) =>
+    route.fulfill({
+      json: {
+        pools: [
+          {
+            id: "work-pool",
+            name: "Work accounts",
+            provider: "claude",
+            accountIds: ["work-primary", "work-backup"],
+          },
+        ],
+        accounts: [
+          {
+            id: "work-primary",
+            displayName: "Work primary",
+            provider: "claude",
+            enabled: true,
+          },
+          {
+            id: "work-backup",
+            displayName: "Work backup",
+            provider: "claude",
+            enabled: true,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route(
+    `**/api/agent-auth-router/sessions/${sessionId}/switch`,
+    async (route) => {
+      accountId = route.request().postDataJSON().routerAccountId;
+      await route.fulfill({ json: { routerBinding: null } });
+    },
+  );
   const messages = Array.from({ length: 240 }, (_, index) => ({
     uuid: `history-${index}`,
     type: index % 2 ? "assistant" : "user",
@@ -44,6 +102,16 @@ test("reads the full session title on phone and desktop without losing the draft
             provider: "claude",
             title: "Make session titles readable…",
             fullTitle,
+            routerBinding: {
+              id: "example-binding",
+              routerId: "example-router",
+              provider: "claude",
+              poolId: "work-pool",
+              poolName: "Work accounts",
+              accountId,
+              accountDisplayName:
+                accountId === "work-primary" ? "Work primary" : "Work backup",
+            },
             createdAt: timestamp,
             updatedAt: timestamp,
             ownership,
@@ -121,7 +189,7 @@ test("reads the full session title on phone and desktop without losing the draft
       selection?.addRange(range);
     });
     expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(
-      fullTitle,
+      fullTitle.replaceAll("\n", " "),
     );
     const geometry = await currentTitle.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -198,15 +266,55 @@ test("reads the full session title on phone and desktop without losing the draft
       info.getByRole("tab", { name: "Session Info" }),
     ).toHaveAttribute("aria-selected", "true");
     const titleSection = info.getByRole("region", { name: "Session title" });
+    await expect(titleSection.locator(".message-user-prompt")).toBeVisible();
+    await expect(
+      titleSection.getByRole("button", { name: "Show more" }),
+    ).toBeVisible();
+    await titleSection.getByRole("button", { name: "Show more" }).click();
     await expect(
       titleSection.getByText(fullTitle, { exact: true }),
     ).toBeVisible();
-    await titleSection.getByRole("button", { name: "Copy title" }).click();
-    await expect(titleSection.getByRole("status")).toHaveText("Title copied");
+    await titleSection.getByRole("button", { name: "Show less" }).click();
+    await info
+      .locator(".modal-content")
+      .evaluate((element) => element.scrollTo({ top: 0 }));
     await recordUiCapture(page, `session-info-title-${size.width}`);
+    await titleSection.hover();
+    await titleSection
+      .getByRole("button", { name: "Copy message text", exact: true })
+      .click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(fullTitle);
     await page.keyboard.press("Escape");
     await expect(info).toHaveCount(0);
     await expect(input).toHaveValue(draft);
+
+    // The wide shortcut and mobile model pill converge on the same account pane.
+    if (size.width === 1000) {
+      await header
+        .getByRole("button", { name: /Pinned router account/ })
+        .click();
+    } else {
+      await header.locator(".provider-badge-button").click();
+      await page.getByRole("tab", { name: "Account", exact: true }).click();
+    }
+    const accountPane = page.getByRole("tabpanel");
+    await expect(
+      page.getByRole("tab", { name: "Account", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      accountPane.getByRole("button", { name: "Work backup" }),
+    ).toBeVisible();
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await recordUiCapture(page, `session-account-${size.width}`);
+    if (size.width === 375) {
+      await accountPane.getByRole("button", { name: "Work backup" }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(input).toHaveValue(draft);
+    } else {
+      await page.keyboard.press("Escape");
+    }
   }
 
   // A stopped session has no process stream to supply its identity.
@@ -217,6 +325,8 @@ test("reads the full session title on phone and desktop without losing the draft
     .getByRole("menuitem", { name: "Session info", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "Session title" }).getByText(fullTitle),
+    page
+      .getByRole("region", { name: "Session title" })
+      .getByRole("button", { name: "Show more" }),
   ).toBeVisible();
 });

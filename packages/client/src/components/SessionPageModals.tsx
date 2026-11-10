@@ -5,6 +5,9 @@ import { useI18n } from "../i18n";
 import { toBrowserAppHref } from "../lib/appHref";
 import { createSessionNavigationState } from "../lib/sessionNavigationState";
 import { LongContextEffortWarningModal } from "./LongContextEffortWarningModal";
+import { SessionRouterAccountPane } from "./SessionRouterAccountPane";
+import type { SessionModelPanelTab } from "./ModelSwitchModal";
+import type { DraftControls } from "../hooks/useDraftPersistence";
 import { ModelSwitchModal } from "./ModelSwitchModal";
 import { ProcessInfoBody } from "./ProcessInfoModal";
 import { ProjectSessionDefaultsModal } from "./ProjectSessionDefaultsModal";
@@ -26,10 +29,11 @@ import type {
   ProviderInfo,
   ProviderName,
 } from "@yep-anywhere/shared";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { useNavigate } from "react-router-dom";
 
 export interface SessionPageModalsProps {
+  draftControlsRef: RefObject<DraftControls | null>;
   actualSessionId: ReturnType<typeof useSession>["actualSessionId"];
   basePath: ReturnType<typeof useRemoteBasePath>;
   chooseLongContextEffortWarning: ReturnType<
@@ -54,7 +58,7 @@ export interface SessionPageModalsProps {
   longContextEffortWarning: ReturnType<
     typeof useLongContextEffortGuard
   >["warning"];
-  modelPanelInitialTab: "model" | "info";
+  modelPanelInitialTab: SessionModelPanelTab;
   navigate: ReturnType<typeof useNavigate>;
   permissionMode: PermissionMode;
   processState: ReturnType<typeof useSession>["processState"];
@@ -93,6 +97,7 @@ export interface SessionPageModalsProps {
  * (docs/tactical/182-session-page-header-and-footer.md slice 3).
  */
 export function SessionPageModals({
+  draftControlsRef,
   actualSessionId,
   basePath,
   chooseLongContextEffortWarning,
@@ -190,6 +195,35 @@ export function SessionPageModals({
           onModelChanged={handleModelChanged}
           guardEffortChange={guardEffortChange}
           initialTab={modelPanelInitialTab}
+          accountPane={
+            session &&
+            serverHasCapability(
+              versionInfo,
+              SERVER_CAPABILITIES.agentAuthRouter,
+            ) &&
+            (effectiveProvider === "claude" ||
+              effectiveProvider === "codex") ? (
+              <SessionRouterAccountPane
+                sessionId={actualSessionId}
+                binding={session.routerBinding}
+                provider={effectiveProvider}
+                canSwitch={
+                  creationPrincipalResolved &&
+                  creationPrincipal.username === null &&
+                  serverHasCapability(
+                    versionInfo,
+                    SERVER_CAPABILITIES.agentAuthRouterSessionSwitch,
+                  ) &&
+                  !session.executor &&
+                  session.sandboxLevel !== "project-write"
+                }
+                onSwitched={() => {
+                  draftControlsRef.current?.flushDraft();
+                  window.location.reload();
+                }}
+              />
+            ) : null
+          }
           infoPane={
             session ? (
               <ProcessInfoBody

@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SessionRouterAccountPane } from "../SessionRouterAccountPane";
 import { SessionRouterAccountChip } from "../SessionRouterAccountChip";
 
 const POOL = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -56,7 +57,7 @@ vi.mock("../../i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-const item = (name: string) => screen.getByRole("menuitemradio", { name });
+const item = (name: string) => screen.getByRole("button", { name });
 
 afterEach(() => {
   cleanup();
@@ -73,31 +74,25 @@ const binding = {
   accountDisplayName: "Account a",
 };
 
-describe("SessionRouterAccountChip", () => {
+describe("Session router account controls", () => {
   it("switches to another pool account and reports it", async () => {
     mockSwitch.mockResolvedValue({ routerBinding: null });
     const onSwitched = vi.fn();
     render(
-      <SessionRouterAccountChip
+      <SessionRouterAccountPane
         sessionId="s"
         binding={binding}
         provider="claude"
         canSwitch
-        onDetails={vi.fn()}
         onSwitched={onSwitched}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /routerChipTooltip/ }));
-    // Focus enters the menu on its first enabled item; arrows move it.
-    await waitFor(() => expect(document.activeElement).toBe(item("Account b")));
-    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
-    expect(document.activeElement).toBe(item("routerSwitchDirect"));
-    expect(item("Account a").getAttribute("aria-checked")).toBe("true");
-    expect(item("Account a").getAttribute("aria-disabled")).toBe("true");
+    expect(item("Account a").getAttribute("aria-pressed")).toBe("true");
+    expect((item("Account a") as HTMLButtonElement).disabled).toBe(true);
     expect(
-      screen.getByRole("group", { name: "Work" }).contains(item("Account b")),
+      screen.getByRole("region", { name: "Work" }).contains(item("Account b")),
     ).toBe(true);
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Account b" }));
+    fireEvent.click(item("Account b"));
     await waitFor(() => expect(onSwitched).toHaveBeenCalled());
     expect(mockSwitch).toHaveBeenCalledWith("s", {
       routerPoolId: POOL,
@@ -109,36 +104,31 @@ describe("SessionRouterAccountChip", () => {
     mockSwitch.mockRejectedValue(new Error("account exhausted"));
     const onSwitched = vi.fn();
     render(
-      <SessionRouterAccountChip
+      <SessionRouterAccountPane
         sessionId="s"
         binding={undefined}
         provider="claude"
         canSwitch
-        onDetails={vi.fn()}
         onSwitched={onSwitched}
       />,
     );
-    fireEvent.click(await screen.findByText("routerSwitchDirect"));
-    expect(item("routerSwitchDirect").getAttribute("aria-disabled")).toBe(
-      "true",
+    expect((item("routerSwitchDirect") as HTMLButtonElement).disabled).toBe(
+      true,
     );
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Account a" }));
+    fireEvent.click(item("Account a"));
     await waitFor(() =>
       expect(mockShowToast).toHaveBeenCalledWith("routerSwitchFailed", "error"),
     );
     expect(onSwitched).not.toHaveBeenCalled();
   });
 
-  it("stays a session-info shortcut without the switch capability", () => {
+  it("opens the shared account tab without a dropdown", () => {
     const onDetails = vi.fn();
     render(
       <SessionRouterAccountChip
-        sessionId="s"
         binding={binding}
-        provider="claude"
         canSwitch={false}
         onDetails={onDetails}
-        onSwitched={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByRole("button"));

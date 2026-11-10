@@ -16,6 +16,7 @@ import { getProviderRuntimeReasonLabel } from "../lib/providerRuntimeStatus";
 import { isStandardServiceTier, serviceTierLabel } from "../lib/serviceTiers";
 import type { SessionStatus } from "../types";
 import styles from "./ProcessInfoModal.module.css";
+import { UserPromptBlock } from "./blocks/UserPromptBlock";
 import { SessionTitleDetails } from "./SessionTitleDetails";
 import { SessionRelationshipsSection } from "./SessionRelationshipsSection";
 import type { RouterBinding } from "./RouterPoolSelector";
@@ -402,7 +403,13 @@ export function ProcessInfoBody({
 
   return (
     <div className={styles.content}>
-      <SessionTitleDetails title={sessionTitle} label={t("sessionFullTitle")} />
+      <SessionTitleDetails
+        title={sessionTitle}
+        label={t("sessionFullTitle")}
+        showCopy={false}
+      >
+        <UserPromptBlock key={sessionTitle} content={sessionTitle} />
+      </SessionTitleDetails>
       {/* Session Info - always available */}
       <Section title={t("processInfoSectionSession")}>
         <InfoRow

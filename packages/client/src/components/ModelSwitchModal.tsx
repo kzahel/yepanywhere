@@ -82,6 +82,8 @@ function MaybeTabPanel({
   );
 }
 
+export type SessionModelPanelTab = "model" | "account" | "info";
+
 interface ModelSwitchModalProps {
   /** Session uses an AAR account pin. */
   routed?: boolean;
@@ -110,8 +112,9 @@ interface ModelSwitchModalProps {
   ) => Promise<"apply" | "skip">;
   /** When provided, renders an "Info" tab whose pane is this node. */
   infoPane?: ReactNode;
+  accountPane?: ReactNode;
   /** Which tab is focused on open (default "model"). */
-  initialTab?: "model" | "info";
+  initialTab?: SessionModelPanelTab;
   /**
    * Spawn a live process for a reaped session without sending a turn
    * (message-less reactivate). When provided, the Model tab's "No active
@@ -162,6 +165,7 @@ export function ModelSwitchModal({
   onModelChanged,
   guardEffortChange,
   infoPane,
+  accountPane,
   initialTab,
   onActivate,
   onClose,
@@ -188,7 +192,7 @@ export function ModelSwitchModal({
   );
   const [lastTouchedSection, setLastTouchedSection] =
     useState<DirtySection>(null);
-  const [activeTab, setActiveTab] = useState<"model" | "info">(
+  const [activeTab, setActiveTab] = useState<SessionModelPanelTab>(
     initialTab ?? "model",
   );
   const tabsId = useId();
@@ -433,7 +437,7 @@ export function ModelSwitchModal({
     onClose();
   };
 
-  const handleTabChange = (tab: "model" | "info") => {
+  const handleTabChange = (tab: SessionModelPanelTab) => {
     setActiveTab(tab);
     contentRef.current?.scrollTo({ top: 0 });
   };
@@ -481,15 +485,23 @@ export function ModelSwitchModal({
     </Button>
   );
 
+  const hasTabs = Boolean(infoPane || accountPane);
+
   return (
     <Dialog
-      title={t(activeTab === "info" ? "processInfoTitle" : "modelSwitchTitle")}
+      title={t(
+        activeTab === "info"
+          ? "processInfoTitle"
+          : activeTab === "account"
+            ? "sessionAccountTab"
+            : "modelSwitchTitle",
+      )}
       size="large"
       onClose={handleDismiss}
       contentRef={contentRef}
       footer={
         dirty &&
-        (!infoPane || activeTab === "model") && (
+        (!hasTabs || activeTab === "model") && (
           <>
             <Button onClick={handleDismiss}>{t("modalCancel")}</Button>
             <Button
@@ -504,7 +516,7 @@ export function ModelSwitchModal({
         )
       }
     >
-      {infoPane && (
+      {hasTabs && (
         <Tabs
           id={tabsId}
           className="model-switch-tabs"
@@ -512,21 +524,27 @@ export function ModelSwitchModal({
           onChange={handleTabChange}
           tabs={[
             { value: "model", label: t("newSessionModelTitle") },
-            { value: "info", label: t("processInfoTitle") },
+            ...(accountPane
+              ? [{ value: "account" as const, label: t("sessionAccountTab") }]
+              : []),
+            ...(infoPane
+              ? [{ value: "info" as const, label: t("processInfoTitle") }]
+              : []),
           ]}
         />
       )}
-      <MaybeTabPanel tabsId={infoPane ? tabsId : undefined} value={activeTab}>
+      <MaybeTabPanel tabsId={hasTabs ? tabsId : undefined} value={activeTab}>
+        {accountPane && activeTab === "account" && accountPane}
         {infoPane && activeTab === "info" && (
           <div className="model-switch-info-pane">{infoPane}</div>
         )}
-        {(!infoPane || activeTab === "model") && loading && (
+        {(!hasTabs || activeTab === "model") && loading && (
           <div className="model-switch-loading">
             <Spinner size="small" /> {t("modelSwitchLoading")}
           </div>
         )}
 
-        {(!infoPane || activeTab === "model") && !loading && (
+        {(!hasTabs || activeTab === "model") && !loading && (
           <>
             <div className="model-switch-status">
               <div className="model-switch-status-row">

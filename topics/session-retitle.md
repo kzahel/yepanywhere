@@ -54,8 +54,11 @@ correctly. The current session is not duplicated among navigation links. The
 whole dropdown scrolls within the viewport so the other sessions remain
 reachable.
 
-**Session Info** also starts with the complete, selectable title and a
-**Copy title** action. Copy failure leaves the text available for manual copy.
+**Session Info** starts with the effective title in the same user-prompt
+bubble as the conversation. Long text starts condensed with Show more/Show less,
+and uploaded-file metadata uses the chat's attachment presentation. The bubble's
+**Copy message text** action copies its complete text even while condensed.
+Copy failure leaves the text available for expansion and manual copy.
 The header's `…` menu offers **Session info** near its top at every width.
 It opens the existing Info tab directly and preserves the draft. The composer
 has no Session info shortcut or extra row below its controls.

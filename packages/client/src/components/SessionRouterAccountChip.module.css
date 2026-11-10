@@ -1,4 +1,0 @@
-/* Wide enough that the menu keeps its width while the accounts load. */
-.menu {
-  min-width: 240px;
-}

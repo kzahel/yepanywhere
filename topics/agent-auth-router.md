@@ -129,11 +129,14 @@ editor; this fallback grants no global administration authority. In New Session,
 model, and optionally another router policy or an account. The session header shows a
 compact chip with the pin's saved pool and account names, never the raw account
 id; it falls back to the policy (AAR's label captured at launch, else its id) for
-pins saved without names and is hidden on narrow screens. Its tooltip lists pool, account, policy and reason. With
-`agent-auth-router-session-switch` the chip opens an account menu (direct
-Claude and Codex sessions show a "Direct" chip while a router is connected);
-otherwise it opens Session Info, whose Router section lists the names with the
-pool, account, binding and router ids. The pin keeps AAR's names as display labels captured at
+pins saved without names and is hidden on narrow screens. Its tooltip lists
+pool, account, policy and reason. The chip is a shortcut to the **Account** tab
+in the model/session dialog, with no separate dropdown. On phones, tap the
+model pill and select Account. With `agent-auth-router-session-switch`, that
+pane lists the provider's pooled accounts and Direct, using the same owner,
+executor and sandbox restrictions at every width. Without switching support it
+shows the saved account read-only. Session Info retains the detailed pin ids.
+The pin keeps AAR's names as display labels captured at
 launch, so an AAR outage or removed account still shows which account to restore;
 a resume refreshes a renamed account and backfills a missing pool name, and the
 unavailable-account error names the saved account. Identity remains the ids.
@@ -142,7 +145,7 @@ continuation, remote executors, limited users and sandboxes cannot change a pin.
 
 **Switching an existing session's account**
 ([plan 185](../docs/tactical/185-switch-session-router-account.md)). The
-chip menu lists the provider's pool accounts, then Direct and Session info.
+Account tab lists the provider's pool accounts and Direct.
 Picking one calls `POST /api/agent-auth-router/sessions/:id/switch`
 (`{routerPoolId, routerAccountId}` or `{direct: true}`), which:
 

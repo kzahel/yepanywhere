@@ -2,6 +2,7 @@ import { FileDropZone } from "../components/FileDropZone";
 import { SessionRouteModuleFallback } from "../components/SessionRouteModuleFallback";
 import { SessionComposerFooter } from "../components/SessionComposerFooter";
 import { SessionHeader } from "../components/SessionHeader";
+import type { SessionModelPanelTab } from "../components/ModelSwitchModal";
 import { SessionPageModals } from "../components/SessionPageModals";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { pendingSessionCreation } from "../lib/sessionCreation";
@@ -1642,11 +1643,9 @@ function SessionPageContent({
   const [pendingElsewhereDismissedToolId, setPendingElsewhereDismissedToolId] =
     useState<string | null>(null);
 
-  // Model switch modal state
   const [showModelSwitchModal, setShowModelSwitchModal] = useState(false);
-  const [modelPanelInitialTab, setModelPanelInitialTab] = useState<
-    "model" | "info"
-  >("model");
+  const [modelPanelInitialTab, setModelPanelInitialTab] =
+    useState<SessionModelPanelTab>("model");
   const openSessionInfo = useCallback(() => {
     setShowRecentSessions(false);
     setModelPanelInitialTab("info");
@@ -3099,6 +3098,7 @@ function SessionPageContent({
         />
 
         <SessionPageModals
+          draftControlsRef={draftControlsRef}
           actualSessionId={actualSessionId}
           basePath={basePath}
           chooseLongContextEffortWarning={chooseLongContextEffortWarning}

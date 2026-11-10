@@ -305,6 +305,20 @@ expanded. The [pre-boot composer](early-typing-handoff.md#pre-boot-composer)
 reserves the same sidebar space so adopting early typing does not require
 hiding navigation; `?sidebar=expanded` still wins.
 
+## Session Info Prompt and Account Tabs
+
+Session Info uses the transcript's condensed user-prompt bubble for the title;
+[reading the full title](session-retitle.md#reading-the-full-title) owns its
+expansion, attachment and copy behavior. Expanding it is local to the open pane
+and does not change the conversation.
+
+The model pill opens the Model, Account and Session Info dialog on desktop and
+phone. When the server supports Agent Auth Router for Claude or Codex, Account
+is available at either width. The wide header's account chip opens Account
+directly; it has no separate dropdown. The Account pane is the sole existing
+session account-switching surface, with the existing capability, owner and
+session eligibility restrictions. Closing or switching tabs preserves drafts.
+
 ## Session List Subagents
 
 Compact session rows with subagents show an expander without a visible count

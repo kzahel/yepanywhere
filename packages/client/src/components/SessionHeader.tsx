@@ -195,7 +195,9 @@ export interface SessionHeaderProps {
   saveTitleValue: ReturnType<typeof useSessionTitleEditing>["saveTitleValue"];
   session: ReturnType<typeof useSession>["session"];
   sessionId: string;
-  setModelPanelInitialTab: Dispatch<SetStateAction<"model" | "info">>;
+  setModelPanelInitialTab: Dispatch<
+    SetStateAction<"model" | "account" | "info">
+  >;
   setProjectAppFull: Dispatch<SetStateAction<boolean>>;
   setProjectAppOpen: Dispatch<SetStateAction<boolean>>;
   setProjectAppOpenedBy: Dispatch<SetStateAction<"session" | "user">>;
@@ -675,9 +677,7 @@ export function SessionHeader({
                   SERVER_CAPABILITIES.agentAuthRouter.name,
                 ) && (
                   <SessionRouterAccountChip
-                    sessionId={actualSessionId}
                     binding={session?.routerBinding}
-                    provider={effectiveProvider}
                     canSwitch={
                       serverHasCapability(
                         versionInfo,
@@ -690,14 +690,8 @@ export function SessionHeader({
                     }
                     className={sessionHeaderStyles.routerAccount}
                     onDetails={() => {
-                      setModelPanelInitialTab("info");
+                      setModelPanelInitialTab("account");
                       setShowModelSwitchModal(true);
-                    }}
-                    onSwitched={() => {
-                      // The binding and process are server-owned; reload
-                      // them as Restart provider does.
-                      draftControlsRef.current?.flushDraft();
-                      window.location.reload();
                     }}
                   />
                 )}

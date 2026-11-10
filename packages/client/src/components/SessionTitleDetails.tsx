@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useI18n } from "../i18n";
 import { writeClipboardText } from "../lib/clipboard";
 import styles from "./SessionTitleDetails.module.css";
@@ -10,11 +10,13 @@ export function SessionTitleDetails({
   label,
   singleLine = false,
   showCopy = true,
+  children,
 }: {
   title: string;
   label: string;
   singleLine?: boolean;
   showCopy?: boolean;
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   const [copyResult, setCopyResult] = useState<{
@@ -41,11 +43,13 @@ export function SessionTitleDetails({
           </Button>
         )}
       </div>
-      <p
-        className={`${styles.title}${singleLine ? ` ${styles.singleLine}` : ""}`}
-      >
-        {title}
-      </p>
+      {children ?? (
+        <p
+          className={`${styles.title}${singleLine ? ` ${styles.singleLine}` : ""}`}
+        >
+          {title}
+        </p>
+      )}
       {showCopy && result && (
         <span className={styles.feedback} role="status">
           {t(result.success ? "sessionTitleCopied" : "sessionTitleCopyFailed")}
