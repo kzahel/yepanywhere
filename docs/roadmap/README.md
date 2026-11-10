@@ -1125,6 +1125,16 @@ lint bans native dialogs, `aria-modal` outside the shared dialogs and
 rules that reach into Modal's frame. The composer pass is the one family
 left.
 
+On 2026-11-10 the maintainer selected
+[plan 191](../tactical/191-css-ownership-and-leak-closure.md) as the follow-up
+and replaced the CSS architecture's "contained steady state" with a target of
+little global CSS. It makes dead-class detection exact, rejects caller
+classes that restyle a shared control, moves hand-drawn `ButtonBase` buttons
+onto shared controls (adding a `link` variant), requires tokens for type
+sizes and radii, trims the census pages to open work, and then splits and
+drains the 17,224 lines of global CSS by owner. No step has landed. It runs
+before the composer pass, which keeps its own exclusion.
+
 ## Later directions
 
 The [clone and fork settings repair](../tactical/140-clone-session-settings-inheritance.md)

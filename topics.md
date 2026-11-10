@@ -489,3 +489,6 @@
 - required-sqlite - Required SQLite storage (renamed from optional-sqlite on
   2026-11-09): runtime adapters, data directory placement, transaction cost,
   and retiring designs that assumed no database.
+
+- css-ownership-and-leak-closure - Plan 191: exact dead-class detection, shared
+  controls that own their look, type and radius tokens, and draining global CSS.

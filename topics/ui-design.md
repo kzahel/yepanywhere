@@ -42,6 +42,13 @@ shared fields, the shared banner, badge, spinner and tabs, and the dialog
 pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
+[Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
+2026-11-10, not yet landed) closes the leaks that remain around the shared
+controls: caller classes that override a control's look, `ButtonBase` uses
+that draw a button by hand, literal type sizes and radii, and census pages
+that still list swept work. Until its checks land, the "layout only" rule
+for a caller's `className` below is a convention, not enforced.
+
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
 - `Button`: variants `primary` (brand green), `secondary` (the default),

@@ -1,35 +1,51 @@
 # Client CSS Architecture
 
-> Component-owned client styles use co-located CSS Modules. Existing global
-> stylesheets are frozen at ratcheting line-count ceilings while feature work
-> gradually extracts their rules.
+> Component-owned client styles live in co-located CSS Modules. Global CSS is
+> limited to tokens, the base reset and styles for markup the client does not
+> author; the legacy global stylesheets are being drained to zero.
 
 Topic: css-architecture
 
-## Status: contained steady state; opportunistic paydown
+## Status: draining; target is little global CSS
 
-YA's authored client CSS grew into four globally loaded stylesheets totaling
-more than 31,000 lines. The two largest files mixed unrelated ownership:
-`index.css` held most application pages and controls, while `renderers.css`
-held generated content, tool renderers, file viewing, source review, and source
-control.
+Direction changed by the maintainer on 2026-11-10.
+[Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) sequences
+the work and records what has landed; until a step lands, the contract below
+describes the checks that run today.
 
-The dedicated migration campaigns are complete. The existing cascade remains
-in place while new work stops increasing it and touched features pay down their
-local part. Zero global CSS is not the goal: generated markup, document-level
-state, themes, tokens, and reviewed shared primitives remain global by design.
+YA's authored client CSS grew into globally loaded stylesheets of more than
+31,000 lines. Earlier campaigns (plans 070, 074, 076) moved component styles
+into modules and froze the rest at line ceilings, then stopped at a
+"contained steady state". That left 17,224 global lines (43% of client CSS),
+dead-class detection that guesses by prefix, and shared controls whose look
+any caller can override.
 
-"Good enough" means the direction is enforced without requiring a continuous
-cleanup campaign: new component CSS is modular, the legacy files cannot grow,
-and a feature change extracts its clearly owned legacy CSS when that work is a
-bounded part of the same verification surface.
+The target:
+
+- **Three global purposes.** Tokens and themes, the base reset, and styles
+  for markup the client does not author (markdown, syntax highlighting, ANSI,
+  KaTeX, diff output). Everything else belongs to a component's module, and
+  the legacy files are deleted when empty.
+- **A shared control owns its look.** A class passed to a shared control
+  sets layout only; a needed look is a variant or size
+  ([UI design](ui-design.md#shared-controls-and-the-design-playground)).
+- **Type sizes and radii come from tokens** in module CSS.
+- **Dead global classes fail lint**, judged by whole-token use or a declared
+  runtime-built or generated family, not by prefix.
+- **Every exception is counted** in an allowlist with a reason; counts only
+  fall.
+
+Until the legacy files are empty, the rules below still apply: new component
+CSS is modular, the legacy files cannot grow, and a feature change extracts
+its clearly owned legacy CSS when that is a bounded part of the same
+verification surface.
 
 ## Migration tracking
 
 [`docs/tactical/070-css-modules-migration.md`](../docs/tactical/070-css-modules-migration.md)
-is the closed campaign record. It no longer carries a priority queue. This
-topic is the binding architecture, candidate-selection protocol, and reusable
-runbook.
+is the closed first campaign record. [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md)
+is the open plan and owns the order of work. This topic is the binding
+architecture, candidate-selection protocol, and reusable runbook.
 
 [`docs/tactical/072-source-css-ownership-map.md`](../docs/tactical/072-source-css-ownership-map.md)
 records the ownership evidence for the file viewer, source review, source
