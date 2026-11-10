@@ -10,6 +10,10 @@ session detail, which rereads the whole transcript. The fixes made on
 after each publication) are in that day's commit; this file lists what
 remains.
 
+[Plan 190](../docs/tactical/190-active-session-cost-at-scale.md) sets the
+target state for this at 50,000 sessions and a 200-compaction session, and
+orders the work below into steps.
+
 ## How it was measured
 
 `scripts/perf-repro/active-session.mjs` builds an isolated world, starts a
