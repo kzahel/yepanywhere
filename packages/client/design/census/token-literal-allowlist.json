@@ -115,6 +115,10 @@
     "count": 3,
     "reason": "Preserve the 0.78/0.82rem commit metadata and full-message hierarchy in the move-only source browser pass."
   },
+  "pages/CommitRevisionPane.module.css": {
+    "count": 1,
+    "reason": "Revision metadata retains 0.75rem so browser root-font preferences preserve history density; close with an approved rem-based source typography scale."
+  },
   "pages/ConversationPreviewPage.module.css": {
     "count": 3,
     "reason": "22/20px empty-preview glyphs and 12px preview frame corners; preserve the sparse empty-state geometry."
@@ -128,8 +132,8 @@
     "reason": "Preserve the 1.25rem standalone file error heading in the move-only file-page pass."
   },
   "pages/GitStatusDiffPreview.module.css": {
-    "count": 7,
-    "reason": "Preserve compact filename, path, hunk and whitespace glyph sizing plus skipped-state hierarchy in the move-only diff preview pass."
+    "count": 8,
+    "reason": "Filename/path, hunk and whitespace labels (0.68\u20130.9rem) and the 1rem skipped-preview heading preserve source-toolbar hierarchy and browser root-font preferences; close with an approved rem-based source typography scale."
   },
   "pages/GitStatusPage.module.css": {
     "count": 1,
@@ -157,15 +161,15 @@
   },
   "pages/SourceSearch.module.css": {
     "count": 2,
-    "reason": "Preserve 0.72rem shortcut and indexing-status sizing beside source search during the move-only pass."
+    "reason": "Dense source index counts and progress labels use 0.72rem to fit narrow columns while following browser root-font preferences; close with an approved source typography scale."
   },
   "pages/UnifiedDiff.module.css": {
     "count": 1,
     "reason": "Source-code typography follows the user-selected source font size and offset."
   },
   "pages/WorkingTreeBrowser.module.css": {
-    "count": 1,
-    "reason": "Preserve 0.82rem clean-state supporting copy in the move-only worktree pass."
+    "count": 2,
+    "reason": "Clean-state glyph (1rem) and explanatory copy (0.82rem) follow browser root-font preferences; close with an approved rem-based source typography scale."
   },
   "pages/WorktreeStateMarker.module.css": {
     "count": 1,

@@ -30,7 +30,7 @@
 .meta {
   display: flex;
   gap: 8px;
-  font-size: var(--font-size-sm);
+  font-size: 0.75rem;
   color: var(--text-secondary, #8b949e);
 }
 
@@ -64,12 +64,16 @@
   text-decoration: none;
 }
 
-.dirty {
+.dirty[data-source-revision-item] {
   border-left: 2px solid var(--warning-color);
   background: color-mix(in srgb, var(--warning-color) 6%, transparent);
 }
 
-.dirtySelected {
+.dirty[data-source-revision-item]:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.dirtySelected[data-source-revision-item][data-source-selected] {
   background: color-mix(in srgb, var(--warning-color) 13%, transparent);
 }
 

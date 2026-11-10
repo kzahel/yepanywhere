@@ -280,7 +280,7 @@ for (const viewport of [
     await page.goto(`/projects/${fileBrowserProjectId}/file?path=README.md`);
     await dismissOnboardingIfVisible(page);
 
-    const viewer = page.locator(".file-page");
+    const viewer = page.locator("[data-file-page]");
     const sidebar = page.locator(".sidebar");
     const opener = page.getByRole("button", { name: "Open sidebar" });
     await expect(viewer).toBeVisible();

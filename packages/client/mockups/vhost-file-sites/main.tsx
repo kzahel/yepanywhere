@@ -1,3 +1,4 @@
+import settingsRowsStyles from "../../src/pages/settings/SettingsRows.module.css";
 import type { ArtifactVhostSiteView } from "@yep-anywhere/shared";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -141,7 +142,7 @@ function SettingsTable() {
       current.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     );
   return (
-    <section className={`settings-section ${styles.settings}`}>
+    <section className={`${settingsRowsStyles.section} ${styles.settings}`}>
       <h2>{t("artifactSettingsTitle")}</h2>
       <fieldset className={settingsStyles.fields}>
         <label>

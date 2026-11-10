@@ -2,8 +2,8 @@
 
    The root element also keeps the global `blame-view` class: the shared
    source-code typography rule in `renderers.css` names it alongside the diff
-   and file-viewer roots, and `BlameBrowser` places this pane with
-   `.blame-browser-columns > .blame-view`. Both live outside this module. */
+   and file-viewer roots, while SourceColumnLayout.module.css places its data-source-blame-view
+   boundary. Both relationships live outside this module. */
 .root {
   position: relative;
   max-height: calc(100dvh - 200px);

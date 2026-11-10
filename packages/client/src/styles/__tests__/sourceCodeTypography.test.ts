@@ -49,8 +49,11 @@ describe("shared source-code typography", () => {
     ).toMatch(
       /\.outputPreviewFixed\s*\{[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
     );
-    expect(rendererCss).not.toMatch(
-      /\.source-diff-pane[\s\S]{0,160}font-size:/,
+    const previewCss = await readFile(
+      new URL("../../pages/GitStatusDiffPreview.module.css", import.meta.url),
+      "utf8",
     );
+    // The React pane must inherit the source metric from its generated child.
+    expect(previewCss).not.toMatch(/\.sourceDiffPane\s*\{[^}]*font-size:/);
   });
 });

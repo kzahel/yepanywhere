@@ -16,9 +16,8 @@
   width: auto;
 }
 
-/* Tightens the shared `.settings-group` rhythm for this dense catalog. The
-   global class is compounded so the override does not depend on whether the
-   module or index.css is emitted last. */
+/* Tightens SettingsRows.group for this dense catalog. The stable data
+   boundary keeps the override more specific than the shared group rule. */
 .group[data-settings-group] {
   gap: var(--space-2);
 }

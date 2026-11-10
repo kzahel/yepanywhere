@@ -4859,24 +4859,6 @@ a.sidebar-nav-item {
 
 /* Hide chevron on desktop (not needed for side-by-side layout) */
 
-/* ==========================================================================
-   Settings search (contract: topics/settings-search.md)
-   While a query is active the results view mounts every category pane for
-   real, so matched rows stay operable in place. Visibility keys off the
-   .settings-search-match class matched SettingsItem rows render and the
-   .settings-search-section-match class a fully-matched SettingsSection adds.
-   ========================================================================== */
-
-/* Filtering: inside search panes only matched rows render visible; hints,
-   warnings, and grouped sub-rows that are not row-owned stay hidden. */
-
-/* Collapse structures left with no matched row, and whole matchless panes. */
-
-/* A section matched as a whole shows everything inside it, operable.
-   These overrides sit after the hide rules and share their specificity. */
-
-/* Jump-link landing: flash the targeted row, then settle. */
-
 /* Font size selector */
 
 /* ==========================================================================

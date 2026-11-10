@@ -215,7 +215,8 @@ Landing by area, composer unchanged and last (2026-11-10).
 - Area 1 landed: monitor/share/relay setup, login/host pages and logo; shared login/list/pulse. Remaining index/renderers/tool rows: 8,929/4,063/670.
 - Area 2 landed: settings/search/categories, toolbar previews, device/command reuse and onboarding. Remaining: 7,058/4,062/670 (11,790).
 - Area 3 landed: source columns/rows/search/detail, diff controls, commit/blame browser and file-page chrome. Remaining: 6,733/3,316/670 (10,719).
-- Final census: 120 token exceptions / 52 files; 38 runtime families; zero unused globals/module selectors.
+- Review repair landed: DOM hooks/folder focus, rem typography and explicit cross-module winners; durable source layout guards restored.
+- Final census: 123 token exceptions / 53 files; 38 runtime families; zero unused globals/module selectors.
 - Deferred: viewer/Markdown body typography and diff gutters share Read/Write/Edit and generated roots; move together with transcript to preserve cascade.
 - Shared page shell waits for navigation; Model's 17 inline-modifier lines wait for ThinkingControls/RecapAfterSecondsControl in the composer pass.
 - Transcript samples/share interop and the tool-row global pulse wait for their transcript owner; the login recovery-hint [defect](../../gaps/login-recovery-hint-unstyled.md) stays unchanged.

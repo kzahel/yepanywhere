@@ -1166,7 +1166,8 @@ becomes modular. Legacy lines fall to 14,562 across three files (target zero);
 coupled React/generated groups stay ordered for step 7. Step 7 has landed the
 single-owner pages, settings/onboarding and source browser/file-page chrome,
 with shared row/search, preview, column and diff-control owners. Legacy lines
-are 10,719 (index 6,733; renderers 3,316; tool rows 670). Viewer body typography
+are 10,701 (index 6,715; renderers 3,316; tool rows 670). The review repair
+restores mobile/focus hooks, rem sizes and explicit cross-module winners. Viewer body typography
 and diff gutters wait for the coupled transcript move; collections/navigation
 is next. Step 8 remains open. The composer CSS still moves unchanged last;
 its control swaps remain excluded.

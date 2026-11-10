@@ -77,9 +77,7 @@ test("keeps sidebar density spatial and the create action recognizable", async (
     "Choose comfortable or compact spacing for sidebar rows and sections.",
   );
   await expect(
-    densityRow.locator(
-      "xpath=ancestor::*[contains(@class, 'output-appearance-settings')]",
-    ),
+    densityRow.locator("xpath=ancestor::*[@data-output-appearance]"),
   ).toHaveCount(0);
 
   await expect(page.locator(".sidebar-brand")).toBeVisible();

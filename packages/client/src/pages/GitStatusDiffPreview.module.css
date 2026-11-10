@@ -97,7 +97,7 @@
 }
 
 @media (width <= 600px) {
-  .sourceDiffContextControls {
+  .sourceDiffContextControls[data-diff-context-controls] {
     justify-content: flex-start;
     margin-bottom: 0;
     padding: 6px 8px;
@@ -141,7 +141,7 @@
 
 .previewSkippedTitle {
   color: var(--text-primary);
-  font-size: var(--font-size-xl);
+  font-size: 1rem;
   font-weight: 600;
 }
 

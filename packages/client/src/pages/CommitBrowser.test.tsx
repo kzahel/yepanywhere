@@ -1924,4 +1924,37 @@ describe("CommitBrowser", () => {
       scrollIntoView.restore();
     }
   });
+  it("scrolls the working-tree pane into view on phone selection", async () => {
+    primeApis();
+    const scroll = installScrollIntoViewMock();
+    try {
+      render(
+        <MemoryRouter>
+          <CommitBrowser
+            projectId="p1"
+            status={cleanStatus()}
+            isWideScreen={false}
+            t={t}
+          />
+        </MemoryRouter>,
+      );
+      const row = await waitFor(() => {
+        const element = document.querySelector(
+          "[data-source-working-tree-revision] a",
+        );
+        expect(element).not.toBeNull();
+        return element!;
+      });
+      scroll.fn.mockClear();
+      fireEvent.click(row);
+      await waitFor(() =>
+        expect(scroll.fn.mock.instances).toContain(
+          document.querySelector("[data-source-working-history]"),
+        ),
+      );
+      expect(scroll.fn).toHaveBeenCalledWith({ block: "start" });
+    } finally {
+      scroll.restore();
+    }
+  });
 });

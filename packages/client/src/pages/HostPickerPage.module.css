@@ -19,7 +19,7 @@
   position: relative;
 }
 
-.item:disabled {
+.item.item:disabled {
   cursor: wait;
 }
 
@@ -102,6 +102,6 @@
   opacity: 0.9;
 }
 
-.addTitle {
+.addTitle.addTitle {
   margin-top: var(--space-4);
 }

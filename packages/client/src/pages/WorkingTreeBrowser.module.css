@@ -39,7 +39,7 @@
   background: color-mix(in srgb, var(--success-color) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--success-color) 30%, transparent);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xl);
+  font-size: 1rem;
   font-weight: 700;
 }
 

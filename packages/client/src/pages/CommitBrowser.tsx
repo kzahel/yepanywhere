@@ -429,7 +429,7 @@ export function CommitBrowser({
       const detailTarget =
         detailColumnRef.current ??
         browserRef.current?.querySelector<HTMLElement>(
-          ".working-tree-browser-history",
+          "[data-source-working-history]",
         );
       detailTarget?.scrollIntoView?.({ block: "start" });
       return;

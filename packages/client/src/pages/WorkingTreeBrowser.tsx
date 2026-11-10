@@ -993,6 +993,7 @@ export function WorkingTreeBrowser({
       <div
         ref={rootRef}
         className={rootClassName}
+        data-source-working-history={embeddedInHistory || undefined}
         data-testid="working-tree-browser"
       >
         {historyParentLink}
@@ -1029,6 +1030,7 @@ export function WorkingTreeBrowser({
     <div
       ref={rootRef}
       className={rootClassName}
+      data-source-working-history={embeddedInHistory || undefined}
       data-testid="working-tree-browser"
     >
       {historyParentLink}
@@ -1191,7 +1193,7 @@ export function WorkingTreeBrowser({
                             path={entry.path}
                             type="button"
                             className={rowsStyles.commitFileItem}
-                            data-source-file-item
+                            data-source-folder-header
                             disabled={
                               loadingUntrackedFolders.has(entry.path) ||
                               (!supportsUntrackedCache && !entry.info) ||

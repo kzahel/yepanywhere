@@ -760,6 +760,7 @@ describe("WorkingTreeBrowser", () => {
               },
             ],
           }}
+          fileFocusRequest={1}
           isWideScreen={false}
           t={detailedT}
         />
@@ -770,6 +771,7 @@ describe("WorkingTreeBrowser", () => {
       name: 'sourceExpandUntrackedFolder {"path":"generated/"}',
     });
     expect(expand.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).not.toBe(expand);
     expect(screen.queryByText("file-00.ts")).toBeNull();
     expect(screen.getByRole("status").textContent).toBe(
       'sourceUntrackedFolderScanProgress {"loaded":1,"total":1}',

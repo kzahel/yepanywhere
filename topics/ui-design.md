@@ -60,7 +60,10 @@ reads token data from `tokens.css`; generated-content wrappers retain counted
 context exceptions ([global contract](css-architecture.md#contract)).
 Login pages share `LoginLayout.module.css`; host/monitor/share pages and relay
 setup own modules. `YepAnywhereLogo` owns its login/monitor variants; callers
-do not reach into its glyph or wordmark. These ownership moves preserve appearance.
+do not reach into its glyph or wordmark. These ownership moves preserve appearance. Cross-module look ties have explicit
+winners, including host-picker heading margins and disabled/busy cursors. Source
+typography keeps rem values where browser root-font preferences make a UI token
+non-equivalent.
 Settings row/search visibility, category icons/navigation, toolbar specimens,
 shared device/command content and onboarding now use their owning modules.
 The settings and onboarding move preserves all shared control states and

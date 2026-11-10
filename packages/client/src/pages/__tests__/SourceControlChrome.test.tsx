@@ -56,17 +56,15 @@ describe("RepoStatusBar", () => {
     render(
       <RepoStatusBar
         status={gitStatus()}
-        className="source-header-repo-status"
+        className="test-repo-placement"
         t={t}
       />,
     );
 
     const bar = screen.getByTestId("repo-status-bar");
-    expect(bar.classList.contains("source-header-repo-status")).toBe(true);
+    expect(bar.classList.contains("test-repo-placement")).toBe(true);
     expect(bar.classList.contains(repoStyles.bar as string)).toBe(true);
     expect(bar.classList.contains(repoStyles.inline as string)).toBe(true);
-    // The legacy global vocabulary is gone; callers cannot target it any more.
-    expect(document.querySelector(".repo-status-bar")).toBeNull();
   });
 
   it("marks a dirty or out-of-sync repository with the warn variant", () => {

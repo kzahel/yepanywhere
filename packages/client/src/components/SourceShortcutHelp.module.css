@@ -43,7 +43,7 @@
 }
 
 /* The narrow commit layout hides this disclosure entirely; the sibling
-   `.source-search-shortcut` kbd hint keeps its own rule in renderers.css. */
+   keyboard hint is owned by SourceSearch.module.css. */
 @media (width <= 600px) {
   .root {
     display: none;

@@ -29,7 +29,10 @@ export function FilePage() {
 
   if (!projectId) {
     return (
-      <div className={`${filePageStyles.root} ${filePageStyles.error}`}>
+      <div
+        data-file-page
+        className={`${filePageStyles.root} ${filePageStyles.error}`}
+      >
         <div className={filePageStyles.errorContent}>
           <h1>{t("fileInvalidUrl" as never)}</h1>
           <p>{t("fileMissingProjectId" as never)}</p>
@@ -43,7 +46,10 @@ export function FilePage() {
 
   if (!filePath) {
     return (
-      <div className={`${filePageStyles.root} ${filePageStyles.error}`}>
+      <div
+        data-file-page
+        className={`${filePageStyles.root} ${filePageStyles.error}`}
+      >
         <div className={filePageStyles.errorContent}>
           <h1>{t("fileInvalidUrl" as never)}</h1>
           <p>{t("fileMissingPath" as never)}</p>
@@ -60,7 +66,7 @@ export function FilePage() {
 
   return (
     <GlossaryProjectBoundary projectId={projectId}>
-      <div className={filePageStyles.root}>
+      <div data-file-page className={filePageStyles.root}>
         <div className={filePageStyles.content}>
           <FileViewer
             projectId={projectId}

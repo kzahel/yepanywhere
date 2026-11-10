@@ -79,7 +79,7 @@
   flex: 1 1 auto;
 }
 
-/* A text field beside its row's description (.settings-item-inline-field). */
+/* A text field beside its row's description (SettingsRows.inlineField). */
 .inlineField {
   flex: 1 1 20rem;
   width: auto;
@@ -96,7 +96,7 @@
   flex: 0 0 7rem;
 }
 
-/* The password choice nested under Require Password (a .settings-subsection). */
+/* The password choice nested under Require Password (SettingsRows.subsection). */
 .passwordBlock {
   margin-top: 0;
   margin-bottom: var(--space-3);

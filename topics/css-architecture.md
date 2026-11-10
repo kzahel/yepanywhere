@@ -627,7 +627,9 @@ repository before editing:
 - CSS selectors elsewhere in the legacy cascade;
 - `className` strings, template literals, and helper-built names;
 - raw/generated HTML producers;
-- tests, Playwright locators, and DOM-query code; and
+- tests and Playwright locators, including negative assertions;
+- production `querySelector`, `closest`, `matches` and `classList` calls
+  naming any moved class (search the whole source, including multiline calls); and
 - caller selectors that reach into the component.
 
 Classify each rule as component-owned, caller layout, shared primitive,
@@ -655,7 +657,9 @@ must stay global.
 
 Create `Owner.module.css` beside the component and import it as `styles`.
 Preserve declarations, media queries, pseudo states, keyframes, variables, and
-selector ordering before attempting visual cleanup. Semantic local names no
+selector ordering before attempting visual cleanup. A rem value is not equivalent
+to a px-based type token across browser default fonts and UI scaling: keep the
+literal with a counted, lasting reason unless equivalence holds in every case. Semantic local names no
 longer need globally unique feature prefixes.
 
 Basic usage:
@@ -709,6 +713,13 @@ do not render, as four row lists did to the source row-menu trigger — the chil
 module exports an opt-in class for the ancestor to apply to itself, and owns the
 relationship locally (`.rowSurface:hover > .trigger`). The ancestor declares that
 it is the interaction surface; it does not decide what the reveal looks like.
+
+Check cross-module ties on elements that combine owner classes. Make the
+intended winner explicit through a compound selector or one shared owner; import
+order is not a contract. Check production output as well as development, and
+exercise hover, selected, disabled and busy combinations. A folder disclosure
+and a real file row need distinct data boundaries when focus queries select
+only files.
 
 Check what a moved declaration was actually defending against before calling it
 redundant. `.repo-status-bar .copy-button` restated `.copy-button`'s own values
