@@ -1,0 +1,35 @@
+.collapsibleSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  list-style: none;
+}
+
+.collapsibleIcon {
+  font-size: var(--font-size-xs);
+  transition: transform 0.15s ease;
+}
+
+.collapsibleContent {
+  padding: var(--space-2) 0 var(--space-2) var(--space-4);
+}
+
+.collapsibleSummary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsibleContent [data-thinking-text] {
+  color: var(--text-muted);
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--thinking-prose-font-variation-settings);
+  font-size: var(--thinking-prose-font-size);
+  line-height: var(--thinking-prose-line-height);
+}
+
+details[open] .collapsibleIcon {
+  transform: rotate(90deg);
+}

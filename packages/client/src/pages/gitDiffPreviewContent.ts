@@ -73,3 +73,17 @@ export function getBinaryPatchSkip(
     ? { reason: "binary" }
     : null;
 }
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${formatFraction(bytes / 1024)} KB`;
+  }
+  return `${formatFraction(bytes / (1024 * 1024))} MB`;
+}
+
+function formatFraction(value: number): string {
+  return value >= 10 ? value.toFixed(0) : value.toFixed(1);
+}

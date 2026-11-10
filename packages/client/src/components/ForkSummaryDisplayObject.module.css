@@ -1,0 +1,66 @@
+.forkSummaryDisplayObject {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid
+    color-mix(in srgb, var(--accent-primary) 35%, var(--border-color));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-code));
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.forkSummaryDisplayObjectAutoopen {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.forkSummaryDisplayObjectError {
+  border-color: color-mix(in srgb, var(--error-color) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--error-color) 10%, var(--bg-code));
+}
+
+.forkSummaryDisplayObjectLabel {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.forkSummaryDisplayObjectElapsed {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.forkSummaryDisplayObjectState {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.forkSummaryDisplayObjectLink {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.forkSummaryDisplayObjectCancel {
+  flex: 0 0 auto;
+}
+
+.forkSummaryDisplayObjectError .forkSummaryDisplayObjectCancel {
+  margin-left: auto;
+}
+
+.forkSummaryDisplayObjectLink:hover {
+  text-decoration: underline;
+  outline: none;
+}
+
+.forkSummaryDisplayObjectLink:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}

@@ -1,3 +1,4 @@
+import viewerStyles from "../components/FileViewer.module.css";
 import filePageStyles from "./FilePageLayout.module.css";
 import { DEFAULT_RELAY_URL, normalizeRelayUrl } from "@yep-anywhere/shared";
 import { useMemo } from "react";
@@ -109,7 +110,7 @@ export function PublicShareFilePage() {
             viewMode={viewMode}
           />
         ) : (
-          <div className="file-viewer">
+          <div className={viewerStyles.fileViewer} data-file-viewer>
             <Banner tone="error">
               {relayConfig.error || t("fileInvalidUrl" as never)}
             </Banner>

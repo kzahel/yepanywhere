@@ -20,10 +20,10 @@ test("Read diff shortcuts reveal once and open without leaving the session", asy
   const diff = page.locator('[data-file-diff-links="inline"] a');
   await expect(diff).toHaveCount(1);
   await expect(diff).toBeHidden();
-  await page.locator(".file-path-link").first().hover();
+  await page.locator("[data-file-path-link]").first().hover();
   await expect(diff).toHaveText("Δ");
   await diff.click();
-  const viewer = page.locator(".file-viewer");
+  const viewer = page.locator("[data-file-viewer]");
   await expect(viewer).toBeVisible();
   // The path breadcrumb's file-name link also carries aria-current.
   const activeDiff = '[aria-current="page"][aria-label^="View HEAD"]';
@@ -71,7 +71,7 @@ test("viewer copy and revision menus copy only pushed GitHub links", async ({
   const viewerUrl = `${baseURL}/projects/${projectId}/file?path=report.qmd`;
   await page.setViewportSize({ width: 1200, height: 600 });
   await page.goto(viewerUrl);
-  const viewer = page.locator(".file-viewer");
+  const viewer = page.locator("[data-file-viewer]");
   const copyLink = viewer.getByRole("button", { name: "Copy viewer link" });
   const revision = viewer.getByRole("link", { name: hash.slice(0, 9) });
   await expect(revision).toBeVisible();

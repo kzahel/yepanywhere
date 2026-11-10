@@ -1,0 +1,82 @@
+.thinkingTextPlain {
+  white-space: pre-wrap;
+}
+
+.thinkingOutline {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.thinkingOutlineSection {
+  min-width: 0;
+}
+
+.thinkingOutlineHeading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.thinkingOutlineDot {
+  width: 0.42rem;
+  height: 0.42rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--thinking-color);
+  opacity: 0.82;
+  transform: translateY(-0.08rem);
+}
+
+.thinkingOutlineBody {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.32rem 0 0 0.87rem;
+}
+
+.thinkingInlineCode {
+  padding: 0.05rem 0.22rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-inline);
+  line-height: var(--fixed-inline-code-line-height);
+  vertical-align: var(--fixed-inline-code-baseline-shift);
+}
+
+.thinkingCodeBlock {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  color: var(--text-primary);
+  line-height: 1.45;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-inline);
+}
+
+.thinkingOutlineHeading > strong {
+  font-size: max(10px, calc(1em - 1px));
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.thinkingOutlineHeading::-webkit-details-marker {
+  display: none;
+}
+
+.thinkingOutlineBody p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.thinkingOutlineSection:not([open]) .thinkingOutlineDot {
+  opacity: 0.42;
+}

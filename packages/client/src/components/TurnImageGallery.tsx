@@ -1,3 +1,4 @@
+import listStyles from "./MessageList.module.css";
 import {
   createContext,
   type CSSProperties,
@@ -599,7 +600,9 @@ export function AssistantTurnImageGallery({
     <TurnImageGalleryContext.Provider value={navigation}>
       <div
         ref={turnRef}
-        className={`assistant-turn${galleryActive ? " has-turn-image-gallery" : ""}`}
+        className={`${listStyles.assistantTurn}`}
+        data-assistant-turn
+        data-has-turn-image-gallery={galleryActive || undefined}
       >
         {children}
         {galleryActive ? (

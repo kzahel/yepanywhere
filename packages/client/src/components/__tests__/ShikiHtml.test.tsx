@@ -12,7 +12,7 @@ describe("ShikiHtml", () => {
     );
 
     const shell = container.firstElementChild;
-    expect(shell?.classList.contains("shiki-container")).toBe(true);
+    expect(shell?.hasAttribute("data-shiki-container")).toBe(true);
     expect(shell?.classList.contains("surface")).toBe(true);
     const code = container.querySelector("code");
     expect(

@@ -1,3 +1,5 @@
+import styles from "./SessionSetupBlock.module.css";
+import collapsibleStyles from "../Collapsible.module.css";
 import { memo } from "react";
 import type { ContentBlock } from "../../types";
 import { UserPromptBlock } from "./UserPromptBlock";
@@ -30,18 +32,33 @@ export const SessionSetupBlock = memo(function SessionSetupBlock({
   const promptKeyCounts = new Map<string, number>();
 
   return (
-    <details className="session-setup-block collapsible">
-      <summary className="collapsible__summary">
-        <span className="collapsible__icon">▸</span>
+    <details className={`${styles.sessionSetupBlock}`} data-session-setup-block>
+      <summary
+        className={collapsibleStyles.collapsibleSummary}
+        data-collapsible__summary
+      >
+        <span
+          className={collapsibleStyles.collapsibleIcon}
+          data-collapsible__icon
+        >
+          ▸
+        </span>
         <span>{title}</span>
       </summary>
-      <div className="collapsible__content">
+      <div
+        className={collapsibleStyles.collapsibleContent}
+        data-collapsible__content
+      >
         {prompts.map((prompt) => {
           const baseKey = getPromptKey(prompt);
           const count = (promptKeyCounts.get(baseKey) ?? 0) + 1;
           promptKeyCounts.set(baseKey, count);
           return (
-            <div className="session-setup-entry" key={`${baseKey}:${count}`}>
+            <div
+              className={styles.sessionSetupEntry}
+              data-session-setup-entry
+              key={`${baseKey}:${count}`}
+            >
               <UserPromptBlock content={prompt} />
             </div>
           );

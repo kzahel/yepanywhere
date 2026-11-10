@@ -105,7 +105,7 @@ export function LastSessionFile({
       setHasMargin(false);
       return;
     }
-    let transcript = parent.querySelector<HTMLElement>(".message-list");
+    let transcript = parent.querySelector<HTMLElement>("[data-message-list]");
     const measure = () => {
       // Keep the entire hit target outside the actual reading column, including
       // when Appearance changes its width or a right pane narrows the session.
@@ -122,7 +122,7 @@ export function LastSessionFile({
     // After reload the transcript may hydrate after this sibling mounts. Stop
     // watching DOM additions as soon as its reading column becomes available.
     const waiting = new MutationObserver(() => {
-      transcript = parent.querySelector<HTMLElement>(".message-list");
+      transcript = parent.querySelector<HTMLElement>("[data-message-list]");
       if (!transcript) return;
       waiting.disconnect();
       observer.observe(transcript);

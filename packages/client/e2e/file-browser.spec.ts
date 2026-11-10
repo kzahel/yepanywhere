@@ -46,7 +46,7 @@ test.describe("File browser", () => {
     ]) {
       await page.setViewportSize(viewport);
       await expect(frame.getByText("End of complete document")).toBeVisible();
-      const header = page.locator(".file-viewer-header");
+      const header = page.locator("[data-file-viewer-header]");
       const path = header.locator(".file-viewer-path");
       await expect(path).toHaveText(filename);
       if (viewport.width <= 865) {

@@ -74,7 +74,7 @@ async function probeComposer(page: Page) {
     const probe: { loaded?: number; matched?: number; expect?: string } = {};
     (window as unknown as { pinProbe: typeof probe }).pinProbe = probe;
     const tick = () => {
-      const transcript = document.querySelector(".message-list");
+      const transcript = document.querySelector("[data-message-list]");
       if (transcript?.textContent?.includes("Previous message"))
         probe.loaded ??= performance.now();
       const input = document.querySelector<HTMLTextAreaElement>(selector);

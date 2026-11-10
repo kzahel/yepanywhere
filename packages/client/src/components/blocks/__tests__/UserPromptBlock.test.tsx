@@ -132,7 +132,7 @@ describe("UserPromptBlock", () => {
 
     const container = screen
       .getByText(/Please handle this long user turn/)
-      .closest<HTMLElement>(".user-prompt-container");
+      .closest<HTMLElement>("[data-user-prompt-container]");
     expect(
       container?.style.getPropertyValue("--user-prompt-action-count"),
     ).toBe("4");
@@ -144,7 +144,7 @@ describe("UserPromptBlock", () => {
     );
 
     const actionLabels = Array.from(
-      container?.querySelectorAll(".user-prompt-actions button") ?? [],
+      container?.querySelectorAll("[data-user-prompt-actions] button") ?? [],
     ).map((button) => button.getAttribute("aria-label"));
     expect(actionLabels).toEqual([
       "Copy message text",
@@ -275,8 +275,8 @@ describe("UserPromptBlock", () => {
 
     const bubble = screen
       .getByText("hello there")
-      .closest(".message-user-prompt");
-    expect(bubble?.classList.contains("user-prompt-unconfirmed")).toBe(true);
+      .closest("[data-message-user-prompt]");
+    expect(bubble?.hasAttribute("data-user-prompt-unconfirmed")).toBe(true);
 
     const marker = screen.getByRole("button", {
       name: /waiting for the session to record it/i,
@@ -304,8 +304,8 @@ describe("UserPromptBlock", () => {
 
     const bubble = screen
       .getByText("hello there")
-      .closest(".message-user-prompt");
-    expect(bubble?.classList.contains("user-prompt-unconfirmed")).toBe(false);
+      .closest("[data-message-user-prompt]");
+    expect(bubble?.hasAttribute("data-user-prompt-unconfirmed")).toBe(false);
     expect(screen.queryByText("sent")).toBeNull();
   });
 

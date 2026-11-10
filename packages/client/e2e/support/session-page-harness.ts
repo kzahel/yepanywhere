@@ -222,7 +222,7 @@ export async function openSessionPage(
     options.ready ??
     (options.messages ? "First request about the parser" : "Previous message");
   await expect(
-    page.locator(".message-list").getByText(ready).first(),
+    page.locator("[data-message-list]").getByText(ready).first(),
   ).toBeVisible();
   await expect.poll(() => sessionLoads).toBeGreaterThan(0);
   if (options.owner === "self")

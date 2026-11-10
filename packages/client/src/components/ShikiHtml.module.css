@@ -1,3 +1,7 @@
+.container pre {
+  white-space: pre-wrap;
+}
+
 /* `prepareShikiHtml` removes the newline between Shiki's line spans, so
    the line separation is layout, not text. Any surface rendering that markup
    must give each line its own block, or the last word of one line joins the
@@ -6,9 +10,5 @@
    it; richer surfaces (the file viewer's wrap gutter) still add their own. */
 .container pre :global(.line) {
   display: block;
-  white-space: pre-wrap;
-}
-
-.container pre {
   white-space: pre-wrap;
 }

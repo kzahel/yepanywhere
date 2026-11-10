@@ -1,3 +1,4 @@
+import styles from "./MarkdownPreview.module.css";
 import {
   type CSSProperties,
   forwardRef,
@@ -165,7 +166,9 @@ export const MarkdownPreview = memo(
     },
     ref,
   ) {
-    const classes = ["markdown-preview", className].filter(Boolean).join(" ");
+    const classes = [styles.markdownPreview, className]
+      .filter(Boolean)
+      .join(" ");
     const glossary = useGlossaryArtifact(sourcePath);
     const renderedHtml = useMemo(() => {
       if (glossary.state !== "ready" || glossary.result?.status !== "ready") {
@@ -183,6 +186,7 @@ export const MarkdownPreview = memo(
     return (
       <div
         className={classes}
+        data-markdown-preview
         role="region"
         aria-label={ariaLabel ?? "Markdown preview"}
         onClick={onClick}
@@ -195,7 +199,8 @@ export const MarkdownPreview = memo(
         style={getMarkdownPreviewStyle(density)}
       >
         <div
-          className={`markdown-rendered ${codeFenceRootClass}`}
+          className={`${styles.markdownRendered} ${codeFenceRootClass}`}
+          data-markdown-rendered
           ref={renderedRef}
           // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered markdown is sanitized
           dangerouslySetInnerHTML={renderedMarkup}

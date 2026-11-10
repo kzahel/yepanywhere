@@ -1,0 +1,31 @@
+.sessionRenderProgress {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 2rem;
+  text-align: center;
+  background: linear-gradient(
+    to bottom,
+    var(--bg-surface) 0%,
+    color-mix(in srgb, var(--bg-surface) 92%, transparent) 82%,
+    transparent 100%
+  );
+  color: var(--text-muted);
+}
+
+.sessionRenderProgressBar {
+  width: min(340px, 74vw);
+  height: 8px;
+  margin: 0.75rem auto 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--border-color) 45%, transparent);
+}
+
+.sessionRenderProgressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-color);
+  transition: width 0.16s ease-out;
+}

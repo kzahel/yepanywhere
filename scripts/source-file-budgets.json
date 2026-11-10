@@ -6,13 +6,13 @@
       "maxLines": 1913
     },
     "packages/client/src/components/blocks/ToolCallRow.tsx": {
-      "maxLines": 1859
+      "maxLines": 1693
     },
     "packages/client/src/components/FileViewer.tsx": {
-      "maxLines": 2707
+      "maxLines": 2524
     },
     "packages/client/src/components/LocalMediaModal.tsx": {
-      "maxLines": 1900
+      "maxLines": 1899
     },
     "packages/client/src/components/MessageInput.tsx": {
       "maxLines": 3185
@@ -21,7 +21,7 @@
       "maxLines": 3802
     },
     "packages/client/src/components/MessageList.tsx": {
-      "maxLines": 5653,
+      "maxLines": 5574,
       "raise": {
         "from": 5702,
         "reason": "Removing the export-star renderSelectors barrel splits its one import into per-module imports from the owning sessionDetail concern modules. Maintainer-approved 2026-11-06."
@@ -29,12 +29,6 @@
     },
     "packages/client/src/components/NewSessionForm.tsx": {
       "maxLines": 2689
-    },
-    "packages/client/src/components/renderers/tools/EditRenderer.tsx": {
-      "maxLines": 1784
-    },
-    "packages/client/src/components/RenderItemComponent.tsx": {
-      "maxLines": 1723
     },
     "packages/client/src/components/Sidebar.tsx": {
       "maxLines": 1603
@@ -64,13 +58,13 @@
       "maxLines": 1940
     },
     "packages/client/src/pages/GitStatusDiffPreview.tsx": {
-      "maxLines": 1653
+      "maxLines": 1643
     },
     "packages/client/src/pages/SessionPage.tsx": {
       "maxLines": 3604
     },
     "packages/client/src/pages/settings/AppearanceSettings.tsx": {
-      "maxLines": 1821
+      "maxLines": 1811
     },
     "packages/server/src/app.ts": {
       "maxLines": 4590

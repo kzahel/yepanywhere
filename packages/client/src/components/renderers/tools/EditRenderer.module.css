@@ -1,0 +1,99 @@
+.sourceReviewEditSummary {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.editResult {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.editResultError {
+  padding: 0.5rem;
+}
+
+.editResultWarning {
+  padding: 0.5rem;
+}
+
+.editResultMuted {
+  padding: 0.5rem;
+}
+
+.editErrorMessage {
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  font-size: var(--font-size-lg);
+}
+
+.editHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.editChangeSummary {
+  color: var(--text-muted, #888);
+  font-size: var(--font-size-base);
+}
+
+.editSimple {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.editLabel {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  margin-bottom: 0.25rem;
+}
+
+.editTargetPaths {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+}
+
+.editTargetPath {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+.editCollapsedPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.editCollapsedError {
+  padding: 0.5rem;
+}
+
+.editCollapsedWarning {
+  padding: 0.5rem;
+}
+
+.editCollapsedMuted {
+  padding: 0.5rem;
+}
+
+.editPreviewMore {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.editCollapsedPreview :global([data-diff-view-container]) {
+  position: relative;
+}

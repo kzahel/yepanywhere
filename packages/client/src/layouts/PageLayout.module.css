@@ -46,7 +46,7 @@
   padding: 1rem;
 }
 
-:global(.session-render-progress).loading {
+:global([data-session-render-progress]).loading {
   opacity: 1;
   animation: none;
   color: var(--text-primary);

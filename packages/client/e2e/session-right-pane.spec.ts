@@ -252,7 +252,7 @@ test("right pane discovers tool apps, resizes, parks and preserves typing", asyn
   await expect(pane).toHaveCount(0);
   await appAction.click();
   await expect(pane).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator(".message-list")).not.toHaveAttribute(
+  await expect(page.locator("[data-message-list]")).not.toHaveAttribute(
     "aria-busy",
     "true",
   );

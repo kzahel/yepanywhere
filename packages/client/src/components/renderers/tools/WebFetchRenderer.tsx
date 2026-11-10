@@ -1,3 +1,6 @@
+import codeStyles from "../CodeOutput.module.css";
+import expandStyles from "../ExpandOutput.module.css";
+import styles from "./WebFetchRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useEffect, useState } from "react";
@@ -25,16 +28,21 @@ function formatBytes(bytes: number): string {
  */
 function WebFetchToolUse({ input }: { input: WebFetchInput }) {
   return (
-    <div className="webfetch-tool-use">
+    <div className={styles.webfetchToolUse} data-webfetch-tool-use>
       <a
         href={input.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="webfetch-url"
+        className={styles.webfetchUrl}
+        data-webfetch-url
       >
         {input.url}
       </a>
-      {input.prompt && <div className="webfetch-prompt">{input.prompt}</div>}
+      {input.prompt && (
+        <div className={styles.webfetchPrompt} data-webfetch-prompt>
+          {input.prompt}
+        </div>
+      )}
     </div>
   );
 }
@@ -66,7 +74,11 @@ function WebFetchToolResult({ result }: { result: WebFetchResult }) {
     enabled && validationErrors && !isToolIgnored("WebFetch");
 
   if (!result) {
-    return <div className="webfetch-empty">No content</div>;
+    return (
+      <div className={styles.webfetchEmpty} data-webfetch-empty>
+        No content
+      </div>
+    );
   }
 
   const lines = result.result?.split("\n") || [];
@@ -82,20 +94,21 @@ function WebFetchToolResult({ result }: { result: WebFetchResult }) {
         : "warning";
 
   return (
-    <div className="webfetch-result">
-      <div className="webfetch-header">
+    <div className={styles.webfetchResult} data-webfetch-result>
+      <div className={styles.webfetchHeader} data-webfetch-header>
         <a
           href={result.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="webfetch-url"
+          className={styles.webfetchUrl}
+          data-webfetch-url
         >
           {result.url}
         </a>
         <Badge tone={statusTone} size="small">
           {result.code} {result.codeText}
         </Badge>
-        <span className="webfetch-meta">
+        <span className={styles.webfetchMeta} data-webfetch-meta>
           {formatBytes(result.bytes)} &middot; {result.durationMs}ms
         </span>
         {showValidationWarning && validationErrors && (
@@ -104,14 +117,19 @@ function WebFetchToolResult({ result }: { result: WebFetchResult }) {
       </div>
       {result.result && (
         <>
-          <pre className="webfetch-content code-block">
+          <pre
+            className={`${styles.webfetchContent} ${codeStyles.codeBlock}`}
+            data-webfetch-content
+            data-code-block
+          >
             <code>{displayLines.join("\n")}</code>
           </pre>
           {needsCollapse && (
             <Button
               variant="ghost"
               size="small"
-              className="expand-button"
+              className={expandStyles.expandButton}
+              data-expand-button
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
@@ -136,7 +154,9 @@ export const webFetchRenderer = defineTool(toolDisplayContracts.WebFetch, {
 
   renderFailure(failure) {
     return (
-      <div className="webfetch-error">{failure.content || "Fetch failed"}</div>
+      <div className={styles.webfetchError} data-webfetch-error>
+        {failure.content || "Fetch failed"}
+      </div>
     );
   },
 

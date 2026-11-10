@@ -1,3 +1,28 @@
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+}
+
+.fileListItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.fileListMore {
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  padding: 0.25rem 0.5rem;
+  font-style: italic;
+}
+
 .toolUse {
   display: flex;
   align-items: center;
@@ -44,4 +69,18 @@
   color: var(--text-muted);
   font-style: italic;
   font-size: var(--font-size-lg);
+}
+
+.fileListItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fileListItem :global([data-file-path]) {
+  font-weight: 500;
+}
+
+.fileListItem .fileDir {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-family: "SF Mono", Monaco, monospace;
 }

@@ -48,11 +48,13 @@ for (const provider of ["claude", "codex"] as const)
     page.on("pageerror", (error) => errors.push(error.message));
     let stopProgress: (() => Promise<void>) | undefined;
     const assertCompletedTool = async () => {
-      const activity = page.locator(".conversation-activity-summary");
+      const activity = page.locator("[data-conversation-activity-summary]");
       if ((await activity.getAttribute("aria-expanded")) !== "true")
         await activity.click();
-      await expect(page.locator(".tool-row")).toHaveCount(1);
-      await expect(page.locator(".tool-row.status-complete")).toHaveCount(1);
+      await expect(page.locator("[data-tool-row]")).toHaveCount(1);
+      await expect(
+        page.locator('[data-tool-row][data-tool-status="complete"]'),
+      ).toHaveCount(1);
     };
     try {
       await f.ready();
@@ -140,7 +142,7 @@ const watch=fs.watch(path.dirname(gate),(_event,name)=>{if(String(name)===path.b
         ).toBeVisible();
       }
       if (provider === "codex") {
-        await page.locator(".conversation-activity-summary").click();
+        await page.locator("[data-conversation-activity-summary]").click();
       }
       // Focus once; per-key locator checks can hide a busy renderer before dispatch.
       await input.focus();
@@ -288,7 +290,7 @@ const watch=fs.watch(path.dirname(gate),(_event,name)=>{if(String(name)===path.b
       console.info(await f.diagnostics());
       console.info(
         "Native browser tool rows",
-        await page.locator(".tool-row").evaluateAll((rows) =>
+        await page.locator("[data-tool-row]").evaluateAll((rows) =>
           rows.map((row) => ({
             classes: row.className,
             text: row.textContent?.slice(0, 300),

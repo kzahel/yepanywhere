@@ -303,7 +303,7 @@ export function SessionTranscriptHarness({
               provider="codex"
               markdownAugments={{
                 "assistant-1": {
-                  html: '<ol><li>First item</li><li>Second item</li></ol><pre class="code-block"><code>const superLongIdentifierName = "value";</code></pre>',
+                  html: '<ol><li>First item</li><li>Second item</li></ol><pre data-code-block=""><code>const superLongIdentifierName = "value";</code></pre>',
                 },
               }}
             />

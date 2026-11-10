@@ -1,3 +1,5 @@
+import expandStyles from "../ExpandOutput.module.css";
+import styles from "./WebRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
@@ -142,13 +144,20 @@ function pageBadges(page: CodexWebRunPage): string[] {
 
 function PageTitleLink({ page }: { page: CodexWebRunPage }) {
   const label = pageLabel(page);
-  if (!page.url) return <span className="webrun-title">{label}</span>;
+  if (!page.url)
+    return (
+      <span className={styles.webrunTitle} data-webrun-title>
+        {label}
+      </span>
+    );
   return (
     <a
       href={page.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="webrun-title webrun-link"
+      className={`${styles.webrunTitle} ${styles.webrunLink}`}
+      data-webrun-title
+      data-webrun-link
     >
       {label}
     </a>
@@ -176,8 +185,8 @@ function WebRunPageView({
       : (page.text ?? "");
 
   return (
-    <div className="webrun-page">
-      <div className="webrun-page-header">
+    <div className={styles.webrunPage} data-webrun-page>
+      <div className={styles.webrunPageHeader} data-webrun-page-header>
         <PageTitleLink page={page} />
         {pageBadges(page).map((badge) => (
           <Badge key={badge} size="small">
@@ -187,14 +196,21 @@ function WebRunPageView({
         <OutputCopyButton text={pageContentText(page)} label="Copy page text" />
       </div>
       {page.redirectedUrl && (
-        <div className="webrun-redirect">→ {page.redirectedUrl}</div>
+        <div className={styles.webrunRedirect} data-webrun-redirect>
+          → {page.redirectedUrl}
+        </div>
       )}
-      {contentText && <div className="webrun-text">{contentText}</div>}
+      {contentText && (
+        <div className={styles.webrunText} data-webrun-text>
+          {contentText}
+        </div>
+      )}
       {needsCollapse && (
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
@@ -206,10 +222,14 @@ function WebRunPageView({
 
 function WebModalContent({ result }: { result: CodexWebRunResult }) {
   if (result.pages.length === 0) {
-    return <div className="webrun-text">{result.text || "No content"}</div>;
+    return (
+      <div className={styles.webrunText} data-webrun-text>
+        {result.text || "No content"}
+      </div>
+    );
   }
   return (
-    <div className="webrun-result">
+    <div className={styles.webrunResult} data-webrun-result>
       {result.pages.map((page, index) => (
         <WebRunPageView
           key={`${page.ref ?? page.url ?? index}`}
@@ -232,20 +252,27 @@ function WebPreviewPageRow({ page }: { page: CodexWebRunPage }) {
         ? page.title
         : "";
   return (
-    <div className="webrun-preview-row">
+    <div className={styles.webrunPreviewRow} data-webrun-preview-row>
       {page.url ? (
         <a
           href={page.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="webrun-link"
+          className={styles.webrunLink}
+          data-webrun-link
         >
           {host}
         </a>
       ) : (
-        <span className="webrun-link">{host}</span>
+        <span className={styles.webrunLink} data-webrun-link>
+          {host}
+        </span>
       )}
-      {detail && <span className="webrun-preview-title">{detail}</span>}
+      {detail && (
+        <span className={styles.webrunPreviewTitle} data-webrun-preview-title>
+          {detail}
+        </span>
+      )}
     </div>
   );
 }
@@ -277,7 +304,7 @@ function WebCollapsedPreview({
   const outputTooltipAttributes = useVisibilityAwareTextTooltip<HTMLDivElement>(
     contentText,
     outputTailTooltip,
-    ".webrun-preview-output-text",
+    "[data-webrun-preview-output-text]",
   );
 
   const visiblePages = result.pages.slice(0, MAX_PREVIEW_PAGES);
@@ -322,7 +349,8 @@ function WebCollapsedPreview({
         role="button"
         tabIndex={0}
         aria-label="View web page content"
-        className="webrun-collapsed-preview"
+        className={styles.webrunCollapsedPreview}
+        data-webrun-collapsed-preview
         onClick={handleClick}
         onKeyDown={handleKeyDown}
       >
@@ -334,17 +362,28 @@ function WebCollapsedPreview({
         ))}
         {omittedPages.length > 0 && (
           <div
-            className="webrun-preview-row webrun-preview-more"
+            className={`${styles.webrunPreviewRow} ${styles.webrunPreviewMore}`}
+            data-webrun-preview-row
+            data-webrun-preview-more
             {...omittedTooltipAttributes}
           >
             +{omittedPages.length} more
           </div>
         )}
         {previewText && (
-          <div className="webrun-preview-row webrun-preview-output-row">
-            <div className="webrun-preview-output" {...outputTooltipAttributes}>
+          <div
+            className={`${styles.webrunPreviewRow} ${styles.webrunPreviewOutputRow}`}
+            data-webrun-preview-row
+            data-webrun-preview-output-row
+          >
+            <div
+              className={styles.webrunPreviewOutput}
+              data-webrun-preview-output
+              {...outputTooltipAttributes}
+            >
               <div
-                className="webrun-preview-output-text"
+                className={styles.webrunPreviewOutputText}
+                data-webrun-preview-output-text
                 style={
                   {
                     "--webrun-preview-line-count": String(
@@ -355,12 +394,18 @@ function WebCollapsedPreview({
               >
                 {previewText}
               </div>
-              {truncated && <div className="webrun-preview-fade" />}
+              {truncated && (
+                <div
+                  className={styles.webrunPreviewFade}
+                  data-webrun-preview-fade
+                />
+              )}
             </div>
             <OutputCopyButton text={copyText} label="Copy page text" />
             {hiddenLineCount > 0 && (
               <HiddenContentBadge
-                className="webrun-preview-more-badge"
+                className={styles.webrunPreviewMoreBadge}
+                data-webrun-preview-more-badge
                 count={hiddenLineCount}
                 tooltip={outputTailTooltip ?? contentText}
               />
@@ -390,17 +435,21 @@ function WebToolResult({
 }) {
   if (isError) {
     return (
-      <div className="webrun-error">
+      <div className={styles.webrunError} data-webrun-error>
         {typeof result === "string" ? result : "Web browse failed"}
       </div>
     );
   }
   if (isWebRunResult(result)) {
     if (result.pages.length === 0) {
-      return <div className="webrun-text">{result.text || "No content"}</div>;
+      return (
+        <div className={styles.webrunText} data-webrun-text>
+          {result.text || "No content"}
+        </div>
+      );
     }
     return (
-      <div className="webrun-result">
+      <div className={styles.webrunResult} data-webrun-result>
         {result.pages.map((page, index) => (
           <WebRunPageView
             key={`${page.ref ?? page.url ?? index}`}
@@ -411,9 +460,17 @@ function WebToolResult({
     );
   }
   if (typeof result === "string" && result) {
-    return <div className="webrun-text">{result}</div>;
+    return (
+      <div className={styles.webrunText} data-webrun-text>
+        {result}
+      </div>
+    );
   }
-  return <div className="webrun-text">No content</div>;
+  return (
+    <div className={styles.webrunText} data-webrun-text>
+      No content
+    </div>
+  );
 }
 
 export const webRenderer = defineTool(toolDisplayContracts.Web, {
@@ -423,7 +480,11 @@ export const webRenderer = defineTool(toolDisplayContracts.Web, {
 
   renderToolUse(input, _context) {
     const summary = describeOps(input);
-    return <div className="webrun-tool-use">{summary || "web.run"}</div>;
+    return (
+      <div className={styles.webrunToolUse} data-webrun-tool-use>
+        {summary || "web.run"}
+      </div>
+    );
   },
 
   renderToolResult(result, isError, _context) {

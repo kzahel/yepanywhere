@@ -1,3 +1,5 @@
+import toolStyles from "./ToolUseRenderer.module.css";
+import toolLabelStyles from "../../ToolLabel.module.css";
 import { Badge } from "../../ui/Badge";
 import { toolRegistry } from "../tools";
 import type { ContentBlock, ContentRenderer, RenderContext } from "../types";
@@ -36,17 +38,25 @@ function ToolResultRendererComponent({
   }
 
   return (
-    <div className={`tool-block tool-result ${isError ? "tool-error" : ""}`}>
-      <div className="tool-header">
-        <span className="tool-icon">{"<"}</span>
-        <span className="tool-name">{toolName}</span>
+    <div
+      className={`${toolStyles.toolBlock} tool-result ${isError ? toolStyles.toolError : ""}`}
+      data-tool-block
+      data-tool-error={isError || undefined}
+    >
+      <div className={toolStyles.toolHeader} data-tool-header>
+        <span className={toolStyles.toolIcon} data-tool-icon>
+          {"<"}
+        </span>
+        <span className={toolLabelStyles.toolName} data-tool-name>
+          {toolName}
+        </span>
         {isError && (
           <Badge tone="danger" size="small">
             Error
           </Badge>
         )}
       </div>
-      <div className="tool-content">
+      <div className={toolStyles.toolContent} data-tool-content>
         {toolRegistry.renderToolResult(
           toolName,
           result,

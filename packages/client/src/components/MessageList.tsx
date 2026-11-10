@@ -1,3 +1,14 @@
+import { reuseEqualSet } from "../lib/sessionDetail/transcriptSetReuse";
+import { btwAsideStatusClasses } from "./btwAsideStatusClasses";
+import type { BtwAsideTimelineItem } from "./chunkedTimelinePrepend";
+import {
+  getTimelineRowRenderWeight,
+  getTimelineRowTargetIds,
+  useChunkedTimelinePrepend,
+} from "./chunkedTimelinePrepend";
+import btwStyles from "./BtwAsideTranscript.module.css";
+import itemStyles from "./RenderItemComponent.module.css";
+import promptStyles from "./blocks/UserPromptBlock.module.css";
 import { TranscriptRenderProgress } from "./TranscriptRenderProgress";
 import type {
   MarkdownAugment,
@@ -151,10 +162,7 @@ import type {
 } from "@yep-anywhere/shared/transcript/items";
 import { AttachmentChip } from "./AttachmentChip";
 import { useSessionViewerSessionId } from "./SessionManagedViewer";
-import {
-  BtwAsideTranscript,
-  type BtwAsideTranscriptTurn,
-} from "./BtwAsidePane";
+import { BtwAsideTranscript } from "./BtwAsidePane";
 import { ExploredToolGroup } from "./blocks/ExploredToolGroup";
 import { MessageAge } from "./MessageAge";
 import { ProcessingIndicator } from "./ProcessingIndicator";
@@ -183,7 +191,6 @@ const PROGRESSIVE_RETAINED_RENDER_ITEM_BATCH_TARGET = 12;
 const PROGRESSIVE_RENDER_BATCH_DELAY_MS = 32;
 const PROGRESSIVE_RETAINED_RESUME_DELAY_MS = 1_500;
 const PROGRESSIVE_RENDER_REVEAL_DELAY_MS = 180;
-const OLDER_PAGE_PREPEND_BATCH_TARGET = 8;
 const EMPTY_THINKING_PREVIEW_SLOTS = new Set<ConversationThinkingPreviewSlot>();
 const TRANSCRIPT_RENDER_MARKER_STYLE = {
   display: "block",
@@ -191,152 +198,6 @@ const TRANSCRIPT_RENDER_MARKER_STYLE = {
   overflow: "hidden",
   pointerEvents: "none",
 } as const;
-
-interface KeyedTimelineRow {
-  key: string;
-  kind: string;
-}
-
-interface ChunkedTimelinePrependState<TRow> {
-  rows: readonly TRow[];
-  start: number;
-}
-
-function getTimelineRowRenderWeight(row: KeyedTimelineRow): number {
-  if (row.kind !== "assistant" || !("rows" in row)) {
-    return row.kind === "empty" ? 0 : 1;
-  }
-  const assistantRows = row.rows;
-  return Array.isArray(assistantRows) ? Math.max(1, assistantRows.length) : 1;
-}
-
-function getTimelineRowTargetIds(
-  row: TimelineEntryDisplayRow<RenderTurnGroup, BtwAsideTimelineItem>,
-): string[] {
-  if (row.kind === "btw") {
-    return [`btw-${row.aside.id}`];
-  }
-  if (row.kind === "empty") {
-    return [];
-  }
-  if (row.kind === "standalone" || row.kind === "user") {
-    return [row.item.id];
-  }
-  const ids = new Set(row.group.items.map((item) => item.id));
-  for (const assistantRow of row.rows) {
-    if (assistantRow.kind === "explored") {
-      ids.add(assistantRow.id);
-    } else {
-      ids.add(assistantRow.item.id);
-    }
-  }
-  return [...ids];
-}
-
-function getPreviousTimelineBatchStart<TRow extends KeyedTimelineRow>(
-  rows: readonly TRow[],
-  end: number,
-): number {
-  let start = Math.min(rows.length, Math.max(0, end));
-  let weight = 0;
-  while (start > 0 && weight < OLDER_PAGE_PREPEND_BATCH_TARGET) {
-    start -= 1;
-    const row = rows[start];
-    if (row) {
-      weight += getTimelineRowRenderWeight(row);
-    }
-  }
-  return start;
-}
-
-function getPrependedTimelineRowCount<TRow extends KeyedTimelineRow>(
-  previous: readonly TRow[],
-  next: readonly TRow[],
-): number {
-  const added = next.length - previous.length;
-  if (added <= 0) {
-    return 0;
-  }
-  for (let index = 0; index < previous.length; index += 1) {
-    if (previous[index]?.key !== next[index + added]?.key) {
-      return 0;
-    }
-  }
-  return added;
-}
-
-function useChunkedTimelinePrepend<TRow extends KeyedTimelineRow>(
-  rows: readonly TRow[],
-  prependPending: boolean,
-): { active: boolean; revision: number; rows: readonly TRow[] } {
-  const stateRef = useRef<ChunkedTimelinePrependState<TRow>>({
-    rows,
-    start: 0,
-  });
-  const [revision, setRevision] = useState(0);
-  let current = stateRef.current;
-
-  if (current.rows !== rows) {
-    const firstVisibleKey = current.rows[current.start]?.key;
-    const preservedStart =
-      current.start > 0 && firstVisibleKey
-        ? rows.findIndex((row) => row.key === firstVisibleKey)
-        : -1;
-    const prepended = prependPending
-      ? getPrependedTimelineRowCount(current.rows, rows)
-      : 0;
-    if (preservedStart >= 0) {
-      current.rows = rows;
-      current.start = preservedStart;
-    } else {
-      current = {
-        rows,
-        start:
-          prepended > 0 ? getPreviousTimelineBatchStart(rows, prepended) : 0,
-      };
-      stateRef.current = current;
-    }
-  }
-
-  useLayoutEffect(() => {
-    if (current.start <= 0) {
-      return;
-    }
-    const scheduledState = current;
-    const frame = requestAnimationFrame(() => {
-      if (stateRef.current !== scheduledState) {
-        return;
-      }
-      const start = getPreviousTimelineBatchStart(
-        scheduledState.rows,
-        scheduledState.start,
-      );
-      if (start === scheduledState.start) {
-        return;
-      }
-      stateRef.current = {
-        ...scheduledState,
-        start,
-      };
-      setRevision((previous) => previous + 1);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [current]);
-
-  return {
-    active: current.start > 0,
-    revision,
-    rows: current.rows.slice(current.start),
-  };
-}
-
-function reuseEqualSet<T>(previous: ReadonlySet<T>, next: ReadonlySet<T>) {
-  if (previous.size !== next.size) return next;
-  for (const value of next) {
-    if (!previous.has(value)) return next;
-  }
-  return previous;
-}
 
 function isCtrlKeyShortcut(
   event: KeyboardEvent,
@@ -777,23 +638,6 @@ function getDeferredMessageStatus({
     : `Queued regular (#${regularIndex + 1})`;
 }
 
-interface BtwAsideTimelineItem {
-  id: string;
-  request: string;
-  followUps: string[];
-  status: "draft" | "starting" | "running" | "complete" | "failed" | "stopped";
-  createdAt: string;
-  updatedAt: string;
-  historyAt?: string;
-  preview?: string;
-  error?: string;
-  responses: string[];
-  turns?: BtwAsideTranscriptTurn[];
-  expanded?: boolean;
-  isFocused?: boolean;
-  canStop?: boolean;
-}
-
 interface Props {
   messages: Message[];
   transcriptDisplayObjects?: readonly TranscriptDisplayObject[];
@@ -1040,27 +884,40 @@ function BtwAsideTimelineCard({
 
   return (
     <div
-      className={`btw-aside-card btw-aside-card-history is-${aside.status} ${
-        aside.isFocused ? "is-focused" : ""
+      className={`${btwStyles.btwAsideCard} ${btwStyles.btwAsideCardHistory} ${btwAsideStatusClasses[aside.status] ?? ""} ${
+        aside.isFocused ? `${btwStyles["is-focused"]}` : ""
       }`}
+      data-btw-aside-card
+      data-is-failed={aside.status === "failed" || undefined}
+      data-is-stopped={aside.status === "stopped" || undefined}
+      data-btw-aside-card-history
+      data-is-focused={aside.isFocused || undefined}
       data-render-id={`btw-${aside.id}`}
     >
       <ButtonBase
-        className="btw-aside-main"
+        className={btwStyles.btwAsideMain}
+        data-btw-aside-main
         onClick={() => onFocus?.(aside.id)}
       >
-        <span className="btw-aside-meta">/btw {aside.status}</span>
-        <span className="btw-aside-request">
+        <span className={btwStyles.btwAsideMeta} data-btw-aside-meta>
+          /btw {aside.status}
+        </span>
+        <span className={btwStyles.btwAsideRequest} data-btw-aside-request>
           {aside.request || "New aside"}
         </span>
         {aside.followUps.length > 0 && (
-          <span className="btw-aside-followups">
+          <span
+            className={btwStyles.btwAsideFollowups}
+            data-btw-aside-followups
+          >
             +{aside.followUps.length} follow-up
             {aside.followUps.length === 1 ? "" : "s"}
           </span>
         )}
         {aside.preview && (
-          <span className="btw-aside-preview">{aside.preview}</span>
+          <span className={btwStyles.btwAsidePreview} data-btw-aside-preview>
+            {aside.preview}
+          </span>
         )}
       </ButtonBase>
       {aside.error && (
@@ -1075,11 +932,12 @@ function BtwAsideTimelineCard({
           onTransferToComposer={onTransferTurn}
         />
       )}
-      <div className="btw-aside-actions">
+      <div className={btwStyles.btwAsideActions} data-btw-aside-actions>
         {canExpand && (
           <Button
             size="small"
-            className="btw-aside-action"
+            className={btwStyles.btwAsideAction}
+            data-btw-aside-action
             onClick={() => onToggleExpanded?.(aside.id)}
           >
             {aside.expanded ? "Less" : "Show"}
@@ -1088,7 +946,8 @@ function BtwAsideTimelineCard({
         {aside.isFocused ? (
           <Button
             size="small"
-            className="btw-aside-action"
+            className={btwStyles.btwAsideAction}
+            data-btw-aside-action
             onClick={onDone}
             title={t("btwAsideReturnComposerTitle")}
           >
@@ -1097,7 +956,8 @@ function BtwAsideTimelineCard({
         ) : (
           <Button
             size="small"
-            className="btw-aside-action"
+            className={btwStyles.btwAsideAction}
+            data-btw-aside-action
             onClick={() => onFocus?.(aside.id)}
           >
             Focus
@@ -1106,7 +966,8 @@ function BtwAsideTimelineCard({
         {aside.canStop && (
           <Button
             size="small"
-            className="btw-aside-action"
+            className={btwStyles.btwAsideAction}
+            data-btw-aside-action
             onClick={() => onStop?.(aside.id)}
             title={
               aside.isFocused
@@ -3382,14 +3243,14 @@ export const MessageList = memo(function MessageList({
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) return false;
       const target = event.target as HTMLElement;
-      const row = target.closest<HTMLElement>(".message-render-row");
+      const row = target.closest<HTMLElement>("[data-message-render-row]");
       if (!row || target !== row) return false;
       const messageList = containerRef.current;
       const scrollContainer = messageList?.parentElement;
       if (!messageList || !scrollContainer) return false;
       const level = row.dataset.rewoundGroup ?? "";
       const rows = Array.from(
-        messageList.querySelectorAll<HTMLElement>(".message-render-row"),
+        messageList.querySelectorAll<HTMLElement>("[data-message-render-row]"),
       ).filter((candidate) => (candidate.dataset.rewoundGroup ?? "") === level);
       const next = rows[rows.indexOf(row) + direction];
       if (!next) return false;
@@ -4959,11 +4820,17 @@ export const MessageList = memo(function MessageList({
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: pointer-only outline stepping; keyboard users have the turn navigator */}
         <div
           className={[
-            "message-list",
-            progressiveRevealActive ? "message-list-progressive-hydrating" : "",
+            styles.messageList,
+            progressiveRevealActive
+              ? styles.messageListProgressiveHydrating
+              : "",
           ]
             .filter(Boolean)
             .join(" ")}
+          data-message-list
+          data-message-list-progressive-hydrating={
+            progressiveRevealActive || undefined
+          }
           ref={containerRef}
           aria-busy={progressiveRevealActive ? true : undefined}
           data-transcript-render-weight={transcriptRenderWindow.totalWeight}
@@ -4990,21 +4857,35 @@ export const MessageList = memo(function MessageList({
             (hasOlderMessages ||
               clientTailActive ||
               conversationWindow.hiddenTurnCount > 0) && (
-              <div className="load-older-messages" ref={loadOlderBoundaryRef}>
+              <div
+                className={styles.loadOlderMessages}
+                data-load-older-messages
+                ref={loadOlderBoundaryRef}
+              >
                 {effectiveConversationViewEnabled &&
                 conversationWindow.hiddenTurnCount > 0 ? (
-                  <span className="load-older-status">
+                  <span
+                    className={styles.loadOlderStatus}
+                    data-load-older-status
+                  >
                     {t("sessionConversationLatestTurns", {
                       count: conversationWindow.visibleTurnCount,
                     })}
                   </span>
                 ) : clientTailActive ? (
-                  <span className="load-older-status">
+                  <span
+                    className={styles.loadOlderStatus}
+                    data-load-older-status
+                  >
                     {t("sessionRecentTranscriptLoaded")}
                   </span>
                 ) : null}
                 {olderLoadContinuationRequired && !loadingOlder ? (
-                  <span className="load-older-status" role="status">
+                  <span
+                    className={styles.loadOlderStatus}
+                    data-load-older-status
+                    role="status"
+                  >
                     {t("sessionOlderLoadContinuationRequired")}
                   </span>
                 ) : null}
@@ -5209,12 +5090,23 @@ export const MessageList = memo(function MessageList({
               return (
                 <div
                   key={tailRow.key}
-                  className={`pending-message message-render-row ${
-                    hasMessageAge ? "has-message-age" : ""
-                  } ${showAgeByDefault ? "is-message-age-visible" : ""}`}
+                  className={`${promptStyles.pendingMessage} ${itemStyles.messageRenderRow} ${
+                    hasMessageAge ? `${itemStyles["has-message-age"]}` : ""
+                  } ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                  data-pending-message
+                  data-message-render-row
+                  data-has-message-age={hasMessageAge || undefined}
+                  data-is-message-age-visible={showAgeByDefault || undefined}
                 >
-                  <div className="message-render-content">
-                    <div className="message-user-prompt pending-message-bubble">
+                  <div
+                    className={itemStyles.messageRenderContent}
+                    data-message-render-content
+                  >
+                    <div
+                      className={`${promptStyles.messageUserPrompt} ${promptStyles.pendingMessageBubble}`}
+                      data-message-user-prompt
+                      data-pending-message-bubble
+                    >
                       <LinkifiedText text={pending.content} />
                     </div>
                     {pending.attachments?.length ? (
@@ -5233,8 +5125,14 @@ export const MessageList = memo(function MessageList({
                         ))}
                       </div>
                     ) : null}
-                    <div className="pending-message-footer">
-                      <div className="pending-message-status">
+                    <div
+                      className={promptStyles.pendingMessageFooter}
+                      data-pending-message-footer
+                    >
+                      <div
+                        className={promptStyles.pendingMessageStatus}
+                        data-pending-message-status
+                      >
                         {pending.status || "Sending..."}
                       </div>
                       <div className="deferred-message-actions">
@@ -5271,13 +5169,20 @@ export const MessageList = memo(function MessageList({
               return (
                 <div
                   key={tailRow.key}
-                  className={`deferred-message project-queue-inline-message message-render-row ${
-                    hasMessageAge ? "has-message-age" : ""
-                  } ${showAgeByDefault ? "is-message-age-visible" : ""}`}
+                  className={`deferred-message project-queue-inline-message ${itemStyles.messageRenderRow} ${
+                    hasMessageAge ? `${itemStyles["has-message-age"]}` : ""
+                  } ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                  data-message-render-row
+                  data-has-message-age={hasMessageAge || undefined}
+                  data-is-message-age-visible={showAgeByDefault || undefined}
                 >
-                  <div className="message-render-content">
+                  <div
+                    className={itemStyles.messageRenderContent}
+                    data-message-render-content
+                  >
                     <div
-                      className={`message-user-prompt ${styles.queuedBubble} ${styles.projectQueueBubble}`}
+                      className={`${promptStyles.messageUserPrompt} ${styles.queuedBubble} ${styles.projectQueueBubble}`}
+                      data-message-user-prompt
                     >
                       <LinkifiedText text={projectQueue.content} />
                     </div>
@@ -5416,13 +5321,20 @@ export const MessageList = memo(function MessageList({
             return (
               <div
                 key={tailRow.key}
-                className={`deferred-message message-render-row ${
-                  hasMessageAge ? "has-message-age" : ""
-                } ${showAgeByDefault ? "is-message-age-visible" : ""}`}
+                className={`deferred-message ${itemStyles.messageRenderRow} ${
+                  hasMessageAge ? `${itemStyles["has-message-age"]}` : ""
+                } ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                data-message-render-row
+                data-has-message-age={hasMessageAge || undefined}
+                data-is-message-age-visible={showAgeByDefault || undefined}
               >
-                <div className="message-render-content">
+                <div
+                  className={itemStyles.messageRenderContent}
+                  data-message-render-content
+                >
                   <div
-                    className={`message-user-prompt ${styles.queuedBubble}`}
+                    className={`${promptStyles.messageUserPrompt} ${styles.queuedBubble}`}
+                    data-message-user-prompt
                     title={isClearloop ? deferred.content : undefined}
                   >
                     {isClearloop && loopCounts ? (
@@ -5632,9 +5544,18 @@ export const MessageList = memo(function MessageList({
             );
           })}
           {isCompacting && (
-            <div className="system-message system-message-compacting">
+            <div
+              className={`${itemStyles.systemMessage} ${itemStyles.systemMessageCompacting}`}
+              data-system-message
+              data-system-message-compacting
+            >
               <Spinner size="small" />
-              <span className="system-message-text">Compacting context...</span>
+              <span
+                className={itemStyles.systemMessageText}
+                data-system-message-text
+              >
+                Compacting context...
+              </span>
             </div>
           )}
           <ProcessingIndicator

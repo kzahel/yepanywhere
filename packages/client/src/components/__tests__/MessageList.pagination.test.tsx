@@ -91,7 +91,7 @@ describe("MessageList older-page pagination", () => {
       />,
     );
 
-    expect(observed.target?.classList.contains("load-older-messages")).toBe(
+    expect(observed.target?.hasAttribute("data-load-older-messages")).toBe(
       true,
     );
     expect(observed.options?.root).toBe(container);

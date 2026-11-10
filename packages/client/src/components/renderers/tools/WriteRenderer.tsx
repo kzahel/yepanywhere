@@ -1,3 +1,9 @@
+import viewerStyles from "../../FileViewer.module.css";
+import styles from "./WriteRenderer.module.css";
+import codeStyles from "../CodeOutput.module.css";
+import markdownStyles from "../../MarkdownPreview.module.css";
+
+import expandStyles from "../ExpandOutput.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -63,14 +69,16 @@ function WriteToolUse({ input }: { input: WriteInput }) {
   const displayPath = makeDisplayPath(input.file_path, meta?.projectPath);
   const lineCount = input.content.split("\n").length;
   return (
-    <div className="write-tool-use">
-      <span className="file-path">
+    <div className={styles.writeToolUse} data-write-tool-use>
+      <span className={codeStyles.filePath} data-file-path>
         <SessionFilePathLink
           displayPath={displayPath}
           filePath={input.file_path}
         />
       </span>
-      <span className="write-info">{lineCount} lines</span>
+      <span className={styles.writeInfo} data-write-info>
+        {lineCount} lines
+      </span>
     </div>
   );
 }
@@ -94,7 +102,10 @@ function WriteModalContent({
 
   // Source/Preview choice for markdown files
   const toggleButton = hasMarkdownPreview && (
-    <div className="markdown-view-toggle">
+    <div
+      className={markdownStyles.markdownViewToggle}
+      data-markdown-view-toggle
+    >
       <SegmentedControl
         size="small"
         aria-label={t("sourceViewMode")}
@@ -108,7 +119,7 @@ function WriteModalContent({
   // Show rendered markdown preview
   if (showPreview && input?._renderedMarkdownHtml) {
     return (
-      <div className="file-content-modal">
+      <div className={viewerStyles.fileContentModal} data-file-content-modal>
         {toggleButton}
         <MarkdownPreview
           html={input._renderedMarkdownHtml}
@@ -122,12 +133,19 @@ function WriteModalContent({
   // Use highlighted HTML if available from input augment
   if (input?._highlightedContentHtml) {
     return (
-      <div className="file-content-modal">
+      <div className={viewerStyles.fileContentModal} data-file-content-modal>
         {toggleButton}
-        <div className="file-viewer-code file-viewer-code-highlighted">
+        <div
+          className={`${viewerStyles.fileViewerCode} ${viewerStyles.fileViewerCodeHighlighted}`}
+          data-file-viewer-code
+          data-file-viewer-code-highlighted
+        >
           <ShikiHtml html={input._highlightedContentHtml} />
           {input._highlightedTruncated && (
-            <div className="file-viewer-truncated">
+            <div
+              className={viewerStyles.fileViewerTruncated}
+              data-file-viewer-truncated
+            >
               Content truncated for highlighting (showing first 2000 lines)
             </div>
           )}
@@ -138,15 +156,18 @@ function WriteModalContent({
 
   // Fallback: plain text with line numbers
   return (
-    <div className="file-content-modal">
+    <div className={viewerStyles.fileContentModal} data-file-content-modal>
       {toggleButton}
-      <div className="file-content-with-lines">
-        <div className="line-numbers">
+      <div
+        className={codeStyles.fileContentWithLines}
+        data-file-content-with-lines
+      >
+        <div className={codeStyles.lineNumbers} data-line-numbers>
           {lines.map((_, i) => (
             <div key={`ln-${i + 1}`}>{file.startLine + i}</div>
           ))}
         </div>
-        <pre className="line-content">
+        <pre className={codeStyles.lineContent} data-line-content>
           <code>{file.content}</code>
         </pre>
       </div>
@@ -191,7 +212,7 @@ function WriteToolResult({
   // An acknowledgement carries text instead of the written file.
   if (!result?.file) {
     return (
-      <div className="write-error">
+      <div className={styles.writeError} data-write-error>
         {showValidationWarning && validationErrors && (
           <SchemaWarning toolName="Write" errors={validationErrors} />
         )}
@@ -208,24 +229,33 @@ function WriteToolResult({
   // Use highlighted HTML if available from input augment
   if (input?._highlightedContentHtml) {
     return (
-      <div className="write-result">
-        <div className="file-header">
-          <span className="file-path">
+      <div className={styles.writeResult} data-write-result>
+        <div className={codeStyles.fileHeader} data-file-header>
+          <span className={codeStyles.filePath} data-file-path>
             <SessionFilePathLink
               displayPath={displayPath}
               filePath={file.filePath}
               lineNumber={file.startLine}
             />
           </span>
-          <span className="file-range">{file.numLines} lines written</span>
+          <span className={codeStyles.fileRange} data-file-range>
+            {file.numLines} lines written
+          </span>
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Write" errors={validationErrors} />
           )}
         </div>
-        <div className="file-viewer-code file-viewer-code-highlighted">
+        <div
+          className={`${viewerStyles.fileViewerCode} ${viewerStyles.fileViewerCodeHighlighted}`}
+          data-file-viewer-code
+          data-file-viewer-code-highlighted
+        >
           <ShikiHtml html={input._highlightedContentHtml} />
           {input._highlightedTruncated && (
-            <div className="file-viewer-truncated">
+            <div
+              className={viewerStyles.fileViewerTruncated}
+              data-file-viewer-truncated
+            >
               Content truncated for highlighting (showing first 2000 lines)
             </div>
           )}
@@ -239,29 +269,34 @@ function WriteToolResult({
     needsCollapse && !isExpanded ? lines.slice(0, MAX_LINES_COLLAPSED) : lines;
 
   return (
-    <div className="write-result">
-      <div className="file-header">
-        <span className="file-path">
+    <div className={styles.writeResult} data-write-result>
+      <div className={codeStyles.fileHeader} data-file-header>
+        <span className={codeStyles.filePath} data-file-path>
           <SessionFilePathLink
             displayPath={displayPath}
             filePath={file.filePath}
             lineNumber={file.startLine}
           />
         </span>
-        <span className="file-range">{file.numLines} lines written</span>
+        <span className={codeStyles.fileRange} data-file-range>
+          {file.numLines} lines written
+        </span>
         {showValidationWarning && validationErrors && (
           <SchemaWarning toolName="Write" errors={validationErrors} />
         )}
       </div>
-      <div className="file-content-with-lines">
-        <div className="line-numbers">
+      <div
+        className={codeStyles.fileContentWithLines}
+        data-file-content-with-lines
+      >
+        <div className={codeStyles.lineNumbers} data-line-numbers>
           {displayLines.map((_, i) => {
             const lineNum = file.startLine + i;
             return <div key={`line-${lineNum}`}>{lineNum}</div>;
           })}
           {needsCollapse && !isExpanded && <div>...</div>}
         </div>
-        <pre className="line-content">
+        <pre className={codeStyles.lineContent} data-line-content>
           <code>{displayLines.join("\n")}</code>
         </pre>
       </div>
@@ -269,7 +304,8 @@ function WriteToolResult({
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
@@ -281,8 +317,14 @@ function WriteToolResult({
 
 function WriteCollapsedError({ message }: { message: string }) {
   return (
-    <div className="write-collapsed-preview write-collapsed-error">
-      <span className="write-preview-error">{message}</span>
+    <div
+      className={`${styles.writeCollapsedPreview} ${styles.writeCollapsedError}`}
+      data-write-collapsed-preview
+      data-write-collapsed-error
+    >
+      <span className={styles.writePreviewError} data-write-preview-error>
+        {message}
+      </span>
     </div>
   );
 }
@@ -366,8 +408,12 @@ function WriteCollapsedPreview({
 
   return (
     <>
-      <ButtonBase className="write-collapsed-preview" onClick={handleClick}>
-        <div className="write-preview-lines">
+      <ButtonBase
+        className={styles.writeCollapsedPreview}
+        data-write-collapsed-preview
+        onClick={handleClick}
+      >
+        <div className={styles.writePreviewLines} data-write-preview-lines>
           <FilePathDisplay displayPath={displayPath} />
           {" · "}
           {lineCount} lines
@@ -376,7 +422,9 @@ function WriteCollapsedPreview({
           )}
         </div>
         <div
-          className={`write-preview-content ${isTruncated ? "write-preview-truncated" : ""}`}
+          className={`${styles.writePreviewContent} ${isTruncated ? styles.writePreviewTruncated : ""}`}
+          data-write-preview-content
+          data-write-preview-truncated={isTruncated || undefined}
           {...tooltipAttributes}
         >
           {previewHtml ? (
@@ -386,13 +434,15 @@ function WriteCollapsedPreview({
               <code>{lines.slice(0, PREVIEW_LINES).join("\n")}</code>
             </pre>
           )}
-          {isTruncated && <div className="write-preview-fade" />}
+          {isTruncated && (
+            <div className={styles.writePreviewFade} data-write-preview-fade />
+          )}
         </div>
       </ButtonBase>
       {isModalOpen && (
         <ActivityDetailModal
           title={
-            <span className="file-path">
+            <span className={codeStyles.filePath} data-file-path>
               <SessionFilePathLink
                 displayPath={displayPath}
                 filePath={filePath}
@@ -434,7 +484,7 @@ export const writeRenderer = defineTool(toolDisplayContracts.Write, {
 
   renderFailure(failure) {
     return (
-      <div className="write-error">
+      <div className={styles.writeError} data-write-error>
         {failure.content || "Failed to write file"}
       </div>
     );

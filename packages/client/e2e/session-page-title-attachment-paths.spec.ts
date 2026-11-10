@@ -80,7 +80,9 @@ test("leaving the inline rename field saves a changed title and cancels an uncha
 }) => {
   const session = await openSessionPage(page, baseURL, { owner: "none" });
   await session.answer("PUT", metadataPath, saved);
-  const elsewhere = page.locator(".message-list").getByText("Previous message");
+  const elsewhere = page
+    .locator("[data-message-list]")
+    .getByText("Previous message");
 
   let input = await startRename(page);
   await elsewhere.click();

@@ -36,7 +36,7 @@ for (const viewport of [
     });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
-    const list = page.locator(".session-messages .message-list");
+    const list = page.locator(".session-messages [data-message-list]");
     await expect(list.locator('[data-render-id="history-user-9"]')).toBeVisible(
       {
         timeout: 10000,
@@ -46,7 +46,7 @@ for (const viewport of [
       timeout: 10000,
     });
     await page.addStyleTag({
-      content: ".message-list [data-render-id] { min-height: 120px; }",
+      content: "[data-message-list] [data-render-id] { min-height: 120px; }",
     });
 
     await page.keyboard.press("Control+r");
@@ -115,7 +115,7 @@ for (const viewport of [
 
     await page.addStyleTag({
       content:
-        '[data-render-id="history-user-0"] .text-block { padding-top: 700px; }',
+        '[data-render-id="history-user-0"] [data-text-block] { padding-top: 700px; }',
     });
 
     if (viewport.name === "mobile")

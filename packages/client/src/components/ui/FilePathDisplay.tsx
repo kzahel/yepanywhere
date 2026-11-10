@@ -1,3 +1,4 @@
+import styles from "./FilePathDisplay.module.css";
 import { splitDisplayPath } from "../../lib/text";
 
 interface FilePathDisplayProps {
@@ -7,8 +8,16 @@ interface FilePathDisplayProps {
 export function FilePathDisplay({ displayPath }: FilePathDisplayProps) {
   const { dir, name } = splitDisplayPath(displayPath);
   return (
-    <span className="file-path-display" title={displayPath}>
-      {dir && <span className="file-path-display-dir">{dir}</span>}
+    <span
+      className={styles.filePathDisplay}
+      data-file-path-display
+      title={displayPath}
+    >
+      {dir && (
+        <span className={styles.filePathDisplayDir} data-file-path-display-dir>
+          {dir}
+        </span>
+      )}
       <span className="file-path-display-name">{name}</span>
     </span>
   );

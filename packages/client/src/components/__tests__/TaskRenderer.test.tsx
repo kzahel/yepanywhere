@@ -412,7 +412,7 @@ describe("Task rendering", () => {
     );
 
     expect(screen.getByRole("button", { name: /Thinking/i })).toBeDefined();
-    expect(document.querySelector(".fallback-block")).toBeNull();
+    expect(document.querySelector("[data-fallback-block]")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Thinking/i }));
 

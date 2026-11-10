@@ -1,3 +1,5 @@
+import codeStyles from "../../src/components/renderers/CodeOutput.module.css";
+import rowsStyles from "../../src/components/blocks/ToolCallRow.module.css";
 import { AssistantTurnImageGallery } from "../../src/components/TurnImageGallery";
 import { TextBlock } from "../../src/components/blocks/TextBlock";
 import { ProviderChildSessionControl } from "../../src/components/ProviderChildSessionControl";
@@ -184,7 +186,7 @@ export function Corrections() {
           prose after.
         </p>
         <p>Prose before plain label prose after.</p>
-        <span className="file-path">
+        <span className={codeStyles.filePath} data-file-path>
           /tmp/source.ts <FilePathCopyButton filePath="/tmp/source.ts" />
         </span>
       </div>
@@ -303,7 +305,8 @@ export function Corrections() {
         <Spinner size="small" />
       </SelectableCard>
       <div
-        className="tool-row-header"
+        className={rowsStyles.toolRowHeader}
+        data-tool-row-header
         data-case="dense-taps"
         style={{ display: "flex", gap: 4, marginTop: 24 }}
       >

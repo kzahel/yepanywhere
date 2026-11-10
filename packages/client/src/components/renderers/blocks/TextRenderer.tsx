@@ -1,3 +1,4 @@
+import textStyles from "../../blocks/TextBlock.module.css";
 import { FileViewerModal } from "../../FilePathLink";
 import {
   LocalFileModal,
@@ -40,7 +41,8 @@ function TextRendererComponent({ block }: { block: TextBlock }) {
       // biome-ignore lint/a11y/noStaticElementInteractions: click is delegated to local resource links inside rendered markdown
       // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard activation remains on descendant links/controls
       <div
-        className="text-block"
+        className={textStyles.textBlock}
+        data-text-block
         onClick={handleClick}
         onDoubleClick={inlineCode.handleDoubleClick}
         onContextMenu={(event) => {
@@ -81,7 +83,7 @@ function TextRendererComponent({ block }: { block: TextBlock }) {
 
   // Fallback to plain text when server-rendered HTML is not available
   return (
-    <div className="text-block">
+    <div className={textStyles.textBlock} data-text-block>
       <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
         {block.text}
       </pre>

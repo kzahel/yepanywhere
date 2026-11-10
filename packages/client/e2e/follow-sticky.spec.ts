@@ -28,7 +28,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 async function bottomGap(page: Page) {
-  return page.locator(".message-list").evaluate((list) => {
+  return page.locator("[data-message-list]").evaluate((list) => {
     const viewport = list.parentElement;
     if (!viewport) throw new Error("Message list has no scroll viewport");
     return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
@@ -93,7 +93,7 @@ for (const viewport of viewports) {
       page.getByRole("main").getByText("Previous message"),
     ).toBeVisible({ timeout: 10_000 });
 
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       const spacer = document.createElement("div");
       spacer.dataset.followRaceSpacer = "true";
       spacer.textContent = "Simulated live output after Follow";
@@ -107,7 +107,7 @@ for (const viewport of viewports) {
     });
     await expect.poll(() => bottomGap(page)).toBeLessThanOrEqual(4);
 
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       const scrollViewport = list.parentElement;
       if (!scrollViewport)
         throw new Error("Message list has no scroll viewport");
@@ -134,7 +134,7 @@ for (const viewport of viewports) {
           requestAnimationFrame(() => resolve());
         }),
     );
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       const scrollViewport = list.parentElement;
       const spacer = list.querySelector<HTMLElement>(
         "[data-follow-race-spacer]",
@@ -171,7 +171,7 @@ for (const viewport of viewports) {
     ).toBeVisible({ timeout: 10_000 });
     await expect.poll(() => bottomGap(page)).toBeLessThanOrEqual(4);
 
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       const scrollViewport = list.parentElement;
       if (!scrollViewport) {
         throw new Error("Message list has no scroll viewport");
@@ -198,7 +198,7 @@ for (const viewport of viewports) {
       }
       for (const key of keys) localStorage.removeItem(key);
     }, SESSION_SCROLL_MEMORY_STORAGE_PREFIX);
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       list.parentElement?.dispatchEvent(new Event("scroll"));
     });
     await expect
@@ -277,7 +277,7 @@ for (const viewport of viewports) {
       }
       for (const key of keys) localStorage.removeItem(key);
     }, SESSION_SCROLL_MEMORY_STORAGE_PREFIX);
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       const scrollViewport = list.parentElement;
       if (!scrollViewport) {
         throw new Error("Message list has no scroll viewport");
@@ -304,7 +304,7 @@ for (const viewport of viewports) {
     );
     expect(highWaterSnapshot).not.toBeNull();
 
-    await page.locator(".message-list").evaluate((list) => {
+    await page.locator("[data-message-list]").evaluate((list) => {
       const scrollViewport = list.parentElement;
       if (!scrollViewport) {
         throw new Error("Message list has no scroll viewport");
@@ -330,7 +330,7 @@ for (const viewport of viewports) {
     await expect
       .poll(async () => {
         const restoredTop = await page
-          .locator(".message-list")
+          .locator("[data-message-list]")
           .evaluate((list) => list.parentElement?.scrollTop ?? -1);
         return Math.abs(restoredTop - highWaterSnapshot.scrollTop);
       })
@@ -343,7 +343,7 @@ for (const viewport of viewports) {
     await expect
       .poll(async () => {
         const restoredTop = await page
-          .locator(".message-list")
+          .locator("[data-message-list]")
           .evaluate((list) => list.parentElement?.scrollTop ?? -1);
         return Math.abs(restoredTop - highWaterSnapshot.scrollTop);
       })
@@ -407,7 +407,7 @@ privateTest(
       ).toBeVisible({ timeout: 10_000 });
       await expect
         .poll(() =>
-          page.locator(".message-list").evaluate((list) => {
+          page.locator("[data-message-list]").evaluate((list) => {
             const port = list.parentElement;
             return port ? port.scrollHeight - port.clientHeight : 0;
           }),
@@ -421,7 +421,7 @@ privateTest(
         }
         for (const key of keys) localStorage.removeItem(key);
       }, SESSION_SCROLL_MEMORY_STORAGE_PREFIX);
-      await page.locator(".message-list").evaluate((list) => {
+      await page.locator("[data-message-list]").evaluate((list) => {
         const scrollViewport = list.parentElement;
         if (!scrollViewport) {
           throw new Error("Message list has no scroll viewport");
@@ -447,7 +447,7 @@ privateTest(
       );
       expect(highWaterSnapshot).not.toBeNull();
 
-      await page.locator(".message-list").evaluate((list) => {
+      await page.locator("[data-message-list]").evaluate((list) => {
         const scrollViewport = list.parentElement;
         if (!scrollViewport) {
           throw new Error("Message list has no scroll viewport");
@@ -466,7 +466,7 @@ privateTest(
       await page.reload();
       await expect
         .poll(async () => {
-          const list = page.locator(".message-list");
+          const list = page.locator("[data-message-list]");
           const history = page
             .getByRole("main")
             .getByText("Server restart paragraph 180.", { exact: true });

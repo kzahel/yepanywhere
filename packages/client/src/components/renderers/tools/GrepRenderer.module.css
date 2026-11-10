@@ -125,7 +125,7 @@
 /* FilePathLink renders this child and keeps its global class, so the scope
    reaches in narrowly. Two class levels, matching the specificity that beat
    the global `.file-path-link-name { word-break: break-all }`. */
-.summaryScope :global(.file-path-link-name) {
+.summaryScope :global([data-file-path-link-name]) {
   word-break: normal;
 }
 

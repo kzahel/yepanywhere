@@ -10,8 +10,8 @@
   transition: opacity 0.15s ease;
 }
 
-:global(.fixed-font-render-toggle):hover .button,
-:global(.fixed-font-render-toggle):focus-within .button,
+:global([data-fixed-font-render-toggle]):hover .button,
+:global([data-fixed-font-render-toggle]):focus-within .button,
 .button:focus-visible {
   opacity: 1;
   pointer-events: auto;

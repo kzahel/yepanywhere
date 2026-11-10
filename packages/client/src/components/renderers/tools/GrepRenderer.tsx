@@ -1,3 +1,6 @@
+import codeStyles from "../CodeOutput.module.css";
+import expandStyles from "../ExpandOutput.module.css";
+import globStyles from "./GlobRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import {
@@ -259,10 +262,14 @@ function FileListView({
 
   return (
     <>
-      <div className="file-list">
+      <div className={globStyles.fileList} data-file-list>
         {displayFiles.map((file) => (
-          <div key={file} className="file-list-item">
-            <span className="file-path">
+          <div
+            key={file}
+            className={globStyles.fileListItem}
+            data-file-list-item
+          >
+            <span className={codeStyles.filePath} data-file-path>
               {getFileName(makeDisplayPath(file, projectPath))}
             </span>
             <span className="file-dir">
@@ -271,7 +278,7 @@ function FileListView({
           </div>
         ))}
         {needsCollapse && !isExpanded && (
-          <div className="file-list-more">
+          <div className={globStyles.fileListMore} data-file-list-more>
             ... and {filenames.length - MAX_FILES_COLLAPSED} more
           </div>
         )}
@@ -280,7 +287,8 @@ function FileListView({
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${filenames.length} files`}
@@ -311,14 +319,19 @@ function ContentView({
 
   return (
     <>
-      <pre ref={contentRef} className={`${styles.content} code-block`}>
+      <pre
+        ref={contentRef}
+        className={`${styles.content} ${codeStyles.codeBlock}`}
+        data-code-block
+      >
         <code>{displayContent}</code>
       </pre>
       {needsCollapse && (
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}

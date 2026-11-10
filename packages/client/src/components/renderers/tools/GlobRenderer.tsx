@@ -1,3 +1,5 @@
+import codeStyles from "../CodeOutput.module.css";
+import expandStyles from "../ExpandOutput.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useEffect, useState } from "react";
@@ -105,19 +107,19 @@ function GlobToolResult({
           <SchemaWarning toolName="Glob" errors={validationErrors} />
         )}
       </div>
-      <div className="file-list">
+      <div className={styles.fileList} data-file-list>
         {displayFiles.map((file) => (
-          <div key={file} className="file-list-item">
-            <span className="file-path">
+          <div key={file} className={styles.fileListItem} data-file-list-item>
+            <span className={codeStyles.filePath} data-file-path>
               {getFileName(makeDisplayPath(file, projectPath))}
             </span>
-            <span className="file-dir">
+            <span className={styles.fileDir} data-file-dir>
               {makeDisplayPath(file, projectPath)}
             </span>
           </div>
         ))}
         {needsCollapse && !isExpanded && (
-          <div className="file-list-more">
+          <div className={styles.fileListMore} data-file-list-more>
             ... and {filenames.length - MAX_FILES_COLLAPSED} more
           </div>
         )}
@@ -126,7 +128,8 @@ function GlobToolResult({
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${filenames.length} files`}

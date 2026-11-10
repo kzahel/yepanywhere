@@ -36,7 +36,7 @@ async function expectActionsContained(prompt: Locator) {
   const geometry = await prompt.evaluate((element) => {
     const container = (element as HTMLElement).getBoundingClientRect();
     const actions = element
-      .querySelector<HTMLElement>(".user-prompt-actions")
+      .querySelector<HTMLElement>("[data-user-prompt-actions]")
       ?.getBoundingClientRect();
     return {
       actionsBottom: actions?.bottom ?? 0,
@@ -66,8 +66,8 @@ async function capture(
         caret-color: transparent !important;
         transition-duration: 0s !important;
       }
-      .user-prompt-actions { opacity: 1 !important; }
-      .message-age, [data-turn-rail] { visibility: hidden !important; }
+      [data-user-prompt-actions] { opacity: 1 !important; }
+      [data-message-age], [data-turn-rail] { visibility: hidden !important; }
     `,
   });
   const path = testInfo.outputPath(`${name}.png`);
@@ -112,7 +112,7 @@ for (const viewport of [
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
     await dismissOnboardingIfVisible(page);
 
-    const prompts = page.locator(".user-prompt-container");
+    const prompts = page.locator("[data-user-prompt-container]");
     await expect(prompts).toHaveCount(2, { timeout: 10000 });
     const first = prompts.nth(0);
     const second = prompts.nth(1);
@@ -125,7 +125,7 @@ for (const viewport of [
     await expectActionsContained(first);
     await expectActionsContained(second);
 
-    const fileLink = first.locator("a.file-path-link", {
+    const fileLink = first.locator("a[data-file-path-link]", {
       hasText: "turn-target.md",
     });
     await expect(fileLink).toBeVisible();
@@ -144,12 +144,12 @@ for (const viewport of [
     await page.keyboard.press("Escape");
 
     const textSize = await first
-      .locator(".text-block")
+      .locator("[data-text-block]")
       .evaluate((element) =>
         Number.parseFloat(getComputedStyle(element).fontSize),
       );
     const bubbleSize = await first
-      .locator(".message-user-prompt")
+      .locator("[data-message-user-prompt]")
       .evaluate((element) =>
         Number.parseFloat(getComputedStyle(element).fontSize),
       );

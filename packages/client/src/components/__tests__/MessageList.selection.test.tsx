@@ -101,7 +101,7 @@ describe("MessageList selection and copy", () => {
     expect(screen.queryByRole("button", { name: "Copy Markdown" })).toBeNull();
     expect(
       extractMarkdownSnippetsFromSelection(
-        document.querySelector(".message-list")!,
+        document.querySelector("[data-message-list]")!,
       )[0],
     ).toMatchObject({
       markdown: "command",
@@ -367,7 +367,7 @@ describe("MessageList selection and copy", () => {
     const selectedTextNode = selectedElement.firstChild;
     expect(selectedTextNode).toBeTruthy();
     const codeBlock = document.querySelector(
-      ".code-block",
+      "[data-code-block]",
     ) as HTMLElement | null;
     expect(codeBlock).toBeTruthy();
     if (codeBlock) {
@@ -396,7 +396,7 @@ describe("MessageList selection and copy", () => {
 
     const nextSelectedElement = screen.getByText("Second item");
     const nextCodeBlock = document.querySelector(
-      ".code-block",
+      "[data-code-block]",
     ) as HTMLElement | null;
 
     expect(nextSelectedElement).toBe(selectedElement);
@@ -614,7 +614,7 @@ describe("MessageList selection and copy", () => {
     const quoteButton = await screen.findByRole("button", {
       name: "Quote reply",
     });
-    expect(quoteButton.closest(".message-list")).toBeTruthy();
+    expect(quoteButton.closest("[data-message-list]")).toBeTruthy();
     expect(
       quoteButton.closest('[data-selection-action-cluster="true"]'),
     ).toBeTruthy();
@@ -644,7 +644,9 @@ describe("MessageList selection and copy", () => {
       />,
     );
 
-    const messageList = document.querySelector<HTMLElement>(".message-list");
+    const messageList = document.querySelector<HTMLElement>(
+      "[data-message-list]",
+    );
     expect(messageList).toBeTruthy();
     if (!messageList) throw new Error("Message list is missing");
     Object.defineProperties(messageList, {
@@ -746,7 +748,7 @@ describe("MessageList selection and copy", () => {
       name: "Quote reply",
     });
     expect(quoteButton.closest("[data-modal-frame]")).toBeTruthy();
-    expect(quoteButton.closest(".message-list")).toBeNull();
+    expect(quoteButton.closest("[data-message-list]")).toBeNull();
 
     fireEvent.click(quoteButton);
 

@@ -57,7 +57,9 @@ function getTextBoundary(
 export function captureDiffSelection(
   element: HTMLElement,
 ): DiffSelectionSnapshot | null {
-  const root = element.querySelector<HTMLElement>(".fixed-font-render-toggle");
+  const root = element.querySelector<HTMLElement>(
+    "[data-fixed-font-render-toggle]",
+  );
   const renderMode = root?.dataset.renderMode;
   const selection = element.ownerDocument.getSelection();
   if (
@@ -98,7 +100,7 @@ export function restoreDiffSelection(
   snapshot: DiffSelectionSnapshot,
 ): boolean {
   const root = container.querySelector<HTMLElement>(
-    ".fixed-font-render-toggle",
+    "[data-fixed-font-render-toggle]",
   );
   if (!root) return false;
 

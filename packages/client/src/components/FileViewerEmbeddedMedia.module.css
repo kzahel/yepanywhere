@@ -6,7 +6,7 @@
   border: 0;
 }
 
-:global(.file-viewer-fullscreen) .pdf {
+:global([data-file-viewer-fullscreen]) .pdf {
   height: calc(100dvh - 50px);
 }
 

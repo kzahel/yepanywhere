@@ -1,0 +1,112 @@
+.codeBlock {
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  overflow-x: auto;
+  line-height: 1.5;
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: var(--tab-size);
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+
+.codeBlockError {
+  border-color: var(--error-color);
+  background: var(--bg-error);
+}
+
+.fixedFontRenderToggle {
+  position: relative;
+}
+
+.fixedFontRenderedPanel {
+  display: block;
+  overflow-x: visible;
+}
+
+.fixedFontRenderedContent {
+  min-height: 1.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: var(--tab-size);
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--output-prose-font-variation-settings);
+  font-size: var(--output-prose-font-size);
+  line-height: var(--output-prose-line-height);
+}
+
+.fileHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filePath {
+  color: var(--link-color);
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+
+.fileRange {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.fileContentWithLines {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  background: var(--bg-code);
+  tab-size: var(--tab-size);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+
+.lineNumbers {
+  text-align: right;
+  padding: 0.75rem 0.5rem;
+  color: var(--text-muted);
+  user-select: none;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.lineContent {
+  padding: 0.75rem;
+  margin: 0;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+@media (width <= 600px) {
+  .codeBlock {
+    padding: 0.5rem;
+  }
+}
+
+@media (width <= 600px) {
+  .lineNumbers {
+    padding: 0.5rem 0.25rem;
+  }
+}
+
+@media (width <= 600px) {
+  .lineContent {
+    padding: 0.5rem;
+  }
+}
+
+.lineNumbers > div {
+  line-height: 1.5;
+}
+
+.lineContent code {
+  display: block;
+}

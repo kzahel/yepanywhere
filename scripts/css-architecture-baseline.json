@@ -1,15 +1,15 @@
 {
   "legacyGlobalStyles": {
     "packages/client/src/styles/index.css": {
-      "maxLines": 5542,
+      "maxLines": 4350,
       "reason": "Legacy React-owned application rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/renderers.css": {
-      "maxLines": 2927,
+      "maxLines": 35,
       "reason": "Legacy React-owned renderer rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/tool-rows.css": {
-      "maxLines": 670,
+      "maxLines": 0,
       "reason": "Legacy React-owned tool-row rules and coupled appearance groups; drain by owner to a target of zero."
     }
   },
@@ -41,77 +41,85 @@
       "count": 2,
       "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
     },
-    "generated:context:fixed-font-rendered__content": {
-      "count": 6,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:authored-subject": {
+      "count": 7,
+      "reason": "Shared emitted/React media roots and highlighted range-line markers have one generated styling owner. Close by unifying those markup producers; React wrapper geometry remains in modules."
     },
-    "generated:context:text-block-content": {
+    "generated:context-attribute:data-highlighted-diff": {
+      "count": 13,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-file-viewer-code-highlighted": {
       "count": 5,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
     },
-    "generated:context:text-block-local-rendered": {
-      "count": 6,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:context-attribute:data-shiki-container": {
+      "count": 5,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
     },
-    "generated:context:markdown-preview": {
-      "count": 20,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:context-attribute:data-diff-gutter-aligned": {
+      "count": 4,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
     },
-    "generated:context:markdown-rendered": {
-      "count": 18,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:context-attribute:data-unicode-math": {
+      "count": 2,
+      "reason": "Document Unicode-math mode selects emitted TeX/text children. Close if the math producer adopts a local mode boundary instead of document state."
     },
-    "generated:context:assistant-turn": {
-      "count": 9,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:context-attribute:data-markdown-preview": {
+      "count": 23,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
     },
-    "generated:context:text-block-assistant": {
-      "count": 8,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:context-attribute:data-markdown-rendered": {
+      "count": 19,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
     },
-    "generated:context:streaming-blocks": {
-      "count": 14,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:streaming-block": {
-      "count": 14,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:streaming-pending": {
-      "count": 3,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:has-turn-image-gallery": {
-      "count": 1,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:local-file-text": {
-      "count": 1,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:text-block": {
+    "generated:context-attribute:data-streaming-blocks": {
       "count": 16,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
     },
-    "generated:context:highlighted-diff": {
+    "generated:context-attribute:data-streaming-pending": {
+      "count": 4,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-text-block": {
+      "count": 16,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-text-block-root": {
+      "count": 1,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-text-block-content": {
+      "count": 5,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-text-block-local-rendered": {
+      "count": 5,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-fixed-font-rendered__content": {
+      "count": 6,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context-attribute:data-file-viewer-code": {
+      "count": 9,
+      "reason": "Stable React HTML-island boundary scopes emitted Markdown, math or Shiki descendants without exposing a module hash. Close when that producer owns a scoped generated stylesheet; authored wrapper layout stays in its module."
+    },
+    "generated:context:has-review-comment": {
+      "count": 1,
+      "reason": "The review controller annotates generated Shiki lines and React fallback rows. Emitted-line tint stays with generated styles; close if the annotation producer owns a scoped markup surface."
+    },
+    "generated:context-attribute:data-assistant-turn": {
       "count": 8,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+      "reason": "Transcript turn or Write-preview HTML-island boundary scopes emitted paragraph/code descendants at the original specificity. Close when the emitted producer owns a scoped stylesheet; authored root layout remains modular."
     },
-    "generated:context:file-viewer-code-highlighted": {
-      "count": 2,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+    "generated:context-attribute:data-text-block-assistant": {
+      "count": 8,
+      "reason": "Transcript turn or Write-preview HTML-island boundary scopes emitted paragraph/code descendants at the original specificity. Close when the emitted producer owns a scoped stylesheet; authored root layout remains modular."
     },
-    "generated:context:shiki-container": {
-      "count": 2,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:diff-gutter-aligned": {
+    "generated:context-attribute:data-write-preview-content": {
       "count": 1,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
-    },
-    "generated:context:output-preview-math": {
-      "count": 1,
-      "reason": "React-owned wrapper/context scopes emitted descendants; keep the wrapper rule with its React owner when draining legacy CSS."
+      "reason": "Transcript turn or Write-preview HTML-island boundary scopes emitted paragraph/code descendants at the original specificity. Close when the emitted producer owns a scoped stylesheet; authored root layout remains modular."
     }
   }
 }

@@ -145,7 +145,7 @@ for (const animations of [false, true]) {
     await expect(link).toBeVisible();
     await link.click();
     const pane = page.getByRole("complementary", { name: "Session pane" });
-    const viewer = pane.locator(".file-viewer");
+    const viewer = pane.locator("[data-file-viewer]");
     await expect(
       viewer.getByText("Test Project", { exact: true }),
     ).toBeVisible();
@@ -177,7 +177,7 @@ for (const animations of [false, true]) {
     );
     await recordUiCapture(page, `file-pane-desktop-${animations}`);
 
-    const body = viewer.locator(".file-viewer-body");
+    const body = viewer.locator("[data-file-viewer-body]");
     await body.evaluate((element) => {
       element.scrollTop = 30;
     });
@@ -195,7 +195,7 @@ for (const animations of [false, true]) {
     if (!animations) {
       const immediate = await page.evaluate(async () => {
         const button = document.querySelector<HTMLButtonElement>(
-          '.file-viewer button[aria-label="Close"]',
+          '[data-file-viewer] button[aria-label="Close"]',
         );
         if (!button) throw new Error("Missing close action");
         let frameRan = false;
@@ -212,7 +212,7 @@ for (const animations of [false, true]) {
           frameRan,
           hidden: root.getAttribute("aria-hidden"),
           transitions: root.getAnimations().length,
-          viewerPresent: !!root.querySelector(".file-viewer"),
+          viewerPresent: !!root.querySelector("[data-file-viewer]"),
           track: getComputedStyle(root.parentElement!)
             .gridTemplateColumns.split(" ")
             .at(-1),
@@ -248,7 +248,7 @@ for (const animations of [false, true]) {
     expect(centering.x).toBeLessThan(0.6);
     expect(centering.y).toBeLessThan(0.6);
     await close.click();
-    await expect(page.locator(".file-viewer")).toHaveCount(0);
+    await expect(page.locator("[data-file-viewer]")).toHaveCount(0);
   });
 }
 
@@ -273,18 +273,18 @@ test("nested files stay in the right pane and Back preserves the parent", async 
     await expect(
       pane.getByRole("heading", { name: "Parent file" }),
     ).toBeVisible();
-    const parent = await pane.locator(".file-viewer").elementHandle();
+    const parent = await pane.locator("[data-file-viewer]").elementHandle();
     await pane.getByRole("link", { name: "Open child" }).click();
     await expect(
       pane.getByText("Hello from test file!", { exact: true }),
     ).toBeVisible();
-    await expect(pane.locator(".file-viewer")).toHaveCount(2);
+    await expect(pane.locator("[data-file-viewer]")).toHaveCount(2);
     await expect(page.locator("[data-file-viewer-modal]")).toHaveCount(0);
     await pane
       .getByRole("button", { name: "Back", exact: true })
       .last()
       .click();
-    await expect(pane.locator(".file-viewer")).toHaveCount(1);
+    await expect(pane.locator("[data-file-viewer]")).toHaveCount(1);
     expect(await parent?.evaluate((element) => element.isConnected)).toBe(true);
     await expect(
       pane.getByRole("heading", { name: "Parent file" }),

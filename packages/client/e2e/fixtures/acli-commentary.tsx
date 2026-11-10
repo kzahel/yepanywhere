@@ -1,3 +1,4 @@
+import listStyles from "../../src/components/MessageList.module.css";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
@@ -96,7 +97,7 @@ function Fixture() {
     >
       <SessionViewerProvider sessionId="commentary-fixture">
         <main style={{ maxWidth: 740, margin: "24px auto", padding: "0 24px" }}>
-          <div className="assistant-turn">
+          <div className={listStyles.assistantTurn} data-assistant-turn>
             {(new URLSearchParams(window.location.search).get(
               "conversation",
             ) !== "1" ||

@@ -20,7 +20,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 async function waitForCompletedTranscript(page: Page) {
-  const list = page.locator(".session-messages .message-list");
+  const list = page.locator(".session-messages [data-message-list]");
   await expect(list).toBeVisible({ timeout: 10000 });
   await expect(list).not.toHaveAttribute("aria-busy", "true", {
     timeout: 10000,
@@ -35,7 +35,7 @@ async function waitForCompletedTranscript(page: Page) {
 }
 
 async function topLevelRenderRows(page: Page) {
-  return page.locator(".message-list").evaluate((list) =>
+  return page.locator("[data-message-list]").evaluate((list) =>
     Array.from(
       list.querySelectorAll<HTMLElement>("[data-render-id][data-render-type]"),
     )
@@ -62,7 +62,7 @@ async function attachTranscriptScreenshots(
         caret-color: transparent !important;
         transition-duration: 0s !important;
       }
-      .message-age, [data-turn-rail] { visibility: hidden !important; }
+      [data-message-age], [data-turn-rail] { visibility: hidden !important; }
     `,
   });
   const transcript = page.locator(".session-messages");

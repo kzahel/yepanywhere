@@ -12,7 +12,9 @@ describe("ThinkingText", () => {
     const { container, rerender } = render(
       <ThinkingText text={firstText} isStreaming={true} />,
     );
-    const firstSection = container.querySelector(".thinking-outline-section");
+    const firstSection = container.querySelector(
+      "[data-thinking-outline-section]",
+    );
 
     rerender(
       <ThinkingText
@@ -28,10 +30,10 @@ describe("ThinkingText", () => {
     );
 
     expect(screen.getByText("Second step")).toBeDefined();
-    expect(container.querySelector(".thinking-inline-code")?.textContent).toBe(
-      "AGENTS.md",
-    );
-    expect(container.querySelector(".thinking-outline-section")).toBe(
+    expect(
+      container.querySelector("[data-thinking-inline-code]")?.textContent,
+    ).toBe("AGENTS.md");
+    expect(container.querySelector("[data-thinking-outline-section]")).toBe(
       firstSection,
     );
   });
@@ -51,9 +53,9 @@ describe("ThinkingText", () => {
     expect(screen.getByText("Planning full-corpus review")).toBeDefined();
     expect(screen.getByText("Evaluating chunking strategy")).toBeDefined();
     expect(
-      container.querySelectorAll(".thinking-outline-section"),
+      container.querySelectorAll("[data-thinking-outline-section]"),
     ).toHaveLength(2);
-    expect(container.querySelector(".thinking-outline-body")).toBeNull();
+    expect(container.querySelector("[data-thinking-outline-body]")).toBeNull();
     expect(container.textContent).not.toContain("<!-- -->");
   });
 
@@ -78,8 +80,8 @@ describe("ThinkingText", () => {
 
     const { container } = render(<ThinkingText text={text} />);
 
-    expect(container.querySelector(".thinking-code-block")?.textContent).toBe(
-      "<!-- real comment -->",
-    );
+    expect(
+      container.querySelector("[data-thinking-code-block]")?.textContent,
+    ).toBe("<!-- real comment -->");
   });
 });

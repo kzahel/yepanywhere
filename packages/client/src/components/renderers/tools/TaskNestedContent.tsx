@@ -1,3 +1,4 @@
+import taskStyles from "./TaskPresentation.module.css";
 import { useCallback, useMemo, useState } from "react";
 import { useRecentProjectPathLinks } from "../../../hooks/useRecentProjectPathLinks";
 import { getCachedWebTranscriptProjection } from "../../../lib/webTranscriptProjection";
@@ -28,7 +29,7 @@ export function TaskNestedContent({
   );
 
   return (
-    <div className="task-nested-content">
+    <div className={taskStyles.taskNestedContent} data-task-nested-content>
       {renderItems.map((item) => (
         <RenderItemComponent
           key={item.id}

@@ -49,8 +49,8 @@
   border-radius: var(--radius-lg);
 }
 
-.detail > :global(.file-viewer),
-.detail > :global(.blame-view) {
+.detail > :global([data-file-viewer]),
+.detail > [data-source-blame-view] {
   min-height: 0;
   flex: 1;
   border: 0;

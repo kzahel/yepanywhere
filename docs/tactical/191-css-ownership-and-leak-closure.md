@@ -2,7 +2,7 @@
 
 Topic: css-architecture
 
-Status: steps 1–6 landed 2026-11-10; step 7 areas 1–5 landed.
+Status: steps 1–6 landed 2026-11-10; step 7 areas 1–6 landed.
 Steps 7–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
@@ -217,12 +217,12 @@ Landing by area, composer unchanged and last (2026-11-10).
 - Area 3 landed: source columns/rows/search/detail, diff controls, commit/blame browser and file-page chrome. Remaining: 6,733/3,316/670 (10,719).
 - Area 4 landed: collections, session rows, sidebar/navigation, shared page shell and /btw appearance. Remaining: 5,774/3,316/670 (9,760).
 - Area 5 landed: modal frames/model sections, share management, schema warning and recording badge. Remaining: 5,542/2,927/670 (9,139).
+- Area 6 landed: transcript/blocks/tool rows/renderers, shared code/task/status/path and viewer/diff owners; emitted descendants in generated.css. Remaining: 4,350/35/0 (4,385).
 - Review repair landed: DOM hooks/folder focus, rem typography and explicit cross-module winners; durable source layout guards restored.
-- Final census: 133 token exceptions / 60 files; 35 runtime families; zero unused globals/module selectors.
-- Deferred: viewer/Markdown body typography and diff gutters share Read/Write/Edit and generated roots; move together with transcript to preserve cascade.
-- Model's 17 inline-modifier lines wait for ThinkingControls/RecapAfterSecondsControl in the composer pass.
-- Transcript samples/share interop and the tool-row global pulse wait for their transcript owner; the login recovery-hint [defect](../../gaps/login-recovery-hint-unstyled.md) stays unchanged.
-- Next: transcript, session chrome and composer; one commit per area.
+- Final census: 174 token exceptions / 80 files; 33 runtime families; zero unused globals/module selectors. Generated contexts/subjects: 158 counted findings.
+- Retained estimator and real-browser coverage; removed the copied-CSS tool-preview markup mirror because it did not exercise compiled modules.
+- Deferred: remaining session chrome, then composer owners (including model indicator/inline modifiers); composer moved unchanged last. The login recovery-hint [defect](../../gaps/login-recovery-hint-unstyled.md) stays unchanged.
+- Next: area 7 session chrome, then area 8 composer; one commit per area.
 
 ### 8 — ban string class names in drained owners
 

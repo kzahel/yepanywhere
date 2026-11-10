@@ -41,7 +41,7 @@
   background: var(--bg-code);
 }
 
-.body :global(.diff-modal-content) {
+.body :global([data-diff-modal-content]) {
   min-height: 100%;
   border-radius: 0;
 }

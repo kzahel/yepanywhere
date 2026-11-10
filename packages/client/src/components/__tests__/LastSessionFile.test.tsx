@@ -70,7 +70,7 @@ describe("last session file", () => {
     margin = 80;
     root = document.createElement("div");
     const transcript = document.createElement("div");
-    transcript.className = "message-list";
+    transcript.setAttribute("data-message-list", "");
     target = document.createElement("div");
     root.append(transcript, target);
     document.body.append(root);
@@ -162,7 +162,7 @@ describe("last session file", () => {
   it("finds the reading column when reload hydration mounts it later", async () => {
     open();
     clearCurrentSessionViewer();
-    const transcript = root.querySelector<HTMLElement>(".message-list");
+    const transcript = root.querySelector<HTMLElement>("[data-message-list]");
     if (!transcript) throw new Error("Missing fixture transcript");
     transcript.remove();
     mount();

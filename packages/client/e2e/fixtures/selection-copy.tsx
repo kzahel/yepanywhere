@@ -1,3 +1,4 @@
+import markdownStyles from "../../src/components/MarkdownPreview.module.css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nProvider } from "../../src/i18n";
@@ -17,7 +18,13 @@ function Fixture() {
   const root = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const source = useQuoteableTextSource<HTMLDivElement>(
-    "Copy this into the new session:\n\n> Continue the **Android preview** in `/Users/project`.\n>\n> Keep test data disposable.\n\nPlain assistant text.",
+    `Copy this into the new session:
+
+> Continue the **Android preview** in \`/Users/project\`.
+>
+> Keep test data disposable.
+
+Plain assistant text.`,
   );
   const rawSource = useQuoteableTextSource<HTMLPreElement>(
     "**literal_source**",
@@ -56,7 +63,8 @@ function Fixture() {
       <div ref={root} style={{ position: "relative" }}>
         <div
           ref={source}
-          className="markdown-rendered"
+          className={markdownStyles.markdownRendered}
+          data-markdown-rendered
           data-testid="copy-source"
         >
           <p>Copy this into the new session:</p>

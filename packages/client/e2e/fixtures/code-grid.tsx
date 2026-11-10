@@ -1,3 +1,5 @@
+import markdownStyles from "../../src/components/MarkdownPreview.module.css";
+import textStyles from "../../src/components/blocks/TextBlock.module.css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nProvider } from "../../src/i18n";
@@ -37,7 +39,9 @@ function Fixture() {
       <h2>Readable code blocks</h2>
       <div
         ref={ref}
-        className={`text-block markdown-rendered ${codeFenceRootClass}`}
+        className={`${textStyles.textBlock} ${markdownStyles.markdownRendered} ${codeFenceRootClass}`}
+        data-text-block
+        data-markdown-rendered
       >
         <p>Copy stays above the source, including long wrapped comments.</p>
         <pre id="android">

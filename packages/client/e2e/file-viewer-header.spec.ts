@@ -16,8 +16,8 @@ test("moves window controls without changing the filename row", async ({
     `${baseURL}/projects/${projectId}/sessions/file-viewer-absolute-001`,
   );
   await page.locator('a[data-ya-private-project-file-link="true"]').click();
-  const viewer = page.locator(".file-viewer");
-  const header = viewer.locator(".file-viewer-header");
+  const viewer = page.locator("[data-file-viewer]");
+  const header = viewer.locator("[data-file-viewer-header]");
   const filename = viewer.locator(".file-viewer-path");
   const close = viewer.getByRole("button", { name: "Close", exact: true });
   await expect(header).toHaveAttribute("data-window-actions-top", "true");
@@ -58,7 +58,9 @@ test("moves window controls without changing the filename row", async ({
 
   const zoom = viewer.getByRole("group", { name: "Source zoom" });
   await expect(zoom).toHaveText("−aA+");
-  const body = viewer.locator(".markdown-preview .markdown-rendered").first();
+  const body = viewer
+    .locator("[data-markdown-preview] [data-markdown-rendered]")
+    .first();
   const originalSize = await body.evaluate(
     (element) => getComputedStyle(element).fontSize,
   );

@@ -199,7 +199,7 @@ test("a staged attachment comes back after a reload; a failed check or a missing
     await page.reload();
     await expect(session.composer).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.locator(".message-list").getByText("Previous message").first(),
+      page.locator("[data-message-list]").getByText("Previous message").first(),
     ).toBeVisible();
   };
   // Whether the saved draft still records the staged file.

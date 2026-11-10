@@ -60,7 +60,7 @@ describe("MarkdownPreview", () => {
       </div>,
     );
     const preview = screen.getByRole("region", { name: "Markdown preview" });
-    const rendered = preview.querySelector(".markdown-rendered");
+    const rendered = preview.querySelector("[data-markdown-rendered]");
     if (!rendered) {
       throw new Error("Expected rendered Markdown content");
     }

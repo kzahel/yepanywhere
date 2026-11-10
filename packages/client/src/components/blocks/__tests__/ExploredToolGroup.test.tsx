@@ -217,8 +217,9 @@ describe("ExploredToolGroup", () => {
     expect(grepPattern?.getAttribute("title")).toBe(
       "tool|bash in packages/client/src",
     );
-    const grepScopeLink =
-      grepSummary?.querySelector<HTMLAnchorElement>("a.file-path-link");
+    const grepScopeLink = grepSummary?.querySelector<HTMLAnchorElement>(
+      "a[data-file-path-link]",
+    );
     expect(grepScopeLink?.textContent).toBe("src");
     expect(grepScopeLink?.getAttribute("href")).toBe(
       `/projects/${projectId}/file?path=packages%2Fclient%2Fsrc`,
@@ -346,8 +347,9 @@ describe("ExploredToolGroup", () => {
     );
     expect(grepPattern?.textContent).toBe("needle");
     expect(grepPattern?.getAttribute("title")).toBe("needle in src");
-    const grepScopeLink =
-      grepSummary?.querySelector<HTMLAnchorElement>("a.file-path-link");
+    const grepScopeLink = grepSummary?.querySelector<HTMLAnchorElement>(
+      "a[data-file-path-link]",
+    );
     expect(grepScopeLink?.textContent).toBe("src");
     expect(grepScopeLink?.getAttribute("href")).toBe(
       `/projects/${projectId}/file?path=src`,
@@ -428,10 +430,10 @@ describe("ExploredToolGroup", () => {
     ).toContain("line=1&lineEnd=100&view=range");
 
     const groupHeader = container.querySelector<HTMLButtonElement>(
-      ".explored-group-header",
+      "[data-explored-group-header]",
     );
     const groupBody = container.querySelector<HTMLElement>(
-      ".explored-group-body",
+      "[data-explored-group-body]",
     );
     expect(groupHeader?.getAttribute("aria-controls")).toBe(groupBody?.id);
     expect(groupHeader?.getAttribute("aria-expanded")).toBe("true");
@@ -444,9 +446,11 @@ describe("ExploredToolGroup", () => {
     expect(screen.getByText("Ran")).toBeDefined();
     expect(screen.getAllByText(command)).toHaveLength(1);
     expect(screen.getAllByText("combined output once")).toHaveLength(1);
-    expect(container.querySelectorAll(".explored-parent-raw")).toHaveLength(1);
+    expect(
+      container.querySelectorAll("[data-explored-parent-raw]"),
+    ).toHaveLength(1);
     expect(detailsButton.getAttribute("aria-controls")).toBe(
-      container.querySelector<HTMLElement>(".explored-parent-raw")?.id,
+      container.querySelector<HTMLElement>("[data-explored-parent-raw]")?.id,
     );
   });
 
@@ -503,17 +507,17 @@ describe("ExploredToolGroup", () => {
     expect(
       screen
         .getByText(longQuery)
-        .closest(".explored-entry-semantic-summary")
+        .closest("[data-explored-entry-semantic-summary]")
         ?.getAttribute("title"),
     ).toContain(longQuery);
     expect(
       container
-        .querySelector(".explored-entry-semantic-summary")
+        .querySelector("[data-explored-entry-semantic-summary]")
         ?.getAttribute("title"),
     ).toContain("packages/client/src/features/deeply/nested/index.ts");
     expect(
       Array.from(
-        container.querySelectorAll<HTMLElement>(".explored-entry-tool"),
+        container.querySelectorAll<HTMLElement>("[data-explored-entry-tool]"),
         (entry) => entry.textContent,
       ),
     ).toEqual(["Read", "Read", "Search"]);
@@ -629,7 +633,7 @@ describe("ExploredToolGroup", () => {
     expect(
       screen.getByRole("button", { name: "Expand explored tools" }),
     ).toBeDefined();
-    expect(container.querySelector(".explored-group-body")).toBeNull();
+    expect(container.querySelector("[data-explored-group-body]")).toBeNull();
     expect(group?.dataset.renderId).toBe(
       "explored-call-stable-parent-call-stable-parent",
     );
@@ -690,7 +694,9 @@ describe("ExploredToolGroup", () => {
       </I18nProvider>,
     );
 
-    const summaries = container.querySelectorAll(".explored-entry-summary");
+    const summaries = container.querySelectorAll(
+      "[data-explored-entry-summary]",
+    );
     expect(summaries).toHaveLength(3);
     for (const summary of summaries) {
       expect(summary.querySelector('[data-tool-display="raw"]')).toBeNull();

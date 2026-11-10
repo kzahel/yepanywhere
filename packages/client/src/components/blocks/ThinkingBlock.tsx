@@ -1,3 +1,6 @@
+import styles from "./ThinkingBlock.module.css";
+import collapsibleStyles from "../Collapsible.module.css";
+import timelineStyles from "../TranscriptTimeline.module.css";
 import { memo } from "react";
 import { ThinkingText } from "../ThinkingText";
 
@@ -37,10 +40,9 @@ export const ThinkingBlock = memo(function ThinkingBlock({
       ? formatThinkingDuration(durationMs)
       : null;
   const className = [
-    "thinking-block",
-    "collapsible",
-    "timeline-item",
-    isStreaming && !isExpanded ? "thinking-streaming-collapsed" : "",
+    styles.thinkingBlock,
+    timelineStyles.timelineItem,
+    isStreaming && !isExpanded ? styles.thinkingStreamingCollapsed : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -48,6 +50,11 @@ export const ThinkingBlock = memo(function ThinkingBlock({
   return (
     <details
       className={className}
+      data-thinking-block
+      data-timeline-item
+      data-thinking-streaming-collapsed={
+        (isStreaming && !isExpanded) || undefined
+      }
       open={isExpanded}
       onToggle={(e) => {
         if (e.currentTarget.open !== isExpanded) {
@@ -56,20 +63,35 @@ export const ThinkingBlock = memo(function ThinkingBlock({
       }}
     >
       <summary
-        className="collapsible__summary"
+        className={collapsibleStyles.collapsibleSummary}
+        data-collapsible__summary
         aria-label={isExpanded ? "Collapse thinking" : "Expand thinking"}
         title={isExpanded ? "Collapse thinking" : "Expand thinking"}
       >
-        <span className="timeline-dot-btn" aria-hidden />
+        <span
+          className={timelineStyles.timelineDotBtn}
+          data-timeline-dot-btn
+          aria-hidden
+        />
         <span>
           {isStreaming ? "Thinking..." : "Thinking"}
           {durationLabel && (
-            <span className="thinking-duration">for {durationLabel}</span>
+            <span className={styles.thinkingDuration} data-thinking-duration>
+              for {durationLabel}
+            </span>
           )}
         </span>
-        <span className="collapsible__icon">▸</span>
+        <span
+          className={collapsibleStyles.collapsibleIcon}
+          data-collapsible__icon
+        >
+          ▸
+        </span>
       </summary>
-      <div className="collapsible__content">
+      <div
+        className={collapsibleStyles.collapsibleContent}
+        data-collapsible__content
+      >
         <ThinkingText text={thinking} isStreaming={isStreaming} />
       </div>
     </details>

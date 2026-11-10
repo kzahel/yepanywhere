@@ -1,0 +1,23 @@
+.fallbackBlock {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+
+.fallbackType {
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.fallbackContent {
+  margin: 0;
+  padding: 0.5rem;
+  overflow-x: auto;
+  background: var(--bg-code);
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}

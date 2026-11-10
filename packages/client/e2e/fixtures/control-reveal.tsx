@@ -1,3 +1,4 @@
+import bashStyles from "../../src/components/renderers/tools/BashRenderer.module.css";
 import hostStyles from "../../src/pages/HostPickerPage.module.css";
 import { Corrections } from "./control-corrections";
 import { type ReactNode, useState } from "react";
@@ -107,7 +108,10 @@ function Fixture() {
         <SelectableCard disabled>Unavailable choice</SelectableCard>
       </Site>
       <Site name="bash">
-        <div className="bash-inline-section-header">
+        <div
+          className={bashStyles.bashInlineSectionHeader}
+          data-bash-inline-section-header
+        >
           Output{" "}
           <OutputCopyButton text="bash clipboard witness" label="Copy output" />
         </div>

@@ -1,3 +1,4 @@
+import viewerStyles from "./FileViewer.module.css";
 import {
   type RefObject,
   useCallback,
@@ -150,7 +151,12 @@ export function PdfjsDocumentView({
       commitZoom(scale, rect.left + rect.width / 2, rect.top + rect.height / 2);
   };
 
-  if (!opened) return <div className="file-viewer-loading">{loading}</div>;
+  if (!opened)
+    return (
+      <div className={viewerStyles.fileViewerLoading} data-file-viewer-loading>
+        {loading}
+      </div>
+    );
   const pageWidth = fitWidth === null ? null : fitWidth * zoom;
   return (
     <div className={styles.view}>

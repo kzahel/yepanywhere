@@ -1,3 +1,4 @@
+import styles from "./TranscriptRenderProgress.module.css";
 import { useI18n } from "../i18n";
 import pageStyles from "../layouts/PageLayout.module.css";
 
@@ -11,7 +12,8 @@ export function TranscriptRenderProgress({
   const { t } = useI18n();
   return (
     <div
-      className={`session-render-progress ${pageStyles.loading}`}
+      className={`${styles.sessionRenderProgress} ${pageStyles.loading}`}
+      data-session-render-progress
       data-loading
       role="status"
     >
@@ -27,7 +29,8 @@ export function TranscriptRenderProgress({
             })}
           </div>
           <div
-            className="session-render-progress-bar"
+            className={styles.sessionRenderProgressBar}
+            data-session-render-progress-bar
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
@@ -35,7 +38,8 @@ export function TranscriptRenderProgress({
             aria-label={t("sessionProgressiveRenderingAriaLabel")}
           >
             <div
-              className="session-render-progress-fill"
+              className={styles.sessionRenderProgressFill}
+              data-session-render-progress-fill
               style={{ width: `${percent}%` }}
             />
           </div>

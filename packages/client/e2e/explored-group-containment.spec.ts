@@ -145,10 +145,10 @@ async function openShare(page: Page, remoteClientURL: string) {
   await page.goto(`${remoteClientURL}/remote.html`);
   // The share opens in Conversation view, which folds the reads into the turn's
   // activity summary; the explored group is inside that.
-  const summary = page.locator(".conversation-activity-summary");
+  const summary = page.locator("[data-conversation-activity-summary]");
   await expect(summary).toHaveCount(1);
   await summary.click();
-  await expect(page.locator(".explored-entry")).toHaveCount(3);
+  await expect(page.locator("[data-explored-entry]")).toHaveCount(3);
 }
 
 test("explored entries stay on their own line instead of overlapping", async ({
@@ -160,7 +160,7 @@ test("explored entries stay on their own line instead of overlapping", async ({
 
   const geometry = await page.evaluate(() => {
     const entries = [
-      ...document.querySelectorAll<HTMLElement>(".explored-entry"),
+      ...document.querySelectorAll<HTMLElement>("[data-explored-entry]"),
     ];
     const oneLine = Number.parseFloat(
       getComputedStyle(entries[0] as HTMLElement).lineHeight,
@@ -172,7 +172,7 @@ test("explored entries stay on their own line instead of overlapping", async ({
       }),
       oneLine: Number.isFinite(oneLine) ? oneLine : 0,
       rawBlocks: document.querySelectorAll(
-        '.explored-entry-summary [data-tool-display="raw"]',
+        '[data-explored-entry-summary] [data-tool-display="raw"]',
       ).length,
     };
   });

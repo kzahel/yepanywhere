@@ -1,3 +1,68 @@
+.textBlock {
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--text-primary);
+  position: relative;
+}
+.textBlockCopy {
+  opacity: 0;
+  pointer-events: none;
+}
+.textBlockToggle {
+  opacity: 0;
+  pointer-events: none;
+}
+.textBlockQuote {
+  opacity: 0;
+  pointer-events: none;
+}
+.textBlockQuoteRail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--text-block-quote-lane, 34px);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.textBlockQuoteParagraph {
+  position: absolute;
+  right: 0;
+  transform: translateY(-100%);
+}
+
+.textBlockQuoteFallback {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.textBlockLocalRendered {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.streamingPending {
+  opacity: 0.7;
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--output-prose-font-variation-settings);
+  font-size: var(--output-prose-font-size);
+  line-height: var(--output-prose-line-height);
+}
+
+.turnImageGalleryInlineActionHost {
+  display: inline-flex;
+}
+
+.turnImageGalleryInlineAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .root {
   --source-block-inset: var(--space-1);
   --source-block-line-height: calc(
@@ -6,41 +71,6 @@
     var(--output-prose-line-height-offset)
   );
   --first-line-center: 0.5lh;
-}
-
-.root:has(.source) {
-  --first-line-center: calc(
-    1px +
-    var(--source-block-inset) +
-    var(--source-block-line-height) /
-    2
-  );
-}
-
-.root td {
-  vertical-align: top;
-}
-
-.root:global(.timeline-item) {
-  padding-top: 0;
-}
-
-.root:global(.timeline-item)::before {
-  top: calc(var(--first-line-center) - 3px);
-}
-
-.root:global(.timeline-item)::after {
-  top: calc(var(--first-line-center) + 3px);
-}
-
-.root pre.source {
-  margin: 0;
-  padding: var(--source-block-inset) var(--space-2);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
-  font-size: var(--fixed-font-size-sm);
-  line-height: var(--source-block-line-height);
 }
 
 .timelineAction {
@@ -62,4 +92,190 @@
   color: var(--text-muted, #888);
   font-size: var(--font-size-sm);
   font-style: italic;
+}
+
+[data-assistant-turn] .textBlockAssistant {
+  --text-block-flow-gutter: clamp(0.45rem, 1.6vw, 0.95rem);
+  --text-block-quote-lane: 34px;
+  --text-block-quote-lane-gap: 0.35rem;
+  display: flow-root;
+  padding-right: calc(
+    var(--text-block-quote-lane) +
+    var(--text-block-quote-lane-gap)
+  );
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--output-prose-font-variation-settings);
+  font-size: var(--output-prose-font-size);
+  line-height: var(--output-prose-line-height);
+}
+
+[data-assistant-turn] .textBlockActions {
+  float: right;
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin: 0 0 0.28rem var(--text-block-flow-gutter);
+  margin-inline-end: var(--turn-rail-float-inset-inline-end);
+  shape-outside: circle(50%);
+  shape-margin: 0.05rem;
+  width: auto;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+}
+
+@media (width <= 700px) {
+  [data-assistant-turn] .textBlockAssistant {
+    --text-block-flow-gutter: 0.35rem;
+    --text-block-quote-lane: 30px;
+    display: grid;
+    grid-template-areas:
+      "content"
+      "actions";
+    row-gap: 0.2rem;
+    min-width: 0;
+  }
+}
+
+@media (width <= 700px) {
+  [data-assistant-turn] .textBlockActions {
+    grid-area: actions;
+    float: none;
+    display: inline-flex;
+    margin-left: auto;
+    margin-right: 0;
+    margin-inline-end: var(--turn-rail-float-inset-inline-end);
+  }
+}
+
+@media (width <= 700px) {
+  [data-assistant-turn] .textBlockContent {
+    grid-area: content;
+    min-width: 0;
+  }
+}
+
+.textBlockCopy:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlockToggle:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlockQuote:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlockQuote.always-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlockCopy[data-copied] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-btw-aside-turn] .textBlockCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.root:has(.source) {
+  --first-line-center: calc(
+    1px +
+    var(--source-block-inset) +
+    var(--source-block-line-height) /
+    2
+  );
+}
+
+.root:global([data-timeline-item]) {
+  padding-top: 0;
+}
+.textBlock > .showMoreBtn {
+  display: flex;
+  margin-left: auto;
+  margin-top: 0.25rem;
+}
+
+.root:global([data-timeline-item])::before {
+  top: calc(var(--first-line-center) - 3px);
+}
+
+.root:global([data-timeline-item])::after {
+  top: calc(var(--first-line-center) + 3px);
+}
+
+.root pre.source {
+  margin: 0;
+  padding: var(--source-block-inset) var(--space-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-sm);
+  line-height: var(--source-block-line-height);
+}
+
+.textBlock:hover .textBlockCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlock:focus-within .textBlockCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlock:hover .textBlockToggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlock:focus-within .textBlockToggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlock:hover .textBlockQuote {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textBlock:focus-within .textBlockQuote {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (width <= 700px) {
+  [data-assistant-turn]
+    .textBlockAssistant.streaming
+    > .textBlockContent::after {
+    width: 1.6px;
+  }
+}
+[data-assistant-turn] .textBlockAssistant.streaming > .textBlockContent::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--text-primary);
+  margin-left: 2px;
+  animation: blink 0.8s ease-in-out infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }

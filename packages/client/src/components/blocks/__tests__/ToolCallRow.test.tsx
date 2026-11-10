@@ -151,8 +151,10 @@ describe("ToolCallRow", () => {
     // only once the command has finished.
     expect(screen.getByText("Run")).toBeDefined();
     expect(screen.getByText("npm run test:e2e:pipeline-v2")).toBeDefined();
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
-    expect(container.querySelector(".tool-use-expanded")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
+    expect(container.querySelector("[data-tool-use-expanded]")).toBeNull();
   });
 
   it("pauses pending row activity outside the viewport", () => {
@@ -178,7 +180,7 @@ describe("ToolCallRow", () => {
         status="pending"
       />,
     );
-    const row = container.querySelector(".tool-row") as HTMLElement;
+    const row = container.querySelector("[data-tool-row]") as HTMLElement;
 
     expect(row.style.getPropertyValue("--ya-activity-play")).toBe("paused");
 
@@ -265,7 +267,7 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    const label = container.querySelector<HTMLElement>(".tool-name");
+    const label = container.querySelector<HTMLElement>("[data-tool-name]");
     expect(label).toBeTruthy();
     fireEvent.pointerEnter(label as HTMLElement);
     expect(label?.getAttribute("data-tooltip")).toBe("took 12.5s");
@@ -296,10 +298,10 @@ describe("ToolCallRow", () => {
     );
 
     const command = container.querySelector<HTMLElement>(
-      ".tool-summary-command",
+      "[data-tool-summary-command]",
     );
     const commandText = container.querySelector<HTMLElement>(
-      ".tool-summary-command-text",
+      "[data-tool-summary-command-text]",
     );
     expect(command).toBeTruthy();
     expect(commandText).toBeTruthy();
@@ -333,10 +335,10 @@ describe("ToolCallRow", () => {
     );
 
     const command = container.querySelector<HTMLElement>(
-      ".tool-summary-command",
+      "[data-tool-summary-command]",
     );
     const commandText = container.querySelector<HTMLElement>(
-      ".tool-summary-command-text",
+      "[data-tool-summary-command-text]",
     );
     expect(command).toBeTruthy();
     expect(commandText).toBeTruthy();
@@ -344,7 +346,9 @@ describe("ToolCallRow", () => {
       clientWidth: 60,
       scrollWidth: 120,
     });
-    expect(container.querySelector(".tool-summary-command-more")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-summary-command-more]"),
+    ).toBeNull();
 
     fireEvent.pointerEnter(command as HTMLElement);
 
@@ -380,7 +384,7 @@ describe("ToolCallRow", () => {
     );
 
     const command = container.querySelector<HTMLElement>(
-      ".tool-summary-command",
+      "[data-tool-summary-command]",
     );
     expect(command?.getAttribute("data-tooltip")).toBe(longCommand);
     expect(command?.getAttribute("title")).toBeNull();
@@ -418,7 +422,7 @@ describe("ToolCallRow", () => {
     );
 
     const preview = container.querySelector<HTMLElement>(
-      ".tool-row-collapsed-preview",
+      "[data-tool-row-collapsed-preview]",
     );
     expect(preview).toBeTruthy();
     fireEvent.pointerEnter(preview as HTMLElement);
@@ -452,13 +456,13 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    expect(container.querySelector(".bash-preview-fade")).toBeNull();
-    expect(container.querySelector(".bash-preview-more")).toBeNull();
+    expect(container.querySelector("[data-bash-preview-fade]")).toBeNull();
+    expect(container.querySelector("[data-bash-preview-more]")).toBeNull();
     const preview = container.querySelector<HTMLElement>(
-      ".tool-row-collapsed-preview",
+      "[data-tool-row-collapsed-preview]",
     );
     const renderedOutput = container.querySelector<HTMLElement>(
-      ".bash-preview-output pre",
+      "[data-bash-preview-output] pre",
     );
     expect(preview).toBeTruthy();
     expect(renderedOutput).toBeTruthy();
@@ -495,7 +499,7 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    const label = container.querySelector<HTMLElement>(".tool-name");
+    const label = container.querySelector<HTMLElement>("[data-tool-name]");
     fireEvent.pointerEnter(label as HTMLElement);
     expect(label?.getAttribute("data-tooltip")).toBe("took ~8s");
     expect(label?.getAttribute("title")).toBeNull();
@@ -520,7 +524,7 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    const label = container.querySelector<HTMLElement>(".tool-name");
+    const label = container.querySelector<HTMLElement>("[data-tool-name]");
     fireEvent.pointerEnter(label as HTMLElement);
     expect(label?.getAttribute("data-tooltip")).toMatch(
       /^running for 1m3[01]s$/,
@@ -554,13 +558,13 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    const label = container.querySelector<HTMLElement>(".tool-name");
+    const label = container.querySelector<HTMLElement>("[data-tool-name]");
     fireEvent.pointerEnter(label as HTMLElement);
     expect(label?.getAttribute("title")).toBe("took 12.5s");
     expect(label?.getAttribute("data-tooltip")).toBeNull();
 
     const command = container.querySelector<HTMLElement>(
-      ".tool-summary-command",
+      "[data-tool-summary-command]",
     );
     expect(command?.getAttribute("title")).toBe(longCommand);
     expect(command?.getAttribute("data-tooltip")).toBeNull();
@@ -586,7 +590,9 @@ describe("ToolCallRow", () => {
     );
 
     expect(screen.getByText("Run")).toBeDefined();
-    const preview = container.querySelector(".tool-row-collapsed-preview");
+    const preview = container.querySelector(
+      "[data-tool-row-collapsed-preview]",
+    );
     expect(preview).not.toBeNull();
     expect(preview?.textContent).toContain("partial");
   });
@@ -607,11 +613,13 @@ describe("ToolCallRow", () => {
       />
     );
     const { container, rerender } = render(row("pending"));
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
 
     act(() => setToolOutputPreview("tool-claude-bash", "stage 1 done\n"));
     expect(
-      container.querySelector(".tool-row-collapsed-preview")?.textContent,
+      container.querySelector("[data-tool-row-collapsed-preview]")?.textContent,
     ).toContain("stage 1 done");
 
     rerender(row("complete"));
@@ -632,7 +640,7 @@ describe("ToolCallRow", () => {
     );
     expect(screen.getByText("Run")).toBeDefined();
     expect(
-      container.querySelector(".tool-row-collapsed-preview")?.textContent,
+      container.querySelector("[data-tool-row-collapsed-preview]")?.textContent,
     ).toContain("compiling 3/9");
   });
 
@@ -704,7 +712,7 @@ describe("ToolCallRow", () => {
 
     expect(screen.getByText("Ran")).toBeDefined();
     expect(
-      container.querySelector(".tool-row-collapsed-preview"),
+      container.querySelector("[data-tool-row-collapsed-preview]"),
     ).not.toBeNull();
     expect(screen.getByText("New")).toBeDefined();
     expect(
@@ -712,17 +720,19 @@ describe("ToolCallRow", () => {
     ).toBeTruthy();
     expect(container.querySelector("strong")?.textContent).toBe("done");
     expect(
-      container.querySelector(".fixed-font-rendered__content code")
+      container.querySelector("[data-fixed-font-rendered__content] code")
         ?.textContent,
     ).toBe("dev");
-    expect(container.querySelector(".expand-chevron")).toBeNull();
+    expect(container.querySelector("[data-expand-chevron]")).toBeNull();
     expect(screen.getAllByText("git diff -- notes.md")).toHaveLength(1);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Collapse preview from left gutter" }),
     );
 
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Expand preview" }),
     ).toBeDefined();
@@ -730,12 +740,14 @@ describe("ToolCallRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Expand preview" }));
 
     expect(
-      container.querySelector(".tool-row-collapsed-preview"),
+      container.querySelector("[data-tool-row-collapsed-preview]"),
     ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse preview" }));
 
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
     expect(screen.getByText("git diff -- notes.md")).toBeDefined();
     expect(
       screen.getByRole("button", { name: "Expand preview" }),
@@ -778,12 +790,13 @@ describe("ToolCallRow", () => {
     );
 
     const commandTarget = container.querySelector<HTMLElement>(
-      ".tool-summary-command",
+      "[data-tool-summary-command]",
     );
-    const commandLink =
-      commandTarget?.querySelector<HTMLAnchorElement>(".file-path-link");
+    const commandLink = commandTarget?.querySelector<HTMLAnchorElement>(
+      "[data-file-path-link]",
+    );
     const outputLink = container.querySelector<HTMLAnchorElement>(
-      ".bash-preview-output a[data-fixed-font-file-path]",
+      "[data-bash-preview-output] a[data-fixed-font-file-path]",
     );
 
     expect(commandTarget?.tagName).toBe("SPAN");
@@ -883,20 +896,26 @@ describe("ToolCallRow", () => {
     expect(screen.getByText("Ran")).toBeDefined();
     expect(screen.getByText("true")).toBeDefined();
     expect(screen.getByText("(no output)")).toBeDefined();
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
-    expect(container.querySelector(".tool-row-content")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
+    expect(container.querySelector("[data-tool-row-content]")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Show full command" }),
     ).toBeNull();
 
     fireEvent.click(screen.getByText("true"));
 
-    const content = container.querySelector(".tool-row-content");
+    const content = container.querySelector("[data-tool-row-content]");
     expect(content).not.toBeNull();
     expect(content?.textContent).toBe("true");
-    expect(content?.querySelector(".code-block")?.textContent).toBe("true");
-    expect(content?.querySelector(".bash-empty")).toBeNull();
-    expect(content?.querySelector(".bash-inline-section-label")).toBeNull();
+    expect(content?.querySelector("[data-code-block]")?.textContent).toBe(
+      "true",
+    );
+    expect(content?.querySelector("[data-bash-empty]")).toBeNull();
+    expect(
+      content?.querySelector("[data-bash-inline-section-label]"),
+    ).toBeNull();
     expect(screen.getByRole("button", { name: "Collapse" })).toBeDefined();
   });
 
@@ -929,12 +948,15 @@ describe("ToolCallRow", () => {
     const copyButton = screen.getByRole("button", { name: "Copy command" });
     expect(noOutput.nextElementSibling).toBe(exitCode);
     expect(exitCode.nextElementSibling).toBe(copyButton);
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand" }));
 
     expect(
-      container.querySelector(".tool-row-content .code-block")?.textContent,
+      container.querySelector("[data-tool-row-content] [data-code-block]")
+        ?.textContent,
     ).toBe("false");
   });
 
@@ -965,7 +987,7 @@ describe("ToolCallRow", () => {
       screen.getByText("amended-working-tree/smoke: repetition 1/1"),
     ).toBeDefined();
     expect(container.textContent).not.toContain("Error: Exit code 1");
-    expect(container.querySelector(".bash-preview-error")).toBeNull();
+    expect(container.querySelector("[data-bash-preview-error]")).toBeNull();
   });
 
   it("does not infer an exit code from successful command output text", () => {
@@ -986,7 +1008,7 @@ describe("ToolCallRow", () => {
 
     expect(container.textContent).toContain("Error: Exit code 1");
     expect(screen.queryByText("rc=1")).toBeNull();
-    expect(container.querySelector(".bash-preview-error")).toBeNull();
+    expect(container.querySelector("[data-bash-preview-error]")).toBeNull();
   });
 
   it("expands Bash command text without toggling row details", () => {
@@ -1018,9 +1040,12 @@ describe("ToolCallRow", () => {
     fireEvent.click(screen.getByText(command));
 
     expect(
-      container.querySelector(".tool-row-content .code-block")?.textContent,
+      container.querySelector("[data-tool-row-content] [data-code-block]")
+        ?.textContent,
     ).toBe(command);
-    expect(container.querySelector(".tool-row-collapsed-preview")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-collapsed-preview]"),
+    ).toBeNull();
   });
 
   it("shows hidden multiline Bash command content before expansion", () => {
@@ -1050,21 +1075,26 @@ describe("ToolCallRow", () => {
     expect(
       screen.queryByRole("button", { name: "Show full command" }),
     ).toBeNull();
-    const commandText = container.querySelector(".tool-summary-command-text");
+    const commandText = container.querySelector(
+      "[data-tool-summary-command-text]",
+    );
     expect(commandText?.textContent).toContain("printf first");
     expect(commandText?.textContent).toContain("printf second");
     expect(commandText?.textContent).not.toContain("printf third");
 
     // The hidden-content badge sits on its own line under the Run/Ran
     // label, not inside a nested command button.
-    const moreBadge = container.querySelector(".tool-summary-command-more");
+    const moreBadge = container.querySelector(
+      "[data-tool-summary-command-more]",
+    );
     expect(moreBadge?.textContent).toContain("+1");
     expect(commandText?.textContent).not.toContain("+1");
 
     fireEvent.click(commandText as Element);
 
     expect(
-      container.querySelector(".tool-row-content .code-block")?.textContent,
+      container.querySelector("[data-tool-row-content] [data-code-block]")
+        ?.textContent,
     ).toBe(command);
   });
 
@@ -1137,7 +1167,7 @@ describe("ToolCallRow", () => {
       screen.getByRole("button", { name: /useGlobalSessions\.ts/i }),
     ).toBeDefined();
     expect(screen.getByText(/2 lines/)).toBeDefined();
-    expect(container.querySelector(".expand-chevron")).toBeNull();
+    expect(container.querySelector("[data-expand-chevron]")).toBeNull();
   });
 
   it.each(
@@ -1196,7 +1226,7 @@ describe("ToolCallRow", () => {
       expect(screen.queryByText("rc=1")).toBeNull();
       expect(screen.queryByText("Error")).toBeNull();
       expect(screen.queryByRole("button", { name: "Expand" })).toBeNull();
-      expect(container.querySelector(".tool-row-content")).toBeNull();
+      expect(container.querySelector("[data-tool-row-content]")).toBeNull();
     },
   );
 
@@ -1402,17 +1432,17 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    expect(container.querySelector(".read-text-inline")).toBeNull();
+    expect(container.querySelector("[data-read-text-inline]")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand inline view" }));
 
-    expect(container.querySelector(".read-text-inline")).not.toBeNull();
+    expect(container.querySelector("[data-read-text-inline]")).not.toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Collapse expanded tool row" }),
     );
 
-    expect(container.querySelector(".read-text-inline")).toBeNull();
+    expect(container.querySelector("[data-read-text-inline]")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Expand inline view" }),
     ).toBeDefined();
@@ -1453,35 +1483,43 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    expect(container.querySelector(".edit-collapsed-preview")).not.toBeNull();
-    expect(container.querySelector(".edit-result")).toBeNull();
+    expect(
+      container.querySelector("[data-edit-collapsed-preview]"),
+    ).not.toBeNull();
+    expect(container.querySelector("[data-edit-result]")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse preview" }));
 
-    expect(container.querySelector(".edit-collapsed-preview")).toBeNull();
-    expect(container.querySelector(".edit-result")).toBeNull();
+    expect(container.querySelector("[data-edit-collapsed-preview]")).toBeNull();
+    expect(container.querySelector("[data-edit-result]")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Expand preview" }),
     ).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand preview" }));
 
-    expect(container.querySelector(".edit-collapsed-preview")).not.toBeNull();
+    expect(
+      container.querySelector("[data-edit-collapsed-preview]"),
+    ).not.toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Collapse preview from left gutter" }),
     );
 
-    expect(container.querySelector(".edit-collapsed-preview")).toBeNull();
-    expect(container.querySelector(".edit-result")).toBeNull();
+    expect(container.querySelector("[data-edit-collapsed-preview]")).toBeNull();
+    expect(container.querySelector("[data-edit-result]")).toBeNull();
 
-    const header = container.querySelector<HTMLElement>(".tool-row-header");
+    const header = container.querySelector<HTMLElement>(
+      "[data-tool-row-header]",
+    );
     expect(header).not.toBeNull();
     if (header) {
       fireEvent.click(header);
     }
 
-    expect(container.querySelector(".edit-collapsed-preview")).not.toBeNull();
+    expect(
+      container.querySelector("[data-edit-collapsed-preview]"),
+    ).not.toBeNull();
   });
 
   it("focuses the tool row top when expanding long inline content", () => {
@@ -1530,7 +1568,7 @@ describe("ToolCallRow", () => {
         y: 100,
         toJSON: () => ({}),
       }) as DOMRect;
-    const row = container.querySelector<HTMLElement>(".tool-row");
+    const row = container.querySelector<HTMLElement>("[data-tool-row]");
     expect(row).not.toBeNull();
     if (row) {
       row.getBoundingClientRect = () =>
@@ -1585,10 +1623,10 @@ describe("ToolCallRow", () => {
     );
 
     const shell = container.querySelector<HTMLElement>(
-      ".tool-row-deferred-preview",
+      "[data-tool-row-deferred-preview]",
     );
     expect(shell).not.toBeNull();
-    expect(container.querySelector(".bash-collapsed-preview")).toBeNull();
+    expect(container.querySelector("[data-bash-collapsed-preview]")).toBeNull();
     expect(
       shell?.style.getPropertyValue("--tool-row-deferred-preview-height"),
     ).toMatch(/px$/);
@@ -1639,8 +1677,12 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    expect(container.querySelector(".tool-row-deferred-preview")).toBeNull();
-    expect(container.querySelector(".edit-collapsed-preview")).not.toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-deferred-preview]"),
+    ).toBeNull();
+    expect(
+      container.querySelector("[data-edit-collapsed-preview]"),
+    ).not.toBeNull();
   });
 
   it("defers completed Edit previews when stable preview rendering is disabled", () => {
@@ -1689,8 +1731,10 @@ describe("ToolCallRow", () => {
       />,
     );
 
-    expect(container.querySelector(".edit-collapsed-preview")).toBeNull();
-    expect(container.querySelector(".tool-row-deferred-preview")).toBeNull();
+    expect(container.querySelector("[data-edit-collapsed-preview]")).toBeNull();
+    expect(
+      container.querySelector("[data-tool-row-deferred-preview]"),
+    ).toBeNull();
   });
 
   it("estimates deferred Bash preview height from text, width, and max preview cap", () => {

@@ -1,3 +1,4 @@
+import todoStyles from "./TodoWriteRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 
@@ -86,8 +87,13 @@ function statusIcon(status: TaskListStatus): string {
 
 function statusClassName(status: TaskListStatus): string {
   return status === "in_progress"
-    ? "todo-status-in-progress"
-    : `todo-status-${status}`;
+    ? (todoStyles.todoStatusInProgress ?? "")
+    : ((
+        {
+          pending: todoStyles.todoStatusPending,
+          completed: todoStyles.todoStatusCompleted,
+        } as Record<string, string>
+      )[status] ?? "");
 }
 
 function taskLabel(task: TaskListSnapshotItem): string {
@@ -107,11 +113,11 @@ function TaskSnapshotView({ snapshot }: { snapshot: TaskListSnapshot }) {
   const done = completedCount(tasks);
 
   return (
-    <div className="todo-result">
-      <div className="todo-summary">
+    <div className={todoStyles.todoResult} data-todo-result>
+      <div className={todoStyles.todoSummary} data-todo-summary>
         {done} out of {tasks.length} tasks completed
       </div>
-      <div className="todo-list">
+      <div className={todoStyles.todoList} data-todo-list>
         {tasks.map((task) => {
           const status = normalizeStatus(task.status);
           const isCompleted = status === "completed";
@@ -119,11 +125,19 @@ function TaskSnapshotView({ snapshot }: { snapshot: TaskListSnapshot }) {
           return (
             <div
               key={task.id || display}
-              className={`todo-item ${statusClassName(status)}`}
+              className={`${todoStyles.todoItem} ${statusClassName(status)}`}
+              data-todo-item
+              data-todo-status={
+                status === "in_progress" ? "in-progress" : status
+              }
             >
-              <span className="todo-checkbox">{statusIcon(status)}</span>
+              <span className={todoStyles.todoCheckbox} data-todo-checkbox>
+                {statusIcon(status)}
+              </span>
               <span
-                className={`todo-content ${isCompleted ? "todo-completed" : ""}`}
+                className={`${todoStyles.todoContent} ${isCompleted ? todoStyles.todoCompleted : ""}`}
+                data-todo-content
+                data-todo-completed={isCompleted || undefined}
               >
                 {display}
               </span>
@@ -173,13 +187,17 @@ function renderTaskEvent(
 
   if (isError) {
     return (
-      <div className="todo-error">
+      <div className={todoStyles.todoError} data-todo-error>
         {resultMessage(result) ?? "Task update failed"}
       </div>
     );
   }
 
-  return <div className="todo-summary">{eventMessage(toolName, input)}</div>;
+  return (
+    <div className={todoStyles.todoSummary} data-todo-summary>
+      {eventMessage(toolName, input)}
+    </div>
+  );
 }
 
 function taskSummary(
@@ -200,7 +218,9 @@ export const taskCreateRenderer = defineTool(toolDisplayContracts.TaskCreate, {
 
   renderToolUse(input) {
     return (
-      <div className="todo-summary">{eventMessage("TaskCreate", input)}</div>
+      <div className={todoStyles.todoSummary} data-todo-summary>
+        {eventMessage("TaskCreate", input)}
+      </div>
     );
   },
 
@@ -227,7 +247,9 @@ export const taskUpdateRenderer = defineTool(toolDisplayContracts.TaskUpdate, {
 
   renderToolUse(input) {
     return (
-      <div className="todo-summary">{eventMessage("TaskUpdate", input)}</div>
+      <div className={todoStyles.todoSummary} data-todo-summary>
+        {eventMessage("TaskUpdate", input)}
+      </div>
     );
   },
 

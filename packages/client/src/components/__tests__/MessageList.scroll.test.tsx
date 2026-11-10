@@ -109,7 +109,7 @@ describe("MessageList scroll and follow", () => {
         toJSON: () => ({}),
       }) as DOMRect;
     container.getBoundingClientRect = () => rectFor(0, 500);
-    const lastLine = container.querySelector(".message-list")
+    const lastLine = container.querySelector("[data-message-list]")
       ?.lastElementChild as HTMLElement | null;
     expect(lastLine).toBeTruthy();
     // The last line ends 16px above the viewport bottom (container padding)
@@ -243,7 +243,7 @@ describe("MessageList scroll and follow", () => {
       configurable: true,
       get: () =>
         container
-          .querySelector(".conversation-activity-summary")
+          .querySelector("[data-conversation-activity-summary]")
           ?.getAttribute("aria-expanded") === "true"
           ? 1500 + lateGrowth
           : 1200,
@@ -275,9 +275,9 @@ describe("MessageList scroll and follow", () => {
         }
         if (this.dataset.renderId === summaryId) {
           const expanded =
-            this.querySelector(".conversation-activity-summary")?.getAttribute(
-              "aria-expanded",
-            ) === "true";
+            this.querySelector(
+              "[data-conversation-activity-summary]",
+            )?.getAttribute("aria-expanded") === "true";
           return rectFor(
             (expanded ? 750 + lateGrowth : 450) - container.scrollTop,
             40,
@@ -733,7 +733,7 @@ describe("MessageList scroll and follow", () => {
     const assistant = container.querySelector<HTMLElement>(
       '[data-render-id="assistant-1"]',
     );
-    const lastLine = container.querySelector<HTMLElement>(".message-list")
+    const lastLine = container.querySelector<HTMLElement>("[data-message-list]")
       ?.lastElementChild as HTMLElement | null;
     expect(user).toBeTruthy();
     expect(assistant).toBeTruthy();
@@ -793,7 +793,9 @@ describe("MessageList scroll and follow", () => {
     });
 
     // Leaving the transcript (composer / dead area) restores the status quo.
-    const messageList = container.querySelector<HTMLElement>(".message-list");
+    const messageList = container.querySelector<HTMLElement>(
+      "[data-message-list]",
+    );
     fireEvent.pointerLeave(messageList as HTMLElement);
     await waitFor(() => {
       expect(onTranscriptPositionTimestampChange).toHaveBeenLastCalledWith(
@@ -873,8 +875,9 @@ describe("MessageList scroll and follow", () => {
     const assistant2 = container.querySelector<HTMLElement>(
       '[data-render-id="assistant-2"]',
     );
-    const assistantTurns =
-      container.querySelectorAll<HTMLElement>(".assistant-turn");
+    const assistantTurns = container.querySelectorAll<HTMLElement>(
+      "[data-assistant-turn]",
+    );
     const firstAssistantTurn = assistantTurns.item(0);
     const lastAssistantTurn = assistantTurns.item(1);
     expect(user1).toBeTruthy();
@@ -972,10 +975,12 @@ describe("MessageList scroll and follow", () => {
     const currentAssistantRow = container.querySelector<HTMLElement>(
       '[data-render-id="assistant-2"]',
     );
-    const assistantTurns =
-      container.querySelectorAll<HTMLElement>(".assistant-turn");
-    const messageList =
-      container.querySelector<HTMLDivElement>(".message-list");
+    const assistantTurns = container.querySelectorAll<HTMLElement>(
+      "[data-assistant-turn]",
+    );
+    const messageList = container.querySelector<HTMLDivElement>(
+      "[data-message-list]",
+    );
     expect(userRow).toBeTruthy();
     expect(assistantRow).toBeTruthy();
     expect(currentUserRow).toBeTruthy();
@@ -1093,8 +1098,9 @@ describe("MessageList scroll and follow", () => {
     const assistant1 = container.querySelector<HTMLElement>(
       '[data-render-id="assistant-1"]',
     );
-    const assistantTurn =
-      container.querySelector<HTMLElement>(".assistant-turn");
+    const assistantTurn = container.querySelector<HTMLElement>(
+      "[data-assistant-turn]",
+    );
     expect(user1).toBeTruthy();
     expect(assistant1).toBeTruthy();
     expect(assistantTurn).toBeTruthy();
@@ -1221,7 +1227,9 @@ describe("MessageList scroll and follow", () => {
       configurable: true,
       value: 500,
     });
-    const messageList = container.querySelector<HTMLElement>(".message-list");
+    const messageList = container.querySelector<HTMLElement>(
+      "[data-message-list]",
+    );
     const lastLine = messageList?.lastElementChild as HTMLElement | null;
     expect(lastLine).toBeTruthy();
     vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
@@ -2164,7 +2172,9 @@ describe("MessageList scroll and follow", () => {
       configurable: true,
       value: 500,
     });
-    const messageList = container.querySelector<HTMLElement>(".message-list");
+    const messageList = container.querySelector<HTMLElement>(
+      "[data-message-list]",
+    );
     const lastLine = messageList?.lastElementChild as HTMLElement | null;
     expect(lastLine).toBeTruthy();
     vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
@@ -2770,7 +2780,9 @@ describe("MessageList scroll and follow", () => {
     );
 
     expect(
-      scrollContainer.querySelector(".message-list-progressive-hydrating"),
+      scrollContainer.querySelector(
+        "[data-message-list-progressive-hydrating]",
+      ),
     ).toBeTruthy();
 
     scrollHeight = 1400;
@@ -2868,7 +2880,7 @@ describe("MessageList scroll and follow", () => {
         toJSON: () => ({}),
       }) as DOMRect;
     scrollContainer.getBoundingClientRect = () => rectFor(0, 500);
-    const content = scrollContainer.querySelector(".message-list");
+    const content = scrollContainer.querySelector("[data-message-list]");
     const lastLine = content?.lastElementChild;
     expect(lastLine).toBeInstanceOf(HTMLElement);
     (lastLine as HTMLElement).getBoundingClientRect = () => rectFor(900, 100);

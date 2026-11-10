@@ -1,3 +1,21 @@
+import { toolRowStatusClasses } from "./toolRowStatusClasses";
+import {
+  getBashResultOutputForRichPreview,
+  getHiddenCommandCount,
+  isRecord,
+} from "./toolRowPreviewMetrics";
+import {
+  clamp,
+  estimatePreviewCharsPerLine,
+  estimateWrappedLineCount,
+  estimateDeferredPreviewHeightPx,
+  useDeferredPreviewTypographyMetrics,
+  isBashLikeToolName,
+  canDeferRichToolRow,
+} from "./toolRowPreviewMetrics";
+import timelineStyles from "../TranscriptTimeline.module.css";
+import toolLabelStyles from "../ToolLabel.module.css";
+import codeStyles from "../renderers/CodeOutput.module.css";
 import type { PreparedToolDisplay } from "../renderers/tools/defineTool";
 import { RawToolDisplay, ToolDisplayBoundary } from "./ToolDisplayBoundary";
 import { useI18n } from "../../i18n";
@@ -15,10 +33,7 @@ import {
 } from "react";
 import { useRememberedDisclosureState } from "../../contexts/RememberedDisclosureStateContext";
 import { useOptionalSessionMetadata } from "../../contexts/SessionMetadataContext";
-import {
-  OUTPUT_APPEARANCE_CHANGE_EVENT,
-  useOutputToolPreviewLineCount,
-} from "../../hooks/useOutputAppearance";
+import { useOutputToolPreviewLineCount } from "../../hooks/useOutputAppearance";
 import { useStableToolPreviewRendering } from "../../hooks/useStableToolPreviewRendering";
 import {
   getTextTooltipAttributes,
@@ -67,7 +82,6 @@ import { TimelineDisclosure } from "../TimelineDisclosure";
 import styles from "./ToolCallRow.module.css";
 import type { McpAppToolCall } from "@yep-anywhere/shared";
 import { McpAppToolCard } from "../McpAppToolCard";
-
 interface Props {
   id: string;
   toolName: string;
@@ -84,33 +98,6 @@ interface Props {
   mcpApp?: McpAppToolCall;
 }
 
-export const DEFERRED_PREVIEW_HEIGHT = {
-  outputRowChromePx: 12,
-  previewBorderPx: 2,
-  emptyOutputRowPx: 28,
-  minOutputRowPx: 35,
-  outputLineHeightPx: 18,
-  maxOutputPx: 80,
-  minPx: 28,
-  maxPx: 94,
-  defaultContentWidthPx: 720,
-  minCharsPerLine: 24,
-  maxCharsPerLine: 160,
-  averageCharWidthPx: 7.5,
-} as const;
-
-interface DeferredPreviewTypographyMetrics {
-  averageCharWidthPx: number;
-  outputLineHeightPx: number;
-  outputRowChromePx: number;
-}
-
-const DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY: DeferredPreviewTypographyMetrics = {
-  averageCharWidthPx: DEFERRED_PREVIEW_HEIGHT.averageCharWidthPx,
-  outputLineHeightPx: DEFERRED_PREVIEW_HEIGHT.outputLineHeightPx,
-  outputRowChromePx: DEFERRED_PREVIEW_HEIGHT.outputRowChromePx,
-};
-
 type DeferredPreviewStyle = CSSProperties & {
   "--tool-row-deferred-preview-height"?: string;
 };
@@ -125,10 +112,6 @@ interface NoOutputBashResult {
 }
 
 const COMMAND_PREVIEW_MAX_CHARS_PER_LINE = 220;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 interface CommandElapsed {
   seconds: number;
@@ -214,66 +197,6 @@ function computeCommandElapsedTitle(
   }
 }
 
-function normalizeTypographyMetrics(
-  metrics?: Partial<DeferredPreviewTypographyMetrics>,
-): DeferredPreviewTypographyMetrics {
-  return {
-    averageCharWidthPx: clamp(
-      metrics?.averageCharWidthPx ??
-        DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY.averageCharWidthPx,
-      4,
-      18,
-    ),
-    outputLineHeightPx: clamp(
-      metrics?.outputLineHeightPx ??
-        DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY.outputLineHeightPx,
-      12,
-      42,
-    ),
-    outputRowChromePx: clamp(
-      metrics?.outputRowChromePx ??
-        DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY.outputRowChromePx,
-      4,
-      32,
-    ),
-  };
-}
-
-function estimatePreviewCharsPerLine(
-  rowWidthPx?: number | null,
-  typography?: DeferredPreviewTypographyMetrics,
-): number {
-  const contentWidthPx =
-    typeof rowWidthPx === "number" && rowWidthPx > 0
-      ? Math.max(120, rowWidthPx - 112)
-      : DEFERRED_PREVIEW_HEIGHT.defaultContentWidthPx;
-  const metrics = normalizeTypographyMetrics(typography);
-  return clamp(
-    Math.floor(contentWidthPx / metrics.averageCharWidthPx),
-    DEFERRED_PREVIEW_HEIGHT.minCharsPerLine,
-    DEFERRED_PREVIEW_HEIGHT.maxCharsPerLine,
-  );
-}
-
-function estimateWrappedLineCount(text: string, charsPerLine: number): number {
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
-  let count = 0;
-  for (const line of lines) {
-    count += Math.max(1, Math.ceil(line.length / charsPerLine));
-  }
-  return count;
-}
-
-function getHiddenCommandCount({
-  hiddenChars,
-  hiddenLines,
-}: {
-  hiddenChars: number;
-  hiddenLines: number;
-}): number | null {
-  return hiddenLines || hiddenChars || null;
-}
-
 function getCommandPreview(
   command: string,
   visibleLineCount: number,
@@ -297,141 +220,6 @@ function getCommandPreview(
     text,
     hiddenCount: getHiddenCommandCount({ hiddenChars, hiddenLines }),
   };
-}
-
-export function estimateDeferredPreviewHeightPx(params: {
-  toolName: string;
-  toolInput: unknown;
-  result: unknown;
-  status: ToolCallItem["status"];
-  rowWidthPx?: number | null;
-  typography?: Partial<DeferredPreviewTypographyMetrics>;
-  /** Output-preview-lines appearance setting; the rendered preview clamps
-   * to this many visual lines, so the estimate must share the cap. */
-  previewLineCount?: number;
-}): number | null {
-  if (
-    !canDeferRichToolRow(params.status) ||
-    !isBashLikeToolName(params.toolName)
-  ) {
-    return null;
-  }
-
-  const output = getBashResultOutputForRichPreview(
-    params.result,
-    params.status === "error",
-  ).trimEnd();
-  if (params.result === undefined && !output) {
-    return null;
-  }
-
-  const typography = normalizeTypographyMetrics(params.typography);
-  const charsPerLine = estimatePreviewCharsPerLine(
-    params.rowWidthPx,
-    typography,
-  );
-  const previewLines = clamp(Math.round(params.previewLineCount ?? 4), 1, 8);
-  const maxOutputPx = previewLines * typography.outputLineHeightPx;
-  const outputPx = output
-    ? Math.max(
-        DEFERRED_PREVIEW_HEIGHT.minOutputRowPx,
-        Math.min(
-          maxOutputPx,
-          estimateWrappedLineCount(output, charsPerLine) *
-            typography.outputLineHeightPx,
-        ) + typography.outputRowChromePx,
-      )
-    : params.result
-      ? DEFERRED_PREVIEW_HEIGHT.emptyOutputRowPx
-      : 0;
-
-  return clamp(
-    outputPx + DEFERRED_PREVIEW_HEIGHT.previewBorderPx,
-    DEFERRED_PREVIEW_HEIGHT.minPx,
-    Math.max(
-      DEFERRED_PREVIEW_HEIGHT.maxPx,
-      maxOutputPx +
-        typography.outputRowChromePx +
-        DEFERRED_PREVIEW_HEIGHT.previewBorderPx,
-    ),
-  );
-}
-
-function readDeferredPreviewTypographyMetrics(): DeferredPreviewTypographyMetrics {
-  if (typeof document === "undefined") {
-    return DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY;
-  }
-
-  const probe = document.createElement("span");
-  probe.style.position = "absolute";
-  probe.style.left = "-9999px";
-  probe.style.top = "-9999px";
-  probe.style.visibility = "hidden";
-  probe.style.whiteSpace = "pre";
-  probe.style.fontFamily = "var(--output-prose-font-family)";
-  probe.style.fontSize = "var(--output-prose-font-size)";
-  probe.style.lineHeight = "var(--output-prose-line-height)";
-  probe.textContent =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  document.body.appendChild(probe);
-  const computed = window.getComputedStyle(probe);
-  const rect = probe.getBoundingClientRect();
-  const fontSizePx = Number.parseFloat(computed.fontSize);
-  const lineHeightPx = Number.parseFloat(computed.lineHeight);
-  probe.remove();
-
-  const effectiveFontSizePx = Number.isFinite(fontSizePx)
-    ? fontSizePx
-    : DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY.outputLineHeightPx / 1.5;
-  const averageCharWidthPx =
-    rect.width > 0 && probe.textContent
-      ? rect.width / probe.textContent.length
-      : effectiveFontSizePx * 0.5;
-  const outputLineHeightPx = Number.isFinite(lineHeightPx)
-    ? lineHeightPx
-    : effectiveFontSizePx * 1.5;
-  const outputRowChromePx =
-    DEFERRED_PREVIEW_HEIGHT.outputRowChromePx +
-    (outputLineHeightPx -
-      DEFAULT_DEFERRED_PREVIEW_TYPOGRAPHY.outputLineHeightPx) *
-      0.5;
-
-  return normalizeTypographyMetrics({
-    averageCharWidthPx,
-    outputLineHeightPx,
-    outputRowChromePx,
-  });
-}
-
-function useDeferredPreviewTypographyMetrics(): DeferredPreviewTypographyMetrics {
-  const [metrics, setMetrics] = useState(readDeferredPreviewTypographyMetrics);
-
-  useEffect(() => {
-    const updateMetrics = () =>
-      setMetrics(readDeferredPreviewTypographyMetrics());
-    updateMetrics();
-    window.addEventListener(OUTPUT_APPEARANCE_CHANGE_EVENT, updateMetrics);
-    return () =>
-      window.removeEventListener(OUTPUT_APPEARANCE_CHANGE_EVENT, updateMetrics);
-  }, []);
-
-  return metrics;
-}
-
-function isBashLikeToolName(toolName: string): boolean {
-  const normalized = toolName.toLowerCase();
-  return (
-    normalized === "bash" ||
-    normalized === "exec_command" ||
-    normalized === "shell_command"
-  );
-}
-
-function canDeferRichToolRow(
-  status: ToolCallItem["status"],
-  deferRichContent = true,
-): boolean {
-  return deferRichContent && (status === "complete" || status === "error");
 }
 
 function findNearestScrollContainer(element: HTMLElement): HTMLElement | null {
@@ -669,9 +457,18 @@ function PreparedToolCallRow(props: Props & { originalOutput?: unknown }) {
   const waitingTarget = getWaitingTarget(metadata.tool, props, output);
   if (waitingTarget) {
     return (
-      <div className={`tool-row timeline-item ${styles.waitingRow}`}>
-        <div className={`tool-row-header ${styles.waitingHeader}`}>
-          <span className="tool-name">{t("toolShellPollWaitingLabel")}</span>
+      <div
+        className={`${styles.toolRow} ${timelineStyles.timelineItem} ${styles.waitingRow}`}
+        data-tool-row
+        data-timeline-item
+      >
+        <div
+          className={`${styles.toolRowHeader} ${styles.waitingHeader}`}
+          data-tool-row-header
+        >
+          <span className={toolLabelStyles.toolName} data-tool-name>
+            {t("toolShellPollWaitingLabel")}
+          </span>
           <span className={styles.waitingSummary}>
             {t("toolShellPollWaitingSummary", { target: waitingTarget })}
           </span>
@@ -1135,7 +932,7 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
     (event: React.PointerEvent<HTMLElement>) => {
       const commandText =
         event.currentTarget.querySelector<HTMLElement>(
-          ".tool-summary-command-text",
+          "[data-tool-summary-command-text]",
         ) ?? event.currentTarget;
       const shouldShowTooltip =
         commandHasHiddenPreviewContent ||
@@ -1236,11 +1033,11 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
         elapsedPrefix,
       );
       const outputSurface = event.currentTarget.querySelector<HTMLElement>(
-        ".bash-preview-output",
+        "[data-bash-preview-output]",
       );
       const visibilityTarget =
         outputSurface?.querySelector<HTMLElement>(
-          "pre, .fixed-font-rendered__content",
+          "pre, [data-fixed-font-rendered__content]",
         ) ??
         outputSurface ??
         event.currentTarget;
@@ -1323,7 +1120,11 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
   // Inline renderers bypass the entire tool-row structure
   if (hasInlineRenderer) {
     return (
-      <div className="tool-inline timeline-item">
+      <div
+        className={timelineStyles.timelineItem}
+        data-tool-inline
+        data-timeline-item
+      >
         {prepared.renderInline(renderContext)}
       </div>
     );
@@ -1335,18 +1136,32 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
       ref={rowRef}
       onPointerEnter={hydrateNow}
       onFocus={hydrateNow}
-      className={`tool-row timeline-item ${expanded ? "expanded" : "collapsed"} status-${status} ${isNonExpandable ? "interactive" : ""} ${shouldHydrateRichContent ? "" : "rich-deferred"} ${isBashTool ? "ran-tool-row" : ""}`}
+      className={`${styles.toolRow} ${timelineStyles.timelineItem} ${expanded ? `${styles.expanded}` : ""} ${toolRowStatusClasses[status] ?? ""} ${isNonExpandable ? `${styles.interactive}` : ""} ${isBashTool ? styles.ranToolRow : ""}`}
+      data-tool-row
+      data-timeline-item
+      data-expanded={expanded || undefined}
+      data-interactive={isNonExpandable || undefined}
+      data-ran-tool-row={isBashTool || undefined}
+      data-tool-status={status}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: interactive header has role, tabIndex, and keyboard handlers when enabled */}
       <div
         className={[
-          "tool-row-header",
-          isNonExpandable ? "non-expandable" : "",
-          showBashCommandTarget ? "has-command-preview" : "",
-          noOutputBashResult || showBashExitCode ? "has-result-suffix" : "",
+          styles.toolRowHeader,
+          isNonExpandable ? `${styles["non-expandable"]}` : "",
+          showBashCommandTarget ? `${styles["has-command-preview"]}` : "",
+          noOutputBashResult || showBashExitCode
+            ? `${styles["has-result-suffix"]}`
+            : "",
         ]
           .filter(Boolean)
           .join(" ")}
+        data-tool-row-header
+        data-non-expandable={isNonExpandable || undefined}
+        data-has-command-preview={showBashCommandTarget || undefined}
+        data-has-result-suffix={
+          noOutputBashResult || showBashExitCode || undefined
+        }
         onClick={
           hasDeferredInteractiveShell
             ? hydrateNow
@@ -1415,7 +1230,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
         {status === "pending" && <Spinner size="small" label="Running" />}
         {status === "aborted" && (
           <span
-            className="tool-aborted-icon"
+            className={styles.toolAbortedIcon}
+            data-tool-aborted-icon
             role="img"
             aria-label="Interrupted"
           >
@@ -1424,7 +1240,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
         )}
         {status === "incomplete" && (
           <span
-            className="tool-incomplete-icon"
+            className={styles.toolIncompleteIcon}
+            data-tool-incomplete-icon
             role="img"
             aria-label="Result unavailable"
           >
@@ -1432,7 +1249,11 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           </span>
         )}
 
-        <span className="tool-name" onPointerEnter={handleToolNamePointerEnter}>
+        <span
+          className={toolLabelStyles.toolName}
+          data-tool-name
+          onPointerEnter={handleToolNamePointerEnter}
+        >
           <span className={styles.disclosureAnchor}>
             {showDotBtn && (
               <TimelineDisclosure
@@ -1449,13 +1270,18 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
 
         {hasInteractiveSummary && canRenderInteractiveSummary ? (
           <span
-            className={`tool-summary interactive-summary${hasSummaryDotToggle ? " outline-summary" : ""}`}
+            className={`${styles.toolSummary} ${styles["interactive-summary"]}${hasSummaryDotToggle ? ` ${styles["outline-summary"]}` : ""}`}
+            data-tool-summary
+            data-interactive-summary
+            data-outline-summary={hasSummaryDotToggle || undefined}
           >
             {interactiveSummaryContent}
           </span>
         ) : showBashCommandTarget && noOutputBashResult ? (
           <span
-            className="tool-summary tool-summary-command"
+            className={`${styles.toolSummary} ${styles.toolSummaryCommand}`}
+            data-tool-summary
+            data-tool-summary-command
             {...getTextTooltipAttributes(
               commandHasHiddenPreviewContent ? headerCommand : null,
               tooltipMode,
@@ -1464,7 +1290,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           >
             <span
               ref={bashCommandQuoteRef}
-              className="tool-summary-command-text"
+              className={styles.toolSummaryCommandText}
+              data-tool-summary-command-text
             >
               <ProjectPathLinkedText
                 text={bashCommandPreview.text}
@@ -1477,12 +1304,14 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           // the command. This delegated target preserves both interactions.
           <span
             className={[
-              "tool-summary",
-              "tool-summary-command",
+              styles.toolSummary,
+              styles.toolSummaryCommand,
               bashCommandExpanded ? styles.expandedCommand : "",
             ]
               .filter(Boolean)
               .join(" ")}
+            data-tool-summary
+            data-tool-summary-command
             {...getTextTooltipAttributes(
               commandHasHiddenPreviewContent ? headerCommand : null,
               tooltipMode,
@@ -1515,7 +1344,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           >
             <span
               ref={bashCommandQuoteRef}
-              className="tool-summary-command-text"
+              className={styles.toolSummaryCommandText}
+              data-tool-summary-command-text
             >
               <ProjectPathLinkedText
                 text={
@@ -1527,7 +1357,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           </span>
         ) : (
           <span
-            className="tool-summary"
+            className={styles.toolSummary}
+            data-tool-summary
             {...(hasBashDescription && headerCommand
               ? getTextTooltipAttributes(headerCommand, tooltipMode)
               : {})}
@@ -1539,10 +1370,16 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           >
             {summary}
             {status === "aborted" && (
-              <span className="tool-aborted-label"> (interrupted)</span>
+              <span className={styles.toolAbortedLabel} data-tool-aborted-label>
+                {" "}
+                (interrupted)
+              </span>
             )}
             {status === "incomplete" && (
-              <span className="tool-incomplete-label">
+              <span
+                className={styles.toolIncompleteLabel}
+                data-tool-incomplete-label
+              >
                 {" "}
                 (result unavailable)
               </span>
@@ -1551,10 +1388,16 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
         )}
 
         {noOutputBashResult && (
-          <span className="tool-result-suffix">(no output)</span>
+          <span className={styles.toolResultSuffix} data-tool-result-suffix>
+            (no output)
+          </span>
         )}
         {showBashExitCode && (
-          <span className="tool-result-suffix tool-result-suffix-rc">
+          <span
+            className={`${styles.toolResultSuffix} ${styles.toolResultSuffixRc}`}
+            data-tool-result-suffix
+            data-tool-result-suffix-rc
+          >
             rc={bashExitCode}
           </span>
         )}
@@ -1567,7 +1410,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           !bashCommandExpanded &&
           bashCommandPreview.hiddenCount && (
             <HiddenContentBadge
-              className="tool-summary-command-more"
+              className={styles.toolSummaryCommandMore}
+              data-tool-summary-command-more
               count={bashCommandPreview.hiddenCount}
               tooltip={headerCommand}
             />
@@ -1577,7 +1421,8 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
       {/* Collapsed preview - shown when tool supports it (non-expandable) */}
       {hasCollapsedPreview && previewExpanded && (
         <div
-          className="tool-row-collapsed-preview"
+          className={styles.toolRowCollapsedPreview}
+          data-tool-row-collapsed-preview
           onPointerEnter={handleOutputPreviewPointerEnter}
         >
           {hasPreviewToggle && (
@@ -1591,7 +1436,9 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
       )}
       {hasDeferredPreviewShell && (
         <div
-          className="tool-row-collapsed-preview tool-row-deferred-preview"
+          className={`${styles.toolRowCollapsedPreview} ${styles.toolRowDeferredPreview}`}
+          data-tool-row-collapsed-preview
+          data-tool-row-deferred-preview
           style={
             {
               "--tool-row-deferred-preview-height": `${deferredPreviewHeightPx}px`,
@@ -1599,12 +1446,15 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
           }
           aria-hidden="true"
         >
-          <div className="tool-row-deferred-preview-box" />
+          <div
+            className={styles.toolRowDeferredPreviewBox}
+            data-tool-row-deferred-preview-box
+          />
         </div>
       )}
 
       {dotExpanded && canInlineExpandToolResult && (
-        <div className="tool-row-content">
+        <div className={styles.toolRowContent} data-tool-row-content>
           <ToolRowCollapseStrip onCollapse={() => setDotExpanded(false)} />
           <ToolResultExpanded
             prepared={prepared}
@@ -1615,7 +1465,7 @@ const ToolCallRowContent = memo(function ToolCallRowContent({
       )}
 
       {expanded && !isNonExpandable && (
-        <div className="tool-row-content">
+        <div className={styles.toolRowContent} data-tool-row-content>
           <ToolRowCollapseStrip
             onCollapse={() => {
               userToggledExpandRef.current = true;
@@ -1660,7 +1510,8 @@ function ToolRowCollapseStrip({
 }) {
   return (
     <ButtonBase
-      className="tool-row-collapse-strip"
+      className={styles.toolRowCollapseStrip}
+      data-tool-row-collapse-strip
       onClick={(event) => {
         event.stopPropagation();
         onCollapse();
@@ -1779,41 +1630,8 @@ function getNumberField(
   return undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
 function hasBashPreviewResult(input: unknown): boolean {
   return isRecord(input) && input._previewResult !== undefined;
-}
-
-function getBashResultOutputForRichPreview(
-  result: unknown,
-  bareExitCodeIsEnvelope = false,
-): string {
-  if (typeof result === "string") {
-    const parsed = parseShellToolOutput(result, { bareExitCodeIsEnvelope });
-    return parsed.hasEnvelope ? parsed.output : result;
-  }
-
-  if (!isRecord(result)) {
-    return "";
-  }
-
-  const stdout = typeof result.stdout === "string" ? result.stdout : "";
-  const stderr = typeof result.stderr === "string" ? result.stderr : "";
-  if (stdout || stderr) {
-    return [stdout, stderr].filter(Boolean).join("\n");
-  }
-
-  if (typeof result.content === "string") {
-    const parsed = parseShellToolOutput(result.content, {
-      bareExitCodeIsEnvelope,
-    });
-    return parsed.hasEnvelope ? parsed.output : result.content;
-  }
-
-  return "";
 }
 
 function BashNoOutputExpanded({ command }: { command: string }) {
@@ -1824,7 +1642,12 @@ function BashNoOutputExpanded({ command }: { command: string }) {
   }
 
   return (
-    <pre ref={commandRef} className="code-block bash-no-output-command">
+    <pre
+      ref={commandRef}
+      className={codeStyles.codeBlock}
+      data-code-block
+      data-bash-no-output-command
+    >
       <code>{command}</code>
     </pre>
   );
@@ -1838,7 +1661,9 @@ function ToolUseExpanded({
   context: RenderContext;
 }) {
   return (
-    <div className="tool-use-expanded">{prepared.renderToolUse(context)}</div>
+    <div className={styles.toolUseExpanded} data-tool-use-expanded>
+      {prepared.renderToolUse(context)}
+    </div>
   );
 }
 function ToolResultExpanded({
@@ -1850,10 +1675,19 @@ function ToolResultExpanded({
   toolResult: ToolResultData | undefined;
   context: RenderContext;
 }) {
-  if (!toolResult) return <div className="tool-no-result">No result data</div>;
+  if (!toolResult)
+    return (
+      <div className={styles.toolNoResult} data-tool-no-result>
+        No result data
+      </div>
+    );
   return (
-    <div className="tool-result-expanded">
+    <div className={styles.toolResultExpanded} data-tool-result-expanded>
       {prepared.renderToolResult(context)}
     </div>
   );
 }
+export {
+  DEFERRED_PREVIEW_HEIGHT,
+  estimateDeferredPreviewHeightPx,
+} from "./toolRowPreviewMetrics";

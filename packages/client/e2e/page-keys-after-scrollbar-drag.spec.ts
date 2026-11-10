@@ -21,14 +21,14 @@ async function dismissOnboardingIfVisible(page: Page) {
 
 async function waitForTranscript(page: Page) {
   const transcript = page.locator(".session-messages");
-  await expect(transcript.locator(".message-list")).not.toHaveAttribute(
+  await expect(transcript.locator("[data-message-list]")).not.toHaveAttribute(
     "aria-busy",
     "true",
     { timeout: 10_000 },
   );
   await page.addStyleTag({
     content:
-      "body.page-key-scroll-test .message-list::after { content: ''; display: block; height: 3000px; }",
+      "body.page-key-scroll-test [data-message-list]::after { content: ''; display: block; height: 3000px; }",
   });
   await page.evaluate(() =>
     document.body.classList.add("page-key-scroll-test"),

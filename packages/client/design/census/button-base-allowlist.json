@@ -7,6 +7,10 @@
     "count": 1,
     "reason": "Live countdown/cancel affordance shares patient queue state and timing colors; countdown/watch states remain deferred from step 2."
   },
+  "components/ConversationActivity.tsx": {
+    "count": 1,
+    "reason": "Transcript activity-summary disclosure combines state, elapsed time and variable summary content."
+  },
   "components/FolderListPopover.tsx": {
     "count": 1,
     "reason": "Whole directory-entry row combines folder/file status, name and metadata; preserve list selection geometry."
@@ -26,10 +30,6 @@
   "components/ProjectSelector.tsx": {
     "count": 1,
     "reason": "Project chooser summary contains current project icon/name/path and disclosure state; it is a rich field row."
-  },
-  "components/RenderItemComponent.tsx": {
-    "count": 1,
-    "reason": "Transcript activity-summary disclosure combines state, elapsed time and variable summary content."
   },
   "components/SessionViewerToolbarController.tsx": {
     "count": 2,

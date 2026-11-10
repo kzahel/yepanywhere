@@ -37,10 +37,10 @@ export function snapshotSession(title?: string): string {
     "[contenteditable]",
     "script",
     ".session-menu-wrapper",
-    ".load-older-messages",
-    ".pending-message",
+    "[data-load-older-messages]",
+    "[data-pending-message]",
     ".deferred-message",
-    ".processing-indicator",
+    "[data-processing-indicator]",
   ];
   for (const el of clone.querySelectorAll(removeSelectors.join(", "))) {
     el.remove();

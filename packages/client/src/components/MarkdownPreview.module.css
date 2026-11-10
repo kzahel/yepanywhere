@@ -1,0 +1,65 @@
+.markdownViewToggle {
+  display: flex;
+  gap: 0;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+}
+.markdownPreview {
+  --markdown-preview-font-size-offset: 0px;
+  --markdown-preview-vspace-offset: 0px;
+  --markdown-preview-block-gap: max(
+    0.35rem,
+    calc(
+      0.75rem +
+      var(--markdown-preview-vspace-offset) +
+      var(--output-prose-vspace-offset)
+    )
+  );
+  --markdown-preview-heading-top-gap: max(
+    0.5rem,
+    calc(
+      1.25rem +
+      var(--markdown-preview-vspace-offset) +
+      var(--output-prose-vspace-offset)
+    )
+  );
+  --markdown-preview-heading-bottom-gap: max(
+    0.25rem,
+    calc(
+      0.45rem +
+      var(--markdown-preview-vspace-offset) +
+      var(--output-prose-vspace-offset)
+    )
+  );
+  --markdown-preview-list-gap: max(
+    0.125rem,
+    calc(
+      0.3rem +
+      var(--markdown-preview-vspace-offset) +
+      var(--output-prose-vspace-offset)
+    )
+  );
+
+  overflow: auto;
+}
+
+.markdownPreview .markdownRendered {
+  padding: max(0.5rem, calc(1rem + var(--markdown-preview-vspace-offset)));
+  font-size: calc(
+    var(--output-prose-font-size) +
+    var(--markdown-preview-font-size-offset)
+  );
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--output-prose-font-variation-settings);
+  line-height: max(
+    1.1em,
+    calc(
+      1.46em +
+      var(--markdown-preview-vspace-offset) +
+      var(--output-prose-line-height-offset)
+    )
+  );
+  color: var(--text-primary);
+}

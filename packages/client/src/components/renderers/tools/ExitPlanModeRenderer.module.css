@@ -9,7 +9,7 @@
   margin: var(--space-1) 0;
 }
 
-.root :global(.collapsible__content) {
+.root :global([data-collapsible__content]) {
   padding-left: 0;
 }
 

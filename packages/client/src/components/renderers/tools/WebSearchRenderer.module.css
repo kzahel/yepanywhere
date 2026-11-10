@@ -1,0 +1,80 @@
+.websearchToolUse {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.websearchQuery {
+  font-family: "SF Mono", Monaco, monospace;
+  font-size: var(--font-size-lg);
+  color: var(--link-color);
+}
+
+.websearchResult {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.websearchHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.websearchQueryDisplay {
+  color: var(--text-secondary, var(--text-muted));
+  font-style: italic;
+}
+
+.websearchLinks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.websearchLinkItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem;
+  background: var(--bg-code);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.websearchLink {
+  color: var(--link-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.websearchUrl {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.websearchError {
+  color: var(--error-color);
+  padding: 0.5rem;
+  background: var(--bg-error);
+  border-radius: var(--radius-sm);
+}
+
+.websearchEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-size-lg);
+}
+
+.websearchLinkItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.websearchLink:hover {
+  text-decoration: underline;
+}

@@ -1,0 +1,14 @@
+.toolFallback {
+  margin: 0;
+  padding: 0.5rem;
+  background: var(--bg-code);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+
+.toolFallbackError {
+  background: var(--bg-error);
+  border: 1px solid var(--error-color);
+}

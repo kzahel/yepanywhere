@@ -46,7 +46,7 @@ describe("MessageList rendering", () => {
   const transcriptRenderWeight = (container: HTMLElement) =>
     Number(
       container
-        .querySelector(".message-list")
+        .querySelector("[data-message-list]")
         ?.getAttribute("data-transcript-render-weight") ?? 0,
     );
 
@@ -127,7 +127,7 @@ describe("MessageList rendering", () => {
       expect(toggle.getAttribute("aria-label")).toBe("Collapse gallery");
     }
     const galleryAction = container.querySelector<HTMLButtonElement>(
-      ".turn-image-gallery-inline-action",
+      "[data-turn-image-gallery-inline-action]",
     );
     expect(galleryAction?.textContent).toBe("−Gallery");
     expect(galleryAction?.getAttribute("aria-label")).toBe("Collapse gallery");
@@ -135,7 +135,9 @@ describe("MessageList rendering", () => {
       2,
     );
     expect(
-      container.querySelectorAll(".text-block-content a.local-media-link"),
+      container.querySelectorAll(
+        "[data-text-block-content] a.local-media-link",
+      ),
     ).toHaveLength(2);
     expect(
       container.querySelectorAll(
@@ -282,7 +284,7 @@ describe("MessageList rendering", () => {
     const links =
       container.querySelectorAll<HTMLAnchorElement>("a.local-media-link");
     const galleryAction = container.querySelector<HTMLButtonElement>(
-      ".turn-image-gallery-inline-action",
+      "[data-turn-image-gallery-inline-action]",
     );
     expect(galleryAction?.getAttribute("aria-label")).toBe("Expand gallery");
     expect(galleryAction?.textContent).toBe("+Gallery");
@@ -394,7 +396,7 @@ describe("MessageList rendering", () => {
 
     expect(container.querySelector(`.${galleryStyles.gallery}`)).toBeNull();
     expect(
-      container.querySelector(".turn-image-gallery-inline-action"),
+      container.querySelector("[data-turn-image-gallery-inline-action]"),
     ).toBeNull();
     expect(
       container.querySelectorAll(
@@ -426,7 +428,9 @@ describe("MessageList rendering", () => {
       2,
     );
     expect(
-      container.querySelectorAll(".text-block-content a.local-media-link"),
+      container.querySelectorAll(
+        "[data-text-block-content] a.local-media-link",
+      ),
     ).toHaveLength(2);
   });
 
@@ -555,7 +559,9 @@ describe("MessageList rendering", () => {
       </Profiler>,
     );
     const initialCommitCount = onRender.mock.calls.length;
-    const messageList = container.querySelector<HTMLElement>(".message-list");
+    const messageList = container.querySelector<HTMLElement>(
+      "[data-message-list]",
+    );
     const firstRow = container.querySelector<HTMLElement>(
       '[data-render-id="user-1"]',
     );
@@ -657,10 +663,10 @@ describe("MessageList rendering", () => {
     expect(screen.getByText("Visible answer")).toBeTruthy();
     expect(screen.queryByText("private planning")).toBeNull();
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
     const summary = container.querySelector(
-      ".conversation-activity-summary",
+      "[data-conversation-activity-summary]",
     ) as HTMLButtonElement | null;
     expect(summary).toBeTruthy();
     expect(summary?.textContent).toContain("1 activity hidden");
@@ -669,11 +675,11 @@ describe("MessageList rendering", () => {
 
     expect(screen.getByText("private planning")).toBeTruthy();
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
     expect(
       container
-        .querySelector(".conversation-activity-summary")
+        .querySelector("[data-conversation-activity-summary]")
         ?.getAttribute("aria-expanded"),
     ).toBe("true");
   });
@@ -698,7 +704,7 @@ describe("MessageList rendering", () => {
       />,
     );
     const summary = container.querySelector(
-      ".conversation-activity-summary",
+      "[data-conversation-activity-summary]",
     ) as HTMLButtonElement;
     vi.spyOn(summary, "getBoundingClientRect").mockReturnValue({
       bottom: 134,
@@ -732,7 +738,7 @@ describe("MessageList rendering", () => {
 
     expect(
       container
-        .querySelector(".conversation-activity-summary")
+        .querySelector("[data-conversation-activity-summary]")
         ?.getAttribute("aria-expanded"),
     ).toBe("false");
     expect(screen.queryByText("private planning")).toBeNull();
@@ -743,7 +749,7 @@ describe("MessageList rendering", () => {
 
     expect(
       container
-        .querySelector(".conversation-activity-summary")
+        .querySelector("[data-conversation-activity-summary]")
         ?.getAttribute("aria-expanded"),
     ).toBe("true");
     expect(screen.getByText("private planning")).toBeTruthy();
@@ -876,25 +882,25 @@ describe("MessageList rendering", () => {
     });
     const toolRow = () =>
       container.querySelector<HTMLElement>(
-        '[data-render-id="tool-custom"] .tool-row',
+        '[data-render-id="tool-custom"] [data-tool-row]',
       );
 
     fireEvent.click(
       container.querySelector<HTMLElement>(
-        '[data-render-id="tool-custom"] .tool-row-header',
+        '[data-render-id="tool-custom"] [data-tool-row-header]',
       ) as HTMLElement,
     );
-    expect(toolRow()?.classList.contains("expanded")).toBe(true);
+    expect(toolRow()?.hasAttribute("data-expanded")).toBe(true);
 
     rerender(view(true));
     expect(toolRow()).toBeNull();
 
     rerender(view(false));
-    expect(toolRow()?.classList.contains("expanded")).toBe(true);
+    expect(toolRow()?.hasAttribute("data-expanded")).toBe(true);
 
     rerender(view(false, [], 1));
     rerender(view(false, messages, 1));
-    expect(toolRow()?.classList.contains("expanded")).toBe(false);
+    expect(toolRow()?.hasAttribute("data-expanded")).toBe(false);
   });
 
   it("prunes explored disclosure only after its semantic owner leaves the loaded window", () => {
@@ -983,7 +989,7 @@ describe("MessageList rendering", () => {
     );
 
     const labels = Array.from(
-      container.querySelectorAll(".conversation-activity-summary"),
+      container.querySelectorAll("[data-conversation-activity-summary]"),
       (summary) => summary.textContent,
     );
     expect(labels).toEqual([
@@ -1051,7 +1057,7 @@ describe("MessageList rendering", () => {
     expect(screen.queryByText("Updated current plan")).toBeNull();
     expect(
       container.querySelectorAll(
-        ".conversation-thinking-preview-toggle[aria-expanded='false']",
+        "[data-conversation-thinking-preview-toggle][aria-expanded='false']",
       ),
     ).toHaveLength(2);
 
@@ -1063,7 +1069,7 @@ describe("MessageList rendering", () => {
       screen.getByRole("button", { name: "Dismiss Previous thinking" }),
     );
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
 
     fireEvent.click(
@@ -1073,7 +1079,7 @@ describe("MessageList rendering", () => {
     );
     expect(
       container.querySelectorAll(
-        ".conversation-thinking-preview-toggle[aria-expanded='true']",
+        "[data-conversation-thinking-preview-toggle][aria-expanded='true']",
       ),
     ).toHaveLength(2);
     expect(screen.getByText("Updated current plan")).toBeTruthy();
@@ -1169,7 +1175,7 @@ describe("MessageList rendering", () => {
     expect(screen.getByText("Visible answer")).toBeTruthy();
     expect(screen.queryByText("private planning")).toBeNull();
     expect(
-      document.querySelector(".conversation-activity-summary"),
+      document.querySelector("[data-conversation-activity-summary]"),
     ).toBeTruthy();
   });
 
@@ -1233,8 +1239,10 @@ describe("MessageList rendering", () => {
             uuid: "compact-summary",
             message: {
               role: "user",
-              content:
-                "This session is being continued from a previous conversation that ran out of context.\n\nSummary:\n- hidden detail",
+              content: `This session is being continued from a previous conversation that ran out of context.
+
+Summary:
+- hidden detail`,
             },
             isCompactSummary: true,
             isVisibleInTranscriptOnly: true,
@@ -1257,7 +1265,7 @@ describe("MessageList rendering", () => {
     expect(screen.queryByText("Compacted")).toBeNull();
 
     const compactDetails = container.querySelector(
-      "details.system-message-compact-boundary",
+      "details[data-system-message-compact-boundary]",
     ) as HTMLDetailsElement | null;
     expect(compactDetails).toBeTruthy();
     expect(compactDetails?.open).toBe(false);
@@ -1284,7 +1292,7 @@ describe("MessageList rendering", () => {
     );
 
     const compactDetails = container.querySelector(
-      "details.system-message-compact-boundary",
+      "details[data-system-message-compact-boundary]",
     ) as HTMLDetailsElement | null;
     expect(compactDetails).toBeTruthy();
     expect(compactDetails?.open).toBe(false);
@@ -1311,13 +1319,17 @@ describe("MessageList rendering", () => {
       />,
     );
 
-    expect(container.querySelector(".session-render-progress")).not.toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).not.toBeNull();
 
     await act(async () => {
       vi.advanceTimersByTime(250);
     });
 
-    expect(container.querySelector(".session-render-progress")).toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).toBeNull();
 
     await act(async () => {
       composerDraftSignal.publishDraftChange("typing should stay local", {
@@ -1325,7 +1337,9 @@ describe("MessageList rendering", () => {
       });
     });
 
-    expect(container.querySelector(".session-render-progress")).toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).toBeNull();
 
     await act(async () => {
       rerender(
@@ -1338,7 +1352,9 @@ describe("MessageList rendering", () => {
       );
     });
 
-    expect(container.querySelector(".session-render-progress")).toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).toBeNull();
 
     await act(async () => {
       rerender(
@@ -1350,7 +1366,9 @@ describe("MessageList rendering", () => {
       );
     });
 
-    expect(container.querySelector(".session-render-progress")).not.toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).not.toBeNull();
   });
 
   it("pauses progressive rendering while the transcript is inert", async () => {
@@ -1430,7 +1448,9 @@ describe("MessageList rendering", () => {
       vi.advanceTimersByTime(200);
     });
     const completedRenderWeight = transcriptRenderWeight(container);
-    expect(container.querySelector(".session-render-progress")).toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).toBeNull();
     expect(pauseSignal.supportsCompaction).toBe(true);
 
     pauseSignal.current = true;
@@ -1459,7 +1479,9 @@ describe("MessageList rendering", () => {
         />,
       );
     });
-    expect(container.querySelector(".session-render-progress")).toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).toBeNull();
 
     await act(async () => {
       vi.advanceTimersByTime(1_499);
@@ -1489,7 +1511,9 @@ describe("MessageList rendering", () => {
       />,
     );
 
-    expect(container.querySelector(".session-render-progress")).not.toBeNull();
+    expect(
+      container.querySelector("[data-session-render-progress]"),
+    ).not.toBeNull();
     expect(screen.getByText("Loading session...")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByText(/Rendering transcript/)).toBeNull();
@@ -1649,7 +1673,7 @@ describe("MessageList rendering", () => {
     ).toBeNull();
 
     const commandDetails = container.querySelector(
-      "details.system-message-local-command",
+      "details[data-system-message-local-command]",
     ) as HTMLDetailsElement | null;
     expect(commandDetails).toBeTruthy();
     expect(commandDetails?.open).toBe(false);
@@ -1687,7 +1711,7 @@ describe("MessageList rendering", () => {
     );
 
     const rows = Array.from(
-      container.querySelectorAll("details.system-message-local-command"),
+      container.querySelectorAll("details[data-system-message-local-command]"),
     ) as HTMLDetailsElement[];
     expect(rows.map((row) => row.open)).toEqual([true, false]);
     expect(rows[0]?.textContent).toContain("reason error");

@@ -1,3 +1,4 @@
+import codeStyles from "../CodeOutput.module.css";
 import type { ReactNode } from "react";
 import { getDisplayBashCommandFromInput as getBashCommand } from "../../../lib/bashCommand";
 import { normalizeBashResult } from "../../../lib/bashResult";
@@ -14,13 +15,17 @@ import type { BashInput, BashResult } from "./types";
 import styles from "./BashRenderer.module.css";
 export function renderFixedFontMathPanel(
   html: string,
-  className = "code-block",
+  className = codeStyles.codeBlock,
 ) {
   return (
-    <div className={`${className} fixed-font-rendered-panel`}>
+    <div
+      className={`${className} ${codeStyles.fixedFontRenderedPanel}`}
+      data-fixed-font-rendered-panel
+    >
       {/* KaTeX output is trusted HTML from local rendering. */}
       <InnerHtml
-        className={`fixed-font-rendered__content ${styles.fixedWidthOutput}`}
+        className={`${codeStyles.fixedFontRenderedContent} ${styles.fixedWidthOutput}`}
+        data-fixed-font-rendered__content
         trustedHtml={html}
       />
     </div>
@@ -37,8 +42,10 @@ function BashSectionHeader({
   copyLabel: string;
 }) {
   return (
-    <div className="bash-section-header">
-      <div className="bash-modal-label">{label}</div>
+    <div className={styles.bashSectionHeader} data-bash-section-header>
+      <div className={styles.bashModalLabel} data-bash-modal-label>
+        {label}
+      </div>
       <OutputCopyButton text={copyText} label={copyLabel} />
     </div>
   );
@@ -68,15 +75,15 @@ export function BashModalContent({
   const stderr = result?.stderr || "";
 
   return (
-    <div className="bash-modal-sections">
-      <div className="bash-modal-section">
+    <div className={styles.bashModalSections} data-bash-modal-sections>
+      <div className={styles.bashModalSection} data-bash-modal-section>
         <BashSectionHeader
           label="Command"
           copyText={command}
           copyLabel="Copy command"
         />
-        <div className="bash-modal-code">
-          <pre className="code-block">
+        <div className={styles.bashModalCode} data-bash-modal-code>
+          <pre className={codeStyles.codeBlock} data-code-block>
             <code>
               <ProjectPathLinkedText
                 text={command}
@@ -88,18 +95,18 @@ export function BashModalContent({
         <NestedHarnessLaunchLink command={command} />
       </div>
       {stdout && (
-        <div className="bash-modal-section">
+        <div className={styles.bashModalSection} data-bash-modal-section>
           <BashSectionHeader
             label="Output"
             copyText={stdout}
             copyLabel="Copy output"
           />
-          <div className="bash-modal-code">
+          <div className={styles.bashModalCode} data-bash-modal-code>
             <FixedFontMathToggle
               sourceText={stdout}
               projectPathLinks={projectPathLinks}
               sourceView={
-                <pre className="code-block">
+                <pre className={codeStyles.codeBlock} data-code-block>
                   <ToolOutputText text={stdout} />
                 </pre>
               }
@@ -109,45 +116,63 @@ export function BashModalContent({
         </div>
       )}
       {stderr && (
-        <div className="bash-modal-section">
+        <div className={styles.bashModalSection} data-bash-modal-section>
           <BashSectionHeader
             label={
-              <span className="bash-modal-label-error">
+              <span
+                className={styles.bashModalLabelError}
+                data-bash-modal-label-error
+              >
                 {isError ? "Error" : "Stderr"}
               </span>
             }
             copyText={stderr}
             copyLabel={isError ? "Copy error output" : "Copy stderr"}
           />
-          <div className="bash-modal-code bash-modal-code-error">
+          <div
+            className={`${styles.bashModalCode} ${styles.bashModalCodeError}`}
+            data-bash-modal-code
+            data-bash-modal-code-error
+          >
             <FixedFontMathToggle
               sourceText={stderr}
               projectPathLinks={projectPathLinks}
               sourceView={
-                <pre className="code-block code-block-error">
+                <pre
+                  className={`${codeStyles.codeBlock} ${codeStyles.codeBlockError}`}
+                  data-code-block
+                  data-code-block-error
+                >
                   <ToolOutputText text={stderr} />
                 </pre>
               }
               renderRenderedView={(html) =>
-                renderFixedFontMathPanel(html, "code-block code-block-error")
+                renderFixedFontMathPanel(
+                  html,
+                  `${codeStyles.codeBlock} ${codeStyles.codeBlockError}`,
+                )
               }
             />
           </div>
         </div>
       )}
       {!stdout && !stderr && result && !result.interrupted && (
-        <div className="bash-modal-section">
-          <div className="bash-modal-label">Output</div>
-          <div className="bash-modal-empty">No output</div>
+        <div className={styles.bashModalSection} data-bash-modal-section>
+          <div className={styles.bashModalLabel} data-bash-modal-label>
+            Output
+          </div>
+          <div className={styles.bashModalEmpty} data-bash-modal-empty>
+            No output
+          </div>
         </div>
       )}
       {result?.interrupted && (
-        <div className="bash-modal-section">
+        <div className={styles.bashModalSection} data-bash-modal-section>
           <Badge tone="warning">Interrupted</Badge>
         </div>
       )}
       {result?.backgroundTaskId && (
-        <div className="bash-modal-section">
+        <div className={styles.bashModalSection} data-bash-modal-section>
           <Badge tone="info">Background: {result.backgroundTaskId}</Badge>
         </div>
       )}
@@ -172,7 +197,7 @@ export function BashResultMetaBadges({
     return null;
   }
   return (
-    <div className="bash-result-meta-badges">
+    <div className={styles.bashResultMetaBadges} data-bash-result-meta-badges>
       {showExit && <Badge tone="danger">rc={result?.exitCode}</Badge>}
       {showDuration && result?.durationSeconds !== undefined && (
         <Badge tone="info">

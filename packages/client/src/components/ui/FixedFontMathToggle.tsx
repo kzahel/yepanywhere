@@ -1,3 +1,4 @@
+import codeStyles from "../renderers/CodeOutput.module.css";
 import {
   buildProjectFileViewerHref,
   type CitedFilePosition,
@@ -1295,7 +1296,8 @@ export function FixedFontMathToggle({
   return (
     <div
       ref={copySourceRef}
-      className="fixed-font-render-toggle"
+      className={codeStyles.fixedFontRenderToggle}
+      data-fixed-font-render-toggle
       data-render-mode={
         showRendered && rendered.changed ? "rendered" : "source"
       }

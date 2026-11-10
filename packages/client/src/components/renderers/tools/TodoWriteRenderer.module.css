@@ -1,0 +1,69 @@
+.todoToolUse {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.todoSummary {
+  color: var(--text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.todoResult {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.todoList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.todoItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.125rem 0;
+}
+
+.todoCheckbox {
+  font-size: 1rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.todoContent {
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.todoCompleted {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.todoError {
+  color: var(--error-color);
+  padding: 0.5rem;
+  background: var(--bg-error);
+  border-radius: var(--radius-sm);
+}
+
+.todoEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-size-lg);
+}
+.todoStatusPending .todoCheckbox {
+  color: var(--text-muted);
+}
+
+.todoStatusInProgress .todoCheckbox {
+  color: var(--text-muted);
+}
+
+.todoStatusCompleted .todoCheckbox {
+  color: var(--text-muted);
+}

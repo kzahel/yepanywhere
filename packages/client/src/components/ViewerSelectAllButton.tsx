@@ -15,7 +15,7 @@ function shortcutBelongsToViewer(root: HTMLElement): boolean {
   if (!root.isConnected || root.closest('[aria-hidden="true"]')) return false;
   const surface =
     root.closest<HTMLElement>('[role="dialog"]') ??
-    root.closest<HTMLElement>(".file-viewer") ??
+    root.closest<HTMLElement>("[data-file-viewer]") ??
     root;
   const activeElement = root.ownerDocument.activeElement;
   return (

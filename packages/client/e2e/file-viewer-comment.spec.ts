@@ -35,7 +35,9 @@ async function openRenderedMarkdown(page: Page) {
   await dismissOnboardingIfVisible(page);
   await page.waitForTimeout(750);
   await sourceLink.click();
-  const preview = page.locator("[data-file-viewer-modal] .markdown-preview");
+  const preview = page.locator(
+    "[data-file-viewer-modal] [data-markdown-preview]",
+  );
   await expect(preview).toBeVisible();
   return preview;
 }
@@ -97,7 +99,7 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     const preview = await openRenderedMarkdown(page);
     const viewerBody = page.locator(
-      "[data-file-viewer-modal] .file-viewer-body",
+      "[data-file-viewer-modal] [data-file-viewer-body]",
     );
     const paragraph = preview.getByText(
       "Viewer context remains available while reviewing this file.",

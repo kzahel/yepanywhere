@@ -30,7 +30,7 @@ const forked = (newSessionId: string, forkKind: string) => ({
 
 async function openForkMenu(page: Page, turnText: string) {
   const row = page
-    .locator(".message-list [data-render-id]")
+    .locator("[data-message-list] [data-render-id]")
     .filter({ hasText: turnText });
   await row.hover();
   await row.getByRole("button", { name: /^Fork from this turn/ }).click();

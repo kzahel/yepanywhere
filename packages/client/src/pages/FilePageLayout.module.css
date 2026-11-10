@@ -52,10 +52,10 @@
   overflow: hidden;
 }
 
-.content :global(.file-viewer) {
+.content :global([data-file-viewer]) {
   height: 100%;
 }
 
-.content :global(.file-viewer-header) {
+.content :global([data-file-viewer-header]) {
   border-radius: 0;
 }

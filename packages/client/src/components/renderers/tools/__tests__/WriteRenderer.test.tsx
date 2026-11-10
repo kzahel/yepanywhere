@@ -45,7 +45,9 @@ describe("WriteRenderer", () => {
       </div>,
     );
 
-    const fadedPreview = container.querySelector(".write-preview-content");
+    const fadedPreview = container.querySelector(
+      "[data-write-preview-content]",
+    );
     expect(fadedPreview?.getAttribute("data-tooltip")).toBe(
       "...\nline 3\nline 4\nline 5",
     );
@@ -69,10 +71,10 @@ describe("WriteRenderer", () => {
     );
 
     const preview = container.querySelector<HTMLElement>(
-      ".write-preview-content",
+      "[data-write-preview-content]",
     );
     expect(preview).toBeTruthy();
-    expect(preview?.classList).not.toContain("write-preview-truncated");
+    expect(preview?.hasAttribute("data-write-preview-truncated")).toBe(false);
     Object.defineProperties(preview, {
       clientWidth: { configurable: true, value: 300 },
       clientHeight: { configurable: true, value: 20 },
@@ -116,9 +118,9 @@ describe("WriteRenderer", () => {
       </div>,
     );
 
-    expect(container.querySelector(".write-preview-error")?.textContent).toBe(
-      "EACCES: permission denied",
-    );
+    expect(
+      container.querySelector("[data-write-preview-error]")?.textContent,
+    ).toBe("EACCES: permission denied");
   });
 
   it("names a failed Write generically when no rejection arrived", () => {
@@ -137,8 +139,8 @@ describe("WriteRenderer", () => {
       </div>,
     );
 
-    expect(container.querySelector(".write-preview-error")?.textContent).toBe(
-      "Failed to write file",
-    );
+    expect(
+      container.querySelector("[data-write-preview-error]")?.textContent,
+    ).toBe("Failed to write file");
   });
 });

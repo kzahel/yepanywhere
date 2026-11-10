@@ -16,7 +16,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 
 function activeViewport(page: Page) {
   return page.locator(
-    "[data-session-dom-linger-layer].is-active .message-list",
+    "[data-session-dom-linger-layer][data-is-active] [data-message-list]",
   );
 }
 

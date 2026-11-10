@@ -1,3 +1,4 @@
+import rowsStyles from "./blocks/ToolCallRow.module.css";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -323,7 +324,10 @@ export function ToolApprovalPanel({
                     })}
                     onClose={() => setShowPreviewModal(false)}
                   >
-                    <div className="tool-use-expanded">
+                    <div
+                      className={rowsStyles.toolUseExpanded}
+                      data-tool-use-expanded
+                    >
                       {toolRegistry.renderToolUse(
                         request.toolName,
                         displayToolInput,

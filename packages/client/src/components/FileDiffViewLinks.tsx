@@ -16,12 +16,15 @@ export type FileViewSelection = "source" | GitFileDiffMode;
 export function FileDiffLinkCluster({
   children,
   className,
+  ...attributes
 }: {
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <span className={`${styles.cluster} ${className ?? ""}`}>{children}</span>
+    <span {...attributes} className={`${styles.cluster} ${className ?? ""}`}>
+      {children}
+    </span>
   );
 }
 

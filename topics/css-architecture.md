@@ -35,9 +35,9 @@ React-owned legacy rules. `index.css` remains the shared import entry; it no
 longer owns tokens or document defaults. No rendered styles change.
 Step 7 has landed single-owner pages: login layout, session-list layout and
 connection pulse reuse have one shared module each; logo sizes are owned
-variants. Public-share transcript reach-ins remain narrowly scoped in its
-module until the transcript owner drains. The legacy global pulse still
-controls tool rows and must retain its current winning keyframes until then.
+variants. Public-share transcript reach-ins use stable data boundaries beneath local
+anchors. Tool rows own their pulse animation, retaining the final legacy
+keyframe definition so the ownership change preserves animation behavior.
 Settings rows and search visibility share `SettingsRows.module.css`; categories,
 previews, device lists, command samples and onboarding have explicit owners.
 Cross-owner row/preview selectors use the child’s stable data boundaries
@@ -51,9 +51,10 @@ file pages share their page chrome. Resize/focus/selection queries use stable
 boundaries under its local identity class. Diff context controls have one shared
 module for source previews and EditRenderer. Local preview anchors retain the
 mixed generated/React `line-hunk` vocabulary through a class-token attribute
-selector. Viewer body typography and diff gutters remain coupled to transcript
-Read/Write/Edit output until that coordinated move; review and blame grids retain
-their existing module owners.
+selector. FileViewer and shared CodeOutput/DiffOutput modules own React source wrappers,
+fallback diff rows and gutters alongside Read/Write/Edit output. Emitted Markdown,
+math and Shiki descendants stay in generated.css under counted data boundaries;
+review and blame grids retain their existing module owners.
 Collections and navigation now share PageLayout, MainContent and
 CollectionLayout modules; Sidebar, SidebarNavItem, SessionListItem and the route
 linger host own their states and geometry. The /btw badge and title treatment
@@ -65,6 +66,11 @@ Consumers use `data-modal-*` frame/header/content boundaries under local anchors
 the modal reach-in check recognizes these aliases and retains its counted debt.
 Model option sections have one shared owner across model switch and restart;
 share management, schema warnings and recording badges own their own modules.
+Transcript items, user/setup/thinking blocks, tool rows and renderer families now
+own their layout and states. Shared source typography, output status, paths and
+task presentation have one module each; DOM consumers and fixtures use stable
+data hooks. Native data markers must survive wrapper components and finite
+status maps; removing a styling class never removes an existing DOM contract.
 
 
 The target:
@@ -137,15 +143,20 @@ not carry a migration queue.
   ancestor/subject in the selector (for example a Shiki line's diff prefix).
   Negated or relational arguments do not establish that ancestry. React
   ancestor/context references are counted exceptions with reasons in `globalPurposeExceptions`.
+  Data attributes on ancestor compounds are counted too; emitted subject metadata
+  is not a React context. Tag/universal subjects and tag-only `:is()` descendants
+  may live beneath these boundaries, but a bare React data root (including a
+  tag-qualified root) still incurs authored-subject debt.
   A React shell cannot become the styled subject merely by being a context.
-  Initial exception counts are 18 base references in six entries and 135
-  generated-context references in 18 entries; tokens has zero exceptions.
-- React-authored vocabulary shared with emitted HTML stays with its React owner
-  unless the rule targets only emitted content. Thus the local-media group/type
-  and fallback diff-prefix rules stay legacy, while server-only media toggles
-  and Shiki line rules move. Coupled typography selector groups stay intact in
-  `renderers.css` until their React owners drain; splitting those groups could
-  change equal-specificity order. `EmulatorStream.module.css` owns its video.
+  Current counted contexts live in the baseline, with a lasting reason per entry;
+  tokens has zero exceptions.
+- Shared generated/React media roots and range-line markers have one generated
+  style owner, with counted authored-subject exceptions and explicit closure
+  conditions. React wrapper geometry stays modular. Shiki's inline-style resets
+  retain `!important` only in generated.css; fallback React gutter tints use
+  stronger local selectors so review/hover tint cannot reorder their winner.
+  Coupled typography moves preserve specificity and the final legacy values.
+  `EmulatorStream.module.css` owns its video.
 - `index.css`, `renderers.css` and `tool-rows.css` contain only remaining legacy
   component rules and coupled groups, with a **target of zero** and per-file
   lower-only line ceilings in `scripts/css-architecture-baseline.json`.

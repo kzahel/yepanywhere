@@ -1,3 +1,4 @@
+import rowsStyles from "./ToolCallRow.module.css";
 import { useState } from "react";
 import { IconButton } from "../ui/Button";
 import styles from "./ToolHeaderCopyButton.module.css";
@@ -50,7 +51,9 @@ export function ToolHeaderCopyButton({
     <IconButton
       variant={copied ? "success-outline" : "outline"}
       size="dense"
-      className={`tool-header-copy ${styles.headerCopy} ${copied ? "copied" : ""}`}
+      className={`${rowsStyles.toolHeaderCopy} ${styles.headerCopy}`}
+      data-tool-header-copy
+      data-copied={copied || undefined}
       onKeyDown={(event) => {
         // The containing tool header also activates on Enter/Space. Preserve
         // native button activation without toggling that disclosure.

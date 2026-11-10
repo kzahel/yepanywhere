@@ -147,7 +147,7 @@ describe("SessionViewerTranscriptGate", () => {
     const renderWeight = () =>
       Number(
         container
-          .querySelector(".message-list")
+          .querySelector("[data-message-list]")
           ?.getAttribute("data-transcript-render-weight") ?? 0,
       );
     const coveredWeight = renderWeight();
@@ -197,7 +197,7 @@ describe("SessionViewerTranscriptGate", () => {
     const renderWeight = () =>
       Number(
         container
-          .querySelector(".message-list")
+          .querySelector("[data-message-list]")
           ?.getAttribute("data-transcript-render-weight") ?? 0,
       );
     const initialWeight = renderWeight();

@@ -1,3 +1,5 @@
+import codeStyles from "../CodeOutput.module.css";
+import expandStyles from "../ExpandOutput.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { normalizeBashResult } from "../../../lib/bashResult";
 import {
@@ -106,12 +108,20 @@ function BashToolUse({ input }: { input: BashInput }) {
   const commandRef = useQuoteableTextSource<HTMLPreElement>(displayCommand);
 
   return (
-    <div className="bash-tool-use">
-      <div className="bash-inline-section-header">
-        <span className="bash-inline-section-label">Command</span>
+    <div className={styles.bashToolUse} data-bash-tool-use>
+      <div
+        className={styles.bashInlineSectionHeader}
+        data-bash-inline-section-header
+      >
+        <span
+          className={styles.bashInlineSectionLabel}
+          data-bash-inline-section-label
+        >
+          Command
+        </span>
         <OutputCopyButton text={command} label="Copy command" />
       </div>
-      <pre ref={commandRef} className="code-block">
+      <pre ref={commandRef} className={codeStyles.codeBlock} data-code-block>
         <code>
           <ProjectPathLinkedText
             text={displayCommand}
@@ -124,7 +134,8 @@ function BashToolUse({ input }: { input: BashInput }) {
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Show less" : `Show all ${lines.length} lines`}
@@ -218,17 +229,35 @@ function BashToolResult({
   const stdoutRenderText = richStdout.changed ? stdout : displayStdout;
 
   return (
-    <div className={`bash-result ${isError ? "bash-result-error" : ""}`}>
+    <div
+      className={`${styles.bashResult} ${isError ? "bash-result-error" : ""}`}
+      data-bash-result
+    >
       {showValidationWarning && validationErrors && (
         <SchemaWarning toolName="Bash" errors={validationErrors} />
       )}
       {command && (
-        <div className="bash-expanded-section bash-expanded-command-section">
-          <div className="bash-inline-section-header">
-            <span className="bash-inline-section-label">Command</span>
+        <div
+          className={`${styles.bashExpandedSection} bash-expanded-command-section`}
+          data-bash-expanded-section
+        >
+          <div
+            className={styles.bashInlineSectionHeader}
+            data-bash-inline-section-header
+          >
+            <span
+              className={styles.bashInlineSectionLabel}
+              data-bash-inline-section-label
+            >
+              Command
+            </span>
             <OutputCopyButton text={command} label="Copy command" />
           </div>
-          <pre ref={commandRef} className="code-block">
+          <pre
+            ref={commandRef}
+            className={codeStyles.codeBlock}
+            data-code-block
+          >
             <code>
               <ProjectPathLinkedText
                 text={command}
@@ -245,9 +274,21 @@ function BashToolResult({
       )}
       <BashResultMetaBadges result={result} />
       {stdout && (
-        <div className="bash-stdout bash-expanded-section">
-          <div className="bash-inline-section-header">
-            <span className="bash-inline-section-label">Output</span>
+        <div
+          className={`${styles.bashStdout} ${styles.bashExpandedSection}`}
+          data-bash-stdout
+          data-bash-expanded-section
+        >
+          <div
+            className={styles.bashInlineSectionHeader}
+            data-bash-inline-section-header
+          >
+            <span
+              className={styles.bashInlineSectionLabel}
+              data-bash-inline-section-label
+            >
+              Output
+            </span>
             <OutputCopyButton text={stdout} label="Copy output" />
           </div>
           <FixedFontMathToggle
@@ -259,7 +300,7 @@ function BashToolResult({
                 : NO_FIXED_FONT_RICH_CONTENT
             }
             sourceView={
-              <pre className="code-block">
+              <pre className={codeStyles.codeBlock} data-code-block>
                 <ToolOutputText text={displayStdout} />
               </pre>
             }
@@ -269,7 +310,8 @@ function BashToolResult({
             <Button
               variant="ghost"
               size="small"
-              className="expand-button"
+              className={expandStyles.expandButton}
+              data-expand-button
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded
@@ -280,9 +322,19 @@ function BashToolResult({
         </div>
       )}
       {stderr && (
-        <div className="bash-stderr bash-expanded-section">
-          <div className="bash-inline-section-header">
-            <span className="bash-inline-section-label">
+        <div
+          className={`${styles.bashStderr} ${styles.bashExpandedSection}`}
+          data-bash-stderr
+          data-bash-expanded-section
+        >
+          <div
+            className={styles.bashInlineSectionHeader}
+            data-bash-inline-section-header
+          >
+            <span
+              className={styles.bashInlineSectionLabel}
+              data-bash-inline-section-label
+            >
               {isError ? "Error" : "Stderr"}
             </span>
             <OutputCopyButton
@@ -295,18 +347,27 @@ function BashToolResult({
             projectPathLinks={projectPathLinks}
             precomputedRendered={richStderr}
             sourceView={
-              <pre className="code-block code-block-error">
+              <pre
+                className={`${codeStyles.codeBlock} ${codeStyles.codeBlockError}`}
+                data-code-block
+                data-code-block-error
+              >
                 <ToolOutputText text={stderr} />
               </pre>
             }
             renderRenderedView={(html) =>
-              renderFixedFontMathPanel(html, "code-block code-block-error")
+              renderFixedFontMathPanel(
+                html,
+                `${codeStyles.codeBlock} ${codeStyles.codeBlockError}`,
+              )
             }
           />
         </div>
       )}
       {!stdout && !stderr && !result?.interrupted && (
-        <div className="bash-empty">No output</div>
+        <div className={styles.bashEmpty} data-bash-empty>
+          No output
+        </div>
       )}
     </div>
   );
@@ -457,19 +518,30 @@ function BashCollapsedPreview({
         role="button"
         tabIndex={0}
         aria-label="View bash command output"
-        className="bash-collapsed-preview"
+        className={styles.bashCollapsedPreview}
+        data-bash-collapsed-preview
         onClick={handleClick}
         onKeyDown={handleKeyDown}
       >
         {showValidationWarning && validationErrors && (
-          <div className="bash-preview-row bash-preview-warning-row">
+          <div
+            className={`${styles.bashPreviewRow} ${styles.bashPreviewWarningRow}`}
+            data-bash-preview-row
+            data-bash-preview-warning-row
+          >
             <SchemaWarning toolName="Bash" errors={validationErrors} />
           </div>
         )}
         {hasOutput && (
-          <div className="bash-preview-row bash-preview-output-row">
+          <div
+            className={`${styles.bashPreviewRow} ${styles.bashPreviewOutputRow}`}
+            data-bash-preview-row
+            data-bash-preview-output-row
+          >
             <div
-              className={`bash-preview-output ${truncated ? "bash-preview-truncated" : ""} ${previewIsStderr ? "bash-preview-error" : ""}`}
+              className={`${styles.bashPreviewOutput} ${truncated ? "bash-preview-truncated" : ""} ${previewIsStderr ? styles.bashPreviewError : ""}`}
+              data-bash-preview-output
+              data-bash-preview-error={previewIsStderr || undefined}
               style={
                 {
                   "--bash-preview-line-count": String(
@@ -491,13 +563,19 @@ function BashCollapsedPreview({
                   <pre>
                     {/* KaTeX output is trusted HTML from local rendering. */}
                     <InnerHtml
-                      className={`fixed-font-rendered__content ${styles.fixedWidthOutput}`}
+                      className={`${codeStyles.fixedFontRenderedContent} ${styles.fixedWidthOutput}`}
+                      data-fixed-font-rendered__content
                       trustedHtml={html}
                     />
                   </pre>
                 )}
               />
-              {truncated && <div className="bash-preview-fade" />}
+              {truncated && (
+                <div
+                  className={styles.bashPreviewFade}
+                  data-bash-preview-fade
+                />
+              )}
             </div>
             <OutputCopyButton
               text={output}
@@ -505,7 +583,8 @@ function BashCollapsedPreview({
             />
             {hiddenOutputLineCount > 0 && (
               <HiddenContentBadge
-                className="bash-preview-more"
+                className={styles.bashPreviewMore}
+                data-bash-preview-more
                 count={hiddenOutputLineCount}
                 tooltip={outputTailTooltip ?? output}
               />
@@ -513,13 +592,20 @@ function BashCollapsedPreview({
           </div>
         )}
         {!hasOutput && result && !result.interrupted && (
-          <div className="bash-preview-row">
-            <span className="bash-preview-empty">No output</span>
+          <div className={styles.bashPreviewRow} data-bash-preview-row>
+            <span className={styles.bashPreviewEmpty} data-bash-preview-empty>
+              No output
+            </span>
           </div>
         )}
         {result?.interrupted && (
-          <div className="bash-preview-row">
-            <span className="bash-preview-interrupted">Interrupted</span>
+          <div className={styles.bashPreviewRow} data-bash-preview-row>
+            <span
+              className={styles.bashPreviewInterrupted}
+              data-bash-preview-interrupted
+            >
+              Interrupted
+            </span>
           </div>
         )}
       </div>

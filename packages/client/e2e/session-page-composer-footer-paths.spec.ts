@@ -224,7 +224,9 @@ test("a typed reason denies an approval with feedback, each key shown within 100
     session.emit("message", liveUpdate(typed.length)),
   );
   await expect(
-    page.locator(".message-list").getByText("Live update 9.", { exact: true }),
+    page
+      .locator("[data-message-list]")
+      .getByText("Live update 9.", { exact: true }),
   ).toBeVisible();
   await footer.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(session.requests).toEqual([`POST ${inputPath}`]);
@@ -248,7 +250,9 @@ test("a typed Other answer is sent, each key shown within 100 ms", async ({
     session.emit("message", liveUpdate(typed.length)),
   );
   await expect(
-    page.locator(".message-list").getByText("Live update 11.", { exact: true }),
+    page
+      .locator("[data-message-list]")
+      .getByText("Live update 11.", { exact: true }),
   ).toBeVisible();
   await footer.getByRole("button", { name: /^Submit/ }).click();
   await expect.poll(session.requests).toEqual([`POST ${inputPath}`]);

@@ -117,16 +117,20 @@ describe("ProcessingIndicator", () => {
     render(<ProcessingIndicator isProcessing={true} />);
 
     expect(document.querySelector(".processing-cursor")).toBeNull();
-    expect(document.querySelector(".processing-text")?.textContent).toBe("");
+    expect(document.querySelector("[data-processing-text]")?.textContent).toBe(
+      "",
+    );
 
-    const dotContainer = document.querySelector(".processing-dot-container");
+    const dotContainer = document.querySelector(
+      "[data-processing-dot-container]",
+    );
     expect(dotContainer?.firstElementChild?.firstElementChild).not.toBeNull();
   });
 
   it("types text progressively over time", async () => {
     render(<ProcessingIndicator isProcessing={true} />);
 
-    const textElement = document.querySelector(".processing-text");
+    const textElement = document.querySelector("[data-processing-text]");
 
     expect(textElement?.textContent).toBe("");
 
@@ -153,10 +157,14 @@ describe("ProcessingIndicator", () => {
     });
 
     expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
-    expect(document.querySelector(".processing-text")?.textContent).toBe("");
+    expect(document.querySelector("[data-processing-text]")?.textContent).toBe(
+      "",
+    );
 
     act(flushAnimationFrames);
-    expect(document.querySelector(".processing-text")?.textContent).toBe("");
+    expect(document.querySelector("[data-processing-text]")?.textContent).toBe(
+      "",
+    );
   });
 
   it("does not schedule text frames while outside the viewport", async () => {
@@ -174,7 +182,7 @@ describe("ProcessingIndicator", () => {
 
     const { container } = render(<ProcessingIndicator isProcessing={true} />);
     const indicator = container.querySelector(
-      ".processing-indicator",
+      "[data-processing-indicator]",
     ) as HTMLElement;
 
     await act(async () => {
@@ -280,10 +288,12 @@ describe("ProcessingIndicator", () => {
   it("has processing indicator container", () => {
     render(<ProcessingIndicator isProcessing={true} />);
 
-    const container = document.querySelector(".processing-indicator");
+    const container = document.querySelector("[data-processing-indicator]");
     expect(container).not.toBeNull();
 
-    const dotContainer = document.querySelector(".processing-dot-container");
+    const dotContainer = document.querySelector(
+      "[data-processing-dot-container]",
+    );
     expect(dotContainer).not.toBeNull();
   });
 
@@ -341,7 +351,7 @@ describe("ProcessingIndicator", () => {
     );
 
     const button = screen.getByRole("button");
-    expect(button.classList.contains("is-latest-only")).toBe(true);
+    expect(button.hasAttribute("data-is-latest-only")).toBe(true);
     expect(button.getAttribute("title")).toContain(
       "expand all thinking blocks, including earlier ones",
     );
@@ -418,13 +428,15 @@ describe("ProcessingIndicator", () => {
     const { rerender } = render(<ProcessingIndicator isProcessing={true} />);
 
     // Verify it's visible
-    expect(document.querySelector(".processing-indicator")).not.toBeNull();
+    expect(
+      document.querySelector("[data-processing-indicator]"),
+    ).not.toBeNull();
 
     // Stop processing
     rerender(<ProcessingIndicator isProcessing={false} />);
 
     // Should render nothing
-    expect(document.querySelector(".processing-indicator")).toBeNull();
+    expect(document.querySelector("[data-processing-indicator]")).toBeNull();
   });
 
   it("restarts when re-enabled after stopping", async () => {
@@ -437,13 +449,15 @@ describe("ProcessingIndicator", () => {
 
     // Stop processing
     rerender(<ProcessingIndicator isProcessing={false} />);
-    expect(document.querySelector(".processing-indicator")).toBeNull();
+    expect(document.querySelector("[data-processing-indicator]")).toBeNull();
 
     // Start processing again
     rerender(<ProcessingIndicator isProcessing={true} />);
 
     // Should be visible again without reintroducing a cursor.
-    expect(document.querySelector(".processing-indicator")).not.toBeNull();
+    expect(
+      document.querySelector("[data-processing-indicator]"),
+    ).not.toBeNull();
     expect(document.querySelector(".processing-cursor")).toBeNull();
   });
 });

@@ -1,3 +1,4 @@
+import diffStyles from "../components/renderers/DiffOutput.module.css";
 import type { PatchHunk } from "@yep-anywhere/shared";
 import { Fragment, memo, type ReactNode, useMemo } from "react";
 import { InnerHtml } from "../components/ui/InnerHtml";
@@ -11,7 +12,7 @@ type UnifiedRow =
   | { type: "line"; flatIndex: number; text: string };
 
 export const CHANGED_DIFF_LINE_SELECTOR =
-  ".line-deleted, .line-inserted, .diff-removed, .diff-added, .fixed-font-diff-removed, .fixed-font-diff-added";
+  ".line-deleted, .line-inserted, [data-diff-removed], [data-diff-added], .fixed-font-diff-removed, .fixed-font-diff-added";
 
 export const UnifiedDiff = memo(function UnifiedDiff({
   diffHtml,
@@ -173,7 +174,8 @@ function UnifiedRows({
   // Server-highlighted diff rows.
   return (
     <InnerHtml
-      className="highlighted-diff"
+      className={diffStyles.highlightedDiff}
+      data-highlighted-diff
       trustedHtml={`<pre class="shiki"><code>${html}</code></pre>`}
     />
   );

@@ -1,3 +1,4 @@
+import todoStyles from "./TodoWriteRenderer.module.css";
 import { useI18n } from "../../../i18n";
 import { CodeModeOutput } from "./CodeModeOutput";
 import styles from "./UpdatePlanRenderer.module.css";
@@ -48,8 +49,13 @@ function getStatusIcon(status: NormalizedPlanStatus): string {
 
 function statusClassName(status: NormalizedPlanStatus): string {
   return status === "in_progress"
-    ? "todo-status-in-progress"
-    : `todo-status-${status}`;
+    ? (todoStyles.todoStatusInProgress ?? "")
+    : ((
+        {
+          pending: todoStyles.todoStatusPending,
+          completed: todoStyles.todoStatusCompleted,
+        } as Record<string, string>
+      )[status] ?? "");
 }
 
 function extractPlanSteps(input: unknown): Array<{
@@ -121,7 +127,11 @@ export const updatePlanRenderer = defineTool(toolDisplayContracts.UpdatePlan, {
 
   renderToolResult(result, isError) {
     return (
-      <div className={isError ? "todo-error" : "todo-summary"}>
+      <div
+        className={isError ? todoStyles.todoError : todoStyles.todoSummary}
+        data-todo-error={isError || undefined}
+        data-todo-summary={!isError || undefined}
+      >
         {extractResultMessage(result)}
         {Array.isArray(result) && (
           <PlanOutput result={result} isError={isError} />
@@ -137,7 +147,7 @@ export const updatePlanRenderer = defineTool(toolDisplayContracts.UpdatePlan, {
 
     if (isError) {
       return (
-        <div className="todo-error">
+        <div className={todoStyles.todoError} data-todo-error>
           {resultMessage || "Failed to update plan"}
           {Array.isArray(result) && (
             <PlanOutput result={result} isError={isError} />
@@ -148,10 +158,14 @@ export const updatePlanRenderer = defineTool(toolDisplayContracts.UpdatePlan, {
 
     if (steps.length === 0) {
       if (status === "pending") {
-        return <div className="todo-summary">Updating plan...</div>;
+        return (
+          <div className={todoStyles.todoSummary} data-todo-summary>
+            Updating plan...
+          </div>
+        );
       }
       return (
-        <div className="todo-summary">
+        <div className={todoStyles.todoSummary} data-todo-summary>
           {resultMessage || "Plan updated"}
           {Array.isArray(result) && (
             <PlanOutput result={result} isError={isError} />
@@ -165,22 +179,32 @@ export const updatePlanRenderer = defineTool(toolDisplayContracts.UpdatePlan, {
     ).length;
 
     return (
-      <div className="todo-result">
-        <div className="todo-summary">
+      <div className={todoStyles.todoResult} data-todo-result>
+        <div className={todoStyles.todoSummary} data-todo-summary>
           {completed} out of {steps.length} tasks completed
         </div>
-        {explanation && <div className="todo-summary">{explanation}</div>}
-        <div className="todo-list">
+        {explanation && (
+          <div className={todoStyles.todoSummary} data-todo-summary>
+            {explanation}
+          </div>
+        )}
+        <div className={todoStyles.todoList} data-todo-list>
           {steps.map((step, index) => (
             <div
               key={`${step.step}-${index}`}
-              className={`todo-item ${statusClassName(step.status)}`}
+              className={`${todoStyles.todoItem} ${statusClassName(step.status)}`}
+              data-todo-item
+              data-todo-status={
+                step.status === "in_progress" ? "in-progress" : step.status
+              }
             >
-              <span className="todo-checkbox">
+              <span className={todoStyles.todoCheckbox} data-todo-checkbox>
                 {getStatusIcon(step.status)}
               </span>
               <span
-                className={`todo-content ${step.status === "completed" ? "todo-completed" : ""}`}
+                className={`${todoStyles.todoContent} ${step.status === "completed" ? todoStyles.todoCompleted : ""}`}
+                data-todo-content
+                data-todo-completed={step.status === "completed" || undefined}
               >
                 {index + 1}. {step.step}
               </span>
@@ -193,7 +217,9 @@ export const updatePlanRenderer = defineTool(toolDisplayContracts.UpdatePlan, {
         {status !== "pending" &&
           resultMessage &&
           resultMessage.toLowerCase() !== "plan updated" && (
-            <div className="todo-summary">{resultMessage}</div>
+            <div className={todoStyles.todoSummary} data-todo-summary>
+              {resultMessage}
+            </div>
           )}
       </div>
     );

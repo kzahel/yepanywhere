@@ -1,0 +1,231 @@
+.conversationActivityRow {
+  display: flex;
+  max-width: 100%;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0 0.45rem;
+}
+
+.conversationActivityColumn {
+  min-width: 0;
+  max-width: min(22rem, 100%);
+  flex: 0 1 auto;
+}
+
+.conversationActivitySummary {
+  display: inline-flex;
+  min-height: 28px;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.38rem;
+  margin: 4px 0 8px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-secondary) 66%, transparent);
+  color: var(--text-dimmed);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.conversationRecentActivities {
+  display: grid;
+  gap: 0;
+  margin: -5px 0 8px;
+  padding: 0 8px;
+  width: 0;
+  min-width: 100%;
+  /* Never exceed the space the current thinking block requests: cap to the
+     latest preview's rendered content height, published as
+     --conversation-thinking-height on the row (measured in RenderItemComponent).
+     Fill that height with the newest activities and clip the older overflow.
+     The fallback (before the first measurement) tracks the preview cap
+     (min(40vh, 24rem)) less the summary chip. Viewport/font relative, not a
+     fixed row count — see topics/responsive-layout-gaps.md. */
+  max-height: var(
+    --conversation-thinking-height,
+    calc(min(40vh, 24rem) - 2.5rem)
+  );
+  overflow: hidden;
+  color: var(--text-dimmed);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  list-style: none;
+}
+
+.conversationRecentActivityName {
+  flex: 0 0 auto;
+}
+
+.conversationRecentActivityPreview {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+}
+
+.conversationThinkingPreview {
+  width: min(var(--conversation-thinking-preview-target-width, 18rem), 100%);
+  min-width: min(16rem, 100%);
+  max-width: 100%;
+  flex: 0 1 var(--conversation-thinking-preview-target-width, 18rem);
+  margin: 4px 0 8px;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in srgb, var(--thinking-color) 26%, var(--border-color));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+  color: var(--text-muted);
+}
+
+.conversationThinkingPreviewHeader {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+}
+
+.conversationThinkingPreviewToggle {
+  min-width: 0;
+  align-self: stretch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 3px 4px 3px 8px;
+  text-align: left;
+}
+
+.conversationThinkingPreviewDot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--thinking-color);
+}
+
+.conversationThinkingPreviewChevron {
+  margin-left: auto;
+  opacity: 0.72;
+}
+
+.conversationThinkingPreviewContent {
+  /* Deliberately cap the block so the preceding non-thinking turn keeps ~40% of
+     the viewport for context (e.g. returning after unattended progress): the
+     40vh arm reserves ≥60vh for the rest on any window; the 24rem arm keeps the
+     block from growing gratuitously tall on large monitors. Viewport/font
+     relative, not fixed px — see topics/responsive-layout-gaps.md. */
+  max-height: min(40vh, 24rem);
+  padding: 0 10px 8px 18px;
+  overflow: auto;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
+}
+
+@media (width <= 600px) {
+  .conversationActivitySummary {
+    min-height: 34px;
+    padding-right: 10px;
+    padding-left: 7px;
+  }
+}
+
+.conversationRecentActivities li {
+  display: flex;
+  min-width: 0;
+  gap: 0.38rem;
+  white-space: nowrap;
+}
+
+.conversationActivityRow.is-wide-activity-previews {
+  justify-content: flex-end;
+}
+.conversationRecentActivities[data-is-clipped] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 1.1rem),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.1rem), transparent);
+}
+
+.conversationThinkingPreview.is-collapsed {
+  width: auto;
+  flex: 0 1 16rem;
+}
+
+.conversationThinkingPreviewToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.conversationThinkingPreviewToggle:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.conversationThinkingPreviewContent [data-thinking-text] {
+  margin-top: 0.42rem;
+  color: var(--text-muted);
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--thinking-prose-font-variation-settings);
+  font-size: var(--output-prose-font-size);
+  line-height: var(--output-prose-line-height);
+}
+
+.conversationActivitySummary:hover {
+  border-color: var(--border-input);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.conversationActivitySummary:focus-visible {
+  border-color: var(--border-input);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.conversationActivitySummary.is-expanded {
+  border-style: solid;
+  color: var(--text-muted);
+}
+
+.conversationActivitySummary.is-active {
+  border-color: color-mix(
+    in srgb,
+    var(--app-yep-green) 38%,
+    var(--border-color)
+  );
+  color: color-mix(in srgb, var(--app-yep-green) 62%, var(--text-muted));
+}
+
+.conversationActivityRow.is-wide-activity-previews
+  > .conversationActivityColumn {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 12rem;
+}
+
+.conversationActivityRow.is-wide-activity-previews
+  .conversationRecentActivities {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.conversationThinkingPreview.is-streaming .conversationThinkingPreviewDot {
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--thinking-color) 16%, transparent);
+}
+.conversationThinkingPreview[data-preview-slot="previous"]
+  .conversationThinkingPreviewContent {
+  max-height: var(--conversation-thinking-height, min(40vh, 24rem));
+}

@@ -259,7 +259,7 @@ describe("GitDiffBody", () => {
     expect(
       getGitDiff.mock.calls.some(([, options]) => options.fullContext),
     ).toBe(true);
-    const rendered = document.querySelector(".highlighted-diff");
+    const rendered = document.querySelector("[data-highlighted-diff]");
     expect(rendered?.textContent).toContain("before");
     expect(rendered?.textContent).toContain("new");
     expect(rendered?.textContent).toContain("after");
@@ -668,6 +668,6 @@ describe("GitDiffBody", () => {
     expect(
       await screen.findByText("gitStatusDiffPreviewSkippedBinary"),
     ).toBeTruthy();
-    expect(document.querySelector(".code-highlighter-plain")).toBeNull();
+    expect(document.querySelector("[data-code-highlighter-plain]")).toBeNull();
   });
 });

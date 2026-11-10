@@ -39,6 +39,7 @@ export function SidebarSectionHeader({
       <ButtonBase
         className={sidebarStyles.sectionToggle}
         onClick={onToggle}
+        data-expanded={expanded}
         aria-expanded={expanded}
         aria-controls={controlsId}
         aria-label={`${actionLabel}: ${title}`}
@@ -60,7 +61,6 @@ export function SidebarSectionHeader({
         )}
         <svg
           className={sidebarStyles.sectionChevron}
-          data-expanded={expanded}
           viewBox="0 0 8 8"
           aria-hidden="true"
         >

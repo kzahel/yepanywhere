@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import { readClientStyles } from "./read-client-styles";
 
-const renderersStylesheetUrl = new URL("../renderers.css", import.meta.url);
+const renderersStylesheetUrl = new URL(
+  "../../components/blocks/TextBlock.module.css",
+  import.meta.url,
+);
 const turnRailStylesheetUrl = new URL(
   "../../components/UserTurnNavigator.module.css",
   import.meta.url,
@@ -14,7 +17,11 @@ const turnRailStylesheetUrl = new URL(
 describe("turn rail horizontal clearance CSS contract", () => {
   it("grows linearly to measured separation at 1600px without a sidebar step", async () => {
     const [css, renderersCss, turnRailCss] = await Promise.all([
-      readClientStyles("tokens", "index"),
+      readClientStyles(
+        "tokens",
+        "index",
+        "../components/blocks/UserPromptBlock.module",
+      ),
       readFile(renderersStylesheetUrl, "utf8"),
       readFile(turnRailStylesheetUrl, "utf8"),
     ]);
@@ -41,17 +48,15 @@ describe("turn rail horizontal clearance CSS contract", () => {
       ".session-messages {\n    padding: 0.5rem 0.375rem;\n    padding-inline-end: var(--turn-rail-content-padding-inline-end);",
     );
     expect(css).toMatch(
-      /\.user-prompt-actions\s*\{[^}]*inset-inline-end:\s*var\(--turn-rail-float-inset-inline-end\)\s*;/s,
+      /\.userPromptActions\s*\{[^}]*inset-inline-end:\s*var\(--turn-rail-float-inset-inline-end\)\s*;/s,
     );
     expect(css).toMatch(
-      /\.user-prompt-container\s*\{[^}]*--user-prompt-actions-space:\s*calc\([^}]*--user-prompt-action-columns[^}]*min-height:\s*calc\([^}]*--user-prompt-action-rows/s,
+      /\.userPromptContainer\s*\{[^}]*--user-prompt-actions-space:\s*calc\([^}]*--user-prompt-action-columns[^}]*min-height:\s*calc\([^}]*--user-prompt-action-rows/s,
     );
     expect(css).toMatch(
-      /\.user-prompt-actions\s*\{[^}]*grid-template-columns:\s*repeat\(\s*var\(--user-prompt-action-columns\)/s,
+      /\.userPromptActions\s*\{[^}]*grid-template-columns:\s*repeat\(\s*var\(--user-prompt-action-columns\)/s,
     );
-    const userPromptActionsRule = css.match(
-      /\.user-prompt-actions\s*\{[^}]*\}/s,
-    );
+    const userPromptActionsRule = css.match(/\.userPromptActions\s*\{[^}]*\}/s);
     expect(userPromptActionsRule?.[0]).not.toContain("pointer-events: none");
     expect(css).toMatch(
       /\.session-messages\s*\{[^}]*scrollbar-gutter:\s*auto;[^}]*scrollbar-width:\s*none;/s,
@@ -62,7 +67,7 @@ describe("turn rail horizontal clearance CSS contract", () => {
     expect(turnRailCss).toMatch(/\.trimMarker\s*\{[^}]*right:\s*1px;/s);
     expect(turnRailCss).toMatch(/\.trimDot\s*\{[^}]*right:\s*1px;/s);
     expect(renderersCss).toMatch(
-      /\.assistant-turn \.text-block-actions\s*\{[^}]*margin-inline-end:\s*var\(--turn-rail-float-inset-inline-end\)\s*;/s,
+      /\[data-assistant-turn\] \.textBlockActions\s*\{[^}]*margin-inline-end:\s*var\(--turn-rail-float-inset-inline-end\)\s*;/s,
     );
     expect(css).not.toContain("padding-right: calc(1rem + min(30px, 2vw));");
   });

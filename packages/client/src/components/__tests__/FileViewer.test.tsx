@@ -470,7 +470,7 @@ describe("FileViewer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Raw source" }));
 
-    expect(container.querySelector(".shiki-container")).toBeTruthy();
+    expect(container.querySelector("[data-shiki-container]")).toBeTruthy();
     expect(screen.queryByText("Loading notes.md...")).toBeNull();
     expect(source.loadFile).toHaveBeenCalledTimes(1);
   });
@@ -775,22 +775,22 @@ describe("FileViewer", () => {
     Object.defineProperty(HTMLElement.prototype, "clientHeight", {
       configurable: true,
       get() {
-        return this.classList.contains("file-viewer-body") ? 100 : 0;
+        return this.hasAttribute("data-file-viewer-body") ? 100 : 0;
       },
     });
     Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
       configurable: true,
       get() {
-        return this.classList.contains("file-viewer-body") ? 1000 : 0;
+        return this.hasAttribute("data-file-viewer-body") ? 1000 : 0;
       },
     });
     Object.defineProperty(HTMLElement.prototype, "scrollTop", {
       configurable: true,
       get() {
-        return this.classList.contains("file-viewer-body") ? scrollTop : 0;
+        return this.hasAttribute("data-file-viewer-body") ? scrollTop : 0;
       },
       set(value) {
-        if (this.classList.contains("file-viewer-body")) {
+        if (this.hasAttribute("data-file-viewer-body")) {
           scrollTop = Number(value);
         }
       },
@@ -855,7 +855,7 @@ describe("FileViewer", () => {
         .querySelector(".highlighted-line-end")
         ?.getAttribute("data-line"),
     ).toBe("3");
-    const code = container.querySelector(".shiki-container code");
+    const code = container.querySelector("[data-shiki-container] code");
     expect(
       Array.from(code?.childNodes ?? []).some(
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent === "\n",
@@ -863,12 +863,13 @@ describe("FileViewer", () => {
     ).toBe(false);
     expect(container.querySelector(".highlighted-line")).toBeNull();
     const sourceLines = container.querySelectorAll<HTMLElement>(
-      ".shiki-container .line",
+      "[data-shiki-container] .line",
     );
     expect(sourceLines[1]?.dataset.yaSourceStart).toBe("4");
     expect(sourceLines[1]?.dataset.yaSourceEnd).toBe("7");
-    const viewerBody =
-      container.querySelector<HTMLElement>(".file-viewer-body");
+    const viewerBody = container.querySelector<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     await waitFor(() =>
       expect(viewerBody?.getAttribute("data-markdown-copy-source")).toBe(
         "true",
@@ -892,7 +893,8 @@ describe("FileViewer", () => {
     expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(
-        container.querySelector<HTMLElement>(".file-viewer-body")?.scrollTop,
+        container.querySelector<HTMLElement>("[data-file-viewer-body]")
+          ?.scrollTop,
       ).toBe(190);
     });
   });
@@ -969,11 +971,13 @@ describe("FileViewer", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector(".code-highlighter-plain")).not.toBeNull();
+      expect(
+        container.querySelector("[data-code-highlighter-plain]"),
+      ).not.toBeNull();
     });
 
     const gutter = Array.from(
-      container.querySelectorAll(".code-line-numbers > div"),
+      container.querySelectorAll("[data-code-line-numbers] > div"),
     ).map((node) => node.textContent);
     expect(gutter).toEqual(["40", "41", "42"]);
     expect(
@@ -987,8 +991,9 @@ describe("FileViewer", () => {
         ?.getAttribute("data-line"),
     ).toBe("42");
 
-    const viewerBody =
-      container.querySelector<HTMLElement>(".file-viewer-body");
+    const viewerBody = container.querySelector<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     expect(viewerBody?.getAttribute("data-markdown-copy-source")).toBe("true");
     const betaText = viewerBody?.querySelector('[data-line="41"]')?.firstChild;
     expect(betaText).toBeTruthy();
@@ -1059,7 +1064,7 @@ describe("FileViewer", () => {
     const rawSource = screen.getByRole("button", { name: "Raw source" });
     expect(rawSource.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(rawSource);
-    expect(container.querySelector(".shiki-container")).toBeTruthy();
+    expect(container.querySelector("[data-shiki-container]")).toBeTruthy();
     expect(rawSource.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(rawSource);
     expect(rawSource.getAttribute("aria-pressed")).toBe("false");
@@ -1073,8 +1078,9 @@ describe("FileViewer", () => {
     selection?.removeAllRanges();
     selection?.addRange(range);
 
-    const viewerBody =
-      container.querySelector<HTMLElement>(".file-viewer-body");
+    const viewerBody = container.querySelector<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     expect(extractMarkdownSnippetsFromSelection(viewerBody!)).toMatchObject([
       {
         markdown: "# Title",
@@ -1110,8 +1116,9 @@ describe("FileViewer", () => {
       </I18nProvider>,
     );
     const heading = await screen.findByRole("heading", { name: "Target" });
-    const viewerBody =
-      container.querySelector<HTMLElement>(".file-viewer-body");
+    const viewerBody = container.querySelector<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     expect(viewerBody).toBeTruthy();
     Object.defineProperty(viewerBody, "scrollHeight", { value: 2000 });
     Object.defineProperty(viewerBody, "clientHeight", { value: 500 });
@@ -1242,7 +1249,9 @@ describe("FileViewer", () => {
     );
 
     const paragraph = await screen.findByText("Selected text");
-    const viewerBody = paragraph.closest<HTMLElement>(".file-viewer-body");
+    const viewerBody = paragraph.closest<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     expect(viewerBody?.tabIndex).toBe(-1);
 
     document.getSelection()?.removeAllRanges();
@@ -1307,7 +1316,9 @@ describe("FileViewer", () => {
     );
 
     const selectedText = await screen.findByText("Selected text");
-    const viewerBody = selectedText.closest<HTMLElement>(".file-viewer-body");
+    const viewerBody = selectedText.closest<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     await waitFor(() =>
       expect(viewerBody?.getAttribute("data-markdown-copy-source")).toBe(
         "true",
@@ -1317,7 +1328,9 @@ describe("FileViewer", () => {
       name: /Quote this paragraph/,
     });
     expect(quoteButtons).toHaveLength(1);
-    expect(quoteButtons[0]?.classList).toContain("text-block-quote-fallback");
+    expect(
+      quoteButtons[0]?.hasAttribute("data-text-block-quote-fallback"),
+    ).toBe(true);
     fireEvent.click(quoteButtons[0]!);
     expect(onQuoteTextBlock).toHaveBeenCalledTimes(1);
     const anchor = onQuoteTextBlock.mock.calls[0]?.[0];
@@ -1357,8 +1370,9 @@ describe("FileViewer", () => {
     );
 
     const includePath = await screen.findByText("_introduction.qmd");
-    const viewerBody =
-      container.querySelector<HTMLElement>(".file-viewer-body");
+    const viewerBody = container.querySelector<HTMLElement>(
+      "[data-file-viewer-body]",
+    );
     await waitFor(() =>
       expect(viewerBody?.getAttribute("data-markdown-copy-source")).toBe(
         "true",
@@ -1686,7 +1700,7 @@ describe("FileViewer", () => {
       await screen.findByText("Showing the first 10000 of 10005 lines"),
     ).toBeTruthy();
     expect(
-      container.querySelectorAll(".code-content [data-line]"),
+      container.querySelectorAll("[data-code-content] [data-line]"),
     ).toHaveLength(10_000);
     // Rendering the full 10,000-line cap in jsdom takes ~1s locally but has
     // exceeded the 5s default on a loaded upstream CI runner.
@@ -1725,7 +1739,9 @@ describe("FileViewer", () => {
     );
     expect(findBox()).toBeNull();
 
-    const body = container.querySelector<HTMLElement>(".file-viewer-body")!;
+    const body = container.querySelector<HTMLElement>(
+      "[data-file-viewer-body]",
+    )!;
     fireEvent.pointerDown(body);
     expect(fireEvent.keyDown(body, { key: "f", ctrlKey: true })).toBe(false);
     const input = findBox()!;

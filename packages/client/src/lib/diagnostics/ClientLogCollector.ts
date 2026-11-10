@@ -338,11 +338,12 @@ export class ClientLogCollector {
         typeof document !== "undefined"
           ? {
               nodes: document.getElementsByTagName("*").length,
-              messageRows: document.querySelectorAll(".message-render-row")
-                .length,
+              messageRows: document.querySelectorAll(
+                "[data-message-render-row]",
+              ).length,
               streamingBlocks:
                 document.querySelectorAll(".streaming-block").length,
-              toolRows: document.querySelectorAll(".tool-row").length,
+              toolRows: document.querySelectorAll("[data-tool-row]").length,
             }
           : null,
       // Attributes multi-day heap growth to transcript-store retention vs

@@ -5,7 +5,7 @@
   min-height: min(68vh, 720px);
 }
 
-:global(.file-viewer-fullscreen) .view {
+:global([data-file-viewer-fullscreen]) .view {
   height: calc(100dvh - 50px);
 }
 

@@ -1,3 +1,4 @@
+import promptStyles from "./UserPromptBlock.module.css";
 import { useSessionRewind } from "../../contexts/SessionRewindContext";
 import { useI18n } from "../../i18n";
 import { IconButton } from "../ui/Button";
@@ -52,7 +53,8 @@ export function ForkTurnMenu({
         variant="secondary"
         size="small"
         {...menu.triggerProps}
-        className="user-prompt-action"
+        className={promptStyles.userPromptAction}
+        data-user-prompt-action
         label={triggerLabel}
         title={unavailableMessage ?? triggerLabel}
       >

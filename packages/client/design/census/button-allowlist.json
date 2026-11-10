@@ -210,7 +210,7 @@
       "count": 1,
       "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
     },
-    "components/renderers/tools/EditRenderer.tsx": {
+    "components/renderers/tools/EditDiffPresentation.tsx": {
       "count": 1,
       "reason": "A block preview or overlay that holds block content a <button> cannot contain, with its own keyboard handling; predates the button family."
     },

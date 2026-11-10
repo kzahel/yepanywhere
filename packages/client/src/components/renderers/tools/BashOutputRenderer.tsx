@@ -1,3 +1,8 @@
+import statusStyles from "../OutputStatus.module.css";
+import codeStyles from "../CodeOutput.module.css";
+import bashStyles from "./BashRenderer.module.css";
+import expandStyles from "../ExpandOutput.module.css";
+import styles from "./BashOutputRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useEffect, useState } from "react";
@@ -37,9 +42,9 @@ function formatTimestamp(timestamp: string): string {
  */
 function StatusIndicator({ status }: { status: string }) {
   const statusConfig = {
-    running: { icon: "⟳", className: "status-running" },
-    completed: { icon: "✓", className: "status-completed" },
-    failed: { icon: "✗", className: "status-failed" },
+    running: { icon: "⟳", className: statusStyles.statusRunning },
+    completed: { icon: "✓", className: statusStyles.statusCompleted },
+    failed: { icon: "✗", className: statusStyles.statusFailed },
   };
 
   const config = statusConfig[status as keyof typeof statusConfig] || {
@@ -48,17 +53,31 @@ function StatusIndicator({ status }: { status: string }) {
   };
 
   return (
-    <span className={`bashoutput-status ${config.className}`}>
+    <span
+      className={`${styles.bashoutputStatus} ${config.className}`}
+      data-bashoutput-status
+      data-tool-status={status}
+    >
       {config.icon} {status}
     </span>
   );
 }
 
-function renderFixedFontMathPanel(html: string, className = "code-block") {
+function renderFixedFontMathPanel(
+  html: string,
+  className = codeStyles.codeBlock,
+) {
   return (
-    <div className={`${className} fixed-font-rendered-panel`}>
+    <div
+      className={`${className} ${codeStyles.fixedFontRenderedPanel}`}
+      data-fixed-font-rendered-panel
+    >
       {/* KaTeX output is trusted HTML from local rendering. */}
-      <InnerHtml className="fixed-font-rendered__content" trustedHtml={html} />
+      <InnerHtml
+        className={codeStyles.fixedFontRenderedContent}
+        data-fixed-font-rendered__content
+        trustedHtml={html}
+      />
     </div>
   );
 }
@@ -68,9 +87,13 @@ function renderFixedFontMathPanel(html: string, className = "code-block") {
  */
 function BashOutputToolUse({ input }: { input: BashOutputInput }) {
   return (
-    <div className="bashoutput-tool-use">
-      <span className="bashoutput-label">Polling background shell</span>
-      <code className="bashoutput-id">{input.bash_id}</code>
+    <div className={styles.bashoutputToolUse} data-bashoutput-tool-use>
+      <span className={styles.bashoutputLabel} data-bashoutput-label>
+        Polling background shell
+      </span>
+      <code className={styles.bashoutputId} data-bashoutput-id>
+        {input.bash_id}
+      </code>
       {input.block !== undefined && (
         <Badge size="small">{input.block ? "blocking" : "non-blocking"}</Badge>
       )}
@@ -105,7 +128,11 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
     enabled && validationErrors && !isToolIgnored("BashOutput");
 
   if (!result) {
-    return <div className="bashoutput-empty">No output</div>;
+    return (
+      <div className={styles.bashoutputEmpty} data-bashoutput-empty>
+        No output
+      </div>
+    );
   }
 
   const stdoutLines = result.stdout?.split("\n") || [];
@@ -119,11 +146,13 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
       : stdoutLines;
 
   return (
-    <div className="bashoutput-result">
-      <div className="bashoutput-header">
+    <div className={styles.bashoutputResult} data-bashoutput-result>
+      <div className={styles.bashoutputHeader} data-bashoutput-header>
         <StatusIndicator status={result.status} />
         {result.command && (
-          <code className="bashoutput-command">{result.command}</code>
+          <code className={styles.bashoutputCommand} data-bashoutput-command>
+            {result.command}
+          </code>
         )}
         {result.exitCode !== null && (
           <Badge
@@ -134,7 +163,10 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
           </Badge>
         )}
         {result.timestamp && (
-          <span className="bashoutput-timestamp">
+          <span
+            className={styles.bashoutputTimestamp}
+            data-bashoutput-timestamp
+          >
             {formatTimestamp(result.timestamp)}
           </span>
         )}
@@ -148,12 +180,19 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
             <FixedFontMathToggle
               sourceText={displayStdout.join("\n")}
               sourceView={
-                <pre className="bash-stdout code-block">
+                <pre
+                  className={`${bashStyles.bashStdout} ${codeStyles.codeBlock}`}
+                  data-bash-stdout
+                  data-code-block
+                >
                   <AnsiText text={displayStdout.join("\n")} />
                 </pre>
               }
               renderRenderedView={(html) =>
-                renderFixedFontMathPanel(html, "bash-stdout code-block")
+                renderFixedFontMathPanel(
+                  html,
+                  `${bashStyles.bashStdout} ${codeStyles.codeBlock}`,
+                )
               }
             />
           )}
@@ -161,12 +200,19 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
             <FixedFontMathToggle
               sourceText={result.stderr}
               sourceView={
-                <pre className="bash-stderr code-block">
+                <pre
+                  className={`${bashStyles.bashStderr} ${codeStyles.codeBlock}`}
+                  data-bash-stderr
+                  data-code-block
+                >
                   <AnsiText text={result.stderr} />
                 </pre>
               }
               renderRenderedView={(html) =>
-                renderFixedFontMathPanel(html, "bash-stderr code-block")
+                renderFixedFontMathPanel(
+                  html,
+                  `${bashStyles.bashStderr} ${codeStyles.codeBlock}`,
+                )
               }
             />
           )}
@@ -174,7 +220,8 @@ function BashOutputToolResult({ result }: { result: BashOutputResult }) {
             <Button
               variant="ghost"
               size="small"
-              className="expand-button"
+              className={expandStyles.expandButton}
+              data-expand-button
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded ? "Show less" : `Show all ${totalLines} lines`}
@@ -199,7 +246,7 @@ export const bashOutputRenderer = defineTool(toolDisplayContracts.BashOutput, {
 
   renderFailure(failure) {
     return (
-      <div className="bashoutput-error">
+      <div className={styles.bashoutputError} data-bashoutput-error>
         {failure.content || "Failed to get bash output"}
       </div>
     );

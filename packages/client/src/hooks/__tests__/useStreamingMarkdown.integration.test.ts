@@ -31,7 +31,7 @@ describe("useStreamingMarkdown integration", () => {
     container.id = "streaming-container";
     pending = document.createElement("span");
     pending.id = "streaming-pending";
-    pending.className = "streaming-pending";
+    pending.setAttribute("data-streaming-pending", "");
 
     document.body.appendChild(container);
     document.body.appendChild(pending);

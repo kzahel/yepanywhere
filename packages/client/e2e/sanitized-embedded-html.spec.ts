@@ -41,7 +41,7 @@ for (const viewport of [
     );
     await dismissOnboardingIfVisible(page);
 
-    const preview = page.locator(".markdown-preview");
+    const preview = page.locator("[data-markdown-preview]");
     const table = preview.getByRole("table");
     await expect(table).toBeVisible();
     await expect(

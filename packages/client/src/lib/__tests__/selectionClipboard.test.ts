@@ -59,7 +59,7 @@ describe("visible selection clipboard", () => {
     expect(
       getSelectionPlainText(
         select(
-          '<pre class="text-block-source">&gt; **literal** `source`</pre>',
+          "<pre data-text-block-source>&gt; **literal** `source`</pre>",
           "> **literal** `source`",
         ),
       ),

@@ -44,13 +44,13 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
   await page.setViewportSize({ width: 1000, height: 600 });
   await page.goto(`${base}e2e/fixtures/control-reveal.html`);
   const cases = [
-    ["tool", ".tool-row-header", ".tool-header-copy"],
-    ["bash", ".bash-inline-section-header", ".bash-section-copy"],
-    ["text", ".text-block", ".text-block-copy"],
-    ["text", ".text-block", ".text-block-toggle"],
-    ["quote", ".text-block", ".text-block-quote-paragraph"],
-    ["text", ".text-block", ".text-block-quote-fallback"],
-    ["edit", ".diff-view-container", ".diff-copy-button"],
+    ["tool", "[data-tool-row-header]", "[data-tool-header-copy]"],
+    ["bash", "[data-bash-inline-section-header]", "[data-bash-section-copy]"],
+    ["text", "[data-text-block]", "[data-text-block-copy]"],
+    ["text", "[data-text-block]", "[data-text-block-toggle]"],
+    ["quote", "[data-text-block]", "[data-text-block-quote-paragraph]"],
+    ["text", "[data-text-block]", "[data-text-block-quote-fallback]"],
+    ["edit", "[data-diff-view-container]", "[data-diff-copy-button]"],
     ["app", "[class*=title]", "[class*=copyPath]"],
     ["host", '[data-reveal-row="host"]', '[aria-label="Delete host"]'],
     ["menu", "[class*=rowSurface]", "[class*=trigger]"],
@@ -92,7 +92,7 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
     await button.click();
     await revealed(button);
   }
-  const bash = page.locator("[data-site=bash] .bash-section-copy");
+  const bash = page.locator("[data-site=bash] [data-bash-section-copy]");
   await bash.click();
   await page.locator("[data-before=tool]").focus();
   await page.mouse.move(0, 0);
@@ -133,9 +133,10 @@ for (const theme of ["dark", "light"]) {
           .locator("html")
           .evaluate((el, value) => el.setAttribute("data-theme", value), theme);
         const prompt = page.locator("[data-site=prompt]");
-        const actions = prompt.locator(".user-prompt-actions");
+        const actions = prompt.locator("[data-user-prompt-actions]");
         await prompt.scrollIntoViewIfNeeded();
-        if (!touch) await prompt.locator(".user-prompt-container").hover();
+        if (!touch)
+          await prompt.locator("[data-user-prompt-container]").hover();
         await expect(actions).toHaveCSS("opacity", "1");
         const buttons = actions.getByRole("button");
         for (const button of await buttons.all()) {
@@ -170,7 +171,7 @@ for (const theme of ["dark", "light"]) {
         const math = page.locator("[data-site=math]");
         const toggle = math.locator("[data-fixed-font-toggle]");
         await math.scrollIntoViewIfNeeded();
-        await math.locator(".fixed-font-render-toggle").hover();
+        await math.locator("[data-fixed-font-render-toggle]").hover();
         await revealed(toggle);
         await tabTo(page, math.locator("[data-before]"), toggle);
         await revealed(toggle);
@@ -212,7 +213,8 @@ for (const theme of ["dark", "light"]) {
         );
         await expect(cards.getByRole("button").last()).toBeDisabled();
         await prompt.scrollIntoViewIfNeeded();
-        if (!touch) await prompt.locator(".user-prompt-container").hover();
+        if (!touch)
+          await prompt.locator("[data-user-prompt-container]").hover();
         await recordUiCapture(
           page,
           `shared-prompt-${theme}-${touch ? "phone" : "desktop"}`,
@@ -289,11 +291,11 @@ for (const theme of ["dark", "light"]) {
         ).toBe(true);
         const files = root.locator("[data-case=files]");
         for (const header of await files
-          .locator(".tool-row-header:not(.non-expandable)")
+          .locator("[data-tool-row-header]:not(.non-expandable)")
           .all())
           await header.click();
         for (const link of await files
-          .locator(".file-link-inline, .file-link-button")
+          .locator("[data-file-link-inline], [data-file-link-button]")
           .all()) {
           await expect(link).toHaveCSS("white-space", "normal");
           expect(
@@ -322,10 +324,10 @@ for (const theme of ["dark", "light"]) {
         await expect(pathCopy).toHaveCSS("opacity", "1");
         const gallery = root.locator("[data-case=gallery-prose]");
         const galleryAction = gallery.locator(
-          ".turn-image-gallery-inline-action",
+          "[data-turn-image-gallery-inline-action]",
         );
         await expect(galleryAction).toBeVisible();
-        const prose = gallery.locator(".text-block p");
+        const prose = gallery.locator("[data-text-block] p");
         const withAction = await prose.evaluate(
           (el) => el.getBoundingClientRect().height,
         );
@@ -414,7 +416,7 @@ for (const theme of ["dark", "light"]) {
         const toggle = math.locator("[data-fixed-font-toggle]");
         await expect(toggle).toHaveCSS("opacity", "0");
         if (touch) await tabTo(page, math.locator("[data-before]"), toggle);
-        else await math.locator(".fixed-font-render-toggle").hover();
+        else await math.locator("[data-fixed-font-render-toggle]").hover();
         await revealed(toggle);
         await expect(toggle).not.toHaveCSS(
           "background-color",
@@ -428,12 +430,12 @@ for (const theme of ["dark", "light"]) {
           }, width);
           await expect
             .poll(() =>
-              prompt.locator(".user-prompt-container").evaluate((el) => {
+              prompt.locator("[data-user-prompt-container]").evaluate((el) => {
                 const grid = el.querySelector<HTMLElement>(
-                    ".user-prompt-actions",
+                    "[data-user-prompt-actions]",
                   )!,
                   button = grid.querySelector<HTMLElement>(
-                    ".user-prompt-action",
+                    "[data-user-prompt-action]",
                   )!;
                 return Math.abs(
                   parseFloat(
@@ -446,11 +448,13 @@ for (const theme of ["dark", "light"]) {
             )
             .toBeLessThan(0.1);
           const metrics = await prompt
-            .locator(".user-prompt-actions")
+            .locator("[data-user-prompt-actions]")
             .evaluate((el) => {
               const s = getComputedStyle(el),
                 buttons = [
-                  ...el.querySelectorAll<HTMLElement>(".user-prompt-action"),
+                  ...el.querySelectorAll<HTMLElement>(
+                    "[data-user-prompt-action]",
+                  ),
                 ];
               return {
                 columns: s.gridTemplateColumns

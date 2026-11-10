@@ -31,10 +31,10 @@ describe("ErrorBoundary", () => {
     localStorage.setItem("yep-anywhere-session-thinking-visible", "true");
 
     const messageRow = document.createElement("div");
-    messageRow.className = "message-render-row";
+    messageRow.setAttribute("data-message-render-row", "");
     document.body.append(messageRow);
     const activityRow = document.createElement("div");
-    activityRow.className = "conversation-activity-row";
+    activityRow.setAttribute("data-conversation-activity-row", "");
     document.body.append(activityRow);
   });
 

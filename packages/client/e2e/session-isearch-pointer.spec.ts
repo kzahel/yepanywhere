@@ -31,7 +31,7 @@ test("search result and transcript clicks keep their own actions", async ({
   await dismissOnboardingIfVisible(page);
 
   const transcript = page.locator(".session-messages");
-  const list = transcript.locator(".message-list");
+  const list = transcript.locator("[data-message-list]");
   await expect(
     list.locator('[data-render-id="specimen-assistant-2"]'),
   ).toBeVisible({
@@ -41,7 +41,7 @@ test("search result and transcript clicks keep their own actions", async ({
     timeout: 10000,
   });
   await page.addStyleTag({
-    content: ".message-list > [data-render-id] { min-height: 360px; }",
+    content: "[data-message-list] > [data-render-id] { min-height: 360px; }",
   });
 
   await page.keyboard.press("Control+s");

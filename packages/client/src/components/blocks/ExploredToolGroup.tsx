@@ -1,3 +1,7 @@
+import itemStyles from "../RenderItemComponent.module.css";
+import styles from "./ExploredToolGroup.module.css";
+import timelineStyles from "../TranscriptTimeline.module.css";
+import rowsStyles from "./ToolCallRow.module.css";
 import { type CSSProperties, memo, useId, useRef, useState } from "react";
 import { useRememberedDisclosureState } from "../../contexts/RememberedDisclosureStateContext";
 import { useOptionalSessionMetadata } from "../../contexts/SessionMetadataContext";
@@ -33,6 +37,10 @@ import { getToolSummary } from "../tools/summaries";
 import { ButtonBase } from "../ui/Button";
 import { ToolCallRow } from "./ToolCallRow";
 
+const exploredStatusClasses: Readonly<Record<string, string | undefined>> = {
+  pending: styles["status-pending"],
+  error: styles["status-error"],
+};
 interface Props {
   id: string;
   projection: ExplorationProjection;
@@ -198,21 +206,32 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
   return (
     <div
       className={[
-        "message-render-row",
+        itemStyles.messageRenderRow,
         "explored-message-row",
-        hasTimestamp ? "has-message-age" : "",
-        showAgeByDefault ? "is-message-age-visible" : "",
+        hasTimestamp ? `${itemStyles["has-message-age"]}` : "",
+        showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : "",
       ]
         .filter(Boolean)
         .join(" ")}
+      data-message-render-row
+      data-has-message-age={hasTimestamp || undefined}
+      data-is-message-age-visible={showAgeByDefault || undefined}
       data-render-type="explored"
       data-render-id={id}
       style={rowStyle}
     >
-      <div className="message-render-content">
-        <div className="explored-group timeline-item">
+      <div
+        className={itemStyles.messageRenderContent}
+        data-message-render-content
+      >
+        <div
+          className={`${styles.exploredGroup} ${timelineStyles.timelineItem}`}
+          data-explored-group
+          data-timeline-item
+        >
           <ButtonBase
-            className="timeline-dot-btn"
+            className={timelineStyles.timelineDotBtn}
+            data-timeline-dot-btn
             onClick={() => setExpanded((value) => !value)}
             aria-label={toggleLabel}
             aria-controls={bodyId}
@@ -220,24 +239,52 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
             title={toggleLabel}
           />
           <ButtonBase
-            className="explored-group-header"
+            className={styles.exploredGroupHeader}
+            data-explored-group-header
             onClick={() => setExpanded((value) => !value)}
             aria-controls={bodyId}
             aria-expanded={expanded}
           >
-            <span className="explored-group-title">{title}</span>
-            <span className="explored-group-count">{countLabel}</span>
-            <span className="expand-chevron" aria-hidden="true">
+            <span
+              className={styles.exploredGroupTitle}
+              data-explored-group-title
+            >
+              {title}
+            </span>
+            <span
+              className={styles.exploredGroupCount}
+              data-explored-group-count
+            >
+              {countLabel}
+            </span>
+            <span
+              className={rowsStyles.expandChevron}
+              data-expand-chevron
+              aria-hidden="true"
+            >
               {expanded ? "▾" : "▸"}
             </span>
           </ButtonBase>
           {expanded && (
-            <div className="explored-group-body" id={bodyId} role="list">
+            <div
+              className={styles.exploredGroupBody}
+              data-explored-group-body
+              id={bodyId}
+              role="list"
+            >
               {projection.parents.flatMap((parent) =>
                 parent.entries.map((entry) => (
                   <div
                     key={entry.id}
-                    className={`explored-entry status-${parent.item.status}`}
+                    className={`${styles.exploredEntry} ${exploredStatusClasses[parent.item.status] ?? ""}`}
+                    data-explored-entry
+                    data-status-pending={
+                      parent.item.status === "pending" || undefined
+                    }
+                    data-status-error={
+                      parent.item.status === "error" || undefined
+                    }
+                    data-tool-status={parent.item.status}
                     data-render-id={projectedEntryRenderId(parent)}
                     data-exploration-entry-id={entry.id}
                     data-exploration-kind={entry.kind}
@@ -245,10 +292,17 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
                     data-render-type={parent.item.type}
                     role="listitem"
                   >
-                    <span className="explored-entry-status" aria-hidden="true">
+                    <span
+                      className={styles.exploredEntryStatus}
+                      data-explored-entry-status
+                      aria-hidden="true"
+                    >
                       {statusGlyph(parent.item.status)}
                     </span>
-                    <span className="explored-entry-tool">
+                    <span
+                      className={styles.exploredEntryTool}
+                      data-explored-entry-tool
+                    >
                       {getExplorationEntryDisplayLabel(parent, entry)}
                     </span>
                     {/* A block container, not an inline one: a renderer that
@@ -256,7 +310,10 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
                         fallback block, and a block inside an inline box
                         paints outside the row instead of being clipped by
                         it. */}
-                    <div className="explored-entry-summary">
+                    <div
+                      className={styles.exploredEntrySummary}
+                      data-explored-entry-summary
+                    >
                       {isCanonicalExplorationEntry(parent, entry)
                         ? renderEntrySummary(
                             parent.item,
@@ -277,21 +334,31 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
                 return (
                   <div
                     key={`details-${parent.item.id}`}
-                    className="explored-parent-details"
+                    className={styles.exploredParentDetails}
+                    data-explored-parent-details
                   >
                     <ButtonBase
-                      className="explored-parent-details-toggle"
+                      className={styles.exploredParentDetailsToggle}
+                      data-explored-parent-details-toggle
                       onClick={() => toggleParentDetails(parent.item.id)}
                       aria-controls={rawDetailsId}
                       aria-expanded={parentExpanded}
                     >
-                      <span className="expand-chevron" aria-hidden="true">
+                      <span
+                        className={rowsStyles.expandChevron}
+                        data-expand-chevron
+                        aria-hidden="true"
+                      >
                         {parentExpanded ? "▾" : "▸"}
                       </span>
                       {detailsLabel}
                     </ButtonBase>
                     {parentExpanded && (
-                      <div className="explored-parent-raw" id={rawDetailsId}>
+                      <div
+                        className={styles.exploredParentRaw}
+                        data-explored-parent-raw
+                        id={rawDetailsId}
+                      >
                         <ToolCallRow
                           id={parent.item.id}
                           toolName={parent.item.toolName}
@@ -343,10 +410,11 @@ function renderProjectedEntrySummary(
           : "";
     return (
       <span
-        className="explored-entry-semantic-summary"
+        className={styles.exploredEntrySemanticSummary}
+        data-explored-entry-semantic-summary
         title={[displayPath, range].filter(Boolean).join(" · ")}
       >
-        <span className="explored-entry-path">
+        <span className={styles.exploredEntryPath} data-explored-entry-path>
           <SessionFilePathLink
             displayPath={displayPath}
             filePath={sourcePath}
@@ -356,7 +424,7 @@ function renderProjectedEntrySummary(
           />
         </span>
         {range && (
-          <span className="explored-entry-range">
+          <span className={styles.exploredEntryRange} data-explored-entry-range>
             <SessionFilePathLink
               displayPath={range}
               filePath={sourcePath}
@@ -376,12 +444,15 @@ function renderProjectedEntrySummary(
     const scope = entry.path ? makeDisplayPath(entry.path, projectPath) : "";
     return (
       <span
-        className="explored-entry-semantic-summary"
+        className={styles.exploredEntrySemanticSummary}
+        data-explored-entry-semantic-summary
         title={[entry.query, scope].filter(Boolean).join(" · ")}
       >
-        <span className="explored-entry-query">{entry.query}</span>
+        <span className={styles.exploredEntryQuery} data-explored-entry-query>
+          {entry.query}
+        </span>
         {scope && (
-          <span className="explored-entry-scope">
+          <span className={styles.exploredEntryScope} data-explored-entry-scope>
             <SessionFilePathLink
               displayPath={scope}
               filePath={entry.path ?? scope}
@@ -396,8 +467,14 @@ function renderProjectedEntrySummary(
 
   const path = entry.path ? makeDisplayPath(entry.path, projectPath) : ".";
   return (
-    <span className="explored-entry-semantic-summary" title={path}>
-      <span className="explored-entry-path">{path}</span>
+    <span
+      className={styles.exploredEntrySemanticSummary}
+      data-explored-entry-semantic-summary
+      title={path}
+    >
+      <span className={styles.exploredEntryPath} data-explored-entry-path>
+        {path}
+      </span>
     </span>
   );
 }

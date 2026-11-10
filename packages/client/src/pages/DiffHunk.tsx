@@ -1,3 +1,4 @@
+import diffStyles from "../components/renderers/DiffOutput.module.css";
 import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { InnerHtml } from "../components/ui/InnerHtml";
 import { useI18n } from "../i18n";
@@ -415,7 +416,8 @@ function DiffScrollGroup({
                 }}
               >
                 <InnerHtml
-                  className={`${styles.content} highlighted-diff`}
+                  className={`${styles.content} ${diffStyles.highlightedDiff}`}
+                  data-highlighted-diff
                   trustedHtml={`<pre class="shiki"><code>${html ?? '<span class="line"> </span>'}</code></pre>`}
                 />
               </div>

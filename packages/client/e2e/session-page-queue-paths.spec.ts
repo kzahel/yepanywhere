@@ -313,7 +313,9 @@ test("Project Queue items in the session resume dispatch, cancel, edit into the 
     }),
   );
   const row = (text: string) =>
-    page.locator(".message-list .message-render-row").filter({ hasText: text });
+    page
+      .locator("[data-message-list] [data-message-render-row]")
+      .filter({ hasText: text });
 
   await row("Project item to cancel")
     .getByRole("button", { name: "Resume", exact: true })
@@ -367,7 +369,7 @@ test("cancelling an unconfirmed steer removes its row", async ({
     message: { role: "user", content: "Steer toward the parser" },
   });
   const steerRow = page
-    .locator(".message-list [data-render-id]")
+    .locator("[data-message-list] [data-render-id]")
     .filter({ hasText: "Steer toward the parser" });
   const steeringPath = `/sessions/${sessionId}/steering/pin-steer`;
   await session.answer("DELETE", steeringPath, (route) =>

@@ -139,7 +139,7 @@ for (const viewport of [
     });
     await page.setViewportSize(viewport);
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
-    const list = page.locator(".message-list");
+    const list = page.locator("[data-message-list]");
     const badge = page.locator(".provider-badge-button .provider-badge");
     await expect(badge).toHaveAttribute(
       "aria-label",

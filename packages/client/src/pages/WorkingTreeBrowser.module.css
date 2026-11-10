@@ -120,7 +120,7 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.currentContent > :global(.file-viewer) {
+.currentContent > :global([data-file-viewer]) {
   min-height: 0;
   flex: 1;
   border: 0;

@@ -1,3 +1,4 @@
+import styles from "./TodoWriteRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useEffect, useState } from "react";
@@ -27,13 +28,29 @@ function getStatusIcon(status: Todo["status"]): string {
  * Single todo item
  */
 function TodoItem({ todo }: { todo: Todo }) {
-  const statusClass = `todo-status-${todo.status}`;
+  const statusClass =
+    (
+      {
+        pending: styles.todoStatusPending,
+        completed: styles.todoStatusCompleted,
+      } as Record<string, string | undefined>
+    )[todo.status] ?? "";
   const isCompleted = todo.status === "completed";
 
   return (
-    <div className={`todo-item ${statusClass}`}>
-      <span className="todo-checkbox">{getStatusIcon(todo.status)}</span>
-      <span className={`todo-content ${isCompleted ? "todo-completed" : ""}`}>
+    <div
+      className={`${styles.todoItem} ${statusClass}`}
+      data-todo-item
+      data-todo-status={todo.status}
+    >
+      <span className={styles.todoCheckbox} data-todo-checkbox>
+        {getStatusIcon(todo.status)}
+      </span>
+      <span
+        className={`${styles.todoContent} ${isCompleted ? styles.todoCompleted : ""}`}
+        data-todo-content
+        data-todo-completed={isCompleted || undefined}
+      >
         {todo.content}
       </span>
     </div>
@@ -45,7 +62,11 @@ function TodoItem({ todo }: { todo: Todo }) {
  */
 function TodoWriteToolUse({ input }: { input: TodoWriteInput }) {
   if (!input?.todos || input.todos.length === 0) {
-    return <div className="todo-empty">No todos specified</div>;
+    return (
+      <div className={styles.todoEmpty} data-todo-empty>
+        No todos specified
+      </div>
+    );
   }
 
   const inProgress = input.todos.filter((t) => t.status === "in_progress");
@@ -53,8 +74,8 @@ function TodoWriteToolUse({ input }: { input: TodoWriteInput }) {
   const completed = input.todos.filter((t) => t.status === "completed");
 
   return (
-    <div className="todo-tool-use">
-      <span className="todo-summary">
+    <div className={styles.todoToolUse} data-todo-tool-use>
+      <span className={styles.todoSummary} data-todo-summary>
         {inProgress.length > 0 && `${inProgress.length} in progress`}
         {inProgress.length > 0 &&
           (pending.length > 0 || completed.length > 0) &&
@@ -94,7 +115,7 @@ function TodoWriteToolResult({ result }: { result: TodoWriteResult }) {
 
   if (!result?.newTodos || result.newTodos.length === 0) {
     return (
-      <div className="todo-empty">
+      <div className={styles.todoEmpty} data-todo-empty>
         {showValidationWarning && validationErrors && (
           <SchemaWarning toolName="TodoWrite" errors={validationErrors} />
         )}
@@ -104,11 +125,11 @@ function TodoWriteToolResult({ result }: { result: TodoWriteResult }) {
   }
 
   return (
-    <div className="todo-result">
+    <div className={styles.todoResult} data-todo-result>
       {showValidationWarning && validationErrors && (
         <SchemaWarning toolName="TodoWrite" errors={validationErrors} />
       )}
-      <div className="todo-list">
+      <div className={styles.todoList} data-todo-list>
         {result.newTodos.map((todo, index) => (
           <TodoItem key={`${todo.content}-${index}`} todo={todo} />
         ))}
@@ -131,7 +152,7 @@ export const todoWriteRenderer = defineTool(toolDisplayContracts.TodoWrite, {
 
   renderFailure(failure) {
     return (
-      <div className="todo-error">
+      <div className={styles.todoError} data-todo-error>
         {failure.content || "Failed to update todos"}
       </div>
     );

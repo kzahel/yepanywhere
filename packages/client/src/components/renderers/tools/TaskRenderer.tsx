@@ -1,3 +1,6 @@
+import { taskStatusClasses } from "./taskStatusClasses";
+import expandStyles from "../ExpandOutput.module.css";
+import taskStyles from "./TaskPresentation.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -78,16 +81,18 @@ function TaskToolUse({ input }: { input: TaskInput }) {
       : input.prompt;
 
   return (
-    <div className="task-tool-use">
-      <div className="task-header">
-        <span className="task-description">{input.description}</span>
+    <div className={taskStyles.taskToolUse} data-task-tool-use>
+      <div className={taskStyles.taskHeader} data-task-header>
+        <span className={taskStyles.taskDescription} data-task-description>
+          {input.description}
+        </span>
         <Badge tone="info" size="small">
           {input.subagent_type}
         </Badge>
         {input.model && <Badge size="small">{input.model}</Badge>}
       </div>
       {input.prompt && (
-        <div className="task-prompt">
+        <div className={taskStyles.taskPrompt} data-task-prompt>
           <Button
             variant="ghost"
             size="small"
@@ -96,7 +101,10 @@ function TaskToolUse({ input }: { input: TaskInput }) {
             {showPrompt ? "Hide prompt" : "Show prompt"}
           </Button>
           {showPrompt && (
-            <pre className="task-prompt-content">
+            <pre
+              className={taskStyles.taskPromptContent}
+              data-task-prompt-content
+            >
               <code>{showPrompt ? input.prompt : promptTruncated}</code>
             </pre>
           )}
@@ -342,21 +350,38 @@ function TaskInline({
 
   return (
     <div
-      className={`task-inline ${isExpanded ? "expanded" : "collapsed"} status-${statusBadge.text}`}
+      className={`${taskStyles.taskInline} ${isExpanded ? `${taskStyles.expanded}` : ""} ${taskStatusClasses[statusBadge.text] ?? ""}`}
+      data-task-inline
+      data-expanded={isExpanded || undefined}
+      data-tool-status={statusBadge.text}
     >
       {/* Header row */}
       <div className={styles.headerRow}>
         <ButtonBase
-          className={`task-inline-header ${styles.expandButton}`}
+          className={`${taskStyles.taskInlineHeader} ${styles.expandButton}`}
+          data-task-inline-header
           onClick={handleExpand}
         >
-          <span className="task-expand-icon">{isExpanded ? "▼" : "▶"}</span>
-          <Badge tone="info" size="small" className="task-agent-type">
+          <span className={taskStyles.taskExpandIcon} data-task-expand-icon>
+            {isExpanded ? "▼" : "▶"}
+          </span>
+          <Badge
+            tone="info"
+            size="small"
+            className={taskStyles.taskAgentType}
+            data-task-agent-type
+          >
             {input.subagent_type}
           </Badge>
-          <span className="task-inline-title">{input.description}</span>
+          <span className={taskStyles.taskInlineTitle} data-task-inline-title>
+            {input.description}
+          </span>
           {input.model && (
-            <Badge size="small" className="task-model">
+            <Badge
+              size="small"
+              className={taskStyles.taskModel}
+              data-task-model
+            >
               {input.model}
             </Badge>
           )}
@@ -364,7 +389,10 @@ function TaskInline({
             <>
               <Spinner size="small" label="Running" />
               {liveContent?.contextUsage && (
-                <span className="task-context-usage">
+                <span
+                  className={taskStyles.taskContextUsage}
+                  data-task-context-usage
+                >
                   {liveContent.contextUsage.percentage.toFixed(0)}% context
                 </span>
               )}
@@ -377,12 +405,16 @@ function TaskInline({
           )}
           {/* Show error summary in collapsed view */}
           {!isExpanded && errorInfo && (
-            <span className="task-error-summary" title={errorInfo.raw}>
+            <span
+              className={taskStyles.taskErrorSummary}
+              data-task-error-summary
+              title={errorInfo.raw}
+            >
               {errorInfo.summary}
             </span>
           )}
           {result && !isError && (
-            <span className="task-stats">
+            <span className={taskStyles.taskStats} data-task-stats>
               {formatDuration(result.totalDurationMs ?? 0)} ·{" "}
               {(result.totalTokens ?? 0).toLocaleString()} tokens
             </span>
@@ -412,18 +444,30 @@ function TaskInline({
 
       {/* Loading indicator */}
       {isLoadingContent && (
-        <div className="task-loading">
+        <div className={taskStyles.taskLoading} data-task-loading>
           <Spinner size="small" /> Loading agent content...
         </div>
       )}
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="task-inline-content" ref={contentRef}>
+        <div
+          className={taskStyles.taskInlineContent}
+          data-task-inline-content
+          ref={contentRef}
+        >
           {/* Show error details if this is an error state */}
           {errorInfo && (
-            <div className="task-error-details">
-              <pre className="task-error-message">{errorInfo.raw}</pre>
+            <div
+              className={taskStyles.taskErrorDetails}
+              data-task-error-details
+            >
+              <pre
+                className={taskStyles.taskErrorMessage}
+                data-task-error-message
+              >
+                {errorInfo.raw}
+              </pre>
             </div>
           )}
           {/* Show live nested content if available */}
@@ -434,7 +478,7 @@ function TaskInline({
             />
           ) : !errorInfo && result?.content?.length ? (
             // Fall back to result content blocks (original behavior)
-            <div className="task-content">
+            <div className={taskStyles.taskContent} data-task-content>
               {result.content.map((block) => (
                 <ContentBlockRenderer
                   key={
@@ -453,7 +497,7 @@ function TaskInline({
               ))}
             </div>
           ) : !errorInfo ? (
-            <div className="task-empty">
+            <div className={taskStyles.taskEmpty} data-task-empty>
               {isRunning ? "Waiting for agent activity..." : "No content"}
             </div>
           ) : null}
@@ -479,14 +523,18 @@ function TaskToolResult({
 
   if (isError) {
     return (
-      <div className="task-error">
+      <div className={taskStyles.taskError} data-task-error>
         {extractErrorMessage(result)?.raw || "Task failed"}
       </div>
     );
   }
 
   if (!result) {
-    return <div className="task-empty">No result</div>;
+    return (
+      <div className={taskStyles.taskEmpty} data-task-empty>
+        No result
+      </div>
+    );
   }
 
   const statusTone =
@@ -497,12 +545,12 @@ function TaskToolResult({
         : "warning";
 
   return (
-    <div className="task-result">
-      <div className="task-result-header">
+    <div className={taskStyles.taskResult} data-task-result>
+      <div className={taskStyles.taskResultHeader} data-task-result-header>
         <Badge tone={statusTone} size="small">
           {result.status}
         </Badge>
-        <span className="task-stats">
+        <span className={taskStyles.taskStats} data-task-stats>
           {formatDuration(result.totalDurationMs ?? 0)} &middot;{" "}
           {(result.totalTokens ?? 0).toLocaleString()} tokens &middot;{" "}
           {result.totalToolUseCount ?? 0} tools
@@ -510,14 +558,15 @@ function TaskToolResult({
         <Button
           variant="ghost"
           size="small"
-          className="expand-button"
+          className={expandStyles.expandButton}
+          data-expand-button
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Collapse" : "Expand"}
         </Button>
       </div>
       {isExpanded && result.content && result.content.length > 0 && (
-        <div className="task-content">
+        <div className={taskStyles.taskContent} data-task-content>
           {result.content.map((block, i) => (
             <ContentBlockRenderer
               key={`${result.agentId}-${i}`}

@@ -37,9 +37,11 @@ async function openSessionFile(page: Page) {
   );
   await expect(sourceLink).toBeVisible();
   await sourceLink.click();
-  await expect(page.locator(".file-viewer-code-highlighted")).toBeVisible();
   await expect(
-    page.locator('.file-viewer-body[data-markdown-copy-source="true"]'),
+    page.locator("[data-file-viewer-code-highlighted]"),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-file-viewer-body][data-markdown-copy-source="true"]'),
   ).toBeVisible();
 }
 
@@ -54,7 +56,7 @@ async function selectSourceRange(
   },
 ) {
   return page
-    .locator(".file-viewer-code-highlighted")
+    .locator("[data-file-viewer-code-highlighted]")
     .evaluate((viewer, selectionOptions) => {
       const lines = viewer.querySelectorAll<HTMLElement>(".line");
       const boundary = (line: HTMLElement, marker: string, atEnd: boolean) => {
@@ -142,7 +144,9 @@ test("starts a new transcript selection inside previously selected text", async 
   await page.setViewportSize({ width: 1000, height: 600 });
   await page.goto(`/projects/${projectId}/sessions/source-selection-001`);
   const text = "Review the formatted source";
-  const prompt = page.locator(".message-list").getByText(text, { exact: true });
+  const prompt = page
+    .locator("[data-message-list]")
+    .getByText(text, { exact: true });
   await expect(prompt).toBeVisible();
   await prompt.evaluate((element) => {
     const selection = document.getSelection();
@@ -209,7 +213,7 @@ async function enableAllSelectionActions(page: Page) {
 }
 
 async function markerPoint(page: Page, marker: string) {
-  return page.locator(".message-list").evaluate((list, text) => {
+  return page.locator("[data-message-list]").evaluate((list, text) => {
     const walker = document.createTreeWalker(list, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const textNode = node as Text;
@@ -259,7 +263,7 @@ test("keeps a dragged transcript selection copyable after its actions appear", a
   await page.setViewportSize({ width: 1200, height: 700 });
   await page.goto(`/projects/${projectId}/sessions/source-selection-001`);
   await expect(
-    page.locator(".message-list").getByText("and quote the exact", {
+    page.locator("[data-message-list]").getByText("and quote the exact", {
       exact: false,
     }),
   ).toBeVisible();
@@ -282,13 +286,13 @@ test("keeps a dragged selection in a windowed transcript", async ({
   await page.setViewportSize({ width: 1200, height: 700 });
   await page.goto(`/projects/${projectId}/sessions/windowed-selection-001`);
   const lastReply = page
-    .locator(".message-list")
+    .locator("[data-message-list]")
     .getByText("Windowed reply 29 part 11", { exact: false });
   await expect(lastReply).toBeVisible();
   expect(
     Number(
       await page
-        .locator(".message-list")
+        .locator("[data-message-list]")
         .getAttribute("data-transcript-render-weight"),
     ),
   ).toBeGreaterThanOrEqual(200);
@@ -359,12 +363,14 @@ test("keeps a dragged selection while a windowed transcript grows", async ({
   );
   await expect(
     page
-      .locator(".message-list")
+      .locator("[data-message-list]")
       .getByText("Windowed reply 29 part 11", { exact: false }),
   ).toBeVisible();
   appendReply();
   await expect(
-    page.locator(".message-list").getByText("Live reply 0", { exact: false }),
+    page
+      .locator("[data-message-list]")
+      .getByText("Live reply 0", { exact: false }),
   ).toBeVisible();
 
   const timer = setInterval(appendReply, 200);
@@ -454,9 +460,9 @@ test("places activity selection actions beside the selected range", async ({
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/projects/${projectId}/sessions/activity-selection-001`);
-  await page.locator(".conversation-activity-summary").click();
-  await expect(page.locator(".bash-collapsed-preview")).toBeVisible();
-  await page.locator(".bash-collapsed-preview").click();
+  await page.locator("[data-conversation-activity-summary]").click();
+  await expect(page.locator("[data-bash-collapsed-preview]")).toBeVisible();
+  await page.locator("[data-bash-collapsed-preview]").click();
   const modal = page.locator("[data-modal-frame]");
   await expect(modal).toBeVisible();
 
@@ -505,10 +511,10 @@ test("keeps a backward drag selected in a collapsed activity preview", async ({
 }) => {
   await page.setViewportSize({ width: 1000, height: 600 });
   await page.goto(`/projects/${projectId}/sessions/activity-selection-001`);
-  await page.locator(".conversation-activity-summary").click();
-  const preview = page.locator(".bash-collapsed-preview");
+  await page.locator("[data-conversation-activity-summary]").click();
+  const preview = page.locator("[data-bash-collapsed-preview]");
   await expect(preview).toBeVisible();
-  const output = preview.locator(".bash-preview-output pre").first();
+  const output = preview.locator("[data-bash-preview-output] pre").first();
   const { start, end } = await output.evaluate((element) => {
     const text = document
       .createTreeWalker(element, NodeFilter.SHOW_TEXT)

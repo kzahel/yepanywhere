@@ -24,7 +24,7 @@ describe("ThinkingRenderer", () => {
     );
 
     expect(screen.getByRole("button", { name: /Thinking/i })).toBeDefined();
-    expect(container.querySelector(".fallback-block")).toBeNull();
+    expect(container.querySelector("[data-fallback-block]")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Thinking/i }));
 
@@ -56,9 +56,9 @@ describe("ThinkingRenderer", () => {
     fireEvent.click(screen.getByRole("button", { name: /Thinking/i }));
 
     expect(screen.getByText("Checking instructions")).toBeDefined();
-    expect(container.querySelector(".thinking-inline-code")?.textContent).toBe(
-      "AGENTS.md",
-    );
+    expect(
+      container.querySelector("[data-thinking-inline-code]")?.textContent,
+    ).toBe("AGENTS.md");
     expect(screen.queryByText(/\*\*Checking instructions/)).toBeNull();
   });
 });

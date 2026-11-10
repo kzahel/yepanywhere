@@ -55,7 +55,7 @@ for (const viewport of [
     );
     const projectId = Buffer.from(projectPath).toString("base64url");
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
-    await expect(page.locator(".system-message-warning")).toHaveText(
+    await expect(page.locator("[data-system-message-warning]")).toHaveText(
       `!${warning}`,
     );
     await expect(

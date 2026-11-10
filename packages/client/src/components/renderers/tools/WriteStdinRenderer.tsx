@@ -1,3 +1,9 @@
+import viewerStyles from "../../FileViewer.module.css";
+import codeStyles from "../CodeOutput.module.css";
+import pathStyles from "../../FilePathLink.module.css";
+import readStyles from "./ReadRenderer.module.css";
+
+import bashStyles from "./BashRenderer.module.css";
 import { decodeCodeModeOutput } from "@yep-anywhere/shared";
 import { CodeModeOutput } from "./CodeModeOutput";
 import styles from "./WriteStdinRenderer.module.css";
@@ -213,12 +219,19 @@ function countContentLines(content: string): number {
 
 function renderFixedFontMathPanel(
   html: string,
-  className = "code-block",
+  className = codeStyles.codeBlock,
 ): ReactNode {
   return (
-    <div className={`${className} fixed-font-rendered-panel`}>
+    <div
+      className={`${className} ${codeStyles.fixedFontRenderedPanel}`}
+      data-fixed-font-rendered-panel
+    >
       {/* KaTeX output is trusted HTML from local rendering. */}
-      <InnerHtml className="fixed-font-rendered__content" trustedHtml={html} />
+      <InnerHtml
+        className={codeStyles.fixedFontRenderedContent}
+        data-fixed-font-rendered__content
+        trustedHtml={html}
+      />
     </div>
   );
 }
@@ -236,38 +249,64 @@ function ReadViaPtyFile({
   const fileName = getFileName(filePath);
   const lines = output.split("\n");
   const lineCount = countContentLines(output);
-  const buttonClass = inline ? "file-link-inline" : "file-link-button";
-  const lineCountClass = inline ? "file-line-count-inline" : "file-line-count";
-  const wrapperClass = inline ? undefined : "read-text-result";
+  const buttonClass = inline
+    ? pathStyles.fileLinkInline
+    : pathStyles.fileLinkButton;
+  const lineCountClass = inline
+    ? pathStyles.fileLineCountInline
+    : pathStyles.fileLineCount;
+  const wrapperClass = inline ? undefined : readStyles.readTextResult;
 
   return (
     <>
-      <div className={wrapperClass}>
+      <div
+        className={wrapperClass}
+        data-read-text-result={!inline || undefined}
+      >
         <Button
           mono
           textFlow="wrap"
           variant={inline ? "link" : "outline"}
           size="small"
           className={buttonClass}
+          data-file-link-inline={inline || undefined}
+          data-file-link-button={!inline || undefined}
           onClick={() => setShowModal(true)}
         >
-          {fileName} <span className={lineCountClass}>{lineCount} lines</span>
+          {fileName}{" "}
+          <span
+            className={lineCountClass}
+            data-file-line-count-inline={inline || undefined}
+            data-file-line-count={!inline || undefined}
+          >
+            {lineCount} lines
+          </span>
         </Button>
       </div>
       {showModal && (
         <ActivityDetailModal
-          title={<span className="file-path">{fileName}</span>}
+          title={
+            <span className={codeStyles.filePath} data-file-path>
+              {fileName}
+            </span>
+          }
           label={fileName}
           onClose={() => setShowModal(false)}
         >
-          <div className="file-content-modal">
-            <div className="file-content-with-lines">
-              <div className="line-numbers">
+          <div
+            className={viewerStyles.fileContentModal}
+            data-file-content-modal
+          >
+            <div
+              className={codeStyles.fileContentWithLines}
+              data-file-content-with-lines
+            >
+              <div className={codeStyles.lineNumbers} data-line-numbers>
                 {lines.map((_, i) => (
                   <div key={`ln-${i + 1}`}>{i + 1}</div>
                 ))}
               </div>
-              <pre className="line-content">
+              <pre className={codeStyles.lineContent} data-line-content>
                 <code>{output}</code>
               </pre>
             </div>
@@ -301,8 +340,8 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
     const commandLine = command ? `command: ${command}\n` : "";
 
     return (
-      <div className="bash-tool-use">
-        <pre className="code-block">
+      <div className={bashStyles.bashToolUse} data-bash-tool-use>
+        <pre className={codeStyles.codeBlock} data-code-block>
           <code>{`${originLine}${fileLine}${commandLine}${getTargetLine(input)}\n${action}`}</code>
         </pre>
       </div>
@@ -322,7 +361,9 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
     const linkedFilePath = getLinkedFilePath(input);
     const metaLine = getResultMetaLine(result, text);
     const metaRow = metaLine ? (
-      <div className="command-result-meta">{metaLine}</div>
+      <div className={bashStyles.commandResultMeta} data-command-result-meta>
+        {metaLine}
+      </div>
     ) : null;
 
     if (!parsed.output.trim()) {
@@ -330,7 +371,10 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
       if (exitCode !== undefined && exitCode !== 0) {
         return (
           <>
-            <div className="bash-empty">{`Command exited with code ${exitCode}`}</div>
+            <div
+              className={bashStyles.bashEmpty}
+              data-bash-empty
+            >{`Command exited with code ${exitCode}`}</div>
             {metaRow}
           </>
         );
@@ -341,7 +385,7 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
       if (detachedCellId) {
         return (
           <>
-            <div className="bash-empty">
+            <div className={bashStyles.bashEmpty} data-bash-empty>
               {`Still running — output continues as script cell ${detachedCellId}`}
             </div>
             {metaRow}
@@ -350,7 +394,9 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
       }
       return (
         <>
-          <div className="bash-empty">No output</div>
+          <div className={bashStyles.bashEmpty} data-bash-empty>
+            No output
+          </div>
           {metaRow}
         </>
       );
@@ -363,18 +409,25 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
     }
 
     return (
-      <div className={`bash-result ${isError ? "bash-result-error" : ""}`}>
+      <div
+        className={`${bashStyles.bashResult} ${isError ? "bash-result-error" : ""}`}
+        data-bash-result
+      >
         <FixedFontMathToggle
           sourceText={parsed.output}
           sourceView={
-            <pre className={`code-block ${isError ? "code-block-error" : ""}`}>
+            <pre
+              className={`${codeStyles.codeBlock} ${isError ? codeStyles.codeBlockError : ""}`}
+              data-code-block
+              data-code-block-error={isError || undefined}
+            >
               <AnsiText text={parsed.output} />
             </pre>
           }
           renderRenderedView={(html) =>
             renderFixedFontMathPanel(
               html,
-              `code-block ${isError ? "code-block-error" : ""}`.trim(),
+              `${codeStyles.codeBlock} ${isError ? codeStyles.codeBlockError : ""}`.trim(),
             )
           }
         />

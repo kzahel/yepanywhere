@@ -67,7 +67,7 @@ describe("GoalRenderer", () => {
     ).toBeTruthy();
     expect(container.textContent).not.toContain("thread-secret-noise");
     expect(container.textContent).not.toContain("model-only instruction");
-    expect(container.querySelector(".tool-fallback")).toBeNull();
+    expect(container.querySelector("[data-tool-fallback]")).toBeNull();
   });
 
   it("renders get_goal with no current goal as an explicit empty state", () => {
@@ -124,7 +124,7 @@ describe("GoalRenderer", () => {
     expect(
       screen.getByText("Marking the current goal complete..."),
     ).toBeTruthy();
-    expect(container.querySelector(".tool-fallback")).toBeNull();
+    expect(container.querySelector("[data-tool-fallback]")).toBeNull();
   });
 
   it("shows provider failures as wrapped error text", () => {

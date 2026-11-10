@@ -207,10 +207,10 @@ describe("EditRenderer collapsed preview fallback", () => {
     );
 
     expect(screen.queryByText("Computing diff...")).toBeNull();
-    expect(container.querySelector(".diff-removed")?.textContent).toBe(
+    expect(container.querySelector("[data-diff-removed]")?.textContent).toBe(
       "-const x = 1;",
     );
-    expect(container.querySelector(".diff-added")?.textContent).toBe(
+    expect(container.querySelector("[data-diff-added]")?.textContent).toBe(
       "+const x = 2;",
     );
   });
@@ -244,13 +244,27 @@ describe("EditRenderer collapsed preview fallback", () => {
       </div>,
     );
 
-    const badge = container.querySelector<HTMLElement>(".edit-preview-more");
+    const badge = container.querySelector<HTMLElement>(
+      "[data-edit-preview-more]",
+    );
     const fadedPreview = container.querySelector<HTMLElement>(
-      ".diff-view-container",
+      "[data-diff-view-container]",
     );
     expect(badge?.textContent).toBe("+4");
     expect(badge?.getAttribute("data-tooltip")).toBe(
-      "...\n+line 5\n+line 6\n+line 7\n+line 8\n+line 9\n+line 10\n+line 11\n+line 12\n+line 13\n+line 14\n+line 15\n+line 16",
+      `...
++line 5
++line 6
++line 7
++line 8
++line 9
++line 10
++line 11
++line 12
++line 13
++line 14
++line 15
++line 16`,
     );
     expect(fadedPreview?.getAttribute("data-tooltip")).toBe(
       badge?.getAttribute("data-tooltip"),
@@ -289,7 +303,9 @@ describe("EditRenderer collapsed preview fallback", () => {
       </div>,
     );
 
-    const badge = container.querySelector<HTMLElement>(".edit-preview-more");
+    const badge = container.querySelector<HTMLElement>(
+      "[data-edit-preview-more]",
+    );
     expect(badge?.getAttribute("title")).toMatch(/^\.\.\.\n\+line 2/);
     expect(badge?.getAttribute("data-tooltip")).toBeNull();
   });
@@ -318,9 +334,9 @@ describe("EditRenderer collapsed preview fallback", () => {
       </div>,
     );
 
-    expect(container.querySelector(".edit-preview-more")).toBeNull();
+    expect(container.querySelector("[data-edit-preview-more]")).toBeNull();
     const preview = container.querySelector<HTMLElement>(
-      ".diff-view-container",
+      "[data-diff-view-container]",
     );
     expect(preview).toBeTruthy();
     expect(preview?.classList).not.toContain("truncated");
@@ -537,11 +553,11 @@ describe("EditRenderer collapsed preview fallback", () => {
       </div>,
     );
 
-    expect(container.querySelector(".diff-added")?.textContent).toBe(
+    expect(container.querySelector("[data-diff-added]")?.textContent).toBe(
       "+const label = `dev`;",
     );
     expect(
-      container.querySelector(".fixed-font-rendered__content code"),
+      container.querySelector("[data-fixed-font-rendered__content] code"),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Show source" })).toBeNull();
   });
@@ -642,8 +658,8 @@ describe("EditRenderer collapsed preview fallback", () => {
           lines: ["-const x = 1;", "+const x = 2;"],
         },
       ],
-      _diffHtml:
-        '<pre class="shiki"><code class="language-ts"><span class="line line-deleted"><span class="diff-prefix">-</span><span style="color:var(--shiki-token-keyword)">const</span> x = 1;</span>\n<span class="line line-inserted"><span class="diff-prefix">+</span><span style="color:var(--shiki-token-keyword)">const</span> x = 2;</span></code></pre>',
+      _diffHtml: `<pre class="shiki"><code class="language-ts"><span class="line line-deleted"><span class="diff-prefix">-</span><span style="color:var(--shiki-token-keyword)">const</span> x = 1;</span>
+<span class="line line-inserted"><span class="diff-prefix">+</span><span style="color:var(--shiki-token-keyword)">const</span> x = 2;</span></code></pre>`,
     };
 
     const { container } = render(
@@ -659,9 +675,9 @@ describe("EditRenderer collapsed preview fallback", () => {
 
     expect(screen.queryByText("Computing diff...")).toBeNull();
     expect(
-      container.querySelector(".highlighted-diff .line-inserted"),
+      container.querySelector("[data-highlighted-diff] .line-inserted"),
     ).toBeTruthy();
-    expect(container.querySelector(".diff-gutter-aligned")).toBeTruthy();
+    expect(container.querySelector("[data-diff-gutter-aligned]")).toBeTruthy();
     expect(screen.getAllByText(/const/)).toHaveLength(2);
   });
 
@@ -1103,7 +1119,7 @@ describe("EditRenderer collapsed preview fallback", () => {
     const modal = document.body.querySelector("[data-modal-frame]");
     expect(modal?.textContent).toContain("Recent MT Adapter Progress");
     const titleLink = modal?.querySelector(
-      "[data-modal-title] a.file-path-link",
+      "[data-modal-title] a[data-file-path-link]",
     ) as HTMLAnchorElement | null;
     expect(titleLink?.textContent).toContain("progress-2026-05-18.md");
     expect(titleLink?.getAttribute("href")).toBe(
@@ -1117,7 +1133,7 @@ describe("EditRenderer collapsed preview fallback", () => {
     );
     const copyPath = screen.getByRole("button", { name: "Copy path" });
     expect(copyPath.closest("[data-modal-header-actions]")).not.toBeNull();
-    expect(modal?.querySelector(".file-path-copy")).toBeNull();
+    expect(modal?.querySelector("[data-file-path-copy]")).toBeNull();
     const modalToggle = within(modal as HTMLElement).getByRole("button", {
       name: "Show source",
     });
@@ -1151,7 +1167,9 @@ describe("EditRenderer collapsed preview fallback", () => {
         )}
       </>,
     );
-    const preview = container.querySelector<HTMLElement>(".diff-tap-target");
+    const preview = container.querySelector<HTMLElement>(
+      "[data-diff-tap-target]",
+    );
     const term = document.createElement("span");
     term.dataset.glossaryTerm = "true";
     term.dataset.tooltip = "oracle — Best published system.";
@@ -1228,7 +1246,8 @@ describe("EditRenderer collapsed preview fallback", () => {
       </SessionMetadataProvider>,
     );
 
-    const selectedText = document.querySelector<HTMLElement>(".diff-added");
+    const selectedText =
+      document.querySelector<HTMLElement>("[data-diff-added]");
     const textNode = selectedText?.lastChild;
     if (!selectedText || !textNode) {
       throw new Error("Expected selectable diff text");
@@ -1282,7 +1301,8 @@ describe("EditRenderer collapsed preview fallback", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Show source" }));
-    const selectedText = document.querySelector<HTMLElement>(".diff-added");
+    const selectedText =
+      document.querySelector<HTMLElement>("[data-diff-added]");
     const prefixText = selectedText?.querySelector(".diff-prefix")?.firstChild;
     const contentText = selectedText?.lastChild;
     if (!selectedText || !prefixText || !contentText) {
@@ -1474,7 +1494,7 @@ describe("EditRenderer collapsed preview fallback", () => {
     });
     expect(mocks.expandDiffContext).not.toHaveBeenCalled();
     const modal = document.body.querySelector("[data-modal-frame]");
-    expect(modal?.querySelector(".diff-added")).toBeNull();
+    expect(modal?.querySelector("[data-diff-added]")).toBeNull();
     expect(modal?.textContent).not.toContain("+new");
   });
 });

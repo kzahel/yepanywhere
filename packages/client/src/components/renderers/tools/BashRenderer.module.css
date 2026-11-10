@@ -1,7 +1,277 @@
-.fixedWidthOutput:global(.fixed-font-rendered__content) {
+.bashToolUse {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bashResult {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bashExpandedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bashInlineSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bashSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bashInlineSectionLabel {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.bashSectionCopy {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bashEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-size-lg);
+}
+.commandResultMeta {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.bashResultMetaBadges {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+.bashCollapsedPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--font-size-base);
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.bashPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle, var(--border-color));
+}
+
+.bashPreviewOutputRow {
+  align-items: flex-start;
+}
+
+.bashPreviewWarningRow {
+  cursor: default;
+}
+
+.bashPreviewOutput {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.bashPreviewMore {
+  align-self: flex-start;
+}
+
+.bashPreviewFade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  background: linear-gradient(to bottom, transparent, var(--bg-code));
+  pointer-events: none;
+}
+
+.bashPreviewEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.bashPreviewInterrupted {
+  color: var(--warning-color);
+  font-style: italic;
+}
+.bashModalSections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bashModalSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bashModalLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.bashModalLabelError {
+  color: var(--error-color);
+}
+
+.bashModalCodeError {
+  border-color: var(--error-color);
+}
+
+.bashModalEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-size-lg);
+}
+@media (width <= 600px) {
+  .bashModalSections {
+    gap: 0.25rem;
+  }
+}
+@media (width <= 600px) {
+  .bashModalCode {
+    border-radius: 0;
+  }
+}
+
+.bashModalCode {
+  margin: 0;
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+
+.bashPreviewOutput pre {
+  margin: 0;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary, var(--text-muted));
+  /* Height clipping preserves native text selection; Chromium does not form
+     mouse selections inside a line-clamped pre. */
+  max-height: calc(1.4em * var(--bash-preview-line-count, 4));
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+
+.bashStdout.bashStdout {
+  margin: 0;
+}
+
+.bashStderr.bashStderr {
+  margin: 0;
+}
+
+.bashSectionCopy:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashSectionCopy[data-copied] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashCollapsedPreview:hover {
+  border-color: var(--border-input, var(--border-color));
+}
+
+.bashCollapsedPreview:focus {
+  outline: 1px solid var(--focus-border, #007acc);
+  outline-offset: -1px;
+}
+
+.bashPreviewRow:last-child {
+  border-bottom: none;
+}
+
+.fixedWidthOutput:global([data-fixed-font-rendered__content]) {
   font-family: inherit;
   font-optical-sizing: inherit;
   font-variation-settings: inherit;
   font-size: inherit;
   line-height: inherit;
+}
+
+.bashPreviewOutput.bashPreviewError pre {
+  color: color-mix(in srgb, var(--error-color) 70%, var(--text-primary));
+}
+
+.bashInlineSectionHeader:hover .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashInlineSectionHeader:focus-within .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashModalSection:hover .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashModalSection:focus-within .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashPreviewRow:hover .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashPreviewRow:focus-within .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashExpandedSection:hover > .bashInlineSectionHeader .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bashExpandedSection:focus-within > .bashInlineSectionHeader .bashSectionCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+:global([data-tool-row-collapsed-preview]):has(
+    :global([data-tool-row-collapse-strip]):hover
+  )
+  .bashCollapsedPreview {
+  border-color: var(--text-dimmed, #666);
 }

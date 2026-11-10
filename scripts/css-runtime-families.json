@@ -15,11 +15,6 @@
     "reason": "Composer liveness and provider runtime tones interpolated into status chips."
   },
   {
-    "pattern": "^btw-aside-turn-(user|assistant)$",
-    "source": "packages/client/src/components/BtwAsidePane.tsx",
-    "reason": "Aside turn role interpolated into the turn class."
-  },
-  {
     "pattern": "^mode-(default|acceptEdits|plan|bypassPermissions|auto)$",
     "source": "packages/client/src/components/ModeSelector.tsx",
     "reason": "Permission-mode dots use the selected mode and menu mode values."
@@ -77,12 +72,6 @@
     "generated": true
   },
   {
-    "pattern": "^katex(-display|-error)?$",
-    "source": "packages/server/src/augments/safe-markdown.ts",
-    "reason": "Server calls KaTeX renderToString; KaTeX emits inline/display and error wrappers.",
-    "generated": true
-  },
-  {
     "pattern": "^ya-uscript(__source|--sup|--sub)?$",
     "source": "packages/server/src/augments/unicode-math.ts",
     "reason": "Unicode script rendering emits source wrappers and interpolated sup/sub classes.",
@@ -102,36 +91,15 @@
     "reactAuthored": ["local-media-link-group", "local-media-type"]
   },
   {
-    "pattern": "^edit-(result|collapsed)-(error|warning|muted)$",
-    "source": "packages/client/src/components/renderers/tools/EditRenderer.tsx",
-    "reason": "Edit summary outcome classSuffix interpolated into result and collapsed wrappers."
-  },
-  {
     "pattern": "^tone-(off|auto|low|medium|high|xhigh|max)$",
     "source": "packages/client/src/components/ThinkingControls.tsx",
     "reason": "Effort option values interpolated into indicator dots; model switch and new session share them."
-  },
-  {
-    "pattern": "^todo-status-(pending|completed)$",
-    "source": "packages/client/src/components/renderers/tools/TaskListRenderer.tsx",
-    "reason": "Normalized task status interpolated into todo rows; todo-write and update-plan share the vocabulary."
   },
   {
     "pattern": "^file-link$",
     "source": "packages/shared/src/filePathDetection.ts",
     "reason": "Shared path linkifier emits clickable file anchors into generated output.",
     "generated": true
-  },
-  {
-    "pattern": "^markdown-preview-(span(-start)?|line-boundary(-start|-end)?)$",
-    "source": "packages/server/src/augments/markdown-file-preview.ts",
-    "reason": "Server markdown preview emits line-target boundaries and rendered chunk wrappers.",
-    "generated": true
-  },
-  {
-    "pattern": "^status-(pending|complete|aborted|incomplete)$",
-    "source": "packages/client/src/components/blocks/ToolCallRow.tsx",
-    "reason": "Normalized tool item status interpolated into timeline tool rows."
   },
   {
     "pattern": "^steer-mode$",
@@ -146,11 +114,6 @@
   {
     "pattern": "^(bang-composer-chip|message-input-(collapsed-actions|keyboard-actions|keyboard-more))$",
     "source": "packages/client/src/components/MessageInput.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
-  },
-  {
-    "pattern": "^(system-message--details|conversation-recent-activities)$",
-    "source": "packages/client/src/components/RenderItemComponent.tsx",
     "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
   },
   {
@@ -186,5 +149,40 @@
     "source": "packages/client/src/components/ui/FixedFontMathToggle.tsx",
     "reason": "Fixed-font renderer builds HTML strings, including per-line classes, table markup and path anchors, then inserts that markup; these are not React elements.",
     "generated": true
+  },
+  {
+    "pattern": "^streaming-block$",
+    "source": "packages/client/src/hooks/useStreamingMarkdown.ts",
+    "reason": "The streaming markdown owner creates per-block HTML wrappers imperatively around emitted markdown; these wrappers and descendants share generated typography.",
+    "generated": true
+  },
+  {
+    "pattern": "^render-mode-glyph$",
+    "source": "packages/client/src/components/ui/RenderModeGlyph.tsx",
+    "reason": "One SVG markup string is inserted by the plain-DOM code-fence toggle and the React glyph host; generated.css owns the shared SVG geometry.",
+    "generated": true
+  },
+  {
+    "pattern": "^katex(-display|-error)?$",
+    "source": "packages/server/src/augments/safe-markdown.ts",
+    "reason": "Server calls KaTeX renderToString; KaTeX emits inline/display and error wrappers.",
+    "generated": true
+  },
+  {
+    "pattern": "^markdown-preview-(span(-start)?|line-boundary(-start|-end)?)$",
+    "source": "packages/server/src/augments/markdown-file-preview.ts",
+    "reason": "Server markdown preview emits line-target boundaries and rendered chunk wrappers.",
+    "generated": true
+  },
+  {
+    "pattern": "^highlighted-line(-start|-end)?$",
+    "source": "packages/client/src/components/FileViewer.tsx",
+    "reason": "File-viewer HTML line annotation emits range tint and boundary classes on highlighted code.",
+    "generated": true,
+    "reactAuthored": [
+      "highlighted-line",
+      "highlighted-line-start",
+      "highlighted-line-end"
+    ]
   }
 ]

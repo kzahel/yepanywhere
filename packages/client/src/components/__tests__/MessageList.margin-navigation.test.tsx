@@ -23,10 +23,12 @@ const messages = [
 function renderTranscript() {
   const { container } = render(<MessageList messages={messages} />);
   const rows = Array.from(
-    container.querySelectorAll<HTMLElement>(".message-render-row"),
+    container.querySelectorAll<HTMLElement>("[data-message-render-row]"),
   );
   expect(rows.length).toBeGreaterThanOrEqual(3);
-  const scrollContainer = rows[0]?.closest(".message-list")?.parentElement;
+  const scrollContainer = rows[0]?.closest(
+    "[data-message-list]",
+  )?.parentElement;
   if (!scrollContainer) throw new Error("missing transcript scroll container");
   Object.defineProperty(scrollContainer, "scrollTop", {
     configurable: true,

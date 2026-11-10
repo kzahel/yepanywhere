@@ -94,14 +94,14 @@ describe("ThinkingBlock", () => {
     expect(screen.getByText("Considering implementation")).toBeDefined();
     expect(screen.queryByText(/\*\*Considering spacing/)).toBeNull();
     expect(
-      container.querySelectorAll(".thinking-outline-section"),
+      container.querySelectorAll("[data-thinking-outline-section]"),
     ).toHaveLength(2);
-    expect(container.querySelector(".thinking-inline-code")?.textContent).toBe(
-      "font-size",
-    );
-    expect(container.querySelector(".thinking-code-block")?.textContent).toBe(
-      "line-height = 1.5em - delta",
-    );
+    expect(
+      container.querySelector("[data-thinking-inline-code]")?.textContent,
+    ).toBe("font-size");
+    expect(
+      container.querySelector("[data-thinking-code-block]")?.textContent,
+    ).toBe("line-height = 1.5em - delta");
   });
 
   it("registers expanded thinking text as a quoteable selection source", () => {

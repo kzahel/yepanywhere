@@ -57,7 +57,7 @@ async function openTranscript(page: Page, baseURL: string) {
 }
 
 async function expectProseQuoteTargets(page: Page) {
-  const circles = page.locator(".text-block-quote-paragraph");
+  const circles = page.locator("[data-text-block-quote-paragraph]");
   await expect.poll(() => circles.count()).toBeGreaterThan(0);
   // The rail virtualizes its targets. Every mounted circle must align with
   // ordinary prose/code, regardless of which targets are in the scrollport.
@@ -65,11 +65,11 @@ async function expectProseQuoteTargets(page: Page) {
     .poll(() =>
       circles.evaluateAll((buttons) =>
         buttons.every((button) => {
-          const surface = button.closest(".text-block");
+          const surface = button.closest("[data-text-block]");
           const bottom = button.getBoundingClientRect().bottom;
           return Array.from(
             surface?.querySelectorAll(
-              ".text-block-content p, .text-block-content pre",
+              "[data-text-block-content] p, [data-text-block-content] pre",
             ) ?? [],
           ).some(
             (block) =>
@@ -254,7 +254,13 @@ test("excludes Mermaid labels from the sidebar Markdown quote rail", async ({
   const original = readFileSync(readmePath, "utf8");
   writeFileSync(
     readmePath,
-    '# Turn flow\n\n```mermaid\ngraph LR\nA["Client<br/>Send prompt"] --> B["Server<br/>Own process"] --> C["Agent<br/>Stream output"]\n```\n',
+    `# Turn flow
+
+\`\`\`mermaid
+graph LR
+A["Client<br/>Send prompt"] --> B["Server<br/>Own process"] --> C["Agent<br/>Stream output"]
+\`\`\`
+`,
   );
   try {
     await page.setViewportSize({ width: 1000, height: 600 });
@@ -263,16 +269,20 @@ test("excludes Mermaid labels from the sidebar Markdown quote rail", async ({
     );
     await dismissOnboardingIfVisible(page);
     await page.locator('a[data-ya-private-project-file-link="true"]').click();
-    const viewer = page.locator(".file-viewer");
+    const viewer = page.locator("[data-file-viewer]");
     await expect(viewer.locator("[data-ya-code-rendered] svg")).toBeVisible();
     // Real Mermaid HTML node labels must not turn into paragraph targets.
     await expect(viewer.locator("[data-ya-code-rendered] p")).not.toHaveCount(
       0,
     );
-    await expect(viewer.locator(".text-block-quote-paragraph")).toHaveCount(1);
+    await expect(
+      viewer.locator("[data-text-block-quote-paragraph]"),
+    ).toHaveCount(1);
     await recordUiCapture(page, "mermaid-sidebar-desktop-1000x600");
     await page.setViewportSize({ width: 375, height: 812 });
-    await expect(viewer.locator(".text-block-quote-paragraph")).toHaveCount(1);
+    await expect(
+      viewer.locator("[data-text-block-quote-paragraph]"),
+    ).toHaveCount(1);
     await recordUiCapture(page, "mermaid-sidebar-phone-375x812");
     await viewer.locator("[data-ya-code-rendered]").focus();
     await page.keyboard.press("Enter");

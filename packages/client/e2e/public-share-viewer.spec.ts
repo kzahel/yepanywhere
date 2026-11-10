@@ -134,7 +134,9 @@ test.beforeEach(async ({ page, remotePreviewURL }) => {
     );
   });
   await page.goto(`${remotePreviewURL}/remote.html`);
-  await expect(page.locator(".conversation-activity-summary")).toHaveCount(1);
+  await expect(
+    page.locator("[data-conversation-activity-summary]"),
+  ).toHaveCount(1);
 });
 
 test("public attachment opens without private API requests", async ({
@@ -177,7 +179,7 @@ for (const viewport of [
     await page.locator("[data-public-share-scroll]").evaluate((node) => {
       node.scrollTop = node.scrollHeight - node.clientHeight - 12;
     });
-    const summary = page.locator(".conversation-activity-summary");
+    const summary = page.locator("[data-conversation-activity-summary]");
     await summary.scrollIntoViewIfNeeded();
     await expect(summary).toBeInViewport();
     await summary.evaluate((node: HTMLElement) => {
@@ -194,7 +196,7 @@ for (const viewport of [
           // this records the first painted geometry, including lazy styles.
           const observer = new ResizeObserver(() => {
             const expanded = document.querySelector(
-              ".conversation-activity-summary",
+              "[data-conversation-activity-summary]",
             );
             if (expanded?.getAttribute("aria-expanded") !== "true") return;
             document.documentElement.dataset.firstExpandedTop = String(
@@ -202,7 +204,7 @@ for (const viewport of [
             );
             observer.disconnect();
           });
-          observer.observe(document.querySelector(".message-list")!);
+          observer.observe(document.querySelector("[data-message-list]")!);
         },
         { once: true, capture: true },
       );
@@ -235,7 +237,7 @@ for (const viewport of [
 }
 
 test("expanded commands grow with their content", async ({ page }) => {
-  await page.locator(".conversation-activity-summary").click();
+  await page.locator("[data-conversation-activity-summary]").click();
   const fullCommand = page
     .getByRole("button", { name: "Show full command", exact: true })
     .first();

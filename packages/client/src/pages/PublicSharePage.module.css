@@ -90,7 +90,7 @@
   margin: var(--space-3) var(--space-4) 0;
 }
 
-.scroll :global(.message-list) {
+.scroll :global([data-message-list]) {
   min-height: 100%;
   overflow: visible;
   padding: var(--space-4);

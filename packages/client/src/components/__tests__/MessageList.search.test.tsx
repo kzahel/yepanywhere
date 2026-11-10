@@ -65,7 +65,9 @@ function setReadonlyNumber(
 }
 
 function installSearchGeometry(rowOffsets: Record<string, number>) {
-  const messageList = document.querySelector<HTMLElement>(".message-list");
+  const messageList = document.querySelector<HTMLElement>(
+    "[data-message-list]",
+  );
   if (!messageList?.parentElement) {
     throw new Error("MessageList did not render a scroll container");
   }
@@ -241,8 +243,8 @@ describe("MessageList reverse search", () => {
       flushFrames();
       // At the rendered tail, the native event can re-acquire Follow. The next
       // scroll write has not dispatched its event when Escape closes search.
-      const lastChild =
-        container.querySelector(".message-list")!.lastElementChild!;
+      const lastChild = container.querySelector("[data-message-list]")!
+        .lastElementChild!;
       vi.spyOn(lastChild, "getBoundingClientRect").mockReturnValueOnce(
         rect({ top: 276, height: 24 }),
       );

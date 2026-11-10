@@ -154,7 +154,7 @@ test("Queue preserves compact order through reload and acknowledges typing durin
     ] as const) {
       await page.setViewportSize(viewport);
       await page
-        .locator(".message-list")
+        .locator("[data-message-list]")
         .hover({ position: { x: 100, y: 100 } });
       await page.mouse.wheel(0, 1_000_000);
       await expect(

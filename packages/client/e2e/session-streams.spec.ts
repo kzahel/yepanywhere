@@ -118,7 +118,7 @@ test.describe("Session streams", () => {
       await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
       await dismissOnboardingIfVisible(page);
       const indicator = page.locator(
-        ".processing-indicator:not(.processing-indicator--control-only)",
+        "[data-processing-indicator]:not([data-processing-indicator--control-only])",
       );
       await expect(indicator).toBeVisible({ timeout: 30_000 });
       await recordUiCapture(

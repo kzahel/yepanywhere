@@ -1,3 +1,4 @@
+import thinkingStyles from "../../blocks/ThinkingBlock.module.css";
 import { useState } from "react";
 import { ThinkingText } from "../../ThinkingText";
 import { ButtonBase } from "../../ui/Button";
@@ -47,16 +48,25 @@ function ThinkingRendererComponent({
 
   if (isExpanded) {
     return (
-      <div className="thinking-block thinking-block-expanded">
+      <div
+        className={`${thinkingStyles.thinkingBlock} ${thinkingStyles.thinkingBlockExpanded}`}
+        data-thinking-block
+        data-thinking-block-expanded
+      >
         <ButtonBase
-          className="thinking-toggle-expanded"
+          className={thinkingStyles.thinkingToggleExpanded}
+          data-thinking-toggle-expanded
           onClick={toggleThinkingExpanded}
           aria-expanded={true}
         >
-          <span className="thinking-label">Thinking</span>
-          <span className="thinking-icon">▲</span>
+          <span className={thinkingStyles.thinkingLabel} data-thinking-label>
+            Thinking
+          </span>
+          <span className={thinkingStyles.thinkingIcon} data-thinking-icon>
+            ▲
+          </span>
         </ButtonBase>
-        <div className="thinking-content">
+        <div className={thinkingStyles.thinkingContent} data-thinking-content>
           <ThinkingText text={thinking} isStreaming={context.isStreaming} />
         </div>
       </div>
@@ -65,20 +75,29 @@ function ThinkingRendererComponent({
 
   // Collapsed: small inline button with pulsing when streaming
   const collapsedClass = context.isStreaming
-    ? "thinking-block thinking-streaming-collapsed"
-    : "thinking-block";
+    ? `${thinkingStyles.thinkingBlock} ${thinkingStyles.thinkingStreamingCollapsed}`
+    : thinkingStyles.thinkingBlock;
 
   return (
-    <div className={collapsedClass}>
+    <div
+      className={collapsedClass}
+      data-thinking-block={
+        context.isStreaming || !context.isStreaming || undefined
+      }
+      data-thinking-streaming-collapsed={context.isStreaming || undefined}
+    >
       <ButtonBase
-        className="thinking-toggle-collapsed"
+        className={thinkingStyles.thinkingToggleCollapsed}
+        data-thinking-toggle-collapsed
         onClick={toggleThinkingExpanded}
         aria-expanded={false}
       >
-        <span className="thinking-label">
+        <span className={thinkingStyles.thinkingLabel} data-thinking-label>
           {context.isStreaming ? "Thinking..." : "Thinking"}
         </span>
-        <span className="thinking-icon">▼</span>
+        <span className={thinkingStyles.thinkingIcon} data-thinking-icon>
+          ▼
+        </span>
       </ButtonBase>
     </div>
   );

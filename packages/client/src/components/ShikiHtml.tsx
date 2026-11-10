@@ -37,7 +37,8 @@ export function ShikiHtml({
   return (
     <div
       {...containerProps}
-      className={`shiki-container ${styles.container}${className ? ` ${className}` : ""}`}
+      className={`${styles.container}${className ? ` ${className}` : ""}`}
+      data-shiki-container
       // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered HTML
       dangerouslySetInnerHTML={innerHtml}
     />

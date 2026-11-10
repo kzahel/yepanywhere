@@ -1,3 +1,4 @@
+import bashStyles from "./BashRenderer.module.css";
 import { useCallback, useState } from "react";
 import { IconButton } from "../../ui/Button";
 
@@ -152,7 +153,8 @@ export function OutputCopyButton({
     <IconButton
       variant={copied ? "success-outline" : "outline"}
       size="dense"
-      className={`bash-section-copy ${copied ? "copied" : ""}`}
+      className={`${bashStyles.bashSectionCopy} ${copied ? "copied" : ""}`}
+      data-bash-section-copy
       onClick={handleCopy}
       disabled={!text}
       label={copied ? "Copied" : label}

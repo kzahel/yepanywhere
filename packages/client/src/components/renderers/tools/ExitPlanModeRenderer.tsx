@@ -1,3 +1,4 @@
+import collapsibleStyles from "../../Collapsible.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import styles from "./ExitPlanModeRenderer.module.css";
@@ -81,12 +82,23 @@ export const exitPlanModeRenderer = defineTool(
       // Wrap in collapsible details element - expanded by default
       // Uses the same styling as ThinkingBlock for consistency
       return (
-        <details className={`${styles.root} collapsible`} open>
-          <summary className="collapsible__summary">
+        <details className={`${styles.root}`} open>
+          <summary
+            className={collapsibleStyles.collapsibleSummary}
+            data-collapsible__summary
+          >
             <span>{status === "pending" ? "Planning..." : "Plan"}</span>
-            <span className="collapsible__icon">▸</span>
+            <span
+              className={collapsibleStyles.collapsibleIcon}
+              data-collapsible__icon
+            >
+              ▸
+            </span>
           </summary>
-          <div className="collapsible__content">
+          <div
+            className={collapsibleStyles.collapsibleContent}
+            data-collapsible__content
+          >
             <div
               className={`${styles.inline} ${status === "pending" ? "pending" : ""}`}
             >

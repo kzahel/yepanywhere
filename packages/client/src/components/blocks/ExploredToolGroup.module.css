@@ -1,0 +1,223 @@
+.exploredGroup {
+  position: relative;
+}
+
+.exploredGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 20px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  color: var(--text-primary, #ccc);
+  font-size: inherit;
+  text-align: left;
+}
+
+.exploredGroupTitle {
+  flex-shrink: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.exploredGroupCount {
+  color: var(--text-muted, #888);
+  font-size: var(--font-size-sm);
+}
+
+.exploredGroupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 8.5rem;
+  margin-left: 10px;
+  margin-top: 2px;
+  padding: 2px 0 2px 8px;
+  border-left: 1px solid var(--border-color, #333);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.exploredEntry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-height: 1.35rem;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.exploredEntryTool {
+  flex-shrink: 0;
+  width: 3.25rem;
+  color: var(--text-primary, #ccc);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+}
+
+.exploredEntrySummary {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted, #888);
+  font-size: var(--font-size-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exploredEntrySemanticSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.exploredEntryPath {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.exploredEntryQuery {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+
+.exploredEntryRange {
+  flex-shrink: 0;
+  color: var(--text-dimmed, #666);
+  font-size: var(--font-size-sm);
+}
+
+.exploredEntryScope {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 45%;
+  color: var(--text-dimmed, #666);
+  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.exploredParentDetails {
+  margin: 2px 4px 0 1.3rem;
+}
+
+.exploredParentDetailsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.35rem;
+  padding: 1px 4px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-dimmed, #666);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.exploredParentRaw {
+  margin: 2px 0 4px 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-color, #333);
+}
+
+.exploredEntryStatus {
+  flex-shrink: 0;
+  width: 0.8rem;
+  color: var(--text-muted, #888);
+  text-align: center;
+}
+
+@media (width <= 600px) {
+  .exploredGroupBody {
+    margin-left: 6px;
+    padding-left: 5px;
+  }
+}
+
+@media (width <= 600px) {
+  .exploredEntry {
+    gap: 0.35rem;
+  }
+}
+
+@media (width <= 600px) {
+  .exploredEntryTool {
+    width: 2.85rem;
+  }
+}
+
+@media (width <= 600px) {
+  .exploredEntrySemanticSummary {
+    gap: 0.35rem;
+  }
+}
+
+@media (width <= 600px) {
+  .exploredEntryScope {
+    max-width: 38%;
+  }
+}
+
+@media (width <= 600px) {
+  .exploredParentDetails {
+    margin-left: 1rem;
+  }
+}
+
+.exploredGroupHeader:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.exploredEntry:target {
+  background: color-mix(in srgb, var(--bg-hover, #2a2a2a) 60%, transparent);
+}
+
+.exploredEntry:hover {
+  background: color-mix(in srgb, var(--bg-hover, #2a2a2a) 60%, transparent);
+}
+
+.exploredParentDetailsToggle:hover {
+  background: color-mix(in srgb, var(--bg-hover, #2a2a2a) 60%, transparent);
+  color: var(--text-muted, #888);
+}
+
+.exploredParentDetailsToggle:focus-visible {
+  background: color-mix(in srgb, var(--bg-hover, #2a2a2a) 60%, transparent);
+  color: var(--text-muted, #888);
+}
+
+.exploredParentRaw [data-tool-row] > [data-timeline-dot-btn] {
+  display: none;
+}
+
+.exploredEntry.status-pending .exploredEntryStatus {
+  color: var(--timeline-dot-working, var(--app-spinner-foreground));
+}
+
+.exploredEntry.status-error .exploredEntryStatus {
+  color: var(--timeline-dot-error, var(--error-color));
+}
+
+.exploredParentRaw [data-tool-row][data-timeline-item]::before {
+  display: none;
+}
+
+.exploredParentRaw [data-tool-row][data-timeline-item]::after {
+  display: none;
+}

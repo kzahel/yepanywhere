@@ -34,9 +34,10 @@ describe("Edit preview selection transfer", () => {
         return;
       }
       response.setHeader("Content-Type", "text/html; charset=utf-8");
-      response.end(`<!doctype html>
+      response.end(
+        `<!doctype html>
         <div id="preview">
-          <div class="fixed-font-render-toggle" data-render-mode="rendered">
+          <div data-fixed-font-render-toggle="" data-render-mode="rendered">
             <div>-old text</div>
             <div>+<strong id="selection-start">selected</strong><span id="selection-end"> replacement text</span></div>
             <span>+5</span>
@@ -44,7 +45,7 @@ describe("Edit preview selection transfer", () => {
         </div>
         <div id="modal" hidden>
           <button>Close</button>
-          <div class="fixed-font-render-toggle" data-render-mode="rendered">
+          <div data-fixed-font-render-toggle="" data-render-mode="rendered">
             <div>-old text</div>
             <div>+<strong>selected</strong><span> replacement text</span></div>
             <div>+later expanded line</div>
@@ -63,7 +64,8 @@ describe("Edit preview selection transfer", () => {
             });
           });
           window.selectionTransferReady = true;
-        </script>`);
+        </script>`,
+      );
     });
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);

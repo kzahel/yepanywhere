@@ -19,7 +19,7 @@ async function openSpecimen(page: Page, baseURL: string | undefined) {
     await skip.click();
   }
   await expect(
-    page.locator('.message-list [data-render-id="specimen-assistant-2"]'),
+    page.locator('[data-message-list] [data-render-id="specimen-assistant-2"]'),
   ).toBeVisible({ timeout: 10000 });
 }
 

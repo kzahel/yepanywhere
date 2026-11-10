@@ -203,8 +203,8 @@ describe("WebRenderer", () => {
     expect(badge.getAttribute("data-tooltip")).toMatch(/^\.\.\.\n/);
     expect(badge.getAttribute("title")).toBeNull();
     const fadedOutput = badge
-      .closest(".webrun-preview-output-row")
-      ?.querySelector(".webrun-preview-output");
+      .closest("[data-webrun-preview-output-row]")
+      ?.querySelector("[data-webrun-preview-output]");
     expect(fadedOutput?.getAttribute("data-tooltip")).toBe(
       badge.getAttribute("data-tooltip"),
     );
@@ -235,12 +235,12 @@ describe("WebRenderer", () => {
           .renderCollapsedPreview(renderContext)}
       </div>,
     );
-    expect(container.querySelector(".webrun-preview-fade")).toBeNull();
+    expect(container.querySelector("[data-webrun-preview-fade]")).toBeNull();
     const preview = container.querySelector<HTMLElement>(
-      ".webrun-preview-output",
+      "[data-webrun-preview-output]",
     );
     const renderedText = container.querySelector<HTMLElement>(
-      ".webrun-preview-output-text",
+      "[data-webrun-preview-output-text]",
     );
     expect(preview).toBeTruthy();
     expect(renderedText).toBeTruthy();

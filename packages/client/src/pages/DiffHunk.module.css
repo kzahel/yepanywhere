@@ -63,7 +63,7 @@
   min-width: max(100%, var(--diff-scroll-width));
 }
 
-.content:global(.highlighted-diff) > :global(pre.shiki) {
+.content:global([data-highlighted-diff]) > :global(pre.shiki) {
   margin: 0;
   padding: 0;
   overflow: visible;

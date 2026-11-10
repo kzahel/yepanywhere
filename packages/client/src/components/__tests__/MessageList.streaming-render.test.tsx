@@ -27,7 +27,7 @@ vi.mock("../TurnImageGallery", () => ({
   }) => {
     const id = items[0]?.id ?? "empty";
     galleryRenderCounts.set(id, (galleryRenderCounts.get(id) ?? 0) + 1);
-    return <div className="assistant-turn">{children}</div>;
+    return <div data-assistant-turn>{children}</div>;
   },
   useTurnImageGalleryNavigation: () => null,
 }));

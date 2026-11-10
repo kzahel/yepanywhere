@@ -192,7 +192,7 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
         window as unknown as { restoreNativeSource: () => void }
       ).restoreNativeSource(),
     );
-    await expect(page.locator(".message-list")).toBeVisible();
+    await expect(page.locator("[data-message-list]")).toBeVisible();
     await expect(
       page.locator(".session-messages").getByRole("status"),
     ).toHaveCount(0);

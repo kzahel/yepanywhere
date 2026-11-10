@@ -3,7 +3,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const stylesheetUrl = new URL("../index.css", import.meta.url);
+const stylesheetUrl = new URL(
+  "../../components/ConversationActivity.module.css",
+  import.meta.url,
+);
 const renderItemModuleUrl = new URL(
   "../../components/RenderItemComponent.module.css",
   import.meta.url,
@@ -18,12 +21,12 @@ async function readStylesheet(): Promise<string> {
 }
 
 function getRuleDeclarations(css: string, selector: string): string {
-  const match = new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`).exec(
-    css,
-  );
+  const match = new RegExp(
+    `${selector.trim().split(/\s+/).map(escapeRegExp).join("\\s+")}\\s*\\{([^}]*)\\}`,
+  ).exec(css);
   expect(
     match,
-    `${selector} should have a dedicated rule in index.css.`,
+    `${selector} should have a dedicated rule in ConversationActivity.module.css.`,
   ).not.toBeNull();
   return match?.[1] ?? "";
 }
@@ -33,7 +36,7 @@ describe("conversation preview height contract", () => {
     const css = await readStylesheet();
     const declarations = getRuleDeclarations(
       css,
-      ".conversation-thinking-preview-content",
+      ".conversationThinkingPreviewContent",
     );
     // Viewport-relative cap (contains vh, not a fixed pixel budget) so the
     // preceding non-thinking turn keeps space; overflow scrolls internally.
@@ -50,7 +53,7 @@ describe("conversation preview height contract", () => {
     const css = await readStylesheet();
     const declarations = getRuleDeclarations(
       css,
-      ".conversation-recent-activities",
+      ".conversationRecentActivities",
     );
     // Never exceed the space the current thinking block requests: bound to the
     // measured --conversation-thinking-height, with a viewport-relative fallback
@@ -67,7 +70,7 @@ describe("conversation preview height contract", () => {
     const css = await readStylesheet();
     const declarations = getRuleDeclarations(
       css,
-      ".conversation-recent-activities.is-clipped",
+      ".conversationRecentActivities[data-is-clipped]",
     );
     // A bottom mask gradient fades the oldest (clipped) rows; applied only under
     // .is-clipped so a fully-fitting list is not faded.
@@ -80,12 +83,12 @@ describe("conversation preview height contract", () => {
   it("caps the previous preview to the current height: min(current, previous)", async () => {
     const css = await readStylesheet();
     const match =
-      /\.conversation-thinking-preview\[data-preview-slot="previous"\]\s*\.conversation-thinking-preview-content\s*\{([^}]*)\}/.exec(
+      /\.conversationThinkingPreview\[data-preview-slot="previous"\]\s*\.conversationThinkingPreviewContent\s*\{([^}]*)\}/.exec(
         css,
       );
     expect(
       match,
-      "previous preview content should have a dedicated cap rule in index.css",
+      "previous preview content should have a dedicated cap rule in ConversationActivity.module.css",
     ).not.toBeNull();
     const declarations = match?.[1] ?? "";
     // height(previous) = min(natural, current): capping to the current height
@@ -140,27 +143,27 @@ describe("conversation preview height contract", () => {
     const css = await readStylesheet();
     const rowDeclarations = getRuleDeclarations(
       css,
-      ".conversation-activity-row.is-wide-activity-previews",
+      ".conversationActivityRow.is-wide-activity-previews",
     );
     expect(rowDeclarations).toMatch(/justify-content:\s*flex-end\s*;/);
 
     const columnDeclarations = getRuleDeclarations(
       css,
-      ".conversation-activity-row.is-wide-activity-previews\n  > .conversation-activity-column",
+      ".conversationActivityRow.is-wide-activity-previews\n  > .conversationActivityColumn",
     );
     expect(columnDeclarations).toMatch(/max-width:\s*100%\s*;/);
     expect(columnDeclarations).toMatch(/flex:\s*1 1 12rem\s*;/);
 
     const activityDeclarations = getRuleDeclarations(
       css,
-      ".conversation-activity-row.is-wide-activity-previews\n  .conversation-recent-activities",
+      ".conversationActivityRow.is-wide-activity-previews\n  .conversationRecentActivities",
     );
     expect(activityDeclarations).toMatch(/width:\s*100%\s*;/);
     expect(activityDeclarations).toMatch(/min-width:\s*0\s*;/);
 
     const summaryDeclarations = getRuleDeclarations(
       css,
-      ".conversation-activity-summary",
+      ".conversationActivitySummary",
     );
     expect(summaryDeclarations).toMatch(/display:\s*inline-flex\s*;/);
     expect(summaryDeclarations).not.toMatch(/(?:^|\n)\s*width:\s*100%\s*;/);

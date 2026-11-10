@@ -1,0 +1,86 @@
+.processingIndicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 20px;
+  padding-top: 2px; /* Match text-block padding */
+  padding-left: 24px; /* Align with assistant turn padding */
+  margin: 4px 0; /* Match timeline-item margin */
+}
+
+.processingIndicatorControlOnly {
+  min-height: 18px;
+}
+
+.processingDotContainer {
+  position: absolute;
+  left: 12px; /* Align center with timeline dots: 6px dots at left:-11px from 24px = 13px, center at 16px. 8px dot center at 16px = left edge at 12px */
+  top: 0; /* Align dot center with text */
+  width: 8px;
+  height: 8px;
+}
+
+.processingText {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.processingThinkingToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-dimmed);
+}
+
+.processingThinkingToggleIcon {
+  display: block;
+}
+
+.processingThinkingToggleSlash {
+  stroke-width: 2.4;
+}
+
+.processingThinkingToggle:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.processingThinkingToggle:focus-visible {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.processingThinkingToggle.is-visible {
+  color: var(--thinking-color);
+}
+
+.processingThinkingToggle.is-muted {
+  color: var(--timeline-dot-warning);
+  opacity: 0.85;
+}
+.processingThinkingToggle.is-latest-only.is-visible {
+  position: relative;
+}
+
+.processingThinkingToggle.is-latest-only.is-visible::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 4px;
+  height: 4px;
+  /* radius-percent: circular timeline/activity dots keep curvature proportional to their box. */
+  border-radius: 50%;
+  background: currentColor;
+}

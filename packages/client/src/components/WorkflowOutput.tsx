@@ -1,3 +1,4 @@
+import timelineStyles from "./TranscriptTimeline.module.css";
 import { Fragment, type ReactNode, useId, useState } from "react";
 import { useI18n } from "../i18n";
 import type {
@@ -146,7 +147,11 @@ export function WorkflowOutput({
     );
   }
   return (
-    <div className={`${styles.root} timeline-item`} data-workflow-output="true">
+    <div
+      className={`${styles.root} ${timelineStyles.timelineItem}`}
+      data-timeline-item
+      data-workflow-output="true"
+    >
       <TimelineDisclosure
         expanded={originalExpanded}
         label={t(

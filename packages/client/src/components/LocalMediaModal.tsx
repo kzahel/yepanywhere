@@ -1029,8 +1029,7 @@ export function LocalFileModal({
             className={styles.fileTextFrame}
             tabIndex={-1}
           >
-            {/* The global class is the shared fixed-font hook in renderers.css. */}
-            <pre className={`${styles.fileText} local-file-text`}>
+            <pre className={styles.fileText} data-local-file-text>
               <code>{state.text}</code>
             </pre>
           </div>

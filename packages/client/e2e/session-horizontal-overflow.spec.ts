@@ -19,12 +19,14 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 async function installWideTable(page: Page) {
-  const list = page.locator(".session-messages .message-list");
+  const list = page.locator(".session-messages [data-message-list]");
   await expect(list).not.toHaveAttribute("aria-busy", "true", {
     timeout: 10000,
   });
   const content = list
-    .locator('[data-render-id="specimen-assistant-2"] .text-block-content')
+    .locator(
+      '[data-render-id="specimen-assistant-2"] [data-text-block-content]',
+    )
     .first();
   await expect(content).toBeVisible({ timeout: 10000 });
   await content.evaluate((element) => {
@@ -72,7 +74,7 @@ async function installWideTable(page: Page) {
         caret-color: transparent !important;
         transition-duration: 0s !important;
       }
-      .message-age, [data-turn-rail] { visibility: hidden !important; }
+      [data-message-age], [data-turn-rail] { visibility: hidden !important; }
     `,
   });
   await page.evaluate(async () => {

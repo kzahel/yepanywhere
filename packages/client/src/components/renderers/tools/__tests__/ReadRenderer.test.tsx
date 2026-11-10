@@ -266,7 +266,7 @@ describe("ReadRenderer", () => {
 
     expect(screen.getByText("const label = `dev`;")).toBeDefined();
     expect(
-      container.querySelector(".fixed-font-rendered__content code"),
+      container.querySelector("[data-fixed-font-rendered__content] code"),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Show source" })).toBeNull();
   });
@@ -410,7 +410,7 @@ describe("ReadRenderer", () => {
         </div>,
       );
 
-      expect(container.querySelector("img.read-image")).toBeNull();
+      expect(container.querySelector("img[data-read-image]")).toBeNull();
       expect(
         screen.getByRole("button", { name: /expand image/i }),
       ).toBeDefined();
@@ -435,7 +435,7 @@ describe("ReadRenderer", () => {
         </div>,
       );
 
-      expect(container.querySelector("img.read-image")).not.toBeNull();
+      expect(container.querySelector("img[data-read-image]")).not.toBeNull();
       expect(
         screen.getByRole("button", { name: /collapse image/i }),
       ).toBeDefined();
@@ -460,9 +460,9 @@ describe("ReadRenderer", () => {
         </div>,
       );
 
-      expect(container.querySelector("img.read-image")).toBeNull();
+      expect(container.querySelector("img[data-read-image]")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /expand image/i }));
-      expect(container.querySelector("img.read-image")).not.toBeNull();
+      expect(container.querySelector("img[data-read-image]")).not.toBeNull();
     });
 
     // Once YA materializes tool-result media, the stored result keeps its
@@ -513,7 +513,7 @@ describe("ReadRenderer", () => {
         );
       });
       const image = await waitFor(() => {
-        const element = container.querySelector("img.read-image");
+        const element = container.querySelector("img[data-read-image]");
         if (!element) throw new Error("image preview not rendered");
         return element;
       });

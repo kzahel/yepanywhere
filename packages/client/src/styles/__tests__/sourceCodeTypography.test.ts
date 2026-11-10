@@ -9,7 +9,11 @@ describe("shared source-code typography", () => {
   it("drives source views from the fixed-font Appearance metrics", async () => {
     const [indexCss, rendererCss] = await Promise.all([
       readClientStyles("tokens", "index"),
-      readClientStyles("generated", "renderers"),
+      readClientStyles(
+        "generated",
+        "../components/renderers/DiffOutput.module",
+        "../components/FileViewer.module",
+      ),
     ]);
 
     expect(indexCss).toMatch(
@@ -19,21 +23,32 @@ describe("shared source-code typography", () => {
       /--source-code-line-height:\s*calc\([\s\S]*?var\(--output-prose-line-height-offset\)[\s\S]*?var\(--source-vspace-offset,\s*0px\)[\s\S]*?\);/,
     );
     expect(rendererCss).toMatch(
-      /\.diff-view,\s*\.highlighted-diff,\s*\.diff-content,\s*\.file-viewer-code,\s*\.blame-view\s*\{[\s\S]*?font-family:\s*var\(--font-mono\);[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
+      /\.diffView\s*\{[\s\S]*?font-family:\s*var\(--font-mono\);[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
+    );
+  });
+
+  it("keeps blame source metrics with its local root", async () => {
+    const css = await readClientStyles("../pages/BlameView.module");
+    expect(css).toMatch(
+      /\.root\s*\{[^}]*font-family:\s*var\(--font-mono\);[^}]*font-size:\s*var\(--source-code-font-size\);[^}]*line-height:\s*var\(--source-code-line-height\);/s,
     );
   });
 
   it("restores shared metrics inside zero-sized highlighted wrappers", async () => {
-    const rendererCss = await readClientStyles("generated", "renderers");
+    const rendererCss = await readClientStyles(
+      "generated",
+      "../components/renderers/DiffOutput.module",
+      "../components/FileViewer.module",
+    );
 
     expect(rendererCss).toMatch(
-      /\.highlighted-diff code\s*\{[\s\S]*?font-size:\s*0;[\s\S]*?\}/,
+      /\[data-highlighted-diff\] code\s*\{[\s\S]*?font-size:\s*0;[\s\S]*?\}/,
     );
     expect(rendererCss).toMatch(
-      /\.highlighted-diff \.line\s*\{[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
+      /\[data-highlighted-diff\] \.line\s*\{[\s\S]*?font-size:\s*var\(--source-code-font-size\);[\s\S]*?line-height:\s*var\(--source-code-line-height\);[\s\S]*?\}/,
     );
     expect(rendererCss).toMatch(
-      /\.diff-content > div\s*\{[\s\S]*?line-height:\s*inherit;[\s\S]*?\}/,
+      /\.diffContent > div\s*\{[\s\S]*?line-height:\s*inherit;[\s\S]*?\}/,
     );
     expect(rendererCss).toMatch(
       /--file-viewer-code-line-box:\s*var\(--source-code-line-height\);/,

@@ -1,0 +1,49 @@
+.timelineItem {
+  position: relative;
+  margin: 4px 0;
+}
+.timelineDotBtn {
+  position: absolute;
+  left: -16px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  /* radius-percent: circular timeline/activity dots keep curvature proportional to their box. */
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.timelineItem::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  /* radius-percent: circular timeline/activity dots keep curvature proportional to their box. */
+  border-radius: 50%;
+  background: var(--timeline-dot-default);
+}
+.timelineItem::after {
+  content: "";
+  position: absolute;
+  left: -8px; /* Center of the dot */
+  top: 16px; /* Just below the dot */
+  bottom: -10px; /* Extend into next item's space to meet its dot */
+  width: 1px;
+  background: var(--timeline-line-color);
+}
+
+.timelineDotBtn:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 0 0 1px var(--border-color, #444);
+}
+[data-assistant-turn] > :last-child .timelineItem::after {
+  display: none;
+}
+
+[data-assistant-turn][data-has-turn-image-gallery]
+  > :nth-last-child(2)
+  .timelineItem::after {
+  display: none;
+}

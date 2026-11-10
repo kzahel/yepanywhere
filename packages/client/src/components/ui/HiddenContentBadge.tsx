@@ -11,9 +11,16 @@ export function HiddenContentBadge({
   count,
   className,
   tooltip,
+  ...attributes
 }: HiddenContentBadgeProps) {
   return (
-    <Badge shape="count" size="small" tooltip={tooltip} className={className}>
+    <Badge
+      {...attributes}
+      shape="count"
+      size="small"
+      tooltip={tooltip}
+      className={className}
+    >
       +{count}
     </Badge>
   );

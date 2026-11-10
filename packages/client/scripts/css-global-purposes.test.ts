@@ -56,6 +56,23 @@ describe("global stylesheet purposes", () => {
     ]);
   });
 
+  it("allows tag-only :is subjects beneath generated wrappers", () => {
+    expect(
+      globalPurposeFindings(
+        ".ansi-red :is(h1, h2, th, td) { color: red }",
+        "generated",
+        families,
+      ),
+    ).toEqual([]);
+    expect(
+      globalPurposeFindings(
+        ".ansi-red :is(h1, .authored) { color: red }",
+        "generated",
+        families,
+      ).map((finding) => finding.key),
+    ).toEqual(["generated:authored-subject", "generated:context:authored"]);
+  });
+
   it("requires generated ancestry for vocabulary also authored by React", () => {
     const shared = [
       {
@@ -92,6 +109,26 @@ describe("global stylesheet purposes", () => {
         shared,
       ),
     ).toEqual([]);
+  });
+
+  it("counts data contexts without treating an authored root as generated", () => {
+    expect(
+      globalPurposeFindings(
+        `[data-html] code *, [data-html] :is(h1, h2) { color: red }
+         [data-html], p[data-html], [data-html] :is(h1, .control) { color: red }
+         .ansi-red[data-state] { color: red }`,
+        "generated",
+        families,
+      ).map((finding) => finding.key),
+    ).toEqual([
+      "generated:context-attribute:data-html",
+      "generated:context-attribute:data-html",
+      "generated:authored-subject",
+      "generated:authored-subject",
+      "generated:authored-subject",
+      "generated:context-attribute:data-html",
+      "generated:context:control",
+    ]);
   });
 
   it("ratchets only after validating growth and reasons; stale counts remain visible", () => {

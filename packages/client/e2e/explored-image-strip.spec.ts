@@ -26,9 +26,9 @@ async function openExploredGroup(page: Page, baseURL: string) {
   ) {
     await skip.click();
   }
-  const summary = page.locator(".conversation-activity-summary");
+  const summary = page.locator("[data-conversation-activity-summary]");
   if (await summary.count()) await summary.first().click();
-  await expect(page.locator(".explored-entry")).toHaveCount(2, {
+  await expect(page.locator("[data-explored-entry]")).toHaveCount(2, {
     timeout: 15000,
   });
 }

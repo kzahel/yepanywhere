@@ -1,3 +1,8 @@
+import { undoEntry } from "./appearanceUndo";
+import thinkingStyles from "../../components/blocks/ThinkingBlock.module.css";
+import listStyles from "../../components/MessageList.module.css";
+import promptStyles from "../../components/blocks/UserPromptBlock.module.css";
+import textStyles from "../../components/blocks/TextBlock.module.css";
 import {
   OUTPUT_FONT_CLASSES,
   FIXED_FONT_CLASSES,
@@ -158,33 +163,10 @@ import {
   useGlobalProjectPathLinkSettings,
 } from "../../lib/projectPathLinkPreferences";
 import { useVersion } from "../../hooks/useVersion";
-
 const OUTPUT_INLINE_MATH_SAMPLE = "$E=mc^2$";
 
 function formatNumberSetting(value: number): string {
   return Number.isInteger(value) ? String(value) : String(value);
-}
-
-interface UndoEntry {
-  value: unknown;
-  restore: (value: unknown) => void;
-}
-
-// Pairs a live settings value with its restore path. The cast inside is
-// safe because construction guarantees value and setter share one T.
-function undoEntry<T>(
-  value: T,
-  set: (value: T) => void,
-  syncDraft?: (value: T) => void,
-): UndoEntry {
-  return {
-    value,
-    restore: (raw) => {
-      const restored = raw as T;
-      set(restored);
-      syncDraft?.(restored);
-    },
-  };
 }
 
 export function AppearanceSettings() {
@@ -1771,7 +1753,8 @@ export function AppearanceSettings() {
                     {/* KaTeX output from a static settings preview sample. */}
                     <InnerHtml
                       as="span"
-                      className="output-preview-math"
+                      className={styles.outputPreviewMath}
+                      data-output-preview-math
                       trustedHtml={outputInlineMathHtml}
                     />
                   </p>
@@ -1782,7 +1765,10 @@ export function AppearanceSettings() {
                     <li>Math uses a TeX-like face.</li>
                   </ul>
                 </div>
-                <div className="output-preview-thinking thinking-content">
+                <div
+                  className={`output-preview-thinking ${thinkingStyles.thinkingContent}`}
+                  data-thinking-content
+                >
                   <ThinkingText text="**Spacing** — thinking text stays quieter and smaller." />
                 </div>
                 <div className={styles.outputPreviewDiff} aria-hidden="true">
@@ -1802,8 +1788,12 @@ export function AppearanceSettings() {
                   <div className={styles.outputPreviewUiComposer}>
                     Composer: type a message to the agent…
                   </div>
-                  <div className="message message-user-prompt">
-                    <div className="text-block">
+                  <div
+                    className={`${listStyles.message} ${promptStyles.messageUserPrompt}`}
+                    data-message
+                    data-message-user-prompt
+                  >
+                    <div className={textStyles.textBlock} data-text-block>
                       {t("appearanceUserTurnPreview")}
                     </div>
                   </div>

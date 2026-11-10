@@ -37,15 +37,15 @@ for (const width of [1200, 375]) {
     await expect(poll.getByText("rc=1")).toHaveCount(0);
     await expect(poll.getByRole("button")).toHaveCount(0);
     await expect(poll.getByText("Waiting", { exact: true })).toBeVisible();
-    const colors = await poll.locator(".tool-row").evaluate((row) => ({
+    const colors = await poll.locator("[data-tool-row]").evaluate((row) => ({
       dot: getComputedStyle(row, "::before").backgroundColor,
       text: getComputedStyle(
-        row.querySelector(".tool-row-header > span:last-child")!,
+        row.querySelector("[data-tool-row-header] > span:last-child")!,
       ).color,
     }));
     expect(colors.dot).toBe(colors.text);
-    await poll.locator(".tool-row-header").hover();
-    await expect(poll.locator(".tool-row-header")).toHaveCSS(
+    await poll.locator("[data-tool-row-header]").hover();
+    await expect(poll.locator("[data-tool-row-header]")).toHaveCSS(
       "cursor",
       "default",
     );
@@ -56,10 +56,12 @@ for (const width of [1200, 375]) {
       .getByRole("button", { name: "Collapse", exact: true })
       .click();
     const alignment = await failure
-      .locator(".tool-row-header")
+      .locator("[data-tool-row-header]")
       .evaluate((header) => {
-        const name = header.querySelector<HTMLElement>(".tool-name")!;
-        const summary = header.querySelector<HTMLElement>(".tool-summary")!;
+        const name = header.querySelector<HTMLElement>("[data-tool-name]")!;
+        const summary = header.querySelector<HTMLElement>(
+          "[data-tool-summary]",
+        )!;
         const baseline = (element: HTMLElement) => {
           const probe = document.createElement("span");
           probe.style.cssText =

@@ -38,6 +38,7 @@ export const CopyTextButton = memo(function CopyTextButton({
   copiedLabel = "Copied message text",
   showTextLabel = false,
   onClick,
+  ...attributes
 }: Props) {
   const [copied, setCopied] = useState(false);
   const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -78,6 +79,7 @@ export const CopyTextButton = memo(function CopyTextButton({
   if (!showTextLabel) {
     return (
       <IconButton
+        {...attributes}
         label={copied ? copiedLabel : label}
         variant={copied ? "success-outline" : variant}
         size={size}
@@ -91,6 +93,7 @@ export const CopyTextButton = memo(function CopyTextButton({
   }
   return (
     <Button
+      {...attributes}
       {...tooltip}
       variant={copied ? "success-outline" : variant}
       size={size}

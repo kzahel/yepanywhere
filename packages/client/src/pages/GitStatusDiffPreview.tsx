@@ -1,4 +1,6 @@
+import diffStyles from "../components/renderers/DiffOutput.module.css";
 import {
+  formatBytes,
   getBinaryPatchSkip,
   getDiffSourceText,
   getPostChangeText,
@@ -1337,7 +1339,9 @@ function GitDiffContent({
       )}
       {contextError && <Banner tone="error">{contextError}</Banner>}
       <div
-        className={`diff-modal-content ${styles.sourceDiffPane} diff-gutter-aligned`}
+        className={`${diffStyles.diffModalContent} ${styles.sourceDiffPane} ${diffStyles.diffGutterAligned}`}
+        data-diff-modal-content
+        data-diff-gutter-aligned
         data-source-diff-pane
         ref={mountContent}
         style={{ "--diff-sticky-top": `${toolbarHeight}px` } as CSSProperties}
@@ -1636,18 +1640,4 @@ function getDiffPreviewSkippedMessage(
     case "html-too-large":
       return t("gitStatusDiffPreviewSkippedHtmlTooLarge");
   }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${formatFraction(bytes / 1024)} KB`;
-  }
-  return `${formatFraction(bytes / (1024 * 1024))} MB`;
-}
-
-function formatFraction(value: number): string {
-  return value >= 10 ? value.toFixed(0) : value.toFixed(1);
 }

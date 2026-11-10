@@ -100,7 +100,9 @@ describe("tool display boundary", () => {
       ),
     );
     expect(container.querySelector('[data-tool-display="raw"]')).toBeNull();
-    expect(container.querySelector(".status-error")).not.toBeNull();
+    expect(
+      container.querySelector('[data-tool-status="error"]'),
+    ).not.toBeNull();
     expect(container.textContent).toContain("rc=1");
     expect(container.textContent).toContain(output.trim());
     expect(container.textContent).not.toContain("chunk_id");

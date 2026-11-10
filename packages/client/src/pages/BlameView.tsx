@@ -411,14 +411,14 @@ export function BlameView({
 
   if (contentLoading && !blame) {
     return (
-      <section className={`blame-view ${styles.root}`}>
+      <section className={styles.root} data-source-blame-view>
         <div className={statusStyles.diffLoading}>{t("gitStatusLoading")}</div>
       </section>
     );
   }
   if (contentError && blameError && !blame) {
     return (
-      <section className={`blame-view ${styles.root}`}>
+      <section className={styles.root} data-source-blame-view>
         <Banner tone="error" className={styles.notice}>
           {contentError}
         </Banner>
@@ -427,7 +427,7 @@ export function BlameView({
   }
 
   return (
-    <section className={`blame-view ${styles.root}`} ref={containerRef}>
+    <section className={styles.root} data-source-blame-view ref={containerRef}>
       <div className={styles.header}>
         <span className={styles.pathGroup} data-blame-path-group="">
           <span className={styles.path} title={path}>

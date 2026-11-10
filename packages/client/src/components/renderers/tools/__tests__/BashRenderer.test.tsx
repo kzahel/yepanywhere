@@ -48,8 +48,13 @@ describe("BashRenderer", () => {
   });
 
   it("unwraps exec_command envelopes before rendering ANSI output", () => {
-    const output =
-      "Chunk ID: ff710e\nWall time: 0.0518 seconds\nProcess exited with code 0\nOutput:\nplain\n\u001b[32mgreen bold\u001b[0m\n";
+    const output = `Chunk ID: ff710e
+Wall time: 0.0518 seconds
+Process exited with code 0
+Output:
+plain
+[32mgreen bold[0m
+`;
 
     const { container } = render(
       <MemoryRouter>
@@ -139,7 +144,7 @@ describe("BashRenderer", () => {
 
     expect(screen.getByText("authenticated stderr")).toBeDefined();
     expect(screen.queryByText("ordinary stdout")).toBeNull();
-    expect(container.querySelector(".bash-preview-error")).not.toBeNull();
+    expect(container.querySelector("[data-bash-preview-error]")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Copy stderr" })).toBeDefined();
   });
 

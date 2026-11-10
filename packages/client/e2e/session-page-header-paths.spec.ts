@@ -487,7 +487,9 @@ test("keys typed into the retitle field each show within 100 ms during live upda
     session.emit("message", liveUpdate(typed.length)),
   );
   await expect(
-    page.locator(".message-list").getByText("Live update 11.", { exact: true }),
+    page
+      .locator("[data-message-list]")
+      .getByText("Live update 11.", { exact: true }),
   ).toBeVisible();
   await field.press("Control+Enter");
   await expect

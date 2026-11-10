@@ -172,16 +172,16 @@ async function openShare(page: Page, remotePreviewURL: string, shape: Shape) {
     );
   });
   await page.goto(`${remotePreviewURL}/remote.html`);
-  await expect(page.locator(".conversation-activity-summary")).not.toHaveCount(
-    0,
-  );
+  await expect(
+    page.locator("[data-conversation-activity-summary]"),
+  ).not.toHaveCount(0);
 }
 
 /** Row state plus the geometry the budget contract is stated in. */
 async function readRowGeometry(page: Page) {
   return page.evaluate(() => {
     const row = document.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     );
     if (!row) return null;
     let viewport: HTMLElement | null = row.parentElement;
@@ -193,10 +193,10 @@ async function readRowGeometry(page: Page) {
     const rect = (selector: string) =>
       row.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
     const latest = rect(
-      '.conversation-thinking-preview[data-preview-slot="latest"]',
+      '[data-conversation-thinking-preview][data-preview-slot="latest"]',
     );
     const previous = rect(
-      '.conversation-thinking-preview[data-preview-slot="previous"]',
+      '[data-conversation-thinking-preview][data-preview-slot="previous"]',
     );
     const viewportRect = viewport?.getBoundingClientRect() ?? null;
     return {
@@ -221,7 +221,7 @@ async function readRowGeometry(page: Page) {
 async function readLiveEdgeHeadroom(page: Page) {
   return page.evaluate(() => {
     const row = document.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     );
     if (!row) return null;
     let viewport: HTMLElement | null = row.parentElement;
@@ -233,7 +233,7 @@ async function readLiveEdgeHeadroom(page: Page) {
     if (!viewport) return null;
     viewport.scrollTop = viewport.scrollHeight;
     const prose = document.querySelector<HTMLElement>(
-      ".conversation-thinking-preview-content .thinking-text",
+      "[data-conversation-thinking-preview-content] [data-thinking-text]",
     );
     return {
       headroomPx:
@@ -259,13 +259,12 @@ test("a wrapped previous card takes only the room left in the viewport", async (
   await openShare(page, remotePreviewURL, "working");
   await expect(
     page.locator(
-      '.conversation-thinking-preview[data-preview-slot="previous"]',
+      '[data-conversation-thinking-preview][data-preview-slot="previous"]',
     ),
   ).toHaveCount(1);
-  await expect(page.locator(".conversation-activity-row")).toHaveAttribute(
-    "data-previous-thinking",
-    "stacked",
-  );
+  await expect(
+    page.locator("[data-conversation-activity-row]"),
+  ).toHaveAttribute("data-previous-thinking", "stacked");
 
   const geometry = await readRowGeometry(page);
   expect(geometry).not.toBeNull();
@@ -293,11 +292,11 @@ test("a wrapped previous card takes only the room left in the viewport", async (
   await recordUiCapture(page, "tablet");
 
   await page.setViewportSize(DESKTOP);
-  await expect(page.locator(".conversation-activity-row")).toBeVisible();
+  await expect(page.locator("[data-conversation-activity-row]")).toBeVisible();
   await recordUiCapture(page, "desktop");
 
   await page.setViewportSize(PHONE);
-  await expect(page.locator(".conversation-activity-row")).toBeVisible();
+  await expect(page.locator("[data-conversation-activity-row]")).toBeVisible();
   await recordUiCapture(page, "phone");
 });
 
@@ -307,10 +306,9 @@ test("a short window drops the previous card instead of clipping the current one
 }) => {
   await page.setViewportSize(SHORT_WINDOW);
   await openShare(page, remotePreviewURL, "working");
-  await expect(page.locator(".conversation-activity-row")).toHaveAttribute(
-    "data-previous-thinking",
-    "dropped",
-  );
+  await expect(
+    page.locator("[data-conversation-activity-row]"),
+  ).toHaveAttribute("data-previous-thinking", "dropped");
 
   const geometry = await readRowGeometry(page);
   expect(geometry).not.toBeNull();
@@ -329,7 +327,9 @@ test("thinking the turn spoke past and resumed work after is not previewed", asy
   await page.setViewportSize(TABLET);
   await openShare(page, remotePreviewURL, "spoke-and-resumed");
 
-  await expect(page.locator(".conversation-thinking-preview")).toHaveCount(0);
+  await expect(
+    page.locator("[data-conversation-thinking-preview]"),
+  ).toHaveCount(0);
   await expect(
     page.getByText("relay handshake", { exact: false }),
   ).toBeVisible();

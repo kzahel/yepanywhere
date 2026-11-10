@@ -1,3 +1,7 @@
+import { taskStatusClasses } from "./taskStatusClasses";
+import toolFallbackStyles from "../ToolFallback.module.css";
+import taskStyles from "./TaskPresentation.module.css";
+import todoStyles from "./TodoWriteRenderer.module.css";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import { useContext, useState } from "react";
@@ -162,20 +166,36 @@ function SpawnAgentInline({
 
   return (
     <div
-      className={`task-inline ${isExpanded ? "expanded" : "collapsed"} status-${badge.text}`}
+      className={`${taskStyles.taskInline} ${isExpanded ? `${taskStyles.expanded}` : ""} ${taskStatusClasses[badge.text] ?? ""}`}
+      data-task-inline
+      data-expanded={isExpanded || undefined}
+      data-tool-status={badge.text}
     >
       <div className={styles.headerRow}>
         {failedWithoutAgent ? (
           <div
-            className={`task-inline-header noninteractive ${styles.expandButton}`}
+            className={`${taskStyles.taskInlineHeader} ${taskStyles.noninteractive} ${styles.expandButton}`}
+            data-task-inline-header
+            data-noninteractive
           >
-            <span className="task-expand-icon" />
-            <Badge tone="info" size="small" className="task-agent-type">
+            <span className={taskStyles.taskExpandIcon} data-task-expand-icon />
+            <Badge
+              tone="info"
+              size="small"
+              className={taskStyles.taskAgentType}
+              data-task-agent-type
+            >
               {spawnAgentType(input)}
             </Badge>
-            <span className="task-inline-title">{title}</span>
+            <span className={taskStyles.taskInlineTitle} data-task-inline-title>
+              {title}
+            </span>
             {input.model && (
-              <Badge size="small" className="task-model">
+              <Badge
+                size="small"
+                className={taskStyles.taskModel}
+                data-task-model
+              >
                 {input.model}
               </Badge>
             )}
@@ -185,16 +205,30 @@ function SpawnAgentInline({
           </div>
         ) : (
           <ButtonBase
-            className={`task-inline-header ${styles.expandButton}`}
+            className={`${taskStyles.taskInlineHeader} ${styles.expandButton}`}
+            data-task-inline-header
             onClick={handleExpand}
           >
-            <span className="task-expand-icon">{isExpanded ? "▼" : "▶"}</span>
-            <Badge tone="info" size="small" className="task-agent-type">
+            <span className={taskStyles.taskExpandIcon} data-task-expand-icon>
+              {isExpanded ? "▼" : "▶"}
+            </span>
+            <Badge
+              tone="info"
+              size="small"
+              className={taskStyles.taskAgentType}
+              data-task-agent-type
+            >
               {spawnAgentType(input)}
             </Badge>
-            <span className="task-inline-title">{title}</span>
+            <span className={taskStyles.taskInlineTitle} data-task-inline-title>
+              {title}
+            </span>
             {input.model && (
-              <Badge size="small" className="task-model">
+              <Badge
+                size="small"
+                className={taskStyles.taskModel}
+                data-task-model
+              >
                 {input.model}
               </Badge>
             )}
@@ -228,29 +262,35 @@ function SpawnAgentInline({
 
       {failedWithoutAgent && rawResultText(result) && (
         <pre
-          className={`tool-fallback tool-fallback-error ${styles.rejection}`}
+          className={`${toolFallbackStyles.toolFallback} ${toolFallbackStyles.toolFallbackError} ${styles.rejection}`}
+          data-tool-fallback
+          data-tool-fallback-error
         >
           <code>{rawResultText(result)}</code>
         </pre>
       )}
 
       {isLoadingContent && (
-        <div className="task-loading">
+        <div className={taskStyles.taskLoading} data-task-loading>
           <Spinner size="small" /> Loading agent content...
         </div>
       )}
 
       {isExpanded && (
-        <div className="task-inline-content">
+        <div className={taskStyles.taskInlineContent} data-task-inline-content>
           {liveContent?.messages.length ? (
             <TaskNestedContent
               messages={liveContent.messages}
               isStreaming={liveContent.status === "running"}
             />
           ) : agentId ? (
-            <div className="task-empty">No content</div>
+            <div className={taskStyles.taskEmpty} data-task-empty>
+              No content
+            </div>
           ) : (
-            <div className="task-empty">No agent session found</div>
+            <div className={taskStyles.taskEmpty} data-task-empty>
+              No agent session found
+            </div>
           )}
         </div>
       )}
@@ -264,14 +304,24 @@ export const spawnAgentRenderer = defineTool(toolDisplayContracts.spawn_agent, {
   pendingDisplayName: "Spawning agent",
 
   renderToolUse(input) {
-    return <div className="todo-summary">{spawnAgentTitle(input, null)}</div>;
+    return (
+      <div className={todoStyles.todoSummary} data-todo-summary>
+        {spawnAgentTitle(input, null)}
+      </div>
+    );
   },
 
   renderToolResult(result, isError) {
     const parsed = normalizeSpawnAgentResult(result);
     return (
       <div
-        className={isError || !parsed?.agentId ? "todo-error" : "todo-summary"}
+        className={
+          isError || !parsed?.agentId
+            ? todoStyles.todoError
+            : todoStyles.todoSummary
+        }
+        data-todo-error={isError || !parsed?.agentId || undefined}
+        data-todo-summary={!(isError || !parsed?.agentId) || undefined}
       >
         {parsed?.agentId
           ? `Agent ${parsed.agentId}`

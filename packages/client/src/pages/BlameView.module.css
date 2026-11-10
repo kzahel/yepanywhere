@@ -1,15 +1,13 @@
-/* Blame view: gutter · line number · highlighted code.
-
-   The root element also keeps the global `blame-view` class: the shared
-   source-code typography rule in `renderers.css` names it alongside the diff
-   and file-viewer roots, while SourceColumnLayout.module.css places its data-source-blame-view
-   boundary. Both relationships live outside this module. */
+/* Blame view: gutter, line number and highlighted code; the root owns source typography and exposes data-source-blame-view for source-column placement. */
 .root {
   position: relative;
   max-height: calc(100dvh - 200px);
   overflow: auto;
   border: 1px solid var(--border-subtle, #21262d);
   border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--source-code-font-size);
+  line-height: var(--source-code-line-height);
 }
 
 .header {
@@ -58,10 +56,6 @@
   min-width: 100%;
 }
 
-.run.scrollable {
-  overflow-x: auto;
-}
-
 .row {
   display: grid;
   grid-template-columns:
@@ -77,14 +71,6 @@
   background: transparent;
   border: none;
   border-radius: 0;
-}
-
-.row:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
-}
-
-.row.hasReviewComment {
-  background: color-mix(in srgb, var(--success-color) 12%, transparent);
 }
 
 .gutter {
@@ -108,23 +94,6 @@
   text-underline-offset: 2px;
 }
 
-.commitLink.authorColored {
-  color: oklch(
-    var(--blame-author-color-lightness) var(--blame-author-color-chroma)
-      var(--blame-author-hue)
-  );
-}
-
-.commitLink:hover,
-.commitLink:focus-visible {
-  color: var(--link-color, #58a6ff);
-  text-decoration-color: currentColor;
-}
-
-.gutter.uncommitted {
-  color: var(--warning-color);
-}
-
 .gutterLoading {
   color: var(--text-muted);
   opacity: 0.55;
@@ -144,11 +113,6 @@
   user-select: none;
 }
 
-.lineNumber:disabled {
-  cursor: default;
-  opacity: 1;
-}
-
 /* Token spans carry inline colors from the server highlight; the cell only
    needs pre whitespace and a foreground for un-highlighted text. */
 .code {
@@ -159,16 +123,6 @@
   color: var(--shiki-foreground, var(--text-primary, #e6edf3));
   cursor: pointer;
   user-select: text;
-}
-
-.code:not([role="button"]) {
-  cursor: text;
-}
-
-.code:focus-visible,
-.lineNumber:focus-visible {
-  outline: 1px solid var(--focus-border);
-  outline-offset: -1px;
 }
 
 .truncated {
@@ -185,4 +139,56 @@
 
 .notice {
   margin: var(--space-1) var(--space-2);
+}
+
+.run.scrollable {
+  overflow-x: auto;
+}
+
+.row:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.row.hasReviewComment {
+  background: color-mix(in srgb, var(--success-color) 12%, transparent);
+}
+
+.commitLink.authorColored {
+  color: oklch(
+    var(--blame-author-color-lightness) var(--blame-author-color-chroma)
+      var(--blame-author-hue)
+  );
+}
+
+.commitLink:hover {
+  color: var(--link-color, #58a6ff);
+  text-decoration-color: currentColor;
+}
+
+.commitLink:focus-visible {
+  color: var(--link-color, #58a6ff);
+  text-decoration-color: currentColor;
+}
+
+.gutter.uncommitted {
+  color: var(--warning-color);
+}
+
+.lineNumber:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.code:not([role="button"]) {
+  cursor: text;
+}
+
+.code:focus-visible {
+  outline: 1px solid var(--focus-border);
+  outline-offset: -1px;
+}
+
+.lineNumber:focus-visible {
+  outline: 1px solid var(--focus-border);
+  outline-offset: -1px;
 }

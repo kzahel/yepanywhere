@@ -96,13 +96,14 @@ function captureCrashContext(): CrashContext {
       .reverse(),
     dom: {
       nodes: document.getElementsByTagName("*").length,
-      messageRows: document.querySelectorAll(".message-render-row").length,
+      messageRows: document.querySelectorAll("[data-message-render-row]")
+        .length,
       streamingBlocks: document.querySelectorAll(".streaming-block").length,
       conversationActivityRows: document.querySelectorAll(
-        ".conversation-activity-row",
+        "[data-conversation-activity-row]",
       ).length,
       thinkingPreviewRows: document.querySelectorAll(
-        ".conversation-thinking-preview",
+        "[data-conversation-thinking-preview]",
       ).length,
     },
     preferences: {

@@ -119,10 +119,10 @@ export async function createMachineControlMediaBrowser(
         await page.goto(sessionUrl);
       },
       async prove(stage: "live" | "reloaded") {
-        const summary = page.locator(".conversation-activity-summary");
+        const summary = page.locator("[data-conversation-activity-summary]");
         if (await summary.count()) await summary.first().click();
         const filename = page
-          .locator(".tool-row")
+          .locator("[data-tool-row]")
           .getByRole("button", { name: "browser.png", exact: true })
           .last();
         await expect(filename).toBeVisible({ timeout: 15_000 });

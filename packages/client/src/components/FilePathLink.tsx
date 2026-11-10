@@ -163,7 +163,8 @@ export function FilePathCopyButton({ filePath }: { filePath: string }) {
       text={filePath}
       label="Copy path"
       copiedLabel="Copied path"
-      className="file-path-copy"
+      className={styles.filePathCopy}
+      data-file-path-copy
       variant="ghost"
       size="inline-icon"
       subdued
@@ -522,14 +523,19 @@ export const FilePathLink = memo(function FilePathLink({
       <FileDiffLinkCluster>
         <a
           href={fileViewUrl ?? "#"}
-          className="file-path-link"
+          className={styles.filePathLink}
+          data-file-path-link
           onClick={handleClick}
           onContextMenu={handleContextMenu}
           {...tooltipAttributes}
         >
-          <span className="file-path-link-name">{text}</span>
+          <span className={styles.filePathLinkName} data-file-path-link-name>
+            {text}
+          </span>
           {visibleSuffix && (
-            <span className="file-path-link-line">{visibleSuffix}</span>
+            <span className={styles.filePathLinkLine} data-file-path-link-line>
+              {visibleSuffix}
+            </span>
           )}
         </a>
         {showCopyButton && <FilePathCopyButton filePath={viewerFilePath} />}

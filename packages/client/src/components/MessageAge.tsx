@@ -1,3 +1,4 @@
+import styles from "./MessageAge.module.css";
 import {
   formatAbsoluteTimestamp,
   formatCompactRelativeAge,
@@ -33,7 +34,8 @@ export function MessageAge({
 
   return (
     <time
-      className={className ?? "message-age"}
+      className={className ?? styles.messageAge}
+      data-message-age
       dateTime={date.toISOString()}
       title={absolute}
     >

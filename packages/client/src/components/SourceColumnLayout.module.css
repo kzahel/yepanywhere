@@ -99,7 +99,7 @@
 }
 
 @media (width >= 1100px) {
-  .blameBrowserColumns > :global(.blame-view) {
+  .blameBrowserColumns > [data-source-blame-view] {
     height: 100%;
     min-height: 0;
     max-height: none;

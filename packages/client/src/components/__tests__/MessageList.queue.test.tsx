@@ -189,7 +189,7 @@ describe("MessageList queue rows", () => {
     );
 
     const prompts = Array.from(
-      container.querySelectorAll(".message-user-prompt"),
+      container.querySelectorAll("[data-message-user-prompt]"),
     ).map((node) => node.textContent);
     expect(prompts).toEqual(["still posting", "already queued"]);
   });
@@ -223,7 +223,7 @@ describe("MessageList queue rows", () => {
     );
 
     const prompts = Array.from(
-      container.querySelectorAll(".message-user-prompt"),
+      container.querySelectorAll("[data-message-user-prompt]"),
     ).map((node) => node.textContent);
     expect(prompts).toEqual([
       "regular first",
@@ -348,7 +348,7 @@ describe("MessageList queue rows", () => {
     );
 
     const prompts = Array.from(
-      container.querySelectorAll(".message-user-prompt"),
+      container.querySelectorAll("[data-message-user-prompt]"),
     ).map((node) => node.textContent);
     expect(prompts).toEqual([
       "still posting",
@@ -451,9 +451,9 @@ describe("MessageList queue rows", () => {
 
     const row = container.querySelector('[data-render-id="user-1"]');
 
-    expect(row?.classList.contains("has-message-age")).toBe(true);
-    expect(row?.classList.contains("is-message-age-visible")).toBe(true);
-    expect(row?.querySelector(".message-age")?.textContent).toBe("10m");
+    expect(row?.hasAttribute("data-has-message-age")).toBe(true);
+    expect(row?.hasAttribute("data-is-message-age-visible")).toBe(true);
+    expect(row?.querySelector("[data-message-age]")?.textContent).toBe("10m");
   });
 
   it("does not refresh historical message ages on idle ticks", () => {
@@ -473,10 +473,10 @@ describe("MessageList queue rows", () => {
     );
 
     const olderAge = container.querySelector(
-      '[data-render-id="user-1"] .message-age',
+      '[data-render-id="user-1"] [data-message-age]',
     );
     const latestAge = container.querySelector(
-      '[data-render-id="assistant-1"] .message-age',
+      '[data-render-id="assistant-1"] [data-message-age]',
     );
 
     expect(olderAge?.textContent).toBe("10m");

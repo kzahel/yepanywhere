@@ -70,8 +70,10 @@ describe("TextBlock", () => {
       </I18nProvider>,
     );
 
-    expect(container.querySelector(".text-block-toggle")).toBeNull();
-    expect(container.querySelector(".text-block-local-rendered")).toBeNull();
+    expect(container.querySelector("[data-text-block-toggle]")).toBeNull();
+    expect(
+      container.querySelector("[data-text-block-local-rendered]"),
+    ).toBeNull();
     expect(screen.getByText("Streaming $x^2$ now")).toBeDefined();
 
     rerender(
@@ -80,8 +82,10 @@ describe("TextBlock", () => {
       </I18nProvider>,
     );
 
-    expect(container.querySelector(".text-block-toggle")).toBeTruthy();
-    expect(container.querySelector(".text-block-local-rendered")).toBeTruthy();
+    expect(container.querySelector("[data-text-block-toggle]")).toBeTruthy();
+    expect(
+      container.querySelector("[data-text-block-local-rendered]"),
+    ).toBeTruthy();
     expect(container.querySelector(".katex")).toBeTruthy();
   });
 
@@ -122,7 +126,7 @@ describe("TextBlock", () => {
       </I18nProvider>,
     );
 
-    expect(container.querySelector(".text-block-toggle")).toBeNull();
+    expect(container.querySelector("[data-text-block-toggle]")).toBeNull();
     expect(screen.getByText("Plain answer.")).toBeDefined();
   });
 
@@ -164,7 +168,7 @@ describe("TextBlock", () => {
       </I18nProvider>,
     );
 
-    expect(container.querySelector(".text-block-toggle")).toBeTruthy();
+    expect(container.querySelector("[data-text-block-toggle]")).toBeTruthy();
     expect(container.querySelector("strong")?.textContent).toBe("win");
   });
 
@@ -184,7 +188,7 @@ describe("TextBlock", () => {
     fireEvent.click(screen.getByRole("button", { name: "global render mode" }));
 
     expect(container.querySelector("strong")?.textContent).toBe("win");
-    expect(container.querySelector(".text-block-source")).toBeNull();
+    expect(container.querySelector("[data-text-block-source]")).toBeNull();
   });
 
   it("mounts local media previews inline beside rendered markdown links", async () => {
@@ -301,7 +305,7 @@ describe("TextBlock", () => {
 
     expect(await screen.findByAltText("trajectory.png")).toBeTruthy();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const surface = container.querySelector(".text-block");
+    const surface = container.querySelector("[data-text-block]");
     const paragraph = container.querySelector("p");
     expect(surface).toBeTruthy();
     expect(paragraph).toBeTruthy();
@@ -321,7 +325,7 @@ describe("TextBlock", () => {
     });
     await waitFor(() =>
       expect(
-        container.querySelector(".text-block-quote-paragraph"),
+        container.querySelector("[data-text-block-quote-paragraph]"),
       ).toBeTruthy(),
     );
     const preview = container.querySelector(".local-media-inline-preview");

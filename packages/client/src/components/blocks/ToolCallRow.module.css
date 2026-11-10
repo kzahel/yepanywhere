@@ -1,8 +1,175 @@
-.expandedCommand:global(.tool-summary-command) {
-  display: block;
+.toolRow {
+  position: relative;
+}
+.toolRowHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 20px;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.1s;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.toolIncompleteIcon {
+  flex-shrink: 0;
+  color: var(--timeline-dot-warning, #d7ba7d);
+  font-weight: 700;
+  width: 14px;
+  text-align: center;
+}
+.toolSummary {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--output-prose-font-family);
+  font-optical-sizing: var(--output-prose-font-optical-sizing);
+  font-variation-settings: var(--output-prose-font-variation-settings);
+  font-size: var(--output-prose-font-size);
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolSummaryCommand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  cursor: pointer;
+  line-height: 1.35;
+  white-space: normal;
   text-overflow: clip;
+}
+
+.toolSummaryCommandText {
+  min-width: 0;
+  overflow: hidden;
+  line-height: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.toolSummaryCommandMore {
+  /* Wraps onto its own line under the Run/Ran label: the flex:1 command
+     fills row 1, so this fixed-size badge has no room and breaks below. */
+  align-self: flex-start;
+  margin-top: 3px;
+}
+
+.toolResultSuffix {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--text-muted, #888);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.toolResultSuffixRc {
+  color: var(--timeline-dot-error, #f85149);
+  font-weight: 600;
+}
+
+.toolHeaderCopy {
+  opacity: 0;
+  pointer-events: none;
+}
+.expandChevron {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-dimmed, #666);
+  transition: transform 0.15s;
+}
+.toolRowCollapsedPreview {
+  position: relative;
+  margin-left: 10px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.toolRowDeferredPreview {
+  cursor: default;
+  pointer-events: none;
+}
+
+.toolRowDeferredPreviewBox {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--tool-row-deferred-preview-height, 7rem);
+  border: 1px solid var(--border-color, #333);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--text-muted) 18%, transparent) 0 2.5rem,
+      transparent 2.5rem
+    ),
+    color-mix(in srgb, var(--bg-code) 72%, transparent);
+  opacity: 0.35;
+}
+.toolRowContent {
+  position: relative;
+  margin-left: 10px;
+  padding: 8px;
+  border-left: 1px solid var(--border-color, #333);
+  transition: border-left-color 0.1s;
+  animation: slideDown 0.15s ease-out;
+}
+.toolRowCollapseStrip {
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  z-index: 1;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.toolNoResult {
+  color: var(--text-muted, #888);
+  font-style: italic;
+  font-size: var(--font-size-base);
+}
+
+.toolUseExpanded {
+  font-size: var(--font-size-base);
+}
+
+.toolResultExpanded {
+  font-size: var(--font-size-base);
+}
+
+.toolAbortedIcon {
+  flex-shrink: 0;
+  color: var(--warning-color, #d7ba7d);
+  font-weight: bold;
+  font-size: var(--font-size-lg);
+  display: flex;
+  align-items: center;
+}
+
+.toolAbortedLabel {
+  color: var(--text-muted, #888);
+  font-style: italic;
+}
+
+.toolIncompleteLabel {
+  color: var(--text-muted, #888);
+  font-style: italic;
 }
 
 .disclosureAnchor {
@@ -25,23 +192,202 @@
   font: var(--font-size-base) / 1.5 var(--font-mono);
 }
 
-.waitingHeader:global(.tool-row-header) {
+button.toolSummary {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+.toolRowHeader.non-expandable {
   cursor: default;
 }
 
-.waitingHeader:global(.tool-row-header):hover {
-  background: transparent;
+.toolRowHeader:hover {
+  background: var(--bg-hover, #2a2a2a);
 }
 
-:global(.ran-tool-row) .disclosureAnchor {
+.ranToolRow .toolRowHeader {
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid
+    color-mix(in srgb, var(--border-color, #333) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-code, #1f1f1f) 52%, transparent);
+}
+
+.toolRowHeader.has-command-preview {
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.toolRowHeader.has-result-suffix {
+  flex-wrap: wrap;
+}
+
+.toolRowHeader:focus {
+  outline: 1px solid var(--focus-border, #007acc);
+  outline-offset: -1px;
+}
+
+.ranToolRow .toolSummary {
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+  color: var(--text-primary, #ccc);
+}
+
+.toolSummaryCommand:hover {
+  color: var(--text-primary, #ccc);
+}
+
+.toolSummaryCommand:focus {
+  outline: 1px solid var(--focus-border, #007acc);
+  outline-offset: -1px;
+}
+
+.toolHeaderCopy:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toolHeaderCopy[data-copied] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toolRowCollapseStrip:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+.toolRow.status-aborted {
+  opacity: 0.7;
+}
+
+.toolRow.status-incomplete {
+  opacity: 0.85;
+}
+
+.expandedCommand:global([data-tool-summary-command]) {
+  display: block;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.waitingHeader:global([data-tool-row-header]) {
+  cursor: default;
+}
+
+:global([data-ran-tool-row]) .disclosureAnchor {
   margin-inline: -1px 1px;
 }
+.toolRow[data-timeline-item]::before {
+  top: 8px;
+}
 
-:global(.tool-row):has(.disclosureAnchor button)::before {
+.toolRow[data-timeline-item]::after {
+  top: 14px; /* Adjust line start for new dot position */
+}
+
+:global([data-tool-row]):has(.disclosureAnchor button)::before {
   display: none;
 }
 
-:global(.tool-row):has(.disclosureAnchor button)::after {
+:global([data-tool-row]):has(.disclosureAnchor button)::after {
   top: 24px;
   opacity: 0.45;
+}
+
+.toolRow.interactive .toolSummary {
+  flex: 1;
+}
+
+.ranToolRow .toolRowHeader:hover {
+  background: color-mix(in srgb, var(--bg-hover, #2a2a2a) 72%, transparent);
+}
+
+.toolSummary.interactive-summary.outline-summary {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.toolRowHeader:hover .toolHeaderCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toolRowHeader:focus-within .toolHeaderCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toolRow:focus-within .toolHeaderCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toolRow.expanded .expandChevron {
+  transform: rotate(0deg);
+}
+
+.toolRowContent:has(.toolRowCollapseStrip:hover) {
+  border-left-color: var(--text-dimmed, #666);
+}
+
+.toolRow.status-pending .toolSummary {
+  color: var(--text-muted, #888);
+}
+
+.toolRow.status-aborted .toolSummary {
+  color: var(--text-muted, #888);
+}
+
+.toolRow.status-incomplete .toolSummary {
+  color: var(--text-muted, #888);
+}
+
+.waitingHeader:global([data-tool-row-header]):hover {
+  background: transparent;
+}
+.toolRow[data-timeline-item].status-pending::before {
+  background: var(--timeline-dot-working);
+  animation: pulse 1.5s ease-in-out infinite var(--ya-activity-play, paused);
+}
+
+.toolRow[data-timeline-item].status-complete::before {
+  background: var(--timeline-dot-tool);
+}
+
+.toolRow[data-timeline-item].status-error::before {
+  background: var(--timeline-dot-error);
+}
+
+.toolRow[data-timeline-item].status-aborted::before {
+  background: var(--timeline-dot-warning, #d7ba7d);
+  opacity: 0.7;
+}
+
+.toolRow[data-timeline-item].status-incomplete::before {
+  background: var(--timeline-dot-warning, #d7ba7d);
+  opacity: 0.7;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

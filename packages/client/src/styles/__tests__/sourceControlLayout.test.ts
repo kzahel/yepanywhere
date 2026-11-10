@@ -8,7 +8,10 @@ const blameViewStylesheetUrl = new URL(
   import.meta.url,
 );
 
-const rendererStylesheetUrl = new URL("../renderers.css", import.meta.url);
+const rendererStylesheetUrl = new URL(
+  "../../components/renderers/DiffOutput.module.css",
+  import.meta.url,
+);
 const sourceModeTabsStylesheetUrl = new URL(
   "../../pages/SourceModeTabs.module.css",
   import.meta.url,
@@ -104,7 +107,7 @@ describe("Source Control layout boundaries", () => {
     const css = await readFile(rendererStylesheetUrl, "utf8");
     const diff = getRuleDeclarationsContaining(
       css,
-      ".diff-gutter-aligned",
+      ".diffGutterAligned",
       "--diff-gutter-width",
     );
 

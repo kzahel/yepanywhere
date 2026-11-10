@@ -57,7 +57,7 @@ test("/v finds files by path parts, previews them, and opens one without a turn"
 
   // Ctrl+Enter opens without spending the draft.
   await textarea.press("Control+Enter");
-  const viewer = page.locator(".file-viewer");
+  const viewer = page.locator("[data-file-viewer]");
   await expect(viewer).toContainText("view command body");
   await expect(textarea).toHaveValue("/v viewcmd/notes/");
   await page.keyboard.press("Escape");

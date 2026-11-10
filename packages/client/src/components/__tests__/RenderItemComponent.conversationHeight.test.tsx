@@ -84,10 +84,10 @@ describe("conversation thinking preview height publication", () => {
     );
 
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     );
     const latestContent = container.querySelector<HTMLElement>(
-      '.conversation-thinking-preview[data-preview-slot="latest"] .conversation-thinking-preview-content',
+      '[data-conversation-thinking-preview][data-preview-slot="latest"] [data-conversation-thinking-preview-content]',
     );
     expect(row).not.toBeNull();
     expect(latestContent).not.toBeNull();
@@ -130,10 +130,10 @@ describe("conversation thinking preview height publication", () => {
     );
 
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     );
     const latestContent = container.querySelector<HTMLElement>(
-      '.conversation-thinking-preview[data-preview-slot="latest"] .conversation-thinking-preview-content',
+      '[data-conversation-thinking-preview][data-preview-slot="latest"] [data-conversation-thinking-preview-content]',
     );
     const watching = observers.find((observer) =>
       observer.targets.includes(latestContent as Element),
@@ -175,14 +175,14 @@ describe("conversation thinking preview height publication", () => {
     );
 
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     );
     // Collapsed latest has no content box to measure; publishing 0 keeps the
     // previous preview and activity list from falling back to the viewport cap
     // and rendering taller than the header-only current card.
     expect(
       container.querySelector(
-        '.conversation-thinking-preview[data-preview-slot="latest"] .conversation-thinking-preview-content',
+        '[data-conversation-thinking-preview][data-preview-slot="latest"] [data-conversation-thinking-preview-content]',
       ),
       "collapsed latest should render no content box",
     ).toBeNull();
@@ -206,10 +206,10 @@ describe("conversation thinking preview height publication", () => {
     );
 
     const list = container.querySelector<HTMLElement>(
-      ".conversation-recent-activities",
+      "[data-conversation-recent-activities]",
     );
     const latestContent = container.querySelector<HTMLElement>(
-      '.conversation-thinking-preview[data-preview-slot="latest"] .conversation-thinking-preview-content',
+      '[data-conversation-thinking-preview][data-preview-slot="latest"] [data-conversation-thinking-preview-content]',
     );
     expect(list).not.toBeNull();
     const watching = observers.find((observer) =>
@@ -230,14 +230,14 @@ describe("conversation thinking preview height publication", () => {
     act(() => {
       watching?.cb([], watching as unknown as ResizeObserver);
     });
-    expect(list?.classList.contains("is-clipped")).toBe(true);
+    expect(list?.hasAttribute("data-is-clipped")).toBe(true);
 
     // The whole list fits → no fade, so it does not read as "more below".
     clientHeight = 200;
     act(() => {
       watching?.cb([], watching as unknown as ResizeObserver);
     });
-    expect(list?.classList.contains("is-clipped")).toBe(false);
+    expect(list?.hasAttribute("data-is-clipped")).toBe(false);
   });
 
   it("enables the wide activity layout only when requested", () => {
@@ -256,8 +256,8 @@ describe("conversation thinking preview height publication", () => {
 
     expect(
       container
-        .querySelector(".conversation-activity-row")
-        ?.classList.contains("is-wide-activity-previews"),
+        .querySelector("[data-conversation-activity-row]")
+        ?.hasAttribute("data-is-wide-activity-previews"),
     ).toBe(false);
 
     rerender(
@@ -274,8 +274,8 @@ describe("conversation thinking preview height publication", () => {
 
     expect(
       container
-        .querySelector(".conversation-activity-row")
-        ?.classList.contains("is-wide-activity-previews"),
+        .querySelector("[data-conversation-activity-row]")
+        ?.hasAttribute("data-is-wide-activity-previews"),
     ).toBe(true);
   });
 
@@ -302,7 +302,7 @@ describe("conversation thinking preview height publication", () => {
     );
 
     const summary = container.querySelector<HTMLElement>(
-      ".conversation-activity-summary",
+      "[data-conversation-activity-summary]",
     );
     expect(summary?.dataset.tooltipZoomHeadline).toContain("5 activities");
     expect(summary?.dataset.tooltipZoomDetail).toBe(
@@ -335,7 +335,7 @@ describe("conversation thinking preview age", () => {
   function headerText(container: HTMLElement, slot: string): string {
     return (
       container.querySelector(
-        `.conversation-thinking-preview[data-preview-slot="${slot}"] .conversation-thinking-preview-header`,
+        `[data-conversation-thinking-preview][data-preview-slot="${slot}"] [data-conversation-thinking-preview-header]`,
       )?.textContent ?? ""
     );
   }
@@ -441,7 +441,7 @@ describe("conversation activity height reserve", () => {
 
     const { container } = render(renderActivity());
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     ) as HTMLElement;
     let naturalHeightPx = 400;
     stubRowMetrics(row, () => naturalHeightPx);
@@ -472,7 +472,7 @@ describe("conversation activity height reserve", () => {
 
     const { container, rerender } = render(renderActivity());
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     ) as HTMLElement;
     let naturalHeightPx = 400;
     stubRowMetrics(row, () => naturalHeightPx);
@@ -497,7 +497,7 @@ describe("conversation activity height reserve", () => {
     >;
     const { container, rerender } = render(renderActivity(base));
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     ) as HTMLElement;
     let naturalHeightPx = 400;
     stubRowMetrics(row, () => naturalHeightPx);
@@ -567,12 +567,12 @@ describe("stacked previous thinking preview budget", () => {
     const rect = (top: number, height: number) =>
       ({ top, height, bottom: top + height }) as unknown as DOMRect;
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     ) as HTMLElement;
     row.getBoundingClientRect = () => rect(0, rowBottomPx);
     for (const prose of Array.from(
       row.querySelectorAll<HTMLElement>(
-        ".conversation-thinking-preview-content .thinking-text",
+        "[data-conversation-thinking-preview-content] [data-thinking-text]",
       ),
     )) {
       prose.style.lineHeight = `${PROSE_LINE_HEIGHT_PX}px`;
@@ -582,15 +582,15 @@ describe("stacked previous thinking preview budget", () => {
         rect(0, naturalHeightPx);
     }
     const latestCard = container.querySelector<HTMLElement>(
-      '.conversation-thinking-preview[data-preview-slot="latest"]',
+      '[data-conversation-thinking-preview][data-preview-slot="latest"]',
     ) as HTMLElement;
     latestCard.getBoundingClientRect = () => rect(0, 300);
     const latestContent = latestCard.querySelector<HTMLElement>(
-      ".conversation-thinking-preview-content",
+      "[data-conversation-thinking-preview-content]",
     ) as HTMLElement;
     latestContent.getBoundingClientRect = () => rect(0, 260);
     const previousCard = container.querySelector<HTMLElement>(
-      '.conversation-thinking-preview[data-preview-slot="previous"]',
+      '[data-conversation-thinking-preview][data-preview-slot="previous"]',
     ) as HTMLElement;
     previousCard.getBoundingClientRect = () => rect(previousTopPx, 0);
     return row;
@@ -725,14 +725,14 @@ describe("conversation thinking auto-hide", () => {
   it("keeps thinking visible for 5s after a completed turn with following text", () => {
     const { container } = renderCompleted();
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(4_999);
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
   });
 
@@ -743,17 +743,17 @@ describe("conversation thinking auto-hide", () => {
       vi.advanceTimersByTime(5_000);
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(CONVERSATION_THINKING_AUTO_HIDE_ROLLUP_MS);
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
     expect(
-      container.querySelector(".conversation-activity-summary"),
+      container.querySelector("[data-conversation-activity-summary]"),
     ).not.toBeNull();
   });
 
@@ -762,7 +762,7 @@ describe("conversation thinking auto-hide", () => {
       endedAtMs: Date.now() - 60_000,
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
   });
 
@@ -772,7 +772,7 @@ describe("conversation thinking auto-hide", () => {
       endedAtMs: Date.now() - 60_000,
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
   });
 
@@ -812,7 +812,7 @@ describe("conversation thinking auto-hide", () => {
     const live = completedItem({ active: true, thinkingPreviews: undefined });
     const { container, rerender } = renderItem(live);
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
 
     const withThinking = completedItem({ active: true });
@@ -829,7 +829,7 @@ describe("conversation thinking auto-hide", () => {
       );
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
 
     act(() => {
@@ -848,7 +848,7 @@ describe("conversation thinking auto-hide", () => {
       vi.advanceTimersByTime(4_999);
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
 
     act(() => {
@@ -858,14 +858,14 @@ describe("conversation thinking auto-hide", () => {
       vi.advanceTimersByTime(CONVERSATION_THINKING_AUTO_HIDE_ROLLUP_MS);
     });
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).toBeNull();
   });
 
   it("releases the pinned row height when a new turn interrupts the rollup", () => {
     const { container, rerender } = renderItem(completedItem());
     const row = container.querySelector<HTMLElement>(
-      ".conversation-activity-row",
+      "[data-conversation-activity-row]",
     );
     expect(row).not.toBeNull();
 
@@ -888,7 +888,7 @@ describe("conversation thinking auto-hide", () => {
     });
     expect(row?.style.height).toBe("");
     expect(
-      container.querySelector(".conversation-thinking-preview"),
+      container.querySelector("[data-conversation-thinking-preview]"),
     ).not.toBeNull();
   });
 });

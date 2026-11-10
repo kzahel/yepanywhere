@@ -207,9 +207,9 @@ describe("WriteStdinRenderer", () => {
 
     expect(screen.getByText(/hyp-tokens: first=85 min=42/)).toBeDefined();
     expect(screen.queryByText(/chunk_id/)).toBeNull();
-    expect(container.querySelector(".command-result-meta")?.textContent).toBe(
-      "22.4s",
-    );
+    expect(
+      container.querySelector("[data-command-result-meta]")?.textContent,
+    ).toBe("22.4s");
   });
 
   it("summarizes a failed chunk record as rc=N with runtime", () => {
@@ -282,7 +282,13 @@ describe("WriteStdinRenderer", () => {
           .prepare(
             recordFromLegacyArgs(
               undefined,
-              "Chunk ID: ff710e\nWall time: 0.0518 seconds\nProcess exited with code 0\nOutput:\nplain\n\u001b[32mgreen bold\u001b[0m\n",
+              `Chunk ID: ff710e
+Wall time: 0.0518 seconds
+Process exited with code 0
+Output:
+plain
+[32mgreen bold[0m
+`,
               false,
               "complete",
             ),
@@ -325,7 +331,7 @@ describe("WriteStdinRenderer", () => {
     fireEvent.click(button);
 
     const modalCode = container.querySelector(
-      ".file-content-modal .line-content code",
+      "[data-file-content-modal] [data-line-content] code",
     );
     expect(modalCode?.textContent).toContain("line 1\nline 2");
   });

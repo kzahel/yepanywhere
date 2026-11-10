@@ -1,11 +1,25 @@
-.queuedBubble:global(.message-user-prompt) {
-  opacity: 0.7;
-  border-left: 3px solid var(--queue-bubble-accent, var(--attention-color));
-  padding-left: var(--space-2);
-  /* Balance the visible ink while retaining the bubble's overall height. */
-  padding-top: calc(0.25rem + 1px);
-  padding-bottom: calc(0.25rem - 1px);
-  white-space: pre-wrap;
+.messageList {
+  position: relative;
+}
+.message {
+  margin-bottom: 1rem;
+}
+.assistantTurn {
+  position: relative;
+  padding-left: 14px; /* 60% of the former 24px — tighter mobile left indent */
+}
+
+.loadOlderMessages {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  padding: 12px 16px 4px;
+}
+
+.loadOlderStatus {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .projectQueueBubble {
@@ -20,4 +34,24 @@
 /* A failed /btw aside's error, under the card's request and transcript. */
 .btwAsideError {
   grid-column: 1;
+}
+
+.messageListProgressiveHydrating > :not([data-session-render-progress]) {
+  display: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.queuedBubble:global([data-message-user-prompt]) {
+  opacity: 0.7;
+  border-left: 3px solid var(--queue-bubble-accent, var(--attention-color));
+  padding-left: var(--space-2);
+  /* Balance the visible ink while retaining the bubble's overall height. */
+  padding-top: calc(0.25rem + 1px);
+  padding-bottom: calc(0.25rem - 1px);
+  white-space: pre-wrap;
+}
+.assistantTurn[data-has-turn-image-gallery]
+  :global(.local-media-inline-preview)[data-media-type="image"] {
+  display: none;
 }

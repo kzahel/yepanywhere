@@ -71,9 +71,14 @@ geometry; preview-specific data attributes mark the remaining composer boundary.
 Source browser columns, search, file/revision rows, detail banners, diff controls
 and file-page chrome now have shared module owners. Their compact typography,
 resize geometry, selected/read cues, focus rings and phone layout stay unchanged;
-source previews and EditRenderer import the same context-control look. Viewer
-body typography and diff gutters stay ordered with transcript output until their
-shared migration.
+source previews and EditRenderer import the same context-control look. FileViewer,
+CodeOutput and DiffOutput now share source typography and gutters across viewer
+and tool surfaces. Transcript lists/blocks, thinking/activity previews, tool rows
+and tool-renderer families own their layout through modules. Emitted Markdown,
+math and Shiki descendants share generated.css under counted data boundaries;
+inline-style resets and fallback gutter specificity keep their previous winners.
+These are appearance-preserving moves, including root-font scaling, streaming
+input acknowledgement, hover/focus and phone geometry.
 Collection pages, compact session rows, sidebar density/collapse and navigation
 now retain their existing look through explicit shared modules. Page scrolling
 and retained-route lookup use stable data boundaries; the composer is unchanged.

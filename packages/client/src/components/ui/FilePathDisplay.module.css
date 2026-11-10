@@ -1,0 +1,8 @@
+.filePathDisplay {
+  display: inline;
+}
+
+.filePathDisplayDir {
+  color: var(--text-dimmed, #666);
+  opacity: 0.85;
+}

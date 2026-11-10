@@ -124,7 +124,7 @@ export function useUserPromptActionPacking(
     const bubble = bubbleRef.current;
     const actions = actionsRef.current;
     const firstAction = actions?.querySelector<HTMLElement>(
-      ".user-prompt-action",
+      "[data-user-prompt-action]",
     );
     if (!container || !bubble || !actions || !firstAction) return;
 

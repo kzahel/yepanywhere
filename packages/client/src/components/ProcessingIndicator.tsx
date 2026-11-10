@@ -1,3 +1,4 @@
+import styles from "./ProcessingIndicator.module.css";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -111,7 +112,8 @@ interface Props {
 function ThoughtTranscriptIcon({ muted }: { muted: boolean }) {
   return (
     <svg
-      className="processing-thinking-toggle-icon"
+      className={styles.processingThinkingToggleIcon}
+      data-processing-thinking-toggle-icon
       width="16"
       height="16"
       viewBox="0 0 24 24"
@@ -127,7 +129,11 @@ function ThoughtTranscriptIcon({ muted }: { muted: boolean }) {
       <path d="M11.5 11.5h.01" />
       <path d="M14.5 11.5h.01" />
       {muted && (
-        <path className="processing-thinking-toggle-slash" d="M4 20 20 4" />
+        <path
+          className={styles.processingThinkingToggleSlash}
+          data-processing-thinking-toggle-slash
+          d="M4 20 20 4"
+        />
       )}
     </svg>
   );
@@ -407,15 +413,23 @@ export const ProcessingIndicator = memo(function ProcessingIndicator({
   return (
     <div
       ref={rootRef}
-      className={`processing-indicator ${
-        !isProcessing ? "processing-indicator--control-only" : ""
+      className={`${styles.processingIndicator} ${
+        !isProcessing ? styles.processingIndicatorControlOnly : ""
       } ${!thinkingItemsVisible && hasThinkingItems ? "processing-indicator--thinking-hidden" : ""}`}
+      data-processing-indicator
+      data-processing-indicator--control-only={!isProcessing || undefined}
     >
       {showThinkingToggle && (
         <ButtonBase
-          className={`processing-thinking-toggle ${
-            thinkingItemsVisible ? "is-visible" : "is-muted"
-          } ${thinkingLatestOnly ? "is-latest-only" : ""}`.trim()}
+          className={`${styles.processingThinkingToggle} ${
+            thinkingItemsVisible
+              ? `${styles["is-visible"]}`
+              : `${styles["is-muted"]}`
+          } ${thinkingLatestOnly ? `${styles["is-latest-only"]}` : ""}`.trim()}
+          data-processing-thinking-toggle
+          data-is-visible={thinkingItemsVisible || undefined}
+          data-is-muted={!thinkingItemsVisible || undefined}
+          data-is-latest-only={thinkingLatestOnly || undefined}
           onClick={handleToggleClick}
           onContextMenu={handleContextMenu}
           onTouchStart={handleTouchStart}
@@ -431,16 +445,24 @@ export const ProcessingIndicator = memo(function ProcessingIndicator({
       )}
       {isProcessing && (
         <>
-          <div className="processing-dot-container">
+          <div
+            className={styles.processingDotContainer}
+            data-processing-dot-container
+          >
             <ThinkingIndicator animationVisibilityManaged />
           </div>
           {quietText !== null ? (
-            <span className="processing-text" role="status">
+            <span
+              className={styles.processingText}
+              data-processing-text
+              role="status"
+            >
               {quietText}
             </span>
           ) : (
             <span
-              className="processing-text"
+              className={styles.processingText}
+              data-processing-text
               role="button"
               tabIndex={0}
               aria-pressed={isAnimationPaused}

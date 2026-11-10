@@ -1,3 +1,4 @@
+import textStyles from "./blocks/TextBlock.module.css";
 import {
   type RefObject,
   useCallback,
@@ -298,13 +299,16 @@ export function ParagraphQuoteRail({
   if (onlyMermaid) return null;
 
   return (
-    <div className="text-block-quote-rail">
+    <div className={textStyles.textBlockQuoteRail} data-text-block-quote-rail>
       {paragraphQuoteCirclesEnabled && paragraphTargets.length > 0 ? (
         paragraphTargets.map((target, index) => (
           <IconButton
             key={target.blockIndex}
             size="dense"
-            className={`text-block-quote text-block-quote-paragraph ${alwaysShowQuoteCircle ? "always-visible" : ""}`}
+            className={`${textStyles.textBlockQuote} ${textStyles.textBlockQuoteParagraph} ${alwaysShowQuoteCircle ? `${textStyles["always-visible"]}` : ""}`}
+            data-text-block-quote
+            data-text-block-quote-paragraph
+            data-always-visible={alwaysShowQuoteCircle || undefined}
             style={{ top: `${target.top + target.height}px` }}
             onClick={() => quoteParagraph(index)}
             label={t("sessionQuoteBlock")}
@@ -315,7 +319,10 @@ export function ParagraphQuoteRail({
       ) : (
         <IconButton
           size="dense"
-          className={`text-block-quote text-block-quote-fallback ${alwaysShowQuoteCircle ? "always-visible" : ""}`}
+          className={`${textStyles.textBlockQuote} ${textStyles.textBlockQuoteFallback} ${alwaysShowQuoteCircle ? `${textStyles["always-visible"]}` : ""}`}
+          data-text-block-quote
+          data-text-block-quote-fallback
+          data-always-visible={alwaysShowQuoteCircle || undefined}
           onClick={handleQuoteBlock}
           label={t("sessionQuoteBlock")}
         >

@@ -81,7 +81,7 @@ function Harness({
 }) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   return (
-    <div className="diff-modal-content" ref={setContainer}>
+    <div data-diff-modal-content ref={setContainer}>
       {container ? (
         <DiffCommentController
           projectId="proj1"
@@ -102,7 +102,7 @@ function Harness({
         />
       ) : (
         <div
-          className="highlighted-diff"
+          data-highlighted-diff
           // biome-ignore lint/security/noDangerouslySetInnerHtml: test fixture
           dangerouslySetInnerHTML={{ __html: DIFF_HTML }}
         />

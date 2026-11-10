@@ -20,9 +20,9 @@ async function readStylesheet(): Promise<string> {
 }
 
 function getRuleDeclarations(css: string, selector: string): string {
-  const match = new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`).exec(
-    css,
-  );
+  const match = new RegExp(
+    `${selector.trim().split(/\s+/).map(escapeRegExp).join("\\s+")}\\s*\\{([^}]*)\\}`,
+  ).exec(css);
   expect(
     match,
     `${selector} should have a dedicated rule in index.css so the content-width preference is hard to audit.`,
@@ -51,7 +51,7 @@ describe("session content width CSS contract", () => {
 
     expectNormalSessionSelectorUsesContentWidth(
       css,
-      ".mainContentConstrained .session-messages .message-list",
+      ".mainContentConstrained .session-messages [data-message-list]",
     );
     expectNormalSessionSelectorUsesContentWidth(
       css,
@@ -63,7 +63,7 @@ describe("session content width CSS contract", () => {
     const css = await readStylesheet();
     const declarations = getRuleDeclarations(
       css,
-      ".mainContentMobileInner .session-input-inner,\n.mainContentMobileInner .session-messages .message-list",
+      ".mainContentMobileInner .session-input-inner,\n.mainContentMobileInner .session-messages [data-message-list]",
     );
 
     expect(
@@ -79,7 +79,7 @@ describe("session content width CSS contract", () => {
   it("keeps the /btw split-pane full-track exception explicit", async () => {
     const css = await readStylesheet();
     const splitOverride =
-      /\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\[data-session-read-scope\]\s+\.message-list,\s*\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\[data-session-input\]\s+\.session-input-inner\s*\{[^}]*max-width:\s*none\s*;/m;
+      /\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\[data-session-read-scope\]\s+\[data-message-list\],\s*\.mainContentConstrained\s+\.session-split\.session-split-with-aside\s*>\s*\[data-session-input\]\s+\.session-input-inner\s*\{[^}]*max-width:\s*none\s*;/m;
 
     expect(
       css,

@@ -39,7 +39,7 @@ test("document and visualize links open through the file viewer", async ({
     await page.goto(
       `${baseURL}/projects/${projectId}/file?path=link-affordance.md`,
     );
-    const preview = page.locator(".markdown-preview");
+    const preview = page.locator("[data-markdown-preview]");
     const link = preview.getByRole("link", { name: target, exact: true });
     await expect(link).toBeVisible();
     await page.keyboard.press("Escape");

@@ -54,7 +54,7 @@ test("recalls the last file after Close and reload only where the margin fits", 
   await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
   await dismissOnboardingIfVisible(page);
   await page.locator('a[data-ya-private-project-file-link="true"]').click();
-  const viewer = page.locator(".file-viewer");
+  const viewer = page.locator("[data-file-viewer]");
   await expect(viewer).toBeVisible();
   await viewer.getByRole("button", { name: "Close", exact: true }).click();
   const reopen = page.getByRole("button", { name: /Restore file viewer:/ });
@@ -147,7 +147,7 @@ test("keeps the viewer open while transcript rich text settles", async ({
   await expect(absoluteLink).toBeVisible({ timeout: 10000 });
   await absoluteLink.click();
 
-  const viewer = page.locator(".file-viewer");
+  const viewer = page.locator("[data-file-viewer]");
   await expect(viewer).toBeVisible();
   await page.waitForTimeout(750);
   await expect(viewer).toBeVisible();
@@ -185,9 +185,9 @@ test("keeps the viewer open and responsive across session width changes", async 
     await page.waitForTimeout(750);
     await absoluteLink.click();
 
-    const viewer = page.locator(".file-viewer");
-    const viewerBody = viewer.locator(".file-viewer-body");
-    const quoteButtons = viewer.locator(".text-block-quote-paragraph");
+    const viewer = page.locator("[data-file-viewer]");
+    const viewerBody = viewer.locator("[data-file-viewer-body]");
+    const quoteButtons = viewer.locator("[data-text-block-quote-paragraph]");
     const lastParagraph = viewer.getByText(
       "Paragraph 3000 keeps enough wrapping text in the expanded viewer to exercise responsive layout.",
       { exact: true },
@@ -258,7 +258,7 @@ test("finds within the file viewer after a click in its content", async ({
     );
     await expect(absoluteLink).toBeVisible({ timeout: 10000 });
     await absoluteLink.click();
-    const viewer = page.locator(".file-viewer");
+    const viewer = page.locator("[data-file-viewer]");
     await expect(viewer.getByText("beta needle")).toBeVisible();
     await recordUiCapture(page, "file-viewer-find-idle-1200");
     const findBox = page.getByRole("searchbox", { name: "Find in this view" });
@@ -282,7 +282,9 @@ test("finds within the file viewer after a click in its content", async ({
       await page.evaluate(() => {
         const highlight = CSS.highlights.get("yep-find-current");
         const range = highlight ? [...highlight][0] : undefined;
-        return range?.startContainer.parentElement?.closest(".file-viewer")
+        return range?.startContainer.parentElement?.closest(
+          "[data-file-viewer]",
+        )
           ? range.toString()
           : null;
       }),
@@ -293,7 +295,7 @@ test("finds within the file viewer after a click in its content", async ({
     // field remains visible while its action row has room.
     await expect(findBox).toBeVisible();
     await expect(findBox).toHaveValue("");
-    await expect(viewer.locator(".file-viewer-body")).toBeFocused();
+    await expect(viewer.locator("[data-file-viewer-body]")).toBeFocused();
   } finally {
     writeFileSync(externalReadmePath, originalReadme);
   }
@@ -326,7 +328,7 @@ test("in the right pane, finds past a wide table and keeps its place on reload",
     await dismissOnboardingIfVisible(page);
     await page.locator('a[data-ya-private-project-file-link="true"]').click();
     const pane = page.getByRole("complementary", { name: "Session pane" });
-    const body = pane.locator(".file-viewer-body");
+    const body = pane.locator("[data-file-viewer-body]");
     await pane.getByText("Filler 0.", { exact: true }).click();
     await page.keyboard.press("Control+f");
     await page
@@ -365,8 +367,8 @@ test("finds past a wide table, and a reload keeps the viewer where it was", asyn
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
     await dismissOnboardingIfVisible(page);
     await page.locator('a[data-ya-private-project-file-link="true"]').click();
-    const viewer = page.locator(".file-viewer");
-    const body = viewer.locator(".file-viewer-body");
+    const viewer = page.locator("[data-file-viewer]");
+    const body = viewer.locator("[data-file-viewer-body]");
     await viewer.getByText("Filler 0.", { exact: true }).click();
     await page.keyboard.press("Control+f");
     await page
@@ -452,7 +454,7 @@ for (const viewport of [
     await page.waitForTimeout(750);
     await absoluteLink.click();
 
-    const viewer = page.locator(".file-viewer");
+    const viewer = page.locator("[data-file-viewer]");
     await expect(viewer).toBeVisible();
     // The header never trades the filename away for controls: they take their
     // own header row instead of squeezing the path into a one-glyph column.
@@ -590,7 +592,7 @@ for (const viewport of [
       await expect(viewer).toBeVisible();
     }
     if (viewport.width <= 800) {
-      const viewerBody = viewer.locator(".file-viewer-body");
+      const viewerBody = viewer.locator("[data-file-viewer-body]");
       const finalLine = viewer.getByText(
         "End of file viewer clearance specimen.",
         { exact: true },

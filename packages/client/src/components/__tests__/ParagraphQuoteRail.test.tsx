@@ -76,7 +76,7 @@ function Harness({
   const contentRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   return (
-    <div ref={surfaceRef} className="text-block">
+    <div ref={surfaceRef} data-text-block>
       <ParagraphQuoteRail
         alwaysShowQuoteCircle={false}
         contentRef={contentRef}
@@ -87,14 +87,14 @@ function Harness({
         surfaceRef={surfaceRef}
       />
       {html === undefined ? (
-        <div ref={contentRef} className="text-block-content">
+        <div ref={contentRef} data-text-block-content>
           <p>first paragraph</p>
           <p>second paragraph</p>
         </div>
       ) : (
         <div
           ref={contentRef}
-          className="text-block-content"
+          data-text-block-content
           // biome-ignore lint/security/noDangerouslySetInnerHtml: fixed test markup models Mermaid's generated SVG and retained source.
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -141,7 +141,7 @@ describe("ParagraphQuoteRail", () => {
 
   it("observes its blocks when the block is on screen, and again after it returns", () => {
     const observer = renderRail();
-    const surface = document.querySelector(".text-block");
+    const surface = document.querySelector("[data-text-block]");
     if (!surface) throw new Error("Missing surface");
 
     observer.deliverFrame((target) => target === surface);
@@ -190,10 +190,12 @@ describe("ParagraphQuoteRail", () => {
     );
     await waitFor(() => {
       expect(
-        document.querySelectorAll(".text-block-quote-paragraph"),
+        document.querySelectorAll("[data-text-block-quote-paragraph]"),
       ).toHaveLength(3);
     });
-    expect(document.querySelector(".text-block-quote-fallback")).toBeNull();
+    expect(
+      document.querySelector("[data-text-block-quote-fallback]"),
+    ).toBeNull();
   });
 
   it("excludes unrendered Mermaid source, including mixed-case language markers", () => {
@@ -203,7 +205,7 @@ describe("ParagraphQuoteRail", () => {
 
   it("keeps a delayed diagram excluded through source toggling and content replacement", async () => {
     renderHtml(source);
-    const content = document.querySelector(".text-block-content");
+    const content = document.querySelector("[data-text-block-content]");
     if (!content) throw new Error("Missing content");
     content.innerHTML = diagram;
     await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
@@ -214,7 +216,7 @@ describe("ParagraphQuoteRail", () => {
     content.innerHTML = "<p>Now ordinary prose</p>";
     await waitFor(() => {
       expect(
-        document.querySelectorAll(".text-block-quote-paragraph"),
+        document.querySelectorAll("[data-text-block-quote-paragraph]"),
       ).toHaveLength(1);
     });
   });

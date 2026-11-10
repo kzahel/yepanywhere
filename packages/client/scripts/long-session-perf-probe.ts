@@ -735,9 +735,9 @@ async function installPageProbe(page: Page): Promise<void> {
 
         const rowSnapshot = () => ({
           nodes: document.getElementsByTagName("*").length,
-          messageRows: document.querySelectorAll(".message-render-row").length,
+          messageRows: document.querySelectorAll("[data-message-render-row]").length,
           turnGroups: document.querySelectorAll(".turn-group").length,
-          toolRows: document.querySelectorAll(".tool-row").length,
+          toolRows: document.querySelectorAll("[data-tool-row]").length,
           loadOlderButtons: document.querySelectorAll(".load-older-button").length,
         });
 
@@ -1394,7 +1394,7 @@ async function main(): Promise<void> {
 
   try {
     await page.goto(config.url, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".message-list", { timeout: 30_000 });
+    await page.waitForSelector("[data-message-list]", { timeout: 30_000 });
     await page.waitForTimeout(2_000);
     if (config.loadOlderClicks > 0) {
       await clickLoadOlderMessages(

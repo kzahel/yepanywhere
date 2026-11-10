@@ -1,3 +1,4 @@
+import styles from "./FallbackRenderer.module.css";
 import type { ContentBlock, ContentRenderer, RenderContext } from "../types";
 
 /**
@@ -10,9 +11,11 @@ function FallbackRendererComponent({
   context: RenderContext;
 }) {
   return (
-    <div className="fallback-block">
-      <div className="fallback-type">{block.type}</div>
-      <pre className="fallback-content">
+    <div className={styles.fallbackBlock} data-fallback-block>
+      <div className={styles.fallbackType} data-fallback-type>
+        {block.type}
+      </div>
+      <pre className={styles.fallbackContent} data-fallback-content>
         <code>{JSON.stringify(block, null, 2)}</code>
       </pre>
     </div>

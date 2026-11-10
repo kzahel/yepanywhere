@@ -44,7 +44,7 @@ test("play in the right pane, then minimize, leaves a restore chip", async ({
   await expect(link).toBeVisible();
   await link.click();
   const pane = page.getByRole("complementary", { name: "Session pane" });
-  const viewer = pane.locator(".file-viewer");
+  const viewer = pane.locator("[data-file-viewer]");
   await expect(viewer).toBeVisible();
   await viewer
     .getByRole("button", { name: "Run full HTML/CSS/JavaScript preview" })

@@ -1,3 +1,4 @@
+import styles from "./ThinkingText.module.css";
 import {
   Fragment,
   memo,
@@ -282,7 +283,11 @@ function renderThinkingInline(text: string): ReactNode {
 
     const code = text.slice(start + 1, end);
     nodes.push(
-      <code className="thinking-inline-code" key={`code-${start}`}>
+      <code
+        className={styles.thinkingInlineCode}
+        data-thinking-inline-code
+        key={`code-${start}`}
+      >
         {code}
       </code>,
     );
@@ -307,23 +312,34 @@ const ThinkingOutlineSection = memo(function ThinkingOutlineSection({
 }) {
   return (
     <details
-      className="thinking-outline-section"
+      className={styles.thinkingOutlineSection}
+      data-thinking-outline-section
       key={section.key}
       open={isOpen}
       onToggle={(event) => {
         onSectionToggle(section.key, event.currentTarget.open);
       }}
     >
-      <summary className="thinking-outline-heading">
-        <span className="thinking-outline-dot" aria-hidden="true" />
+      <summary
+        className={styles.thinkingOutlineHeading}
+        data-thinking-outline-heading
+      >
+        <span
+          className={styles.thinkingOutlineDot}
+          data-thinking-outline-dot
+          aria-hidden="true"
+        />
         <strong>{renderThinkingInline(section.heading)}</strong>
       </summary>
       {section.blocks.length > 0 && (
-        <div className="thinking-outline-body">
+        <div className={styles.thinkingOutlineBody} data-thinking-outline-body>
           {section.blocks.map((block, index) => (
             <Fragment key={index}>
               {block.type === "code" ? (
-                <pre className="thinking-code-block">
+                <pre
+                  className={styles.thinkingCodeBlock}
+                  data-thinking-code-block
+                >
                   <code>{block.text}</code>
                 </pre>
               ) : (
@@ -368,14 +384,24 @@ export const ThinkingText = memo(function ThinkingText({
 
   if (!outline) {
     return (
-      <span ref={plainRef} className="thinking-text thinking-text-plain">
+      <span
+        ref={plainRef}
+        className={`${styles.thinkingTextPlain}`}
+        data-thinking-text
+        data-thinking-text-plain
+      >
         <LinkifiedText text={displayText} />
       </span>
     );
   }
 
   return (
-    <div ref={outlineRef} className="thinking-text thinking-outline">
+    <div
+      ref={outlineRef}
+      className={`${styles.thinkingOutline}`}
+      data-thinking-text
+      data-thinking-outline
+    >
       {outline.map((section) => {
         const isOpen = !closedSections.has(section.key);
         return (

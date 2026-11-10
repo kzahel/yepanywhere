@@ -1,0 +1,219 @@
+.taskToolUse {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.taskHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.taskDescription {
+  font-weight: 500;
+  color: var(--text-secondary, var(--text-primary));
+}
+
+.taskPrompt {
+  margin-top: 0.5rem;
+}
+
+.taskPromptContent {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg-code);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.taskResult {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.taskResultHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.taskContent {
+  border-left: 2px solid var(--border-color);
+  padding-left: 1rem;
+  margin-left: 0.25rem;
+}
+
+.taskError {
+  color: var(--error-color);
+  padding: 0.5rem;
+  background: var(--bg-error);
+  border-radius: var(--radius-sm);
+}
+.taskErrorSummary {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+  flex-shrink: 1;
+}
+.taskErrorDetails {
+  padding: 0.75rem;
+}
+
+.taskErrorMessage {
+  background: var(--bg-error);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  border-left: 3px solid var(--error-color);
+}
+
+.taskEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-size-lg);
+}
+.taskInline {
+  border-radius: var(--radius-md);
+  margin: 0.5rem 0;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+.taskInlineHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  text-align: left;
+  font-size: var(--font-size-base);
+  transition: background 0.15s;
+}
+
+.taskExpandIcon {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  width: 1rem;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.taskInlineTitle {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskAgentType {
+  flex-shrink: 0;
+}
+
+.taskModel {
+  flex-shrink: 0;
+}
+.taskInlineContent {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  max-height: 500px;
+  overflow-y: auto;
+}
+.taskNestedContent {
+  padding: 0.75rem;
+}
+
+.taskNestedContent > * + * {
+  margin-top: 0.5rem;
+}
+.taskLoading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  border-top: 1px solid var(--border-subtle, var(--border-color));
+}
+.taskStats {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.taskContextUsage {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-running {
+  composes: statusRunning from "../OutputStatus.module.css";
+}
+
+.status-completed {
+  composes: statusCompleted from "../OutputStatus.module.css";
+}
+
+.status-failed {
+  composes: statusFailed from "../OutputStatus.module.css";
+}
+
+.status-timeout {
+  composes: statusTimeout from "../OutputStatus.module.css";
+}
+
+.taskInline.expanded {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.taskInline.status-running {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.taskInline.status-failed {
+  background: rgba(255, 100, 100, 0.03);
+}
+
+.taskInline.status-error {
+  background: rgba(255, 100, 100, 0.03);
+}
+
+.taskInlineHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.taskInlineHeader:focus {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.taskInlineHeader.noninteractive:hover {
+  background: transparent;
+}
+
+.taskInline.expanded .taskExpandIcon {
+  color: var(--text-muted);
+}
+.taskNestedContent > :last-child:global([data-timeline-item])::after {
+  display: none;
+}
+.taskNestedContent > :last-child :global([data-timeline-item])::after {
+  display: none;
+}

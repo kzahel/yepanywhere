@@ -67,9 +67,13 @@ export function globalPurposeFindings(text, purpose, families = []) {
             add("authored-subject", rule);
           for (const node of classes) add(`class:${node.value}`, rule);
         } else {
-          const subject = selector.nodes.slice(
+          const subjectStart =
             selector.nodes.findLastIndex((node) => node.type === "combinator") +
-              1,
+            1;
+          const context = selector.nodes.slice(0, subjectStart);
+          const subject = selector.nodes.slice(subjectStart);
+          const attributes = context.filter(
+            (node) => node.type === "attribute",
           );
           const generatedClass = (name) =>
             generated.some(({ pattern }) => pattern.test(name));
@@ -92,10 +96,27 @@ export function globalPurposeFindings(text, purpose, families = []) {
           // A React shell is only an anchor, never the styled subject. Tags
           // beneath a shell describe emitted markdown/HTML, not the shell.
           if (
-            !classes.length ||
-            (!emittedSubject && !subject.some((node) => node.type === "tag"))
+            (!classes.length && !attributes.length) ||
+            (!context.length && !emittedSubject) ||
+            (!emittedSubject &&
+              !subject.some(
+                (node) =>
+                  node.type === "tag" ||
+                  node.type === "universal" ||
+                  (node.type === "pseudo" &&
+                    node.value === ":is" &&
+                    node.nodes?.length &&
+                    node.nodes.every(
+                      (branch) =>
+                        branch.nodes.length > 0 &&
+                        branch.nodes.every((part) => part.type === "tag"),
+                    )),
+              ))
           ) {
             add("authored-subject", rule);
+          }
+          for (const node of attributes) {
+            add(`context-attribute:${node.attribute}`, rule);
           }
           for (const node of classes) {
             if (!generatedClass(node.value)) add(`context:${node.value}`, rule);

@@ -43,7 +43,7 @@ describe("MessageList thinking rows", () => {
         }),
       );
       expect(
-        view.container.querySelectorAll("details.thinking-block"),
+        view.container.querySelectorAll("details[data-thinking-block]"),
       ).toHaveLength(0);
       act(() => vi.advanceTimersByTime(elapsed));
       view.unmount();
@@ -75,10 +75,10 @@ describe("MessageList thinking rows", () => {
       />,
     );
 
-    expect(container.querySelector(".thinking-block")).not.toBeNull();
+    expect(container.querySelector("[data-thinking-block]")).not.toBeNull();
     expect(screen.getByText("Thinking")).toBeTruthy();
     expect(screen.getByLabelText("Expand thinking")).toBeTruthy();
-    expect(container.querySelector(".text-block-assistant")).toBeNull();
+    expect(container.querySelector("[data-text-block-assistant]")).toBeNull();
   });
 
   it("expands a collapsed thinking block from the timeline hit target", async () => {
@@ -95,10 +95,10 @@ describe("MessageList thinking rows", () => {
     );
 
     const thinkingBlock = container.querySelector<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     const dot = container.querySelector<HTMLElement>(
-      ".thinking-block .timeline-dot-btn",
+      "[data-thinking-block] [data-timeline-dot-btn]",
     );
     expect(thinkingBlock?.open).toBe(false);
     expect(dot).toBeTruthy();
@@ -115,7 +115,7 @@ describe("MessageList thinking rows", () => {
     );
 
     let thinkingBlocks = container.querySelectorAll<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     expect(thinkingBlocks).toHaveLength(0);
 
@@ -134,7 +134,7 @@ describe("MessageList thinking rows", () => {
     );
 
     thinkingBlocks = container.querySelectorAll<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     expect(thinkingBlocks).toHaveLength(1);
     expect(thinkingBlocks[0]?.open).toBe(true);
@@ -159,7 +159,7 @@ describe("MessageList thinking rows", () => {
     );
 
     thinkingBlocks = container.querySelectorAll<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     expect(thinkingBlocks).toHaveLength(2);
     expect(thinkingBlocks[0]?.open).toBe(true);
@@ -187,7 +187,7 @@ describe("MessageList thinking rows", () => {
     );
 
     const thinkingBlocks = container.querySelectorAll<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     expect(thinkingBlocks).toHaveLength(2);
     expect(thinkingBlocks[0]?.open).toBe(false);
@@ -216,7 +216,7 @@ describe("MessageList thinking rows", () => {
     );
 
     const thinkingBlock = container.querySelector<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     expect(thinkingBlock).not.toBeNull();
     expect(thinkingBlock?.open).toBe(true);
@@ -231,9 +231,9 @@ describe("MessageList thinking rows", () => {
       />,
     );
 
-    expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-      0,
-    );
+    expect(
+      container.querySelectorAll("details[data-thinking-block]"),
+    ).toHaveLength(0);
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -242,7 +242,7 @@ describe("MessageList thinking rows", () => {
     );
 
     const thinkingBlock = container.querySelector<HTMLDetailsElement>(
-      "details.thinking-block",
+      "details[data-thinking-block]",
     );
     expect(thinkingBlock).not.toBeNull();
     expect(thinkingBlock?.open).toBe(true);
@@ -270,8 +270,9 @@ describe("MessageList thinking rows", () => {
     );
 
     expect(
-      container.querySelector<HTMLDetailsElement>("details.thinking-block")
-        ?.open,
+      container.querySelector<HTMLDetailsElement>(
+        "details[data-thinking-block]",
+      )?.open,
     ).toBe(true);
 
     rerender(
@@ -289,8 +290,9 @@ describe("MessageList thinking rows", () => {
     );
 
     expect(
-      container.querySelector<HTMLDetailsElement>("details.thinking-block")
-        ?.open,
+      container.querySelector<HTMLDetailsElement>(
+        "details[data-thinking-block]",
+      )?.open,
     ).toBe(true);
 
     await act(async () => {
@@ -298,8 +300,9 @@ describe("MessageList thinking rows", () => {
     });
 
     expect(
-      container.querySelector<HTMLDetailsElement>("details.thinking-block")
-        ?.open,
+      container.querySelector<HTMLDetailsElement>(
+        "details[data-thinking-block]",
+      )?.open,
     ).toBe(true);
   });
 
@@ -314,9 +317,9 @@ describe("MessageList thinking rows", () => {
       />,
     );
 
-    expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-      2,
-    );
+    expect(
+      container.querySelectorAll("details[data-thinking-block]"),
+    ).toHaveLength(2);
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -324,9 +327,9 @@ describe("MessageList thinking rows", () => {
       }),
     );
 
-    expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-      0,
-    );
+    expect(
+      container.querySelectorAll("details[data-thinking-block]"),
+    ).toHaveLength(0);
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -334,9 +337,9 @@ describe("MessageList thinking rows", () => {
       }),
     );
 
-    expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-      2,
-    );
+    expect(
+      container.querySelectorAll("details[data-thinking-block]"),
+    ).toHaveLength(2);
   });
 
   it("hides and restores thinking transcript rows with Ctrl+O", async () => {
@@ -350,8 +353,20 @@ describe("MessageList thinking rows", () => {
       />,
     );
 
-    expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-      2,
+    expect(
+      container.querySelectorAll("details[data-thinking-block]"),
+    ).toHaveLength(2);
+
+    fireEvent.keyDown(window, {
+      key: "o",
+      code: "KeyO",
+      ctrlKey: true,
+    });
+
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll("details[data-thinking-block]"),
+      ).toHaveLength(0),
     );
 
     fireEvent.keyDown(window, {
@@ -361,21 +376,9 @@ describe("MessageList thinking rows", () => {
     });
 
     await waitFor(() =>
-      expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-        0,
-      ),
-    );
-
-    fireEvent.keyDown(window, {
-      key: "o",
-      code: "KeyO",
-      ctrlKey: true,
-    });
-
-    await waitFor(() =>
-      expect(container.querySelectorAll("details.thinking-block")).toHaveLength(
-        2,
-      ),
+      expect(
+        container.querySelectorAll("details[data-thinking-block]"),
+      ).toHaveLength(2),
     );
   });
 });

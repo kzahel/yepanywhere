@@ -1,3 +1,5 @@
+import btwStyles from "./BtwAsideTranscript.module.css";
+import listStyles from "./MessageList.module.css";
 import { type RefObject, useEffect, useMemo, useRef } from "react";
 import { useI18n } from "../i18n";
 import { parseComposerSlashCommand } from "../lib/slashCommands";
@@ -118,7 +120,11 @@ export function BtwAsideTranscript({
   }
 
   return (
-    <section className="btw-aside-transcript" aria-label="/btw transcript">
+    <section
+      className={btwStyles.btwAsideTranscript}
+      data-btw-aside-transcript
+      aria-label="/btw transcript"
+    >
       {turns.map((turn) => {
         const isLatestAssistant = turn.id === latestAssistantTurn?.id;
         return (
@@ -131,15 +137,24 @@ export function BtwAsideTranscript({
                   }
                 : undefined
             }
-            className={`btw-aside-turn btw-aside-turn-${turn.role} ${
-              turn.role === "assistant" ? "assistant-turn" : ""
-            } ${isLatestAssistant ? "is-latest-agent-turn" : ""}`}
+            className={`${btwStyles.btwAsideTurn} ${turn.role === "user" ? btwStyles.btwAsideTurnUser : btwStyles.btwAsideTurnAssistant} ${
+              turn.role === "assistant" ? listStyles.assistantTurn : ""
+            } ${isLatestAssistant ? `${btwStyles["is-latest-agent-turn"]}` : ""}`}
+            data-btw-aside-turn
+            data-btw-aside-turn-user={turn.role === "user" || undefined}
+            data-btw-aside-turn-assistant={!(turn.role === "user") || undefined}
+            data-assistant-turn={turn.role === "assistant" || undefined}
+            data-is-latest-agent-turn={isLatestAssistant || undefined}
+            data-btw-turn-role={turn.role}
           >
             {turn.role === "assistant" ? (
               <>
                 <TextBlock text={turn.text} />
                 {onTransferToComposer && (
-                  <div className="btw-aside-turn-extra-actions">
+                  <div
+                    className={btwStyles.btwAsideTurnExtraActions}
+                    data-btw-aside-turn-extra-actions
+                  >
                     <TransferTurnButton
                       text={turn.text}
                       role={turn.role}
@@ -249,7 +264,9 @@ export function BtwAsidePane({
     >
       <header className="session-btw-pane-header">
         <div className="session-btw-pane-meta">
-          <span className="btw-aside-meta">/btw {aside.status}</span>
+          <span className={btwStyles.btwAsideMeta} data-btw-aside-meta>
+            /btw {aside.status}
+          </span>
           <span className="session-btw-pane-title">
             {aside.request || "New aside"}
           </span>
@@ -257,7 +274,8 @@ export function BtwAsidePane({
         <div className="session-btw-pane-actions">
           <Button
             size="small"
-            className="btw-aside-action"
+            className={btwStyles.btwAsideAction}
+            data-btw-aside-action
             onClick={onHide}
             title={t("btwAsideMinimizeTitle")}
           >
@@ -266,7 +284,8 @@ export function BtwAsidePane({
           {canStop && onStop && (
             <Button
               size="small"
-              className="btw-aside-action"
+              className={btwStyles.btwAsideAction}
+              data-btw-aside-action
               onClick={onStop}
               title="Stop this /btw aside"
             >
@@ -275,7 +294,8 @@ export function BtwAsidePane({
           )}
           <Button
             size="small"
-            className="btw-aside-action"
+            className={btwStyles.btwAsideAction}
+            data-btw-aside-action
             onClick={() => onDone()}
             title={t("btwAsideDoneTitle")}
           >

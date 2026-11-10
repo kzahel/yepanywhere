@@ -76,7 +76,7 @@
   outline-offset: -2px;
 }
 
-:global(.timeline-item):has(> button.toggle[aria-expanded])::before {
+:global([data-timeline-item]):has(> button.toggle[aria-expanded])::before {
   display: block;
   top: -4px;
   height: 8px;
@@ -84,22 +84,24 @@
   animation: none;
 }
 
-:global(.timeline-item):has(> .toggle)::after {
+:global([data-timeline-item]):has(> .toggle)::after {
   top: 19px;
   bottom: -4px;
 }
 
 /* Keep three pixels of clear space around the visible ink in either state. */
-:global(.timeline-item):has(> button.toggle[aria-expanded="true"])::before {
+:global([data-timeline-item]):has(
+  > button.toggle[aria-expanded="true"]
+)::before {
   height: 12px;
 }
 
-:global(.timeline-item):has(> .toggle[aria-expanded="true"])::after {
+:global([data-timeline-item]):has(> .toggle[aria-expanded="true"])::after {
   top: 15px;
 }
 
-:global(.timeline-item):has(> button.toggle[aria-expanded])::before,
-:global(.timeline-item):has(> button.toggle[aria-expanded])::after {
+:global([data-timeline-item]):has(> button.toggle[aria-expanded])::before,
+:global([data-timeline-item]):has(> button.toggle[aria-expanded])::after {
   left: -8px;
   width: 1px;
   background: var(--timeline-line-color);

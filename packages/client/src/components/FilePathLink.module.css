@@ -1,15 +1,137 @@
+.fileRangeInline {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: 0.1rem 0;
+}
+
+.fileLinkButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.fileLineCount {
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.fileLinkInline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: text-decoration-color 0.15s;
+}
+
+.fileLineCountInline {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  text-decoration: none;
+}
+
+.filePathLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--link-color);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s;
+  font-family: var(--font-mono);
+}
+
+.filePathLinkName {
+  word-break: break-all;
+}
+
+.filePathLinkLine {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.filePathCopy {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.15rem;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: opacity 0.15s;
+}
+
+.fileLinkLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+  color: var(--link-color);
+}
+
 .paneViewer {
   height: 100%;
   min-width: 0;
   min-height: 0;
 }
-.paneViewer > :global(.file-viewer) {
-  height: 100%;
-}
 .nestedPaneViewer {
   position: absolute;
   inset: 0;
   z-index: 1;
+}
+
+.fileLineCountInline .filePathLink {
+  color: inherit;
+}
+
+.filePathLink:hover {
+  text-decoration-color: currentColor;
+}
+
+:global([data-explored-entry-summary]) .fileLinkInline {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+:global([data-explored-entry-path]) .filePathLink {
+  min-width: 0;
+  overflow: hidden;
+}
+
+:global([data-explored-entry-scope]) .filePathLink {
+  min-width: 0;
+  overflow: hidden;
+}
+
+:global([data-explored-entry-path]) .filePathLinkName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+:global([data-explored-entry-scope]) .filePathLinkName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+:global([data-explored-entry-range]) .filePathLink {
+  color: inherit;
+  font-family: inherit;
+  text-decoration-color: transparent;
+}
+.paneViewer > :global([data-file-viewer]) {
+  height: 100%;
 }
 
 .fileViewerModal.fileViewerModal {
@@ -22,7 +144,7 @@
   padding: 0;
 }
 
-.fileViewerModal :global(.file-viewer) {
+.fileViewerModal :global([data-file-viewer]) {
   height: 100%;
 }
 
@@ -31,12 +153,12 @@
   max-height: min(92vh, calc(100dvh - 0.75rem));
 }
 
-.fileViewerModalCompact :global(.file-viewer) {
+.fileViewerModalCompact :global([data-file-viewer]) {
   height: auto;
   max-height: inherit;
 }
 
-.fileViewerModalCompact :global(.file-viewer-body) {
+.fileViewerModalCompact :global([data-file-viewer-body]) {
   flex: 0 1 auto;
   max-height: calc(92vh - 3.25rem);
 }
@@ -46,7 +168,9 @@
     align-items: flex-end;
     padding: 0;
   }
+}
 
+@media (width <= 800px) {
   .fileViewerModal.fileViewerModal {
     width: 100dvw;
     max-width: 100dvw;
@@ -55,27 +179,47 @@
     border: none;
     border-radius: 0;
   }
+}
 
+@media (width <= 800px) {
   @supports (height: 100dvh) {
     .fileViewerModal.fileViewerModal {
       height: 100dvh;
       max-height: 100dvh;
     }
   }
+}
 
+@media (width <= 800px) {
   .fileViewerModalCompact.fileViewerModalCompact {
     height: auto;
     max-height: 100dvh;
   }
+}
 
-  .fileViewerModalCompact :global(.file-viewer-body) {
+@media (width <= 800px) {
+  .fileViewerModalCompact :global([data-file-viewer-body]) {
     max-height: calc(100dvh - 3.75rem);
   }
+}
 
-  .fileViewerModal :global(.file-viewer-body) {
+@media (width <= 800px) {
+  .fileViewerModal :global([data-file-viewer-body]) {
     box-sizing: border-box;
     padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
     scroll-padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+:global([data-session-viewer-layer]) .fileViewerModal {
+  height: 100%;
+  max-height: 100%;
+}
+
+@media (width <= 800px) {
+  :global([data-session-viewer-layer]) .fileViewerModal {
+    height: 100%;
+    max-height: 100%;
   }
 }
 
@@ -87,25 +231,17 @@
   padding: 0 0.375rem;
 }
 
-:global([data-session-viewer-layer]) .fileViewerModal {
-  height: 100%;
-  max-height: 100%;
-}
-
 @media (width <= 800px) {
   :global([data-session-viewer-layer])
     > [data-modal-overlay]:has(.fileViewerModal) {
     padding: 0;
   }
+}
 
-  :global([data-session-viewer-layer]) .fileViewerModal {
-    height: 100%;
-    max-height: 100%;
-  }
-
+@media (width <= 800px) {
   :global([data-session-viewer-layer])
     .fileViewerModal
-    :global(.file-viewer-body) {
+    :global([data-file-viewer-body]) {
     padding-bottom: 0;
     scroll-padding-bottom: 0;
   }

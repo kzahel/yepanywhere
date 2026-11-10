@@ -320,7 +320,7 @@ test("opens original interactive files through relay grants and a separate HTTPS
   // HTML opens in the confined static preview; the play toggle admits the
   // interactive grant through the relay rather than a direct API call.
   await page
-    .locator(".file-viewer-header")
+    .locator("[data-file-viewer-header]")
     .getByRole("button", { name: "Run full HTML/CSS/JavaScript preview" })
     .click();
   await expect(
@@ -578,7 +578,9 @@ test("keeps the mobile session mounted through artifact open, park, and Back", a
   expect(artifactRequests).toHaveLength(idleRequests);
   const sessionNode = await page.locator(".session-page").elementHandle();
   const composerNode = await composer.elementHandle();
-  const transcriptNode = await page.locator(".message-list").elementHandle();
+  const transcriptNode = await page
+    .locator("[data-message-list]")
+    .elementHandle();
   const problems: string[] = [];
   page.on("pageerror", (error) => problems.push(error.message));
   const documents: string[] = [];
@@ -662,7 +664,7 @@ test("keeps the mobile session mounted through artifact open, park, and Back", a
     ).toBe(true);
     expect(
       await transcriptNode?.evaluate(
-        (node) => node === document.querySelector(".message-list"),
+        (node) => node === document.querySelector("[data-message-list]"),
       ),
     ).toBe(true);
     await expect(composer).toHaveValue("Keep this draft and mounted session");
