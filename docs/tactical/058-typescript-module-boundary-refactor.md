@@ -5164,3 +5164,18 @@ parameter conversion. Plan 163 records Tier 1/2 and SDK timer-tripwire evidence.
 Client E2E is unnecessary for this slice: no route registration, UI or wire
 contract changes; unchanged route tests exercise both HTTP callers. Cleanup
 of refused/thrown dispatch is a separate behavior fix, outside the move.
+
+
+### Session metadata refresh boundary — 2026-11-10
+
+Move the existing creation/child metadata merge and child comparison from
+`useSessionMessages` to `lib/sessionDetail/sessionMetadataRefresh.ts`, passing
+the previous and incoming snapshots explicitly. This slice preserves behavior;
+the router startup-display correction follows separately. Lower the hook's
+source budget to retain the freed space.
+
+The move passed all 67 cache-hook tests before behavior changes. Final focused
+hook, route and startup browser checks cover the following correction. Use that
+bounded browser case in place of the full browser suite: this slice changes no
+rendering, transcript, transport or lifecycle behavior. Workspace-wide checks
+retain the concurrent-edit limitations reported with the correction.

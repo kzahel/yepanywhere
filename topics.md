@@ -492,3 +492,5 @@
 
 - css-ownership-and-leak-closure - Plan 191: exact dead-class detection, shared
   controls that own their look, type and radius tokens, and draining global CSS.
+
+- agent-auth-router-startup-display - Keep the session account display current through startup without a new capability.

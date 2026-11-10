@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { PaginationInfo } from "../api/client";
+import { mergeSessionMetadataRefresh } from "../lib/sessionDetail/sessionMetadataRefresh";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { createFinalMarkdownAugmentAction } from "../lib/sessionDetail/actionAdapters";
@@ -78,29 +79,6 @@ import {
   selectFurthestSessionScrollMemory,
   writeSessionScrollMemory,
 } from "../lib/sessionScrollMemoryStorage";
-
-function sameProviderChildren(
-  left: SessionMetadata["providerChildren"],
-  right: NonNullable<SessionMetadata["providerChildren"]>,
-): boolean {
-  return (
-    left === right ||
-    (!!left &&
-      left.length === right.length &&
-      left.every((child, index) => {
-        const next = right[index]!;
-        return (
-          child.id === next.id &&
-          child.parentSessionId === next.parentSessionId &&
-          child.title === next.title &&
-          child.agentType === next.agentType &&
-          child.toolUseId === next.toolUseId &&
-          child.spawnDepth === next.spawnDepth &&
-          child.updatedAt === next.updatedAt
-        );
-      }))
-  );
-}
 
 /** Result from initial session load */
 export type SessionLoadResult = SessionDetailLoadCompleteResult;
@@ -663,23 +641,9 @@ export function useSessionMessages(
           metadataRefresh.pendingRequested = true;
           return;
         }
-        const { creation, providerChildren } = data.session;
-        updateSession((prev) => {
-          if (!prev) return prev;
-          const creationChanged =
-            creation !== undefined &&
-            JSON.stringify(creation) !== JSON.stringify(prev.creation);
-          const childrenChanged =
-            providerChildren !== undefined &&
-            !sameProviderChildren(prev.providerChildren, providerChildren);
-          return creationChanged || childrenChanged
-            ? {
-                ...prev,
-                ...(creationChanged ? { creation } : {}),
-                ...(childrenChanged ? { providerChildren } : {}),
-              }
-            : prev;
-        });
+        updateSession((prev) =>
+          mergeSessionMetadataRefresh(prev, data.session),
+        );
       } catch {
         // Retain accepted fields on unavailable/older server responses.
       }

@@ -46,7 +46,7 @@
       "maxLines": 2808
     },
     "packages/client/src/hooks/useSessionMessages.ts": {
-      "maxLines": 1805
+      "maxLines": 1769
     },
     "packages/client/src/lib/clientSummaryState.ts": {
       "maxLines": 2222
