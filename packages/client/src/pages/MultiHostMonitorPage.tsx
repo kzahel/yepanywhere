@@ -1,3 +1,4 @@
+import styles from "./MultiHostMonitorPage.module.css";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import { Badge, type BadgeTone } from "../components/ui/Badge";
@@ -11,6 +12,20 @@ import {
   type MultiHostMonitorHostSnapshot,
   type MultiHostMonitorHostState,
 } from "../lib/multiHostMonitor";
+
+const CARD_CLASSES = {
+  connecting: "",
+  connected: styles.cardConnected,
+  offline: styles.cardOffline,
+  "sign-in-required": styles.cardSignInRequired,
+};
+
+const STATUS_CLASSES = {
+  connecting: styles.statusConnecting,
+  connected: styles.statusConnected,
+  offline: styles.statusOffline,
+  "sign-in-required": styles.statusSignInRequired,
+};
 
 const STATUS_TONES: Record<MultiHostMonitorHostState, BadgeTone> = {
   connecting: "info",
@@ -58,20 +73,20 @@ function HostMonitorCard({
 
   return (
     <article
-      className={`multi-host-card multi-host-card--${host.state}`}
+      className={`${styles.card} ${CARD_CLASSES[host.state]}`}
       data-host-name={host.displayName}
       data-host-state={host.state}
     >
-      <header className="multi-host-card-header">
-        <div className="multi-host-card-identity">
+      <header className={styles.cardHeader}>
+        <div className={styles.cardIdentity}>
           <span
-            className={`multi-host-status multi-host-status--${host.state}`}
+            className={`${styles.status} ${STATUS_CLASSES[host.state]}`}
             aria-hidden="true"
           />
           <div>
             <h2>{host.displayName}</h2>
             {host.relayUsername && (
-              <p className="multi-host-card-endpoint">{host.relayUsername}</p>
+              <p className={styles.cardEndpoint}>{host.relayUsername}</p>
             )}
           </div>
         </div>
@@ -82,7 +97,7 @@ function HostMonitorCard({
 
       {host.state === "connected" && summary ? (
         <>
-          <dl className="multi-host-metrics">
+          <dl className={styles.metrics}>
             <div>
               <dt>{t("multiHostMonitorActiveAgents")}</dt>
               <dd>{summary.activeAgentCount}</dd>
@@ -92,7 +107,7 @@ function HostMonitorCard({
               <dd>{summary.needsAttentionCount}</dd>
             </div>
           </dl>
-          <div className="multi-host-sessions">
+          <div className={styles.sessions}>
             <h3>{t("multiHostMonitorRecentSessions")}</h3>
             {summary.sessions.length > 0 ? (
               <ul>
@@ -112,14 +127,14 @@ function HostMonitorCard({
                 })}
               </ul>
             ) : (
-              <p className="multi-host-empty-sessions">
+              <p className={styles.emptySessions}>
                 {t("multiHostMonitorNoSessions")}
               </p>
             )}
           </div>
         </>
       ) : (
-        <div className="multi-host-card-action">
+        <div className={styles.cardAction}>
           {host.state === "offline" && (
             <Button onClick={() => controller.retryHost(host.hostId)}>
               {t("multiHostMonitorRetry")}
@@ -155,25 +170,21 @@ export function MultiHostMonitorPage() {
   }, [controller]);
 
   return (
-    <main className="multi-host-page" data-testid="multi-host-monitor">
-      <div className="multi-host-shell">
-        <header className="multi-host-page-header">
-          <Link
-            className="multi-host-brand"
-            to="/login"
-            aria-label="Yep Anywhere"
-          >
-            <YepAnywhereLogo />
+    <main className={styles.page} data-testid="multi-host-monitor">
+      <div className={styles.shell}>
+        <header className={styles.pageHeader}>
+          <Link className={styles.brand} to="/login" aria-label="Yep Anywhere">
+            <YepAnywhereLogo variant="monitor" />
           </Link>
-          <div className="multi-host-heading">
-            <div className="multi-host-title-row">
+          <div className={styles.heading}>
+            <div className={styles.titleRow}>
               <h1>{t("multiHostMonitorTitle")}</h1>
               <span>{t("multiHostMonitorExperimental")}</span>
             </div>
             <p>{t("multiHostMonitorDescription")}</p>
           </div>
           <Link
-            className={buttonClassName({ className: "multi-host-back" })}
+            className={buttonClassName({ className: styles.back })}
             to="/login"
           >
             {t("multiHostMonitorBack")}
@@ -183,7 +194,7 @@ export function MultiHostMonitorPage() {
         {snapshot.selectedCount > 0 ? (
           <>
             <p
-              className="multi-host-connection-count"
+              className={styles.connectionCount}
               data-testid="multi-host-connected-count"
             >
               {t("multiHostMonitorConnectedCount", {
@@ -192,7 +203,7 @@ export function MultiHostMonitorPage() {
               })}
             </p>
             <section
-              className="multi-host-grid"
+              className={styles.grid}
               aria-label={t("multiHostMonitorTitle")}
             >
               {snapshot.hosts.map((host) => (
@@ -205,7 +216,7 @@ export function MultiHostMonitorPage() {
             </section>
           </>
         ) : (
-          <section className="multi-host-empty">
+          <section className={styles.empty}>
             <h2>{t("multiHostMonitorEmptyTitle")}</h2>
             <p>{t("multiHostMonitorEmptyDescription")}</p>
             <Link className={buttonClassName()} to="/login">

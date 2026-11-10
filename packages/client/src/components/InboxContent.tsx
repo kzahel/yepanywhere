@@ -1,3 +1,4 @@
+import listStyles from "./SessionListLayout.module.css";
 import {
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
   SESSION_CREATION_PROVENANCE_CAPABILITY,
@@ -338,7 +339,7 @@ function InboxSection({
       {isEmpty ? (
         <p className={styles.sectionEmptyMessage}>{t("inboxNoSessions")}</p>
       ) : (
-        <ul className="sessions-list">
+        <ul className={listStyles.list}>
           {projectQueueItems.map((item) => (
             <InboxProjectQueueItem
               key={item.id}

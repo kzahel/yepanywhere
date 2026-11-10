@@ -1,3 +1,4 @@
+import styles from "./LoginLayout.module.css";
 import { mutateResumeCredentials } from "../lib/rejectedResumeStorage";
 /**
  * RelayLoginPage - Login form for remote access via relay server.
@@ -177,13 +178,13 @@ export function RelayLoginPage() {
   // If auto-resume is in progress, show a loading screen
   if (isAutoResuming) {
     return (
-      <div className="login-page">
-        <div className="login-container">
-          <div className="login-logo">
-            <YepAnywhereLogo />
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.logo}>
+            <YepAnywhereLogo variant="login" />
           </div>
-          <p className="login-subtitle">{t("reconnecting")}</p>
-          <div className="login-loading" data-testid="auto-resume-loading">
+          <p className={styles.subtitle}>{t("reconnecting")}</p>
+          <div className={styles.loading} data-testid="auto-resume-loading">
             <Spinner size="large" />
           </div>
         </div>
@@ -287,20 +288,20 @@ export function RelayLoginPage() {
   const statusMessage = getStatusMessage(status, t);
 
   return (
-    <div className="login-page">
-      <div className="login-container">
-        <Link to="/login" className="login-back-link">
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <Link to="/login" className={styles.backLink}>
           &larr; {t("actionBack")}
         </Link>
 
-        <div className="login-logo">
-          <YepAnywhereLogo />
+        <div className={styles.logo}>
+          <YepAnywhereLogo variant="login" />
         </div>
-        <p className="login-subtitle">{t("relayLoginTitle")}</p>
+        <p className={styles.subtitle}>{t("relayLoginTitle")}</p>
 
         <form
           onSubmit={handleSubmit}
-          className="login-form"
+          className={styles.form}
           data-testid="relay-login-form"
         >
           {/* Keep the computer name as the saved login's username, including
@@ -346,7 +347,7 @@ export function RelayLoginPage() {
           />
 
           <ButtonBase
-            className="login-advanced-toggle"
+            className={styles.advancedToggle}
             onClick={() => setShowAdvanced(!showAdvanced)}
             disabled={isConnecting}
           >
@@ -394,7 +395,7 @@ export function RelayLoginPage() {
           )}
 
           {previewRelayHost && (
-            <p className="login-relay-preview" data-testid="relay-host-preview">
+            <p className={styles.relayPreview} data-testid="relay-host-preview">
               {t("relayLoginRelayHostPreview", { host: previewRelayHost })}
             </p>
           )}
@@ -406,7 +407,7 @@ export function RelayLoginPage() {
           )}
 
           {isConnecting && statusMessage && (
-            <div className="login-status" data-testid="connection-status">
+            <div className={styles.status} data-testid="connection-status">
               <Spinner />
               <span>{statusMessage}</span>
             </div>
@@ -422,7 +423,7 @@ export function RelayLoginPage() {
           </Button>
         </form>
 
-        <p className="login-hint">{t("relayLoginHint")}</p>
+        <p className={styles.hint}>{t("relayLoginHint")}</p>
       </div>
     </div>
   );

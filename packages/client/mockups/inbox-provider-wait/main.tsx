@@ -1,3 +1,4 @@
+import listStyles from "../../src/components/SessionListLayout.module.css";
 import type {
   ProviderWorkItem,
   SessionProviderPhase,
@@ -369,7 +370,7 @@ function Section({
         <span className={inboxStyles.sectionCount}>{rows.length}</span>
       </h2>
       {note && <p className={styles.sectionNote}>{note}</p>}
-      <ul className="sessions-list">
+      <ul className={listStyles.list}>
         {rows.map((row) => (
           <Row key={row.id} row={row} now={now} showMark={showMark} />
         ))}

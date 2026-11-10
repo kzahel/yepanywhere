@@ -43,7 +43,7 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; steps 1–5 landed, step 6 implemented) closes the leaks around shared
+2026-11-10; steps 1–6 landed, step 7 landing by area) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
 that still list swept work. `controls:check` now enforces caller-class ownership
@@ -58,6 +58,9 @@ HTML. `index.css` remains the common ordered import entry plus legacy React
 rules; `renderers.css` and `tool-rows.css` also drain to zero. The playground
 reads token data from `tokens.css`; generated-content wrappers retain counted
 context exceptions ([global contract](css-architecture.md#contract)).
+Login pages share `LoginLayout.module.css`; host/monitor/share pages and relay
+setup own modules. `YepAnywhereLogo` owns its login/monitor variants; callers
+do not reach into its glyph or wordmark. These ownership moves preserve appearance.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 

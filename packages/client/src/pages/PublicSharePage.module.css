@@ -1,0 +1,180 @@
+.page {
+  --public-share-header-height: 45px;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: var(--public-share-header-height);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.header {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  height: var(--public-share-header-height);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.headerInner {
+  min-height: var(--public-share-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0.5rem 1rem;
+}
+
+.headerLeft {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.titleRow {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: inherit;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project {
+  display: inline-flex;
+  align-items: center;
+  max-width: 12rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brandWordmark {
+  --brand-wordmark-size: 14px;
+  flex-shrink: 0;
+}
+
+.headerActions {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.caution {
+  margin: var(--space-3) var(--space-4) 0;
+}
+
+.scroll :global(.message-list) {
+  min-height: 100%;
+  overflow: visible;
+  padding: var(--space-4);
+}
+
+.floatingControls {
+  position: fixed;
+  right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+  z-index: 19;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.floatingControls .conversationToggle,
+.floatingControls :global(.message-follow-toggle) {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
+.preview {
+  padding: var(--space-4);
+}
+
+.notice {
+  margin: var(--space-4) var(--space-4) 0;
+}
+
+.previewText {
+  color: var(--text-primary);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.fetchStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.errorInline,
+.empty {
+  margin: var(--space-4);
+}
+
+.empty {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (width <= 600px) {
+  .header {
+    border-bottom-color: var(--border-subtle);
+  }
+  .headerInner {
+    gap: var(--space-2);
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+@media (width <= 600px) {
+  .headerLeft {
+    gap: var(--space-2);
+  }
+  .project {
+    max-width: 7rem;
+  }
+}
+
+@media (width <= 600px) {
+  .headerActions {
+    gap: var(--space-1);
+  }
+  .floatingControls {
+    right: max(var(--space-3), env(safe-area-inset-right, 0px));
+    bottom: max(var(--space-3), env(safe-area-inset-bottom, 0px));
+  }
+}

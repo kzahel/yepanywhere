@@ -52,7 +52,7 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
     ["text", ".text-block", ".text-block-quote-fallback"],
     ["edit", ".diff-view-container", ".diff-copy-button"],
     ["app", "[class*=title]", "[class*=copyPath]"],
-    ["host", ".host-picker-item", ".host-picker-delete"],
+    ["host", '[data-reveal-row="host"]', '[aria-label="Delete host"]'],
     ["menu", "[class*=rowSurface]", "[class*=trigger]"],
     ["last", "[data-site=last]", "[class*=reopen]"],
   ];

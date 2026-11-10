@@ -33,6 +33,11 @@ names in `bannedClasses`. Recording exception counts never removes those bans.
 Step 6 separates the three continuing global purposes from the remaining
 React-owned legacy rules. `index.css` remains the shared import entry; it no
 longer owns tokens or document defaults. No rendered styles change.
+Step 7 has landed single-owner pages: login layout, session-list layout and
+connection pulse reuse have one shared module each; logo sizes are owned
+variants. Public-share transcript reach-ins remain narrowly scoped in its
+module until the transcript owner drains. The legacy global pulse still
+controls tool rows and must retain its current winning keyframes until then.
 
 The target:
 

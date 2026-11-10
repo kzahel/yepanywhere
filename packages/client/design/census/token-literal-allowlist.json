@@ -107,6 +107,10 @@
     "count": 3,
     "reason": "Source-code typography follows the user-selected source font size and offset, including diff gutters."
   },
+  "pages/MultiHostMonitorPage.module.css": {
+    "count": 1,
+    "reason": "Move-only monitor heading keeps its fixed 20px size; no matching type token, and scaled tokens would change its rendering."
+  },
   "pages/ProviderSignInPage.module.css": {
     "count": 1,
     "reason": "12px sign-in card corners; no matching radius token."

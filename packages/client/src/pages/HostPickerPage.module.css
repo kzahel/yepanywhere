@@ -1,0 +1,107 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  width: 100%;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+
+.item:disabled {
+  cursor: wait;
+}
+
+.itemMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.status {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.statusOnline {
+  background: var(--success-color);
+}
+
+.statusOffline {
+  background: var(--error-color);
+}
+
+.statusChecking {
+  composes: pulse from "../components/ConnectionPulse.module.css";
+  background: var(--text-muted);
+}
+
+.statusUnknown {
+  background: var(--text-muted);
+}
+
+.name {
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.mode {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.itemMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: calc(
+    8px +
+    var(--space-2)
+  ); /* Align with name after status dot */
+}
+
+.lastConnected {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.delete {
+  opacity: 0;
+}
+
+.item:hover .delete,
+.delete:focus-visible {
+  opacity: 1;
+}
+
+.connecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  opacity: 0.9;
+}
+
+.addTitle {
+  margin-top: var(--space-4);
+}

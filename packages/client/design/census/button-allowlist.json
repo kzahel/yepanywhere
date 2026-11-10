@@ -410,13 +410,13 @@
       "count": 4,
       "reason": "Composer (the session input and new-session form): its own later pass."
     },
-    "styles/index.css": {
-      "count": 8,
-      "reason": "The composer's textareas and steer-row toggle (composer pass)."
-    },
     "styles/base.css": {
       "count": 1,
       "reason": "Document-level native form controls inherit the UI font before their owning module chooses typography; this is the continuing base inheritance default."
+    },
+    "styles/index.css": {
+      "count": 8,
+      "reason": "The composer's textareas and steer-row toggle (composer pass)."
     }
   },
   "tabRoles": {},

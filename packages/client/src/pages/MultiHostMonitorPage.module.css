@@ -1,0 +1,255 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(var(--space-4), 4vw, calc(var(--space-4) * 2));
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+
+.shell {
+  width: min(100%, 72rem);
+  margin: 0 auto;
+}
+
+.pageHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding-bottom: calc(var(--space-4) + var(--space-1));
+  border-bottom: 1px solid var(--border-color);
+}
+
+.brand {
+  display: flex;
+  color: inherit;
+}
+
+.heading h1,
+.card h2,
+.card h3,
+.empty h2 {
+  margin: 0;
+}
+
+.titleRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.titleRow h1 {
+  font-size: 20px;
+}
+
+.titleRow span {
+  padding: 0.3rem 0.5rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+.heading > p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.connectionCount {
+  margin: calc(var(--space-4) + var(--space-1)) 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.card {
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.cardConnected {
+  border-color: color-mix(
+    in srgb,
+    var(--success-color) 35%,
+    var(--border-color)
+  );
+}
+
+.cardOffline,
+.cardSignInRequired {
+  border-color: color-mix(in srgb, var(--error-color) 25%, var(--border-color));
+}
+
+.cardHeader,
+.cardIdentity {
+  display: flex;
+  align-items: center;
+}
+
+.cardHeader {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cardIdentity {
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.card h2 {
+  overflow: hidden;
+  font-size: var(--font-size-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardEndpoint {
+  margin: 0.2rem 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  background: var(--text-muted);
+  border-radius: var(--radius-full);
+}
+
+.statusConnecting {
+  composes: pulse from "../components/ConnectionPulse.module.css";
+}
+
+.statusConnected {
+  background: var(--success-color);
+}
+
+.statusOffline,
+.statusSignInRequired {
+  background: var(--error-color);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+.metrics > div {
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.metrics dt {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.metrics dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.sessions h3 {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sessions ul {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sessions li {
+  overflow: hidden;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessions a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.sessions a:hover {
+  color: var(--link-color);
+}
+
+.emptySessions {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.cardAction {
+  display: flex;
+  min-height: 7rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty {
+  max-width: 30rem;
+  margin: 15vh auto 0;
+  padding: calc(var(--space-4) + var(--space-2));
+  text-align: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.empty p {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--text-muted);
+}
+
+@media (width <= 40rem) {
+  .page {
+    padding: var(--space-3);
+  }
+  .pageHeader {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+}
+
+@media (width <= 40rem) {
+  .pageHeader > .back {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+  .heading > p {
+    display: none;
+  }
+}
+
+@media (width <= 40rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .card {
+    padding: var(--space-3);
+  }
+}

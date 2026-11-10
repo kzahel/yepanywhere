@@ -2,7 +2,7 @@
 
 Topic: css-architecture
 
-Status: steps 1–5 landed 2026-11-10; step 6 implemented 2026-11-10 for review.
+Status: steps 1–6 landed 2026-11-10; step 7 is landing by area.
 Steps 7–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
@@ -196,7 +196,7 @@ generated-markup/specialized exceptions, whose closure conditions remain visible
 
 ### 6 — split the global stylesheets by purpose
 
-Implemented 2026-11-10 for review; move-only, with all declarations preserved.
+Landed 2026-11-10; move-only, with all declarations preserved.
 `tokens.css` 886 lines, `base.css` 92, `generated.css` 803; provider colors fold
 into tokens and EmulatorStream's video moves to its 8-line module.
 Legacy ceilings: index 10,708 → 9,829; renderers 4,922 → 4,063; tool rows 670.
@@ -211,18 +211,17 @@ media/fallback-diff vocabulary, to preserve their cascade and ownership.
 
 ### 7 — drain the legacy stylesheets by owner
 
-Using `pnpm css:inventory`, move each owner's rules into its module, one
-area per commit, following the existing
-[migration runbook](../../topics/css-architecture.md#migration-runbook).
-Order: single-owner pages first (`MultiHostMonitorPage`, `PublicSharePage`),
-then settings, source control and file viewing, session list and sidebar,
-transcript blocks and tool renderers, session page chrome, and the composer
-last. Coupled rules are resolved by giving the shared piece one owner
-(a component, or a shared module composed by its users), not by leaving it
-global.
-
-Each area's commit records the new ceilings. An area that cannot move
-safely is recorded here with its reason instead of being forced.
+Landing by area, in the maintainer's order; composer moves unchanged last.
+- Single-owner pages landed 2026-11-10: monitor, public share, RemoteAccessSetup,
+  five login/host pages and logo; shared login/list/pulse modules own reuse.
+  Legacy lines remaining: index 8,929; renderers 4,063; tool rows 670 (13,662).
+  Token exceptions: 86 / 34 files; runtime families: 45; unused globals: zero.
+- Deferred within area 1: shared settings hints move with settings; public-share
+  transcript interop moves with transcript. Global pulse remains because legacy
+  tool rows consume its later definition. Existing login-hint defect stays
+  unchanged ([gap](../../gaps/login-recovery-hint-unstyled.md)).
+- Next: settings/onboarding, source viewing/review, collections/navigation,
+  shared shell/modals, transcript, session chrome, composer; one commit per area.
 
 ### 8 — ban string class names in drained owners
 

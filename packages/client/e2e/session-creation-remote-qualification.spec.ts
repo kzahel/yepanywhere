@@ -127,7 +127,7 @@ test("phone-width relay interruption recovers the accepted session without a sec
     await page.getByTestId("relay-mode-button").click();
     await page.getByTestId("relay-username-input").fill(credentials.username);
     await page.getByTestId("srp-password-input").fill(credentials.password);
-    await page.locator(".login-advanced-toggle").click();
+    await page.getByRole("button", { name: /advanced/i }).click();
     await page.getByTestId("custom-relay-url-input").fill(credentials.relayUrl);
     await page.getByTestId("login-button").click();
     await expect(page).toHaveURL(

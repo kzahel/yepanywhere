@@ -1,3 +1,4 @@
+import styles from "./PublicSharePage.module.css";
 import {
   DEFAULT_RELAY_URL,
   sanitizeSessionTitle,
@@ -544,26 +545,23 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
     ) : null;
 
   return (
-    <main className="public-share-page">
-      <header className="public-share-header">
-        <div className="public-share-header-inner">
-          <div className="public-share-header-left">
-            <BrandWordmark
-              variant="full"
-              className="public-share-brand-wordmark"
-            />
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <div className={styles.headerLeft}>
+            <BrandWordmark variant="full" className={styles.brandWordmark} />
             {projectName && (
-              <span className="public-share-project" title={projectName}>
+              <span className={styles.project} title={projectName}>
                 {projectName}
               </span>
             )}
-            <div className="public-share-title-row">
-              <h1 className="public-share-title">
+            <div className={styles.titleRow}>
+              <h1 className={styles.title}>
                 {title ?? t("publicShareUntitled")}
               </h1>
             </div>
           </div>
-          <div className="public-share-header-actions">
+          <div className={styles.headerActions}>
             {mode === "live" && activeViewerCount !== null && (
               <ViewerCountIndicator
                 className="public-share-viewer-count"
@@ -581,14 +579,14 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
           </div>
         </div>
       </header>
-      <section className="public-share-scroll">
+      <section className={styles.scroll} data-public-share-scroll>
         {cautionLabel && (
-          <Banner tone="warning" role="note" className="public-share-caution">
+          <Banner tone="warning" role="note" className={styles.caution}>
             {cautionLabel}
           </Banner>
         )}
         {mode === "frozen" && linkedFileMode === "live" && (
-          <Banner tone="warning" role="note" className="public-share-caution">
+          <Banner tone="warning" role="note" className={styles.caution}>
             {t("publicShareFrozenLinkedFilesLiveWarning")}
           </Banner>
         )}
@@ -596,26 +594,26 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
           <SchemaValidationProvider>
             <StreamingMarkdownProvider>
               {linkNotice && (
-                <Banner className="public-share-notice">{linkNotice}</Banner>
+                <Banner className={styles.notice}>{linkNotice}</Banner>
               )}
               {error && !retrying && !share ? (
-                <Banner tone="error" className="public-share-error--inline">
+                <Banner tone="error" className={styles.errorInline}>
                   {error}
                 </Banner>
               ) : messageContent ? (
                 messageContent
               ) : initialPromptPreview ? (
-                <div className="public-share-preview">
-                  <div className="public-share-preview-text">
+                <div className={styles.preview}>
+                  <div className={styles.previewText}>
                     {initialPromptPreview}
                   </div>
-                  <div className="public-share-fetch-status" role="status">
+                  <div className={styles.fetchStatus} role="status">
                     <Spinner size="small" />
                     {loadStatusLabel}
                   </div>
                 </div>
               ) : (
-                <div className="public-share-empty">
+                <div className={styles.empty}>
                   {isFetching && <Spinner size="small" />}
                   {loadStatusLabel}
                 </div>
@@ -626,12 +624,12 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
       </section>
       {messageContent && (
         <div
-          className="public-share-floating-controls"
+          className={styles.floatingControls}
           ref={setFloatingControlsElement}
         >
           <IconButton
             elevated
-            className="public-share-conversation-toggle"
+            className={styles.conversationToggle}
             onClick={() => setConversationViewEnabled((enabled) => !enabled)}
             label={
               conversationViewEnabled

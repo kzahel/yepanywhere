@@ -1,3 +1,4 @@
+import hostStyles from "../../src/pages/HostPickerPage.module.css";
 import { Corrections } from "./control-corrections";
 import { type ReactNode, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -165,9 +166,8 @@ function Fixture() {
         </div>
       </Site>
       <Site name="host">
-        <div className="host-picker-item">
-          Saved host{" "}
-          <Action name="Delete host" className="host-picker-delete" />
+        <div className={hostStyles.item} data-reveal-row="host">
+          Saved host <Action name="Delete host" className={hostStyles.delete} />
         </div>
       </Site>
       <Site name="menu">

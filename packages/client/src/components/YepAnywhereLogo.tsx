@@ -1,3 +1,4 @@
+import styles from "./YepAnywhereLogo.module.css";
 import { useId } from "react";
 import { BrandWordmark } from "./BrandWordmark";
 
@@ -61,6 +62,7 @@ export function YepAnywhereGlyph({
  */
 
 interface YepAnywhereLogoProps {
+  variant?: "default" | "login" | "monitor";
   /** Show compact version (icon + text) vs just text */
   showIcon?: boolean;
   /** Additional className for styling */
@@ -68,14 +70,17 @@ interface YepAnywhereLogoProps {
 }
 
 export function YepAnywhereLogo({
+  variant = "default",
   showIcon = true,
   className = "",
 }: YepAnywhereLogoProps) {
   return (
-    <span className={`yep-anywhere-logo ${className}`}>
-      {showIcon && <YepAnywhereGlyph className="yep-anywhere-logo-icon" />}
-      <span className="yep-anywhere-logo-text">
-        <BrandWordmark variant="full" />
+    <span
+      className={`${styles.root} ${variant === "login" ? styles.login : variant === "monitor" ? styles.monitor : ""} ${className}`}
+    >
+      {showIcon && <YepAnywhereGlyph className={styles.icon} />}
+      <span className={styles.text}>
+        <BrandWordmark variant="full" className={styles.wordmark} />
       </span>
     </span>
   );

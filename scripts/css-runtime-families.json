@@ -75,16 +75,6 @@
     "reason": "Recap mode interpolated into the root class."
   },
   {
-    "pattern": "^host-picker-status-(online|offline|checking|unknown)$",
-    "source": "packages/client/src/pages/HostPickerPage.tsx",
-    "reason": "Host status interpolated into the status dot."
-  },
-  {
-    "pattern": "^multi-host-(card|status)--(connecting|connected|offline|sign-in-required)$",
-    "source": "packages/client/src/pages/MultiHostMonitorPage.tsx",
-    "reason": "Host state interpolated into monitor card and status classes."
-  },
-  {
     "pattern": "^theme-preview-(auto|light|dark|verydark)$",
     "source": "packages/client/src/components/onboarding/steps/ThemeStep.tsx",
     "reason": "Theme name interpolated into preview tiles."

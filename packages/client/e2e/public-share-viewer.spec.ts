@@ -174,7 +174,7 @@ for (const viewport of [
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
     });
-    await page.locator(".public-share-scroll").evaluate((node) => {
+    await page.locator("[data-public-share-scroll]").evaluate((node) => {
       node.scrollTop = node.scrollHeight - node.clientHeight - 12;
     });
     const summary = page.locator(".conversation-activity-summary");
