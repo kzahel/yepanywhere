@@ -5221,3 +5221,16 @@ conversion rules with full-projection row positions, without reselecting a
 partial forest. Sol 6.1 high/bypass review verified the original bodies.
 The frozen normalizer shrinks from 2,451 to 2,339 lines. Focused normalization
 and broader checks are recorded with the bounded-reader implementation evidence.
+
+### Plan 190 preparation — reader cache admission
+
+2026-11-10: move the existing `getOrCreateReader` closure from `app.ts`
+into `sessions/session-reader-admission.ts`, with the LRU map, 500-reader
+limit and retirement callback explicit. Lookup, recency, insertion, eviction
+and asynchronous retirement are unchanged. No route, public facade or timing
+policy changes. Exact body comparison and Sol 6.1 high/bypass static review
+confirm preservation. Shared build, root lint/types and focused app/native
+allocation/standalone tests pass; full-suite qualifications are recorded in
+the durable Claude index research and plan 190 log. This is a Tier 2 seam;
+no route registration, auth, transport or browser boundary moves. App budget
+4,590 → 4,573; subsequent wiring stays within that ratchet.

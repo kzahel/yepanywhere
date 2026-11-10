@@ -1,3 +1,4 @@
+import { createSessionReaderAdmission } from "./sessions/session-reader-admission.js";
 import {
   agentApiCallerLaunch,
   effectiveGlobalInstructions,
@@ -168,7 +169,7 @@ import type {
   SessionDiscoveryIndexRegistry,
   SessionIndexService,
 } from "./indexes/index.js";
-import { createLruMap, refreshLruMap } from "./lib/lruCollections.js";
+import { createLruMap } from "./lib/lruCollections.js";
 import type {
   ProjectMetadataService,
   SessionMetadataService,
@@ -1896,29 +1897,11 @@ export function createApp(options: AppOptions): AppResult {
     return sessionReadersDisposal;
   };
 
-  const getOrCreateReader = <T extends ISessionReader>(
-    key: string,
-    factory: () => T,
-  ): T => {
-    const cached = readerCache.get(key);
-    if (cached) {
-      refreshLruMap(readerCache, key, cached);
-      return cached as T;
-    }
-
-    const reader = factory();
-    readerCache.set(key, reader);
-
-    while (readerCache.size > maxReaderCacheSize) {
-      const oldestKey = readerCache.keys().next().value;
-      if (!oldestKey) break;
-      const oldestReader = readerCache.get(oldestKey);
-      readerCache.delete(oldestKey);
-      if (oldestReader) void closeReader(oldestKey, oldestReader);
-    }
-
-    return reader;
-  };
+  const getOrCreateReader = createSessionReaderAdmission(
+    readerCache,
+    maxReaderCacheSize,
+    closeReader,
+  );
 
   /**
    * Create a session reader appropriate for the project's provider.
