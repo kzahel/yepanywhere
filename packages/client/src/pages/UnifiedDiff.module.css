@@ -9,7 +9,7 @@
   padding: 0.5rem 1rem;
   color: var(--text-primary);
   background: var(--bg-code);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .plain code {

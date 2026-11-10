@@ -38,5 +38,5 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   background: var(--bg-secondary);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }

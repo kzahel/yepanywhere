@@ -21,7 +21,7 @@
   min-height: 32px;
   padding: 0.35rem;
   color: var(--text-secondary);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .flag[data-goal-status="active"] {

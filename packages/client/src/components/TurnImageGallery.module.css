@@ -28,7 +28,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: calc(var(--radius-md) - 1px);
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   transition:
     border-color 0.12s ease,
@@ -67,7 +67,7 @@
   min-height: 72px;
   place-items: center;
   padding: var(--space-2);
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
   text-align: center;
 }
 
@@ -98,7 +98,7 @@
 .caption small {
   overflow: hidden;
   color: var(--text-dimmed);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -106,7 +106,7 @@
 .count {
   flex: none;
   color: var(--text-dimmed);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .dismiss {

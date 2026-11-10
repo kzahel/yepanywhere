@@ -180,11 +180,11 @@ export function ActivityPage() {
             style={{
               width: 10,
               height: 10,
-              borderRadius: "50%",
+              borderRadius: "var(--radius-full)",
               background: connected ? "#4f4" : "#f44",
             }}
           />
-          <span style={{ fontSize: "0.875rem", color: "#888" }}>
+          <span style={{ fontSize: "var(--font-size-lg)", color: "#888" }}>
             {connected
               ? t("activityConnected" as never)
               : t("activityDisconnected" as never)}
@@ -248,7 +248,7 @@ export function ActivityPage() {
           display: "flex",
           gap: "2rem",
           marginBottom: "1rem",
-          fontSize: "0.875rem",
+          fontSize: "var(--font-size-lg)",
           color: "#888",
         }}
       >
@@ -267,7 +267,7 @@ export function ActivityPage() {
           overflow: "auto",
           minHeight: 0,
           background: "#1a1a1a",
-          borderRadius: "8px",
+          borderRadius: "var(--radius-lg)",
           padding: "1rem",
         }}
       >
@@ -283,7 +283,7 @@ export function ActivityPage() {
               <h3
                 style={{
                   color: "#888",
-                  fontSize: "0.875rem",
+                  fontSize: "var(--font-size-lg)",
                   marginBottom: "0.5rem",
                 }}
               >
@@ -292,7 +292,7 @@ export function ActivityPage() {
               <div
                 style={{
                   background: "#2a2a2a",
-                  borderRadius: "8px",
+                  borderRadius: "var(--radius-lg)",
                   overflow: "hidden",
                 }}
               >
@@ -308,7 +308,7 @@ export function ActivityPage() {
                       gap: "0.75rem",
                       alignItems: "center",
                       fontFamily: "monospace",
-                      fontSize: "0.875rem",
+                      fontSize: "var(--font-size-lg)",
                     }}
                   >
                     <span style={{ color: "#666" }}>
@@ -327,10 +327,10 @@ export function ActivityPage() {
                     <span
                       style={{
                         color: "#888",
-                        fontSize: "0.75rem",
+                        fontSize: "var(--font-size-sm)",
                         background: "#333",
                         padding: "0.25rem 0.5rem",
-                        borderRadius: "4px",
+                        borderRadius: "var(--radius-sm)",
                         textAlign: "center",
                       }}
                     >

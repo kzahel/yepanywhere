@@ -127,7 +127,7 @@
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
 }
 .templateProjectSlot[hidden] {
@@ -144,7 +144,7 @@
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
 }
 /* The row spans the page; a path field that wide would be hard to scan. */
@@ -493,7 +493,7 @@
   height: 22px;
   place-items: center;
   border: 1px solid var(--border-color);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: 700;
 }

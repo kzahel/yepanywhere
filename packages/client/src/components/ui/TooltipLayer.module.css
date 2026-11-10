@@ -2,7 +2,7 @@
   box-sizing: border-box;
   padding: 5px 7px;
   border: 1px solid var(--tooltip-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--tooltip-background);
   color: var(--tooltip-foreground);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);

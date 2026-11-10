@@ -1,6 +1,6 @@
 .list {
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   display: grid;
   max-height: min(72vh, 720px);
   overscroll-behavior: contain;
@@ -45,7 +45,7 @@
 .rowMeta,
 .count {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .rowActions {
@@ -58,7 +58,7 @@
 .rowTypeIcon {
   align-items: center;
   background: #475569;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
   color: #fff;
   display: inline-flex;

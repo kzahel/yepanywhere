@@ -44,7 +44,7 @@
   height: 100%;
 }
 .detail {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   line-height: 1.4;
 }

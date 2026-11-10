@@ -2,7 +2,7 @@
   align-items: center;
   background: var(--bg-code);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   display: flex;
   gap: 8px;
   min-width: 0;
@@ -20,7 +20,7 @@
 
 .fileIdentity > span:nth-child(2) {
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: var(--font-size-base);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,5 +56,5 @@
 }
 
 .inventoryHeading strong {
-  font-size: 0.83rem;
+  font-size: var(--font-size-base);
 }

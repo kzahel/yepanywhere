@@ -54,14 +54,14 @@
   height: 100%;
   place-items: center;
   padding: var(--space-2);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   text-align: center;
 }
 
 .caption {
   overflow: hidden;
   color: var(--text-dimmed);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

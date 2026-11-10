@@ -7,7 +7,7 @@
 
 .wrap h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--font-size-lg);
 }
 
 .wrap p {
@@ -26,7 +26,7 @@
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 /* The GPU switch with its help line under it. */
 .gpu {
@@ -42,12 +42,12 @@
   padding: 8px;
   border-left: 3px solid var(--border-color);
   background: var(--bg-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 .model {
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .backendActions {
   display: flex;
@@ -70,7 +70,7 @@
   overflow-wrap: anywhere;
   margin-top: 4px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .reason {
@@ -78,7 +78,7 @@
 }
 
 .consoleLabel {
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .console {
@@ -88,11 +88,11 @@
   margin: 0;
   padding: 8px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

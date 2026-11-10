@@ -12,7 +12,7 @@
 .row {
   padding: var(--space-2, 8px);
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
 }
 
 .stale {
@@ -22,7 +22,7 @@
 
 .location {
   font-family: var(--font-mono, monospace);
-  font-size: var(--font-size-sm, 0.85em);
+  font-size: var(--font-size-sm);
 }
 
 .staleLabel,
@@ -32,12 +32,12 @@
 
 .staleLabel {
   color: var(--warning-color);
-  font-size: var(--font-size-sm, 0.8em);
+  font-size: var(--font-size-sm);
 }
 
 .movedLabel {
   color: var(--text-muted, #8b949e);
-  font-size: var(--font-size-sm, 0.8em);
+  font-size: var(--font-size-sm);
 }
 
 .rowText {
@@ -51,7 +51,7 @@
   padding: var(--space-3, 12px);
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
 }
 
 .newSession {

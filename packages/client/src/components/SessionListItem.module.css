@@ -16,13 +16,13 @@
 }
 .searchRow :global(.session-list-item__title) {
   margin-left: -20px;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   line-height: 20px;
 }
 .searchRow :global(.session-list-item__meta) {
   flex-wrap: wrap;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   margin-top: 1px;
 }
 .searchSelection {
@@ -257,7 +257,7 @@
   height: 0.85em;
   flex: 0 0 3px;
   margin-right: 1px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--text-muted) 22%, transparent);
 }
 

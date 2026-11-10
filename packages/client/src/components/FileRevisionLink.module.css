@@ -5,7 +5,7 @@
   gap: 0.3em;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   line-height: 1.2;
   white-space: nowrap;

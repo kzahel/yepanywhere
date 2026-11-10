@@ -21,7 +21,7 @@
 .popoverTitle {
   margin: 0 4px 5px;
   color: var(--text-primary, #e6edf3);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 
@@ -32,7 +32,7 @@
   gap: 8px;
   padding: 3px 4px;
   color: var(--text-secondary, #8b949e);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .row kbd {

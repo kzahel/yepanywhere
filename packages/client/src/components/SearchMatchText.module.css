@@ -24,7 +24,7 @@
   overflow: hidden;
   color: inherit;
   background: color-mix(in srgb, var(--warning-color) 30%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

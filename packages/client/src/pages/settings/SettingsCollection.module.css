@@ -21,7 +21,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 .list th,
 .list td {
@@ -73,7 +73,7 @@
   overflow: auto;
   padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .heading {
   display: flex;

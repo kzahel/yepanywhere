@@ -5,7 +5,7 @@
   background: var(--bg-surface);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--font-size-lg);
 }
 .page :where(h1, h2, h3, p) {
   margin: 0;
@@ -23,12 +23,12 @@
   border-bottom: 1px solid var(--border-color);
 }
 .topbar h1 {
-  font-size: 18px;
+  font-size: var(--font-size-2xl);
   margin-bottom: 4px;
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 .workspace {
@@ -54,7 +54,7 @@
   gap: 8px;
 }
 .sectionHeading h2 {
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 .sectionHeading a {
   padding: 12px 0 12px 12px;
@@ -74,7 +74,7 @@
   gap: 8px;
   padding-left: 28px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .source p {
   padding: 8px 0 0 28px;
@@ -100,7 +100,7 @@
   padding: 16px;
   gap: 12px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .groupSelect {
   width: auto;
@@ -114,7 +114,7 @@
 }
 .groups h3 {
   padding: 4px 8px 10px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
 .groups :where(h3) small {
@@ -179,7 +179,7 @@
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 .actions a {
@@ -198,7 +198,7 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 .history span {
@@ -217,7 +217,7 @@
   display: flex;
   gap: 12px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   margin-bottom: 12px;
 }
 .prose {
@@ -238,7 +238,7 @@
   margin: 12px 0;
   padding: 12px;
   border: 1px solid var(--error-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   white-space: pre-wrap;
   line-height: 1.5;
 }
@@ -256,10 +256,10 @@
     gap: 8px;
   }
   .topbar h1 {
-    font-size: 16px;
+    font-size: var(--font-size-xl);
   }
   .topbar .muted {
-    font-size: 11px;
+    font-size: var(--font-size-caption);
   }
   .topbar .control {
     flex-shrink: 0;
@@ -291,7 +291,7 @@
     padding: 12px 16px;
   }
   .conversationHeader h2 {
-    font-size: 18px;
+    font-size: var(--font-size-2xl);
   }
   .transcript {
     padding: 12px 16px 24px;

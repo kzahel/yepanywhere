@@ -10,7 +10,7 @@
   margin: 0;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 .heading {
   display: flex;
@@ -20,7 +20,7 @@
 }
 .heading h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-xl);
 }
 .heading > :first-child {
   flex: 1;

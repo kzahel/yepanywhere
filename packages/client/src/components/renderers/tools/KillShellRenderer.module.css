@@ -10,7 +10,7 @@
 
 .shellId {
   padding: 0.125rem 0.375rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   background: var(--bg-code);
   font-family: "SF Mono", Monaco, monospace;
@@ -29,7 +29,7 @@
 
 .error {
   padding: 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--error-color);
   background: var(--bg-error);
 }

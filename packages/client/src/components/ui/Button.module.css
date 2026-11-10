@@ -93,13 +93,13 @@
 .icon {
   width: 32px;
   padding: 0;
-  font-size: calc(var(--font-size-lg) + 4px);
+  font-size: var(--font-size-2xl);
   line-height: 1;
 }
 
 .icon.small {
   width: 26px;
-  font-size: calc(var(--font-size-base) + 4px);
+  font-size: var(--font-size-2xl);
 }
 
 .icon.large {

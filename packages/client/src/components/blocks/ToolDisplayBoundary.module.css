@@ -4,8 +4,8 @@
   margin-block: 0.5rem;
   padding: 0.625rem;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 0.8125rem;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
 }
 
 .header {

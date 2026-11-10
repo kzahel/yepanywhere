@@ -5,13 +5,13 @@
   padding: 8px;
   color: var(--text-secondary, #8b949e);
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   text-align: left;
   white-space: pre-wrap;
   user-select: text;
   background: var(--bg-secondary);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
@@ -55,10 +55,10 @@
   color: var(--tooltip-foreground);
   background: var(--tooltip-background);
   border: 1px solid var(--tooltip-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
   font-family: var(--font-mono, monospace);
-  font-size: calc(var(--font-size-xs) + 1px);
+  font-size: var(--font-size-caption);
   font-weight: 500;
   line-height: 1.25;
   white-space: normal;

@@ -25,7 +25,7 @@
 }
 .hint {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   margin: 4px 0;
 }
 .panel {
@@ -36,7 +36,7 @@
 }
 .panel h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--font-size-lg);
 }
 .actions {
   display: flex;
@@ -50,7 +50,7 @@
   font: inherit;
   padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 .inherited summary {
   cursor: pointer;
@@ -62,6 +62,6 @@
 .restriction {
   border-top: 1px solid var(--border-color);
   padding-top: 8px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
 }

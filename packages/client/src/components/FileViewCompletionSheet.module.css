@@ -16,7 +16,7 @@
   padding: 0 10px 4px;
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -24,7 +24,7 @@
   margin: 0;
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 1.45;
 }
 .line {
@@ -51,7 +51,7 @@
 .previewStatus {
   padding: 0 10px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 @media (width < 760px) {
   .lines {

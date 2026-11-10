@@ -221,14 +221,12 @@
 
   --project-queue-action-bg: #7c3aed;
   --project-queue-new-session-action-bg: #5b21b6;
-
   /* Semantic Colors */
   --thinking-color: var(--app-claude-orange);
   /* Maximum-contrast tooltip polarity for dark and default themes. */
   --tooltip-background: #ffffff;
   --tooltip-foreground: #000000;
   --tooltip-border: #000000;
-
   /* Typography */
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
@@ -250,9 +248,12 @@
   --font-mono-fira: "YA Fira Mono", var(--font-mono-system);
   --font-mono: var(--font-mono-system);
   --font-size-xs: 10px;
+  --font-size-caption: 11px;
   --font-size-sm: 12px;
   --font-size-base: 13px;
   --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 18px;
   --output-prose-font-family: var(--font-sans);
   --output-prose-font-optical-sizing: auto;
   --output-prose-font-variation-settings: normal;
@@ -347,13 +348,12 @@
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
-
   /* Border Radius */
+  --radius-xs: 3px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-full: 999px;
-
   /* Elevation: popovers and menus lg, floating cards md, chips sm. */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.24);

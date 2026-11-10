@@ -10,7 +10,7 @@
 .options legend {
   padding: 0;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .row {
@@ -18,7 +18,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .row span {

@@ -4,7 +4,7 @@
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
 }
 .heading {
@@ -30,16 +30,16 @@
   min-width: 0;
   margin: 0;
   padding: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 .latest {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }

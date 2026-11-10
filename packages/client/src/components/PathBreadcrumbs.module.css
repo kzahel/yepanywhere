@@ -6,7 +6,7 @@
   /* A link segment keeps the path's own color rather than the global link's. */
   color: inherit;
   text-decoration: none;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   /* A taller hit area without changing the line box. */
   padding-block: 3px;

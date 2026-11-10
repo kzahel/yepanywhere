@@ -28,7 +28,7 @@
   max-width: 100%;
   color: var(--text-muted);
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   line-height: 1.3;
 }
 

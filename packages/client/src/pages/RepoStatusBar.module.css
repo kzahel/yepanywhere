@@ -8,10 +8,10 @@
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
   margin-bottom: var(--space-3, 12px);
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
 }
 
 .bar.warn {
@@ -113,7 +113,7 @@
   padding: var(--space-2, 8px);
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
 }
 
 .incomingCommitHeader {
@@ -135,7 +135,7 @@
 
 .incomingMeta {
   color: var(--text-secondary, #8b949e);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
 }
 
 @media (width <= 600px) {

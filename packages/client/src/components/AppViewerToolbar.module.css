@@ -26,7 +26,7 @@
   z-index: 3;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
 }
 .floating[data-corner="left"] {

@@ -42,7 +42,7 @@
   padding: 0.2rem 0.45rem;
   border: 1px solid
     color-mix(in srgb, var(--project-queue-action-bg) 38%, var(--border-subtle));
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(
     in srgb,
     var(--project-queue-action-bg) 10%,

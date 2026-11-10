@@ -4,7 +4,7 @@
   gap: var(--space-1, 4px);
   align-self: flex-start;
   padding: 2px var(--space-2);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   color: var(--link-color);
   font-size: var(--font-size-sm);
   text-decoration: none;

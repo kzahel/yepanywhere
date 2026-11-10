@@ -34,11 +34,11 @@
 }
 
 .inline h1 {
-  font-size: 1.125rem;
+  font-size: var(--font-size-2xl);
 }
 
 .inline h2 {
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
 }
 
 .inline h3 {
@@ -66,14 +66,14 @@
 .inline code {
   background: var(--bg-tertiary);
   padding: 0.125rem 0.25rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-size: var(--font-size-base);
 }
 
 .inline pre {
   background: var(--bg-tertiary);
   padding: 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow-x: auto;
 }
 
@@ -103,5 +103,5 @@
   color: var(--error-color);
   padding: 0.5rem;
   background: var(--bg-error);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }

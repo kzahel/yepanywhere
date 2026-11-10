@@ -2,7 +2,7 @@
   margin-bottom: var(--space-4);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -13,7 +13,7 @@
   padding: var(--space-3);
   margin-bottom: var(--space-4);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-elevated);
 }
 

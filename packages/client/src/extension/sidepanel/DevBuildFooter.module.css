@@ -16,7 +16,7 @@
   min-width: 0;
   margin-right: auto;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
 .action {

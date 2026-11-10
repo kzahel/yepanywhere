@@ -1,0 +1,134 @@
+{
+  "components/AcliCommentary.module.css": {
+    "count": 1,
+    "reason": "User-configured fixed-width transcript typography; follows the output font offset, not the UI scale."
+  },
+  "components/AudioMemoPanel.module.css": {
+    "count": 1,
+    "reason": "14px audio-memo sheet corner geometry; no radius token within 1px."
+  },
+  "components/ComposerRecents.module.css": {
+    "count": 5,
+    "reason": "composer pass"
+  },
+  "components/ErrorBoundary.tsx": {
+    "count": 20,
+    "reason": "Crash fallback page with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
+  },
+  "components/FileDropZone.module.css": {
+    "count": 4,
+    "reason": "14/16px nested drop-target outlines and 21/22px drop glyphs; preserve inset geometry and optical centering."
+  },
+  "components/FileViewer.module.css": {
+    "count": 1,
+    "reason": "User-configured fixed-width file typography and font offset."
+  },
+  "components/FileViewerEmbeddedMedia.module.css": {
+    "count": 1,
+    "reason": "24px audio-file glyph; preserve optical size in the media viewer."
+  },
+  "components/FolderListPopover.module.css": {
+    "count": 1,
+    "reason": "User-configured fixed-width path typography and font offset."
+  },
+  "components/GoalPanel.module.css": {
+    "count": 1,
+    "reason": "16px phone bottom-sheet top corners; no matching radius token."
+  },
+  "components/MessageInputToolbar.module.css": {
+    "count": 7,
+    "reason": "composer pass"
+  },
+  "components/NewSessionForm.module.css": {
+    "count": 1,
+    "reason": "0.5rem queue panel corners compute to 9.2px at the default 115% scale, over 1px from the 8px token."
+  },
+  "components/RenderItemComponent.module.css": {
+    "count": 1,
+    "reason": "Copy glyph optical correction: 1px above its surrounding text size, including transcript font preferences."
+  },
+  "components/RendezAttachment.module.css": {
+    "count": 1,
+    "reason": "10px image attachment frame corners preserve the inset media border geometry."
+  },
+  "components/SpeechPrefixActionCue.module.css": {
+    "count": 1,
+    "reason": "Tiny 0.42rem speech-prefix action glyph must fit its measured cue slot."
+  },
+  "components/VoiceInputButton.module.css": {
+    "count": 1,
+    "reason": "composer pass"
+  },
+  "components/WorkflowOutput.module.css": {
+    "count": 1,
+    "reason": "Relative workflow prose plus 1pt optical offset; preserve surrounding transcript density."
+  },
+  "components/blocks/TaskNotificationBlock.module.css": {
+    "count": 1,
+    "reason": "User-configured output prose size; must track transcript appearance independently of UI type."
+  },
+  "components/blocks/TextBlock.module.css": {
+    "count": 1,
+    "reason": "User-configured fixed-width transcript size and font offset."
+  },
+  "components/renderers/tools/ExitPlanModeRenderer.module.css": {
+    "count": 1,
+    "reason": "0.9375rem plan heading computes to 17.25px at 115%, over 1px from adjacent scaled type tokens; preserve transcript wrapping."
+  },
+  "components/renderers/tools/GoalRenderer.module.css": {
+    "count": 3,
+    "reason": "User-configured output prose size for goal transcript blocks."
+  },
+  "components/ui/Button.module.css": {
+    "count": 1,
+    "reason": "Mono inline buttons follow the user-configured fixed-width output font size."
+  },
+  "components/ui/SelectionActionCluster.module.css": {
+    "count": 2,
+    "reason": "8px source and 20px new-session glyphs are optically fitted to the shared selection-action icons."
+  },
+  "components/ui/TooltipLayer.module.css": {
+    "count": 4,
+    "reason": "Tooltip and glossary sizes include the user-selected tooltip offset and existing half-pixel optical steps."
+  },
+  "extension/sidepanel/SidePanel.module.css": {
+    "count": 2,
+    "reason": "20px phone and 10px desktop sidepanel menu corners preserve its responsive popover silhouette."
+  },
+  "main.tsx": {
+    "count": 7,
+    "reason": "Boot/fatal fallback UI with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
+  },
+  "pages/ConversationPreviewPage.module.css": {
+    "count": 3,
+    "reason": "22/20px empty-preview glyphs and 12px preview frame corners; preserve the sparse empty-state geometry."
+  },
+  "pages/DiffHunk.module.css": {
+    "count": 3,
+    "reason": "Source-code typography follows the user-selected source font size and offset, including diff gutters."
+  },
+  "pages/ProviderSignInPage.module.css": {
+    "count": 1,
+    "reason": "12px sign-in card corners; no matching radius token."
+  },
+  "pages/UnifiedDiff.module.css": {
+    "count": 1,
+    "reason": "Source-code typography follows the user-selected source font size and offset."
+  },
+  "pages/settings/NotificationsSettings.module.css": {
+    "count": 1,
+    "reason": "1.25rem notification setup heading; preserve heading hierarchy without adding a rarely used scale step."
+  },
+  "pages/settings/RemoteAccessSettings.module.css": {
+    "count": 1,
+    "reason": "1.25rem remote-access section heading; preserve hierarchy without a rarely used scale step."
+  },
+  "pages/settings/ServerConnectionsSettings.module.css": {
+    "count": 4,
+    "reason": "20/24/25/28px service, profile and empty-state glyphs are optically fitted to their containers."
+  },
+  "pages/settings/SpeechVocabularyControls.module.css": {
+    "count": 1,
+    "reason": "12px vocabulary editor frame corners; no matching radius token."
+  }
+}

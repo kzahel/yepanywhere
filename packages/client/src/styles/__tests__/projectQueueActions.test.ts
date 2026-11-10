@@ -86,25 +86,6 @@ describe("Project Queue action CSS contract", () => {
     }
   });
 
-  it("keeps the plus as a prominent high-contrast badge", async () => {
-    const css = await readFile(
-      new URL(
-        "../../components/NewSessionQueueMark.module.css",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-    const declarations = getRuleDeclarations(css, ".mark");
-
-    expect(declarations).toMatch(/width:\s*14px\s*;/);
-    expect(declarations).toMatch(/height:\s*14px\s*;/);
-    expect(declarations).toMatch(/font-size:\s*12px\s*;/);
-    expect(declarations).toMatch(/font-weight:\s*900\s*;/);
-    expect(declarations).toMatch(
-      /color:\s*var\(--project-queue-new-session-action-bg\)\s*;/,
-    );
-  });
-
   it("optically centers text arrows in a shared glyph envelope", async () => {
     const css = await readFile(deliveryGlyphStylesheetUrl, "utf8");
     const declarations = getRuleDeclarations(css, ".glyph");

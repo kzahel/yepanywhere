@@ -40,7 +40,7 @@
   text-decoration: none;
   min-width: 0;
   min-height: 24px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .chip {
   position: absolute;
@@ -48,7 +48,7 @@
   width: 40px;
   padding-inline: 0;
   justify-content: flex-end;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 400;
   white-space: nowrap;
   text-align: right;

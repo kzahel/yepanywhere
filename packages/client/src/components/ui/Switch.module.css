@@ -70,7 +70,7 @@ label.root.disabled {
   left: 2px;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--text-muted);
   content: "";
   transition:

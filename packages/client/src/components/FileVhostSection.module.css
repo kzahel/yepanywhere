@@ -9,12 +9,12 @@
 }
 
 .heading {
-  font-size: 0.83rem;
+  font-size: var(--font-size-base);
 }
 
 .description {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   line-height: 1.4;
   margin: 0;
 }
@@ -30,11 +30,11 @@
   align-items: center;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   display: flex;
   flex: 1 1 100%;
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: var(--font-size-base);
   min-width: 0;
   padding: 0 8px;
 }
@@ -70,7 +70,7 @@
 .access {
   align-items: center;
   display: inline-flex;
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   gap: 6px;
 }
 
@@ -109,7 +109,7 @@
   align-items: center;
   background: var(--bg-code);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-wrap: wrap;
   gap: 6px 8px;
@@ -120,7 +120,7 @@
   color: var(--accent-color);
   flex: 1 1 12rem;
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: var(--font-size-base);
   min-width: 0;
   overflow-wrap: anywhere;
 }

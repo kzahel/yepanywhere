@@ -6,11 +6,11 @@
 }
 .panel h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--font-size-lg);
 }
 .hint {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   margin: 0;
 }
 .actions {
@@ -21,7 +21,7 @@
 }
 .status {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 .list {
   display: flex;

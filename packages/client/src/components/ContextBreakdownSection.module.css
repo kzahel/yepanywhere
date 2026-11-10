@@ -52,7 +52,7 @@
   height: 4px;
   overflow: hidden;
   background: var(--bg-tertiary);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 
 .windowUsed {
@@ -88,7 +88,7 @@
   gap: 2px;
   height: 8px;
   overflow: hidden;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .composition > span {
@@ -145,7 +145,7 @@ button.head:hover {
   width: 8px;
   height: 8px;
   background: var(--segment);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .label,

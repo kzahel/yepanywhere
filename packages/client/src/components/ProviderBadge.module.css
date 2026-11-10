@@ -46,7 +46,7 @@
 .dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .dot.thinking {
@@ -65,7 +65,7 @@
 .effortDot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: currentColor;
   flex-shrink: 0;
 }
@@ -99,7 +99,7 @@
 }
 
 .effortLabel {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   line-height: 1.2;
   opacity: 0.82;

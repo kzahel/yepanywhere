@@ -30,7 +30,7 @@
   min-width: 0;
   padding: 2px 4px;
   margin-left: -4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: inherit;
 }
 .home:hover:not(:disabled) {
@@ -118,7 +118,7 @@
   margin: 16px 0 0;
   padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
 }
 .details dt {
   color: var(--text-secondary);

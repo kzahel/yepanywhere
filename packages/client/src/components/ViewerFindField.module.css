@@ -7,7 +7,7 @@
   height: 30px;
   box-sizing: border-box;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   background: var(--bg-input);
   padding: 0 6px;
   gap: 6px;
@@ -31,7 +31,7 @@
   background: transparent;
   color: var(--text-primary);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .input::-webkit-search-cancel-button {
@@ -41,7 +41,7 @@
 .count {
   flex: none;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

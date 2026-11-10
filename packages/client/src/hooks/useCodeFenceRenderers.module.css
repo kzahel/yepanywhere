@@ -40,11 +40,11 @@
   top: 0.15rem;
   right: 0.35rem;
   padding: 0 0.3rem;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
   color: var(--text-muted);
   font-family: var(--font-sans, sans-serif);
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   line-height: 1.5;
   letter-spacing: 0.02em;
   pointer-events: none;
@@ -118,10 +118,10 @@
   width: 1.45rem;
   height: 1.45rem;
   border: 1px solid var(--border-color);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -197,7 +197,7 @@
   height: 1.5rem;
   padding: 0;
   border: 1px solid var(--border-color);
-  border-radius: 0.3rem;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   color: var(--text-muted);
   display: inline-flex;

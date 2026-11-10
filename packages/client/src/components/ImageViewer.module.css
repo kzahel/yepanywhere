@@ -37,7 +37,7 @@
 .zoomLevel {
   min-width: 3.25rem;
   color: var(--text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   text-align: center;
 }
 
@@ -86,7 +86,7 @@
 .navigationButton.navigationButton {
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .navigation.visible {
@@ -127,7 +127,7 @@
   place-items: center;
   background: var(--bg-surface);
   color: var(--text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   opacity: 1;
   pointer-events: none;
   transition: opacity 140ms ease;

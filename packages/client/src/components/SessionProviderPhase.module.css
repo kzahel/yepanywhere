@@ -4,7 +4,7 @@
   box-sizing: border-box;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 1.5px solid var(--thinking-color);
   flex-shrink: 0;
 }

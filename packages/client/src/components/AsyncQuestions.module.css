@@ -43,7 +43,7 @@
   display: flex;
   min-inline-size: 0;
   border: 1px solid var(--border-color);
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
 }
 .preview {
@@ -64,7 +64,7 @@
 .unseen {
   flex: 0 0 5px;
   block-size: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: light-dark(#79551b, #d8b477);
 }
 .dismiss {
@@ -79,7 +79,7 @@
   padding: 10px;
   margin-block: 8px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   scroll-margin-block: 12px;
 }
 .activeQuestion {
@@ -92,7 +92,7 @@
 .hint {
   margin-block: 4px;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
 }
 .options {
   display: grid;

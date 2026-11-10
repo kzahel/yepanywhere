@@ -4,7 +4,7 @@
   overflow: hidden;
   color: var(--text-primary);
   font-family: var(--font-mono, monospace);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

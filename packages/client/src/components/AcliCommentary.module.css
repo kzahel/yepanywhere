@@ -3,14 +3,14 @@
   display: block;
   inline-size: 28px;
   block-size: 28px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .bullet::before {
   content: "";
   position: absolute;
   inset: 11px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--timeline-dot-default);
 }
 

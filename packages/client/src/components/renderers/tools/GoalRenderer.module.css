@@ -5,7 +5,7 @@
   min-width: 0;
   border: 1px solid var(--border-color, #333);
   border-left: 3px solid var(--text-muted, #888);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bg-code, #1f1f1f) 72%, transparent);
   cursor: default;
 }
@@ -107,23 +107,23 @@
   margin-top: 0.45rem;
   overflow: hidden;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--border-color, #333);
   accent-color: var(--timeline-dot-working, #4aa3ff);
 }
 
 .progress::-webkit-progress-bar {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--border-color, #333);
 }
 
 .progress::-webkit-progress-value {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--timeline-dot-working, #4aa3ff);
 }
 
 .progress::-moz-progress-bar {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--timeline-dot-working, #4aa3ff);
 }
 

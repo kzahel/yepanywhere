@@ -7,7 +7,7 @@
   display: block;
   padding: 1rem;
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   text-decoration: none;
   color: inherit;
 }

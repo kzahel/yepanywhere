@@ -120,7 +120,7 @@
 .optionRadio {
   color: var(--text-dimmed);
   font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   flex-shrink: 0;
   margin-top: 1px;
 }

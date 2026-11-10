@@ -33,7 +33,7 @@
   color: var(--text-primary);
   border-inline-start: 3px solid var(--accent-color);
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: 0.85em;
   overflow-wrap: anywhere;

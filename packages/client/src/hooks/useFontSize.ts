@@ -35,9 +35,12 @@ function applyFontSize(percent: number) {
 
   // Also scale the CSS variables for elements using them directly (px-based)
   root.style.setProperty("--font-size-xs", `${10 * scale}px`);
+  root.style.setProperty("--font-size-caption", `${11 * scale}px`);
   root.style.setProperty("--font-size-sm", `${12 * scale}px`);
   root.style.setProperty("--font-size-base", `${13 * scale}px`);
   root.style.setProperty("--font-size-lg", `${14 * scale}px`);
+  root.style.setProperty("--font-size-xl", `${16 * scale}px`);
+  root.style.setProperty("--font-size-2xl", `${18 * scale}px`);
 }
 
 function loadFontSize(): number {

@@ -32,13 +32,13 @@
   min-width: 0;
   padding: 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   overflow-wrap: anywhere;
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
 }
 .window {
   display: grid;
@@ -54,7 +54,7 @@
   gap: 0.75rem;
   padding: 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 .editor fieldset {
   display: flex;

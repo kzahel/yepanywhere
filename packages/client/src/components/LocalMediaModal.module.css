@@ -51,7 +51,7 @@
   max-width: 100%;
   max-height: min(60vh, 480px);
   object-fit: contain;
-  border-radius: calc(var(--radius-md) - 1px);
+  border-radius: var(--radius-md);
 }
 
 .inlinePlayer {

@@ -1,7 +1,7 @@
 .dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--thinking-color);
   animation: thinking-indicator-pulse 1.5s ease-in-out infinite
     var(--ya-activity-play, paused);

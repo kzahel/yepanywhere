@@ -9,7 +9,7 @@
   max-height: calc(100dvh - 200px);
   overflow: auto;
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
 }
 
 .header {
@@ -173,14 +173,14 @@
 
 .truncated {
   padding: 8px 10px;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
 
 .provenanceStatus {
   color: var(--text-muted);
   font-family: var(--font-sans, sans-serif);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
 }
 
 .notice {

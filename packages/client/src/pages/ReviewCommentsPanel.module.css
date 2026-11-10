@@ -13,7 +13,7 @@
 
 .hint {
   margin-top: 4px;
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
   color: var(--text-muted);
 }
 
@@ -30,7 +30,7 @@
   padding: var(--space-2, 8px);
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
 }
 
 .rowHead {
@@ -47,7 +47,7 @@
 
 .revision {
   font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   white-space: nowrap;
 }

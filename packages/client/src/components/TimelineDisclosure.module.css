@@ -6,9 +6,9 @@
   place-items: center;
   inline-size: 24px;
   block-size: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--timeline-dot-default);
-  font: 16px / 1 var(--font-mono);
+  font: var(--font-size-xl) / 1 var(--font-mono);
   z-index: 1;
 }
 

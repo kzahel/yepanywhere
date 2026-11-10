@@ -8,7 +8,7 @@
   box-sizing: border-box;
   padding: 0;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   background: var(--bg-secondary);
   cursor: pointer;

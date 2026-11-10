@@ -1143,14 +1143,19 @@ caller-class/inline overrides with a counted allowlist (21/600 button uses in
 12 files; 29 other-control sites in 24 files, including Badge custom properties),
 the playground lists the exceptions, and shared inline link, success/attention
 outlines, elevation and 36/44 px large buttons replace recurring treatments.
-Step 3 is implemented with review corrections (uncommitted): all 132 original
+Step 3 landed with review corrections: all 132 original
 ButtonBase sites reviewed, 65 moved to shared controls (15 to selectable cards).
 Navigation/current, reveal, text flow and touch geometry are preserved; the
 stronger class/ancestor check lists 28 exceptions in 23 files among 67 remaining
 sites. Caller overrides are 18 button sites in 9 files and 28 other sites in 23
 files. Measured rich rows and the composer handle retain explicit reasons.
 Global CSS is 16,355 lines.
-Steps 4–8 remain open. It runs before the composer pass, which
+Step 4 is implemented for review: lint requires type/radius tokens in modules
+and production TSX, reducing 448 findings to 85 reasoned exceptions in 33 files.
+The expanded type scale is 10/11/12/13/14/16/18px (scaled by UI preference);
+radii are 3/4/6/8/999px. Composer, configured output/source typography and
+uncommon geometric/optical sizes retain explicit reasons.
+Steps 5–8 remain open. It runs before the composer pass, which
 keeps its own exclusion.
 
 ## Later directions

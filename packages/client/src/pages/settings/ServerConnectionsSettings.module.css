@@ -15,7 +15,7 @@
 }
 .muted {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -31,7 +31,7 @@
   padding: 16px;
   margin-block: 16px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
 }
 .form h3,
@@ -40,7 +40,7 @@
 }
 .identifier code {
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
 .labelForm {
@@ -75,7 +75,7 @@
 .identifier {
   display: grid;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
 }
 
 .header {
@@ -95,7 +95,7 @@
   align-items: center;
   gap: 7px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   margin: 0;
 }
 .localIdentity > :first-child {
@@ -105,7 +105,7 @@
   margin-bottom: 28px;
 }
 .listSection > h2 {
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   line-height: 1.4;
   margin-bottom: 11px;
 }
@@ -114,7 +114,7 @@
   padding: 0;
   margin: 0;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-secondary);
 }
@@ -143,7 +143,7 @@
   margin: 0;
 }
 .deviceName strong {
-  font-size: 15px;
+  font-size: var(--font-size-lg);
   font-weight: 550;
 }
 .deviceName:hover strong {
@@ -153,7 +153,7 @@
   margin: 5px 0 0 40px;
 }
 .problem {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
   line-height: 1.4;
   margin: 5px 0 0 40px;
@@ -165,16 +165,16 @@
 .deviceName:focus-visible {
   outline: 2px solid var(--link-color);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .managed {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 .settings {
   margin-top: 18px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 .settings > summary {
   cursor: pointer;
@@ -189,7 +189,7 @@
     flex-direction: column;
   }
   .deviceName strong {
-    font-size: 14px;
+    font-size: var(--font-size-lg);
   }
   .deviceName .host {
     gap: 9px;
@@ -198,7 +198,7 @@
     font-size: 25px;
   }
   .deviceName .muted {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
   }
   .deviceRow {
     padding-inline: 10px;

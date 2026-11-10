@@ -12,7 +12,7 @@
 .fields > p {
   margin: -4px 0 4px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .expiry {
@@ -47,7 +47,7 @@
 
 .vhostHeading {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
 }
 
@@ -72,7 +72,7 @@
 .vhostIntro p,
 .password p {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .vhostRow {
@@ -109,7 +109,7 @@
 .domainSuffix {
   display: block;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .domainName,
 .domainSuffix {
@@ -208,7 +208,7 @@
 .linkedFiles {
   display: block;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   cursor: help;
 }
 .access {

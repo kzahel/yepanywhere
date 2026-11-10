@@ -21,11 +21,11 @@
   min-width: 1.5rem;
   margin-left: var(--space-1);
   padding: 0 var(--space-1);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   /* A deep green keeps white digits readable in both themes. */
   background: #15803d;
   color: #fff;
-  font-size: var(--font-size-xs, 0.75rem);
+  font-size: var(--font-size-xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;

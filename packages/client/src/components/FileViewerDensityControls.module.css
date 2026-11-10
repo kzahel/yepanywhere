@@ -7,7 +7,7 @@
 .operator {
   color: var(--text-primary);
   font:
-    600 18px / 1 system-ui,
+    600 var(--font-size-2xl) / 1 system-ui,
     sans-serif;
 }
 
@@ -18,9 +18,9 @@
 }
 
 .smallLetter {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
 }
 
 .largeLetter {
-  font-size: 18px;
+  font-size: var(--font-size-2xl);
 }

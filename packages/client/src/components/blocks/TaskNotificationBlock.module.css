@@ -6,7 +6,7 @@
   padding: 8px 14px;
   margin: 8px 0;
   background: var(--bg-tertiary, #2a2a2a);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border-left: 3px solid var(--text-dimmed);
   font-family: var(--output-prose-font-family);
   font-size: var(--output-prose-font-size);
@@ -43,7 +43,7 @@
   margin: 0;
   padding: 8px 10px;
   background: var(--bg-code);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.82em;
   line-height: 1.45;

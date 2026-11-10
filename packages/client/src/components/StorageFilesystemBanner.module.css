@@ -19,9 +19,9 @@
   max-width: 100%;
   margin-top: var(--space-1);
   padding: 0.2rem 0.4rem;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   background: var(--bg-code);
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
   white-space: pre;
 }

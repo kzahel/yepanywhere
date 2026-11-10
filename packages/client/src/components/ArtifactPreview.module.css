@@ -15,7 +15,7 @@
   padding: 0;
   color: var(--text-primary);
   background: var(--bg-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .frame {

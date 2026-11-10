@@ -167,7 +167,7 @@ export function Scales() {
       <section className={styles.group}>
         <h3>Type</h3>
         <div className={styles.scale}>
-          {rootTokens(/^--font-size-(?:xs|sm|base|lg)$/).map((name) => (
+          {rootTokens(/^--font-size-/).map((name) => (
             <ScaleRow key={name} name={name}>
               <span style={{ fontSize: `var(${name})` }}>
                 Session started in yep-anywhere

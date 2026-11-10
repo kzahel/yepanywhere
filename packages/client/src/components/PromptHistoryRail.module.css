@@ -18,7 +18,7 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   touch-action: none;
   cursor: grab;
@@ -51,11 +51,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   color: var(--text-primary);
   box-shadow: 0 4px 16px #0003;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   line-height: 1.45;
   transform-origin: top left;
   pointer-events: none;

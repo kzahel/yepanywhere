@@ -2940,7 +2940,7 @@ function SessionPageContent({
               {t("sessionNotFoundGoBack")}
             </Button>
           </div>
-          <p style={{ fontSize: "12px", color: "#888", marginTop: 20 }}>
+          <p className={styles.notFoundSessionId}>
             {t("sessionNotFoundSessionId")} <code>{actualSessionId}</code>
           </p>
         </div>

@@ -11,7 +11,7 @@
   box-sizing: border-box;
   background: var(--bg-secondary);
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 
 .fields {

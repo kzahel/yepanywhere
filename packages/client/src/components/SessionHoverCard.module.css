@@ -45,7 +45,7 @@
   line-height: 1.4;
   color: var(--text-primary);
   background: var(--bg-user-message);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 0.25rem 0.5rem;
 }
 

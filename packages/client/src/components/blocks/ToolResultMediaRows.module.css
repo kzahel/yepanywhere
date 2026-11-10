@@ -69,7 +69,7 @@ button.filename:focus-visible {
   aspect-ratio: var(--tool-result-media-aspect-ratio);
   color: var(--text-muted, #888);
   border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-code, #1e1e1e);
 }
 

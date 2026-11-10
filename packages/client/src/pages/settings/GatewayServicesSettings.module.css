@@ -20,7 +20,7 @@
   margin: 0;
   padding: 0.75rem;
   border: 1px solid var(--border-color, #3a3a3a);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   min-width: 0;
 }
 
@@ -67,7 +67,7 @@
 
 .status {
   align-self: center;
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
   opacity: 0.75;
 }
 
@@ -120,7 +120,7 @@
   min-height: 2.25rem;
   display: flex;
   align-items: center;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 /* The same grid as the card, on a wrapper rather than on the <details> itself:
@@ -148,7 +148,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
 }
 
 .commands > span {

@@ -46,7 +46,7 @@
   height: 7px;
   flex: 0 0 auto;
   background: var(--accent-color);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .mobileSelector {
@@ -91,7 +91,7 @@
 
 .detailHeader h2 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--font-size-xl);
 }
 
 .submittedAt,
@@ -99,20 +99,20 @@
 .entryHead,
 .captureId {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .sessionLink,
 .outcomeHead a {
   color: var(--link-color);
-  font-size: 0.85rem;
+  font-size: var(--font-size-lg);
 }
 
 .site {
   padding: var(--space-3, 12px);
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
 }
 
 .siteHeader {
@@ -128,15 +128,15 @@
 .location {
   min-width: 0;
   color: var(--link-color);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
 
 .state {
   padding: 1px 7px;
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 
 .open {
@@ -163,7 +163,7 @@
 .entry {
   padding: var(--space-2, 8px);
   background: var(--bg-tertiary);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
 }
 
 .entryHead {
@@ -183,11 +183,11 @@
   padding: 1px 5px;
   color: var(--text-muted);
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
   text-align: center;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   user-select: none;
 }
 
@@ -201,7 +201,7 @@
   margin-top: var(--space-2, 8px);
   overflow: hidden;
   border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
 }
 
 .captureId {
@@ -216,7 +216,7 @@
   overflow: auto;
   color: var(--text-secondary, #8b949e);
   font-family: var(--font-mono, monospace);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   white-space: pre;
 }
 
@@ -247,7 +247,7 @@
 
 .captureMissing {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
 }
 
 .outcome {
@@ -263,7 +263,7 @@
 .outcomeHead {
   justify-content: space-between;
   color: var(--accent-color);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .followUp {

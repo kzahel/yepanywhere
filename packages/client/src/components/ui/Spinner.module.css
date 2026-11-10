@@ -5,7 +5,7 @@
   box-sizing: border-box;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   vertical-align: -0.125em;
   animation: spin 0.8s linear infinite var(--ya-activity-play, running);
 }

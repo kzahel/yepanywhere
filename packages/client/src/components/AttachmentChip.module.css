@@ -6,7 +6,7 @@
   padding-right: var(--space-1);
   background: var(--bg-code);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: var(--font-size-xs);
 }
 
@@ -33,7 +33,7 @@
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--bg-elevated);
 }
@@ -46,7 +46,7 @@
 }
 
 .previewFallback {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 1;
 }
 

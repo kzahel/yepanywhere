@@ -50,9 +50,9 @@
 .inlineLink {
   padding: 0.08rem 0.25rem;
   border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
-  border-radius: 0.28rem;
+  border-radius: var(--radius-md);
   font-family: var(--font-mono, monospace);
-  font-size: 0.62rem;
+  font-size: var(--font-size-xs);
   line-height: 1.15;
   opacity: 0.72;
 }
@@ -60,14 +60,14 @@
 .header {
   padding: 0.12rem;
   border: 1px solid var(--border-color);
-  border-radius: 0.38rem;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
 }
 
 .headerLink {
   padding: 0.2rem 0.42rem;
-  border-radius: 0.28rem;
-  font-size: 0.72rem;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   line-height: 1.2;
 }
 
@@ -79,6 +79,6 @@
 @media (width <= 600px) {
   .headerLink {
     padding-inline: 0.34rem;
-    font-size: 0.68rem;
+    font-size: var(--font-size-caption);
   }
 }

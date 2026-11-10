@@ -9,7 +9,7 @@
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 .providerCard summary {
   cursor: pointer;
@@ -24,7 +24,7 @@
 :where(.settings) p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 .fields {
   display: grid;
@@ -57,5 +57,5 @@
 }
 .logEntry time {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }

@@ -17,7 +17,7 @@
 
 .bordered {
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-secondary, transparent);
 }

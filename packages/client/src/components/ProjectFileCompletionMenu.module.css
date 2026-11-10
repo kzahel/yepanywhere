@@ -10,7 +10,7 @@
   max-height: min(420px, 55vh);
   overflow: hidden;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-secondary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -26,7 +26,7 @@
 .groupLabel {
   padding: 6px 10px 2px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -78,7 +78,7 @@
 .status {
   padding: 8px 10px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .preview {
   flex: 0 1 auto;

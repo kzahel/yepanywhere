@@ -7,10 +7,10 @@
   justify-content: center;
   width: 14px;
   height: 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: white;
   color: var(--project-queue-new-session-action-bg);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 900;
   line-height: 1;
   box-shadow: 0 0 0 1px

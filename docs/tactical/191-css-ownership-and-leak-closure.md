@@ -2,8 +2,8 @@
 
 Topic: css-architecture
 
-Status: steps 1–2 landed 2026-11-10; step 3 implemented and review corrections applied 2026-11-10 (uncommitted).
-Steps 4–8 remain open. The maintainer
+Status: steps 1–3 landed 2026-11-10; step 4 implemented 2026-11-10 for review.
+Steps 5–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -151,7 +151,7 @@ minimum; coarse pointers keep 44. Global CSS now 16,629 lines (23 removed).
 
 ### 3 — put hand-drawn `ButtonBase` buttons on shared controls
 
-Implemented with review corrections 2026-11-10; uncommitted. All 132 original
+Landed with review corrections 2026-11-10. All 132 original
 sites reviewed; 65 moved, including 15 on shared SelectableCard surfaces.
 Navigation uses distinct aria-current cues; hover is fine-pointer-only.
 Shared text flow, mono/inline sizes, opaque elevation and explicit touch sizing
@@ -162,16 +162,22 @@ in 23 files among 67 remaining sites; recording only lowers counts.
 Caller overrides: 18 button sites/9 files; 28 other sites/23 files.
 Global CSS: 16,355 lines. Server-generated media retains its original styling.
 Deferred: measured rich transcript/image/tree rows, countdown/controller states
-and composer handle, with specific playground reasons. Steps 4–8 remain open.
+and composer handle, with specific playground reasons.
 
 ### 4 — require tokens for type sizes and radii
 
-Add a CSS check that rejects literal `font-size` and `border-radius`
-values in modules, with the exemptions under Decisions and an allowlist.
-Map existing literals to the nearest token where the difference is at most
-1 px; add a token only when several sites need a step the scale lacks
-(candidates: 11 px, 16 px), shown on the Tokens page. Global stylesheets
-are converted as their rules move in steps 6 and 7.
+Implemented 2026-11-10 for review. `tokens:check` runs in lint, parses CSS
+shorthands/corners and TSX literal style values; counted reasons only ratchet down.
+Before: modules 231 type / 180 radius; inline 22 type / 15 radius findings.
+After: 57 type / 28 radius exceptions in 33 files (85 total; 448 → 85).
+Type scale at 100%: xs 10, caption 11, sm 12, base 13, lg 14, xl 16, 2xl 18px;
+all follow the font preference (default 115%, measured root 18.4px).
+Radius scale: xs 3, sm 4, md 6, lg 8, full 999px; Tokens shows every step.
+Exact/near values adopt tokens; defined-token fallbacks lose unreachable literals.
+Deferred: stylesheet-independent boot/crash fallbacks, composer (`composer pass`),
+configured output/source/tooltip sizes,
+optically sized glyphs, uncommon headings/sheet corners and the 17.25px plan
+heading; no suitable token within 1px. Global literals wait for steps 6–7.
 
 ### 5 — reduce the census pages to open work
 

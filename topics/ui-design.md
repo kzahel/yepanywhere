@@ -43,13 +43,15 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; steps 1–2 landed, step 3 implemented) closes the leaks around shared
+2026-11-10; steps 1–3 landed, step 4 implemented) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
 that still list swept work. `controls:check` now enforces caller-class ownership
 with a counted, reasoned allowlist; Census/Control overrides shows the exceptions.
 `buttons:check` also rejects hand-drawn ButtonBase surfaces or link actions,
 with rich/specialized exceptions listed in Census/ButtonBase exceptions.
+`tokens:check` enforces token-owned module and inline type sizes/radii, with
+counted reasons for remaining exceptions ([CSS contract](css-architecture.md#type-sizes-and-radii)).
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
@@ -458,7 +460,16 @@ depend on a higher one:
    `--bg-elevated` (popovers, menus, raised cards) and `--bg-input` (fields);
    `--bg-error`, `--bg-warning`, `--bg-success` and `--bg-selected` are tints
    mixed from each theme's status and primary colors; `--shadow-sm/md/lg`
-   is the elevation scale; `--radius-full` makes a pill. Values every theme
+   is the elevation scale; `--radius-full` makes a pill. The type scale is
+   `--font-size-xs` 10px, `-caption` 11px, `-sm` 12px, `-base` 13px,
+   `-lg` 14px, `-xl` 16px and `-2xl` 18px at 100%. All seven follow the
+   UI font preference: the default 115% gives an 18.4px root (1rem), with
+   each type token multiplied by 1.15. Rem conversions compare those computed
+   sizes; fixed radii do not scale with that preference. The radius scale is
+   `--radius-xs` 3px, `-sm` 4px, `-md` 6px, `-lg` 8px and `-full` 999px.
+   The Tokens/Scales page shows every step. A new step needs roughly eight
+   uses; uncommon heading/glyph sizes and user-configured output/source sizes
+   retain counted reasons instead. Values every theme
    shares, the dark defaults and the tints live in one `[data-theme]` block
    before the theme blocks, so a nested theme (a playground cell) resolves
    its own.

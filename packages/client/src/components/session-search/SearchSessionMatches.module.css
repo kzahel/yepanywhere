@@ -15,7 +15,7 @@
   flex-wrap: wrap;
   gap: 6px 16px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   margin-bottom: 16px;
   overflow-wrap: anywhere;
 }

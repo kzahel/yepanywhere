@@ -28,7 +28,7 @@
 .command {
   padding: 2px 6px;
   background: var(--bg-elevated);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.85em;
 }
 

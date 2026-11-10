@@ -23,7 +23,7 @@
 }
 
 .filterGroup {
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .filterGroup > span {
@@ -93,7 +93,7 @@
 .filterIcon {
   align-items: center;
   background: #273449;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.28),
     0 1px 3px rgba(0, 0, 0, 0.26);

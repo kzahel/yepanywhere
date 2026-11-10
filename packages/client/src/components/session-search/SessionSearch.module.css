@@ -48,16 +48,16 @@
 }
 .fields kbd {
   font:
-    11px ui-monospace,
+    var(--font-size-caption) ui-monospace,
     monospace;
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
   padding: 1px 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 .searchIn {
   display: none;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .search {
   flex: 0 1 340px;
@@ -84,7 +84,7 @@
   gap: 5px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 15px;
   color: var(--text-secondary);
 }
@@ -106,7 +106,7 @@
 }
 .diagnostics {
   margin-top: 12px;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
@@ -150,7 +150,7 @@
 .age {
   gap: 4px;
   font:
-    12px / 16px system-ui,
+    var(--font-size-sm) / 16px system-ui,
     sans-serif;
 }
 .limit {
@@ -158,7 +158,7 @@
   align-items: center;
   gap: 4px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 .limitInput {
@@ -172,7 +172,7 @@
   padding: 0 5px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .ageField > span,
 .ageInput {
@@ -218,7 +218,7 @@
   gap: 4px 12px;
   padding: 5px 0;
   border-block: 1px solid var(--border-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 .selectionInfo {
   display: flex;
@@ -252,7 +252,7 @@
 .progress,
 .help {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   margin: 8px 0;
 }
 .help svg {
@@ -285,7 +285,7 @@
   gap: 5px;
   border: 1px solid var(--border-color);
   padding: 8px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 @media (width < 1100px) {
   .manager {
@@ -305,7 +305,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 0;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 @container session-search-selection (max-width: 330px) {
   .statusFilters > span {
