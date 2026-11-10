@@ -1,3 +1,4 @@
+import { SelectableCard } from "./ui/SelectableCard";
 import type {
   PublicShareLinkedFileMode,
   PublicSessionShareMode,
@@ -14,7 +15,7 @@ import {
   type PublicShareCreationIdentity,
 } from "./PublicShareManagerModal";
 import { Banner } from "./ui/Banner";
-import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Button, IconButton } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import { Field, TextInput } from "./ui/Field";
 import type { ModalAnchorRect } from "./ui/Modal";
@@ -276,7 +277,7 @@ export function LegacySessionShareModal({
     >
       {canCreateShares ? (
         <div className="session-share-actions">
-          <ButtonBase
+          <SelectableCard
             className="session-share-action"
             onClick={() => void createAndCopyShare("frozen")}
             disabled={isWorking !== null}
@@ -289,8 +290,8 @@ export function LegacySessionShareModal({
             <span className="session-share-option-description">
               {t("sessionShareFrozenDescription")}
             </span>
-          </ButtonBase>
-          <ButtonBase
+          </SelectableCard>
+          <SelectableCard
             className="session-share-action"
             onClick={() => void createAndCopyShare("live")}
             disabled={isWorking !== null}
@@ -303,7 +304,7 @@ export function LegacySessionShareModal({
             <span className="session-share-option-description">
               {t("sessionShareLiveDescription")}
             </span>
-          </ButtonBase>
+          </SelectableCard>
         </div>
       ) : (
         <p className="session-share-readonly-note">

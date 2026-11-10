@@ -576,14 +576,15 @@ export function SearchSelection({
   return (
     <div className={styles.scope}>
       <div className={styles.selectionInfo}>
-        <ButtonBase
+        <Button
+          variant="link"
           className={styles.selectionCount}
           title={t("sessionSearchSelectionHelp", { count })}
           onClick={onManage}
         >
           <CheckIcon />
           {count}
-        </ButtonBase>
+        </Button>
         <Button
           size="small"
           onClick={onSelectShown}

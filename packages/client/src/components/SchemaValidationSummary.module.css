@@ -3,32 +3,7 @@
   left: 50%;
   bottom: max(0.75rem, env(safe-area-inset-bottom));
   z-index: 9998;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  min-width: 2.25rem;
-  height: 2.25rem;
-  padding: 0 0.625rem;
-  color: var(--warning-color);
-  background: color-mix(in srgb, var(--bg-surface) 94%, currentColor 6%);
-  border: 1px solid color-mix(in srgb, currentColor 65%, transparent);
-  border-radius: 999px;
-  box-shadow: var(--shadow-lg);
-  font: inherit;
-  font-size: inherit;
-  font-weight: 700;
   transform: translateX(-50%);
-}
-
-.trigger:hover {
-  color: var(--error-color);
-  border-color: currentColor;
-}
-
-.trigger:focus-visible {
-  outline: 2px solid var(--focus-border);
-  outline-offset: 2px;
 }
 
 .icon {

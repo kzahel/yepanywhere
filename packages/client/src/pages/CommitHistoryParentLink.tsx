@@ -1,4 +1,4 @@
-import { ButtonBase } from "../components/ui/Button";
+import { Button } from "../components/ui/Button";
 import type { TranslationFn } from "../i18n";
 import styles from "./CommitHistoryParentLink.module.css";
 
@@ -10,9 +10,9 @@ export function CommitHistoryParentLink({
   t: TranslationFn;
 }) {
   return (
-    <ButtonBase className={styles.link} onClick={onClick}>
+    <Button variant="link" className={styles.link} onClick={onClick}>
       <span aria-hidden="true">‹</span>
       <span>{t("sourceCommitHistory")}</span>
-    </ButtonBase>
+    </Button>
   );
 }

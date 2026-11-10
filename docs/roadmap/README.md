@@ -1138,12 +1138,19 @@ sizes and radii, trims the census pages to open work, and then splits and
 drains the global CSS by owner. Step 1 landed: exact
 whole-token/family detection runs in lint, 46 runtime/generated families are
 declared, and 49 global class names / 572 lines are deleted, leaving 16,652
-global lines before the control sweep. Step 2 is implemented: lint resolves
+global lines before the control sweep. Step 2 landed: lint resolves
 caller-class/inline overrides with a counted allowlist (21/600 button uses in
 12 files; 29 other-control sites in 24 files, including Badge custom properties),
 the playground lists the exceptions, and shared inline link, success/attention
 outlines, elevation and 36/44 px large buttons replace recurring treatments.
-Steps 3–8 remain open. It runs before the composer pass, which
+Step 3 is implemented with review corrections (uncommitted): all 132 original
+ButtonBase sites reviewed, 65 moved to shared controls (15 to selectable cards).
+Navigation/current, reveal, text flow and touch geometry are preserved; the
+stronger class/ancestor check lists 28 exceptions in 23 files among 67 remaining
+sites. Caller overrides are 18 button sites in 9 files and 28 other sites in 23
+files. Measured rich rows and the composer handle retain explicit reasons.
+Global CSS is 16,355 lines.
+Steps 4–8 remain open. It runs before the composer pass, which
 keeps its own exclusion.
 
 ## Later directions

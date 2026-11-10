@@ -6,7 +6,7 @@ import type { useFileViewCompletion } from "../hooks/useFileViewCompletion";
 import { type MessageKey, useI18n } from "../i18n";
 import styles from "./FileViewCompletionSheet.module.css";
 import { ProjectFileCompletionMenu } from "./ProjectFileCompletionMenu";
-import { ButtonBase, IconButton } from "./ui/Button";
+import { IconButton, Button } from "./ui/Button";
 
 const TIER_LABELS: Record<FileViewSearchTier, MessageKey> = {
   path: "fileViewGroupPath",
@@ -61,13 +61,14 @@ export function FileViewCompletionSheet({
       }
       footer={
         completion.canSearchIgnored ? (
-          <ButtonBase
+          <Button
+            variant="link"
             className={styles.footerAction}
             onMouseDown={(event) => event.preventDefault()}
             onClick={completion.searchIgnored}
           >
             {t("fileViewSearchIgnored")}
-          </ButtonBase>
+          </Button>
         ) : undefined
       }
       preview={

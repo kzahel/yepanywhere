@@ -1,31 +1,8 @@
 .trigger {
   display: inline-flex;
-  min-height: 22px;
   flex-shrink: 0;
   align-items: center;
   gap: 4px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  line-height: 1;
-}
-
-.trigger:hover,
-.trigger:focus-visible,
-.trigger[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--link-color) 48%, var(--border-color));
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.trigger:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
 }
 
 .trigger svg {
@@ -74,24 +51,7 @@
   min-width: 0;
   flex-direction: column;
   gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
   text-align: left;
-}
-
-.selectorItem:hover,
-.selectorItem:focus-visible {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.selectorItemSelected {
-  border-color: color-mix(in srgb, var(--link-color) 42%, var(--border-color));
-  background: var(--bg-selected);
-  color: var(--text-primary);
 }
 
 .selectorTitle {

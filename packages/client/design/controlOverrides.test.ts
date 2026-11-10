@@ -343,3 +343,12 @@ describe("control exception ratchet", () => {
     ).toHaveLength(1);
   });
 });
+
+it("allows translate-only layout transforms, including calc, but rejects mixed transforms", () => {
+  const result = scan(
+    `const a=<Action className={styles.center}/>; const b=<Action style={{transform:'translateX(-50%)'}}/>; const c=<Action className={styles.mixed}/>;`,
+    `.center {transform:translateX(calc(-50% + var(--offset))) translateY(2px)} .mixed {transform:translateX(-50%) scale(1.2)}`,
+  );
+  expect(result.overrides).toHaveLength(1);
+  expect(result.overrides[0]?.rules[0]?.properties).toEqual(["transform"]);
+});

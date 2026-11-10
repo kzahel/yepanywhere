@@ -127,14 +127,8 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-height: 54px;
   width: 100%;
-  padding: 10px;
   text-align: left;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: inherit;
 }
 .session span {
   display: -webkit-box;
@@ -146,17 +140,6 @@
 .session small {
   color: var(--text-secondary);
   overflow-wrap: anywhere;
-}
-.session:hover {
-  background: var(--bg-hover);
-}
-.session[aria-current="true"] {
-  background: color-mix(
-    in srgb,
-    var(--accent-primary) 12%,
-    var(--bg-secondary)
-  );
-  border-color: var(--accent-primary);
 }
 .main {
   display: flex;

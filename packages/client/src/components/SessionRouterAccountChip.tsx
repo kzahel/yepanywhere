@@ -6,7 +6,7 @@ import {
   routedAccounts,
   routerBindingChip,
 } from "./RouterPoolSelector";
-import { ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 
 /** Header shortcut to the shared Account tab; it never switches accounts. */
 export function SessionRouterAccountChip({
@@ -42,13 +42,15 @@ export function SessionRouterAccountChip({
     : { label: t("routerSwitchDirect"), tooltip: t("routerSwitchDirectTitle") };
 
   return (
-    <ButtonBase
+    <Button
+      variant="outline"
+      size="dense"
       className={className}
       title={chip.tooltip}
       aria-label={chip.tooltip}
       onClick={onDetails}
     >
       {chip.label}
-    </ButtonBase>
+    </Button>
   );
 }

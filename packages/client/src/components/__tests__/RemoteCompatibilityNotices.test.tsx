@@ -163,7 +163,6 @@ describe("RemoteCompatibilityNotices", () => {
     expect(textarea.classList.contains(styles.commandInput!)).toBe(true);
     expect(textarea.value).toBe(command);
     expect(copyButton.classList.contains(styles.copyButton!)).toBe(true);
-    expect(copyButton.classList.contains(styles.copied!)).toBe(false);
 
     fireEvent.click(copyButton);
 
@@ -171,7 +170,6 @@ describe("RemoteCompatibilityNotices", () => {
       copyButton,
     );
     expect(writeText).toHaveBeenCalledWith(command);
-    expect(copyButton.classList.contains(styles.copied!)).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     fireEvent.click(screen.getByRole("button", { name: "Remind me later" }));

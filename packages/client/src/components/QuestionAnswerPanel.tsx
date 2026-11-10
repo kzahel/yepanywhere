@@ -10,7 +10,7 @@ import { useI18n } from "../i18n";
 import type { InputRequest, UserQuestionAnswers } from "../types";
 import type { AskUserQuestionInput, Question } from "./renderers/tools/types";
 import styles from "./QuestionAnswerPanel.module.css";
-import { Button, ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import { TextInput } from "./ui/Field";
 import { Tabs } from "./ui/Tabs";
 
@@ -273,7 +273,9 @@ export function QuestionAnswerPanel({
     // biome-ignore lint/a11y/noStaticElementInteractions: keyboard shortcuts for the focusable buttons inside
     <div className={styles.wrapper} onKeyDown={handleKeyDown}>
       {/* Floating toggle button */}
-      <ButtonBase
+      <Button
+        variant="secondary"
+        size="small"
         className={styles.toggle}
         onClick={() => setCollapsed(!collapsed)}
         aria-label={
@@ -295,7 +297,7 @@ export function QuestionAnswerPanel({
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </ButtonBase>
+      </Button>
 
       {!collapsed && (
         <div className={styles.panel}>

@@ -27,25 +27,14 @@
   justify-content: space-between;
   gap: var(--space-2, 8px);
   width: 100%;
-  padding: var(--space-2, 8px);
   overflow: hidden;
-  color: var(--text-secondary, #8b949e);
   text-align: left;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle, #21262d);
-  border-radius: var(--radius-sm, 4px);
 }
 
 .submissionButton > span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.submissionButton:hover,
-.submissionButton.active {
-  color: var(--text-primary, #e6edf3);
-  border-color: var(--accent-color);
 }
 
 .loadMore {

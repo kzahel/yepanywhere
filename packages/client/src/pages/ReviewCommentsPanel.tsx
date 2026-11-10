@@ -2,7 +2,7 @@ import type { ReviewComment } from "@yep-anywhere/shared";
 import { useState } from "react";
 import { api } from "../api/client";
 import { Banner } from "../components/ui/Banner";
-import { Button, ButtonBase } from "../components/ui/Button";
+import { Button } from "../components/ui/Button";
 import { Textarea } from "../components/ui/Field";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
 import type { TranslationFn } from "../i18n";
@@ -95,13 +95,16 @@ export function ReviewCommentsPanel({
         {pending.map((comment) => (
           <li key={comment.id} className={styles.row}>
             <div className={styles.rowHead}>
-              <ButtonBase
+              <Button
+                variant="link"
+                textFlow="wrap"
+                mono
                 className={styles.location}
                 title={t("sourceReviewOpenInFiles")}
                 onClick={() => onOpenFile(comment.anchor.path)}
               >
                 {commentLocation(comment)}
-              </ButtonBase>
+              </Button>
               <span className={styles.revision}>
                 {revisionLabel(comment, t)}
               </span>

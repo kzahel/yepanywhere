@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import { Badge } from "./ui/Badge";
-import { ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import styles from "./SchemaValidationSummary.module.css";
 
@@ -56,17 +56,21 @@ export function SchemaValidationSummary({
 
   return (
     <>
-      <ButtonBase
-        className={styles.trigger}
-        title={tooltip}
-        aria-label={tooltip}
-        onClick={() => setIsOpen(true)}
-      >
-        <span className={styles.icon} aria-hidden="true">
-          !
-        </span>
-        <span className={styles.count}>{gaps.length}</span>
-      </ButtonBase>
+      <span className={styles.trigger}>
+        <Button
+          variant="attention-outline"
+          size="large"
+          elevated
+          title={tooltip}
+          aria-label={tooltip}
+          onClick={() => setIsOpen(true)}
+        >
+          <span className={styles.icon} aria-hidden="true">
+            !
+          </span>
+          <span className={styles.count}>{gaps.length}</span>
+        </Button>
+      </span>
       {isOpen && (
         <Dialog
           title={t("schemaGapSummaryTitle")}

@@ -8,18 +8,6 @@
   z-index: 2147483647;
 }
 
-.link {
-  font-size: inherit;
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.link:hover,
-.link:focus-visible {
-  text-decoration-thickness: 2px;
-}
-
 .tooltip {
   display: none;
   position: absolute;

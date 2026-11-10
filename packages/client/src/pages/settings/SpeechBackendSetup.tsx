@@ -7,7 +7,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Banner } from "../../components/ui/Banner";
-import { Button, ButtonBase } from "../../components/ui/Button";
+import { Button } from "../../components/ui/Button";
 import { Switch } from "../../components/ui/Switch";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
@@ -304,8 +304,8 @@ export function SpeechBackendSetup() {
                 <Button disabled={running} onClick={() => void install(row.id)}>
                   {t("speechBackendSetupInstall")}
                 </Button>
-                <ButtonBase
-                  className={styles.modelLink}
+                <Button
+                  variant="link"
                   onClick={() =>
                     setModelPage(
                       row.id === "ya-whisper"
@@ -315,7 +315,7 @@ export function SpeechBackendSetup() {
                   }
                 >
                   {t("speechBackendSetupModelAccess")}
-                </ButtonBase>
+                </Button>
               </div>
               <p className={styles.meta}>
                 {row.enabledByEnv

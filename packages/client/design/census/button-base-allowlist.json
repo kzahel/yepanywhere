@@ -1,0 +1,94 @@
+{
+  "components/AcliCommentary.tsx": {
+    "count": 1,
+    "reason": "Expandable commentary timeline bullet encodes activity and expands a rich transcript body; not a standalone action chip."
+  },
+  "components/ClearloopRemainingBadge.tsx": {
+    "count": 1,
+    "reason": "Live countdown/cancel affordance shares patient queue state and timing colors; countdown/watch states remain deferred from step 2."
+  },
+  "components/FolderListPopover.tsx": {
+    "count": 1,
+    "reason": "Whole directory-entry row combines folder/file status, name and metadata; preserve list selection geometry."
+  },
+  "components/LocalImageThumbnail.tsx": {
+    "count": 1,
+    "reason": "Image wrapper with loading/error content and an aspect-ratio-specific thumbnail; this is not a labelled action."
+  },
+  "components/NewSessionForm.tsx": {
+    "count": 1,
+    "reason": "Rich project summary disclosure contains project title, path and chooser state; keep the form row geometry."
+  },
+  "components/ProjectAppViewer.tsx": {
+    "count": 1,
+    "reason": "App-home title target combines app icon and a truncating project title within the measured viewer header."
+  },
+  "components/ProjectSelector.tsx": {
+    "count": 1,
+    "reason": "Project chooser summary contains current project icon/name/path and disclosure state; it is a rich field row."
+  },
+  "components/RenderItemComponent.tsx": {
+    "count": 1,
+    "reason": "Transcript activity-summary disclosure combines state, elapsed time and variable summary content."
+  },
+  "components/SessionViewerToolbarController.tsx": {
+    "count": 2,
+    "reason": "Location toggle and close/kill are segments of the measured parked-viewer controller, sharing waveform-dependent translucent surfaces and focus rings."
+  },
+  "components/SidebarNavItem.tsx": {
+    "count": 1,
+    "reason": "Navigation row includes icon, status, title and route-current state; preserve sidebar density."
+  },
+  "components/SourceFileOutline.tsx": {
+    "count": 1,
+    "reason": "Directory/group disclosure row contains counts, progress and nested tree indentation; not a small action chip."
+  },
+  "components/SourceFileRow.tsx": {
+    "count": 1,
+    "reason": "Source file list row combines path, status and selection, retaining tree/list geometry."
+  },
+  "components/UserTurnNavigator.tsx": {
+    "count": 3,
+    "reason": "Two timeline markers encode search/current/trim state; the rich transcript preview has measured expanded/search geometry. None is an ordinary text-link or action card."
+  },
+  "components/blocks/ExploredToolGroup.tsx": {
+    "count": 3,
+    "reason": "Timeline marker, explored-group summary row and parent-details disclosure contain tool status and rich content; retain their transcript geometry."
+  },
+  "components/blocks/UserPromptBlock.tsx": {
+    "count": 1,
+    "reason": "Delivery marker is a transcript timestamp/status disclosure anchored to the bubble baseline, with muted inherited text and underline only on interaction."
+  },
+  "components/renderers/blocks/ThinkingRenderer.tsx": {
+    "count": 1,
+    "reason": "Collapsed transcript disclosure contains a variable-length thinking preview and expands the whole block."
+  },
+  "components/renderers/tools/ReadRenderer.tsx": {
+    "count": 1,
+    "reason": "Aspect-ratio image preview wrapper, not the separate media-toggle and file actions now using shared controls."
+  },
+  "components/renderers/tools/WriteRenderer.tsx": {
+    "count": 1,
+    "reason": "Collapsed rich code preview opens the complete write result; retain the code-card surface."
+  },
+  "extension/sidepanel/SiteAccess.tsx": {
+    "count": 1,
+    "reason": "Extension site-access disclosure includes origin, permission state and instructions; rich settings row."
+  },
+  "hooks/useMessageListIsearch.tsx": {
+    "count": 1,
+    "reason": "Older-result preview is a rich search-result disclosure with hydration status and multiline preview content."
+  },
+  "pages/AgentsPage.tsx": {
+    "count": 1,
+    "reason": "Provider metrics summary opens a detailed popover and presents several live numerical fields in a compact data row."
+  },
+  "pages/BlameView.tsx": {
+    "count": 1,
+    "reason": "Blame gutter row targets retain author hue and externally calculated gutter geometry; the forwarded style is explicitly reviewed here."
+  },
+  "pages/SessionPage.tsx": {
+    "count": 1,
+    "reason": "Composer-adjacent /btw pane handle is excluded by the composer pass and has pane-edge layout."
+  }
+}

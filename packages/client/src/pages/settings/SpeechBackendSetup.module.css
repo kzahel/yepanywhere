@@ -55,11 +55,6 @@
   align-items: center;
   gap: 12px;
 }
-.modelLink {
-  min-height: 44px;
-  color: var(--link-color);
-  font-size: inherit;
-}
 .access {
   display: grid;
   gap: 12px;

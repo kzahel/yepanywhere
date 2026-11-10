@@ -1,3 +1,4 @@
+import { Corrections } from "./control-corrections";
 import { type ReactNode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { displayProviders } from "../../src/components/renderers/tools/__fixtures__/displayProviders";
@@ -5,6 +6,10 @@ import { ToolCallRow } from "../../src/components/blocks/ToolCallRow";
 import { TextBlock } from "../../src/components/blocks/TextBlock";
 import { OutputCopyButton } from "../../src/components/renderers/tools/outputPreview";
 import { SourceRowMenuTrigger } from "../../src/components/SourceContextMenu";
+import { UserPromptBlock } from "../../src/components/blocks/UserPromptBlock";
+import { FixedFontMathToggle } from "../../src/components/ui/FixedFontMathToggle";
+import { SelectableCard } from "../../src/components/ui/SelectableCard";
+import { CopyTextButton } from "../../src/components/ui/CopyTextButton";
 import { IconButton } from "../../src/components/ui/Button";
 import { RememberedDisclosureStateProvider } from "../../src/contexts/RememberedDisclosureStateContext";
 import appStyles from "../../src/components/ProjectAppViewer.module.css";
@@ -61,6 +66,44 @@ function Fixture() {
           toolResult={{ content: "hello" }}
           status="complete"
         />
+      </Site>
+      <Site name="prompt">
+        <UserPromptBlock
+          content="Review the transcript on a phone while live work continues."
+          onCorrect={() => setMenuClicks((value) => value + 1)}
+          onTrimBefore={() => setMenuClicks((value) => value + 1)}
+          onCancelUnconfirmed={() => setMenuClicks((value) => value + 1)}
+          onForkBefore={() => setMenuClicks((value) => value + 1)}
+        />
+      </Site>
+      <Site name="math">
+        <FixedFontMathToggle
+          sourceText="**Rendered output**"
+          sourceView={<pre>**Rendered output**</pre>}
+          renderRenderedView={(html) => (
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: production fixed-font renderer output is the subject of this fixture.
+            <div dangerouslySetInnerHTML={{ __html: html }} />
+          )}
+        />
+      </Site>
+      <Site name="copy">
+        <CopyTextButton
+          text="queued clipboard witness"
+          label="Copy queued text"
+          copiedLabel="Queued text copied"
+          showTextLabel
+          variant="ghost"
+        />
+      </Site>
+      <Site name="cards">
+        <SelectableCard
+          selected={menuClicks % 2 === 1}
+          onClick={() => setMenuClicks((value) => value + 1)}
+        >
+          Session action with a long description that wraps across the phone
+          viewport.
+        </SelectableCard>
+        <SelectableCard disabled>Unavailable choice</SelectableCard>
       </Site>
       <Site name="bash">
         <div className="bash-inline-section-header">
@@ -141,6 +184,7 @@ function Fixture() {
         </div>
         <output data-menu-clicks={menuClicks} />
       </Site>
+      <Corrections />
       <Site name="last">
         <Action name="Restore last file" className={lastStyles.reopen!} />
       </Site>

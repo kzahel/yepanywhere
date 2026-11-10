@@ -27,7 +27,7 @@ import {
   PublicShareRevokeIcon,
 } from "./PublicShareInventory";
 import { Banner } from "./ui/Banner";
-import { Button, ButtonBase, IconButton } from "./ui/Button";
+import { Button, IconButton } from "./ui/Button";
 import { confirmDialog } from "./ui/ConfirmDialog";
 import { Dialog } from "./ui/Dialog";
 import type { ModalAnchorRect } from "./ui/Modal";
@@ -778,10 +778,10 @@ function SourcePublicShareManagerModal({
                   }`}
                   key={modeOption}
                 >
-                  <ButtonBase
-                    className={`${styles.filterButton} ${
-                      selected ? styles.filterButtonActive : ""
-                    }`}
+                  <Button
+                    variant="outline"
+                    size="small"
+                    className={styles.filterButton}
                     aria-pressed={selected}
                     disabled={operationInvalidationDisabled}
                     onClick={() => toggleModeFilter(modeOption)}
@@ -790,7 +790,7 @@ function SourcePublicShareManagerModal({
                       <PublicShareFilterIcon kind={modeOption} />
                     </span>
                     <span>{typeLabel}</span>
-                  </ButtonBase>
+                  </Button>
                   {creationControlsVisible && (
                     <IconButton
                       label={t("publicShareManagementCreate", {

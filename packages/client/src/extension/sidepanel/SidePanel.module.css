@@ -89,23 +89,12 @@
 }
 .row {
   width: 100%;
-  min-height: 36px;
-  padding: 9px 10px;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: inherit;
   text-align: left;
 }
-.row:hover {
-  background: var(--bg-hover);
-}
 .row:disabled {
-  opacity: 0.4;
   cursor: default;
 }
 .rowTop {

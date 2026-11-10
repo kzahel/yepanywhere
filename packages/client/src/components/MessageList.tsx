@@ -169,7 +169,7 @@ import {
 } from "./UserTurnNavigator";
 import { Badge } from "./ui/Badge";
 import { Banner } from "./ui/Banner";
-import { Button, ButtonBase, buttonClassName } from "./ui/Button";
+import { Button, ButtonBase } from "./ui/Button";
 import { CopyTextButton } from "./ui/CopyTextButton";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import { Spinner } from "./ui/Spinner";
@@ -1173,11 +1173,6 @@ function ClearloopCountdown({
   return <>{t("clearloopCountdown", { seconds: String(remaining) })}</>;
 }
 
-const QUEUED_COPY_BUTTON_CLASS = buttonClassName({
-  size: "small",
-  className: "deferred-message-action-copy",
-});
-
 const subscribeComposerEditAvailable = () => () => {};
 const getComposerEditAvailable = () => true;
 
@@ -1214,7 +1209,8 @@ function QueuedMessageActions({
       <CopyTextButton
         text={text}
         label={isProject ? t("projectQueueInlineCopy") : t("sessionQueuedCopy")}
-        className={QUEUED_COPY_BUTTON_CLASS}
+        variant="ghost"
+        size="small"
         showTextLabel
         onClick={(event) => event.stopPropagation()}
       />
@@ -5266,7 +5262,8 @@ export const MessageList = memo(function MessageList({
                         <CopyTextButton
                           text={pending.content}
                           label="Copy message text"
-                          className={QUEUED_COPY_BUTTON_CLASS}
+                          variant="ghost"
+                          size="small"
                           showTextLabel
                           onClick={(event) => event.stopPropagation()}
                         />
@@ -5531,7 +5528,8 @@ export const MessageList = memo(function MessageList({
                         <CopyTextButton
                           text={deferred.content}
                           label={t("sessionQueuedCopy")}
-                          className={QUEUED_COPY_BUTTON_CLASS}
+                          variant="ghost"
+                          size="small"
                           showTextLabel
                           onClick={(event) => event.stopPropagation()}
                         />

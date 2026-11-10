@@ -35,7 +35,7 @@ import {
   SourceFileStatusBadge,
 } from "../components/SourceFileRow";
 import { Banner } from "../components/ui/Banner";
-import { Button, ButtonBase } from "../components/ui/Button";
+import { Button } from "../components/ui/Button";
 import { TextInput } from "../components/ui/Field";
 import { Modal } from "../components/ui/Modal";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
@@ -595,17 +595,17 @@ function WorktreeSectionControls({
       aria-label={t("sourceWorkingTreeSections")}
     >
       {sections.map(({ kind, label }) => (
-        <ButtonBase
+        <Button
+          variant="outline"
+          size="small"
           key={kind}
-          className={`${styles.sectionToggle} ${
-            coverage[kind] ? styles.activeSectionToggle : ""
-          }`}
+          className={styles.sectionToggle}
           aria-pressed={coverage[kind]}
           onClick={() => onToggle(kind)}
         >
           <span aria-hidden="true">{coverage[kind] ? "●" : "○"}</span>
           {label}
-        </ButtonBase>
+        </Button>
       ))}
     </fieldset>
   );

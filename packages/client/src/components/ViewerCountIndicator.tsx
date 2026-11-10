@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import { ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import styles from "./ViewerCountIndicator.module.css";
 
 interface ViewerCountIndicatorProps {
@@ -29,21 +29,23 @@ export function ViewerCountIndicator({
     </>
   );
   const interactive = onClick || onContextMenu;
-  const classes = [styles.root, interactive ? styles.button : null, className]
+  const classes = [interactive ? null : styles.root, className]
     .filter(Boolean)
     .join(" ");
 
   if (interactive) {
     return (
-      <ButtonBase
-        className={classes}
+      <Button
+        variant="secondary"
+        size="dense"
+        className={className}
         title={label}
         aria-label={label}
         onClick={onClick}
         onContextMenu={onContextMenu}
       >
         {content}
-      </ButtonBase>
+      </Button>
     );
   }
 

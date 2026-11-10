@@ -229,11 +229,6 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 30px;
-  color: var(--text-primary);
-  font-size: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .selectionCancelIcon {
   color: var(--error-color);

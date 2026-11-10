@@ -1,3 +1,4 @@
+import { FileActionButton } from "../../ui/FileActionButton";
 import { toolDisplayContracts } from "./toolDisplayContracts";
 import { defineTool } from "./defineTool";
 import {
@@ -53,7 +54,7 @@ import {
   restoreDiffSelection,
 } from "./editSelectionTransfer";
 import { getOutputTailTooltip } from "./outputPreview";
-import { Button, ButtonBase, IconButton } from "../../ui/Button";
+import { Button, IconButton } from "../../ui/Button";
 import {
   CHANGED_DIFF_LINE_SELECTOR,
   UnifiedDiff,
@@ -1390,8 +1391,7 @@ function EditInteractiveSummary({
     return (
       <>
         <FileDiffLinkCluster className="source-review-edit-summary">
-          <ButtonBase
-            className="file-link-inline"
+          <FileActionButton
             title={fileTitle}
             onClick={(e) => {
               e.stopPropagation();
@@ -1402,7 +1402,7 @@ function EditInteractiveSummary({
             {showValidationWarning && validationErrors && (
               <SchemaWarning toolName="Edit" errors={validationErrors} />
             )}
-          </ButtonBase>
+          </FileActionButton>
           <SourceControlEditLink filePath={filePath} />
         </FileDiffLinkCluster>
         {showModal && (
@@ -1441,8 +1441,7 @@ function EditInteractiveSummary({
   return (
     <>
       <FileDiffLinkCluster className="source-review-edit-summary">
-        <ButtonBase
-          className="file-link-inline"
+        <FileActionButton
           title={fileTitle}
           onClick={(e) => {
             e.stopPropagation();
@@ -1456,7 +1455,7 @@ function EditInteractiveSummary({
           {showValidationWarning && validationErrors && (
             <SchemaWarning toolName="Edit" errors={validationErrors} />
           )}
-        </ButtonBase>
+        </FileActionButton>
         <SourceControlEditLink filePath={filePath} />
       </FileDiffLinkCluster>
       {showModal && (

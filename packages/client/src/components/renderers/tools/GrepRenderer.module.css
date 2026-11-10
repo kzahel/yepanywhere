@@ -142,19 +142,8 @@
 }
 
 .matchCountButton {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--link-color);
-  font: inherit;
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
   white-space: nowrap;
-}
-
-.matchCountButton:hover {
-  text-decoration-color: currentColor;
 }
 
 .matchModal {

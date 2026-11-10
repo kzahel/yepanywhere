@@ -1,9 +1,10 @@
+import { SelectableCard } from "../components/ui/SelectableCard";
 import type { Content } from "@yep-anywhere/shared/experimental/simple-client.generated";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Badge } from "../components/ui/Badge";
 import { Banner } from "../components/ui/Banner";
-import { Button, ButtonBase, buttonClassName } from "../components/ui/Button";
+import { Button, buttonClassName } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { Select } from "../components/ui/Field";
 import { type MessageKey, useI18n } from "../i18n";
@@ -273,7 +274,8 @@ function Preview({
                   </h3>
                 )}
                 {group.rows.map(({ source: rowSource, session: row }) => (
-                  <ButtonBase
+                  <SelectableCard
+                    size="compact"
                     key={JSON.stringify([rowSource.host.id, row.id])}
                     className={styles.session}
                     aria-current={
@@ -297,7 +299,7 @@ function Preview({
                         ? row.projectName
                         : rowSource.host.displayName}
                     </small>
-                  </ButtonBase>
+                  </SelectableCard>
                 ))}
               </section>
             ))}

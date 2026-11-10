@@ -21,7 +21,7 @@ import { toBrowserAppHref } from "../lib/appHref";
 import { formatBriefAge } from "../lib/sessionAge";
 import { IssueIcon } from "./IssueIcon";
 import styles from "./SessionIssuesLink.module.css";
-import { ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import {
   Menu,
   MenuGroup,
@@ -383,7 +383,9 @@ export function SessionIssuesLink({
 
   return (
     <>
-      <ButtonBase
+      <Button
+        variant="secondary"
+        size="dense"
         {...menu.triggerProps}
         className={styles.trigger}
         aria-label={label}
@@ -391,7 +393,7 @@ export function SessionIssuesLink({
       >
         <IssueIcon size={14} />
         {badge && <span className={styles.count}>{badge}</span>}
-      </ButtonBase>
+      </Button>
       <Menu
         open={menu.open}
         onClose={menu.close}

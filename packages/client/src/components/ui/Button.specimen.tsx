@@ -173,20 +173,10 @@ LinkLooksLikeButton.storyName = "Link styled with buttonClassName";
 export function Base() {
   return (
     <div style={column}>
-      <ButtonBase
-        style={{
-          padding: "var(--space-2) var(--space-3)",
-          borderRadius: "var(--radius-md)",
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-color)",
-          width: "18rem",
-        }}
-      >
-        A clickable card: ButtonBase plus its owner's styles
+      <ButtonBase aria-expanded={false}>
+        ▸ A rich disclosure row keeps its owner's layout
       </ButtonBase>
-      <ButtonBase style={{ color: "var(--link-color)" }}>
-        An unstyled disclosure
-      </ButtonBase>
+      <Button variant="link">An inline text action uses Button</Button>
     </div>
   );
 }
@@ -225,6 +215,44 @@ export function InlineAndSelected() {
           Select filtered
         </Button>
       </div>
+    </div>
+  );
+}
+
+export function TextFlowAndInline() {
+  return (
+    <div style={{ display: "grid", gap: 12, width: "100%", maxWidth: 320 }}>
+      <Button
+        variant="outline"
+        textFlow="truncate"
+        style={{ maxWidth: "12ch" }}
+      >
+        An extraordinarily long project name
+      </Button>
+      <Button variant="link" textFlow="wrap" mono>
+        src/a-very-long-filename-that-wraps-inside-a-phone-width.ts:123
+      </Button>
+      <p>
+        Prose with an{" "}
+        <Button variant="outline" size="inline">
+          inline gallery
+        </Button>{" "}
+        action.
+      </p>
+      <div>
+        <IconButton label="Copy inline path" size="inline-icon" subdued>
+          ⧉
+        </IconButton>
+      </div>
+      <Button size="small" touchTarget="large">
+        Small mouse, 44 px touch
+      </Button>
+      <Button variant="outline" data-selected>
+        Open popover
+      </Button>
+      <Button variant="attention-outline" elevated>
+        Pending approval
+      </Button>
     </div>
   );
 }

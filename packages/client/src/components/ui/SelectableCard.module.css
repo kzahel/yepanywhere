@@ -1,0 +1,53 @@
+.card {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
+  }
+}
+.card[aria-pressed="true"],
+.card[aria-current]:not([aria-current="false"]) {
+  background: color-mix(in srgb, var(--app-yep-green) 14%, var(--bg-surface));
+  border-color: var(--app-yep-green);
+}
+.card.quiet {
+  background: transparent;
+  border-style: dashed;
+}
+.card.accent {
+  border-inline-start: 3px solid var(--project-queue-action-bg);
+}
+.card.compact {
+  min-height: 36px;
+  padding: var(--space-2);
+}
+.card:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.card[aria-busy="true"] {
+  color: var(--text-primary);
+  cursor: progress;
+}
+@media (pointer: coarse) {
+  .card.compact {
+    min-height: 44px;
+  }
+}

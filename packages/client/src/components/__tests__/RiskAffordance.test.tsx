@@ -175,43 +175,4 @@ describe("RiskAffordance tooltip timing", () => {
     expect(screen.getByText("Risk")).toBeTruthy();
     expect(screen.getByText("Risk explanation")).toBeTruthy();
   });
-
-  it("owns its classes locally and keeps the caller label class", () => {
-    render(
-      <RiskAffordance
-        label="what is the risk?"
-        labelClassName="external-session-warning-elapsed"
-        modalTitle="Risk"
-        explanation="Risk explanation"
-      />,
-    );
-    const target = screen.getByRole("button", {
-      name: "what is the risk?",
-    });
-    const hoverRegion = hoverRegionOf(target);
-
-    fireEvent.pointerEnter(hoverRegion, {
-      pointerType: "mouse",
-      clientX: 10,
-      clientY: 10,
-    });
-    fireEvent.pointerMove(hoverRegion, {
-      pointerType: "mouse",
-      clientX: 11,
-      clientY: 10,
-    });
-    act(() => vi.advanceTimersByTime(DEFAULT_TOOLTIP_DELAY_MS));
-
-    // The caller-supplied label class is a documented pass-through and stays.
-    expect(target.classList).toContain("external-session-warning-elapsed");
-    expect(target.classList).toContain(cls(styles.link));
-
-    // The migrated vocabulary is gone from every node the component renders.
-    const rendered = [hoverRegion, ...hoverRegion.querySelectorAll("*")];
-    const emitted = rendered.flatMap((node) => [...node.classList]);
-    expect(emitted).not.toContain("external-session-risk");
-    expect(emitted).not.toContain("external-session-risk--tooltip-visible");
-    expect(emitted).not.toContain("external-session-risk-link");
-    expect(emitted).not.toContain("external-session-risk-tooltip");
-  });
 });

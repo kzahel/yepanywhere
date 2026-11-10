@@ -79,7 +79,6 @@ export function ExternalSessionWarning({ active }: { active: boolean }) {
         label={t("sessionExternalWarningElapsed", {
           duration: formatDuration(elapsedSeconds),
         })}
-        labelClassName="external-session-warning-elapsed"
         modalTitle={t("sessionExternalWarningExplainTitle")}
         explanation={<ExternalSessionRiskExplanation />}
       />

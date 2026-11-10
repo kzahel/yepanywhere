@@ -40,7 +40,8 @@ import {
   renderFixedFontRichContent,
 } from "../../ui/FixedFontMathToggle";
 import { InnerHtml } from "../../ui/InnerHtml";
-import { ButtonBase } from "../../ui/Button";
+import { ButtonBase, Button, IconButton } from "../../ui/Button";
+import toggleStyles from "../../ui/FixedFontRenderToggle.module.css";
 import { RenderModeGlyph } from "../../ui/RenderModeGlyph";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import type {
@@ -151,7 +152,7 @@ function ReadFilePathSummary({
   lineNumber?: number;
 }) {
   return (
-    <span className="file-link-inline">
+    <span className="file-link-label">
       <SessionFilePathLink
         displayPath={displayPath}
         filePath={filePath}
@@ -338,16 +339,20 @@ function FileModalContent({
       {showSigma ? (
         <div className="fixed-font-render-toggle">
           {content}
-          <ButtonBase
+          <IconButton
+            variant="outline"
+            elevated
+            size="dense"
             ref={mathBtnRef}
-            className={`fixed-font-render-toggle__button ${showMath ? "is-rendered" : ""}`}
+            className={toggleStyles.button}
+            data-fixed-font-toggle=""
             onClick={handleMathToggle}
-            aria-label={mathToggleLabel}
+            label={mathToggleLabel}
             {...mathToggleTooltip}
             aria-pressed={showMath}
           >
             <RenderModeGlyph />
-          </ButtonBase>
+          </IconButton>
         </div>
       ) : (
         content
@@ -499,15 +504,17 @@ function ImageFileResult({
   return (
     <div className="read-image-result">
       <div className="local-media-link-group">
-        <ButtonBase
-          className="local-media-inline-toggle"
+        <IconButton
+          variant="outline"
+          elevated
+          size="dense"
           aria-expanded={expanded}
-          aria-label={expanded ? "Collapse image" : "Expand image"}
+          label={expanded ? "Collapse image" : "Expand image"}
           title={expanded ? "Collapse inline preview" : "Expand inline preview"}
           onClick={() => setOverride(!expanded)}
         >
           {expanded ? "-" : "+"}
-        </ButtonBase>
+        </IconButton>
         {filePath && displayPath ? (
           <span className="file-range-inline">
             <SessionFilePathLink
@@ -635,11 +642,15 @@ function PdfFileResult({
 
   return (
     <div className="read-pdf-result">
-      <ButtonBase
+      <Button
+        variant="outline"
+        size="small"
+        textFlow="wrap"
+        mono
         className="file-link-button"
         onClick={() => openPdfInNewTab(base64)}
       >
-        {fileName}
+        {fileName}{" "}
         {sizeKB > 0 && (
           <span className="file-line-count">
             ({sizeKB}
@@ -647,7 +658,7 @@ function PdfFileResult({
           </span>
         )}
         <span className="file-line-count">Open PDF</span>
-      </ButtonBase>
+      </Button>
     </div>
   );
 }

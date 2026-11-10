@@ -38,7 +38,7 @@ import {
   useLocalMediaInlinePreviews,
   useLocalResourceClick,
 } from "../LocalMediaModal";
-import { ButtonBase, IconButton } from "../ui/Button";
+import { IconButton, Button } from "../ui/Button";
 import { renderFixedFontMath } from "../ui/FixedFontMathToggle";
 import { RenderModeGlyph } from "../ui/RenderModeGlyph";
 import { useTurnImageGalleryNavigation } from "../TurnImageGallery";
@@ -524,7 +524,9 @@ export const TextBlock = memo(function TextBlock({
       </div>
       {galleryActionHost
         ? createPortal(
-            <ButtonBase
+            <Button
+              variant="outline"
+              size="inline"
               className="turn-image-gallery-inline-action"
               aria-expanded={galleryActive}
               aria-label={t(
@@ -549,7 +551,7 @@ export const TextBlock = memo(function TextBlock({
             >
               <span aria-hidden="true">{galleryActive ? "−" : "+"}</span>
               {t("turnImageGalleryShow")}
-            </ButtonBase>,
+            </Button>,
             galleryActionHost,
           )
         : null}

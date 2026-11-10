@@ -1,3 +1,4 @@
+import { SelectableCard } from "./ui/SelectableCard";
 import type { ProviderChildSessionSummary } from "@yep-anywhere/shared";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useProcesses } from "../hooks/useProcesses";
@@ -16,7 +17,7 @@ import {
 } from "../lib/sessionViewerController";
 import { ProviderChildSessionDetail } from "./ProviderChildSessionDetail";
 import { SessionManagedPanel } from "./SessionManagedViewer";
-import { ButtonBase, buttonClassName } from "./ui/Button";
+import { buttonClassName, Button } from "./ui/Button";
 import styles from "./ProviderChildSessionControl.module.css";
 
 function latestChildId(
@@ -85,10 +86,9 @@ function ProviderChildSessionViewer({
             const isSelected = child.id === selected.id;
             return (
               <li key={child.id}>
-                <ButtonBase
-                  className={`${styles.selectorItem} ${
-                    isSelected ? styles.selectorItemSelected : ""
-                  }`}
+                <SelectableCard
+                  size="compact"
+                  className={styles.selectorItem}
                   aria-current={isSelected ? "true" : undefined}
                   onClick={() => setSelectedId(child.id)}
                 >
@@ -98,7 +98,7 @@ function ProviderChildSessionViewer({
                       {child.agentType}
                     </span>
                   )}
-                </ButtonBase>
+                </SelectableCard>
               </li>
             );
           })}
@@ -190,12 +190,15 @@ export function ProviderChildSessionControl({
 
   return (
     <>
-      <ButtonBase
+      <Button
+        variant="secondary"
+        size="dense"
         className={styles.trigger}
         title={activityLabel}
         aria-label={activityLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
+        data-selected={open}
         onClick={() => {
           if (open) {
             restoreSessionViewer(viewerId);
@@ -215,7 +218,7 @@ export function ProviderChildSessionControl({
             ? `${activeCount}/${children.length}`
             : children.length}
         </span>
-      </ButtonBase>
+      </Button>
       {open && (
         <SessionManagedPanel
           viewerId={viewerId}

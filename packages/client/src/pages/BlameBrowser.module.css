@@ -14,26 +14,8 @@
 
 .sectionToggle {
   display: inline-flex;
-  min-height: 28px;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.sectionToggle:hover,
-.sectionToggle:focus-visible {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.activeSectionToggle {
-  color: var(--text-primary);
-  background: var(--bg-selected);
-  border-color: var(--border-color);
 }
 
 .truncated {

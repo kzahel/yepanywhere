@@ -99,14 +99,10 @@
 }
 
 .link {
-  min-height: 32px;
-  color: var(--accent-color);
-  font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 
 .link:disabled {
-  color: var(--text-dimmed);
   cursor: default;
 }
 

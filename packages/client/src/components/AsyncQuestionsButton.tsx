@@ -264,11 +264,14 @@ export function AsyncQuestionsButton({
     : t("asyncQuestionsTitle");
   return (
     <>
-      <ButtonBase
+      <Button
+        variant={recent.length ? "attention-outline" : "secondary"}
+        touchTarget="large"
+        size="small"
         ref={button}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        className={`${styles.indicator} ${recent.length ? styles.recent : ""} ${overflow ? styles.overflowEntry : ""}`}
+        className={`${styles.indicator} ${overflow ? styles.overflowEntry : ""}`}
         aria-label={label}
         title={label}
         aria-expanded={open}
@@ -307,7 +310,7 @@ export function AsyncQuestionsButton({
           // accessible name and tooltip still carry the wording.
           compact !== "late" && <span>{t("asyncQuestionsTitle")}</span>
         )}
-      </ButtonBase>
+      </Button>
       <Popover
         open={open}
         onClose={close}

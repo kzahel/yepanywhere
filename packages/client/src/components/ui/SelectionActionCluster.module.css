@@ -6,125 +6,23 @@
   gap: 6px;
 }
 
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid var(--selection-action-border);
-  border-radius: 999px;
-  background: var(--selection-action-background);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-md);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  touch-action: manipulation;
-}
-
-.button:hover,
-.button:focus-visible {
-  background: var(--selection-action-background-hover);
-  outline: 2px solid var(--focus-border, #007acc);
-  outline-offset: 1px;
-}
-
 .text {
-  --selection-action-border: color-mix(
-    in srgb,
-    var(--text-secondary, #8b949e) 68%,
-    var(--border-color, #333)
-  );
-  --selection-action-background: color-mix(
-    in srgb,
-    var(--text-secondary, #8b949e) 20%,
-    var(--bg-secondary, #252525)
-  );
-  --selection-action-background-hover: color-mix(
-    in srgb,
-    var(--text-secondary, #8b949e) 32%,
-    var(--bg-secondary, #252525)
-  );
   font-size: 15px;
 }
 
 .quote {
-  --selection-action-border: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 65%,
-    var(--border-color, #333)
-  );
-  --selection-action-background: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 24%,
-    var(--bg-secondary, #252525)
-  );
-  --selection-action-background-hover: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 36%,
-    var(--bg-secondary, #252525)
-  );
   font-size: 16px;
 }
 
 .source {
-  --selection-action-border: color-mix(
-    in srgb,
-    #268bd2 68%,
-    var(--border-color, #333)
-  );
-  --selection-action-background: color-mix(
-    in srgb,
-    #268bd2 25%,
-    var(--bg-secondary, #252525)
-  );
-  --selection-action-background-hover: color-mix(
-    in srgb,
-    #268bd2 38%,
-    var(--bg-secondary, #252525)
-  );
   font-size: 8px;
 }
 
 .rich {
-  --selection-action-border: color-mix(
-    in srgb,
-    #a855f7 68%,
-    var(--border-color, #333)
-  );
-  --selection-action-background: color-mix(
-    in srgb,
-    #a855f7 24%,
-    var(--bg-secondary, #252525)
-  );
-  --selection-action-background-hover: color-mix(
-    in srgb,
-    #a855f7 36%,
-    var(--bg-secondary, #252525)
-  );
+  font-size: var(--font-size-xs);
 }
 
 .newSession {
-  --selection-action-border: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 70%,
-    var(--border-color, #333)
-  );
-  --selection-action-background: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 28%,
-    var(--bg-secondary, #252525)
-  );
-  --selection-action-background-hover: color-mix(
-    in srgb,
-    var(--app-yep-green, #059669) 42%,
-    var(--bg-secondary, #252525)
-  );
   font-size: 20px;
   font-weight: 600;
 }
@@ -136,11 +34,6 @@
 
 .mobile {
   pointer-events: auto;
-}
-
-.mobile .button {
-  width: 44px;
-  height: 44px;
 }
 
 .docked {

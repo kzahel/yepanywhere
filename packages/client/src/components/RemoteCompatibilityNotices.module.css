@@ -61,14 +61,5 @@
   align-items: center;
   justify-content: center;
   width: 30px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-hover) 70%, transparent);
-  color: var(--text-primary);
   cursor: pointer;
-}
-
-.copyButton:hover,
-.copyButton.copied {
-  background: var(--border-color);
 }

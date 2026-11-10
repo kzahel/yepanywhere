@@ -1,3 +1,4 @@
+import { SelectableCard } from "../components/ui/SelectableCard";
 import {
   deriveReviewSubmissionName,
   type ReviewCapturedSource,
@@ -11,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { Banner } from "../components/ui/Banner";
-import { Button, ButtonBase } from "../components/ui/Button";
+import { Button } from "../components/ui/Button";
 import { Field, Select, Textarea } from "../components/ui/Field";
 import type { TranslationFn } from "../i18n";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
@@ -174,10 +175,10 @@ export function ReviewSubmissionsPanel({
       <ul className={styles.submissionList}>
         {submissions.map((submission) => (
           <li key={submission.id}>
-            <ButtonBase
-              className={`${styles.submissionButton} ${
-                submission.id === selected.id ? styles.active : ""
-              }`.trimEnd()}
+            <SelectableCard
+              size="compact"
+              className={styles.submissionButton}
+              aria-current={submission.id === selected.id ? "true" : undefined}
               onClick={() => setSelectedId(submission.id)}
             >
               <span>{submissionLabel(submission, t)}</span>
@@ -189,7 +190,7 @@ export function ReviewSubmissionsPanel({
                   aria-label={t("sourceReviewUnread")}
                 />
               )}
-            </ButtonBase>
+            </SelectableCard>
           </li>
         ))}
         {nextCursor && (

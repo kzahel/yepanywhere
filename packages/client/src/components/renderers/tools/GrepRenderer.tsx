@@ -147,7 +147,8 @@ function GrepMatchDrilldown({
 
   return (
     <>
-      <ButtonBase
+      <Button
+        variant="link"
         className={styles.matchCountButton}
         onClick={(event) => {
           event.preventDefault();
@@ -156,7 +157,7 @@ function GrepMatchDrilldown({
         }}
       >
         {label}
-      </ButtonBase>
+      </Button>
       {showModal && (
         <ActivityDetailModal
           title={label}

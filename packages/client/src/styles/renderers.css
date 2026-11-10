@@ -35,53 +35,6 @@
   overflow: visible;
 }
 
-.fixed-font-render-toggle__button {
-  position: absolute;
-  right: 0.4rem;
-  bottom: 0.25rem;
-  width: 1.45rem;
-  height: 1.45rem;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
-  z-index: 2;
-}
-
-.fixed-font-render-toggle:hover .fixed-font-render-toggle__button,
-.fixed-font-render-toggle:focus-within .fixed-font-render-toggle__button,
-.fixed-font-render-toggle__button:focus {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.fixed-font-render-toggle__button:hover {
-  color: var(--text-primary);
-  border-color: var(--border-color);
-}
-
-.fixed-font-render-toggle__button.is-rendered {
-  color: var(--text-primary);
-  border-color: color-mix(
-    in srgb,
-    var(--app-yep-green) 45%,
-    var(--border-color)
-  );
-  background: color-mix(in srgb, var(--app-yep-green) 14%, var(--bg-surface));
-}
-
 .fixed-font-rendered-panel {
   display: block;
   overflow-x: visible;
@@ -809,26 +762,6 @@
   gap: 0.35em;
 }
 
-.local-media-inline-toggle {
-  width: 1.35em;
-  height: 1.35em;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.local-media-inline-toggle:hover {
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
-}
-
 .local-media-link {
   display: inline-flex;
   align-items: center;
@@ -849,22 +782,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25em;
-  padding: 0.08em 0.4em;
-  border: 1px solid
-    color-mix(in srgb, var(--link-color) 35%, var(--border-color));
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--link-color);
-  font: inherit;
-  font-size: 0.78em;
-  line-height: 1.35;
   white-space: nowrap;
   cursor: pointer;
-}
-
-.turn-image-gallery-inline-action:hover {
-  border-color: var(--link-color);
-  background: color-mix(in srgb, var(--link-color) 7%, transparent);
 }
 
 .local-media-inline-preview {
@@ -1580,13 +1499,6 @@ details[open] .collapsible__icon {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 0.5rem 0.75rem;
-  font-family: "SF Mono", Monaco, monospace;
-  font-size: var(--font-size-base);
-  color: var(--link-color);
   cursor: pointer;
   text-align: left;
   transition:
@@ -1594,12 +1506,7 @@ details[open] .collapsible__icon {
     border-color 0.15s;
 }
 
-.file-link-button:hover {
-  background: var(--bg-hover);
-  border-color: var(--focus-border);
-}
-
-.file-link-button .file-line-count {
+.file-line-count {
   color: var(--text-muted);
   margin-left: auto;
 }
@@ -1609,20 +1516,8 @@ details[open] .collapsible__icon {
   display: inline-flex;
   align-items: baseline;
   gap: 0.5rem;
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-family: "SF Mono", Monaco, monospace;
-  font-size: inherit;
-  color: var(--link-color);
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
   transition: text-decoration-color 0.15s;
-}
-
-.file-link-inline:hover {
-  text-decoration-color: currentColor;
 }
 
 .source-review-edit-summary {
@@ -1666,10 +1561,6 @@ details[open] .collapsible__icon {
 .file-range {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
-}
-
-.file-link-button .file-range {
-  color: var(--text-muted);
 }
 
 .file-content-with-lines {
@@ -2077,19 +1968,7 @@ details[open] .collapsible__icon {
 }
 
 .modal-close {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 1.25rem;
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  line-height: 1;
   flex-shrink: 0;
-}
-
-.modal-close:hover {
-  background: var(--bg-hover);
 }
 
 .modal-content {
@@ -3832,33 +3711,14 @@ pre.code-highlighter-plain code {
 
 /* Faint copy-path affordance after pathnames (tool headers, path displays).
    Deliberately small and low-contrast until hovered; copied state flashes
-   the check via CopyTextButton's .copied class. */
+   the check via CopyTextButton's shared success-outline variant. */
 .file-path-copy {
   display: inline-flex;
   align-items: center;
-  background: transparent;
-  border: none;
-  padding: 0 0.1rem;
   margin-left: 0.15rem;
-  color: var(--text-muted);
-  opacity: 0.4;
   cursor: pointer;
   vertical-align: middle;
   transition: opacity 0.15s;
-}
-
-.file-path-copy:hover {
-  opacity: 1;
-}
-
-.file-path-copy.copied {
-  opacity: 1;
-  color: var(--link-color);
-}
-
-.file-path-copy svg {
-  width: 11px;
-  height: 11px;
 }
 
 /* Server-rendered file links (from markdown augments) */
@@ -4157,8 +4017,6 @@ pre.code-highlighter-plain code {
 .diff-view,
 .highlighted-diff,
 .file-content-with-lines,
-.file-link-button,
-.file-link-inline,
 .file-path-link,
 .file-path,
 .file-viewer-code,
@@ -4174,8 +4032,6 @@ pre.code-highlighter-plain {
 .bash-preview-output pre,
 .bash-modal-code,
 .file-content-with-lines,
-.file-link-button,
-.file-link-inline,
 .file-path {
   font-size: var(--fixed-font-size-base);
 }
@@ -5034,4 +4890,33 @@ pre.code-highlighter-plain,
   .source-detail-action-text {
     display: inline;
   }
+}
+
+.local-media-inline-toggle {
+  width: 1.35em;
+  height: 1.35em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.local-media-inline-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.file-link-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+  color: var(--link-color);
 }

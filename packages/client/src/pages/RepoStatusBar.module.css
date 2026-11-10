@@ -83,9 +83,6 @@
 
 .badge {
   margin-left: auto;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
 }
 
 .bar.inline .badge {
@@ -93,27 +90,8 @@
   flex-shrink: 0;
 }
 
-.badge.dirty {
-  color: var(--warning-color);
-  background: color-mix(in srgb, var(--warning-color) 16%, transparent);
-}
-
 .state {
   flex-shrink: 0;
-}
-
-.badgeAction:hover {
-  background: color-mix(in srgb, var(--warning-color) 24%, transparent);
-}
-
-.upstreamButton {
-  font-size: inherit;
-}
-
-.upstreamButton:hover,
-.upstreamButton:focus-visible {
-  color: var(--text-primary, #e6edf3);
-  text-decoration: underline;
 }
 
 .incomingState,

@@ -89,7 +89,6 @@ export function PendingToolWarning({
               label={t("pendingToolWarningElapsed", {
                 duration: formatDuration(elapsedSeconds),
               })}
-              labelClassName="external-session-warning-elapsed"
               modalTitle={t("pendingToolWarningExplainTitle")}
               explanation={
                 <PendingToolRiskExplanation

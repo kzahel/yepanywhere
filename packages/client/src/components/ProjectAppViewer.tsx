@@ -729,13 +729,13 @@ export function ProjectAppViewer({
                       {crumb.current ? (
                         <span aria-current="page">{crumb.label}</span>
                       ) : (
-                        <ButtonBase
-                          className={styles.crumb}
+                        <Button
+                          variant="link"
                           title={crumb.path}
                           onClick={() => openFramePath(crumb.path)}
                         >
                           {crumb.label}
-                        </ButtonBase>
+                        </Button>
                       )}
                     </span>
                   ))}

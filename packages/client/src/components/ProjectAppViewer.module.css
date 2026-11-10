@@ -65,13 +65,6 @@
   padding: 0 3px;
   opacity: 0.7;
 }
-.crumb {
-  font-size: inherit;
-}
-.crumb:hover {
-  color: var(--text-primary);
-  text-decoration: underline;
-}
 .pathActions {
   flex-shrink: 0;
 }

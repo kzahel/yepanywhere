@@ -19,7 +19,7 @@ import type { InputRequest } from "../types";
 import { toolRegistry } from "./renderers/tools";
 import type { RenderContext } from "./renderers/types";
 import { getToolSummary } from "./tools/summaries";
-import { Button, ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import { TextInput } from "./ui/Field";
 import { Modal } from "./ui/Modal";
 import styles from "./ToolApprovalPanel.module.css";
@@ -258,8 +258,11 @@ export function ToolApprovalPanel({
     >
       <DraftSyncNotice draftKey={draftKey} sessionId={sessionId} />
       {/* Floating toggle button */}
-      <ButtonBase
-        className={`${styles.toggle} ${collapsed ? styles.hasPending : ""}`}
+      <Button
+        variant={collapsed ? "attention-outline" : "secondary"}
+        elevated
+        size="small"
+        className={styles.toggle}
         onClick={() => onCollapsedChange?.(!collapsed)}
         aria-label={
           collapsed ? t("toolApprovalExpand") : t("toolApprovalCollapse")
@@ -280,7 +283,7 @@ export function ToolApprovalPanel({
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </ButtonBase>
+      </Button>
 
       {!collapsed && (
         <div className={styles.panel}>
@@ -304,12 +307,13 @@ export function ToolApprovalPanel({
                     })}
                   </span>
                   {showViewDetails && (
-                    <ButtonBase
+                    <Button
+                      variant="link"
                       className={styles.viewDetails}
                       onClick={() => setShowPreviewModal(true)}
                     >
                       {t("toolApprovalViewDetails")}
-                    </ButtonBase>
+                    </Button>
                   )}
                 </div>
                 {showPreviewModal && request.toolName && (

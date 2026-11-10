@@ -1,3 +1,4 @@
+import { SelectableCard } from "./ui/SelectableCard";
 import type {
   ProjectQueueItemStatus,
   ProjectQueueItemSummary,
@@ -8,7 +9,6 @@ import { ProviderBadge } from "./ProviderBadge";
 import styles from "./NewSessionProjectQueue.module.css";
 import { Badge, type BadgeTone } from "./ui/Badge";
 import { Banner } from "./ui/Banner";
-import { ButtonBase } from "./ui/Button";
 import { projectQueueRouterLabel } from "../lib/projectQueueRouterLabel";
 
 type Translate = ReturnType<typeof useI18n>["t"];
@@ -103,7 +103,8 @@ export function NewSessionProjectQueue({
               className={styles.item}
               data-new-session-project-queue-item-id={item.id}
             >
-              <ButtonBase
+              <SelectableCard
+                variant="accent"
                 className={styles.itemButton}
                 onClick={() => onOpenItem(item.id)}
                 title={title}
@@ -133,7 +134,7 @@ export function NewSessionProjectQueue({
                     </span>
                   )}
                 </span>
-              </ButtonBase>
+              </SelectableCard>
               {item.lastError && (
                 <Banner tone="error" compact role="none">
                   {item.lastError}

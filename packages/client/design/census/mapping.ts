@@ -77,8 +77,10 @@ export const LEGACY_BUTTONS: readonly LegacyButton[] = [
   {
     classes: "modal-close",
     counted: "modal-close",
-    to: "base",
-    note: "Modal close and minimize: ButtonBase keeping the global glyph look.",
+    to: "ghost",
+    small: true,
+    icon: true,
+    note: "Shared ghost IconButton close/minimize actions; the legacy class now owns flex placement only.",
   },
   {
     classes: "btn-primary",
@@ -175,8 +177,8 @@ export const LEGACY_BUTTONS: readonly LegacyButton[] = [
   {
     classes: "file-link-button",
     counted: "file-link-button",
-    to: "base",
-    note: "Mono file-link card (Read/ViewImage/WriteStdin renderers); keeps own border/link color, .file-line-count child, fixed-font rules.",
+    to: "outline",
+    note: "Shared wrapping, monospaced file actions (Read/ViewImage/WriteStdin); inline summaries use link. Line-count children remain subordinate.",
   },
   {
     classes: "toggle-btn",
@@ -223,7 +225,7 @@ export const LEGACY_BUTTONS: readonly LegacyButton[] = [
     to: "outline",
     small: true,
     icon: true,
-    note: "Floating round source/rendered toggle (FixedFontMathToggle, ReadRenderer); keep absolute position and hover-reveal opacity via parent.",
+    note: "Elevated dense source/rendered IconButton (FixedFontMathToggle, ReadRenderer); module owns absolute placement and hover/focus reveal, including touch.",
   },
   {
     classes: "git-status-action-button",

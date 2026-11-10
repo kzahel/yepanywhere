@@ -23,13 +23,10 @@
   white-space: nowrap;
 }
 
-button.codeName {
-  cursor: text;
-}
-
-button.codeName:hover {
-  color: var(--text-secondary);
-  border-color: var(--text-muted);
+.codeNameButton {
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .editor {

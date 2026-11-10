@@ -2,8 +2,8 @@
 
 Topic: css-architecture
 
-Status: step 1 landed 2026-11-10; step 2 implemented 2026-11-10.
-Steps 3–8 remain open. The maintainer
+Status: steps 1–2 landed 2026-11-10; step 3 implemented and review corrections applied 2026-11-10 (uncommitted).
+Steps 4–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -136,7 +136,7 @@ CSS-caused visual change was found. Originals are under
 
 ### 2 — make shared controls own their look
 
-Implemented 2026-11-10. `controls:check` runs in lint; parser-backed class,
+Landed 2026-11-10. `controls:check` runs in lint; parser-backed class,
 helper/prop, ancestor, custom-property and inline-style findings fail closed.
 Final census: 21/600 button sites in 12 files; 29 other sites in 24 files.
 Census/Control overrides shows counts/reasons; `--record` only lowers them.
@@ -151,18 +151,18 @@ minimum; coarse pointers keep 44. Global CSS now 16,629 lines (23 removed).
 
 ### 3 — put hand-drawn `ButtonBase` buttons on shared controls
 
-Review all `ButtonBase` uses against the 2026-11-10 grouping: about 10
-small bordered buttons (`.user-prompt-action`, `.local-media-inline-toggle`,
-`.file-link-button`, the 22 px triggers) become `Button`/`IconButton`;
-about 12 link-style actions become the `link` variant; rows, disclosures,
-thumbnails and wrappers stay. Selectable cards (`.login-mode-option`,
-`.host-picker-item`, `.session-share-action`, the async-question option,
-side panel rows) get one shared card style if they can agree on one;
-otherwise they are listed as a follow-up here.
-
-Extend `buttons:check` so a `ButtonBase` whose class draws both a
-background and a border fails unless allowlisted, which keeps new
-hand-drawn buttons out.
+Implemented with review corrections 2026-11-10; uncommitted. All 132 original
+sites reviewed; 65 moved, including 15 on shared SelectableCard surfaces.
+Navigation uses distinct aria-current cues; hover is fine-pointer-only.
+Shared text flow, mono/inline sizes, opaque elevation and explicit touch sizing
+preserve truncation, prose density, reveal and 26/36 px prompt packing.
+The strengthened gate catches filled chips, shadow rings and inherited-color
+links; transparent borders are unpainted. Initial expanded census: 28 exceptions
+in 23 files among 67 remaining sites; recording only lowers counts.
+Caller overrides: 18 button sites/9 files; 28 other sites/23 files.
+Global CSS: 16,355 lines. Server-generated media retains its original styling.
+Deferred: measured rich transcript/image/tree rows, countdown/controller states
+and composer handle, with specific playground reasons. Steps 4–8 remain open.
 
 ### 4 — require tokens for type sizes and radii
 

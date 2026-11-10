@@ -1,3 +1,4 @@
+import { SelectableCard } from "../../components/ui/SelectableCard";
 import {
   issueLookupUrl,
   type IssueItem,
@@ -163,7 +164,8 @@ function SessionRow({
   const { t } = useI18n();
   return (
     <li>
-      <ButtonBase
+      <SelectableCard
+        size="compact"
         className={styles.row}
         aria-label={t("extensionPanelOpenSession", { title: session.title })}
         onClick={(event) => onOpen(session, event)}
@@ -198,7 +200,7 @@ function SessionRow({
             {t("extensionPanelMentions", { count: session.mentions })}
           </span>
         )}
-      </ButtonBase>
+      </SelectableCard>
     </li>
   );
 }
@@ -267,7 +269,8 @@ function IssueRow({ item, onOpen }: { item: IssueItem; onOpen: () => void }) {
   const title = item.title ?? item.confirmation?.title;
   return (
     <li>
-      <ButtonBase
+      <SelectableCard
+        size="compact"
         className={styles.row}
         aria-label={t("extensionPanelOpenIssue", { key: item.key })}
         disabled={!item.url}
@@ -306,7 +309,7 @@ function IssueRow({ item, onOpen }: { item: IssueItem; onOpen: () => void }) {
               .join(" · ")}
           </span>
         </span>
-      </ButtonBase>
+      </SelectableCard>
     </li>
   );
 }

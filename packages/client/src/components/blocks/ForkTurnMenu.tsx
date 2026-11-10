@@ -1,6 +1,6 @@
 import { useSessionRewind } from "../../contexts/SessionRewindContext";
 import { useI18n } from "../../i18n";
-import { ButtonBase } from "../ui/Button";
+import { IconButton } from "../ui/Button";
 import { Menu, MenuItem, MenuSeparator, useMenuTrigger } from "../ui/Menu";
 import styles from "./ForkTurnMenu.module.css";
 
@@ -48,10 +48,12 @@ export function ForkTurnMenu({
   const forkGroup = !unavailableMessage && (onForkBefore || onForkAfter);
   return (
     <div className={styles.wrapper}>
-      <ButtonBase
+      <IconButton
+        variant="secondary"
+        size="small"
         {...menu.triggerProps}
         className="user-prompt-action"
-        aria-label={triggerLabel}
+        label={triggerLabel}
         title={unavailableMessage ?? triggerLabel}
       >
         <svg
@@ -71,7 +73,7 @@ export function ForkTurnMenu({
           <path d="M6 9v6" />
           <path d="M8.5 7.5 15 11" />
         </svg>
-      </ButtonBase>
+      </IconButton>
       <Menu
         open={menu.open}
         onClose={menu.close}

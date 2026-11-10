@@ -58,21 +58,9 @@
   min-width: 2.5rem;
   max-width: 10rem;
   margin-left: var(--space-1);
-  padding: 0 var(--space-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: inherit;
-  font-size: 0.6875rem;
-  line-height: 1.25rem;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-}
-
-.routerAccount:hover,
-.routerAccount:focus-visible {
-  color: var(--text-primary);
 }
 
 /* Session messages scroll continuously under the header, so a soft fade

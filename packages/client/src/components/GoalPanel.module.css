@@ -47,9 +47,6 @@
 }
 
 /* Doubled so the copied feedback outranks the shared ghost color. */
-.copied.copied {
-  color: var(--success-color);
-}
 
 .body {
   padding: 16px;

@@ -9,7 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { Banner } from "./ui/Banner";
-import { Button, buttonClassName, IconButton } from "./ui/Button";
+import { Button, IconButton } from "./ui/Button";
 import { Field, Textarea } from "./ui/Field";
 import { LinkifiedText } from "./ui/LinkifiedText";
 import { CopyTextButton } from "./ui/CopyTextButton";
@@ -152,8 +152,8 @@ export function GoalPanel({
               text={objective}
               label={t("goalPanelCopy")}
               copiedLabel={t("goalPanelCopied")}
-              className={buttonClassName({ variant: "ghost", icon: true })}
-              copiedClassName={styles.copied}
+              variant="ghost"
+              size="default"
             />
             <IconButton
               ref={closeRef}

@@ -1367,15 +1367,17 @@ export function useMessageListIsearch({
             )}
           </div>
         )}
-        <ButtonBase
+        <IconButton
+          variant="outline"
+          size="dense"
           className={styles.helpToggle}
-          aria-label={t("sessionSearchShowKeys")}
+          label={t("sessionSearchShowKeys")}
           aria-expanded={helpShown}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => setHelpShown((shown) => !shown)}
         >
           ?
-        </ButtonBase>
+        </IconButton>
         <div
           className={[styles.help, helpShown ? styles.helpShown : ""]
             .filter(Boolean)

@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ButtonBase } from "../../components/ui/Button";
+import { Button } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import {
   renderSettingsSearchHighlight,
@@ -219,13 +219,14 @@ export function SettingsItem({
     .join(" ");
 
   const origin = scope && originLabel && (
-    <ButtonBase
+    <Button
+      variant="link"
       className="settings-search-origin"
       aria-label={t("settingsSearchJumpTo", { location: originLabel })}
       onClick={() => scope.jumpToItem(resolvedId)}
     >
       {originLabel} ›
-    </ButtonBase>
+    </Button>
   );
 
   const row = (

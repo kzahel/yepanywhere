@@ -1,3 +1,4 @@
+import { SelectableCard } from "../components/ui/SelectableCard";
 /**
  * HostPickerPage - Saved hosts list and login mode selection.
  *
@@ -14,7 +15,7 @@ import { getResumeError } from "../lib/connection/resumeErrors";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Banner } from "../components/ui/Banner";
-import { ButtonBase, IconButton } from "../components/ui/Button";
+import { IconButton } from "../components/ui/Button";
 import { confirmDialog } from "../components/ui/ConfirmDialog";
 import { Spinner } from "../components/ui/Spinner";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
@@ -254,11 +255,12 @@ export function HostPickerPage() {
                 const isConnecting = connectingHostId === host.id;
 
                 return (
-                  <ButtonBase
+                  <SelectableCard
                     key={host.id}
                     className="host-picker-item"
                     onClick={() => handleConnectHost(host)}
                     disabled={isConnecting}
+                    aria-busy={isConnecting}
                     data-testid={`host-item-${host.id}`}
                   >
                     <div className="host-picker-item-main">
@@ -294,7 +296,7 @@ export function HostPickerPage() {
                         <Spinner />
                       </div>
                     )}
-                  </ButtonBase>
+                  </SelectableCard>
                 );
               })}
             </div>
@@ -316,7 +318,7 @@ export function HostPickerPage() {
         )}
 
         <div className="login-mode-options">
-          <ButtonBase
+          <SelectableCard
             className="login-mode-option"
             onClick={() => navigate("/login/relay")}
             data-testid="relay-mode-button"
@@ -327,10 +329,11 @@ export function HostPickerPage() {
             <span className="login-mode-option-desc">
               {t("hostPickerRelayDescription")}
             </span>
-          </ButtonBase>
+          </SelectableCard>
 
-          <ButtonBase
-            className="login-mode-option login-mode-option-secondary"
+          <SelectableCard
+            className="login-mode-option"
+            variant="quiet"
             onClick={() => navigate("/login/direct")}
             data-testid="direct-mode-button"
           >
@@ -340,7 +343,7 @@ export function HostPickerPage() {
             <span className="login-mode-option-desc">
               {t("hostPickerDirectDescription")}
             </span>
-          </ButtonBase>
+          </SelectableCard>
         </div>
 
         <p className="login-hint">

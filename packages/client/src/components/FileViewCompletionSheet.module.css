@@ -4,15 +4,7 @@
 .footerAction {
   display: block;
   width: 100%;
-  min-height: 32px;
-  padding: 6px 10px;
-  border-top: 1px solid var(--border-color);
-  color: var(--link-color);
-  font-size: 12px;
   text-align: left;
-}
-.footerAction:hover {
-  background: var(--bg-tertiary);
 }
 .preview {
   display: flex;

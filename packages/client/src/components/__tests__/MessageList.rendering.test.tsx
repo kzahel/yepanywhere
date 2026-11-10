@@ -1184,7 +1184,6 @@ describe("MessageList rendering", () => {
       name: "Edit latest message",
     });
     expect(buttons).toHaveLength(1);
-    expect((buttons[0] as HTMLElement).textContent).toContain("Edit");
 
     fireEvent.click(buttons[0] as HTMLElement);
 

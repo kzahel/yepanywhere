@@ -5,7 +5,7 @@
  * family, settings-button.
  */
 
-/* ButtonBase: a reset for clickable rows, cards, disclosures and chips. The
+/* ButtonBase: a reset for clickable rows, previews, disclosures and image wrappers. The
    :where() keeps it at zero specificity, so the owner's styles always win.
    Font size is the base token rather than inherited: raw buttons render at
    the browser's ~13 px default, and every legacy row was designed at that
@@ -179,7 +179,8 @@
   font-weight: 600;
 }
 
-.outline[aria-pressed="true"] {
+.outline[aria-pressed="true"],
+.outline[data-selected="true"] {
   background: var(--bg-hover);
   border-color: var(--app-yep-green);
 }
@@ -258,7 +259,7 @@
   .link::before {
     content: "";
     position: absolute;
-    inset: min(0px, calc((100% - 44px) / 2)) -8px;
+    inset: min(0px, calc((100% - 44px) / 2));
   }
 }
 
@@ -298,4 +299,73 @@
 
 .successOutline:hover:not(:disabled, [aria-disabled="true"]) {
   background: color-mix(in srgb, var(--success-color) 14%, transparent);
+}
+
+.button.wrap {
+  display: inline;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.button.truncate {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.button.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fixed-font-size-base);
+}
+/* Inline controls preserve the surrounding prose's line box. */
+.button.inline,
+.button.inlineIcon {
+  position: relative;
+  min-height: 0;
+  display: inline;
+  height: auto;
+  padding: 0 0.25em;
+  font-size: 0.78em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+.button.inline {
+  vertical-align: 0.1em;
+}
+.button.inlineIcon {
+  display: inline-flex;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  vertical-align: middle;
+}
+.inlineIcon svg {
+  width: 11px;
+  height: 11px;
+}
+.button.subdued {
+  opacity: 0.4;
+}
+.button.subdued:is(:hover, :focus-visible, .successOutline) {
+  opacity: 1;
+}
+.elevated.attentionOutline {
+  background: var(--bg-surface);
+}
+.elevated.attentionOutline:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+@media (pointer: coarse) {
+  .button.touchLarge {
+    min-height: 44px;
+  }
+  .button.inline::before,
+  .button.inlineIcon::before {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 44px) / 2));
+  }
 }

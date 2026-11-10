@@ -17,7 +17,7 @@ import {
 } from "../../lib/parseUserPrompt";
 import type { ContentBlock } from "../../types";
 import { AttachmentChip } from "../AttachmentChip";
-import { Button, ButtonBase } from "../ui/Button";
+import { Button, ButtonBase, IconButton } from "../ui/Button";
 import { CopyTextButton } from "../ui/CopyTextButton";
 import { Popover } from "../ui/Popover";
 import { ForkTurnMenu } from "./ForkTurnMenu";
@@ -421,10 +421,12 @@ function UserPromptActionButtons({
         />
       )}
       {onCorrect && (
-        <ButtonBase
+        <IconButton
+          variant="secondary"
+          size="small"
           className="user-prompt-action user-prompt-action-edit"
           onClick={onCorrect}
-          aria-label={t("userPromptEditAction")}
+          label={t("userPromptEditAction")}
           title={t("userPromptEditAction")}
         >
           <svg
@@ -441,14 +443,15 @@ function UserPromptActionButtons({
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
-          <span className="user-prompt-correct-label">Edit</span>
-        </ButtonBase>
+        </IconButton>
       )}
       {onCancelUnconfirmed && (
-        <ButtonBase
+        <IconButton
+          variant="danger-outline"
+          size="small"
           className="user-prompt-action user-prompt-action-cancel-sent"
           onClick={onCancelUnconfirmed}
-          aria-label={t("userPromptCancelUnconfirmedAction")}
+          label={t("userPromptCancelUnconfirmedAction")}
           title={t("userPromptCancelUnconfirmedAction")}
         >
           <svg
@@ -465,7 +468,7 @@ function UserPromptActionButtons({
             <path d="M18 6 6 18" />
             <path d="m6 6 12 12" />
           </svg>
-        </ButtonBase>
+        </IconButton>
       )}
       {(onForkAfter || forkUnavailableMessage) && (
         <ForkTurnMenu
@@ -478,10 +481,12 @@ function UserPromptActionButtons({
         />
       )}
       {onTrimBefore && (
-        <ButtonBase
+        <IconButton
+          variant="secondary"
+          size="small"
           className="user-prompt-action user-prompt-action-show-starting"
           onClick={onTrimBefore}
-          aria-label={t("userPromptShowStartingHere")}
+          label={t("userPromptShowStartingHere")}
           title={t("userPromptShowStartingHere")}
         >
           <svg
@@ -501,7 +506,7 @@ function UserPromptActionButtons({
             <path d="m15 16 3 3 3-3" />
             <path d="M18 5v14" />
           </svg>
-        </ButtonBase>
+        </IconButton>
       )}
       {extraActions}
     </div>

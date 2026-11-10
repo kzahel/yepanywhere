@@ -21,7 +21,7 @@ import { useImageResourceActions } from "../ImageResourceActions";
 import { LocalMediaModal, type LocalMediaSource } from "../LocalMediaModal";
 import { TimelineDisclosure } from "../TimelineDisclosure";
 import { Banner } from "../ui/Banner";
-import { ButtonBase } from "../ui/Button";
+import { ButtonBase, Button } from "../ui/Button";
 import styles from "./ToolResultMediaRows.module.css";
 
 interface ToolResultMediaRowsProps {
@@ -220,13 +220,13 @@ function StoredToolResultMediaRow({
       <div className={styles.rowHeader}>
         <span className="tool-name">{displayName}</span>
         <span className={`tool-summary ${styles.summary}`}>
-          <ButtonBase
-            className={styles.filename}
+          <Button
+            variant="link"
             onClick={openViewer}
             onContextMenu={imageActions.handleContextMenu}
           >
-            {filename}
-          </ButtonBase>
+            <span className={styles.filename}>{filename}</span>
+          </Button>
           <span className={styles.suffix}>
             ({t(isVideo ? "toolResultMediaVideo" : "toolResultMediaImage")})
           </span>

@@ -252,19 +252,6 @@
     top: -12px;
     right: 8px;
     width: 24px;
-    height: 24px;
-    border: 1px solid var(--border-color);
-    border-radius: 50%;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    font: inherit;
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-  }
-
-  .helpToggle[aria-expanded="true"] {
-    border-color: var(--primary-color);
-    color: var(--text-primary);
   }
 
   .olderPreview,

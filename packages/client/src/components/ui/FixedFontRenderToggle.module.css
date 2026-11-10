@@ -1,0 +1,18 @@
+/* Both rich-output and Read's math-only view share reveal/placement behavior.
+   The shared IconButton owns the entire drawn surface and pressed state. */
+.button {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.25rem;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+:global(.fixed-font-render-toggle):hover .button,
+:global(.fixed-font-render-toggle):focus-within .button,
+.button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}

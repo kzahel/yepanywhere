@@ -43,17 +43,19 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; step 1 landed, step 2 implemented) closes the leaks around shared
+2026-11-10; steps 1–2 landed, step 3 implemented) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
 that still list swept work. `controls:check` now enforces caller-class ownership
 with a counted, reasoned allowlist; Census/Control overrides shows the exceptions.
+`buttons:check` also rejects hand-drawn ButtonBase surfaces or link actions,
+with rich/specialized exceptions listed in Census/ButtonBase exceptions.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
 - `Button`: variants `primary` (brand green), `secondary` (the default),
   `outline`, `ghost`, `link`, `success-outline`, `attention-outline`, `danger` and `danger-outline`;
-  sizes `default`, `small`, `dense` and `large`. `link` is link-colored text,
+  sizes `default`, `small`, `dense`, `large`, `inline` and `inline-icon`. `link` is link-colored text,
   transparent with an underline on hover. It inherits the surrounding font size
   and line height, has no horizontal padding or minimum height on fine pointers,
   and keeps the focus ring. Coarse pointers get an invisible hit area of at
@@ -66,8 +68,9 @@ with a counted, reasoned allowlist; Census/Control overrides shows the exception
   `large` is 36 px (44 px on coarse pointers), used by page/header navigation
   and the session-header menu. `dense` (22 px) is for controls inside dense rows
   (tool rows, code lines, hover-revealed copy actions): on coarse pointers
-  it keeps its drawn size and extends its hit area invisibly, so the row
-  does not grow.
+  it keeps its drawn size and extends its hit area by 8 px per side (38 px
+  total), so adjacent dense controls do not gain overlapping 11 px halos.
+  `touchTarget="large"` gives small controls a drawn 44 px touch target.
 - `IconButton`: icon-only; its required `label` is the accessible name and
   the tooltip, following the user's tooltip setting (`data-tooltip` for
   `TooltipLayer` when themed, `title` when native). `tooltip` replaces the
@@ -76,10 +79,11 @@ with a counted, reasoned allowlist; Census/Control overrides shows the exception
   shows as a bordered, filled chip. A pressed secondary has a green border,
   and weight 600; a pressed outline also gains the green border, weight 600
   and hover surface. User chips use outline so their unselected border remains.
-  A menu trigger uses `data-selected="true"` for the same secondary selection
-  border, alongside `aria-haspopup` and `aria-expanded`; it is not a toggle.
+  A popover/menu trigger uses `data-selected={open}` for the secondary or
+  outline selection border (outline also gains a fill), alongside `aria-haspopup` and `aria-expanded`; it is not a toggle.
 - `ButtonBase`: an unstyled button for clickable rows, cards, disclosure
-  arrows and chips. Its reset has zero specificity, so the owner's styles
+  arrows and image wrappers. Ordinary chips use Button/IconButton; rich
+  whole-card actions use SelectableCard (below). Its reset has zero specificity, so the owner's styles
   always win, including ancestor rules such as `.list button`; it keeps the
   focus ring. Its text is `--font-size-base` rather than inherited, the
   size raw buttons had, so a swapped row keeps its text size; an owner whose
@@ -163,6 +167,34 @@ Exceptions sit in `design/census/button-allowlist.json`, each with a count
 and a reason; counts only fall (`--record`), and a later family inherits
 the entries that name it. The Census/Buttons "Button elements" state lists
 what is left.
+
+**Selectable cards.** `src/components/ui/SelectableCard.tsx` owns rich card
+and navigation-row surfaces. Hover uses a neutral border only on hover-capable
+fine pointers; `selected` sets `aria-pressed`, while navigation uses
+`aria-current` (`page` or `true`). Current/selected surfaces have a green border
+and tinted fill distinct from hover, including on touch. Ordinary actions omit
+both attributes. Default cards are at least 44 px tall; `size="compact"` gives
+36 px mouse rows and 44 px touch rows. `variant="quiet"` de-emphasizes secondary
+login choices with a transparent, dashed surface; `variant="accent"` keeps the
+project queue's 3 px leading accent. Disabled cards mute text without dimming
+children; `aria-busy` preserves full spinner emphasis while connecting.
+Caller classes own content layout only. Login/host/share/answer actions,
+SidePanel and project queue rows, child/conversation/settings/submission
+navigation share it. Specialized measured transcript previews retain ButtonBase
+with explicit reasons. Patterns/Selectable card shows these states.
+
+Buttons support `textFlow="wrap"` (inline text flow, anywhere wrapping) and
+`textFlow="truncate"` (a single ellipsized line within the caller's width).
+`mono` uses the fixed-font family and size; filename actions use this consistently
+across Read/Edit/ViewImage/WriteStdin and review-comment locations.
+`FileActionButton` supplies the wrapping mono link defaults for edit summaries.
+`size="inline"` keeps gallery chips at 0.78em without growing prose line boxes;
+`inline-icon` draws an 11 px path-copy icon. Both retain invisible 44 px coarse
+hit areas. `subdued` starts at 40% opacity and reveals on hover/focus/copy success.
+`CopyTextButton` uses Button/IconButton; success-outline feedback lasts 1.8 s.
+Prompt action slots and measured controls agree at 26 px fine / 36 px coarse,
+independent of prompt width. Math/render toggles use an opaque elevated surface
+and retain hover/focus reveal on both mouse and touch; they remain Tab reachable.
 
 **Switches and segmented controls.** `src/components/ui/Switch.tsx` is the
 on/off control: a native checkbox with `role="switch"` drawn as the 44×24
@@ -551,6 +583,8 @@ The playground's pages:
   composer's files) are counted apart from those still to swap. The scan
   (`design/buttonElements.ts`, classification in `design/buttonFamilies.ts`)
   parses production TSX with the TypeScript compiler.
+- **Census/ButtonBase exceptions:** every remaining counted rich/specialized
+  target with a reason, directly from the lint allowlist.
 - **Census/Control overrides:** remaining button-family and other-control
   exceptions from the lint allowlist, with their source file, count and reason.
 - **Controls/Field:** text inputs, selects and textareas in every state,

@@ -20,10 +20,6 @@
       "count": 1,
       "reason": "The restore-last-viewer affordance keeps its vertical centering transform and 55% opacity until hover/focus so it remains subordinate to the active viewer."
     },
-    "components/ParagraphQuoteRail.tsx": {
-      "count": 1,
-      "reason": "Paragraph quote targets translate up by their own height to align with the measured paragraph bottom. Binary hover/focus reveal is allowed behaviour; only the placement transform remains counted."
-    },
     "components/SessionHeader.tsx": {
       "count": 1,
       "reason": "Retitle Accept has an armed-countdown accent and fractional disabled opacity. The caller-owned chevron transform and binary reveal no longer count."
@@ -39,14 +35,6 @@
     "pages/settings/UsersSettings.tsx": {
       "count": 1,
       "reason": "Disabled accounts remain selectable for administration, with muted struck-through names rather than disabled buttons; pressed styling is now shared."
-    },
-    "pages/settings/SettingsSearchBar.tsx": {
-      "count": 1,
-      "reason": "The small clear action translates by half its own height to remain centered over both desktop and coarse-pointer search inputs. Preserve that placement until shared field adornments own the clear action."
-    },
-    "components/MessageList.tsx": {
-      "count": 1,
-      "reason": "Queued CopyTextButton still draws a ButtonBase with buttonClassName and appends copied feedback color. Moving that raw wrapper onto the shared copy treatment belongs to the ButtonBase pass in step 3; the floating Follow action now uses shared elevation."
     }
   },
   "controls": {
@@ -141,10 +129,6 @@
     "pages/IssueTypeBadge.tsx": {
       "count": 1,
       "reason": "Issue-type badges retain Jira, pull-request and issue brand colors with contrasting text via Badge custom properties."
-    },
-    "components/LocalMediaModal.tsx": {
-      "count": 1,
-      "reason": "The image-load error Banner uses a horizontal centering transform while retaining its shrink-to-fit width over the media frame. Replacing it with stretching insets changes the error box width."
     }
   }
 }

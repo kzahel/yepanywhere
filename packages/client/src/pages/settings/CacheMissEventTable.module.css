@@ -178,14 +178,7 @@
 }
 
 .messageJump {
-  min-height: 2.25rem;
-  color: var(--accent-color);
-  font-size: inherit;
   white-space: nowrap;
-}
-
-.messageJump:hover {
-  text-decoration: underline;
 }
 
 .miss {

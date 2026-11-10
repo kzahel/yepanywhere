@@ -41,15 +41,8 @@
 }
 
 .location {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.8rem;
-  color: var(--link-color);
   text-align: left;
   overflow-wrap: anywhere;
-}
-
-.location:hover {
-  text-decoration: underline;
 }
 
 .revision {

@@ -323,7 +323,13 @@ export const settingsCategoryIcons: Record<string, ReactNode> = {
   ),
 };
 
-export function SettingsCategoryIcon({ id }: { id: string }) {
+export function SettingsCategoryIcon({
+  id,
+  active = false,
+}: {
+  id: string;
+  active?: boolean;
+}) {
   const { settingsIconStyle } = useSettingsIconStyle();
   const icon =
     settingsIconStyle === "emoji"
@@ -332,6 +338,7 @@ export function SettingsCategoryIcon({ id }: { id: string }) {
   if (!icon) return null;
   const className = [
     "settings-category-icon",
+    active ? "active" : "",
     `settings-category-icon-${id}`,
     `settings-category-icon-${settingsIconStyle}`,
   ].join(" ");

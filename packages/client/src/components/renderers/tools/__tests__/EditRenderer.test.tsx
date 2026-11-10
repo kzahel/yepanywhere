@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -1117,9 +1118,9 @@ describe("EditRenderer collapsed preview fallback", () => {
     const copyPath = screen.getByRole("button", { name: "Copy path" });
     expect(copyPath.closest(".modal-header-actions")).not.toBeNull();
     expect(modal?.querySelector(".file-path-copy")).toBeNull();
-    const modalToggle = modal?.querySelector(
-      ".fixed-font-render-toggle__button",
-    );
+    const modalToggle = within(modal as HTMLElement).getByRole("button", {
+      name: "Show source",
+    });
     expect(modalToggle).toBeTruthy();
 
     fireEvent.click(modalToggle as Element);
@@ -1300,9 +1301,9 @@ describe("EditRenderer collapsed preview fallback", () => {
       const selection = document.getSelection();
       expect(modal).not.toBeNull();
       expect(
-        modal?.querySelector(
-          '.fixed-font-render-toggle__button[aria-label="Show rendered view"]',
-        ),
+        within(modal as HTMLElement).getByRole("button", {
+          name: "Show rendered view",
+        }),
       ).not.toBeNull();
       expect(selection?.toString()).toBe("+#");
       expect(

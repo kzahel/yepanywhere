@@ -1,3 +1,4 @@
+import { SelectableCard } from "../components/ui/SelectableCard";
 /**
  * RemoteLoginModePage - Mode selection for remote client login.
  *
@@ -7,7 +8,6 @@
  */
 
 import { useNavigate } from "react-router-dom";
-import { ButtonBase } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
@@ -44,7 +44,7 @@ export function RemoteLoginModePage() {
         <p className="login-subtitle">{t("hostPickerHowToConnect")}</p>
 
         <div className="login-mode-options">
-          <ButtonBase
+          <SelectableCard
             className="login-mode-option"
             onClick={() => navigate("/relay")}
             data-testid="relay-mode-button"
@@ -55,10 +55,11 @@ export function RemoteLoginModePage() {
             <span className="login-mode-option-desc">
               {t("hostPickerRelayDescription")}
             </span>
-          </ButtonBase>
+          </SelectableCard>
 
-          <ButtonBase
-            className="login-mode-option login-mode-option-secondary"
+          <SelectableCard
+            className="login-mode-option"
+            variant="quiet"
             onClick={() => navigate("/direct")}
             data-testid="direct-mode-button"
           >
@@ -68,7 +69,7 @@ export function RemoteLoginModePage() {
             <span className="login-mode-option-desc">
               {t("hostPickerDirectDescription")}
             </span>
-          </ButtonBase>
+          </SelectableCard>
         </div>
 
         <p className="login-hint">{t("hostPickerEmptyHint")}</p>

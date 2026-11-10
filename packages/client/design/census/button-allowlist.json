@@ -27,6 +27,7 @@
     "file-viewer-download-btn",
     "filter-clear-button",
     "filter-search-button",
+    "fixed-font-render-toggle__button",
     "font-size-option",
     "font-size-selector",
     "fork-summary-display-object-spinner",

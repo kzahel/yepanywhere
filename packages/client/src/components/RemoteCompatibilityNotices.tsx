@@ -183,7 +183,7 @@ export function RemoteCompatibilityNoticeCard({
             label={commandField.label}
             copiedLabel="Copied"
             className={styles.copyButton!}
-            copiedClassName={styles.copied!}
+            variant="outline"
           />
         </div>
       )}

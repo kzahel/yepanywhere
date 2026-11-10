@@ -20,7 +20,8 @@ into modules and froze the rest at line ceilings, then stopped at a
 shared controls whose look any caller can override. Step 1 of plan 191
 replaced prefix guessing with exact dead-class detection and removed 572
 global lines (49 class names). Step 2 adds the caller-control ownership gate
-and moves repeated button looks and sizes into the shared family.
+and moves repeated button looks and sizes into the shared family. Step 3
+checks hand-drawn ButtonBase surfaces and shares selectable action cards.
 
 The target:
 
@@ -211,9 +212,11 @@ and `bodyClassName` props have the same contract.
 A caller class may set layout, placement, width limits, truncation and
 visibility. It may not declare color, background, border (including radius),
 shadow, outline, font, line height, letter spacing, text transformation or
-decoration, padding, height limits, transforms, filters, text shadows, SVG fill/stroke
+decoration, padding, height limits, scale/rotate transforms, filters, text shadows, SVG fill/stroke
 or fractional opacity. Binary `opacity: 0|1`, pointer events and visibility are
-reveal behaviour and remain allowed. Custom properties read with `var(--x)`
+reveal behaviour and remain allowed. Translate-only transforms (including
+multiple translate functions and calc/var arguments) are layout; mixed
+translate/scale or rotate transforms remain look overrides. Custom properties read with `var(--x)`
 by the control's own module count as look overrides; the checker derives those
 reads rather than maintaining a separate property list. Inline styles follow
 the same ownership contract. All matching selector branches,
@@ -234,15 +237,48 @@ A new file, increased count, invalid reason or stale count fails. `--record`
 only lowers counts and removes cleared entries; it refuses to write if any
 increase is unreviewed. `--json` reports classes, selectors and source lines.
 Census/Control overrides shows the same remaining entries and reasons. The
-step 2 census is 21 button sites in 12 files (600 uses scanned) and 29 other
-control sites in 24 files, including provider/status Badge custom properties.
+step 3 census is 18 button sites in 9 files and 28 other
+control sites in 23 files, including provider/status Badge custom properties.
+
+## ButtonBase surfaces
+
+`ButtonBase` remains the reset for rich rows, disclosure previews, thumbnails
+and specialized targets. Ordinary small buttons and chips use Button/IconButton;
+link-colored text actions use `Button variant="link"`. Rich whole-card actions
+use `SelectableCard`, whose caller classes follow the same layout-only contract.
+The card owns padding, border, fill, radius, hover, focus and disabled states;
+`selected` supplies pressed state; navigation uses `aria-current`. Hover is
+neutral, fine-pointer-only and distinct from the current/selected tint. Compact
+rows are 36/44 px, quiet cards de-emphasize secondary choices, and accent cards
+retain the queue leading border. Disabled busy cards do not dim their spinner.
+
+`buttons:check` also resolves every production ButtonBase's module/global
+classes, forwarded props, inline styles, states, media queries and actual JSX
+ancestors using the shared control-ownership analyzer. Background plus painted
+border, a box-shadow border ring, a filled rounded padded chip, or link/accent
+color or underlined inherited-color text without other chrome requires an
+exception; unresolved
+classes/styles fail closed. Child content and unrelated siblings do not draw
+the target. Local CSS variables are followed; transparent/none backgrounds and
+reset borders (including transparent shorthand colors) do not constitute a
+painted surface. The shared selectable-card
+implementation owns its surface and is excluded from application exceptions.
+
+`design/census/button-base-allowlist.json` records remaining counts by source
+file with a specific reason. New/increased, invalid and stale entries fail lint;
+`buttons:check --record` only lowers/removes entries and refuses to write on
+unreviewed increases. Census/ButtonBase exceptions lists the same counts and
+reasons. The strengthened step 3 gate records 28 exceptions in 23 files among
+67 application sites; its newly detected categories received specific initial
+reasons, and subsequent recording only lowers counts. Generated server media markup keeps its global styles when the
+React-authored toggle moves to a shared control.
 
 ## Command roles and exit behavior
 
 | Command | Role | Exit/write contract |
 |---|---|---|
 | `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
-| `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
+| `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, a hand-drawn ButtonBase surface without a counted reason, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
 | `pnpm controls:check` | Hard shared-control caller-class ownership gate | Exits 1 for look/size overrides beyond the per-file reasoned allowlist, invalid entries, or stale counts. `--record` only lowers counts/removes cleared entries and refuses unreviewed increases. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |
 | `pnpm css:lint` | Hard authored-CSS lint gate | ESLint with `eslint-cssicorn` over `packages/client/src` and `site/src` CSS; exits 1 on any error or warning. It never edits CSS unless run by hand with `--fix`. |

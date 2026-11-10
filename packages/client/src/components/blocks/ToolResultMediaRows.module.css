@@ -36,11 +36,6 @@
   background: transparent;
 }
 
-button.filename {
-  color: var(--link-color);
-  cursor: pointer;
-}
-
 button.filename:hover,
 button.filename:focus-visible {
   text-decoration: underline;

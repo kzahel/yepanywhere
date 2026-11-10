@@ -10,16 +10,6 @@
   gap: 12px;
 }
 
-.unknownWord {
-  min-height: 44px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font: inherit;
-}
-
 .minimum {
   width: 100px;
 }
@@ -95,13 +85,11 @@
   background: var(--bg-hover);
 }
 
-.table tr[data-selected="true"],
-.unknownWord[aria-pressed="true"] {
+.table tr[data-selected="true"] {
   background: var(--bg-selected);
 }
 
-.word:focus-visible,
-.unknownWord:focus-visible {
+.word:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 4px;
 }

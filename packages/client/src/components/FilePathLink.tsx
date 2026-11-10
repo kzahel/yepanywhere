@@ -163,6 +163,9 @@ export function FilePathCopyButton({ filePath }: { filePath: string }) {
       label="Copy path"
       copiedLabel="Copied path"
       className="file-path-copy"
+      variant="ghost"
+      size="inline-icon"
+      subdued
       onClick={(event) => event.stopPropagation()}
     />
   );

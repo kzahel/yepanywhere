@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { useTooltipTrigger } from "../hooks/useTooltipTrigger";
 import styles from "./RiskAffordance.module.css";
-import { ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 
 /**
@@ -13,12 +13,10 @@ import { Dialog } from "./ui/Dialog";
  */
 export function RiskAffordance({
   label,
-  labelClassName,
   modalTitle,
   explanation,
 }: {
   label: ReactNode;
-  labelClassName?: string;
   modalTitle: ReactNode;
   explanation: ReactNode;
 }) {
@@ -37,10 +35,8 @@ export function RiskAffordance({
       onPointerMove={tooltipTrigger.onPointerMove}
       onPointerLeave={tooltipTrigger.onPointerLeave}
     >
-      <ButtonBase
-        className={`${styles.link}${
-          labelClassName ? ` ${labelClassName}` : ""
-        }`}
+      <Button
+        variant="link"
         aria-haspopup="dialog"
         onFocus={tooltipTrigger.onFocus}
         onBlur={tooltipTrigger.onBlur}
@@ -50,7 +46,7 @@ export function RiskAffordance({
         }}
       >
         {label}
-      </ButtonBase>
+      </Button>
       {showTooltip && (
         <div className={styles.tooltip} role="tooltip">
           {explanation}

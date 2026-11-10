@@ -11,24 +11,13 @@
   transform: translateX(-50%);
   z-index: 1;
   width: 32px;
-  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-code);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
   transition:
     background 0.15s,
     color 0.15s,
     border-color 0.15s;
-}
-
-.toggle:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
 }
 
 .toggle svg {
@@ -40,11 +29,6 @@
 }
 
 /* Toggle button with pending indicator */
-.toggle.hasPending {
-  background: var(--status-badge-input-bg);
-  border-color: var(--status-badge-input-text);
-  color: var(--status-badge-input-text);
-}
 
 .panel {
   display: flex;
@@ -82,15 +66,7 @@
 }
 
 .viewDetails {
-  color: var(--link-color);
-  font-size: var(--font-size-sm);
   text-align: left;
-  opacity: 0.8;
-}
-
-.viewDetails:hover {
-  opacity: 1;
-  text-decoration: underline;
 }
 
 .title {

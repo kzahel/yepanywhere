@@ -3,19 +3,7 @@
   align-items: center;
   gap: 0.35em;
   flex: 0 0 auto;
-  min-block-size: 30px;
-  padding: 0.25em 0.55em;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  font-size: 0.8rem;
   white-space: nowrap;
-}
-.recent {
-  color: light-dark(#79551b, #d8b477);
-  background: light-dark(#faf3e5, #28241e);
-  border-color: light-dark(#bca477, #77613f);
 }
 .overflowEntry {
   position: absolute;
@@ -118,23 +106,11 @@
   align-items: baseline;
   gap: 0.8em;
   inline-size: 100%;
-  color: var(--text-primary);
-  background: var(--bg-code);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
   text-align: start;
-  font-size: inherit;
   overflow-wrap: anywhere;
-}
-.option:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-  border-color: var(--text-secondary);
-  text-decoration: underline;
 }
 .option:disabled {
   cursor: default;
-  opacity: 0.7;
 }
 .replyForm {
   margin-block-start: 8px;
@@ -162,9 +138,7 @@
   margin-top: var(--space-2);
 }
 @media (pointer: coarse) {
-  .indicator,
-  .preview,
-  .option {
+  .preview {
     min-block-size: 44px;
   }
 }

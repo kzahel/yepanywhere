@@ -86,8 +86,6 @@
   align-items: baseline;
   gap: 0.5rem;
   overflow: hidden;
-  color: var(--link-color);
-  font-size: inherit;
   text-align: left;
 }
 

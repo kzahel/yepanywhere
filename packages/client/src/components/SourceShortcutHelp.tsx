@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { TranslationFn } from "../i18n";
-import { ButtonBase } from "./ui/Button";
+import { IconButton } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 import styles from "./SourceShortcutHelp.module.css";
 
@@ -42,11 +42,14 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
         }
       }}
     >
-      <ButtonBase
+      <IconButton
+        variant="outline"
+        size="dense"
         ref={triggerRef}
         className={styles.trigger}
-        aria-label={t("sourceShortcutHelp")}
+        label={t("sourceShortcutHelp")}
         aria-expanded={open}
+        data-selected={open}
         onClick={(event) => {
           if (pinned) {
             close();
@@ -57,7 +60,7 @@ export function SourceShortcutHelp({ t }: { t: TranslationFn }) {
         }}
       >
         ?
-      </ButtonBase>
+      </IconButton>
       {/* Portaled, but a React child of the root, so hovering it keeps
           the root's pointer hover. */}
       <Popover

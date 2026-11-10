@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import type { Project } from "../types";
 import styles from "./ProjectCodeNameEditor.module.css";
-import { ButtonBase, IconButton } from "./ui/Button";
+import { Button, IconButton } from "./ui/Button";
 import { TextInput } from "./ui/Field";
 
 interface ProjectCodeNameEditorProps {
@@ -146,13 +146,16 @@ export function ProjectCodeNameEditor({
           </IconButton>
         </div>
       ) : onUpdateCodeName ? (
-        <ButtonBase
-          className={styles.codeName}
+        <Button
+          variant="outline"
+          textFlow="truncate"
+          size="dense"
+          className={styles.codeNameButton}
           aria-label={t("projectCodeNameEdit")}
           onClick={startEdit}
         >
           {project.codeName}
-        </ButtonBase>
+        </Button>
       ) : (
         <span className={styles.codeName}>{project.codeName}</span>
       )}

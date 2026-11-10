@@ -7,7 +7,7 @@ import { api } from "../api/client";
 import { CopyButton } from "../components/CopyButton";
 import { Badge } from "../components/ui/Badge";
 import { Banner } from "../components/ui/Banner";
-import { ButtonBase } from "../components/ui/Button";
+import { Button } from "../components/ui/Button";
 import { Dialog } from "../components/ui/Dialog";
 import type { TranslationFn } from "../i18n";
 import { formatCommitDateTime } from "./CommitFilesPane";
@@ -123,15 +123,16 @@ export function RepoStatusBar({
         </span>
         {status.upstream &&
           (previewsIncoming ? (
-            <ButtonBase
-              className={`${styles.upstream} ${styles.upstreamButton}`}
+            <Button
+              variant="link"
+              mono
               title={t("sourceOpenIncomingCommits", {
                 upstream: status.upstream,
               })}
               onClick={() => setIncomingOpen(true)}
             >
               → {status.upstream}
-            </ButtonBase>
+            </Button>
           ) : (
             <span className={styles.upstream} title={status.upstream}>
               → {status.upstream}
@@ -144,13 +145,15 @@ export function RepoStatusBar({
           </span>
         )}
         {!status.isClean && onSelectChanges ? (
-          <ButtonBase
-            className={`${styles.badge} ${styles.dirty} ${styles.badgeAction}`}
+          <Button
+            variant="attention-outline"
+            size="dense"
+            className={styles.badge}
             title={t("sourceOpenChanges")}
             onClick={onSelectChanges}
           >
             {t("gitStatusDirty")}
-          </ButtonBase>
+          </Button>
         ) : (
           <Badge
             tone={status.isClean ? "success" : "warning"}

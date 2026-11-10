@@ -52,7 +52,8 @@ import { makeDisplayPath } from "../../lib/text";
 import { presentToolOutput } from "../../lib/toolOutputPresentation";
 import { FileViewerModal } from "../FilePathLink";
 import { createPublicShareFileViewerSource } from "../publicShareFileViewerSource";
-import { ButtonBase } from "./Button";
+import { IconButton } from "./Button";
+import toggleStyles from "./FixedFontRenderToggle.module.css";
 import { RenderModeGlyph } from "./RenderModeGlyph";
 
 interface FixedFontMathToggleProps {
@@ -1309,11 +1310,15 @@ export function FixedFontMathToggle({
         sourceView
       )}
       {rendered.changed && (
-        <ButtonBase
+        <IconButton
+          variant="outline"
+          elevated
+          size="dense"
           ref={toggleBtnRef}
-          className={`fixed-font-render-toggle__button ${showRendered ? "is-rendered" : ""}`}
+          className={toggleStyles.button}
+          data-fixed-font-toggle=""
           onClick={handleToggleClick}
-          aria-label={showRendered ? "Show source" : "Show rendered view"}
+          label={showRendered ? "Show source" : "Show rendered view"}
           {...getTextTooltipAttributes(
             showRendered ? "Show source" : "Show rendered view",
             tooltipMode,
@@ -1321,7 +1326,7 @@ export function FixedFontMathToggle({
           aria-pressed={showRendered}
         >
           <RenderModeGlyph />
-        </ButtonBase>
+        </IconButton>
       )}
       {viewerLink && viewerProjectId !== "" && (
         <FileViewerModal

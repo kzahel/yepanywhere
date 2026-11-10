@@ -11,6 +11,7 @@ import selectorParser from "postcss-selector-parser";
 import ts from "typescript";
 
 const CONTROLS = new Set([
+  "SelectableCard",
   "Button",
   "IconButton",
   "buttonClassName",
@@ -37,11 +38,32 @@ export const BUTTON_CONTROLS = new Set([
 export const CONTROL_LOOK_PROPERTY =
   /^(?:color|background(?:-.*)?|border(?:-.*)?|box-shadow|transform|filter|text-shadow|fill|stroke|outline(?:-.*)?|font(?:-.*)?|line-height|letter-spacing|text-(?:transform|decoration(?:-.*)?)|padding(?:-.*)?|(?:min-|max-)?height|opacity)$/;
 
+export function isLayoutTranslation(value: string): boolean {
+  const text = value.replace(/!important\s*$/, "").trim();
+  let rest = text;
+  let found = false;
+  while (rest) {
+    const match = /^translate(?:[XYZ]|3d)?\(/i.exec(rest);
+    if (!match) return false;
+    let depth = 1;
+    let i = match[0].length;
+    for (; i < rest.length && depth; i++) {
+      if (rest[i] === "(") depth++;
+      if (rest[i] === ")") depth--;
+    }
+    if (depth) return false;
+    rest = rest.slice(i).trim();
+    found = true;
+  }
+  return found;
+}
+
 export interface OverrideRule {
   file: string;
   line: number;
   selector: string;
   properties: string[];
+  declarations?: { property: string; value: string }[];
 }
 export interface ControlOverride {
   file: string;
@@ -92,6 +114,7 @@ export function controlClassRules(file: string, text: string): ClassRule[] {
       ...new Set(
         (rule.nodes ?? []).flatMap((node) =>
           node.type === "decl" &&
+          !(node.prop === "transform" && isLayoutTranslation(node.value)) &&
           (CONTROL_LOOK_PROPERTY.test(node.prop.toLowerCase()) ||
             node.prop.startsWith("--")) &&
           !(
@@ -181,6 +204,11 @@ export function controlClassRules(file: string, text: string): ClassRule[] {
           line: rule.source?.start?.line ?? 1,
           selector: selector.toString(),
           properties,
+          declarations: (rule.nodes ?? []).flatMap((node) =>
+            node.type === "decl"
+              ? [{ property: node.prop, value: node.value }]
+              : [],
+          ),
           name: node.value,
           module: !global,
           tags,
@@ -216,6 +244,7 @@ function propertyName(node: ts.PropertyName) {
 export function analyzeControlOverrides(
   root: string,
   inputs: OwnershipSource[],
+  mode: "controls" | "bases" = "controls",
 ) {
   const fileKey = (file: string) => resolve(file).split(sep).join("/");
   const contents = new Map(
@@ -636,7 +665,9 @@ export function analyzeControlOverrides(
       }
       if (
         ts.isPropertyAccessExpression(node.expression) &&
-        ["join", "filter"].includes(node.expression.name.text)
+        ["join", "filter", "trim", "trimEnd"].includes(
+          node.expression.name.text,
+        )
       )
         return evaluate(node.expression.expression, origin, seen);
       const name = ts.isPropertyAccessExpression(node.expression)
@@ -887,13 +918,19 @@ export function analyzeControlOverrides(
           continue;
         }
         const ref = refs.get(token) ?? { name: token };
-        const native = BUTTON_CONTROLS.has(control) ? "button" : undefined;
+        const native =
+          BUTTON_CONTROLS.has(control) ||
+          control === "ButtonBase" ||
+          control === "SelectableCard"
+            ? "button"
+            : undefined;
         const matches = (byClass.get(`${ref.file ?? ""}:${ref.name}`) ?? [])
           .filter((rule) => {
             if (ancestorMatch) return ancestorMatch(rule);
             if (rule.qualifiers.some((name) => !names.has(name))) return false;
             if (native && rule.tags.length && !rule.tags.includes(native))
               return false;
+            if (mode === "bases" && rule.tail) return false;
             if (rule.tail) {
               const subject = selectorParser().astSync(
                 rule.tail.trim().replace(/^>/, "").trim(),
@@ -916,13 +953,16 @@ export function analyzeControlOverrides(
           .map((rule) => ({
             ...rule,
             properties: rule.properties.filter(
-              (property) => !property.startsWith("--") || custom.has(property),
+              (property) =>
+                mode === "bases" ||
+                !property.startsWith("--") ||
+                custom.has(property),
             ),
           }))
           .filter((rule) => rule.properties.length);
         addRow(
           control,
-          ancestorMatch ? origin : resolved.origin,
+          mode === "bases" ? use : ancestorMatch ? origin : resolved.origin,
           `${ref.file ? `${ref.file}:` : ""}.${ref.name}`,
           matches,
         );
@@ -968,7 +1008,10 @@ export function analyzeControlOverrides(
                 if (part.type === "tag")
                   return (
                     part.value ===
-                    (element === use && BUTTON_CONTROLS.has(control)
+                    (element === use &&
+                    (BUTTON_CONTROLS.has(control) ||
+                      control === "ButtonBase" ||
+                      control === "SelectableCard")
                       ? "button"
                       : element.tagName.getText())
                   );
@@ -1065,6 +1108,12 @@ export function analyzeControlOverrides(
           if (
             (CONTROL_LOOK_PROPERTY.test(key) || custom.has(key)) &&
             !(
+              key === "transform" &&
+              isLayoutTranslation(
+                property.initializer.getText().replace(/^["'`]|["'`]$/g, ""),
+              )
+            ) &&
+            !(
               key === "opacity" &&
               /^(?:0|1|["'](?:0|1)["'])$/.test(property.initializer.getText())
             )
@@ -1078,6 +1127,14 @@ export function analyzeControlOverrides(
                     .getLineAndCharacterOfPosition(origin.getStart()).line + 1,
                 selector: property.getText(),
                 properties: [key],
+                declarations: [
+                  {
+                    property: key,
+                    value: property.initializer
+                      .getText()
+                      .replace(/^["']|["']$/g, ""),
+                  },
+                ],
               },
             ]);
         }
@@ -1114,8 +1171,30 @@ export function analyzeControlOverrides(
         const owns = symbolAt(node.tagName)?.declarations?.some(
           (decl) => decl.getSourceFile() === source,
         );
-        if (control && CONTROLS.has(control) && !owns) {
+        if (
+          mode === "bases" &&
+          /\/components\/ui\/SelectableCard\.tsx$/.test(source.fileName)
+        )
+          return;
+        if (
+          control &&
+          (mode === "bases"
+            ? control === "ButtonBase"
+            : CONTROLS.has(control)) &&
+          !owns
+        ) {
           uses++;
+          if (mode === "bases") {
+            const file = pathOf(source.fileName);
+            rows.set(`${file}:${node.pos}:${control}`, {
+              file,
+              line:
+                source.getLineAndCharacterOfPosition(node.getStart()).line + 1,
+              control,
+              classes: [],
+              rules: [],
+            });
+          }
           if (BUTTON_CONTROLS.has(control)) buttonUses++;
           const attributes = node.attributes.properties.filter(
             (prop): prop is ts.JsxAttribute =>
@@ -1148,6 +1227,7 @@ export function analyzeControlOverrides(
         }
       }
       if (
+        mode === "controls" &&
         ts.isCallExpression(node) &&
         importedName(node.expression) === "buttonClassName" &&
         !symbolAt(node.expression)?.declarations?.some(
@@ -1191,7 +1271,10 @@ export function analyzeControlOverrides(
   };
 }
 
-export async function scanControlOverrides(root: string) {
+export async function scanControlOverrides(
+  root: string,
+  mode: "controls" | "bases" = "controls",
+) {
   const inputs: OwnershipSource[] = [];
   const walk = async (directory: string) => {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -1209,5 +1292,5 @@ export async function scanControlOverrides(root: string) {
     }
   };
   await walk(root);
-  return analyzeControlOverrides(root, inputs);
+  return analyzeControlOverrides(root, inputs, mode);
 }

@@ -74,6 +74,12 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
+import {
+  checkButtonBaseAllowlist,
+  buttonBaseStyleReason,
+} from "../design/buttonBaseStyles";
+import { scanControlOverrides } from "../design/controlOverrides";
+import type { OverrideAllowance } from "../design/controlOverrideAllowlist";
 import { scanButtonElements } from "../design/buttonElements";
 import { scanFieldElements } from "../design/fieldElements";
 import {
@@ -104,7 +110,10 @@ listeners (hand-rolled outside-press dismissal) outside the shared Popover,
 raw fields outside the shared field controls, tab roles outside the shared
 Tabs, rotating keyframes outside the shared Spinner, native confirm, alert
 and prompt calls, aria-modal outside the shared Modal and rules reaching
-into Modal's frame.`;
+into Modal's frame. ButtonBase targets whose resolved classes draw both a
+background and border, or link/accent text without chrome, also fail unless
+counted with a reason in design/census/button-base-allowlist.json. --record
+only lowers these counts and refuses unreviewed increases.`;
 
 const { values } = parseArgs({
   options: {
@@ -489,7 +498,7 @@ for (const path of stylesheets) {
 // `window["confirm"](`, `(window as X).confirm(`, a bare `confirm(`), not
 // a method (`draft.confirm()`) or a definition (`confirm() {`).
 const NATIVE_DIALOG =
-  /(?:\b(?:window|globalThis|self)\s*(?:\?\.|\.|\[\s*["'`])\s*|\(\s*(?:window|globalThis|self)\s+as\s+[^()]*\)\s*\.\s*|(?<![\w.$\]\)]))(?:confirm|alert|prompt)(?:["'`]\s*\])?\s*(?:\?\.)?\(/g;
+  /(?:\b(?:window|globalThis|self)\s*(?:\?\.|\.|\[\s*["'`])\s*|\(\s*(?:window|globalThis|self)\s+as\s+[^()]*\)\s*\.\s*|(?<![\w.$\])]))(?:confirm|alert|prompt)(?:["'`]\s*\])?\s*(?:\?\.)?\(/g;
 const nativeCounts = new Map<string, number>();
 const nativeSites = new Map<string, string[]>();
 for (const path of sources) {
@@ -654,7 +663,26 @@ ratchet("modalFrameRules", frameCounts, (file, count, allowed) => [
   `${file}: ${count} rule${count === 1 ? "" : "s"} reaching into Modal's frame, ${allowed} allowed; give Dialog a size, or pass layout through its bodyClassName`,
 ]);
 
-if (values.record) {
+const basePath = join(clientRoot, "design/census/button-base-allowlist.json");
+const bases = await scanControlOverrides(srcDir, "bases");
+const baseAllowlist = JSON.parse(await readFile(basePath, "utf8")) as Record<
+  string,
+  OverrideAllowance
+>;
+const baseCheck = checkButtonBaseAllowlist(
+  bases.overrides,
+  baseAllowlist,
+  values.record,
+);
+problems.push(...baseCheck.problems);
+const drawn = bases.overrides.filter((row) => buttonBaseStyleReason(row));
+console.log(
+  `ButtonBase ownership: ${drawn.length}/${bases.uses} sites need counted reasons.`,
+);
+if (values.record && !problems.length)
+  await writeFile(basePath, `${JSON.stringify(baseCheck.next, null, 2)}\n`);
+
+if (values.record && !problems.length) {
   allowlist.bannedClasses = banned;
   await writeFile(allowlistPath, `${JSON.stringify(allowlist, null, 2)}\n`);
 }

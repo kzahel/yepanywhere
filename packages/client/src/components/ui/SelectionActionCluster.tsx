@@ -5,10 +5,10 @@ import type {
   ReactNode,
 } from "react";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
-import { ButtonBase } from "./Button";
+import { IconButton, buttonClassName } from "./Button";
 import styles from "./SelectionActionCluster.module.css";
 
-export const SELECTION_ACTION_BUTTON_SIZE_PX = 30;
+export const SELECTION_ACTION_BUTTON_SIZE_PX = 32;
 export const SELECTION_ACTION_BUTTON_MOBILE_SIZE_PX = 44;
 export const SELECTION_ACTION_GAP_PX = 6;
 
@@ -70,22 +70,31 @@ export function SelectionActionButton({
   onPointerUp,
   specimen = false,
 }: SelectionActionButtonProps) {
-  const className = `${styles.button} ${KIND_STYLES[kind]} ${specimen ? styles.specimen : ""}`;
+  const className = specimen ? styles.specimen : undefined;
+  const glyph = <span className={KIND_STYLES[kind]}>{GLYPHS[kind]}</span>;
   const tooltip = useTextTooltipAttributes(label);
   if (specimen) {
     return (
       <span
-        className={className}
+        className={buttonClassName({
+          variant: "secondary",
+          icon: true,
+          elevated: true,
+          className,
+        })}
         aria-hidden="true"
         data-selection-action-specimen={kind}
       >
-        {GLYPHS[kind]}
+        {glyph}
       </span>
     );
   }
 
   return (
-    <ButtonBase
+    <IconButton
+      variant="secondary"
+      elevated
+      label={label}
       {...tooltip}
       className={className}
       onMouseDown={(event) => event.preventDefault()}
@@ -97,8 +106,8 @@ export function SelectionActionButton({
       onClick={onClick}
       aria-label={label}
     >
-      {GLYPHS[kind]}
-    </ButtonBase>
+      {glyph}
+    </IconButton>
   );
 }
 

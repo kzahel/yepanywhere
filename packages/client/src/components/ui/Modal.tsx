@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "../../i18n";
 import { QUOTE_SELECTION_ROOT_ATTRIBUTES } from "../../lib/markdownSelectionCopy";
 import { programmaticFocus } from "../../lib/programmaticFocus";
-import { ButtonBase } from "./Button";
+import { IconButton } from "./Button";
 import { computePopoverPosition } from "./Popover";
 
 const ANCHORED_MODAL_MARGIN_PX = 8;
@@ -450,19 +450,23 @@ export function ModalChrome({
         >
           {actions}
           {onMinimize && (
-            <ButtonBase
+            <IconButton
+              variant="ghost"
+              size="small"
               className="modal-close"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onMinimize();
               }}
-              aria-label={t("modalMinimize")}
+              label={t("modalMinimize")}
             >
               −
-            </ButtonBase>
+            </IconButton>
           )}
-          <ButtonBase
+          <IconButton
+            variant="ghost"
+            size="small"
             ref={closeButtonRef}
             className="modal-close"
             onClick={(e) => {
@@ -470,10 +474,10 @@ export function ModalChrome({
               e.stopPropagation();
               onClose();
             }}
-            aria-label={t("modalClose")}
+            label={t("modalClose")}
           >
             ×
-          </ButtonBase>
+          </IconButton>
         </span>
       </div>
       <div className="modal-content" ref={contentRef}>

@@ -1,3 +1,4 @@
+import { SelectableCard } from "./ui/SelectableCard";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectPathLinkTarget } from "@yep-anywhere/shared";
 import { usePublicShareContext } from "../contexts/PublicShareContext";
@@ -11,7 +12,7 @@ import type { AsyncQuestion } from "../lib/asyncQuestions";
 import styles from "./AsyncQuestions.module.css";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { Banner } from "./ui/Banner";
-import { Button, ButtonBase } from "./ui/Button";
+import { Button } from "./ui/Button";
 import { Textarea } from "./ui/Field";
 import { renderFixedFontRichContent } from "./ui/FixedFontMathToggle";
 
@@ -125,14 +126,14 @@ function InlineQuestion({
           <ul className={styles.options}>
             {question.options.map((option, index) => (
               <li key={`${index}:${option}`}>
-                <ButtonBase
+                <SelectableCard
                   className={styles.option}
                   disabled={busy || answered}
                   onClick={() => void send(option)}
                 >
                   <span aria-hidden="true">•</span>
                   <span>{option}</span>
-                </ButtonBase>
+                </SelectableCard>
               </li>
             ))}
           </ul>
