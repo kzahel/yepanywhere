@@ -26,8 +26,12 @@ request the tab made and its WebSocket frames (header comment for usage).
   stores (7,500 catalog rows) and profile; this session's own 30 MB
   transcript held back 15% and replayed at its recorded pace (85 writes in
   three minutes).
-- **Synthetic world:** 3,000 short Claude sessions and one 3,000-turn agent
-  session (12,000 rows), one four-row turn every 2.5 s.
+- **Synthetic world:** plan 190's scenario (the default): 50,000 idle
+  sessions, half Claude and half Codex, and one 200-compaction session of
+  about 470 MB written once a second, run as each provider. At that scale
+  both providers saturate the server; the measured baseline is in the
+  plan's "Where it stands". The figures below are from smaller worlds (3,000
+  short Claude sessions and a 12,000-row session) unless stated.
 
 ## What it spends, largest first
 
@@ -40,9 +44,13 @@ request the tab made and its WebSocket frames (header comment for usage).
    (`reader.getSession`) and once for the catalog row
    (`getSessionSummaryFromDir`). Synthetic world: normalization 4.9 s and
    summaries 4.9 s of about 22 s of main-thread CPU in two minutes; it grows
-   with the session's length. Fix: keep the normalized messages and the
-   active branch incremental over appends, or at least share one summary per
-   parse-state version.
+   with the session's length. Past the 192 MB parse budget the file is also
+   reread whole per request (3.2 s per request at 465 MB). Codex is no
+   better for a tab's updates: its windowed incremental read falls back
+   (cause not yet established), so each update reads and normalizes the
+   whole rollout (2.1 s at 488 MB). Fix: keep the normalized messages and the active branch
+   incremental over appends, or at least share one summary per parse-state
+   version (plan 190 step 2).
 2. **Each write makes every tab refetch six whole-catalog lists:** the three
    feeds, Inbox, `/api/projects` and `/api/project-queue`. Sharing leaves
    about one walk per write per tab, but each still builds an item per row
@@ -61,6 +69,19 @@ request the tab made and its WebSocket frames (header comment for usage).
    React rendering on each write.
 6. **Opening a long session** takes 0.8–1.5 s, nearly all waiting on the
    Markdown/highlight worker (`augmentMs`); the main thread is idle meanwhile.
+
+7. **A quiet server still profiles itself.** The stall recorder
+   (`logging/stall-recording.ts`) runs a 10 ms CPU profiler and stops and
+   restarts it every 30 s: about 240 ms of main thread and a 220–235 ms
+   event-loop delay per rotation; with the resource sampler off an idle
+   server's CPU fell by two thirds (plan 190 step 8).
+8. **Without Codex's thread index, every Codex rollout is statted every five
+   seconds.** 25,000 rollouts take 120–150 ms per pass, under the backoff's
+   slow threshold, so it never backs off: 8% of a core idle (plan 190
+   step 8).
+9. **A restart with nothing changed costs about 9 s of CPU** from start to
+   30 s after the lists are usable, with no tab open, at 50,000 sessions;
+   not yet attributed (plan 190 step 8).
 
 Found 2026-11-10 while profiling, at the maintainer's request, the cost of
 keeping a browser open on a long active session after plan 189.
