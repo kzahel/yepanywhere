@@ -51,7 +51,8 @@ const UPSTREAM_PROVIDER_BY_YA_PROVIDER: Readonly<Record<string, string>> = {
  *
  * - `platform.claude.com/docs/en/about-claude/pricing` — Claude Opus 5,
  *   Sonnet 5, Fable 5.1 and Mythos 5/5.1; Opus 5.5 added on 2026-09-28;
- *   Sonnet 5.5 and Haiku 5.5 on 2026-10-08.
+ *   Sonnet 5.5 and Haiku 5.5 on 2026-10-08; Fable and Mythos 5.2 on
+ *   2026-11-10.
  *   **Fable 5.1 and Mythos 5.1 break the family's usual 0.1x cache-read ratio
  *   at 0.025x, and Opus 5.5 and Sonnet 5.5 at 0.05x**, which is exactly why
  *   this is a per-model table and not a set of per-provider ratios.
@@ -83,6 +84,20 @@ const PUBLISHED_MODEL_PRICES: Readonly<
       output: 10,
       cacheRead: 0.2,
       cacheWrite: 2.5,
+    },
+    // Fable/Mythos 5.2 (read 2026-11-10). Without their own rows they
+    // matched Fable 5 / Mythos 5 by prefix.
+    "claude-fable-5-2": {
+      input: 8,
+      output: 40,
+      cacheRead: 0.2,
+      cacheWrite: 10,
+    },
+    "claude-mythos-5-2": {
+      input: 8,
+      output: 40,
+      cacheRead: 0.2,
+      cacheWrite: 10,
     },
     "claude-fable-5-1": {
       input: 10,

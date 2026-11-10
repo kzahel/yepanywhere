@@ -511,36 +511,43 @@ describe("ClaudeProvider model list", () => {
     });
   });
 
-  it("keeps the current Fable row when the catalog also lists older Fables", () => {
-    // Claude Code 2.1.283 lists the previous Fable after the current one.
+  it("keeps the current Fable row and its version when older Fables follow", () => {
+    // Claude Code 2.1.322: the `fable` alias is Fable 5.2, its description
+    // no longer names the version, and previous Fables follow as concrete
+    // rows.
     const models = mergeClaudeModels([
+      {
+        id: "fable",
+        name: "Fable 5.2",
+        description: "For your toughest challenges",
+      },
       {
         id: "claude-fable-5-1",
         resolvedModel: "claude-fable-5-1",
         name: "Fable 5.1",
-        description: "Fable 5.1 · Most capable for your hardest tasks",
+        description: "Most capable for your hardest and longest-running tasks",
       },
       {
         id: "claude-fable-5",
         resolvedModel: "claude-fable-5",
         name: "Fable 5",
-        description: "Fable 5 · Previous Fable",
+        description: "Most capable for your hardest and longest-running tasks",
       },
     ]);
 
     expect(models.find((model) => model.id === "fable")).toMatchObject({
-      name: "Fable",
-      resolvedModel: "claude-fable-5-1",
-      description: "Fable 5.1 · Most capable for your hardest tasks",
+      name: "Fable 5.2",
+      description: "For your toughest challenges",
     });
-    expect(models.find((model) => model.id === "claude-fable-5")).toMatchObject(
-      {
-        name: "Fable 5",
-        resolvedModel: "claude-fable-5",
+    for (const [id, name] of [
+      ["claude-fable-5-1", "Fable 5.1"],
+      ["claude-fable-5", "Fable 5"],
+    ]) {
+      expect(models.find((model) => model.id === id)).toMatchObject({
+        name,
         catalogGroup: "additional",
-      },
-    );
-    expect(models.map((model) => model.id)).not.toContain("claude-fable-5-1");
+      });
+    }
   });
 
   it("marks the concrete previous versions additional and lists them last", () => {

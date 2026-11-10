@@ -296,7 +296,9 @@ export function mergeClaudeModels(models: ModelInfo[]): ModelInfo[] {
           ...fallback,
           ...model,
           id: "fable",
-          name: fallback?.name ?? model.name,
+          // The live name carries the version ("Fable 5.2"); since Claude
+          // Code 2.1.322 the description no longer does.
+          name: model.name || fallback?.name || "Fable",
         }),
       );
       continue;

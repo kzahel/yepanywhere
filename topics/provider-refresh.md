@@ -1390,7 +1390,31 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-11-09 (Claude Code 2.1.321 / SDK 0.3.321):
+Current source refresh, 2026-11-10 (Claude Code 2.1.322 / SDK 0.3.322):
+
+- The SDK and native packages advance from 0.3.321 to 0.3.322; the
+  bundled executable and the standalone install both report Claude Code
+  2.1.322. Compatibility markers advance together. The declaration delta
+  is one doc comment (a saved fast-mode setting is ignored on Vertex).
+- The catalog now spells the current Fable as the `fable` alias itself
+  ("Fable 5.2", description "For your toughest challenges"), with Fable
+  5.1 demoted to a concrete `claude-fable-5-1` row; 0.3.319 listed a
+  concrete `claude-fable-5-2` row ahead of a `fable` alias still named
+  Fable 5.1. `default` and `fable` gain `supportsFastMode: true`. A
+  no-turn handshake returns 14 model rows and 55 commands for both
+  0.3.319 and 0.3.322.
+- The description no longer carries the version, so `mergeClaudeModels`
+  keeping the fallback name "Fable" hid it entirely. The folded `fable`
+  row now keeps the live name ("Fable 5.2"), matching Opus and Sonnet.
+- `model-prices.ts` gains exact `claude-fable-5-2` and `claude-mythos-5-2`
+  rows ($8 input, $40 output, $10 5-minute write, $0.20 cache hit, read
+  from the pricing page 2026-11-10), closing the prefix match to Fable 5
+  noted below.
+- Server type checking, the server provider suites and the shared tests
+  pass. No assistant turn ran. Existing provider-host workers must
+  restart to adopt the update.
+
+Previous source refresh, 2026-11-09 (Claude Code 2.1.321 / SDK 0.3.321):
 
 - The SDK advances from 0.3.319 to 0.3.321; the bundled executable reports
   Claude Code 2.1.321. Compatibility markers advance together.
