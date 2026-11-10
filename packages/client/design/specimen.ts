@@ -28,7 +28,7 @@ export type DesignTheme = (typeof DESIGN_THEMES)[number];
 
 export interface SpecimenParameters {
   layer: DesignLayer;
-  /** One sentence shown above the states. */
+  /** Plain introduction shown above the states. */
   description?: string;
   /**
    * Content width in the grid and isolated views. `content` (default) shrinks

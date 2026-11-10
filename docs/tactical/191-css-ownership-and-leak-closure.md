@@ -2,8 +2,8 @@
 
 Topic: css-architecture
 
-Status: steps 1–3 landed 2026-11-10; step 4 implemented 2026-11-10 for review.
-Steps 5–8 remain open. The maintainer
+Status: steps 1–4 landed 2026-11-10; step 5 implemented 2026-11-10 for review.
+Steps 6–8 remain open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -166,7 +166,7 @@ and composer handle, with specific playground reasons.
 
 ### 4 — require tokens for type sizes and radii
 
-Implemented 2026-11-10 for review. `tokens:check` runs in lint, parses CSS
+Landed 2026-11-10. `tokens:check` runs in lint, parses CSS
 shorthands/corners and TSX literal style values; counted reasons only ratchet down.
 Before: modules 231 type / 180 radius; inline 22 type / 15 radius findings.
 After: 57 type / 28 radius exceptions in 33 files (85 total; 448 → 85).
@@ -181,11 +181,18 @@ heading; no suitable token within 1px. Global literals wait for steps 6–7.
 
 ### 5 — reduce the census pages to open work
 
-Delete census rows and pages for swept families, moving their class names
-into the allowlist's `bannedClasses` first so the bans hold. Census/Buttons
-keeps the composer rows and the element scan; the playground gains a page
-for each new allowlist (control overrides, `ButtonBase` exceptions, literal
-type and radius), so remaining exceptions are visible in one place.
+Implemented 2026-11-10 for review. Census shrank from 457 rows / 8 pages
+to 319 rows / 6 pages (each state counted once, without theme copies).
+Swept-family samples, the 1,747-line mapping and the directory inventory are
+removed; the enforcement scanner now reports only raw buttons and button roles.
+All 150 permanent class bans survive independently of census rows; focused
+regressions cover removed-row bans and shared-link classification.
+Composer has 112 class/element rows. Exceptions share element, location/count,
+reason and closure fields: 32 control-override, 23 ButtonBase, 73 element/rule,
+33 token-literal and 46 runtime-family rows, directly from the owning lists.
+Controls/Patterns are the standard; Census is the remaining exceptions.
+Deferred: composer swaps (plan 182), global ownership (steps 6–8), and intentional
+generated-markup/specialized exceptions, whose closure conditions remain visible.
 
 ### 6 — split the global stylesheets by purpose
 

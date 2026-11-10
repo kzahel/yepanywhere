@@ -101,6 +101,9 @@ function IsolatedState({
       data-design-ready={ready ? "" : undefined}
       data-design-state={state.id}
     >
+      {specimen.parameters.layer === "census" ? (
+        <p className={styles.description}>{specimen.parameters.description}</p>
+      ) : null}
       <RenderState state={state} />
     </main>
   );
@@ -298,8 +301,10 @@ function IndexPage({ route }: { route: DesignRoute }) {
       <header className={styles.pageHeader}>
         <h1>YA design playground</h1>
         <p className={styles.description}>
-          Shared controls, their states and the census of legacy variants, in
-          every theme. Contract: <code>topics/ui-design.md</code>. Capture with{" "}
+          Controls and Patterns show the standard to use. Census lists what is
+          still not standard, with the reason and the work needed to close it.
+          Every page is available in each theme. Contract:{" "}
+          <code>topics/ui-design.md</code>. Capture with{" "}
           <code>pnpm -s design:shot &lt;id&gt;</code>; list with{" "}
           <code>pnpm -s design:index</code>.
         </p>
@@ -312,6 +317,15 @@ function IndexPage({ route }: { route: DesignRoute }) {
         return (
           <section key={layer} className={styles.indexGroup}>
             <h2>{LAYER_LABELS[layer]}</h2>
+            {layer === "control" || layer === "pattern" ? (
+              <p className={styles.description}>
+                The standard to use for new and migrated UI.
+              </p>
+            ) : layer === "census" ? (
+              <p className={styles.description}>
+                Still not standard: remaining exclusions and counted exceptions.
+              </p>
+            ) : null}
             <ul className={styles.indexList}>
               {group.map((specimen) => (
                 <li key={specimen.id}>

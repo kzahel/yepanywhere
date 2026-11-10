@@ -1,0 +1,47 @@
+{
+  "globals": [
+    "send-button",
+    "toolbar-button",
+    "new-session-submit-button",
+    "conversation-view-toolbar-button",
+    "attach-button",
+    "btw-toolbar-button",
+    "project-queue-button",
+    "new-session-project-queue-button",
+    "message-input-keyboard-action",
+    "message-input-keyboard-secondary",
+    "project-queue-mode",
+    "project-queue-new-session-button",
+    "render-mode-toolbar-button",
+    "session-shortcuts-help-button",
+    "voice-input-button",
+    "composer-bottom-overflow-button",
+    "mode-button",
+    "queue-button",
+    "slash-command-button",
+    "stop-button",
+    "thinking-toggle-button"
+  ],
+  "modules": [
+    {
+      "file": "components/MessageInputToolbar.module.css",
+      "name": "browserDebugButton"
+    },
+    {
+      "file": "components/MessageInputToolbar.module.css",
+      "name": "browserDebugButtonActive"
+    },
+    {
+      "file": "components/MessageInputToolbar.module.css",
+      "name": "doneButton"
+    },
+    {
+      "file": "components/MessageInputToolbar.module.css",
+      "name": "transcriptSearchButton"
+    },
+    {
+      "file": "components/VoiceInputButton.module.css",
+      "name": "button"
+    }
+  ]
+}

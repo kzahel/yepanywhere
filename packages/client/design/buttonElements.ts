@@ -1,32 +1,15 @@
-/**
- * Element-based button census (plan 182, family 1).
- *
- * The class census finds buttons by class name, so a button styled by a
- * class such as `.close` or by no class at all is invisible to it. This scan
- * parses every production TSX file under src/ with the TypeScript compiler
- * and reports each element that is or looks like a button:
- *
- * - every `<button>`, and every shared `Button`, `IconButton` or
- *   `ButtonBase`;
- * - every `<a>`, `<Link>` or `<label>` whose className names a button
- *   (`button`, `btn`) or calls `buttonClassName()`;
- * - every element with `role="button"`.
- *
- * Each row carries the file, line, the className expression as written and
- * the role, so a reader can tell a raw button from an option picker. The
- * playground's census page and the button ban (`pnpm buttons:check`) both
- * read this scan.
- */
+/** Parser-backed raw-button and role=button scan used by buttons:check and Composer. */
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import ts from "typescript";
-import type { ButtonElement, ButtonElementKind } from "./buttonFamilies";
-
-export type { ButtonElement, ButtonElementKind } from "./buttonFamilies";
-
-const SHARED_TAGS = new Set(["Button", "IconButton", "ButtonBase"]);
-const LINK_TAGS = new Set(["a", "Link", "NavLink"]);
-const BUTTONISH = /button|btn/i;
+export interface ButtonElement {
+  file: string;
+  line: number;
+  tag: string;
+  kind: "raw" | "role-button";
+  className?: string;
+  role?: string;
+}
 
 async function productionSources(directory: string): Promise<string[]> {
   const files: string[] = [];
@@ -72,23 +55,6 @@ function sourceText(
   return undefined;
 }
 
-function classify(
-  tag: string,
-  className: string | undefined,
-  role: string | undefined,
-): ButtonElementKind | undefined {
-  if (tag === "button") return "raw";
-  if (SHARED_TAGS.has(tag)) return "shared";
-  if (className?.includes("buttonClassName(") && LINK_TAGS.has(tag))
-    return "shared";
-  if (role === "button") return "role-button";
-  if (!className) return undefined;
-  if (!BUTTONISH.test(className)) return undefined;
-  if (LINK_TAGS.has(tag)) return "link";
-  if (tag === "label") return "label";
-  return undefined;
-}
-
 export function scanButtonSource(file: string, text: string): ButtonElement[] {
   const source = ts.createSourceFile(
     file,
@@ -110,7 +76,16 @@ export function scanButtonSource(file: string, text: string): ButtonElement[] {
         roleAttribute && ts.isStringLiteral(roleAttribute)
           ? roleAttribute.text
           : undefined;
-      const kind = classify(tag, className, role);
+      const shared =
+        ["Button", "IconButton", "ButtonBase"].includes(tag) ||
+        (["a", "Link", "NavLink"].includes(tag) &&
+          className?.includes("buttonClassName("));
+      const kind =
+        tag === "button"
+          ? "raw"
+          : !shared && role === "button"
+            ? "role-button"
+            : undefined;
       if (kind) {
         found.push({
           file,
@@ -130,7 +105,7 @@ export function scanButtonSource(file: string, text: string): ButtonElement[] {
   return found;
 }
 
-/** Every button-like element in the client's production TSX. */
+/** Every raw button and role=button element in production TSX. */
 export async function scanButtonElements(
   srcDir: string,
 ): Promise<ButtonElement[]> {

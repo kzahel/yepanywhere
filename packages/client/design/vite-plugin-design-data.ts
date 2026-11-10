@@ -1,96 +1,10 @@
-/**
- * Source census data for the design playground, live in dev and frozen at build.
- *
- * `virtual:ya-design-data` exports every class selector declared in the
- * legacy global stylesheets, with how many times production TypeScript
- * sources spell it as a whole class token and in how many files. Counting is
- * textual, like `pnpm css:unused`: a class assembled at runtime from parts is
- * not seen. The module is recomputed when a client source changes, so the
- * census tracks a migration as it lands.
- *
- * `buttonElements` is the element-based button census (buttonElements.ts):
- * every raw and shared button, and every button-classed link or label.
- *
- * It also appends Storybook's `__namedExportsOrder` to each *.specimen.tsx.
- *
- * Only design.html imports the virtual data; the app entry does not include it.
- */
-import { readdir, readFile } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+/** Open-work data is live in dev and frozen into the playground build. */
+import { relative, sep } from "node:path";
 import type { Plugin } from "vite";
-import { scanButtonElements } from "./buttonElements";
+import { collectOpenCensus } from "./openCensus";
 
 const VIRTUAL_ID = "virtual:ya-design-data";
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
-const GLOBAL_STYLESHEETS = [
-  "styles/index.css",
-  "styles/renderers.css",
-  "styles/tool-rows.css",
-];
-
-export interface DesignClassUsage {
-  /** Global stylesheets that declare the class, relative to src/. */
-  stylesheets: string[];
-  uses: number;
-  files: number;
-}
-
-async function sourceFiles(directory: string): Promise<string[]> {
-  const files: string[] = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name !== "__tests__") files.push(...(await sourceFiles(path)));
-    } else if (
-      /\.tsx?$/.test(entry.name) &&
-      !/\.test\.tsx?$/.test(entry.name)
-    ) {
-      files.push(path);
-    }
-  }
-  return files;
-}
-
-export async function collectDesignData(srcDir: string) {
-  const classes = new Map<string, DesignClassUsage>();
-  for (const stylesheet of GLOBAL_STYLESHEETS) {
-    const text = (await readFile(join(srcDir, stylesheet), "utf8")).replace(
-      /\/\*[\s\S]*?\*\//g,
-      "",
-    );
-    // Selectors only: the text before each declaration block.
-    for (const selector of text.matchAll(/([^{};]+)\{/g)) {
-      for (const match of (selector[1] ?? "").matchAll(
-        /\.(-?[A-Za-z_][\w-]*)/g,
-      )) {
-        const name = match[1] ?? "";
-        const entry = classes.get(name) ?? {
-          stylesheets: [],
-          uses: 0,
-          files: 0,
-        };
-        if (!entry.stylesheets.includes(stylesheet))
-          entry.stylesheets.push(stylesheet);
-        classes.set(name, entry);
-      }
-    }
-  }
-  for (const file of await sourceFiles(srcDir)) {
-    const counts = new Map<string, number>();
-    for (const token of (await readFile(file, "utf8")).split(/[^\w-]+/)) {
-      if (classes.has(token)) counts.set(token, (counts.get(token) ?? 0) + 1);
-    }
-    for (const [name, count] of counts) {
-      const entry = classes.get(name);
-      if (!entry) continue;
-      entry.uses += count;
-      entry.files += 1;
-    }
-  }
-  return Object.fromEntries(
-    [...classes].sort(([a], [b]) => a.localeCompare(b)),
-  );
-}
 
 export function designDataPlugin(srcDir: string): Plugin {
   return {
@@ -100,14 +14,7 @@ export function designDataPlugin(srcDir: string): Plugin {
     },
     async load(id) {
       if (id !== RESOLVED_ID) return undefined;
-      const [classUsage, buttonElements] = await Promise.all([
-        collectDesignData(srcDir),
-        scanButtonElements(srcDir),
-      ]);
-      return [
-        `export const classUsage = ${JSON.stringify(classUsage)};`,
-        `export const buttonElements = ${JSON.stringify(buttonElements)};`,
-      ].join("\n");
+      return `export const openCensus = ${JSON.stringify(await collectOpenCensus(srcDir))};`;
     },
     /*
      * Module namespaces list exports alphabetically; Storybook's
@@ -127,7 +34,12 @@ export function designDataPlugin(srcDir: string): Plugin {
     configureServer(server) {
       server.watcher.on("change", (file) => {
         const inside = relative(srcDir, file);
-        if (inside.startsWith(`..${sep}`) || inside === "..") return;
+        const censusInput =
+          /(?:allowlist|composer-classes|css-runtime-families)\.json$/.test(
+            file,
+          );
+        if (!censusInput && (inside.startsWith(`..${sep}`) || inside === ".."))
+          return;
         const module = server.moduleGraph.getModuleById(RESOLVED_ID);
         if (module) server.moduleGraph.invalidateModule(module);
       });

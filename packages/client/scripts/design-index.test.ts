@@ -45,8 +45,20 @@ describe("design index", () => {
   it("indexes every checked-in specimen", async () => {
     const index = await loadDesignIndex();
     expect(index.specimens.map((specimen) => specimen.id)).toEqual(
-      expect.arrayContaining(["tokens", "census-buttons"]),
+      expect.arrayContaining(["tokens", "census-composer"]),
     );
+    expect(
+      index.specimens
+        .filter((specimen) => specimen.layer === "census")
+        .map((specimen) => specimen.id),
+    ).toEqual([
+      "census-button-base-exceptions",
+      "census-composer",
+      "census-control-overrides",
+      "census-element-exceptions",
+      "census-runtime-class-families",
+      "census-token-literals",
+    ]);
   });
 });
 

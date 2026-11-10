@@ -3,8 +3,7 @@
  * production sources:
  *
  * 1. a banned legacy button class in TS/TSX or a CSS Module: every class
- *    from design/census/mapping.ts that no global stylesheet styles, plus
- *    the classes recorded in the allowlist's `bannedClasses`, so restoring
+ *    recorded in the allowlist's `bannedClasses`, so restoring
  *    a deleted rule does not lift the ban;
  * 2. a raw `<button>` outside src/components/ui/Button.tsx and the shared
  *    selection, menu and tab controls, unless it sits in a composer file
@@ -40,14 +39,14 @@
  *    `select` or `textarea` element and sets look or size properties
  *    (`.form input { border: … }`): fields use Field, TextInput, Textarea,
  *    Select, Checkbox and Radio (family 4). Their legacy classes
- *    (`settings-input`, `settings-select`, …, LEGACY_FIELDS) are banned
+ *    (`settings-input`, `settings-select`, …) are banned
  *    under 1 once their global rules are gone;
  * 8. a tab role (`tab`, `tablist`, `tabpanel`) outside
  *    src/components/ui/Tabs.tsx, and a rotating keyframe set (`@keyframes`
  *    whose frames `rotate`) outside src/components/ui/Spinner.module.css:
  *    tab strips use Tabs and busy indicators Spinner (family 5). Tab
  *    buttons are swept, so their raw buttons count under 2. The legacy
- *    banner, badge, spinner and tab classes (LEGACY_STATUS) are banned
+ *    banner, badge, spinner and tab classes are banned
  *    under 1 once their global rules are gone;
  * 9. a native `window.confirm`, `alert` or `prompt` call outside
  *    src/components/ui/ConfirmDialog.tsx, an `aria-modal` or
@@ -57,16 +56,14 @@
  *    `.modal…:has(…)` rule in a global stylesheet): confirmations use
  *    confirmDialog, forms and notices Dialog with a `size`, and modal
  *    surfaces Modal (family 7). The old dialog frame and footer classes
- *    (LEGACY_DIALOGS) are banned under 1 once their global rules are gone.
+ *    are banned under 1 once their global rules are gone.
  *
  * The allowlist (design/census/button-allowlist.json) gives each entry a
  * count and a reason; a later family inherits the entries that name it.
  * A count may only fall: `--record` lowers counts to what the scan finds,
- * drops entries that reach zero and adds newly rule-less legacy classes to
- * `bannedClasses`; it never raises a count or adds a file. Counts are per
+ * drops entries that reach zero and preserves permanent `bannedClasses`;
+ * it never raises a count or adds a file. Counts are per
  * file, so a file may trade one allowed button for another.
- *
- * Family 3's classes come from LEGACY_SWITCHES in the same mapping file.
  *
  *   pnpm -s buttons:check            check
  *   pnpm -s buttons:check --record   lower the allowlist after a swap
@@ -82,19 +79,8 @@ import { scanControlOverrides } from "../design/controlOverrides";
 import type { OverrideAllowance } from "../design/controlOverrideAllowlist";
 import { scanButtonElements } from "../design/buttonElements";
 import { scanFieldElements } from "../design/fieldElements";
-import {
-  COMPOSER_FILE,
-  type RawButtonFamily,
-  rawButtonFamily,
-} from "../design/buttonFamilies";
-import {
-  LEGACY_BUTTONS,
-  LEGACY_DIALOGS,
-  LEGACY_FIELDS,
-  LEGACY_STATUS,
-  LEGACY_SWITCHES,
-} from "../design/census/mapping";
-import { collectDesignData } from "../design/vite-plugin-design-data";
+import { COMPOSER_FILE } from "../design/composerFiles";
+import { bannedClassUses } from "../design/bannedClasses";
 import { clientRoot } from "./design-index";
 
 const help = `Usage: pnpm -s buttons:check [--record]
@@ -193,47 +179,19 @@ const allowlist = JSON.parse(
   await readFile(allowlistPath, "utf8"),
 ) as Allowlist;
 
-// 1. Banned legacy classes: rule-less now, or recorded as banned before.
-const declared = await collectDesignData(srcDir);
-const banned = [
-  ...new Set([
-    ...allowlist.bannedClasses,
-    ...[
-      ...LEGACY_BUTTONS.flatMap((row) => row.classes.split(/\s+/)),
-      ...LEGACY_SWITCHES.flatMap((row) => row.classes?.split(/\s+/) ?? []),
-      ...LEGACY_FIELDS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
-      ...LEGACY_STATUS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
-      ...LEGACY_DIALOGS.flatMap((row) => row.classes?.split(/\s+/) ?? []),
-    ].filter((name) => !declared[name]),
-  ]),
-].sort();
-const bannedPattern = new RegExp(
-  `(?<![\\w-])(?:${banned.map((name) => name.replace(/[-]/g, "\\-")).join("|")})(?![\\w-])`,
-  "g",
-);
+// 1. Retired classes remain banned even when their census rows disappear.
 const sources = await walk(
   srcDir,
   (name) =>
     /\.(?:tsx?|module\.css)$/.test(name) &&
     !/\.(?:test|specimen)\.tsx?$/.test(name),
 );
-if (banned.length) {
-  for (const path of sources) {
-    const text = await readFile(path, "utf8");
-    for (const match of text.matchAll(bannedPattern)) {
-      const index = match.index ?? 0;
-      const lineStart = text.lastIndexOf("\n", index) + 1;
-      const before = text.slice(lineStart, index);
-      // Comments and test ids may name a class; only class lists count.
-      if (
-        /^\s*(?:\/\/|\/?\*|\{\/\*)/.test(before) ||
-        /data-testid=["'`]$/.test(before)
-      )
-        continue;
-      problems.push(
-        `${srcPath(path)}:${lineAt(text, index)}: legacy class "${match[0]}" is banned; use the shared control (components/ui: Button, Switch, SegmentedControl, TextInput, Select, Textarea, Checkbox, Banner, Badge, Spinner, Tabs)`,
-      );
-    }
+for (const path of sources) {
+  const text = await readFile(path, "utf8");
+  for (const match of bannedClassUses(text)) {
+    problems.push(
+      `${srcPath(path)}:${lineAt(text, match.index)}: legacy class "${match[0]}" is banned; use the shared control (components/ui)`,
+    );
   }
 }
 
@@ -245,7 +203,6 @@ const SELECTION_CONTROLS = new Set([
   "components/ui/Menu.tsx",
   "components/ui/Tabs.tsx",
 ]);
-const UNSWEPT_FAMILIES = new Set<RawButtonFamily>(["composer"]);
 const rawCounts = new Map<string, number>();
 const roleCounts = new Map<string, number>();
 for (const row of await scanButtonElements(srcDir)) {
@@ -259,8 +216,6 @@ for (const row of await scanButtonElements(srcDir)) {
     SELECTION_CONTROLS.has(row.file)
   )
     continue;
-  const family = rawButtonFamily(row);
-  if (family && UNSWEPT_FAMILIES.has(family)) continue;
   if (COMPOSER_FILE.test(row.file)) continue;
   rawCounts.set(row.file, (rawCounts.get(row.file) ?? 0) + 1);
 }
@@ -609,7 +564,7 @@ function ratchet(
 }
 
 ratchet("rawButtons", rawCounts, (file, count, allowed) => [
-  `${file}: ${count} raw <button>${count === 1 ? "" : "s"}, ${allowed} allowed; use Button, IconButton or ButtonBase from components/ui/Button (list them: the Census/Buttons "Button elements" page)`,
+  `${file}: ${count} raw <button>${count === 1 ? "" : "s"}, ${allowed} allowed; use Button, IconButton or ButtonBase from components/ui/Button (list them: Census/Element exceptions)`,
 ]);
 ratchet("roleButtons", roleCounts, (file, count, allowed) => [
   `${file}: ${count} role="button" element${count === 1 ? "" : "s"}, ${allowed} allowed; use ButtonBase, which brings keyboard activation and focus`,
@@ -683,7 +638,7 @@ if (values.record && !problems.length)
   await writeFile(basePath, `${JSON.stringify(baseCheck.next, null, 2)}\n`);
 
 if (values.record && !problems.length) {
-  allowlist.bannedClasses = banned;
+  // Retired class bans are permanent; recording only lowers exception counts.
   await writeFile(allowlistPath, `${JSON.stringify(allowlist, null, 2)}\n`);
 }
 if (problems.length) {

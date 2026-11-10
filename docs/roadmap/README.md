@@ -1150,12 +1150,16 @@ stronger class/ancestor check lists 28 exceptions in 23 files among 67 remaining
 sites. Caller overrides are 18 button sites in 9 files and 28 other sites in 23
 files. Measured rich rows and the composer handle retain explicit reasons.
 Global CSS is 16,355 lines.
-Step 4 is implemented for review: lint requires type/radius tokens in modules
+Step 4 landed: lint requires type/radius tokens in modules
 and production TSX, reducing 448 findings to 85 reasoned exceptions in 33 files.
 The expanded type scale is 10/11/12/13/14/16/18px (scaled by UI preference);
 radii are 3/4/6/8/999px. Composer, configured output/source typography and
 uncommon geometric/optical sizes retain explicit reasons.
-Steps 5–8 remain open. It runs before the composer pass, which
+Step 5 is implemented for review: Census is 319 rows on six open-work pages
+(previously 457 rows on eight pages), all using element, location/count, reason
+and closure fields. Swept-family samples/mapping and the duplicate directory
+inventory are removed; all 150 class bans remain independent of those pages.
+Steps 6–8 remain open. It runs before the composer pass, which
 keeps its own exclusion.
 
 ## Later directions

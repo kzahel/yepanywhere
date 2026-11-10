@@ -1,6 +1,7 @@
 import type { SpecimenMeta } from "../specimen";
 import allowlist from "./control-override-allowlist.json";
 import styles from "./Census.module.css";
+import { AllowanceGroup } from "./censusParts";
 
 export default {
   title: "Census/Control overrides",
@@ -8,34 +9,25 @@ export default {
     layer: "census",
     width: "fill",
     description:
-      "Every remaining caller-class exception to shared control ownership. Counts and reasons come directly from the lint allowlist; controls:check --record only lowers them.",
+      "Caller classes and inline styles still allowed to override shared controls. Done means shared variants own every look and these counts reach zero. pnpm controls:check enforces the counted reasons; --record only lowers counts.",
   },
 } satisfies SpecimenMeta;
 
 export function Remaining() {
   return (
     <div className={styles.census}>
-      {(["buttons", "controls"] as const).map((family) => {
-        const entries = Object.entries(allowlist[family]);
-        const total = entries.reduce((sum, [, entry]) => sum + entry.count, 0);
-        return (
-          <section key={family} className={styles.group}>
-            <h3 className={styles.groupTitle}>
-              {family === "buttons" ? "Button family" : "Other shared controls"}
-              : {total} sites in {entries.length} files
-            </h3>
-            <ul className={styles.elements}>
-              {entries.map(([file, entry]) => (
-                <li key={file}>
-                  <code>{file}</code> · {entry.count}
-                  <p>{entry.reason}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      <AllowanceGroup
+        title="Button family"
+        element="Button / IconButton / buttonClassName"
+        entries={allowlist.buttons}
+        close="Move the needed look into a shared variant or remove caller look styles, then lower the allowlist count to zero."
+      />
+      <AllowanceGroup
+        title="Other shared controls"
+        element="Shared control caller class / style"
+        entries={allowlist.controls}
+        close="Use the control's own variant or move the specialized content outside its surface, then lower the allowlist count to zero."
+      />
     </div>
   );
 }
-Remaining.storyName = "Remaining counted exceptions";

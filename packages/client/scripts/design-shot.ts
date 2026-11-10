@@ -28,7 +28,7 @@ const help = `Usage: pnpm -s design:shot <specimen-or-state-id> [options]
 Capture design playground states (design.html) in the system Chrome.
 
   <id>                   A specimen id (every state), a state id, or a title
-                         such as "Census/Buttons". List them: pnpm -s design:index
+                         such as "Census/Composer". List them: pnpm -s design:index
   --theme <name|all>     verydark, dark (default), light, or all
   --phone                Also capture each state at 375×812
   --grid                 Capture the grid page (the specimen's or state's

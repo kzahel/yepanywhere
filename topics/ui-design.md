@@ -43,7 +43,7 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; steps 1–3 landed, step 4 implemented) closes the leaks around shared
+2026-11-10; steps 1–4 landed, step 5 implemented) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
 that still list swept work. `controls:check` now enforces caller-class ownership
@@ -123,10 +123,10 @@ below names: listbox options, the composer's controls, the crash fallback
 page, and 15 pre-existing `role="button"` elements.
 `pnpm buttons:check` (part of `pnpm lint`) keeps it so. It rejects:
 
-- a banned legacy class: any button, switch or option class from
-  `design/census/mapping.ts` without global rules (`toggle-switch`,
-  `font-size-option`, …), plus those recorded in the allowlist's
-  `bannedClasses`, so restoring a deleted rule does not lift the ban;
+- a retired legacy class recorded in `design/census/button-allowlist.json`'s
+  permanent `bannedClasses` list (`toggle-switch`, `font-size-option`, …).
+  Deleting a census row or restoring CSS never lifts a ban. Before retiring
+  a row whose rules are deleted, add all its retired classes to that list;
 - a raw `<button>` outside `ui/Button.tsx` and the shared selection, menu
   and tab controls, unless it sits in a composer file;
 - a new `role="button"` element (use `ButtonBase`);
@@ -156,19 +156,20 @@ page, and 15 pre-existing `role="button"` elements.
   `@keyframes` set that rotates outside `ui/Spinner.module.css`, and the
   legacy banner, badge, spinner and tab classes (`settings-warning`,
   `form-error`, `badge-error`, `login-spinner`, `model-switch-tab`, …,
-  `LEGACY_STATUS`) once their rules are gone;
+  recorded in `bannedClasses`);
 - a native `window.confirm`, `alert` or `prompt` call outside
   `ui/ConfirmDialog.tsx`, an `aria-modal` attribute or `alertdialog` role
   outside `ui/Modal.tsx`, `ui/Dialog.tsx` and `ui/ConfirmDialog.tsx`, a
   CSS Module rule outside `components/ui` that reaches into Modal's frame
   (`:global(.modal…)`), a global `.modal…:has(…)` rule, and the old dialog
   frame and footer classes (`model-switch-actions`, `onboarding-footer`, …,
-  `LEGACY_DIALOGS`) once their rules are gone.
+  recorded in `bannedClasses`).
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
-and a reason; counts only fall (`--record`), and a later family inherits
-the entries that name it. The Census/Buttons "Button elements" state lists
-what is left.
+and a reason; counts only fall (`--record`). Census/Element exceptions lists
+all nonempty sections, including CSS rules and document listeners, with each
+file's count against its section's exception total. Composer-file exemptions
+are also visible on Census/Composer even when they need no counted entry.
 
 **Selectable cards.** `src/components/ui/SelectableCard.tsx` owns rich card
 and navigation-row surfaces. Hover uses a neutral border only on hover-capable
@@ -491,10 +492,10 @@ depend on a higher one:
   census, build the shared control, swap every use, delete the old CSS, ban
   the old way. The plan owns the order; composer controls are excluded until
   their own pass.
-- Each family's variants are chosen from its census page: every legacy
-  variant rendered next to the proposed canonical set. The
-  legacy-to-variant mapping lives in `packages/client/design/census/`, and
-  the swap follows it.
+- During a family sweep, choose variants from a temporary census of legacy
+  looks beside the proposed shared set. Once swept, remove those rows and
+  their mapping data; Controls/Patterns remain the standard to use, and
+  Census lists only work still outside that standard.
 - A swap adopts the canonical variant even where the old style differed;
   design changes are accepted and fallout is fixed as noticed. It is a quick
   cut in a few area-sized commits, not an opportunistic burn-down.
@@ -521,9 +522,9 @@ Storybook-compatible subset of Component Story Format: a default export
 `{ title, component?, parameters }`, where `parameters.layer` is `token`,
 `control`, `pattern`, `scene` or `census`, and one exported function per
 state, optionally named with `storyName`. Decorators, args, loaders and play
-functions are not supported. Ids follow Storybook's rules: `Census/Buttons`
-is `census-buttons`, and its `LegacyByVariant` state is
-`census-buttons--legacy-by-variant`. States keep source order.
+functions are not supported. Ids follow Storybook's rules: `Census/Composer`
+is `census-composer`, and its `Remaining` state is
+`census-composer--remaining`. States keep source order.
 
 | URL (after `/design.html`) | Shows |
 | --- | --- |
@@ -554,10 +555,10 @@ error.
 
 ```bash
 pnpm -s design:index                       # JSON: every specimen, state and URL
-pnpm -s design:shot census-buttons         # each state, dark theme, 1000 px
+pnpm -s design:shot census-composer         # each state, dark theme, 1000 px
 pnpm -s design:shot tokens--colors --theme all --phone
 pnpm -s design:shot controls-button--variants --grid --theme all
-pnpm -s design:shot census-buttons --url http://localhost:3400
+pnpm -s design:shot census-composer --url http://localhost:3400
 ```
 
 `design:index` parses the example files statically, so it needs no browser or
@@ -579,42 +580,38 @@ The playground's pages:
   family.
 - **Controls/Switch** and **Controls/SegmentedControl:** each state, both
   looks, sizes and layouts.
-- **Census/Buttons:** every global and CSS Module class named like a
-  button (`button`, `btn`), grouped by its destination in
-  `design/census/mapping.ts` (a shared variant, `ButtonBase`, a later
-  family, composer-excluded, or dead), each legacy sample beside the shared
-  control it becomes, with rows whose rules a swap already deleted marked
-  so; an **Unmapped** state listing any such class without a row; and
-  **Button elements, by directory**, which finds buttons by element rather
-  than class name: every raw `<button>`, every shared `Button`,
-  `IconButton` and `ButtonBase`, every `<a>`, `Link` or `<label>` whose
-  className names a button or calls `buttonClassName()`, and every element
-  with `role="button"`, each with its file, line and className expression.
-  Raw buttons that belong to a later family (menu or tab roles, the
-  composer's files) are counted apart from those still to swap. The scan
-  (`design/buttonElements.ts`, classification in `design/buttonFamilies.ts`)
-  parses production TSX with the TypeScript compiler.
-- **Census/ButtonBase exceptions:** every remaining counted rich/specialized
-  target with a reason, directly from the lint allowlist.
-- **Census/Control overrides:** remaining button-family and other-control
-  exceptions from the lint allowlist, with their source file, count and reason.
-- **Controls/Field:** text inputs, selects and textareas in every state,
-  `Field` with hint and error, and checkboxes and radios.
-- **Controls/Banner**, **Controls/Badge**, **Controls/Spinner** and
-  **Controls/Tabs:** every tone, size, shape and look.
-- **Census/Banners, badges, spinners and tabs:** each legacy class or
-  component with its live use count, per control in the family's order,
-  kept as a regression view.
-- **Census/Fields:** each legacy field class with its live use count,
-  grouped by the shared control it became, kept as a regression view.
-- **Census/Switches and segmented controls:** the shared controls, each
-  mapped legacy style with its live use count (all swept), every unmapped
-  global class and every matching CSS Module class, each rendered
-  standalone, kept as a regression view.
+- **Controls/Field:** text inputs, selects, textareas, checkboxes and radios.
+- **Controls/Menu**, **Controls/Banner**, **Controls/Badge**,
+  **Controls/Spinner** and **Controls/Tabs:** the shared states and variants.
+- **Controls/Dialog:** shared dialog sizes, forms, choices and confirmations.
+- **Patterns/Selectable card:** shared rich action and navigation surfaces.
+- **Census/Composer:** the remaining composer button classes with live CSS
+  locations and excluded raw buttons/fields with TSX locations. It owns plan
+  182's composer follow-up; no swept-family samples remain.
+- **Census/Control overrides:** every counted caller-style exception, split
+  into button and other-control sections.
+- **Census/ButtonBase exceptions:** counted rich/specialized painted targets.
+- **Census/Element exceptions:** every nonempty section of
+  `button-allowlist.json`: raw buttons, roles, fields, modal reach-ins,
+  look rules, rotating keyframes and document listeners. Permanent class
+  bans are enforcement history, so they are not open-work rows.
+- **Census/Token literals:** counted module/inline type and radius exceptions.
+- **Census/Runtime class families:** each declared runtime/generated pattern,
+  emitter, match count against all global classes, reason and closure boundary.
+  Generated markup may remain a deliberate continuing exception.
 
-Global class counts are static whole-token counts in production
-TypeScript, supplied by a Vite plugin and refreshed when development sources
-change; classes built at runtime are not seen.
+Every census page begins with what it lists, what done means and its enforcing
+command. Rows use one layout: element/class, location or use count, why it is
+an exception, and what closes it. Allowlist rows show each file's count against
+the section's total exceptions (not a historical migration denominator).
+Counts and reasons come directly from the enforcement lists. The separate
+"Button elements, by directory" view and its shared/link inventory are removed
+because the exception pages cover the remaining work; parser scans of raw
+buttons and fields remain necessary for lint and the composer page.
+
+The Vite data plugin refreshes composer locations and runtime match counts
+when source or census inputs change and freezes them into the remote build.
+It does not load every component's CSS Module to render legacy samples.
 
 No visual-regression test of the playground runs in CI. Screenshots are
 taken on demand.

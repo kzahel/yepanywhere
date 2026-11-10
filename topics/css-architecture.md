@@ -23,6 +23,12 @@ global lines (49 class names). Step 2 adds the caller-control ownership gate
 and moves repeated button looks and sizes into the shared family. Step 3
 checks hand-drawn ButtonBase surfaces and shares selectable action cards. Step 4
 enforces token-owned type sizes and radii in modules and production TSX.
+Step 5 removes swept-family census pages: Controls/Patterns show the standard,
+and Census shows only remaining composer work and reasoned exceptions.
+Retired class bans live independently of the playground's rows in
+`design/census/button-allowlist.json`; deleting a row or restoring CSS cannot
+lift a ban. Before removing a rule-less row, preserve all its retired class
+names in `bannedClasses`. Recording exception counts never removes those bans.
 
 The target:
 
@@ -144,8 +150,8 @@ not carry a migration queue.
   segmented-control, menu, popover, field, banner, badge, spinner, tab and
   dialog families
   ([UI design](ui-design.md#shared-controls-and-the-design-playground)). It
-  rejects a banned legacy button, switch or option class (rule-less in
-  `design/census/mapping.ts` or recorded as banned), a raw `<button>`
+  rejects a retired legacy class recorded permanently in
+  `design/census/button-allowlist.json`'s `bannedClasses`, a raw `<button>`
   outside `ui/Button.tsx` and the shared controls (composer files exempt), a
   `role="switch"`, `"radio"` or `"radiogroup"` outside `ui/Switch.tsx` and
   `ui/SegmentedControl.tsx`, a menu role outside `ui/Menu.tsx`, a
@@ -309,7 +315,7 @@ steps 6–7 of plan 191. The type and radius scales live in
 | Command | Role | Exit/write contract |
 |---|---|---|
 | `pnpm css:check` | Hard containment gate | Exits 1 for global growth, an unreviewed global file, a stale/invalid baseline entry, a newly undefined custom property, or more reads of a recorded one. `--record` is the only write mode and only lowers current ceilings. |
-| `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, a hand-drawn ButtonBase surface without a counted reason, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and adds newly rule-less classes to the banned list. |
+| `pnpm buttons:check` | Hard button, switch, segmented-control, menu, popover, field, banner, badge, spinner, tab and dialog ban | Exits 1 for a banned legacy button, switch, option, field, status or dialog class, a raw `<button>`, a `role="button"` element, a `button` look rule, a switch/radio role, a menu role, a document/window pointer listener, a raw field element, a field look rule, a tab role, a rotating keyframe set, a native confirm/alert/prompt, an `aria-modal` or `alertdialog` outside the shared dialogs or a rule reaching into Modal's frame beyond the allowlist, a hand-drawn ButtonBase surface without a counted reason, or an allowlist count above the scan. `--record` only lowers allowlist counts, drops entries at zero and preserves permanent class bans. |
 | `pnpm controls:check` | Hard shared-control caller-class ownership gate | Exits 1 for look/size overrides beyond the per-file reasoned allowlist, invalid entries, or stale counts. `--record` only lowers counts/removes cleared entries and refuses unreviewed increases. |
 | `pnpm tokens:check` | Hard module/TSX type and radius token gate | Exits 1 for unreviewed literal values, invalid entries or stale counts. `--record` only lowers/removes exceptions and refuses increases. |
 | `pnpm css:modules:check` | Hard module usage/global-interop gate | Exits 1 for any module contract issue or an unusable scan; otherwise 0. It never edits CSS. |

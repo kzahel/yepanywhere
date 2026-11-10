@@ -82,7 +82,7 @@ function fontSize(value: string): string {
 export function tokenValueAllowed(property: string, input: string): boolean {
   const isRadius = radius.test(property);
   let value = input
-    .replace(/\/\*[^]*?\*\//g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/\s*!important\s*$/i, "")
     .trim();
   if (property === "font") value = fontSize(value);

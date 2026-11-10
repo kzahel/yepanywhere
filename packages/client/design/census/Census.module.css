@@ -14,17 +14,7 @@
 
 .group {
   display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-}
-
-.groupHeader {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-3);
 }
 
 .groupTitle {
@@ -34,97 +24,52 @@
 
 .rows {
   display: grid;
-  gap: var(--space-2);
-}
-
-/* Sample beside its details, which wrap underneath when the row is too
-   narrow for both, rather than squeezing either to a sliver. */
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-4);
-}
-
-/* contain: a legacy class may position itself absolutely or fixed; keep
-   it inside its own row instead of over the page. */
-.sample {
-  position: relative;
-  contain: layout paint;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 0 0 12rem;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.becomes {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 0 0 8rem;
-  color: var(--text-muted);
-}
-
-.meta {
-  flex: 1 1 16rem;
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  color: var(--text-muted);
-}
-
-.meta code {
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  overflow-wrap: anywhere;
-}
-
-.count {
-  font-variant-numeric: tabular-nums;
-}
-
-.zero {
-  color: var(--warning-color);
-}
-
-.variants {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: var(--space-3);
-}
-
-.variantColumn {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-1);
-}
-
-.variantName {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-}
-
-.loading {
-  color: var(--text-muted);
-}
-
-.elements {
-  display: grid;
-  gap: 2px;
   margin: 0;
-  padding-left: var(--space-4);
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
+  padding: 0;
+  list-style: none;
 }
 
-.elements code {
-  color: var(--text-primary);
+.row {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.row code {
   font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
   overflow-wrap: anywhere;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.details dt {
+  color: var(--text-muted);
+}
+
+.details dd {
+  min-width: 0;
+  margin: 0;
+}
+
+@media (width < 600px) {
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .details dd {
+    margin-bottom: var(--space-2);
+  }
 }

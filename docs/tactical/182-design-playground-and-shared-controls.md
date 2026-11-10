@@ -113,17 +113,12 @@ of slightly different styles.
   exist.
 - **Shared buttons** (`src/components/ui/Button.tsx`, Controls/Button page):
   `Button`, `IconButton`, `ButtonBase` and `buttonClassName`, built from the
-  census prototypes, which the button census now renders instead.
-- **Button mapping:** every global (54) and CSS Module (79) class *named*
-  like a button has a destination in `design/census/mapping.ts`;
-  Census/Buttons shows each beside what it becomes, and its Unmapped state
-  is empty. That census finds classes by name and only those with rules,
-  so the **element census** (Census/Buttons, "Button elements, by
-  directory") finds buttons by element instead: every raw and shared
-  button, button-classed link or label, and `role="button"` element in
-  production TSX, with file, line and className. At its landing it found
-  594 raw buttons to swap and 129 left for later families (30 menu, 36
-  option, 13 switch, 3 tab, 47 composer).
+  original census prototypes; Controls/Button renders the shared variants.
+- **Button census:** at its landing the mapping covered 54 global and 79
+  module names; the element scan found 594 raw buttons to swap and 129 for
+  later families. Plan 191 step 5 removes the completed-family pages and
+  mapping. Current open work is Census/Composer and the identical-layout
+  exception pages; permanent bans live in `button-allowlist.json`.
 - **Button family done (2026-11-08):** every button outside the composer
   and the allowlisted later-family controls is on `Button`, `IconButton`,
   `ButtonBase` or `buttonClassName`: the
@@ -185,7 +180,7 @@ of slightly different styles.
   `Modal`'s capture-phase Escape cancels its close request, and `auto`
   light dismiss races React state; popovers instead join `Modal`'s layer
   stack (`useModalLayer` can now decline an Escape), and `Modal` stays a
-  portal `div`. A census (Census/Menus and popovers, `LEGACY_MENUS`) found
+  portal `div`. The former menu census found
   23 hand-rolled surfaces in scope (plus the anchored `Modal`, kept); all
   moved: the session menu (no roles,
   Escape or focus handling before), the account chip, the project
@@ -220,10 +215,9 @@ of slightly different styles.
   a dead composer popover deleted.
 - **Field family done (2026-11-09):** `Field`, `TextInput`, `Textarea` and
   `Select` (`ui/Field.tsx`) and `Checkbox` and `Radio` (`ui/Checkbox.tsx`),
-  with a Controls/Field page, tests and a Census/Fields page
-  (`LEGACY_FIELDS`). A census by element found 332 raw inputs, selects and
-  textareas: 77 checkboxes, 63 selects, 22 textareas, 9 radios and the rest
-  text, number, password, url and search boxes, 205 of them in settings,
+  with a Controls/Field page, tests and a temporary field census. A census
+  by element found 332 raw inputs, selects and textareas: 77 checkboxes,
+  63 selects, 22 textareas, 9 radios and the rest text, number, password, url and search boxes, 205 of them in settings,
   styled by `settings-input` (~70 uses), `settings-select` (~20), the
   `form-*` and `login-field` rules and about 40 module look rules. All moved
   except range, file and hidden inputs, the composer's fields and seven
@@ -259,9 +253,8 @@ of slightly different styles.
   `max-` sizes.
 - **Banner, badge, spinner and tab family done (2026-11-09):** `Banner`,
   `Badge`, `Spinner` and `Tabs`/`TabPanel` (`ui/`), each with a Controls
-  page, tests, and one census page (Census/Banners, badges, spinners and
-  tabs, `LEGACY_STATUS`) in the family's order. The census found the
-  settings and form message styles (`settings-warning` ~25 uses,
+  page, tests, and a temporary status-family census in the family's order.
+  The census found the settings and form message styles (`settings-warning` ~25 uses,
   `form-error`, `form-warning`, `login-error`), a dozen one-off notice
   boxes, 13 notice components and many module error and notice classes;
   the renderers' `.badge` family (~70 uses) and about 45 named badge
@@ -295,9 +288,8 @@ of slightly different styles.
   restored.
 - **Dialog pattern done (2026-11-10):** `Dialog` and `confirmDialog`/
   `promptDialog` (`ui/Dialog.tsx`, `ui/ConfirmDialog.tsx`), a Controls
-  page whose states open their dialogs, tests, and a census page
-  (Census/Dialogs, `LEGACY_DIALOGS` and `CONFIRM_CALLS`). The census found
-  32 files rendering `<Modal>`: 19 forms, choices and notices, each with its
+  page whose states open their dialogs, tests, and a temporary dialog and
+  confirmation census. The census found 32 files rendering `<Modal>`: 19 forms, choices and notices, each with its
   own width hack (`:global(.modal):has(…)` in modules and global
   stylesheets), padding and action row, the action row usually inside the
   scrolling body and in varying order; viewers (diff, file, blame, media,
@@ -335,10 +327,10 @@ of slightly different styles.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
-- **Button and switch census:** proposed canonical variants beside every
-  mapped legacy style, unmapped global classes with live use counts from a
-  design-data Vite plugin, and every matching CSS Module class. Proposed
-  mapping in `design/census/mapping.ts`.
+- **Open-work census:** plan 191 step 5 replaces swept-family samples with
+  Census/Composer and identical-layout exception pages. Each remaining row
+  gives its element/class, location or count, reason and closure condition;
+  shared Controls/Patterns retain the standard examples.
 
 The [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
 owns the contract for all three.
@@ -365,8 +357,9 @@ when all five are:
 5. **Ban.** Lint rejects the deleted global class names and, for the
    family's element, new styling outside the shared control (exact rule
    chosen per family, with composer files exempt until their pass). The
-   family's census page then shows no legacy entries and stays as a
-   regression view.
+   family's swept census rows and page are removed; permanent class bans
+   stay in `button-allowlist.json`. Controls/Patterns show the standard,
+   while Census shows only remaining exceptions.
 
 **Screen tour.** Before the first swap commit, add a capture script that
 opens the main screens (projects, a session, new session, each settings
@@ -418,10 +411,9 @@ switch roles.
     reset, focus ring, `type="button"`) so resets are not repeated;
   - menu items, tabs, segmented options, switches → left for their family;
   - composer controls → excluded.
-- **Mapping first.** Extend `design/census/mapping.ts` to assign every
-  global and module button class (40 unmapped global, 69 module), and
-  switch the census to show each legacy class beside the variant it
-  becomes. The maintainer skims that page; the swap then follows the table.
+- **Mapping first (completed).** The original temporary mapping assigned
+  each button class a shared destination before the sweep. Plan 191 step 5
+  removes that completed inventory; Census/Composer retains the open pass.
 - **Batches** in the order above, one commit each (large batches may split
   by subdirectory). Each batch deletes the legacy rules it leaves unused and
   runs the screen tour before and after.
@@ -494,7 +486,9 @@ inside the handoff dialog (composer).
 ### 6 — composer controls
 
 A careful census and pass over the session input and new-session form
-controls, which the earlier families exclude.
+controls, which the earlier families exclude. Start at Census/Composer
+for live class/element locations and the identical-layout exception pages
+for counted reasons; swept-family inventories were removed by plan 191 step 5.
 
 ## Supporting work
 
