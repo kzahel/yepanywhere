@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-10
+
+### Added
+- Bundle Yep Anywhere 0.12.0's session identity and relationship work,
+  provider-waiting Inbox section and current provider integrations.
+- Stable 0.8.0 overtakes the 0.7.x Latest series, allowing those users to
+  select Stable and upgrade through the signed updater.
+
+### Changed
+- Refresh shared controls, menus, forms, dialogs and status indicators.
+- Store the session catalog in SQLite and reduce repeated discovery work.
+
+### Fixed
+- Preserve composer drafts and attachments through transitions and improve
+  managed artifact viewing and nested provider output attribution.
+- Bundle current dependency fixes and bounded log retention.
+
 ## [0.6.0] - 2026-10-24
 
 ### Added

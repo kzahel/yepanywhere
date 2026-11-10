@@ -115,7 +115,7 @@ jobs:
         run: |
           test "$GITHUB_RUN_ATTEMPT" -lt 100
           echo "ORG_GRADLE_PROJECT_yaVersionCode=$((10000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_ENV"
-          echo "ORG_GRADLE_PROJECT_yaVersionName=0.1.3-ci.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_yaVersionName=0.1.4-ci.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
 
       - name: Prepare bundled client assets
         run: pnpm --filter @yep-anywhere/android prepare-frontend
@@ -199,7 +199,7 @@ jobs:
         run: |
           test "$GITHUB_RUN_ATTEMPT" -lt 100
           echo "ORG_GRADLE_PROJECT_yaVersionCode=$((10000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_ENV"
-          echo "ORG_GRADLE_PROJECT_yaVersionName=0.1.3-ci.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_yaVersionName=0.1.4-ci.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
 
       - name: Prepare bundled client assets
         run: pnpm --filter @yep-anywhere/android prepare-frontend

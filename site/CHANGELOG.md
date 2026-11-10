@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [site-v1.14.0] - 2026-11-10
+
+### Changed
+- Publish the current remote client, including session relationships on
+  supported servers, refreshed shared controls and improved composer drafts.
+- Refresh provider and distribution documentation while retaining capability
+  fallbacks for supported installed servers.
+
 ### Fixed
 - Include the opt-in Antigravity integration in the provider catalog and guide,
   with its platform qualification limits.

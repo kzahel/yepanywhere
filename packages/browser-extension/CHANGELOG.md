@@ -2,8 +2,15 @@
 
 ## Unreleased
 
+## [0.1.5] - 2026-11-10
+
+- Refresh the bundled client for Yep Anywhere 0.12.0, including session
+  relationships and provider controls on supported servers.
+- Show the Inbox Background section in the side panel.
+- Refresh shared controls and preserve correction drafts and attachments.
 - Load local HTML artifacts and neighboring images through the isolated managed
   viewer over the encrypted relay, without additional extension permissions.
+- Preserve the existing store identity, install permissions and saved-host login.
 
 ## [0.1.4] - 2026-10-24
 

@@ -169,6 +169,17 @@ submission. All 24 general CI and nine runtime/SQLite jobs passed on the
 common source, and all four release workflows passed. Android public-beta
 promotion remains a separate delivery step.
 
+The November 10 coordinated release is being prepared as npm 0.12.0,
+Desktop Stable 0.8.0, extension 0.1.5, website/remote 1.14.0 and Android
+companion 0.1.4 CI builds for internal testing. The maintainer authorized
+publication after reviewing preflight and explicitly accepted the Android
+input-latency qualification limit. The
+[release qualification record](../testing/coordinated-release-2026-11-10.md)
+retains the separate macOS source-reload failure and browser retry findings;
+publication does not close them. Final source/artifact gates and one-platform
+desktop upgrade qualification remain in progress. Public Android promotion
+and iOS publication are outside this cut.
+
 ## 1. Publish the desktop and mobile apps with continuous delivery
 
 The npm release workflow now requires clean installed-package acceptance before
