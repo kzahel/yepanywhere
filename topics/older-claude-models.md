@@ -28,7 +28,7 @@ Status: implementation authorized 2026-07-25. Tactical plan:
   registry or custom. A selected live row keeps its live capabilities under the
   registry's label, description and context window. The router pool picker
   receives the same marked rows and, as with its other account-catalog models,
-  lists them under **Previous models** without an opt-in.
+  lists them under **Other models** without an opt-in.
   <!-- verified: Claude Code 2.1.293 / SDK 0.3.293 handshake 2026-10-08 -->
 - The compact settings row opens a checklist plus an advanced custom exact-id
   input. An empty selection is the off state.
@@ -37,7 +37,7 @@ Status: implementation authorized 2026-07-25. Tactical plan:
 - Removing a selected registry entry from a later release stops offering it
   for new opt-ins but preserves the saved selection as unlisted/custom. YA
   never silently deletes or remaps it.
-- Enabled entries are marked and grouped as **Previous models** in choosers.
+- Enabled entries are marked and grouped as **Other models** in choosers.
   Disabling one affects future choices only; a current session or saved default
   remains legible until changed.
 - Current clients offer these settings on the v0.8.0 server baseline. The

@@ -1661,7 +1661,7 @@
   "providersAdditionalModelsInvalidId": "请输入不含空格的准确模型 ID。",
   "providersAdditionalModelsDuplicateId": "该模型已经启用。",
   "providersAdditionalModelsSaveError": "保存其他模型失败",
-  "previousModelsGroup": "旧版模型",
+  "previousModelsGroup": "其他模型",
   "modelSelectionUnavailable": "已保存或当前使用的选项；目前未启用",
   "providersWebsite": "官网",
   "providersCodexUpdatePolicyTitle": "更新策略",

@@ -606,7 +606,7 @@ and descriptions. Each row launches the `resolvedModel` the members' CLIs
 report (a `[1m]` suffix is dropped for admission). A row with no reported
 target, conflicting targets, or a target absent from every member's catalog
 stays listed but disabled with the reason; catalog models no row launches
-follow under Previous models. Older routers keep the family guess (newest
+follow under Other models. Older routers keep the family guess (newest
 `claude-<family>-*`). The model status line shows the oldest member catalog
 age, and Refresh re-reads each member. An unavailable
 selection remains selected and cannot silently fall back to direct login.

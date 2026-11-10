@@ -3323,7 +3323,7 @@
   "providersAdditionalModelsInvalidId": "Enter an exact model ID without spaces.",
   "providersAdditionalModelsDuplicateId": "That model is already enabled.",
   "providersAdditionalModelsSaveError": "Failed to save additional models",
-  "previousModelsGroup": "Previous models",
+  "previousModelsGroup": "Other models",
   "modelSelectionUnavailable": "Saved or current selection; not currently enabled",
   "providersWebsite": "Website",
   "providersCodexReasoningSummaryTitle": "Reasoning summaries",

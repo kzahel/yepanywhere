@@ -35,7 +35,7 @@ archive.
 - Activating the row opens a checklist of server-maintained entries plus an
   advanced custom-model-id input. The empty selection is the off state; there
   is no redundant master switch.
-- Enabled entries appear in model choosers under a separate **Previous models**
+- Enabled entries appear in model choosers under a separate **Other models**
   group. They do not enter the primary curated group.
 - Disabling an entry removes it from future choices. It does not rewrite an
   existing session, a running provider process, or a saved default that already
@@ -149,7 +149,7 @@ typecheck are warning-free. No live model turn was run.
 
 - Add the capability-gated Providers-settings row and editor.
 - Add i18n-ready copy in `en.json`.
-- Group enabled entries under **Previous models** wherever users choose a
+- Group enabled entries under **Other models** wherever users choose a
   model.
 - Preserve missing saved/current selections visibly.
 - Cover compact summary, add/remove/custom flows, capability absence, and
@@ -162,7 +162,7 @@ catalog without forcing a provider rediscovery. Removed maintained entries
 remain selected and removable, while custom entries preserve their exact ids.
 
 New-session, restart, and in-session switch controls group additional entries
-under **Previous models** and synthesize a visible row for saved or current ids
+under **Other models** and synthesize a visible row for saved or current ids
 that are absent from the catalog. Focused client coverage passes 61 tests
 without runtime warnings. Root lint and typecheck are warning-free; the client
 production build completes; the console scan remains at its 110-site baseline
