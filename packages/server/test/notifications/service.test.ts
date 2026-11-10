@@ -2,400 +2,162 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLogger } from "../../src/logging/logger.js";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NotificationService } from "../../src/notifications/NotificationService.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
+let directory: string;
+beforeEach(async () => {
+  vi.useFakeTimers({ now: new Date("2024-01-01T00:00:00Z") });
+  directory = join(tmpdir(), `ya-seen-sql-${randomUUID()}`);
+  await fs.mkdir(directory);
+});
+afterEach(async () => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  closeTestDiscoveryDatabases();
+  await fs.rm(directory, { recursive: true, force: true });
+});
+const legacy = () => join(directory, "notifications.json");
+const fixture = (eventBus?: EventBus) => {
+  const database = openTestDiscoveryDatabase(directory);
+  return {
+    database,
+    service: new NotificationService({
+      database,
+      dataDir: directory,
+      eventBus,
+    }),
+  };
+};
 
-describe("NotificationService", () => {
-  let testDir: string;
-  let service: NotificationService;
+it("imports legacy entries once without losing escaped message IDs or resurrecting cleared rows", async () => {
+  const entry = { timestamp: "2024-06-15T12:00:00Z", messageId: "msg\0\ud800" };
+  await fs.writeFile(
+    legacy(),
+    JSON.stringify({ version: 1, lastSeen: { session: entry } }),
+  );
+  const { service } = fixture();
+  await service.initialize();
+  expect(service.getLastSeen("session")).toEqual(entry);
+  expect(await fs.stat(legacy()).catch(() => undefined)).toBeUndefined();
+  await service.clearSession("session");
+  // A leftover file/manual edit is never a second authority after adoption.
+  await fs.writeFile(
+    legacy(),
+    JSON.stringify({ version: 1, lastSeen: { session: entry } }),
+  );
+  const reopened = fixture().service;
+  await reopened.initialize();
+  expect(reopened.getLastSeen("session")).toBeUndefined();
+});
 
-  beforeEach(async () => {
-    // Freeze time before the test timestamps so max(provided, now) returns provided
-    vi.useFakeTimers({ now: new Date("2024-01-01T00:00:00Z") });
-    testDir = join(tmpdir(), `claude-notifications-test-${randomUUID()}`);
-    await fs.mkdir(testDir, { recursive: true });
-    service = new NotificationService({ dataDir: testDir });
+it("keeps monotonic seen timestamps across connections, reopen, unread and clear", async () => {
+  const a = fixture().service,
+    b = fixture().service;
+  await Promise.all([a.initialize(), b.initialize()]);
+  expect(a.hasUnread("session", "2024-06-15T12:00:00Z")).toBe(true);
+  await Promise.all([
+    a.markSeen("session", "2024-06-15T12:00:00Z", "latest"),
+    b.markSeen("session", "2024-06-14T12:00:00Z", "older"),
+    b.markSeen("other"),
+  ]);
+  expect(b.getLastSeen("session")).toEqual({
+    timestamp: "2024-06-15T12:00:00Z",
+    messageId: "latest",
   });
-
-  afterEach(async () => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-    await fs.rm(testDir, { recursive: true, force: true });
+  expect(a.hasUnread("session", "2024-06-15T12:00:00Z")).toBe(false);
+  expect(a.hasUnread("session", "2024-06-15T13:00:00Z")).toBe(true);
+  expect(a.getLastSeen("other")?.timestamp).toBe(new Date().toISOString());
+  const exported = a.getAllLastSeen();
+  exported.session!.timestamp = "changed";
+  expect(a.getLastSeen("session")?.timestamp).toBe("2024-06-15T12:00:00Z");
+  await b.clearSession("session");
+  await a.flush();
+  expect(a.hasUnread("session", "2024-06-15T12:00:00Z")).toBe(true);
+  const reopened = fixture().service;
+  await reopened.initialize();
+  expect(reopened.getAllLastSeen()).toEqual({
+    other: { timestamp: new Date().toISOString() },
   });
+  expect(await fs.stat(legacy()).catch(() => undefined)).toBeUndefined();
+});
 
-  describe("initialization", () => {
-    it("starts with empty state when file doesn't exist", async () => {
-      await service.initialize();
+it("preserves unreadable/invalid imports and retries after repair", async () => {
+  const { service, database } = fixture();
+  for (const text of [
+    "broken{",
+    "null",
+    '{"lastSeen":{"s":{"timestamp":7}}}',
+  ]) {
+    await fs.writeFile(legacy(), text);
+    await expect(service.initialize()).rejects.toThrow(
+      "invalid seen-state JSON",
+    );
+    expect(await fs.readFile(legacy(), "utf8")).toBe(text);
+    const marker = database.prepare("SELECT * FROM session_last_seen_import");
+    expect(marker.all()).toEqual([]);
+    marker.finalize();
+  }
+  await fs.writeFile(
+    legacy(),
+    JSON.stringify({ lastSeen: { repaired: { timestamp: "2024-06-15" } } }),
+  );
+  await service.initialize();
+  expect(service.getLastSeen("repaired")).toEqual({ timestamp: "2024-06-15" });
+});
 
-      // File is not created until first save
-      expect(service.getAllLastSeen()).toEqual({});
-    });
-
-    it("creates file on first markSeen when file doesn't exist", async () => {
-      await service.initialize();
-      await service.markSeen("session-1", "2024-01-01T00:00:00Z");
-
-      const content = await fs.readFile(
-        join(testDir, "notifications.json"),
-        "utf-8",
-      );
-      const state = JSON.parse(content);
-      expect(state.version).toBe(1);
-      expect(state.lastSeen["session-1"]).toBeDefined();
-    });
-
-    it("loads existing state from JSON file", async () => {
-      const existingState = {
-        version: 1,
-        lastSeen: {
-          "session-1": { timestamp: "2024-01-01T00:00:00Z" },
-          "session-2": {
-            timestamp: "2024-01-02T00:00:00Z",
-            messageId: "msg-123",
-          },
-        },
-      };
-      await fs.writeFile(
-        join(testDir, "notifications.json"),
-        JSON.stringify(existingState),
-      );
-
-      await service.initialize();
-
-      expect(service.getLastSeen("session-1")).toEqual({
-        timestamp: "2024-01-01T00:00:00Z",
-      });
-      expect(service.getLastSeen("session-2")).toEqual({
-        timestamp: "2024-01-02T00:00:00Z",
-        messageId: "msg-123",
-      });
-    });
-
-    it("handles corrupted JSON gracefully", async () => {
-      const warn = vi
-        .spyOn(getLogger(), "warn")
-        .mockImplementation(() => undefined);
-      await fs.writeFile(
-        join(testDir, "notifications.json"),
-        "not valid json{{{",
-      );
-
-      // Should not throw
-      await service.initialize();
-
-      // Should start fresh
-      expect(service.getAllLastSeen()).toEqual({});
-      expect(warn).toHaveBeenCalledWith(
-        { err: expect.any(SyntaxError) },
-        "[NotificationService] Failed to load state, starting fresh",
-      );
-    });
+it("rolls back a failed import together with its marker", async () => {
+  const { service, database } = fixture();
+  const text = JSON.stringify({
+    version: 1,
+    lastSeen: { a: { timestamp: "a" }, b: { timestamp: "b" } },
   });
-
-  describe("markSeen", () => {
-    it("updates lastSeen for a session", async () => {
-      await service.initialize();
-
-      const timestamp = "2024-06-15T12:00:00Z";
-      await service.markSeen("session-1", timestamp);
-
-      expect(service.getLastSeen("session-1")).toEqual({ timestamp });
-    });
-
-    it("includes messageId when provided", async () => {
-      await service.initialize();
-
-      const timestamp = "2024-06-15T12:00:00Z";
-      await service.markSeen("session-1", timestamp, "msg-456");
-
-      expect(service.getLastSeen("session-1")).toEqual({
-        timestamp,
-        messageId: "msg-456",
-      });
-    });
-
-    it("uses current time when timestamp not provided", async () => {
-      await service.initialize();
-
-      const before = new Date().toISOString();
-      await service.markSeen("session-1");
-      const after = new Date().toISOString();
-
-      const lastSeen = service.getLastSeen("session-1");
-      expect(lastSeen).toBeDefined();
-      expect(lastSeen?.timestamp).toBeDefined();
-      expect(lastSeen?.timestamp && lastSeen.timestamp >= before).toBe(true);
-      expect(lastSeen?.timestamp && lastSeen.timestamp <= after).toBe(true);
-    });
-
-    it("persists changes to disk", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z");
-
-      // Create new instance and verify it loads the persisted data
-      const newService = new NotificationService({ dataDir: testDir });
-      await newService.initialize();
-
-      expect(newService.getLastSeen("session-1")).toEqual({
-        timestamp: "2024-06-15T12:00:00Z",
-      });
-    });
-
-    it("does not update if existing timestamp is newer", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z");
-      await service.markSeen("session-1", "2024-06-14T12:00:00Z"); // Earlier
-
-      expect(service.getLastSeen("session-1")).toEqual({
-        timestamp: "2024-06-15T12:00:00Z", // Should keep the newer one
-      });
-    });
-
-    it("updates if new timestamp is newer", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-14T12:00:00Z");
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z"); // Later
-
-      expect(service.getLastSeen("session-1")).toEqual({
-        timestamp: "2024-06-15T12:00:00Z",
-      });
-    });
+  await fs.writeFile(legacy(), text);
+  database.exec(
+    "CREATE TRIGGER refuse_seen BEFORE INSERT ON session_last_seen WHEN NEW.session_id='b' BEGIN SELECT RAISE(ABORT,'blocked'); END",
+  );
+  await expect(service.initialize()).rejects.toThrow("blocked");
+  expect(service.getAllLastSeen()).toEqual({});
+  expect(await fs.readFile(legacy(), "utf8")).toBe(text);
+  database.exec("DROP TRIGGER refuse_seen");
+  await service.initialize();
+  expect(service.getAllLastSeen()).toEqual({
+    a: { timestamp: "a" },
+    b: { timestamp: "b" },
   });
+});
 
-  describe("hasUnread", () => {
-    it("returns true when session never viewed", async () => {
-      await service.initialize();
-
-      expect(service.hasUnread("session-1", "2024-06-15T12:00:00Z")).toBe(true);
-    });
-
-    it("returns true when updatedAt is after lastSeen", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T11:00:00Z");
-
-      expect(service.hasUnread("session-1", "2024-06-15T12:00:00Z")).toBe(true);
-    });
-
-    it("returns false when updatedAt equals lastSeen", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z");
-
-      expect(service.hasUnread("session-1", "2024-06-15T12:00:00Z")).toBe(
-        false,
-      );
-    });
-
-    it("returns false when updatedAt is before lastSeen", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z");
-
-      expect(service.hasUnread("session-1", "2024-06-15T11:00:00Z")).toBe(
-        false,
-      );
-    });
+it("publishes seen changes only after successful SQL commit and allows a failed mutation to retry", async () => {
+  const bus = new EventBus();
+  const events = vi.fn();
+  bus.subscribe(events);
+  const { service, database } = fixture(bus);
+  await service.initialize();
+  const changed = vi.fn();
+  service.subscribeChanges(changed);
+  database.exec(
+    "CREATE TRIGGER refuse_seen BEFORE INSERT ON session_last_seen BEGIN SELECT RAISE(ABORT,'blocked'); END",
+  );
+  await expect(
+    service.markSeen("session", "2024-06-15T12:00:00Z"),
+  ).rejects.toThrow("blocked");
+  expect(service.getLastSeen("session")).toBeUndefined();
+  expect(events).not.toHaveBeenCalled();
+  expect(changed).not.toHaveBeenCalled();
+  database.exec("DROP TRIGGER refuse_seen");
+  await service.markSeen("session", "2024-06-15T12:00:00Z", "m");
+  expect(events).toHaveBeenCalledWith({
+    type: "session-seen",
+    sessionId: "session",
+    timestamp: "2024-06-15T12:00:00Z",
+    messageId: "m",
   });
-
-  describe("clearSession", () => {
-    it("removes lastSeen entry for session", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z");
-      await service.clearSession("session-1");
-
-      expect(service.getLastSeen("session-1")).toBeUndefined();
-    });
-
-    it("persists removal to disk", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T12:00:00Z");
-      await service.clearSession("session-1");
-
-      const newService = new NotificationService({ dataDir: testDir });
-      await newService.initialize();
-
-      expect(newService.getLastSeen("session-1")).toBeUndefined();
-    });
-
-    it("does nothing if session not tracked", async () => {
-      await service.initialize();
-
-      // Should not throw
-      await service.clearSession("nonexistent-session");
-
-      expect(service.getLastSeen("nonexistent-session")).toBeUndefined();
-    });
-  });
-
-  describe("getAllLastSeen", () => {
-    it("returns copy of all entries", async () => {
-      await service.initialize();
-
-      await service.markSeen("session-1", "2024-06-15T11:00:00Z");
-      await service.markSeen("session-2", "2024-06-15T12:00:00Z");
-
-      const all = service.getAllLastSeen();
-
-      expect(all).toEqual({
-        "session-1": { timestamp: "2024-06-15T11:00:00Z" },
-        "session-2": { timestamp: "2024-06-15T12:00:00Z" },
-      });
-
-      // Verify it's a copy (modifying shouldn't affect internal state)
-      all["session-3"] = { timestamp: "2024-06-15T13:00:00Z" };
-      expect(service.getLastSeen("session-3")).toBeUndefined();
-    });
-  });
-
-  describe("event emission", () => {
-    it("emits session-seen event when marking seen", async () => {
-      const eventBus = new EventBus();
-      const handler = vi.fn();
-      eventBus.subscribe(handler);
-
-      const serviceWithEvents = new NotificationService({
-        dataDir: testDir,
-        eventBus,
-      });
-      await serviceWithEvents.initialize();
-
-      await serviceWithEvents.markSeen(
-        "session-1",
-        "2024-06-15T12:00:00Z",
-        "msg-123",
-      );
-
-      expect(handler).toHaveBeenCalledWith({
-        type: "session-seen",
-        sessionId: "session-1",
-        timestamp: "2024-06-15T12:00:00Z",
-        messageId: "msg-123",
-      });
-    });
-
-    it("does not emit event if timestamp not newer", async () => {
-      const eventBus = new EventBus();
-      const handler = vi.fn();
-      eventBus.subscribe(handler);
-
-      const serviceWithEvents = new NotificationService({
-        dataDir: testDir,
-        eventBus,
-      });
-      await serviceWithEvents.initialize();
-
-      await serviceWithEvents.markSeen("session-1", "2024-06-15T12:00:00Z");
-      handler.mockClear();
-
-      await serviceWithEvents.markSeen("session-1", "2024-06-15T11:00:00Z"); // Earlier
-
-      expect(handler).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("concurrent operations", () => {
-    it("handles concurrent markSeen calls gracefully", async () => {
-      await service.initialize();
-
-      // Fire off multiple concurrent updates
-      await Promise.all([
-        service.markSeen("session-1", "2024-06-15T12:00:00Z"),
-        service.markSeen("session-2", "2024-06-15T12:00:00Z"),
-        service.markSeen("session-3", "2024-06-15T12:00:00Z"),
-        service.markSeen("session-1", "2024-06-15T13:00:00Z"), // Update session-1 again
-      ]);
-
-      // All should be persisted
-      const newService = new NotificationService({ dataDir: testDir });
-      await newService.initialize();
-
-      expect(newService.getLastSeen("session-1")).toEqual({
-        timestamp: "2024-06-15T13:00:00Z",
-      });
-      expect(newService.getLastSeen("session-2")).toEqual({
-        timestamp: "2024-06-15T12:00:00Z",
-      });
-      expect(newService.getLastSeen("session-3")).toEqual({
-        timestamp: "2024-06-15T12:00:00Z",
-      });
-    });
-
-    it("waits for queued saves before resolving concurrent markSeen calls", async () => {
-      await service.initialize();
-
-      const originalDoSave = (
-        service as NotificationService & { doSave: () => Promise<void> }
-      ).doSave.bind(service);
-      let writeCallCount = 0;
-      let releaseFirstWrite: (() => void) | undefined;
-      let releaseSecondWrite: (() => void) | undefined;
-      const firstWrite = new Promise<void>((resolve) => {
-        releaseFirstWrite = resolve;
-      });
-      const secondWrite = new Promise<void>((resolve) => {
-        releaseSecondWrite = resolve;
-      });
-
-      (
-        service as NotificationService & { doSave: () => Promise<void> }
-      ).doSave = async () => {
-        writeCallCount++;
-
-        if (writeCallCount === 1) {
-          await firstWrite;
-        } else if (writeCallCount === 2) {
-          await secondWrite;
-        }
-
-        await originalDoSave();
-      };
-
-      const firstMarkSeen = service.markSeen(
-        "session-1",
-        "2024-06-15T12:00:00Z",
-      );
-      await Promise.resolve();
-
-      let secondResolved = false;
-      const secondMarkSeen = service
-        .markSeen("session-2", "2024-06-15T12:00:00Z")
-        .then(() => {
-          secondResolved = true;
-        });
-
-      await Promise.resolve();
-      expect(writeCallCount).toBe(1);
-      expect(secondResolved).toBe(false);
-
-      releaseFirstWrite?.();
-      await vi.waitFor(() => {
-        expect(writeCallCount).toBe(2);
-      });
-      expect(secondResolved).toBe(false);
-
-      releaseSecondWrite?.();
-      await Promise.all([firstMarkSeen, secondMarkSeen]);
-
-      const persisted = JSON.parse(
-        await fs.readFile(join(testDir, "notifications.json"), "utf-8"),
-      ) as {
-        lastSeen: Record<string, { timestamp: string }>;
-      };
-
-      expect(persisted.lastSeen["session-1"]).toEqual({
-        timestamp: "2024-06-15T12:00:00Z",
-      });
-      expect(persisted.lastSeen["session-2"]).toEqual({
-        timestamp: "2024-06-15T12:00:00Z",
-      });
-    });
-  });
+  await service.markSeen("session", "2024-06-14T12:00:00Z");
+  expect(events).toHaveBeenCalledOnce();
+  await service.clearSession("session");
+  expect(changed).toHaveBeenCalledTimes(2);
 });

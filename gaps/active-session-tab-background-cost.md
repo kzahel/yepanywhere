@@ -30,7 +30,10 @@ below remain open, and no full active-tab target is closed. A second slice now
 replaces retained list/Inbox projection walks with a shared SQL query owner;
 [query evidence](../docs/research/190-sql-collection-queries.md) records warm
 query gains and the remaining first-build/legacy costs. Polling and catalog
-publication still occur; client deltas remain separate work.
+publication still occur; client deltas remain separate work. Canonical seen
+state and metadata are now SQL-owned with bounded residency;
+[cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
+slice. The derived list projection still rebuilds after restart.
 
 ## How it was measured
 

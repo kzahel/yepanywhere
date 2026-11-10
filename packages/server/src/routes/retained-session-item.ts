@@ -1,6 +1,9 @@
 import { truncateSessionTitle } from "@yep-anywhere/shared";
 import type { ProjectedCatalogRow } from "../sessions/catalog-identity.js";
-import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
+import {
+  pendingNonHumanUserTurn,
+  type SessionMetadata,
+} from "../metadata/SessionMetadataService.js";
 import {
   getEffectiveProviderUpdatedAt,
   latestRecapMessage,
@@ -14,18 +17,16 @@ export function retainedNativeItem(
   row: ProjectedCatalogRow,
   deps: RetainedItemsDeps,
   projectName: (id: string, fallbackPath: string) => string,
-  cutoff?: number,
+  cutoff: number | undefined,
+  metadata: SessionMetadata | undefined,
 ): GlobalSessionItem {
-  const metadata = deps.sessionMetadataService?.getMetadata(row.sessionId);
   const process = deps.supervisor?.getProcessForSession(row.sessionId);
   const projectId = metadata?.workingProjectId ?? row.projectId;
   const providerUpdatedAt = getEffectiveProviderUpdatedAt(
     row.updatedAt,
     process,
   );
-  const recap = latestRecapMessage(
-    deps.sessionMetadataService?.getRecapMessages(row.sessionId) ?? [],
-  );
+  const recap = latestRecapMessage(metadata?.recapMessages ?? []);
   const updatedAt =
     recap && Date.parse(recap.timestamp) > Date.parse(providerUpdatedAt)
       ? recap.timestamp
@@ -73,10 +74,7 @@ export function retainedNativeItem(
     createdByUser: metadata?.createdByUser,
     customTitle: metadata?.customTitle,
     initialPrompt: metadata?.initialPrompt ?? fullTitle,
-    nonHumanUserTurn: nonHumanUserTurnField(
-      deps.sessionMetadataService,
-      row.sessionId,
-    ),
+    nonHumanUserTurn: pendingNonHumanUserTurn(metadata) ?? null,
     autoResumeDisabled: metadata?.autoResumeDisabled === true,
     parentSessionId: metadata?.parentSessionId,
     parentSessionKind: metadata?.parentSessionKind,

@@ -84,7 +84,10 @@ const db = openDiscoveryDatabase({
 });
 const metadata = new SessionMetadataService({ dataDir: profile, database: db });
 await metadata.initialize();
-const notifications = new NotificationService({ dataDir: profile });
+const notifications = new NotificationService({
+  dataDir: profile,
+  database: db,
+});
 await notifications.initialize();
 const now = Date.now();
 const rows = Array.from({ length: count }, (_, i) => {

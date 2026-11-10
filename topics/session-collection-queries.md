@@ -36,7 +36,7 @@ them through triggers in the row-update transaction.
 - Creation changes publish keyed invalidations; point queries read compact
   control projections without decoding saved prompts or retry requests.
 - Notification mark-seen and clear invalidate that session's unread projection.
-  JSON persistence is unchanged and remains a later migration.
+  Seen persistence is now canonical per-row SQL; events follow commit.
 - Previous/current live process IDs refresh their runtime overlay. This work
   scales with the live set; cold external ownership is hydrated on page.
 - Project display options are project-sized. Changes to a resolved project name
@@ -63,8 +63,16 @@ Recaps advance display time, never provider unread time.
 Initial construction is population-sized and currently costs more than the
 old single first walk. The index is reused beyond the old 20 ms sharing window;
 its value is eliminating repeated population projection, not startup savings.
-Durable projection/startup, lazy metadata, changed-file catalog publication,
+Durable projection/startup, changed-file catalog publication,
 other catalog consumers and client delta delivery remain plan 190 work.
+Canonical metadata is now loaded on demand, with pinned dirty overlays and
+bounded batch snapshots. The projection consumes those snapshots directly;
+large or pinned batches do not depend on fitting in the clean LRU. Legacy
+metadata acquisition during identity adoption is batched only for candidates
+that need it; bound identities do not acquire metadata for repeat projection.
+[Cold-state ownership evidence](../docs/research/190-cold-state-sql.md) records
+restart/seen-write and retained-memory observations. This does not make the
+TEMP projection itself durable or remove the initial population projection.
 
 Optional substring search scans normalized SQL text. To preserve existing
 `localeCompare` ordering across Node/Bun, a page expands keys at its boundary

@@ -1,4 +1,7 @@
-import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
+import {
+  pendingNonHumanUserTurn,
+  type SessionMetadata,
+} from "../metadata/SessionMetadataService.js";
 import { isYaSessionId, type NativeSessionRef } from "@yep-anywhere/shared";
 import { getProjectName } from "../projects/paths.js";
 import {
@@ -242,12 +245,21 @@ export class RetainedSessionQuery {
     }> = [];
     const metadata = this.deps.sessionMetadataService;
     const cutoff = this.cutoff();
-    let projectedCount = 0;
-    for (const id of affected) {
-      if (++projectedCount % 256 === 0) {
+    const affectedIds = [...affected];
+    let metadataBatch: ReadonlyMap<string, SessionMetadata | undefined> =
+      new Map();
+    for (const [position, id] of affectedIds.entries()) {
+      if (position % 256 === 0) {
         await new Promise<void>((resolve) => setImmediate(resolve));
         this.service.querySignal.throwIfAborted();
+        metadataBatch =
+          metadata?.getMetadataBatch?.(
+            affectedIds.slice(position, position + 256),
+          ) ?? new Map();
       }
+      const stored = metadataBatch.has(id)
+        ? metadataBatch.get(id)
+        : metadata?.getMetadata(id);
       const source = this.sql
         .sourcesFor(id)
         .sort(
@@ -279,6 +291,7 @@ export class RetainedSessionQuery {
                 names.get(projectId) ??
                 (this.deps.projectDisplayName ?? getProjectName)(path),
               cutoff,
+              stored,
             );
             parent = nativeCatalogSessionRef({
               ...row,
@@ -291,6 +304,10 @@ export class RetainedSessionQuery {
         item = mergeCreationGlobalItems(item ? [item] : [], metadata, {
           ...this.deps,
           controlRows: control ? [control] : [],
+          metadataReader: {
+            getMetadata: (key) =>
+              key === id ? stored : metadata.getMetadata(key),
+          },
         })[0];
       if (!source && isYaSessionId(id))
         parent = metadata?.identities.resolveYa(id)?.native ?? undefined;
@@ -301,9 +318,9 @@ export class RetainedSessionQuery {
         key: source?.key ?? null,
         ordinal: source?.ordinal ?? old?.ordinal ?? ++this.nextControlOrdinal,
         parent: parent ? JSON.stringify(parent) : null,
-        automatic: metadata?.getMetadata(id)?.isArchived == null,
+        automatic: stored?.isArchived == null,
         attention: Boolean(
-          item?.pendingInputType || nonHumanUserTurnField(metadata, id),
+          item?.pendingInputType || pendingNonHumanUserTurn(stored),
         ),
         live: Boolean(source && this.deps.supervisor?.getProcessForSession(id)),
       });

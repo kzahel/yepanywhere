@@ -24,6 +24,7 @@ export function mergeCreationGlobalItems(
     projectDisplayName?: ProjectDisplayNameResolver;
     sessionAutoArchiveDays?: number;
     controlRows?: ReturnType<typeof creationCollectionRows>;
+    metadataReader?: Pick<SessionMetadataService, "getMetadata">;
   } = {},
 ): GlobalSessionItem[] {
   if (options.signal?.aborted) return [];
@@ -44,9 +45,10 @@ export function mergeCreationGlobalItems(
   const seen = new Set(result.map((item) => item.id));
   for (const row of rows) {
     if (seen.has(row.sessionId)) continue;
-    const summary = creationSessionSummary(row, metadata);
+    const reader = options.metadataReader ?? metadata;
+    const summary = creationSessionSummary(row, reader);
     if (!summary) continue;
-    const stored = metadata.getMetadata(row.sessionId);
+    const stored = reader.getMetadata(row.sessionId);
     result.push({
       ...summary,
       projectName: projectName(fromUrlProjectId(summary.projectId)),

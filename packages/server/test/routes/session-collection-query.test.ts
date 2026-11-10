@@ -97,7 +97,10 @@ async function fixture(count = 256, days = 0) {
     database: openTestDiscoveryDatabase(directory),
     adapters: async () => adapters(),
   });
-  const notifications = new NotificationService({ dataDir: directory });
+  const notifications = new NotificationService({
+    dataDir: directory,
+    database: openTestDiscoveryDatabase(directory),
+  });
   await notifications.initialize();
   const processes = new Map<string, unknown>();
   const deps: GlobalSessionsDeps = {

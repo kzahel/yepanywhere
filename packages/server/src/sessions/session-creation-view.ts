@@ -91,7 +91,7 @@ export function creationStatusForSession(
 
 export function creationSessionSummary(
   row: SessionCreationProjection,
-  metadata: SessionMetadataService,
+  metadata: Pick<SessionMetadataService, "getMetadata">,
 ): SessionSummary | undefined {
   if (row.deleted) return;
   const stored = metadata.getMetadata(row.sessionId);

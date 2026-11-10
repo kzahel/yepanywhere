@@ -1,3 +1,4 @@
+import { openTestDiscoveryDatabase } from "../utils/session-metadata-database.js";
 import { mkdtemp, mkdir, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,7 +37,10 @@ it("projects retained global/inbox and project lists from creation state without
   await metadata.initialize();
   const projectMetadata = new ProjectMetadataService({ dataDir });
   await projectMetadata.initialize();
-  const notifications = new NotificationService({ dataDir });
+  const notifications = new NotificationService({
+    dataDir,
+    database: openTestDiscoveryDatabase(dataDir),
+  });
   await notifications.initialize();
   const sdk = new ScriptedClaudeProvider(),
     start = vi.spyOn(sdk, "startSession");

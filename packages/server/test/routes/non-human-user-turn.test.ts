@@ -1,3 +1,4 @@
+import { openTestDiscoveryDatabase } from "../utils/session-metadata-database.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +23,11 @@ it("delivers explicit cross-session input, surfaces Inbox attention, and acknowl
   const metadata = createTestSessionMetadataService(dataDir);
   await metadata.initialize();
   const eventBus = new EventBus();
-  const notifications = new NotificationService({ dataDir, eventBus });
+  const notifications = new NotificationService({
+    dataDir,
+    eventBus,
+    database: openTestDiscoveryDatabase(dataDir),
+  });
   await notifications.initialize();
   const supervisor = new Supervisor({
     provider: new MockServerClaudeProvider(),

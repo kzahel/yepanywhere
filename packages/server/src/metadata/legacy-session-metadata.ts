@@ -13,6 +13,35 @@ interface LegacySessionMetadataFile {
   version?: number;
 }
 
+/** Startup-only marker statements never occupy the profile's live query budget. */
+export async function initializeLegacyMetadata(
+  legacyFilePath: string,
+  database: SqliteDatabase,
+  rows: SessionMetadataRows,
+): Promise<void> {
+  const selectImport = database.prepare(
+    "SELECT source FROM session_metadata_import WHERE id = 1",
+  );
+  let insertImport: SqliteStatement | undefined;
+  try {
+    const marker = selectImport.get<{ source: string }>();
+    if (!marker) {
+      insertImport = database.prepare(
+        "INSERT INTO session_metadata_import (id, imported_at, source) VALUES (1, ?, ?)",
+      );
+      await importLegacyMetadata(legacyFilePath, database, rows, {
+        selectImport,
+        insertImport,
+      });
+    } else if (marker.source === "json") {
+      await fs.rm(legacyFilePath, { force: true }).catch(() => undefined);
+    }
+  } finally {
+    selectImport.finalize();
+    insertImport?.finalize();
+  }
+}
+
 export async function importLegacyMetadata(
   legacyFilePath: string,
   database: SqliteDatabase,

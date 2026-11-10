@@ -265,6 +265,12 @@ session was already present in an active or recent tier. An already-unread row
 may patch additive content fields locally because the event cannot make it
 more unread; `session-seen` remains the authority that clears that state.
 
+Seen state is stored per session in the profile's required SQLite database.
+Mark-seen/clear commits before the query invalidation or `session-seen` event;
+a failed write publishes no success and remains retryable. Ordinary reads do
+not load the full seen corpus. The one-time legacy JSON adoption and failure
+contract are in [required SQLite](required-sqlite.md#session-seen-state).
+
 Unread compares last-seen against provider-content freshness, not storage
 freshness. Claude summaries derive `updatedAt` from the latest meaningful
 `user`/`assistant` row on the active branch, so an mtime-only transcript touch

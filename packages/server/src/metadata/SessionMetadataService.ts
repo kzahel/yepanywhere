@@ -1,5 +1,5 @@
 import { recoverInterruptedDisplayObjects } from "./interrupted-display-recovery.js";
-import { importLegacyMetadata } from "./legacy-session-metadata.js";
+import { initializeLegacyMetadata } from "./legacy-session-metadata.js";
 /**
  * SessionMetadataService manages custom session metadata (titles, archive status).
  * This enables renaming sessions and archiving them to hide from default view.
@@ -8,7 +8,7 @@ import { importLegacyMetadata } from "./legacy-session-metadata.js";
  * Legacy `session-metadata.json` is imported once; the next start deletes it.
  */
 
-import * as fs from "node:fs/promises";
+import { MetadataWorkingSet } from "./metadata-working-set.js";
 import * as path from "node:path";
 import {
   type CacheMissBillingRecord,
@@ -40,9 +40,10 @@ import {
   profileSessionRelationships,
   type SessionRelationshipWriter,
 } from "../sessions/SessionRelationshipWriter.js";
-import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
+import type { SqliteDatabase } from "../storage/sqlite.js";
 import {
   encodeMetadata,
+  encodedMetadataBytes,
   type EncodedMetadata,
   type MetadataCounts,
   SessionMetadataRows,
@@ -206,7 +207,7 @@ export interface SessionMetadataServiceOptions {
 }
 
 /** Public projection omits the persisted acknowledgement tombstone. */
-function pendingNonHumanUserTurn(
+export function pendingNonHumanUserTurn(
   metadata: SessionMetadata | undefined,
 ): NonHumanUserTurn | undefined {
   const turn = metadata?.nonHumanUserTurn;
@@ -281,7 +282,7 @@ export class SessionMetadataService {
     write: () => T,
   ): T {
     this.assertProfileConnection(database);
-    if (this.state.sessions[sessionId])
+    if (this.getMetadata(sessionId))
       throw new Error("Creation cannot replace existing session metadata");
     const snapshot: SessionMetadata = JSON.parse(JSON.stringify(metadata));
     const relationships = this.relationships;
@@ -297,18 +298,18 @@ export class SessionMetadataService {
       relationships.metadataWithinTransaction(sessionId, snapshot);
       return value;
     });
-    this.state.sessions[sessionId] = snapshot;
+    this.workingSet.set(
+      sessionId,
+      snapshot,
+      encodedMetadataBytes(sessionId, encodeMetadata(snapshot)),
+    );
     return result;
   }
 
-  private state: SessionMetadataState;
+  private readonly workingSet: MetadataWorkingSet;
   private dataDir: string;
   private legacyFilePath: string;
   private readonly database: SqliteDatabase;
-  private readonly statements: {
-    selectImport: SqliteStatement;
-    insertImport: SqliteStatement;
-  };
   /** Column storage and indexed point queries (plan 189 step 6). */
   private readonly rows: SessionMetadataRows;
   /** Pending mutations only; cleared after a successful synchronous commit. */
@@ -326,16 +327,11 @@ export class SessionMetadataService {
       );
     this.legacyFilePath = path.join(this.dataDir, "session-metadata.json");
     this.database = options.database;
-    this.statements = {
-      selectImport: this.database.prepare(
-        "SELECT source FROM session_metadata_import WHERE id = 1",
-      ),
-      insertImport: this.database.prepare(
-        "INSERT INTO session_metadata_import (id, imported_at, source) VALUES (1, ?, ?)",
-      ),
-    };
     this.rows = new SessionMetadataRows(this.database);
-    this.state = { sessions: {} };
+    this.workingSet = new MetadataWorkingSet(
+      (id) => this.rows.read(id),
+      this.dirtySessionIds,
+    );
   }
 
   /**
@@ -343,24 +339,13 @@ export class SessionMetadataService {
    * startup, never silently replaced); a later start deletes an imported file.
    */
   async initialize(): Promise<void> {
-    const marker = this.statements.selectImport.get<{ source: string }>();
-    if (!marker)
-      await importLegacyMetadata(
-        this.legacyFilePath,
-        this.database,
-        this.rows,
-        this.statements,
-      );
-    else if (marker.source === "json")
-      await fs.rm(this.legacyFilePath, { force: true }).catch(() => undefined);
-    for (const [sessionId, metadata] of this.rows.all())
-      this.state.sessions[sessionId] = metadata;
-    console.log(
-      `[SessionMetadataService] Loaded ${Object.keys(this.state.sessions).length} sessions from the database`,
+    await initializeLegacyMetadata(
+      this.legacyFilePath,
+      this.database,
+      this.rows,
     );
-
     let changed = false;
-    for (const [sessionId, metadata] of Object.entries(this.state.sessions)) {
+    for (const [sessionId, metadata] of this.rows.interruptedDisplays()) {
       if (!metadata.transcriptDisplayObjects) {
         continue;
       }
@@ -375,6 +360,7 @@ export class SessionMetadataService {
       ) {
         metadata.transcriptDisplayObjects = recovered;
         this.dirtySessionIds.add(sessionId);
+        this.workingSet.set(sessionId, metadata);
         changed = true;
       }
     }
@@ -387,19 +373,38 @@ export class SessionMetadataService {
    * Get metadata for a session.
    */
   getMetadata(sessionId: string): SessionMetadata | undefined {
-    return this.state.sessions[sessionId];
+    return this.workingSet.get(sessionId);
+  }
+
+  /** Bounded SQL batch, sharing hot objects and preserving dirty overlays. */
+  getMetadataBatch(ids: readonly string[]) {
+    if (ids.length > 256)
+      throw new Error("Metadata batch exceeds 256 sessions");
+    return this.workingSet.batch(ids, (missing) =>
+      this.rows.readBatch(missing),
+    );
   }
 
   /**
    * Get all session metadata.
    */
   getAllMetadata(): Record<string, SessionMetadata> {
-    return { ...this.state.sessions };
+    const all = new Map(this.rows.all());
+    for (const [id, value] of this.workingSet.pending()) {
+      if (value === undefined) all.delete(id);
+      else all.set(id, value);
+    }
+    return Object.fromEntries(all);
   }
 
   /** Pending overlays and keyed collection invalidation from this owner. */
   collectionState() {
-    return this.rows.collectionState(this.state.sessions, this.dirtySessionIds);
+    return this.rows.collectionState(this.workingSet.pending());
+  }
+
+  /** Working-set diagnostics expose counts and budgets, never session contents. */
+  getWorkingSetMetrics() {
+    return this.workingSet.metrics();
   }
 
   /** Distinct providers persisted by prior successful YA session boundaries. */
@@ -417,7 +422,7 @@ export class SessionMetadataService {
   getProjectWriteSandboxSessions(): SessionMetadata[] {
     return this.rows
       .sandboxedSessionIds(this.collectionState().pending)
-      .flatMap((id) => this.state.sessions[id] ?? []);
+      .flatMap((id) => this.getMetadata(id) ?? []);
   }
 
   /** Session, star and archive counts, for diagnostics. */
@@ -462,7 +467,7 @@ export class SessionMetadataService {
   }
 
   getTranscriptDisplayObjects(sessionId: string): TranscriptDisplayObject[] {
-    return (this.state.sessions[sessionId]?.transcriptDisplayObjects ?? []).map(
+    return (this.getMetadata(sessionId)?.transcriptDisplayObjects ?? []).map(
       (object) => {
         if (
           object.kind !== "fork-summary" ||
@@ -482,15 +487,15 @@ export class SessionMetadataService {
   }
 
   getRecapMessages(sessionId: string): DurableRecapMessage[] {
-    return [...(this.state.sessions[sessionId]?.recapMessages ?? [])];
+    return [...(this.getMetadata(sessionId)?.recapMessages ?? [])];
   }
 
   getSyntheticDoneMessages(sessionId: string): DurableSyntheticDoneMessage[] {
-    return [...(this.state.sessions[sessionId]?.syntheticDoneMessages ?? [])];
+    return [...(this.getMetadata(sessionId)?.syntheticDoneMessages ?? [])];
   }
 
   getLocalCommandMessages(sessionId: string): DurableLocalCommandMessage[] {
-    return [...(this.state.sessions[sessionId]?.localCommandMessages ?? [])];
+    return [...(this.getMetadata(sessionId)?.localCommandMessages ?? [])];
   }
 
   async addLocalCommandMessage(
@@ -510,11 +515,11 @@ export class SessionMetadataService {
   }
 
   getRewindRecords(sessionId: string): SessionRewindRecord[] {
-    return [...(this.state.sessions[sessionId]?.rewindRecords ?? [])];
+    return [...(this.getMetadata(sessionId)?.rewindRecords ?? [])];
   }
 
   getPendingRewind(sessionId: string): SessionPendingRewind | undefined {
-    return this.state.sessions[sessionId]?.pendingRewind;
+    return this.getMetadata(sessionId)?.pendingRewind;
   }
 
   /** Record a rewind and arm it for the next provider resume. */
@@ -558,7 +563,7 @@ export class SessionMetadataService {
     sourceSessionId: string,
     targetSessionId: string,
   ): Promise<void> {
-    const source = this.state.sessions[sourceSessionId];
+    const source = this.getMetadata(sourceSessionId);
     if (!source?.rewindRecords?.length && !source?.pendingRewind) return;
     this.updateSessionMetadata(targetSessionId, (metadata) => ({
       ...metadata,
@@ -582,13 +587,11 @@ export class SessionMetadataService {
 
   /** Sessions whose durable clearloop record still says `running`. */
   listSessionIdsWithRunningClearloop(): string[] {
-    return Object.entries(this.state.sessions)
-      .filter(([, metadata]) => metadata.clearloop?.state === "running")
-      .map(([sessionId]) => sessionId);
+    return this.rows.runningClearloops(this.workingSet.pending());
   }
 
   getClearloop(sessionId: string): SessionClearloopJob | undefined {
-    return this.state.sessions[sessionId]?.clearloop;
+    return this.getMetadata(sessionId)?.clearloop;
   }
 
   async setClearloop(
@@ -626,7 +629,10 @@ export class SessionMetadataService {
       goalCommand: goal,
     }));
     await this.metadataSaver.flush();
-    if (this.getMetadata(sessionId)?.goalCommand === goal) {
+    if (
+      JSON.stringify(this.getMetadata(sessionId)?.goalCommand) ===
+      JSON.stringify(goal)
+    ) {
       this.unsavedGoalObservations.delete(sessionId);
     }
   }
@@ -639,8 +645,9 @@ export class SessionMetadataService {
     if (safeLimit === 0) {
       return [];
     }
-    return Object.values(this.state.sessions)
-      .flatMap((metadata) => metadata.cacheMissBillingEvents ?? [])
+    return this.rows
+      .featureRows("billing", this.workingSet.pending())
+      .flatMap(([, metadata]) => metadata.cacheMissBillingEvents ?? [])
       .filter(
         (event) =>
           options.includeExpectedExpiry || event.expectedInputCost.freshEnough,
@@ -724,8 +731,9 @@ export class SessionMetadataService {
     workingProjectId?: UrlProjectId;
     objects: TranscriptDisplayObject[];
   }> {
-    return Object.entries(this.state.sessions).flatMap(
-      ([sessionId, metadata]) =>
+    return this.rows
+      .featureRows("display", this.workingSet.pending())
+      .flatMap(([sessionId, metadata]) =>
         metadata.transcriptDisplayObjects?.length
           ? [
               {
@@ -735,7 +743,7 @@ export class SessionMetadataService {
               },
             ]
           : [],
-    );
+      );
   }
 
   async addTranscriptDisplayObject(
@@ -1284,7 +1292,7 @@ export class SessionMetadataService {
     updater: (current: SessionMetadata) => SessionMetadata,
   ): void {
     const resolvedSessionId = sessionId;
-    const existing = this.state.sessions[resolvedSessionId] ?? {};
+    const existing = this.getMetadata(resolvedSessionId) ?? {};
     const updated = updater(existing);
     this.dirtySessionIds.add(resolvedSessionId);
 
@@ -1408,9 +1416,9 @@ export class SessionMetadataService {
 
     if (Object.keys(cleaned).length === 0) {
       // Remove the entry entirely if empty
-      delete this.state.sessions[resolvedSessionId];
+      this.workingSet.set(resolvedSessionId, undefined);
     } else {
-      this.state.sessions[resolvedSessionId] = cleaned;
+      this.workingSet.set(resolvedSessionId, cleaned);
     }
   }
 
@@ -1420,9 +1428,9 @@ export class SessionMetadataService {
    */
   async clearSession(sessionId: string): Promise<void> {
     const resolvedSessionId = sessionId;
-    if (this.state.sessions[resolvedSessionId]) {
-      delete this.state.sessions[resolvedSessionId];
+    if (this.getMetadata(resolvedSessionId)) {
       this.dirtySessionIds.add(resolvedSessionId);
+      this.workingSet.set(resolvedSessionId, undefined);
       await this.save();
     }
   }
@@ -1430,15 +1438,18 @@ export class SessionMetadataService {
   private async doSave(): Promise<void> {
     const changed = new Map<string, [SessionMetadata, EncodedMetadata]>();
     const removed: string[] = [];
+    const sizes = new Map<string, number>();
     for (const sessionId of this.dirtySessionIds) {
-      const metadata = this.state.sessions[sessionId];
+      const metadata = this.getMetadata(sessionId);
       const encoded = metadata && encodeMetadata(metadata);
+      sizes.set(sessionId, encodedMetadataBytes(sessionId, encoded ?? []));
       if (!encoded) removed.push(sessionId);
       else if (!this.rows.matches(sessionId, encoded))
         changed.set(sessionId, [metadata, encoded]);
     }
     if (changed.size === 0 && removed.length === 0) {
       this.dirtySessionIds.clear();
+      this.workingSet.committed(sizes);
       return;
     }
     try {
@@ -1455,6 +1466,7 @@ export class SessionMetadataService {
       throw error;
     }
     this.dirtySessionIds.clear();
+    this.workingSet.committed(sizes);
   }
 
   /** Where session metadata is stored, for diagnostics. */

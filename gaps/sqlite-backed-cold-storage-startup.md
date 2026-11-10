@@ -1,5 +1,13 @@
 # Large JSON stores delay server readiness and retain cold data in RAM
 
+Update 2026-11-10: [plan 190 cold-state ownership](../docs/research/190-cold-state-sql.md)
+removes eager canonical metadata/seen residency and the full notification JSON
+writer. Service-only restart and warm write evidence is recorded there. The
+native catalog, derived TEMP query rebuild, discovery/reattachment and other
+large-store/startup work below remain open; these are not whole-server readiness
+figures.
+
+
 Research, 2026-11-06 — Contributing-model: claude-opus-5-5
 
 [Codex's native thread index and cold session data](../docs/research/codex-native-thread-index.md)

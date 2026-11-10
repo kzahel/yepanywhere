@@ -5,8 +5,9 @@ Topic: catalog-identity-projection-cost
 Status: in progress. Shared Codex discovery ownership is implemented as the
 first bounded-working-set slice; correctness, measurements and qualification
 are recorded below. Retained list/Inbox SQL queries are implemented as the
-second slice; seen persistence, lazy metadata, changed-file publication and
-the full scenario targets remain open.
+second slice. Canonical seen persistence and lazy metadata now form the third
+slice; durable query restoration, changed-file publication and the full
+scenario targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -47,7 +48,7 @@ request paths need a justification beyond improving one benchmark.
 | Order | Stage | Scope and relation to original steps | Status |
 |---|---|---|---|
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
-| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; lazy metadata/seen writers and changed-file publication open |
+| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; durable query restoration and changed-file publication open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Deferred until the selected foundation has a qualified slice |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
@@ -97,13 +98,14 @@ Research and implementation checkpoints, in dependency order:
 4. Build the SQL-backed seen-state and shared list/Inbox query foundation,
    including statistics/project options that currently force the population
    walk. The query consumer is implemented with a rebuildable TEMP index;
-   seen-state durability and cold metadata ownership remain open.
+   canonical seen durability and bounded metadata reads are now implemented;
+   restoring the derived query projection remains open.
 5. Replace changed-file whole-generation construction and remaining
    whole-catalog consumers with point, paged or change queries; include
    optional question enrichment and per-session project membership mirrors.
 6. Remove eager metadata/catalog loading only after those consumers are
-   migrated. Bound hot objects and negative lookups; retain dirty mutations
-   until commit and preserve recovery, deletion and transaction semantics.
+   migrated. Metadata is now bounded, including negative lookups and pinned
+   failed/deleted mutations; the native catalog mirror remains open.
 7. Qualify list/Inbox parity, changed-row work, restart and retained memory
    at scale on Node and Bun. Record what remains in other stages instead of
    claiming all plan targets are met.
@@ -161,10 +163,27 @@ substring search and large timestamp ties have additional documented costs.
 Legacy unstable identities retain revalidation. No full scenario target is
 newly certified by this isolated query diagnostic.
 
-Next candidates: changed-file-only catalog publication removes the remaining
-population work on each transcript write; SQL seen-state persistence and lazy
-cold metadata remove resident canonical mirrors and full JSON writes.
+Canonical seen-state persistence and lazy metadata are now implemented below.
+Next candidates: SQL-owned catalog publication from changed files and safe
+durable restoration of the derived query projection. These address remaining
+population work, native residency and first-list reconstruction together.
 Long-transcript incremental ingestion remains required and unimplemented.
+
+### Canonical cold state in SQL — implementation outcome
+
+Seen state now commits one SQL row instead of rewriting `notifications.json`,
+with atomic one-time import and commit-before-publication semantics. Metadata
+startup and feature queries no longer require the resident corpus; clean
+objects/misses are bounded and failed mutations/tombstones remain pinned.
+Initial/changed collection construction consumes bounded metadata snapshots.
+
+[Cold-state evidence](../research/190-cold-state-sql.md) owns the service-only
+restart, full-traversal residency, seen-write measurements and review/checks.
+The TEMP query projection still rebuilds after restart. Making it durable
+requires transactional writer invalidation and recovery of live/unread overlays;
+this slice does not add an unsafe saved-response cache. Native catalog
+residency/publication and long-session readers also remain open. No full
+active-tab target is certified by the isolated cold-state diagnostic.
 
 ## Scenario
 
@@ -247,6 +266,12 @@ The second foundation slice replaces retained list/Inbox full walks with
 SQL page/tier/count queries; its outcome and cold/legacy qualifications are
 above. The original end-to-end baseline is retained until a full scenario run
 qualifies the combined architecture.
+
+The third foundation slice removes canonical metadata/seen corpus mirrors and
+uses per-row seen commits. Its isolated service-restart/memory evidence is in
+[the cold-state outcome](../research/190-cold-state-sql.md). Native catalog
+residency and derived query reconstruction remain; these component figures do
+not replace the full active-tab baseline below.
 
 Baseline measured 2026-11-10 with the repro on the maintainer's host (Apple
 Silicon): production builds of server and client code as of `f196db4c7`,
@@ -374,8 +399,10 @@ Unread state and the list fields in tables
 ([SQLite cleanup](../../gaps/sqlite-cleanup-and-wins.md) items 8 and 11), so
 list pages and stats are indexed queries, and then stop holding the whole
 catalog in memory (item 12). The retained query consumer is now implemented
-with keyed updates and derived SQL counts. Durable seen-state and removal of
-eager metadata/catalog mirrors remain open; see the implementation outcome.
+with keyed updates and derived SQL counts. Canonical seen-state and bounded
+metadata reads are now implemented. The
+native catalog mirror and durable query restoration remain open; see the
+implementation outcomes.
 
 ### 5 — update the catalog from the changed file
 

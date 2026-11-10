@@ -201,11 +201,27 @@ export async function projectCatalogIdentities(
       candidates.push({
         native,
         provider,
-        legacyProvider: metadata?.getMetadata(row.sessionId)?.provider,
         projectId,
         createdAt: row.createdAt ?? row.updatedAt,
       });
       positions.push(position);
+    }
+    // Only adoption candidates need legacy metadata. Bound identities never
+    // acquire cold metadata merely to repeat their existing projection.
+    for (let offset = 0; offset < candidates.length; offset += 256) {
+      if (signal?.aborted) return [];
+      const chunk = candidates.slice(offset, offset + 256);
+      const batch = metadata?.getMetadataBatch?.(
+        chunk.map((candidate) => String(candidate.native.id)),
+      );
+      for (const candidate of chunk) {
+        const id = String(candidate.native.id);
+        candidate.legacyProvider = batch?.has(id)
+          ? batch.get(id)?.provider
+          : metadata?.getMetadata(id)?.provider;
+      }
+      if (offset + 256 < candidates.length)
+        await new Promise<void>((resolve) => setImmediate(resolve));
     }
     if (signal?.aborted) return [];
     for (const [index, identity] of identities

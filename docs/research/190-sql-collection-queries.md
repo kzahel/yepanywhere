@@ -6,6 +6,11 @@ provider-independent query boundary and removes their former complete
 projection walk. [Owning contract](../../topics/session-collection-queries.md)
 records authorities, writers, lifetime and remaining bound exceptions.
 
+Follow-up: [canonical cold-state ownership](190-cold-state-sql.md) removes the
+metadata/seen corpus mirrors and adds bounded metadata snapshots. This note's
+before/after figures describe the earlier query-consumer slice; its TEMP
+projection still rebuilds after restart.
+
 ## Architecture and scope
 
 The existing native catalog, public identity bindings, metadata, creation

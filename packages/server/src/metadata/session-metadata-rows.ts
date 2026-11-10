@@ -59,6 +59,22 @@ export function encodeMetadata(metadata: SessionMetadata): EncodedMetadata {
   return [...values, JSON.stringify(rest)];
 }
 
+/** Conservative string payload charge plus a fixed per-object allowance. */
+export function encodedMetadataBytes(
+  id: string,
+  encoded: readonly Value[],
+): number {
+  return (
+    id.length * 2 +
+    512 +
+    encoded.reduce<number>(
+      (size, value) =>
+        size + (typeof value === "string" ? value.length * 2 : 8),
+      0,
+    )
+  );
+}
+
 /** Rebuild the object: `extra` first, then column keys `extra` lacks. */
 export function decodeMetadata(row: Record<string, unknown>): SessionMetadata {
   const metadata = JSON.parse(row.extra as string) as unknown;
@@ -104,15 +120,13 @@ const same = (left: readonly Value[], right: readonly Value[]) =>
  */
 export class SessionMetadataRows {
   private readonly changes = new CollectionMetadataChanges();
-  collectionState(
-    sessions: Record<string, SessionMetadata>,
-    dirtyIds: ReadonlySet<string>,
-  ) {
+  collectionState(pending: PendingMetadata) {
     return {
-      pending: new Map([...dirtyIds].map((id) => [id, sessions[id]])),
+      pending,
       subscribe: this.changes.subscribe,
     };
   }
+  /** Fixed SQL vocabulary: point, batch and three feature query shapes. */
   readonly #statements = new Map<string, SqliteStatement>();
   constructor(private readonly database: SqliteDatabase) {}
 
@@ -128,7 +142,91 @@ export class SessionMetadataRows {
   all(): Array<[string, SessionMetadata]> {
     return this.#prepare(`SELECT session_id, ${NAMES} FROM session_metadata`)
       .all<Record<string, unknown>>()
-      .map((row) => [row.session_id as string, decodeMetadata(row)]);
+      .map((row): [string, SessionMetadata] => [
+        row.session_id as string,
+        decodeMetadata(row),
+      ]);
+  }
+
+  read(sessionId: string) {
+    const row = this.#prepare(
+      `SELECT ${NAMES} FROM session_metadata WHERE session_id = ?`,
+    ).get<Record<string, Value>>(sessionId);
+    return {
+      value: row ? decodeMetadata(row) : undefined,
+      bytes: encodedMetadataBytes(sessionId, row ? Object.values(row) : []),
+    };
+  }
+
+  readBatch(ids: readonly string[]) {
+    return new Map(
+      this.#prepare(
+        `SELECT session_id, ${NAMES} FROM session_metadata WHERE session_id IN (SELECT value FROM json_each(?))`,
+      )
+        .all<Record<string, Value>>(JSON.stringify(ids))
+        .map((row) => {
+          const { session_id: id, ...columns } = row;
+          return [
+            id as string,
+            {
+              value: decodeMetadata(columns),
+              bytes: encodedMetadataBytes(id as string, Object.values(columns)),
+            },
+          ];
+        }),
+    );
+  }
+
+  /** Feature views only decode matching owners; never populate the clean cache. */
+  featureRows(
+    feature: "display" | "billing",
+    pending: PendingMetadata,
+  ): Array<[string, SessionMetadata]> {
+    const path =
+      feature === "display"
+        ? "transcriptDisplayObjects"
+        : "cacheMissBillingEvents";
+    const stored = this.#prepare(
+      `SELECT session_id, extra, working_project_id FROM session_metadata WHERE CASE WHEN json_valid(extra) THEN json_array_length(extra, '$.${path}') ELSE 0 END > 0
+       AND session_id NOT IN (SELECT value FROM json_each(?))`,
+    )
+      .all<Record<string, unknown>>(idsOf(pending))
+      .map((row): [string, SessionMetadata] => [
+        row.session_id as string,
+        decodeMetadata(row),
+      ]);
+    return [
+      ...stored,
+      ...[...pending].filter(
+        (entry): entry is [string, SessionMetadata] => entry[1] !== undefined,
+      ),
+    ];
+  }
+
+  runningClearloops(pending: PendingMetadata): string[] {
+    return [
+      ...this.#prepare(`SELECT session_id FROM session_metadata WHERE CASE WHEN json_valid(extra) THEN json_extract(extra, '$.clearloop.state') END = 'running'
+        AND session_id NOT IN (SELECT value FROM json_each(?))`)
+        .all<{ session_id: string }>(idsOf(pending))
+        .map((row) => row.session_id),
+      ...[...pending]
+        .filter(([, value]) => value?.clearloop?.state === "running")
+        .map(([id]) => id),
+    ];
+  }
+
+  interruptedDisplays(): Array<[string, SessionMetadata]> {
+    return this.#prepare(`SELECT session_id, ${NAMES} FROM session_metadata m
+      WHERE CASE WHEN json_valid(extra) THEN json_array_length(extra, '$.transcriptDisplayObjects') ELSE 0 END > 0 AND EXISTS (
+        SELECT 1 FROM json_each(CASE WHEN json_valid(m.extra) THEN m.extra ELSE '{}' END, '$.transcriptDisplayObjects')
+        WHERE json_extract(CASE WHEN type='object' THEN value ELSE '{}' END, '$.status') = 'generating'
+          OR (json_extract(CASE WHEN type='object' THEN value ELSE '{}' END, '$.kind') = 'bang-command'
+            AND json_extract(CASE WHEN type='object' THEN value ELSE '{}' END, '$.status') = 'running'))`)
+      .all<Record<string, unknown>>()
+      .map((row): [string, SessionMetadata] => [
+        row.session_id as string,
+        decodeMetadata(row),
+      ]);
   }
 
   /** The stored row, encoded, or undefined when there is none. */

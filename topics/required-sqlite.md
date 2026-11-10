@@ -243,7 +243,9 @@ as JSON. A title holding a lone surrogate or a NUL stays in the JSON, because
 a text column would replace the surrogate and node:sqlite cuts text at a NUL.
 Rows that are not JSON objects, or whose scope is gone, are not carried
 over; the cache rebuilds them from transcripts. Version 31 gives
-[session metadata](#session-metadata) its queried columns.
+[session metadata](#session-metadata) its queried columns. Version 32 adds
+canonical session seen rows/import markers and guarded partial indexes for
+metadata feature/recovery queries.
 
 One statically registered, consecutive migration sequence owns `user_version`.
 Historical SQL lives in frozen named modules; released migrations are append-only.
@@ -316,10 +318,11 @@ JSON in `extra`.
   0/1 columns) and, for text, holds no lone surrogate or NUL, which SQLite
   would replace or node:sqlite would cut. Otherwise it stays in `extra`, and a
   key present in `extra` wins over its column on read. Rows that are not JSON
-  objects are carried over in `extra` unchanged and still fail the loader.
+  objects are carried over in `extra` unchanged. Lazy initialization does not
+  decode unrelated rows; invalid JSON still fails when read.
   `metadata/session-metadata-rows.ts` is the runtime codec; the migration
   freezes its own key list.
-- **Same objects.** Loading reassembles each object with equal values; only
+- **Same values.** Reading reassembles each object with equal values; only
   top-level key order changes (column keys come after `extra`'s), which no
   reader observes. Encoding is deterministic, so a loaded object compares equal
   to its row and is not rewritten. The exception is a string holding a
@@ -353,17 +356,58 @@ JSON in `extra`.
   for retry. Saves are synchronous, so requests arriving during a drain
   coalesce. Callers change metadata through service methods, not by mutating
   returned projections.
-- **Cold reads remain open work.** Initialization still parses and retains all
-  metadata objects. Point comparisons reduce save work and duplicate retention,
-  but do not make startup or whole-corpus projection consumers lazy.
+- **Bounded cold reads.** Ordinary startup reads only import state and indexed
+  interrupted-display owners. Clean objects and absent results share a
+  256-entry / 8 MiB estimated string-payload LRU. Dirty updates and deletion
+  tombstones stay pinned until commit, even under pressure or failed saves.
+  Returned objects are read-only projections; reference identity lasts while
+  hot, and callers mutate through service methods. SQL batches contain at most
+  256 keys and return a local snapshot independently of LRU admission. Oversized
+  batches can exceed the clean cache's byte budget transiently; they are not
+  repeatedly reread through the cache to construct their result.
+- **Scoped views.** Running clearloop IDs, display-object owners, billing-event
+  owners and restart recovery use guarded partial SQL indexes. Feature views
+  omit the full prompt column and do not populate the clean cache. Explicit
+  `getAllMetadata` exports remain complete snapshots for diagnostics; there is
+  no resident full metadata map. Feature views may still visit all matching
+  feature owners; this is not a claim of output-only billing-query cost.
 - **Concurrent first start.** The import re-checks its marker inside its
   transaction, so two connections initializing together import once.
 - **Maintenance scripts.** `scripts/prune-stale-index-entries.ts` edits rows
   directly through the codec and refuses until the server has imported and
   migrated them to version 31; stop the server before
-  running it, because a running server keeps its own copy and writes it back.
+  running it, because live hot/dirty entries and derived query state are not invalidated
+  by an offline script.
 - **Restart recovery.** Fork-summary jobs left `generating` and bang commands
   left `running` load as interrupted errors, as before.
+
+## Session seen state
+
+Version 32 stores `session_last_seen(session_id, entry_json)` and a single
+`session_last_seen_import` marker. Each entry remains exact JSON (including
+escaped message IDs), rather than a whole-profile serialized map. Ordinary
+reads use indexed session keys; an explicit all-seen export is still available
+for the existing HTTP response. The service retains no corpus or miss map.
+
+The first initialization imports `{dataDir}/notifications.json` and its marker
+in one transaction, rechecking the marker after acquiring the lock. A missing
+file records an empty import. Unreadable, invalid or failed imports refuse
+initialization, leave the source untouched and can be retried after repair.
+The committed marker prevents later leftovers/edits from resurrecting cleared
+rows; cleanup of the imported file is best-effort. The JSON writer is removed.
+
+Mark-seen compares the provided timestamp, server time and existing row using
+the previous lexical timestamp rule. The comparison and one-row upsert share
+an immediate transaction, so another connection cannot replace newer state
+with an older mark. Clear deletes only that key. Calls resolve after commit;
+seen events and query invalidations are published afterward. A failed mutation
+leaves the previous SQL value visible, publishes nothing, and rejects for retry.
+`flush` has no deferred writer to drain. Statements have a fixed vocabulary and
+are finalized with the service or profile connection. Metadata import marker
+statements are startup-owned and finalized immediately after initialization.
+
+The native catalog mirror and TEMP list-query construction remain separate
+[plan 190](../docs/tactical/190-active-session-cost-at-scale.md) work.
 
 ## Availability and frontend compatibility
 

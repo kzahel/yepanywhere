@@ -581,8 +581,8 @@ const discoverySqlite = (() => {
   }
 })();
 
-// Create and initialize services (all use config.dataDir for state)
 const notificationService = new NotificationService({
+  database: discoverySqlite.getDatabase(),
   eventBus,
   dataDir: config.dataDir,
 });

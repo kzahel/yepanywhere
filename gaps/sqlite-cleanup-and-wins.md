@@ -127,8 +127,9 @@ Each needs a one-time import like `session_metadata`'s. Keep small, bounded
 or human-edited files as JSON: recents (100), security clients, browser
 profiles, remote sessions, project metadata/queues, settings and secrets.
 
-8. Still open: keyed query invalidation now feeds derived SQL unread counters,
-   but durability remains JSON and its in-memory owner remains.
+8. Fixed 2026-11-10: canonical `session_last_seen` rows replace the JSON/map
+   owner, with one-time atomic adoption and keyed writes; see
+   [cold-state evidence](../docs/research/190-cold-state-sql.md). Historical finding:
    **`notifications.json`** (1,441 entries). `NotificationService.ts:137`,
    `:208` rewrite the pretty-printed file on every mark-seen; entries are
    never removed on session deletion (`clearSession` only from mark-unread,
@@ -150,9 +151,10 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
     one derived TEMP SQL index per collection, keyed source changes, grouped
     unread/count aggregates and page/tier hydration. The retained full walk
     is removed. See [query ownership](../topics/session-collection-queries.md)
-    and [evidence](../docs/research/190-sql-collection-queries.md). Durable seen
-    state and lazy metadata still remain prerequisites for dropping their
-    canonical resident mirrors. Historical finding: Plan 189 step 7 (2026-11-09) cut the walk's fixed costs (bound
+    and [evidence](../docs/research/190-sql-collection-queries.md). Canonical
+    seen durability and lazy metadata are implemented; native catalog residency
+    and durable restoration of the derived query index remain open.
+    Historical finding: Plan 189 step 7 (2026-11-09) cut the walk's fixed costs (bound
     identity projections kept per row object, one time parse per row for the
     sort, cached display titles; retained feeds 86–94 ms to 26–35 ms here) and
     found this item blocks paging in SQL: every retained response carries
@@ -168,8 +170,10 @@ profiles, remote sessions, project metadata/queues, settings and secrets.
     recap time) in the metadata save transaction; serve page-only fields by
     point read and full-prompt search by SQL when `q` is present. This is
     also where a per-project creation-surface rollup lives.
-12. Still open. Item 11 has migrated the retained list/Inbox consumer, but
-    other iterators, pending mutation ownership and restart recovery remain.
+12. Fixed 2026-11-10: metadata is read on demand through a bounded clean/miss
+    working set; dirty updates/deletion tombstones remain pinned until commit.
+    Feature queries and interrupted-display recovery select owners in SQL.
+    See the cold-state evidence and required-SQLite contract. Historical finding:
     **Load metadata on demand.** Make `getMetadata` read through a bounded
     cache and drop the startup `SELECT` of every row
     (`SessionMetadataService.ts:340`, `:369`; 2.8 s on the Linux host).
