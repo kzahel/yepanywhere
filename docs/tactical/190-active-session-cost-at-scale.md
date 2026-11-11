@@ -15,8 +15,9 @@ Stage 4 now carries authoritative bounded session/Inbox query changes with
 capability-gated fallback. Projects and ProjectQueue now share that architecture
 under a separate extension capability. Full scenario targets remain open. Combined-scale qualification is now recorded;
 source-owned Claude/Codex project facts and indexed points are implemented.
-Structural/ambiguous discovery and transcript rendering remain open. A cheap
-authoritative sidebar snapshot is the current stage 2/4 slice.
+Structural/ambiguous discovery and transcript rendering remain open. The sidebar SQL/rendering foundation is implemented; the current measurement
+checkpoint identifies sparse-ID SQL access and repeated navigation enrichment
+as the next proposed stage 2/4 slice, without selecting a larger rewrite.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -67,7 +68,28 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — cheap sidebar SQL reads and fresh membership
+### Current focus — measure remaining update cost and choose the next slice
+
+Selected 2026-11-12: measure the current build before more implementation. The
+[current-cost investigation](../research/190-current-cost-regroup.md) records
+full 50k/200-compaction runs, population/history controls, separate profiles and
+canonical-path active/typing checks. CPU and browser work still miss; warm reads,
+loop p99, typing and canonical-root visible latency meet observed ceilings.
+No full-plan acceptance or statistical flatness ratchet is claimed.
+
+The original macOS `/tmp` repro defeats file-fact deduplication against the
+focused watcher's `/private/tmp` spelling. Canonical roots already dedupe to one
+nonempty detail request/write; do not assume two reads on every installation.
+The remaining navigation pipeline still resends unchanged project dictionaries,
+performs per-parent relationship reads and repeats queue-count reconciliation.
+A measured sparse Inbox ID selection drives the timeline index even with no
+candidates; an identity-driven prototype has bounded seeks on Node and Bun.
+The next recommendation is to complete bounded navigation projection: fix sparse
+access paths, batch selected-row enrichment and group queue counts, then stop
+and remeasure. Display-data/freshness separation and bounded preview acquisition
+remain subsequent proposals. No production change is made by this checkpoint.
+
+### Previous focus — cheap sidebar SQL reads and fresh membership
 
 Selected 2026-11-11: prioritize inexpensive fresh sidebar reads over further
 incremental membership machinery. Pointer/focus position retention is not a
@@ -453,6 +475,22 @@ checked. Write-to-visible is measured from the append to the moment the
 write's marker appears in the tab's DOM.
 
 ## Where it stands
+
+Current measurement checkpoint, 2026-11-12 (`288b67493`): profiler-off canonical
+50k/200-compaction active runs observe Claude/Codex main CPU 72.3/92.8 ms/write,
+process 87.4/135.5 (targets 5/15), browser 57.3/57.2 (5), loop p99 18.2/18.2 (50).
+Visible p95 is 50/39 ms active and 52/41 while typing; all 78 keys/provider pass
+100 ms, maxima 27.9/30.0. There is one nonempty detail fetch/write on canonical
+roots, zero list reloads, but about 124/125 KiB of collection data/write. Longer
+root-derived project IDs explain the byte difference from the older fixture.
+The alias-root full run/control matrix, lifecycle measurements, SQL access-plan
+probes and separate attribution are in the [regroup outcome](../research/190-current-cost-regroup.md).
+About 96% of measured collection bytes repeat unchanged project dictionaries;
+relationship enrichment adds 404 SQL calls/write in the canonical diagnostic.
+The sparse queued-ID query still has population work. Warm list/Inbox reads are
+within 10 ms; CPU/render/bytes, cold/idle/restart/memory and full acceptance remain
+open. These single repetitions do not certify flatness or extra-tab overhead.
+
 
 Sidebar checkpoint, 2026-11-11: the shared SQL/rendering foundation is qualified;
 [dedicated outcome](../research/190-sidebar-snapshot.md) records measurements and

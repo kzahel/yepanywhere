@@ -35,7 +35,27 @@ state and metadata are now SQL-owned with bounded residency;
 [cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
 slice. The derived list projection still rebuilds after restart.
 
-## Current combined checkpoint — 2026-11-11
+## Current measurement checkpoint — 2026-11-12
+
+[Current-cost regroup](../docs/research/190-current-cost-regroup.md) measures
+`288b67493` with full fixtures, controls and separate attribution. Canonical-root
+active CPU remains 87.4/135.5 ms/write and browser work 57.3/57.2 for Claude/Codex.
+The old `/tmp` fixture's extra empty detail read comes from path-alias mismatch
+against `/private/tmp`; canonical-root traces already suppress it. A portable
+file-fact identity fix and fixture control remain appropriate, but two reads
+are not universal behavior.
+
+The shared navigation boundary has concrete remaining work: sparse queued-ID
+selection chooses a timeline scan, selected-row child relationships still use
+per-parent SQL, project-list queue counts repeat the same list/reconciliation,
+and catalog-token changes resend unchanged project dictionaries (about 96% of
+collection bytes). Profiles also identify closed navigation consumers and
+transcript projection work. The recommendation is one bounded SQL projection
+slice first, followed by display/freshness separation; no new optimization is
+implemented or full target certified. The linked report owns current numbers,
+Node/Bun access-plan probes, qualifications and proposed order.
+
+## Previous combined checkpoint — 2026-11-11
 
 [Combined qualification](../docs/research/190-combined-scale-qualification.md)
 now records the full 50,000-session/200-compaction fixture on `be7b474c3`,
