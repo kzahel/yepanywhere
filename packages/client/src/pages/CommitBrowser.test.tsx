@@ -105,9 +105,25 @@ function cleanStatus(): GitStatusInfo {
   };
 }
 
-function installScrollIntoViewMock() {
+function installScrollIntoViewMock(hunkGeometry = false) {
   const original = Element.prototype.scrollIntoView;
   const mock = vi.fn();
+  const originalRect = Element.prototype.getBoundingClientRect;
+  // jsdom's zero rectangles otherwise make the initial frame select the last
+  // hunk, racing the navigation command. Keep both below the scroll threshold.
+  const geometry = hunkGeometry
+    ? vi
+        .spyOn(Element.prototype, "getBoundingClientRect")
+        .mockImplementation(function (this: Element) {
+          const hunks = Array.from(
+            document.querySelectorAll("[data-diff-hunk-header], .line-hunk"),
+          );
+          const index = hunks.indexOf(this);
+          return index < 0
+            ? originalRect.call(this)
+            : new DOMRect(0, 100 + index * 400, 600, 40);
+        })
+    : undefined;
   Object.defineProperty(Element.prototype, "scrollIntoView", {
     configurable: true,
     value: mock,
@@ -115,6 +131,7 @@ function installScrollIntoViewMock() {
   return {
     fn: mock,
     restore() {
+      geometry?.mockRestore();
       if (original) {
         Object.defineProperty(Element.prototype, "scrollIntoView", {
           configurable: true,
@@ -1840,7 +1857,7 @@ describe("CommitBrowser", () => {
         },
       ],
     });
-    const scrollIntoView = installScrollIntoViewMock();
+    const scrollIntoView = installScrollIntoViewMock(true);
 
     try {
       render(
@@ -1853,6 +1870,11 @@ describe("CommitBrowser", () => {
         expect(
           document.querySelectorAll("[data-diff-hunk-header], .line-hunk"),
         ).toHaveLength(2),
+      );
+      await waitFor(() =>
+        expect(
+          document.querySelector("[data-source-hunk-position]")?.textContent,
+        ).toBe("1/2"),
       );
       fireEvent.click(document.querySelector("[data-source-file-item]")!);
 
@@ -1895,7 +1917,7 @@ describe("CommitBrowser", () => {
         },
       ],
     });
-    const scrollIntoView = installScrollIntoViewMock();
+    const scrollIntoView = installScrollIntoViewMock(true);
 
     try {
       render(
@@ -1910,6 +1932,11 @@ describe("CommitBrowser", () => {
         ).toHaveLength(2),
       );
       const search = screen.getByPlaceholderText("sourceSearchCommits");
+      await waitFor(() =>
+        expect(
+          document.querySelector("[data-source-hunk-position]")?.textContent,
+        ).toBe("1/2"),
+      );
       fireEvent.keyDown(search, { key: "n" });
       expect(scrollIntoView.fn).not.toHaveBeenCalled();
 
