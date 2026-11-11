@@ -1150,6 +1150,9 @@ remain with plan 182; specialized controls and semantic typography retain
 specific closure reasons in the playground Audit report. The former six census
 pages are one report separating unfinished migrations, reviewed exceptions and
 generated-content boundaries; Controls/Patterns remain visual examples.
+Scenes/Composer reuses the Settings toolbar preview with fixed standard and
+all-controls-enabled states for theme and width review, without live requests
+or saved-toolbar preference changes.
 
 ## Later directions
 

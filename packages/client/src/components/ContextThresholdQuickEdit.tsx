@@ -1,3 +1,4 @@
+import { useInertPreview } from "./InertPreviewContext";
 import popoverStyles from "./ContextUsagePopover.module.css";
 import thresholdStyles from "./ContextThresholdQuickEdit.module.css";
 import {
@@ -60,6 +61,21 @@ function effectiveContextWindow(
   return usageWindow && usageWindow > 0 ? usageWindow : undefined;
 }
 
+export function ContextThresholdQuickEdit(
+  props: ContextThresholdQuickEditProps,
+) {
+  const preview = useInertPreview();
+  return preview ? (
+    <div className={thresholdStyles.contextThresholdQuickedit}>
+      <span className={thresholdStyles.contextThresholdQuickeditTrigger}>
+        <ContextUsageIndicator usage={props.usage} size={props.size} />
+      </span>
+    </div>
+  ) : (
+    <InteractiveContextThresholdQuickEdit {...props} />
+  );
+}
+
 /**
  * Wraps the context-usage indicator with a long-press (touch) / right-click
  * (desktop) affordance that opens a one-control popover for *this model's*
@@ -69,7 +85,7 @@ function effectiveContextWindow(
  * (a second access point, not a second mechanism). See task 029 /
  * topics/resume-compaction.md.
  */
-export function ContextThresholdQuickEdit({
+function InteractiveContextThresholdQuickEdit({
   usage,
   model,
   provider,

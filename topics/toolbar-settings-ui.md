@@ -26,6 +26,14 @@ the pre-presence localStorage pair (visibility + priority maps) on first load;
 the server does the same for stored `clientDefaults` in
 `ServerSettingsService.mergeLoadedClientDefaults`.
 
+The full preview delegates its display to `SessionToolbarPreviewView`, which
+also powers `Scenes/Composer` in `design.html`. Settings supplies live visibility,
+priority and waveform opacity; the design scene supplies fixed values and a
+reference clock. Inert previews use `InertPreviewProvider` to show the
+context-usage meter and microphone trigger without mounting their server-backed
+editors. The normal session toolbar retains its interactive controls and
+existing data acquisition.
+
 ## Layout contract
 
 The pane is three stacked pieces, top to bottom:

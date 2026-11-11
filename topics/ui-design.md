@@ -603,6 +603,7 @@ error.
 pnpm -s design:index                       # JSON: pages, specimens, states and URLs
 pnpm -s design:shot audit --phone           # report once, desktop and phone
 pnpm -s design:shot tokens--colors --theme all --phone
+pnpm -s design:shot scenes-composer --theme all --phone
 pnpm -s design:shot controls-button--variants --grid --theme all
 pnpm -s design:shot audit --url http://localhost:3400
 ```
@@ -631,6 +632,16 @@ The playground's pages:
   **Controls/Spinner** and **Controls/Tabs:** the shared states and variants.
 - **Controls/Dialog:** shared dialog sizes, forms, choices and confirmations.
 - **Patterns/Selectable card:** shared rich action and navigation surfaces.
+- **Scenes/Composer:** the same inert toolbar preview used in Settings, with
+  fixed standard and all-controls-enabled configurations. Standard uses the
+  desktop-default control set at every width so comparisons hold the controls
+  constant. Optional actions use their normal priorities and More behavior.
+  The waveform is static, context usage is fixed at 84%, and the reference
+  clock and opacity are fixed. The context meter and microphone render without
+  their live settings editors. Scenes fit the available frame width instead of
+  the Settings preview’s wide scrolling surface. Scenes do not fetch server
+  data or change saved toolbar presence or waveform opacity; Settings continues to use the user's live
+  configuration. These scenes show the toolbar, not an editable message box.
 - **Audit / Unfinished migrations:** composer raw buttons/fields and counted
   control/type/radius findings, with source locations. Their CSS already has
   module owners; shared-control adoption remains plan 182's follow-up.

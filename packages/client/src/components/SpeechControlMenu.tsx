@@ -1,3 +1,4 @@
+import { useInertPreview } from "./InertPreviewContext";
 import speechStyles from "./SpeechControlMenu.module.css";
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import {
@@ -67,7 +68,22 @@ function audioInputLabel(device: MediaDeviceInfo, index: number): string {
   return device.label || `Microphone ${index + 1}`;
 }
 
-export function SpeechControlMenu({
+export function SpeechControlMenu(props: SpeechControlMenuProps) {
+  const preview = useInertPreview();
+  return preview ? (
+    <div
+      role="presentation"
+      className={speechStyles.speechControlMenu}
+      {...props.rootDataAttributes}
+    >
+      {props.trigger}
+    </div>
+  ) : (
+    <InteractiveSpeechControlMenu {...props} />
+  );
+}
+
+function InteractiveSpeechControlMenu({
   trigger,
   showMethodSelector,
   methodOptions,

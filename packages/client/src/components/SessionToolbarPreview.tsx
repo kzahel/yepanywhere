@@ -1,8 +1,10 @@
+import { InertPreviewProvider } from "./InertPreviewContext";
 import previewStyles from "./SessionToolbarPreview.module.css";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import {
   SESSION_TOOLBAR_CONTROL_KEYS,
+  type SessionToolbarPriority,
   type SessionToolbarVisibility,
   type SessionToolbarVisibilityKey,
   useSessionToolbarPresence,
@@ -219,47 +221,79 @@ function useInertPreviewRef() {
 
 /** Full, faithful preview of the composer toolbar with the user's live config. */
 export function SessionToolbarPreview() {
-  const { t } = useI18n();
   const { visibility, priority } = useSessionToolbarPresence();
   const { waveformButtonBackgroundOpacityPercent } =
     useWaveformButtonBackgroundOpacity();
   const previewNowMs = useMemo(() => Date.now(), []);
-  const controls = usePreviewToolbarControls(previewNowMs);
+  return (
+    <SessionToolbarPreviewView
+      visibility={visibility}
+      priority={priority}
+      waveformButtonBackgroundOpacityPercent={
+        waveformButtonBackgroundOpacityPercent
+      }
+      nowMs={previewNowMs}
+    />
+  );
+}
+
+/** The Settings preview with explicit configuration for repeatable design scenes. */
+export function SessionToolbarPreviewView({
+  visibility,
+  priority,
+  waveformButtonBackgroundOpacityPercent,
+  nowMs,
+  fitToContainer = false,
+}: {
+  visibility: SessionToolbarVisibility;
+  priority: SessionToolbarPriority;
+  waveformButtonBackgroundOpacityPercent: number;
+  nowMs: number;
+  /** Use the available review-frame width instead of Settings’ wide scroll surface. */
+  fitToContainer?: boolean;
+}) {
+  const { t } = useI18n();
+  const controls = usePreviewToolbarControls(nowMs);
   const inertRef = useInertPreviewRef();
 
   return (
-    <div className={previewStyles.preview} aria-hidden="true">
-      <div ref={inertRef} className={previewStyles.previewContent}>
-        <MessageInputToolbarView
-          t={t}
-          visibility={visibility}
-          priority={priority}
-          modeControl={controls.modeControl}
-          attachmentControl={controls.attachmentControl}
-          slashControl={controls.slashControl}
-          thinkingControl={controls.thinkingControl}
-          renderModeControl={controls.renderModeControl}
-          conversationViewControl={controls.conversationViewControl}
-          browserDebugControl={controls.browserDebugControl}
-          doneControl={controls.doneControl}
-          speechControl={controls.speechControl}
-          speechWaveformActive={visibility.waveform}
-          speechWaveformPreview
-          waveformButtonBackgroundOpacityPercent={
-            waveformButtonBackgroundOpacityPercent
-          }
-          statusControl={controls.statusControl}
-          shortcutsControl={controls.shortcutsControl}
-          actionsControl={{
-            contextUsage: PREVIEW_CONTEXT_USAGE,
-            btw: controls.btw,
-            send: controls.send,
-            projectQueue: controls.projectQueue,
-            topicShift: { onTopicShift: noop, canSend: true },
-          }}
-        />
+    <InertPreviewProvider>
+      <div className={previewStyles.preview} aria-hidden="true">
+        <div
+          ref={inertRef}
+          className={`${previewStyles.previewContent} ${fitToContainer ? previewStyles.fitToContainer : ""}`}
+        >
+          <MessageInputToolbarView
+            t={t}
+            visibility={visibility}
+            priority={priority}
+            modeControl={controls.modeControl}
+            attachmentControl={controls.attachmentControl}
+            slashControl={controls.slashControl}
+            thinkingControl={controls.thinkingControl}
+            renderModeControl={controls.renderModeControl}
+            conversationViewControl={controls.conversationViewControl}
+            browserDebugControl={controls.browserDebugControl}
+            doneControl={controls.doneControl}
+            speechControl={controls.speechControl}
+            speechWaveformActive={visibility.waveform}
+            speechWaveformPreview
+            waveformButtonBackgroundOpacityPercent={
+              waveformButtonBackgroundOpacityPercent
+            }
+            statusControl={controls.statusControl}
+            shortcutsControl={controls.shortcutsControl}
+            actionsControl={{
+              contextUsage: PREVIEW_CONTEXT_USAGE,
+              btw: controls.btw,
+              send: controls.send,
+              projectQueue: controls.projectQueue,
+              topicShift: { onTopicShift: noop, canSend: true },
+            }}
+          />
+        </div>
       </div>
-    </div>
+    </InertPreviewProvider>
   );
 }
 
@@ -330,29 +364,31 @@ export function ToolbarControlPreview({
   };
 
   const previewContent = (
-    <div ref={inertRef} className={previewStyles.previewContent}>
-      <MessageInputToolbarView
-        t={t}
-        visibility={visibilityForOnly(controlKey)}
-        modeControl={controls.modeControl}
-        attachmentControl={controls.attachmentControl}
-        slashControl={controls.slashControl}
-        thinkingControl={controls.thinkingControl}
-        renderModeControl={controls.renderModeControl}
-        conversationViewControl={controls.conversationViewControl}
-        browserDebugControl={controls.browserDebugControl}
-        doneControl={controls.doneControl}
-        speechControl={controls.speechControl}
-        speechWaveformActive={controlKey === "waveform"}
-        speechWaveformPreview={controlKey === "waveform"}
-        waveformButtonBackgroundOpacityPercent={
-          waveformButtonBackgroundOpacityPercent
-        }
-        statusControl={controls.statusControl}
-        shortcutsControl={controls.shortcutsControl}
-        actionsControl={actionsControl}
-      />
-    </div>
+    <InertPreviewProvider>
+      <div ref={inertRef} className={previewStyles.previewContent}>
+        <MessageInputToolbarView
+          t={t}
+          visibility={visibilityForOnly(controlKey)}
+          modeControl={controls.modeControl}
+          attachmentControl={controls.attachmentControl}
+          slashControl={controls.slashControl}
+          thinkingControl={controls.thinkingControl}
+          renderModeControl={controls.renderModeControl}
+          conversationViewControl={controls.conversationViewControl}
+          browserDebugControl={controls.browserDebugControl}
+          doneControl={controls.doneControl}
+          speechControl={controls.speechControl}
+          speechWaveformActive={controlKey === "waveform"}
+          speechWaveformPreview={controlKey === "waveform"}
+          waveformButtonBackgroundOpacityPercent={
+            waveformButtonBackgroundOpacityPercent
+          }
+          statusControl={controls.statusControl}
+          shortcutsControl={controls.shortcutsControl}
+          actionsControl={actionsControl}
+        />
+      </div>
+    </InertPreviewProvider>
   );
 
   if (!onActivate) {

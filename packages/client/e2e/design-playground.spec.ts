@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { UI_KEYS } from "../src/lib/storageKeys";
 import { createTestViteServer } from "./support/vite-server";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture";
 
@@ -94,6 +95,91 @@ for (const phone of [false, true]) {
     await expect(
       page.getByRole("heading", { name: "Controls/Button", exact: true }),
     ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
+// A real-browser boundary: fixture imports must never acquire live settings or
+// providers, and saved toolbar preferences must not change the fixed scenes.
+for (const phone of [false, true]) {
+  test(`composer scenes stay isolated on ${phone ? "phone" : "desktop"}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(
+      phone ? { width: 375, height: 812 } : { width: 1000, height: 600 },
+    );
+    const keys = [
+      UI_KEYS.sessionToolbarPresence,
+      UI_KEYS.waveformButtonBackgroundOpacityPercent,
+    ];
+    const saved = [
+      JSON.stringify({
+        modeSelector: "hidden",
+        attachments: "hidden",
+        waveform: "off",
+      }),
+      "0",
+    ];
+    await page.addInitScript(
+      ({ keys, saved }) => {
+        keys.forEach((key, index) => {
+          localStorage.setItem(key, saved[index]!);
+        });
+      },
+      { keys, saved },
+    );
+    const errors: string[] = [];
+    const apiRequests: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error" || message.type() === "warning")
+        errors.push(message.text());
+    });
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname.startsWith("/api/"))
+        apiRequests.push(request.url());
+    });
+    for (const theme of ["verydark", "dark", "light"]) {
+      await page.goto(`${base}design.html#/scenes-composer?theme=${theme}`);
+      await expect(page.locator("[data-design-ready]")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Scenes/Composer", exact: true }),
+      ).toBeVisible();
+      const toolbars = page.locator("[data-message-input-toolbar]");
+      await expect(toolbars).toHaveCount(2);
+      for (const toolbar of await toolbars.all()) {
+        await expect(toolbar).toHaveAttribute(
+          "data-waveform-button-background-opacity",
+          "70",
+        );
+        await expect(
+          toolbar.locator('[data-session-toolbar-control="attachments"]'),
+        ).toHaveCount(1);
+        await expect(toolbar.locator("xpath=..")).toHaveAttribute("inert", "");
+      }
+      // The context ring is retained, while its hidden interactive editor and
+      // service subscriptions are absent from these inert reference scenes.
+      await expect(page.locator("[data-context-usage-indicator]")).toHaveCount(
+        2,
+      );
+      await expect(page.locator('[aria-haspopup="dialog"]')).toHaveCount(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await page.evaluate(
+          (keys) => keys.map((key) => localStorage.getItem(key)),
+          keys,
+        ),
+      ).toEqual(saved);
+      await recordUiCapture(
+        page,
+        `composer-${theme}-${phone ? "phone" : "desktop"}`,
+      );
+    }
+    expect(apiRequests).toEqual([]);
     expect(errors).toEqual([]);
   });
 }
