@@ -20,6 +20,11 @@
       "import": "./dist/server-runtime.js",
       "types": "./dist/server-runtime.d.ts"
     },
+    "./agent-api-bootstrap": {
+      "source": "./src/agent-api-bootstrap.ts",
+      "import": "./dist/agent-api-bootstrap.js",
+      "types": "./dist/agent-api-bootstrap.d.ts"
+    },
     "./sqlite": {
       "source": "./src/sqlite.ts",
       "import": "./dist/sqlite.js",

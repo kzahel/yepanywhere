@@ -689,21 +689,9 @@ export function LocalAccessSettings() {
             <details className={styles.agentApiPreview}>
               <summary>{t("localAccessAgentApiPreview")}</summary>
               <p>{t("localAccessAgentApiUnix")}</p>
-              <pre>
-                {agentApiBootstrapInstructions(
-                  false,
-                  supportsAgentApiManagement &&
-                    serverSettings?.agentApiManagementEnabled === true,
-                )}
-              </pre>
+              <pre>{agentApiBootstrapInstructions(false)}</pre>
               <p>{t("localAccessAgentApiWindows")}</p>
-              <pre>
-                {agentApiBootstrapInstructions(
-                  true,
-                  supportsAgentApiManagement &&
-                    serverSettings?.agentApiManagementEnabled === true,
-                )}
-              </pre>
+              <pre>{agentApiBootstrapInstructions(true)}</pre>
             </details>
           }
         >

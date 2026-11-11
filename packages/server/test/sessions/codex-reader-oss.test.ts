@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   appendFile,
+  readFile,
   mkdir,
   rm,
   rename,
@@ -176,6 +177,87 @@ describe("CodexSessionReader - OSS Support", () => {
       `${lines.join("\n")}\n`,
     );
   };
+
+  it("repairs a historical API prefix in full/head reads and a fresh persisted index without rewriting history", async () => {
+    const sessionId = "legacy-api-bootstrap";
+    const projectId = "test-project" as UrlProjectId;
+    const legacy = (
+      await readFile(
+        new URL(
+          "../../../shared/test/fixtures/agent-api-bootstrap-legacy.txt",
+          import.meta.url,
+        ),
+        "utf8",
+      )
+    ).trimEnd();
+    const prompt = `${legacy}\n\nFix the actual task.`;
+    await createSessionFile(sessionId, "openai", "gpt-6.1-sol");
+    const filePath = join(testDir, `${sessionId}.jsonl`);
+    const original = (await readFile(filePath, "utf8")).replace(
+      "Hello world",
+      prompt
+        .replaceAll("\\", "\\\\")
+        .replaceAll('"', '\\"')
+        .replaceAll("\n", "\\n"),
+    );
+    await writeFile(filePath, original);
+    for (const readMode of ["head", "full"] as const) {
+      expect(
+        await reader.getSessionSummary(sessionId, projectId, { readMode }),
+      ).toMatchObject({
+        title: "Fix the actual task.",
+        fullTitle: "Fix the actual task.",
+      });
+    }
+    const loaded = await reader.getSession(sessionId, projectId);
+    expect(
+      normalizeSession(loaded!).messages.find((m) => m.type === "user")?.message
+        ?.content,
+    ).toBe("Fix the actual task.");
+    const dataDir = join(testDir, "indexes");
+    const database = openTestDiscoveryDatabase(testDir);
+    const initial = new SessionIndexService({ database, dataDir });
+    await initial.initialize();
+    await initial.getSessionSummaryWithCache(
+      testDir,
+      projectId,
+      sessionId,
+      reader,
+    );
+    initial.dispose();
+    const store = new SqliteSessionSummaryIndex(database);
+    const scope = reader.getIndexScopeKey(testDir);
+    const persisted = store.read(scope)!;
+    Object.assign(persisted.sessions[sessionId]!, {
+      title: "[Yep Anywhere API] You are running...",
+      fullTitle: prompt,
+    });
+    store.save(scope, { ...persisted, version: 5 });
+    const index = new SessionIndexService({
+      database: openTestDiscoveryDatabase(testDir),
+      dataDir,
+    });
+    await index.initialize();
+    const parse = vi.spyOn(reader, "getSessionSummary");
+    try {
+      expect(
+        await index.getSessionSummaryWithCache(
+          testDir,
+          projectId,
+          sessionId,
+          reader,
+        ),
+      ).toMatchObject({
+        title: "Fix the actual task.",
+        fullTitle: "Fix the actual task.",
+      });
+      expect(parse).not.toHaveBeenCalled();
+      expect(await readFile(filePath, "utf8")).toBe(original);
+    } finally {
+      index.dispose();
+      parse.mockRestore();
+    }
+  });
 
   it("discovers recent async questions without loading transcript history", async () => {
     const sessionId = "questions-without-open-transcript";

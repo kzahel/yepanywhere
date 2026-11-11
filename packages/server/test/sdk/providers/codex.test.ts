@@ -2056,9 +2056,20 @@ describe("CodexProvider app-server lifecycle", () => {
         const turns = requests.filter(
           (request) => request.method === "turn/start",
         );
-        expect(JSON.stringify(turns[0]?.params)).toContain(
+        expect(JSON.stringify(thread?.params)).toContain(
           "AGENT_YA_V0_AUTHORIZATION",
         );
+        expect(JSON.stringify(turns[0]?.params)).not.toContain(
+          "[Yep Anywhere API]",
+        );
+        if (resumeSessionId) {
+          expect(
+            requests.find((request) => request.method === "thread/inject_items")
+              ?.params,
+          ).toMatchObject({
+            items: [{ type: "message", role: "developer" }],
+          });
+        }
         expect(JSON.stringify(turns[0]?.params)).toContain("first task");
         expect(JSON.stringify(turns[1]?.params)).not.toContain(
           "[Yep Anywhere API]",
@@ -2067,6 +2078,66 @@ describe("CodexProvider app-server lifecycle", () => {
       } finally {
         await session.abort();
         await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.each(["config/read", "thread/inject_items"])(
+    "stops before user input when API bootstrap %s is rejected",
+    async (method) => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-api-rejected-"));
+      const logPath = join(tempDir, "requests.jsonl");
+      const source = buildFakeCodexPermissionAppServer(logPath).replace(
+        "  switch (message.method) {",
+        `  if (message.method === ${JSON.stringify(method)}) {
+    write({ id: message.id, error: { code: -32000, message: "OWNED_API_BOOTSTRAP_FAILURE" } });
+    return;
+  }
+  switch (message.method) {`,
+      );
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "fake-codex-api-rejected",
+        source,
+      );
+      // The deliberately rejected native request must produce this diagnostic.
+      const diagnostic = vi
+        .spyOn(getLogger(), "error")
+        .mockImplementation(() => {});
+      const session = await new CodexProvider({ codexPath }).startSession({
+        cwd: tempDir,
+        permissionMode: "bypassPermissions",
+        resumeSessionId:
+          method === "thread/inject_items" ? "thread-policy" : undefined,
+        agentSelf: false,
+        agentApi: { serverId: "codex-api-rejected" },
+        initialMessage: { text: "NEVER_SUBMITTED" },
+      });
+      try {
+        const messages: Record<string, unknown>[] = [];
+        for await (const message of session.iterator) {
+          messages.push(message);
+          if (message.type === "result") break;
+        }
+        expect(
+          messages.some(
+            (message) =>
+              message.type === "error" &&
+              String(message.error).includes("OWNED_API_BOOTSTRAP_FAILURE"),
+          ),
+        ).toBe(true);
+        expect(messages.some((message) => message.type === "user")).toBe(false);
+        expect(
+          readFakeCodexRequests(logPath).some(
+            (request) => request.method === "turn/start",
+          ),
+        ).toBe(false);
+        expect(diagnostic).toHaveBeenCalled();
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        diagnostic.mockRestore();
         rmSync(tempDir, { recursive: true, force: true });
       }
     },

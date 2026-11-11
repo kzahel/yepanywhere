@@ -39,6 +39,7 @@ import {
 import type { ISessionIndexService, SessionIndexListOptions } from "./types.js";
 import type { SqliteDatabase } from "../storage/sqlite.js";
 import { SqliteSessionSummaryIndex } from "./SqliteSessionSummaryIndex.js";
+import { agentApiSummaryTitle } from "../sessions/agent-api-title.js";
 
 const LOG_CACHE_PERF = process.env.SESSION_INDEX_LOG_PERF === "true";
 const DEFAULT_SUMMARY_PARSE_CONCURRENCY = 1;
@@ -842,8 +843,7 @@ export class SessionIndexService implements ISessionIndexService {
     return {
       id: sessionId,
       projectId,
-      title: cached.title,
-      fullTitle: cached.fullTitle,
+      ...agentApiSummaryTitle(cached),
       createdAt: cached.createdAt,
       updatedAt: cached.updatedAt,
       messageCount: cached.messageCount,
@@ -2082,7 +2082,7 @@ export class SessionIndexService implements ISessionIndexService {
         type: "session-updated",
         sessionId,
         projectId,
-        title: cached.title,
+        title: agentApiSummaryTitle(cached).title,
         messageCount: cached.messageCount,
         updatedAt: cached.updatedAt,
         contextUsage: cached.contextUsage,

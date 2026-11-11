@@ -1,3 +1,4 @@
+import { findAgentApiBootstrapInstructions } from "@yep-anywhere/shared/agent-api-bootstrap";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
@@ -12,6 +13,9 @@ export function claudeSessionSystemPrompt(
   globalInstructions: string | undefined,
   sandbox: SessionSandboxRuntime | undefined,
 ): Options["systemPrompt"] {
+  const refreshInstructions = Boolean(
+    globalInstructions && findAgentApiBootstrapInstructions(globalInstructions),
+  );
   const instructions = sandbox?.instructions;
   if (instructions && !instructions.startFromDefault) {
     return {
@@ -24,7 +28,7 @@ export function claudeSessionSystemPrompt(
     .filter(Boolean)
     .join("\n\n");
   const prompt = basePrompt(withSessionSandboxAgentContext(append, sandbox));
-  if (!instructions || !prompt) return prompt;
+  if ((!instructions && !refreshInstructions) || !prompt) return prompt;
   return typeof prompt === "string"
     ? { type: "custom", prompt, snapshot: false }
     : { ...prompt, snapshot: false };

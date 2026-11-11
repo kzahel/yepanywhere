@@ -227,21 +227,13 @@ export async function startAgentSelfSession(
       // This distinct family never enters the legacy self-token Bash file.
       agentApiEnvironment: apiLease?.environment,
       agentApiInstructions: apiLease
-        ? agentApiBootstrapInstructions(
-            process.platform === "win32",
-            options.agentApi?.management === true,
-            peerEnabled,
-          )
+        ? agentApiBootstrapInstructions(process.platform === "win32")
         : undefined,
       globalInstructions:
         apiLease && provider !== "codex"
           ? [
               options.globalInstructions,
-              agentApiBootstrapInstructions(
-                process.platform === "win32",
-                options.agentApi?.management === true,
-                peerEnabled,
-              ),
+              agentApiBootstrapInstructions(process.platform === "win32"),
             ]
               .filter(Boolean)
               .join("\n\n")

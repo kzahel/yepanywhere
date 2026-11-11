@@ -18,7 +18,7 @@ for (const provider of ["claude", "codex"] as const)
   test(`${provider} browser reconnect preserves draft, input identity and final history`, async ({
     page,
   }) => {
-    const f = await nativeAppFixture(provider);
+    const f = await nativeAppFixture(provider, { agentApiManagement: true });
     const errors: string[] = [];
     const frames: string[] = [];
     let typing = false;
@@ -69,6 +69,40 @@ for (const provider of ["claude", "codex"] as const)
       // guard (885 requests, no detail GET yet). 45s is 3x that lower bound;
       // this is initial fixture readiness, never the 100ms typing contract.
       await expect(input).toBeEditable({ timeout: 45_000 });
+      if (provider === "codex") {
+        const notice = page
+          .locator("details[data-system-message]")
+          .filter({ hasText: "Agent API instructions added" });
+        await expect(notice).toHaveCount(1);
+        await expect(
+          page.locator('[data-render-type="user_prompt"]').first(),
+        ).toContainText("BROWSER_INITIAL_INPUT");
+        await expect(
+          page.locator('[data-render-type="user_prompt"]'),
+        ).not.toContainText("[Yep Anywhere API]");
+        for (const [name, viewport] of [
+          ["desktop", { width: 1000, height: 600 }],
+          ["phone", { width: 375, height: 812 }],
+        ] as const) {
+          await page.setViewportSize(viewport);
+          await expect(notice).not.toHaveAttribute("open", "");
+          await recordUiCapture(page, `api-instructions-${name}`);
+          await notice.locator("summary").click();
+          await expect(notice).toHaveAttribute("open", "");
+          await expect(notice).toContainText(
+            "Determine current launch authority from /v0/me",
+          );
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth,
+            ),
+          ).toBe(true);
+          if (name === "phone")
+            await recordUiCapture(page, "api-instructions-phone-expanded");
+          await notice.locator("summary").click();
+        }
+        await page.setViewportSize({ width: 1000, height: 600 });
+      }
       await expect
         .poll(() =>
           frames.some(

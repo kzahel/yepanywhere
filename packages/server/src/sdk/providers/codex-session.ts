@@ -46,6 +46,10 @@ import {
   createLiveEventState,
 } from "./codex-live-event-conversion.js";
 import { log } from "./codex-log.js";
+import {
+  configureCodexApiBootstrap,
+  injectResumedCodexApiBootstrap,
+} from "./codex-api-bootstrap.js";
 import { asCodexTurnCompletedNotification } from "./codex-notification-guards.js";
 import type {
   ListMcpServerStatusParams,
@@ -496,6 +500,12 @@ export class CodexSession {
       options,
       policy,
     );
+    await configureCodexApiBootstrap(
+      appServer,
+      options,
+      threadStartParams,
+      threadResumeParams,
+    );
     const threadResult = await startOrResumeThread(
       appServer,
       options,
@@ -510,6 +520,7 @@ export class CodexSession {
     )
       throw new Error("Codex resumed a different native thread");
     const sessionId = threadResult.thread.id;
+    await injectResumedCodexApiBootstrap(appServer, options, sessionId);
     connection.sessionId = sessionId;
     agentctlSessionEnvBridge.publishSessionId(
       options.publicSessionId ?? sessionId,
@@ -676,7 +687,6 @@ export class CodexSession {
     signal.addEventListener("abort", stopMessageWait, { once: true });
     const prompt: CodexPromptState = {
       isFirstMessage: !options.resumeSessionId,
-      agentApiInstructions: options.agentApiInstructions,
       globalContext: withSessionSandboxAgentContext(
         options.sessionSandbox?.instructions?.startFromDefault === false
           ? undefined

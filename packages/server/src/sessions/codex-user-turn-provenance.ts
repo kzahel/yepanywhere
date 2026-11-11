@@ -6,6 +6,7 @@ import {
   MCP_APP_CONTEXT_CLOSE,
   MCP_APP_CONTEXT_OPEN,
 } from "@yep-anywhere/shared";
+import { stripAgentApiBootstrapPrefix } from "@yep-anywhere/shared/agent-api-bootstrap";
 
 /**
  * Codex uses response-message role=user for both accepted human input and
@@ -115,17 +116,18 @@ export function codexUserMessageEventText(
   entry: CodexUserMessageEventEntry,
 ): string {
   if (entry.payload.type === "user_message") {
-    return entry.payload.message.trim();
+    return stripAgentApiBootstrapPrefix(entry.payload.message).trim();
   }
 
-  return entry.payload.item.content
-    .map((block) => {
-      if (!block || typeof block !== "object") return "";
-      const text = (block as { text?: unknown }).text;
-      return typeof text === "string" ? text : "";
-    })
-    .join("\n")
-    .trim();
+  return stripAgentApiBootstrapPrefix(
+    entry.payload.item.content
+      .map((block) => {
+        if (!block || typeof block !== "object") return "";
+        const text = (block as { text?: unknown }).text;
+        return typeof text === "string" ? text : "";
+      })
+      .join("\n"),
+  ).trim();
 }
 
 export function codexUserMessageEventClientId(
@@ -150,12 +152,13 @@ export function codexUserResponseText(
   payload: CodexMessagePayload,
   separator = "\n",
 ): string {
-  return payload.content
-    .map((block) =>
-      "text" in block && typeof block.text === "string" ? block.text : "",
-    )
-    .join(separator)
-    .trim();
+  return stripAgentApiBootstrapPrefix(
+    payload.content
+      .map((block) =>
+        "text" in block && typeof block.text === "string" ? block.text : "",
+      )
+      .join(separator),
+  ).trim();
 }
 
 export function isCodexStartupInstructionText(text: string): boolean {

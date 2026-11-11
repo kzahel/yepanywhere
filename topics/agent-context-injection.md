@@ -379,8 +379,47 @@ trace evidence remain in the sketches companion.
 
 The default-off **Agent API discovery** setting uses the exact shared
 `agentApiBootstrapInstructions` fragment shown in Local Access. Claude receives
-it with global instructions. Codex receives it once in the first ordinary queued
-input of each provider launch, including a resume; general global instructions
-keep their existing placement. The fragment uses variable references, never
-credential values, and points to live help/schema. It is small static context,
-not dynamic compaction state. See [HTTP v0](http-api-v0.md#local-agent-bootstrap).
+it with global instructions in the system-prompt append. API-enabled Claude
+launches use `snapshot: false`, including cold resume and prompt-cache keepalive,
+so an earlier recorded prompt cannot freeze stale bootstrap guidance.
+
+Codex receives the fragment through `developerInstructions`, preserving effective
+operator configuration and sandbox instructions without replacing its base
+prompt. A resumed thread also receives an explicit developer history insertion
+before user input: the resume configuration override alone does not immediately
+replace previously materialized context. The configured fragment is reconstructed
+by native compaction. Failed configuration reads or uncertain insertions fail
+the launch rather than falling back to a visible user-message prefix.
+
+The fragment is stable across management/peer grants, uses variable references
+instead of credential values, and supersedes earlier YA bootstrap guidance.
+Agents must obtain current authority from `/v0/me`, advertised access and
+capabilities. An instruction or a notice is never evidence of a current grant.
+General global instructions keep their existing provider-specific placement;
+API reachability remains qualified only for the existing eligible launches.
+
+When a Codex rollout contains the exact native developer fragment, YA exposes
+one collapsed **Agent API instructions added** informational row for that entry.
+Expanding shows the exact fragment as plain text. Unrelated developer instructions
+stay hidden. No notice is invented when retained history lacks that evidence;
+raw diagnostic/native history may still include instructions. Existing
+informational messages and their optional `details` field carry this notice:
+current clients on older servers simply have no new notice, and older clients
+on new servers retain their existing informational-row behavior. There is no
+new request, capability gate or change to an existing capability's meaning.
+
+Historical Codex user messages and derived titles have only the exact known
+YA prefix plus its blank-line delimiter removed for presentation. User prose,
+unknown/partial lookalikes and provider-native files stay intact. The correction
+also applies to already-persisted summary indexes without flushing or rewriting
+them. This does not normalize the separate general `[Global context]` wrapper.
+
+Native no-inference regression scenarios qualify creation, effective Codex
+operator instructions, queued compaction, changed-grant cold resume, clean
+live input and reopened history/title on pinned Codex 0.167.0 and Claude
+2.1.322 / SDK 0.3.322. Earlier probes also established native instruction
+channels for Codex OSS (`developer_instructions`), Pi (`--append-system-prompt`)
+and OpenCode (message `system`), but YA has not adopted those for general context
+or widened API eligibility. Grok/Antigravity ACP extensions and cross-platform
+acceptance remain separate qualifications.
+See [HTTP v0](http-api-v0.md#local-agent-bootstrap).

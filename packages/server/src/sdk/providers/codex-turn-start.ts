@@ -83,7 +83,6 @@ export interface CodexTurnStartContext extends CodexTurnContext {
 /** Prompt prefixes that only the first user message of a session carries. */
 export interface CodexPromptState {
   isFirstMessage: boolean;
-  agentApiInstructions: string | undefined;
   readonly globalContext: string | undefined;
 }
 
@@ -114,10 +113,6 @@ export async function* startCodexUserTurn(
   }
 
   // Prepend global instructions to the first message of new sessions
-  if (prompt.agentApiInstructions) {
-    userPrompt = `${prompt.agentApiInstructions}\n\n${userPrompt}`;
-    prompt.agentApiInstructions = undefined;
-  }
   if (prompt.isFirstMessage && prompt.globalContext) {
     userPrompt = `[Global context]\n${prompt.globalContext}\n\n---\n\n${userPrompt}`;
     prompt.isFirstMessage = false;

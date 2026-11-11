@@ -491,6 +491,12 @@ writes or legacy `/api/*`. Turning it off revokes current access; turning it on
 again applies to new launches. Old servers omit the control through the separate
 `agent-api-bootstrap` capability (introduced in the 0.11.1 line).
 
+The bootstrap enters native Claude system context or Codex developer context;
+it never prefixes the submitted user request. Its stable text tells the agent
+to discover current grants from `/v0/me`. Codex history can expose the exact
+fragment through a collapsed informational disclosure. See
+[placement and resume behavior](agent-context-injection.md#http-v0-bootstrap-placement).
+
 Connection variables are `AGENT_YA_V0_URL`, `AGENT_YA_V0_SOCKET` (Unix only)
 and `AGENT_YA_V0_AUTHORIZATION` (the complete `Bearer …` header value). They are
 separate from the unchanged legacy self/view `AGENT_YA_API_URL/TOKEN` and from

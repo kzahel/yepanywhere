@@ -479,6 +479,7 @@ function processMessage(
           id: msgId,
           subtype: msg.level === "warning" ? "warning" : "informational",
           content: msg.content,
+          details: systemLocalCommandDetails(msg),
           sourceMessages: [msg],
           isSubagent: msg.isSubagent,
         });

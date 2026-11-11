@@ -67,6 +67,8 @@ const wireFor = (provider: NativeProvider): ModelWire =>
         : "chat";
 
 interface FixtureOptions {
+  launch?: Partial<StartSessionOptions>;
+  codexDeveloperInstructions?: string;
   permissionMode?: StartSessionOptions["permissionMode"];
   onToolApproval?: StartSessionOptions["onToolApproval"];
   gitProject?: boolean;
@@ -83,7 +85,14 @@ export async function nativeFixture(
   // Resolve before scrubbing env, so an explicit owned test executable is preserved.
   const executable = nativeExecutable(provider);
   const root = await realpath(
-    await mkdtemp(join(tmpdir(), "ya-native-provider-")),
+    await mkdtemp(
+      join(
+        options.launch?.agentApi && process.platform !== "win32"
+          ? "/tmp"
+          : tmpdir(),
+        "ya-native-provider-",
+      ),
+    ),
   );
   const profile = join(root, "profile"),
     project = join(root, "project");
@@ -385,7 +394,7 @@ export async function nativeFixture(
       });
     await writeFile(
       join(environment.CODEX_HOME!, "config.toml"),
-      `model_provider = "owned_fixture"\n[model_providers.owned_fixture]\nname = "Owned local model"\nbase_url = "${model.url}/v1"\nwire_api = "responses"\nenv_key = "OPENAI_API_KEY"\nsupports_websockets = false\n[analytics]\nenabled = false\n`,
+      `${options.codexDeveloperInstructions ? `developer_instructions = ${JSON.stringify(options.codexDeveloperInstructions)}\n` : ""}model_provider = "owned_fixture"\n[model_providers.owned_fixture]\nname = "Owned local model"\nbase_url = "${model.url}/v1"\nwire_api = "responses"\nenv_key = "OPENAI_API_KEY"\nsupports_websockets = false\n[analytics]\nenabled = false\n`,
     );
     await writeFile(
       join(environment.PI_CODING_AGENT_DIR!, "models.json"),
@@ -516,7 +525,7 @@ export async function nativeFixture(
     else if (provider === "opencode")
       adapter = new OpenCodeProvider({ opencodePath: executable });
     else adapter = new GrokACPProvider({ grokPath: executable });
-    await start();
+    await start(options.launch);
     return {
       provider,
       version,

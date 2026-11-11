@@ -2,6 +2,7 @@ import { ConversationActivitySummary } from "./ConversationActivity";
 import promptStyles from "./blocks/UserPromptBlock.module.css";
 import collapsibleStyles from "./Collapsible.module.css";
 import { memo, useCallback, useRef } from "react";
+import { AGENT_API_BOOTSTRAP_NOTICE } from "@yep-anywhere/shared/agent-api-bootstrap";
 import { useSessionRewind } from "../contexts/SessionRewindContext";
 import { useI18n } from "../i18n";
 import { getRenderItemRewoundGroupId } from "../lib/sessionDetail/renderItems";
@@ -730,6 +731,7 @@ export const RenderItemComponent = memo(function RenderItemComponent({
                           : "⟳";
         if (
           item.subtype === "compact_boundary" ||
+          (isInformational && (item.details?.length ?? 0) > 0) ||
           isLocalCommand ||
           isToolOutput
         ) {
@@ -738,11 +740,13 @@ export const RenderItemComponent = memo(function RenderItemComponent({
               item={item}
               icon={icon}
               label={
-                isToolOutput
-                  ? item.content
-                    ? t("toolOutputFrom", { tool: item.content })
-                    : t("toolOutput")
-                  : undefined
+                item.content === AGENT_API_BOOTSTRAP_NOTICE
+                  ? t("agentApiInstructionsAdded")
+                  : isToolOutput
+                    ? item.content
+                      ? t("toolOutputFrom", { tool: item.content })
+                      : t("toolOutput")
+                    : undefined
               }
             />
           );
