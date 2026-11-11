@@ -36,9 +36,6 @@ const load = (file) =>
 const host = await startHostEvidence(false);
 const capacity = host.capacity;
 const { openDiscoveryDatabase } = await load("storage/discovery-sqlite.js");
-const { SessionCatalogService } = await load(
-  "services/SessionCatalogService.js",
-);
 const { RetainedSessionCollections } = await load(
   "services/RetainedSessionCollections.js",
 );

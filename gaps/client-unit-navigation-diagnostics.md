@@ -53,3 +53,10 @@ design-index test and desktop/phone browser cases are clean. This playground
 change does not change production navigation; identifying the source still
 requires the separate fixture audit described above. No global navigation
 suppression was added. Evidence: ignored `.artifacts/design-audit/tests.log`.
+
+2026-11-12: plan 190's measurement checkpoint and separate redundant-import
+cleanup repeat five timer-only navigation diagnostics in the passing workspace
+run (7,389 client and 7,382 server tests, 94 server skips). The cleanup's isolated
+API smoke is clean and no production navigation changes. The stacks still do
+not identify a triggering test; changing global links or suppressing diagnostics
+would be an unrelated fixture audit. Evidence: `/tmp/p190/regroup/tests.log`.
