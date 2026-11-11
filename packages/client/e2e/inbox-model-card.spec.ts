@@ -5,6 +5,7 @@ import type {
 } from "@yep-anywhere/shared";
 import { decodeJsonFrame } from "@yep-anywhere/shared";
 import { e2ePaths, expect, test } from "./fixtures.js";
+import { readCollectionsOverRest } from "./support/managed-routes.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 import type { InboxItem } from "../src/api/inbox.js";
 
@@ -84,6 +85,7 @@ test("Inbox keeps model cards and typing stable through activity and older-serve
         }
       : {}),
   });
+  await readCollectionsOverRest(page);
   await page.route(/\/api\/inbox(?:\?|$)/, (route) => {
     requests++;
     return route.fulfill({

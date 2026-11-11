@@ -6,6 +6,10 @@ import {
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
 import { e2ePaths, expect, test } from "./fixtures.js";
+import {
+  readCollectionsOverRest,
+  routeWithDrain,
+} from "./support/managed-routes.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 
 test.use({ serviceWorkers: "block", hasTouch: true });
@@ -46,7 +50,8 @@ test("header preserves identity, overflow actions and rename typing during live 
   await page.addInitScript(() => {
     localStorage.setItem("yep-anywhere-project-code-names-enabled", "true");
   });
-  await page.route(/\/api\/projects(?:\?|$)/, async (route) => {
+  await readCollectionsOverRest(page);
+  await routeWithDrain(page, /\/api\/projects(?:\?|$)/, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     await route.fulfill({
@@ -60,21 +65,25 @@ test("header preserves identity, overflow actions and rename typing during live 
       },
     });
   });
-  await page.route(/\/api\/projects\/[^/?]+(?:\?|$)/, async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    await route.fulfill({
-      json: {
-        ...body,
-        project: {
-          ...body.project,
-          name: "tomfit-content-service",
-          codeName: "tfc",
+  await routeWithDrain(
+    page,
+    /\/api\/projects\/[^/?]+(?:\?|$)/,
+    async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({
+        json: {
+          ...body,
+          project: {
+            ...body.project,
+            name: "tomfit-content-service",
+            codeName: "tfc",
+          },
         },
-      },
-    });
-  });
-  await page.route("**/api/settings", async (route) => {
+      });
+    },
+  );
+  await routeWithDrain(page, "**/api/settings", async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     await route.fulfill({
