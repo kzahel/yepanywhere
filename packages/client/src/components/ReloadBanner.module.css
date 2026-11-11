@@ -116,6 +116,27 @@
     max-width: none;
   }
 
+  /*
+   * Two or more actions (Reload plus Safe or Cancel) do not fit one phone row
+   * beside the status: keep the message and dismiss on top and right-align
+   * the actions on a row of their own, rather than stacking the buttons and
+   * truncating the status.
+   */
+  .banner:has(> :nth-child(2) > :nth-child(2)) {
+    flex-wrap: wrap;
+  }
+
+  .banner:has(> :nth-child(2) > :nth-child(2)) > :first-child {
+    flex: 1 1 0;
+  }
+
+  .banner:has(> :nth-child(2) > :nth-child(2)) > :nth-child(2) {
+    order: 1;
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
   .content {
     width: 100%;
     justify-content: flex-start;
