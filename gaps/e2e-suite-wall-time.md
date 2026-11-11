@@ -48,8 +48,13 @@ expectation. Those assertions now follow the emitted state hooks, stable
 `/v0/me` bootstrap, and measured two-column packing. Six focused browser
 cases pass locally without retries. The native-allocation route fixture now
 explicitly admits its Claude catalog family, preserving the quarantine and
-public-identity assertions; the full workspace suite passes. Hosted acceptance
-for these follow-up repairs remains pending.
+public-identity assertions; the full workspace suite passes. Source `ae932ec61`
+passes all 26 jobs in [CI 42966233783](https://github.com/kzahel/yepanywhere/actions/runs/42966233783)
+and all nine jobs in [runtime/SQLite 42966233796](https://github.com/kzahel/yepanywhere/actions/runs/42966233796).
+The browser shards pass 602 cases with 12 skips. Three unrelated cases need
+retries: remote creation draft handoff, attachment drop and diff scrolling.
+The repaired cases pass first attempt; repeated first-attempt suite reliability
+remains open.
 
 ## Remaining
 

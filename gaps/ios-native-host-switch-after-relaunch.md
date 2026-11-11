@@ -21,3 +21,13 @@ original xcresult, exported checkpoint and activity tree are retained under
 `tasks/rustls-native-review/` on the diagnosing checkout.
 
 Found 2026-10-21 while investigating native acceptance for the rustls update.
+
+November 11: [iOS 42964475962](https://github.com/kzahel/yepanywhere/actions/runs/42964475962)
+on `23021f5e6` passes all 23 native tests and reaches typing, background and
+relaunch assertions. It then misses `QA host switch ready` at
+`LiveAppTests.swift:127`, before the native Switch Host tap. The exported
+xcresult activity and failure hierarchy show the sidebar still closed after
+the Open sidebar coordinate tap. This is an earlier boundary than the
+original finding: there is no captured DOM pointer/click receipt establishing
+whether the opening tap reached React. No interaction code or acceptance
+limit was changed on this evidence.
