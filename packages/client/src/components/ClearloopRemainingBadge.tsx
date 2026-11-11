@@ -55,7 +55,6 @@ export function ClearloopRemainingBadge({
       prompt: badge.prompt,
     },
   );
-  const patient = badge.patient ? ` ${styles.patient}` : "";
 
   if (!controls) {
     return (
@@ -70,7 +69,11 @@ export function ClearloopRemainingBadge({
           emphasis="solid"
           shape="count"
           size="small"
-          className={`${styles.count}${patient}`}
+          palette={
+            badge.patient
+              ? { color: "var(--project-queue-action-bg)" }
+              : undefined
+          }
         >
           {badge.remaining}
         </Badge>

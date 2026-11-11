@@ -1,7 +1,6 @@
 import type { IssueItem } from "@yep-anywhere/shared";
 import { Badge } from "../components/ui/Badge";
 import { useI18n } from "../i18n";
-import styles from "./IssueTypeBadge.module.css";
 
 /** Type colors describe the reference, never an inferred open/merged state. */
 export function IssueTypeBadge({ item }: { item: IssueItem }) {
@@ -9,12 +8,12 @@ export function IssueTypeBadge({ item }: { item: IssueItem }) {
   const jira = item.provider === "jira";
   const pr = item.provider === "github" && item.kind === "pr";
   const issue = item.kind === "issue";
-  const typeClass = jira
-    ? styles.jira
+  const typeColor = jira
+    ? "#1d4ed8"
     : pr
-      ? styles.pr
+      ? "#7e22ce"
       : issue
-        ? styles.issue
+        ? "#0f766e"
         : undefined;
   const icon = (
     <svg
@@ -45,9 +44,9 @@ export function IssueTypeBadge({ item }: { item: IssueItem }) {
   );
   return (
     <Badge
-      emphasis={typeClass ? "solid" : "soft"}
+      emphasis={typeColor ? "solid" : "soft"}
       icon={icon}
-      className={typeClass && `${styles.type} ${typeClass}`}
+      palette={typeColor ? { color: typeColor, onSolid: "#fff" } : undefined}
     >
       {jira
         ? "Jira"

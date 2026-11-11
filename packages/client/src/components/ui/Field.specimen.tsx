@@ -2,6 +2,7 @@ import { type CSSProperties, useId, useState } from "react";
 import type { SpecimenMeta } from "../../../design/specimen";
 import { Checkbox, Radio } from "./Checkbox";
 import { Field, Select, Textarea, TextInput } from "./Field";
+import { IconButton } from "./Button";
 
 export default {
   title: "Controls/Field",
@@ -26,6 +27,62 @@ const row: CSSProperties = {
   alignItems: "center",
   gap: "var(--space-3)",
 };
+
+export function Adornments() {
+  const [value, setValue] = useState("");
+  const [choice, setChoice] = useState("plain");
+  return (
+    <div style={column}>
+      <Field
+        label="Search"
+        hint="Clear remains separate from the text and its focus."
+      >
+        <TextInput
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          leading="⌕"
+          trailing={
+            value ? (
+              <IconButton
+                size="small"
+                label="Clear search"
+                onClick={() => setValue("")}
+              >
+                ×
+              </IconButton>
+            ) : null
+          }
+        />
+      </Field>
+      <TextInput
+        aria-label="Compact decorated field"
+        size="small"
+        touchTarget="large"
+        defaultValue="A long command or source path stays clear of actions"
+        trailing={
+          <IconButton size="small" label="Field action">
+            ?
+          </IconButton>
+        }
+      />
+      <Select
+        aria-label="Prefix"
+        value={choice}
+        leading={choice === "icon" ? "●" : null}
+        onChange={(event) => setChoice(event.target.value)}
+      >
+        <option value="plain">Plain prefix</option>
+        <option value="icon">Icon prefix</option>
+      </Select>
+      <Checkbox label="Touch row" touchTarget="large" />
+      <Checkbox
+        label="Padded choice"
+        variant="option"
+        description="Clicking anywhere in this row changes the choice."
+      />
+    </div>
+  );
+}
 
 export function TextInputs() {
   const [value, setValue] = useState("Typed text");

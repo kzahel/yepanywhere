@@ -38,21 +38,9 @@
     }
   },
   "controls": {
-    "components/AudioMemoPanel.tsx": {
-      "count": 1,
-      "reason": "Transcript opt-in has a 44 px touch row; retain until the checkbox touch-target contract is reconciled."
-    },
-    "components/FileVhostSection.tsx": {
-      "count": 3,
-      "reason": "Access select, password input and replacement checkbox require 44 px coarse-pointer targets together; the current small-field/checkbox sizes are shorter."
-    },
     "components/ModelSwitchModal.tsx": {
       "count": 1,
       "reason": "The tab strip uses the surrounding model-switch panel background; leave the shared Tabs surface decision to the non-button pass."
-    },
-    "components/ProviderBadge.tsx": {
-      "count": 1,
-      "reason": "Provider identity uses provider brand colors and soft fills via Badge custom properties. Caller-owned effort children keep their own compact layout; generic tones do not express provider branding."
     },
     "components/RemoteCompatibilityNotices.tsx": {
       "count": 1,
@@ -61,22 +49,6 @@
     "components/SourceEditor.tsx": {
       "count": 1,
       "reason": "The target-file Field has panel padding around its chooser; retain the editor target-picker grouping."
-    },
-    "components/SpeechMessagePrefixControls.tsx": {
-      "count": 1,
-      "reason": "The native select reserves left padding for its caller-owned prefix icon; a field-leading-icon API is deferred."
-    },
-    "components/session-search/SearchControls.tsx": {
-      "count": 2,
-      "reason": "The search-option checkboxes align and size to the compact toolbar, with a separate touch minimum; reconcile with the checkbox family later."
-    },
-    "pages/BlameBrowser.tsx": {
-      "count": 1,
-      "reason": "Search input reserves right padding for the overlaid clear/search action, with a coarse-pointer adjustment; shared field adornments are deferred."
-    },
-    "pages/CommitRevisionPane.tsx": {
-      "count": 1,
-      "reason": "Search input reserves right padding for the overlaid clear/search action, with a coarse-pointer adjustment; shared field adornments are deferred."
     },
     "pages/ConversationPreviewPage.tsx": {
       "count": 1,
@@ -89,46 +61,6 @@
     "pages/settings/GatewayServicesSettings.tsx": {
       "count": 1,
       "reason": "The editable service id uses semibold text beside the service heading; defer the field typography decision."
-    },
-    "pages/settings/ProvidersSettings.tsx": {
-      "count": 1,
-      "reason": "Additional-model checkboxes have padded hover rows and caller-owned code labels; defer the choice-row presentation."
-    },
-    "pages/settings/SettingsSearchBar.tsx": {
-      "count": 1,
-      "reason": "Search input reserves space for its overlaid clear button at desktop and touch sizes; shared field adornments are deferred."
-    },
-    "pages/settings/UserTemplateGrant.tsx": {
-      "count": 1,
-      "reason": "Template grant checkboxes have vertical row padding for the permission list."
-    },
-    "components/ClearloopRemainingBadge.tsx": {
-      "count": 1,
-      "reason": "The passive patient counter uses its existing patient accent via --badge-color; the standard Badge tones do not express this Clearloop timing state."
-    },
-    "components/InboxContent.tsx": {
-      "count": 2,
-      "reason": "Tier counts inherit each section heading attention color via --badge-color, keeping the count aligned with the caller-owned tier heading and help cue."
-    },
-    "components/SessionProviderPhase.tsx": {
-      "count": 1,
-      "reason": "Waiting-for-input phase pills blend the warning tint with the transcript surface via Badge custom properties; preserve this phase-specific state until the non-button pass."
-    },
-    "components/ThinkingIndicator.tsx": {
-      "count": 1,
-      "reason": "The provider thinking pill uses --thinking-color and its matching soft fill via Badge custom properties; no current Badge tone follows the configurable thinking color."
-    },
-    "components/TrackerStatusBadge.tsx": {
-      "count": 1,
-      "reason": "Merged tracker status uses the existing purple merge accent and contrasting text via Badge custom properties; preserve the cross-provider status vocabulary."
-    },
-    "pages/AgentsPage.tsx": {
-      "count": 2,
-      "reason": "Provider badges use the six provider brand colors and matching soft fills via Badge custom properties; generic semantic tones would erase provider identity."
-    },
-    "pages/IssueTypeBadge.tsx": {
-      "count": 1,
-      "reason": "Issue-type badges retain Jira, pull-request and issue brand colors with contrasting text via Badge custom properties."
     }
   }
 }

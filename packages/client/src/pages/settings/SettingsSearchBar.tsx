@@ -53,34 +53,34 @@ export function SettingsSearchBar({
       autoComplete="off"
       onSubmit={(event) => event.preventDefault()}
     >
-      <div className={styles.inputWrap}>
-        <TextInput
-          type="search"
-          name="settings-search"
-          autoComplete="off"
-          className={styles.input}
-          placeholder={t("settingsSearchPlaceholder")}
-          aria-label={t("settingsSearchPlaceholder")}
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && query !== "") {
-              event.stopPropagation();
-              onQueryChange("");
-            }
-          }}
-        />
-        {query !== "" && (
-          <IconButton
-            size="small"
-            className={styles.clear}
-            label={t("settingsSearchClear")}
-            onClick={() => onQueryChange("")}
-          >
-            ×
-          </IconButton>
-        )}
-      </div>
+      <TextInput
+        type="search"
+        hideNativeSearchClear
+        name="settings-search"
+        autoComplete="off"
+        className={styles.inputWrap}
+        trailing={
+          query !== "" ? (
+            <IconButton
+              size="small"
+              label={t("settingsSearchClear")}
+              onClick={() => onQueryChange("")}
+            >
+              ×
+            </IconButton>
+          ) : null
+        }
+        placeholder={t("settingsSearchPlaceholder")}
+        aria-label={t("settingsSearchPlaceholder")}
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && query !== "") {
+            event.stopPropagation();
+            onQueryChange("");
+          }
+        }}
+      />
       {searching && (
         <span className={styles.valuesToggle} {...matchValuesTooltip}>
           <Checkbox

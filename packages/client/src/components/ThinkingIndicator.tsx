@@ -84,7 +84,11 @@ export function ThinkingIndicator({
         ref={rootRef}
         size="small"
         icon={dot}
-        className={`${styles.thinking} ${styles.pill} ${className ?? ""}`}
+        className={className}
+        palette={{
+          color: "var(--thinking-color)",
+          soft: "color-mix(in srgb, var(--thinking-color) 15%, transparent)",
+        }}
       >
         {label}
       </Badge>

@@ -67,6 +67,29 @@ label.root.disabled {
   opacity: 0.55;
 }
 
+.row {
+  padding-block: var(--space-2);
+}
+
+.option {
+  display: flex;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.option:not(.disabled):hover {
+  background: var(--bg-hover);
+}
+
+.toolbar {
+  min-height: 28px;
+  align-items: center;
+}
+
+.toolbar .box {
+  margin-top: 0;
+}
+
 /* Fingers, not cursors: a larger box, still inside the row's height. */
 @media (pointer: coarse) {
   .box {
@@ -88,5 +111,16 @@ label.root.disabled {
 
   label.root:has(.description) {
     align-items: flex-start;
+  }
+
+  label.root.largeTouch {
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+}
+
+@media (width <= 700px) {
+  .toolbar {
+    min-height: 30px;
   }
 }

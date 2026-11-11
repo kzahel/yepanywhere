@@ -568,6 +568,7 @@ function WorkingTreeFilter({
         type="search"
         size="small"
         className={searchStyles.input}
+        trailing={<kbd className={searchStyles.shortcut}>/</kbd>}
         value={value}
         placeholder={t("sourceFilterFiles")}
         aria-label={t("sourceFilterFiles")}
@@ -580,7 +581,6 @@ function WorkingTreeFilter({
         }}
         onChange={(event) => update(event.target.value)}
       />
-      <kbd className={searchStyles.shortcut}>/</kbd>
     </div>
   );
 }

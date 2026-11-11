@@ -1,8 +1,5 @@
 .root {
-  position: absolute;
-  z-index: 5;
-  top: 4px;
-  right: 6px;
+  display: inline-flex;
 }
 
 .trigger {

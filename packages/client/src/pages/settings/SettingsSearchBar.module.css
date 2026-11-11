@@ -11,35 +11,8 @@
 }
 
 .inputWrap {
-  position: relative;
   flex: 1;
   min-width: 0;
-}
-
-/* Reserves room for the absolutely positioned clear button. The shared
-   TextInput owns its padding, so this one override is compounded with the
-   type attribute to win over the control's single-class rule regardless of
-   stylesheet order. The clear button is a small IconButton: 26 px wide,
-   36 px on coarse pointers, inset by --space-1. */
-.input[type="search"] {
-  padding-right: calc(26px + 2 * var(--space-1));
-}
-
-@media (pointer: coarse) {
-  .input[type="search"] {
-    padding-right: calc(36px + 2 * var(--space-1));
-  }
-}
-
-.input::-webkit-search-cancel-button {
-  display: none;
-}
-
-.clear {
-  position: absolute;
-  top: 50%;
-  right: var(--space-1);
-  transform: translateY(-50%);
 }
 
 .valuesToggle {

@@ -214,6 +214,12 @@ export function CommitRevisionPane({
             type="search"
             size="small"
             className={searchStyles.input}
+            trailing={
+              <>
+                <kbd className={searchStyles.shortcut}>/</kbd>
+                <SourceShortcutHelp t={t} />
+              </>
+            }
             value={searchQuery}
             placeholder={t("sourceSearchCommits")}
             aria-label={t("sourceShortcutSearch")}
@@ -230,8 +236,6 @@ export function CommitRevisionPane({
               onSearchQueryChange(event.target.value);
             }}
           />
-          <kbd className={searchStyles.shortcut}>/</kbd>
-          <SourceShortcutHelp t={t} />
         </div>
         {searchIndexRequested && searchIndexing && (
           <div className={searchStyles.indexStatus} data-source-search-status>

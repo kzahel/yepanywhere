@@ -329,6 +329,20 @@ caller's render (the 100 ms rule in [AGENTS.md](../AGENTS.md)). Width
 defaults to the container's at zero specificity, so a caller's single
 layout class wins; the control owns everything else.
 
+`TextInput` accepts a decorative `leading` slot and a `trailing` slot for a
+clear action, shortcut or other content. Slots occupy their actual width, so
+text cannot run underneath actions. Supplying either prop, even with a null or
+undefined value, selects a stable wrapper: showing/hiding its content keeps
+the same native input, ref, focus and selection. `className` lays out that
+wrapper and `inputClassName` lays out its native input; without slots or a unit,
+`className` stays on the input. The native input retains Field naming, hints,
+validation, disabled state and event handling. Native search clear remains
+available with generic slots; `hideNativeSearchClear` suppresses it only when
+the caller supplies a replacement. The shared wrapper owns the
+focus/invalid ring. `Select` accepts a decorative `leading` slot with the same
+stable native-control contract. `touchTarget="large"` gives compact fields a
+44 px minimum on coarse pointers while preserving mouse density.
+
 `Field` is a label above one control, with an optional `hint` and `error`
 below: it names the control with `<label htmlFor>`, links the hint and
 error through `aria-describedby`, marks the control `aria-invalid` while
@@ -341,6 +355,11 @@ instead.
 in the accent green, with an optional `label` (clicking it toggles) and a
 muted `description` line that describes rather than names, and
 `onCheckedChange(checked, event)`. `indeterminate` shows a mixed state.
+`variant="row"` adds vertical row spacing, `option` adds a padded hover surface,
+and `toolbar` centers compact choices at 28 px (30 px on narrow layouts).
+Labelled choices can request `touchTarget="large"` for a 44 px coarse-pointer
+row. Whole-row clicks still operate the native input, including at the padded
+edge; disabled options do not acquire a hover surface.
 
 Which control: one setting on or off that applies at once is a `Switch`; a
 checkbox picks several independent things (a selection, a filter, an
@@ -378,9 +397,11 @@ tabular figures; `size="small"` fits dense rows; `mono` sets the code font.
 Soft text is the tone mixed toward the text color, and the accent and danger
 solid fills are darkened, so 10–11 px type stays above 4.5:1 in every
 theme. A component whose color comes from data (a provider's brand color)
-sets `--badge-color` and `--badge-soft` (and `--badge-on` for solid text)
-on a compounded class it passes (`.badge.claude`), never `color` or
-`background`. A count or a state its text does not say needs `role="img"`
+passes `palette={{ color, soft, onSolid }}`. `color` is required, `soft` and
+`onSolid` retain the selected tone's defaults when omitted. The Badge owns
+painting, text mixing and solid-fill darkening; callers provide a contrasting
+`onSolid` for custom solid palettes and verify it in every theme. Class names
+remain layout-only; they do not override private badge custom properties. A count or a state its text does not say needs `role="img"`
 with an `aria-label`; `tooltip` is visual and names nothing. A clickable
 chip is a button, not a badge. Only a badge with a `tooltip` subscribes to the
 tooltip setting, so badges cost nothing extra in the transcript.

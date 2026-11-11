@@ -74,13 +74,56 @@ Existing suite diagnostics remain tracked in
 [client navigation diagnostics](../../gaps/client-unit-navigation-diagnostics.md)
 and [full-suite diagnostics](../../gaps/full-suite-timing-and-diagnostics.md).
 
+## Consolidation follow-up, 2026-11-11
+
+Independent Sol 6.1 high review of step 8 found lost truncation hooks on both
+DiffMathView modes, two React media classes still using generated globals, and
+class-string scanner gaps in generated-emitter ownership, HTML template suffixes,
+helper object keys and static computed DOM writes. These are repaired with
+focused regressions. A lint failure in the reviewed historical snapshot had
+already been repaired by the intervening native-route import commit.
+
+The token pass recognizes complete user-configured output/source/thinking sizes
+and proven module-local aliases, preserving the original declarations. Remaining
+exceptions fall 181 → 134 (102 type / 32 radius, 61 files); crash fallbacks keep
+their independent literals. Hidden absolute fallbacks, cycles, literal overrides
+and externally mentioned aliases do not qualify.
+
+Field adornments, explicit 44 px touch targets, padded/toolbar choice variants
+and Badge palettes replace repeated caller styling. Non-button control overrides
+fall 28 → 6. The 18 button overrides and 28 specialized ButtonBase sites remain.
+Generated-purpose contexts stay at 145; six external-markup class exceptions stay.
+
+Follow-up review repaired native search-clear preservation and invalid focus
+border/ring consistency, and closed JSX-spread and selected-dictionary parser
+variants. Focused tests retain those exact reproductions.
+
+Qualification: lint is warning-free; formatter, typecheck and console scan pass.
+Production local/remote client builds and the extension build pass.
+The full workspace passes all 7,373 client cases and 7,340 server cases, with
+only the already-recorded [native allocation finding](../../gaps/native-allocation-retained-known-session-missing.md)
+failing (94 server skips). The stale installed Hono package was refreshed from
+the existing frozen lockfile; both proxy regression cases then pass. The touched
+component/parser groups pass without warnings. Focused browser checks cover
+settings search, 650-file source filtering during late metadata, session title
+and responsive header typing, toolbar layout, control reveal and long diff
+clipping in both modes. The new field case retains every sequential prefix
+while 500 rows filter and concurrent updates render: final maximum 18.8 ms
+desktop / 19.1 ms coarse-pointer phone against the unchanged 100 ms limit.
+It also exercises native clear, invalid focus colors, DOM identity and 44 px
+choice/field targets. Six production screen-tour cases pass in dark/light at
+desktop/phone widths; reviewed captures live under
+`.artifacts/css-followup/accepted-browser/` and
+`.artifacts/design-tour/css-followup-surfaces/`.
+No Android device is attached; native instrumentation remains unqualified.
+
 ## Follow-ups
 
 - Plan 182's composer control swaps: raw controls, specialized action geometry,
   and composer look overrides; CSS ownership itself is complete.
-- The 28 non-button control overrides, 18 button overrides and 28 specialized
+- The 6 non-button control overrides, 18 button overrides and 28 specialized
   ButtonBase surfaces retain per-entry reasons and closure conditions in Census.
-- The 181 semantic typography, optical/geometry and fallback exceptions need
+- The 134 remaining semantic typography, optical/geometry and fallback exceptions need
   appropriate shared tokens/APIs or stronger alias recognition, not blind scaling.
 - The 145 generated-purpose exceptions are references to React/document data
   contexts that scope emitted Markdown/ANSI/math and Shiki/diff descendants,

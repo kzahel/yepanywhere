@@ -1,18 +1,12 @@
 .input {
   margin-bottom: var(--space-2, 8px);
 }
-.field .input[type="search"] {
-  padding-right: 58px;
-}
 
 .field {
   position: relative;
 }
 
 .shortcut {
-  position: absolute;
-  top: 5px;
-  right: 34px;
   min-width: 18px;
   padding: 1px 4px;
   color: var(--text-muted);
@@ -31,7 +25,7 @@
   border-color: var(--border-color);
 }
 
-.input:not(:placeholder-shown) + .shortcut {
+.input:has(input:not(:placeholder-shown)) .shortcut {
   display: none;
 }
 
@@ -44,12 +38,6 @@
 
 .indexStatus[data-error] {
   color: var(--error-color);
-}
-
-@media (width <= 600px) {
-  .field .input[type="search"] {
-    padding-right: var(--space-2);
-  }
 }
 
 @media (width <= 600px) {

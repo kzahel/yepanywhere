@@ -124,12 +124,6 @@
   font-size: var(--font-size-sm);
 }
 
-/* The count Badge takes its tier's color; compounded so it outranks the
-   Badge's tone class. */
-.sectionHeader .sectionCount {
-  --badge-color: currentColor;
-}
-
 /* Inherits the tier color, like the count. */
 .sectionHelp {
   color: inherit;

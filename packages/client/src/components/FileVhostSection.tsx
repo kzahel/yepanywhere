@@ -227,7 +227,7 @@ export function FileVhostSection({
             {t("fileVhostAccess")}
             <Select
               size="small"
-              className={styles.accessControl}
+              touchTarget="large"
               value={access}
               onChange={(event) =>
                 setAccess(event.target.value as typeof access)
@@ -248,6 +248,7 @@ export function FileVhostSection({
                 type="password"
                 size="small"
                 className={styles.passwordInput}
+                touchTarget="large"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="new-password"
@@ -258,6 +259,7 @@ export function FileVhostSection({
           {service.canReplace && (
             <Checkbox
               className={styles.replace}
+              touchTarget="large"
               label={t("fileVhostReplace")}
               checked={replace}
               onCheckedChange={setReplace}

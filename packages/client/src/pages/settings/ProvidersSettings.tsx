@@ -653,6 +653,7 @@ function ClaudeAdditionalModelsSettings({
               <Checkbox
                 key={model.id}
                 className={styles.additionalModelOption}
+                variant="option"
                 label={
                   <>
                     <strong>{model.name}</strong> <code>{model.id}</code>

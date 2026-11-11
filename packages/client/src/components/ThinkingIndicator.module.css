@@ -14,13 +14,6 @@
   justify-content: center;
 }
 
-/* The pill is a Badge in the thinking color, which no Badge tone carries;
-   compounded so it outranks the Badge's own tone class. */
-.thinking.pill {
-  --badge-color: var(--thinking-color);
-  --badge-soft: color-mix(in srgb, var(--thinking-color) 15%, transparent);
-}
-
 .icon {
   display: inline-flex;
   align-items: center;

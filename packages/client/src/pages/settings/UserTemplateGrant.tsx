@@ -63,7 +63,7 @@ export function UserTemplateGrant({
             );
             return (
               <Checkbox
-                className={styles.option}
+                variant="row"
                 key={`${item.sourceId}/${item.templateId}`}
                 label={
                   <span className={styles.template}>

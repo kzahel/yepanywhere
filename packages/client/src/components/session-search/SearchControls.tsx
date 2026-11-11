@@ -207,6 +207,7 @@ export function SearchHeader({
           >
             <Checkbox
               className={styles.field}
+              variant="toolbar"
               label={
                 <>
                   {t(`sessionSearchField_${field}`)}
@@ -230,6 +231,7 @@ export function SearchHeader({
           <span title={t("sessionSearchIntersectionHelp")}>
             <Checkbox
               className={styles.field}
+              variant="toolbar"
               label={t("sessionSearchIntersection")}
               checked={intersection}
               onCheckedChange={onIntersection}

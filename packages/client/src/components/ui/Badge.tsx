@@ -12,12 +12,12 @@
  *
  * A badge is text, not a control: put the click on the row or button around
  * it. A caller's `className` adds layout (margins, alignment); a color that
- * comes from data (a provider's brand color) is set as `--badge-color` and
- * `--badge-soft` on a compounded caller selector (`.badge.claude`), never
- * as `color` or `background`. A count or state the text does not name
+ * comes from data (a provider's brand color) uses the explicit `palette`
+ * API. Badge owns the paint; caller classes never override its variables.
+ * A count or state the text does not name
  * needs `role="img"` with an `aria-label`.
  */
-import type { ComponentProps, ReactNode, Ref } from "react";
+import type { ComponentProps, CSSProperties, ReactNode, Ref } from "react";
 import { useTextTooltipAttributes } from "../../hooks/useTooltipAppearance";
 import styles from "./Badge.module.css";
 
@@ -30,6 +30,10 @@ export type BadgeTone =
   | "accent";
 
 export interface BadgeProps {
+  /** Data-owned brand/state colors; Badge still owns paint and contrast mixing.
+   * Supply an onSolid color when the default tone's foreground is unsuitable.
+   */
+  palette?: { color: string; soft?: string; onSolid?: string };
   tone?: BadgeTone;
   emphasis?: "soft" | "solid";
   size?: "default" | "small";
@@ -59,6 +63,7 @@ const TONE_CLASS: Record<BadgeTone, string | undefined> = {
 
 export function Badge({
   tone = "neutral",
+  palette,
   emphasis = "soft",
   size = "default",
   shape = "tag",
@@ -70,6 +75,15 @@ export function Badge({
   ref,
   ...rest
 }: BadgeProps) {
+  const paletteStyle = palette
+    ? ({
+        "--badge-color": palette.color,
+        ...(palette.soft === undefined ? {} : { "--badge-soft": palette.soft }),
+        ...(palette.onSolid === undefined
+          ? {}
+          : { "--badge-on": palette.onSolid }),
+      } as CSSProperties)
+    : undefined;
   const classes = [
     styles.badge,
     TONE_CLASS[tone],
@@ -94,11 +108,17 @@ export function Badge({
   // Badges fill transcripts; only those with a tooltip subscribe to the
   // tooltip setting.
   return tooltip ? (
-    <TooltipSpan {...rest} ref={ref} className={classes} tooltip={tooltip}>
+    <TooltipSpan
+      {...rest}
+      ref={ref}
+      className={classes}
+      style={paletteStyle}
+      tooltip={tooltip}
+    >
       {content}
     </TooltipSpan>
   ) : (
-    <span {...rest} ref={ref} className={classes}>
+    <span {...rest} ref={ref} className={classes} style={paletteStyle}>
       {content}
     </span>
   );

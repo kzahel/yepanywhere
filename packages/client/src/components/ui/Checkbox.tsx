@@ -31,6 +31,10 @@ type NativeInputProps = Omit<
 >;
 
 interface ChoiceProps extends NativeInputProps {
+  /** Row spacing, selectable option surface, or compact toolbar alignment. */
+  variant?: "default" | "row" | "option" | "toolbar";
+  /** A 44px labelled touch row, preserving mouse density. */
+  touchTarget?: "large";
   checked?: boolean;
   /** Called with the new state; the event is there for callers that need it. */
   onCheckedChange?: (
@@ -57,6 +61,8 @@ function Choice({
   onCheckedChange,
   label,
   description,
+  variant = "default",
+  touchTarget,
   className,
   disabled,
   indeterminate,
@@ -96,7 +102,19 @@ function Choice({
       onChange={(event) => onCheckedChange?.(event.target.checked, event)}
     />
   );
-  const rootClass = [styles.root, disabled && styles.disabled, className]
+  const variants = {
+    default: undefined,
+    row: styles.row,
+    option: styles.option,
+    toolbar: styles.toolbar,
+  };
+  const rootClass = [
+    styles.root,
+    variants[variant],
+    touchTarget && styles.largeTouch,
+    disabled && styles.disabled,
+    className,
+  ]
     .filter(Boolean)
     .join(" ");
   if (!hasLabel && !description)

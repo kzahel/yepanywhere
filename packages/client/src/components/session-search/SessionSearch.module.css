@@ -41,11 +41,8 @@
   align-items: center;
   gap: 10px;
 }
-/* Compounded to outrank the checkbox's own top alignment, so the box sits
-   centered in the row. */
-.fields .field {
-  align-items: center;
-  min-height: 28px;
+/* Toolbar choice geometry belongs to Checkbox. */
+.field {
   white-space: nowrap;
 }
 .fields kbd {
@@ -117,7 +114,6 @@
 }
 .diagnostics > summary {
   cursor: pointer;
-  min-height: 28px;
   align-content: center;
 }
 .content {
@@ -324,9 +320,6 @@
   }
   .fields kbd {
     display: none;
-  }
-  .fields .field {
-    min-height: 30px;
   }
   .search {
     flex: 1;

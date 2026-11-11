@@ -329,7 +329,7 @@ function InboxSection({
     >
       <h2 className={styles.sectionHeader}>
         {t(config.titleKey as never)}
-        <Badge shape="count" size="small" className={styles.sectionCount}>
+        <Badge shape="count" size="small" palette={{ color: "currentColor" }}>
           {sectionCount}
         </Badge>
         {config.helpKey && (
@@ -424,7 +424,7 @@ function ReviewOutcomeSection({
     <section className={`${styles.section} ${styles.tierReviews}`}>
       <h2 className={styles.sectionHeader}>
         {t("inboxTierReviewOutcomes")}
-        <Badge shape="count" size="small" className={styles.sectionCount}>
+        <Badge shape="count" size="small" palette={{ color: "currentColor" }}>
           {outcomes.length}
         </Badge>
       </h2>

@@ -15,6 +15,36 @@ function describedBy(element: HTMLElement) {
 }
 
 describe("Field", () => {
+  it("keeps the native input, focus, selection and Field naming when a trailing action appears", () => {
+    const ref = { current: null as HTMLInputElement | null };
+    const content = (value: string) => (
+      <Field label="Search" hint="Search settings.">
+        <TextInput
+          ref={ref}
+          value={value}
+          onChange={() => {}}
+          leading="⌕"
+          trailing={value ? <button type="button">Clear</button> : null}
+        />
+      </Field>
+    );
+    const { rerender } = render(content(""));
+    const input = screen.getByRole("textbox", {
+      name: "Search",
+    }) as HTMLInputElement;
+    input.focus();
+    rerender(content("ab"));
+    input.setSelectionRange(1, 1);
+    rerender(content("abc"));
+    expect(screen.getByRole("textbox", { name: "Search" })).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(ref.current).toBe(input);
+    expect(describedBy(input)).toEqual(["Search settings."]);
+    rerender(content(""));
+    expect(document.activeElement).toBe(input);
+    expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
+  });
+
   it("names the control and links its hint and error", () => {
     const { rerender } = render(
       <Field label="Endpoint" hint="Where the gateway listens." required>

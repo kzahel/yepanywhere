@@ -34,6 +34,35 @@ const column: CSSProperties = {
   gap: "var(--space-3)",
 };
 
+export function Palettes() {
+  return (
+    <div style={row}>
+      <Badge
+        palette={{
+          color: "var(--provider-claude)",
+          soft: "color-mix(in srgb, var(--provider-claude) 12%, transparent)",
+        }}
+      >
+        Claude
+      </Badge>
+      <Badge
+        palette={{
+          color: "var(--thinking-color)",
+          soft: "color-mix(in srgb, var(--thinking-color) 15%, transparent)",
+        }}
+      >
+        Thinking
+      </Badge>
+      <Badge emphasis="solid" palette={{ color: "#8250df", onSolid: "#fff" }}>
+        Merged
+      </Badge>
+      <Badge emphasis="solid" palette={{ color: "#1d4ed8", onSolid: "#fff" }}>
+        Jira
+      </Badge>
+    </div>
+  );
+}
+
 export function Tones() {
   return (
     <div style={column}>

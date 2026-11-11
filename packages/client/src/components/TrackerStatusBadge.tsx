@@ -35,6 +35,11 @@ export function TrackerStatusBadge({
     <Badge
       tone={TONES[status.state]}
       emphasis="solid"
+      palette={
+        status.state === "merged"
+          ? { color: "#8250df", onSolid: "#fff" }
+          : undefined
+      }
       tooltip={[
         status.checkedAt,
         status.mergedAt
@@ -48,13 +53,7 @@ export function TrackerStatusBadge({
       ]
         .filter(Boolean)
         .join(" · ")}
-      className={[
-        styles.badge,
-        status.state === "merged" && styles.merged,
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={[styles.badge, className].filter(Boolean).join(" ")}
     >
       {t(label)}
     </Badge>

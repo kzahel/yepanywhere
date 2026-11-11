@@ -53,7 +53,8 @@
 
 .input,
 .textarea,
-.select {
+.select,
+.adorned {
   box-sizing: border-box;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
@@ -68,7 +69,8 @@
 }
 
 .input,
-.select {
+.select,
+.adorned {
   min-height: 32px;
   padding: 0 var(--space-3);
 }
@@ -108,7 +110,8 @@
 }
 
 .small.input,
-.small.select {
+.small.select,
+.small.adorned {
   min-height: 26px;
   padding-inline: var(--space-2);
 }
@@ -123,6 +126,106 @@
 
 .mono {
   font-family: var(--font-mono);
+}
+
+/* Slots take their actual width. Long values cannot run under an icon or
+   clear action, and the input remains the native focus/selection owner. */
+.adorned {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-1);
+  padding-inline: var(--space-1);
+}
+
+.adorned .adornedInput {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 30px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.small.adorned .adornedInput {
+  min-height: 24px;
+}
+
+.leading,
+.trailing {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.leading {
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.adorned:has(.input:focus) {
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 1px var(--focus-border);
+}
+
+.adorned:hover:not(
+  [data-disabled="true"],
+  [data-invalid="true"],
+  :focus-within
+) {
+  border-color: var(--text-muted);
+}
+
+.adorned[data-invalid="true"] {
+  border-color: var(--error-color);
+}
+
+.adorned[data-invalid="true"]:has(.input:focus) {
+  border-color: var(--error-color);
+  box-shadow: 0 0 0 1px var(--error-color);
+}
+
+.adorned[data-readonly="true"] {
+  background: var(--bg-secondary);
+}
+
+.adorned[data-disabled="true"] {
+  opacity: 0.55;
+}
+
+.adorned[data-disabled="true"] .input {
+  opacity: 1;
+}
+
+.input.hideNativeSearchClear[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+
+.selectShell {
+  display: inline-grid;
+  position: relative;
+  min-width: 0;
+}
+
+.selectShell .selectWithLeading {
+  width: 100%;
+  padding-left: calc(var(--space-2) + 20px);
+}
+
+.selectLeading {
+  display: inline-flex;
+  position: absolute;
+  left: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.selectShell[data-disabled="true"] .selectLeading {
+  opacity: 0.55;
 }
 
 .input::placeholder,
@@ -201,13 +304,34 @@
 /* Fingers, not cursors: the same heights as Button on coarse pointers. */
 @media (pointer: coarse) {
   .input,
-  .select {
+  .select,
+  .adorned {
     min-height: 44px;
   }
 
   .small.input,
-  .small.select {
+  .small.select,
+  .small.adorned {
     min-height: 36px;
+  }
+
+  .adorned .adornedInput {
+    min-height: 42px;
+  }
+
+  .small.adorned .adornedInput {
+    min-height: 34px;
+  }
+
+  .largeTouch.input,
+  .largeTouch.select,
+  .largeTouch.textarea,
+  .largeTouch.adorned {
+    min-height: 44px;
+  }
+
+  .largeTouch.adorned .adornedInput {
+    min-height: 42px;
   }
 }
 
@@ -225,4 +349,8 @@
   .select {
     transition: none;
   }
+}
+
+.adorned .adornedInput:focus {
+  box-shadow: none;
 }

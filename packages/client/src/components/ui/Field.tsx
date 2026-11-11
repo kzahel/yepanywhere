@@ -113,6 +113,8 @@ type ControlSize = "default" | "small";
 
 interface SharedProps {
   size?: ControlSize;
+  /** Keep compact mouse geometry, with a 44px control on coarse pointers. */
+  touchTarget?: "large";
   /** The code font, for commands, paths, tokens and ids. */
   mono?: boolean;
   /** Marks the control aria-invalid (a Field with an error does this). */
@@ -166,39 +168,81 @@ export interface TextInputProps
     SharedProps {
   /** A unit after the box (`px`, `s`, `%`); the box narrows to a number. */
   unit?: ReactNode;
-  /** With `unit`, `className` lays out the wrapper; this sizes the box. */
+  /** With a unit or slots, `className` lays out the wrapper; this sizes the input. */
   inputClassName?: string;
+  /** Decorative content before the input, excluded from its accessible name. */
+  leading?: ReactNode;
+  /** A clear action, shortcut, or other content after the input. */
+  trailing?: ReactNode;
+  /** Suppress the browser's search clear only when a replacement is supplied. */
+  hideNativeSearchClear?: boolean;
   ref?: Ref<HTMLInputElement>;
 }
 
-export function TextInput({
-  size = "default",
-  mono,
-  invalid,
-  unit,
-  inputClassName,
-  className,
-  type = "text",
-  ref,
-  ...rest
-}: TextInputProps) {
+export function TextInput(props: TextInputProps) {
+  const {
+    size = "default",
+    touchTarget,
+    mono,
+    invalid,
+    unit,
+    inputClassName,
+    leading,
+    trailing,
+    hideNativeSearchClear,
+    className,
+    type = "text",
+    ref,
+    ...rest
+  } = props;
   const field = useFieldProps({ ...rest, invalid });
+  // A disappearing action must never replace the focused input DOM node.
+  const adorned = "leading" in props || "trailing" in props;
   const input = (
     <input
       {...rest}
       {...field}
       ref={ref}
       type={type}
-      className={classes(
-        styles.input,
-        size,
-        mono,
-        unit === undefined
-          ? className
-          : [styles.unitInput, inputClassName].filter(Boolean).join(" "),
-      )}
+      className={
+        classes(
+          styles.input,
+          size,
+          mono,
+          adorned
+            ? [styles.adornedInput, inputClassName].filter(Boolean).join(" ")
+            : unit === undefined
+              ? className
+              : [styles.unitInput, inputClassName].filter(Boolean).join(" "),
+        ) +
+        (touchTarget ? ` ${styles.largeTouch}` : "") +
+        (hideNativeSearchClear ? ` ${styles.hideNativeSearchClear}` : "")
+      }
     />
   );
+  if (adorned)
+    return (
+      <span
+        className={
+          classes(styles.adorned, size, mono, className) +
+          (touchTarget ? ` ${styles.largeTouch}` : "")
+        }
+        data-disabled={rest.disabled || undefined}
+        data-invalid={field["aria-invalid"] || undefined}
+        data-readonly={rest.readOnly || undefined}
+      >
+        {leading != null && (
+          <span className={styles.leading} aria-hidden="true">
+            {leading}
+          </span>
+        )}
+        {input}
+        {unit != null && <span className={styles.unitText}>{unit}</span>}
+        {trailing != null && (
+          <span className={styles.trailing}>{trailing}</span>
+        )}
+      </span>
+    );
   if (unit === undefined) return input;
   return (
     <span className={className ? `${styles.unit} ${className}` : styles.unit}>
@@ -216,6 +260,7 @@ export interface TextareaProps
 
 export function Textarea({
   size = "default",
+  touchTarget,
   mono,
   invalid,
   className,
@@ -230,7 +275,10 @@ export function Textarea({
       rows={rows}
       {...field}
       ref={ref}
-      className={classes(styles.textarea, size, mono, className)}
+      className={
+        classes(styles.textarea, size, mono, className) +
+        (touchTarget ? ` ${styles.largeTouch}` : "")
+      }
     />
   );
 }
@@ -239,26 +287,55 @@ export interface SelectProps
   extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size">,
     SharedProps {
   ref?: Ref<HTMLSelectElement>;
+  /** Decorative icon before the selected value. */
+  leading?: ReactNode;
 }
 
-export function Select({
-  size = "default",
-  mono,
-  invalid,
-  className,
-  ref,
-  children,
-  ...rest
-}: SelectProps) {
+export function Select(props: SelectProps) {
+  const {
+    size = "default",
+    touchTarget,
+    mono,
+    invalid,
+    className,
+    ref,
+    children,
+    leading,
+    ...rest
+  } = props;
   const field = useFieldProps({ ...rest, invalid });
-  return (
+  const select = (
     <select
       {...rest}
       {...field}
       ref={ref}
-      className={classes(styles.select, size, mono, className)}
+      className={
+        classes(
+          styles.select,
+          size,
+          mono,
+          !("leading" in props)
+            ? className
+            : leading == null
+              ? undefined
+              : styles.selectWithLeading,
+        ) + (touchTarget ? ` ${styles.largeTouch}` : "")
+      }
     >
       {children}
     </select>
+  );
+  return !("leading" in props) ? (
+    select
+  ) : (
+    <span
+      className={[styles.selectShell, className].filter(Boolean).join(" ")}
+      data-disabled={rest.disabled || undefined}
+    >
+      <span className={styles.selectLeading} aria-hidden="true">
+        {leading}
+      </span>
+      {select}
+    </span>
   );
 }

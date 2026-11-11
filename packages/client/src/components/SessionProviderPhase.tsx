@@ -77,6 +77,14 @@ export function SessionProviderPhasePill({
   }
   return (
     <Badge
+      palette={
+        providerPhase.phase === "waiting"
+          ? {
+              color: "var(--thinking-color)",
+              soft: "color-mix(in srgb, var(--thinking-color) 12%, transparent)",
+            }
+          : undefined
+      }
       tone={providerPhase.phase === "waiting" ? "info" : "neutral"}
       size="small"
       className={styles.pill}

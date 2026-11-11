@@ -19,13 +19,6 @@
   max-width: min(100%, 52ch);
 }
 
-/* Waiting keeps the thinking color, which no Badge tone carries;
-   compounded so it outranks the Badge's own tone class. */
-.pill[data-phase="waiting"] {
-  --badge-color: var(--thinking-color);
-  --badge-soft: color-mix(in srgb, var(--thinking-color) 12%, transparent);
-}
-
 /* Times lead the text, so the ellipsis removes the label first. */
 .pillText {
   overflow: hidden;

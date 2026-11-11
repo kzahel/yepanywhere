@@ -5,9 +5,6 @@
   border-radius: var(--radius-md);
   min-width: 0;
 }
-.option {
-  padding-block: var(--space-2);
-}
 .template {
   display: inline-flex;
   align-items: center;

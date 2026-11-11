@@ -23,21 +23,6 @@ const PROVIDER_COLORS: Record<ProviderName, string> = {
   pi: "var(--provider-pi)", // pi teal
 };
 
-/** Module classes tinting the Badge with the same provider colors. */
-const PROVIDER_TINTS: Record<ProviderName, string | undefined> = {
-  claude: styles.claude,
-  "claude-gateway": styles.claude,
-  "claude-ollama": styles.claude,
-  codex: styles.codex,
-  "codex-oss": styles.codex,
-  gemini: styles.gemini,
-  "gemini-acp": styles.gemini,
-  antigravity: styles.gemini,
-  grok: styles.grok,
-  opencode: styles.opencode,
-  pi: styles.pi,
-};
-
 const PROVIDER_LABELS: Record<ProviderName, string> = {
   claude: "Claude",
   "claude-gateway": "Gateway",
@@ -215,7 +200,11 @@ export function ProviderBadge({
     >
       <Badge
         size="small"
-        className={`${styles.badge} ${PROVIDER_TINTS[provider] ?? ""} ${condensed ? styles.condensed : ""}`}
+        palette={{
+          color,
+          soft: `color-mix(in srgb, ${color} 12%, transparent)`,
+        }}
+        className={`${styles.badge} ${condensed ? styles.condensed : ""}`}
       >
         <span className={dotClass} style={dotStyle} />
         <span className={styles.model}>

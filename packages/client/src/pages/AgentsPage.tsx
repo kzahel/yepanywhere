@@ -130,26 +130,33 @@ function getProviderLabel(
 }
 
 /** Brand color class for a provider badge; `local` stays neutral. */
-function getProviderBadgeClass(
+function getProviderBadgeColor(
   provider: string | undefined,
 ): string | undefined {
   switch (provider) {
     case "codex":
-      return styles.codex;
+      return "var(--provider-codex)";
     case "gemini":
     case "gemini-acp":
-      return styles.gemini;
+      return "var(--provider-gemini)";
     case "grok":
-      return styles.grok;
+      return "var(--provider-grok)";
     case "opencode":
-      return styles.opencode;
+      return "var(--provider-opencode)";
     case "pi":
-      return styles.pi;
+      return "var(--provider-pi)";
     case "local":
       return undefined;
     default:
-      return styles.claude;
+      return "var(--provider-claude)";
   }
+}
+
+function providerPalette(provider: string | undefined) {
+  const color = getProviderBadgeColor(provider);
+  return color
+    ? { color, soft: `color-mix(in srgb, ${color} 16%, transparent)` }
+    : undefined;
 }
 
 interface ProcessCardProps {
@@ -319,13 +326,7 @@ function ProcessCard({
           {process.clearloop !== undefined && (
             <ClearloopRemainingBadge badge={process.clearloop} />
           )}
-          <Badge
-            size="small"
-            className={cx(
-              styles.provider,
-              getProviderBadgeClass(process.provider),
-            )}
-          >
+          <Badge size="small" palette={providerPalette(process.provider)}>
             {getProviderLabel(process.provider, t)}
           </Badge>
           {process.state === "in-turn" ? (
@@ -520,13 +521,7 @@ function ExternalProcessCard({
               {title}
             </span>
           )}
-          <Badge
-            size="small"
-            className={cx(
-              styles.provider,
-              getProviderBadgeClass(observation.provider),
-            )}
-          >
+          <Badge size="small" palette={providerPalette(observation.provider)}>
             {provider}
           </Badge>
           <Badge size="small">{t("agentsOutsideYa" as never)}</Badge>

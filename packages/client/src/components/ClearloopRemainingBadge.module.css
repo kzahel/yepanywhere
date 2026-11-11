@@ -7,12 +7,6 @@
   vertical-align: middle;
 }
 
-/* Patient loops wear the Project Queue purple, which no Badge tone carries;
-   compounded so it outranks the Badge's own tone class. */
-.count.patient {
-  --badge-color: var(--project-queue-action-bg);
-}
-
 .badge {
   display: inline-flex;
   align-items: center;

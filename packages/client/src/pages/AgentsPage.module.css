@@ -102,40 +102,6 @@
   min-width: 0;
 }
 
-/* Provider brand colors, compounded with the shared Badge's tone. */
-.provider.claude,
-.provider.codex,
-.provider.gemini,
-.provider.grok,
-.provider.opencode,
-.provider.pi {
-  --badge-soft: color-mix(in srgb, var(--badge-color) 16%, transparent);
-}
-
-.provider.claude {
-  --badge-color: var(--provider-claude);
-}
-
-.provider.codex {
-  --badge-color: var(--provider-codex);
-}
-
-.provider.gemini {
-  --badge-color: var(--provider-gemini);
-}
-
-.provider.grok {
-  --badge-color: var(--provider-grok);
-}
-
-.provider.opencode {
-  --badge-color: var(--provider-opencode);
-}
-
-.provider.pi {
-  --badge-color: var(--provider-pi);
-}
-
 .killButton {
   margin-left: auto;
   flex-shrink: 0;

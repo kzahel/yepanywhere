@@ -256,7 +256,7 @@ export function AudioMemoPanel({
       </ButtonBase>
       <div className={styles.options}>
         <Checkbox
-          className={styles.transcript}
+          touchTarget="large"
           label={t("audioMemoTranscript")}
           checked={includeTranscript}
           disabled={status === "sending"}
