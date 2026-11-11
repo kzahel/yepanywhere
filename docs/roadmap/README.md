@@ -1069,8 +1069,12 @@ Stage 4's [bounded collection updates](../research/190-collection-query-updates.
 now carry canonical session/Inbox membership, rows and counts through a shared
 capability-gated stream. The [project extension](../research/190-project-collection-updates.md)
 now carries bounded Projects/ProjectQueue and shares queue deadlines on the server.
-Native project aggregation, transcript rendering and full combined-scale
-qualification remain open. No full plan target is newly certified.
+[Combined qualification](../research/190-combined-scale-qualification.md) now
+records the full fixture and population/history controls. Warm list medians,
+loop p99 and typing pass their observed ceilings; CPU, bytes, browser work and
+cold opens still miss. Source-owned Claude/Codex project facts and point reads
+are the recommended next slice; bounded preview consumers and transcript
+rendering remain open. Full goal acceptance is not certified.
 This maintenance work does not displace release delivery or concurrent design work.
 
 ## Design language unification

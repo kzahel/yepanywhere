@@ -339,3 +339,25 @@ launch value followed by the browser's explicit off value is a real
 launch-setting change and restarts the worker, which invalidates this replay's
 stable-process and prior-turn assumptions. The deterministic worker still emits
 its synthetic thinking block to exercise that transport/rendering shape.
+
+## Plan 190 combined qualification
+
+The separate `scripts/perf-repro/active-session.mjs` driver owns the expensive
+50,000-idle-session/200-compaction fixture. Its
+[2026-11-11 qualification](../docs/research/190-combined-scale-qualification.md)
+records immutable build/harness hashes, host eligibility, population/history
+controls and separate profile attribution. Optional `--typing` and
+`--additional-tab` phases keep input probes out of the original active CPU
+clock. Network data events account for bytes while NDJSON streams remain open;
+finished-request sizes alone do not measure authoritative collection updates.
+
+`--check-targets` is an explicit numeric-subset guard, not full acceptance or
+a historical ratchet. It rejects missing metrics/phase resource evidence,
+ineligible hosts, optional profiler runs and missing/changed runtime artifact
+identity (including shared resolved from the actual server). Qualitative idle/no-rescan/retention
+and repeated flatness/extra-tab gates remain open. Fast helper tests are part
+of the normal root test command; the full expensive fixture remains opt-in.
+Recorded runs predate the final driver's additional lists/restart host windows
+detail-fetch count guard and automatic runtime fingerprints. Shared runtime
+identity was verified only retrospectively for those runs; preserve their
+measured hashes/limitations rather than certifying a frozen-runtime ratchet.

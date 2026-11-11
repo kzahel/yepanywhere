@@ -28,7 +28,9 @@ Still open:
   it avoids cold JavaScript catalog/metadata hydration. A canonical mutation
   while the owner is absent invalidates the checkpoint; keyed durable catch-up
   would avoid a full rebuild in that case.
-- Native project aggregation still visits eligible rows in SQL. Complete
+- Native project aggregation for Grok/Pi/OpenCode/Antigravity still visits
+  eligible rows in SQL; Claude/Codex project discovery still groups cached
+  native sessions and reads project facts through the legacy scanner. Complete
   consumer/discovery reads explicitly materialize the requested corpus.
   Migrate consumers by their access pattern; moving a walk to SQL alone does
   not make it bounded.
@@ -40,7 +42,14 @@ Still open:
   predating watcher startup still need reliable reconciliation. Activity
   inside YA rescans only the affected internally observed store.
 
-The next architectural workstream is bounded long-transcript ingestion for
-both Claude and Codex, followed by client change delivery/rendering. Preserve
+The [combined qualification](../docs/research/190-combined-scale-qualification.md)
+now selects source-owned Claude/Codex project facts and point reads as the next
+broad slice. Their complete project-discovery consumer remains outside the
+native SQL project adapter (which currently covers other providers), even
+though discovery indexes themselves are shared. Population controls and main
+profiles identify this work on both providers. Collection metadata replacement
+still sends ~100 KiB/write; Codex preview still parses whole history. Ordinary
+Claude/Codex detail ingestion and bounded collection delivery have landed;
+remaining consumers must move onto those owners. Preserve
 full-rebuild parity and the [plan 190](../docs/tactical/190-active-session-cost-at-scale.md)
 review gates throughout.

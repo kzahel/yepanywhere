@@ -39,7 +39,8 @@
 //                        --keep); the held-back tail of --long is replayed at
 //                        its recorded pace (gaps capped at --cap seconds).
 //
-// It is a diagnostic, not a gate: timings depend on the host, so compare
+// By default it is a diagnostic. --check-targets guards the numeric subset,
+// never full plan acceptance. Timings depend on the host, so compare
 // builds on the same host, interleaved, on fresh worlds. The inspector stays
 // attached for CPU and event-loop probes; the 1 ms CPU profiler is opt-in
 // (--cpu-profile) because it adds to every figure. Runs on macOS and Linux
@@ -49,7 +50,8 @@
 //     [--server-dist packages/server/dist] [--client-dist packages/client/dist] \
 //     [--phases idle,active,lists,restart,open] [--idle-seconds 180] \
 //     [--seconds 180] [--warmup 20] [--interval 1] [--compact-every 300] \
-//     [--visible-wait 120] \
+//     [--visible-wait 120] [--typing --typing-seconds 60] [--additional-tab]
+//     [--check-targets] \
 //     [--pages session] [--cpu-profile] [--browser-profile] \
 //     [--env KEY=VALUE,...] [--codex-index false] \
 //     [--projects 200 --sessions 50000 --codex-share 0.5 \
@@ -94,6 +96,17 @@ import {
   codexSession,
   GENERATOR_VERSION,
 } from "./scenario-transcripts.mjs";
+
+import {
+  startHostEvidence,
+  measuredHostSample,
+  hostWindow,
+  observePageNetwork,
+  typeDuringWrites,
+  targetChecks,
+} from "./active-session-metrics.mjs";
+import { createHash } from "node:crypto";
+import { runtimeIdentity } from "./active-session-build.mjs";
 
 const repo = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -472,8 +485,12 @@ function serverEnv(w) {
   const empty = path.join(work, "run", "empty");
   mkdirSync(logs, { recursive: true });
   mkdirSync(empty, { recursive: true });
+  const home = path.join(work, "run", "home");
+  mkdirSync(home, { recursive: true });
   const env = {
-    HOME: homedir(),
+    HOME: home,
+    CODEX_HOME: codexHome,
+    CLAUDE_CONFIG_DIR: path.join(home, ".claude"),
     USER: process.env.USER ?? "",
     PATH: process.env.PATH ?? "",
     TMPDIR: process.env.TMPDIR ?? "/tmp",
@@ -753,6 +770,13 @@ for (const busy of [port, inspectPort])
     )
   )
     throw new Error(`port ${busy} is in use; stop the earlier server first`);
+const runtimeStart = runtimeIdentity(
+  path.resolve(args["server-dist"] ?? "packages/server/dist"),
+  path.resolve(args["client-dist"] ?? "packages/client/dist"),
+);
+const host = await startHostEvidence(
+  scenario.sessions >= 50000 && scenario.compactions >= 200,
+);
 rmSync(world, { recursive: true, force: true });
 mkdirSync(world, { recursive: true });
 mkdirSync(out, { recursive: true });
@@ -820,6 +844,7 @@ let phase = "settle";
 const requests = [];
 const frames = [];
 const pages = [];
+const allPages = [];
 async function openTab(name, url) {
   const page = await context.newPage();
   page.on("websocket", (socket) =>
@@ -855,9 +880,11 @@ async function openTab(name, url) {
     } catch {}
   });
   const tab = { name, page, cdp: await context.newCDPSession(page) };
+  tab.network = await observePageNetwork(tab.cdp, () => phase);
   await tab.cdp.send("Performance.enable");
   await page.goto(server.base + url);
   pages.push(tab);
+  allPages.push(tab);
   return tab;
 }
 for (const name of String(args.pages ?? "session").split(","))
@@ -934,6 +961,7 @@ function routeKey(r) {
 
 /** Runs `body` as phase `name` and returns its totals and per-write ratios. */
 async function measure(name, body) {
+  const hostStart = await measuredHostSample(host.capacity);
   if (args["cpu-profile"]) {
     await ins.send("Profiler.enable");
     await ins.send("Profiler.setSamplingInterval", { interval: 1000 });
@@ -1037,6 +1065,18 @@ async function measure(name, body) {
       ? round(mine.reduce((s, r) => s + r.bytes, 0) / 1024 / writes)
       : undefined,
     webSocket: ws,
+    host: await hostWindow(host, hostStart),
+    network: Object.fromEntries(
+      allPages.map((p) => [
+        p.name,
+        {
+          chunks: p.network.chunks.filter((chunk) => chunk.phase === name),
+          serverTimings: p.network.timings.filter(
+            (timing) => timing.phase === name,
+          ),
+        },
+      ]),
+    ),
     routes: Object.fromEntries(
       Object.entries(routes).sort((a, b) => b[1].totalMs - a[1].totalMs),
     ),
@@ -1063,20 +1103,49 @@ const summary = {
   args,
   repoHead: gitSha,
   generatorVersion: GENERATOR_VERSION,
+  host,
+  runtimeIdentity: { start: runtimeStart },
+  harnessSha256: Object.fromEntries(
+    [
+      "scripts/perf-repro/active-session.mjs",
+      "scripts/perf-repro/active-session-metrics.mjs",
+      "scripts/perf-repro/active-session-build.mjs",
+      "scripts/perf-repro/scenario-transcripts.mjs",
+      "scripts/perf-suite/core.mjs",
+      "scripts/perf-suite/host-profile.mjs",
+      "scripts/perf-suite/ratchet-evaluation.mjs",
+      "scripts/perf-suite/config.json",
+    ].map((name) => [
+      name,
+      createHash("sha256")
+        .update(readFileSync(path.join(repo, name)))
+        .digest("hex"),
+    ]),
+  ),
   scenario: args.world === "clone" ? undefined : scenario,
   longSession: {
     id: w.sessionId,
     MB: w.longBytes ? Math.round(w.longBytes / 1e6) : undefined,
     lines: w.longLines,
   },
-  startup: { catalogCompleteMs: server.completeMs },
+  startup: {
+    pid: current.pid,
+    listeningMs: server.listeningMs,
+    catalogCompleteMs: server.completeMs,
+  },
   phases: {},
 };
-const writeSummary = () =>
+const writeSummary = () => {
+  summary.targetAssessment = targetChecks(summary, requests);
+  writeFileSync(
+    path.join(out, "requests.json"),
+    `${JSON.stringify(requests, null, 2)}\n`,
+  );
   writeFileSync(
     path.join(out, "summary.json"),
     `${JSON.stringify(summary, null, 2)}\n`,
   );
+};
 
 summary.startup.quiet = await quiesce(Number(args.quiet ?? 300));
 await sleep(Number(args.settle ?? 10) * 1000);
@@ -1086,25 +1155,34 @@ if (phases.has("idle"))
     await sleep(Number(args["idle-seconds"] ?? 180) * 1000);
   });
 
-if (phases.has("active")) {
+async function activePhase(name, options = {}) {
+  const seconds = options.seconds ?? Number(args.seconds ?? 180);
+  w.nextCompactionAt =
+    (w.liveWrites ?? 0) +
+    (options.typing
+      ? Math.floor(
+          (Number(args.warmup ?? 20) + seconds / 2) /
+            Number(args.interval ?? 1),
+        )
+      : Math.floor(Number(args["compact-every"] ?? 300) / 2));
   // Warm-up writes are not measured: the first write after a quiet spell
   // pays for caches the steady state keeps.
   await writeLong(w, Date.now() + Number(args.warmup ?? 20) * 1000, () => {});
   const written = [];
   const compactionsBefore = w.liveCompactions ?? 0;
-  summary.phases.active = await measure("active", async () => {
+  summary.phases[name] = await measure(name, async () => {
+    const typing = options.typing
+      ? typeDuringWrites(pages.find((p) => p.name === "session").page, seconds)
+      : undefined;
     let writes = 0;
-    await writeLong(
-      w,
-      Date.now() + Number(args.seconds ?? 180) * 1000,
-      (marker) => {
-        writes++;
-        if (marker) written.push({ marker, at: Date.now() });
-      },
-    );
+    await writeLong(w, Date.now() + seconds * 1000, (marker) => {
+      writes++;
+      if (marker) written.push({ marker, at: Date.now() });
+    });
     return {
       writes,
       compactions: (w.liveCompactions ?? 0) - compactionsBefore,
+      ...(typing ? { typing: await typing } : {}),
     };
   });
   const tab = pages.find((p) => p.name === "session");
@@ -1119,28 +1197,53 @@ if (phases.has("active")) {
       await sleep(1000);
     } while (Date.now() < deadline);
     const latencies = [];
+    summary.phases[name].visibleSamples = [];
     let missing = 0;
     for (const { marker, at } of written) {
       const seen = marks[marker.slice(2, -1)];
+      summary.phases[name].visibleSamples.push({
+        marker,
+        appendedAt: at,
+        seenAt: seen ?? null,
+      });
       if (seen === undefined) missing++;
       else latencies.push(seen - at);
     }
-    summary.phases.active.writeToVisibleMs = {
+    summary.phases[name].writeToVisibleMs = {
       count: latencies.length,
       missing,
       p50: percentile(latencies, 0.5),
       p95: percentile(latencies, 0.95),
       max: latencies.length ? Math.max(...latencies) : undefined,
     };
-    log("write to visible", summary.phases.active.writeToVisibleMs);
+    log("write to visible", summary.phases[name].writeToVisibleMs);
   }
   writeSummary();
+}
+
+if (phases.has("active")) {
+  await activePhase("active");
+  if (args["additional-tab"]) {
+    await openTab("session-2", urls.session);
+    await activePhase("additionalTab");
+    const extra = pages.find((p) => p.name === "session-2");
+    await extra.page.close();
+    pages.splice(pages.indexOf(extra), 1);
+  }
+  if (args.typing) {
+    await quiesce(60);
+    await activePhase("typing", {
+      typing: true,
+      seconds: Number(args["typing-seconds"] ?? 60),
+    });
+  }
 }
 
 if (phases.has("lists")) {
   summary.phases.listsSettled = await quiesce(180);
   // Each list route the tabs used, fetched alone and timed (not the drafts
   // long poll, which waits by design).
+  const listHostStart = await measuredHostSample(host.capacity);
   const seen = new Map();
   for (const r of requests)
     if (
@@ -1172,7 +1275,10 @@ if (phases.has("lists")) {
       maxMs: round(Math.max(...ms)),
     };
   }
-  summary.phases.lists = timings;
+  summary.phases.lists = {
+    ...timings,
+    host: await hostWindow(host, listHostStart),
+  };
   log("lists", timings);
   writeSummary();
 }
@@ -1181,6 +1287,7 @@ if (phases.has("restart")) {
   // Tabs are closed first, so what the restart costs is the server's own
   // work, not tabs reconnecting and reloading.
   for (const tab of pages.splice(0)) await tab.page.close();
+  const restartHostStart = await measuredHostSample(host.capacity);
   await quiesce(60);
   ins.close();
   await stopAndWait(current);
@@ -1197,6 +1304,7 @@ if (phases.has("restart")) {
     })
   ).arrayBuffer();
   summary.phases.restart = {
+    pid: current.pid,
     listeningMs: server.listeningMs,
     listsCompleteMs: server.completeMs,
     cpuSAtComplete: atComplete.cpuS,
@@ -1204,6 +1312,7 @@ if (phases.has("restart")) {
     cpuSToCompletePlus30s: after30.cpuS,
     rssMB: after30.rssMB,
     firstListPageMs: round(performance.now() - t0),
+    host: await hostWindow(host, restartHostStart),
   };
   log("restart", summary.phases.restart);
   writeSummary();
@@ -1243,7 +1352,19 @@ if (phases.has("open")) {
 }
 
 writeSummary();
-console.log(JSON.stringify(summary, null, 2));
 ins.close();
 await browser.close();
 await stopAndWait(current);
+const runtimeEnd = runtimeIdentity(
+  runtimeStart.server.root,
+  runtimeStart.client.root,
+);
+summary.runtimeIdentity.end = runtimeEnd;
+summary.runtimeIdentity.unchanged =
+  JSON.stringify(runtimeStart) === JSON.stringify(runtimeEnd);
+writeSummary();
+console.log(JSON.stringify(summary, null, 2));
+
+// Opt-in numeric guard; a passing subset still does not certify open qualitative gates.
+if (args["check-targets"] && !summary.targetAssessment.observedGatePass)
+  process.exitCode = 1;

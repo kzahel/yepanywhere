@@ -35,6 +35,29 @@ state and metadata are now SQL-owned with bounded residency;
 [cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
 slice. The derived list projection still rebuilds after restart.
 
+## Current combined checkpoint — 2026-11-11
+
+[Combined qualification](../docs/research/190-combined-scale-qualification.md)
+now records the full 50,000-session/200-compaction fixture on `be7b474c3`,
+plus controls and separate profiles. The older figures below are historical.
+List reload GETs are now zero; live collection streams still carry about
+99–100 KiB/write and session detail is fetched 1.97 times/write. Main CPU is
+127.7/169.7 ms/write and process CPU 298.4/351.5 for Claude/Codex, far above
+5/15 ms targets. Browser task work is 65.8/68.1 ms/write. Loop p99, warm list
+medians and sequential typing pass their observed ceilings.
+
+The next broad owner is Claude/Codex project discovery and point lookups:
+complete cached-session grouping, session-head reads and project code-name
+work still run around detail reads. Reducing idle population to 400 lowers
+process cost to 153.5/234.2 ms/write; reducing history tenfold at 50,000
+sessions changes it to 280.3/343.7. This selects a shared fact/update boundary,
+not another per-request cache. A separate
+[Codex preview defect](codex-preview-refresh-parses-whole-rollout.md) parses
+~495 MB on cold open despite bounded ordinary detail updates. Quiet-host,
+restart, memory attribution, incremental rendering and full acceptance remain
+open. Native samples identify filesystem and V8 worker activity, without an
+exact additive allocation of process CPU.
+
 ## How it was measured
 
 `scripts/perf-repro/active-session.mjs` builds an isolated world, starts a

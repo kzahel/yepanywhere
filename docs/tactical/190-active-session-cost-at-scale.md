@@ -13,7 +13,8 @@ append state. First construction, exceptional metadata selection and full
 qualification remain open.
 Stage 4 now carries authoritative bounded session/Inbox query changes with
 capability-gated fallback. Projects and ProjectQueue now share that architecture
-under a separate extension capability. Full scenario targets remain open.
+under a separate extension capability. Full scenario targets remain open. Combined-scale qualification is now recorded;
+project/population ownership is the recommended next slice.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -57,14 +58,28 @@ request paths need a justification beyond improving one benchmark.
 | 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas and safe checkpoint restoration implemented; qualification/remaining consumers open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition/Codex dispatch, indexed Claude warm windows and durable SQL cold-window queries and SQL-owned ordinary append state implemented; first construction and exceptional metadata work remain open |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue extension implemented; transcript rendering remains open |
-| 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
+| 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Full fixture plus population/history controls recorded; numeric guards implemented; CPU/bytes/render/cold and qualitative acceptance remain open |
 
 These are architectural dependencies, not five large all-or-nothing rewrites.
 An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — authoritative client collection updates
+### Current focus — combined qualification and the next ownership boundary
+
+The [combined qualification](../research/190-combined-scale-qualification.md)
+measures the frozen `be7b474c3` architecture at 50,000 idle sessions with each
+200-compaction provider, plus independent population/history controls and
+separate diagnostic profiles. Warm list/Inbox medians, loop p99 and typing
+meet their observed ceilings. CPU/write, browser work, collection bytes and
+cold opens miss; full goal acceptance remains open. Population controls select
+source-owned Claude/Codex project facts and point lookups as the recommended
+next slice. Codex preview refresh still parses the full rollout and is an
+explicit bounded-reader follow-up. Numerical gates preserve missing evidence
+and profiling exclusions; repeated flatness/additional-tab qualification and
+quiet-host/retention attribution remain open.
+
+### Previous focus — authoritative client collection updates
 
 Stage 4 now carries canonical SQL query results through one source-owned client
 stream. Session feeds (up to 500 rows) and Inbox receive changed rows and exact
@@ -403,6 +418,20 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Combined checkpoint, 2026-11-11 (`be7b474c3` runtime): Claude/Codex main CPU is
+127.7/169.7 ms per write (target 5), process 298.4/351.5 (15), browser task
+65.8/68.1 (5); loop p99 19.6/24.6 ms (50). List reloads are zero, but live
+collection bytes are 99/100 KiB per write and detail fetches 1.97/write.
+Warm list/Inbox loopback medians are below 10 ms; sequential typing maxima are
+26.71/25.41 ms with exact prefixes. First cold detail server clocks are
+415.5/872.3 ms (300); restart lists complete in 1.404/1.416 s (~1 s).
+After opening the long tab, no-write RSS is 711/780 MiB; before reopening
+post-restart it is 291/289 MiB. These are different lifecycle states, not
+proof of the idle-only memory ceiling. Codex preview still reads the whole
+~495 MB rollout. Full results, controls, limitations and build/host evidence
+are in the [qualification](../research/190-combined-scale-qualification.md).
+The historical baseline below remains unchanged; no all-target claim is made.
+
 Project extension checkpoint, 2026-11-11: bounded Projects and ProjectQueue now
 share the same source/auth-scoped query stream and server-owned queue wake.
 A three-page real browser checks caption and queue edits, Inbox and transcript
@@ -607,6 +636,14 @@ watcher-to-tab target is certified by the isolated point-publication diagnostic.
 A write renders the new rows only.
 
 ### 7 — a ratcheted perf-suite scenario
+
+2026-11-11 outcome: the separate repro now retains host/build/harness evidence,
+open-stream byte accounting, numeric target checks, sequential typing and an
+extra-tab phase. Its fast evidence-integrity tests run in the root test command.
+The [combined fixture and controls](../research/190-combined-scale-qualification.md)
+are recorded; failing ceilings are not loosened. This is a numeric-subset guard,
+not completion of suite integration, repeated same-capacity ratchets or the
+qualitative gates. Stage 5/full acceptance remains open.
 
 Move the scenario into the [performance regression
 suite](../../topics/performance-regression-suite.md) with ratchets on main-
