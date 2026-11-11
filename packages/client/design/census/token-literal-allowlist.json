@@ -1,8 +1,4 @@
 {
-  "components/AcliCommentary.module.css": {
-    "count": 1,
-    "reason": "User-configured fixed-width transcript typography; follows the output font offset, not the UI scale."
-  },
   "components/AudioMemoPanel.module.css": {
     "count": 1,
     "reason": "14px audio-memo sheet corner geometry; no radius token within 1px."
@@ -10,10 +6,6 @@
   "components/BrandWordmark.module.css": {
     "count": 1,
     "reason": "Configured brand-wordmark size is independent of the UI type scale; close if the wordmark adopts a fixed shared brand typography token."
-  },
-  "components/Collapsible.module.css": {
-    "count": 1,
-    "reason": "Thinking content uses the independent thinking prose size; close when the checker recognizes thinking typography tokens."
   },
   "components/CollectionLayout.module.css": {
     "count": 1,
@@ -27,10 +19,6 @@
     "count": 3,
     "reason": "Fixed 12/13px recents text must not scale with UI font tokens; the 28px empty-state glyph has no exact type token. Replace recents controls in plan 182's composer control swaps."
   },
-  "components/ConversationActivity.module.css": {
-    "count": 1,
-    "reason": "Conversation thinking previews inherit the user-controlled output prose size; close when the checker recognizes output typography tokens."
-  },
   "components/ErrorBoundary.tsx": {
     "count": 20,
     "reason": "Crash fallback page with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
@@ -39,21 +27,9 @@
     "count": 4,
     "reason": "14/16px nested drop-target outlines and 21/22px drop glyphs; preserve inset geometry and optical centering."
   },
-  "components/FilePathLink.module.css": {
-    "count": 1,
-    "reason": "File links use the independent fixed-width output size; close when the checker recognizes fixed-width output typography tokens."
-  },
-  "components/FileViewer.module.css": {
-    "count": 3,
-    "reason": "File source, path and plain-code text follow independently configured fixed-width metrics. Close when the checker recognizes the source/fixed-font metric tokens."
-  },
   "components/FileViewerEmbeddedMedia.module.css": {
     "count": 1,
     "reason": "24px audio-file glyph; preserve optical size in the media viewer."
-  },
-  "components/FolderListPopover.module.css": {
-    "count": 1,
-    "reason": "User-configured fixed-width path typography and font offset."
   },
   "components/GoalPanel.module.css": {
     "count": 1,
@@ -62,10 +38,6 @@
   "components/HostIdentityMarker.module.css": {
     "count": 1,
     "reason": "The 1.15rem emoji marker preserves its optical size beside the page header title."
-  },
-  "components/LocalMediaModal.module.css": {
-    "count": 1,
-    "reason": "Plain local-file code uses the independent fixed-width small output size; close when the checker recognizes fixed-width output typography tokens."
   },
   "components/MarkdownPreview.module.css": {
     "count": 1,
@@ -92,7 +64,7 @@
     "reason": "The 1.15/0.95/1.05rem headings preserve browser-root typography; 0.5rem corners compute to 9.2px at the default 115% UI font, so no radius token is equivalent. Close with matching shared geometry in plan 182's composer control swaps."
   },
   "components/RenderItemComponent.module.css": {
-    "count": 4,
+    "count": 2,
     "reason": "System/recap prose follows output preferences, its 1.05rem recap mark follows the browser root font, and the copy glyph retains its 1px optical correction; close with matching output and glyph tokens."
   },
   "components/RendezAttachment.module.css": {
@@ -111,16 +83,12 @@
     "count": 1,
     "reason": "The 1.1rem sidebar brand line preserves its root-font geometry; close with an approved matching brand typography token."
   },
-  "components/SpeechDraftField.module.css": {
-    "count": 2,
-    "reason": "Committed text, interim mirror and textarea share the owner-defined --speech-draft-font-size for exact caret/overlay metrics; close when token checking follows this local alias."
-  },
   "components/SpeechPrefixActionCue.module.css": {
     "count": 1,
     "reason": "Tiny 0.42rem speech-prefix action glyph must fit its measured cue slot."
   },
   "components/ThinkingText.module.css": {
-    "count": 3,
+    "count": 1,
     "reason": "Thinking code uses the independent fixed-width inline size and its heading keeps a 10px optical floor; close with recognized code/heading typography tokens."
   },
   "components/VoiceInputButton.module.css": {
@@ -135,20 +103,8 @@
     "count": 3,
     "reason": "Three 2px corners keep compact exploration rows and path/range cues square; close with an approved exact 2px radius token."
   },
-  "components/blocks/TaskNotificationBlock.module.css": {
-    "count": 1,
-    "reason": "User-configured output prose size; must track transcript appearance independently of UI type."
-  },
-  "components/blocks/TextBlock.module.css": {
-    "count": 3,
-    "reason": "Transcript prose, fixed-width blocks/inline code and the 10px math floor follow output appearance preferences independently of control type. Close when the checker recognizes this separate output token family."
-  },
-  "components/blocks/ThinkingBlock.module.css": {
-    "count": 1,
-    "reason": "Thinking prose follows the independent thinking font preference; close when the checker recognizes the thinking typography token family."
-  },
   "components/blocks/ToolCallRow.module.css": {
-    "count": 3,
+    "count": 1,
     "reason": "The 2px row corner and output-controlled command/result sizes preserve compact tool geometry; close with an exact 2px radius token and recognized output typography tokens."
   },
   "components/blocks/UserPromptBlock.module.css": {
@@ -159,37 +115,13 @@
     "count": 1,
     "reason": "Move-only 1.25rem wizard title preserves its existing hierarchy at every UI scale."
   },
-  "components/renderers/CodeOutput.module.css": {
-    "count": 4,
-    "reason": "Shared code output uses configured prose/fixed-width sizes and the 10px math floor; close when the checker recognizes output/math typography tokens."
-  },
-  "components/renderers/DiffOutput.module.css": {
-    "count": 3,
-    "reason": "Diff wrapper, highlighted and fallback rows follow the independently configured source metric. Close when the checker recognizes source-code typography tokens."
-  },
-  "components/renderers/ToolFallback.module.css": {
-    "count": 1,
-    "reason": "Diagnostic tool fallback text uses the configured fixed-width output size; close when the checker recognizes output typography tokens."
-  },
-  "components/renderers/blocks/FallbackRenderer.module.css": {
-    "count": 1,
-    "reason": "Raw fallback records use the configured fixed-width output size; close when the checker recognizes output typography tokens."
-  },
   "components/renderers/blocks/ToolUseRenderer.module.css": {
     "count": 1,
     "reason": "The 0.6875rem fallback-type label follows browser root-font preferences; close with an approved matching rem-based label token."
   },
-  "components/renderers/tools/BashRenderer.module.css": {
-    "count": 2,
-    "reason": "Command previews and expanded output use the independent fixed-width output size; close when the checker recognizes output typography tokens."
-  },
   "components/renderers/tools/ExitPlanModeRenderer.module.css": {
     "count": 1,
     "reason": "0.9375rem plan heading computes to 17.25px at 115%, over 1px from adjacent scaled type tokens; preserve transcript wrapping."
-  },
-  "components/renderers/tools/GoalRenderer.module.css": {
-    "count": 3,
-    "reason": "User-configured output prose size for goal transcript blocks."
   },
   "components/renderers/tools/TaskPresentation.module.css": {
     "count": 1,
@@ -198,14 +130,6 @@
   "components/renderers/tools/TodoWriteRenderer.module.css": {
     "count": 1,
     "reason": "The 1rem todo status glyph preserves browser root-font scaling; close with an approved rem-based status-glyph token."
-  },
-  "components/renderers/tools/WebRenderer.module.css": {
-    "count": 2,
-    "reason": "Web text and collapsed page summaries use configured output prose sizes; close when the checker recognizes output typography tokens."
-  },
-  "components/ui/Button.module.css": {
-    "count": 1,
-    "reason": "Mono inline buttons follow the user-configured fixed-width output font size."
   },
   "components/ui/Modal.module.css": {
     "count": 2,
@@ -227,10 +151,6 @@
     "count": 7,
     "reason": "Boot/fatal fallback UI with inline styles and a fixed palette, so it renders even when the app's CSS or theme failed."
   },
-  "pages/BlameView.module.css": {
-    "count": 1,
-    "reason": "Blame rows share the configured source-code size with diffs and file viewers; close when the checker recognizes the independent source-code typography token."
-  },
   "pages/CommitBrowser.module.css": {
     "count": 3,
     "reason": "Preserve the 0.78/0.82rem commit metadata and full-message hierarchy in the move-only source browser pass."
@@ -242,10 +162,6 @@
   "pages/ConversationPreviewPage.module.css": {
     "count": 3,
     "reason": "22/20px empty-preview glyphs and 12px preview frame corners; preserve the sparse empty-state geometry."
-  },
-  "pages/DiffHunk.module.css": {
-    "count": 3,
-    "reason": "Source-code typography follows the user-selected source font size and offset, including diff gutters."
   },
   "pages/FilePageLayout.module.css": {
     "count": 1,
@@ -283,10 +199,6 @@
     "count": 2,
     "reason": "Dense source index counts and progress labels use 0.72rem to fit narrow columns while following browser root-font preferences; close with an approved source typography scale."
   },
-  "pages/UnifiedDiff.module.css": {
-    "count": 1,
-    "reason": "Source-code typography follows the user-selected source font size and offset."
-  },
   "pages/WorkingTreeBrowser.module.css": {
     "count": 2,
     "reason": "Clean-state glyph (1rem) and explanatory copy (0.82rem) follow browser root-font preferences; close with an approved rem-based source typography scale."
@@ -296,7 +208,7 @@
     "reason": "Preserve the 0.66rem staged/partial marker beside the compact file status and path."
   },
   "pages/settings/AppearanceSettings.module.css": {
-    "count": 5,
+    "count": 2,
     "reason": "Specimens demonstrate output/source/fixed-width preferences and the 10px math floor; the 1.35rem icon sample preserves browser root-font scaling. Close with recognized output/math and matching rem-based icon tokens."
   },
   "pages/settings/NotificationsSettings.module.css": {

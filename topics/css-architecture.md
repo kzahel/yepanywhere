@@ -64,8 +64,15 @@ attributes and class-list operations. The AST scan follows constants, finite
 maps, class helpers and local/imported helper parameters and returns. Module
 exports (`styles.root`, static module lookups), shared-control API values,
 empty separators and declared generated/runtime families remain valid.
-Generated dynamic constructions must originate in their declared emitter and
-match an existing family; a template prefix is not an exception.
+Generated emissions must originate in their declared emitter and match an
+existing family; narrowly reviewed additional HTML producers have their own
+source and reason in the family entry. A generated family never authorizes
+React JSX classes. Selector/class-list readers may recognize generated names.
+HTML template checks match every literal portion, including suffixes and
+multiple interpolations; a template prefix is not an exception. Class-helper
+object keys stay keys through bindings, imports, arrays and spreads; indexed
+class maps remain values. Static computed DOM writes and bound `class`
+attribute names follow the same rule. Production scans exclude test fixtures.
 
 Selector strings passed to `querySelector(All)`, `closest` or `matches` follow
 the same rule. Prefer refs, roles, labels or stable data attributes. A class
@@ -238,7 +245,16 @@ React-authored toggle moves to a shared control.
 
 `pnpm tokens:check` runs in lint. In CSS Modules under `packages/client/src`,
 `font-size`, the size in `font` shorthand, `border-radius` and physical/logical
-corner longhands read `--font-size-*` or `--radius-*`. Production TSX style
+corner longhands read `--font-size-*` or `--radius-*`. Complete output sizes
+(`--output-prose-font-size`, `--thinking-prose-font-size`, the fixed-font
+xs/sm/base/inline sizes and `--source-code-font-size`) also satisfy typography
+ownership; their user preferences remain independent of the UI scale.
+Intermediate raw sizes, offsets and arbitrary similarly named variables do not.
+A module-local alias qualifies only when every local definition resolves to a
+supported token/expression, with no cycles or absolute-length fallback. Any
+mention of that alias in another production CSS/TS source conservatively blocks
+this proof; uncertain aliases retain counted exceptions. Percentage radius
+aliases do not bypass the declaration's geometry requirement. Production TSX style
 objects follow the same rule, including named objects, numeric values and
 conditional literal branches. Tests and playground specimens are excluded.
 The check parses CSS and TypeScript; comments, font weights, line heights and
@@ -261,7 +277,8 @@ to 57 type / 28 radius exceptions in 33 files. Those include semantic output
 and source-font reads that must preserve user typography preferences. Boot/crash
 fallbacks keep literal sizes and radii so they render without CSS or a theme. Composer
 files name the specific geometry, semantic typography or plan 182 control swap. After the ownership moves, the census
-records 149 type / 32 radius exceptions in 83 files; rem-based geometry and
+originally recorded 149 type / 32 radius exceptions in 83 files; the follow-up
+recognition pass leaves 102 type / 32 radius exceptions in 61 files; rem-based geometry and
 configured typography keep their existing behavior. The type and radius scales live in
 [UI design](ui-design.md#shared-controls-and-the-design-playground).
 

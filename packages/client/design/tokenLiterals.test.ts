@@ -7,6 +7,56 @@ import {
 } from "./tokenLiterals";
 
 describe("type/radius token ownership", () => {
+  it("recognizes complete output sizes and token-backed aliases without admitting offsets, cycles or literal overrides", () => {
+    for (const name of [
+      "output-prose-font-size",
+      "thinking-prose-font-size",
+      "fixed-font-size-inline",
+      "source-code-font-size",
+    ])
+      expect(tokenValueAllowed("font-size", `var(--${name})`)).toBe(true);
+    for (const value of [
+      "var(--fixed-font-size-base-raw)",
+      "var(--output-math-font-size-offset)",
+      "var(--source-code-font-size, 12px)",
+    ])
+      expect(tokenValueAllowed("font-size", value)).toBe(false);
+    expect(
+      tokenValueAllowed("border-radius", "var(--source-code-font-size)"),
+    ).toBe(false);
+    const rows = analyzeTokenLiterals(
+      "Aliases.module.css",
+      `
+      .root { --size: var(--output-prose-font-size); --alias: var(--size); font-size: var(--alias); }
+      .child { font: 600 var(--alias)/1.4 sans-serif; }
+      .bad { --literal: 12px; font-size: var(--literal); }
+      .cycle { --a: var(--b); --b: var(--a); font-size: var(--a); }
+      .mixed { --mixed: var(--font-size-sm); font-size: var(--mixed); }
+      @media (width < 400px) { .mixed { --mixed: 11px; } }
+      .fallback { font-size: var(--alias, 14px); }
+    `,
+    );
+    expect(rows.map((row) => row.value)).toEqual([
+      "var(--literal)",
+      "var(--a)",
+      "var(--mixed)",
+      "var(--alias, 14px)",
+    ]);
+    expect(
+      analyzeTokenLiterals(
+        "Alias.module.css",
+        ".a { --local: var(--font-size-sm); font-size: var(--local); }",
+        new Set(["--local"]),
+      ),
+    ).toHaveLength(1);
+    expect(
+      analyzeTokenLiterals(
+        "Circle.module.css",
+        ".a { --circle: 50%; border-radius: var(--circle); }",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("checks nested math and var fallbacks without accepting hidden absolute lengths or arbitrary variables", () => {
     for (const value of [
       "clamp(var(--font-size-xs), calc(var(--font-size-base) * 1.2), var(--font-size-xl))",

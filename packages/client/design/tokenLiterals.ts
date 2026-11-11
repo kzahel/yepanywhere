@@ -22,6 +22,19 @@ const cssProperty = /^(?:font-size|font)$/;
 const inlineProperty =
   /^(?:fontSize|font|borderRadius|border(?:Top|Bottom)(?:Left|Right)Radius|border(?:Start|End)(?:Start|End)Radius)$/;
 
+// These are complete, user-configured sizes, not arbitrary variables or
+// offsets. Their owners in tokens.css/useOutputAppearance keep them independent
+// of the UI scale. Raw intermediate values and offsets are deliberately absent.
+const outputSizes = new Set([
+  "--output-prose-font-size",
+  "--thinking-prose-font-size",
+  "--fixed-font-size-xs",
+  "--fixed-font-size-sm",
+  "--fixed-font-size-base",
+  "--fixed-font-size-inline",
+  "--source-code-font-size",
+]);
+
 /** Balanced function/string tokens preserve var fallbacks and shorthand line-height. */
 function parts(value: string): string[] {
   const result: string[] = [];
@@ -79,7 +92,12 @@ function fontSize(value: string): string {
   return value;
 }
 
-export function tokenValueAllowed(property: string, input: string): boolean {
+export function tokenValueAllowed(
+  property: string,
+  input: string,
+  aliases: ReadonlyMap<string, readonly string[]> = new Map(),
+  visiting: ReadonlySet<string> = new Set(),
+): boolean {
   const isRadius = radius.test(property);
   let value = input
     .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -107,7 +125,24 @@ export function tokenValueAllowed(property: string, input: string): boolean {
         if (fn[1] === "var") {
           const comma = body.indexOf(",");
           const name = (comma < 0 ? body : body.slice(0, comma)).trim();
-          if (!tokenName.test(name)) return false;
+          if (!tokenName.test(name) && (isRadius || !outputSizes.has(name))) {
+            const definitions = aliases.get(name);
+            if (!definitions?.length || visiting.has(name)) return false;
+            const next = new Set(visiting).add(name);
+            if (
+              !definitions.every(
+                (definition) =>
+                  (!isRadius || percentageGeometry(definition, "")) &&
+                  tokenValueAllowed(
+                    property === "font" ? "font-size" : property,
+                    definition,
+                    aliases,
+                    next,
+                  ),
+              )
+            )
+              return false;
+          }
           if (comma >= 0 && !expression(body.slice(comma + 1))) return false;
         } else if (/^(?:calc|clamp|min|max)$/.test(fn[1] ?? "")) {
           if (!expression(body, true)) return false;
@@ -153,10 +188,20 @@ function percentageGeometry(value: string, evidence: string): boolean {
 export function analyzeTokenLiterals(
   file: string,
   text: string,
+  externalProperties: ReadonlySet<string> = new Set(),
 ): TokenLiteral[] {
   const rows: TokenLiteral[] = [];
   if (file.endsWith(".module.css")) {
-    postcss.parse(text, { from: file }).walkDecls((decl) => {
+    const root = postcss.parse(text, { from: file });
+    const aliases = new Map<string, string[]>();
+    root.walkDecls((decl) => {
+      if (!decl.prop.startsWith("--") || externalProperties.has(decl.prop))
+        return;
+      const values = aliases.get(decl.prop) ?? [];
+      values.push(decl.value);
+      aliases.set(decl.prop, values);
+    });
+    root.walkDecls((decl) => {
       const property = decl.prop.toLowerCase();
       if (!cssProperty.test(property) && !radius.test(property)) return;
       const evidence =
@@ -165,7 +210,7 @@ export function analyzeTokenLiterals(
           .map((node) => node.text)
           .join(" ") ?? "";
       if (
-        !tokenValueAllowed(property, decl.value) ||
+        !tokenValueAllowed(property, decl.value, aliases) ||
         !percentageGeometry(decl.value, evidence)
       )
         rows.push({
@@ -245,6 +290,7 @@ export function analyzeTokenLiterals(
 
 export async function scanTokenLiterals(root: string): Promise<TokenLiteral[]> {
   const rows: TokenLiteral[] = [];
+  const sources = new Map<string, string>();
   async function walk(directory: string, prefix = "") {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const file = `${prefix}${entry.name}`;
@@ -252,18 +298,29 @@ export async function scanTokenLiterals(root: string): Promise<TokenLiteral[]> {
         if (!/^(?:__tests__|test|tests|node_modules)$/.test(entry.name))
           await walk(join(directory, entry.name), `${file}/`);
       } else if (
-        /\.module\.css$|\.tsx$/.test(file) &&
-        !/\.(?:test|spec|specimen)\.tsx$/.test(file)
+        /\.(?:css|tsx?)$/.test(file) &&
+        !/\.(?:test|spec|specimen)\.tsx?$/.test(file)
       )
-        rows.push(
-          ...analyzeTokenLiterals(
-            file,
-            await readFile(join(directory, entry.name), "utf8"),
-          ),
-        );
+        sources.set(file, await readFile(join(directory, entry.name), "utf8"));
     }
   }
   await walk(root);
+  // A local alias is provable only when no other source can write that name.
+  // Include CSS globals and TS producers (style keys and setProperty calls),
+  // not just files that can contain a checked declaration. Reads may also
+  // conservatively block an alias; uncertain ownership stays in the census.
+  const owners = new Map<string, Set<string>>();
+  for (const [file, text] of sources)
+    for (const match of text.matchAll(/--[a-zA-Z_][\w-]*/g)) {
+      const files = owners.get(match[0]) ?? new Set();
+      files.add(file);
+      owners.set(match[0], files);
+    }
+  const external = new Set(
+    [...owners].filter(([, files]) => files.size > 1).map(([name]) => name),
+  );
+  for (const [file, text] of sources)
+    rows.push(...analyzeTokenLiterals(file, text, external));
   return rows.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 
