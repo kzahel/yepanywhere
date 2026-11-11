@@ -41,6 +41,21 @@
   width: max-content;
   max-width: 100%;
   box-sizing: border-box;
+  /*
+   * One row: message, actions, dismiss. The shared Banner wraps, and its
+   * message body has a 16rem basis, so this shrink-to-fit notice otherwise
+   * puts the short message on a line of its own above the buttons.
+   */
+  flex-wrap: nowrap;
+}
+
+.banner > :first-child {
+  flex: 1 1 auto;
+}
+
+/* The dismiss button tops a wrapped banner; on one row it centers with it. */
+.banner > :last-child {
+  align-self: center;
 }
 
 .content {
