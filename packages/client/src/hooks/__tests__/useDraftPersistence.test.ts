@@ -86,6 +86,24 @@ describe("useDraftPersistence", () => {
     expect(result.current[0]).toBe("");
   });
 
+  it("hands off the draft key before the new editor can accept input", () => {
+    const { result, rerender } = renderHook(
+      ({ draftKey }) => {
+        const draft = useDraftPersistence(draftKey);
+        useLayoutEffect(() => {
+          if (draftKey === "draft-b") draft[1]("typed into B");
+        }, [draftKey, draft[1]]);
+        return draft;
+      },
+      { initialProps: { draftKey: "draft-a" } },
+    );
+    act(() => result.current[1]("keep A"));
+    rerender({ draftKey: "draft-b" });
+    expect(result.current[0]).toBe("typed into B");
+    expect(readStoredText("draft-a")).toBe("keep A");
+    expect(readStoredText("draft-b")).toBe("typed into B");
+  });
+
   it("persists each draft edit immediately", () => {
     const { result } = renderHook(() => useDraftPersistence("draft-test"));
 

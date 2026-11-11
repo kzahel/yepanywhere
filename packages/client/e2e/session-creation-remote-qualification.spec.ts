@@ -306,12 +306,59 @@ test("a delayed accepted reply cannot navigate or clear another relay host's dra
       dispatchEvent(new PopStateEvent("popstate"));
     }, formB);
     await expect(composer).toHaveValue("");
-    await composer.pressSequentially("OWNED_SOURCE_B_UNSENT");
-    await page.evaluate(() =>
-      (
-        window as typeof window & { releaseCreation?: () => void }
-      ).releaseCreation?.(),
+    // The connection gate can replace the form while B connects, so observe
+    // the document's real key/input events rather than one textarea instance.
+    await page.evaluate(() => {
+      const samples: number[] = [];
+      (window as typeof window & { creationTyping?: number[] }).creationTyping =
+        samples;
+      document.addEventListener(
+        "keydown",
+        (event) => {
+          const field = event.target as HTMLTextAreaElement;
+          if (!field.matches?.("textarea[data-new-session-form-textarea]"))
+            return;
+          const started = performance.now();
+          field.addEventListener(
+            "input",
+            () => {
+              if (field.value.length === 4)
+                (
+                  window as typeof window & { releaseCreation?: () => void }
+                ).releaseCreation?.();
+              requestAnimationFrame(() =>
+                samples.push(performance.now() - started),
+              );
+            },
+            { once: true },
+          );
+        },
+        true,
+      );
+    });
+    let typed = "";
+    for (const character of "OWNED_SOURCE_B_UNSENT") {
+      typed += character;
+      await composer.pressSequentially(character);
+      await expect(composer).toHaveValue(typed, { timeout: 100 });
+    }
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { creationTyping: number[] })
+              .creationTyping.length,
+        ),
+      )
+      .toBe(typed.length);
+    const acknowledgementMs = await page.evaluate(
+      () =>
+        (window as typeof window & { creationTyping: number[] }).creationTyping,
     );
+    expect(
+      Math.max(...acknowledgementMs),
+      JSON.stringify(acknowledgementMs),
+    ).toBeLessThanOrEqual(100);
     await expect
       .poll(() =>
         page.evaluate(
@@ -332,6 +379,20 @@ test("a delayed accepted reply cannot navigate or clear another relay host's dra
     expect(
       (await second.requests()).filter((r) => r.method === "thread/start"),
     ).toHaveLength(0);
+    if (process.env.YEP_E2E_UI_CAPTURE_DIR) {
+      const previousViewport = page.viewportSize();
+      for (const viewport of [
+        { name: "desktop", width: 1000, height: 600 },
+        { name: "phone", width: 375, height: 812 },
+      ]) {
+        await page.setViewportSize({
+          width: viewport.width,
+          height: viewport.height,
+        });
+        await recordUiCapture(page, `source-draft-handoff-${viewport.name}`);
+      }
+      if (previousViewport) await page.setViewportSize(previousViewport);
+    }
     await page.evaluate((url) => {
       history.pushState(null, "", url);
       dispatchEvent(new PopStateEvent("popstate"));

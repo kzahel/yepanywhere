@@ -56,6 +56,18 @@ retries: remote creation draft handoff, attachment drop and diff scrolling.
 The repaired cases pass first attempt; repeated first-attempt suite reliability
 remains open.
 
+The later docs-only repeat exposes remote draft suffix loss and a missing
+incoming-share chip; twenty focused local repetitions pass unchanged. The
+remote case led to a deterministic draft-key handoff regression: an edit in
+the new editor's layout phase writes under the previous key, then passive
+hydration erases it. Hydration/identity handoff now runs before interaction.
+The hook regression fails on the previous code; 22 hook checks, ten cross-host
+browser repetitions with the accepted reply released during sequential typing,
+and nine broader draft/scroll browser cases pass locally. Each browser key
+retains the unchanged 100 ms acknowledgement ceiling. The share upload succeeds
+in the captured trace, but delaying the session read did not reproduce its
+later chip loss, so no speculative attachment change was made.
+
 ## Remaining
 
 1. **First-attempt failures are common.** Five comparison runs failed 5–11

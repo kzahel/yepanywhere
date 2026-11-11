@@ -92,6 +92,11 @@ Independent question answers/comments merge separately. A surviving comment
 keeps its anchor even when another device removed that comment. Attachment sets
 union new IDs and respect removal of a base attachment.
 
+Changing a composer's source or draft key hands off its storage identity and
+hydrates the destination before the committed editor can accept input. The
+first edit belongs to the destination; delayed key hydration must neither
+write it under the prior key nor erase it.
+
 A remote change never replaces a focused input, its selection, or IME input.
 Attachment-only reconciliation may apply while focused when the resulting
 text fields are identical to the local fields. It preserves the input and

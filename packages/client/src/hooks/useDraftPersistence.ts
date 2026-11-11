@@ -6,7 +6,14 @@ import {
   cancelCapturedDraftSubmission,
   resumeSyncedDraft,
 } from "../lib/draftSyncStorage";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ClientSummarySourceKey } from "../lib/clientSummaryStore";
 import {
   type DraftAttachmentState,
@@ -304,8 +311,10 @@ export function useDraftPersistence(
     valueRef.current = value;
   }, [value]);
 
-  // Update keyRef when key changes
-  useEffect(() => {
+  // Hand off identity before the newly committed editor can receive input.
+  // A passive effect can otherwise save its first edit under the old key,
+  // then erase it while hydrating the new draft.
+  useLayoutEffect(() => {
     const previousKey = keyRef.current;
     const previousSessionDraft = sessionDraftRef.current;
     const previousValue = pendingValueRef.current ?? valueRef.current;
@@ -325,7 +334,7 @@ export function useDraftPersistence(
       updateStoredSessionDraftIndex(previousSessionDraft);
     }
 
-    // A ref/layout handoff can edit before this first passive effect. An
+    // A ref callback can edit before this first layout effect. An
     // all-whitespace edit is intentionally absent from durable storage, so
     // reading it back would erase the first typed space. A new draft identity
     // still hydrates normally; the initial identity was loaded by useState.
