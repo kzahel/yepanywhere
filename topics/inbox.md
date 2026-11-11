@@ -18,6 +18,30 @@ See also:
 
 ## Route Contract
 
+### Model and thinking display
+
+Session cards keep their metadata on one stable-height bottom line. Project,
+age, attention and current activity share the flexible left side; a compact,
+display-only model/thinking badge stays at the right. Long activity text
+truncates rather than wrapping or moving the badge. Phone widths use the
+existing condensed model and effort labels, with the full values in the
+tooltip and accessible name. Activity arriving or disappearing does not change
+the line's height.
+
+`modelConfig` is an optional Inbox response field. Live process model and
+applied thinking/effort take precedence; stopped sessions use their saved,
+last-applied launch settings. Unknown/default model identities are omitted.
+No model catalog lookup, transcript parse or per-row request is introduced.
+Missing effort does not imply Off or Auto: a known enabled thinking mode alone
+shows On, and known effort alone can show its level. Off requires an explicitly
+known disabled mode. With no useful settings, there is no badge.
+
+This additive display has no capability advertisement. Supported older servers
+(including v0.10.2 and v0.11.0) omit `modelConfig`; the client leaves the badge
+out and sends the same existing Inbox request. A complete Inbox snapshot owns
+these optional display facts; other collections cannot overwrite them, and an
+incomplete catalog preserves the last complete display alongside its tiers.
+
 ### Client view filters
 
 Inbox's **Started via** dropdown combines with the project filter across all

@@ -168,6 +168,13 @@ async function fixture(count = 256, days = 0) {
 
 it("uses one SQL owner for list and Inbox polls and touches only changed metadata after publication", async () => {
   const f = await fixture();
+  await f.metadata.recordEffectiveLaunchSettings(f.id(0), {
+    requestedModel: "opus",
+    thinking: { type: "adaptive" },
+    effort: "high",
+    permissionMode: "default",
+    serviceTier: null,
+  });
   await f.getInbox();
   const tables = () =>
     f.collections.queryDatabase
@@ -178,7 +185,15 @@ it("uses one SQL owner for list and Inbox polls and touches only changed metadat
   const before = f.collections.queryDatabase ? tables() : [];
   const reads = vi.spyOn(f.metadata, "getMetadata");
   const page = await f.get();
-  await f.getInbox();
+  const inbox = await f.getInbox();
+  expect(inbox.recentActivity[0].modelConfig).toEqual({
+    provider: "claude",
+    model: "opus",
+    thinking: { type: "adaptive" },
+    effort: "high",
+  });
+  expect(page.sessions[0]).not.toHaveProperty("modelConfig");
+  expect(page.sessions[0]).not.toHaveProperty("inboxModelConfig");
   expect(page.sessions).toHaveLength(10);
   expect(page.stats.totalCount).toBe(256);
   expect(reads.mock.calls.length).toBeLessThan(8);

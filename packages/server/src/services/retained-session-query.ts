@@ -24,6 +24,10 @@ import {
 import type { RetainedItemsDeps } from "../routes/retained-session-collections.js";
 import { getActiveSessionIndexOptions } from "../routes/session-list-options.js";
 import type { GlobalSessionItem } from "../routes/global-sessions.js";
+import {
+  inboxModelConfig,
+  type InboxModelConfig,
+} from "../sessions/inbox-model-config.js";
 import type { SessionCatalogToken } from "./SessionCatalogService.js";
 import type { RetainedSessionCollections } from "./RetainedSessionCollections.js";
 import {
@@ -62,6 +66,11 @@ export function retainedSessionQuery(
   owners.set(service, { deps, index });
   return index;
 }
+
+/** Private projection data is stripped before ordinary session lists leave. */
+type StoredCollectionItem = GlobalSessionItem & {
+  inboxModelConfig?: InboxModelConfig;
+};
 
 export class RetainedSessionQuery {
   private readonly sql: SessionCollectionSql;
@@ -286,7 +295,7 @@ export class RetainedSessionQuery {
           affected.add(sessionId);
     this.names = names;
     const updates: Array<{
-      item?: GlobalSessionItem;
+      item?: StoredCollectionItem;
       id: string;
       key: string | null;
       ordinal: number;
@@ -316,7 +325,7 @@ export class RetainedSessionQuery {
         .sourcesFor(id)
         .sort((a, b) => this.service.compareRowOrder(a.key, b.key))[0];
       const control = metadata?.creations?.projectionForSession(id);
-      let item: GlobalSessionItem | undefined,
+      let item: StoredCollectionItem | undefined,
         parent: NativeSessionRef | undefined;
       if (source) {
         const original =
@@ -359,6 +368,15 @@ export class RetainedSessionQuery {
         })[0];
       if (!source && isYaSessionId(id))
         parent = metadata?.identities.resolveYa(id)?.native ?? undefined;
+      if (item)
+        item = {
+          ...item,
+          inboxModelConfig: inboxModelConfig(
+            item.provider,
+            this.deps.supervisor?.getProcessForSession(id),
+            stored,
+          ),
+        };
       const old = this.sql.get(id);
       updates.push({
         id,
@@ -429,8 +447,11 @@ export class RetainedSessionQuery {
   private hydrate(
     row: CollectionStoredRow,
     children: RetainedItemsDeps["providerChildRelationships"],
-  ): GlobalSessionItem {
-    const item = JSON.parse(row.item) as GlobalSessionItem;
+    forInbox = false,
+  ): GlobalSessionItem & { modelConfig?: InboxModelConfig } {
+    const item = JSON.parse(row.item) as StoredCollectionItem;
+    const modelConfig = item.inboxModelConfig;
+    delete item.inboxModelConfig;
     if (row.automatic) item.isArchived = Boolean(row.archived);
     if (row.native_key)
       item.ownership = sessionOwnershipFromProcess(
@@ -444,7 +465,7 @@ export class RetainedSessionQuery {
       );
       if (accepted !== undefined) item.providerChildren = accepted;
     }
-    return item;
+    return forInbox && modelConfig ? { ...item, modelConfig } : item;
   }
   private catalog() {
     const state = this.service.getState();
@@ -567,7 +588,7 @@ export class RetainedSessionQuery {
         ),
       ];
       return {
-        sessions: rows.map((row) => this.hydrate(row, undefined)),
+        sessions: rows.map((row) => this.hydrate(row, undefined, true)),
         catalog: this.catalog(),
       };
     });

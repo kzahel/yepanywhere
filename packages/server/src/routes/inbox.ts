@@ -45,6 +45,10 @@ import type { PiSessionReader } from "../sessions/pi-reader.js";
 import type { ISessionReader, SessionListSummary } from "../sessions/types.js";
 import { getEffectiveProviderUpdatedAt } from "../sessions/recap-overlays.js";
 import { sessionProviderPhaseFromProcess } from "../sessions/session-provider-phase.js";
+import {
+  inboxModelConfig,
+  type InboxModelConfig,
+} from "../sessions/inbox-model-config.js";
 import { sessionRowRuntimeOverlay } from "../sessions/session-runtime-overlay.js";
 import type { ProjectQueueService } from "../services/ProjectQueueService.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
@@ -93,6 +97,8 @@ export interface InboxDeps {
 }
 
 export interface InboxItem {
+  /** Optional known settings; absence requires no capability check or request. */
+  modelConfig?: InboxModelConfig;
   creation?: import("@yep-anywhere/shared").SessionCreationStatus;
   creationProvenance?: import("@yep-anywhere/shared").SessionCreationProvenance;
   nonHumanUserTurn?: import("@yep-anywhere/shared").NonHumanUserTurn | null;
@@ -132,6 +138,7 @@ const INBOX_RETENTION_BYTES = 8 * 1024 * 1024;
 
 /** One session, walked and enriched, before any tier decision is made. */
 interface EnrichedInboxSession {
+  modelConfig?: InboxModelConfig;
   nonHumanUserTurn?: InboxItem["nonHumanUserTurn"];
   creation?: InboxItem["creation"];
   creationProvenance?: InboxItem["creationProvenance"];
@@ -280,6 +287,7 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
           });
 
         allSessions.push({
+          modelConfig: inboxModelConfig(session.provider, process, metadata),
           session: effectiveSession,
           projectName: project.name,
           pendingInputType,
@@ -319,6 +327,11 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
         )
           continue;
         visible.push({
+          modelConfig: inboxModelConfig(
+            summary.provider,
+            undefined,
+            deps.sessionMetadataService.getMetadata(summary.id),
+          ),
           session: summary,
           projectName: (deps.projectDisplayName ?? getProjectName)(
             fromUrlProjectId(summary.projectId),
@@ -380,6 +393,7 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
               (!filterProjectId || item.projectId === filterProjectId),
           )
           .map((item) => ({
+            modelConfig: item.modelConfig,
             session: {
               id: item.id,
               projectId: item.projectId as Project["id"],
@@ -420,6 +434,12 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
         ? item.nonHumanUserTurn
         : nonHumanUserTurnField(deps.sessionMetadataService, item.session.id),
     ): InboxItem => ({
+      modelConfig:
+        inboxModelConfig(
+          item.session.provider,
+          deps.supervisor?.getProcessForSession(item.session.id),
+          undefined,
+        ) ?? item.modelConfig,
       nonHumanUserTurn,
       sessionId: item.session.id,
       projectId: item.session.projectId,

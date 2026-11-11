@@ -20,6 +20,7 @@ import {
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { type InboxItem, useInboxContext } from "../contexts/InboxContext";
+import { InboxSessionMetadata } from "./InboxSessionMetadata";
 import {
   type InboxCreationFilter,
   useInboxCreationFilter,
@@ -375,6 +376,14 @@ function InboxSection({
                 providerPhase={item.providerPhase}
                 pendingInputType={item.pendingInputType}
                 mode="card"
+                cardMetadata={
+                  <InboxSessionMetadata
+                    item={item}
+                    showProjectName={!hideProjectName}
+                    showActivity={config.activityTier === true}
+                    badge={badge}
+                  />
+                }
                 openNonHumanUserTurn
                 showProjectName={!hideProjectName}
                 showTimestamp

@@ -2643,15 +2643,30 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
     state: ReturnType<typeof createEmptyClientSummaryState>,
   ) => selectInboxResponse(state).active.map((item) => item.providerPhase);
 
+  const modelConfig: NonNullable<InboxItem["modelConfig"]> = {
+    provider: "codex",
+    model: "gpt-6.1-sol",
+    thinking: { type: "enabled" },
+    effort: "high",
+  };
+  const activeModels = (
+    state: ReturnType<typeof createEmptyClientSummaryState>,
+  ) => selectInboxResponse(state).active.map((item) => item.modelConfig);
+
   let state = applyInboxCollectionSnapshot(
     createEmptyClientSummaryState(),
     inbox([
-      inboxItem("held", { activity: "in-turn", providerPhase: held }),
+      inboxItem("held", {
+        activity: "in-turn",
+        providerPhase: held,
+        modelConfig,
+      }),
       inboxItem("plain", { activity: "in-turn" }),
     ]),
     100,
   );
   expect(activePhases(state)).toEqual([held, undefined]);
+  expect(activeModels(state)).toEqual([modelConfig, undefined]);
 
   // A global sessions snapshot of the same rows never carries the phase and
   // must not clear it.
@@ -2665,6 +2680,7 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
     150,
   );
   expect(activePhases(state)).toEqual([held, undefined]);
+  expect(activeModels(state)).toEqual([modelConfig, undefined]);
 
   // A partial catalog keeps the last complete tiers and their phases.
   state = applyInboxCollectionSnapshot(
@@ -2673,6 +2689,7 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
     200,
   );
   expect(activePhases(state)).toEqual([held, undefined]);
+  expect(activeModels(state)).toEqual([modelConfig, undefined]);
 
   state = applyInboxCollectionSnapshot(
     state,
@@ -2680,4 +2697,5 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
     300,
   );
   expect(activePhases(state)).toEqual([undefined]);
+  expect(activeModels(state)).toEqual([undefined]);
 });

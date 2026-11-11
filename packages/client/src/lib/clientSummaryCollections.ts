@@ -1,7 +1,4 @@
-import type {
-  SessionClearloopBadge,
-  SessionProviderPhase,
-} from "@yep-anywhere/shared";
+import type { SessionClearloopBadge } from "@yep-anywhere/shared";
 import type {
   AgentActivity,
   PendingInputType,
@@ -17,7 +14,11 @@ import type {
   RetainedProjectCollectionState,
   ProviderRuntimeStatus,
 } from "@yep-anywhere/shared";
-import type { GlobalSessionItem, InboxResponse } from "../api/client";
+import type {
+  GlobalSessionItem,
+  InboxItem,
+  InboxResponse,
+} from "../api/client";
 import type { Project, SessionStatus } from "../types";
 import type { InboxTier } from "./inboxTiers";
 
@@ -156,6 +157,12 @@ export interface ProjectQueueCountSource {
   snapshotObservedAt?: number;
 }
 
+export type InboxRowDetails = Pick<InboxItem, "providerPhase" | "modelConfig">;
+
+export function inboxRowDetails(item: InboxItem): InboxRowDetails {
+  return { providerPhase: item.providerPhase, modelConfig: item.modelConfig };
+}
+
 export interface InboxCollectionState {
   catalog?: RetainedSessionCollectionState;
   tiers: Record<InboxTier, readonly string[]>;
@@ -164,7 +171,7 @@ export interface InboxCollectionState {
    * apart from session records so other collections cannot clear or freeze
    * it.
    */
-  providerPhases?: ReadonlyMap<string, SessionProviderPhase>;
+  rowDetails?: ReadonlyMap<string, InboxRowDetails>;
   requestStartedAt?: number;
   fetchedAt?: number;
 }

@@ -163,6 +163,10 @@ Inbox needs title and transcript recency for filtering, tiering, sorting, and
 unread checks. It does not require message count, model, context usage, or
 recent-agent text.
 
+Its optional model/thinking badge reads live process state or saved launch
+settings, independently of this list projection. It does not parse a transcript
+or promote a requested launch alias into a complete summary's reported model.
+
 For providers with a lightweight list reader, an Inbox refresh:
 
 - reuses a complete indexed row only when that row is still fresh;

@@ -1,0 +1,65 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 24px;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.details {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-2);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.project {
+  min-width: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.age {
+  flex-shrink: 0;
+}
+
+.activity {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.model {
+  display: flex;
+  justify-content: flex-end;
+  max-width: 48%;
+  min-width: 0;
+}
+
+.fullModel {
+  display: flex;
+  min-width: 0;
+}
+
+.shortModel {
+  display: none;
+  min-width: 0;
+}
+
+@media (width <= 600px) {
+  .fullModel {
+    display: none;
+  }
+
+  .shortModel {
+    display: flex;
+  }
+}

@@ -32,7 +32,11 @@ import {
   setSessionUnread,
 } from "../lib/sessionReadActions";
 import { toBrowserAppHref } from "../lib/appHref";
-import { formatBriefAge, formatSessionHoverAge } from "../lib/sessionAge";
+import {
+  formatBriefAge,
+  formatSessionHoverAge,
+  formatSessionRelativeTime,
+} from "../lib/sessionAge";
 import {
   providerChildActivityLevels,
   providerChildSessionHref,
@@ -84,6 +88,8 @@ interface SessionListItemProps {
   projectId: string;
   title: string | null;
   titleContent?: ReactNode;
+  /** A surface-owned metadata line, such as Inbox's stable model/activity row. */
+  cardMetadata?: ReactNode;
 
   // Optional display data
   fullTitle?: string | null;
@@ -210,6 +216,7 @@ export function SessionListItem({
   projectId,
   title,
   titleContent,
+  cardMetadata,
   // Optional display data
   fullTitle,
   initialPrompt,
@@ -539,22 +546,6 @@ export function SessionListItem({
         {compactActivityIndicator}
       </>
     ) : null;
-
-  // Format relative time for card mode
-  const formatRelativeTime = (timestamp: string): string => {
-    const now = Date.now();
-    const then = new Date(timestamp).getTime();
-    const diffMs = now - then;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return new Date(timestamp).toLocaleDateString();
-  };
 
   // Brief age since creation for detailed (card) lists and the compact hover
   // card. `formatBriefAge` returns null for unknown/default (epoch) timestamps,
@@ -987,72 +978,78 @@ export function SessionListItem({
                   )}
                   {isArchived && <Badge size="small">Archived</Badge>}
                 </strong>
-                <span
-                  className={styles.sessionListItemMeta}
-                  data-session-list-item__meta
-                >
-                  {provider && (
-                    <ProviderBadge
-                      provider={provider}
-                      model={model}
-                      className={styles.sessionListItemProviderBadge}
-                      data-session-list-item__provider-badge
-                    />
-                  )}
-                  {showProjectName && projectName && (
-                    <span
-                      className={styles.sessionListItemProject}
-                      data-session-list-item__project
-                    >
-                      {projectName}
-                    </span>
-                  )}
-                  {showTimestamp && updatedAt && formatRelativeTime(updatedAt)}
-                  {briefAge && (
-                    <span
-                      data-session-list-item__age=""
-                      title={t("sessionListAgeTitle")}
-                    >
-                      Created {briefAge} ago
-                    </span>
-                  )}
-                  {(userTurnCount != null || systemTurnCount != null) && (
-                    <span title="User / system (assistant) turns (cached)">
-                      U:{userTurnCount ?? 0} S:{systemTurnCount ?? 0}
-                    </span>
-                  )}
-                  {executor && (
-                    <Badge
-                      size="small"
-                      mono
-                      tooltip={`Running on ${executor}`}
-                      className={styles.executor}
-                    >
-                      <span className={styles.executorText}>{executor}</span>
-                    </Badge>
-                  )}
-                  {showContextUsage && (
-                    <ContextUsageIndicator usage={contextUsage} size={14} />
-                  )}
-                  {customBadge && (
-                    <Badge tone={customBadge.tone} size="small">
-                      {customBadge.label}
-                    </Badge>
-                  )}
-                  {showActivityIndicator &&
-                    activity === "in-turn" &&
-                    providerPhase && (
-                      <SessionProviderPhasePill providerPhase={providerPhase} />
+                {cardMetadata ?? (
+                  <span
+                    className={styles.sessionListItemMeta}
+                    data-session-list-item__meta
+                  >
+                    {provider && (
+                      <ProviderBadge
+                        provider={provider}
+                        model={model}
+                        className={styles.sessionListItemProviderBadge}
+                        data-session-list-item__provider-badge
+                      />
                     )}
-                  {showStatusBadge && status && (
-                    <SessionStatusBadge
-                      status={status}
-                      pendingInputType={pendingInputType}
-                      hasUnread={hasUnread}
-                      activity={activity}
-                    />
-                  )}
-                </span>
+                    {showProjectName && projectName && (
+                      <span
+                        className={styles.sessionListItemProject}
+                        data-session-list-item__project
+                      >
+                        {projectName}
+                      </span>
+                    )}
+                    {showTimestamp &&
+                      updatedAt &&
+                      formatSessionRelativeTime(updatedAt)}
+                    {briefAge && (
+                      <span
+                        data-session-list-item__age=""
+                        title={t("sessionListAgeTitle")}
+                      >
+                        Created {briefAge} ago
+                      </span>
+                    )}
+                    {(userTurnCount != null || systemTurnCount != null) && (
+                      <span title="User / system (assistant) turns (cached)">
+                        U:{userTurnCount ?? 0} S:{systemTurnCount ?? 0}
+                      </span>
+                    )}
+                    {executor && (
+                      <Badge
+                        size="small"
+                        mono
+                        tooltip={`Running on ${executor}`}
+                        className={styles.executor}
+                      >
+                        <span className={styles.executorText}>{executor}</span>
+                      </Badge>
+                    )}
+                    {showContextUsage && (
+                      <ContextUsageIndicator usage={contextUsage} size={14} />
+                    )}
+                    {customBadge && (
+                      <Badge tone={customBadge.tone} size="small">
+                        {customBadge.label}
+                      </Badge>
+                    )}
+                    {showActivityIndicator &&
+                      activity === "in-turn" &&
+                      providerPhase && (
+                        <SessionProviderPhasePill
+                          providerPhase={providerPhase}
+                        />
+                      )}
+                    {showStatusBadge && status && (
+                      <SessionStatusBadge
+                        status={status}
+                        pendingInputType={pendingInputType}
+                        hasUnread={hasUnread}
+                        activity={activity}
+                      />
+                    )}
+                  </span>
+                )}
                 {providerChildren.length > 0 && (
                   <span
                     className={styles.sessionListItemProviderChildren}

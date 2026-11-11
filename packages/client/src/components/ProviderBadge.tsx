@@ -62,6 +62,8 @@ interface ProviderBadgeProps {
   compact?: boolean;
   /** Keep model identity and abbreviated effort in a narrow session header. */
   condensed?: boolean;
+  /** Show known thinking/effort for any provider, as on Inbox cards. */
+  showThinking?: boolean;
   /** Model name to display alongside provider (e.g., "opus", "sonnet") */
   model?: string;
   /** Current thinking mode for live process config */
@@ -81,6 +83,7 @@ export function ProviderBadge({
   provider,
   compact = false,
   condensed = false,
+  showThinking = false,
   model,
   thinking,
   effort,
@@ -96,17 +99,26 @@ export function ProviderBadge({
     typeof model === "string" &&
     model.toLowerCase().startsWith("gpt-");
 
-  const effortTone = isGptModel
-    ? getIndicatorToneFromProcess(thinking, effort, provider)
-    : null;
+  const showKnownThinking = showThinking || isGptModel;
+  const effortTone =
+    showKnownThinking && (thinking || effort)
+      ? effort && thinking?.type !== "disabled"
+        ? normalizeEffortLevelForProvider(effort, provider)
+        : getIndicatorToneFromProcess(thinking, effort, provider)
+      : null;
 
   const effortLabel = (() => {
-    if (!isGptModel) return null;
+    if (!showKnownThinking) return null;
     if (!thinking && !effort) return null;
-    if (!thinking || thinking.type === "disabled") {
+    if (thinking?.type === "disabled") {
       return t("modelSettingsThinkingOffLabel");
     }
-    if (!effort) return t("modelSettingsThinkingAutoLabel");
+    if (!effort)
+      return t(
+        showThinking
+          ? "modelSettingsThinkingOnLabel"
+          : "modelSettingsThinkingAutoLabel",
+      );
     const level = normalizeEffortLevelForProvider(effort, provider);
     const label = getEffortLevelLabel(level, provider, t);
     if (level === "medium") return t("effortLevelMediumShortLabel");
@@ -143,7 +155,7 @@ export function ProviderBadge({
   const shortEffort = effortTone
     ? {
         off: "Off",
-        auto: "Auto",
+        auto: showThinking ? "On" : "Auto",
         low: "L",
         medium: "M",
         high: "H",

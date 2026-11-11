@@ -41,6 +41,9 @@ them through triggers in the row-update transaction.
   Seen persistence is now canonical per-row SQL; events follow commit.
 - Previous/current live process IDs refresh their runtime overlay. This work
   scales with the live set; cold external ownership is hydrated on page.
+- Inbox's optional model settings share each changed row's metadata projection.
+  Repeated cold-row polls do not reread launch settings. The private settings
+  projection is omitted from ordinary global-session responses.
 - Project display options are project-sized. Changes to a resolved project name
   invalidate that project's indexed members. Legacy unscoped, pending/conflicting
   identity rows and OpenCode alias overrides retain conservative revalidation.
