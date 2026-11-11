@@ -1,3 +1,4 @@
+import { PROJECT_DISCOVERY_FACTS_SCHEMA } from "./migrations/037-project-discovery-facts.js";
 import { CLAUDE_WRITER_STATE_SCHEMA } from "./migrations/036-claude-writer-state.js";
 import { CLAUDE_TRANSCRIPT_SOURCE_SCHEMA } from "./migrations/035-claude-transcript-source.js";
 import { SESSION_QUERY_CHECKPOINT_SCHEMA } from "./migrations/034-session-query-checkpoint.js";
@@ -92,6 +93,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 34, sql: SESSION_QUERY_CHECKPOINT_SCHEMA },
   { version: 35, sql: CLAUDE_TRANSCRIPT_SOURCE_SCHEMA },
   { version: 36, sql: CLAUDE_WRITER_STATE_SCHEMA },
+  { version: 37, sql: PROJECT_DISCOVERY_FACTS_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

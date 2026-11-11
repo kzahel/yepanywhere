@@ -54,6 +54,93 @@ const { reconcileSessionRelationships } = await import(
   ).href
 );
 
+const { ProjectDiscoveryFacts } = await import(
+  pathToFileURL(resolve(storageDir, "../projects/project-discovery-facts.js"))
+    .href
+);
+async function projectDiscoveryFactsContract(database) {
+  const source = new ProjectDiscoveryFacts({
+    database,
+    scope: () => ({
+      claude: "/unused",
+      codex: null,
+      gemini: null,
+      metadata: null,
+    }),
+    codexSessionsDir: "/unused",
+    queued: () => {},
+    changed: () => {},
+    invalidate: () => {},
+  });
+  const project = {
+    id: Buffer.from("/native/quoted-'项目").toString("base64url"),
+    path: "/native/quoted-'项目",
+    name: "quoted-'项目",
+    sessionDir: "/claude/store",
+    sessionCount: 2,
+    sessionCountsByProvider: { claude: 1, codex: 1 },
+    provider: "claude",
+    activeOwnedCount: 0,
+    activeExternalCount: 0,
+    lastActivity: "2026-11-11T00:00:00.000Z",
+  };
+  try {
+    assert.equal(source.retained(), undefined);
+    source.replace([project]);
+    assert.deepEqual(source.project(project.id), project);
+    database.exec(
+      "CREATE TEMP TRIGGER reject_project_fact BEFORE INSERT ON project_discovery_facts WHEN NEW.project_id='reject' BEGIN SELECT RAISE(ABORT,'project fact rollback'); END",
+    );
+    assert.throws(
+      () =>
+        source.replace([
+          project,
+          { ...project, id: "reject", path: "/native/reject" },
+        ]),
+      /project fact rollback/,
+    );
+    assert.deepEqual(source.retained(), [project]);
+    assert.equal(
+      source.project(project.id),
+      undefined,
+      "failed replacement must not certify a complete read",
+    );
+    database.exec("DROP TRIGGER reject_project_fact");
+    source.replace([{ ...project, sessionCount: 3 }]);
+    assert.equal(source.project(project.id).sessionCount, 3);
+    database.exec("UPDATE project_discovery_facts SET payload='not JSON'");
+    assert.equal(
+      source.retained(),
+      undefined,
+      "derived retention must be rebuildable",
+    );
+    source.replace([project]);
+    assert.deepEqual(source.project(project.id), project);
+    assert.equal(
+      source.observe({
+        type: "file-change",
+        provider: "claude",
+        changeType: "modify",
+        fileType: "session",
+        path: "/unmapped-file.jsonl",
+        relativePath: "unmapped-file.jsonl",
+        timestamp: "2026-11-11T00:00:00.000Z",
+      }),
+      true,
+    );
+    await source.flush();
+    assert.equal(
+      source.ready,
+      false,
+      "unknown file membership revokes complete proof",
+    );
+    assert.deepEqual(source.retained(), [project]);
+  } finally {
+    await source.dispose();
+  }
+  assert.throws(() => source.replace([project]), /disposed/);
+}
+
 // This must execute on both engines: Bun includes trigger writes in changes,
 // while Node reports only the direct row. A migration-only probe misses that.
 function relationshipContract(database) {
@@ -581,6 +668,7 @@ try {
   metadataColumnsMigrationContract();
   const catalog = openService(join(temporary, "catalog"));
   catalogContract(catalog.getDatabase());
+  await projectDiscoveryFactsContract(catalog.getDatabase());
   // A transaction larger than the page cache must fail fast, not stall, while
   // an outside reader holds its shared lock (cache_spill is off).
   const reader = loadSqliteDriver().open(

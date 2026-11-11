@@ -1,3 +1,4 @@
+import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatcherRegistry.js";
 import { createClaudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { createSessionReaderAdmission } from "./sessions/session-reader-admission.js";
 import {
@@ -453,7 +454,7 @@ import {
 } from "./watcher/index.js";
 import { LifecycleWebhookService } from "./webhooks/LifecycleWebhookService.js";
 
-export interface AppOptions {
+export interface AppOptions extends ProviderObservationCallbacks {
   /** False for self-contained hosts with no external provider sessions. */
   externalSessionsEnabled?: boolean;
   /** Owned update-service lookup for embedded applications and test fixtures. */
@@ -473,13 +474,6 @@ export interface AppOptions {
   defaultPermissionMode?: PermissionMode;
   /** EventBus for file change events */
   eventBus?: EventBus;
-  /** Provider observer startup handover; internal, independent of wire events. */
-  subscribeProviderObservationReady?: (
-    listener: (family: ProviderCatalogFamily) => void,
-  ) => () => void;
-  subscribeNativeProviderFileChanges?: (
-    listener: (event: import("./watcher/EventBus.js").FileChangeEvent) => void,
-  ) => () => void;
   /** WebSocket upgrader from @hono/node-server (optional) */
   upgradeWebSocket?: UploadDeps["upgradeWebSocket"];
   /** NotificationService for tracking session read state */
@@ -1224,9 +1218,6 @@ export function createApp(options: AppOptions): AppResult {
   const geminiScanner = new GeminiSessionScanner({
     sessionsDir: geminiSessionsDir,
   });
-  const projectScanCachePath = options.dataDir
-    ? join(options.dataDir, "indexes", "project-scanner-cache.json")
-    : undefined;
   // Sandboxed Claude sessions write their transcripts under the project's
   // private provider root (topics/session-sandboxing.md); every reader and
   // list of a project must include those directories.
@@ -1281,6 +1272,8 @@ export function createApp(options: AppOptions): AppResult {
       read: (refresh) =>
         retainedCollections?.readProjects(refresh) ??
         Promise.resolve({ projects: [], complete: false, version: "starting" }),
+      invalidate: () => retainedCollections?.invalidate(),
+      peekProject: (id) => retainedCollections?.peekProject(id),
       peek: () =>
         retainedCollections?.peekProjects() ?? {
           projects: [],
@@ -1291,9 +1284,11 @@ export function createApp(options: AppOptions): AppResult {
     getSandboxSessionDirs: claudeSandboxSessionDirs,
     projectsDir: options.projectsDir,
     codexScanner,
+    codexSessionsDir,
     geminiScanner,
     geminiSessionsDir,
-    projectScanCachePath,
+    getProviderObservationEpoch: options.getProviderObservationEpoch,
+    projectFactsDatabase: discoverySqlite.getDatabase(),
     projectMetadataService: options.projectMetadataService,
     eventBus: options.eventBus,
     cacheTtlMs: options.projectScanCacheTtlMs,

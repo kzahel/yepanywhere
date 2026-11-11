@@ -308,15 +308,37 @@ These indexes are memory-only; hiding still preserves native files and sessions.
 Servers advertising `retained-projects` accept `summaryMode=retained` on
 `GET /api/projects`. `ProjectScanner.readRetainedProjects` returns the last
 accepted collection without awaiting a transcript scan or current sandbox
-counts. The scanner reuses its existing persisted snapshot across restarts,
-including an expired snapshot, only for the same provider roots, enabled
-providers, metadata store and workstream store. A retained disk read cannot
-certify a later complete read as fresh. Hidden projects are filtered and current
+counts. Production retains accepted native discovery in profile SQLite, one compact
+row per project, scoped to native roots, enabled providers and metadata store.
+The scanner keeps its existing project-sized read projection. Standalone
+consumers may still opt into the legacy snapshot file. Retained restoration
+cannot certify a complete read before native startup reconciliation. Hidden projects are filtered and current
 display names and ownership overlay saved rows. With no saved enumeration,
 registered projects seed an incomplete collection. Once discovery has run, its
 membership takes precedence over registrations, so a deleted registered
-directory cannot reappear from metadata. Newly registered directories join on
-the next refresh without adding request-time filesystem probes.
+directory cannot reappear from metadata. Metadata membership mutations/reload
+advance a local discovery revision. Complete reads validate registered-only
+directory existence in bounded batches; point reads check only the requested
+registration. Native points neither walk nor copy unrelated registrations.
+
+`ProjectDiscoveryFacts` owns ordinary known Claude/Codex file modifications:
+indexed catalog location/version evidence, bounded native metadata and stable
+file identity qualify an update to the affected project activity only. Native
+counts/path choices remain those established by discovery. Claude activity is
+directory mtime; Codex activity is rollout activity. Missing/ambiguous membership,
+creation/deletion/replacement/truncation, changed cwd and path elections retain
+complete discovery. See [implementation and evidence](../docs/research/190-project-discovery-facts.md).
+
+Complete-read freshness requires uninterrupted exact-root observer epochs
+captured before enumeration. Capture precedes the cache-reuse decision; prior
+epoch evidence survives structural invalidation, so a new watcher cannot certify
+an earlier native inventory. Unwatched nonempty roots keep the old TTL fallback;
+empty/absent roots use negative evidence rechecked at that TTL. No new timer is
+introduced. A batch owns at most 1,024 pending paths, processes at most 256 per
+transaction, finalizes statements after each operation and fences late publication
+on invalidation/disposal. Production no longer writes the legacy project JSON
+cache. Structural fallback and other-provider native SQL aggregates can still
+visit the population.
 
 Server creation starts retained snapshot restoration and one finite discovery
 refresh before any client request. A saved snapshot can serve readers while

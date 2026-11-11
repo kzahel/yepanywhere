@@ -29,9 +29,11 @@ Still open:
   while the owner is absent invalidates the checkpoint; keyed durable catch-up
   would avoid a full rebuild in that case.
 - Native project aggregation for Grok/Pi/OpenCode/Antigravity still visits
-  eligible rows in SQL; Claude/Codex project discovery still groups cached
-  native sessions and reads project facts through the legacy scanner. Complete
-  consumer/discovery reads explicitly materialize the requested corpus.
+  eligible rows in SQL. Claude/Codex now use source-owned compact project facts
+  and indexed points for ordinary known-file modifications; structural/ambiguous
+  membership and path elections still group native discovery. Unwatched nonempty
+  roots retain TTL reconciliation. Complete consumer/discovery reads explicitly
+  materialize the requested corpus.
   Migrate consumers by their access pattern; moving a walk to SQL alone does
   not make it bounded.
 - Bounded session/Inbox and project/ProjectQueue clients now receive shared
@@ -43,13 +45,14 @@ Still open:
   inside YA rescans only the affected internally observed store.
 
 The [combined qualification](../docs/research/190-combined-scale-qualification.md)
-now selects source-owned Claude/Codex project facts and point reads as the next
-broad slice. Their complete project-discovery consumer remains outside the
-native SQL project adapter (which currently covers other providers), even
-though discovery indexes themselves are shared. Population controls and main
-profiles identify this work on both providers. Collection metadata replacement
-still sends ~100 KiB/write; Codex preview still parses whole history. Ordinary
-Claude/Codex detail ingestion and bounded collection delivery have landed;
-remaining consumers must move onto those owners. Preserve
-full-rebuild parity and the [plan 190](../docs/tactical/190-active-session-cost-at-scale.md)
-review gates throughout.
+selected source-owned Claude/Codex project facts and point reads. That slice is
+now implemented; [project evidence](../docs/research/190-project-discovery-facts.md)
+owns exact native parity, freshness coverage, bounds and measurements. No new
+session inventory is mirrored. Native watcher continuity, registration existence
+and metadata membership revisions guard reuse; structural fallback remains
+explicit. Collection metadata replacement still sends roughly 100 KiB/write;
+Codex preview still parses whole history. Ordinary Claude/Codex detail ingestion
+and bounded collection delivery have landed; remaining consumers must move onto
+those owners. Preserve full-rebuild parity and the
+[plan 190](../docs/tactical/190-active-session-cost-at-scale.md) review gates
+throughout.

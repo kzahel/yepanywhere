@@ -1,3 +1,7 @@
+import { homedir } from "node:os";
+import { decodeProjectId, getProjectIdentityKey } from "./paths.js";
+import type { UrlProjectId } from "@yep-anywhere/shared";
+import type { Project } from "../supervisor/types.js";
 import type { ProviderName } from "@yep-anywhere/shared";
 import {
   type SessionCatalogRow,
@@ -25,6 +29,9 @@ export interface CatalogProjectsView {
 export interface CatalogProjectSource {
   read(refresh?: boolean): Promise<CatalogProjectsView>;
   peek(): CatalogProjectsView;
+  invalidate?(): void;
+  /** Indexed lookup in the accepted native project view, when available. */
+  peekProject?(projectId: string): CatalogProject | undefined;
 }
 export type CatalogProjectStore = Pick<
   SessionCatalogProviderSourceSnapshot,
@@ -200,4 +207,57 @@ export interface AnnouncedProjects {
   projects: Map<string, string>;
   /** Whether a catalog publication should announce at all. */
   announce: boolean;
+}
+
+/** Join one native observation with its file-discovery identity, without a collection walk. */
+export function joinCatalogProject(
+  base: Project | undefined,
+  native: CatalogProject | undefined,
+  registered: (path: string, activity: string) => Project,
+): Project | undefined {
+  if (!native) return base;
+  const project = base
+    ? { ...base, sessionCountsByProvider: { ...base.sessionCountsByProvider } }
+    : registered(native.path, native.lastActivity);
+  if (!project.sessionCount) project.provider = native.provider;
+  for (const [provider, count] of Object.entries(native.counts)) {
+    project.sessionCount += count;
+    project.sessionCountsByProvider = {
+      ...project.sessionCountsByProvider,
+      [provider]:
+        (project.sessionCountsByProvider?.[provider as ProviderName] ?? 0) +
+        count,
+    };
+  }
+  if (!project.lastActivity || native.lastActivity > project.lastActivity)
+    project.lastActivity = native.lastActivity;
+  return project;
+}
+
+export function catalogProjectFor(
+  source: CatalogProjectSource | undefined,
+  id: string,
+): CatalogProject | undefined {
+  if (source?.peekProject) return source.peekProject(id);
+  try {
+    const key = getProjectIdentityKey(decodeProjectId(id as UrlProjectId));
+    return source
+      ?.peek()
+      .projects.find((project) => getProjectIdentityKey(project.path) === key);
+  } catch {
+    return undefined;
+  }
+}
+
+/** File discovery's empty home fallback contributes only without native projects. */
+export function catalogFileProject(
+  project: Project,
+  source?: CatalogProjectSource,
+): Project | undefined {
+  return source?.peek().projects.length &&
+    project.path === homedir() &&
+    project.sessionCount === 0 &&
+    project.lastActivity === null
+    ? undefined
+    : project;
 }

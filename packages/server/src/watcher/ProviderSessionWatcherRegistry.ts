@@ -1,7 +1,22 @@
+import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
 import { FileWatcher, type FileWatcherOptions } from "./FileWatcher.js";
 import { EventBus, type FileChangeEvent } from "./EventBus.js";
+
+/** Consumer handover stays tied to the exact native root and uninterrupted epoch. */
+export interface ProviderObservationCallbacks {
+  getProviderObservationEpoch?: (
+    family: ProviderCatalogFamily,
+    root: string,
+  ) => number | null;
+  subscribeProviderObservationReady?: (
+    listener: (family: ProviderCatalogFamily) => void,
+  ) => () => void;
+  subscribeNativeProviderFileChanges?: (
+    listener: (event: FileChangeEvent) => void,
+  ) => () => void;
+}
 
 type ManagedFileWatcher = Pick<FileWatcher, "start" | "stop"> &
   Partial<
@@ -176,6 +191,21 @@ export class ProviderSessionWatcherRegistry {
   /** See `FileWatcher.getObservationEpoch`; null for an unwatched family. */
   getObservationEpoch(family: ProviderCatalogFamily): number | null {
     return this.watchers.get(family)?.getObservationEpoch?.() ?? null;
+  }
+
+  sourceObservationCallbacks(): ProviderObservationCallbacks {
+    return {
+      getProviderObservationEpoch: (family, root) => {
+        const spec = this.specs.get(family);
+        return spec && resolve(spec.watchDir) === resolve(root)
+          ? this.getObservationEpoch(family)
+          : null;
+      },
+      subscribeProviderObservationReady: (listener) =>
+        this.subscribeReady(listener),
+      subscribeNativeProviderFileChanges: (listener) =>
+        this.subscribeNativeChanges(listener),
+    };
   }
 
   /** Fixed-cost observation state; reading it never activates or probes stores. */

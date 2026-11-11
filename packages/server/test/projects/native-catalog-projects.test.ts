@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import type { ProviderCatalogFamily } from "../../src/sessions/provider-catalog-family.js";
 import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,9 +60,16 @@ async function seed() {
   return { agy, pi, mixed, only };
 }
 
-function setup(agy: string, pi: string) {
+function setup(
+  agy: string,
+  pi: string,
+  getCatalogFamilies: () => readonly ProviderCatalogFamily[] = () => [
+    "claude",
+    "antigravity",
+    "pi",
+  ],
+) {
   const eventBus = new EventBus();
-  const getCatalogFamilies = () => ["claude", "antigravity", "pi"] as const;
   const nativeOptions = { antigravitySessionsDir: agy, piSessionsDir: pi };
   scanner = new ProjectScanner({
     projectsDir: join(root, "claude"),
@@ -70,6 +79,7 @@ function setup(agy: string, pi: string) {
     catalogProjects: {
       read: (refresh) => collections.readProjects(refresh),
       peek: () => collections.peekProjects(),
+      peekProject: (id) => collections.peekProject(id),
     },
   });
   collections = new RetainedSessionCollections({
@@ -198,4 +208,24 @@ it("retains empty native-store coverage through a targeted Claude publication", 
   await collections.refresh();
   expect((await collections.readProjects()).complete).toBe(true);
   expect(agyScan).toHaveBeenCalledTimes(1);
+});
+
+it("point reads share native eligibility and empty-home suppression with collection reads", async () => {
+  const { agy, pi, only, mixed } = await seed();
+  let enabled = true;
+  setup(agy, pi, () => (enabled ? ["claude", "antigravity", "pi"] : []));
+  expect(
+    (await scanner.listProjects()).map((project) => project.path).sort(),
+  ).toEqual([only, mixed].sort());
+  expect(await scanner.getProject(encodeProjectId(homedir()))).toBeNull();
+  expect((await scanner.getProject(encodeProjectId(only)))?.sessionCount).toBe(
+    1,
+  );
+  enabled = false;
+  await collections.readProjects();
+  expect(
+    (await scanner.listProjects()).some((project) => project.path === only),
+  ).toBe(false);
+  expect(await scanner.getProject(encodeProjectId(only))).toBeNull();
+  expect(await scanner.getProject(encodeProjectId(mixed))).toBeNull();
 });

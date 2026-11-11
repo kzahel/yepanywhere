@@ -99,6 +99,11 @@ export class RetainedSessionCollections {
   };
   private readonly questionIds = new Set<string>();
   /** The catalog generation the project view was last brought to. */
+  /** One pointer per accepted native project; replaced with projectView, no session mirror. */
+  private projectByIdentity = new Map<
+    string,
+    import("../projects/catalog-projects.js").CatalogProject
+  >();
   private projectedToken?: SessionCatalogToken;
   private projectStoresKey?: string;
   private projectedStoresKey?: string;
@@ -235,6 +240,18 @@ export class RetainedSessionCollections {
     };
   }
 
+  peekProject(projectId: string) {
+    if (this.peekProjects().version !== this.projectView.version)
+      return undefined;
+    try {
+      return this.projectByIdentity.get(
+        getProjectIdentityKey(fromUrlProjectId(projectId as UrlProjectId)),
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
   async readProjects(refresh = false): Promise<CatalogProjectsView> {
     if (!this.options.projectStores?.().length) return this.peekProjects();
     await this.initialize();
@@ -274,7 +291,15 @@ export class RetainedSessionCollections {
       },
       "SESSION_CATALOG: projected projects",
     );
-    if (next.version !== this.projectView.version) this.projectView = next;
+    if (next.version !== this.projectView.version) {
+      this.projectView = next;
+      this.projectByIdentity = new Map(
+        next.projects.map((project) => [
+          getProjectIdentityKey(project.path),
+          project,
+        ]),
+      );
+    }
     this.projectedToken = {
       ...token,
     };

@@ -78,11 +78,16 @@ index:
   hits/misses/suspect records, first-line reads by representation, and
   cache-backed compressed discovery. Normal scans log these metrics at debug;
   slow scans warn.
-- `ProjectScanner` keeps a short-lived project snapshot and coalesces
-  concurrent scans. Invalidation advances a change revision; a scan that
-  overlaps a newer file event may satisfy its original caller but cannot mark
-  that old result fresh. Snapshot-file writes are serialized, coalesce one
-  latest trailing result, and atomically replace the disposable cache file.
+- `ProjectScanner` uses profile-owned SQL project facts in production and
+  coalesces concurrent structural scans. Ordinary known Claude/Codex modifications
+  update only affected activity rows after indexed membership/version checks;
+  project points use identity lookups. Exact-root observation epochs certify
+  cache reuse; unobserved nonempty roots keep TTL discovery. Prior epoch evidence
+  survives invalidation, and proof capture precedes the reuse decision. Structural
+  or ambiguous changes retain native enumeration. Standalone consumers may still
+  opt into the serialized/coalesced JSON snapshot writer. The
+  [project owner contract](session-catalog-observation.md#retained-project-discovery-owner)
+  owns the bounds, registration checks and remaining fallback.
 - `SessionIndexService` persists normalized session summaries and avoids
   reparsing unchanged sessions, but full validation still enumerates files
   through the reader and stats discovered paths.

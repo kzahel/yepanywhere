@@ -1,6 +1,7 @@
+import * as registry from "../../src/metadata/ProjectCodeNameRegistry.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 
@@ -15,6 +16,7 @@ describe("ProjectMetadataService", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
@@ -231,8 +233,17 @@ describe("ProjectMetadataService", () => {
       const stable = await service.ensureProjectCodeNames([alpha, beta]);
       const again = await service.ensureProjectCodeNames([alpha, beta]);
       expect(again).toEqual(stable);
-      // Answered from memory: the same assignments, not a new reconciliation.
-      expect(again.assignments[0]).toBe(stable.assignments[0]);
+      const reconcile = vi.spyOn(registry, "reconcileProjectCodeNames");
+      expect(
+        (await service.ensureProjectCodeNames([alpha])).assignments,
+      ).toEqual([stable.assignments[0]]);
+      expect(
+        (await service.ensureProjectCodeNames([alpha, beta])).assignments,
+      ).toEqual(stable.assignments);
+      expect(
+        (await service.ensureProjectCodeNames([beta])).assignments,
+      ).toEqual([stable.assignments[1]]);
+      expect(reconcile).not.toHaveBeenCalled();
       await service.setProjectCodeName(beta.id, "ALP", [alpha, beta]);
       expect(
         (await service.ensureProjectCodeNames([alpha, beta])).assignments,

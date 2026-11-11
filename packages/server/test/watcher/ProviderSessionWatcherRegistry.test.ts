@@ -19,6 +19,8 @@ describe("ProviderSessionWatcherRegistry", () => {
           start: vi.fn(),
           stop: vi.fn(),
           getObservationDiagnostics: () => ({ watching, baselineState, error }),
+          getObservationEpoch: () =>
+            watching && baselineState === "complete" ? 1 : null,
         };
       },
     });
@@ -32,6 +34,8 @@ describe("ProviderSessionWatcherRegistry", () => {
       },
     ]);
     expect(directoryExists).not.toHaveBeenCalled();
+    const source = registry.sourceObservationCallbacks();
+    expect(source.getProviderObservationEpoch!("claude", "/claude")).toBeNull();
     registry.activate(["claude"]);
     expect(registry.getDiagnostics().families[0]).toMatchObject({
       watching: true,
@@ -39,6 +43,10 @@ describe("ProviderSessionWatcherRegistry", () => {
     });
     baselineState = "complete";
     onBaseline!();
+    expect(source.getProviderObservationEpoch!("claude", "/claude")).toBe(1);
+    expect(
+      source.getProviderObservationEpoch!("claude", "/other-root"),
+    ).toBeNull();
     const ready = vi.fn();
     const release = registry.subscribeReady(ready);
     expect(ready).toHaveBeenCalledExactlyOnceWith("claude");
@@ -52,6 +60,7 @@ describe("ProviderSessionWatcherRegistry", () => {
       watching: false,
       error,
     });
+    expect(source.getProviderObservationEpoch!("claude", "/claude")).toBeNull();
     baselineState = "failed";
     expect(registry.getDiagnostics().families[0]?.baselineState).toBe("failed");
     expect(directoryExists).toHaveBeenCalledTimes(1);

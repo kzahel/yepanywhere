@@ -2,8 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
-import { createApp } from "../setup/create-app.js";
-import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
+import { ProjectScanner } from "../../src/projects/scanner.js";
 
 const writes = vi.hoisted(() => ({
   entered: () => {},
@@ -30,7 +29,7 @@ vi.mock("node:fs/promises", async (original) => {
   };
 });
 
-it("app disposal settles the scanner writer and drops its trailing snapshot", async () => {
+it("standalone scanner disposal settles its legacy writer and drops its trailing snapshot", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ya-scanner-shutdown-"));
   let release = () => {};
   const entered = new Promise<void>((resolve) => {
@@ -41,31 +40,35 @@ it("app disposal settles the scanner writer and drops its trailing snapshot", as
   });
   writes.finished = false;
   writes.count = 0;
-  const instance = createApp({
-    dataDir: directory,
+  const scanner = new ProjectScanner({
     projectsDir: join(directory, "projects"),
-    provider: new ScriptedClaudeProvider(),
+    enableCodex: false,
+    enableGemini: false,
+    projectScanCachePath: join(
+      directory,
+      "indexes",
+      "project-scanner-cache.json",
+    ),
   });
-  // App disposal awaits other services before reaching the scanner. Observe
-  // that boundary explicitly rather than releasing the writer after one turn.
+  // Observe the scanner lifecycle rather than releasing after one turn.
   let markScannerDisposing = () => {};
   const scannerDisposing = new Promise<void>((resolve) => {
     markScannerDisposing = resolve;
   });
-  const disposeScanner = instance.scanner.dispose.bind(instance.scanner);
-  vi.spyOn(instance.scanner, "dispose").mockImplementation(() => {
+  const disposeScanner = scanner.dispose.bind(scanner);
+  vi.spyOn(scanner, "dispose").mockImplementation(() => {
     const result = disposeScanner();
     markScannerDisposing();
     return result;
   });
   let disposal: Promise<void> | undefined;
   try {
-    await instance.scanner.listProjects();
+    await scanner.listProjects();
     await entered;
-    instance.scanner.invalidateCache();
-    await instance.scanner.listProjects();
+    scanner.invalidateCache();
+    await scanner.listProjects();
     let finishedAtDisposal = false;
-    disposal = instance.disposeSessionReaders().then(() => {
+    disposal = scanner.dispose().then(() => {
       finishedAtDisposal = writes.finished;
     });
     await scannerDisposing;
@@ -73,7 +76,7 @@ it("app disposal settles the scanner writer and drops its trailing snapshot", as
     await disposal;
     expect(finishedAtDisposal).toBe(true);
     expect(writes.count).toBe(1);
-    await expect(instance.scanner.listProjects()).rejects.toThrow(
+    await expect(scanner.listProjects()).rejects.toThrow(
       "Project scanner is disposed",
     );
     await expect(
@@ -81,8 +84,7 @@ it("app disposal settles the scanner writer and drops its trailing snapshot", as
     ).rejects.toMatchObject({ code: "ENOENT" });
   } finally {
     release();
-    instance.stopNotifications();
-    await (disposal ?? instance.disposeSessionReaders());
+    await (disposal ?? scanner.dispose());
     await rm(directory, { recursive: true, force: true });
   }
 });

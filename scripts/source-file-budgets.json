@@ -67,7 +67,7 @@
       "maxLines": 1807
     },
     "packages/server/src/app.ts": {
-      "maxLines": 4565
+      "maxLines": 4560
     },
     "packages/server/src/augments/safe-markdown.ts": {
       "maxLines": 1948
@@ -79,7 +79,7 @@
       "maxLines": 1741
     },
     "packages/server/src/projects/scanner.ts": {
-      "maxLines": 1570
+      "maxLines": 1567
     },
     "packages/server/src/review/ReviewCommentService.ts": {
       "maxLines": 1665
@@ -115,7 +115,7 @@
       "maxLines": 1532
     },
     "packages/server/src/server-main.ts": {
-      "maxLines": 1820
+      "maxLines": 1817
     },
     "packages/server/src/services/ProjectQueueService.ts": {
       "maxLines": 1532

@@ -14,7 +14,9 @@ qualification remain open.
 Stage 4 now carries authoritative bounded session/Inbox query changes with
 capability-gated fallback. Projects and ProjectQueue now share that architecture
 under a separate extension capability. Full scenario targets remain open. Combined-scale qualification is now recorded;
-project/population ownership is the recommended next slice.
+source-owned Claude/Codex project facts and indexed points are implemented.
+Structural/ambiguous discovery, metadata delivery and transcript rendering
+remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -55,7 +57,7 @@ request paths need a justification beyond improving one benchmark.
 | Order | Stage | Scope and relation to original steps | Status |
 |---|---|---|---|
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
-| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas and safe checkpoint restoration implemented; qualification/remaining consumers open |
+| 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas, safe checkpoint restoration and source-owned Claude/Codex project facts implemented; structural discovery/remaining consumers open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition/Codex dispatch, indexed Claude warm windows and durable SQL cold-window queries and SQL-owned ordinary append state implemented; first construction and exceptional metadata work remain open |
 | 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue extension implemented; transcript rendering remains open |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Full fixture plus population/history controls recorded; numeric guards implemented; CPU/bytes/render/cold and qualitative acceptance remain open |
@@ -65,16 +67,30 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — combined qualification and the next ownership boundary
+### Current focus — source-owned project discovery and indexed points
+
+The [project discovery outcome](../research/190-project-discovery-facts.md)
+implements the next architecture slice selected by the population controls.
+One profile SQL owner stores compact native project facts. Known Claude/Codex
+modifications update affected activity rows; detail consumers use indexed point
+lookups. Native counts/path elections and activity semantics retain full-rebuild
+parity. Watcher epochs, registration existence and local metadata revisions
+cover freshness without another polling loop. Structural or ambiguous changes
+still rediscover; other-provider SQL aggregates still have population work.
+The outcome records final measurements and review. Full goal acceptance remains
+open; collection metadata replacement, transcript consumers and quiet-host work
+remain next candidates.
+
+### Previous focus — combined qualification and the next ownership boundary
 
 The [combined qualification](../research/190-combined-scale-qualification.md)
 measures the frozen `be7b474c3` architecture at 50,000 idle sessions with each
 200-compaction provider, plus independent population/history controls and
 separate diagnostic profiles. Warm list/Inbox medians, loop p99 and typing
 meet their observed ceilings. CPU/write, browser work, collection bytes and
-cold opens miss; full goal acceptance remains open. Population controls select
-source-owned Claude/Codex project facts and point lookups as the recommended
-next slice. Codex preview refresh still parses the full rollout and is an
+cold opens miss; full goal acceptance remains open. Population controls selected
+source-owned Claude/Codex project facts and point lookups; the outcome above
+records that implementation. Codex preview refresh still parses the full rollout and is an
 explicit bounded-reader follow-up. Numerical gates preserve missing evidence
 and profiling exclusions; repeated flatness/additional-tab qualification and
 quiet-host/retention attribution remain open.
@@ -418,6 +434,17 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Project-facts checkpoint, 2026-11-11: ordinary known Claude/Codex modifications
+now update source-owned compact project facts; points use indexed identities.
+Fresh full-fixture before → after main CPU is 118.7 → 68.6 / 163.3 → 91.2
+ms/write, process 275.3 → 83.9 / 337.2 → 151.1. These remain above 5/15 ms
+targets. Collection bytes stay 99–100 KiB/write; tab work is 72.4/75.3 ms/write.
+Loop p99 is 13.8/14.9 ms; typing maxima 26.44/23.03 ms, all visible markers
+received. The [project outcome](../research/190-project-discovery-facts.md) owns
+freshness/parity, bounds, controls, host/runtime identity and qualifications.
+These active-only observations do not replace the cold/restart/idle evidence
+below or certify all-write flatness. Structural/ambiguous discovery remains.
+
 Combined checkpoint, 2026-11-11 (`be7b474c3` runtime): Claude/Codex main CPU is
 127.7/169.7 ms per write (target 5), process 298.4/351.5 (15), browser task
 65.8/68.1 (5); loop p99 19.6/24.6 ms (50). List reloads are zero, but live
@@ -619,7 +646,9 @@ with keyed updates and derived SQL counts. Canonical seen-state and bounded
 metadata reads are implemented. Native catalog rows now remain in SQL with a
 bounded parsed point cache. Compatible completed query checkpoints restore
 without cold JS normalization; invalidated checkpoints rebuild. SQL import /
-indexing and remaining complete consumers still have population work; see the
+indexing and remaining complete consumers still have population work. Native
+Claude/Codex project facts now have a compact SQL owner and indexed points;
+structural discovery and other-provider SQL aggregates remain explicit. See the
 implementation outcomes.
 
 ### 5 — update the catalog from the changed file
@@ -628,8 +657,11 @@ A publication reads and writes only the changed file's row, instead of
 adapters yielding every row
 ([remaining catalog costs](../../gaps/session-catalog-rewrites-whole-generation-per-change.md)).
 Known changed files now use indexed lookups and explicit upserts/removals.
-Unrecognized new-file membership still falls back to discovery. No full
-watcher-to-tab target is certified by the isolated point-publication diagnostic.
+Unrecognized new-file membership still falls back to discovery. Known
+Claude/Codex file modifications now update only their accepted project activity,
+avoiding native regrouping around detail reads. Structural/ambiguous binding,
+replacements/truncation and path elections retain full discovery. No full
+watcher-to-tab target is certified by these slices.
 
 ### 6 — render the open session incrementally in the tab
 

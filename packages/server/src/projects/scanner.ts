@@ -1,9 +1,27 @@
+import type {
+  ProjectDiscoveryObservation,
+  ProjectObservationEpoch,
+} from "./project-discovery-observation.js";
+import {
+  ProjectDiscoveryFacts,
+  projectInSnapshot,
+  isProjectDiscoveryFact,
+  cloneSessionCountsByProvider,
+  projectDiscoverySnapshot,
+  type ProjectSnapshot,
+} from "./project-discovery-facts.js";
+import type { SqliteDatabase } from "../storage/sqlite.js";
 import {
   readClaudeProjectDirectory,
   type ClaudeProjectDirectory,
 } from "./claude-project-discovery.js";
 import type { CatalogProjectSource } from "./catalog-projects.js";
-import { changedProjects } from "./catalog-projects.js";
+import {
+  changedProjects,
+  joinCatalogProject,
+  catalogProjectFor,
+  catalogFileProject,
+} from "./catalog-projects.js";
 import { claudeCwdProjectDirectory } from "./claude-project-directory.js";
 import type { Dirent } from "node:fs";
 import {
@@ -40,6 +58,8 @@ import {
 } from "./paths.js";
 
 export interface ScannerOptions {
+  projectFactsDatabase?: SqliteDatabase;
+  getProviderObservationEpoch?: ProjectObservationEpoch;
   catalogProjects?: CatalogProjectSource;
   projectsDir?: string; // override for testing
   codexSessionsDir?: string; // override for testing
@@ -96,20 +116,6 @@ interface CachedProjectSnapshotData {
   generatedAt: number;
   sourceState: ProjectScanSourceState;
   projects: Project[];
-}
-
-interface ProjectSnapshot {
-  projects: Project[];
-  byId: Map<string, Project>;
-  byIdentityKey: Map<string, Project>;
-  bySessionDirSuffix: Map<string, Project>;
-  timestamp: number;
-}
-
-function cloneSessionCountsByProvider(
-  counts: Project["sessionCountsByProvider"],
-): Project["sessionCountsByProvider"] {
-  return counts ? { ...counts } : undefined;
 }
 
 function addProviderSessionCount(
@@ -192,6 +198,7 @@ export class ProjectScanner {
     version: string;
     snapshot: ProjectSnapshot;
   };
+  private projectFacts?: ProjectDiscoveryFacts;
   private published?: ReturnType<typeof changedProjects>;
 
   constructor(options: ScannerOptions = {}) {
@@ -220,6 +227,33 @@ export class ProjectScanner {
     this.projectScanCachePath = options.projectScanCachePath ?? null;
     this.getSandboxSessionDirs = options.getSandboxSessionDirs ?? null;
     this.eventBus = options.eventBus;
+    if (options.projectFactsDatabase)
+      this.projectFacts = new ProjectDiscoveryFacts({
+        database: options.projectFactsDatabase,
+        scope: () => ({
+          claude: this.projectsDir,
+          codex: this.enableCodex ? this.codexSessionsDir : null,
+          gemini: this.enableGemini ? this.geminiSessionsDir : null,
+          metadata: this.projectMetadataFilePath,
+          metadataRevision:
+            this.projectMetadataService?.getDiscoveryRevision?.() ?? 0,
+        }),
+        getProviderObservationEpoch: options.getProviderObservationEpoch,
+        codexSessionsDir: this.codexSessionsDir,
+        codexScanner: this.codexScanner,
+        queued: () => {
+          this.cleanRevision = ++this.cacheRevision;
+        },
+        changed: (project) => {
+          Object.assign(this.snapshot?.byId.get(project.id) ?? {}, project);
+          this.joined = undefined;
+        },
+        eventBus: this.eventBus,
+        invalidate: () => {
+          this.catalogProjects?.invalidate?.();
+          this.invalidateCache();
+        },
+      });
 
     if (options.eventBus) {
       this.unsubscribeEventBus = options.eventBus.subscribe((event) => {
@@ -289,14 +323,7 @@ export class ProjectScanner {
       return this.joined.snapshot;
     const projects = new Map<string, Project>(
       (base?.projects ?? [])
-        .filter(
-          (project) =>
-            !(
-              project.path === homedir() &&
-              project.sessionCount === 0 &&
-              project.lastActivity === null
-            ),
-        )
+        .filter((project) => catalogFileProject(project, this.catalogProjects))
         .map((project) => [
           getProjectIdentityKey(project.path),
           {
@@ -308,16 +335,11 @@ export class ProjectScanner {
     for (const native of view.projects) {
       if (this.isHiddenProjectPath(native.path)) continue;
       const key = getProjectIdentityKey(native.path);
-      const project =
-        projects.get(key) ??
-        this.registeredProject(native.path, native.lastActivity);
-      if (!project.sessionCount) project.provider = native.provider;
-      for (const [provider, count] of Object.entries(native.counts))
-        addProviderSessionCount(project, provider as ProviderName, count);
-      project.lastActivity = latestActivity(
-        project.lastActivity,
-        native.lastActivity,
-      );
+      const project = joinCatalogProject(
+        projects.get(key),
+        native,
+        (path, activity) => this.registeredProject(path, activity),
+      )!;
       projects.set(key, project);
     }
     for (const metadata of Object.values(
@@ -340,6 +362,7 @@ export class ProjectScanner {
   }> {
     await this.initializeRetainedProjects();
     if (this.disposed) throw new Error("Project scanner is disposed");
+    this.projectFacts?.checkScope();
     this.scheduleRetainedRefresh();
     const catalog = await this.catalogProjects?.read();
     if (this.disposed) throw new Error("Project scanner is disposed");
@@ -408,17 +431,22 @@ export class ProjectScanner {
   }
 
   private initializeRetainedProjects(): Promise<void> {
-    this.retainedInitialization ??= Promise.resolve().then(async () => {
-      if (this.disposed) throw new Error("Project scanner is disposed");
-      if (this.snapshot) return;
-      const snapshot = await this.loadSnapshotFromDisk(Date.now(), true);
-      // A complete read may have published while the saved snapshot was read.
-      if (!this.disposed && !this.snapshot && snapshot) {
-        this.snapshot = snapshot;
-        // Retention is display evidence, never a fresh complete-read cache hit.
-        this.cleanRevision = -1;
-      }
-    });
+    this.retainedInitialization ??= Promise.resolve()
+      .then(async () => {
+        if (this.disposed) throw new Error("Project scanner is disposed");
+        if (this.snapshot) return;
+        const snapshot = await this.loadSnapshotFromDisk(Date.now(), true);
+        // A complete read may have published while the saved snapshot was read.
+        if (!this.disposed && !this.snapshot && snapshot) {
+          this.snapshot = snapshot;
+          // Retention is display evidence, never a fresh complete-read cache hit.
+          this.cleanRevision = -1;
+        }
+      })
+      .catch((error: unknown) => {
+        this.retainedInitialization = null;
+        throw error;
+      });
     return this.retainedInitialization;
   }
 
@@ -500,12 +528,25 @@ export class ProjectScanner {
   }
 
   private invalidateProjectSnapshot(): void {
+    this.projectFacts?.invalidate();
     this.cacheRevision += 1;
     this.scheduleRetainedRefresh();
   }
 
-  private async getSnapshot(forceRefresh = false): Promise<ProjectSnapshot> {
+  private async getSnapshot(
+    forceRefresh = false,
+    projectId?: string,
+  ): Promise<ProjectSnapshot> {
     if (this.disposed) throw new Error("Project scanner is disposed");
+    const observed =
+      !forceRefresh &&
+      (await this.projectFacts?.isFresh(
+        this.snapshot?.timestamp,
+        this.cacheTtlMs,
+        projectId,
+      ));
+    if (this.disposed) throw new Error("Project scanner is disposed");
+    if (observed) return this.snapshot!;
     const now = Date.now();
     const scanRevision = this.cacheRevision;
     const isFresh =
@@ -526,8 +567,9 @@ export class ProjectScanner {
       forceRefresh,
       scanRevision,
     )
-      .then(({ snapshot, shouldPersist }) => {
+      .then(({ snapshot, shouldPersist, proof }) => {
         if (!this.disposed && this.cacheRevision === scanRevision) {
+          this.projectFacts?.replace(snapshot.projects, proof);
           this.snapshot = snapshot;
           this.cleanRevision = scanRevision;
           if (shouldPersist) {
@@ -550,7 +592,11 @@ export class ProjectScanner {
     now: number,
     forceRefresh: boolean,
     scanRevision: number,
-  ): Promise<{ snapshot: ProjectSnapshot; shouldPersist: boolean }> {
+  ): Promise<{
+    snapshot: ProjectSnapshot;
+    shouldPersist: boolean;
+    proof?: ProjectDiscoveryObservation;
+  }> {
     if (!forceRefresh && this.cleanRevision === scanRevision) {
       const cached = await this.loadSnapshotFromDisk(now);
       if (cached) {
@@ -558,55 +604,40 @@ export class ProjectScanner {
       }
     }
 
-    const reuseUnchangedProviders = this.cleanRevision !== scanRevision;
+    const proof = await this.projectFacts?.beginObservation();
+    const handover = this.projectFacts?.observationEpochChanged(proof);
+    if (handover) {
+      this.codexScanner?.invalidateCache();
+      this.geminiScanner?.invalidateCache();
+    }
+    const reuseUnchangedProviders =
+      !handover && this.cleanRevision !== scanRevision;
     if (!reuseUnchangedProviders) this.resetClaudeDiscovery();
-    const projects = await this.scanProjects(reuseUnchangedProviders);
+    const registrations = new Map<string, string>();
+    const projects = await this.scanProjects(
+      reuseUnchangedProviders,
+      registrations,
+    );
+    if (proof) proof.registrations = registrations;
     const snapshot = this.buildSnapshot(projects);
-    return { snapshot, shouldPersist: true };
+    return { snapshot, shouldPersist: true, proof };
   }
 
   private buildSnapshot(
     projects: Project[],
     timestamp = Date.now(),
   ): ProjectSnapshot {
-    const byId = new Map<string, Project>();
-    const byIdentityKey = new Map<string, Project>();
-    const bySessionDirSuffix = new Map<string, Project>();
-
-    for (const project of projects) {
-      byId.set(project.id, project);
-      byIdentityKey.set(getProjectIdentityKey(project.path), project);
-
-      const primarySuffix = this.normalizeDirSuffix(
-        this.sessionDirToSuffix(project.sessionDir),
-      );
-      if (primarySuffix) {
-        bySessionDirSuffix.set(primarySuffix, project);
-      }
-
-      for (const mergedDir of project.mergedSessionDirs ?? []) {
-        const mergedSuffix = this.normalizeDirSuffix(
-          this.sessionDirToSuffix(mergedDir),
-        );
-        if (mergedSuffix) {
-          bySessionDirSuffix.set(mergedSuffix, project);
-        }
-      }
-    }
-
-    return {
-      projects,
-      byId,
-      byIdentityKey,
-      bySessionDirSuffix,
-      timestamp,
-    };
+    return projectDiscoverySnapshot(projects, timestamp, (dir) =>
+      this.normalizeDirSuffix(this.sessionDirToSuffix(dir)),
+    );
   }
 
   private async loadSnapshotFromDisk(
     now: number,
     allowStale = false,
   ): Promise<ProjectSnapshot | null> {
+    const retained = this.projectFacts?.retained();
+    if (retained) return allowStale ? this.buildSnapshot(retained) : null;
     if (!this.projectScanCachePath) return null;
 
     try {
@@ -649,7 +680,7 @@ export class ProjectScanner {
 
       const projects: Project[] = [];
       for (const project of parsed.projects) {
-        if (!this.isValidCachedProject(project)) {
+        if (!isProjectDiscoveryFact(project)) {
           return null;
         }
         projects.push({
@@ -710,7 +741,7 @@ export class ProjectScanner {
     snapshot: ProjectSnapshot,
     revision: number,
   ): Promise<void> {
-    if (!this.projectScanCachePath) return;
+    if (this.projectFacts || !this.projectScanCachePath) return;
     if (this.cacheRevision !== revision || this.cleanRevision !== revision) {
       return;
     }
@@ -873,39 +904,6 @@ export class ProjectScanner {
     );
   }
 
-  private isValidCachedProject(value: unknown): value is Project {
-    if (typeof value !== "object" || value === null) return false;
-    const project = value as Partial<Project>;
-
-    return (
-      typeof project.id === "string" &&
-      typeof project.path === "string" &&
-      typeof project.name === "string" &&
-      typeof project.sessionDir === "string" &&
-      typeof project.sessionCount === "number" &&
-      (project.sessionCountsByProvider === undefined ||
-        (typeof project.sessionCountsByProvider === "object" &&
-          project.sessionCountsByProvider !== null &&
-          Object.values(project.sessionCountsByProvider).every(
-            (count) => typeof count === "number",
-          ))) &&
-      typeof project.activeOwnedCount === "number" &&
-      typeof project.activeExternalCount === "number" &&
-      (project.lastActivity === null ||
-        typeof project.lastActivity === "string") &&
-      typeof project.provider === "string" &&
-      (project.mergedSessionDirs === undefined ||
-        (Array.isArray(project.mergedSessionDirs) &&
-          project.mergedSessionDirs.every(
-            (item) => typeof item === "string",
-          ))) &&
-      (project.hasCodexSessions === undefined ||
-        typeof project.hasCodexSessions === "boolean") &&
-      (project.hasGeminiSessions === undefined ||
-        typeof project.hasGeminiSessions === "boolean")
-    );
-  }
-
   private sessionDirToSuffix(sessionDir: string): string {
     // Claude session dirs live under projectsDir; codex/gemini do not.
     const relative = sessionDir.startsWith(this.projectsDir)
@@ -967,8 +965,6 @@ export class ProjectScanner {
       sessionCountsByProvider: cloneSessionCountsByProvider(
         project.sessionCountsByProvider,
       ),
-      hasCodexSessions: project.hasCodexSessions,
-      hasGeminiSessions: project.hasGeminiSessions,
     };
   }
 
@@ -982,6 +978,10 @@ export class ProjectScanner {
     sandboxDirs = this.sandboxSessionDirs(),
   ): Promise<Project> {
     const read = this.cloneProject(project, sandboxDirs);
+    if (this.projectMetadataService)
+      read.ownerUsername = this.projectMetadataService.getProjectOwner(
+        project.path,
+      );
     const scanned = new Set([
       project.sessionDir,
       ...(project.mergedSessionDirs ?? []),
@@ -1018,6 +1018,7 @@ export class ProjectScanner {
   }
 
   private handleFileChange(event: FileChangeEvent): void {
+    if (this.projectFacts?.observe(event)) return;
     if (event.fileType !== "session" && event.fileType !== "agent-session") {
       return;
     }
@@ -1045,6 +1046,7 @@ export class ProjectScanner {
 
   private async scanProjects(
     reuseUnchangedProviders = false,
+    registrations?: Map<string, string>,
   ): Promise<Project[]> {
     const projects: Project[] = [];
     const seenPaths = new Set<string>();
@@ -1247,6 +1249,7 @@ export class ProjectScanner {
         if (this.isHiddenProjectPath(projectPath)) continue;
         // Skip if we've already seen this path from another source
         if (seenIdentityKeys.has(getProjectIdentityKey(projectPath))) continue;
+        registrations?.set(getProjectIdentityKey(projectPath), projectPath);
 
         // Verify the directory still exists
         try {
@@ -1314,31 +1317,28 @@ export class ProjectScanner {
     projectId: string,
     options?: GetProjectOptions,
   ): Promise<Project | null> {
-    const base =
+    const snapshot =
       options?.allowStaleSnapshot && this.snapshot
         ? this.snapshot
-        : await this.getSnapshot();
+        : await this.getSnapshot(false, projectId);
     await this.catalogProjects?.read();
-    const snapshot = this.joinedSnapshot(base);
-    let project = snapshot.byId.get(projectId);
-    if (!project) {
-      try {
-        project = snapshot.byIdentityKey.get(
-          getProjectIdentityKey(decodeProjectId(projectId as UrlProjectId)),
-        );
-      } catch {
-        project = undefined;
-      }
-    }
-    if (!project || this.isHiddenProjectPath(project.path)) {
-      return null;
-    }
-    return this.readProject(project);
+    const base = this.projectFacts?.ready
+      ? this.projectFacts.project(projectId)
+      : projectInSnapshot(snapshot, projectId);
+    const project = joinCatalogProject(
+      base && catalogFileProject(base, this.catalogProjects),
+      catalogProjectFor(this.catalogProjects, projectId),
+      (path, activity) => this.registeredProject(path, activity),
+    );
+    return project && !this.isHiddenProjectPath(project.path)
+      ? this.readProject(project)
+      : null;
   }
 
   private isHiddenProjectPath(projectPath: string): boolean {
-    if (!this.projectMetadataService) return false;
-    return this.projectMetadataService.isHiddenProjectPath(projectPath);
+    return (
+      this.projectMetadataService?.isHiddenProjectPath(projectPath) ?? false
+    );
   }
 
   /**
@@ -1464,6 +1464,7 @@ export class ProjectScanner {
     this.retainedTimer = null;
     this.unsubscribeEventBus?.();
     this.unsubscribeEventBus = null;
+    await this.projectFacts?.dispose();
     await this.retainedRefresh;
     await Promise.allSettled([
       this.inFlightScan?.promise,
@@ -1559,11 +1560,7 @@ export class ProjectScanner {
     return directories;
   }
 
-  private getProjectDirInfo(
-    projectDirPath: string,
-  ): Promise<ClaudeProjectDirectory | null> {
-    return readClaudeProjectDirectory(projectDirPath);
-  }
+  private getProjectDirInfo = readClaudeProjectDirectory;
 }
 
 // Singleton for convenience
