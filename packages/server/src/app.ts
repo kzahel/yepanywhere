@@ -332,6 +332,7 @@ import { createSessionsRoutes } from "./routes/sessions.js";
 import { createSessionWakeRoutes } from "./routes/session-wake.js";
 import { createSettingsRoutes } from "./routes/settings.js";
 import { streamNewSessionBootstrap } from "./routes/new-session-bootstrap.js";
+import { readAuthenticatedJson } from "./routes/authenticated-json-read.js";
 import { createSharingRoutes } from "./routes/sharing.js";
 import { createSupervisorQueueRoutes } from "./routes/supervisor-queue.js";
 import { createToolResultMediaRoutes } from "./routes/tool-result-media.js";
@@ -4229,18 +4230,9 @@ export function createApp(options: AppOptions): AppResult {
       createSettingsRoutes({
         serverSettingsService: options.serverSettingsService,
         newSessionBootstrap: (context) =>
-          streamNewSessionBootstrap(context, async (path, signal) => {
-            const headers = new Headers(context.req.raw.headers);
-            headers.delete("Accept-Encoding");
-            headers.delete("Content-Length");
-            headers.delete("If-None-Match");
-            headers.delete("If-Modified-Since");
-            headers.set("Accept", "application/json");
-            return app.fetch(
-              new Request(new URL(path, context.req.url), { headers, signal }),
-              context.env,
-            );
-          }),
+          streamNewSessionBootstrap(context, (path, signal) =>
+            readAuthenticatedJson(app, context, path, signal),
+          ),
         projectStoragePolicy,
         hostAwakeService: options.hostAwakeService,
         sessionMetadataService: options.sessionMetadataService,

@@ -5234,3 +5234,12 @@ allocation/standalone tests pass; full-suite qualifications are recorded in
 the durable Claude index research and plan 190 log. This is a Tier 2 seam;
 no route registration, auth, transport or browser boundary moves. App budget
 4,590 → 4,573; subsequent wiring stays within that ratchet.
+
+### Authenticated bootstrap JSON dispatch — 2026-11-11
+
+Plan 190 preparation: move the existing New Session bootstrap's internal JSON
+read closure to `routes/authenticated-json-read.ts`. Its captured app and request
+context become explicit parameters; headers, URL, signal, environment and fetch
+semantics are unchanged. This gives collection updates the same authenticated
+read boundary without growing the frozen composition root. No route contract
+changes in this move. Focused bootstrap tests and TypeScript checks qualify it.
