@@ -389,7 +389,7 @@ test("middle click on a shared file's link opens its public play view", async ({
   await page.goto(`${baseURL}/projects/${projectId}/file?path=${fileName}`);
   await dismissOnboardingIfVisible(page);
   const share = page
-    .locator(".file-viewer")
+    .locator("[data-file-viewer]")
     .getByRole("button", { name: "Share file publicly" });
 
   // A shared file opens its play view in a new tab, with no dialog.
