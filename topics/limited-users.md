@@ -335,6 +335,12 @@ a route added later is refused for limited users until it is listed. It is
 allowed gets 403, and a project or session outside the user's grants gets
 404 (existence is not disclosed).
 
+The sidebar snapshot (`GET /api/sessions/sidebar`) is an explicitly allowed
+collection read, never a lookup of a session named `sidebar`. Its SQL selections
+apply project grants before window limits; the middleware also projects visible
+rows and every window's IDs together. Hidden or inaccessible cached identities
+are absent from the response. See [session collection queries](session-collection-queries.md#sidebar-snapshots).
+
 **Directory grants** (`pathGrants`, user-directed 2026-09-28) give one access
 level to every project at or beneath a directory, including projects created
 there later; the editor fills one from a limited user's project directory

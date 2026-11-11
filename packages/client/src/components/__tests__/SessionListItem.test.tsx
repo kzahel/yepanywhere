@@ -20,6 +20,13 @@ import { I18nProvider } from "../../i18n";
 import { activityBus } from "../../lib/activityBus";
 import { UI_KEYS } from "../../lib/storageKeys";
 import "../../../test/pointerEventShim";
+import * as turnHook from "../../hooks/useNonHumanUserTurn";
+import {
+  LOCAL_CLIENT_SUMMARY_SOURCE_KEY,
+  reportGlobalSessionsCollectionSnapshot,
+  resetClientSummaryStoreForTests,
+} from "../../lib/clientSummaryStore";
+import { toUrlProjectId } from "@yep-anywhere/shared";
 import { SessionListItem } from "../SessionListItem";
 
 const mockWindowOpen = vi.fn();
@@ -77,6 +84,71 @@ describe("SessionListItem links", () => {
       onNavigate,
     };
   }
+
+  it("skips fresh equal DTOs and row clocks while changed values and callbacks remain live", async () => {
+    resetClientSummaryStoreForTests();
+    const observe = vi.spyOn(turnHook, "useNonHumanUserTurn");
+    const first = vi.fn(),
+      second = vi.fn();
+    const content = (
+      onNavigate = first,
+      owner: "none" | "external" = "none",
+    ) => (
+      <I18nProvider>
+        <MemoryRouter>
+          <ul>
+            <SessionListItem
+              sessionId="session-1"
+              projectId="project-1"
+              title="Build logs"
+              mode="compact"
+              status={{ owner }}
+              sidebarCategoryNames={["Review"]}
+              onNavigate={onNavigate}
+            />
+          </ul>
+        </MemoryRouter>
+      </I18nProvider>
+    );
+    try {
+      const view = render(content());
+      await act(async () => {});
+      const before = observe.mock.calls.length;
+      act(() =>
+        reportGlobalSessionsCollectionSnapshot(
+          LOCAL_CLIENT_SUMMARY_SOURCE_KEY,
+          {
+            query: { scope: "global-sessions" },
+            sessions: [
+              {
+                id: "session-1",
+                projectId: toUrlProjectId("/fixture"),
+                projectName: "Fixture",
+                title: "Build logs",
+                fullTitle: "Build logs",
+                updatedAt: new Date().toISOString(),
+                ownership: { owner: "none" },
+                provider: "claude",
+                activity: "idle",
+                messageCount: 1,
+              },
+            ],
+            hasMore: false,
+          },
+        ),
+      );
+      view.rerender(content());
+      expect(observe).toHaveBeenCalledTimes(before);
+      view.rerender(content(second, "external"));
+      expect(observe.mock.calls.length).toBeGreaterThan(before);
+      fireEvent.click(screen.getByRole("link", { name: /Build logs/ }));
+      expect(second).toHaveBeenCalledOnce();
+      expect(first).not.toHaveBeenCalled();
+    } finally {
+      observe.mockRestore();
+      resetClientSummaryStoreForTests();
+    }
+  });
 
   it("shows creation age only when the creation timestamp is known", () => {
     const updatedAt = new Date(Date.now() - 60 * 60_000).toISOString();

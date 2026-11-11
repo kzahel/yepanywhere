@@ -94,9 +94,13 @@ request the tab made and its WebSocket frames (header comment for usage).
    former whole-rollout updates in Claude-default projects were fixed by
    resolved-provider dispatch; [shared ingestion evidence](../docs/research/190-transcript-ingestion.md)
    records that earlier slice. No full active-tab target is closed here.
-2. **Bounded session/Inbox views now receive authoritative changes.** The three
-   feeds and Inbox use one source-owned capability-gated stream, carrying changed
-   rows and exact membership/count updates rather than refetching on each event.
+2. **Bounded views have authoritative SQL ownership.** The sidebar now favors
+   cheap SQL-backed reads of its recent/starred/categorized windows. A single
+   aggregate GET is implemented, but browser cutover is deferred after a CPU
+   regression; current transport remains, and pointer/focus holds are removed;
+   [sidebar evidence](../docs/research/190-sidebar-snapshot.md) records this slice.
+   Inbox and other session feeds retain the source-owned capability-gated stream,
+   carrying changed rows and exact membership/count updates.
    Real browser coverage proves native Inbox changes and zero list/Inbox GETs
    during sequential typing on Node and Bun. [Evidence](../docs/research/190-collection-query-updates.md)
    records that first slice. Bounded `/api/projects` and `/api/project-queue`

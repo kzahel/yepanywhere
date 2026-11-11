@@ -761,6 +761,7 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     capabilities.push(
       SERVER_CAPABILITIES.collectionQueryUpdates.name,
       SERVER_CAPABILITIES.projectCollectionUpdates.name,
+      SERVER_CAPABILITIES.sidebarSessionSnapshot.name,
     );
   if (options?.getDraftSyncAvailable?.())
     capabilities.push(SERVER_CAPABILITIES.draftSync.name);

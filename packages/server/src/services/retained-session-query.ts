@@ -1,3 +1,8 @@
+import {
+  SIDEBAR_SESSION_FEEDS,
+  type SidebarSessionLimits,
+  type SidebarSessionSnapshot,
+} from "@yep-anywhere/shared/sidebar-snapshot";
 import { realpathSync } from "node:fs";
 import { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import { NotificationService } from "../notifications/NotificationService.js";
@@ -528,6 +533,52 @@ export class RetainedSessionQuery {
     return this.run(async () => {
       await this.synchronize(Date.now());
       return this.pageResult(query, relationships);
+    });
+  }
+  /** One fresh SQL read boundary; no per-session membership patches or result cache. */
+  sidebar(
+    limits: SidebarSessionLimits,
+    accessibleProjectIds?: readonly string[],
+    relationships?: RetainedItemsDeps["providerChildRelationships"],
+  ) {
+    return this.run(async () => {
+      const start = performance.now();
+      await this.synchronize(Date.now());
+      const synchronized = performance.now();
+      const selected = new Map<string, CollectionStoredRow>();
+      const windows =
+        {} as SidebarSessionSnapshot<GlobalSessionItem>["windows"];
+      for (const feed of SIDEBAR_SESSION_FEEDS) {
+        const found = this.sql.select({
+          limit: limits[feed] + 1,
+          accessibleProjectIds,
+          starredOnly: feed === "starred",
+          categorizedOnly: feed === "categorized",
+        });
+        const rows = found.slice(0, limits[feed]);
+        windows[feed] = {
+          ids: rows.map((row) => row.id),
+          hasMore: found.length > limits[feed],
+        };
+        for (const row of rows) selected.set(row.id, row);
+      }
+      const selectedAt = performance.now();
+      const snapshot: SidebarSessionSnapshot<GlobalSessionItem> = {
+        rows: [...selected.values()].map((row) =>
+          this.hydrate(row, relationships),
+        ),
+        windows,
+        catalog: this.catalog(),
+        nextTransitionAt: this.archiveTransition(accessibleProjectIds),
+      };
+      return {
+        snapshot,
+        timings: {
+          synchronizeMs: synchronized - start,
+          selectMs: selectedAt - synchronized,
+          hydrateMs: performance.now() - selectedAt,
+        },
+      };
     });
   }
   /** Explicit complete read for internal consumers; HTTP pages always pass a limit. */

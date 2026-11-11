@@ -318,7 +318,7 @@ describe("Sidebar client summary source registry", () => {
     ]);
   });
 
-  it("holds user-driven moves and arrivals during pointer and focus interaction", async () => {
+  it("applies user-driven moves and arrivals during pointer and focus interaction", async () => {
     const source = createClientSummaryHostSourceKey("held-sidebar");
     const rows = [session("a", "A"), session("b", "B")];
     act(() => {
@@ -349,9 +349,9 @@ describe("Sidebar client summary source registry", () => {
         200,
       );
     });
-    expect(ids()).toEqual(["a", "b"]);
+    expect(ids()).toEqual(["b", "a", "new"]);
     fireEvent.pointerLeave(aside, { pointerType: "mouse" });
-    expect(ids()).toEqual(["a", "b"]);
+    expect(ids()).toEqual(["b", "a", "new"]);
     act(() => focusedLink.blur());
     expect(ids()).toEqual(["b", "a", "new"]);
     act(() => recordSessionInteraction(source, "a"));

@@ -73,28 +73,20 @@ A server without `sidebar-session-categories` (releases through 0.9.3) shows
 neither the menu entry nor either kind of named section, and the client sends
 it neither `sidebarCategory` nor `categorized`.
 
-## Interaction hold
+## Fresh membership
 
-Entering the sidebar with a pointer, focusing a control inside it, or starting
-a touch captures the displayed session identities, order, and section
-membership. An empty initial list has no targets to protect: its first nonempty
-population remains visible and becomes the held layout if interaction is still
-active. Status, title, unread, draft, and queue decorations remain live.
-New arrivals, duplicate regrouping, and user-driven reorderings wait until the
-interaction finishes. That includes moving a row to another section: a section
-that appears during the hold stays empty until release, so the moved row shows
-once, in its old place. Rows no longer present in the loaded data are removed;
-the hold never retains a stale navigation destination after removal.
+Pointer, focus and touch do not hold order or section membership. Accepted
+fresh data immediately determines the displayed sections: unstar, category,
+archive, deletion, new arrivals and submissions may move or remove rows while
+interaction remains inside the sidebar. User chronology above still applies;
+background output itself is not a ranking signal.
 
-The hold covers the whole sidebar, including the navigation area above the
-session list, so approaching a row does not require hitting its exact bounds.
-Pointer exit releases its interest; focus leaving the sidebar releases keyboard
-interest. That includes the focused control itself leaving the DOM, as a
-clicked Pending Sessions row does when its queued session starts: browsers send
-no blur then, so the hold confirms focus is still inside when new rows arrive.
-Touch keeps its target through the click, releasing after that click
-or cancellation. Reordering resumes only when no interaction remains. Closing
-or collapsing the sidebar, or switching connected sources, clears the hold.
+The existing server collection owner still supplies the three session windows;
+the [SQL snapshot API](session-collection-queries.md#sidebar-snapshots) is a
+measured foundation, with default browser cutover deferred.
+On capable servers, starred and categorized sections render accepted window membership, including
+after deep pagination; an unrelated cached entity cannot restore an omitted
+row. Older servers retain their existing acquisition path.
 
 ## Storage and ownership
 
@@ -111,23 +103,20 @@ storage or eviction of an old entry restores that row's creation-time fallback.
 This is browser-local chronology over the server's loaded collection, not a
 whole-history user-message index. Another device, provider-native terminal, or
 agent-mediated session message does not update it. Existing server query
-coverage and pagination still determine which sessions are available. No new
-endpoint, capability, schema field, polling loop, or project-directory writer
-is introduced.
+coverage and pagination still determine which sessions are available. The chronology layer adds no polling loop or project-directory writer.
 
 `useSidebarSessionOrder` owns sidebar ordering and date classification above
 the collection records. Shared collection selectors retain their existing
 semantics for other consumers. Duplicate grouping preserves the resulting
 order; it protects active, queued, current, owned, and lineage-related rows
-under the existing duplicate-hiding contract. `useHeldSidebarLists` holds layout
-identities independently of fresh row data.
+under the existing duplicate-hiding contract.
 
 A minimized desktop sidebar or closed mobile sidebar still releases its feed
 interest under the existing sidebar-feed contract. When that feed becomes
 active again, it validates its cached membership against the server collection
 generation so sessions created while hidden appear without a project/search
 detour. Returning a connected tab from the background performs the same
-validation. Interaction tracking itself adds no server demand.
+validation. Chronology tracking itself adds no server demand.
 
 ## Design decisions
 
@@ -139,14 +128,14 @@ validation. Interaction tracking itself adds no server demand.
   from activity confusing, so only writing into a session moves it. The
   browser-local record keeps a send's effect immediate; the server's last
   human turn lets every device agree afterwards.
-- **Hold identities while refreshing data** (vs. freezing whole row objects):
-  click targets stay stable while status and title changes remain visible.
+- **Fresh membership wins during interaction**: explicit changes should move
+  rows immediately, rather than preserving their former section while hovered.
 
 ## Verification
 
 The summary-store Sidebar regression reproduces a row jumping when one active
 session finishes while another produces output. It now preserves order and
-updates the title. Component and hook coverage checks interaction holds,
+updates the title. Component and hook coverage checks immediate membership changes,
 arrivals, duplicate protection, persistence, source isolation, malformed
 storage, and bounded retention. The browser test drives actual navigation and
 composer submission, injects activity through the WebSocket boundary, checks

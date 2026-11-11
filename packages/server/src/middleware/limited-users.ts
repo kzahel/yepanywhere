@@ -224,6 +224,43 @@ function pruneSessionsList(
   };
 }
 
+/** Keep row identities and each window under the same grants/hidden projection. */
+function pruneSidebarSnapshot(
+  body: unknown,
+  isAccessible: (projectId: string) => boolean,
+): unknown {
+  if (!body || typeof body !== "object") return {};
+  const record = body as Record<string, unknown>;
+  const pruned = pruneInaccessible(record.rows, isAccessible);
+  const rows = Array.isArray(pruned) ? pruned : [];
+  const allowed = new Set(
+    rows.map((row) => row?.id).filter((id) => typeof id === "string"),
+  );
+  const source = record.windows as
+    | Record<string, { ids?: unknown; hasMore?: unknown }>
+    | undefined;
+  const windows = Object.fromEntries(
+    ["recent", "starred", "categorized"].map((feed) => {
+      const window = source?.[feed];
+      return [
+        feed,
+        {
+          ids: Array.isArray(window?.ids)
+            ? window.ids.filter((id) => allowed.has(id))
+            : [],
+          hasMore: window?.hasMore === true,
+        },
+      ];
+    }),
+  );
+  return {
+    rows,
+    windows,
+    catalog: record.catalog,
+    nextTransitionAt: record.nextTransitionAt,
+  };
+}
+
 function projectScopedRows(
   value: unknown,
   isAccessible: (projectId: string) => boolean,
@@ -314,6 +351,9 @@ async function filterResponse(
       break;
     case "project-queue":
       filtered = pruneProjectQueueResponse(body, isAccessible);
+      break;
+    case "sidebar-sessions":
+      filtered = pruneSidebarSnapshot(body, isAccessible);
       break;
     case "sessions":
       filtered = pruneSessionsList(body, isAccessible);

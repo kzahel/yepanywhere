@@ -1,3 +1,7 @@
+import {
+  SIDEBAR_SESSION_FEEDS,
+  type SidebarSessionLimits,
+} from "@yep-anywhere/shared/sidebar-snapshot";
 import { retainedSessionQuery } from "../services/retained-session-query.js";
 import { mergeCreationGlobalItems } from "./creation-session-collections.js";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
@@ -565,6 +569,42 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
 
     const stats = await getCachedGlobalStats(accessibleProjectIdsForRequest(c));
     return c.json({ stats });
+  });
+
+  // A fresh sidebar read shares synchronization across its independent windows.
+  routes.get("/sidebar", async (c) => {
+    if (!deps.retainedCollections)
+      return c.json({ error: "Retained collections unavailable" }, 503);
+    const limits = {} as SidebarSessionLimits;
+    for (const feed of SIDEBAR_SESSION_FEEDS) {
+      const raw = c.req.query(`${feed}Limit`);
+      const limit = raw === undefined ? 50 : Number(raw);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 500)
+        return c.json({ error: "Invalid sidebar window" }, 400);
+      limits[feed] = limit;
+    }
+    const start = performance.now();
+    const { snapshot, timings } = await retainedSessionQuery(
+      deps.retainedCollections,
+      deps,
+    ).sidebar(
+      limits,
+      accessibleProjectIdsForRequest(c),
+      deps.providerChildRelationships,
+    );
+    const serialize = performance.now();
+    const response = c.json(snapshot);
+    response.headers.set(
+      "Server-Timing",
+      [
+        `ya-sidebar-sync;dur=${timings.synchronizeMs.toFixed(2)}`,
+        `ya-sidebar-select;dur=${timings.selectMs.toFixed(2)}`,
+        `ya-sidebar-hydrate;dur=${timings.hydrateMs.toFixed(2)}`,
+        `ya-sidebar-json;dur=${(performance.now() - serialize).toFixed(2)}`,
+        `ya-sidebar-total;dur=${(performance.now() - start).toFixed(2)}`,
+      ].join(", "),
+    );
+    return response;
   });
 
   // GET /api/sessions - Get all sessions with pagination

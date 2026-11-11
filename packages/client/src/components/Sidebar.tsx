@@ -25,11 +25,8 @@ import { usePublicShareStatus } from "../hooks/usePublicShareStatus";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useSidebarDuplicateHiding } from "../hooks/useSidebarDuplicateHiding";
-import { useSidebarSessionFeeds } from "../hooks/useSidebarSessionFeeds";
-import {
-  useHeldSidebarLists,
-  useSidebarSessionOrder,
-} from "../hooks/useSidebarSessionOrder";
+import { useSidebarSessionRecords } from "../hooks/useSidebarSessionRecords";
+import { useSidebarSessionOrder } from "../hooks/useSidebarSessionOrder";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "../hooks/useSidebarWidth";
 import { useVersion } from "../hooks/useVersion";
 import { SessionAsyncQuestionsButton } from "./SessionAsyncQuestionsButton";
@@ -53,9 +50,6 @@ import {
   useKnownProjectQueueItems,
   useProjectQueuedSessionIds,
   useProjectQueueSidebarCount,
-  useCategorizedSessionRecords,
-  useSessionCollectionQueryRecords,
-  useStarredSessionRecords,
 } from "../lib/clientSummaryStore";
 import { UI_KEYS } from "../lib/storageKeys";
 import { getSessionDisplayTitle } from "../utils";
@@ -347,7 +341,6 @@ export function Sidebar({
   );
 
   const {
-    globalQuery,
     loading: sessionsLoading,
     hasMoreGlobalSessions,
     loadMoreGlobalSessions,
@@ -356,11 +349,11 @@ export function Sidebar({
     sidebarCategoriesSupported,
     hasMoreCategorizedSessions,
     loadMoreCategorizedSessions,
-  } = useSidebarSessionFeeds();
+    globalQueryRecords,
+    starredSessionRecords,
+    categorizedSessionRecords,
+  } = useSidebarSessionRecords();
 
-  const globalQueryRecords = useSessionCollectionQueryRecords(globalQuery);
-  const starredSessionRecords = useStarredSessionRecords();
-  const categorizedSessionRecords = useCategorizedSessionRecords();
   // A limited user sees only their own sessions; grouping them under their
   // own name would just rename Last 24 Hours.
   const orderedSessions = useSidebarSessionOrder(
@@ -923,18 +916,14 @@ export function Sidebar({
     return { visibleOlder: visible, hiddenOlder: hidden };
   }, [groupDuplicateSessions, olderSessions, sidebarDuplicateHidingEnabled]);
 
-  const { lists: displayed, handlers: orderInteractionHandlers } =
-    useHeldSidebarLists(
-      {
-        ...groupSessionLists,
-        starred: filteredStarredSessions,
-        recent: visibleRecent,
-        hiddenRecent,
-        older: visibleOlder,
-        hiddenOlder,
-      },
-      isDesktop ? !isCollapsed : isOpen,
-    );
+  const displayed = {
+    ...groupSessionLists,
+    starred: filteredStarredSessions,
+    recent: visibleRecent,
+    hiddenRecent,
+    older: visibleOlder,
+    hiddenOlder,
+  };
   const displayedByKey: Record<string, readonly SidebarSessionItem[]> =
     displayed;
   const displayedGroupKeys = (prefix: string) =>
@@ -1059,7 +1048,6 @@ export function Sidebar({
       )}
       <aside
         ref={sidebarRef}
-        {...orderInteractionHandlers}
         className={sidebarStyles.sidebar}
         data-sidebar
         onTouchStart={!isDesktop ? handleTouchStart : undefined}

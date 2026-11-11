@@ -1,4 +1,3 @@
-import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
@@ -7,6 +6,7 @@ import {
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
 import { readCollectionsOverRest } from "./support/managed-routes";
+import { recordUiCapture } from "./support/ui-capture";
 import { createTestViteServer } from "./support/vite-server";
 import {
   startYaServerProcess,
@@ -44,23 +44,69 @@ test("sidebar follows user sends while visits and background work stay put", asy
     ownership: { owner: "none" },
     createdAt: new Date(now - (index + 1) * 60_000).toISOString(),
     updatedAt: new Date(now - (index + 1) * 60_000).toISOString(),
+    isStarred: false,
+    sidebarCategory: undefined as string | undefined,
     messageCount: 1,
   }));
+  const oldStar = {
+    ...rows[0]!,
+    id: "sidebar-old",
+    title: "Old star",
+    fullTitle: "Old star",
+    isStarred: true,
+    createdAt: new Date(now - 7 * 86400000).toISOString(),
+  };
+  rows.push(oldStar);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await readCollectionsOverRest(page);
-  await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
-    route.fulfill({
+  // Exercise fresh collection replacement on the compatible three-feed path.
+  // Default snapshot acquisition was rejected by the scale comparison.
+  await page.route("**/api/version*", async (route) => {
+    const payload = await (await route.fetch()).json();
+    for (const key of Object.keys(payload))
+      if (key.toLowerCase().includes("capabilit")) delete payload[key];
+    return route.fulfill({
       json: {
-        sessions:
-          new URL(route.request().url()).searchParams.get("starred") === "true"
-            ? []
-            : rows,
-        hasMore: false,
-        total: rows.length,
+        ...payload,
+        current: "0.11.0",
+        latest: null,
+        updateAvailable: false,
+        capabilities: [
+          "sidebar-session-snapshot",
+          "sidebar-session-categories",
+          "progressive-session-catalog",
+        ],
       },
-    }),
-  );
+    });
+  });
+  let snapshots = 0;
+  await page.route(/\/api\/sessions(?:\?|$)/, (route) => {
+    snapshots++;
+    const query = new URL(route.request().url()).searchParams;
+    const sessions =
+      query.get("starred") === "true"
+        ? rows.filter((row) => row.isStarred)
+        : query.get("categorized") === "true"
+          ? rows.filter((row) => row.sidebarCategory)
+          : rows.filter((row) => row.id !== oldStar.id);
+    return route.fulfill({
+      json: {
+        sessions,
+        hasMore: false,
+        total: sessions.length,
+        catalog: {
+          complete: true,
+          refreshing: false,
+          catalogEpoch: "test",
+          catalogGeneration: 1,
+        },
+      },
+    });
+  });
+  await page.route(/\/api\/sessions\/sidebar(?:\?|$)/, () => {
+    throw Error("Unqualified snapshot cutover");
+  });
   await page.route(
     /\/api\/projects\/[^/]+\/sessions\/sidebar-[abc](?:\?|$)/,
     (route) => {
@@ -126,14 +172,15 @@ test("sidebar follows user sends while visits and background work stay put", asy
     if (!address || typeof address === "string")
       throw new Error("Missing Vite port");
     const origin = `http://127.0.0.1:${address.port}`;
-    const captures = process.env.YEP_E2E_UI_CAPTURE_DIR;
-    if (captures) mkdirSync(captures, { recursive: true });
     for (const viewport of [
       { name: "desktop", width: 1000, height: 600 },
       { name: "phone", width: 375, height: 812 },
     ]) {
       const resetRow = rows.find((row) => row.id === "sidebar-c");
       if (!resetRow) throw new Error("Missing sidebar-c fixture row");
+      oldStar.isStarred = true;
+      resetRow.isStarred = false;
+      resetRow.sidebarCategory = undefined;
       resetRow.title = "Session C";
       resetRow.fullTitle = "Session C";
       await page.setViewportSize(viewport);
@@ -226,11 +273,47 @@ test("sidebar follows user sends while visits and background work stay put", asy
       await expect(
         page.getByText("Server changed", { exact: false }),
       ).toHaveCount(0);
-      if (captures)
-        await page.screenshot({
-          animations: "disabled",
-          path: join(captures, `sidebar-order-${viewport.name}.png`),
-        });
+      // Fresh snapshots move membership while both pointer and keyboard focus
+      // remain inside. The old interaction hold kept this row in its old section.
+      await target.hover();
+      await target.focus();
+      const beforeSnapshot = snapshots;
+      updatedRow.isStarred = true;
+      updatedRow.sidebarCategory = "Review";
+      const notifyMetadata = () => {
+        for (const emit of activityListeners)
+          emit("session-metadata-changed", {
+            type: "session-metadata-changed",
+            projectId,
+            sessionId: updatedRow.id,
+            starred: updatedRow.isStarred,
+            sidebarCategory: updatedRow.sidebarCategory ?? null,
+            timestamp: new Date().toISOString(),
+          });
+        for (const emit of activityListeners) emit("refresh", {});
+      };
+      notifyMetadata();
+      await expect.poll(() => snapshots).toBeGreaterThan(beforeSnapshot);
+      await expect(links).toHaveCount(2);
+      updatedRow.isStarred = false;
+      updatedRow.sidebarCategory = undefined;
+      notifyMetadata();
+      await expect(links).toHaveCount(3);
+      await expect(titles).toHaveText([
+        "Session A",
+        "Session B",
+        "Session C updated",
+      ]);
+      // Simulate an edit missed while disconnected: the old row is outside
+      // every replacement window, so cached entity flags must not resurrect it.
+      const oldLink = page.locator(
+        '[data-sidebar]:visible a[data-session-list-item__link][href*="/sessions/sidebar-old"]',
+      );
+      await expect(oldLink).toHaveCount(1);
+      oldStar.isStarred = false;
+      for (const emit of activityListeners) emit("refresh", {});
+      await expect(oldLink).toHaveCount(0);
+      await recordUiCapture(page, `sidebar-order-${viewport.name}`, viewport);
       // An earlier send elsewhere in this browser must not hide a subsequent
       // send's user activity. No provider is invoked: the test endpoint
       // rejects it.

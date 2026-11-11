@@ -58,6 +58,87 @@ const { ProjectDiscoveryFacts } = await import(
   pathToFileURL(resolve(storageDir, "../projects/project-discovery-facts.js"))
     .href
 );
+const { SessionCollectionSql } = await import(
+  pathToFileURL(resolve(storageDir, "../services/session-collection-sql.js"))
+    .href
+);
+async function collectionCursorContract(database) {
+  const sql = new SessionCollectionSql(database);
+  try {
+    sql.beginReplacement();
+    const rows = Array.from({ length: 203 }, (_, i) => ({
+      id: `row-${i % 3 === 0 ? "A" : "a"}-${i}-项目`,
+      projectId: "L2ZpeHR1cmU",
+      projectName: "Fixture",
+      title: `Row ${i}`,
+      provider: "claude",
+      updatedAt: new Date(
+        1_700_000_000_000 - Math.floor(i / 71) * 1000,
+      ).toISOString(),
+      isStarred: true,
+      ownership: { owner: "none" },
+      activity: "idle",
+    }));
+    rows.forEach((row, i) => {
+      sql.put(row, null, i, false, false);
+    });
+    await sql.finishReplacement(new AbortController().signal);
+    const expected = [...rows].sort(
+      (a, b) =>
+        Date.parse(b.updatedAt) - Date.parse(a.updatedAt) ||
+        a.id.localeCompare(b.id),
+    );
+    const ids = [];
+    let afterCursor;
+    do {
+      const found = sql.select({ limit: 31, starredOnly: true, afterCursor });
+      ids.push(...found.map((row) => row.id));
+      const last = found.at(-1);
+      afterCursor =
+        found.length === 31 && last
+          ? JSON.stringify([JSON.parse(last.item).updatedAt, last.id])
+          : undefined;
+    } while (afterCursor);
+    assert.deepEqual(
+      ids,
+      expected.map((row) => row.id),
+    );
+    // A failed SQL continuation must fail the read, never masquerade as an
+    // authoritative empty page after the tuple parser catches an exception.
+    const prepare = database.prepare.bind(database);
+    let fail = true;
+    database.prepare = (query) => {
+      const statement = prepare(query);
+      return {
+        get: statement.get.bind(statement),
+        run: statement.run.bind(statement),
+        finalize: statement.finalize.bind(statement),
+        all: (...args) => {
+          if (fail) {
+            fail = false;
+            throw Error("injected continuation failure");
+          }
+          return statement.all(...args);
+        },
+      };
+    };
+    try {
+      assert.throws(
+        () =>
+          sql.select({
+            limit: 31,
+            afterCursor: JSON.stringify([rows[0].updatedAt, rows[0].id]),
+          }),
+        /injected continuation failure/,
+      );
+    } finally {
+      database.prepare = prepare;
+    }
+  } finally {
+    sql.dispose();
+  }
+}
+
 async function projectDiscoveryFactsContract(database) {
   const source = new ProjectDiscoveryFacts({
     database,
@@ -669,6 +750,7 @@ try {
   const catalog = openService(join(temporary, "catalog"));
   catalogContract(catalog.getDatabase());
   await projectDiscoveryFactsContract(catalog.getDatabase());
+  await collectionCursorContract(catalog.getDatabase());
   // A transaction larger than the page cache must fail fast, not stall, while
   // an outside reader holds its shared lock (cache_spill is off).
   const reader = loadSqliteDriver().open(

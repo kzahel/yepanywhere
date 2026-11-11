@@ -2,6 +2,32 @@ import { CAPABILITY_ID_ALLOCATIONS } from "./capability-ids.js";
 import type { ServerCapabilityDefinition } from "./server-capability-definition.js";
 
 export const SESSIONS_SERVER_CAPABILITIES = {
+  sidebarSessionSnapshot: {
+    id: CAPABILITY_ID_ALLOCATIONS.sidebarSessionSnapshot.id,
+    name: "sidebar-session-snapshot",
+    kind: "transitional",
+    area: "sessions",
+    introducedIn: "0.12.0",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.sidebarSessionSnapshot.id,
+    },
+    description:
+      "Fresh bounded sidebar windows with archive deadlines; retained session pages accept timestamp/identity cursors.",
+    clientFallback:
+      "Keep the existing three paged session feeds; send no sidebar snapshot request without this exact support bit.",
+    serverContract: {
+      routes: ["GET /api/sessions/sidebar", "GET /api/sessions"],
+      requestFields: [
+        "recentLimit",
+        "starredLimit",
+        "categorizedLimit",
+        "after",
+      ],
+      responseFields: ["rows", "windows", "catalog", "nextTransitionAt"],
+    },
+    lifecycle: { kind: "transitional" },
+  },
   queuedSessionCompaction: {
     id: CAPABILITY_ID_ALLOCATIONS.queuedSessionCompaction.id,
     name: "queued-session-compaction",

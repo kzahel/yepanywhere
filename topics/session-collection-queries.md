@@ -65,6 +65,54 @@ Active and queued selections use separate bounded queries before merging. Archiv
 clock reversal or disabling automatic archive; explicit metadata wins.
 Recaps advance display time, never provider unread time.
 
+## Sidebar snapshots
+
+`GET /api/sessions/sidebar` returns bounded recent, starred and categorized
+windows from the same retained SQL owner. Each limit defaults to 50 and accepts
+integers 1–500. One synchronization precedes all three canonical selections;
+project grants and archive filters apply before limits. Rows are hydrated only
+after selection in batches of at most 256 and deduplicated across windows.
+The response has `rows`, `windows` (IDs and `hasMore` per feed), `catalog`, and an
+optional `nextTransitionAt` archive deadline. It omits project dictionaries and
+global stats. The limited-user middleware treats this as a collection and
+projects authorized/visible rows and window IDs together.
+
+The exact optional `sidebar-session-snapshot` bit names the aggregate endpoint
+and retained timestamp/identity cursor contract. Absent or unknown support keeps
+date cursors; source builds reporting 0.12.0 without the bit do not imply it.
+Old clients and existing collection stream contracts continue to work.
+
+The production sidebar retains its existing three feed/collection-update owners.
+A whole-snapshot client cutover was measured and rejected: cheap server reads
+did not make repeated full browser replacement cheaper. The aggregate GET is a
+qualified API and a proposal for later adoption, not a new default polling path.
+Its future adoption requires a browser CPU/data-movement win as well as fast SQL.
+The existing stream still computes canonical membership on the server; no new
+client membership engine or refresh queue was added.
+
+On capable servers, starred/category rendering uses accepted query-window IDs,
+including deep pages, so cached entities cannot restore an omitted session.
+Pointer/focus does not hold membership. Hidden/closed navigation releases feed
+acquisition. Windows retain existing independent pagination. Retained
+`/api/sessions` reads accept an `after` JSON tuple `[updatedAt,id]`; continuation
+compares identities with the canonical locale tie order, then fills from strictly
+older timestamps. This prevents skipped rows without hydrating a whole tie group.
+Older servers keep their existing selectors and date cursors. Expanded reads
+cost their requested coverage; the default sidebar adds no whole-catalog mirror.
+
+Compact session rows compare their rendered scalar/DTO props independently of
+record freshness clocks. Their non-human delivery decoration subscribes to its
+three value fields, not the whole session record. New callback references, React
+content, changed DTO values, context and local input state remain live. Detailed
+cards retain their existing relative-age refresh behavior; compact hover ages
+recalculate on opening. There is no second row cache or provider-specific path.
+
+The snapshot route exposes `Server-Timing` phases for synchronization, selection,
+hydration, serialization and total route time. See
+[sidebar investigation and evidence](../docs/research/190-sidebar-snapshot.md).
+First projection construction/restoration and exceptional tie-key selection can
+still depend on population size; this endpoint does not claim page-sized startup.
+
 ## Restart restoration
 
 A completed query checkpoints its derived rows, native/public source links,

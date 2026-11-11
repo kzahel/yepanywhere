@@ -49,6 +49,11 @@
       "source": "./src/collection-updates.ts",
       "import": "./dist/collection-updates.js",
       "types": "./dist/collection-updates.d.ts"
+    },
+    "./sidebar-snapshot": {
+      "source": "./src/sidebar-snapshot.ts",
+      "types": "./dist/sidebar-snapshot.d.ts",
+      "default": "./dist/sidebar-snapshot.js"
     }
   },
   "scripts": {

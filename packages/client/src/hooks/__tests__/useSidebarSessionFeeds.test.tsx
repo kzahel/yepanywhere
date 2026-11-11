@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { SIDEBAR_SESSION_CATEGORIES_CAPABILITY } from "@yep-anywhere/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -80,6 +80,23 @@ describe("SidebarSessionFeedsProvider", () => {
       includeStats: false,
     });
     expect(result.current.sidebarCategoriesSupported).toBe(true);
+  });
+
+  it("releases all feed acquisition while the document is hidden", () => {
+    mocks.version = { capabilities: [SIDEBAR_SESSION_CATEGORIES_CAPABILITY] };
+    renderHook(() => useSidebarSessionFeeds(), { wrapper: withProvider });
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    expect(
+      mocks.useGlobalSessionsFeed.mock.calls
+        .slice(-3)
+        .every(([options]) => !options.enabled),
+    ).toBe(true);
+    act(() => window.dispatchEvent(new Event("pageshow")));
+    expect(
+      mocks.useGlobalSessionsFeed.mock.calls
+        .slice(-3)
+        .every(([options]) => options.enabled),
+    ).toBe(true);
   });
 
   it("suspends both feed owners while its sidebar surface is hidden", () => {

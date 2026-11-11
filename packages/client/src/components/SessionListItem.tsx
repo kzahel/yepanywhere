@@ -1,3 +1,4 @@
+import { sessionListItemPropsEqual } from "./sessionListItemPropsEqual";
 import btwStyles from "./BtwSessionAppearance.module.css";
 import type {
   SessionClearloopBadge,
@@ -5,6 +6,7 @@ import type {
 } from "@yep-anywhere/shared";
 import {
   type ReactNode,
+  memo,
   useCallback,
   useEffect,
   useId,
@@ -82,7 +84,7 @@ export interface SessionNavigationIntent {
   sessionId: string;
 }
 
-interface SessionListItemProps {
+export interface SessionListItemProps {
   // Core (required)
   sessionId: string;
   projectId: string;
@@ -210,7 +212,7 @@ async function copyTextToClipboard(text: string): Promise<void> {
  * - Optional checkbox for selection mode
  * - Custom badge support (for Inbox)
  */
-export function SessionListItem({
+export const SessionListItem = memo(function SessionListItem({
   // Core
   sessionId,
   projectId,
@@ -1363,4 +1365,4 @@ export function SessionListItem({
       )}
     </li>
   );
-}
+}, sessionListItemPropsEqual);

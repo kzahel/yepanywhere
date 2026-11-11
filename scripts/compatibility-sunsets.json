@@ -37,5 +37,22 @@
         "marker": "COLLECTION_UPDATES_LEGACY_FALLBACK"
       }
     ]
+  },
+  {
+    "name": "sidebar-session-cursor-fallback",
+    "capabilities": ["sidebar-session-snapshot"],
+    "supportedSince": "2026-11-11",
+    "evidence": "Plan190 retained tuple cursor source introduction; explicit optional bit distinguishes unreleased builds.",
+    "removal": "Retire date-only cursors and the all-entity window-selector fallback after the supported-server horizon.",
+    "locations": [
+      {
+        "path": "packages/client/src/hooks/useGlobalSessionsFeed.ts",
+        "marker": "SIDEBAR_SESSION_CURSOR_FALLBACK"
+      },
+      {
+        "path": "packages/client/src/hooks/useSidebarSessionFeeds.tsx",
+        "marker": "SIDEBAR_SESSION_WINDOW_FALLBACK"
+      }
+    ]
   }
 ]

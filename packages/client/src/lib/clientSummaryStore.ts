@@ -5,6 +5,7 @@ import type {
 } from "@yep-anywhere/shared";
 import { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import {
   activityBus,
@@ -363,15 +364,17 @@ export function retainClientSummaryActivitySubscription(
   return retainActivityBusSubscription(sourceKey, transport);
 }
 
-function useClientSummaryActivitySubscription(): void {
+function useClientSummaryActivitySubscription(enabled = true): void {
   const runtime = useSourceRuntimeContextValue();
   const sourceKey = useClientSummarySourceKey();
   useEffect(
     () =>
-      runtime
-        ? runtime.summary.retainActivitySubscription()
-        : retainClientSummaryActivitySubscription(sourceKey),
-    [runtime, sourceKey],
+      !enabled
+        ? undefined
+        : runtime
+          ? runtime.summary.retainActivitySubscription()
+          : retainClientSummaryActivitySubscription(sourceKey),
+    [enabled, runtime, sourceKey],
   );
 }
 
@@ -614,8 +617,10 @@ export function reportSessionCollectionMetadataChanged(
   );
 }
 
-export function useClientSummaryState(): ClientSummaryState {
-  useClientSummaryActivitySubscription();
+export function useClientSummaryState(
+  retainActivity = true,
+): ClientSummaryState {
+  useClientSummaryActivitySubscription(retainActivity);
   const store = useCurrentClientSummaryStore();
   return useStore(store);
 }
@@ -627,6 +632,19 @@ export function useSessionCollectionRecord(
   const store = useCurrentClientSummaryStore();
   return useStore(store, (state) =>
     selectSessionCollectionRecord(state, sessionId),
+  );
+}
+
+/** Observe the row decoration, independently of collection freshness clocks. */
+export function useSessionNonHumanUserTurn(sessionId: string) {
+  useClientSummaryActivitySubscription();
+  const store = useCurrentClientSummaryStore();
+  return useStore(
+    store,
+    useShallow(
+      (state: ClientSummaryState) =>
+        selectSessionCollectionRecord(state, sessionId)?.nonHumanUserTurn,
+    ),
   );
 }
 
@@ -892,14 +910,34 @@ export function useHasActiveAgents(): boolean {
   return useStore(store, selectHasActiveAgents);
 }
 
-export function useStarredSessionRecords(): SessionCollectionRecord[] {
+export function useStarredSessionRecords(
+  query?: SessionCollectionQueryDescriptor,
+): SessionCollectionRecord[] {
   const state = useClientSummaryState();
-  return useMemo(() => selectStarredSessionRecords(state), [state]);
+  return useMemo(
+    () =>
+      query
+        ? selectSessionCollectionQueryRecords(state, query).filter(
+            (row) => row.isStarred && !row.isArchived,
+          )
+        : selectStarredSessionRecords(state),
+    [state, query],
+  );
 }
 
-export function useCategorizedSessionRecords(): SessionCollectionRecord[] {
+export function useCategorizedSessionRecords(
+  query?: SessionCollectionQueryDescriptor,
+): SessionCollectionRecord[] {
   const state = useClientSummaryState();
-  return useMemo(() => selectCategorizedSessionRecords(state), [state]);
+  return useMemo(
+    () =>
+      query
+        ? selectSessionCollectionQueryRecords(state, query).filter(
+            (row) => row.sidebarCategory && !row.isArchived,
+          )
+        : selectCategorizedSessionRecords(state),
+    [state, query],
+  );
 }
 
 export function useRecentSessionRecords(
@@ -918,8 +956,9 @@ export function useOlderSessionRecords(
 
 export function useSessionCollectionQueryRecords(
   query: SessionCollectionQueryDescriptor,
+  retainActivity = true,
 ): SessionCollectionRecord[] {
-  const state = useClientSummaryState();
+  const state = useClientSummaryState(retainActivity);
   const key = createGlobalSessionsQueryKey(query);
   return useMemo(() => {
     void key;
@@ -929,8 +968,9 @@ export function useSessionCollectionQueryRecords(
 
 export function useSessionCollectionQueryState(
   query: SessionCollectionQueryDescriptor,
+  retainActivity = true,
 ): SessionCollectionQueryState | undefined {
-  useClientSummaryActivitySubscription();
+  useClientSummaryActivitySubscription(retainActivity);
   const store = useCurrentClientSummaryStore();
   return useStore(store, (state) =>
     selectSessionCollectionQueryState(state, query),

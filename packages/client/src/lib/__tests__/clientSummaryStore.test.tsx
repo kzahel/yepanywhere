@@ -83,6 +83,7 @@ import {
   useProviderRuntimeStatusForSession,
   useRecentSessionRecords,
   useSessionCollectionRecord,
+  useSessionNonHumanUserTurn,
   useStarredSessionRecords,
 } from "../clientSummaryStore";
 import { setCurrentClientSummarySourceKey as setSourceIdentity } from "../clientSummarySourceKey";
@@ -221,6 +222,45 @@ describe("clientSummaryStore", () => {
       release();
     }
     expect(mockActivityBus.listenerCount()).toBe(0);
+  });
+
+  it("observes delivery decorations without rerendering for freshness clocks or other sources", () => {
+    const source = LOCAL_CLIENT_SUMMARY_SOURCE_KEY;
+    const renders = vi.fn();
+    const { result } = renderHook(() => {
+      renders();
+      return useSessionNonHumanUserTurn("session-1");
+    });
+    const count = renders.mock.calls.length;
+    const publish = (
+      key: typeof source,
+      nonHumanUserTurn?: GlobalSessionItem["nonHumanUserTurn"],
+    ) =>
+      reportGlobalSessionsCollectionSnapshot(key, {
+        query: { scope: "global-sessions" },
+        sessions: [globalSession("session-1", { nonHumanUserTurn })],
+        hasMore: false,
+      });
+    act(() => {
+      publish(source);
+      publish(source);
+    });
+    expect(renders).toHaveBeenCalledTimes(count);
+    const turn = {
+      messageId: "delivery",
+      timestamp: RECENT,
+      sourceSessionId: "sender",
+    };
+    act(() => publish(createClientSummaryHostSourceKey("other"), turn));
+    expect(renders).toHaveBeenCalledTimes(count);
+    act(() => publish(source, turn));
+    expect(result.current).toEqual(turn);
+    expect(renders).toHaveBeenCalledTimes(count + 1);
+    act(() => publish(source, { ...turn }));
+    expect(renders).toHaveBeenCalledTimes(count + 1);
+    act(() => publish(source, { ...turn, messageId: "next" }));
+    expect(result.current?.messageId).toBe("next");
+    expect(renders).toHaveBeenCalledTimes(count + 2);
   });
 
   it("subscribes to activityBus once while hooks are mounted", () => {

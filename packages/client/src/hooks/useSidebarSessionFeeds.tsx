@@ -1,4 +1,6 @@
+import { useDocumentVisible } from "./useDocumentVisible";
 import {
+  SERVER_CAPABILITIES,
   SIDEBAR_SESSION_CATEGORIES_CAPABILITY,
   serverHasCapability,
 } from "@yep-anywhere/shared";
@@ -12,6 +14,8 @@ export const SIDEBAR_SESSION_FEED_LIMIT = 50;
 export interface SidebarSessionFeeds {
   globalQuery: SessionCollectionQueryDescriptor;
   starredQuery: SessionCollectionQueryDescriptor;
+  categorizedQuery?: SessionCollectionQueryDescriptor;
+  authoritativeWindows?: boolean;
   loading: boolean;
   hasMoreGlobalSessions: boolean;
   loadMoreGlobalSessions: () => Promise<void>;
@@ -50,14 +54,15 @@ export function SidebarSessionFeedsProvider({
   limit?: number;
   children: ReactNode;
 }) {
+  const active = useDocumentVisible() && enabled;
   const globalFeed = useGlobalSessionsFeed({
-    enabled,
+    enabled: active,
     limit,
     includeStats: false,
   });
 
   const starredFeed = useGlobalSessionsFeed({
-    enabled,
+    enabled: active,
     starred: true,
     limit,
     includeStats: false,
@@ -72,7 +77,7 @@ export function SidebarSessionFeedsProvider({
     SIDEBAR_SESSION_CATEGORIES_CAPABILITY,
   );
   const categorizedFeed = useGlobalSessionsFeed({
-    enabled: enabled && sidebarCategoriesSupported,
+    enabled: active && sidebarCategoriesSupported,
     categorized: true,
     limit,
     includeStats: false,
@@ -82,6 +87,12 @@ export function SidebarSessionFeedsProvider({
     () => ({
       globalQuery: globalFeed.query,
       starredQuery: starredFeed.query,
+      categorizedQuery: categorizedFeed.query,
+      // SIDEBAR_SESSION_WINDOW_FALLBACK: preserve older servers' selector behavior.
+      authoritativeWindows: serverHasCapability(
+        version,
+        SERVER_CAPABILITIES.sidebarSessionSnapshot,
+      ),
       loading: globalFeed.loading || starredFeed.loading,
       hasMoreGlobalSessions: globalFeed.hasMore,
       loadMoreGlobalSessions: globalFeed.loadMore,
@@ -93,7 +104,9 @@ export function SidebarSessionFeedsProvider({
       loadMoreCategorizedSessions: categorizedFeed.loadMore,
     }),
     [
+      version,
       sidebarCategoriesSupported,
+      categorizedFeed.query,
       categorizedFeed.hasMore,
       categorizedFeed.loadMore,
       globalFeed.query,

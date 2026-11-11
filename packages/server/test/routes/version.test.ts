@@ -71,6 +71,13 @@ describe("Version Routes", () => {
       getServerCapabilities({ nativePush, deniedCapabilities: [name] }),
     ).not.toContain(name);
   });
+  it("advertises the sidebar snapshot only with its retained owner", () => {
+    const name = SERVER_CAPABILITIES.sidebarSessionSnapshot.name;
+    expect(getServerCapabilities()).not.toContain(name);
+    expect(
+      getServerCapabilities({ collectionQueryUpdatesAvailable: true }),
+    ).toContain(name);
+  });
   // A version-implied capability is inferred only from a release at least
   // its introducedIn. A source build between releases reports the previous
   // tag's version, so a capability left out of this list is invisible to the

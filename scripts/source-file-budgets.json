@@ -31,7 +31,7 @@
       "maxLines": 2687
     },
     "packages/client/src/components/Sidebar.tsx": {
-      "maxLines": 1602
+      "maxLines": 1590
     },
     "packages/client/src/components/UserTurnNavigator.tsx": {
       "maxLines": 1562

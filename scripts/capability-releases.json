@@ -29,6 +29,7 @@
     "project-queue-router-selection": "2026-11-08",
     "agent-auth-router-session-switch": "2026-11-08",
     "collection-query-updates": "2026-11-11",
-    "project-collection-updates": "2026-11-11"
+    "project-collection-updates": "2026-11-11",
+    "sidebar-session-snapshot": "2026-11-11"
   }
 }

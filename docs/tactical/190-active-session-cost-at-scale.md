@@ -15,8 +15,8 @@ Stage 4 now carries authoritative bounded session/Inbox query changes with
 capability-gated fallback. Projects and ProjectQueue now share that architecture
 under a separate extension capability. Full scenario targets remain open. Combined-scale qualification is now recorded;
 source-owned Claude/Codex project facts and indexed points are implemented.
-Structural/ambiguous discovery, metadata delivery and transcript rendering
-remain open.
+Structural/ambiguous discovery and transcript rendering remain open. A cheap
+authoritative sidebar snapshot is the current stage 2/4 slice.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -67,7 +67,27 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — source-owned project discovery and indexed points
+### Current focus — cheap sidebar SQL reads and fresh membership
+
+Selected 2026-11-11: prioritize inexpensive fresh sidebar reads over further
+incremental membership machinery. Pointer/focus position retention is not a
+behavior to preserve. The [sidebar investigation](../research/190-sidebar-snapshot.md)
+records instrumentation, the shared SQL snapshot boundary, capability fallback,
+independent windows and correctness/review gates. This session-only slice spans
+stages 2 and 4; Inbox/projects/queues retain their current authorities.
+The measured whole-snapshot client cutover did not earn adoption and was removed.
+The shipped foundation batches all collection hydration, adds the bounded SQL
+aggregate API, uses current-window membership and removes interaction holds.
+Exact-parent performance qualification uses `cb9efef7f`; the earlier pre-rebase
+archive is excluded. The outcome records the final selection and measurements: three-feed REST
+3.113 → 2.589 ms (201 → 51 SQL calls), aggregate API 1.110 ms/20 calls. With existing
+transport, browser work falls 60.6 → 48.5 active and 71.6 → 55.9 ms/write; process CPU
+falls 86.7 → 83.7 active and 116.0 → 109.6 while typing. All 78 exact keys pass 100 ms.
+The matched snapshot client costs more browser work than this foundation, so its
+adoption remains deferred.
+Full scenario CPU, bytes, startup and rendering targets remain open.
+
+### Previous focus — source-owned project discovery and indexed points
 
 The [project discovery outcome](../research/190-project-discovery-facts.md)
 implements the next architecture slice selected by the population controls.
@@ -433,6 +453,15 @@ checked. Write-to-visible is measured from the append to the moment the
 write's marker appears in the tab's DOM.
 
 ## Where it stands
+
+Sidebar checkpoint, 2026-11-11: the shared SQL/rendering foundation is qualified;
+[dedicated outcome](../research/190-sidebar-snapshot.md) records measurements and
+clean Sol 6.1 high/bypass review. Current collection transport is retained after
+a matched full-snapshot client comparison failed to beat this foundation. Query-window membership,
+no interaction hold and compact row value rendering improve correctness/browser
+cost without a new client membership engine. The exact-parent performance outcome owns the final figures. Whole-plan
+acceptance remains open.
+
 
 Project-facts checkpoint, 2026-11-11: ordinary known Claude/Codex modifications
 now update source-owned compact project facts; points use indexed identities.

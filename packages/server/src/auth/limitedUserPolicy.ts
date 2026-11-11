@@ -60,6 +60,7 @@ export type FilteredListKind =
   | "projects"
   | "project-queue"
   | "sessions"
+  | "sidebar-sessions"
   | "inbox"
   | "recents"
   | "processes";
@@ -482,6 +483,11 @@ export function decideLimitedRoute(
       : { kind: "deny" };
   }
 
+  if (path === "/api/sessions/sidebar") {
+    return isRead
+      ? { kind: "allow-filtered", filter: "sidebar-sessions" }
+      : { kind: "deny" };
+  }
   const sessionScoped = path.match(/^\/api\/sessions\/([^/]+)(\/(.*))?$/);
   if (sessionScoped) {
     const sessionId = decodeSegment(sessionScoped[1] as string);

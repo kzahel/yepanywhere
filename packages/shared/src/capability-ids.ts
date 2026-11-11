@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  sidebarSessionSnapshot: {
+    id: 158,
+    direction: "server",
+    name: "sidebar-session-snapshot",
+    introducedIn: "0.12.0",
+  },
   projectCollectionUpdates: {
     id: 157,
     direction: "server",

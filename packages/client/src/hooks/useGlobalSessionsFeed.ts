@@ -1,3 +1,4 @@
+import { sidebarSessionCursor } from "@yep-anywhere/shared/sidebar-snapshot";
 import {
   useCallback,
   useEffect,
@@ -8,6 +9,7 @@ import {
 } from "react";
 import {
   PROGRESSIVE_SESSION_CATALOG_CAPABILITY,
+  SERVER_CAPABILITIES,
   serverHasCapability,
 } from "@yep-anywhere/shared";
 import {
@@ -342,8 +344,8 @@ export function useGlobalSessionsFeed(
   const sourceKeyRef = useRef(sourceKey);
   sourceKeyRef.current = sourceKey;
   const auxiliary = useGlobalSessionsAuxiliary(sourceKey);
-  const queryState = useSessionCollectionQueryState(query);
-  const queryRecords = useSessionCollectionQueryRecords(query);
+  const queryState = useSessionCollectionQueryState(query, ready);
+  const queryRecords = useSessionCollectionQueryRecords(query, ready);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -361,8 +363,15 @@ export function useGlobalSessionsFeed(
   // change `fetch`'s identity would re-run the mount effect and buy a second
   // acquisition of the thing this gate exists to avoid acquiring twice.
   const conditionalReadsRef = useRef(false);
+  const retainedVersion = useRetainedVersionInfo(sourceKey);
+  // SIDEBAR_SESSION_CURSOR_FALLBACK: old servers accept timestamps only.
+  const tieCursorsRef = useRef(false);
+  tieCursorsRef.current = serverHasCapability(
+    retainedVersion,
+    SERVER_CAPABILITIES.sidebarSessionSnapshot,
+  );
   conditionalReadsRef.current = serverHasCapability(
-    useRetainedVersionInfo(sourceKey),
+    retainedVersion,
     PROGRESSIVE_SESSION_CATALOG_CAPABILITY,
   );
 
@@ -481,7 +490,10 @@ export function useGlobalSessionsFeed(
             if (isUnchangedGlobalSessionsResponse(response)) return response;
             let result = response;
             while (result.hasMore && result.sessions.length < refreshRows) {
-              const after = result.sessions.at(-1)?.updatedAt;
+              const after = sidebarSessionCursor(
+                result.sessions.at(-1),
+                retained && tieCursorsRef.current,
+              );
               if (!after) throw new Error("Session pagination did not advance");
               const page = await api.getGlobalSessions({
                 ...request,
@@ -491,7 +503,10 @@ export function useGlobalSessionsFeed(
               if (
                 page.hasMore &&
                 (!page.sessions.length ||
-                  page.sessions.at(-1)?.updatedAt === after)
+                  sidebarSessionCursor(
+                    page.sessions.at(-1),
+                    retained && tieCursorsRef.current,
+                  ) === after)
               ) {
                 throw new Error("Session pagination did not advance");
               }
@@ -640,7 +655,10 @@ export function useGlobalSessionsFeed(
         project: projectId ?? undefined,
         q: searchQuery || undefined,
         limit,
-        after: lastRecord.updatedAt,
+        after: sidebarSessionCursor(
+          lastRecord as { id: string; updatedAt?: string },
+          mode === "retained" && tieCursorsRef.current,
+        ),
         includeArchived,
         starred,
         categorized,

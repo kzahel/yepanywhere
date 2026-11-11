@@ -14,6 +14,7 @@ export interface CollectionPageQuery {
   filterProjectId?: string;
   searchQuery?: string;
   afterCursor?: string;
+  afterSessionId?: string;
   includeArchived?: boolean;
   starredOnly?: boolean;
   categorizedOnly?: boolean;
@@ -380,6 +381,44 @@ export class SessionCollectionSql {
     extra = "",
     extraArgs: SqliteValue[] = [],
   ): CollectionStoredRow[] {
+    if (
+      query.afterCursor?.startsWith("[") &&
+      query.afterSessionId === undefined
+    ) {
+      let value: unknown;
+      try {
+        value = JSON.parse(query.afterCursor);
+      } catch {
+        /* Invalid cursors preserve the empty-page behavior. */
+      }
+      if (
+        Array.isArray(value) &&
+        value.length === 2 &&
+        typeof value[0] === "string" &&
+        Number.isFinite(Date.parse(value[0])) &&
+        typeof value[1] === "string"
+      ) {
+        const tied = this.select(
+          { ...query, afterCursor: undefined, afterSessionId: value[1] },
+          `${extra ? `(${extra}) AND ` : ""}updated_ms=?`,
+          [...extraArgs, Date.parse(value[0])],
+        );
+        if (tied.length < query.limit)
+          tied.push(
+            ...this.select(
+              {
+                ...query,
+                afterCursor: value[0],
+                afterSessionId: undefined,
+                limit: query.limit - tied.length,
+              },
+              extra,
+              extraArgs,
+            ),
+          );
+        return tied;
+      }
+    }
     const where: string[] = ["1"];
     const args: SqliteValue[] = [];
     if (!query.includeArchived) where.push("archived=0");
@@ -420,10 +459,28 @@ export class SessionCollectionSql {
     const ties = this.prepare(
       `SELECT id,updated_ms FROM ${this.prefix}_rows WHERE ${condition} AND updated_ms=?`,
     ).all<{ id: string; updated_ms: number }>(...args, boundary);
-    return [...keys.filter((r) => r.updated_ms !== boundary), ...ties]
+    const selected = [...keys.filter((r) => r.updated_ms !== boundary), ...ties]
       .sort((a, b) => b.updated_ms - a.updated_ms || a.id.localeCompare(b.id))
-      .slice(0, query.limit)
-      .map((r) => this.get(r.id)!);
+      .filter(
+        (row) =>
+          query.afterSessionId === undefined ||
+          row.id.localeCompare(query.afterSessionId) > 0,
+      )
+      .slice(0, query.limit);
+    const rows = new Map<string, CollectionStoredRow>();
+    // Complete internal reads keep bounded batches; public pages hydrate only
+    // selected keys, never the unselected timestamp-boundary group.
+    for (let offset = 0; offset < selected.length; offset += 256) {
+      const batch = this.prepare(
+        `SELECT id,item,archived,automatic,updated_ms,attention,native_key,ordinal,parent_json FROM ${this.prefix}_rows WHERE id IN (SELECT value FROM json_each(?))`,
+      ).all<CollectionStoredRow>(
+        JSON.stringify(
+          selected.slice(offset, offset + 256).map((row) => row.id),
+        ),
+      );
+      for (const row of batch) rows.set(row.id, row);
+    }
+    return selected.map(({ id }) => rows.get(id)!);
   }
   reset() {
     for (const table of [
