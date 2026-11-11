@@ -5,6 +5,7 @@ import {
   decodeJsonFrame,
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
+import { readCollectionsOverRest } from "./support/managed-routes";
 import { createTestViteServer } from "./support/vite-server";
 import {
   startYaServerProcess,
@@ -63,6 +64,7 @@ test("a sustained stream flood does not trip React's update-depth limit", async 
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 200));
   });
+  await readCollectionsOverRest(page);
   await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
     route.fulfill({
       json: {

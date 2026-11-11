@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { readCollectionsOverRest } from "./support/managed-routes";
 import { createTestViteServer } from "./support/vite-server";
 import { recordUiCapture } from "./support/ui-capture.js";
 import {
@@ -76,6 +77,7 @@ test("a long-context effort change asks first and can fork at the new effort", a
   const configBodies: unknown[] = [];
   const forkBodies: unknown[] = [];
 
+  await readCollectionsOverRest(page);
   await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
     route.fulfill({
       json: {

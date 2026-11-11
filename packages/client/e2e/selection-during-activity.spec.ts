@@ -5,6 +5,7 @@ import {
   decodeJsonFrame,
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
+import { readCollectionsOverRest } from "./support/managed-routes";
 import { createTestViteServer } from "./support/vite-server";
 import {
   disposeYaServerProcess,
@@ -102,6 +103,7 @@ async function openLiveSession(page: Page) {
       updatedAt: new Date(now - 60_000).toISOString(),
       messageCount: ROWS * 2,
     };
+    await readCollectionsOverRest(page);
     await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
       route.fulfill({
         json: {

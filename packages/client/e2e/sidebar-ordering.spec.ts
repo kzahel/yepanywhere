@@ -6,6 +6,7 @@ import {
   decodeJsonFrame,
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
+import { readCollectionsOverRest } from "./support/managed-routes";
 import { createTestViteServer } from "./support/vite-server";
 import {
   startYaServerProcess,
@@ -47,6 +48,7 @@ test("sidebar follows user sends while visits and background work stay put", asy
   }));
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await readCollectionsOverRest(page);
   await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
     route.fulfill({
       json: {

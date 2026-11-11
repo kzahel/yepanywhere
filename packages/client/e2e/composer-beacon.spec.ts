@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { readCollectionsOverRest } from "./support/managed-routes";
 import { createTestViteServer } from "./support/vite-server";
 import {
   startYaServerProcess,
@@ -70,6 +71,7 @@ test("composer beacon acknowledges real sends and leaves typing and title option
     Object.defineProperty(window, "SpeechRecognition", { value: Recognition });
   });
   page.on("pageerror", (error) => errors.push(error.message));
+  await readCollectionsOverRest(page);
   await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
     route.fulfill({ json: { sessions: [row], hasMore: false, total: 1 } }),
   );
