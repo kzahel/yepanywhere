@@ -204,7 +204,7 @@ specific reason per entry. Composer entries name the specific shared-control swa
 A new file, increased count, invalid reason or stale count fails. `--record`
 only lowers counts and removes cleared entries; it refuses to write if any
 increase is unreviewed. `--json` reports classes, selectors and source lines.
-Census/Control overrides shows the same remaining entries and reasons. The
+Audit / Reviewed exceptions shows the same remaining entries and reasons. The
 step 3 census is 18 button sites in 9 files and 28 other
 control sites in 23 files, including provider/status Badge custom properties.
 
@@ -235,7 +235,7 @@ implementation owns its surface and is excluded from application exceptions.
 `design/census/button-base-allowlist.json` records remaining counts by source
 file with a specific reason. New/increased, invalid and stale entries fail lint;
 `buttons:check --record` only lowers/removes entries and refuses to write on
-unreviewed increases. Census/ButtonBase exceptions lists the same counts and
+unreviewed increases. Audit / Specialized clickable surfaces lists the same counts and
 reasons. The strengthened step 3 gate records 28 exceptions in 23 files among
 67 application sites; its newly detected categories received specific initial
 reasons, and subsequent recording only lowers counts. Generated server media markup keeps its global styles when the

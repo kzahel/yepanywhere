@@ -1147,7 +1147,9 @@ exceptions. The consolidation follow-up leaves 18 button / 6 other-control overr
 choice-row/touch APIs and data-owned Badge palettes now replace repeated caller
 overrides; token checking recognizes complete output sizes and proven local aliases. Composer control swaps
 remain with plan 182; specialized controls and semantic typography retain
-specific closure reasons in the playground census.
+specific closure reasons in the playground Audit report. The former six census
+pages are one report separating unfinished migrations, reviewed exceptions and
+generated-content boundaries; Controls/Patterns remain visual examples.
 
 ## Later directions
 

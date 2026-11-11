@@ -23,12 +23,12 @@ import {
 import { clientRoot, loadDesignIndex } from "./design-index";
 import { ensureColorEmojiFont } from "./emoji-font";
 
-const help = `Usage: pnpm -s design:shot <specimen-or-state-id> [options]
+const help = `Usage: pnpm -s design:shot <page-or-specimen-or-state-id> [options]
 
 Capture design playground states (design.html) in the system Chrome.
 
-  <id>                   A specimen id (every state), a state id, or a title
-                         such as "Census/Composer". List them: pnpm -s design:index
+  <id>                   A page id (audit), specimen id (every state), state id,
+                         or title such as "Controls/Button". List them: pnpm -s design:index
   --theme <name|all>     verydark, dark (default), light, or all
   --phone                Also capture each state at 375×812
   --grid                 Capture the grid page (the specimen's or state's
@@ -39,6 +39,7 @@ Capture design playground states (design.html) in the system Chrome.
   --timeout-ms <number>  Per-operation deadline, default 60000
   -h, --help             Show this help
 
+Audit captures the report once, without a state or theme grid.
 State captures are full-page PNGs of the isolated state at 1000 px wide
 (and 375 px with --phone). Page errors, console errors and failed requests
 fail the capture. Stdout: one JSON result with image commentary.
@@ -107,7 +108,7 @@ async function main() {
   }
   const [rawTarget] = positionals;
   if (!rawTarget || positionals.length > 1)
-    throw new UsageError("Expected exactly one specimen or state id");
+    throw new UsageError("Expected exactly one page, specimen or state id");
   const themes: readonly DesignTheme[] =
     values.theme === "all"
       ? DESIGN_THEMES
@@ -122,51 +123,71 @@ async function main() {
 
   const index = await loadDesignIndex();
   const target = rawTarget.includes("/") ? toId(rawTarget) : rawTarget;
+  const report = index.pages.find((page) => page.id === target);
   const specimen = index.specimens.find(
     (candidate) =>
       candidate.id === target ||
       candidate.states.some((state) => state.id === target),
   );
-  if (!specimen)
+  if (!specimen && !report)
     throw new UsageError(
-      `No specimen or state "${rawTarget}"; run pnpm -s design:index`,
+      `No page, specimen or state "${rawTarget}"; run pnpm -s design:index`,
     );
   const states =
-    specimen.id === target
+    specimen?.id === target
       ? specimen.states
-      : specimen.states.filter((state) => state.id === target);
+      : (specimen?.states.filter((state) => state.id === target) ?? []);
 
   const desktop = captureViewports[0];
   const phone = captureViewports[1];
-  const shots: Shot[] = values.grid
-    ? [
+  const shots: Shot[] = report
+    ? themes.flatMap((theme) => [
         {
-          name: "grid",
-          hash: `#/${target}${themes.length === 1 ? `?theme=${themes[0]}` : ""}`,
-          width: 1400,
-          height: 900,
+          name: `${target}-${theme}`,
+          hash: `#/${target}?theme=${theme}`,
+          width: desktop.width,
+          height: desktop.height,
         },
-      ]
-    : states.flatMap((state) =>
-        themes.flatMap((theme) => [
+        ...(values.phone
+          ? [
+              {
+                name: `${target}-${theme}-phone`,
+                hash: `#/${target}?theme=${theme}`,
+                width: phone.width,
+                height: phone.height,
+              },
+            ]
+          : []),
+      ])
+    : values.grid
+      ? [
           {
-            name: `${state.id}-${theme}`,
-            hash: `#/${state.id}?iso&theme=${theme}`,
-            width: desktop.width,
-            height: desktop.height,
+            name: "grid",
+            hash: `#/${target}${themes.length === 1 ? `?theme=${themes[0]}` : ""}`,
+            width: 1400,
+            height: 900,
           },
-          ...(values.phone
-            ? [
-                {
-                  name: `${state.id}-${theme}-phone`,
-                  hash: `#/${state.id}?iso&theme=${theme}`,
-                  width: phone.width,
-                  height: phone.height,
-                },
-              ]
-            : []),
-        ]),
-      );
+        ]
+      : states.flatMap((state) =>
+          themes.flatMap((theme) => [
+            {
+              name: `${state.id}-${theme}`,
+              hash: `#/${state.id}?iso&theme=${theme}`,
+              width: desktop.width,
+              height: desktop.height,
+            },
+            ...(values.phone
+              ? [
+                  {
+                    name: `${state.id}-${theme}-phone`,
+                    hash: `#/${state.id}?iso&theme=${theme}`,
+                    width: phone.width,
+                    height: phone.height,
+                  },
+                ]
+              : []),
+          ]),
+        );
 
   const out = resolve(
     values.out ??

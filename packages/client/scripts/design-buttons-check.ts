@@ -557,7 +557,7 @@ function ratchet(
 }
 
 ratchet("rawButtons", rawCounts, (file, count, allowed) => [
-  `${file}: ${count} raw <button>${count === 1 ? "" : "s"}, ${allowed} allowed; use Button, IconButton or ButtonBase from components/ui/Button (list them: Census/Element exceptions)`,
+  `${file}: ${count} raw <button>${count === 1 ? "" : "s"}, ${allowed} allowed; use Button, IconButton or ButtonBase from components/ui/Button (list them: Audit / Reviewed exceptions)`,
 ]);
 ratchet("roleButtons", roleCounts, (file, count, allowed) => [
   `${file}: ${count} role="button" element${count === 1 ? "" : "s"}, ${allowed} allowed; use ButtonBase, which brings keyboard activation and focus`,

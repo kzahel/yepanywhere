@@ -55,7 +55,7 @@ exports, shared-control APIs and stable data hooks. Declared generated families
 and six external-document recognition exceptions are reviewed explicitly.
 `controls:check` enforces caller layout-only classes; `buttons:check` rejects
 hand-drawn ButtonBase surfaces; `tokens:check` requires token-owned type and
-radius values. Census shows their remaining counted exceptions and reasons.
+radius values. Audit shows their counted exceptions and reasons.
 The global purpose check retains 145 generated contexts and zero base/token
 exceptions; React shells, source fallback rows, media groups and prefix gutters
 have module owners ([CSS contract](css-architecture.md#contract)).
@@ -181,10 +181,11 @@ page, and 15 pre-existing `role="button"` elements.
   recorded in `bannedClasses`).
 
 Exceptions sit in `design/census/button-allowlist.json`, each with a count
-and a reason; counts only fall (`--record`). Census/Element exceptions lists
+and a reason; counts only fall (`--record`). Audit / Reviewed exceptions lists
 all nonempty sections, including CSS rules and document listeners, with each
 file's count against its section's exception total. Composer-file exemptions
-are also visible on Census/Composer even when they need no counted entry.
+are also visible under Audit / Unfinished migrations even when they need no
+counted entry.
 
 **Selectable cards.** `src/components/ui/SelectableCard.tsx` owns rich card
 and navigation-row surfaces. Hover uses a neutral border only on hover-capable
@@ -537,7 +538,7 @@ depend on a higher one:
 - During a family sweep, choose variants from a temporary census of legacy
   looks beside the proposed shared set. Once swept, remove those rows and
   their mapping data; Controls/Patterns remain the standard to use, and
-  Census lists only work still outside that standard.
+  Audit distinguishes unfinished migrations from retained exceptions.
 - A swap adopts the canonical variant even where the old style differed;
   design changes are accepted and fallout is fixed as noticed. It is a quick
   cut in a few area-sized commits, not an opportunistic burn-down.
@@ -551,7 +552,7 @@ The remote static build also includes it, so the normal Latest deployment
 publishes it at `https://latest.yepanywhere.com/design.html` alongside the app,
 without a separate release or a running YA server. The same build works below
 a configured base path (for example `/remote/design.html` on the website).
-Census data reflects the deployed source revision; development recomputes it
+Audit data reflects the deployed source revision; development recomputes it
 as sources change. Hash links, themes, phone frames and isolated states work
 in both builds. The local packaged client does not include the playground.
 Biome rejects any import of
@@ -562,15 +563,18 @@ Example files are `*.specimen.tsx`: beside their component under `src/`, or
 under `packages/client/design/` for playground-only pages. They use a
 Storybook-compatible subset of Component Story Format: a default export
 `{ title, component?, parameters }`, where `parameters.layer` is `token`,
-`control`, `pattern`, `scene` or `census`, and one exported function per
+`control`, `pattern` or `scene`, and one exported function per
 state, optionally named with `storyName`. Decorators, args, loaders and play
-functions are not supported. Ids follow Storybook's rules: `Census/Composer`
-is `census-composer`, and its `Remaining` state is
-`census-composer--remaining`. States keep source order.
+functions are not supported. Ids follow Storybook's rules: `Controls/Button`
+is `controls-button`, and its `Variants` state is
+`controls-button--variants`. States keep source order. The Audit report is
+a standalone page, not a specimen with visual states.
 
 | URL (after `/design.html`) | Shows |
 | --- | --- |
-| `#/` | Index, grouped by layer |
+| `#/` | Index, grouped by layer, plus the Audit report |
+| `#/audit` | One audit report, without state or theme comparisons |
+| `#/audit?section=exceptions` | Scroll to migrations, exceptions or generated section |
 | `#/<specimen-id>` | Every state, one column per theme (verydark, dark, light) |
 | `#/<state-id>` | One state across the themes |
 | `…?theme=light` | One theme only |
@@ -579,7 +583,7 @@ is `census-composer`, and its `Remaining` state is
 
 Every page except an isolated state has a sidebar listing the layers and
 their specimens, with the current specimen's states expanded beneath it. Its
-top holds the global view settings: themes shown (all, or one of the three)
+top holds the specimen view settings: themes shown (all, or one of the three)
 and width (natural or phone). They live in the URL (`?theme=light`,
 `?phone`), and every playground link carries them, so a choice holds while
 navigating. With one theme chosen the whole page, sidebar included, takes
@@ -587,7 +591,7 @@ that theme; with all three, each cell carries its own and the shell stays
 dark. Below 760 px wide the sidebar
 becomes a drawer behind a **Pages** button, which closes on following a link,
 Escape or a tap outside it, and the theme columns stack. Specimens with
-`parameters.width: "fill"` (census and token pages) always stack their themes,
+`parameters.width: "fill"` (such as token pages) always stack their themes,
 and their rows wrap details under the name rather than narrowing a column.
 Each grid cell carries its own `data-theme`, so theme tokens resolve per cell.
 An isolated page marks `[data-design-ready]` once fonts load; a state still
@@ -596,11 +600,11 @@ to go. A state that throws renders its error in place and logs a console
 error.
 
 ```bash
-pnpm -s design:index                       # JSON: every specimen, state and URL
-pnpm -s design:shot census-composer         # each state, dark theme, 1000 px
+pnpm -s design:index                       # JSON: pages, specimens, states and URLs
+pnpm -s design:shot audit --phone           # report once, desktop and phone
 pnpm -s design:shot tokens--colors --theme all --phone
 pnpm -s design:shot controls-button--variants --grid --theme all
-pnpm -s design:shot census-composer --url http://localhost:3400
+pnpm -s design:shot audit --url http://localhost:3400
 ```
 
 `design:index` parses the example files statically, so it needs no browser or
@@ -627,30 +631,30 @@ The playground's pages:
   **Controls/Spinner** and **Controls/Tabs:** the shared states and variants.
 - **Controls/Dialog:** shared dialog sizes, forms, choices and confirmations.
 - **Patterns/Selectable card:** shared rich action and navigation surfaces.
-- **Census/Composer:** remaining raw buttons/fields and counted control overrides/type/radius
-  exceptions with source locations. Their appearance now lives
-  in owner/shared CSS Modules. It owns plan
-  182's composer follow-up; no swept-family samples remain.
-- **Census/Control overrides:** every counted caller-style exception, split
-  into button and other-control sections.
-- **Census/ButtonBase exceptions:** counted rich/specialized painted targets.
-- **Census/Element exceptions:** every nonempty section of
-  `button-allowlist.json`: raw buttons, roles, fields, modal reach-ins,
-  look rules, rotating keyframes and document listeners. Permanent class
-  bans are enforcement history, so they are not open-work rows.
-- **Census/Token literals:** counted module/inline type and radius exceptions.
-- **Census/Runtime class families:** each declared runtime/generated pattern,
-  emitter, match count against all global classes, reason and closure boundary.
-  Generated markup may remain a deliberate continuing exception.
+- **Audit / Unfinished migrations:** composer raw buttons/fields and counted
+  control/type/radius findings, with source locations. Their CSS already has
+  module owners; shared-control adoption remains plan 182's follow-up.
+- **Audit / Reviewed exceptions:** caller appearance overrides, specialized
+  ButtonBase surfaces, type/radius values and every nonempty element/interaction
+  allowlist category. Permanent bans remain enforcement history, not findings.
+- **Audit / Generated-content boundaries:** generated class families and their
+  producers, context-dependent generated styles, and external markup recognition.
+  These may be deliberate continuing boundaries rather than migration work.
 
-Every census page begins with what it lists, what done means and its enforcing
-command. Rows use one layout: element/class, location or use count, why it is
-an exception, and what closes it. Allowlist rows show each file's count against
-the section's total exceptions (not a historical migration denominator).
-Counts and reasons come directly from the enforcement lists. The separate
-"Button elements, by directory" view and its shared/link inventory are removed
-because the exception pages cover the remaining work; parser scans of raw
-buttons and fields remain necessary for lint and the composer page.
+The Audit renders once in the shell's theme, hides specimen view settings,
+and has no state, isolated-view link or theme grid. Three overview links jump
+into its sections; native disclosures reveal the detailed rows and are collapsed
+initially. Counts can overlap across checks. Rows show the element/class,
+location or use count, recorded reason and resolution. Counts and reasons come
+directly from enforcement lists. A retained exception is not automatically
+unfinished work. Old `census-*` page and `--remaining` state URLs open the
+corresponding Audit section, even with `?iso` from an old capture link.
+
+`design:index` lists Audit under `pages`, separately from `specimens`.
+`design:shot audit --phone` captures the full report at desktop and phone
+widths; `--theme` changes the shell theme without duplicating the report in a
+grid. The separate directory inventory and shared/link counts remain removed;
+parser scans of raw buttons and fields still supply lint and the composer rows.
 
 The Vite data plugin refreshes composer locations and runtime match counts
 when source or census inputs change and freezes them into the remote build.

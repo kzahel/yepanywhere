@@ -425,7 +425,7 @@
   "modalRoles": {
     "components/GoalPanel.tsx": {
       "count": 1,
-      "reason": "Goal editor: an anchored form panel beside its trigger with its own overlay, Tab trap and useModalLayer Escape; Dialog does not anchor below 600px. Kept on purpose (Census/Element exceptions)."
+      "reason": "Goal editor: an anchored form panel beside its trigger with its own overlay, Tab trap and useModalLayer Escape; Dialog does not anchor below 600px. Kept on purpose (Audit / Reviewed exceptions)."
     },
     "components/McpAppView.tsx": {
       "count": 1,
@@ -433,7 +433,7 @@
     },
     "components/SourceEditor.tsx": {
       "count": 1,
-      "reason": "Full-screen source editing workspace with its own Tab trap and Ctrl+S, above Modal; not a dialog box. Kept on purpose (Census/Element exceptions)."
+      "reason": "Full-screen source editing workspace with its own Tab trap and Ctrl+S, above Modal; not a dialog box. Kept on purpose (Audit / Reviewed exceptions)."
     }
   },
   "modalFrameRules": {

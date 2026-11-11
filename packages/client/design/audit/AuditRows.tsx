@@ -1,14 +1,14 @@
 import type { CensusEntry } from "../openCensus";
-import styles from "./Census.module.css";
+import styles from "./Audit.module.css";
 
-export function CensusRows({ rows }: { rows: CensusEntry[] }) {
+export function AuditRows({ rows }: { rows: CensusEntry[] }) {
   return (
     <ul className={styles.rows}>
       {rows.map((row) => (
         <li
           key={`${row.element}:${row.where}`}
           className={styles.row}
-          data-census-row=""
+          data-audit-row=""
         >
           <code>{row.element}</code>
           <dl className={styles.details}>
@@ -16,9 +16,9 @@ export function CensusRows({ rows }: { rows: CensusEntry[] }) {
             <dd>
               <code>{row.where}</code>
             </dd>
-            <dt>Why an exception</dt>
+            <dt>Reason</dt>
             <dd>{row.reason}</dd>
-            <dt>Closes when</dt>
+            <dt>Resolution</dt>
             <dd>{row.close}</dd>
           </dl>
         </li>
@@ -48,7 +48,7 @@ export function AllowanceGroup({
       <h3 className={styles.groupTitle}>
         {title} · {total} exceptions in {Object.keys(entries).length} files
       </h3>
-      <CensusRows
+      <AuditRows
         rows={Object.entries(entries).map(([file, entry]) => ({
           element,
           where: `${file} · ${entry.count} / ${total} exceptions`,

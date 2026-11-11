@@ -117,8 +117,9 @@ of slightly different styles.
 - **Button census:** at its landing the mapping covered 54 global and 79
   module names; the element scan found 594 raw buttons to swap and 129 for
   later families. Plan 191 step 5 removes the completed-family pages and
-  mapping. Current open work is Census/Composer and the identical-layout
-  exception pages; permanent bans live in `button-allowlist.json`.
+  mapping. Current open work is Audit / Unfinished migrations, with counted
+  reasons under Reviewed exceptions; permanent bans live in
+  `button-allowlist.json`.
 - **Button family done (2026-11-08):** every button outside the composer
   and the allowlisted later-family controls is on `Button`, `IconButton`,
   `ButtonBase` or `buttonClassName`: the
@@ -327,10 +328,11 @@ of slightly different styles.
 - **Screen tour:** `pnpm -s design:tour --label <name>` (the
   [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
   owns the contract).
-- **Open-work census:** plan 191 step 5 replaces swept-family samples with
-  Census/Composer and identical-layout exception pages. Each remaining row
-  gives its element/class, location or count, reason and closure condition;
-  shared Controls/Patterns retain the standard examples.
+- **Open-work audit:** plan 191 step 5 removed swept-family samples. The
+  Audit report now separates unfinished migrations, reviewed exceptions and
+  generated-content boundaries. Each row gives its element/class, location
+  or count, reason and resolution; shared Controls/Patterns retain the
+  standard examples.
 
 The [topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
 owns the contract for all three.
@@ -359,7 +361,7 @@ when all five are:
    chosen per family, with composer files exempt until their pass). The
    family's swept census rows and page are removed; permanent class bans
    stay in `button-allowlist.json`. Controls/Patterns show the standard,
-   while Census shows only remaining exceptions.
+   while Audit distinguishes unfinished migrations from reviewed exceptions.
 
 **Screen tour.** Before the first swap commit, add a capture script that
 opens the main screens (projects, a session, new session, each settings
@@ -413,7 +415,8 @@ switch roles.
   - composer controls → excluded.
 - **Mapping first (completed).** The original temporary mapping assigned
   each button class a shared destination before the sweep. Plan 191 step 5
-  removes that completed inventory; Census/Composer retains the open pass.
+  removes that completed inventory; Audit / Unfinished migrations retains
+  the open pass.
 - **Batches** in the order above, one commit each (large batches may split
   by subdirectory). Each batch deletes the legacy rules it leaves unused and
   runs the screen tour before and after.
@@ -486,8 +489,8 @@ inside the handoff dialog (composer).
 ### 6 — composer controls
 
 A careful census and pass over the session input and new-session form
-controls, which the earlier families exclude. Start at Census/Composer
-for live class/element locations and the identical-layout exception pages
+controls, which the earlier families exclude. Start at Audit / Unfinished
+migrations for live class/element locations and Reviewed exceptions
 for counted reasons; swept-family inventories were removed by plan 191 step 5.
 
 ## Supporting work

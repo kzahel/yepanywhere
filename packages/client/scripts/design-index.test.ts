@@ -44,20 +44,17 @@ describe("design index", () => {
 
   it("indexes every checked-in specimen", async () => {
     const index = await loadDesignIndex();
-    expect(index.specimens.map((specimen) => specimen.id)).toEqual(
-      expect.arrayContaining(["tokens", "census-composer"]),
-    );
+    expect(index.specimens.map((specimen) => specimen.id)).toContain("tokens");
     expect(
-      index.specimens
-        .filter((specimen) => specimen.layer === "census")
-        .map((specimen) => specimen.id),
-    ).toEqual([
-      "census-button-base-exceptions",
-      "census-composer",
-      "census-control-overrides",
-      "census-element-exceptions",
-      "census-runtime-class-families",
-      "census-token-literals",
+      index.specimens.some((specimen) => specimen.id.startsWith("census-")),
+    ).toBe(false);
+    expect(index.pages).toEqual([
+      {
+        id: "audit",
+        title: "Design audit",
+        file: "design/audit/AuditPage.tsx",
+        href: "design.html#/audit",
+      },
     ]);
   });
 });

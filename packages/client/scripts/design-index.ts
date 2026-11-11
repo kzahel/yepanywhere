@@ -12,6 +12,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { AUDIT_PAGE } from "../design/audit/routes";
 import {
   DESIGN_LAYERS,
   type DesignLayer,
@@ -178,13 +179,18 @@ export async function loadDesignIndex(root = clientRoot) {
       DESIGN_LAYERS.indexOf(a.layer) - DESIGN_LAYERS.indexOf(b.layer) ||
       a.title.localeCompare(b.title),
   );
-  return { format: "ya-design-index", version: 1, specimens };
+  return {
+    format: "ya-design-index",
+    version: 1,
+    pages: [AUDIT_PAGE],
+    specimens,
+  };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.argv.includes("-h") || process.argv.includes("--help")) {
     process.stdout.write(
-      "Usage: pnpm -s design:index\n\nPrint the design playground's specimens, states and their design.html URLs as JSON.\n",
+      "Usage: pnpm -s design:index\n\nPrint the design playground's pages, specimens, states and their design.html URLs as JSON.\n",
     );
   } else {
     process.stdout.write(

@@ -45,3 +45,11 @@ cases passing. The 91 focused CSS-tooling/Git Status cases emit none. No
 navigation implementation was changed; attribution still requires a separate
 fixture audit rather than global link suppression. Evidence: ignored
 `.artifacts/design-tour/191-comparison/logs/workspace-final.log`.
+
+2026-11-11: the Audit-page cleanup's passing workspace run repeats five
+`Error: Not implemented: navigation (except hash changes)` diagnostics with
+only jsdom timer stacks (7,375 client and 7,341 server tests pass). The focused
+design-index test and desktop/phone browser cases are clean. This playground
+change does not change production navigation; identifying the source still
+requires the separate fixture audit described above. No global navigation
+suppression was added. Evidence: ignored `.artifacts/design-audit/tests.log`.

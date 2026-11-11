@@ -10,7 +10,7 @@ import {
 
 /*
  * Example files sit beside their component in src/ or, for playground-only
- * pages such as the census and token views, under design/. Eager loading is
+ * views such as the token page, under design/. Eager loading is
  * deliberate: the index needs every title, and only the playground loads it.
  */
 const modules = import.meta.glob<Record<string, unknown>>(

@@ -1,21 +1,10 @@
-import type { SpecimenMeta } from "../specimen";
-import allowlist from "./button-allowlist.json";
-import styles from "./Census.module.css";
-import { AllowanceGroup } from "./censusParts";
+import allowlist from "../census/button-allowlist.json";
+import styles from "./Audit.module.css";
+import { AllowanceGroup } from "./AuditRows";
 
-export default {
-  title: "Census/Element exceptions",
-  parameters: {
-    layer: "census",
-    width: "fill",
-    description:
-      "Raw elements, roles and CSS rules still allowed outside the shared control families. Done means shared controls cover ordinary cases and only justified specialized boundaries remain. pnpm buttons:check enforces these counted reasons; --record only lowers counts.",
-  },
-} satisfies SpecimenMeta;
-
-export function Remaining() {
+export function ElementExceptions() {
   return (
-    <div className={styles.census}>
+    <div className={styles.groups}>
       <AllowanceGroup
         title="Raw buttons"
         element="<button>"
