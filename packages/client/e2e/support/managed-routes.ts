@@ -26,6 +26,21 @@ export async function routeWithDrain(
   });
 }
 
+/**
+ * Refuse the pushed collection stream so list views keep reading REST.
+ *
+ * The stream's snapshots come from the server, so a test that rewrites a
+ * `GET /api/sessions`, `/api/projects`, `/api/inbox` or `/api/project-queue`
+ * response would otherwise see its fixture replaced by real rows. A refused
+ * stream takes the client's older-server fallback, which refetches over REST.
+ */
+export async function readCollectionsOverRest(page: Page): Promise<void> {
+  await page.route(
+    (url) => url.pathname === "/api/activity/collections",
+    (route) => route.fulfill({ status: 404, body: "" }),
+  );
+}
+
 export async function drainManagedRoutes(page: Page): Promise<void> {
   const routes = pages.get(page);
   if (!routes) return;

@@ -12,7 +12,11 @@ import {
   disposeYaServerProcess,
 } from "./support/ya-server-process";
 import { recordUiCapture } from "./support/ui-capture";
-import { routeWithDrain, drainManagedRoutes } from "./support/managed-routes";
+import {
+  routeWithDrain,
+  drainManagedRoutes,
+  readCollectionsOverRest,
+} from "./support/managed-routes";
 
 test.use({ serviceWorkers: "block" });
 
@@ -589,6 +593,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       ownership: { owner: "none" },
       hasUnread: true,
     }));
+    await readCollectionsOverRest(page);
     await page.route(
       (url) => url.pathname === "/api/sessions",
       (route) =>

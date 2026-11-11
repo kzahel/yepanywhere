@@ -1,6 +1,7 @@
 import {
   routeWithDrain,
   drainManagedRoutes,
+  readCollectionsOverRest,
 } from "./support/managed-routes.js";
 import { mkdirSync, writeFileSync, appendFileSync, unlinkSync } from "node:fs";
 import { hostname } from "node:os";
@@ -371,6 +372,7 @@ for (const viewport of [
   }) => {
     saveSession(`provenance-${viewport.name}`, `provenance ${viewport.name}`);
     await page.setViewportSize(viewport);
+    await readCollectionsOverRest(page);
     await routeWithDrain(page, /\/api\/sessions\?/, async (route) => {
       const response = await route.fetch();
       const data = await response.json();
@@ -597,6 +599,7 @@ for (const viewport of [
       )
       .toEqual(fixtureIds);
     const requested = new Set<string>();
+    await readCollectionsOverRest(page);
     await routeWithDrain(page, /\/api\/sessions\?/, async (route) => {
       // The sidebar's starred feed uses this endpoint too. It has no seed
       // session and does not need the injected unsupported-provider row.

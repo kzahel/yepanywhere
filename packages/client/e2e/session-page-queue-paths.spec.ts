@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { readCollectionsOverRest } from "./support/managed-routes.js";
 import {
   json,
   openSessionPage,
@@ -256,6 +257,7 @@ test("Project Queue items in the session resume dispatch, cancel, edit into the 
   const cancelItem = item("pin-pq-cancel", "Project item to cancel");
   const editItem = item("pin-pq-edit", "Project item to edit");
   const steerItem = item("pin-pq-steer", "Project item to steer");
+  await readCollectionsOverRest(page);
   await page.route("**/api/project-queue", (route) =>
     route.request().method() === "GET"
       ? route.fulfill({

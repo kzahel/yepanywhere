@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { readCollectionsOverRest } from "./support/managed-routes.js";
 import {
   json,
   liveUpdate,
@@ -190,6 +191,7 @@ test("the breadcrumb's move menu lists other projects and moves the session", as
   page,
   baseURL,
 }) => {
+  await readCollectionsOverRest(page);
   await page.route(
     (url) => url.pathname === "/api/projects",
     async (route) => {

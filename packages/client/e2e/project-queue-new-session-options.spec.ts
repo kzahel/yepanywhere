@@ -8,6 +8,7 @@ import {
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
 import { e2ePaths, expect, test } from "./fixtures.js";
+import { readCollectionsOverRest } from "./support/managed-routes.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 
 const mockProjectPath = join(e2ePaths.tempDir, "mockproject");
@@ -40,6 +41,7 @@ test("right-click queues the draft as a new session in another project", async (
     );
   });
   // Exercise the chooser with a realistic large project/model catalog.
+  await readCollectionsOverRest(page);
   await page.route(
     (url) => url.pathname === "/api/projects",
     async (route) => {
