@@ -1,4 +1,5 @@
 import lingerStyles from "./SessionDomLingerHost.module.css";
+import pageStyles from "./PageLayout.module.css";
 import {
   Profiler,
   memo,
@@ -299,7 +300,7 @@ export function NativeSessionPathRoute() {
   }, [projectId, family, nativeId, location.pathname]);
   if (!native || failure?.path !== location.pathname) return null;
   return (
-    <div className="error">
+    <div className={pageStyles.error}>
       {t("sessionInvalidUrl")} {failure.message}
     </div>
   );
