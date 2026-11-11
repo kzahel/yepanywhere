@@ -50,20 +50,6 @@ explicit exclusion ledger checked against static environment reads. Without
 one, new debug and development variables can silently miss the pane. graehl
 added the Environment pane in `038b0e1c` (2026-06-19).
 
-## Local Access transaction boundary
-
-Local Access keeps network rebinding, authentication, and allowed hosts behind
-Apply Changes, unlike ordinary immediate Settings plus Undo. File-viewer paths
-now save immediately with pane-level Undo. A bind or authentication change may
-need validation and redirect, while allowed hosts already support runtime
-updates. The listening port is launch-owned and therefore read-only in this
-form.
-
-Decide whether to split network/auth into an explicit transactional form and
-make ordinary server settings immediate, or document a category-level
-transaction exception. Kyle added the configurable file-viewer sources in
-`9de67900` (2026-06-17).
-
 ## Bypass-mode audit coverage
 
 Approval audit logging now accurately describes explicit approve/deny events,

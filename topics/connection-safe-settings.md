@@ -58,7 +58,8 @@ readable on its own, and `connectionImpact.reasons`. The client names those
 reasons and, once the user accepts, repeats the request with the query
 parameter `confirmConnectionImpact=1` (a query parameter because the relay
 tunnel carries no body on `DELETE`). One prompt covers all requests of a single
-user action, such as Local Access **Apply** or one Remote Access save.
+user action, such as Local Access **Apply connection changes** or one Remote
+Access save.
 Declining leaves the refused change unapplied, still pending in the form, and
 shows no error. Writes that can be refused go first; Local Access sends its
 listener change last, because it can move the page's own server, so declining

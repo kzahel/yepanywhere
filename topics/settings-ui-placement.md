@@ -52,6 +52,32 @@ Providers retains independent sub-forms with their own drafts, validation, and
 Save/cancel lifecycles, so a pane-wide Undo has no clear scope. Do not add it
 unless the pane is restructured to make that scope clear.
 
+### Local Access forms
+
+**Listening & hostnames** groups the listening port, network access/interface
+and allowed hostnames in one explicit-save form. Changes take effect only on
+**Apply connection changes** or Enter in that form. Its action row appears only
+with effective pending edits (and stays during application), names the edited
+settings, and offers **Discard**. Discard restores this form to the currently
+reported server values without writing, changing password drafts or undoing
+independently saved settings. CLI-owned and unavailable listener controls cannot
+create pending edits. A custom-IP edit counts only while network access uses it.
+On narrow screens the action row sticks to the bottom of the viewport within
+its connection section; it does not follow users into other settings groups.
+Port validation appears beside the port field; failed or declined writes retain
+unapplied edits. Connection-impact confirmation and redirects follow
+[connection-safe settings](connection-safe-settings.md).
+
+**Password & authentication** has its own Enable password, Change password or
+Disable password confirmation. Enter submits only that form; Discard clears only
+its unapplied choice and password fields. Applying connection changes never
+validates or applies a password draft, and confirming a password never applies
+connection edits. Desktop **Allow localhost access** saves immediately and
+reports failures in its row. **Agent access** switches and file-access controls
+save independently; they cannot reveal the connection Apply row. Settings
+searches matching a form title or its field labels keep that form’s fields and
+actions together.
+
 ## Persistence mechanisms (pick one deliberately)
 
 YA has three, and the choice is about *scope of persistence*, not convenience:

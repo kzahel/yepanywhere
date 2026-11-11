@@ -7,6 +7,7 @@ import {
   render as renderWithoutRouter,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   AGENT_SERVER_ACCESS_CAPABILITY,
@@ -246,7 +247,9 @@ describe("LocalAccessSettings", () => {
         name: "localAccessAgentApiTitle",
       });
       expect(toggle).toHaveProperty("checked", false);
-      fireEvent.click(toggle);
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
       expect(mockUpdateSetting).toHaveBeenCalledWith("agentApiEnabled", true);
       expect(
         screen.queryByRole("switch", {
@@ -264,7 +267,7 @@ describe("LocalAccessSettings", () => {
       );
     });
 
-    it("keeps command authority behind its distinct capability and setting", () => {
+    it("keeps command authority behind its distinct capability and setting", async () => {
       useDirectAccess(false);
       versionState.capabilities = [SERVER_CAPABILITIES.agentApiBootstrap.name];
       const first = render(<LocalAccessSettings />);
@@ -282,7 +285,9 @@ describe("LocalAccessSettings", () => {
         name: "localAccessAgentApiManagementTitle",
       });
       expect(management).toHaveProperty("checked", false);
-      fireEvent.click(management);
+      await act(async () => {
+        fireEvent.click(management);
+      });
       expect(mockUpdateSetting).toHaveBeenCalledWith(
         "agentApiManagementEnabled",
         true,
@@ -376,6 +381,69 @@ describe("LocalAccessSettings", () => {
       await waitFor(() => expect(disableAuth).toHaveBeenCalledTimes(1));
     });
 
+    it("keeps connection apply/discard independent of password and saved file access", async () => {
+      useDirectAccess(false);
+      versionState.capabilities = [
+        SERVER_CAPABILITIES.connectionSafeSettings.name,
+      ];
+      const { rerender } = render(<LocalAccessSettings />);
+      expect(
+        screen.queryByRole("button", { name: "localAccessConnectionApply" }),
+      ).toBeNull();
+      fireEvent.click(switchFor("localAccessRequirePasswordTitle"));
+      const password = screen.getByLabelText("localAccessPasswordTitle");
+      fireEvent.change(password, { target: { value: "unfinished" } });
+      expect(
+        screen.queryByRole("button", { name: "localAccessConnectionApply" }),
+      ).toBeNull();
+      fireEvent.change(screen.getByLabelText("localAccessAllowedHostsTitle"), {
+        target: { value: "new.example" },
+      });
+      const form = screen
+        .getByRole("button", { name: "localAccessConnectionApply" })
+        .closest("form")!;
+      await act(async () => {
+        fireEvent.submit(form);
+      });
+      expect(mockUpdateSettings).toHaveBeenLastCalledWith(
+        { allowedHosts: "new.example" },
+        { confirmedConnectionImpact: false },
+      );
+      expect(enableAuth).not.toHaveBeenCalled();
+      expect(password).toHaveProperty("value", "unfinished");
+      expect(
+        screen.queryByRole("button", { name: "localAccessConnectionApply" }),
+      ).toBeNull();
+
+      fireEvent.click(switchFor("fileAccessHome"));
+      await waitFor(() =>
+        expect(hookState.settings?.fileAccess?.home).toBe(true),
+      );
+      rerender(
+        <MemoryRouter>
+          <LocalAccessSettings />
+        </MemoryRouter>,
+      );
+      fireEvent.change(screen.getByRole("spinbutton"), {
+        target: { value: "3401" },
+      });
+      fireEvent.click(
+        within(form).getByRole("button", { name: "localAccessDiscard" }),
+      );
+      expect(screen.getByRole("spinbutton")).toHaveProperty("value", "3400");
+      expect(password).toHaveProperty("value", "unfinished");
+      expect(switchFor("fileAccessHome")).toHaveProperty("checked", true);
+      fireEvent.click(
+        within(password.closest("form")!).getByRole("button", {
+          name: "localAccessDiscard",
+        }),
+      );
+      expect(switchFor("localAccessRequirePasswordTitle")).toHaveProperty(
+        "checked",
+        false,
+      );
+    });
+
     it("asks once when an apply would disconnect this client", async () => {
       versionState.capabilities = [
         APPROVAL_AUDIT_LOG_CAPABILITY,
@@ -399,7 +467,9 @@ describe("LocalAccessSettings", () => {
         screen.getByPlaceholderText("localAccessAllowedHostsPlaceholder"),
         { target: { value: "other.example" } },
       );
-      fireEvent.click(screen.getByRole("button", { name: "localAccessApply" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "localAccessConnectionApply" }),
+      );
 
       await waitFor(() =>
         expect(mockUpdateBinding).toHaveBeenCalledWith(
@@ -435,7 +505,9 @@ describe("LocalAccessSettings", () => {
       fireEvent.change(await screen.findByRole("spinbutton"), {
         target: { value: "3401" },
       });
-      const apply = screen.getByRole("button", { name: "localAccessApply" });
+      const apply = screen.getByRole("button", {
+        name: "localAccessConnectionApply",
+      });
       fireEvent.click(apply);
 
       await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));

@@ -172,9 +172,8 @@ export function LocalAccessSettings() {
   const [selectedInterface, setSelectedInterface] = useState<string>("");
   const [customIp, setCustomIp] = useState("");
 
-  // Auth form state (merged into same form)
+  // Password changes have their own explicit action, independent of listeners.
   const [requirePassword, setRequirePassword] = useState(false);
-  const [localhostOpenToggle, setLocalhostOpenToggle] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState("");
 
@@ -199,8 +198,11 @@ export function LocalAccessSettings() {
   // Form state
   const [formError, setFormError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [portError, setPortError] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [passwordApplying, setPasswordApplying] = useState(false);
+  const [localhostSaving, setLocalhostSaving] = useState(false);
+  const [localhostError, setLocalhostError] = useState<string | null>(null);
 
   // Fetch read-only file-access info (env-pin state + resolved hint paths).
   // Supported by both direct/cookie clients and relayed SecureConnection fetches.
@@ -239,7 +241,6 @@ export function LocalAccessSettings() {
       setSelectedInterface(binding.network.host ?? "");
     }
     setRequirePassword(localAuth.authEnabled);
-    setLocalhostOpenToggle(localAuth.localhostOpen);
     // Initialize allowed hosts from server settings
     const ah = serverSettings.allowedHosts;
     if (ah === "*") {
@@ -261,7 +262,6 @@ export function LocalAccessSettings() {
     bindingLoading,
     formInitialized,
     localAuth.authEnabled,
-    localAuth.localhostOpen,
     localAuth.ready,
     serverSettings,
   ]);
@@ -294,6 +294,24 @@ export function LocalAccessSettings() {
     );
   }, [binding, formInitialized]);
 
+  const shownHostsRef = useRef(serverSettings?.allowedHosts);
+  useEffect(() => {
+    const previous = shownHostsRef.current;
+    const current = serverSettings?.allowedHosts;
+    shownHostsRef.current = current;
+    if (!formInitialized || current === previous) return;
+    setAllowAllHostsToggle((value) =>
+      value === (previous === "*") ? current === "*" : value,
+    );
+    setAllowedHostsText((value) =>
+      value === (previous === "*" ? "" : (previous ?? ""))
+        ? current === "*"
+          ? ""
+          : (current ?? "")
+        : value,
+    );
+  }, [formInitialized, serverSettings?.allowedHosts]);
+
   useEffect(() => {
     if (!serverSettings) return;
     fileAccessSavedRef.current = cloneFileAccessSettings(
@@ -301,84 +319,46 @@ export function LocalAccessSettings() {
     );
   }, [serverSettings]);
 
-  // Compute the effective allowedHosts value for comparison/saving
-  const getAllowedHostsValue = (
-    toggle: boolean,
-    text: string,
-  ): string | undefined => {
-    if (toggle) return "*";
-    const trimmed = text.trim();
-    return trimmed || undefined;
-  };
+  const allowedHostsValue = allowAllHostsToggle ? "*" : allowedHostsText.trim();
 
-  // Track changes - includes auth and allowed hosts changes
-  const checkForChanges = (
-    newPort: string,
-    newNetworkEnabled: boolean,
-    newInterface: string,
-    newRequirePassword: boolean,
-    newPassword: string,
-    newAllowAllHosts: boolean,
-    newAllowedHostsText: string,
-    newLocalhostOpen: boolean,
-    authEnabledNow: boolean,
-  ) => {
-    if (!serverSettings) return false;
-
-    if (!localAuth.ready) return false;
-
-    const portChanged = !!binding && newPort !== String(binding.localhost.port);
-    const networkEnabledChanged =
-      !!binding && newNetworkEnabled !== binding.network.enabled;
-    const interfaceChanged =
-      !!binding && newInterface !== (binding.network.host ?? "");
-    const authChanged = newRequirePassword !== authEnabledNow;
-    const passwordEntered = newPassword.length > 0;
-    const localhostOpenChanged = newLocalhostOpen !== localAuth.localhostOpen;
-    const newValue = getAllowedHostsValue(
-      newAllowAllHosts,
-      newAllowedHostsText,
-    );
-    const oldValue = serverSettings.allowedHosts;
-    const allowedHostsChanged = (newValue ?? "") !== (oldValue ?? "");
-    return (
-      portChanged ||
-      networkEnabledChanged ||
-      interfaceChanged ||
-      authChanged ||
-      passwordEntered ||
-      localhostOpenChanged ||
-      allowedHostsChanged
-    );
-  };
-
-  // Helper for onChange handlers
-  const updateHasChanges = (overrides: {
-    port?: string;
-    networkEnabled?: boolean;
-    iface?: string;
-    requirePw?: boolean;
-    password?: string;
-    allowAll?: boolean;
-    hostsText?: string;
-    localhostOpen?: boolean;
-    /** The server's auth state when this render's context has not caught up. */
-    authEnabled?: boolean;
-  }) => {
-    setHasChanges(
-      checkForChanges(
-        overrides.port ?? localhostPort,
-        overrides.networkEnabled ?? networkEnabled,
-        overrides.iface ?? selectedInterface,
-        overrides.requirePw ?? requirePassword,
-        overrides.password ?? authPassword,
-        overrides.allowAll ?? allowAllHostsToggle,
-        overrides.hostsText ?? allowedHostsText,
-        overrides.localhostOpen ?? localhostOpenToggle,
-        overrides.authEnabled ?? localAuth.authEnabled,
-      ),
-    );
-  };
+  // Derive pending changes from the same effective values that Apply sends.
+  // Hidden or command-line-owned listener fields cannot create phantom edits.
+  const effectiveInterface =
+    selectedInterface === "custom" ? customIp.trim() : selectedInterface;
+  const portChanged =
+    !!binding &&
+    canChangeListeners &&
+    !binding.localhost.overriddenByCli &&
+    Number(localhostPort) !== binding.localhost.port;
+  const networkChanged =
+    !!binding &&
+    canChangeListeners &&
+    !binding.network.overriddenByCli &&
+    networkEnabled !== binding.network.enabled;
+  const interfaceChanged =
+    !!binding &&
+    canChangeListeners &&
+    !binding.network.overriddenByCli &&
+    networkEnabled &&
+    effectiveInterface !== (binding.network.host ?? "");
+  const allowedHostsChanged =
+    !!serverSettings &&
+    allowedHostsValue !== (serverSettings.allowedHosts ?? "");
+  const connectionChanges = [
+    portChanged && t("localAccessListeningPortTitle"),
+    networkChanged && t("localAccessNetworkTitle"),
+    interfaceChanged && t("localAccessInterfaceTitle"),
+    allowedHostsChanged && t("localAccessAllowedHostsTitle"),
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const connectionChanged = !!connectionChanges;
+  const passwordChanged =
+    localAuth.canManage &&
+    !localAuth.authDisabledByEnv &&
+    (requirePassword !== localAuth.authEnabled ||
+      authPassword.length > 0 ||
+      authPasswordConfirm.length > 0);
 
   const saveFileAccess = useCallback(
     (nextForm: FileAccessForm): Promise<void> => {
@@ -447,40 +427,31 @@ export function LocalAccessSettings() {
         (value, index) => value !== serverFileAccess.custom[index],
       ));
 
-  // Network/auth edits remain staged because applying them can rebind or
-  // redirect the server. File-access edits save immediately and Undo restores
-  // their pane-open snapshot through the same server setting.
-  const resetFormFromServer = useCallback(() => {
-    if (!serverSettings) return;
-
-    if (!localAuth.ready) {
-      setFormError(null);
-      setHasChanges(false);
-      return;
-    }
-
+  // Discard only this form's unapplied connection edits. Never reverse a
+  // successful rebind or touch independently saved settings/password drafts.
+  const resetConnectionFromServer = useCallback(() => {
     if (binding) {
       setLocalhostPort(String(binding.localhost.port));
       setNetworkEnabled(binding.network.enabled);
       setSelectedInterface(binding.network.host ?? "");
     }
     setCustomIp("");
+    setAllowAllHostsToggle(serverSettings?.allowedHosts === "*");
+    setAllowedHostsText(
+      serverSettings?.allowedHosts === "*"
+        ? ""
+        : (serverSettings?.allowedHosts ?? ""),
+    );
+    setFormError(null);
+    setPortError(false);
+  }, [binding, serverSettings?.allowedHosts]);
+
+  const resetPasswordFromServer = useCallback(() => {
     setRequirePassword(localAuth.authEnabled);
-    setLocalhostOpenToggle(localAuth.localhostOpen);
     setAuthPassword("");
     setAuthPasswordConfirm("");
-    const ah = serverSettings.allowedHosts;
-    if (ah === "*") {
-      setAllowAllHostsToggle(true);
-      setAllowedHostsText("");
-    } else {
-      setAllowAllHostsToggle(false);
-      setAllowedHostsText(ah ?? "");
-    }
-    setFormError(null);
     setPasswordError(null);
-    setHasChanges(false);
-  }, [binding, localAuth, serverSettings]);
+  }, [localAuth.authEnabled]);
 
   const undoLocalAccessChanges = useCallback(async () => {
     await fileAccessSaveChainRef.current;
@@ -495,16 +466,21 @@ export function LocalAccessSettings() {
       setFileAccess(baselineForm);
       await saveFileAccess(baselineForm);
     }
-    resetFormFromServer();
+    resetConnectionFromServer();
+    resetPasswordFromServer();
   }, [
     fileAccessBaselineChanged,
     fileAccessDraftChanged,
     fileAccessInfo?.envPinned,
-    resetFormFromServer,
+    resetConnectionFromServer,
+    resetPasswordFromServer,
     saveFileAccess,
   ]);
   useSettingsUndo(
-    hasChanges || fileAccessDraftChanged || fileAccessBaselineChanged,
+    connectionChanged ||
+      passwordChanged ||
+      fileAccessDraftChanged ||
+      fileAccessBaselineChanged,
     undoLocalAccessChanges,
   );
 
@@ -780,8 +756,7 @@ export function LocalAccessSettings() {
     </SettingsItem>
   );
 
-  // The password choice staged by Require Password and its fields. Both the
-  // nested password block and Apply Changes validate and apply it here.
+  // Only the password form may apply the staged password choice.
   const enablingAuth =
     localAuth.canManage && requirePassword && !localAuth.authEnabled;
   const changingPassword =
@@ -801,21 +776,6 @@ export function LocalAccessSettings() {
     }
     return null;
   };
-  const applyPasswordChoice = async (): Promise<void> => {
-    if (enablingAuth) {
-      await localAuth.enableAuth(authPassword);
-    } else if (changingPassword) {
-      await localAuth.changePassword(authPassword);
-    } else if (disablingAuth) {
-      await localAuth.disableAuth();
-      return;
-    } else {
-      return;
-    }
-    setAuthPassword("");
-    setAuthPasswordConfirm("");
-  };
-
   const handleApplyPasswordChoice = async () => {
     setPasswordError(null);
     const error = passwordChoiceError();
@@ -823,42 +783,40 @@ export function LocalAccessSettings() {
       setPasswordError(error);
       return;
     }
-    setIsApplying(true);
+    if (passwordApplying || isApplying || applying || !passwordChanged) return;
+    setPasswordApplying(true);
     try {
-      await applyPasswordChoice();
-      // Enabling redirects to login; the other two leave the pane open.
-      updateHasChanges({ password: "", authEnabled: requirePassword });
+      if (enablingAuth) await localAuth.enableAuth(authPassword);
+      else if (changingPassword) await localAuth.changePassword(authPassword);
+      else if (disablingAuth) await localAuth.disableAuth();
+      setAuthPassword("");
+      setAuthPasswordConfirm("");
     } catch (err) {
       setPasswordError(
         err instanceof Error ? err.message : t("localAccessErrorApplyFailed"),
       );
     } finally {
-      setIsApplying(false);
+      setPasswordApplying(false);
     }
   };
 
   const handleApplyChanges = async () => {
+    if (!connectionChanged || isApplying || applying || passwordApplying)
+      return;
     setFormError(null);
+    setPortError(false);
 
     // Validate port
-    const portNum = Number.parseInt(localhostPort, 10);
+    const portNum = Number(localhostPort);
     if (
       binding &&
+      canChangeListeners &&
       !binding.localhost.overriddenByCli &&
-      (Number.isNaN(portNum) || portNum < 1 || portNum > 65535)
+      (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
     ) {
-      setFormError(t("localAccessErrorPortRange"));
+      setPortError(true);
       return;
     }
-
-    const passwordProblem = passwordChoiceError();
-    if (passwordProblem) {
-      setFormError(passwordProblem);
-      return;
-    }
-
-    const effectiveInterface =
-      selectedInterface === "custom" ? customIp : selectedInterface;
 
     setIsApplying(true);
     // Listening and allowed-host changes can disconnect this client; one
@@ -867,26 +825,15 @@ export function LocalAccessSettings() {
     // it, and declining it leaves only that change pending.
     const impactScope = { confirmed: false };
     try {
-      const newAllowedHosts = getAllowedHostsValue(
-        allowAllHostsToggle,
-        allowedHostsText,
-      );
-      if ((newAllowedHosts ?? "") !== (serverSettings?.allowedHosts ?? "")) {
+      if (allowedHostsValue !== (serverSettings?.allowedHosts ?? "")) {
         await confirmImpact(
           (confirmedConnectionImpact) =>
             updateServerSettings(
-              { allowedHosts: newAllowedHosts ?? "" },
+              { allowedHosts: allowedHostsValue },
               { confirmedConnectionImpact },
             ),
           { mayDisconnect: true, scope: impactScope },
         );
-      }
-
-      await applyPasswordChoice();
-
-      // Apply localhost access changes (desktop token floor bypass)
-      if (localhostOpenToggle !== localAuth.localhostOpen) {
-        await localAuth.setLocalhostOpen(localhostOpenToggle);
       }
 
       // Send only edited fields, and none that the command line overrides.
@@ -925,8 +872,6 @@ export function LocalAccessSettings() {
         newUrl.pathname = window.location.pathname;
         newUrl.search = window.location.search;
         window.location.href = newUrl.toString();
-      } else {
-        setHasChanges(false);
       }
     } catch (err) {
       if (!isConnectionImpactDeclined(err)) {
@@ -1024,200 +969,264 @@ export function LocalAccessSettings() {
         </div>
       </HideInSettingsSearch>
 
-      {/* Network Configuration */}
-      <form
-        className={rowsStyles.group}
-        data-settings-group
+      <SettingsSection
+        title={t("localAccessConnectionTitle")}
+        description={t("localAccessConnectionDescription")}
+        keywords={[
+          t("localAccessListeningPortTitle"),
+          t("localAccessNetworkTitle"),
+          t("localAccessInterfaceTitle"),
+          t("localAccessCustomIpTitle"),
+          t("localAccessAllowAllHostsTitle"),
+          t("localAccessAllowedHostsTitle"),
+        ]}
+        doc="topics/connection-safe-settings.md"
+        className={styles.connectionSection}
         onSubmit={(e) => {
           e.preventDefault();
           handleApplyChanges();
         }}
       >
-        {binding && (
-          <>
-            <SettingsItem
-              label={t("localAccessListeningPortTitle")}
-              description={
-                canChangeListeners
-                  ? t("localAccessListeningPortDescription")
-                  : t("localAccessListenersRemoteUpdateRequired")
-              }
-            >
-              {binding?.localhost.overriddenByCli ? (
-                <span>
-                  {binding.localhost.port}{" "}
-                  <span className={rowsStyles.hint}>
-                    {t("localAccessSetViaPort")}
+        <fieldset
+          className={`${rowsStyles.group} ${styles.connectionFields}`}
+          disabled={isApplying || applying}
+        >
+          {binding && (
+            <>
+              <SettingsItem
+                label={t("localAccessListeningPortTitle")}
+                description={
+                  canChangeListeners
+                    ? t("localAccessListeningPortDescription")
+                    : t("localAccessListenersRemoteUpdateRequired")
+                }
+                after={
+                  portError && (
+                    <Banner id="local-access-port-error" tone="error">
+                      {t("localAccessErrorPortRange")}
+                    </Banner>
+                  )
+                }
+              >
+                {binding?.localhost.overriddenByCli ? (
+                  <span>
+                    {binding.localhost.port}{" "}
+                    <span className={rowsStyles.hint}>
+                      {t("localAccessSetViaPort")}
+                    </span>
                   </span>
-                </span>
-              ) : (
-                <TextInput
-                  type="number"
-                  className={styles.port}
-                  disabled={!canChangeListeners}
-                  value={localhostPort}
-                  onChange={(e) => {
-                    setLocalhostPort(e.target.value);
-                    updateHasChanges({ port: e.target.value });
-                  }}
-                  min={1}
-                  max={65535}
-                  autoComplete="off"
-                  aria-label={t("localAccessListeningPortTitle")}
-                />
-              )}
-            </SettingsItem>
+                ) : (
+                  <TextInput
+                    type="number"
+                    className={styles.port}
+                    disabled={!canChangeListeners || isApplying || applying}
+                    invalid={portError}
+                    aria-describedby={
+                      portError ? "local-access-port-error" : undefined
+                    }
+                    value={localhostPort}
+                    onChange={(e) => {
+                      setLocalhostPort(e.target.value);
+                      setPortError(false);
+                    }}
+                    min={1}
+                    max={65535}
+                    autoComplete="off"
+                    aria-label={t("localAccessListeningPortTitle")}
+                  />
+                )}
+              </SettingsItem>
 
-            <SettingsItem
-              label={t("localAccessNetworkTitle")}
-              description={t("localAccessNetworkDescription")}
-            >
-              {binding?.network.overriddenByCli ? (
-                <span>
-                  {binding.network.host}:{binding.network.port}{" "}
-                  <span className={rowsStyles.hint}>
-                    {t("localAccessSetViaHost")}
+              <SettingsItem
+                label={t("localAccessNetworkTitle")}
+                description={t("localAccessNetworkDescription")}
+              >
+                {binding?.network.overriddenByCli ? (
+                  <span>
+                    {binding.network.host}:{binding.network.port}{" "}
+                    <span className={rowsStyles.hint}>
+                      {t("localAccessSetViaHost")}
+                    </span>
                   </span>
-                </span>
-              ) : (
-                <Switch
-                  aria-label={t("localAccessNetworkTitle")}
-                  checked={networkEnabled}
-                  disabled={!canChangeListeners}
-                  onCheckedChange={(checked) => {
-                    setNetworkEnabled(checked);
-                    updateHasChanges({ networkEnabled: checked });
-                  }}
-                />
-              )}
-            </SettingsItem>
-          </>
-        )}
+                ) : (
+                  <Switch
+                    aria-label={t("localAccessNetworkTitle")}
+                    checked={networkEnabled}
+                    disabled={!canChangeListeners || isApplying || applying}
+                    onCheckedChange={(checked) => {
+                      setNetworkEnabled(checked);
+                    }}
+                  />
+                )}
+              </SettingsItem>
+            </>
+          )}
 
-        {networkEnabled &&
-          canChangeListeners &&
-          !binding?.network.overriddenByCli &&
-          binding && (
-            <SettingsItem
-              label={t("localAccessInterfaceTitle")}
-              description={t("localAccessInterfaceDescription")}
-            >
-              <FilterDropdown
+          {networkEnabled &&
+            canChangeListeners &&
+            !binding?.network.overriddenByCli &&
+            binding && (
+              <SettingsItem
                 label={t("localAccessInterfaceTitle")}
-                placeholder={t("localAccessInterfacePlaceholder")}
-                multiSelect={false}
-                align="right"
-                options={[
-                  ...binding.interfaces.map((iface) => ({
-                    value: iface.address,
-                    label: iface.displayName,
-                  })),
-                  {
-                    value: "0.0.0.0",
-                    label: t("localAccessInterfaceAll"),
-                  },
-                  { value: "custom", label: t("localAccessInterfaceCustom") },
-                ]}
-                selected={selectedInterface ? [selectedInterface] : []}
-                onChange={(values) => {
-                  const newInterface = values[0] ?? "";
-                  setSelectedInterface(newInterface);
-                  updateHasChanges({ iface: newInterface });
+                description={t("localAccessInterfaceDescription")}
+              >
+                <FilterDropdown
+                  label={t("localAccessInterfaceTitle")}
+                  placeholder={t("localAccessInterfacePlaceholder")}
+                  multiSelect={false}
+                  align="right"
+                  options={[
+                    ...binding.interfaces.map((iface) => ({
+                      value: iface.address,
+                      label: iface.displayName,
+                    })),
+                    {
+                      value: "0.0.0.0",
+                      label: t("localAccessInterfaceAll"),
+                    },
+                    { value: "custom", label: t("localAccessInterfaceCustom") },
+                  ]}
+                  selected={selectedInterface ? [selectedInterface] : []}
+                  onChange={(values) => {
+                    const newInterface = values[0] ?? "";
+                    setSelectedInterface(newInterface);
+                  }}
+                />
+              </SettingsItem>
+            )}
+
+          {networkEnabled &&
+            canChangeListeners &&
+            !binding?.network.overriddenByCli &&
+            selectedInterface === "custom" && (
+              <SettingsItem
+                label={t("localAccessCustomIpTitle")}
+                description={t("localAccessCustomIpDescription")}
+                className={rowsStyles.itemInlineField}
+              >
+                <TextInput
+                  className={styles.inlineField}
+                  placeholder="192.168.1.100"
+                  aria-label={t("localAccessCustomIpTitle")}
+                  value={customIp}
+                  disabled={isApplying || applying}
+                  onChange={(e) => setCustomIp(e.target.value)}
+                />
+              </SettingsItem>
+            )}
+
+          {/* Allowed Hosts — applies even on localhost (reverse proxy may use different hostname) */}
+          <SettingsItem
+            label={t("localAccessAllowAllHostsTitle")}
+            description={t("localAccessAllowAllHostsDescription")}
+          >
+            <Switch
+              aria-label={t("localAccessAllowAllHostsTitle")}
+              checked={allowAllHostsToggle}
+              disabled={isApplying || applying}
+              onCheckedChange={(checked) => {
+                setAllowAllHostsToggle(checked);
+              }}
+            />
+          </SettingsItem>
+          {!allowAllHostsToggle && (
+            <SettingsItem
+              label={t("localAccessAllowedHostsTitle")}
+              description={t("localAccessAllowedHostsDescription")}
+              className={rowsStyles.itemInlineField}
+            >
+              <TextInput
+                className={styles.inlineField}
+                placeholder={t("localAccessAllowedHostsPlaceholder")}
+                aria-label={t("localAccessAllowedHostsTitle")}
+                value={allowedHostsText}
+                disabled={isApplying || applying}
+                onChange={(e) => {
+                  setAllowedHostsText(e.target.value);
+                }}
+              />
+            </SettingsItem>
+          )}
+          <HideInSettingsSearch>
+            <p>{t("localAccessAllowedHostsHint")}</p>
+          </HideInSettingsSearch>
+        </fieldset>
+        {(connectionChanged || isApplying || applying) && (
+          <div className={styles.connectionActions}>
+            <p role="status">
+              {t("localAccessConnectionPending", {
+                settings: connectionChanges,
+              })}
+            </p>
+            {formError && <Banner tone="error">{formError}</Banner>}
+            <div className={styles.actionButtons}>
+              <Button
+                disabled={isApplying || applying}
+                onClick={resetConnectionFromServer}
+              >
+                {t("localAccessDiscard")}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                busy={isApplying || applying}
+                disabled={passwordApplying}
+              >
+                {isApplying || applying
+                  ? t("localAccessApplying")
+                  : t("localAccessConnectionApply")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </SettingsSection>
+
+      <SettingsSection
+        title={t("localAccessAuthenticationTitle")}
+        description={t("localAccessAuthenticationDescription")}
+        keywords={[
+          t("localAccessRequirePasswordTitle"),
+          t("localAccessPasswordTitle"),
+          t("localAccessPasswordNewTitle"),
+          t("localAccessConfirmPasswordTitle"),
+        ]}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleApplyPasswordChoice();
+        }}
+      >
+        <div className={rowsStyles.group} data-settings-group>
+          {/* Require Password toggle */}
+          {!localAuth.authDisabledByEnv && (
+            <SettingsItem
+              label={t("localAccessRequirePasswordTitle")}
+              description={
+                localAuth.canManage
+                  ? t("localAccessRequirePasswordDescription")
+                  : t("localAccessPasswordRemoteUpdateRequired")
+              }
+              doc="site/src/content/docs/local-access.md"
+            >
+              <Switch
+                aria-label={t("localAccessRequirePasswordTitle")}
+                checked={requirePassword}
+                disabled={!localAuth.canManage || passwordApplying}
+                onCheckedChange={(checked) => {
+                  setRequirePassword(checked);
                 }}
               />
             </SettingsItem>
           )}
 
-        {networkEnabled &&
-          canChangeListeners &&
-          !binding?.network.overriddenByCli &&
-          selectedInterface === "custom" && (
-            <SettingsItem
-              label={t("localAccessCustomIpTitle")}
-              description={t("localAccessCustomIpDescription")}
-              className={rowsStyles.itemInlineField}
-            >
-              <TextInput
-                className={styles.inlineField}
-                placeholder="192.168.1.100"
-                aria-label={t("localAccessCustomIpTitle")}
-                value={customIp}
-                onChange={(e) => setCustomIp(e.target.value)}
-              />
-            </SettingsItem>
-          )}
-
-        {/* Allowed Hosts — applies even on localhost (reverse proxy may use different hostname) */}
-        <SettingsItem
-          label={t("localAccessAllowAllHostsTitle")}
-          description={t("localAccessAllowAllHostsDescription")}
-        >
-          <Switch
-            aria-label={t("localAccessAllowAllHostsTitle")}
-            checked={allowAllHostsToggle}
-            onCheckedChange={(checked) => {
-              setAllowAllHostsToggle(checked);
-              updateHasChanges({ allowAll: checked });
-            }}
-          />
-        </SettingsItem>
-        {!allowAllHostsToggle && (
-          <SettingsItem
-            label={t("localAccessAllowedHostsTitle")}
-            description={t("localAccessAllowedHostsDescription")}
-            className={rowsStyles.itemInlineField}
-          >
-            <TextInput
-              className={styles.inlineField}
-              placeholder={t("localAccessAllowedHostsPlaceholder")}
-              aria-label={t("localAccessAllowedHostsTitle")}
-              value={allowedHostsText}
-              onChange={(e) => {
-                setAllowedHostsText(e.target.value);
-                updateHasChanges({ hostsText: e.target.value });
-              }}
-            />
-          </SettingsItem>
-        )}
-        <HideInSettingsSearch>
-          <p>{t("localAccessAllowedHostsHint")}</p>
-        </HideInSettingsSearch>
-
-        {renderFileAccessSettings()}
-
-        {/* Require Password toggle */}
-        {!localAuth.authDisabledByEnv && (
-          <SettingsItem
-            label={t("localAccessRequirePasswordTitle")}
-            description={
-              localAuth.canManage
-                ? t("localAccessRequirePasswordDescription")
-                : t("localAccessPasswordRemoteUpdateRequired")
-            }
-            doc="site/src/content/docs/local-access.md"
-          >
-            <Switch
-              aria-label={t("localAccessRequirePasswordTitle")}
-              checked={requirePassword}
-              disabled={!localAuth.canManage}
-              onCheckedChange={(checked) => {
-                setRequirePassword(checked);
-                updateHasChanges({ requirePw: checked });
-              }}
-            />
-          </SettingsItem>
-        )}
-
-        {/* The password choice, nested under the toggle that gates it and
+          {/* The password choice, nested under the toggle that gates it and
             applied from its own button beside the fields. */}
-        {localAuth.canManage &&
-          !localAuth.authDisabledByEnv &&
-          (requirePassword || localAuth.authEnabled) && (
-            <div
-              className={`${rowsStyles.subsection} ${styles.passwordBlock}`}
-              data-local-access-password-block="true"
-            >
-              <HideInSettingsSearch>
+          {localAuth.canManage &&
+            !localAuth.authDisabledByEnv &&
+            (requirePassword || localAuth.authEnabled) && (
+              <div
+                className={`${rowsStyles.subsection} ${styles.passwordBlock}`}
+                data-local-access-password-block="true"
+              >
                 <Banner
                   tone={
                     requirePassword && localAuth.authEnabled
@@ -1233,81 +1242,82 @@ export function LocalAccessSettings() {
                       ? t("localAccessPasswordActive")
                       : t("localAccessPasswordPending")}
                 </Banner>
-              </HideInSettingsSearch>
-              {requirePassword && (
-                <>
-                  {/* Hidden username field to prevent Chrome from using port as username */}
-                  <HideInSettingsSearch>
-                    <TextInput
-                      name="username"
-                      autoComplete="username"
-                      style={{
-                        position: "absolute",
-                        visibility: "hidden",
-                        pointerEvents: "none",
-                      }}
-                      tabIndex={-1}
-                    />
-                  </HideInSettingsSearch>
-                  <SettingsItem
-                    label={
-                      localAuth.authEnabled
-                        ? t("localAccessPasswordNewTitle")
-                        : t("localAccessPasswordTitle")
-                    }
-                    description={
-                      localAuth.authEnabled
-                        ? t("localAccessPasswordKeepCurrent")
-                        : t("localAccessPasswordMinLength")
-                    }
-                    className={rowsStyles.itemInlineField}
-                  >
-                    <TextInput
-                      type="password"
-                      className={styles.inlineField}
-                      aria-label={
+                {requirePassword && (
+                  <>
+                    {/* Hidden username field to prevent Chrome from using port as username */}
+                    <HideInSettingsSearch>
+                      <TextInput
+                        name="username"
+                        autoComplete="username"
+                        style={{
+                          position: "absolute",
+                          visibility: "hidden",
+                          pointerEvents: "none",
+                        }}
+                        tabIndex={-1}
+                      />
+                    </HideInSettingsSearch>
+                    <SettingsItem
+                      label={
                         localAuth.authEnabled
                           ? t("localAccessPasswordNewTitle")
                           : t("localAccessPasswordTitle")
                       }
-                      value={authPassword}
-                      onChange={(e) => {
-                        setAuthPassword(e.target.value);
-                        setPasswordError(null);
-                        updateHasChanges({ password: e.target.value });
-                      }}
-                      autoComplete="new-password"
-                      placeholder={
+                      description={
                         localAuth.authEnabled
-                          ? t("localAccessPasswordNewPlaceholder")
-                          : t("localAccessPasswordPlaceholder")
+                          ? t("localAccessPasswordKeepCurrent")
+                          : t("localAccessPasswordMinLength")
                       }
-                    />
-                  </SettingsItem>
-                  {(enablingAuth || changingPassword) && (
-                    <SettingsItem
-                      label={t("localAccessConfirmPasswordTitle")}
                       className={rowsStyles.itemInlineField}
                     >
                       <TextInput
                         type="password"
                         className={styles.inlineField}
-                        invalid={feedback?.kind === "mismatch"}
-                        aria-label={t("localAccessConfirmPasswordTitle")}
-                        aria-describedby="local-access-password-feedback"
-                        value={authPasswordConfirm}
+                        aria-label={
+                          localAuth.authEnabled
+                            ? t("localAccessPasswordNewTitle")
+                            : t("localAccessPasswordTitle")
+                        }
+                        value={authPassword}
+                        disabled={passwordApplying}
                         onChange={(e) => {
-                          setAuthPasswordConfirm(e.target.value);
+                          setAuthPassword(e.target.value);
                           setPasswordError(null);
                         }}
                         autoComplete="new-password"
-                        placeholder={t("localAccessConfirmPasswordPlaceholder")}
+                        placeholder={
+                          localAuth.authEnabled
+                            ? t("localAccessPasswordNewPlaceholder")
+                            : t("localAccessPasswordPlaceholder")
+                        }
                       />
                     </SettingsItem>
-                  )}
-                </>
-              )}
-              <HideInSettingsSearch>
+                    {(enablingAuth || changingPassword) && (
+                      <SettingsItem
+                        label={t("localAccessConfirmPasswordTitle")}
+                        className={rowsStyles.itemInlineField}
+                      >
+                        <TextInput
+                          type="password"
+                          className={styles.inlineField}
+                          invalid={feedback?.kind === "mismatch"}
+                          aria-label={t("localAccessConfirmPasswordTitle")}
+                          aria-describedby="local-access-password-feedback"
+                          value={authPasswordConfirm}
+                          disabled={passwordApplying}
+                          onChange={(e) => {
+                            setAuthPasswordConfirm(e.target.value);
+                            setPasswordError(null);
+                          }}
+                          autoComplete="new-password"
+                          placeholder={t(
+                            "localAccessConfirmPasswordPlaceholder",
+                          )}
+                        />
+                      </SettingsItem>
+                    )}
+                  </>
+                )}
                 <div className={styles.passwordActions}>
                   <p
                     id="local-access-password-feedback"
@@ -1335,18 +1345,28 @@ export function LocalAccessSettings() {
                             ? t("localAccessPasswordMatch")
                             : "")}
                   </p>
+                  {passwordChanged && (
+                    <Button
+                      disabled={passwordApplying}
+                      onClick={resetPasswordFromServer}
+                    >
+                      {t("localAccessDiscard")}
+                    </Button>
+                  )}
                   {(enablingAuth || changingPassword || disablingAuth) && (
                     <Button
+                      type="submit"
+                      busy={passwordApplying}
                       variant={disablingAuth ? "danger" : "primary"}
                       className={
                         disablingAuth ? undefined : styles.passwordApply
                       }
                       disabled={
+                        passwordApplying ||
                         isApplying ||
                         applying ||
                         (!disablingAuth && passwordChoiceError() !== null)
                       }
-                      onClick={() => void handleApplyPasswordChoice()}
                     >
                       {disablingAuth
                         ? t("localAccessPasswordDisableAction")
@@ -1361,60 +1381,76 @@ export function LocalAccessSettings() {
                     {t("localAccessPasswordResetHint")}
                   </p>
                 )}
-              </HideInSettingsSearch>
-            </div>
+              </div>
+            )}
+
+          {/* Allow Localhost Access - shown in desktop mode when password auth is off */}
+          {localAuth.hasDesktopToken &&
+            !requirePassword &&
+            !localAuth.authDisabledByEnv && (
+              <SettingsItem
+                label={t("localAccessLocalhostOpenTitle")}
+                description={t("localAccessLocalhostOpenDescription")}
+                doc="site/src/content/docs/local-access.md#desktop-app-allow-localhost-access"
+                after={
+                  localhostError && (
+                    <Banner tone="error">{localhostError}</Banner>
+                  )
+                }
+              >
+                <Switch
+                  aria-label={t("localAccessLocalhostOpenTitle")}
+                  checked={localAuth.localhostOpen}
+                  disabled={!localAuth.canManage || localhostSaving}
+                  onCheckedChange={async (checked) => {
+                    setLocalhostError(null);
+                    setLocalhostSaving(true);
+                    try {
+                      await localAuth.setLocalhostOpen(checked);
+                    } catch (error) {
+                      setLocalhostError(
+                        error instanceof Error
+                          ? error.message
+                          : t("localAccessErrorApplyFailed"),
+                      );
+                    } finally {
+                      setLocalhostSaving(false);
+                    }
+                  }}
+                />
+              </SettingsItem>
+            )}
+
+          {localAuth.authDisabledByEnv && (
+            <HideInSettingsSearch>
+              <Banner tone="warning" role="none">
+                {t("localAccessAuthDisabled")}
+              </Banner>
+            </HideInSettingsSearch>
           )}
+        </div>
+      </SettingsSection>
 
-        {supportsAgentServerAccess &&
-          localAuth.authEnabled &&
-          renderAgentServerAccessSetting()}
+      <div className={rowsStyles.group} data-settings-group>
+        {renderFileAccessSettings()}
+      </div>
 
-        {renderAgentApiSettings()}
+      {(supportsAgentApi ||
+        supportsAgentApiManagement ||
+        (supportsAgentServerAccess && localAuth.authEnabled)) && (
+        <SettingsSection
+          title={t("localAccessAgentAccessTitle")}
+          description={t("localAccessImmediateDescription")}
+        >
+          <div className={rowsStyles.group} data-settings-group>
+            {supportsAgentServerAccess &&
+              localAuth.authEnabled &&
+              renderAgentServerAccessSetting()}
 
-        {/* Allow Localhost Access - shown in desktop mode when password auth is off */}
-        {localAuth.hasDesktopToken &&
-          !requirePassword &&
-          !localAuth.authDisabledByEnv && (
-            <SettingsItem
-              label={t("localAccessLocalhostOpenTitle")}
-              description={t("localAccessLocalhostOpenDescription")}
-              doc="site/src/content/docs/local-access.md#desktop-app-allow-localhost-access"
-            >
-              <Switch
-                aria-label={t("localAccessLocalhostOpenTitle")}
-                checked={localhostOpenToggle}
-                disabled={!localAuth.canManage}
-                onCheckedChange={(checked) => {
-                  setLocalhostOpenToggle(checked);
-                  updateHasChanges({ localhostOpen: checked });
-                }}
-              />
-            </SettingsItem>
-          )}
-
-        {localAuth.authDisabledByEnv && (
-          <HideInSettingsSearch>
-            <Banner tone="warning" role="none">
-              {t("localAccessAuthDisabled")}
-            </Banner>
-          </HideInSettingsSearch>
-        )}
-
-        {/* Apply button - always visible */}
-        <HideInSettingsSearch>
-          <div className={rowsStyles.item}>
-            {formError && <Banner tone="error">{formError}</Banner>}
-            <Button
-              type="submit"
-              disabled={!hasChanges || isApplying || applying}
-            >
-              {isApplying || applying
-                ? t("localAccessApplying")
-                : t("localAccessApply")}
-            </Button>
+            {renderAgentApiSettings()}
           </div>
-        </HideInSettingsSearch>
-      </form>
+        </SettingsSection>
+      )}
 
       <div className={rowsStyles.group} data-settings-group>
         {renderApprovalAuditSettings()}
