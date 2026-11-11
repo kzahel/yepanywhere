@@ -42,3 +42,12 @@ transcript update and next key reproduces that exclusion. Counting transcript
 mutations over the beforeinput interval preserves the overlap and 100 ms
 checks without depending on transient AX/DOM focus agreement. This does not
 explain or close the earlier sidebar-opening finding.
+
+On `40af82310`, [run 42970345191](https://github.com/kzahel/yepanywhere/actions/runs/42970345191)
+fails at `LiveAppTests.swift:62`, waiting for keyboard readiness before the
+first input. The fixture now targets the composer's current element frame,
+as its existing navigation taps already do, and captures the immediate focus
+state. The opt-in input probe also records the last delivered DOM pointer's
+control, coordinates and relative time in the failure hierarchy. This
+separates a missed native tap from an absent readiness notification; all
+keyboard, overlap, draft and 100 ms assertions remain required.

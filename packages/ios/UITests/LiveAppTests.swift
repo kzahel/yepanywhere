@@ -57,7 +57,10 @@ final class LiveAppTests: XCTestCase {
     XCTAssertTrue(composerExists, app.debugDescription)
     // Real server updates overlap each sequential keyboard input in a 50-row
     // transcript; each beforeinput-to-paint observation must stay <=100 ms.
-    composer.tap()
+    // Use the rendered element frame, as with the navigation links below.
+    // XCTest's WebView tap can scroll/re-resolve the field before delivery.
+    composer.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    capture(app, "ios-composer-focus")
     let keyboardReady = app.staticTexts["QA keyboard ready"]
     XCTAssertTrue(keyboardReady.waitForExistence(timeout: 10), app.debugDescription)
     let control = AppendControl()

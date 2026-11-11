@@ -6,6 +6,22 @@
       guard ProcessInfo.processInfo.arguments.contains("-qa-input-metrics") else { return }
       let script = """
         (() => {
+          // Keep the last actual DOM pointer delivery in failure hierarchies.
+          // This separates a missed native tap from a missing readiness event.
+          for (const type of ['pointerdown', 'click']) {
+            document.addEventListener(type, event => {
+              let report = document.getElementById('qa-pointer-metrics');
+              if (!report) {
+                report = document.createElement('div'); report.id = 'qa-pointer-metrics';
+                report.style.cssText = 'position:fixed;top:24px;right:0;z-index:99998;font:10px monospace;background:white;color:black;pointer-events:none';
+                document.body.append(report);
+              }
+              const target = event.target;
+              const control = target.closest?.('[data-composer-input], [data-sidebar-toggle], [data-sidebar-switch-host]');
+              const name = control?.hasAttribute('data-composer-input') ? 'composer' : control?.hasAttribute('data-sidebar-toggle') ? 'sidebar' : control?.hasAttribute('data-sidebar-switch-host') ? 'switchHost' : target.tagName;
+              report.textContent = `QA pointer ${type}=${name};x=${Math.round(event.clientX)};y=${Math.round(event.clientY)};time=${Math.round(performance.now())}`;
+            }, true);
+          }
           // XCTest can expose the drawer's final AX frame before WebKit paints
           // it (CI 38249220195). Gate its tap on the actual DOM hit target and
           // two rendering frames, rather than a fixed sleep or an AX snapshot.
