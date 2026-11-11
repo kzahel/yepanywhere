@@ -31,6 +31,7 @@ import {
 } from "../lib/deliveryState";
 import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { findPendingTasks } from "../lib/pendingTasks";
+import { pickNativeViewerFields } from "../lib/sessionViewerUrl";
 import {
   extractParentSessionIdFromAgentFileEvent,
   extractSessionIdFromFileEvent,
@@ -1697,10 +1698,7 @@ export function useSession(
         return {
           ...prev,
           ...(event.creation !== undefined && { creation: event.creation }),
-          ...(event.nativeSessionId !== undefined && {
-            nativeSessionId: event.nativeSessionId,
-            nativeSessionFamily: event.nativeSessionFamily,
-          }),
+          ...pickNativeViewerFields(event),
           ...(event.title !== undefined && { customTitle: event.title }),
           ...(event.archived !== undefined && { isArchived: event.archived }),
           ...(event.starred !== undefined && { isStarred: event.starred }),

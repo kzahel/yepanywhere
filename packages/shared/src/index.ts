@@ -1,6 +1,8 @@
-export type {
-  SessionCreationStatus,
-  SessionCreationReceipt,
+export {
+  type SessionCreationStatus,
+  type SessionCreationProvenance,
+  type SessionCreationReceipt,
+  isSessionCreationPending,
 } from "./session-creation.js";
 export type {
   ArtifactVhost,
@@ -1199,7 +1201,6 @@ export type {
   ForkSummaryTranscriptDisplayObject,
   TranscriptDisplayObject,
   AppSessionSummary,
-  SessionCreationProvenance,
   AppSession,
   SessionEffectiveModelSettings,
   EffectiveSessionLaunchSettings,
@@ -1902,8 +1903,6 @@ export {
   type NativeSessionFamily,
   type NativeSessionRef,
 } from "./session-identity.js";
-
-export { isSessionCreationPending } from "./session-creation.js";
 export {
   parseProviderSteeringState,
   parseSteeringModeSettings,

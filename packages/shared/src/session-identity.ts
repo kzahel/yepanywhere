@@ -99,6 +99,17 @@ export function nativeSessionRef(
   return { family, storageScope, id: parseNativeSessionId(id) };
 }
 
+/** Public native identity a session summary or event carries for viewer URLs. */
+export interface NativeViewerFields {
+  /** Provider's bound rollout ID for viewer URLs; never a YA resource key. */
+  nativeSessionId?: string;
+  /**
+   * Native family of `nativeSessionId`. Its presence means the server resolves
+   * `/sessions/<family>/<native id>` viewer paths; absent from older servers.
+   */
+  nativeSessionFamily?: string;
+}
+
 /**
  * The public part of a bound native reference, for viewer URLs: the storage
  * scope stays on the server. Empty while unbound, so it spreads into a

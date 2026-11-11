@@ -1,4 +1,8 @@
-import { NATIVE_SESSION_FAMILIES, isYaSessionId } from "@yep-anywhere/shared";
+import {
+  type AppSessionSummary,
+  NATIVE_SESSION_FAMILIES,
+  isYaSessionId,
+} from "@yep-anywhere/shared";
 import { useSyncExternalStore } from "react";
 
 /** Legacy native viewer form: `/sessions/<native>?yaSessionId=<ya>`. */
@@ -148,4 +152,21 @@ export function nativeSessionViewerUrl(
     target = `${prefix}${encodeURIComponent(nativeId)}${slash}${rest}${rest ? "&" : "?"}${YA_ID_PARAM}=${encodeURIComponent(yaId)}${hash}`;
   }
   return target === `${pathname}${search}${hash}` ? undefined : target;
+}
+
+type NativeViewerFields = Pick<
+  AppSessionSummary,
+  "nativeSessionId" | "nativeSessionFamily"
+>;
+
+/** The viewer fields `source` carries, or none when it names no native id. */
+export function pickNativeViewerFields(
+  source: NativeViewerFields,
+): NativeViewerFields {
+  return source.nativeSessionId === undefined
+    ? {}
+    : {
+        nativeSessionId: source.nativeSessionId,
+        nativeSessionFamily: source.nativeSessionFamily,
+      };
 }

@@ -9,10 +9,8 @@ import type { StagedAttachmentRef, UploadedFile } from "./upload.js";
 import type { UrlProjectId } from "./projectId.js";
 import type { QueuedYaCommand } from "./queued-ya-commands.js";
 import type { UserMessageMetadata } from "./user-message-metadata.js";
-import type {
-  SessionCreationProvenance,
-  SessionQueuedMessageSummary,
-} from "./app-types.js";
+import type { SessionQueuedMessageSummary } from "./app-types.js";
+import type { SessionCreationProvenance } from "./session-creation.js";
 
 export const DEFAULT_PROJECT_QUEUE_QUIET_SECONDS = 30;
 export const MAX_PROJECT_QUEUE_QUIET_SECONDS = 5 * 60;

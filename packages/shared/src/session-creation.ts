@@ -36,6 +36,20 @@ export interface SessionCreationStatus {
     | "provider-host-outdated";
 }
 
+/**
+ * What first created a YA-owned session: a YA UI, or (`api`) an HTTP
+ * request that identified no UI, such as an agent or script.
+ */
+export interface SessionCreationProvenance {
+  surface: "web" | "desktop" | "api";
+  /** Browser page origin, which may be a hosted UI rather than the server. */
+  clientOrigin?: string;
+  /** Version of the frontend bundle that submitted the create request. */
+  clientVersion?: string;
+  /** Desktop application's source commit, when its runtime reports one. */
+  clientCommit?: string;
+}
+
 /** Durable creation acceptance; provider startup and delivery are separate facts. */
 export interface SessionCreationReceipt {
   requestId: string;

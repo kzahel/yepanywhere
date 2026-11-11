@@ -6,6 +6,7 @@ import {
   assertUrlProjectId,
   nativeSessionFamily,
   nativeSessionRef,
+  nativeViewerFields,
   parseNativeSessionId,
   parseYaSessionId,
   type NativeSessionRef,
@@ -181,6 +182,11 @@ export class SessionIdentityStore {
 
   resolveYa(sessionId: YaSessionId): SessionIdentity | undefined {
     return decode(this.byPublicId.get<IdentityRow>(sessionId));
+  }
+
+  /** Public native fields for a session's viewer URL; empty while unbound. */
+  viewerFields(sessionId: YaSessionId) {
+    return nativeViewerFields(this.resolveYa(sessionId)?.native);
   }
 
   lookupNative(native: NativeSessionRef): SessionIdentity | undefined {

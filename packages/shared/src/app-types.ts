@@ -1,4 +1,8 @@
-import type { SessionCreationStatus } from "./session-creation.js";
+import type {
+  SessionCreationProvenance,
+  SessionCreationStatus,
+} from "./session-creation.js";
+import type { NativeViewerFields } from "./session-identity.js";
 /**
  * App-specific types that extend SDK types with runtime/computed fields.
  *
@@ -629,22 +633,10 @@ export interface DurableSyntheticDoneMessage extends AppMessageExtensions {
   yaSyntheticSource: "done";
 }
 
-/**
- * What first created a YA-owned session: a YA UI, or (`api`) an HTTP
- * request that identified no UI, such as an agent or script.
- */
-export interface SessionCreationProvenance {
-  surface: "web" | "desktop" | "api";
-  /** Browser page origin, which may be a hosted UI rather than the server. */
-  clientOrigin?: string;
-  /** Version of the frontend bundle that submitted the create request. */
-  clientVersion?: string;
-  /** Desktop application's source commit, when its runtime reports one. */
-  clientCommit?: string;
-}
-
 /** Session summary for list views, without full message content. */
-export interface AppSessionSummary extends SessionSandboxSummary {
+export interface AppSessionSummary
+  extends SessionSandboxSummary,
+    NativeViewerFields {
   /** null clears a known receipt; omission preserves unknown older-server state. */
   nonHumanUserTurn?: NonHumanUserTurn | null;
   /** Bounded recent question previews; absence means this projection is unknown. */
@@ -690,13 +682,6 @@ export interface AppSessionSummary extends SessionSandboxSummary {
   creationProvenance?: SessionCreationProvenance;
   /** Durable YA startup evidence; absent on legacy/external sessions. */
   creation?: SessionCreationStatus;
-  /** Provider's bound rollout ID for viewer URLs; never a YA resource key. */
-  nativeSessionId?: string;
-  /**
-   * Native family of `nativeSessionId`. Its presence means the server resolves
-   * `/sessions/<family>/<native id>` viewer paths; absent from older servers.
-   */
-  nativeSessionFamily?: string;
   /** Public, immutable account pin. Never contains transport credentials. */
   routerBinding?: {
     poolId?: string;
