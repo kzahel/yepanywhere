@@ -227,6 +227,7 @@ export function SessionToolbarPreview() {
   const previewNowMs = useMemo(() => Date.now(), []);
   return (
     <SessionToolbarPreviewView
+      waveformPreview
       visibility={visibility}
       priority={priority}
       waveformButtonBackgroundOpacityPercent={
@@ -244,6 +245,7 @@ export function SessionToolbarPreviewView({
   waveformButtonBackgroundOpacityPercent,
   nowMs,
   fitToContainer = false,
+  waveformPreview = false,
 }: {
   visibility: SessionToolbarVisibility;
   priority: SessionToolbarPriority;
@@ -251,6 +253,8 @@ export function SessionToolbarPreviewView({
   nowMs: number;
   /** Use the available review-frame width instead of Settings’ wide scroll surface. */
   fitToContainer?: boolean;
+  /** Demonstrate the optional waveform separately from ordinary non-recording scenes. */
+  waveformPreview?: boolean;
 }) {
   const { t } = useI18n();
   const controls = usePreviewToolbarControls(nowMs);
@@ -276,7 +280,7 @@ export function SessionToolbarPreviewView({
             browserDebugControl={controls.browserDebugControl}
             doneControl={controls.doneControl}
             speechControl={controls.speechControl}
-            speechWaveformActive={visibility.waveform}
+            speechWaveformActive={waveformPreview && visibility.waveform}
             speechWaveformPreview
             waveformButtonBackgroundOpacityPercent={
               waveformButtonBackgroundOpacityPercent

@@ -148,15 +148,18 @@ for (const phone of [false, true]) {
       const toolbars = page.locator("[data-message-input-toolbar]");
       await expect(toolbars).toHaveCount(2);
       for (const toolbar of await toolbars.all()) {
-        await expect(toolbar).toHaveAttribute(
+        await expect(toolbar).not.toHaveAttribute(
           "data-waveform-button-background-opacity",
-          "70",
+          /.+/,
         );
         await expect(
           toolbar.locator('[data-session-toolbar-control="attachments"]'),
         ).toHaveCount(1);
         await expect(toolbar.locator("xpath=..")).toHaveAttribute("inert", "");
       }
+      await expect(page.locator("[data-composer-speech-waveform]")).toHaveCount(
+        0,
+      );
       // The context ring is retained, while its hidden interactive editor and
       // service subscriptions are absent from these inert reference scenes.
       await expect(page.locator("[data-context-usage-indicator]")).toHaveCount(

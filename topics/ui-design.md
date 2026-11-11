@@ -636,12 +636,14 @@ The playground's pages:
   fixed standard and all-controls-enabled configurations. Standard uses the
   desktop-default control set at every width so comparisons hold the controls
   constant. Optional actions use their normal priorities and More behavior.
-  The waveform is static, context usage is fixed at 84%, and the reference
-  clock and opacity are fixed. The context meter and microphone render without
+  Both scenes are non-recording and omit the waveform. Web dictation does not
+  show that waveform in the real toolbar either; the Settings preview retains
+  its separate synthetic demonstration. Context usage is fixed at 84%, with
+  a fixed reference clock and opacity. The context meter and microphone render without
   their live settings editors. Scenes fit the available frame width instead of
   the Settings preview’s wide scrolling surface. Scenes do not fetch server
-  data or change saved toolbar presence or waveform opacity; Settings continues to use the user's live
-  configuration. These scenes show the toolbar, not an editable message box.
+  data or change saved toolbar presence or waveform opacity; Settings continues
+  to use the user's live configuration. These scenes show the toolbar, not an editable message box.
 - **Audit / Unfinished migrations:** composer raw buttons/fields and counted
   control/type/radius findings, with source locations. Their CSS already has
   module owners; shared-control adoption remains plan 182's follow-up.

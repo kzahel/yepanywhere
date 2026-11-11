@@ -15,7 +15,7 @@ export default {
     layer: "scene",
     width: "fill",
     description:
-      "The Settings toolbar preview with fixed standard and all-controls-enabled configurations. Inert references: no messages, menus or saved-setting changes. Narrow layouts show overflow through More.",
+      "The Settings toolbar preview with fixed standard and all-controls-enabled configurations, without speech capture. Inert references: no messages, menus or saved-setting changes. Narrow layouts show overflow through More.",
   },
 } satisfies SpecimenMeta;
 
