@@ -384,8 +384,11 @@ export function RelayConnectionGate() {
   }
 
   switch (state) {
-    // A route change can retain the previous host's state until its effect
-    // disconnects it. Only the route-confirmed branch above may mount a page.
+    // Every transition to "connected" records its host, so reaching it here
+    // means the state belongs to the host this URL just switched away from.
+    // Mounting the new host's page now would let it type into, and fetch
+    // through, a connection the effect is about to replace; the switch then
+    // unmounts it and drops whatever the user typed after the last save.
     case "connected":
     case "checking":
     case "connecting":
