@@ -301,6 +301,12 @@ bundle. This pin secures subsequent recovery/NeMo installs; existing speech
 environments must update their installed certifi separately. Live environments
 were not updated or qualified by this repository change.
 
+The 2026-11-11 CI audit repair resolves `@google-cloud/storage ->
+fast-xml-parser` to 5.12.0 within its declared `^5.3.4` range for
+[quadratic unterminated stop-node scanning](https://github.com/advisories/GHSA-474x-hrwr-fgx4).
+Its required parser helpers move with it; no override, advisory exclusion or
+install-script permission is added.
+
 ## Automated Dependency Updates
 
 GitHub Dependabot is the sole automated dependency PR source, with **security
