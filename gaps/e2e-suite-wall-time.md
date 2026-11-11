@@ -41,6 +41,16 @@ records the measurements.
   timing-buffer resets. Its Linux run passes the unchanged 200 ms switch p95
   ceiling at 26.8 ms and verifies cleanup; this is local ARM64 evidence.
 
+November 11 hosted follow-up: source `23021f5e6` confirms the account and
+copy-control repairs, but still fails removed menu/retained-layer selectors,
+the former grant-specific bootstrap preview, and a stale desktop action-grid
+expectation. Those assertions now follow the emitted state hooks, stable
+`/v0/me` bootstrap, and measured two-column packing. Six focused browser
+cases pass locally without retries. The native-allocation route fixture now
+explicitly admits its Claude catalog family, preserving the quarantine and
+public-identity assertions; the full workspace suite passes. Hosted acceptance
+for these follow-up repairs remains pending.
+
 ## Remaining
 
 1. **First-attempt failures are common.** Five comparison runs failed 5–11

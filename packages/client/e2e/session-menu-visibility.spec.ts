@@ -68,7 +68,7 @@ for (const touch of [false, true]) {
       await expect(firstMenu).toHaveCSS("opacity", "1");
       await expect(secondMenu).toHaveCSS("opacity", "0");
       await first.getByRole("button", { name: "Session options" }).click();
-      await expect(firstMenu).toHaveClass(/is-open/);
+      await expect(firstMenu).toHaveAttribute("data-session-menu-open", "true");
       await expect(firstMenu).toHaveCSS("opacity", "1");
       await page.mouse.click(350, 10);
       await page.evaluate(() =>

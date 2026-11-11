@@ -80,7 +80,7 @@ for (const viewport of [
     name: "desktop",
     width: 1000,
     height: 600,
-    firstLayout: { actions: 3, columns: 3, rows: 1 },
+    firstLayout: { actions: 3, columns: 2, rows: 2 },
   },
   {
     name: "mobile",

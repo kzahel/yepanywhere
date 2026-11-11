@@ -15,9 +15,7 @@ async function dismissOnboardingIfVisible(page: Page) {
 }
 
 function activeViewport(page: Page) {
-  return page.locator(
-    "[data-session-dom-linger-layer][data-is-active] [data-message-list]",
-  );
+  return page.locator('[data-session-dom-linger="active"] [data-message-list]');
 }
 
 async function scrollTop(page: Page) {

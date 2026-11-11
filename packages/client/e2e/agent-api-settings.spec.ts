@@ -109,7 +109,9 @@ test("agent API discovery previews its bootstrap and acknowledges typing during 
       await preview.click();
     await expect(details).toHaveAttribute("open", "");
     await expect(details).toContainText("AGENT_YA_V0_AUTHORIZATION");
-    await expect(details).toContainText("explicit session-command authority");
+    await expect(details).toContainText(
+      "Determine current launch authority from /v0/me",
+    );
     await details.scrollIntoViewIfNeeded();
     await recordUiCapture(page, "agent-api-desktop-preview");
     await page.setViewportSize({ width: 375, height: 812 });

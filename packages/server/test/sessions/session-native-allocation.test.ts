@@ -257,6 +257,8 @@ it("keeps a native transcript written before binding out of public lists and leg
       discoverySqlite: storage,
       sessionMetadataService: metadata,
       provider: sdk,
+      // This fixture models an already-used Claude store without launching it.
+      getCatalogFamilies: () => ["claude"],
     });
     let lookupEntered = () => {};
     const entered = new Promise<void>((resolve) => {
