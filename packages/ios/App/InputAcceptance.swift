@@ -37,7 +37,10 @@
           });
           let count = 0, issued = 0, max = 0, maxKey = 0, domMax = 0, taskMax = 0, dropped = 0, stream = 0;
           new MutationObserver(records => {
-            if (issued > 0 && issued < 37 && document.activeElement?.matches?.('textarea[data-composer-input]') && records.some(record => (record.target.closest?.('[data-message-list]') || record.target.parentElement?.closest?.('[data-message-list]')))) stream++;
+            // beforeinput defines the edit interval. XCTest's separate literal
+            // key calls can move DOM focus between keys; transcript mutations
+            // in that interval still overlap the same real keyboard edit.
+            if (issued > 0 && issued < 37 && records.some(record => (record.target.closest?.('[data-message-list]') || record.target.parentElement?.closest?.('[data-message-list]')))) stream++;
           }).observe(document, {subtree:true,childList:true,characterData:true});
           document.addEventListener('beforeinput', event => {
             const input = event.target;

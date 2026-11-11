@@ -31,3 +31,14 @@ the Open sidebar coordinate tap. This is an earlier boundary than the
 original finding: there is no captured DOM pointer/click receipt establishing
 whether the opening tap reached React. No interaction code or acceptance
 limit was changed on this evidence.
+
+The fresh `ae932ec61` [run 42967078878](https://github.com/kzahel/yepanywhere/actions/runs/42967078878)
+fails earlier at concurrent-update accounting instead: all 37 inputs arrive,
+maximum paint acknowledgement is 48 ms, but `stream=0`. The probe's
+beforeinput counters already define the keyboard-edit interval; its extra
+instantaneous DOM-focus condition can exclude transcript mutations between
+XCTest's separate literal-key calls. A browser probe with a real key, blur,
+transcript update and next key reproduces that exclusion. Counting transcript
+mutations over the beforeinput interval preserves the overlap and 100 ms
+checks without depending on transient AX/DOM focus agreement. This does not
+explain or close the earlier sidebar-opening finding.
