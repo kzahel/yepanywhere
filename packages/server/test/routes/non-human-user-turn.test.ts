@@ -18,7 +18,7 @@ import {
   createTestSessionMetadataService,
 } from "../utils/session-metadata-database.js";
 
-it("delivers explicit cross-session input, surfaces Inbox attention, and acknowledges only the visited turn", async () => {
+it("delivers explicit cross-session input without Inbox escalation and acknowledges only the visited turn", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "delivered-turn-route-"));
   const metadata = createTestSessionMetadataService(dataDir);
   await metadata.initialize();
@@ -75,8 +75,7 @@ it("delivers explicit cross-session input, surfaces Inbox attention, and acknowl
     eventBus,
   };
   const routes = createSessionsRoutes(deps);
-  // No live process in this view: a pending receipt must survive ordinary
-  // unread and age filters even after the receiving process has ended.
+  // An old, inactive session keeps its receipt without being promoted to Inbox.
   const inbox = createInboxRoutes({ ...deps, supervisor: undefined });
   let process: Awaited<ReturnType<Supervisor["startSession"]>> | undefined;
   const post = (path: string, body: unknown) =>
@@ -136,12 +135,15 @@ it("delivers explicit cross-session input, surfaces Inbox attention, and acknowl
         .getMessageHistory()
         .some((message) => message.uuid === turn.messageId),
     ).toBe(true);
-    expect((await (await inbox.request("/")).json()).needsAttention).toEqual([
-      expect.objectContaining({
-        sessionId: "receiver",
-        nonHumanUserTurn: turn,
-      }),
-    ]);
+    const deliveredInbox = await (await inbox.request("/")).json();
+    for (const tier of [
+      "needsAttention",
+      "active",
+      "recentActivity",
+      "unread8h",
+      "unread24h",
+    ])
+      expect(deliveredInbox[tier]).toEqual([]);
     const plainSeen = await post("/sessions/receiver/mark-seen", {});
     expect(await plainSeen.json()).toEqual({ marked: true });
     expect(metadata.getPendingNonHumanUserTurn("receiver")).toEqual(turn);

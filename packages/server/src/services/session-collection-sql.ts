@@ -248,9 +248,7 @@ export class SessionCollectionSql {
       Number(Boolean(item.isStarred)),
       Number(Boolean(item.sidebarCategory)),
       Number(Boolean(item.hasUnread)),
-      Number(
-        attention ?? Boolean(item.pendingInputType || item.nonHumanUserTurn),
-      ),
+      Number(attention ?? Boolean(item.pendingInputType)),
       Number(item.activity === "in-turn"),
       Number(live),
       JSON.stringify(item.provider),

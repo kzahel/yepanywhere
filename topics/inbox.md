@@ -76,8 +76,8 @@ places each session in the first matching tier.
 The tier order is:
 
 1. `needsAttention`: sessions with pending tool approval or a provider question
-   waiting for user input, or an unacknowledged user turn delivered from another
-   session.
+   waiting for user input. The sidebar Inbox badge and browser-tab title count
+   these sessions globally, independently of the Inbox's view filters.
 2. `active`: sessions currently in turn, idle sessions retaining provider
    background work, or existing sessions targeted by queued or dispatching
    Project Queue work.
@@ -123,7 +123,7 @@ it must not keep an active or idle session in the approval tier.
 
 ## Cross-Session Delivery Attention
 
-The `non-human-user-turn` capability owns a durable attention receipt for the
+The `non-human-user-turn` capability owns a durable delivery receipt for the
 latest explicitly sourced cross-session user turn. A sender uses the ordinary
 messages API with `messageMetadata.sourceSessionId`. This is caller-declared
 provenance, never authentication or permission to access another session.
@@ -143,15 +143,19 @@ identity. YA does not infer provenance from transcript text.
 acknowledgement tombstone to prevent replay from raising the same flag again.
 Session collections, detail, and Inbox expose pending `nonHumanUserTurn` or
 explicit `null`; an omitted field means unknown and does not erase known state.
-Inbox reads the receipt during tiering, including retained collection reads,
-so an otherwise old/read session can need attention without a live process.
-Archival filtering and the existing tier cap still apply.
+A pending receipt keeps a clickable flag on session rows, including Inbox
+rows, but does not change tier selection or contribute to the sidebar Inbox
+badge or browser-tab title count. Flagged sessions follow the same Active,
+Recent and Unread rules as other sessions; an old/read session is not pulled
+into Inbox solely because of a delivery. Questions and tool approvals still
+place a flagged session in Needs Attention. Both retained SQL and unretained
+queries use this rule. Archival filtering and the existing tier cap still apply.
 
 The session flag and its Inbox row link to `?nonHumanTurn=<messageId>`. The
 client loads older history when needed, scrolls to the rendered turn, then
 acknowledges that exact ID with `nonHumanUserTurnMessageId` on the existing
-mark-seen request. Both attention surfaces disappear together. A normal
-mark-seen request does not acknowledge a delivery; an old-turn acknowledgement
+mark-seen request. The flag disappears across the sidebar and Inbox together.
+A normal mark-seen request does not acknowledge a delivery; an old-turn acknowledgement
 cannot erase a newer delivery. A missing/unrenderable turn or failed
 acknowledgement keeps the receipt and reports an error. A request that names a
 turn is answered with `acknowledged`, true only when that exact receipt was

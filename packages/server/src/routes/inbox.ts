@@ -471,12 +471,8 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
 
     // Tier 1: needsAttention - sessions with pending input
     for (const item of allSessions) {
-      const nonHumanUserTurn =
-        item.nonHumanUserTurn !== undefined
-          ? item.nonHumanUserTurn
-          : nonHumanUserTurnField(deps.sessionMetadataService, item.session.id);
-      if (item.pendingInputType || nonHumanUserTurn) {
-        needsAttention.push(toInboxItem(item, nonHumanUserTurn));
+      if (item.pendingInputType) {
+        needsAttention.push(toInboxItem(item));
         assignedSessionIds.add(item.session.id);
       }
     }

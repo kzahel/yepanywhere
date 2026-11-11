@@ -322,7 +322,8 @@ describe("Inbox Routes", () => {
       expect(result.active).toHaveLength(0);
     });
 
-    it("categorizes a pending non-human turn into needsAttention", async () => {
+    it("keeps delivery flags in their normal unread tier without requesting attention", async () => {
+      vi.mocked(mockNotificationService.hasUnread).mockReturnValue(true);
       const project = createProject("proj1", "myproject", "/sessions/proj1");
       vi.mocked(mockScanner.listProjects).mockResolvedValue([project]);
       sessionsByDir.set("/sessions/proj1", [
@@ -354,9 +355,12 @@ describe("Inbox Routes", () => {
         sessionMetadataService: mockSessionMetadataService,
       });
 
-      expect(result.needsAttention).toHaveLength(1);
-      expect(result.needsAttention[0].sessionId).toBe("delivered");
-      expect(result.needsAttention[0].nonHumanUserTurn).toEqual({
+      expect(result.needsAttention).toHaveLength(0);
+      expect(result.unread8h.map((item) => item.sessionId)).toEqual([
+        "delivered",
+        "acknowledged",
+      ]);
+      expect(result.unread8h[0].nonHumanUserTurn).toEqual({
         messageId: "msg1",
         timestamp: expect.any(String),
         sourceSessionId: "sender",

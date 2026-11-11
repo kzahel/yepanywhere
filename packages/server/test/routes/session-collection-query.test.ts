@@ -220,6 +220,66 @@ it("uses one SQL owner for list and Inbox polls and touches only changed metadat
   expect(reads.mock.calls.length).toBeLessThan(20);
 });
 
+it("keeps delivery receipts out of SQL attention while preserving pending questions and approvals", async () => {
+  const f = await fixture(32);
+  await f.getInbox();
+  for (const index of [0, 1, 2, 3, 25])
+    await f.metadata.recordNonHumanUserTurn(f.id(index), {
+      messageId: `delivery-${index}`,
+      sourceSessionId: "sender",
+      timestamp: new Date(Date.now()).toISOString(),
+    });
+  f.processes.set(f.id(1), {
+    state: { type: "in-turn" },
+    getPendingInputRequest: () => null,
+  });
+  for (const [index, type] of [
+    [2, "question"],
+    [3, "tool-approval"],
+  ] as const)
+    f.processes.set(f.id(index), {
+      state: { type: "waiting-input" },
+      getPendingInputRequest: () => ({ type, id: `request-${index}` }),
+    });
+  let inbox = await f.getInbox();
+  expect(
+    inbox.needsAttention.map((row: { sessionId: string }) => row.sessionId),
+  ).toEqual([f.id(2), f.id(3)]);
+  expect(inbox.active[0]).toMatchObject({
+    sessionId: f.id(1),
+    nonHumanUserTurn: { messageId: "delivery-1" },
+  });
+  expect(inbox.recentActivity[0]).toMatchObject({
+    sessionId: f.id(0),
+    nonHumanUserTurn: { messageId: "delivery-0" },
+  });
+  expect(Object.values(inbox).flat()).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ sessionId: f.id(25) })]),
+  );
+
+  // Old checkpoints materialized message-only attention. Reject that projection
+  // on upgrade instead of restoring stale counts for cold sessions indefinitely.
+  const { retainedSessionQuery, RetainedSessionQuery } = await import(
+    "../../src/services/retained-session-query.js"
+  );
+  retainedSessionQuery(f.collections, f.deps).dispose();
+  const database = openTestDiscoveryDatabase(f.directory);
+  database.exec(
+    "UPDATE collection_cache_rows SET attention=1; UPDATE collection_checkpoint SET snapshot=json_set(snapshot,'$.format',1)",
+  );
+  const metadata = vi.spyOn(f.metadata, "getMetadataBatch");
+  const restored = new RetainedSessionQuery(f.collections, f.deps);
+  try {
+    await restored.page({ limit: 10 });
+    expect(metadata).toHaveBeenCalled();
+  } finally {
+    restored.dispose();
+  }
+  inbox = await f.getInbox();
+  expect(inbox.needsAttention).toHaveLength(2);
+  expect(inbox.recentActivity[0].nonHumanUserTurn.messageId).toBe("delivery-0");
+});
+
 it("retains pending, reverted and failed metadata without requiring a committed row", async () => {
   const f = await fixture(8);
   await f.get();

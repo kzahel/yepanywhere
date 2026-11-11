@@ -2,10 +2,7 @@ import { realpathSync } from "node:fs";
 import { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import { NotificationService } from "../notifications/NotificationService.js";
 import { SessionQueryCheckpoint } from "./session-query-checkpoint.js";
-import {
-  pendingNonHumanUserTurn,
-  type SessionMetadata,
-} from "../metadata/SessionMetadataService.js";
+import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
 import { isYaSessionId, type NativeSessionRef } from "@yep-anywhere/shared";
 import { getProjectName } from "../projects/paths.js";
 import {
@@ -386,9 +383,7 @@ export class RetainedSessionQuery {
         ordinal: source?.ordinal ?? old?.ordinal ?? ++this.nextControlOrdinal,
         parent: parent ? JSON.stringify(parent) : null,
         automatic: stored?.isArchived == null,
-        attention: Boolean(
-          item?.pendingInputType || pendingNonHumanUserTurn(stored),
-        ),
+        attention: Boolean(item?.pendingInputType),
         live: Boolean(source && this.deps.supervisor?.getProcessForSession(id)),
       });
     }
@@ -429,7 +424,7 @@ export class RetainedSessionQuery {
     if (this.checkpoint && revision !== undefined)
       this.checkpoint.save(
         {
-          format: 1,
+          format: 2,
           signature: this.checkpointSignature,
           revision,
           token: this.token,

@@ -58,8 +58,10 @@ Unicode lowercase rules and searches the four existing fields in SQL.
 
 Inbox queries current time and current queue IDs on every request. Exclusive
 attention, active/queued, recent, unread8h and unread24h tiers each return at
-most 20 rows. Active and queued selections use separate bounded queries before
-merging. Archive expiry visits indexed rows crossing the cutoff, in chunks without decoding response JSON, including
+most 20 rows. Attention is reserved for pending questions and tool approvals;
+cross-session delivery receipts remain row data without changing selection.
+Checkpoints from before this attention rule rebuild from canonical facts.
+Active and queued selections use separate bounded queries before merging. Archive expiry visits indexed rows crossing the cutoff, in chunks without decoding response JSON, including
 clock reversal or disabling automatic archive; explicit metadata wins.
 Recaps advance display time, never provider unread time.
 

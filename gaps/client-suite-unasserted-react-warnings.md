@@ -45,3 +45,10 @@ boundary. Changing those producers or globally wrapping/suppressing their
 callbacks is outside the bounded scroll-restoration lifetime repair and could
 hide the intent/scroll ordering those cases assert. Audit each publication and
 join it explicitly; retain the scroll and held-selection assertions.
+
+The November 11 delivery-flag verification passed all 7,390 client tests but
+again emitted five unattributed `Not implemented: navigation (except hash
+changes)` diagnostics from `HTMLHyperlinkElementUtils-impl.js`. This change
+touches no client runtime or component tests, and its focused route/browser
+checks emit no such warnings. The fixture attribution remains unresolved;
+globally suppressing navigation diagnostics would hide unrelated link failures.
