@@ -242,10 +242,10 @@
 }
 
 /*
- * Shared by every composer of the global `.session-header` row: `PageHeader`
+ * Shared by every consumer of the module-owned session-header row: `PageHeader`
  * and `SessionPage`'s own header.
  *
- * The shared `.session-header-inner` keeps a tight 0.25rem left inset because
+ * The shared inner row keeps a tight 0.25rem left inset because
  * the sidebar toggle or back button that normally leads the row supplies the
  * rest through its own padding. With no such control — the desktop case, where
  * the sidebar carries its own toggle — the title would otherwise sit 4px from

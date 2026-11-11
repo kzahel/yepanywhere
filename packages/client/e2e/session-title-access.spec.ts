@@ -163,8 +163,8 @@ test("reads the full session title on phone and desktop without losing the draft
   const input = page.locator("[data-composer-input]").first();
   await expect(input).toBeVisible();
   await expect.poll(() => Boolean(emit)).toBe(true);
-  const header = page.locator(".session-header");
-  const footerInfo = page.locator(".session-input").getByRole("button", {
+  const header = page.locator("[data-session-header]");
+  const footerInfo = page.locator("[data-session-input]").getByRole("button", {
     name: "Session info",
     exact: true,
   });
@@ -176,7 +176,7 @@ test("reads the full session title on phone and desktop without losing the draft
     await page.setViewportSize(size);
     // The title stays on one line and is selectable; selecting it never follows a
     // current-session link or closes the dropdown.
-    await header.locator(".session-title-recent-trigger").click();
+    await header.locator("[data-session-title-recent-trigger]").click();
     const current = page.getByRole("region", { name: "Current session" });
     const currentTitle = current.getByText(fullTitle, { exact: true });
     await expect(currentTitle).toBeVisible();
@@ -298,7 +298,7 @@ test("reads the full session title on phone and desktop without losing the draft
         .getByRole("button", { name: /Pinned router account/ })
         .click();
     } else {
-      await header.locator(".provider-badge-button").click();
+      await header.locator("[data-provider-badge-button]").click();
       await page.getByRole("tab", { name: "Account", exact: true }).click();
     }
     const accountPane = page.getByRole("tabpanel");

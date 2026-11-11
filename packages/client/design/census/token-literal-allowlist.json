@@ -20,16 +20,12 @@
     "reason": "The 1.25rem empty-state heading follows browser root-font preferences; close with an approved matching rem-based heading token."
   },
   "components/ComposerActions.module.css": {
-    "count": 6,
-    "reason": "composer pass"
-  },
-  "components/ComposerOptionDot.module.css": {
-    "count": 2,
-    "reason": "composer pass"
+    "count": 5,
+    "reason": "Composer action glyphs retain fixed 11/16px sizing, 1.2rem optical sizing and a 2px send-keycap corner; UI font tokens scale and change this geometry. Adopt shared action geometry in plan 182's composer control swaps."
   },
   "components/ComposerRecents.module.css": {
-    "count": 5,
-    "reason": "composer pass"
+    "count": 3,
+    "reason": "Fixed 12/13px recents text must not scale with UI font tokens; the 28px empty-state glyph has no exact type token. Replace recents controls in plan 182's composer control swaps."
   },
   "components/ConversationActivity.module.css": {
     "count": 1,
@@ -77,15 +73,11 @@
   },
   "components/MessageInput.module.css": {
     "count": 1,
-    "reason": "composer pass"
+    "reason": "The 1.2rem composer glyph follows browser root-font preferences; keep its optical size until plan 182's composer control swaps define shared glyph geometry."
   },
   "components/MessageInputToolbar.module.css": {
-    "count": 9,
-    "reason": "composer pass"
-  },
-  "components/ModeSelector.module.css": {
-    "count": 1,
-    "reason": "composer pass"
+    "count": 6,
+    "reason": "Fixed 10/11/16px toolbar glyphs and labels must not scale with UI font tokens; the 5px cue corner and xs-plus-1px cue text have no exact token. Preserve geometry until plan 182's composer control swaps."
   },
   "components/ModelOptionsSection.module.css": {
     "count": 1,
@@ -97,7 +89,7 @@
   },
   "components/NewSessionForm.module.css": {
     "count": 4,
-    "reason": "composer pass"
+    "reason": "The 1.15/0.95/1.05rem headings preserve browser-root typography; 0.5rem corners compute to 9.2px at the default 115% UI font, so no radius token is equivalent. Close with matching shared geometry in plan 182's composer control swaps."
   },
   "components/RenderItemComponent.module.css": {
     "count": 4,
@@ -121,7 +113,7 @@
   },
   "components/SpeechDraftField.module.css": {
     "count": 2,
-    "reason": "composer pass"
+    "reason": "Committed text, interim mirror and textarea share the owner-defined --speech-draft-font-size for exact caret/overlay metrics; close when token checking follows this local alias."
   },
   "components/SpeechPrefixActionCue.module.css": {
     "count": 1,
@@ -133,7 +125,7 @@
   },
   "components/VoiceInputButton.module.css": {
     "count": 2,
-    "reason": "composer pass"
+    "reason": "Speech method text uses 0.75rem and 0.625rem sizes that follow browser-root preferences independently of UI scaling; close with approved shared menu typography in plan 182's composer control swaps."
   },
   "components/WorkflowOutput.module.css": {
     "count": 1,

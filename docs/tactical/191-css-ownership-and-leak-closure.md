@@ -220,7 +220,8 @@ Landed by area, composer unchanged and last (2026-11-10–11).
 - Review repairs landed: DOM/platform/perf hooks, exact source copy, Edit/Grep/copy feedback, media/base ordering, explicit composed winners and modular viewer range/source styles.
 - Area 7 landed: shared page/session headers, viewport/split/messages/footer chrome, /btw pane, status/overscroll/warnings. Remaining: 3,681/35/0 (3,716).
 - Area 8 landed: composer/input/toolbar/new-session, speech/thinking/mode/context/attachments and shared action/dot modules; controls unchanged. Remaining: 0/0/0.
-- Census: 192 token exceptions / 85 files; 13 generated families; zero unused globals/module selectors; generated findings 148, base 10.
+- Final review repair landed: Follow/highlight/chevron/slash/effort/settings hooks and explicit layout winners, emitted-hook lint (zero exceptions), real-browser qualification and meaningful state assertions.
+- Census: 183 token exceptions / 83 files; 13 generated families; zero unused globals/module selectors; generated findings 148, base 10.
 - Deferred: composer swaps (plan 182), native instrumentation unavailable, existing header/account-pane browser mismatches, login recovery and reload overlap; peer edits preserved.
 - Next: step 8's string-class ban and deletion of the three empty legacy files.
 

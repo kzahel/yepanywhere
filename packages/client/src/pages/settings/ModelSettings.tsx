@@ -686,7 +686,7 @@ export function ModelSettings() {
               description={sessionDefaultCopy.thinking.description}
               keywords={sessionDefaultCopy.thinking.settings?.keywords}
               valueText={`${effectiveThinkingMode} ${effectiveEffortLevel ?? ""}`.trim()}
-              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultThinkingSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultThinkingSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <ThinkingControlsPanel
                 mode={effectiveThinkingMode}
@@ -764,7 +764,7 @@ export function ModelSettings() {
                   ? t("newSessionSandboxLabel")
                   : undefined
               }
-              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
             >
               <Switch
                 checked={savedDefaults?.sandboxLevel === "project-write"}
@@ -799,7 +799,7 @@ export function ModelSettings() {
                   ? t("newSessionSandboxNetworkFirewallLabel")
                   : undefined
               }
-              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
             >
               <Switch
                 checked={
@@ -827,7 +827,7 @@ export function ModelSettings() {
               description={sessionDefaultCopy.showThinking.description}
               keywords={sessionDefaultCopy.showThinking.settings?.keywords}
               valueText={String(showThinking)}
-              className={`${optionStyles.newSessionHelperSection} session-default-show-thinking-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} session-default-show-thinking-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <ShowThinkingControls
                 value={showThinking}
@@ -847,7 +847,7 @@ export function ModelSettings() {
               valueText={
                 promptSuggestionModeLabels[selectedPromptSuggestionMode]
               }
-              className={`${optionStyles.newSessionHelperSection} session-default-suggestions-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} session-default-suggestions-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <SegmentedControl
                 activation="manual"
@@ -886,7 +886,7 @@ export function ModelSettings() {
             doc="topics/recaps.md#configuration-and-native-capability"
             keywords={sessionDefaultCopy.recap.settings?.keywords}
             valueText={recapModeLabels[selectedRecapMode]}
-            className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultRecapSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+            className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultRecapSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             after={
               selectedRecapMode !== "off" ? (
                 <RecapAfterSecondsControl
@@ -941,7 +941,7 @@ export function ModelSettings() {
               doc="topics/side-session-config.md"
               keywords={sessionDefaultCopy.helperModel.settings?.keywords}
               valueText={selectedHelperSideModel}
-              className={`${optionStyles.newSessionHelperSection} session-default-helper-model-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} session-default-helper-model-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <FilterDropdown
                 label={sessionDefaultCopy.helperModel.title}
@@ -980,7 +980,7 @@ export function ModelSettings() {
                 ? t("modelSettingsForkSummaryAutoOpenLabel")
                 : undefined
             }
-            className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultForkSummarySection} settings-item--session-default-block`}
+            className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultForkSummarySection} settings-item--session-default-block`}
           >
             <Switch
               checked={forkSummaryAutoOpen}
@@ -998,7 +998,7 @@ export function ModelSettings() {
               map={settings?.clientDefaults?.compactAtContextPercent}
               updateSetting={updateSetting}
               disabled={settingsLoading}
-              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultCompactSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultCompactSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             />
           )}
 
@@ -1030,7 +1030,7 @@ export function ModelSettings() {
                     ? t("modelSettingsForceYaCompactionLabel")
                     : undefined
                 }
-                className={`${optionStyles.newSessionHelperSection} session-default-force-ya-section settings-item--session-default-block`}
+                className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} session-default-force-ya-section settings-item--session-default-block`}
               >
                 <Switch
                   checked={forceYaOrchestratedCompaction}
@@ -1063,7 +1063,7 @@ export function ModelSettings() {
                 "inactivity",
               ]}
               valueText={`${selectedPromptCacheKeepalive.mode} ${selectedPromptCacheKeepalive.inactivityMinutes}m`}
-              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultCacheKeepaliveSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultHelperSection} ${styles.sessionDefaultCacheKeepaliveSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <div className={styles.sessionDefaultCacheKeepaliveControls}>
                 <SegmentedControl

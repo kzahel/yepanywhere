@@ -43,6 +43,7 @@ import {
 import { setBrowserXaiSttApiKey } from "../../lib/speechProviders/xaiCredentials";
 import { MessageInput } from "../MessageInput";
 import toolbarStyles from "../MessageInputToolbar.module.css";
+import draftStyles from "../SpeechDraftField.module.css";
 import { getSourceRuntimeRegistry } from "../../lib/sourceRuntime";
 import {
   MessageInputToolbarView,
@@ -2756,7 +2757,7 @@ describe("MessageInput", () => {
     });
     expect(
       document.querySelector("[data-speech-draft-field]")?.classList,
-    ).not.toContain("has-interim");
+    ).not.toContain(draftStyles.hasInterim);
     expect(textarea.selectionStart).toBe(5);
 
     // The field stays editable while transcription is pending.
@@ -2808,7 +2809,7 @@ describe("MessageInput", () => {
     expect(committedVisibleInterim).toBe(true);
     expect(
       document.querySelector("[data-speech-draft-field]")?.classList,
-    ).not.toContain("has-interim");
+    ).not.toContain(draftStyles.hasInterim);
     expect(document.activeElement).toBe(textarea);
 
     fireEvent.keyDown(textarea, { key: "Escape" });
@@ -2865,7 +2866,7 @@ describe("MessageInput", () => {
     });
     expect(
       document.querySelector("[data-speech-draft-field]")?.classList,
-    ).not.toContain("has-interim");
+    ).not.toContain(draftStyles.hasInterim);
     expect(textarea.value).toBe("draft");
     expect(textarea.selectionStart).toBe(5);
   });

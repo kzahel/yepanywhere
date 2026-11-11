@@ -122,6 +122,7 @@ export function SlashCommandButton({
   return (
     <div className={slashStyles.slashCommandContainer}>
       <button
+        data-slash-command-button
         ref={buttonRef}
         type="button"
         className={`${slashStyles.slashCommandButton} ${isOpen ? slashStyles.active : ""}`}

@@ -89,6 +89,6 @@
   },
   "pages/SessionPage.tsx": {
     "count": 1,
-    "reason": "Composer-adjacent /btw pane handle is excluded by the composer pass and has pane-edge layout."
+    "reason": "Composer-adjacent /btw pane handle is awaiting plan 182's composer control swaps and has pane-edge layout."
   }
 }

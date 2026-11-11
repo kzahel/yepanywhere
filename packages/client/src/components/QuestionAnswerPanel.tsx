@@ -292,7 +292,7 @@ export function QuestionAnswerPanel({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={collapsed ? "chevron-up" : "chevron-down"}
+          data-chevron-up={collapsed || undefined}
           aria-hidden="true"
         >
           <polyline points="6 9 12 15 18 9" />

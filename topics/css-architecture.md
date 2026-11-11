@@ -301,6 +301,19 @@ not carry a migration queue.
   only its `client/src` subtree as literal global evidence. Custom CSS trees
   omit the repository family list (the analysis API can supply explicit families).
 
+## Emitted attribute hooks
+
+`pnpm css:hooks` runs in lint. Every data-attribute selector in a client CSS
+Module, base.css or generated.css must have a production emitter; custom ARIA
+selector values follow the same rule. JSX/spread attributes, dataset writes,
+setAttribute/toggleAttribute and generated HTML count; selector strings, reads,
+tests and comments do not. Static selector values must match emitted values;
+dynamic values remain producer-owned. Generated/runtime attributes can be
+explicitly declared with anchored patterns, source and reason. The attribute
+family list and counted, reasoned exception list live in `scripts/css-attribute-*`;
+ordinary checks reject stale counts and `--record` only lowers/removes entries.
+The current scan needs zero exceptions and zero declared attribute families.
+
 ## Shared control caller classes
 
 `pnpm controls:check` runs in lint alongside `buttons:check`. For every

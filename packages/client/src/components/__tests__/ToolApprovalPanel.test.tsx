@@ -106,11 +106,6 @@ describe("ToolApprovalPanel", () => {
       "Allow Bash wget --spider https://example.org?",
     );
     expect(root?.querySelector(`.${styles.option}`)).toBeTruthy();
-
-    const renderedClasses = Array.from(root?.querySelectorAll("[class]") ?? [])
-      .map((element) => element.className)
-      .join(" ");
-    expect(renderedClasses).not.toContain("tool-approval-");
   });
 
   it("keeps collapse and keyboard approval actions wired to the panel", async () => {

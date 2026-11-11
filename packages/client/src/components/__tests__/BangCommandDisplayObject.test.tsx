@@ -120,7 +120,7 @@ describe("BangCommandDisplayObject", () => {
       );
       const root = screen.getByRole("group", { name: "Local command run" });
       expect(root.classList.contains(rootClass)).toBe(true);
-      expect(root.className).not.toContain("bang-command-");
+
       if (modifier) {
         expect(root.classList.contains(modifier)).toBe(true);
       } else {
@@ -131,6 +131,5 @@ describe("BangCommandDisplayObject", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert.classList.contains(errorClass)).toBe(true);
-    expect(alert.className).not.toContain("bang-command-error");
   });
 });

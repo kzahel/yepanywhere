@@ -93,10 +93,6 @@ describe("EmulatorNavButtons", () => {
       expect(button.className).not.toBe("");
       expect(button.className).not.toBe(root.className);
     }
-
-    const markup = container.innerHTML;
-    expect(markup).not.toContain("emulator-nav-buttons");
-    expect(markup).not.toContain("emulator-nav-btn");
   });
 
   it("renders only Home for iOS simulators and sends GoHome", () => {

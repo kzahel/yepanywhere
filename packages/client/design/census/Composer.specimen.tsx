@@ -9,7 +9,7 @@ export default {
     layer: "census",
     width: "fill",
     description:
-      "Composer classes and raw controls still excluded from the shared-control sweep. Done means plan 182's composer pass replaces these controls and retires their rules. pnpm buttons:check enforces the boundary; the composer-file exemption remains until that pass.",
+      "Raw composer controls and counted overrides/literals still excluded from the shared-control sweep. Done means plan 182's composer pass replaces these controls and retires their rules. pnpm buttons:check enforces the boundary; the composer-file exemption remains until that pass.",
   },
 } satisfies SpecimenMeta;
 
@@ -17,10 +17,10 @@ export function Remaining() {
   return (
     <div className={styles.census}>
       <p className={styles.intro}>
-        {openCensus.composer.length} remaining class and element rows. Raw
-        controls with counted exceptions also appear on Element exceptions;
-        composer-file exemptions are listed here even when no allowlist entry is
-        needed.
+        {openCensus.composer.length} remaining raw-control and counted-debt
+        rows. Raw controls with counted exceptions also appear on Element
+        exceptions; composer-file exemptions are listed here even when no
+        allowlist entry is needed.
       </p>
       <CensusRows rows={openCensus.composer} />
     </div>

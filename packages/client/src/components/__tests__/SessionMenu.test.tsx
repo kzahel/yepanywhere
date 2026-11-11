@@ -46,12 +46,12 @@ describe("SessionMenu CSS module contracts", () => {
     expect(wrapper.classList.contains(styles.overlayTrigger ?? "")).toBe(true);
     expect(wrapper.classList.contains("session-menu-wrapper")).toBe(true);
     expect(wrapper.classList.contains("caller-hook")).toBe(true);
-    expect(wrapper.classList.contains("is-open")).toBe(false);
+    expect(wrapper.hasAttribute("data-session-menu-open")).toBe(false);
     expect(trigger.classList.contains("session-menu-trigger")).toBe(true);
 
     fireEvent.click(trigger);
 
-    expect(wrapper.classList.contains("is-open")).toBe(true);
+    expect(wrapper.hasAttribute("data-session-menu-open")).toBe(true);
     // Read-shortcut suppression keys off this marker on the open menu.
     const menu = screen.getByRole("menu", { name: "Session options" });
     expect(menu.hasAttribute("data-session-menu-open")).toBe(true);

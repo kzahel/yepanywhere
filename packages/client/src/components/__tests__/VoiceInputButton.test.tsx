@@ -421,7 +421,7 @@ describe("VoiceInputButton", () => {
     );
 
     const button = screen.getByRole("button", { name: "voiceInputStartLabel" });
-    expect(button.className).not.toContain("listening");
+    expect(button.hasAttribute("data-listening")).toBe(false);
     expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(document.querySelector("[data-voice-input-recording]")).toBeNull();
     expect(screen.getByRole("status").textContent).toBe("Transcribing...");
@@ -453,7 +453,7 @@ describe("VoiceInputButton", () => {
     );
 
     const button = screen.getByRole("button", { name: "Finalizing..." });
-    expect(button.className).not.toContain("listening");
+    expect(button.hasAttribute("data-listening")).toBe(false);
     expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(document.querySelector("[data-voice-input-recording]")).toBeNull();
   });
@@ -782,7 +782,7 @@ describe("VoiceInputButton", () => {
     const button = screen.getByRole("button", { name: "voiceInputStopLabel" });
     expect(button.getAttribute("data-speech-phase")).toBe("starting");
     expect(button.className).toContain("starting");
-    expect(button.classList.contains("listening")).toBe(false);
+    expect(button.hasAttribute("data-listening")).toBe(false);
     expect(document.querySelector("[data-voice-input-recording]")).toBeNull();
   });
 

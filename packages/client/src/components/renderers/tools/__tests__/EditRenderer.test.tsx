@@ -339,7 +339,7 @@ describe("EditRenderer collapsed preview fallback", () => {
       "[data-diff-view-container]",
     );
     expect(preview).toBeTruthy();
-    expect(preview?.classList).not.toContain("truncated");
+    expect(preview?.hasAttribute("data-truncated")).toBe(false);
     Object.defineProperties(preview, {
       clientWidth: { configurable: true, value: 300 },
       clientHeight: { configurable: true, value: 20 },

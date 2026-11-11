@@ -635,6 +635,9 @@ export function NewSessionOptionsPanel({
                   ? `${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${effectiveEffortLevel}`] ?? ""}`
                   : `${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`thinking-${effectiveThinkingMode}`] ?? ""}`
               }
+              data-model-switch-indicator-dot={
+                effectiveThinkingMode === "on" || undefined
+              }
               data-mode-option-dot={
                 !(effectiveThinkingMode === "on") || undefined
               }
@@ -660,7 +663,7 @@ export function NewSessionOptionsPanel({
     effortSection ??
     (!launchLock.effort
       ? optionPlaceholder(
-          `new-session-helper-section ${styles.effortSection}`,
+          `${optionStyles.newSessionHelperSection} ${styles.effortSection}`,
           t("newSessionThinkingEffortTitle"),
           sessionDefaultCopy.thinking.description,
         )

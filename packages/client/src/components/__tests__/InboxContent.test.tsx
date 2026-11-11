@@ -599,14 +599,6 @@ describe("InboxContent", () => {
     expect(statusOf("queue-failed").className).not.toBe(
       statusOf("queue-dispatching").className,
     );
-
-    // No legacy global inbox vocabulary survives on migrated nodes.
-    for (const id of ["queue-queued", "queue-dispatching", "queue-failed"]) {
-      expect(itemFor(id).className).not.toMatch(/\binbox-project-queue-item\b/);
-      expect(statusOf(id).className).not.toMatch(
-        /\binbox-project-queue-item__status\b/,
-      );
-    }
   });
 
   it("renders capability-gated unread review outcome cards", async () => {

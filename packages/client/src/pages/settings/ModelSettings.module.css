@@ -101,14 +101,16 @@
   }
 }
 
-.defaultsPanel [data-new-session-provider-section],
-.defaultsPanel [data-new-session-model-section] {
+.defaultsPanel .sessionDefaultProviderSection,
+.defaultsPanel .sessionDefaultModelSection,
+.defaultsPanel .sessionDefaultHelperSection,
+.defaultsPanel .sessionDefaultModeSection {
   margin-bottom: 0;
 }
 
-.defaultsPanel [data-new-session-helper-section],
-.defaultsPanel [data-new-session-mode-section] {
-  margin-bottom: 0;
+/* SettingsItem owns this row; its flex layout wins over the options grid. */
+.defaultsPanel .sessionDefaultModelSection {
+  display: flex;
 }
 
 [data-mode-option-dot].keepaliveOff {

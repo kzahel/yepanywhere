@@ -7,7 +7,7 @@
   font: inherit;
   color: var(--text-primary);
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-secondary);
   padding: 6px 9px;
   cursor: pointer;
@@ -28,7 +28,7 @@
   margin: 8px 0;
   border: 1px solid var(--border-input);
   background: var(--bg-surface);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 .tiles {
   display: grid;

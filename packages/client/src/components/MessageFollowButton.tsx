@@ -21,6 +21,7 @@ export function MessageFollowButton({
     : t("sessionFollowLatestOutput");
   return (
     <Button
+      data-message-follow-toggle
       size="small"
       elevated={elevated}
       className={`${followStyles.messageFollowToggle}${newOutputBelow ? ` ${followStyles["is-new-output"]}` : ""}`}

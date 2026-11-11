@@ -318,7 +318,7 @@
 .pendingApprovalDot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--status-badge-input-text);
   animation: pulse-indicator 1.5s ease-in-out infinite;
 }
@@ -832,7 +832,7 @@
   width: 18px;
   height: 18px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: conic-gradient(
     currentcolor calc(var(--browser-debug-remaining) * 1turn),
     color-mix(in srgb, currentcolor 18%, transparent) 0
@@ -844,7 +844,7 @@
   width: 13px;
   height: 13px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--bg-surface);
   font-size: 11px;
   font-weight: 800;

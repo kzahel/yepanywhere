@@ -736,9 +736,9 @@ async function installPageProbe(page: Page): Promise<void> {
         const rowSnapshot = () => ({
           nodes: document.getElementsByTagName("*").length,
           messageRows: document.querySelectorAll("[data-message-render-row]").length,
-          turnGroups: document.querySelectorAll(".turn-group").length,
+          turnGroups: document.querySelectorAll("[data-turn-group]").length,
           toolRows: document.querySelectorAll("[data-tool-row]").length,
-          loadOlderButtons: document.querySelectorAll(".load-older-button").length,
+          loadOlderButtons: document.querySelectorAll("[data-load-older-messages]").length,
         });
 
         const noteDomMutation = () => {
@@ -884,7 +884,7 @@ async function getPageStats(page: Page): Promise<PageStats> {
         dom: {
           nodes: document.getElementsByTagName("*").length,
           messageRows: document.querySelectorAll("[data-message-render-row]").length,
-          turnGroups: document.querySelectorAll(".turn-group").length,
+          turnGroups: document.querySelectorAll("[data-turn-group]").length,
           toolRows: document.querySelectorAll("[data-tool-row]").length,
           streamingBlocks: document.querySelectorAll(".streaming-block").length,
           searchPreviewLabels: document.querySelectorAll(
@@ -1322,7 +1322,7 @@ async function clickLoadOlderMessages(
   waitAfterClickMs: number,
 ): Promise<void> {
   for (let clickIndex = 0; clickIndex < clicks; clickIndex += 1) {
-    const button = page.locator(".load-older-button").first();
+    const button = page.locator("[data-load-older-messages]").first();
     const visible = await button.isVisible().catch(() => false);
     if (!visible) {
       console.log(`loadOlder=${clickIndex} unavailable`);

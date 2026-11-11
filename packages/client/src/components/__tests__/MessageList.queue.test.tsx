@@ -230,12 +230,6 @@ describe("MessageList queue rows", () => {
       "patient second",
       "regular third",
     ]);
-    expect(
-      screen
-        .getByText("patient second")
-        .closest("[data-deferred-message]")
-        ?.classList.contains("patient-deferred-message"),
-    ).toBe(false);
     expect(screen.getByText("Patient (waiting, 3m ago)")).toBeTruthy();
     expect(screen.getByText("Queued (next regular)")).toBeTruthy();
     expect(screen.getByText("Queued regular (#2)")).toBeTruthy();

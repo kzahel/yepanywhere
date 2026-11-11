@@ -34,10 +34,9 @@ export function designDataPlugin(srcDir: string): Plugin {
     configureServer(server) {
       server.watcher.on("change", (file) => {
         const inside = relative(srcDir, file);
-        const censusInput =
-          /(?:allowlist|composer-classes|css-runtime-families)\.json$/.test(
-            file,
-          );
+        const censusInput = /(?:allowlist|css-runtime-families)\.json$/.test(
+          file,
+        );
         if (!censusInput && (inside.startsWith(`..${sep}`) || inside === ".."))
           return;
         const module = server.moduleGraph.getModuleById(RESOLVED_ID);

@@ -17,6 +17,7 @@ import {
   setCurrentClientSummarySourceKey,
 } from "../../lib/clientSummaryStore";
 import { SessionShareModal } from "../SessionShareModal";
+import inventoryStyles from "../PublicShareInventory.module.css";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -627,7 +628,7 @@ describe("SessionShareModal", () => {
       );
     });
     expect((await screen.findByRole("listitem")).className).toContain(
-      "rowHighlighted",
+      inventoryStyles.rowHighlighted,
     );
   });
 
@@ -773,7 +774,7 @@ describe("SessionShareModal", () => {
     ).toBeTruthy();
     expect(screen.queryByText("Public link copied to clipboard.")).toBeNull();
     expect((await screen.findByRole("listitem")).className).not.toContain(
-      "rowHighlighted",
+      inventoryStyles.rowHighlighted,
     );
   });
 

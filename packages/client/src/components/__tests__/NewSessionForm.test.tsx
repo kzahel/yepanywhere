@@ -41,6 +41,7 @@ import {
   WebSocketCloseError,
 } from "../../lib/connection/types";
 import { NewSessionForm } from "../NewSessionForm";
+import draftStyles from "../SpeechDraftField.module.css";
 
 const {
   mockNavigate,
@@ -5434,7 +5435,7 @@ describe("NewSessionForm", () => {
     });
     expect(
       document.querySelector("[data-speech-draft-field]")?.classList,
-    ).not.toContain("has-interim");
+    ).not.toContain(draftStyles.hasInterim);
     expect(document.activeElement).toBe(textarea);
 
     expect(textarea.disabled).toBe(false);

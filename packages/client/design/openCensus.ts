@@ -7,7 +7,8 @@ import families from "../../../scripts/css-runtime-families.json";
 import { scanButtonElements } from "./buttonElements";
 import { COMPOSER_FILE } from "./composerFiles";
 import allowlist from "./census/button-allowlist.json";
-import classes from "./census/composer-classes.json";
+import controlDebt from "./census/control-override-allowlist.json";
+import tokenDebt from "./census/token-literal-allowlist.json";
 import { scanFieldElements } from "./fieldElements";
 
 export interface CensusEntry {
@@ -61,31 +62,6 @@ export async function collectOpenCensus(srcDir: string) {
   ).flat();
   const names = [...new Set(globals.map((row) => row.name))];
   const composer: CensusEntry[] = [];
-  for (const name of classes.globals) {
-    const sites = globals.filter((row) => row.name === name);
-    if (sites.length)
-      composer.push({
-        element: `.${name}`,
-        where: sites.map((row) => `${row.cssFile}:${row.line}`).join(", "),
-        reason: composerReason,
-        close: composerClose,
-      });
-  }
-  for (const { file, name } of classes.modules) {
-    const selectors = cssClasses(
-      await readFile(join(srcDir, file), "utf8"),
-      file,
-      true,
-    );
-    const row = selectors.find((row) => row.name === name);
-    if (row)
-      composer.push({
-        element: `.${name}`,
-        where: `${file}:${row.line}`,
-        reason: composerReason,
-        close: composerClose,
-      });
-  }
   const [buttons, fields] = await Promise.all([
     scanButtonElements(srcDir),
     scanFieldElements(srcDir),
@@ -125,6 +101,35 @@ export async function collectOpenCensus(srcDir: string) {
       reason: composerReason,
       close: composerClose,
     });
+  }
+  for (const [file, entry] of Object.entries(tokenDebt)) {
+    if (!COMPOSER_FILE.test(file) && !/plan 182/i.test(entry.reason)) continue;
+    composer.push({
+      element: `${entry.count} type/radius exceptions`,
+      where: file,
+      reason: entry.reason,
+      close:
+        "Adopt matching tokens or approved control geometry during plan 182's composer control pass.",
+    });
+  }
+  for (const section of Object.values(controlDebt)) {
+    if (typeof section !== "object" || !section) continue;
+    for (const [file, entry] of Object.entries(section)) {
+      if (
+        !entry ||
+        typeof entry !== "object" ||
+        !("reason" in entry) ||
+        !/composer|plan 182/i.test(String(entry.reason))
+      )
+        continue;
+      composer.push({
+        element: `${"count" in entry ? entry.count : ""} control overrides`,
+        where: file,
+        reason: String(entry.reason),
+        close:
+          "Replace composer controls with the shared family in plan 182's composer pass.",
+      });
+    }
   }
   const runtime = families.map((family) => ({
     element: family.pattern,

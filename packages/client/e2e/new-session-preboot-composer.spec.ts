@@ -670,6 +670,12 @@ test("a sibling tab shows saved model and effort before settings or catalogs arr
       ),
     ).toContainText("High");
     await expect(
+      sibling.locator("[data-model-switch-indicator-dot]"),
+    ).toHaveCSS("width", "10px");
+    await expect(
+      sibling.locator("[data-model-switch-indicator-dot]"),
+    ).toHaveCSS("height", "10px");
+    await expect(
       sibling.locator("[data-new-session-provider-section] button"),
     ).toContainText("Claude");
     const composer = sibling.locator(

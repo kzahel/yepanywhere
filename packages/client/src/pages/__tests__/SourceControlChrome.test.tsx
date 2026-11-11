@@ -332,7 +332,6 @@ describe("SourceRowMenuTrigger", () => {
 
     const trigger = screen.getByRole("button", { name: "sourceRowActions" });
     expect(trigger.classList.contains(menuStyles.trigger as string)).toBe(true);
-    expect(trigger.classList.contains("source-row-menu-trigger")).toBe(false);
 
     fireEvent.click(trigger);
     expect(onOpen).toHaveBeenCalledTimes(1);

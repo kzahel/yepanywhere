@@ -162,15 +162,15 @@
     },
     "components/NewSessionForm.tsx": {
       "count": 5,
-      "reason": "Composer submit, queue and attach controls, and the new-session project picker's options: excluded until the composer pass."
+      "reason": "Composer submit, queue and attach controls, and the new-session project picker's options: excluded until the plan 182's composer control swaps."
     },
     "components/NewSessionQueueOptions.tsx": {
       "count": 2,
-      "reason": "The now/patient send pair and the model combobox's listbox options: composer controls, excluded until the composer pass."
+      "reason": "The now/patient send pair and the model combobox's listbox options: composer controls, excluded until the plan 182's composer control swaps."
     },
     "components/ProjectFileCompletionMenu.tsx": {
       "count": 1,
-      "reason": "Completion listbox options driven by the composer's text field: composer pass."
+      "reason": "Completion listbox options driven by the composer's text field: plan 182's composer control swaps."
     },
     "components/QuestionAnswerPanel.tsx": {
       "count": 2,
@@ -178,11 +178,11 @@
     },
     "components/SpeechControlMenu.tsx": {
       "count": 1,
-      "reason": "Speech method choices inside the voice button's settings popover: composer pass."
+      "reason": "Speech method choices inside the voice button's settings popover: plan 182's composer control swaps."
     },
     "components/ThinkingControls.tsx": {
       "count": 3,
-      "reason": "Thinking mode and effort choices shared with the composer's thinking popover, where they are menuitemradio items: composer pass."
+      "reason": "Thinking mode and effort choices shared with the composer's thinking popover, where they are menuitemradio items: plan 182's composer control swaps."
     }
   },
   "roleButtons": {
@@ -196,7 +196,7 @@
     },
     "components/NewSessionShortcutsHelp.tsx": {
       "count": 1,
-      "reason": "composer pass"
+      "reason": "Native <details>/<summary> disclosure exposes shortcut help with built-in keyboard and open-state behavior; retain its explicit button role unless the shared disclosure API replaces the native summary."
     },
     "components/PathBreadcrumbs.tsx": {
       "count": 1,
@@ -254,7 +254,7 @@
     },
     "components/ViewerWindowActions.module.css": {
       "count": 3,
-      "reason": "The composer's mic action (ComposerMicAction), a raw button in the viewer actions row: composer pass."
+      "reason": "The composer's mic action (ComposerMicAction), a raw button in the viewer actions row: plan 182's composer control swaps."
     },
     "styles/base.css": {
       "count": 1,
@@ -264,27 +264,27 @@
   "selectionRoles": {
     "components/SpeechControlMenu.tsx": {
       "count": 2,
-      "reason": "Speech method radio group inside the voice button's settings popover: composer pass."
+      "reason": "Speech method radio group inside the voice button's settings popover: plan 182's composer control swaps."
     },
     "components/ThinkingControls.tsx": {
       "count": 1,
-      "reason": "Thinking choices shared with the composer's thinking popover: composer pass."
+      "reason": "Thinking choices shared with the composer's thinking popover: plan 182's composer control swaps."
     }
   },
   "menuRoles": {
     "components/AsyncQuestionsButton.tsx": {
       "count": 1,
-      "reason": "In `overflow` mode the button is an item of the composer's overflow menu (role=menuitem): composer pass."
+      "reason": "In `overflow` mode the button is an item of the composer's overflow menu (role=menuitem): plan 182's composer control swaps."
     },
     "components/ThinkingControls.tsx": {
       "count": 1,
-      "reason": "Thinking choices shared with the composer's thinking popover, where they are menuitemradio items: composer pass."
+      "reason": "Thinking choices shared with the composer's thinking popover, where they are menuitemradio items: plan 182's composer control swaps."
     }
   },
   "outsidePressListeners": {
     "components/ContextThresholdQuickEdit.tsx": {
       "count": 1,
-      "reason": "The composer toolbar's context-usage popover: composer pass."
+      "reason": "The composer toolbar's context-usage popover: plan 182's composer control swaps."
     },
     "components/FileViewer.tsx": {
       "count": 1,
@@ -296,11 +296,11 @@
     },
     "components/NewSessionForm.tsx": {
       "count": 2,
-      "reason": "The new-session project chooser, a combobox driven by its search field (press and focus leaving it): composer pass."
+      "reason": "The new-session project chooser, a combobox driven by its search field (press and focus leaving it): plan 182's composer control swaps."
     },
     "components/SpeechControlMenu.tsx": {
       "count": 1,
-      "reason": "The voice button's speech settings popover (composer and new-session form): composer pass."
+      "reason": "The voice button's speech settings popover (composer and new-session form): plan 182's composer control swaps."
     },
     "components/ui/TooltipLayer.tsx": {
       "count": 6,
@@ -358,11 +358,11 @@
   "rawFields": {
     "components/BtwAsidePane.tsx": {
       "count": 1,
-      "reason": "The /btw aside's chat composer textarea (Enter sends, grows to a max height): composer pass."
+      "reason": "The /btw aside's chat composer textarea (Enter sends, grows to a max height): plan 182's composer control swaps."
     },
     "components/ContextThresholdQuickEdit.tsx": {
       "count": 1,
-      "reason": "Composer (the session input and new-session form): its own later pass."
+      "reason": "Composer (the session input and new-session form): awaits plan 182's composer control swaps."
     },
     "components/FileVhostSection.tsx": {
       "count": 1,
@@ -370,11 +370,11 @@
     },
     "components/NewSessionForm.tsx": {
       "count": 4,
-      "reason": "Composer (the session input and new-session form): its own later pass."
+      "reason": "Composer (the session input and new-session form): awaits plan 182's composer control swaps."
     },
     "components/NewSessionQueueOptions.tsx": {
       "count": 3,
-      "reason": "Composer (the session input and new-session form): its own later pass."
+      "reason": "Composer (the session input and new-session form): awaits plan 182's composer control swaps."
     },
     "components/session-search/SearchControls.tsx": {
       "count": 1,
@@ -390,7 +390,7 @@
     },
     "components/SpeechControlMenu.tsx": {
       "count": 4,
-      "reason": "Composer (the session input and new-session form): its own later pass."
+      "reason": "Composer (the session input and new-session form): awaits plan 182's composer control swaps."
     },
     "components/ViewerFindField.tsx": {
       "count": 1,
@@ -404,15 +404,15 @@
   "fieldLookRules": {
     "components/NewSessionForm.module.css": {
       "count": 4,
-      "reason": "composer pass"
+      "reason": "New-session inputs and project picker retain their current field geometry until plan 182's composer control swaps adopt shared Field variants."
     },
     "components/NewSessionQueueOptions.module.css": {
       "count": 4,
-      "reason": "Composer (the session input and new-session form): its own later pass."
+      "reason": "Composer (the session input and new-session form): awaits plan 182's composer control swaps."
     },
     "components/SpeechDraftField.module.css": {
       "count": 3,
-      "reason": "composer pass"
+      "reason": "The textarea and interim mirror must share padding, typography and box geometry for exact caret alignment; close with a shared Field overlay API during plan 182's composer control swaps."
     },
     "styles/base.css": {
       "count": 1,
@@ -447,7 +447,7 @@
     },
     "components/NewSessionForm.module.css": {
       "count": 7,
-      "reason": "Composer: the full-pane new-session form inside the handoff dialog takes the dialog's height and hides the body's other children. Composer pass."
+      "reason": "New-session inputs and project picker retain their current field geometry until plan 182's composer control swaps adopt shared Field variants."
     },
     "components/ProviderChildSessionControl.module.css": {
       "count": 1,

@@ -373,7 +373,7 @@ pre.codeHighlighterPlain code {
   box-shadow: none;
 }
 
-.fileViewerCode .highlightedLine {
+.fileViewerCode.fileViewerCode .highlightedLine {
   margin-left: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
   margin-right: calc(-1 * var(--file-viewer-code-x-padding, 0.625rem));
   padding-left: calc(
