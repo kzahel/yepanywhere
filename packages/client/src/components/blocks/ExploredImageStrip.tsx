@@ -1,3 +1,4 @@
+import mediaStyles from "../LocalMediaLink.module.css";
 import type { ToolResultMedia } from "@yep-anywhere/shared";
 import { useCallback, useMemo, useState } from "react";
 import { useOptionalSessionMetadata } from "../../contexts/SessionMetadataContext";
@@ -161,7 +162,7 @@ export function ExploredImageStrip({
 
   return (
     <div className={styles.strip} data-explored-images={images.length}>
-      <div className="local-media-link-group">
+      <div className={mediaStyles.group}>
         <IconButton
           variant="outline"
           size="dense"
@@ -171,7 +172,7 @@ export function ExploredImageStrip({
         >
           {expanded ? "-" : "+"}
         </IconButton>
-        <span className="local-media-type">{label}</span>
+        <span className={mediaStyles.type}>{label}</span>
       </div>
       {expanded && (
         <div className={styles.row}>

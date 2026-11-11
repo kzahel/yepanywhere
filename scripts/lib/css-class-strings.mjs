@@ -36,9 +36,19 @@ export function classStringFindings(
   const program = ts.createProgram([...sources.keys()], options, host);
   const checker = program.getTypeChecker();
   const findings = new Map();
-  const patterns = families.map((family) => new RegExp(family.pattern));
+  const ownsEmission = (family, owner) =>
+    [family, ...(family.emitters ?? [])].some((emitter) =>
+      owner.endsWith(emitter.source),
+    );
   const symbol = (node) => {
     let value = checker.getSymbolAtLocation(node);
+    if (
+      value?.valueDeclaration &&
+      ts.isShorthandPropertyAssignment(value.valueDeclaration)
+    )
+      value =
+        checker.getShorthandAssignmentValueSymbol(value.valueDeclaration) ??
+        value;
     if (value?.flags & ts.SymbolFlags.Alias)
       value = checker.getAliasedSymbol(value);
     return value;
@@ -61,34 +71,67 @@ export function classStringFindings(
       }
     } else names = value.trim().split(/\s+/);
     for (const name of names) {
-      if (!name || patterns.some((pattern) => pattern.test(name))) continue;
       const file = node.getSourceFile().fileName;
+      const owner = file.replaceAll("\\", "/");
+      if (
+        !name ||
+        families.some(
+          (family) =>
+            new RegExp(family.pattern).test(name) &&
+            (kind === "selector" ||
+              kind === "recognition" ||
+              (kind !== "jsx" && ownsEmission(family, owner))),
+        )
+      )
+        continue;
       const line =
         node.getSourceFile().getLineAndCharacterOfPosition(node.getStart())
           .line + 1;
-      findings.set(`${file}:${node.pos}:${kind}:${name}`, {
+      const findingKind = ["jsx", "recognition"].includes(kind)
+        ? "class"
+        : kind;
+      findings.set(`${file}:${node.pos}:${findingKind}:${name}`, {
         file,
         line,
-        kind,
+        kind: findingKind,
         name,
         start: node.getStart(),
         end: node.end,
       });
     }
   }
+  function generatedToken(node, token, kind) {
+    if (kind === "jsx") return false;
+    const escaped = token
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/__EXPR_\d+__/g, "[^\\s]+");
+    const candidates = globalClasses.filter((name) =>
+      new RegExp(`^${escaped}$`).test(name),
+    );
+    const owner = node.getSourceFile().fileName.replaceAll("\\", "/");
+    return (
+      candidates.length > 0 &&
+      families.some(
+        (family) =>
+          ownsEmission(family, owner) &&
+          candidates.every((name) => new RegExp(family.pattern).test(name)),
+      )
+    );
+  }
   function collect(
     node,
     kind = "class",
     bindings = new Map(),
     seen = new Set(),
+    helperKeys = false,
   ) {
     if (Array.isArray(node)) {
-      for (const part of node) collect(part, kind, bindings, seen);
+      for (const part of node) collect(part, kind, bindings, seen, helperKeys);
       return;
     }
     if (!node || seen.has(node)) return;
     seen = new Set(seen).add(node);
-    const recurse = (child) => collect(child, kind, bindings, seen);
+    const recurse = (child) => collect(child, kind, bindings, seen, helperKeys);
     if (ts.isStringLiteralLike(node)) return report(node, node.text, kind);
     if (ts.isTaggedTemplateExpression(node)) return recurse(node.template);
     if (ts.isTemplateExpression(node)) {
@@ -127,24 +170,7 @@ export function classStringFindings(
           continue;
         }
         if (token.includes("__EXPR_")) {
-          const escaped = token
-            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-            .replace(/__EXPR_\d+__/g, "[^\\s]+");
-          const candidates = globalClasses.filter((name) =>
-            new RegExp(`^${escaped}$`).test(name),
-          );
-          const owner = node.getSourceFile().fileName.replaceAll("\\", "/");
-          if (
-            candidates.length &&
-            families.some(
-              (family) =>
-                owner.endsWith(family.source) &&
-                candidates.every((name) =>
-                  new RegExp(family.pattern).test(name),
-                ),
-            )
-          )
-            continue;
+          if (generatedToken(node, token, kind)) continue;
           report(node, token, kind);
         } else report(node, token, kind);
       }
@@ -153,7 +179,7 @@ export function classStringFindings(
     if (ts.isIdentifier(node)) {
       const sym = symbol(node);
       if (bindings.has(sym))
-        return collect(bindings.get(sym), kind, bindings, seen);
+        return collect(bindings.get(sym), kind, bindings, seen, helperKeys);
       const declaration = sym?.valueDeclaration;
       if (declaration && ts.isVariableDeclaration(declaration))
         recurse(declaration.initializer);
@@ -178,6 +204,7 @@ export function classStringFindings(
                   kind,
                   bindings,
                   seen,
+                  helperKeys,
                 );
               ts.forEachChild(part, callers);
             }
@@ -226,8 +253,18 @@ export function classStringFindings(
       return;
     }
     if (ts.isObjectLiteralExpression(node)) {
-      for (const prop of node.properties)
-        if (ts.isPropertyAssignment(prop)) recurse(prop.initializer);
+      for (const prop of node.properties) {
+        if (ts.isSpreadAssignment(prop)) recurse(prop.expression);
+        else if (
+          helperKeys &&
+          (ts.isPropertyAssignment(prop) ||
+            ts.isShorthandPropertyAssignment(prop))
+        ) {
+          if (ts.isComputedPropertyName(prop.name))
+            recurse(prop.name.expression);
+          else report(prop.name, prop.name.text, kind);
+        } else if (ts.isPropertyAssignment(prop)) recurse(prop.initializer);
+      }
       return;
     }
     if (
@@ -246,7 +283,9 @@ export function classStringFindings(
       const decl = symbol(node)?.valueDeclaration;
       if (decl && ts.isPropertyAssignment(decl))
         return recurse(decl.initializer);
-      if (ts.isElementAccessExpression(node)) recurse(receiver);
+      if (ts.isElementAccessExpression(node))
+        for (const value of mapValues(receiver, bindings))
+          collect(value, kind, bindings, seen, helperKeys);
       return;
     }
     if (ts.isCallExpression(node)) {
@@ -259,20 +298,8 @@ export function classStringFindings(
         ts.isIdentifier(node.expression) &&
         ["cx", "cn", "clsx", "classNames"].includes(node.expression.text)
       ) {
-        for (const arg of node.arguments) {
-          if (ts.isObjectLiteralExpression(arg)) {
-            for (const prop of arg.properties)
-              if (ts.isPropertyAssignment(prop)) {
-                if (ts.isComputedPropertyName(prop.name))
-                  collect(prop.name.expression, kind, bindings, seen);
-                else if (
-                  ts.isStringLiteralLike(prop.name) ||
-                  ts.isIdentifier(prop.name)
-                )
-                  report(prop.name, prop.name.text, kind);
-              }
-          } else recurse(arg);
-        }
+        for (const arg of node.arguments)
+          collect(arg, kind, bindings, seen, true);
         return;
       }
       const decl =
@@ -290,13 +317,127 @@ export function classStringFindings(
       });
       function returns(part) {
         if (ts.isReturnStatement(part))
-          collect(part.expression, kind, next, seen);
+          collect(part.expression, kind, next, seen, helperKeys);
         else if (part !== decl.body && ts.isFunctionLike(part)) return;
         else ts.forEachChild(part, returns);
       }
       if (ts.isBlock(decl.body)) returns(decl.body);
-      else collect(decl.body, kind, next, seen);
+      else collect(decl.body, kind, next, seen, helperKeys);
     }
+  }
+  function staticText(node, seen = new Set()) {
+    if (!node || seen.has(node)) return undefined;
+    if (ts.isStringLiteralLike(node)) return node.text;
+    seen = new Set(seen).add(node);
+    if (ts.isIdentifier(node)) {
+      const decl = symbol(node)?.valueDeclaration;
+      if (decl && ts.isVariableDeclaration(decl))
+        return staticText(decl.initializer, seen);
+    }
+    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node))
+      return staticText(node.expression, seen);
+    return undefined;
+  }
+  // Enumerate selected values, keeping state/map keys separate from class
+  // dictionary keys. A helper may receive either strings or dictionaries.
+  function mapValues(node, bindings = new Map(), seen = new Set()) {
+    if (!node || seen.has(node)) return [];
+    seen = new Set(seen).add(node);
+    if (ts.isIdentifier(node)) {
+      const sym = symbol(node);
+      if (bindings.has(sym))
+        return mapValues(bindings.get(sym), bindings, seen);
+      const decl = sym?.valueDeclaration;
+      if (decl && ts.isVariableDeclaration(decl))
+        return mapValues(decl.initializer, bindings, seen);
+    }
+    if (
+      ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node)
+    ) {
+      const decl = symbol(node)?.valueDeclaration;
+      if (
+        decl &&
+        (ts.isPropertyAssignment(decl) || ts.isVariableDeclaration(decl))
+      )
+        return mapValues(decl.initializer, bindings, seen);
+    }
+    if (
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isSatisfiesExpression(node)
+    )
+      return mapValues(node.expression, bindings, seen);
+    if (ts.isConditionalExpression(node))
+      return [
+        ...mapValues(node.whenTrue, bindings, seen),
+        ...mapValues(node.whenFalse, bindings, seen),
+      ];
+    if (ts.isObjectLiteralExpression(node))
+      return node.properties.flatMap((prop) =>
+        ts.isPropertyAssignment(prop)
+          ? [prop.initializer]
+          : ts.isShorthandPropertyAssignment(prop)
+            ? [prop.name]
+            : ts.isSpreadAssignment(prop)
+              ? mapValues(prop.expression, bindings, seen)
+              : [],
+      );
+    if (ts.isArrayLiteralExpression(node)) return [...node.elements];
+    return [];
+  }
+  function jsxProps(node, seen = new Set()) {
+    if (!node || seen.has(node)) return;
+    seen = new Set(seen).add(node);
+    if (ts.isIdentifier(node)) {
+      const decl = symbol(node)?.valueDeclaration;
+      if (decl && ts.isVariableDeclaration(decl))
+        jsxProps(decl.initializer, seen);
+    } else if (
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isSatisfiesExpression(node)
+    )
+      jsxProps(node.expression, seen);
+    else if (ts.isConditionalExpression(node)) {
+      jsxProps(node.whenTrue, seen);
+      jsxProps(node.whenFalse, seen);
+    } else if (ts.isObjectLiteralExpression(node)) {
+      for (const prop of node.properties) {
+        if (ts.isSpreadAssignment(prop)) jsxProps(prop.expression, seen);
+        else if (
+          ts.isPropertyAssignment(prop) ||
+          ts.isShorthandPropertyAssignment(prop)
+        ) {
+          const name = ts.isComputedPropertyName(prop.name)
+            ? staticText(prop.name.expression)
+            : prop.name.text;
+          if (/class(?:Name)?$/i.test(name ?? ""))
+            collect(
+              ts.isPropertyAssignment(prop) ? prop.initializer : prop.name,
+              "jsx",
+            );
+        }
+      }
+    } else if (
+      ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node)
+    ) {
+      const decl = symbol(node)?.valueDeclaration;
+      if (
+        decl &&
+        (ts.isPropertyAssignment(decl) || ts.isVariableDeclaration(decl))
+      )
+        jsxProps(decl.initializer, seen);
+      else if (ts.isElementAccessExpression(node))
+        for (const value of mapValues(node.expression)) jsxProps(value, seen);
+    }
+  }
+  function propertyName(node) {
+    if (ts.isPropertyAccessExpression(node)) return node.name.text;
+    if (ts.isElementAccessExpression(node))
+      return staticText(node.argumentExpression);
+    return undefined;
   }
   function markup(node, pieces = []) {
     if (ts.isStringLiteralLike(node)) return { text: node.text, pieces };
@@ -322,6 +463,7 @@ export function classStringFindings(
   }
   for (const file of program.getSourceFiles()) {
     function visit(node) {
+      if (ts.isJsxSpreadAttribute(node)) jsxProps(node.expression);
       if (
         ts.isJsxAttribute(node) &&
         /class(?:Name)?$/i.test(node.name.getText()) &&
@@ -331,33 +473,37 @@ export function classStringFindings(
           ts.isJsxExpression(node.initializer)
             ? node.initializer.expression
             : node.initializer,
+          "jsx",
         );
       if (
         ts.isPropertyAssignment(node) &&
-        /class(?:Name)?$/i.test(node.name.getText().replace(/["']/g, ""))
+        /class(?:Name)?$/i.test(
+          ts.isComputedPropertyName(node.name)
+            ? (staticText(node.name.expression) ?? "")
+            : node.name.getText().replace(/["']/g, ""),
+        )
       )
         collect(node.initializer);
       if (
         ts.isBinaryExpression(node) &&
-        ts.isPropertyAccessExpression(node.left) &&
-        ["class", "className"].includes(node.left.name.text)
+        ["class", "className"].includes(propertyName(node.left))
       )
         collect(node.right);
       if (
         ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression)
+        (ts.isPropertyAccessExpression(node.expression) ||
+          ts.isElementAccessExpression(node.expression))
       ) {
-        const method = node.expression.name.text;
+        const method = propertyName(node.expression);
         const receiver = node.expression.expression;
         if (
-          ts.isPropertyAccessExpression(receiver) &&
-          receiver.name.text === "classList" &&
+          propertyName(receiver) === "classList" &&
           ["add", "remove", "toggle", "contains", "replace"].includes(method)
         )
           node.arguments
             .slice(0, method === "toggle" ? 1 : undefined)
             .forEach((arg) => {
-              collect(arg);
+              collect(arg, method === "contains" ? "recognition" : "class");
             });
         if (
           ["querySelector", "querySelectorAll", "closest", "matches"].includes(
@@ -367,8 +513,7 @@ export function classStringFindings(
           collect(node.arguments[0], "selector");
         if (
           method === "setAttribute" &&
-          ts.isStringLiteralLike(node.arguments[0]) &&
-          node.arguments[0].text === "class"
+          staticText(node.arguments[0]) === "class"
         )
           collect(node.arguments[1]);
       }
@@ -388,22 +533,7 @@ export function classStringFindings(
             if (/^__EXPR_\d+__$/.test(token))
               collect(pieces[Number(token.match(/\d+/)[0])]);
             else if (token.includes("__EXPR_")) {
-              const prefix = token.slice(0, token.indexOf("__EXPR_"));
-              const candidates = globalClasses.filter((name) =>
-                name.startsWith(prefix),
-              );
-              if (
-                !candidates.length ||
-                !families.some(
-                  (family) =>
-                    file.fileName
-                      .replaceAll("\\", "/")
-                      .endsWith(family.source) &&
-                    candidates.every((name) =>
-                      new RegExp(family.pattern).test(name),
-                    ),
-                )
-              )
+              if (!generatedToken(node, token, "html"))
                 report(node, token, "html");
             } else report(node, token, "html");
           }

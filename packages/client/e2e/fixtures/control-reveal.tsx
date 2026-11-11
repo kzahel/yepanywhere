@@ -127,8 +127,20 @@ function Fixture() {
       </Site>
       <Site name="edit-rendered">
         <DiffMathView
-          sourceText={"$x^2$\n\tresult"}
-          sourceView={<pre>source</pre>}
+          sourceText={Array.from(
+            { length: 100 },
+            (_, index) => `$x_${index}^2$ result ${index}`,
+          ).join("\n")}
+          sourceView={
+            <pre>
+              {Array.from(
+                { length: 100 },
+                (_, index) => `source line ${index}`,
+              ).join("\n")}
+            </pre>
+          }
+          truncated
+          hiddenLineCount={88}
           diffAware={false}
           initialMode="rendered"
         />

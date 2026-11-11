@@ -18,6 +18,86 @@ function scan(text: string, extra: Record<string, string> = {}) {
 }
 
 describe("class string ownership", () => {
+  it("keeps class-helper object semantics through bindings, imports, arrays and spreads", () => {
+    const findings = scan(
+      `
+      import { flags } from './flags';
+      const local = { 'bound-key': active };
+      const a = <div className={clsx(flags, local)} />;
+      const b = <div className={cx({ ...local }, [{ 'nested-key': active }])} />;
+      const map = { state: 'map-value' }; const c = <div className={map[state]} />;
+      const dictionaries = { a: { 'selected-key': active }, b: { 'other-key': active } };
+      const selected = <div className={clsx(dictionaries[state])} />;
+      const shortA = { 'shorthand-key': active }; const shortB = { 'other-short-key': active };
+      const shorthand = { shortA, shortB }; const shortSelected = <div className={clsx(shorthand[state])} />;
+    `,
+      { "flags.ts": "export const flags = { 'imported-key': active };" },
+    );
+    expect(new Set(findings.map((row: { name: string }) => row.name))).toEqual(
+      new Set([
+        "bound-key",
+        "imported-key",
+        "nested-key",
+        "map-value",
+        "selected-key",
+        "other-key",
+        "shorthand-key",
+        "other-short-key",
+      ]),
+    );
+  });
+
+  it("recognizes static computed DOM writes and bound attribute names", () => {
+    const findings = scan(
+      `const attr = 'class'; el['className'] = 'computed'; el.setAttribute(attr, 'bound'); el['setAttribute'](attr, 'computed-set'); el['classList']['add']('computed-add'); const props = { ['className']: 'computed-prop' };`,
+    );
+    expect(findings.map((row: { name: string }) => row.name)).toEqual([
+      "computed",
+      "bound",
+      "computed-set",
+      "computed-add",
+      "computed-prop",
+    ]);
+  });
+
+  it("restricts generated emissions to their producer and validates complete HTML template tokens", () => {
+    const file = path.resolve("/virtual/client/Owner.tsx");
+    const findings = classStringFindings(
+      new Map([
+        [
+          file,
+          `
+      const valid = '<div class="heading-1"></div>';
+      const dynamic = \`<div class="heading-\${level}"></div>\`;
+      const suffix = \`<div class="heading-\${level}-orphan"></div>\`;
+      const multi = \`<div class="heading-\${level}-\${state}"></div>\`;
+      const authored = <div className="heading-1" />;
+      const directSpread = <div {...{ className: "heading-1" }} />;
+      const props = { className: "heading-1" }; const boundSpread = <div {...props} />;
+      const nested = { native: { className: "heading-1" } }; const propertySpread = <div {...nested.native} />;
+      el.querySelector('.heading-1'); el.classList.contains('heading-1');
+    `,
+        ],
+        [
+          path.resolve("/virtual/client/Other.tsx"),
+          `const foreign = '<div class="heading-1"></div>'; const jsx = <div className="heading-1"/>;`,
+        ],
+      ]),
+      [{ pattern: "^heading-[1-6]$", source: "client/Owner.tsx" }],
+      ["heading-1", "heading-2"],
+    );
+    expect(findings.map((row: { name: string }) => row.name)).toEqual([
+      "heading-__EXPR_0__-orphan",
+      "heading-__EXPR_0__-__EXPR_1__",
+      "heading-1",
+      "heading-1",
+      "heading-1",
+      "heading-1",
+      "heading-1",
+      "heading-1",
+    ]);
+  });
+
   it("follows lexical bindings, imported helpers, finite maps and class helper keys without treating conditions or module keys as classes", () => {
     const findings = scan(
       `

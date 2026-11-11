@@ -134,6 +134,21 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
     "padding-left",
     "0px",
   );
+  const longDiff = page.locator("[data-site=edit-rendered]");
+  for (const mode of ["rendered", "source"]) {
+    const preview = longDiff.locator("[data-diff-view-container]");
+    await expect(preview).toHaveAttribute("data-truncated", "true");
+    await expect(preview).toHaveCSS("overflow", "hidden");
+    expect(
+      await preview.evaluate(
+        (element) => element.scrollHeight > element.clientHeight,
+      ),
+    ).toBe(true);
+    if (mode === "rendered")
+      await longDiff
+        .getByRole("button", { name: "Show source", exact: true })
+        .click();
+  }
   const grep = page.locator("[data-site=grep-files]");
   await expect(grep.locator("[data-file-dir]")).toContainText("src/a.ts");
   await expect(grep.locator("[data-file-dir]")).toHaveCSS(

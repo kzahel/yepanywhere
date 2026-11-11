@@ -381,6 +381,7 @@ export function DiffMathView({
         <div
           className={`${diffStyles.diffViewContainer} ${diffStyles.diffGutterAligned} `}
           data-diff-view-container
+          data-truncated={truncated || undefined}
           data-diff-gutter-aligned
           {...tooltipAttributes}
         >
@@ -408,6 +409,7 @@ export function DiffMathView({
         <div
           className={`${diffStyles.diffViewContainer} ${diffStyles.diffGutterAligned} `}
           data-diff-view-container
+          data-truncated={truncated || undefined}
           data-diff-gutter-aligned
           {...tooltipAttributes}
         >

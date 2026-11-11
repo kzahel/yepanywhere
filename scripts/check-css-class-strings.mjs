@@ -14,7 +14,7 @@ async function walk(dir) {
     const file = path.join(dir, entry.name);
     if (
       entry.isDirectory() &&
-      !["__tests__", "test", "tests"].includes(entry.name)
+      !["__tests__", "__fixtures__", "test", "tests"].includes(entry.name)
     )
       await walk(file);
     else if (
@@ -32,6 +32,20 @@ await walk(path.join(root, "packages/client/src"));
 const families = JSON.parse(
   await readFile(path.join(root, "scripts/css-runtime-families.json"), "utf8"),
 );
+for (const family of families) {
+  for (const emitter of family.emitters ?? []) {
+    if (
+      !emitter.source ||
+      !emitter.reason?.trim() ||
+      !/^packages\//.test(emitter.source) ||
+      emitter.source.split("/").includes("..")
+    )
+      throw new Error(
+        "Additional generated emitters need a repository source and reason",
+      );
+    await readFile(path.join(root, emitter.source), "utf8");
+  }
+}
 const globals = [];
 for (const file of ["tokens", "base", "generated"]) {
   postcss

@@ -18,3 +18,9 @@ integration fix. Investigate retained catalog projection/invalidation while a
 native namespace is pending; do not relax the known-session visibility check.
 
 Found 2026-11-11 while rebasing and pushing main.
+
+2026-11-11 CSS consolidation qualification: the full workspace again fails at
+this unchanged assertion (final run: 7,340 server cases pass, 94 skip). An isolated repeat
+after frozen-lockfile installation reproduces the same missing known id; both
+new proxy response ownership cases pass after applying the already committed
+Hono package patch. No server sources or assertions were changed by this pass.

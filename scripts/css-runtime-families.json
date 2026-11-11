@@ -39,13 +39,33 @@
     "pattern": "^(shiki|line)$",
     "source": "packages/server/src/highlighting/highlight-worker.mjs",
     "reason": "The server highlighter calls Shiki codeToHtml, which emits the pre.shiki shell and span.line wrappers.",
-    "generated": true
+    "generated": true,
+    "emitters": [
+      {
+        "source": "packages/client/src/pages/DiffHunk.tsx",
+        "reason": "Rewraps highlighted hunk cells and supplies one blank generated line for empty cells."
+      },
+      {
+        "source": "packages/client/src/pages/UnifiedDiff.tsx",
+        "reason": "Rewraps highlighted file rows or generated fallback rows in a Shiki source shell."
+      },
+      {
+        "source": "packages/client/src/components/renderers/tools/WriteRenderer.tsx",
+        "reason": "Truncates and reassembles emitted Shiki HTML using its line delimiter."
+      }
+    ]
   },
   {
     "pattern": "^(line-(context|deleted|inserted|hunk)|diff-(prefix|word-added|word-removed))$",
     "source": "packages/server/src/augments/edit-augments.ts",
     "reason": "Server diff rendering emits line-kind classes, prefix spans and word-change wrappers.",
-    "generated": true
+    "generated": true,
+    "emitters": [
+      {
+        "source": "packages/client/src/pages/UnifiedDiff.tsx",
+        "reason": "Emits fallback source-line HTML for missing server-highlighted rows; React rows remain modular."
+      }
+    ]
   },
   {
     "pattern": "^fixed-font-(rendered-line(__content)?|file-link|markdown-(heading|list-line|list-marker|list-body|blockquote|rule|block|table)|leading-indent|diff-(gutter(-cell)?|added|removed))$",
