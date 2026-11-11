@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { configureRemoteAccess, e2ePaths, expect, test } from "./fixtures.js";
 
@@ -348,4 +348,69 @@ test("share type labels fit beside creation actions", async ({
       path: join(captureDirectory, "mobile-375x812.png"),
     });
   }
+});
+
+const fileName = "middle-click-share.html";
+const middleClickFile = join(mockProjectPath, fileName);
+test.afterAll(() => rmSync(middleClickFile, { force: true }));
+
+test("middle click on a shared file's link opens its public play view", async ({
+  page,
+  baseURL,
+}) => {
+  await configureRemoteAccess(baseURL, {
+    username: "public-file-play-e2e",
+    password: "public-share-password-123",
+    relayUrl: "ws://127.0.0.1:9/ws",
+  });
+  await putJson(baseURL, "/api/settings", { publicSharesEnabled: true });
+  await page.route("**/api/public-shares/status", async (route) => {
+    const response = await route.fetch();
+    const status = await response.json();
+    await route.fulfill({ response, json: { ...status, canCreate: true } });
+  });
+  writeFileSync(middleClickFile, "<h1>shared</h1>\n");
+  const shareUrl = `https://share.example.test/share/play-secret/file?${new URLSearchParams(
+    { h: "public-file-play-e2e", projectId, path: fileName },
+  )}`;
+  let shared = true;
+  await page.route("**/api/public-file-shares?*", async (route) => {
+    await route.fulfill({
+      json: { items: shared ? [{ id: "share-1", url: shareUrl }] : [] },
+    });
+  });
+  await page
+    .context()
+    .route("https://share.example.test/**", (route) =>
+      route.fulfill({ contentType: "text/html", body: "play" }),
+    );
+
+  await page.setViewportSize({ width: 1200, height: 600 });
+  await page.goto(`${baseURL}/projects/${projectId}/file?path=${fileName}`);
+  await dismissOnboardingIfVisible(page);
+  const share = page
+    .locator(".file-viewer")
+    .getByRole("button", { name: "Share file publicly" });
+
+  // A shared file opens its play view in a new tab, with no dialog.
+  const popup = page.context().waitForEvent("page");
+  await share.click({ button: "middle" });
+  const tab = await popup;
+  await expect
+    .poll(() => tab.url())
+    .toBe(
+      `https://share.example.test/play.html?${new URLSearchParams({
+        h: "public-file-play-e2e",
+        projectId,
+        path: fileName,
+      })}#share=play-secret`,
+    );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await tab.close();
+
+  // An unshared file has no play view, so the middle click opens the dialog.
+  shared = false;
+  await page.mouse.move(0, 0);
+  await share.click({ button: "middle" });
+  await expect(page.getByRole("dialog")).toBeVisible();
 });

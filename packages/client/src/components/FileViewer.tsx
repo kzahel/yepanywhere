@@ -8,7 +8,6 @@ import {
   RefreshIcon,
   RawSourceIcon,
   CopyIcon,
-  PublicFileShareButton,
   CheckIcon,
   PlusCircleIcon,
   CommentIcon,
@@ -115,6 +114,7 @@ import {
 } from "./FileDiffViewLinks";
 import { FileRevisionLink } from "./FileRevisionLink";
 import { FileViewerPathBreadcrumbs } from "./FileViewerPathBreadcrumbs";
+import { PublicFileShareButton } from "./PublicFileShareButton";
 import { PublicFileShareModal } from "./PublicFileShareModal";
 import {
   FilePathContextMenu,
@@ -2236,6 +2236,7 @@ export const FileViewer = memo(function FileViewer({
           !diffActive && (
             <PublicFileShareButton
               projectId={projectId}
+              filePath={filePath}
               onOpen={setFileShareAnchor}
             />
           )}

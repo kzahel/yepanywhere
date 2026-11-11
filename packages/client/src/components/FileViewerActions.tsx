@@ -1,14 +1,5 @@
-import {
-  PUBLIC_FILE_SHARES_CAPABILITY,
-  serverHasCapability,
-} from "@yep-anywhere/shared";
 import type { RefObject } from "react";
-import { usePublicShareStatus } from "../hooks/usePublicShareStatus";
 import { useSelectionActions } from "../hooks/useMessageListSelectionQuote";
-import { useVersion } from "../hooks/useVersion";
-import { useI18n } from "../i18n";
-import { useFileVhostService } from "../hooks/useFileVhostService";
-import { IconButton } from "./ui/Button";
 export function FileViewerSelectionActions({
   containerRef,
   onStartNewSessionFromSelection,
@@ -90,52 +81,6 @@ export function CopyIcon() {
     >
       <rect x="5" y="5" width="9" height="9" rx="1.5" />
       <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2H3.5A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" />
-    </svg>
-  );
-}
-
-export function PublicFileShareButton({
-  onOpen,
-  projectId,
-}: {
-  onOpen: (anchor: DOMRect) => void;
-  projectId: string;
-}) {
-  const { t } = useI18n();
-  const { version } = useVersion();
-  const { status } = usePublicShareStatus();
-  const fileVhost = useFileVhostService(projectId);
-  if (
-    !fileVhost &&
-    (status?.canCreate !== true ||
-      !serverHasCapability(version, PUBLIC_FILE_SHARES_CAPABILITY))
-  ) {
-    return null;
-  }
-  return (
-    <IconButton
-      onClick={(event) => onOpen(event.currentTarget.getBoundingClientRect())}
-      label={t("fileViewerSharePublicly")}
-    >
-      <PublicLinkIcon />
-    </IconButton>
-  );
-}
-
-function PublicLinkIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m8 12 4-4M6.5 14.5l-1 1a2.8 2.8 0 0 1-4-4l3-3a2.8 2.8 0 0 1 4 0M13.5 5.5l1-1a2.8 2.8 0 1 1 4 4l-3 3a2.8 2.8 0 0 1-4 0" />
     </svg>
   );
 }
