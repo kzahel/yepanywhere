@@ -37,7 +37,7 @@
       "maxLines": 1562
     },
     "packages/client/src/hooks/useSession.ts": {
-      "maxLines": 2804
+      "maxLines": 2803
     },
     "packages/client/src/hooks/useSessionMessages.ts": {
       "maxLines": 1769
@@ -88,13 +88,13 @@
       "maxLines": 1891
     },
     "packages/server/src/routes/sessions.ts": {
-      "maxLines": 5264
+      "maxLines": 5225
     },
     "packages/server/src/routes/ws-relay-handlers.ts": {
       "maxLines": 3066
     },
     "packages/server/src/sdk/providers/claude.ts": {
-      "maxLines": 2469
+      "maxLines": 2455
     },
     "packages/server/src/sdk/providers/codex-oss.ts": {
       "maxLines": 1615
@@ -130,7 +130,7 @@
       "maxLines": 3867
     },
     "packages/server/src/sessions/normalization.ts": {
-      "maxLines": 2339
+      "maxLines": 2326
     },
     "packages/server/src/sessions/opencode-reader.ts": {
       "maxLines": 1877
@@ -140,9 +140,6 @@
     },
     "packages/server/src/supervisor/Supervisor.ts": {
       "maxLines": 6953
-    },
-    "packages/shared/src/app-types.ts": {
-      "maxLines": 1504
     },
     "packages/shared/src/index.ts": {
       "maxLines": 1918,

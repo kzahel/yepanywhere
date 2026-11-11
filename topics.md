@@ -494,3 +494,5 @@
   controls that own their look, type and radius tokens, and draining global CSS.
 
 - agent-auth-router-startup-display - Keep the session account display current through startup without a new capability.
+
+- agent-api-bootstrap — Native instruction placement, transcript/title repair, and optional disclosure.

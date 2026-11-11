@@ -134,7 +134,7 @@ import {
   resolveProviderSessionOptions,
 } from "./types.js";
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
-import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
+import { claudeSessionSystemPrompt } from "./claude-system-prompt.js";
 
 /**
  * Use a spawn wrapper to capture the child process reference for liveness checks.
@@ -1032,25 +1032,11 @@ export class ClaudeProvider implements AgentProvider {
     globalInstructions: string | undefined,
     sandbox: SessionSandboxRuntime | undefined,
   ): Options["systemPrompt"] {
-    const instructions = sandbox?.instructions;
-    if (instructions && !instructions.startFromDefault) {
-      return {
-        type: "custom",
-        prompt:
-          withSessionSandboxAgentContext(instructions.text, sandbox) ?? "",
-        snapshot: false,
-      };
-    }
-    const append = [globalInstructions, instructions?.text]
-      .filter(Boolean)
-      .join("\n\n");
-    const prompt = this.getSystemPrompt(
-      withSessionSandboxAgentContext(append, sandbox),
+    return claudeSessionSystemPrompt(
+      this.getSystemPrompt.bind(this),
+      globalInstructions,
+      sandbox,
     );
-    if (!instructions || !prompt) return prompt;
-    return typeof prompt === "string"
-      ? { type: "custom", prompt, snapshot: false }
-      : { ...prompt, snapshot: false };
   }
 
   private async runControlProbe<T>(
