@@ -5243,3 +5243,12 @@ context become explicit parameters; headers, URL, signal, environment and fetch
 semantics are unchanged. This gives collection updates the same authenticated
 read boundary without growing the frozen composition root. No route contract
 changes in this move. Focused bootstrap tests and TypeScript checks qualify it.
+
+### Claude project directory decoder — 2026-11-11
+
+Plan 190 preparation: move `getProjectDirInfo`'s body and its private type/batch
+constant to `projects/claude-project-discovery.ts`. The scanner retains its
+method facade for existing callers and tripwires. No captured instance state,
+format/selection/error behavior or filesystem ordering changes. This isolates
+native directory decoding before the SQL project-facts ownership work and
+shrinks the frozen scanner; the budget is ratcheted in the same commit.

@@ -79,7 +79,7 @@
       "maxLines": 1741
     },
     "packages/server/src/projects/scanner.ts": {
-      "maxLines": 1629
+      "maxLines": 1570
     },
     "packages/server/src/review/ReviewCommentService.ts": {
       "maxLines": 1665
