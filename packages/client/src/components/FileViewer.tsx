@@ -1,6 +1,5 @@
 import {
   annotateHighlightedHtmlLines,
-  getHighlightRange,
   getFileViewerTargetScrollTop,
 } from "./fileViewerLineHighlights";
 import {
