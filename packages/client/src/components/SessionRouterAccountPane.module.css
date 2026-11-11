@@ -17,18 +17,24 @@
   font-size: var(--font-size-sm);
 }
 
-.pool {
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.select {
+  width: 100%;
   min-width: 0;
 }
 
-.poolName {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+.actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
-.choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+@media (width <= 480px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

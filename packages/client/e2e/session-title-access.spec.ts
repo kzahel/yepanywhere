@@ -306,12 +306,26 @@ test("reads the full session title on phone and desktop without losing the draft
       page.getByRole("tab", { name: "Account", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(
-      accountPane.getByRole("button", { name: "Work backup" }),
+      accountPane.getByRole("combobox", { name: "Router account" }),
     ).toBeVisible();
     await expect(page.getByRole("menu")).toHaveCount(0);
+    const apply = accountPane.getByRole("button", {
+      name: "Apply account change",
+    });
+    await expect(apply).toBeDisabled();
+    await accountPane
+      .getByRole("combobox", { name: "Router account" })
+      .selectOption("work-backup");
+    await expect(apply).toBeEnabled();
+    await expect(
+      accountPane.getByText("Current account: Work accounts · Work primary"),
+    ).toBeVisible();
+    await expect(
+      accountPane.getByText(/Applying stops the provider immediately/),
+    ).toBeVisible();
     await recordUiCapture(page, `session-account-${size.width}`);
     if (size.width === 375) {
-      await accountPane.getByRole("button", { name: "Work backup" }).click();
+      await apply.click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(input).toHaveValue(draft);
     } else {

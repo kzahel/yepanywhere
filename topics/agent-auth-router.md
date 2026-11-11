@@ -133,8 +133,8 @@ pins saved without names and is hidden on narrow screens. Its tooltip lists
 pool, account, policy and reason. The chip is a shortcut to the **Account** tab
 in the model/session dialog, with no separate dropdown. On phones, tap the
 model pill and select Account. With `agent-auth-router-session-switch`, that
-pane lists the provider's pooled accounts and Direct, using the same owner,
-executor and sandbox restrictions at every width. Without switching support it
+pane offers Pool and Router account dropdowns plus an explicit Apply action,
+using the same owner, executor and sandbox restrictions at every width. Without switching support it
 shows the saved account read-only. Session Info retains the detailed pin ids.
 The pin keeps AAR's names as display labels captured at
 launch, so an AAR outage or removed account still shows which account to restore;
@@ -145,11 +145,25 @@ continuation, remote executors, limited users and sandboxes cannot change a pin.
 
 **Switching an existing session's account**
 ([plan 185](../docs/tactical/185-switch-session-router-account.md)). The
-Account tab lists the provider's pool accounts and Direct. A direct session's
-header shows a "Direct" chip only when the router has a pool with an enabled
-account for that session's provider; a connected router serving only the other
-provider shows nothing.
-Picking one calls `POST /api/agent-auth-router/sessions/:id/switch`
+Account tab shows the current binding separately from the draft selection.
+Choose a Pool and Router account, or **This computer (direct login)** in Pool.
+Changing either dropdown has no server-side effect. Changing pools clears the
+account choice; Apply stays disabled until a different, available account is
+selected (or Direct is selected for a routed session). Discovery refreshes do
+not silently substitute another account. A refusal preserves the draft for
+retry and leaves the saved binding unchanged. Controls lock while applying.
+An older binding without a pool shows a distinct current-account placeholder
+and can still switch to Direct or to a pool account.
+The explanation beside **Apply account change** states that applying stops the
+provider immediately, interrupts an active turn, and resumes this conversation
+on the selected account only when the next message is sent. There is no queued
+switch at the end of the current turn.
+
+A direct session's header shows a "Direct" chip only when the router has a
+pool with an enabled account for that session's provider; a connected router
+serving only the other provider shows nothing.
+
+Applying calls `POST /api/agent-auth-router/sessions/:id/switch`
 (`{routerPoolId, routerAccountId}` or `{direct: true}`), which:
 
 1. allocates, prepares (policy `manual`, the picked account) and commits the
