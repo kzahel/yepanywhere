@@ -967,13 +967,15 @@ export function registerSessionDetailRoute(
         truncatedBeforeMessageId: sourceCursor,
       };
     }
+    // A provider window that omitted older history must surface that as an
+    // older-page cursor, or the client would treat this page as the start of
+    // history. The converse is legitimate: a turn selector may narrow a
+    // complete provider read and report older messages it trimmed itself.
     if (
-      loadedSession.readWindow &&
+      loadedSession.readWindow?.omittedPrefix &&
       !incrementalAnchorFound &&
-      (paginationInfo?.hasOlderMessages !==
-        loadedSession.readWindow.omittedPrefix ||
-        (loadedSession.readWindow.omittedPrefix &&
-          paginationInfo.truncatedBeforeMessageId === undefined))
+      (!paginationInfo?.hasOlderMessages ||
+        paginationInfo.truncatedBeforeMessageId === undefined)
     ) {
       throw new Error(
         "Provider compact-window read did not preserve its older-history boundary",

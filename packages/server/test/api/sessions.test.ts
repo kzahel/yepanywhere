@@ -869,6 +869,60 @@ describe("Sessions API", () => {
       });
     });
 
+    it("narrows an uncompacted indexed read to a turn tail", async () => {
+      // The indexed reader returns the whole uncompacted transcript, so the
+      // turn selector alone trims older history; that must not be rejected
+      // as a lost provider boundary.
+      const name = "sess-uncompacted-turn-tail";
+      const sessionDir = join(
+        testDir,
+        "localhost",
+        projectPath.replace(/[/\\:]/g, "-"),
+      );
+      await mkdir(sessionDir, { recursive: true });
+      const entries = ["1", "2", "3"].flatMap((turn, index) => [
+        {
+          type: "user",
+          cwd: projectPath,
+          sessionId: name,
+          uuid: `u${turn}`,
+          ...(index > 0 ? { parentUuid: `a${index}` } : {}),
+          timestamp: `2026-01-01T00:00:0${index * 2 + 1}Z`,
+          message: { role: "user", content: `u${turn}` },
+        },
+        {
+          type: "assistant",
+          cwd: projectPath,
+          sessionId: name,
+          uuid: `a${turn}`,
+          parentUuid: `u${turn}`,
+          timestamp: `2026-01-01T00:00:0${index * 2 + 2}Z`,
+          message: { role: "assistant", content: `a${turn}` },
+        },
+      ]);
+      await writeFile(
+        join(sessionDir, `${name}.jsonl`),
+        `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+      );
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/${name}?tailTurns=2`,
+        { headers: { "X-Yep-Anywhere": "true" } },
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(
+        json.messages.map((message: { uuid?: string }) => message.uuid),
+      ).toEqual(["u2", "a2", "u3", "a3"]);
+      expect(json.pagination).toMatchObject({
+        hasOlderMessages: true,
+        truncatedBeforeMessageId: "u2",
+        truncatedBy: "user_turn",
+      });
+    });
+
     it("allows full-history scope to be narrowed by user turns", async () => {
       await writeCompactedSession("sess-full-turn-tail");
       const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
