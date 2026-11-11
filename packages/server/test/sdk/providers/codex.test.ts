@@ -806,7 +806,12 @@ describe("CodexProvider", () => {
           for await (const message of session.iterator) messages.push(message);
         })();
         try {
-          await vi.waitFor(() => expect(messages.length).toBeGreaterThan(0));
+          // Full workspace runs exhausted the default 1 s first-event wait
+          // (1035 ms wall time). Allow 3x that measured startup lower bound;
+          // this case tests goal-stream ownership, not process startup speed.
+          await vi.waitFor(() => expect(messages.length).toBeGreaterThan(0), {
+            timeout: 3000,
+          });
           if (alreadyWorking) {
             await vi.waitFor(() =>
               expect(

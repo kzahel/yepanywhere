@@ -54,3 +54,13 @@ cleanup. The fake child also marks entry into the self CLI probe so future
 failures distinguish it from the preceding Bash session-id read. This changes
 only the integration test's
 budget; the earlier general startup failures remain unclassified.
+
+2026-11-11 CI-watch follow-up: two full workspace runs exhaust the goal-stream
+case's default one-second first-message wait (1035 ms wall time on one
+occurrence), while the isolated two-variant check passes in 2.29 seconds
+including transform/startup. That case now gives its first-message readiness
+wait three seconds, derived from the exhausted one-second limit. Its subject
+is goal-stream ownership and continued work without another user turn, not
+startup speed; its semantic assertions and cleanup stay intact. This narrows
+that wait budget without classifying or closing the other historical
+fake-process findings, and changes no provider protocol or compatibility pin.
