@@ -2222,11 +2222,7 @@ export const FileViewer = memo(function FileViewer({
         {!diffActive && content !== undefined && (
           <IconButton
             onClick={handleCopy}
-            label={
-              copied
-                ? t("fileViewerCopied" as never)
-                : t("fileViewerCopyContent" as never)
-            }
+            label={copied ? t("fileViewerCopied") : t("fileViewerCopyContent")}
           >
             {copied ? <CheckIcon /> : <CopyIcon />}
           </IconButton>
