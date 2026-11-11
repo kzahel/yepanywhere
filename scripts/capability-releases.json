@@ -27,6 +27,7 @@
     "project-app-start-command": "2026-11-04",
     "connection-safe-settings": "2026-11-08",
     "project-queue-router-selection": "2026-11-08",
-    "agent-auth-router-session-switch": "2026-11-08"
+    "agent-auth-router-session-switch": "2026-11-08",
+    "collection-query-updates": "2026-11-11"
   }
 }

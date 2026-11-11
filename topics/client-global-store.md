@@ -249,6 +249,12 @@ unrelated dimensions. Anywhere the code picks "the widest" it must tolerate
 selecting several and fall back to running each; first-subscriber-wins silently
 narrows coverage for everyone else.
 
+Capable sources also retain [authoritative session/Inbox query updates](session-catalog-observation.md#authoritative-session-and-inbox-query-updates).
+A pushed snapshot publishes through this controller, fences older HTTP results,
+and cancels its queued activity revalidation. Membership and counts remain
+server-owned. Reconnect starts with a bounded replacement; unsupported sources
+retain the REST/event owner below.
+
 **One revalidation owner per `(sourceKey, queryKey)`.** Retaining a query shares
 its result; the machinery deciding *when* to refetch is shared separately, in
 `lib/clientQueryRevalidation.ts`. Subscribers declare the events they care about

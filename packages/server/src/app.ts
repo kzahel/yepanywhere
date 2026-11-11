@@ -331,7 +331,7 @@ import { agentSelfEnabled } from "./sdk/providers/agent-self.js";
 import { createSessionsRoutes } from "./routes/sessions.js";
 import { createSessionWakeRoutes } from "./routes/session-wake.js";
 import { createSettingsRoutes } from "./routes/settings.js";
-import { streamNewSessionBootstrap } from "./routes/new-session-bootstrap.js";
+import { createNewSessionBootstrapRead } from "./routes/new-session-bootstrap.js";
 import { readAuthenticatedJson } from "./routes/authenticated-json-read.js";
 import { createSharingRoutes } from "./routes/sharing.js";
 import { createSupervisorQueueRoutes } from "./routes/supervisor-queue.js";
@@ -3044,6 +3044,7 @@ export function createApp(options: AppOptions): AppResult {
     "/api/version",
     createVersionRoutes({
       getLatestVersion: options.getLatestVersion,
+      collectionQueryUpdatesAvailable: !!options.eventBus,
       installedMachineControlAvailable: supportsInstalledMachineControl(),
       agentSessionViewAvailable: agentSelfEnabled(),
       peerConnectionsAvailable: !!options.peerAccess,
@@ -4229,10 +4230,7 @@ export function createApp(options: AppOptions): AppResult {
       "/api/settings",
       createSettingsRoutes({
         serverSettingsService: options.serverSettingsService,
-        newSessionBootstrap: (context) =>
-          streamNewSessionBootstrap(context, (path, signal) =>
-            readAuthenticatedJson(app, context, path, signal),
-          ),
+        newSessionBootstrap: createNewSessionBootstrapRead(app),
         projectStoragePolicy,
         hostAwakeService: options.hostAwakeService,
         sessionMetadataService: options.sessionMetadataService,
@@ -4455,11 +4453,13 @@ export function createApp(options: AppOptions): AppResult {
     );
   }
 
-  // Activity routes (file watching)
   if (options.eventBus) {
     app.route(
       "/api/activity",
       createActivityRoutes({
+        signal: sessionReadLifetime.signal,
+        readJson: (context, path, signal) =>
+          readAuthenticatedJson(app, context, path, signal),
         eventBus: options.eventBus,
         connectedBrowsers: options.connectedBrowsers,
         browserProfileService: options.browserProfileService,

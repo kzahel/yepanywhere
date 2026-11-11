@@ -77,8 +77,10 @@ describe("Version Routes", () => {
   // client until that release ships; three went unseen this way on
   // 2026-09-28. Listing one a release already implies costs nothing: the
   // versioned encoding drops it.
-  it("advertises every version-implied capability explicitly", () => {
-    const advertised = new Set(getServerCapabilities());
+  it("advertises every version-implied capability explicitly when available", () => {
+    const advertised = new Set(
+      getServerCapabilities({ collectionQueryUpdatesAvailable: true }),
+    );
     const missing = Object.values(SERVER_CAPABILITIES)
       .filter(
         (definition) =>

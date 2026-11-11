@@ -512,6 +512,10 @@ export function decideLimitedRoute(
       ? { kind: "allow-filtered", filter: "processes" }
       : { kind: "deny" };
   }
+  // The stream delegates only to canonical filtered collection reads with the
+  // original authentication. It exposes no activity/status inventory.
+  if (path === "/api/activity/collections")
+    return isRead ? { kind: "allow" } : { kind: "deny" };
   // `/api/activity/*` is not listed: its REST reads are watcher status and
   // every connected tab and browser profile, host inventory that carries no
   // project to filter by. The activity channel itself runs over /api/ws.

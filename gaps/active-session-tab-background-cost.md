@@ -71,15 +71,14 @@ request the tab made and its WebSocket frames (header comment for usage).
    former whole-rollout updates in Claude-default projects were fixed by
    resolved-provider dispatch; [shared ingestion evidence](../docs/research/190-transcript-ingestion.md)
    records that earlier slice. No full active-tab target is closed here.
-2. **Each write makes every tab refetch six whole-catalog lists:** the three
-   feeds, Inbox, `/api/projects` and `/api/project-queue`. Sharing leaves
-   about one walk per write per tab in the recorded baseline. The retained
-   path now shares one SQL working index across tabs and hydrates selected
-   rows, removing that population projection walk. Poll/request fan-out
-   remains. The next client-side fix is sending
-   changed rows to clients
-   (plan 189 step 8) or the list projection table
-   ([SQLite cleanup](sqlite-cleanup-and-wins.md) items 11 and 16).
+2. **Bounded session/Inbox views now receive authoritative changes.** The three
+   feeds and Inbox use one source-owned capability-gated stream, carrying changed
+   rows and exact membership/count updates rather than refetching on each event.
+   Real browser coverage proves native Inbox changes and zero list/Inbox GETs
+   during sequential typing on Node and Bun. [Evidence](../docs/research/190-collection-query-updates.md)
+   records scope and limits. `/api/projects`, `/api/project-queue`, complete search
+   and coverage beyond 500 session rows still use existing reads. Full combined
+   scenario qualification remains open.
 3. **Known changed-file publication is now scoped.** The former complete
    generation walk and retained native catalog mirror are removed. Unknown
    new-file membership, complete consumers and project SQL aggregation still

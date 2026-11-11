@@ -141,6 +141,81 @@ These are work-count and lifecycle evidence, not browser latency measurements.
 Viewport prioritization, cross-tab persistence, conditional catalog deltas, and
 other collection consumers remain part of the broader architecture below.
 
+## Authoritative session and Inbox query updates
+
+`collection-query-updates` selects `GET /api/activity/collections?queries=...`.
+A mounted source owns one NDJSON response for up to eight bounded queries:
+retained `/sessions` first windows (up to 500 rows, including project/star/category
+filters) and `/inbox` (five tiers, each at most 20). Complete prompt search and
+coverage beyond 500 rows remain ordinary reads. Live pagination enlarges the
+authoritative first window, including sessions with equal timestamps. Queries cannot name arbitrary routes,
+additional parameters, duplicate parameters or external origins. This is a new
+capability, not an extension of `retained-session-collections`.
+
+The first message for each query is a replacement (`base: null`). Later messages
+carry an exact predecessor revision, changed complete rows, removed row ids,
+and changed authoritative ordered memberships and metadata/counts. Omitted
+fields inside a changed row remain omitted; unchanged rows are not resent.
+Client normalization preserves higher-fidelity facts under its existing rules.
+No client infers server query membership from a process status or timestamp.
+Lost, duplicated, stale or malformed deltas cannot silently advance the view:
+reacquisition starts with a fresh bounded replacement. Server restart requires
+no replay log or population-sized browser catch-up.
+
+A shared view is keyed by the resolved principal/grants, an opaque fingerprint
+of the request authentication headers/private login context, and canonical query.
+Different credentials do not share authentication or a retained response.
+It uses the existing filtered collection routes, original authentication headers
+and private request environment. A peer viewer's read cannot borrow a departed
+viewer's request credentials. The limited-user stream route authorizes only
+this delegation; the nested canonical routes continue resolving identity and
+filtering grants before limits/counts. Other activity REST inventory remains
+operator-only. No new principal, grant or bearer credential is introduced.
+
+The profile owns at most 64 active views and 32 MiB accepted snapshot JSON, with
+at most 2 MiB per view and 32 streams. It subscribes to the existing bus only
+while a view is retained. One shared wake coalesces events; events during a read
+survive into one trailing acquisition. Independent viewers share the same read.
+An indexed SQL deadline includes eligible rows outside the displayed Inbox
+frontier, so an aging hidden row can enter a later tier without client polling.
+Automatic archive boundaries use the existing UTC-midnight cutoff and the same
+scheduler. A project-filtered page includes all accessible projects in its
+statistics deadline, matching the global statistics it returns. Deadline work exists only
+while a relevant view exists; no recurring empty-corpus timer is added.
+
+Slow streams retain at most one pending frame per query and 2 MiB queued wire
+text. Replacing queued deltas produces a replacement frame; a stream over its
+budget closes instead of accumulating history. A slow writer cannot block the
+shared acquisition or healthy peers. Query errors retain the existing client
+REST/event fallback; cleanup aborts queued/in-flight work, releases listeners
+and accepted views, and fences late completion.
+
+Client stream ownership is source/query scoped and ref-counted. Identical
+consumers and their retained controller share publication. A pushed result
+invalidates older HTTP admission and cancels pending whole-query revalidation.
+A live query suppresses activity-triggered list refetch. Explicit REST refresh
+pauses the pushed query until that read is accepted, then reopens with fresh
+canonical SQL. Live pagination grows the shared first window directly rather
+than alternating cursor pages and streamed replacements. Shared coverage widens
+to retained rows; beyond 500 rows the existing complete-pagination lifecycle
+remains in use. Source changes,
+pagehide and final unmount retire the old subscription; visibility/reconnect
+reacquire a replacement. No browser transcript persistence is added.
+
+### Collection-update compatibility review — 2026-11-11
+
+The current supported v0.8.0 baseline through v0.11.0 lacks this endpoint. The
+60-day core review corpus is v0.9.0, v0.9.1, v0.9.2, v0.10.0, v0.10.1,
+v0.10.2 and v0.11.0; v0.11.0/v0.10.2 are the latest two. The broader standing
+baseline also includes v0.8.0/v0.8.1. All retain existing collection behavior.
+The plan 190 capability/full-reload rollout and maintainer's instruction to
+proceed authorize this additive contract. Unknown, absent or denied support
+issues no stream request and keeps existing retained/complete REST plus event
+revalidation. Availability is withdrawn when the app has no event owner.
+Fixed capability/fallback retirement is registered for 2027-02-09; no existing
+capability meaning, hosted floor, authentication or transport format changes.
+Projects, Project Queue and transcript/render delivery remain separate followups.
+
 ## Retained recent visits
 
 Servers advertising `retained-recents` accept `summaryMode=retained` on

@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  collectionQueryUpdates: {
+    id: 156,
+    direction: "server",
+    name: "collection-query-updates",
+    introducedIn: "0.12.0",
+  },
   agentAuthRouterSessionSwitch: {
     id: 155,
     direction: "server",

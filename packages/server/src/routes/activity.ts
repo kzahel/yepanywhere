@@ -1,4 +1,6 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { CollectionUpdates } from "../services/CollectionUpdates.js";
+import { createCollectionUpdateStream } from "./collection-updates.js";
 import type {
   BrowserProfileService,
   ConnectedBrowsersService,
@@ -6,6 +8,12 @@ import type {
 import type { EventBus } from "../watcher/index.js";
 
 export interface ActivityDeps {
+  signal?: AbortSignal;
+  readJson?: (
+    context: Context,
+    path: string,
+    signal: AbortSignal,
+  ) => Promise<Response>;
   eventBus: EventBus;
   connectedBrowsers?: ConnectedBrowsersService;
   browserProfileService?: BrowserProfileService;
@@ -13,6 +21,14 @@ export interface ActivityDeps {
 
 export function createActivityRoutes(deps: ActivityDeps): Hono {
   const routes = new Hono();
+  if (deps.readJson)
+    routes.get(
+      "/collections",
+      createCollectionUpdateStream(
+        new CollectionUpdates(deps.eventBus, deps.signal),
+        deps.readJson,
+      ),
+    );
 
   // GET /api/activity/status - Get watcher status
   routes.get("/status", (c) => {

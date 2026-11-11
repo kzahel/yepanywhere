@@ -335,6 +335,40 @@ export class SessionCollectionSql {
     }
     return stats;
   }
+  /** Indexed next clock boundary, including rows outside the visible tiers.
+   * Granted projects seek their own index ranges, never scan other projects.
+   */
+  nextTransition(
+    now: number,
+    windows: readonly number[],
+    projects?: readonly string[],
+  ) {
+    let next: number | undefined;
+    const scopes = projects ?? [undefined];
+    for (const window of windows)
+      for (const project of scopes) {
+        const scoped = project !== undefined;
+        const row = this.prepare(
+          `SELECT updated_ms FROM ${this.prefix}_rows INDEXED BY ${this.prefix}_${scoped ? "project" : "time"} WHERE ${scoped ? "project_id=? AND " : ""}archived=0 AND updated_ms>=? ORDER BY updated_ms ASC LIMIT 1`,
+        ).get<{ updated_ms: number }>(
+          ...(scoped ? [project] : []),
+          now - window,
+        );
+        if (row) next = Math.min(next ?? Infinity, row.updated_ms + window + 1);
+      }
+    return next;
+  }
+  oldestAutomatic(projects?: readonly string[]) {
+    let oldest: number | undefined;
+    for (const project of projects ?? [undefined]) {
+      const scoped = project !== undefined;
+      const row = this.prepare(
+        `SELECT updated_ms FROM ${this.prefix}_rows INDEXED BY ${this.prefix}_${scoped ? "project_expiry" : "expiry"} WHERE ${scoped ? "project_id=? AND " : ""}automatic=1 AND archived=0 ORDER BY updated_ms ASC LIMIT 1`,
+      ).get<{ updated_ms: number }>(...(scoped ? [project] : []));
+      if (row) oldest = Math.min(oldest ?? Infinity, row.updated_ms);
+    }
+    return oldest;
+  }
   itemProjects() {
     return this.prepare(
       `SELECT project_id,name_json FROM ${this.prefix}_options`,
@@ -429,6 +463,7 @@ const ROW_INDEXES = [
   ["active", "archived, active, updated_ms DESC, id"],
   ["unread", "archived, unread, updated_ms DESC, id"],
   ["expiry", "automatic, archived, updated_ms"],
+  ["project_expiry", "project_id, automatic, archived, updated_ms"],
   ["live", "live, id"],
   ["item_options", "project_id, ordinal DESC"],
 ] as const;

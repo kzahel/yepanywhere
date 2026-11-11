@@ -1007,6 +1007,32 @@ export const SESSIONS_SERVER_CAPABILITIES = {
         "YA is self-hosted with no forced upgrade, so the population of servers without the conditional read never converges and the client's enumeration fallback never becomes removable.",
     },
   },
+  collectionQueryUpdates: {
+    id: CAPABILITY_ID_ALLOCATIONS.collectionQueryUpdates.id,
+    name: "collection-query-updates",
+    kind: "transitional",
+    area: "sessions",
+    introducedIn: "0.12.0",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Authoritative bounded session and Inbox query snapshots followed by row and membership changes.",
+    clientFallback:
+      "Keep existing retained REST reads and event-driven revalidation; send no collection stream request.",
+    serverContract: {
+      routes: ["GET /api/activity/collections"],
+      requestFields: ["queries"],
+      responseFields: [
+        "query",
+        "revision",
+        "base",
+        "upserts",
+        "removed",
+        "groups",
+        "meta",
+      ],
+    },
+    lifecycle: { kind: "transitional" },
+  },
   retainedSessionCollections: {
     id: CAPABILITY_ID_ALLOCATIONS.retainedSessionCollections.id,
     name: "retained-session-collections",

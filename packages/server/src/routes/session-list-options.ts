@@ -7,13 +7,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function getActiveSessionIndexOptions(
   autoArchiveDays: number | undefined,
+  now = Date.now(),
 ): SessionIndexListOptions | undefined {
   const days = autoArchiveDays ?? SESSION_AUTO_ARCHIVE_DEFAULT_DAYS;
   if (!Number.isFinite(days) || days <= 0) {
     return undefined;
   }
 
-  const cutoff = new Date(Date.now() - days * DAY_MS);
+  const cutoff = new Date(now - days * DAY_MS);
   cutoff.setUTCHours(0, 0, 0, 0);
   return { activeAfterMs: cutoff.getTime() };
 }

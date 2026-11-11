@@ -44,6 +44,11 @@
       "source": "./src/experimental/*.ts",
       "import": "./dist/experimental/*.js",
       "types": "./dist/experimental/*.d.ts"
+    },
+    "./collection-updates": {
+      "source": "./src/collection-updates.ts",
+      "import": "./dist/collection-updates.js",
+      "types": "./dist/collection-updates.d.ts"
     }
   },
   "scripts": {

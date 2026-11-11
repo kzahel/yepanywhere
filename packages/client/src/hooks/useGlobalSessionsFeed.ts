@@ -53,6 +53,14 @@ import {
   useFileActivity,
 } from "./useFileActivity";
 import { useRetainedVersionInfo } from "./useVersion";
+import { useCollectionUpdates } from "./useCollectionUpdates";
+import {
+  collectionQueryIsLive,
+  collectionQueryCoverage,
+  expandCollectionUpdates,
+  pauseCollectionUpdates,
+} from "../lib/collectionUpdates";
+import { selectSessionCollectionQueryState } from "../lib/clientSummaryQueries";
 
 const REFETCH_DEBOUNCE_MS = 500;
 /**
@@ -419,6 +427,7 @@ export function useGlobalSessionsFeed(
       const queryForRequest = query;
       const requestSourceKey = sourceKey;
 
+      const resumeUpdates = pauseCollectionUpdates(runtime, queryKey);
       try {
         if (fetchOptions.force) {
           invalidateClientQuery(requestSourceKey, queryKey);
@@ -433,6 +442,7 @@ export function useGlobalSessionsFeed(
         const refreshRows = Math.max(
           requestedRows,
           queryRecordsRef.current.length,
+          collectionQueryCoverage(runtime, queryKey),
         );
         const sessionsPromise = ensureClientQuery<
           GlobalSessionsResponse | GlobalSessionsUnchangedResponse
@@ -562,6 +572,10 @@ export function useGlobalSessionsFeed(
           setError(err instanceof Error ? err : new Error(String(err)));
         }
       } finally {
+        resumeUpdates(
+          selectSessionCollectionQueryState(sourceSummary.getSnapshot(), query)
+            ?.ids.length,
+        );
         if (requestId === requestSequenceRef.current) {
           setLoading(false);
         }
@@ -580,6 +594,7 @@ export function useGlobalSessionsFeed(
       requestedRows,
       sourceKey,
       sourceSummary,
+      runtime,
       knownGenerationForRequest,
     ],
   );
@@ -601,7 +616,18 @@ export function useGlobalSessionsFeed(
       return;
     }
 
+    if (
+      records.length < 500 &&
+      expandCollectionUpdates(
+        runtime,
+        queryKey,
+        Math.min(500, records.length + requestedRows),
+      )
+    )
+      return;
+
     const requestSourceKey = sourceKey;
+    const resumeUpdates = pauseCollectionUpdates(runtime, queryKey);
     try {
       setError(null);
       const requestStartedAt = Date.now();
@@ -638,9 +664,15 @@ export function useGlobalSessionsFeed(
       if (sourceKeyRef.current === requestSourceKey) {
         setError(err instanceof Error ? err : new Error(String(err)));
       }
+    } finally {
+      resumeUpdates(
+        selectSessionCollectionQueryState(sourceSummary.getSnapshot(), query)
+          ?.ids.length,
+      );
     }
   }, [
     fetch,
+    requestedRows,
     query,
     projectId,
     searchQuery,
@@ -650,6 +682,8 @@ export function useGlobalSessionsFeed(
     categorized,
     sourceKey,
     sourceSummary,
+    runtime,
+    queryKey,
   ]);
 
   // The debounce timer and the reconnect listener belong to the shared
@@ -660,16 +694,58 @@ export function useGlobalSessionsFeed(
   const fetchRef = useRef(fetch);
   fetchRef.current = fetch;
 
+  const updateParams = new URLSearchParams({
+    summaryMode: "retained",
+    limit: String(requestedRows),
+    includeStats: "false",
+  });
+  if (projectId) updateParams.set("project", projectId);
+  if (includeArchived) updateParams.set("includeArchived", "true");
+  if (starred) updateParams.set("starred", "true");
+  if (categorized) updateParams.set("categorized", "true");
+  useCollectionUpdates<GlobalSessionsResponse>({
+    runtime,
+    key: queryKey,
+    path: "/sessions?" + updateParams,
+    rows: Math.max(requestedRows, queryRecords.length),
+    enabled:
+      ready &&
+      !searchQuery &&
+      requestedRows <= 500 &&
+      queryRecords.length <= 500,
+    applySnapshot: (data, context) => {
+      sourceSummary.reportGlobalSessionsCollectionSnapshot(
+        {
+          query,
+          sessions: data.sessions,
+          hasMore: data.hasMore,
+          mode: "replace",
+          catalog: data.catalog,
+        },
+        context.requestStartedAt,
+      );
+      updateGlobalSessionsAuxiliary(sourceKey, {
+        projects: data.projects,
+        stats: data.stats,
+      });
+      setLoading(false);
+      setError(null);
+    },
+    fallback: () => revalidationRef.current?.schedule(),
+  });
+
   const revalidationSubscriber = useCallback(
     () => ({
       coverage: { minRows: requestedRows },
       events: GLOBAL_SESSIONS_REVALIDATE_EVENTS,
       debounceMs: REFETCH_DEBOUNCE_MS,
+      shouldRevalidateEvent: () => !collectionQueryIsLive(runtime, queryKey),
       run: () => {
+        if (collectionQueryIsLive(runtime, queryKey)) return;
         void fetchRef.current({ force: true });
       },
     }),
-    [requestedRows],
+    [requestedRows, runtime, queryKey],
   );
 
   useEffect(() => {
@@ -693,11 +769,9 @@ export function useGlobalSessionsFeed(
   });
 
   const debouncedRefetch = useCallback(() => {
-    if (!readyRef.current) {
-      return;
-    }
+    if (!readyRef.current || collectionQueryIsLive(runtime, queryKey)) return;
     revalidationRef.current?.schedule();
-  }, []);
+  }, [runtime, queryKey]);
 
   const handleProcessStateChange = useCallback(
     (event: ProcessStateEvent) => {
@@ -715,6 +789,7 @@ export function useGlobalSessionsFeed(
 
   const handleSessionCreated = useCallback(
     (event: SessionCreatedEvent) => {
+      if (collectionQueryIsLive(runtime, queryKey)) return;
       const observedAt = Date.now();
       sourceSummary.reportSessionCollectionCreated(event, observedAt);
 
@@ -750,6 +825,8 @@ export function useGlobalSessionsFeed(
       debouncedRefetch,
       query,
       sourceSummary,
+      runtime,
+      queryKey,
     ],
   );
 

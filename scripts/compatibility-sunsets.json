@@ -24,5 +24,18 @@
         "marker": "providerDescriptors ?? providers"
       }
     ]
+  },
+  {
+    "name": "collection-query-rest-revalidation",
+    "capabilities": ["collection-query-updates"],
+    "supportedSince": "2026-11-11",
+    "evidence": "Plan190 collection query update source introduction,2026-11-11; no stable release yet.",
+    "removal": "Retire absent-support collection event revalidation after its horizon. Keep explicit refresh, complete-search and out-of-bound pagination reads.",
+    "locations": [
+      {
+        "path": "packages/client/src/hooks/useCollectionUpdates.ts",
+        "marker": "COLLECTION_UPDATES_LEGACY_FALLBACK"
+      }
+    ]
   }
 ]

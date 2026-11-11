@@ -652,6 +652,7 @@ export interface DeviceBridgeStatus {
 }
 
 export interface VersionRouteOptions {
+  collectionQueryUpdatesAvailable?: boolean;
   /** Owned update lookup; the default uses the public update service. */
   getLatestVersion?: typeof getLatestVersion;
   getDraftSyncAvailable?: () => boolean;
@@ -756,6 +757,8 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     ...BASE_CAPABILITIES,
     SERVER_CAPABILITIES.artifactRelayPreview.name,
   ];
+  if (options?.collectionQueryUpdatesAvailable)
+    capabilities.push(SERVER_CAPABILITIES.collectionQueryUpdates.name);
   if (options?.getDraftSyncAvailable?.())
     capabilities.push(SERVER_CAPABILITIES.draftSync.name);
   if (options?.getRendezComposeAvailable?.())
@@ -952,6 +955,9 @@ export function createVersionRoutes(options?: VersionRouteOptions): Hono {
       sessionSandboxAvailability,
     });
     const deniedCapabilities = [
+      ...(!options?.collectionQueryUpdatesAvailable
+        ? [SERVER_CAPABILITIES.collectionQueryUpdates.name]
+        : []),
       SERVER_CAPABILITIES.projectSessionDefaults.name,
       ...(options?.deniedCapabilities ?? []),
     ];

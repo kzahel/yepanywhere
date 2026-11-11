@@ -7,6 +7,7 @@ import {
 } from "@yep-anywhere/shared";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
+import { readAuthenticatedJson } from "./authenticated-json-read.js";
 
 /** Bundle canonical authenticated reads without waiting for the slowest part. */
 export function streamNewSessionBootstrap(
@@ -60,4 +61,13 @@ export function streamNewSessionBootstrap(
     const failure = results.find((result) => result.status === "rejected");
     if (failure?.status === "rejected") throw failure.reason;
   });
+}
+
+export function createNewSessionBootstrapRead(
+  app: Parameters<typeof readAuthenticatedJson>[0],
+) {
+  return (context: Context) =>
+    streamNewSessionBootstrap(context, (path, signal) =>
+      readAuthenticatedJson(app, context, path, signal),
+    );
 }

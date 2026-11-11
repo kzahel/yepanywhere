@@ -33,6 +33,11 @@ import { useInboxResponseSnapshot } from "../lib/clientSummaryStore";
 import { INBOX_TIERS, type InboxTier } from "../lib/inboxTiers";
 import { useOptionalRemoteConnection } from "./RemoteConnectionContext";
 import { useCurrentSourceRuntime } from "./SourceRuntimeContext";
+import { useCollectionUpdates } from "../hooks/useCollectionUpdates";
+import {
+  collectionQueryIsLive,
+  pauseCollectionUpdates,
+} from "../lib/collectionUpdates";
 
 // Re-export types for consumers
 export type { InboxItem, InboxResponse } from "../api/client";
@@ -293,6 +298,7 @@ export function InboxProvider({
 
   const shouldRevalidateInboxEvent = useCallback(
     (event: RetainedClientQueryEvent) => {
+      if (collectionQueryIsLive(runtime, INBOX_QUERY_KEY)) return false;
       if (event.eventType !== "session-updated") {
         return true;
       }
@@ -303,7 +309,7 @@ export function InboxProvider({
         !locallyPatchableSessionUpdatedIdsRef.current.has(sessionId)
       );
     },
-    [],
+    [runtime],
   );
 
   const {
@@ -331,20 +337,41 @@ export function InboxProvider({
     applySnapshot: applyInboxSnapshot,
   });
 
+  useCollectionUpdates<InboxResponse>({
+    runtime,
+    key: INBOX_QUERY_KEY,
+    path: "/inbox?summaryMode=retained",
+    enabled: queryEnabled && isRemoteConnectionReady,
+    applySnapshot: applyInboxSnapshot,
+    fallback: () => {
+      void refetchInboxQuery({ background: true });
+    },
+  });
+
   /**
    * Force a full refresh with server-provided sort order.
    */
   const refresh = useCallback(async () => {
-    await refetchInboxQuery({ meta: { forceFullSort: true } });
-  }, [refetchInboxQuery]);
+    const resume = pauseCollectionUpdates(runtime, INBOX_QUERY_KEY);
+    try {
+      await refetchInboxQuery({ meta: { forceFullSort: true } });
+    } finally {
+      resume();
+    }
+  }, [refetchInboxQuery, runtime]);
 
   const refetch = useCallback(
     async (forceFullSort = false) => {
-      await refetchInboxQuery(
-        forceFullSort ? { meta: { forceFullSort: true } } : undefined,
-      );
+      const resume = pauseCollectionUpdates(runtime, INBOX_QUERY_KEY);
+      try {
+        await refetchInboxQuery(
+          forceFullSort ? { meta: { forceFullSort: true } } : undefined,
+        );
+      } finally {
+        resume();
+      }
     },
-    [refetchInboxQuery],
+    [refetchInboxQuery, runtime],
   );
 
   // Computed totals

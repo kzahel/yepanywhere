@@ -118,6 +118,7 @@ export interface InboxItem {
 }
 
 export interface InboxResponse {
+  nextTransitionAt?: number;
   catalog?: RetainedSessionCollectionState;
   needsAttention: InboxItem[];
   active: InboxItem[];
@@ -538,6 +539,9 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
 
     // Apply limits per tier
     const response: InboxResponse = {
+      ...(retained?.nextTransitionAt !== undefined
+        ? { nextTransitionAt: retained.nextTransitionAt }
+        : {}),
       ...(retained ? { catalog: retained.catalog } : {}),
       needsAttention: needsAttention.slice(0, MAX_ITEMS_PER_TIER),
       active: active.slice(0, MAX_ITEMS_PER_TIER),

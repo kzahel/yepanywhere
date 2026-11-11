@@ -11,7 +11,8 @@ and resolved-provider dispatch slice; Claude indexed warm windows are
 implemented, with durable SQL facts, bounded cold windows and SQL-owned ordinary
 append state. First construction, exceptional metadata selection and full
 qualification remain open.
-Full scenario targets remain open.
+Stage 4 now carries authoritative bounded session/Inbox query changes with
+capability-gated fallback. Full scenario targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -54,7 +55,7 @@ request paths need a justification beyond improving one benchmark.
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
 | 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas and safe checkpoint restoration implemented; qualification/remaining consumers open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition/Codex dispatch, indexed Claude warm windows and durable SQL cold-window queries and SQL-owned ordinary append state implemented; first construction and exceptional metadata work remain open |
-| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Deferred; protocol capability/fallback review remains required |
+| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue and transcript rendering remain open |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Continuous evidence; final acceptance pending |
 
 These are architectural dependencies, not five large all-or-nothing rewrites.
@@ -62,7 +63,18 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — bounded transcript ingestion
+### Current focus — authoritative client collection updates
+
+Stage 4 now carries canonical SQL query results through one source-owned client
+stream. Session feeds (up to 500 rows) and Inbox receive changed rows and exact
+membership/count updates, share identical server acquisitions within an auth
+scope, and reacquire a bounded replacement after reconnect. Older servers and
+complete search keep existing reads. Projects, ProjectQueue and transcript
+rendering remain separate consumers. [Collection-update evidence](../research/190-collection-query-updates.md)
+records correctness, runtime checks and the bounded browser result; it does not
+certify the full 50,000-session targets.
+
+### Previous focus — bounded transcript ingestion
 
 The SQL ownership slices below have landed. Stage 3 now shares acquisition and
 serves Claude bounded windows from a compact source/branch index, extending
@@ -75,7 +87,8 @@ owns that slice. The [SQL writer outcome](../research/190-claude-sql-writer.md)
 now removes ordinary first-changed-read restoration and active graph retention.
 First construction still streams source; exceptional branch/rewind selection and
 full qualification remain open.
-Full active-tab qualification and client authoritative change delivery remain open.
+Full active-tab qualification, project/queue updates and incremental transcript
+delivery/rendering remain open.
 
 ### Previous focus — SQL-owned catalog and bounded working set
 
@@ -386,6 +399,13 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Stage 4 checkpoint, 2026-11-11: bounded session feeds and Inbox now consume
+server-owned query changes. A real two-page browser scenario with 401 sessions
+sharing a timestamp, native writes and 25 sequential keystrokes makes zero
+session/Inbox GETs during typing on both Node and Bun; Inbox changes are asserted.
+The full combined-scale baseline below remains unchanged pending qualification.
+
+
 Architecture checkpoint, 2026-11-10: the source audit and isolated retention
 experiments select shared Codex discovery ownership as the first foundation
 slice (above). The 50,000-session no-detail case retained 715.2 MiB after
@@ -538,6 +558,12 @@ The original measured baseline below remains historical evidence:
   the open's preview refresh does not reread it either.
 
 ### 3 — send changes to tabs
+
+Bounded session/Inbox implementation is complete for the new
+`collection-query-updates` capability, with exact memberships/counts and bounded
+replacement catch-up. See the [outcome](../research/190-collection-query-updates.md).
+Projects, ProjectQueue and incremental transcript rendering remain open.
+
 
 Plan 189 step 8: a write sends the changed row, and the feeds, Inbox and
 their counts update from it. Needs a capability; full reload kept for older

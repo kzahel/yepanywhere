@@ -336,3 +336,15 @@ export function resetQueryRevalidationForTests(): void {
   }
   owners.clear();
 }
+
+/** An authoritative stream frame supersedes a queued whole-query revalidation. */
+export function cancelPendingQueryRevalidation(
+  sourceKey: ClientSummarySourceKey,
+  key: ClientQueryKey,
+) {
+  const owner = owners.get(ownerKeyFor(sourceKey, key));
+  if (!owner) return;
+  clearOwnerTimer(owner);
+  owner.catalogRun = false;
+  owner.twin = undefined;
+}

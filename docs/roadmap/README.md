@@ -1061,15 +1061,15 @@ query owner with keyed updates, grouped counts and page/tier hydration;
 [query evidence](../research/190-sql-collection-queries.md) records its cold
 cost and remaining scope. Canonical seen persistence and lazy metadata now
 remove their full resident mirrors; [cold-state evidence](../research/190-cold-state-sql.md)
-records restart, write and memory observations. Changed-file publication and
-durable query restoration remain open. No full plan target is newly certified.
-Functioning-server
-memory qualification is in the ownership research outcome; the remaining
-native catalog owner and derived query rebuilding remain to migrate.
-Large-transcript incremental reads
-remain required, followed by client change delivery/rendering. The benchmark
-baseline is complete; no performance target is met yet. This maintenance
-work does not displace release delivery or the concurrent design work below.
+records restart, write and memory observations. SQL catalog ownership and safe
+query restoration have since landed. Shared transcript ingestion, Claude durable
+cold windows and SQL-owned ordinary append state now avoid history restoration
+on the ordinary changed read; unseen construction and exceptional selection remain.
+Stage 4's [bounded collection updates](../research/190-collection-query-updates.md)
+now carry canonical session/Inbox membership, rows and counts through a shared
+capability-gated stream. Projects, ProjectQueue, transcript rendering and full
+combined-scale qualification remain open. No full plan target is newly certified.
+This maintenance work does not displace release delivery or concurrent design work.
 
 ## Design language unification
 

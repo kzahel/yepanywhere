@@ -175,13 +175,14 @@ export class RetainedSessionQuery {
     );
     return task;
   }
-  private cutoff() {
+  private cutoff(now: number) {
     const value = getActiveSessionIndexOptions(
       this.deps.sessionAutoArchiveDays,
+      now,
     )?.activeAfterMs;
     return value !== undefined && Number.isFinite(value) ? value : undefined;
   }
-  private async synchronize() {
+  private async synchronize(now: number) {
     if (this.needsRestoreIndexes) {
       this.needsRestoreIndexes = false;
       await this.sql.finishReplacement(this.service.querySignal);
@@ -305,7 +306,7 @@ export class RetainedSessionQuery {
       attention: boolean;
     }> = [];
     const metadata = this.deps.sessionMetadataService;
-    const cutoff = this.cutoff();
+    const cutoff = this.cutoff(now);
     const affectedIds = [...affected];
     let metadataBatch: ReadonlyMap<string, SessionMetadata | undefined> =
       new Map();
@@ -499,14 +500,38 @@ export class RetainedSessionQuery {
         .map(([id, name]) => ({ id, name }))
         .sort(compareProjectOptions),
       catalog: this.catalog(),
+      nextTransitionAt: this.archiveTransition(query.accessibleProjectIds),
     };
+  }
+  private deadlineProjects(
+    query: Pick<
+      CollectionPageQuery,
+      "accessibleProjectIds" | "filterProjectId"
+    >,
+  ) {
+    return query.filterProjectId === undefined
+      ? query.accessibleProjectIds
+      : !query.accessibleProjectIds ||
+          query.accessibleProjectIds.includes(query.filterProjectId)
+        ? [query.filterProjectId]
+        : [];
+  }
+  private archiveTransition(projects?: readonly string[]) {
+    const days = this.deps.sessionAutoArchiveDays;
+    if (!days || !Number.isFinite(days) || days <= 0) return undefined;
+    const oldest = this.sql.oldestAutomatic(projects);
+    // The existing archive cutoff floors (now - days) to UTC midnight and
+    // excludes equality. Rolling updatedAt+days would miss that boundary.
+    return oldest === undefined
+      ? undefined
+      : (Math.floor(oldest / 86_400_000) + 1 + days) * 86_400_000;
   }
   page(
     query: CollectionPageQuery,
     relationships?: RetainedItemsDeps["providerChildRelationships"],
   ) {
     return this.run(async () => {
-      await this.synchronize();
+      await this.synchronize(Date.now());
       return this.pageResult(query, relationships);
     });
   }
@@ -517,7 +542,7 @@ export class RetainedSessionQuery {
     ) => readonly GlobalSessionItem[],
   ) {
     return this.run(async () => {
-      await this.synchronize();
+      await this.synchronize(Date.now());
       const result = this.pageResult({
         limit: Number.MAX_SAFE_INTEGER - 1,
         includeArchived: true,
@@ -543,7 +568,7 @@ export class RetainedSessionQuery {
     now: number;
   }) {
     return this.run(async () => {
-      await this.synchronize();
+      await this.synchronize(options.now);
       const query = {
         filterProjectId: options.projectId,
         accessibleProjectIds: options.accessibleProjectIds,
@@ -590,6 +615,23 @@ export class RetainedSessionQuery {
       return {
         sessions: rows.map((row) => this.hydrate(row, undefined, true)),
         catalog: this.catalog(),
+        nextTransitionAt: (() => {
+          const projects = this.deadlineProjects({
+            filterProjectId: options.projectId,
+            accessibleProjectIds: options.accessibleProjectIds,
+          });
+          const tier = this.sql.nextTransition(
+            options.now,
+            [1_800_000, 28_800_000, 86_400_000],
+            projects,
+          );
+          const archive = this.archiveTransition(projects);
+          return tier === undefined
+            ? archive
+            : archive === undefined
+              ? tier
+              : Math.min(tier, archive);
+        })(),
       };
     });
   }

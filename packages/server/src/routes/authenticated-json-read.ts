@@ -14,8 +14,9 @@ export async function readAuthenticatedJson(
   headers.delete("If-None-Match");
   headers.delete("If-Modified-Since");
   headers.set("Accept", "application/json");
-  return app.fetch(
-    new Request(new URL(path, context.req.url), { headers, signal }),
-    context.env,
-  );
+  const url = new URL(path, context.req.url);
+  const desktopToken = context.req.query("desktop_token");
+  if (desktopToken !== undefined)
+    url.searchParams.set("desktop_token", desktopToken);
+  return app.fetch(new Request(url, { headers, signal }), context.env);
 }

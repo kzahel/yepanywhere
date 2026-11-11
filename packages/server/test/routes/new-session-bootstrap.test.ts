@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { NEW_SESSION_BOOTSTRAP } from "@yep-anywhere/shared";
 import { join } from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, appendFile } from "node:fs/promises";
 import { afterEach, expect, it } from "vitest";
+import { EventBus } from "../../src/watcher/EventBus.js";
+import {
+  applyCollectionUpdate,
+  type CollectionUpdate,
+} from "@yep-anywhere/shared/collection-updates";
 import type { AppResult } from "../../src/app.js";
 import { RecentsService } from "../../src/recents/RecentsService.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
@@ -21,7 +26,7 @@ afterEach(async () => {
 });
 
 it.each(["direct", "relay"])(
-  "preserves %s principal filtering inside every bundle part",
+  "preserves %s principal filtering inside bundles and collection updates",
   async (transport) => {
     const dataDir = join(
       process.env.YEP_DATA_DIR!,
@@ -64,6 +69,7 @@ it.each(["direct", "relay"])(
     await authService.enableAuth("bootstrap-owner-password");
     await recentsService.recordVisit("visible-session", visibleId!);
     await recentsService.recordVisit("private-session", privateId!);
+    const bus = new EventBus();
     const instance = createApp({
       provider: new ScriptedClaudeProvider(),
       dataDir,
@@ -73,6 +79,8 @@ it.each(["direct", "relay"])(
       limitedUsersService,
       authService,
       authDisabled: false,
+      eventBus: bus,
+      getCatalogFamilies: () => ["claude"],
     });
     apps.push(instance);
     expect(
@@ -139,6 +147,120 @@ it.each(["direct", "relay"])(
     expect(await ordinary.json()).toEqual(
       frames.find((frame) => frame.part === "settings").body,
     );
+    const env =
+      transport === "relay"
+        ? {
+            [WS_INTERNAL_AUTHENTICATED]: true,
+            [AUTHENTICATED_SRP_TRANSPORT]: {
+              kind: "srp",
+              username: "reader",
+              sessionId: "test-session",
+            },
+          }
+        : undefined;
+    await expect
+      .poll(async () => {
+        const response = await instance.app.request(
+          "/api/sessions?summaryMode=retained",
+          { headers },
+          env,
+        );
+        return ((await response.json()) as { sessions: unknown[] }).sessions
+          .length;
+      })
+      .toBe(1);
+    const abort = new AbortController();
+    const query = "/sessions?limit=20";
+    const updates = await instance.app.request(
+      "/api/activity/collections?queries=" +
+        encodeURIComponent(JSON.stringify([query])),
+      { headers, signal: abort.signal },
+      env,
+    );
+    expect(updates.status).toBe(200);
+    const reader = updates.body!.getReader();
+    try {
+      const frame = JSON.parse(
+        new TextDecoder().decode((await reader.read()).value!).trim(),
+      ) as CollectionUpdate;
+      const body = applyCollectionUpdate(undefined, frame).body;
+      expect(
+        (body.sessions as Array<{ projectId: string }>).map(
+          (row) => row.projectId,
+        ),
+      ).toEqual([visibleId]);
+      expect(JSON.stringify(frame)).not.toContain(privateId!);
+      if (transport === "direct") {
+        const peerSession = await authService.createSession("peer", "reader");
+        const peerHeaders = {
+          ...headers,
+          Cookie: `${SESSION_COOKIE_NAME}=${peerSession}`,
+        };
+        const peerAbort = new AbortController();
+        const peer = await instance.app.request(
+          "/api/activity/collections?queries=" +
+            encodeURIComponent(JSON.stringify([query])),
+          { headers: peerHeaders, signal: peerAbort.signal },
+        );
+        expect(peer.status).toBe(200);
+        const peerReader = peer.body!.getReader();
+        try {
+          expect((await peerReader.read()).done).toBe(false);
+          await authService.invalidateSession(peerSession);
+          const file = join(projectsDir, "-bootstrap-0", "0.jsonl");
+          const at = new Date(Date.now() + 1000).toISOString();
+          await appendFile(
+            file,
+            JSON.stringify({
+              type: "assistant",
+              uuid: "authorized-tail",
+              timestamp: at,
+              message: {
+                role: "assistant",
+                content: [{ type: "text", text: "Fresh authorized output" }],
+              },
+            }) + "\n",
+          );
+          bus.emit({
+            type: "file-change",
+            provider: "claude",
+            path: file,
+            relativePath: "-bootstrap-0/0.jsonl",
+            changeType: "modify",
+            fileType: "session",
+            timestamp: at,
+          });
+          expect((await peerReader.read()).done).toBe(true);
+          // A second credential's retirement cannot retire this healthy view.
+          let changed = false;
+          while (!changed) {
+            const chunk = await reader.read();
+            expect(chunk.done).toBe(false);
+            const frame = JSON.parse(
+              new TextDecoder().decode(chunk.value!).trim(),
+            ) as CollectionUpdate;
+            changed = frame.upserts.some(([, row]) => row.updatedAt === at);
+          }
+        } finally {
+          peerAbort.abort();
+          await peerReader.cancel();
+        }
+      }
+      const forbidden = await instance.app.request(
+        "/api/activity/collections?queries=" +
+          encodeURIComponent(JSON.stringify(["/settings"])),
+        { headers },
+        env,
+      );
+      expect(forbidden.status).toBe(400);
+      expect(
+        (await instance.app.request("/api/activity/status", { headers }, env))
+          .status,
+      ).toBe(403);
+    } finally {
+      abort.abort();
+      await reader.cancel();
+    }
   },
 );
 
@@ -222,5 +344,54 @@ it("streams prepared route facts while version discovery is held", async () => {
     }
   } finally {
     release();
+  }
+});
+
+it("preserves desktop query authentication through canonical collection reads", async () => {
+  const dataDir = join(
+    process.env.YEP_DATA_DIR!,
+    "collection-desktop-" + randomUUID(),
+  );
+  const authService = new AuthService({
+    dataDir,
+    cookieSecret: "desktop-collection-test",
+  });
+  await authService.initialize();
+  await authService.enableAuth("owner-collection-password");
+  const instance = createApp({
+    dataDir,
+    authService,
+    authDisabled: false,
+    desktopAuthToken: "desktop-collection-token",
+    eventBus: new EventBus(),
+  });
+  apps.push(instance);
+  const path =
+    "/api/activity/collections?queries=" +
+    encodeURIComponent(JSON.stringify(["/sessions?limit=20"]));
+  const abort = new AbortController();
+  const response = await instance.app.request(
+    path + "&desktop_token=desktop-collection-token",
+    { signal: abort.signal, headers: { "X-Yep-Anywhere": "true" } },
+  );
+  expect(response.status).toBe(200);
+  const reader = response.body!.getReader();
+  try {
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    const frame = JSON.parse(
+      new TextDecoder().decode(first.value!).trim(),
+    ) as CollectionUpdate;
+    expect(applyCollectionUpdate(undefined, frame).body.sessions).toEqual([]);
+    expect(
+      (
+        await instance.app.request(path + "&desktop_token=wrong", {
+          headers: { "X-Yep-Anywhere": "true" },
+        })
+      ).status,
+    ).toBe(401);
+  } finally {
+    abort.abort();
+    await reader.cancel();
   }
 });
