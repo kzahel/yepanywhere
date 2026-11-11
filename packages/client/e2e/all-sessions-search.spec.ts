@@ -156,12 +156,44 @@ function saveSession(
   createdFiles.push(file);
 }
 
+/**
+ * Wait until the server catalog lists freshly saved sessions. Tests that
+ * derive fixture rows from a saved seed pass the real response through while
+ * the seed is missing, and a worker shared with many earlier specs can take
+ * well past the default expect timeout to discover a new transcript.
+ */
+async function awaitCatalogSessions(
+  baseURL: string | undefined,
+  ids: string[],
+) {
+  await expect
+    .poll(
+      async () => {
+        const response = await fetch(
+          `${baseURL}/api/sessions?summaryMode=retained&limit=500&includeArchived=true`,
+          { headers: { "X-Yep-Anywhere": "true" } },
+        );
+        if (!response.ok) return [];
+        const data = (await response.json()) as {
+          sessions: Array<{ id: string }>;
+        };
+        return ids.filter((id) =>
+          data.sessions.some((session) => session.id === id),
+        );
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual(ids);
+}
+
 test("All Sessions keeps every typed character with a large title catalog", async ({
   page,
   baseURL,
 }) => {
   test.setTimeout(60000);
   saveSession("typing-fixture", "typing");
+  await awaitCatalogSessions(baseURL, ["typing-fixture"]);
+  await readCollectionsOverRest(page);
   await routeWithDrain(page, /\/api\/sessions\?/, async (route) => {
     // Inflate the page catalog, retaining the sidebar's actual bounded feed.
     if (new URL(route.request().url()).searchParams.get("limit") !== "500")
@@ -370,7 +402,9 @@ for (const viewport of [
     page,
     baseURL,
   }) => {
+    test.setTimeout(60_000);
     saveSession(`provenance-${viewport.name}`, `provenance ${viewport.name}`);
+    await awaitCatalogSessions(baseURL, [`provenance-${viewport.name}`]);
     await page.setViewportSize(viewport);
     await readCollectionsOverRest(page);
     await routeWithDrain(page, /\/api\/sessions\?/, async (route) => {
@@ -576,28 +610,10 @@ for (const viewport of [
       `coverage-error-${viewport.name}`,
       "A transcript with a malformed record",
     );
-    const fixtureIds = [
+    await awaitCatalogSessions(baseURL, [
       `coverage-valid-${viewport.name}`,
       `coverage-error-${viewport.name}`,
-    ];
-    await expect
-      .poll(
-        async () => {
-          const response = await fetch(
-            `${baseURL}/api/sessions?summaryMode=retained&limit=500&includeArchived=true`,
-            { headers: { "X-Yep-Anywhere": "true" } },
-          );
-          if (!response.ok) return [];
-          const data = (await response.json()) as {
-            sessions: Array<{ id: string }>;
-          };
-          return fixtureIds.filter((id) =>
-            data.sessions.some((session) => session.id === id),
-          );
-        },
-        { timeout: 30_000 },
-      )
-      .toEqual(fixtureIds);
+    ]);
     const requested = new Set<string>();
     await readCollectionsOverRest(page);
     await routeWithDrain(page, /\/api\/sessions\?/, async (route) => {

@@ -45,15 +45,18 @@ async function capture(page: Page, name: string) {
   });
 }
 
-async function clickSidebarSession(page: Page, sessionPath: string) {
-  const sidebar = page.locator("[data-sidebar]");
-  if (!(await sidebar.isVisible().catch(() => false))) {
-    await page.getByRole("button", { name: "Open sidebar" }).click();
-    await expect(sidebar).toBeVisible();
-  }
-  const sessionLink = sidebar.locator(`a[href="${sessionPath}"]`).first();
-  await expect(sessionLink).toBeVisible();
-  await sessionLink.click();
+/**
+ * Move to another session in-app, as a sidebar click would, without a reload.
+ *
+ * The sidebar lists only the most recent sessions, and a worker server shared
+ * with earlier specs can push these older fixture sessions out of it, so
+ * the router is driven directly instead of through a sidebar link.
+ */
+async function navigateInApp(page: Page, sessionPath: string) {
+  await page.evaluate((path) => {
+    history.pushState(null, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, sessionPath);
 }
 
 async function readSessionScrollMemory(page: Page, targetSessionId: string) {
@@ -220,7 +223,7 @@ for (const viewport of viewports) {
       .toBe(true);
 
     const otherSessionPath = `/projects/${projectId}/sessions/user-turn-presentation-001`;
-    await clickSidebarSession(page, otherSessionPath);
+    await navigateInApp(page, otherSessionPath);
     await expect(page).toHaveURL(`${baseURL}${otherSessionPath}`);
     await expect(
       page
@@ -228,7 +231,7 @@ for (const viewport of viewports) {
         .getByText("The short-width-dependent turn is complete."),
     ).toBeVisible();
 
-    await clickSidebarSession(
+    await navigateInApp(
       page,
       `/projects/${projectId}/sessions/${scrollMemorySessionId}`,
     );
@@ -320,12 +323,12 @@ for (const viewport of viewports) {
       .toEqual(highWaterSnapshot);
 
     const otherSessionPath = `/projects/${projectId}/sessions/user-turn-presentation-001`;
-    await clickSidebarSession(page, otherSessionPath);
+    await navigateInApp(page, otherSessionPath);
     await expect(page).toHaveURL(`${baseURL}${otherSessionPath}`);
     await expect
       .poll(() => readSessionScrollMemory(page, scrollMemorySessionId))
       .toEqual(highWaterSnapshot);
-    await clickSidebarSession(page, sessionPath);
+    await navigateInApp(page, sessionPath);
     await expect(page).toHaveURL(sessionUrl);
     await expect
       .poll(async () => {
