@@ -60,6 +60,12 @@ direct dependents instead: `jsdom@25` (client tests only) stayed on
 `ws@8.19.0`, inside two `ws` advisories, although its `^8.18.0` range admits
 the patched 8.21. The scoped `"jsdom>ws": "^8.21.3"` override moves only that
 edge. Drop it when a newer jsdom resolves a patched `ws` without it.
+The same reasoning gives `"@google-cloud/storage>fast-xml-parser": "^5.12.0"`
+(2026-11-11, GHSA-474x-hrwr-fgx4, reached only through the push broker's
+`firebase-admin`): storage's `^5.3.4` admits 5.12, but the depth refresh also
+re-resolved unrelated CSS and Babel packages, while the scoped override moves
+only the parser and its own dependencies. Drop it once storage resolves 5.12+
+on its own.
 
 The 2026-09-29 audit refresh moves `fast-uri` to 3.1.7 and the MCP SDK's
 `express-rate-limit -> ip-address` edge to 10.7.2 (within its `^10.2.0`
