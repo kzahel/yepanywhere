@@ -498,6 +498,61 @@ describe("createSessionSubscription", () => {
     ]);
   });
 
+  it("resolves citations from replay sources already held by a reconnecting client", async () => {
+    const source = {
+      type: "user",
+      uuid: "source",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: "web",
+          content:
+            "Source (https://example.com/source)\n【turn8search0】 snippet",
+        },
+      ],
+    };
+    const answer = {
+      type: "assistant",
+      uuid: "answer",
+      content: [
+        { type: "text", text: "Claim. \uE200cite\uE202turn8search0\uE201" },
+      ],
+    };
+    const { process } = createMockProcess({
+      getMessageHistory: vi.fn(() => [source, answer]),
+      getReplaySeq: vi.fn((message: { uuid: string }) =>
+        message.uuid === "source" ? 1 : 2,
+      ),
+      getReplayCursor: vi.fn(() => 2),
+    });
+    const { emit, events } = collectEmit();
+    const subscription = createSessionSubscription(process, emit, {
+      lastEventId: "proc-1.1.0",
+    });
+    try {
+      await vi.waitFor(() =>
+        expect(
+          events.some(
+            ([type, data]) =>
+              type === "markdown-augment" &&
+              (data as { html: string }).html.includes(
+                'href="https://example.com/source"',
+              ),
+          ),
+        ).toBe(true),
+      );
+      expect(
+        events.filter(
+          ([type, data]) =>
+            type === "message" && (data as { uuid: string }).uuid === "source",
+        ),
+      ).toHaveLength(0);
+      expect(source.content[0]).not.toHaveProperty("_html");
+    } finally {
+      subscription.cleanup();
+    }
+  });
+
   it("enriches replay clones without mutating process history", async () => {
     const historyMessage = {
       type: "assistant",

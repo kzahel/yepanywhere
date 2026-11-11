@@ -19,6 +19,10 @@ import MarkdownIt, {
   type Token,
 } from "markdown-it";
 import sanitizeHtml from "sanitize-html";
+import type { CitationRenderOptions } from "./citation-sources.js";
+import { installMarkdownCitations } from "./markdown-citations.js";
+import { escapeHtml } from "./markdown-html-escaping.js";
+export { escapeHtml } from "./markdown-html-escaping.js";
 import type { ProjectPathIndex } from "../projects/projectPathIndex.js";
 import { renderUnicodeScripts } from "./unicode-math.js";
 import {
@@ -81,7 +85,7 @@ function localMediaType(ext: string): LocalResourceMediaType {
 }
 const MARKDOWN_EXTENSIONS = new Set(["md", "markdown", "qmd"]);
 
-export interface SafeMarkdownRenderOptions {
+export interface SafeMarkdownRenderOptions extends CitationRenderOptions {
   /**
    * Directory that relative local markdown links are resolved against.
    *
@@ -1720,6 +1724,8 @@ markdownRenderer.renderer.rules.ya_visualize = (tokens, index) => {
   );
 };
 
+installMarkdownCitations(markdownRenderer, () => activeRenderOptions);
+
 markdownRenderer.use(markdownItKatex, {
   allowInlineWithSpace: false,
   delimiters: "all",
@@ -1925,15 +1931,6 @@ export function renderSafeMarkdown(
     projectFileCodeLinkCache = new Map();
     activeRenderOptions = {};
   }
-}
-
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export {

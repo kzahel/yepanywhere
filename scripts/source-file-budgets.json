@@ -70,7 +70,7 @@
       "maxLines": 4565
     },
     "packages/server/src/augments/safe-markdown.ts": {
-      "maxLines": 1951
+      "maxLines": 1948
     },
     "packages/server/src/indexes/SessionIndexService.ts": {
       "maxLines": 2396

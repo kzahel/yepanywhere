@@ -16,6 +16,7 @@ import {
   markSubagent,
 } from "./augments/index.js";
 import { isLiveToolOutputMessage } from "@yep-anywhere/shared";
+import { CitationSources } from "./augments/citation-sources.js";
 import { createTaskListAugmenter } from "./augments/task-list-augments.js";
 import { getLogger } from "./logging/logger.js";
 import {
@@ -171,6 +172,7 @@ export function createSessionSubscription(
   // Task correlation is synchronous and order-sensitive, so prepare it before
   // raw delivery. The async augmenter shares this idempotent instance.
   const taskListAugmenter = createTaskListAugmenter();
+  const citationSources = new CitationSources();
 
   // Lazy augmenter
   let augmenter: StreamAugmenter | null = null;
@@ -201,6 +203,7 @@ export function createSessionSubscription(
             },
           },
           taskListAugmenter,
+          citationSources,
           onMarkdownAugment: (data) => {
             if (!completed) emit("markdown-augment", data);
           },
@@ -440,6 +443,7 @@ export function createSessionSubscription(
             break;
           }
           taskListAugmenter.processMessage(message);
+          citationSources.observeMessage(message);
 
           const startMessageId =
             extractMessageIdFromStart(message) ??
@@ -602,6 +606,7 @@ export function createSessionSubscription(
       isReplay: true,
     });
     taskListAugmenter.processMessage(message);
+    citationSources.observeMessage(message);
     if (!sendsMessage[i]) continue;
     deliveredCursor = Math.max(
       deliveredCursor,

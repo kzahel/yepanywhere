@@ -508,6 +508,35 @@ output) and mirrors the shell-output preview affordances via the shared
 primitives in `renderers/tools/outputPreview.tsx` (first-N-lines clamp,
 tail tooltip, hidden-line badge, hover copy button, click-for-modal).
 
+### Citations in assistant answers
+
+Assistant Markdown resolves complete `\uE200cite\uE202turn…\uE201` markers to
+ordinary external links labeled with the source hostname; the link title holds
+the source page title and optional line locator. Multiple source IDs produce
+separate links. Inline and fenced code retain literal markers. Malformed or
+incomplete markers remain literal until complete. Missing, evicted, conflicting,
+or unsafe source URLs render a readable `[turn…]` reference without an invented
+link. Original provider text and transcripts remain unchanged.
+
+Sources come only from tool results in the available transcript window:
+normalized Web pages, raw browsing page headers, or nested MCP/code-mode JSON
+output. User prompts and assistant prose cannot introduce source facts. URLs
+must be HTTP(S) without embedded credentials; titles and destinations are escaped
+and pass through the existing Markdown sanitizer. A source outside the loaded
+history/replay window stays unresolved; citation rendering does not start a
+transcript scan, network request, or provider call to recover it.
+
+Persisted responses collect source facts once before parallel message
+augmentation. A live subscription collects each result once and releases its
+index with the augmenter. Each index retains at most 1,024 sources and 512 KiB of
+UTF-16 source text, evicting oldest entries; one result's extraction is capped
+at 4,194,304 visited characters, 4,096 values and twelve nesting levels. Markdown cache
+keys snapshot only the current answer's cited source facts, so another session
+or an arriving source cannot reuse a stale or wrong link, and unrelated sources
+do not invalidate the answer. The existing server block renderer produces the
+links for both streaming and completed HTML. No React history scan, browser-side
+citation index, new protocol field, or additional dependency is involved.
+
 ## Inline base64 is interchange-only
 
 JSON is the interchange representation, and base64 is how binary survives

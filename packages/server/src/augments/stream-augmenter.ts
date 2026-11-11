@@ -20,6 +20,7 @@
  * ```
  */
 
+import { CitationSources } from "./citation-sources.js";
 import {
   augmentFinalizedMessage,
   getFinalMarkdownHtml,
@@ -67,6 +68,8 @@ export interface StreamAugmenterConfig {
   safeMarkdownOptions?: SafeMarkdownRenderOptions;
   /** Ordered synchronous task correlation shared with the transport. */
   taskListAugmenter?: TaskListAugmenter;
+  /** Ordered source facts, including replay messages already held by the client. */
+  citationSources?: CitationSources;
 }
 
 /** Stream augmenter instance */
@@ -133,9 +136,15 @@ export async function createStreamAugmenter(
     onMarkdownAugment,
     onPending,
     onError,
-    safeMarkdownOptions,
+    safeMarkdownOptions: baseMarkdownOptions,
     taskListAugmenter: sharedTaskListAugmenter,
   } = config;
+
+  const citationSources = config.citationSources ?? new CitationSources();
+  const safeMarkdownOptions = {
+    ...baseMarkdownOptions,
+    citationSources: citationSources.sources,
+  };
 
   // Create StreamCoordinator lazily to avoid initialization overhead
   let coordinator: StreamCoordinator | null = null;
@@ -226,6 +235,7 @@ export async function createStreamAugmenter(
   const processFinalizedMessage = async (
     message: Record<string, unknown>,
   ): Promise<MarkdownAugmentData | null> => {
+    citationSources.observeMessage(message);
     await augmentFinalizedMessage(message, {
       safeMarkdownOptions,
       onError: handleError,
@@ -236,6 +246,7 @@ export async function createStreamAugmenter(
   const processStreamingMessage = async (
     message: Record<string, unknown>,
   ): Promise<void> => {
+    citationSources.observeMessage(message);
     const messageId =
       extractMessageIdFromStart(message) ?? extractIdFromAssistant(message);
     if (messageId && messageId !== currentStreamingMessageId) {

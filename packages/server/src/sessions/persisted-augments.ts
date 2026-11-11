@@ -1,3 +1,4 @@
+import { citationOptionsForMessages } from "../augments/citation-sources.js";
 import {
   augmentEditToolUsesInMessage,
   augmentExitPlanModeAndReadResultsInMessage,
@@ -124,6 +125,10 @@ export async function augmentPersistedSessionMessages(
   safeMarkdownOptions?: SafeMarkdownRenderOptions,
   options: PersistedAugmentOptions = {},
 ): Promise<PersistedAugmentDiagnostics> {
+  safeMarkdownOptions = {
+    ...safeMarkdownOptions,
+    ...citationOptionsForMessages(messages, safeMarkdownOptions),
+  };
   const diagnostics: PersistedAugmentDiagnostics = {
     cacheHits: 0,
     cacheJoins: 0,

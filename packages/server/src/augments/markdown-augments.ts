@@ -14,6 +14,10 @@ import {
 } from "./augment-generator.js";
 import { BlockDetector } from "./block-detector.js";
 import {
+  citationOptionsForMessages,
+  citationOptionsForText,
+} from "./citation-sources.js";
+import {
   linkifyProjectPaths,
   resolveShapedPaths,
 } from "./project-path-links.js";
@@ -90,6 +94,7 @@ function markdownCacheKey(
     options?.quartoMarkdown ?? false,
     options?.siteRelativeReferences ?? false,
     options?.documentAnchors ?? null,
+    [...(options?.citationSources ?? [])],
     projectLinks?.projectId ?? null,
     projectLinks?.projectPath ?? null,
     projectLinks?.pathDiscovery ?? "resolve",
@@ -244,6 +249,10 @@ export async function renderMarkdownToHtml(
   markdown: string,
   safeMarkdownOptions?: SafeMarkdownRenderOptions,
 ): Promise<string> {
+  safeMarkdownOptions = {
+    ...safeMarkdownOptions,
+    ...citationOptionsForText(markdown, safeMarkdownOptions),
+  };
   const key = markdownCacheKey(markdown, safeMarkdownOptions);
   const index = safeMarkdownOptions?.projectFileLinks?.index;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -303,6 +312,10 @@ export async function augmentTextBlocks(
   }>,
   safeMarkdownOptions?: SafeMarkdownRenderOptions,
 ): Promise<void> {
+  safeMarkdownOptions = {
+    ...safeMarkdownOptions,
+    ...citationOptionsForMessages(messages, safeMarkdownOptions),
+  };
   // Process all messages in parallel
   const messagePromises = messages.map(async (msg) => {
     // Compaction handoffs are Markdown too, but their chip label and raw
