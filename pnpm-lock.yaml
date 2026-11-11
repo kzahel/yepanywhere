@@ -12,6 +12,9 @@ overrides:
   postcss: ^8.5.23
 
 patchedDependencies:
+  '@hono/node-server@2.1.6':
+    hash: 0f8d901a2bd24358f487c51f87b3aec0448e96beca1f8b3276a99ce11b7b8310
+    path: patches/@hono__node-server@2.1.6.patch
   zod@4.6.7:
     hash: 7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38
     path: patches/zod@4.6.7.patch
@@ -182,7 +185,7 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^2.1.6
-        version: 2.1.6(hono@4.13.12)
+        version: 2.1.6(patch_hash=0f8d901a2bd24358f487c51f87b3aec0448e96beca1f8b3276a99ce11b7b8310)(hono@4.13.12)
       '@yep-anywhere/shared':
         specifier: workspace:*
         version: link:../shared
@@ -213,7 +216,7 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^2.1.6
-        version: 2.1.6(hono@4.13.12)
+        version: 2.1.6(patch_hash=0f8d901a2bd24358f487c51f87b3aec0448e96beca1f8b3276a99ce11b7b8310)(hono@4.13.12)
       '@yep-anywhere/shared':
         specifier: workspace:*
         version: link:../shared
@@ -259,7 +262,7 @@ importers:
         version: 0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       '@hono/node-server':
         specifier: ^2.1.6
-        version: 2.1.6(hono@4.13.12)
+        version: 2.1.6(patch_hash=0f8d901a2bd24358f487c51f87b3aec0448e96beca1f8b3276a99ce11b7b8310)(hono@4.13.12)
       '@mdit/plugin-katex':
         specifier: 1.1.0
         version: 1.1.0(markdown-it@15.0.3)
@@ -5887,7 +5890,7 @@ snapshots:
       yargs: 17.7.3
     optional: true
 
-  '@hono/node-server@2.1.6(hono@4.13.12)':
+  '@hono/node-server@2.1.6(patch_hash=0f8d901a2bd24358f487c51f87b3aec0448e96beca1f8b3276a99ce11b7b8310)(hono@4.13.12)':
     dependencies:
       hono: 4.13.12
 
@@ -6089,7 +6092,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))':
     dependencies:
-      '@hono/node-server': 2.1.6(hono@4.13.12)
+      '@hono/node-server': 2.1.6(patch_hash=0f8d901a2bd24358f487c51f87b3aec0448e96beca1f8b3276a99ce11b7b8310)(hono@4.13.12)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5

@@ -307,7 +307,9 @@ describe.skipIf(process.platform !== "linux")(
       `);
       expect(await laterResume(source)).toMatchInlineSnapshot(`
         {
-          "listedAfterwards": [],
+          "listedAfterwards": [
+            "real",
+          ],
           "projectId": "<real-id>",
           "projectPath": "<real>",
           "sandbox": "project-write",
@@ -340,7 +342,9 @@ describe.skipIf(process.platform !== "linux")(
       `);
       expect(await laterResume(child)).toMatchInlineSnapshot(`
         {
-          "listedAfterwards": [],
+          "listedAfterwards": [
+            "real",
+          ],
           "projectId": "<real-id>",
           "projectPath": "<real>",
           "sandbox": "project-write",
@@ -368,10 +372,16 @@ describe.skipIf(process.platform !== "linux")(
           "workingProjectId": "<real-id>",
         }
       `);
-      expect(await listedUnder(child)).toMatchInlineSnapshot(`[]`);
+      expect(await listedUnder(child)).toMatchInlineSnapshot(`
+        [
+          "real",
+        ]
+      `);
       expect(await laterResume(child)).toMatchInlineSnapshot(`
         {
-          "listedAfterwards": [],
+          "listedAfterwards": [
+            "real",
+          ],
           "projectId": "<real-id>",
           "projectPath": "<real>",
           "sandbox": "project-write",
@@ -400,10 +410,16 @@ describe.skipIf(process.platform !== "linux")(
           "workingProjectId": "<real-id>",
         }
       `);
-      expect(await listedUnder(child)).toMatchInlineSnapshot(`[]`);
+      expect(await listedUnder(child)).toMatchInlineSnapshot(`
+        [
+          "real",
+        ]
+      `);
       expect(await laterResume(child)).toMatchInlineSnapshot(`
         {
-          "listedAfterwards": [],
+          "listedAfterwards": [
+            "real",
+          ],
           "projectId": "<real-id>",
           "projectPath": "<real>",
           "sandbox": "project-write",
@@ -434,10 +450,16 @@ describe.skipIf(process.platform !== "linux")(
           "workingProjectId": "<real-id>",
         }
       `);
-      expect(await listedUnder(child)).toMatchInlineSnapshot(`[]`);
+      expect(await listedUnder(child)).toMatchInlineSnapshot(`
+        [
+          "real",
+        ]
+      `);
       expect(await laterResume(child)).toMatchInlineSnapshot(`
         {
-          "listedAfterwards": [],
+          "listedAfterwards": [
+            "real",
+          ],
           "projectId": "<real-id>",
           "projectPath": "<real>",
           "sandbox": "project-write",
@@ -518,13 +540,19 @@ describe.skipIf(process.platform !== "linux")(
         }
       `);
       expect(await listedUnder(target!.targetSessionId!)).toMatchInlineSnapshot(
-        `[]`,
+        `
+        [
+          "real",
+        ]
+      `,
       );
       expect(
         await laterResume(target!.targetSessionId!),
       ).toMatchInlineSnapshot(`
         {
-          "listedAfterwards": [],
+          "listedAfterwards": [
+            "real",
+          ],
           "projectId": "<real-id>",
           "projectPath": "<real>",
           "sandbox": "project-write",

@@ -108,6 +108,61 @@ describe("session detail compact-tail pagination", () => {
     );
   }
 
+  it("narrows an indexed Claude transcript by turns and loads its older page", async () => {
+    const sessionId = "claude-turn-window";
+    const sessionDir = join(
+      testDir,
+      "localhost",
+      projectPath.replace(/[/\\:]/g, "-"),
+    );
+    const rows = Array.from({ length: 6 }, (_, index) => ({
+      type: index % 2 === 0 ? "user" : "assistant",
+      uuid: `turn-${index}`,
+      parentUuid: index === 0 ? null : `turn-${index - 1}`,
+      cwd: projectPath,
+      sessionId,
+      timestamp: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+      message: {
+        role: index % 2 === 0 ? "user" : "assistant",
+        content: [{ type: "text", text: `Message ${index}` }],
+      },
+    }));
+    await writeFile(
+      join(sessionDir, `${sessionId}.jsonl`),
+      `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`,
+    );
+    const { app } = createApp({
+      provider: new ScriptedClaudeProvider(),
+      projectsDir: testDir,
+    });
+    const read = async (query: string) => {
+      const response = await app.request(
+        `/api/projects/${projectId}/sessions/${sessionId}?${query}`,
+      );
+      expect(response.status, await response.clone().text()).toBe(200);
+      return response.json();
+    };
+    // A reader can return the complete compact scope while the route narrows
+    // it further. Its omittedPrefix=false must not reject that valid cursor.
+    for (const query of ["tailTurns=1", "tailFrom=turn-4"]) {
+      const tail = await read(query);
+      expect(
+        tail.messages.map((message: { uuid: string }) => message.uuid),
+      ).toEqual(["turn-4", "turn-5"]);
+      expect(tail.pagination).toMatchObject({
+        hasOlderMessages: true,
+        truncatedBeforeMessageId: "turn-4",
+        totalMessageCount: 6,
+        totalUserTurns: 3,
+      });
+    }
+    const older = await read("tailCompactions=2&beforeMessageId=turn-4");
+    expect(
+      older.messages.map((message: { uuid: string }) => message.uuid),
+    ).toEqual(["turn-0", "turn-1", "turn-2", "turn-3"]);
+    expect(older.pagination.hasOlderMessages).toBe(false);
+  });
+
   it("keeps Codex incremental catch-up bounded without losing older anchors", async () => {
     const sessionId = "codex-incremental";
     const timestamp = "2026-09-08T00:00:00.000Z";

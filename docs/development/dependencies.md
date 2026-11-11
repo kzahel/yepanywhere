@@ -31,6 +31,14 @@ connection symbols. Each HTTP listener owns a separate WebSocket server, so
 closing a replaced network binding does not disable another listener.
 The static-path advisory exception is removed because 2.x contains its fix.
 
+The 2.1.6 pnpm patch preserves `x-hono-already-sent` in the adapter's optimized
+response path, matching its ordinary response path. Hono middleware or a second
+in-process server can wrap the sentinel in the optimized Response; without the
+patch, the adapter sends an empty reply before the asynchronous Vite proxy does,
+then the proxy throws on its second header write. The real HTTP regression in
+`test/frontend/proxy.test.ts` covers that ordering. Remove the patch when an
+upstream version passes that regression through both module builds.
+
 The same job audits both standalone npm lockfiles (`site/` and
 `sharing-worker/`), including development dependencies, and the pinned STT
 recovery snapshot with `pip-audit`. The Python audit queries the complete

@@ -118,6 +118,9 @@ the available source window because skipped bytes were not counted. Indexed
 Claude selections retain full-projection totals, as described below. The route rejects a provider-bounded
 response whose omitted prefix lacks the older-history boolean or cursor instead
 of presenting the suffix as the beginning of the session.
+When the reader returns its complete compact scope, a route-level turn selector
+may still set `hasOlderMessages` and a cursor. That narrower suffix is valid even
+though the reader itself omitted no prefix.
 
 #### Indexed head fields for a session still being written
 

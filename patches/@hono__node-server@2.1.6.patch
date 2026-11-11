@@ -1,0 +1,24 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index efaaa2ef1a7508a94f0b4453c2ad20697ed55f59..c80ea496f8f9e4988650fa3c48e299eb3b22762e 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -908,6 +908,7 @@ const writeDefaultHeaders = (outgoing, status, length) => {
+ };
+ const responseViaCache = async (res, outgoing) => {
+ 	let [status, body, header] = res[cacheKey];
++	if (body === null && header && new Headers(header).get(require_constants.X_ALREADY_SENT)) return;
+ 	if (!header) {
+ 		if (body === null) {
+ 			outgoing.writeHead(status);
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 921492ddbf4d21b95023796e3f8f2c83ff2ea3c1..2f0d3d961b1108962440fd84dfa0976e3dbc13a9 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -907,6 +907,7 @@ const writeDefaultHeaders = (outgoing, status, length) => {
+ };
+ const responseViaCache = async (res, outgoing) => {
+ 	let [status, body, header] = res[cacheKey];
++	if (body === null && header && new Headers(header).get(X_ALREADY_SENT)) return;
+ 	if (!header) {
+ 		if (body === null) {
+ 			outgoing.writeHead(status);

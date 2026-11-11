@@ -755,15 +755,7 @@ async function measureSidebarSwitches(
               )
               .at(-1)
           : null;
-        const latestBackgroundEffects = new Map();
-        for (const mark of allMarks) {
-          if (
-            mark.name === "session_background_effects_changed" &&
-            typeof mark.detail?.sessionId === "string"
-          ) {
-            latestBackgroundEffects.set(mark.detail.sessionId, mark.detail);
-          }
-        }
+        const latestBackgroundEffects = window.__yaPerfBackgroundEffects;
         const activeSessionConsumerIds = [...latestBackgroundEffects.values()]
           .filter((detail) => detail.mounted === true && detail.paused !== true)
           .map((detail) => detail.sessionId)
@@ -866,16 +858,7 @@ async function measureSidebarSwitches(
     let settledActiveSessionConsumerIds = diagnostics.activeSessionConsumerIds;
     if (settledActiveSessionConsumerIds !== null) {
       await page.waitForFunction((expectedSessionId) => {
-        const latestBackgroundEffects = new Map();
-        for (const mark of window.__yaPerfMarks ?? []) {
-          if (
-            mark.name === "session_background_effects_changed" &&
-            typeof mark.detail?.sessionId === "string"
-          ) {
-            latestBackgroundEffects.set(mark.detail.sessionId, mark.detail);
-          }
-        }
-        const activeIds = [...latestBackgroundEffects.values()]
+        const activeIds = [...window.__yaPerfBackgroundEffects.values()]
           .filter((detail) => detail.mounted === true && detail.paused !== true)
           .map((detail) => detail.sessionId);
         return activeIds.length === 1 && activeIds[0] === expectedSessionId;
@@ -1220,6 +1203,9 @@ export async function measureBrowserMode({
           );
           window.__yaPerfTelemetry = [];
           window.__yaPerfMarks = [];
+          // Lifecycle state outlives navigation/append timing-buffer resets.
+          // Unmount deletes entries, bounding this to mounted fixture sessions.
+          window.__yaPerfBackgroundEffects = new Map();
           window.__yaPerfNavigationStartMs = 0;
           if (interactionTrace?.enabled) {
             window.__YA_SEMANTIC_UI_ACTIONS__ = {
@@ -1273,6 +1259,18 @@ export async function measureBrowserMode({
           performance.setResourceTimingBufferSize(5000);
           window.__YA_RELOAD_PERF_PROBE__ = {
             mark(name, detail) {
+              if (
+                name === "session_background_effects_changed" &&
+                typeof detail?.sessionId === "string"
+              ) {
+                if (detail.mounted === false)
+                  window.__yaPerfBackgroundEffects.delete(detail.sessionId);
+                else
+                  window.__yaPerfBackgroundEffects.set(
+                    detail.sessionId,
+                    detail,
+                  );
+              }
               window.__yaPerfMarks.push({
                 atMs: performance.now(),
                 detail,

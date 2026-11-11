@@ -6,8 +6,8 @@ resolves the path (`prepareSessionSandbox` in
 `packages/server/src/session-sandbox.ts`), while the session's record names
 the link's project as its working project. Several launches then record the
 real path's project in its place, and the session drops out of the session
-list of the project the user opened. Nor does the real path's project list
-it.
+list of the project the user opened. It appears under the real path's project
+instead.
 
 `packages/server/test/routes/session-launch-records-sandboxed.test.ts` pins
 what each launch records today:
@@ -15,9 +15,9 @@ what each launch records today:
 - Any later resume of the source or of a copy rewrites the working project
   to the real path's (`persistProcessSandboxOrAbort` in `Supervisor.ts`
   saves `process.projectId`, which `resumeSession` and `reactivateSession`
-  derive from the run path), and the session is then listed nowhere.
+  derive from the run path), and the session is then listed under the real path.
 - A clone, a restart handoff, a restart fork and a fork-summary continuation
-  are listed nowhere from the start: each is copied or started in the real
+  are listed under the real path from the start: each is copied or started in the real
   path, and nothing names the link's project for it.
 - A fork and the retitle and fork-summary helpers keep the link's project
   until their first resume, because the route names it for them.
@@ -31,3 +31,8 @@ listed-under snapshots should all name the link.
 
 Found 2026-11-07 while capturing the sandbox records of plan 177 step 5 on
 the Linux testbed.
+
+2026-11-10: CI 42888098385 now lists these sessions under the real project,
+rather than nowhere. The characterization snapshots follow that observed
+behavior. Keeping them in the originally selected linked project's list remains
+unresolved; this update does not change launch or sandbox policy.

@@ -76,6 +76,11 @@ live and detached nodes, documents, listeners, and layout objects. Browser-wide
 snapshots inventory processes; Linux additionally reports per-process RSS,
 PSS, and private bytes only when every process is readable.
 
+Background-effect lifecycle state survives navigation and append timing-buffer
+resets. A session that stays mounted need not emit another lifecycle change;
+the sidebar's single-active-consumer check uses the latest state of each mounted
+session, removing it on unmount, rather than only the current phase's marks.
+
 `focused-append` is the one-project, one-session, one-page selected-session
 critical path. It has a distinct history key from fleet scenarios because it
 excludes deliberate multi-file/multi-page fan-out. Its cache proof leaves the

@@ -1,10 +1,57 @@
 import { once } from "node:events";
+import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { serve, upgradeWebSocket } from "@hono/node-server";
+import type { HttpBindings } from "@hono/node-server";
+import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { Hono } from "hono";
 import { expect, it } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/proxy.js";
+
+it.each(["esm", "cjs"])(
+  "leaves a direct Node response to its owner after Hono adds headers (%s)",
+  async (moduleKind) => {
+    const startServer: typeof serve =
+      moduleKind === "cjs"
+        ? createRequire(import.meta.url)("@hono/node-server").serve
+        : serve;
+    const app = new Hono<{ Bindings: HttpBindings }>();
+    app.use("*", async (c, next) => {
+      await next();
+      // Hono wraps the sentinel in the adapter's optimized Response. This is
+      // also possible when another in-process server has replaced the globals.
+      c.header("X-Fixture", "middleware");
+    });
+    let prematurelySent = false;
+    app.get("/", (c) => {
+      const { outgoing } = c.env;
+      setImmediate(() => {
+        prematurelySent = outgoing.headersSent;
+        if (prematurelySent) return;
+        outgoing.writeHead(200, { "Content-Type": "text/plain" });
+        outgoing.end("upstream body");
+      });
+      return RESPONSE_ALREADY_SENT;
+    });
+    const server = startServer({
+      fetch: app.fetch,
+      port: 0,
+      hostname: "127.0.0.1",
+    });
+    await once(server, "listening");
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${(server.address() as AddressInfo).port}/`,
+      );
+      expect(await response.text()).toBe("upstream body");
+      expect(prematurelySent).toBe(false);
+      expect(response.headers.has("x-hono-already-sent")).toBe(false);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  },
+);
 
 it("delegates API authentication, handshake headers and frames to Hono", async () => {
   const app = new Hono();

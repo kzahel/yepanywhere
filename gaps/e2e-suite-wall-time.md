@@ -24,20 +24,28 @@ records the measurements.
 - `rendez-composer.spec.ts` no longer sleeps 10.5s to restate a fake-timer
   unit contract.
 - The three cases that failed every attempt on `main` pass: the account-chip
-  and long-context effort assertions now follow the chip menu and the effort
+  and long-context effort assertions now follow the Account tab and the effort
   radio group, and the correction-attachment case was repaired separately in
   `55b466d50`. The model switch modal's thinking heading no longer shows a raw
   `{mode}` placeholder.
 - `budgetSeconds` in the durations record fails CI planning when the suite's
   planned case time exceeds 50 minutes
   ([suite time budget](../topics/e2e-testing.md#suite-time-budget)).
+- November 10 repairs preserve turn-narrowed indexed transcript cursors, follow
+  the account chip's direct Account tab, and reveal the copy control again after
+  its earlier copied state expires. The Hono adapter patch also fixes the
+  in-process proxy's premature empty response. The full macOS run passes 592
+  cases with 14 skips and no retries in 7.0 minutes; hosted acceptance remains
+  pending.
+- The sidebar performance harness retains mounted-session lifecycle state across
+  timing-buffer resets. Its Linux run passes the unchanged 200 ms switch p95
+  ceiling at 26.8 ms and verifies cleanup; this is local ARM64 evidence.
 
 ## Remaining
 
 1. **First-attempt failures are common.** Five comparison runs failed 5–11
    cases each; most passed on retry. Recurring cases:
-   `limited-instructions.spec.ts:103` (with the
-   [proxy header defect](frontend-proxy-writes-headers-twice.md)),
+   `limited-instructions.spec.ts:103`,
    `session-creation-remote-qualification.spec.ts:232`,
    `session-creation-recovery.spec.ts:47`, `session-page-fork-paths.spec.ts:349`,
    `explored-group-containment.spec.ts:154`, `acli-commentary.spec.ts:223`,

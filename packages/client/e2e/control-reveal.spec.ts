@@ -93,6 +93,10 @@ test("copy and row actions reveal and accept clicks on hover and real Tab focus"
     await revealed(button);
   }
   const bash = page.locator("[data-site=bash] [data-bash-section-copy]");
+  // Earlier copies can expire while slower hosts finish the other controls.
+  await page
+    .locator("[data-site=bash] [data-bash-inline-section-header]")
+    .hover();
   await bash.click();
   await page.locator("[data-before=tool]").focus();
   await page.mouse.move(0, 0);

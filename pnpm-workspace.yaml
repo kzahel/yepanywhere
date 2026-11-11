@@ -41,4 +41,5 @@ auditConfig:
     - GHSA-3g3m-2fjr-6pw4
 
 patchedDependencies:
+  "@hono/node-server@2.1.6": patches/@hono__node-server@2.1.6.patch
   zod@4.6.7: patches/zod@4.6.7.patch
