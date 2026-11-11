@@ -33,7 +33,7 @@ function makeScope(
   return {
     query: "",
     matchValues: false,
-    sectionMatched: false,
+    rowMatched: false,
     categoryLabel: "Appearance",
     jumpToItem: vi.fn(),
     ...overrides,
@@ -112,7 +112,7 @@ describe("SettingsItem under search scope", () => {
         </SettingsSection>
       </SettingsSearchScopeProvider>,
     );
-    const origin = screen.getByText("Appearance › Display ›");
+    const origin = screen.getByRole("button", { name: "settingsSearchJumpTo" });
     fireEvent.click(origin);
     expect(jumpToItem).toHaveBeenCalledWith("theme");
   });
@@ -224,7 +224,9 @@ describe("SettingsItem under search scope", () => {
 
     expect(screen.getByLabelText("Prose font")).toBeTruthy();
     expect(document.querySelector(".custom-settings-panel")).toBeTruthy();
-    expect(screen.getByText("Appearance ›")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "settingsSearchJumpTo" }),
+    ).toBeTruthy();
   });
 
   it("reveals matched-row controls intentionally hidden from search alone", () => {
@@ -296,7 +298,7 @@ describe("SettingsItem under search scope", () => {
 });
 
 describe("SettingsSection under search scope", () => {
-  it("a section title match reveals all child rows", () => {
+  it("a section match offers navigation without revealing unrelated rows", () => {
     render(
       <SettingsSearchScopeProvider value={makeScope({ query: "display" })}>
         <SettingsSection title="Display">
@@ -309,11 +311,40 @@ describe("SettingsSection under search scope", () => {
         </SettingsSection>
       </SettingsSearchScopeProvider>,
     );
-    expect(screen.getByLabelText("Theme")).toBeTruthy();
-    expect(screen.getByLabelText("Tab Size")).toBeTruthy();
-    expect(
-      document.querySelector("[data-settings-section-match]"),
-    ).toBeTruthy();
+    expect(screen.queryByLabelText("Theme")).toBeNull();
+    expect(screen.queryByLabelText("Tab Size")).toBeNull();
+    expect(screen.getByRole("button", { name: "Display ›" })).toBeTruthy();
+  });
+
+  it("filters rows independently despite broad section keywords and nested row ownership", () => {
+    const jumpToItem = vi.fn();
+    render(
+      <SettingsSearchScopeProvider
+        value={makeScope({ query: "activity", jumpToItem })}
+      >
+        <SettingsSection keywords={["conversation view activity previews"]}>
+          <SettingsItem label="Language">
+            <input aria-label="Language" />
+          </SettingsItem>
+          <SettingsItem label="Show Session Activity in Tab Title">
+            <input aria-label="Tab activity" type="checkbox" />
+            <HideInSettingsSearch>
+              <button type="button">Save activity</button>
+            </HideInSettingsSearch>
+            <SettingsItem label="Unrelated nested setting">
+              <input aria-label="Unrelated nested" />
+            </SettingsItem>
+          </SettingsItem>
+        </SettingsSection>
+      </SettingsSearchScopeProvider>,
+    );
+    expect(screen.queryByLabelText("Language")).toBeNull();
+    expect(screen.queryByLabelText("Unrelated nested")).toBeNull();
+    const control = screen.getByLabelText("Tab activity") as HTMLInputElement;
+    fireEvent.click(control);
+    expect(control.checked).toBe(true);
+    expect(screen.getByRole("button", { name: "Save activity" })).toBeTruthy();
+    expect(jumpToItem).not.toHaveBeenCalled();
   });
 });
 
@@ -460,7 +491,9 @@ describe("SettingsSearchResults", () => {
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);
 
-    fireEvent.click(screen.getByText("Toy › General ›"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "settingsSearchJumpTo" }),
+    );
     expect(onJumpToItem).toHaveBeenCalledWith("toy", "streaming");
   });
 
@@ -555,7 +588,9 @@ describe("SettingsSearchResults", () => {
     );
     rerender(<SettingsSearchResults {...props} />);
     expect(screen.getAllByLabelText("Streaming")).toHaveLength(2);
-    fireEvent.click(screen.getByText("Other › General ›"));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "settingsSearchJumpTo" })[1]!,
+    );
     expect(props.onJumpToItem).toHaveBeenCalledWith("other", "streaming");
   });
 });

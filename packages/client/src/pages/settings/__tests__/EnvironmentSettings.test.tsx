@@ -86,7 +86,7 @@ describe("EnvironmentSettings", () => {
           value={{
             query: "host",
             matchValues: false,
-            sectionMatched: false,
+            rowMatched: false,
             categoryLabel: "Environment",
             jumpToItem: vi.fn(),
           }}

@@ -143,6 +143,12 @@
   flex-wrap: wrap;
 }
 
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .tooltipSettingsActions {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
@@ -349,13 +355,6 @@
   color: var(--text-primary);
 }
 
-.searchOrigin {
-  display: block;
-  margin-top: var(--space-1);
-  cursor: pointer;
-  text-align: left;
-}
-
 .searchNoResults {
   margin: var(--space-3) 0;
   color: var(--text-muted);
@@ -374,30 +373,28 @@
   display: none;
 }
 
-.searchPane .itemGroupRow,
-.searchPane .group:not(:has(.searchMatch)) {
-  display: none;
-}
-
-.searchPane .section:not(.searchSectionMatch):not(:has(.searchMatch)),
-.searchPane:not(:has(.searchMatch, .searchSectionMatch)) {
-  display: none;
-}
-.searchPane .searchSectionMatch .item {
-  display: flex;
-}
-
-.searchPane .searchSectionMatch .hint {
+.searchPane .searchMatch .hint,
+.searchPane .searchAfter .hint {
   display: block;
 }
 
-.searchPane .searchSectionMatch .itemGroupRow,
-.searchPane .searchSectionMatch .itemGroup {
+.searchPane .itemGroupRow:not(.searchMatch),
+.searchPane .subsection:not(:has(.searchMatch, [data-settings-section-link])),
+.searchPane .group:not(:has(.searchMatch, [data-settings-section-link])) {
+  display: none;
+}
+
+.searchPane .searchMatch .itemGroupRow {
   display: flex;
 }
 
-.searchPane .searchSectionMatch .group {
-  display: flex;
+.searchPane
+  .section:not([data-settings-section-link]):not(
+    :has(.searchMatch, [data-settings-section-link])
+  ),
+.searchPane:not(:has(.searchMatch, [data-settings-section-link])),
+.searchSectionContent:not(:has(.searchMatch, [data-settings-section-link])) {
+  display: none;
 }
 
 .itemJumpFlash {

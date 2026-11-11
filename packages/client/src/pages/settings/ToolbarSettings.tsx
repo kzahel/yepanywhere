@@ -52,7 +52,11 @@ import { getQuestionReminderThresholds } from "../../lib/asyncQuestions";
 
 import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
-import { HideInSettingsSearch } from "./SettingsSearchContext";
+import {
+  HideInSettingsSearch,
+  SettingsSearchText,
+  useSettingsSearchScope,
+} from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsUndoBaseline } from "./SettingsUndoContext";
 import toolbarSettingsStyles from "./ToolbarSettings.module.css";
@@ -529,9 +533,28 @@ export function ToolbarSettings() {
     control: ToolbarControlMeta,
     placement: "hidden" | "shown",
   ) => (
-    <div
-      className={`${toolbarSettingsStyles.controlRow} ${placement === "hidden" ? toolbarSettingsStyles.isHidden : ""}`}
-      data-toolbar-control={control.key}
+    <SettingsItem
+      id={`toolbar-${control.key}`}
+      label={control.title}
+      description={control.description}
+      keywords={
+        control.key === "waveform"
+          ? [
+              t("appearanceToolbarWaveformButtonOpacityTitle"),
+              t("appearanceToolbarWaveformButtonOpacityDescription"),
+            ]
+          : undefined
+      }
+      layout="custom"
+      baseClassName={toolbarSettingsStyles.controlRow}
+      className={
+        placement === "hidden" ? toolbarSettingsStyles.isHidden : undefined
+      }
+      containerProps={
+        {
+          "data-toolbar-control": control.key,
+        } as React.HTMLAttributes<HTMLElement>
+      }
       key={control.key}
     >
       {control.hasToolbarPreview && (
@@ -548,8 +571,12 @@ export function ToolbarSettings() {
         </span>
       )}
       <span className={toolbarSettingsStyles.controlCopy}>
-        <strong>{control.title}</strong>
-        <span>{control.description}</span>
+        <strong>
+          <SettingsSearchText text={control.title} />
+        </strong>
+        <span>
+          <SettingsSearchText text={control.description} />
+        </span>
         {control.key === "waveform" && (
           <span className={toolbarSettingsStyles.waveformOpacityControl}>
             <span className={toolbarSettingsStyles.waveformOpacityCopy}>
@@ -580,7 +607,7 @@ export function ToolbarSettings() {
           onCommitNotch={commitPresenceNotch}
         />
       </span>
-    </div>
+    </SettingsItem>
   );
 
   const renderSideGroup = (
@@ -733,17 +760,10 @@ export function ToolbarSettings() {
           />
         </SettingsItem>
 
-        <SettingsItem
-          label={t("appearanceSessionToolbarTitle")}
-          description={t("appearanceSessionToolbarDescription")}
-          keywords={toolbarControls.flatMap((control) => [
-            control.title,
-            control.description,
-          ])}
-          layout="custom"
-          className={toolbarSettingsStyles.settings}
-        >
-          <SessionToolbarPreview />
+        <ToolbarSettingsLayout>
+          <HideInSettingsSearch>
+            <SessionToolbarPreview />
+          </HideInSettingsSearch>
 
           <div className={toolbarSettingsStyles.zone} data-toolbar-zone>
             <div className={toolbarSettingsStyles.zoneHeading}>
@@ -785,20 +805,33 @@ export function ToolbarSettings() {
             </div>
           </div>
 
-          <div className={rowsStyles.itemActions}>
-            <Button
-              onClick={() => {
-                resetPresence();
-              }}
-            >
-              {t("appearanceSessionToolbarReset")}
-            </Button>
-          </div>
-        </SettingsItem>
-        <HideInSettingsSearch>
-          {error && <Banner tone="error">{error}</Banner>}
-        </HideInSettingsSearch>
+          <HideInSettingsSearch>
+            <div className={rowsStyles.itemActions}>
+              <Button
+                onClick={() => {
+                  resetPresence();
+                }}
+              >
+                {t("appearanceSessionToolbarReset")}
+              </Button>
+            </div>
+          </HideInSettingsSearch>
+        </ToolbarSettingsLayout>
+        {error && <Banner tone="error">{error}</Banner>}
       </div>
     </SettingsSection>
+  );
+}
+
+/** Keep layout-only groups out of the filtered rows without remounting panes. */
+function ToolbarSettingsLayout({ children }: { children: React.ReactNode }) {
+  const scope = useSettingsSearchScope();
+  return (
+    <div
+      className={`${rowsStyles.item} ${toolbarSettingsStyles.settings}`}
+      data-toolbar-search={scope ? "" : undefined}
+    >
+      {children}
+    </div>
   );
 }

@@ -13,11 +13,8 @@ export interface SettingsSearchScope {
   query: string;
   /** When true, rows also match against their declared valueText. */
   matchValues: boolean;
-  /**
-   * True inside a SettingsSection whose own title/description matched: all
-   * child rows render (whole-section result) instead of filtering per row.
-   */
-  sectionMatched: boolean;
+  /** True inside a matched row: retain its dependent controls and hints. */
+  rowMatched: boolean;
   /** Title of the nearest enclosing SettingsSection, for jump-link labels. */
   sectionTitle?: string;
   /** Label of the category pane this scope wraps, for jump-link labels. */
@@ -77,13 +74,19 @@ export function renderSettingsSearchHighlight(
   );
 }
 
+/** Custom row layouts opt into the same highlighting as standard row copy. */
+export function SettingsSearchText({ text }: { text: string }) {
+  const scope = useSettingsSearchScope();
+  return <>{scope ? renderSettingsSearchHighlight(text, scope.query) : text}</>;
+}
+
 /**
  * Wrapper for pane content that is not a settings row (previews, status
  * blocks, bulk-action forms): hidden while search filtering is active,
- * shown again when the enclosing section matched as a whole.
+ * shown only when owned by an individually matched row.
  */
 export function HideInSettingsSearch({ children }: { children: ReactNode }) {
   const scope = useSettingsSearchScope();
-  if (scope && !scope.sectionMatched) return null;
+  if (scope && !scope.rowMatched) return null;
   return <>{children}</>;
 }

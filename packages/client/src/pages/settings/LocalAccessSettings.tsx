@@ -887,6 +887,22 @@ export function LocalAccessSettings() {
   }
 
   const feedback = passwordFeedback(authPassword, authPasswordConfirm);
+  // Password and confirmation are one edit; neither field works on its own.
+  const passwordSearchTerms = [
+    t("localAccessRequirePasswordTitle"),
+    t("localAccessRequirePasswordDescription"),
+    t(
+      localAuth.authEnabled
+        ? "localAccessPasswordNewTitle"
+        : "localAccessPasswordTitle",
+    ),
+    t(
+      localAuth.authEnabled
+        ? "localAccessPasswordKeepCurrent"
+        : "localAccessPasswordMinLength",
+    ),
+    t("localAccessConfirmPasswordTitle"),
+  ];
 
   return (
     <SettingsSection description={t("localAccessDescription")}>
@@ -1246,6 +1262,7 @@ export function LocalAccessSettings() {
                       />
                     </HideInSettingsSearch>
                     <SettingsItem
+                      keywords={passwordSearchTerms}
                       label={
                         localAuth.authEnabled
                           ? t("localAccessPasswordNewTitle")
@@ -1282,6 +1299,7 @@ export function LocalAccessSettings() {
                     </SettingsItem>
                     {(enablingAuth || changingPassword) && (
                       <SettingsItem
+                        keywords={passwordSearchTerms}
                         label={t("localAccessConfirmPasswordTitle")}
                         className={rowsStyles.itemInlineField}
                       >

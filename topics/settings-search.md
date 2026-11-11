@@ -34,7 +34,8 @@ principle this design follows).
   credential inputs mounted by settings panes, and opts out of autocomplete.
 - **Search corpus.** A row matches on its declared plain-text label,
   description, and optional hidden keywords; a section matches on its
-  title/description; a category matches on its label/description.
+  title/description and keywords for navigation only; a category matches on
+  its label/description.
   Configured values are excluded by default (standard practice). Rows may
   declare a display-text `valueText` that participates only under the
   values toggle; free-text and credential/secret-bearing fields never
@@ -44,26 +45,36 @@ principle this design follows).
   toggling/selecting in the result list is the same act as in the pane —
   with matched substrings marked in the label/description (subtle
   accent-tinted module-owned mark, not browser-default highlight).
-  Each row also carries a jump link labeled `{Category} › {Section} ›`
-  that leaves search, opens the category pane, scrolls the row into view
-  centered, and flashes it briefly (`prefers-reduced-motion` suppresses
+  Category and section headings show each result group's location once.
+  Each row carries a small arrow button whose accessible name and tooltip
+  include `{Category} › {Section} › {Setting}`. It leaves search, opens the
+  category pane, scrolls the row into view centered, and flashes it briefly (`prefers-reduced-motion` suppresses
   the animation).
   Clicking non-control row text or background performs the same jump. Nested
   controls, links, editable content, selected text and caller-handled clicks
   retain their own behavior. A label row remains a checkbox target; its jump
   button follows the labeled control so it cannot steal native label activation.
 - **Explicit confirmation.** A setting that deliberately requires Save keeps
-  that action in its matched row or complete matched form section. Single-line
+  that action in its matched row or the shared actions of its containing form.
+  Matching one field never reveals unrelated fields in that form. Required
+  companion fields, such as password confirmation, share the logical edit's
+  search text and remain usable together. Single-line
   fields submit with Enter; multiline editors retain normal newline entry and
   their visible Save action. Shared `SettingsSection` submission and
   `SettingsItem` form rows supply native form semantics without changing the
   owner's validation, disabled state or persistence callback. Immediate controls
   continue to apply in place. The destination flashes even when no scroll
   movement is possible.
-- **Section and category matches.** A section-title match surfaces the
-  whole section operable (its rows stop filtering individually). A
-  category-label match lists the category itself under a "Categories"
-  heading; it does not dump the whole pane into results.
+- **Section and category matches.** Every setting row filters independently,
+  regardless of the number of settings in its section. A match on a named
+  section's title, description or keywords offers a navigation link to that
+  section; it never reveals unmatched rows. Untitled sections contribute no
+  broad keyword matches. A category-label match lists the category itself under
+  a "Categories" heading; it does not dump the pane into results. Section-only
+  editors remain discoverable through those navigation links. Toolbar controls
+  filter individually; search omits the full toolbar preview, reset action and
+  empty placement groups. Section links
+  scroll to and flash their destination, just like row links.
 - **Empty and a11y.** A query with no matches shows an explicit no-results
   line quoting the query. A visually-hidden live region announces the match
   count. The values toggle appears only while a query is active, adjacent
@@ -101,12 +112,12 @@ Per [ui-architecture](ui-architecture.md)'s render-boundary principle, the
 searchable corpus is declared where the row renders: `SettingsItem`
 (pages/settings/SettingsItem.tsx) renders the canonical `[data-settings-item]`
 markup and, inside a search scope, filters itself, highlights, and offers
-the jump link. Its custom layout and custom base-class forms preserve panels
+the jump button. Its custom layout and custom base-class forms preserve panels
 whose DOM cannot use the standard info/control columns while retaining the
 same search and jump contract. Content intentionally hidden from search on its
-own becomes visible when its owning row matches. `SettingsSection` does the
-same at section granularity. There is no side index to drift and no
-post-render DOM rewriting.
+own becomes visible when its owning row matches. `SettingsSection` provides
+section context and navigation without bypassing row filtering. There is no side
+index to drift and no post-render DOM rewriting.
 
 Search results mount the *actual pane components* inside
 `SettingsSearchResults`, one scope per category. This is what makes rows
@@ -118,10 +129,10 @@ a pane-context affordance.
 
 Visibility inside a mounted search pane is a small CSS contract (see the
 visibility rules in `packages/client/src/pages/settings/SettingsRows.module.css`): matched
-rows expose `data-settings-search-match`; a fully-matched section exposes
-`data-settings-section-match` and reveals everything inside it;
-`:has()` collapses groups, sections, and panes left with no match; and
-non-row content is either row-owned (`after` prop), wrapped in
+rows expose `data-settings-search-match`; a named matching section exposes
+`data-settings-section-link` for navigation, with unmatched editor contents
+hidden. `:has()` collapses groups, sections, and panes left with no row or
+section-link match. Non-row content is either row-owned (`after` prop), wrapped in
 `HideInSettingsSearch`, or hidden by default in search mode.
 
 **Bounds.** Every sequentially typed key must appear within 100 ms while the

@@ -112,7 +112,7 @@ export const SettingsSearchResults = memo(function SettingsSearchResults({
       );
       setMatchCount(
         container.querySelectorAll(
-          "[data-settings-item][data-settings-search-match]",
+          "[data-settings-item][data-settings-search-match], [data-settings-section-link]",
         ).length,
       );
     };
@@ -207,7 +207,7 @@ function SettingsSearchPane({
     () => ({
       query,
       matchValues,
-      sectionMatched: false,
+      rowMatched: false,
       categoryLabel: category.label,
       jumpToItem: (itemId: string) => onJumpToItem(category.id, itemId),
     }),

@@ -41,6 +41,77 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.goto(`${baseURL}/settings`);
     const search = page.getByRole("searchbox", { name: "Search settings" });
+    // Cold acquisition exercises the complete eligible settings corpus. Native
+    // key events measure the retained rendered prefix, independent of IPC time.
+    await search.focus();
+    await search.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      const samples: Array<{ value: string; elapsed: number }> = [];
+      Object.assign(window, { settingsSearchTyping: samples });
+      input.addEventListener("keydown", (event) => {
+        const start = event.timeStamp;
+        input.addEventListener(
+          "input",
+          () => {
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => {
+                samples.push({
+                  value: input.value,
+                  elapsed: performance.now() - start,
+                });
+              }),
+            );
+          },
+          { once: true },
+        );
+      });
+    });
+    await page.keyboard.type("activity", { delay: 80 });
+    const results = page.locator("[data-settings-search-results]");
+    await expect(results).toHaveAttribute("aria-busy", "false");
+    const samples = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            settingsSearchTyping: Array<{ value: string; elapsed: number }>;
+          }
+        ).settingsSearchTyping,
+    );
+    expect(samples.map((sample) => sample.value)).toEqual(
+      Array.from("activity", (_, index) => "activity".slice(0, index + 1)),
+    );
+    expect(
+      Math.max(...samples.map((sample) => sample.elapsed)),
+      JSON.stringify(samples),
+    ).toBeLessThanOrEqual(100);
+    const activity = results.locator(
+      '[data-settings-item="show-session-activity-in-tab-title"]',
+    );
+    await expect(activity).toBeVisible();
+    await expect(
+      results.locator('[data-settings-item="language"]'),
+    ).toHaveCount(0);
+    await expect(results.locator('[data-settings-item="theme"]')).toHaveCount(
+      0,
+    );
+    await expect(activity.locator("[data-settings-origin]")).toHaveAttribute(
+      "aria-label",
+      "Go to Appearance › Show Session Activity in Tab Title",
+    );
+    await recordUiCapture(page, `settings-search-activity-${viewport.width}`);
+    await activity.locator("[data-settings-origin]").click();
+    await expect(page).toHaveURL(/\/settings\/appearance$/);
+    await expect(activity).toHaveCount(0);
+    await expect(
+      page.locator('[data-settings-item="show-session-activity-in-tab-title"]'),
+    ).toHaveAttribute("data-settings-jump-flash", "");
+
+    await page.goto(`${baseURL}/settings`);
+    await search.fill("Default Busy Send");
+    await expect(
+      page.locator('[data-settings-item="default-busy-send"]'),
+    ).toBeVisible();
+    await expect(page.locator("[data-toolbar-search]")).toBeHidden();
     await search.fill("theme");
     const theme = page.locator('[data-settings-item="theme"]');
     await theme.getByRole("radio", { name: "Dark", exact: true }).click();

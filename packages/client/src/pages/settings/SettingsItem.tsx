@@ -1,18 +1,10 @@
 import rowsStyles from "./SettingsRows.module.css";
-import {
-  type HTMLAttributes,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { Button } from "../../components/ui/Button";
+import type { HTMLAttributes, ReactNode } from "react";
+import { IconButton } from "../../components/ui/Button";
 import { useI18n } from "../../i18n";
 import {
   renderSettingsSearchHighlight,
   SettingsSearchScopeProvider,
-  useSettingsJumpTarget,
   useSettingsSearchScope,
 } from "./SettingsSearchContext";
 import {
@@ -21,6 +13,7 @@ import {
   SettingsDocLink,
 } from "./SettingsDocLink";
 import styles from "./SettingsItem.module.css";
+import { useSettingsJumpFlash } from "./useSettingsJumpFlash";
 import { settingsItemSlug, settingsTextMatches } from "./settingsSearchMatch";
 
 export interface SettingsItemProps {
@@ -88,20 +81,10 @@ export interface SettingsItemProps {
    */
   after?: ReactNode;
   /**
-   * When false, the row is omitted from settings search results (including
-   * section-wide matches). Use for convenience clones of a control that
-   * already has a primary searchable home elsewhere. Default true.
+   * When false, omit this convenience clone from settings search results.
+   * The same control must have a primary searchable home elsewhere.
    */
   searchable?: boolean;
-}
-
-const JUMP_FLASH_DURATION_MS = 1800;
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  );
 }
 
 /**
@@ -131,38 +114,14 @@ export function SettingsItem({
 }: SettingsItemProps) {
   const { t } = useI18n();
   const scope = useSettingsSearchScope();
-  const jump = useSettingsJumpTarget();
   const resolvedId = id ?? settingsItemSlug(label);
-  const ref = useRef<HTMLElement | null>(null);
-  const setRef = useCallback((element: HTMLElement | null) => {
-    ref.current = element;
-  }, []);
-  const [flash, setFlash] = useState(false);
-
-  const jumpTargetsThisRow = !scope && jump?.target === resolvedId;
-  const consume = jump?.consume;
-  useEffect(() => {
-    if (!jumpTargetsThisRow || !consume) return;
-    consume();
-    ref.current?.scrollIntoView({
-      block: "center",
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-    });
-    setFlash(true);
-  }, [jumpTargetsThisRow, consume]);
-
-  useEffect(() => {
-    if (!flash) return;
-    const timer = setTimeout(() => setFlash(false), JUMP_FLASH_DURATION_MS);
-    return () => clearTimeout(timer);
-  }, [flash]);
+  const { ref, flash } = useSettingsJumpFlash(resolvedId, !!scope);
 
   // Convenience clones stay out of search entirely so only the primary row hits.
   if (scope && !searchable) return null;
 
   const matched = scope
-    ? scope.sectionMatched ||
-      settingsTextMatches(scope.query, [
+    ? settingsTextMatches(scope.query, [
         label,
         description,
         ...(keywords ?? []),
@@ -219,15 +178,16 @@ export function SettingsItem({
     .join(" ");
 
   const origin = scope && originLabel && (
-    <Button
-      variant="link"
-      className={rowsStyles.searchOrigin}
+    <IconButton
+      size="small"
       data-settings-origin
-      aria-label={t("settingsSearchJumpTo", { location: originLabel })}
+      label={t("settingsSearchJumpTo", {
+        location: `${originLabel} › ${label}`,
+      })}
       onClick={() => scope.jumpToItem(resolvedId)}
     >
-      {originLabel} ›
-    </Button>
+      ›
+    </IconButton>
   );
 
   const row = (
@@ -264,7 +224,7 @@ export function SettingsItem({
           descriptionLayout === "default" ? undefined : descriptionLayout
         }
         title={title}
-        ref={setRef}
+        ref={ref}
       >
         {layout === "custom" ? (
           <>
@@ -275,20 +235,23 @@ export function SettingsItem({
           <>
             <div className={rowsStyles.itemInfo} data-settings-info>
               {infoBody}
-              {RowElement !== "label" && origin}
             </div>
             {children}
-            {RowElement === "label" && origin}
+            {origin}
           </>
         )}
       </RowElement>
-      {after}
+      {scope && after ? (
+        <div className={rowsStyles.searchAfter}>{after}</div>
+      ) : (
+        after
+      )}
     </>
   );
 
-  if (scope && matched && !scope.sectionMatched) {
+  if (scope && matched && !scope.rowMatched) {
     return (
-      <SettingsSearchScopeProvider value={{ ...scope, sectionMatched: true }}>
+      <SettingsSearchScopeProvider value={{ ...scope, rowMatched: true }}>
         {row}
       </SettingsSearchScopeProvider>
     );

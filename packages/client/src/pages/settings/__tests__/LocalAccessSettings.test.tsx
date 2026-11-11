@@ -24,6 +24,7 @@ import type {
   ServerSettings,
 } from "../../../api/client";
 import { LocalAccessSettings } from "../LocalAccessSettings";
+import { SettingsSearchScopeProvider } from "../SettingsSearchContext";
 import {
   type SettingsUndoRegistration,
   SettingsUndoProvider,
@@ -233,6 +234,80 @@ describe("LocalAccessSettings", () => {
         .querySelector("[data-local-access-password-feedback]")
         ?.getAttribute("data-local-access-password-feedback");
     }
+
+    it("keeps required confirmation operable when only the new-password row matches", async () => {
+      useDirectAccess(true);
+      changePassword.mockResolvedValue(undefined);
+      render(
+        <SettingsSearchScopeProvider
+          value={{
+            query: "localAccessPasswordNewTitle",
+            matchValues: false,
+            rowMatched: false,
+            categoryLabel: "Local Access",
+            jumpToItem: vi.fn(),
+          }}
+        >
+          <LocalAccessSettings />
+        </SettingsSearchScopeProvider>,
+      );
+      fireEvent.change(screen.getByLabelText("localAccessPasswordNewTitle"), {
+        target: { value: "secret-password" },
+      });
+      fireEvent.change(
+        screen.getByLabelText("localAccessConfirmPasswordTitle"),
+        {
+          target: { value: "secret-password" },
+        },
+      );
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "localAccessPasswordChangeAction",
+          }),
+        );
+      });
+      expect(changePassword).toHaveBeenCalledWith("secret-password");
+      expect(
+        screen.queryByLabelText("localAccessAllowedHostsTitle"),
+      ).toBeNull();
+    });
+
+    it("keeps password setup usable after enabling its matching switch", async () => {
+      useDirectAccess(false);
+      enableAuth.mockResolvedValue(undefined);
+      render(
+        <SettingsSearchScopeProvider
+          value={{
+            query: "localAccessRequirePasswordTitle",
+            matchValues: false,
+            rowMatched: false,
+            categoryLabel: "Local Access",
+            jumpToItem: vi.fn(),
+          }}
+        >
+          <LocalAccessSettings />
+        </SettingsSearchScopeProvider>,
+      );
+      fireEvent.click(switchFor("localAccessRequirePasswordTitle"));
+      fireEvent.change(screen.getByLabelText("localAccessPasswordTitle"), {
+        target: { value: "secret-password" },
+      });
+      fireEvent.change(
+        screen.getByLabelText("localAccessConfirmPasswordTitle"),
+        {
+          target: { value: "secret-password" },
+        },
+      );
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "localAccessPasswordEnableAction",
+          }),
+        );
+      });
+      expect(enableAuth).toHaveBeenCalledWith("secret-password");
+    });
 
     it("gates API discovery separately from the legacy operator token and previews the exact bootstrap", async () => {
       useDirectAccess(false);

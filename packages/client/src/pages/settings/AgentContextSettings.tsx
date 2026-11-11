@@ -179,13 +179,6 @@ export function AgentContextSettings() {
                 max: MAX_LENGTH.toLocaleString(),
               })}
             </span>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={!hasChanges || isSaving}
-            >
-              {isSaving ? t("providersSaving") : t("providersSave")}
-            </Button>
           </div>
         </SettingsItem>
 
@@ -244,11 +237,18 @@ export function AgentContextSettings() {
         </HideInSettingsSearch>
       </div>
 
-      <HideInSettingsSearch>
-        {(saveError || error) && (
-          <Banner tone="error">{saveError || error}</Banner>
-        )}
-      </HideInSettingsSearch>
+      <div className={rowsStyles.formActions}>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={!hasChanges || isSaving}
+        >
+          {isSaving ? t("providersSaving") : t("providersSave")}
+        </Button>
+      </div>
+      {(saveError || error) && (
+        <Banner tone="error">{saveError || error}</Banner>
+      )}
     </SettingsSection>
   );
 }

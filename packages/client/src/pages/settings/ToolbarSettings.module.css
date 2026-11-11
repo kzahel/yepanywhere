@@ -178,3 +178,13 @@
   min-width: min(100%, 14rem);
   flex: 1 1 14rem;
 }
+
+.settings[data-toolbar-search] .zoneHeading,
+.settings[data-toolbar-search] .zoneSeparator,
+.settings[data-toolbar-search] .sideGroupTitle,
+.settings[data-toolbar-search] .sideGroupEmpty,
+.settings[data-toolbar-search]:not(:has([data-settings-item])),
+.settings[data-toolbar-search] .zone:not(:has([data-settings-item])),
+.settings[data-toolbar-search] .sideGroup:not(:has([data-settings-item])) {
+  display: none;
+}

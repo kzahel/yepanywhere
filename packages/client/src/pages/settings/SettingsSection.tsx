@@ -1,12 +1,14 @@
 import rowsStyles from "./SettingsRows.module.css";
 import { type FormEventHandler, type ReactNode, useMemo } from "react";
+import { Button } from "../../components/ui/Button";
 import { SettingsCaption, type SettingsDoc } from "./SettingsDocLink";
 import {
   renderSettingsSearchHighlight,
   SettingsSearchScopeProvider,
   useSettingsSearchScope,
 } from "./SettingsSearchContext";
-import { settingsTextMatches } from "./settingsSearchMatch";
+import { settingsItemSlug, settingsTextMatches } from "./settingsSearchMatch";
+import { useSettingsJumpFlash } from "./useSettingsJumpFlash";
 
 export interface SettingsSectionProps {
   /** Section heading; searchable, rendered as the section `<h2>`. */
@@ -26,9 +28,8 @@ export interface SettingsSectionProps {
 
 /**
  * One settings section: optional `<h2>` + description ahead of its groups
- * and rows. In search results, a title/description match surfaces the whole
- * section operable (child rows stop filtering); otherwise children filter
- * individually and CSS hides the section when nothing inside matched.
+ * and rows. Search filters every row independently. Matching named sections
+ * offer navigation to the complete editor without revealing unrelated rows.
  */
 export function SettingsSection({
   title,
@@ -40,31 +41,29 @@ export function SettingsSection({
   children,
 }: SettingsSectionProps) {
   const scope = useSettingsSearchScope();
-  const sectionMatched = scope
-    ? scope.sectionMatched ||
-      settingsTextMatches(scope.query, [
-        title,
-        description,
-        ...(keywords ?? []),
-      ])
-    : false;
+  const sectionId = `section-${settingsItemSlug(title ?? "")}`;
+  const { ref, flash } = useSettingsJumpFlash(sectionId, !!scope);
+  const sectionMatched = !!(
+    scope &&
+    title &&
+    settingsTextMatches(scope.query, [title, description, ...(keywords ?? [])])
+  );
 
   const childScope = useMemo(
     () =>
       scope
         ? {
             ...scope,
-            sectionMatched,
             sectionTitle: title ?? scope.sectionTitle,
           }
         : null,
-    [scope, sectionMatched, title],
+    [scope, title],
   );
 
   const sectionClassName = [
     rowsStyles.section,
     className,
-    scope && sectionMatched ? rowsStyles.searchSectionMatch : null,
+    flash ? rowsStyles.itemJumpFlash : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -73,13 +72,25 @@ export function SettingsSection({
   const body = (
     <SectionElement
       className={sectionClassName}
-      data-settings-section-match={scope && sectionMatched ? "" : undefined}
+      data-settings-section-link={sectionMatched ? "" : undefined}
+      data-settings-jump-flash={flash ? "" : undefined}
+      ref={ref}
       onSubmit={onSubmit}
       noValidate={onSubmit ? true : undefined}
     >
       {title && (
         <h2>
-          {scope ? renderSettingsSearchHighlight(title, scope.query) : title}
+          {scope ? (
+            <Button
+              variant="link"
+              data-settings-section-origin
+              onClick={() => scope.jumpToItem(sectionId)}
+            >
+              {renderSettingsSearchHighlight(title, scope.query)} ›
+            </Button>
+          ) : (
+            title
+          )}
         </h2>
       )}
       {(description || doc) && (
@@ -94,7 +105,11 @@ export function SettingsSection({
           />
         </p>
       )}
-      {children}
+      {scope ? (
+        <div className={rowsStyles.searchSectionContent}>{children}</div>
+      ) : (
+        children
+      )}
     </SectionElement>
   );
 

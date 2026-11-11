@@ -357,7 +357,7 @@ describe("ToolbarSettings", () => {
         value={{
           query: "attachments",
           matchValues: false,
-          sectionMatched: false,
+          rowMatched: false,
           categoryLabel: "Toolbar",
           jumpToItem: vi.fn(),
         }}
@@ -369,6 +369,10 @@ describe("ToolbarSettings", () => {
     expect(
       screen.getByRole("slider", { name: "Attachments visibility" }),
     ).toBeTruthy();
+    expect(
+      screen.queryByRole("slider", { name: "Mode Selector visibility" }),
+    ).toBeNull();
+    expect(screen.queryByTestId("session-toolbar-preview")).toBeNull();
   });
 
   it("configures the browser-local Conversation View history window", () => {

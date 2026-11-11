@@ -209,7 +209,7 @@ describe("DevelopmentSettings", () => {
           value={{
             query: "previously read position",
             matchValues: false,
-            sectionMatched: false,
+            rowMatched: false,
             categoryLabel: "Development",
             jumpToItem: vi.fn(),
           }}

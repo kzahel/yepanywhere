@@ -174,7 +174,7 @@ describe("SpeechSettings", () => {
     const scope = {
       query: "keyterms",
       matchValues: false,
-      sectionMatched: false,
+      rowMatched: false,
       categoryLabel: "Speech backends",
       jumpToItem: vi.fn(),
     };
