@@ -9,6 +9,7 @@ import {
   startYaServerProcess,
   disposeYaServerProcess,
 } from "./support/ya-server-process";
+import { readCollectionsOverRest } from "./support/managed-routes";
 import { recordUiCapture } from "./support/ui-capture";
 
 test.use({ serviceWorkers: "block" });
@@ -81,6 +82,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       upstream.send(message);
     });
   });
+  await readCollectionsOverRest(page);
   await page.route(/\/api\/sessions(?:\?|$)/, (route) =>
     route.fulfill({
       json: {
