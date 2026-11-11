@@ -168,7 +168,7 @@ export function ProviderBadge({
   if (compact) {
     return (
       <span
-        className={`provider-badge-stripe ${className}`}
+        className={className}
         style={{ backgroundColor: color }}
         title={fullTitle}
         role="img"
@@ -195,7 +195,8 @@ export function ProviderBadge({
 
   return (
     <span
-      className={`provider-badge ${styles.root} ${className}`}
+      className={` ${styles.root} ${className}`}
+      data-provider-badge=""
       title={accessibleTitle}
       role="img"
       aria-label={accessibleTitle}
@@ -205,7 +206,7 @@ export function ProviderBadge({
         className={`${styles.badge} ${PROVIDER_TINTS[provider] ?? ""} ${condensed ? styles.condensed : ""}`}
       >
         <span className={dotClass} style={dotStyle} />
-        <span className={`provider-badge-label ${styles.model}`}>
+        <span className={styles.model}>
           {condensed ? (
             <span style={modelColorStyle}>{condensedModel}</span>
           ) : modelParts ? (
@@ -213,7 +214,7 @@ export function ProviderBadge({
               {modelParts.providerGlyph}
               {modelParts.subProvider ? ` ${modelParts.subProvider}` : ""}
               {modelParts.modelLabel ? (
-                <span className="provider-badge-model" style={modelColorStyle}>
+                <span style={modelColorStyle}>
                   {` ${modelParts.modelLabel}`}
                 </span>
               ) : null}

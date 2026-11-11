@@ -132,19 +132,13 @@
   color: var(--text-primary);
 }
 
-/*
- * Conversation activity controls and thinking-preview header additions.
- *
- * The rest of `.conversation-thinking-preview-*` still lives in the legacy
- * global sheet; `pnpm css:touched` defers extracting it (359 owned lines over
- * two stylesheets, 18 coupled rules), so only bounded rules are owned here.
- */
+/* Conversation activity controls share stable preview data boundaries. */
 
 /*
  * The label absorbs the header's free space, which parks the age and the
  * controls after it against the trailing edge. Deliberately flex-grow rather
  * than an auto margin on the age: growth resolves before auto margins, so the
- * chevron's existing global `margin-left: auto` is left with nothing to claim
+ * chevron's existing `margin-left: auto` is left with nothing to claim
  * and stays put next to the age.
  *
  * The label is also what yields when the header is tight — the age and
@@ -255,10 +249,10 @@
  * Compact chips are always expandable — outline them so the chevron affordance
  * is obvious even when the provider retained no summary body.
  *
- * Order-independent against the global `.system-message` (equal specificity):
+ * Order-independent against the shared system-message class (equal specificity):
  * that rule sets only `border-left`, and this rule re-declares it to the same
  * value, so whichever wins the cascade the chip looks the same. The `border`
- * shorthand's other three sides have no global competitor.
+ * shorthand's other three sides have no competing owner.
  */
 .compactBoundaryOutline {
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));

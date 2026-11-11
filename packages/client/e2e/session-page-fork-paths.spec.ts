@@ -188,7 +188,9 @@ test("Fork with summary posts the instructions, shows progress, and cancels from
   await expect(session.toast("Forking in the background…")).toBeVisible();
   await expect(session.composer).toHaveValue("");
   await expect(page.getByText("Fork after selected turn")).toHaveCount(0);
-  const progress = page.locator(".fork-summary-display-object-generating");
+  const progress = page.locator(
+    "[data-fork-summary-display-object-generating]",
+  );
   await expect(progress).toContainText("Forking…");
 
   await progress.getByRole("button", { name: "Cancel" }).click();
@@ -397,7 +399,9 @@ test("toggling auto-open on a started fork summary opens the fork when ready, an
   });
   await startForkAfterSummary(page);
   await session.composer.press("Enter");
-  const progress = page.locator(".fork-summary-display-object-generating");
+  const progress = page.locator(
+    "[data-fork-summary-display-object-generating]",
+  );
   await progress
     .getByRole("checkbox", { name: "Open in new tab when ready" })
     .check();
@@ -460,7 +464,7 @@ test("the fork shortcut with instructions starts the summary fork after the firs
   await expect(page.getByText("Fork after selected turn")).toHaveCount(0);
   await expect(session.composer).toHaveValue("");
   await expect(
-    page.locator(".fork-summary-display-object-generating"),
+    page.locator("[data-fork-summary-display-object-generating]"),
   ).toBeVisible();
 });
 
@@ -538,6 +542,8 @@ test("/fork N forks after turn N and is recalled like a sent command", async ({
   // Accepted commands lead the recall drawer, ahead of the turns.
   await session.composer.press("Control+ArrowUp");
   await expect(
-    page.locator(".composer-recall-menu [data-slash-command-item]").first(),
+    page
+      .locator("[data-composer-recall-menu] [data-slash-command-item]")
+      .first(),
   ).toContainText("/fork 2");
 });

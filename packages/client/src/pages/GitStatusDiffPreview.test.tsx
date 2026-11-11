@@ -265,12 +265,16 @@ describe("GitDiffBody", () => {
     expect(rendered?.textContent).toContain("after");
     expect(rendered?.textContent).not.toContain("-old");
     expect(rendered?.textContent).not.toContain("+new");
-    expect(rendered?.querySelector(".line-hunk")).toBeNull();
+    expect(
+      rendered?.querySelector("[data-diff-hunk-header], .line-hunk"),
+    ).toBeNull();
 
     fireEvent.click(showRemovedLinesButton);
     const restoredDiff = document.querySelector("[data-diff-hunk]");
     expect(restoredDiff?.textContent).toContain("-old");
-    expect(restoredDiff?.querySelector(".line-hunk")).not.toBeNull();
+    expect(
+      restoredDiff?.querySelector("[data-diff-hunk-header], .line-hunk"),
+    ).not.toBeNull();
   });
 
   it("keeps the requested rendered diff through a source-only refresh", async () => {
@@ -579,7 +583,9 @@ describe("GitDiffBody", () => {
       ).toContain("+large line"),
     );
     expect(screen.getByText("gitStatusDiffPlainMode")).toBeTruthy();
-    expect(document.querySelectorAll(".line-hunk")).toHaveLength(1);
+    expect(
+      document.querySelectorAll("[data-diff-hunk-header], .line-hunk"),
+    ).toHaveLength(1);
     await waitFor(() =>
       expect(
         document.querySelector("[data-source-hunk-position]")?.textContent,

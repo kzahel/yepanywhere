@@ -20,11 +20,11 @@ export function ActivityIndicator({
   variant = "dot",
   className,
 }: ActivityIndicatorProps) {
-  const dot = <span className="activity-dot" />;
+  const dot = <span />;
 
   if (variant === "badge") {
     return <Badge tone="info" size="small" icon={dot} className={className} />;
   }
 
-  return <span className={`activity-indicator ${className ?? ""}`}>{dot}</span>;
+  return <span className={className ?? ""}>{dot}</span>;
 }

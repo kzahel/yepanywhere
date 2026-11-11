@@ -180,22 +180,6 @@ const BrowserDebugToolbarButton = lazy(() =>
 const subscribeToNoPositionStore = () => () => {};
 const getNoPositionSnapshot = () => null;
 
-// Maps a control's narrowing priority to its overflow-tier CSS class. `first`
-// collapses first (early), `mid` next, `last` collapses last; `pin` yields no
-// tier class (and its menu copy stays hidden) so the control never collapses.
-function priorityToTierClass(priority: ToolbarNarrowingPriority): string {
-  switch (priority) {
-    case "first":
-      return "composer-bottom-overflow-early";
-    case "mid":
-      return "composer-bottom-overflow-medium";
-    case "last":
-      return "composer-bottom-overflow-late";
-    default:
-      return "";
-  }
-}
-
 export interface MessageInputToolbarProps {
   onAttachmentPanel?: () => void;
   onRecordAudioMemo?: () => void;
@@ -724,6 +708,7 @@ interface ToolbarHidePopoverState {
 }
 
 interface ToolbarControlMarker {
+  "data-session-toolbar-priority": ToolbarNarrowingPriority;
   "data-session-toolbar-control"?: SessionToolbarVisibilityKey;
   "data-session-toolbar-special-context"?: "true";
 }
@@ -935,6 +920,7 @@ export function MessageInputToolbarView({
     hasSpecialContextAction = false,
   ): ToolbarControlMarker => ({
     "data-session-toolbar-control": key,
+    "data-session-toolbar-priority": effectivePriority(key),
     "data-session-toolbar-special-context": hasSpecialContextAction
       ? "true"
       : undefined,
@@ -959,7 +945,7 @@ export function MessageInputToolbarView({
     }
     return configured;
   };
-  // Priority classes label measurement candidates. Individual hidden membership
+  // Module classes label measurement candidates. Individual hidden membership
   // keeps each control's inline and menu presentations mutually exclusive.
   const inlineTierClass = (
     key: SessionToolbarVisibilityKey,
@@ -968,7 +954,6 @@ export function MessageInputToolbarView({
     [
       ...extra,
       toolbarModuleStyles.composerBottomOverflowInline,
-      priorityToTierClass(effectivePriority(key)),
       hiddenControls.has(key) ? toolbarModuleStyles.overflowHidden : "",
     ]
       .filter(Boolean)
@@ -977,10 +962,8 @@ export function MessageInputToolbarView({
     key: SessionToolbarVisibilityKey,
     ...extra: (string | undefined)[]
   ): string => {
-    const tierClass = priorityToTierClass(effectivePriority(key));
     return [
       ...extra,
-      tierClass || "composer-bottom-overflow-pinned",
       hiddenControls.has(key)
         ? toolbarModuleStyles.overflowVisible
         : toolbarModuleStyles.overflowHidden,
@@ -1110,7 +1093,6 @@ export function MessageInputToolbarView({
           >
             {providerRuntimeDisplay.retryAtMs !== null ? (
               <time
-                className="composer-provider-runtime-time"
                 dateTime={new Date(
                   providerRuntimeDisplay.retryAtMs,
                 ).toISOString()}
@@ -1118,15 +1100,13 @@ export function MessageInputToolbarView({
                 {providerRuntimeDisplay.summary}
               </time>
             ) : (
-              <span className="composer-provider-runtime-time">
-                {providerRuntimeDisplay.summary}
-              </span>
+              <span>{providerRuntimeDisplay.summary}</span>
             )}
           </div>
         )}
         {showPositionChip && (
           <div
-            className={`${toolbarModuleStyles.composerStatusChip} composer-position-age ${toolbarModuleStyles.composerActivityAgeCompact}`}
+            className={`${toolbarModuleStyles.composerStatusChip} ${toolbarModuleStyles.composerActivityAgeCompact}`}
             role="status"
             aria-label={t("toolbarPositionAgeAria")}
           >
@@ -1146,7 +1126,7 @@ export function MessageInputToolbarView({
         )}
         {showLastActivityChip && (
           <div
-            className={`${toolbarModuleStyles.composerStatusChip} composer-activity-age${statusControl.showLastActivityPrefix ? "" : ` ${toolbarModuleStyles.composerActivityAgeCompact}`}`}
+            className={`${toolbarModuleStyles.composerStatusChip} ${statusControl.showLastActivityPrefix ? "" : ` ${toolbarModuleStyles.composerActivityAgeCompact}`}`}
             role="status"
             aria-label={t("toolbarLastActivityAria")}
           >
@@ -1540,6 +1520,8 @@ export function MessageInputToolbarView({
     hiddenControls,
     setToolbarRef,
   } = useMeasuredComposerOverflow({
+    priority: controlPriority,
+    pinOnlyMicrophone: !!fileViewerController,
     layoutKey: bottomOverflowLayoutKey,
     hasControls: hasBottomOverflowControls,
     refs,
@@ -1646,8 +1628,9 @@ export function MessageInputToolbarView({
   return (
     <div
       ref={setToolbarRef}
-      className={`${toolbarModuleStyles.messageInputToolbar}${applyStatusFloats ? ` ${toolbarModuleStyles.statusFloats}` : ""} overflow-tier-${bottomOverflowTier}${fileViewerController ? ` ${toolbarModuleStyles.fileViewerControllerActive}` : ""}${coveringViewerOpen ? ` ${toolbarModuleStyles.fileViewerOpen}` : ""}${waveformBackdropActive ? ` ${toolbarModuleStyles.waveformBackdropActive}` : ""}`}
+      className={`${toolbarModuleStyles.messageInputToolbar}${applyStatusFloats ? ` ${toolbarModuleStyles.statusFloats}` : ""}${fileViewerController ? ` ${toolbarModuleStyles.fileViewerControllerActive}` : ""}${coveringViewerOpen ? ` ${toolbarModuleStyles.fileViewerOpen}` : ""}${waveformBackdropActive ? ` ${toolbarModuleStyles.waveformBackdropActive}` : ""}`}
       data-message-input-toolbar
+      data-overflow-tier={bottomOverflowTier}
       data-status-floats={applyStatusFloats || undefined}
       data-waveform-button-background-opacity={
         waveformBackdropActive
@@ -1905,7 +1888,7 @@ export function MessageInputToolbarView({
       )}
       {showBottomOverflow && (
         <div
-          className={`${toolbarModuleStyles.overflow} ${toolbarModuleStyles.composerBottomOverflow} ${bottomOverflowOpen ? "is-open" : ""}`}
+          className={`${toolbarModuleStyles.overflow} ${toolbarModuleStyles.composerBottomOverflow} `}
           data-composer-bottom-overflow
         >
           <button
@@ -1968,7 +1951,6 @@ export function MessageInputToolbarView({
                     menuTierClass(
                       "sessionStatus",
                       toolbarModuleStyles.composerStatusAges,
-                      "composer-status-ages--menu",
                     ),
                   )}
               </div>
@@ -2690,9 +2672,7 @@ export function MessageInputToolbarView({
                       : queueControl.queueTooltip
                   }
                 >
-                  <DeliveryGlyph
-                    className={`${actionStyles.sendIcon} queue-icon`}
-                  >
+                  <DeliveryGlyph className={actionStyles.sendIcon}>
                     →
                   </DeliveryGlyph>
                   {actionsControl.send.speechMessagePrefix && (
@@ -2712,7 +2692,7 @@ export function MessageInputToolbarView({
                   disabled={
                     actionsControl.disabled || !actionsControl.send.canSend
                   }
-                  className={`${actionStyles.sendButton} steer-button`}
+                  className={actionStyles.sendButton}
                   data-send-button
                   aria-label={
                     actionsControl.send.speechMessagePrefix
@@ -2748,7 +2728,7 @@ export function MessageInputToolbarView({
                 disabled={
                   actionsControl.disabled || !actionsControl.send.canSend
                 }
-                className={`${actionStyles.sendButton} fork-summary-no-summary-button`}
+                className={actionStyles.sendButton}
                 data-send-button
                 aria-label={
                   actionsControl.send.speechMessagePrefix
@@ -2794,7 +2774,8 @@ export function MessageInputToolbarView({
                 disabled={
                   actionsControl.disabled || !actionsControl.send.canSend
                 }
-                className={`${actionStyles.sendButton} send-button-with-help ${actionsControl.send.primaryActionKind === "queue" ? actionStyles.queueMode : ""}`}
+                className={`${actionStyles.sendButton} ${actionsControl.send.primaryActionKind === "queue" ? actionStyles.queueMode : ""}`}
+                data-send-button-with-help=""
                 data-send-button
                 data-queue-mode={
                   actionsControl.send.primaryActionKind === "queue" || undefined

@@ -3,7 +3,7 @@
  * host process metrics popover.
  *
  * The two `.context-usage-indicator` composition rules stay in
- * `styles/index.css`. That class belongs to ContextUsageIndicator, so the
+ * the owning modules. That class belongs to ContextUsageIndicator, so the
  * relationship is anchored on the global `agent-card-meta` and
  * `agent-metrics-wrap` hooks the elements below still carry.
  */

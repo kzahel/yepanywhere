@@ -90,7 +90,7 @@ function HostIdentitySettings({
     <SettingsItem
       label={t("hostIdentityTitle")}
       description={t("hostIdentityDescription")}
-      className={`${rowsStyles.itemWideControl} host-identity-settings`}
+      className={rowsStyles.itemWideControl}
     >
       <div className={styles.controls}>
         <SegmentedControl
@@ -548,7 +548,7 @@ export function RemoteAccessSettings() {
 
   const yaClientInfo = (
     <HideInSettingsSearch>
-      <div className="form-hint">
+      <div>
         <p>
           <strong>{t("advancedYaClientTitle")}</strong>.{" "}
           {t("advancedYaClientDescription")}

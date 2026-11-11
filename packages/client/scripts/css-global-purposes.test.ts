@@ -73,44 +73,6 @@ describe("global stylesheet purposes", () => {
     ).toEqual(["generated:authored-subject", "generated:context:authored"]);
   });
 
-  it("requires generated ancestry for vocabulary also authored by React", () => {
-    const shared = [
-      {
-        pattern: "^(line|prefix)$",
-        generated: true,
-        reactAuthored: ["prefix"],
-      },
-    ];
-    expect(
-      globalPurposeFindings(
-        ".line > .prefix { color: red }",
-        "generated",
-        shared,
-      ),
-    ).toEqual([]);
-    expect(
-      globalPurposeFindings(".prefix { color: red }", "generated", shared).map(
-        (finding) => finding.key,
-      ),
-    ).toEqual(["generated:authored-subject"]);
-    for (const selector of [".prefix:not(.line)", ".prefix:has(.line)"]) {
-      expect(
-        globalPurposeFindings(
-          `${selector} { color: red }`,
-          "generated",
-          shared,
-        ).map((finding) => finding.key),
-      ).toEqual(["generated:authored-subject"]);
-    }
-    expect(
-      globalPurposeFindings(
-        ".line:has(.prefix) { color: red }",
-        "generated",
-        shared,
-      ),
-    ).toEqual([]);
-  });
-
   it("counts data contexts without treating an authored root as generated", () => {
     expect(
       globalPurposeFindings(

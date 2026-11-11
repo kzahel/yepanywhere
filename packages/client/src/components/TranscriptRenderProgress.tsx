@@ -20,10 +20,7 @@ export function TranscriptRenderProgress({
       <div>{t("sessionLoading")}</div>
       {showDetails && (
         <>
-          <div
-            className={`${pageStyles.loadingDetail} session-render-progress-label`}
-            data-loading-detail
-          >
+          <div className={pageStyles.loadingDetail} data-loading-detail>
             {t("sessionProgressiveRenderingStatus", {
               percent: percent,
             })}

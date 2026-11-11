@@ -85,18 +85,10 @@ export function ReviewCommentWindow({
         <>
           {/* review-comment-window-cancel and -add stay literal: no stylesheet
             declares them, so they are DOM hooks this module does not own. */}
-          <Button
-            className="review-comment-window-cancel"
-            onClick={onCancel}
-            disabled={busy}
-          >
+          <Button onClick={onCancel} disabled={busy}>
             {t("cancel")}
           </Button>
-          <Button
-            className="review-comment-window-add"
-            onClick={() => onAddToReview(text)}
-            disabled={!canSubmit}
-          >
+          <Button onClick={() => onAddToReview(text)} disabled={!canSubmit}>
             {t("sourceReviewAddToReview")}
           </Button>
           <div className={styles.submitActions}>

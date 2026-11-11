@@ -564,7 +564,6 @@ function PublicSharePageGeneration({ locationHash }: { locationHash: string }) {
           <div className={styles.headerActions}>
             {mode === "live" && activeViewerCount !== null && (
               <ViewerCountIndicator
-                className="public-share-viewer-count"
                 count={activeViewerCount}
                 label={t("publicShareActiveViewers", {
                   count: activeViewerCount,

@@ -634,9 +634,7 @@ export function NotificationsSettings() {
               </summary>
               <div className={styles.diagnosticsBody}>
                 <div className={rowsStyles.group} data-settings-group>
-                  <div
-                    className={`${rowsStyles.item} push-test-controls ${styles.testRow}`}
-                  >
+                  <div className={`${rowsStyles.item} ${styles.testRow}`}>
                     <div className={rowsStyles.itemInfo} data-settings-info>
                       <strong>{t("notificationsTestPushTitle")}</strong>
                       <p>{t("notificationsTestPushDescription")}</p>

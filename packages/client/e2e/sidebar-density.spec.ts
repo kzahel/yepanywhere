@@ -41,18 +41,18 @@ async function readNavigationMetrics(page: Page) {
 async function expectRestoredNewSessionAction(page: Page) {
   const action = page.getByRole("link", { name: "New Session" }).first();
   await expect(action).toBeVisible();
-  await expect(action.locator(".sidebar-new-session-icon")).toHaveAttribute(
-    "width",
-    "16",
-  );
-  await expect(action.locator(".sidebar-new-session-icon")).toHaveAttribute(
-    "height",
-    "16",
-  );
-  await expect(action.locator(".sidebar-new-session-icon circle")).toHaveCount(
-    1,
-  );
-  await expect(action.locator(".sidebar-new-session-icon line")).toHaveCount(2);
+  await expect(
+    action.locator("[data-sidebar-new-session-icon]"),
+  ).toHaveAttribute("width", "16");
+  await expect(
+    action.locator("[data-sidebar-new-session-icon]"),
+  ).toHaveAttribute("height", "16");
+  await expect(
+    action.locator("[data-sidebar-new-session-icon] circle"),
+  ).toHaveCount(1);
+  await expect(
+    action.locator("[data-sidebar-new-session-icon] line"),
+  ).toHaveCount(2);
 }
 
 test("keeps sidebar density spatial and the create action recognizable", async ({

@@ -169,13 +169,8 @@ export function BangCommandsPage() {
           return (
             <div className={styles.entry} key={entryKey}>
               <div className={styles.entryMeta}>
-                <span className="bang-history-entry-time">
-                  {new Date(entry.object.createdAt).toLocaleString()}
-                </span>
-                <span
-                  className="bang-history-entry-cwd"
-                  title={entry.object.cwd}
-                >
+                <span>{new Date(entry.object.createdAt).toLocaleString()}</span>
+                <span title={entry.object.cwd}>
                   {entry.object.cwd.split("/").pop()}
                 </span>
                 {entry.projectId && (

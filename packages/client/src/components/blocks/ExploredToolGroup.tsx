@@ -207,7 +207,7 @@ export const ExploredToolGroup = memo(function ExploredToolGroup({
     <div
       className={[
         itemStyles.messageRenderRow,
-        "explored-message-row",
+        "",
         hasTimestamp ? `${itemStyles["has-message-age"]}` : "",
         showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : "",
       ]

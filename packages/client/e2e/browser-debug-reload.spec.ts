@@ -130,7 +130,7 @@ for (const viewport of [
         );
         const controls = await page
           .locator(
-            "[data-session-toolbar-control].composer-bottom-overflow-early:not([data-composer-bottom-overflow-menu] *)",
+            '[data-session-toolbar-control][data-session-toolbar-priority="first"]:not([data-composer-bottom-overflow-menu] *)',
           )
           .evaluateAll((elements) =>
             elements.map((element) => ({

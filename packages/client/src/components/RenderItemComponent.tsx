@@ -291,7 +291,7 @@ function RewoundGroupHeader({
         <CopyTextButton
           text={relaunchCommand}
           label={t("rewoundGroupCopyRelaunch")}
-          className={`${promptStyles.userPromptAction} user-prompt-action-copy ${styles.rewoundGroupCopy}`}
+          className={`${promptStyles.userPromptAction} ${styles.rewoundGroupCopy}`}
           data-user-prompt-action
         />
       )}
@@ -351,9 +351,7 @@ function CollapsibleSystemMessage({
   const variantClass = isCompactBoundary
     ? styles.systemMessageCompactBoundary
     : styles.systemMessageLocalCommand;
-  const summaryClass = isCompactBoundary
-    ? `${styles.systemMessageSummary} system-message-compact-summary`
-    : `${styles.systemMessageSummary} system-message-local-command-summary`;
+  const summaryClass = styles.systemMessageSummary;
   const text = label ?? item.content;
   const resolvedIcon = systemIconForText(icon, text);
 
@@ -387,7 +385,7 @@ function CollapsibleSystemMessage({
 
   return (
     <details
-      className={`${styles.systemMessage} ${variantClass} ${variantClass}--details ${styles.systemMessageDetails}${
+      className={`${styles.systemMessage} ${variantClass} ${styles.systemMessageDetails}${
         isCompactBoundary ? ` ${styles.compactBoundaryOutline}` : ""
       }`}
       data-system-message

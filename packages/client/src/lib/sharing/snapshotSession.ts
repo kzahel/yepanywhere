@@ -38,7 +38,7 @@ export function snapshotSession(title?: string): string {
     "textarea",
     "[contenteditable]",
     "script",
-    ".session-menu-wrapper",
+    "[data-session-menu]",
     "[data-load-older-messages]",
     "[data-pending-message]",
     "[data-deferred-message]",

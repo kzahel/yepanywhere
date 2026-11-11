@@ -1,0 +1,26 @@
+{
+  "packages/client/src/lib/selectionClipboard.ts:selector:katex-html": {
+    "count": 1,
+    "reason": "KaTeX owns this third-party visual subtree; clipboard export removes it to retain semantic MathML without duplicating formulas."
+  },
+  "packages/client/src/lib/semanticHtmlClipboard.ts:selector:katex-html": {
+    "count": 1,
+    "reason": "KaTeX owns this third-party visual subtree; clipboard export removes it to retain semantic MathML without duplicating formulas."
+  },
+  "packages/client/src/lib/scriptlessHtmlPreview.ts:selector:math": {
+    "count": 1,
+    "reason": "Pandoc document input owns these external math markers; scriptless preview recognizes and typesets them before sanitizing the document."
+  },
+  "packages/client/src/lib/scriptlessHtmlPreview.ts:selector:inline": {
+    "count": 1,
+    "reason": "Pandoc document input owns these external math markers; scriptless preview recognizes and typesets them before sanitizing the document."
+  },
+  "packages/client/src/lib/scriptlessHtmlPreview.ts:selector:display": {
+    "count": 1,
+    "reason": "Pandoc document input owns these external math markers; scriptless preview recognizes and typesets them before sanitizing the document."
+  },
+  "packages/client/src/lib/scriptlessHtmlPreview.ts:class:display": {
+    "count": 1,
+    "reason": "Pandoc document input owns these external math markers; scriptless preview recognizes and typesets them before sanitizing the document."
+  }
+}

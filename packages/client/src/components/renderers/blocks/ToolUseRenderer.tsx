@@ -21,7 +21,7 @@ function ToolUseRendererComponent({
   context: RenderContext;
 }) {
   return (
-    <div className={`${styles.toolBlock} tool-use`} data-tool-block>
+    <div className={styles.toolBlock} data-tool-block>
       <div className={styles.toolHeader} data-tool-header>
         <span className={styles.toolIcon} data-tool-icon>
           {">"}

@@ -526,7 +526,8 @@ export const TextBlock = memo(function TextBlock({
           ))}
         {abortedMidStream && (
           <span
-            className={`${styles.abortedMidStream} text-block-aborted-mid-stream`}
+            className={styles.abortedMidStream}
+            data-text-block-aborted-mid-stream=""
             title={t("textBlockAbortedMidStreamTitle")}
           >
             <span aria-hidden="true">⨯</span>

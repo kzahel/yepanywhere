@@ -139,7 +139,7 @@ test("typing around the recall drawer acknowledges every key", async ({
     expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThan(100);
   };
 
-  const menu = page.locator(".composer-recall-menu");
+  const menu = page.locator("[data-composer-recall-menu]");
   const menuRows = menu.locator("[data-slash-command-item]");
 
   // Open over every turn, move the selection while the transcript updates,

@@ -27,8 +27,7 @@
     "pattern": "^local-media-(link|link-group|inline-toggle|type|inline-preview)$",
     "source": "packages/server/src/augments/safe-markdown.ts",
     "reason": "Server markdown media renderer emits media links, toggles and preview placeholders.",
-    "generated": true,
-    "reactAuthored": ["local-media-link-group", "local-media-type"]
+    "generated": true
   },
   {
     "pattern": "^file-link$",
@@ -46,8 +45,7 @@
     "pattern": "^(line-(context|deleted|inserted|hunk)|diff-(prefix|word-added|word-removed))$",
     "source": "packages/server/src/augments/edit-augments.ts",
     "reason": "Server diff rendering emits line-kind classes, prefix spans and word-change wrappers.",
-    "generated": true,
-    "reactAuthored": ["line-hunk", "diff-prefix"]
+    "generated": true
   },
   {
     "pattern": "^fixed-font-(rendered-line(__content)?|file-link|markdown-(heading|list-line|list-marker|list-body|blockquote|rule|block|table)|leading-indent|diff-(gutter(-cell)?|added|removed))$",

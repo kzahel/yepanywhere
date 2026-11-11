@@ -542,9 +542,7 @@ export function ModelSwitchModal({
       )}
       <MaybeTabPanel tabsId={hasTabs ? tabsId : undefined} value={activeTab}>
         {accountPane && activeTab === "account" && accountPane}
-        {infoPane && activeTab === "info" && (
-          <div className="model-switch-info-pane">{infoPane}</div>
-        )}
+        {infoPane && activeTab === "info" && <div>{infoPane}</div>}
         {(!hasTabs || activeTab === "model") && loading && (
           <div className={styles.modelSwitchLoading} data-model-switch-loading>
             <Spinner size="small" /> {t("modelSwitchLoading")}

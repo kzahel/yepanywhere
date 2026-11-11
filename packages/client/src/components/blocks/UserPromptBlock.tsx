@@ -435,7 +435,7 @@ function UserPromptActionButtons({
         <CopyTextButton
           text={copyText}
           label={t("userPromptCopyAction")}
-          className={`${styles.userPromptAction} user-prompt-action-copy`}
+          className={styles.userPromptAction}
           data-user-prompt-action
         />
       )}
@@ -443,7 +443,7 @@ function UserPromptActionButtons({
         <IconButton
           variant="secondary"
           size="small"
-          className={`${styles.userPromptAction} user-prompt-action-edit`}
+          className={styles.userPromptAction}
           data-user-prompt-action
           onClick={onCorrect}
           label={t("userPromptEditAction")}
@@ -469,7 +469,7 @@ function UserPromptActionButtons({
         <IconButton
           variant="danger-outline"
           size="small"
-          className={`${styles.userPromptAction} user-prompt-action-cancel-sent`}
+          className={styles.userPromptAction}
           data-user-prompt-action
           onClick={onCancelUnconfirmed}
           label={t("userPromptCancelUnconfirmedAction")}
@@ -505,7 +505,7 @@ function UserPromptActionButtons({
         <IconButton
           variant="secondary"
           size="small"
-          className={`${styles.userPromptAction} user-prompt-action-show-starting`}
+          className={styles.userPromptAction}
           data-user-prompt-action
           onClick={onTrimBefore}
           label={t("userPromptShowStartingHere")}
@@ -594,7 +594,7 @@ function UserPromptText({
   }
 
   return (
-    <div className="user-prompt-correction">
+    <div>
       <div
         className={styles.userPromptCorrectionLabel}
         data-user-prompt-correction-label

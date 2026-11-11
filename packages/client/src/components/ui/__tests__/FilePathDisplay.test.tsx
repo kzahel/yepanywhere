@@ -11,8 +11,8 @@ describe("FilePathDisplay", () => {
     expect(
       path.querySelector("[data-file-path-display-dir]")?.textContent,
     ).toBe("src/");
-    expect(path.querySelector(".file-path-display-name")?.textContent).toBe(
-      "main.rs",
-    );
+    expect(
+      path.querySelector("[data-file-path-display-name]")?.textContent,
+    ).toBe("main.rs");
   });
 });

@@ -138,7 +138,7 @@ test("a !! draft is routed locally and its run is recorded", async ({
             element as HTMLTextAreaElement & { acks: { value: string }[] }
           ).acks.at(-1)?.value,
       );
-    const menu = page.locator(".bang-completion-menu");
+    const menu = page.locator("[data-bang-completion-menu]");
     const draft = "!!echo ya-bang-ok";
     let typed = "";
     for (const character of draft) {

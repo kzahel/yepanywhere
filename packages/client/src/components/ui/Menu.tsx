@@ -209,7 +209,7 @@ export function Menu({
         // The label, not the check glyph or a leading badge.
         const item = items[index];
         const text = (
-          item?.querySelector(`.${styles.label}`)?.textContent ??
+          item?.querySelector("[data-menu-label]")?.textContent ??
           item?.textContent
         )
           ?.trim()
@@ -328,7 +328,9 @@ export function MenuItem({
         </span>
       ) : null}
       <span className={styles.text}>
-        <span className={styles.label}>{children}</span>
+        <span className={styles.label} data-menu-label>
+          {children}
+        </span>
         {description ? (
           <span id={descriptionId} className={styles.description}>
             {description}
@@ -419,7 +421,9 @@ export function MenuLinkItem({
         </span>
       ) : null}
       <span className={styles.text}>
-        <span className={styles.label}>{children}</span>
+        <span className={styles.label} data-menu-label>
+          {children}
+        </span>
         {description ? (
           <span id={descriptionId} className={styles.description}>
             {description}

@@ -1413,12 +1413,12 @@ describe("MessageInput", () => {
 
       expect(
         document.querySelector(
-          ".message-input-keyboard-project-queue-slot [data-project-queue-mode]",
+          "[data-message-input-keyboard-project-queue-slot] [data-project-queue-mode]",
         ),
       ).toBeTruthy();
       expect(
         document.querySelector(
-          ".message-input-keyboard-project-queue-new-session-slot [data-project-queue-new-session-button]",
+          "[data-message-input-keyboard-project-queue-new-session-slot] [data-project-queue-new-session-button]",
         ),
       ).toBeTruthy();
       fireEvent.click(
@@ -1467,16 +1467,18 @@ describe("MessageInput", () => {
       fireEvent.change(textarea, { target: { value: "queue this later" } });
 
       const projectQueueNewSessionSlot = document.querySelector(
-        ".message-input-keyboard-project-queue-new-session-slot",
+        "[data-message-input-keyboard-project-queue-new-session-slot]",
       );
 
       expect(
-        document.querySelector(".message-input-keyboard-project-queue-slot"),
+        document.querySelector(
+          "[data-message-input-keyboard-project-queue-slot]",
+        ),
       ).toBeNull();
       expect(projectQueueNewSessionSlot).toBeTruthy();
       expect(
         document.querySelector(
-          ".message-input-keyboard-session-alternate-slot",
+          "[data-message-input-keyboard-session-alternate-slot]",
         ),
       ).toBeNull();
       expect(
@@ -1493,12 +1495,12 @@ describe("MessageInput", () => {
 
       expect(
         document.querySelector(
-          ".message-input-keyboard-project-queue-slot [data-project-queue-mode]",
+          "[data-message-input-keyboard-project-queue-slot] [data-project-queue-mode]",
         ),
       ).toBeTruthy();
       expect(
         document.querySelector(
-          ".message-input-keyboard-session-alternate-slot [data-delivery-kind=queue]",
+          "[data-message-input-keyboard-session-alternate-slot] [data-delivery-kind=queue]",
         ),
       ).toBeTruthy();
     } finally {
@@ -1520,11 +1522,13 @@ describe("MessageInput", () => {
       fireEvent.change(textarea, { target: { value: "send normally" } });
 
       expect(
-        document.querySelector(".message-input-keyboard-project-queue-slot"),
+        document.querySelector(
+          "[data-message-input-keyboard-project-queue-slot]",
+        ),
       ).toBeNull();
       expect(
         document.querySelector(
-          ".message-input-keyboard-project-queue-new-session-slot",
+          "[data-message-input-keyboard-project-queue-new-session-slot]",
         ),
       ).toBeNull();
     } finally {
@@ -2154,21 +2158,21 @@ describe("MessageInput", () => {
     function recallItems() {
       return Array.from(
         document.querySelectorAll(
-          ".composer-recall-menu [data-slash-command-item]",
+          "[data-composer-recall-menu] [data-slash-command-item]",
         ),
       );
     }
 
     function activeRecallItem() {
       return document.querySelector(
-        ".composer-recall-menu [data-composer-recall-active]",
+        "[data-composer-recall-menu] [data-composer-recall-active]",
       );
     }
 
     function recallGoToButtons() {
       return Array.from(
         document.querySelectorAll<HTMLButtonElement>(
-          ".composer-recall-menu [data-composer-recall-goto]",
+          "[data-composer-recall-menu] [data-composer-recall-goto]",
         ),
       );
     }
@@ -2204,7 +2208,7 @@ describe("MessageInput", () => {
 
       fireEvent.keyDown(textarea, { key: "ArrowUp", ctrlKey: true });
 
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("does not open over an attachment-only draft", () => {
@@ -2215,7 +2219,7 @@ describe("MessageInput", () => {
 
       fireEvent.keyDown(textarea, { key: "ArrowUp", ctrlKey: true });
 
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("moves the selection with Arrow keys and drafts on Enter", () => {
@@ -2229,7 +2233,7 @@ describe("MessageInput", () => {
 
       fireEvent.keyDown(textarea, { key: "Enter" });
       expect(textarea.value).toBe("debug the crash");
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("drafts the clicked entry", () => {
@@ -2244,7 +2248,7 @@ describe("MessageInput", () => {
       fireEvent.click(runItem);
 
       expect(textarea.value).toBe("run the tests");
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("closes and keeps the draft on Escape", () => {
@@ -2254,10 +2258,12 @@ describe("MessageInput", () => {
       fireEvent.change(textarea, { target: { value: "de" } });
 
       fireEvent.keyDown(textarea, { key: "ArrowUp", ctrlKey: true });
-      expect(document.querySelector(".composer-recall-menu")).not.toBeNull();
+      expect(
+        document.querySelector("[data-composer-recall-menu]"),
+      ).not.toBeNull();
 
       fireEvent.keyDown(textarea, { key: "Escape" });
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
       expect(textarea.value).toBe("de");
     });
 
@@ -2265,22 +2271,26 @@ describe("MessageInput", () => {
       const textarea = renderMessageInput(vi.fn(), { turnRecall });
 
       fireEvent.keyDown(textarea, { key: "ArrowUp", ctrlKey: true });
-      expect(document.querySelector(".composer-recall-menu")).not.toBeNull();
+      expect(
+        document.querySelector("[data-composer-recall-menu]"),
+      ).not.toBeNull();
 
       const handled = fireEvent.keyDown(textarea, { key: "a" });
       // Not consumed: the keystroke is allowed to reach the composer.
       expect(handled).toBe(true);
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("restores focus loss by closing the drawer", () => {
       const textarea = renderMessageInput(vi.fn(), { turnRecall });
 
       fireEvent.keyDown(textarea, { key: "ArrowUp", ctrlKey: true });
-      expect(document.querySelector(".composer-recall-menu")).not.toBeNull();
+      expect(
+        document.querySelector("[data-composer-recall-menu]"),
+      ).not.toBeNull();
 
       fireEvent.blur(textarea);
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("leaves plain ArrowUp last-submission recall intact", () => {
@@ -2290,7 +2300,7 @@ describe("MessageInput", () => {
       fireEvent.keyDown(textarea, { key: "ArrowUp" });
 
       expect(onRecall).toHaveBeenCalledTimes(1);
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
     });
 
     it("omits the per-row go-to control when onGoToTurn is absent", () => {
@@ -2322,7 +2332,7 @@ describe("MessageInput", () => {
       // draft untouched (no recall, and no Esc-style restore).
       expect(onGoToTurn).toHaveBeenCalledTimes(1);
       expect(onGoToTurn).toHaveBeenCalledWith("turn-debug");
-      expect(document.querySelector(".composer-recall-menu")).toBeNull();
+      expect(document.querySelector("[data-composer-recall-menu]")).toBeNull();
       expect(textarea.value).toBe("de");
     });
 
@@ -2336,10 +2346,12 @@ describe("MessageInput", () => {
         fireEvent.change(textarea, { target: { value: "de" } });
 
         const openButton = document.querySelector(
-          "[data-message-input-keyboard-compact] .composer-recall-open",
+          "[data-message-input-keyboard-compact] [data-composer-recall-open]",
         ) as HTMLButtonElement | null;
         expect(openButton).toBeTruthy();
-        expect(document.querySelector(".composer-recall-menu")).toBeNull();
+        expect(
+          document.querySelector("[data-composer-recall-menu]"),
+        ).toBeNull();
 
         fireEvent.pointerDown(openButton as HTMLButtonElement);
         fireEvent.click(openButton as HTMLButtonElement);
@@ -2365,7 +2377,7 @@ describe("MessageInput", () => {
 
         expect(
           document.querySelector(
-            "[data-message-input-keyboard-compact] .composer-recall-open",
+            "[data-message-input-keyboard-compact] [data-composer-recall-open]",
           ),
         ).toBeNull();
       } finally {
@@ -2385,7 +2397,7 @@ describe("MessageInput", () => {
 
         expect(
           document.querySelector(
-            "[data-message-input-keyboard-compact] .composer-recall-open",
+            "[data-message-input-keyboard-compact] [data-composer-recall-open]",
           ),
         ).toBeNull();
       } finally {
@@ -2408,7 +2420,7 @@ describe("MessageInput", () => {
 
         expect(
           document.querySelector(
-            "[data-message-input-keyboard-compact] .composer-recall-open",
+            "[data-message-input-keyboard-compact] [data-composer-recall-open]",
           ),
         ).toBeNull();
       } finally {
@@ -6127,7 +6139,7 @@ describe("MessageInput", () => {
       onStop,
     });
     fireEvent.change(textarea, { target: { value: "keep this draft" } });
-    const send = document.querySelector(".send-button-with-help");
+    const send = document.querySelector("[data-send-button-with-help]");
     expect(send).not.toBeNull();
     fireEvent.contextMenu(send!);
     fireEvent.keyDown(textarea, { key: "Escape" });
@@ -6136,7 +6148,9 @@ describe("MessageInput", () => {
     expect(
       screen.queryByRole("button", { name: "newSessionQueueExit" }),
     ).toBeNull();
-    fireEvent.contextMenu(document.querySelector(".send-button-with-help")!);
+    fireEvent.contextMenu(
+      document.querySelector("[data-send-button-with-help]")!,
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "newSessionQueueExit" }),
     );
@@ -6457,7 +6471,7 @@ describe("MessageInput", () => {
     );
 
     const toolbar = container.querySelector("[data-message-input-toolbar]");
-    const waveform = container.querySelector(".composer-speech-waveform");
+    const waveform = container.querySelector("[data-composer-speech-waveform]");
     expect(waveform).toBeTruthy();
     expect(
       waveform?.parentElement?.hasAttribute("data-message-input-left"),
@@ -6568,16 +6582,9 @@ describe("MessageInput", () => {
     const inlineContext = container.querySelector(
       "[data-message-input-actions] [data-context-toolbar-control]",
     );
-    expect(inlineContext?.classList).toContain("composer-bottom-overflow-late");
-    expect(inlineContext?.classList).not.toContain(
-      "composer-bottom-overflow-pinned",
+    expect(inlineContext?.getAttribute("data-session-toolbar-priority")).toBe(
+      "last",
     );
-    expect(
-      screen.getByRole("button", { name: "voiceInputStartLabel" }).classList,
-    ).not.toContain("composer-bottom-overflow-late");
-    expect(
-      screen.getByRole("button", { name: "Send" }).classList,
-    ).not.toContain("composer-bottom-overflow-late");
     const restoreButton = screen.getByRole("button", {
       name: "Restore file viewer: /workspace/docs/guide.md:12",
     });
@@ -6743,7 +6750,9 @@ describe("MessageInput", () => {
       "Steer current turn\nEnter",
     );
     expect(button.getAttribute("title")).toBe(null);
-    expect(container.querySelector(".send-button-with-help")).toBe(button);
+    expect(container.querySelector("[data-send-button-with-help]")).toBe(
+      button,
+    );
   });
 
   it("uses only the browser title on the primary send action in native mode", () => {
@@ -7059,7 +7068,7 @@ describe("MessageInput", () => {
         }
         if (this.hasAttribute("data-composer-bottom-overflow")) return rect(24);
         if (this.hasAttribute("data-attach-button")) return rect(80);
-        if (this.classList.contains("send-button-with-help")) return rect(40);
+        if (this.hasAttribute("data-send-button-with-help")) return rect(40);
         if (
           this.classList.contains(
             toolbarStyles.composerBottomOverflowInline!,
@@ -7130,14 +7139,14 @@ describe("MessageInput", () => {
       act(() => {
         resizeCallback?.([resizeEntry(toolbar(), 100)], {} as ResizeObserver);
       });
-      expect(toolbar().classList.contains("overflow-tier-early")).toBe(true);
+      expect(toolbar().getAttribute("data-overflow-tier")).toBe("early");
 
       rerender(renderMeasuredToolbar(false));
       act(() => {
         resizeCallback?.([resizeEntry(toolbar(), 100)], {} as ResizeObserver);
       });
 
-      expect(toolbar().classList.contains("overflow-tier-none")).toBe(true);
+      expect(toolbar().getAttribute("data-overflow-tier")).toBe("none");
     } finally {
       Object.defineProperty(window, "ResizeObserver", {
         configurable: true,
@@ -7361,7 +7370,7 @@ describe("MessageInput bang commands", () => {
   const bangMenuLabels = () =>
     Array.from(
       document.querySelectorAll(
-        ".bang-completion-menu [data-slash-command-item]",
+        "[data-bang-completion-menu] [data-slash-command-item]",
       ),
     ).map((el) => el.textContent);
 
@@ -7378,10 +7387,10 @@ describe("MessageInput bang commands", () => {
     );
     // History rows carry the distinguishing class; candidates do not.
     const items = document.querySelectorAll(
-      ".bang-completion-menu [data-slash-command-item]",
+      "[data-bang-completion-menu] [data-slash-command-item]",
     );
-    expect(items[0]?.classList.contains("bang-history-item")).toBe(true);
-    expect(items[2]?.classList.contains("bang-history-item")).toBe(false);
+    expect(items[0]?.hasAttribute("data-bang-history-item")).toBe(true);
+    expect(items[2]?.hasAttribute("data-bang-history-item")).toBe(false);
   });
 
   it("applies a highlighted history row as the whole !! body", async () => {
@@ -7399,7 +7408,7 @@ describe("MessageInput bang commands", () => {
     fireEvent.keyDown(textarea, { key: "Tab" });
     expect((textarea as HTMLTextAreaElement).value).toBe("!!git status");
     // The menu closes after a whole-line history apply.
-    expect(document.querySelector(".bang-completion-menu")).toBeNull();
+    expect(document.querySelector("[data-bang-completion-menu]")).toBeNull();
   });
 
   it("applies a token candidate by replacing only the token", async () => {
@@ -7452,14 +7461,18 @@ describe("MessageInput bang commands", () => {
     });
     fireEvent.change(textarea, { target: { value: "!!gi" } });
     await waitFor(() =>
-      expect(document.querySelector(".bang-completion-menu")).toBeTruthy(),
+      expect(
+        document.querySelector("[data-bang-completion-menu]"),
+      ).toBeTruthy(),
     );
     fireEvent.keyDown(textarea, { key: "Escape" });
-    expect(document.querySelector(".bang-completion-menu")).toBeNull();
+    expect(document.querySelector("[data-bang-completion-menu]")).toBeNull();
     // Typing further changes the query key, so the menu is eligible again.
     fireEvent.change(textarea, { target: { value: "!!git" } });
     await waitFor(() =>
-      expect(document.querySelector(".bang-completion-menu")).toBeTruthy(),
+      expect(
+        document.querySelector("[data-bang-completion-menu]"),
+      ).toBeTruthy(),
     );
   });
 

@@ -127,12 +127,12 @@
   overflow: hidden;
 }
 
-.diffContent > :global(.has-review-comment) {
+.diffContent > [data-has-review-comment] {
   box-shadow: inset 3px 0 0 0 var(--accent-color);
   background-color: color-mix(in srgb, var(--accent-color) 12%, transparent);
 }
 
-.diffGutterAligned :global(.diff-prefix) {
+.diffGutterAligned :is(.diffPrefix, :global(.diff-prefix)) {
   position: relative;
   left: var(--diff-glyph-optical-shift);
   display: inline-block;
@@ -181,19 +181,23 @@
   color: var(--diff-shiki-token-inserted);
 }
 
-.diffGutterAligned .diffAdded :global(.diff-prefix) {
+.diffGutterAligned .diffAdded :is(.diffPrefix, :global(.diff-prefix)) {
   color: var(--diff-gutter-added-foreground);
 }
 
-.diffGutterAligned .diffRemoved :global(.diff-prefix) {
+.diffGutterAligned .diffRemoved :is(.diffPrefix, :global(.diff-prefix)) {
   color: var(--diff-gutter-removed-foreground);
 }
 
-.diffGutterAligned :global(.line-inserted) :global(.diff-prefix) {
+.diffGutterAligned
+  :global(.line-inserted)
+  :is(.diffPrefix, :global(.diff-prefix)) {
   color: var(--diff-gutter-added-foreground);
 }
 
-.diffGutterAligned :global(.line-deleted) :global(.diff-prefix) {
+.diffGutterAligned
+  :global(.line-deleted)
+  :is(.diffPrefix, :global(.diff-prefix)) {
   color: var(--diff-gutter-removed-foreground);
 }
 

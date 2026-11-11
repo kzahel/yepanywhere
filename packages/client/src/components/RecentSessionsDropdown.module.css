@@ -82,7 +82,7 @@
 }
 
 /*
- * The /btw aside rule that stays in index.css owns title colour on those rows
+ * The shared /btw aside module owns title colour on those rows
  * at the same specificity this rule had, so exclude them here rather than
  * letting stylesheet order decide which colour wins.
  */

@@ -18,7 +18,7 @@ export function FilePathDisplay({ displayPath }: FilePathDisplayProps) {
           {dir}
         </span>
       )}
-      <span className="file-path-display-name">{name}</span>
+      <span data-file-path-display-name="">{name}</span>
     </span>
   );
 }

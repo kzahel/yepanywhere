@@ -408,7 +408,7 @@ export function ResizableSourceColumns({
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp, { once: true });
     window.addEventListener("pointercancel", handlePointerUp, { once: true });
-    document.body.classList.add("source-pane-resizing");
+    document.body.setAttribute("data-source-pane-resizing", "");
     return () => {
       if (dragFrameRef.current !== null) {
         window.cancelAnimationFrame(dragFrameRef.current);
@@ -419,7 +419,7 @@ export function ResizableSourceColumns({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
-      document.body.classList.remove("source-pane-resizing");
+      document.body.removeAttribute("data-source-pane-resizing");
     };
   }, [dragging, filesMax, layout, layoutMetrics]);
 

@@ -768,11 +768,11 @@ export function RemoteAccessSetup({
                         </>
                       ) : (
                         <>
-                          <span className="session-created">
+                          <span>
                             {t("remoteSetupCreatedLabel" as never)}{" "}
                             {new Date(session.createdAt).toLocaleDateString()}
                           </span>
-                          <span className="session-last-used">
+                          <span>
                             {t("remoteSetupLastUsedLabel" as never)}{" "}
                             {new Date(session.lastUsed).toLocaleDateString()}
                           </span>

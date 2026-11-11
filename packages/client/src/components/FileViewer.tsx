@@ -1,3 +1,4 @@
+import { fileViewerFrameClassName } from "./fileViewerFrame";
 import {
   annotateHighlightedHtmlLines,
   getFileViewerTargetScrollTop,
@@ -2083,10 +2084,11 @@ export const FileViewer = memo(function FileViewer({
             </IconButton>
           )}
         </div>
-        <div className={`file-viewer-info ${viewerStyles.info}`}>
+        <div className={viewerStyles.info}>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click on the name or a separator opens the file action menu; folder segments own their own clicks and menus */}
           <span
-            className={`file-viewer-path ${viewerStyles.path}`}
+            className={viewerStyles.path}
+            data-file-viewer-path=""
             title={filePath}
             onContextMenu={handlePathContextMenu}
           >
@@ -2138,7 +2140,7 @@ export const FileViewer = memo(function FileViewer({
         </div>
         {windowActionsOnTop && windowActions}
       </div>
-      <div className={`file-viewer-actions ${viewerStyles.actions}`}>
+      <div className={viewerStyles.actions} data-file-viewer-actions="">
         <ViewerFindField find={find} />
         {publicShareContext === null && (
           <FileDiffViewLinks
@@ -2291,15 +2293,7 @@ export const FileViewer = memo(function FileViewer({
     </div>
   );
 
-  const viewerClass = [
-    viewerStyles.fileViewer,
-    viewerStyles.viewer,
-    standalone && viewerStyles.fileViewerStandalone,
-    fullscreen && viewerStyles.fileViewerFullscreen,
-    effectiveViewMode === "range" && "file-viewer-compact",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const viewerClass = fileViewerFrameClassName(standalone, fullscreen);
 
   return (
     <div

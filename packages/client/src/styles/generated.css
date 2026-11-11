@@ -1020,7 +1020,7 @@
     border-left: none;
   }
 }
-[data-highlighted-diff] .line.has-review-comment {
+[data-highlighted-diff] .line[data-has-review-comment] {
   box-shadow: inset 3px 0 0 0 var(--accent-color);
   background-color: color-mix(in srgb, var(--accent-color) 12%, transparent);
 }

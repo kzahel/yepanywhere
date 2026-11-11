@@ -124,7 +124,9 @@ for (const viewport of [
     const secondaryOptions = page.locator(
       '[data-new-session-secondary-options="true"]',
     );
-    const showThinking = page.locator(".new-session-show-thinking-section");
+    const showThinking = page.locator(
+      "[data-new-session-show-thinking-section]",
+    );
     const explanation = "Show the model's thinking";
     await expect(toggle).toBeVisible({ timeout: 10_000 });
     await expect(advancedToggle).toBeVisible();

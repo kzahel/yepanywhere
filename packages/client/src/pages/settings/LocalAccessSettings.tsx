@@ -554,7 +554,7 @@ export function LocalAccessSettings() {
                 <strong>{t("fileAccessAllowedFoldersTitle")}</strong>
                 <p>{t("fileAccessEnvPinnedHint")}</p>
               </div>
-              <span className="settings-value-readonly">
+              <span>
                 {fileAccessInfo.envPaths.length > 0
                   ? fileAccessInfo.envPaths.join(", ")
                   : t("fileAccessNone")}{" "}
@@ -1044,7 +1044,7 @@ export function LocalAccessSettings() {
               }
             >
               {binding?.localhost.overriddenByCli ? (
-                <span className="settings-value-readonly">
+                <span>
                   {binding.localhost.port}{" "}
                   <span className={rowsStyles.hint}>
                     {t("localAccessSetViaPort")}
@@ -1073,7 +1073,7 @@ export function LocalAccessSettings() {
               description={t("localAccessNetworkDescription")}
             >
               {binding?.network.overriddenByCli ? (
-                <span className="settings-value-readonly">
+                <span>
                   {binding.network.host}:{binding.network.port}{" "}
                   <span className={rowsStyles.hint}>
                     {t("localAccessSetViaHost")}
@@ -1180,7 +1180,7 @@ export function LocalAccessSettings() {
           </SettingsItem>
         )}
         <HideInSettingsSearch>
-          <p className="form-hint">{t("localAccessAllowedHostsHint")}</p>
+          <p>{t("localAccessAllowedHostsHint")}</p>
         </HideInSettingsSearch>
 
         {renderFileAccessSettings()}

@@ -111,7 +111,7 @@ export const SidebarIcons = {
   ),
   newSession: (
     <svg
-      className="sidebar-new-session-icon"
+      data-sidebar-new-session-icon=""
       width="16"
       height="16"
       viewBox="0 0 24 24"

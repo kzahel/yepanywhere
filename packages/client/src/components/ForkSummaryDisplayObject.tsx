@@ -39,7 +39,8 @@ export function ForkSummaryDisplayObject({
   if (object.status === "generating") {
     return (
       <div
-        className={`${styles.forkSummaryDisplayObject} fork-summary-display-object-generating`}
+        className={styles.forkSummaryDisplayObject}
+        data-fork-summary-display-object-generating=""
         data-fork-summary-display-object
         role="status"
         aria-live="polite"
@@ -112,7 +113,7 @@ export function ForkSummaryDisplayObject({
       : undefined;
   return (
     <div
-      className={`${styles.forkSummaryDisplayObject} fork-summary-display-object-ready`}
+      className={styles.forkSummaryDisplayObject}
       data-fork-summary-display-object
       role="status"
       aria-live="polite"

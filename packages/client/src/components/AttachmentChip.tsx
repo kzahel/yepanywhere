@@ -532,8 +532,8 @@ function ImageAttachmentChip({
             className={promptStyles.uploadedImageModal}
             data-uploaded-image-modal
           >
-            {loading && <div className="image-loading">Loading...</div>}
-            {error && <div className="image-error">Failed to load image</div>}
+            {loading && <div>Loading...</div>}
+            {error && <div>Failed to load image</div>}
             {fullUrl && <img src={fullUrl} alt={originalName} />}
           </div>
         </Modal>

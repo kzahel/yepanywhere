@@ -140,10 +140,14 @@ export function getComposerToolbarOverflowLayoutSignature(
 export function useMeasuredComposerOverflow({
   layoutKey,
   hasControls,
+  priority,
+  pinOnlyMicrophone,
   refs,
 }: {
   layoutKey: string;
   hasControls: boolean;
+  priority: Record<SessionToolbarVisibilityKey, ToolbarNarrowingPriority>;
+  pinOnlyMicrophone: boolean;
   refs?: MessageInputToolbarLayoutRefs;
 }): {
   tier: ComposerOverflowTier;
@@ -252,10 +256,15 @@ export function useMeasuredComposerOverflow({
                 "[data-session-toolbar-control]",
               );
           const key = marker?.dataset.sessionToolbarControl;
-          const priority = COMPOSER_OVERFLOW_TIERS.findIndex((level) =>
-            element.classList.contains(`composer-bottom-overflow-${level}`),
-          );
-          return { element, key, priority };
+          const configured = key
+            ? priority[key as SessionToolbarVisibilityKey]
+            : "pin";
+          const effective =
+            pinOnlyMicrophone && key !== "microphone" && configured === "pin"
+              ? "last"
+              : configured;
+          const tier = { first: 1, mid: 2, last: 3, pin: -1 }[effective];
+          return { element, key, priority: tier };
         })
         .filter(
           (item): item is typeof item & { key: SessionToolbarVisibilityKey } =>
@@ -318,6 +327,8 @@ export function useMeasuredComposerOverflow({
     hiddenControls,
     layoutKey,
     hasControls,
+    priority,
+    pinOnlyMicrophone,
     refs?.actions,
     refs?.left,
     refs?.status,

@@ -348,7 +348,7 @@ function renderKatexHtml(tex: string, displayMode: boolean): string {
     });
   } catch {
     const wrapped = displayMode ? `$$${tex}$$` : `$${tex}$`;
-    return `<span class="fixed-font-math-error">${escapeHtml(wrapped)}</span>`;
+    return `<span>${escapeHtml(wrapped)}</span>`;
   }
 }
 
@@ -715,7 +715,7 @@ function renderInlineFixedFontContent(
 function diffClass(prefix: DiffAwareLine["prefix"]): string {
   if (prefix === "+") return "fixed-font-diff-added";
   if (prefix === "-") return "fixed-font-diff-removed";
-  if (prefix === " ") return "fixed-font-diff-context";
+  if (prefix === " ") return "";
   return "";
 }
 
@@ -865,7 +865,7 @@ function renderMarkdownLineContent(
     return {
       html: '<span class="fixed-font-markdown-rule" aria-hidden="true"></span>',
       changed: true,
-      className: "fixed-font-markdown-rule-line",
+      className: "",
     };
   }
 
@@ -941,7 +941,7 @@ function renderStandaloneDisplayMath(
         { content: "", prefix },
         {
           changed: true,
-          className: "fixed-font-markdown-display-math",
+          className: "",
           html: mathHtml,
         },
       ),

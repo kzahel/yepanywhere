@@ -318,9 +318,12 @@ export function BlameView({
                 data-blame-row=""
                 className={`${styles.row} ${
                   commentedLines.has(lineNumber)
-                    ? `${styles.hasReviewComment} has-review-comment`
+                    ? `${styles.hasReviewComment} `
                     : ""
                 }`}
+                data-has-review-comment={
+                  commentedLines.has(lineNumber) ? "" : undefined
+                }
               >
                 {line?.uncommitted ? (
                   <span
@@ -540,7 +543,7 @@ function BlameCodeCell({
   const sharedProps = {
     // `blame-line-target` carries no CSS; it is the DOM contract the blame
     // tests and line-target navigation address the cell by.
-    className: `${styles.code} blame-line-target`,
+    className: styles.code,
     "data-blame-code": "",
     role: enabled ? ("button" as const) : undefined,
     tabIndex: enabled ? 0 : undefined,

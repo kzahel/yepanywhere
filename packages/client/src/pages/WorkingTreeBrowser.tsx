@@ -1048,9 +1048,7 @@ export function WorkingTreeBrowser({
           <div className={detailStyles.banner} data-source-detail-banner>
             {revisionNavigation}
             {embeddedInHistory ? (
-              <span
-                className={`${detailStyles.identity} working-tree-detail-identity`}
-              >
+              <span className={detailStyles.identity}>
                 <span className={styles.detailTitleRow}>
                   <span
                     className={detailStyles.subject}

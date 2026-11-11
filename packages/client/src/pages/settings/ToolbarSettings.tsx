@@ -530,12 +530,7 @@ export function ToolbarSettings() {
     placement: "hidden" | "shown",
   ) => (
     <div
-      className={`${toolbarSettingsStyles.controlRow} ${placement === "hidden" ? toolbarSettingsStyles.isHidden : ""} ${
-        toolbarPresence[control.key] === "hidden" ||
-        toolbarPresence[control.key] === "off"
-          ? "is-currently-hidden"
-          : "is-currently-shown"
-      }`}
+      className={`${toolbarSettingsStyles.controlRow} ${placement === "hidden" ? toolbarSettingsStyles.isHidden : ""}`}
       data-toolbar-control={control.key}
       key={control.key}
     >

@@ -214,13 +214,13 @@ describe("ReloadBanner", () => {
     // the transcript artifact smoke script; `reload-banner-stack` is the
     // geometry hook the placement effect measures.
     const banner = screen.getByRole("status");
-    expect(banner.classList.contains("reload-banner")).toBe(true);
+    expect(banner.hasAttribute("data-reload-banner")).toBe(true);
     expect(banner.className).toContain(styles.banner);
     // An unsafe backend restart reads as an error, not the plain warning.
     expect(banner.className.includes(bannerStyles.error!)).toBe(true);
     expect(banner.className.includes(bannerStyles.warning!)).toBe(false);
 
-    const stack = document.querySelector(".reload-banner-stack");
+    const stack = document.querySelector("[data-reload-banner-stack]");
     expect(stack?.className).toContain(styles.stack);
 
     // The rest of the vocabulary now lives only in the module.
@@ -243,7 +243,7 @@ describe("ReloadBanner", () => {
     const geometry = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockImplementation(function (this: HTMLElement) {
-        if (this.classList.contains("reload-banner-stack"))
+        if (this.hasAttribute("data-reload-banner-stack"))
           return rect(814, 1014, 454, 54);
         if (this.hasAttribute("data-session-input"))
           return rect(278, 918, 1002, 162);
@@ -271,7 +271,7 @@ describe("ReloadBanner", () => {
     fireEvent(window, new Event("resize"));
     expect(
       document
-        .querySelector<HTMLElement>(".reload-banner-stack")
+        .querySelector<HTMLElement>("[data-reload-banner-stack]")
         ?.style.getPropertyValue("--reload-banner-stack-lift"),
     ).toBe("158px");
     unmount();
@@ -283,7 +283,7 @@ describe("ReloadBanner", () => {
     const geometry = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockImplementation(function (this: HTMLElement) {
-        if (this.classList.contains("reload-banner-stack")) {
+        if (this.hasAttribute("data-reload-banner-stack")) {
           return rect(814, 1014, 454, 54);
         }
         if (this.hasAttribute("data-session-input")) {
@@ -306,7 +306,9 @@ describe("ReloadBanner", () => {
       </>,
     );
 
-    const stack = document.querySelector<HTMLElement>(".reload-banner-stack");
+    const stack = document.querySelector<HTMLElement>(
+      "[data-reload-banner-stack]",
+    );
     expect(stack?.style.getPropertyValue("--reload-banner-stack-lift")).toBe(
       "158px",
     );

@@ -381,7 +381,6 @@ export function DiffMathView({
         <div
           className={`${diffStyles.diffViewContainer} ${diffStyles.diffGutterAligned} `}
           data-diff-view-container
-          data-truncated={truncated || undefined}
           data-diff-gutter-aligned
           {...tooltipAttributes}
         >
@@ -409,7 +408,6 @@ export function DiffMathView({
         <div
           className={`${diffStyles.diffViewContainer} ${diffStyles.diffGutterAligned} `}
           data-diff-view-container
-          data-truncated={truncated || undefined}
           data-diff-gutter-aligned
           {...tooltipAttributes}
         >
@@ -558,7 +556,7 @@ export const DiffLines = memo(function DiffLines({
                 (!(prefix === "-") && !(prefix === "+")) || undefined
               }
             >
-              <span className={"diff-prefix"} data-diff-prefix>
+              <span className={diffStyles.diffPrefix} data-diff-prefix>
                 {prefix}
               </span>
               {line.slice(1)}
@@ -645,7 +643,7 @@ export const DiffHunk = memo(function DiffHunk({ hunk }: { hunk: PatchHunk }) {
                 (!(prefix === "-") && !(prefix === "+")) || undefined
               }
             >
-              <span className={"diff-prefix"} data-diff-prefix>
+              <span className={diffStyles.diffPrefix} data-diff-prefix>
                 {prefix}
               </span>
               {line.slice(1)}
@@ -697,9 +695,9 @@ export function RawPatchPreview({
       renderMode={renderMode}
       sourceView={
         <div
-          className={`${diffStyles.diffViewContainer} `}
-          data-diff-view-container
+          className={diffStyles.diffViewContainer}
           data-truncated={preview.truncated || undefined}
+          data-diff-view-container
           {...tooltipAttributes}
         >
           <div className={diffStyles.diffView} data-diff-view>
@@ -725,9 +723,9 @@ export function RawPatchPreview({
       }
       renderRenderedView={(html) => (
         <div
-          className={`${diffStyles.diffViewContainer} ${preview.truncated ? "truncated" : ""}`}
-          data-diff-view-container
+          className={diffStyles.diffViewContainer}
           data-truncated={preview.truncated || undefined}
+          data-diff-view-container
           {...tooltipAttributes}
         >
           <div className={diffStyles.diffView} data-diff-view>

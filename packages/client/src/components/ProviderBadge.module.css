@@ -99,7 +99,7 @@
 }
 
 .effortLabel {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-fixed-xs);
   font-weight: 700;
   line-height: 1.2;
   opacity: 0.82;

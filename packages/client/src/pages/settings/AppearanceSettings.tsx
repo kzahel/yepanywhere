@@ -880,7 +880,6 @@ export function AppearanceSettings() {
           ]}
           layout="custom"
           baseClassName={rowsStyles.itemGroup}
-          className="generated-title-settings"
         >
           <div className={rowsStyles.itemGroupRow}>
             <div className={rowsStyles.itemInfo} data-settings-info>
@@ -1327,10 +1326,7 @@ export function AppearanceSettings() {
         >
           <div className={styles.panel}>
             <div className={styles.controls}>
-              <div
-                className={`output-appearance-title ${rowsStyles.itemInfo}`}
-                data-settings-info
-              >
+              <div className={rowsStyles.itemInfo} data-settings-info>
                 <strong>{t("appearanceOutputTypographyTitle")}</strong>
               </div>
               <div className={styles.control}>
@@ -1766,7 +1762,7 @@ export function AppearanceSettings() {
                   </ul>
                 </div>
                 <div
-                  className={`output-preview-thinking ${thinkingStyles.thinkingContent}`}
+                  className={thinkingStyles.thinkingContent}
                   data-thinking-content
                 >
                   <ThinkingText text="**Spacing** — thinking text stays quieter and smaller." />

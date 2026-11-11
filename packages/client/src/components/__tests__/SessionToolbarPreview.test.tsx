@@ -27,7 +27,7 @@ describe("ToolbarControlPreview", () => {
     expect(
       container.querySelector("[data-project-queue-new-session-button]"),
     ).toBeNull();
-    expect(container.querySelector(".send-button-with-help")).toBeNull();
+    expect(container.querySelector("[data-send-button-with-help]")).toBeNull();
   });
 
   it("renders the new-session Project Queue shortcut as its own specimen", () => {
@@ -37,14 +37,14 @@ describe("ToolbarControlPreview", () => {
       container.querySelector("[data-project-queue-new-session-button]"),
     ).toBeTruthy();
     expect(container.textContent).toContain("+");
-    expect(container.querySelector(".send-button-with-help")).toBeNull();
+    expect(container.querySelector("[data-send-button-with-help]")).toBeNull();
   });
 
   it("renders the Now specimen without the primary send button", () => {
     const { container } = renderControl("steerNow");
 
     expect(container.querySelector("[data-steer-now-toggle]")).toBeTruthy();
-    expect(container.querySelector(".send-button-with-help")).toBeNull();
+    expect(container.querySelector("[data-send-button-with-help]")).toBeNull();
   });
 
   it("renders the Conversation view specimen as active", () => {
@@ -75,7 +75,7 @@ describe("ToolbarControlPreview", () => {
     const { container } = renderControl("waveform");
 
     expect(
-      container.querySelector(".composer-speech-waveform canvas"),
+      container.querySelector("[data-composer-speech-waveform] canvas"),
     ).toBeTruthy();
     expect(
       container

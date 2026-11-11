@@ -141,7 +141,7 @@ export function ReloadBannerStack({
   return (
     // `reload-banner-stack` stays literal: the placement effect above and
     // the focused test both find this element by class to stub geometry.
-    <div ref={stackRef} className={`reload-banner-stack ${styles.stack}`}>
+    <div ref={stackRef} className={styles.stack} data-reload-banner-stack="">
       {children}
     </div>
   );
@@ -300,13 +300,13 @@ export function ReloadBanner({
   };
 
   return (
-    // `reload-banner` stays literal: the global transcript-selection rule in
-    // styles/index.css and the transcript artifact smoke script name it.
+    // The data boundary supports document selection shielding and captures.
     <Banner
       elevated
       tone={showWarning ? "error" : "warning"}
       role="status"
-      className={`reload-banner ${styles.banner}`}
+      className={styles.banner}
+      data-reload-banner=""
       onDismiss={handleDismissClick}
       dismissLabel={t("reloadBannerDismiss")}
       actions={

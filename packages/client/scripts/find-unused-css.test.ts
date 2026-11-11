@@ -13,7 +13,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   analyze,
-  buildClassProducerUsageIndex,
   buildSourceUsageIndex,
   extractBindingUsage,
   extractComposes,
@@ -50,66 +49,6 @@ function unusedNames(basename: string): string[] {
     .unused.map((selector) => selector.name)
     .sort();
 }
-
-describe("class-production evidence", () => {
-  it("separates class-producing syntax from generic source strings", () => {
-    const templateSource = [
-      'const state = "active";',
-      "const templateClass = `card $" +
-        '{state === "active" ? "card-selected" : ""}`;',
-      "export const view = <div className={templateClass} />;",
-    ].join("\n");
-    const source = new Map([
-      [
-        "Owner.tsx",
-        `
-          const status = "status";
-          const state = "active";
-          const finiteClass = state === "active" ? "card-active" : "card-idle";
-          element.classList.add("card-mounted");
-          export const view = (
-            <div className={finiteClass} data-status={status} />
-          );
-        `,
-      ],
-      ["TemplateOwner.tsx", templateSource],
-    ]);
-
-    const permissive = buildSourceUsageIndex(source);
-    const producers = buildClassProducerUsageIndex(source);
-
-    expect(permissive.exact.get("status")).toBeDefined();
-    expect(producers.exact.get("status")).toBeUndefined();
-    expect(producers.exact.get("active")).toBeUndefined();
-    expect(producers.exact.get("card-active")).toBeDefined();
-    expect(producers.exact.get("card-idle")).toBeDefined();
-    expect(producers.exact.get("card-selected")).toBeDefined();
-    expect(producers.exact.get("card-mounted")).toBeDefined();
-  });
-
-  it("resolves shadowed class variables in their lexical scope", () => {
-    const producers = buildClassProducerUsageIndex(
-      new Map([
-        [
-          "ScopedOwner.tsx",
-          `
-            function Visible() {
-              const classes = "alpha";
-              return <div className={classes} />;
-            }
-            function Unused() {
-              const classes = "beta";
-              return <span />;
-            }
-          `,
-        ],
-      ]),
-    );
-
-    expect(producers.exact.has("alpha")).toBe(true);
-    expect(producers.exact.has("beta")).toBe(false);
-  });
-});
 
 describe("global class analysis", () => {
   it("reports a global class no source file mentions", () => {

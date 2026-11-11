@@ -1,6 +1,6 @@
 /*
  * Inbox content: the page root, the tier sections and their headers, and
- * the pending Project Queue rows. Rules move here from `styles/index.css`
+ * the pending Project Queue rows. The collection owner shares these rules
  * in their original cascade order, since the tier and empty-section
  * headers override the shared header rule by descendant specificity and
  * the mobile header override depends on source order.

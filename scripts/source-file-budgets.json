@@ -9,16 +9,16 @@
       "maxLines": 1693
     },
     "packages/client/src/components/FileViewer.tsx": {
-      "maxLines": 2472
+      "maxLines": 2465
     },
     "packages/client/src/components/LocalMediaModal.tsx": {
       "maxLines": 1899
     },
     "packages/client/src/components/MessageInput.tsx": {
-      "maxLines": 3181
+      "maxLines": 3176
     },
     "packages/client/src/components/MessageInputToolbar.tsx": {
-      "maxLines": 3795
+      "maxLines": 3776
     },
     "packages/client/src/components/MessageList.tsx": {
       "maxLines": 5542,
@@ -31,7 +31,7 @@
       "maxLines": 2687
     },
     "packages/client/src/components/Sidebar.tsx": {
-      "maxLines": 1603
+      "maxLines": 1602
     },
     "packages/client/src/components/UserTurnNavigator.tsx": {
       "maxLines": 1562
@@ -58,13 +58,13 @@
       "maxLines": 1940
     },
     "packages/client/src/pages/GitStatusDiffPreview.tsx": {
-      "maxLines": 1643
+      "maxLines": 1642
     },
     "packages/client/src/pages/SessionPage.tsx": {
       "maxLines": 3602
     },
     "packages/client/src/pages/settings/AppearanceSettings.tsx": {
-      "maxLines": 1811
+      "maxLines": 1807
     },
     "packages/server/src/app.ts": {
       "maxLines": 4590

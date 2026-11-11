@@ -102,7 +102,7 @@ function PlainUnifiedRows({
             <Fragment key={`${hunk.oldStart}:${hunk.newStart}:${index}`}>
               {!hideRemovedLines && (
                 <>
-                  <span className={`${styles.hunkHeader} line-hunk`}>
+                  <span className={styles.hunkHeader} data-diff-hunk-header="">
                     {`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`}
                   </span>
                   {"\n"}
@@ -163,7 +163,7 @@ function UnifiedRows({
     }
     const html =
       fragments.get(row.flatIndex) ??
-      `<span class="${fallbackClassName(row.text)}" data-diff-line="${row.flatIndex}">${omitDiffPrefixes ? "" : `<span class="diff-prefix">${escapeText(row.text[0] ?? " ")}</span>`}${escapeText(row.text.slice(1))}</span>`;
+      `<span class="${fallbackClassName(row.text)}" data-diff-line="${row.flatIndex}">${omitDiffPrefixes ? "" : `<span class="${diffStyles.diffPrefix}">${escapeText(row.text[0] ?? " ")}</span>`}${escapeText(row.text.slice(1))}</span>`;
     return { type: "line" as const, cells: [html] };
   });
   // The after-side file projection has no hunk chrome or diff navigation.

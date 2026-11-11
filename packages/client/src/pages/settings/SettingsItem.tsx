@@ -212,7 +212,6 @@ export function SettingsItem({
     descriptionLayout === "full-width-on-narrow"
       ? styles.descriptionFullWidthOnNarrow
       : null,
-    layout === "custom" ? "settings-item--custom-layout" : null,
     scope ? rowsStyles.searchMatch : null,
     flash ? rowsStyles.itemJumpFlash : null,
   ]

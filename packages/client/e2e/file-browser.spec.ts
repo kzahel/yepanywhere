@@ -47,12 +47,12 @@ test.describe("File browser", () => {
       await page.setViewportSize(viewport);
       await expect(frame.getByText("End of complete document")).toBeVisible();
       const header = page.locator("[data-file-viewer-header]");
-      const path = header.locator(".file-viewer-path");
+      const path = header.locator("[data-file-viewer-path]");
       await expect(path).toHaveText(filename);
       if (viewport.width <= 865) {
         const [pathBox, controlsBox] = await Promise.all([
           path.boundingBox(),
-          header.locator(".file-viewer-actions").boundingBox(),
+          header.locator("[data-file-viewer-actions]").boundingBox(),
         ]);
         expect(pathBox).not.toBeNull();
         expect(controlsBox).not.toBeNull();
@@ -63,7 +63,7 @@ test.describe("File browser", () => {
       if (viewport.width === 375) {
         // The action row must stay compact beneath the wrapped path.
         const controlsBox = await header
-          .locator(".file-viewer-actions")
+          .locator("[data-file-viewer-actions]")
           .boundingBox();
         expect(controlsBox!.height).toBeLessThan(100);
       }

@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import optionStyles from "./NewSessionOptionsPanel.module.css";
 import styles from "./NewSessionForm.module.css";
 
-interface NewSessionOptionSectionProps {
+interface NewSessionOptionSectionProps extends HTMLAttributes<HTMLDivElement> {
   caption?: string;
   children: ReactNode;
   className: string | undefined;
@@ -22,9 +22,11 @@ export function NewSessionOptionSection({
   showCaption,
   title,
   placeholder = false,
+  ...attributes
 }: NewSessionOptionSectionProps) {
   return (
     <div
+      {...attributes}
       className={`${className}${placeholder ? ` ${styles.optionPlaceholder}` : ""}`}
       data-new-session-helper-section={
         className

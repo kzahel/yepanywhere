@@ -30,7 +30,6 @@ describe("Markdown preview rich-text copy", () => {
   beforeAll(async () => {
     const css = await readClientStyles(
       "generated",
-      "renderers",
       "../components/MarkdownPreview.module",
       "../components/renderers/CodeOutput.module",
     ).then((css) => css.replace(/:global\(([^()]*)\)/g, "$1"));

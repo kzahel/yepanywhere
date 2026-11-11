@@ -391,7 +391,7 @@ async function measureSessionHoverCard(page, configuredDelayMs) {
   });
   const visibleAtMs = await page.evaluate(() => performance.now());
   const providerBadgeVisible = await page
-    .locator("[data-session-hovercard-id] .provider-badge")
+    .locator("[data-session-hovercard-id] [data-provider-badge]")
     .isVisible();
   if (!providerBadgeVisible) {
     throw new Error("SessionHoverCard omitted its provider/model badge");

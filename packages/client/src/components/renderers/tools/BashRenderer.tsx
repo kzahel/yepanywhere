@@ -230,17 +230,14 @@ function BashToolResult({
 
   return (
     <div
-      className={`${styles.bashResult} ${isError ? "bash-result-error" : ""}`}
+      className={`${styles.bashResult} ${isError ? "" : ""}`}
       data-bash-result
     >
       {showValidationWarning && validationErrors && (
         <SchemaWarning toolName="Bash" errors={validationErrors} />
       )}
       {command && (
-        <div
-          className={`${styles.bashExpandedSection} bash-expanded-command-section`}
-          data-bash-expanded-section
-        >
+        <div className={styles.bashExpandedSection} data-bash-expanded-section>
           <div
             className={styles.bashInlineSectionHeader}
             data-bash-inline-section-header
@@ -539,7 +536,7 @@ function BashCollapsedPreview({
             data-bash-preview-output-row
           >
             <div
-              className={`${styles.bashPreviewOutput} ${truncated ? "bash-preview-truncated" : ""} ${previewIsStderr ? styles.bashPreviewError : ""}`}
+              className={`${styles.bashPreviewOutput} ${truncated ? "" : ""} ${previewIsStderr ? styles.bashPreviewError : ""}`}
               data-bash-preview-output
               data-bash-preview-error={previewIsStderr || undefined}
               style={

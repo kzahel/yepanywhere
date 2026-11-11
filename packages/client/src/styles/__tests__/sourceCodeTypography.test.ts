@@ -8,7 +8,7 @@ import { readClientStyles } from "./read-client-styles";
 describe("shared source-code typography", () => {
   it("drives source views from the fixed-font Appearance metrics", async () => {
     const [indexCss, rendererCss] = await Promise.all([
-      readClientStyles("tokens", "index"),
+      readClientStyles("tokens"),
       readClientStyles(
         "generated",
         "../components/renderers/DiffOutput.module",

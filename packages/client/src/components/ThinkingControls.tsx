@@ -211,7 +211,9 @@ export function ShowThinkingControls({
 
   return (
     <div
-      className={`${thinkingStyles.thinkingToolbarMenuSection} thinking-controls-section thinking-controls-section--show-thinking ${className ?? ""}`.trim()}
+      className={`${thinkingStyles.thinkingToolbarMenuSection}  ${className ?? ""}`.trim()}
+      data-thinking-controls-section=""
+      data-thinking-controls-section--show-thinking=""
     >
       {showLabel && (
         <div
@@ -297,7 +299,8 @@ export function ThinkingControlsPanel({
       className={`${thinkingStyles.thinkingControlsPanel} ${className ?? ""}`.trim()}
     >
       <div
-        className={`${thinkingStyles.thinkingToolbarMenuSection} thinking-controls-section`}
+        className={thinkingStyles.thinkingToolbarMenuSection}
+        data-thinking-controls-section=""
         data-thinking-section="mode"
       >
         <div className={thinkingStyles.thinkingToolbarMenuLabel}>
@@ -340,14 +343,15 @@ export function ThinkingControlsPanel({
       )}
       {showEffort && (
         <div
-          className={`${thinkingStyles.thinkingToolbarMenuSection} thinking-controls-section ${thinkingStyles.thinkingControlsSectionEffort}`}
+          className={`${thinkingStyles.thinkingToolbarMenuSection} ${thinkingStyles.thinkingControlsSectionEffort}`}
+          data-thinking-controls-section=""
           data-thinking-controls-section--effort
         >
           <div className={thinkingStyles.thinkingToolbarMenuLabel}>
             {t("modelSettingsEffortTitle")}
           </div>
           <div
-            className={`${thinkingStyles.thinkingToolbarMenuOptions} effort-options`}
+            className={thinkingStyles.thinkingToolbarMenuOptions}
             data-thinking-toolbar-menu-options
             role="group"
           >

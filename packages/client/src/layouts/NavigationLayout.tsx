@@ -402,7 +402,7 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
               ref={layoutFrameRef}
               data-desktop-layout={isWideScreen || undefined}
               className={`${styles.frame} ${styles["session-page"]} ${isWideScreen ? styles.desktopLayout : ""} ${
-                isContentFrameRoute ? "content-frame-layout" : ""
+                isContentFrameRoute ? "" : ""
               } ${isResizing ? styles.resizing : ""}`}
               data-session-page
               style={containerStyle}

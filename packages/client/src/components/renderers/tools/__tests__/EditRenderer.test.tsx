@@ -1140,9 +1140,9 @@ describe("EditRenderer collapsed preview fallback", () => {
     expect(modalToggle).toBeTruthy();
 
     fireEvent.click(modalToggle as Element);
-    expect(modal?.querySelector(".line-hunk")?.textContent).toContain(
-      "@@ -1,0 +1,13 @@",
-    );
+    expect(
+      modal?.querySelector("[data-diff-hunk-header], .line-hunk")?.textContent,
+    ).toContain("@@ -1,0 +1,13 @@");
     expect(container.textContent).toContain("Recent MT Adapter Progress");
   });
 
@@ -1303,7 +1303,9 @@ describe("EditRenderer collapsed preview fallback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show source" }));
     const selectedText =
       document.querySelector<HTMLElement>("[data-diff-added]");
-    const prefixText = selectedText?.querySelector(".diff-prefix")?.firstChild;
+    const prefixText = selectedText?.querySelector(
+      "[data-diff-prefix], .diff-prefix",
+    )?.firstChild;
     const contentText = selectedText?.lastChild;
     if (!selectedText || !prefixText || !contentText) {
       throw new Error("Expected selectable source diff text");

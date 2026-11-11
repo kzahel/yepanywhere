@@ -4,17 +4,8 @@
  * message and warning text, and the layout of its reload / safe-restart
  * buttons, which are shared Buttons that own their look.
  *
- * Two literals stay on the elements alongside these module classes:
- *
- * - `reload-banner` on the banner root is an interop hook. The global
- *   document selection-shield rule in `styles/base.css`
- *   names it to suppress text selection behind the transcript-selection
- *   shield, and `scripts/transcript-artifact-smoke.mjs` hides it to keep
- *   transcript captures stable. That rule stays global and unchanged.
- *
- * - `reload-banner-stack` on the stack is a geometry hook.
- *   `ReloadBannerStack` measures the stack against `.session-input`, and
- *   the focused test stubs those rects by class.
+ * The banner and stack expose stable data boundaries for document selection
+ * shielding, transcript captures and stack placement measurement.
  *
  * `--reload-banner-stack-lift` is an inline custom property written by
  * that placement effect; custom properties are not scoped by CSS Modules,

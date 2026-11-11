@@ -1850,7 +1850,9 @@ describe("CommitBrowser", () => {
       );
 
       await waitFor(() =>
-        expect(document.querySelectorAll(".line-hunk")).toHaveLength(2),
+        expect(
+          document.querySelectorAll("[data-diff-hunk-header], .line-hunk"),
+        ).toHaveLength(2),
       );
       fireEvent.click(document.querySelector("[data-source-file-item]")!);
 
@@ -1859,7 +1861,7 @@ describe("CommitBrowser", () => {
         behavior: "smooth",
       });
       expect(scrollIntoView.fn.mock.instances[0]).toBe(
-        document.querySelectorAll(".line-hunk")[1],
+        document.querySelectorAll("[data-diff-hunk-header], .line-hunk")[1],
       );
     } finally {
       scrollIntoView.restore();
@@ -1903,7 +1905,9 @@ describe("CommitBrowser", () => {
       );
 
       await waitFor(() =>
-        expect(document.querySelectorAll(".line-hunk")).toHaveLength(2),
+        expect(
+          document.querySelectorAll("[data-diff-hunk-header], .line-hunk"),
+        ).toHaveLength(2),
       );
       const search = screen.getByPlaceholderText("sourceSearchCommits");
       fireEvent.keyDown(search, { key: "n" });
@@ -1912,13 +1916,13 @@ describe("CommitBrowser", () => {
       fireEvent.keyDown(window, { key: "n" });
       expect(scrollIntoView.fn).toHaveBeenCalledTimes(1);
       expect(scrollIntoView.fn.mock.instances[0]).toBe(
-        document.querySelectorAll(".line-hunk")[1],
+        document.querySelectorAll("[data-diff-hunk-header], .line-hunk")[1],
       );
 
       fireEvent.keyDown(window, { key: "p" });
       expect(scrollIntoView.fn).toHaveBeenCalledTimes(2);
       expect(scrollIntoView.fn.mock.instances[1]).toBe(
-        document.querySelectorAll(".line-hunk")[0],
+        document.querySelectorAll("[data-diff-hunk-header], .line-hunk")[0],
       );
     } finally {
       scrollIntoView.restore();

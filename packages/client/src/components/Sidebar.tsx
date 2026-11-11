@@ -1266,7 +1266,6 @@ export function Sidebar({
                 back that does not require finding Settings > Users. */}
             {actingPrincipal.switched && actingPrincipal.username && (
               <SidebarNavButton
-                className="sidebar-return-to-superuser"
                 onClick={() => void handleReturnToSuperuser()}
                 label={t("sidebarReturnToSuperuser", {
                   username: actingPrincipal.username,
@@ -1484,7 +1483,7 @@ export function Sidebar({
                 >
                   {displayed.recent.map(renderCompactSession)}
                   {displayed.hiddenRecent.length > 0 && (
-                    <li className="sidebar-hidden-dups">
+                    <li>
                       <Button
                         variant="ghost"
                         size="small"
@@ -1498,7 +1497,7 @@ export function Sidebar({
                       </Button>
                       {showHiddenRecent && (
                         <ul
-                          className={`${sidebarStyles.sidebarSessionList} sidebar-hidden-sublist`}
+                          className={sidebarStyles.sidebarSessionList}
                           data-sidebar-session-list
                         >
                           {displayed.hiddenRecent.map(renderCompactSession)}
@@ -1541,7 +1540,7 @@ export function Sidebar({
                 >
                   {displayed.older.map(renderCompactSession)}
                   {displayed.hiddenOlder.length > 0 && (
-                    <li className="sidebar-hidden-dups">
+                    <li>
                       <Button
                         variant="ghost"
                         size="small"
@@ -1555,7 +1554,7 @@ export function Sidebar({
                       </Button>
                       {showHiddenOlder && (
                         <ul
-                          className={`${sidebarStyles.sidebarSessionList} sidebar-hidden-sublist`}
+                          className={sidebarStyles.sidebarSessionList}
                           data-sidebar-session-list
                         >
                           {displayed.hiddenOlder.map(renderCompactSession)}

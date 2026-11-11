@@ -1128,57 +1128,18 @@ lint bans native dialogs, `aria-modal` outside the shared dialogs and
 rules that reach into Modal's frame. The composer pass is the one family
 left.
 
-On 2026-11-10 the maintainer selected
-[plan 191](../tactical/191-css-ownership-and-leak-closure.md) as the follow-up
-and replaced the CSS architecture's "contained steady state" with a target of
-little global CSS. It makes dead-class detection exact, rejects caller
-classes that restyle a shared control, moves hand-drawn `ButtonBase` buttons
-onto shared controls (adding a `link` variant), requires tokens for type
-sizes and radii, trims the census pages to open work, and then splits and
-drains the global CSS by owner. Step 1 landed: exact
-whole-token/family detection runs in lint, 46 runtime/generated families are
-declared, and 49 global class names / 572 lines are deleted, leaving 16,652
-global lines before the control sweep. Step 2 landed: lint resolves
-caller-class/inline overrides with a counted allowlist (21/600 button uses in
-12 files; 29 other-control sites in 24 files, including Badge custom properties),
-the playground lists the exceptions, and shared inline link, success/attention
-outlines, elevation and 36/44 px large buttons replace recurring treatments.
-Step 3 landed with review corrections: all 132 original
-ButtonBase sites reviewed, 65 moved to shared controls (15 to selectable cards).
-Navigation/current, reveal, text flow and touch geometry are preserved; the
-stronger class/ancestor check lists 28 exceptions in 23 files among 67 remaining
-sites. Caller overrides are 18 button sites in 9 files and 28 other sites in 23
-files. Measured rich rows and the composer handle retain explicit reasons.
-Global CSS is 16,355 lines.
-Step 4 landed: lint requires type/radius tokens in modules
-and production TSX, reducing 448 findings to 85 reasoned exceptions in 33 files.
-The expanded type scale is 10/11/12/13/14/16/18px (scaled by UI preference);
-radii are 3/4/6/8/999px. Composer, configured output/source typography and
-uncommon geometric/optical sizes retain explicit reasons.
-Step 5 landed: Census is 319 rows on six open-work pages
-(previously 457 rows on eight pages), all using element, location/count, reason
-and closure fields. Swept-family samples/mapping and the duplicate directory
-inventory are removed; all 150 class bans remain independent of those pages.
-Step 6 landed: tokens/themes/fonts, document defaults/state
-and emitted HTML have separate purpose-checked globals, with 153 counted
-context/state references; provider colors fold into tokens and emulator video
-becomes modular. Legacy lines fall to 14,562 across three files (target zero);
-coupled React/generated groups stay ordered for step 7. Step 7 has landed the
-single-owner pages, settings/onboarding, source browser/file-page chrome,
-collections/sidebar/navigation, shared page/modal shells and transcript/tool
-owners, including shared source/code/task/status/path modules and viewer/diff
-wrappers. Emitted Markdown/math/Shiki descendants retain one generated owner.
-Legacy lines are zero in index, renderers and tool rows. The review repair
-restores mobile/focus hooks, rem sizes and explicit cross-module winners.
-A separate review repair restores Edit/Grep styling, exact source copy, copied
-feedback and platform/perf selectors, and removes import-order/media-order ties.
-Session chrome has landed: shared page/header, viewport/split/messages/footer,
-/btw pane and status/warning owners preserve geometry and interaction states.
-The composer ownership move has landed unchanged, including shared action/dot
-styles and speech/thinking/mode/context owners. Census retains 192 token
-exceptions in 85 files and 13 generated families. Step 7 is landed; composer
-control swaps stay excluded. Step 8 (string-class ban and empty-file removal)
-remains open.
+[Plan 191](../tactical/191-css-ownership-and-leak-closure.md) landed
+2026-11-11. Shared controls own their look, type/radius values use tokens,
+and all React-authored styles have module owners. The three empty legacy
+stylesheets, line ceilings and migration inventory/touched tooling are removed.
+Lint enforces exact generated/global liveness, the three global purposes and
+a production class-string/selector ban. Final globals: tokens 888 lines,
+base 98, generated 1,106; 13 generated families, 145 generated contexts,
+zero base/token purpose exceptions and six external-markup class-string
+exceptions. Remaining counted work: 18 button / 28 other-control overrides,
+28 ButtonBase surfaces and 181 type/radius exceptions. Composer control swaps
+remain with plan 182; specialized controls and semantic typography retain
+specific closure reasons in the playground census.
 
 ## Later directions
 

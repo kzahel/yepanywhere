@@ -19,7 +19,8 @@ import {
 import { createCommentAnchor, type CommentAnchor } from "../lib/commentAnchors";
 import { getSelectionPlainText } from "../lib/selectionClipboard";
 
-const TRANSCRIPT_SELECTION_ACTIVE_CLASS = "session-transcript-selection-active";
+const TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE =
+  "data-session-transcript-selection-active";
 const SELECTION_ACTION_UPDATE_INTERVAL_MS = 50;
 
 export type FloatingActionPlacement = "above" | "after" | "before" | "below";
@@ -409,16 +410,21 @@ export function useSelectionActionCapture({
         currentRoot?.closest<HTMLElement>("[data-session-page]") ?? null;
       const body = currentRoot?.ownerDocument.body ?? null;
       if (activeSessionPage && activeSessionPage !== sessionPage) {
-        activeSessionPage.classList.remove(TRANSCRIPT_SELECTION_ACTIVE_CLASS);
+        activeSessionPage.removeAttribute(
+          TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE,
+        );
       }
       if (activeBody && activeBody !== body) {
-        activeBody.classList.remove(TRANSCRIPT_SELECTION_ACTIVE_CLASS);
+        activeBody.removeAttribute(TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE);
       }
       activeSessionPage = sessionPage;
       activeBody = body;
-      sessionPage?.classList.toggle(TRANSCRIPT_SELECTION_ACTIVE_CLASS, active);
-      body?.classList.toggle(
-        TRANSCRIPT_SELECTION_ACTIVE_CLASS,
+      sessionPage?.toggleAttribute(
+        TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE,
+        active,
+      );
+      body?.toggleAttribute(
+        TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE,
         active && sessionPage !== null,
       );
     };
@@ -450,8 +456,8 @@ export function useSelectionActionCapture({
       );
       doc.removeEventListener("keyup", updateTranscriptSelectionActive, true);
       win.removeEventListener("blur", updateTranscriptSelectionActive);
-      activeSessionPage?.classList.remove(TRANSCRIPT_SELECTION_ACTIVE_CLASS);
-      activeBody?.classList.remove(TRANSCRIPT_SELECTION_ACTIVE_CLASS);
+      activeSessionPage?.removeAttribute(TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE);
+      activeBody?.removeAttribute(TRANSCRIPT_SELECTION_ACTIVE_ATTRIBUTE);
     };
   }, [containerRef, inert]);
 

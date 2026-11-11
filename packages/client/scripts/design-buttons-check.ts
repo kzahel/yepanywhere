@@ -139,9 +139,6 @@ interface Allowlist extends Record<AllowSection, Record<string, AllowEntry>> {
 }
 
 const GLOBAL_STYLESHEETS = [
-  "styles/index.css",
-  "styles/renderers.css",
-  "styles/tool-rows.css",
   "styles/tokens.css",
   "styles/base.css",
   "styles/generated.css",

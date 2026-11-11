@@ -8,7 +8,7 @@ new project (empty folder, optional Git init), new project from a template,
 typed unused path, and problems (missing parent; one `mkdir`, never `-p`).
 
 This is a single HTML file with values copied from the dark theme in
-`src/styles/index.css`. It does not mount the real form, and nothing in it
+the shared purpose styles and component modules. It does not mount the real form, and nothing in it
 creates folders or sessions. A typed path already creates one folder (a
 missing parent is refused, except under a limited user's project root) and
 always runs `git init` with an empty first commit

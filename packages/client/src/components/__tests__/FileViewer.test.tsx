@@ -656,13 +656,13 @@ describe("FileViewer", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector(".file-viewer-path")?.textContent).toBe(
-        "docs/guide.md",
-      );
+      expect(
+        container.querySelector("[data-file-viewer-path]")?.textContent,
+      ).toBe("docs/guide.md");
     });
 
     expect(
-      container.querySelector(".file-viewer-path")?.getAttribute("title"),
+      container.querySelector("[data-file-viewer-path]")?.getAttribute("title"),
     ).toBe(rawPath);
     expect(source.loadFile).toHaveBeenCalledWith(
       projectId,
@@ -748,7 +748,7 @@ describe("FileViewer", () => {
     selection?.addRange(range);
 
     fireEvent.contextMenu(
-      screen.getByText("src/App.ts", { selector: ".file-viewer-path" }),
+      screen.getByText("src/App.ts", { selector: "[data-file-viewer-path]" }),
     );
     expect(screen.getByRole("menuitem", { name: "New session" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Copy text" })).toBeNull();
@@ -1063,7 +1063,7 @@ describe("FileViewer", () => {
       container.querySelector(".markdown-preview-span-start"),
     ).toBeTruthy();
     const selectAll = screen.getByRole("button", { name: "Select all" });
-    expect(selectAll.closest(".file-viewer-actions")).not.toBeNull();
+    expect(selectAll.closest("[data-file-viewer-actions]")).not.toBeNull();
     fireEvent.click(selectAll);
     expect(document.getSelection()?.toString()).toContain("Title");
     expect(document.getSelection()?.toString()).toContain("Selected text");
@@ -1834,7 +1834,7 @@ describe("FileViewer", () => {
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
     const openLink = container.querySelector<HTMLAnchorElement>(
-      '.file-viewer-actions a[aria-label="Move viewer to new tab"]',
+      '[data-file-viewer-actions] a[aria-label="Move viewer to new tab"]',
     );
     expect(new URL(openLink!.href).pathname).toBe("/projects/project-id/file");
     expect(new URL(openLink!.href).searchParams.get("path")).toBe(

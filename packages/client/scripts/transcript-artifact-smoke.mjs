@@ -365,7 +365,7 @@ async function installStableCaptureStyle(page) {
         transition-delay: 0s !important;
       }
       [data-message-age],
-      .reload-banner,
+      [data-reload-banner],
       [data-turn-rail],
       .selection-quote-button {
         visibility: hidden !important;

@@ -219,8 +219,8 @@ export function useDiffLineInteractions({
         const revision = resolved
           ? revisions?.[resolved.location.side]
           : undefined;
-        node.classList.toggle(
-          "has-review-comment",
+        node.toggleAttribute(
+          "data-has-review-comment",
           !!resolved &&
             pendingKeys.has(locationTintKey(resolved.location, revision)),
         );

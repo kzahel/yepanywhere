@@ -267,18 +267,18 @@ test("right-click queues the draft as a new session in another project", async (
     page.getByText("destination-note.txt", { exact: true }).first(),
   ).toBeVisible();
   await composer.fill("Start immediately");
-  await page.locator(".send-button-with-help").click({ button: "right" });
+  await page.locator("[data-send-button-with-help]").click({ button: "right" });
   await expect(dialog).toBeVisible();
   await dialog
     .getByRole("button", { name: "Exit new session mode (Esc)" })
     .click();
   await expect(dialog).toBeHidden();
   await expect(composer).toHaveValue("Start immediately");
-  await page.locator(".send-button-with-help").click({ button: "right" });
+  await page.locator("[data-send-button-with-help]").click({ button: "right" });
   await composer.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(composer).toHaveValue("Start immediately");
-  await page.locator(".send-button-with-help").click({ button: "right" });
+  await page.locator("[data-send-button-with-help]").click({ button: "right" });
   await dialog
     .getByRole("combobox", { name: "Project" })
     .selectOption(otherProjectId);

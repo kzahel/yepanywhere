@@ -138,7 +138,7 @@ export function EmulatorSettings() {
 
   return (
     <SettingsSection>
-      <p className="settings-description">{t("emulatorSectionDescription")}</p>
+      <p>{t("emulatorSectionDescription")}</p>
 
       <div className={rowsStyles.group} data-settings-group>
         <SettingsItem
@@ -161,9 +161,7 @@ export function EmulatorSettings() {
         <>
           <div className={rowsStyles.group} data-settings-group>
             <h3>{t("emulatorStreamQualityTitle")}</h3>
-            <p className="settings-description">
-              {t("emulatorStreamQualityDescription")}
-            </p>
+            <p>{t("emulatorStreamQualityDescription")}</p>
 
             <SettingsItem
               label={t("emulatorFrameRateTitle")}
@@ -225,7 +223,7 @@ export function EmulatorSettings() {
 
           <div className={rowsStyles.group} data-settings-group>
             <h3>{t("emulatorChromeOsHostsTitle")}</h3>
-            <p className="settings-description">
+            <p>
               {t("emulatorChromeOsHostsDescription")}
               <code> chromeroot</code>
               {t("emulatorChromeOsHostsDescriptionSuffix")}
@@ -266,17 +264,15 @@ export function EmulatorSettings() {
               {settingsError && <Banner tone="error">{settingsError}</Banner>}
 
               {chromeOsHosts.length === 0 ? (
-                <p className="settings-muted">{t("emulatorNoChromeOsHosts")}</p>
+                <p>{t("emulatorNoChromeOsHosts")}</p>
               ) : (
                 chromeOsHosts.map((host) => (
                   <div key={host} className={rowsStyles.item}>
                     <div className={rowsStyles.itemInfo} data-settings-info>
-                      <span className="settings-item-label">{host}</span>
-                      <span className="settings-item-description">
-                        Device ID: chromeos:{host}
-                      </span>
+                      <span>{host}</span>
+                      <span>Device ID: chromeos:{host}</span>
                     </div>
-                    <div className="settings-item-action">
+                    <div>
                       <Button
                         variant="danger-outline"
                         onClick={() => {
@@ -297,26 +293,22 @@ export function EmulatorSettings() {
             <div className={rowsStyles.group} data-settings-group>
               <h3>{t("emulatorDiscoveredDevicesTitle")}</h3>
 
-              {loading && (
-                <p className="settings-muted">{t("projectsLoading")}</p>
-              )}
+              {loading && <p>{t("projectsLoading")}</p>}
               {error && <Banner tone="error">{error}</Banner>}
 
               {!loading && emulators.length === 0 && (
-                <p className="settings-muted">{t("emulatorNoDevicesFound")}</p>
+                <p>{t("emulatorNoDevicesFound")}</p>
               )}
 
               {emulators.map((device) => (
                 <div key={device.id} className={rowsStyles.item}>
                   <div className={rowsStyles.itemInfo} data-settings-info>
-                    <span className="settings-item-label">
-                      {device.label || device.avd || device.id}
-                    </span>
-                    <span className="settings-item-description">
+                    <span>{device.label || device.avd || device.id}</span>
+                    <span>
                       {device.type} - {device.id} - {device.state}
                     </span>
                   </div>
-                  <div className="settings-item-action">
+                  <div>
                     {canStopDevice(
                       device.type,
                       device.state,

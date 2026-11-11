@@ -415,7 +415,7 @@ export const ProcessingIndicator = memo(function ProcessingIndicator({
       ref={rootRef}
       className={`${styles.processingIndicator} ${
         !isProcessing ? styles.processingIndicatorControlOnly : ""
-      } ${!thinkingItemsVisible && hasThinkingItems ? "processing-indicator--thinking-hidden" : ""}`}
+      } ${!thinkingItemsVisible && hasThinkingItems ? "" : ""}`}
       data-processing-indicator
       data-processing-indicator--control-only={!isProcessing || undefined}
     >

@@ -1111,7 +1111,6 @@ describe("GitStatusPage source header", () => {
     });
     expect(checking.textContent).toBe("gitStatusCheckRemote");
     expect(checking.querySelector("[data-source-action-glyph]")).toBeNull();
-    expect(checking.classList.contains("git-status-action-running")).toBe(true);
 
     resolveCheck?.({
       status: "checked",

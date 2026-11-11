@@ -42,62 +42,31 @@ shared fields, the shared banner, badge, spinner and tabs, and the dialog
 pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
-[Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; steps 1–7 landed) closes the leaks around shared
-controls: caller classes that override a control's look, `ButtonBase` uses
-that draw a button by hand, literal type sizes and radii, and census pages
-that still list swept work. `controls:check` now enforces caller-class ownership
-with a counted, reasoned allowlist; Census/Control overrides shows the exceptions.
-`buttons:check` also rejects hand-drawn ButtonBase surfaces or link actions,
-with rich/specialized exceptions listed in Census/ButtonBase exceptions.
-`tokens:check` enforces token-owned module and inline type sizes/radii, with
-counted reasons for remaining exceptions ([CSS contract](css-architecture.md#type-sizes-and-radii)). The
-purpose split preserves appearance: `tokens.css` owns themes/fonts,
-`base.css` owns document defaults/state, and `generated.css` styles emitted
-HTML. `purposeGlobals.ts` is the common ordered entry (KaTeX, tokens, generated,
-base); the three legacy stylesheets are empty pending step 8 deletion. The playground
-reads token data from `tokens.css`; generated-content wrappers retain counted
-context exceptions ([global contract](css-architecture.md#contract)).
-Login pages share `LoginLayout.module.css`; host/monitor/share pages and relay
-setup own modules. `YepAnywhereLogo` owns its login/monitor variants; callers
-do not reach into its glyph or wordmark. These ownership moves preserve appearance. Cross-module look ties have explicit
-winners, including host-picker heading margins and disabled/busy cursors. Source
-typography keeps rem values where browser root-font preferences make a UI token
-non-equivalent.
-Settings row/search visibility, category icons/navigation, toolbar specimens,
-shared device/command content and onboarding now use their owning modules.
-The settings and onboarding move preserves all shared control states and
-geometry; preview-specific data attributes mark the remaining composer boundary.
-Source browser columns, search, file/revision rows, detail banners, diff controls
-and file-page chrome now have shared module owners. Their compact typography,
-resize geometry, selected/read cues, focus rings and phone layout stay unchanged;
-source previews and EditRenderer import the same context-control look. FileViewer,
-CodeOutput and DiffOutput now share source typography and gutters across viewer
-and tool surfaces. Transcript lists/blocks, thinking/activity previews, tool rows
-and tool-renderer families own their layout through modules. Emitted Markdown,
-math and Shiki descendants share generated.css under counted data boundaries;
-inline-style resets and fallback gutter specificity keep their previous winners.
-These are appearance-preserving moves, including root-font scaling, streaming
-input acknowledgement, hover/focus and phone geometry.
-Collection pages, compact session rows, sidebar density/collapse and navigation
-now retain their existing look through explicit shared modules. Page scrolling
-and retained-route lookup use stable data boundaries; the composer is unchanged.
-Shared page/session headers, viewport/split layout, /btw pane and footer chrome
-now have module owners. Header density, inline/dialog rename, connection states,
-selection shielding and content-width/overflow behavior retain their existing
-look. Stable data boundaries serve DOM consumers and browser fixtures; the
-composer controls now have module owners as well, with their look unchanged.
-Input, toolbar and new-session forms share action/dot styles; speech, mode,
-thinking, context, recall and attachment controls retain their previous states
-and responsive geometry. Sequential typing remains independent of streaming
-updates and must acknowledge every key within 100 ms. Control swaps still
-belong to plan 182's composer pass.
-Ownership repairs keep Bash/Web copied feedback visible after hover/focus ends
-for its existing three-second interval; source-view partial copy remains exact.
-Rendered Edit panels and Grep directory labels share their established owners.
-Viewer range tints and fallback source resets are modular; only emitted Shiki
-inline paint is reset globally. Composed caller layout and brand sizing have
-explicit specificity, including shared wordmarks and page workspaces.
+[Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) landed
+2026-11-11. All React-authored markup now has module owners, including the
+composer, whose controls retain their appearance until plan 182's control pass.
+Exactly three purpose globals remain: tokens/themes/fonts, base document
+state/defaults, and generated HTML. `purposeGlobals.ts` imports KaTeX, tokens,
+generated, then base. The legacy stylesheets and migration tooling are removed.
+
+`css:classes` rejects literal/template class names and class selector strings
+in production client TS/TSX, following helpers and DOM/HTML builders. Use module
+exports, shared-control APIs and stable data hooks. Declared generated families
+and six external-document recognition exceptions are reviewed explicitly.
+`controls:check` enforces caller layout-only classes; `buttons:check` rejects
+hand-drawn ButtonBase surfaces; `tokens:check` requires token-owned type and
+radius values. Census shows their remaining counted exceptions and reasons.
+The global purpose check retains 145 generated contexts and zero base/token
+exceptions; React shells, source fallback rows, media groups and prefix gutters
+have module owners ([CSS contract](css-architecture.md#contract)).
+
+Ownership changes preserve user typography, responsive geometry and interaction
+states. Cross-module cascade ties have explicit winners; DOM consumers and
+fixtures use stable data boundaries. Sequential typing stays independent of
+streaming updates and acknowledges every key within 100 ms. Copy feedback and
+exact source selection remain part of those contracts. Remaining composer swaps,
+non-button overrides, specialized ButtonBase surfaces and semantic typography
+exceptions are listed in plan 191's follow-ups.
 
 **Buttons.** `src/components/ui/Button.tsx` owns the button family:
 
@@ -514,8 +483,11 @@ depend on a higher one:
    `--font-size-xs` 10px, `-caption` 11px, `-sm` 12px, `-base` 13px,
    `-lg` 14px, `-xl` 16px and `-2xl` 18px at 100%. All seven follow the
    UI font preference: the default 115% gives an 18.4px root (1rem), with
-   each type token multiplied by 1.15. Rem conversions compare those computed
-   sizes; fixed radii do not scale with that preference. The radius scale is
+   each type token multiplied by 1.15. The fixed counterpart
+   `--font-size-fixed-xs` stays at 10px for provider effort letters and toolbar
+   status slots whose width budgets are independent of UI scale; ordinary text
+   uses the scaled tokens. Rem conversions compare those computed sizes;
+   fixed radii do not scale with that preference. The radius scale is
    `--radius-xs` 3px, `-sm` 4px, `-md` 6px, `-lg` 8px and `-full` 999px.
    The Tokens/Scales page shows every step. A new step needs roughly eight
    uses; uncommon heading/glyph sizes and user-configured output/source sizes
@@ -634,8 +606,8 @@ The playground's pages:
   **Controls/Spinner** and **Controls/Tabs:** the shared states and variants.
 - **Controls/Dialog:** shared dialog sizes, forms, choices and confirmations.
 - **Patterns/Selectable card:** shared rich action and navigation surfaces.
-- **Census/Composer:** remaining composer look rules with module locations and
-  excluded raw buttons/fields with TSX locations. Their appearance now lives
+- **Census/Composer:** remaining raw buttons/fields and counted control overrides/type/radius
+  exceptions with source locations. Their appearance now lives
   in owner/shared CSS Modules. It owns plan
   182's composer follow-up; no swept-family samples remain.
 - **Census/Control overrides:** every counted caller-style exception, split

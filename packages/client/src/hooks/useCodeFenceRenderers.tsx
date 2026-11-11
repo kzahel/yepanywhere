@@ -27,7 +27,6 @@ import styles from "./useCodeFenceRenderers.module.css";
  */
 export const codeFenceRootClass: string = styles.root ?? "";
 
-const CODE_SELECTOR = "pre > code[class*='language-']";
 /** Every fenced block, labeled or not, gets a copy control. */
 const ANY_CODE_SELECTOR = "pre > code";
 const LANGUAGE_CLASS = /(?:^|\s)language-(\S+)/;
@@ -249,7 +248,7 @@ function enhance(
       );
     }
   }
-  for (const code of root.querySelectorAll<HTMLElement>(CODE_SELECTOR)) {
+  for (const code of root.querySelectorAll<HTMLElement>(ANY_CODE_SELECTOR)) {
     const pre = code.parentElement;
     if (!pre) {
       continue;

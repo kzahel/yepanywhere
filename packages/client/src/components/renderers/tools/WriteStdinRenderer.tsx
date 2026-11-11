@@ -410,7 +410,7 @@ export const writeStdinRenderer = defineTool(toolDisplayContracts.WriteStdin, {
 
     return (
       <div
-        className={`${bashStyles.bashResult} ${isError ? "bash-result-error" : ""}`}
+        className={`${bashStyles.bashResult} ${isError ? "" : ""}`}
         data-bash-result
       >
         <FixedFontMathToggle

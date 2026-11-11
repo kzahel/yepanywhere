@@ -98,13 +98,17 @@ describe("SessionListItem links", () => {
       </I18nProvider>
     );
     const view = render(renderCard());
-    expect(view.container.querySelector(".session-list-item__age")).toBeNull();
+    expect(
+      view.container.querySelector("[data-session-list-item__age]"),
+    ).toBeNull();
 
     view.rerender(renderCard(knownCreation));
     expect(screen.getByText("Created 2d ago")).toBeTruthy();
 
     view.rerender(renderCard(new Date(0).toISOString()));
-    expect(view.container.querySelector(".session-list-item__age")).toBeNull();
+    expect(
+      view.container.querySelector("[data-session-list-item__age]"),
+    ).toBeNull();
   });
 
   it("opens the session in a new window on middle click", () => {

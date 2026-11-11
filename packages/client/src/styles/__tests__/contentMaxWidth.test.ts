@@ -25,7 +25,7 @@ function getRuleDeclarations(css: string, selector: string): string {
   ).exec(css);
   expect(
     match,
-    `${selector} should have a dedicated rule in index.css so the content-width preference is hard to audit.`,
+    `${selector} should have a dedicated rule in its owning module so the content-width preference is hard to audit.`,
   ).not.toBeNull();
   return match?.[1] ?? "";
 }

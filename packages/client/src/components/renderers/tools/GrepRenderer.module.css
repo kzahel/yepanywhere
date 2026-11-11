@@ -253,7 +253,7 @@
 
 /* Shares its element with the global `.code-block`, which sets `margin:
    0.5rem 0`. The legacy `.grep-content` only won that tie by coming later in
-   renderers.css; the element qualifier keeps it winning independently of
+   the previous shared cascade; the element qualifier keeps it winning independently of
    where this module lands in the sheet order. */
 pre.content {
   margin: 0;

@@ -106,7 +106,7 @@ async function commentOnRow(rowIndex: number, text: string) {
   await waitFor(() =>
     expect(document.querySelectorAll("[data-blame-row]").length).toBe(2),
   );
-  fireEvent.click(document.querySelectorAll(".blame-line-target")[rowIndex]!);
+  fireEvent.click(document.querySelectorAll("[data-blame-code]")[rowIndex]!);
   fireEvent.change(await screen.findByRole("textbox"), {
     target: { value: text },
   });
@@ -209,7 +209,7 @@ describe("BlameView", () => {
     await waitFor(() =>
       expect(document.querySelectorAll("[data-blame-row]").length).toBe(2),
     );
-    fireEvent.click(document.querySelectorAll(".blame-line-target")[0]!);
+    fireEvent.click(document.querySelectorAll("[data-blame-code]")[0]!);
     await screen.findByRole("textbox");
 
     const before = document.querySelector("[data-review-comment-before]");
@@ -268,7 +268,7 @@ describe("BlameView", () => {
     expect(
       document
         .querySelector("[data-blame-row]")
-        ?.classList.contains("has-review-comment"),
+        ?.hasAttribute("data-has-review-comment"),
     ).toBe(false);
   });
 

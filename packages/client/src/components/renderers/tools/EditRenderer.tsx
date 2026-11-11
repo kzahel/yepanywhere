@@ -105,7 +105,7 @@ function EditToolUse({ input }: { input: EditInputWithAugment }) {
     }
     return (
       <div className={styles.editResult} data-edit-result>
-        <div className="edit-loading">Computing diff...</div>
+        <div>Computing diff...</div>
       </div>
     );
   }
@@ -585,7 +585,7 @@ function EditCollapsedPreview({
           className={styles.editCollapsedPreview}
           data-edit-collapsed-preview
         >
-          <div className="edit-loading">Computing diff...</div>
+          <div>Computing diff...</div>
         </div>
       );
     }
@@ -1056,7 +1056,7 @@ function EditToolResult({
           )}
         </div>
         <div className={styles.editSimple} data-edit-simple>
-          <div className="edit-old">
+          <div>
             <div className={styles.editLabel} data-edit-label>
               Removed:
             </div>
@@ -1064,7 +1064,7 @@ function EditToolResult({
               <code>{oldString || "(empty)"}</code>
             </pre>
           </div>
-          <div className="edit-new">
+          <div>
             <div className={styles.editLabel} data-edit-label>
               Added:
             </div>

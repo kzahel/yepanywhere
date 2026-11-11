@@ -4,7 +4,7 @@
  * three per-entry action buttons).
  *
  * The block body inside each entry belongs to BangCommandDisplayObject and
- * keeps its own `bang-command-*` vocabulary in `styles/index.css`; the
+ * keeps its own `bang-command-*` vocabulary in `BangCommandDisplayObject.module.css`; the
  * composer's `bang-composer-chip` and `bang-history-item` classes belong to
  * MessageInput. See topics/bang-commands.md § Top-level history view.
  *

@@ -1,6 +1,7 @@
 import toolbarStyles from "../../components/MessageInputToolbar.module.css";
 import { render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { DEFAULT_SESSION_TOOLBAR_PRIORITY } from "../useSessionToolbarPresence";
 import { useMeasuredComposerOverflow } from "../useMessageInputToolbarLayout";
 
 afterEach(() => {
@@ -30,6 +31,12 @@ it.each([true, false])(
         useMeasuredComposerOverflow({
           layoutKey: String(composing),
           hasControls: true,
+          priority: {
+            ...DEFAULT_SESSION_TOOLBAR_PRIORITY,
+            modeSelector: "first",
+            attachments: samePriority ? "first" : "mid",
+          },
+          pinOnlyMicrophone: false,
         });
       return (
         <div
@@ -41,7 +48,7 @@ it.each([true, false])(
           <div data-message-input-left>
             <button
               type="button"
-              className={`${toolbarStyles.composerBottomOverflowInline} composer-bottom-overflow-early`}
+              className={toolbarStyles.composerBottomOverflowInline}
               data-session-toolbar-control="modeSelector"
               style={{
                 display: hiddenControls.has("modeSelector") ? "none" : "block",
@@ -52,7 +59,7 @@ it.each([true, false])(
             <button
               type="button"
               data-session-toolbar-control="attachments"
-              className={`${toolbarStyles.composerBottomOverflowInline} composer-bottom-overflow-${samePriority ? "early" : "medium"}`}
+              className={toolbarStyles.composerBottomOverflowInline}
               style={{
                 display: hiddenControls.has("attachments") ? "none" : "block",
               }}

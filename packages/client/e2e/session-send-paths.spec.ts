@@ -661,7 +661,7 @@ test("start-now on a server without creation admission uses the legacy route", a
     respond: {},
   });
   await session.composer.fill("Start this as a new session");
-  await page.locator(".send-button-with-help").click({ button: "right" });
+  await page.locator("[data-send-button-with-help]").click({ button: "right" });
   await expect(
     page.getByRole("form", { name: "Queue as new session" }),
   ).toBeVisible();

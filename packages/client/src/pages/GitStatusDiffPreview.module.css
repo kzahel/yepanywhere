@@ -72,6 +72,7 @@
 }
 
 /* Both generated diff spans and React hunk headers emit this vocabulary. */
+.sourceDiffPane [data-diff-hunk-header],
 .sourceDiffPane [class~="line-hunk"] {
   scroll-margin-top: 52px;
 }

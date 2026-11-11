@@ -600,7 +600,7 @@ export function SessionDomLingerHost({
             );
           })}
         <div
-          className={`${lingerStyles.navigationRouteLayer} navigation-route-foreground ${
+          className={`${lingerStyles.navigationRouteLayer} ${
             currentSessionRoute ? lingerStyles.isHidden : lingerStyles.isActive
           }`}
           data-navigation-route-layer

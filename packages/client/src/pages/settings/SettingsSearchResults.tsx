@@ -137,7 +137,7 @@ export const SettingsSearchResults = memo(function SettingsSearchResults({
       aria-busy={acquiringPanes || hasIncompletePanes}
     >
       {categoryMatches.length > 0 && (
-        <div className="settings-search-category-matches">
+        <div>
           <h3 className={rowsStyles.searchHeading}>
             {t("settingsSearchCategoriesHeading")}
           </h3>

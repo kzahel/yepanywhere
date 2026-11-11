@@ -501,7 +501,7 @@ function SourceActionButton({
             ? styles.actionSuccess
             : styles.actionWarning
           : ""
-      } ${running ? "git-status-action-running" : ""}`}
+      }`}
       title={feedbackTitle}
       aria-label={
         running

@@ -26,6 +26,8 @@ describe("UnifiedDiff", () => {
 
     const plain = container.querySelector('[data-diff-rendering="plain"]');
     expect(plain?.textContent).toBe("before\nnew\nafter");
-    expect(plain?.querySelector(".line-hunk")).toBeNull();
+    expect(
+      plain?.querySelector("[data-diff-hunk-header], .line-hunk"),
+    ).toBeNull();
   });
 });

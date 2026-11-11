@@ -24,7 +24,7 @@ const composerClose =
   "Review in plan 182's composer pass, adopt shared controls, then delete the old rules and add retired classes to bannedClasses.";
 
 /** Selector identity is parser-decoded; module :global references are not local classes. */
-function cssClasses(text: string, file: string, module = false) {
+function cssClasses(text: string, file: string) {
   const classes = new Map<
     string,
     { name: string; cssFile: string; line: number }
@@ -32,11 +32,6 @@ function cssClasses(text: string, file: string, module = false) {
   postcss.parse(text, { from: file }).walkRules((rule) => {
     selectorParser((selectors) =>
       selectors.walkClasses((node) => {
-        if (module) {
-          for (let parent = node.parent; parent; parent = parent.parent) {
-            if (parent.type === "pseudo" && parent.value === ":global") return;
-          }
-        }
         if (!classes.has(node.value))
           classes.set(node.value, {
             name: node.value,
@@ -52,12 +47,10 @@ function cssClasses(text: string, file: string, module = false) {
 export async function collectOpenCensus(srcDir: string) {
   const globals = (
     await Promise.all(
-      ["tokens", "generated", "renderers", "tool-rows", "base", "index"].map(
-        async (name) => {
-          const file = `styles/${name}.css`;
-          return cssClasses(await readFile(join(srcDir, file), "utf8"), file);
-        },
-      ),
+      ["tokens", "generated", "base"].map(async (name) => {
+        const file = `styles/${name}.css`;
+        return cssClasses(await readFile(join(srcDir, file), "utf8"), file);
+      }),
     )
   ).flat();
   const names = [...new Set(globals.map((row) => row.name))];

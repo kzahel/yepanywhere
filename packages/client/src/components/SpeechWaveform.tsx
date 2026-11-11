@@ -184,7 +184,8 @@ export function SpeechWaveform({ preview = false }: { preview?: boolean }) {
 
   return (
     <div
-      className={`${styles.waveform} composer-speech-waveform`}
+      className={styles.waveform}
+      data-composer-speech-waveform=""
       data-composer-elastic="true"
       data-speech-waveform="true"
       aria-hidden="true"

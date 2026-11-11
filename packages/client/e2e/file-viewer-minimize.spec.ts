@@ -459,8 +459,8 @@ for (const viewport of [
     // The header never trades the filename away for controls: they take their
     // own header row instead of squeezing the path into a one-glyph column.
     const [pathBox, actionsBox] = await Promise.all([
-      viewer.locator(".file-viewer-path").boundingBox(),
-      viewer.locator(".file-viewer-actions").boundingBox(),
+      viewer.locator("[data-file-viewer-path]").boundingBox(),
+      viewer.locator("[data-file-viewer-actions]").boundingBox(),
     ]);
     if (!pathBox || !actionsBox) {
       throw new Error("Expected file viewer header layout boxes");
@@ -516,7 +516,9 @@ for (const viewport of [
         page.locator("[data-message-input-toolbar] [data-voice-input-button]"),
       ).toBeVisible();
       await expect(
-        page.locator("[data-message-input-toolbar] .send-button-with-help"),
+        page.locator(
+          "[data-message-input-toolbar] [data-send-button-with-help]",
+        ),
       ).toBeVisible();
     }
 

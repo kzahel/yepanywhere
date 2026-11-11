@@ -26,7 +26,8 @@ export function ComposerRecallMenu({
   const { t } = useI18n();
   return (
     <div
-      className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu} composer-recall-menu`}
+      className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu} `}
+      data-composer-recall-menu=""
       role="menu"
       aria-label={t("composerRecallMenuLabel")}
     >

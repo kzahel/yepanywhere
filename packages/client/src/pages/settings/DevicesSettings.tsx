@@ -93,7 +93,7 @@ export function DevicesSettings() {
                 return (
                   <div
                     key={profile.browserProfileId}
-                    className={`${deviceListStyles.listItem} device-profile-item`}
+                    className={deviceListStyles.listItem}
                   >
                     <div className={deviceListStyles.listInfo}>
                       <strong>

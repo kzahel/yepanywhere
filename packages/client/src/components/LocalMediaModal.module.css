@@ -5,7 +5,7 @@
  * The generated markdown vocabulary that surrounds these previews
  * (.local-media-link-group, .local-media-inline-toggle, .local-media-link,
  * .local-media-type, .local-media-inline-preview) is produced outside React and
- * stays global in renderers.css, as does the shared fixed-font rule set that
+ * stays global in generated.css, as does the shared fixed-font rule set that
  * composes .local-file-text with many other owners.
  */
 

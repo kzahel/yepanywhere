@@ -1,5 +1,6 @@
 import diffStyles from "../components/renderers/DiffOutput.module.css";
 import {
+  collectDiffHunks,
   formatBytes,
   getBinaryPatchSkip,
   getDiffSourceText,
@@ -1065,9 +1066,7 @@ function GitDiffContent({
     if (showingMarkdownPreview || previewSkipped || !contentRef.current) {
       return [];
     }
-    return Array.from(
-      contentRef.current.querySelectorAll<HTMLElement>(".line-hunk"),
-    );
+    return collectDiffHunks(contentRef.current);
   }, [previewSkipped, showingMarkdownPreview]);
 
   const updateHunkPosition = useCallback(() => {

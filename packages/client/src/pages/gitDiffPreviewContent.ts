@@ -87,3 +87,12 @@ export function formatBytes(bytes: number): string {
 function formatFraction(value: number): string {
   return value >= 10 ? value.toFixed(0) : value.toFixed(1);
 }
+
+/** Both React hunk headers and server-emitted Shiki hunk lines navigate here. */
+export function collectDiffHunks(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      "[data-diff-hunk-header], .line-hunk",
+    ),
+  );
+}

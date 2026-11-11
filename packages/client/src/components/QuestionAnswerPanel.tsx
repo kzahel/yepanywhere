@@ -348,7 +348,7 @@ export function QuestionAnswerPanel({
                       onClick={(event) => {
                         if (
                           event.target instanceof HTMLElement &&
-                          event.target.closest(`.${styles.optionPreview}`)
+                          event.target.closest("[data-option-preview]")
                         ) {
                           return;
                         }
@@ -376,7 +376,10 @@ export function QuestionAnswerPanel({
                       </div>
                       {/* Preview is revealed for the focused (selected) option. */}
                       {isSelected && option.preview && (
-                        <div className={styles.optionPreview}>
+                        <div
+                          className={styles.optionPreview}
+                          data-option-preview
+                        >
                           {option.preview}
                         </div>
                       )}
@@ -390,9 +393,10 @@ export function QuestionAnswerPanel({
                     type="button"
                     className={cx(
                       styles.option,
-                      "other",
+                      "",
                       isOtherSelected && styles.selected,
                     )}
+                    data-other=""
                     aria-pressed={isOtherSelected}
                     onClick={() => handleSelectOption(OTHER_ANSWER)}
                   >

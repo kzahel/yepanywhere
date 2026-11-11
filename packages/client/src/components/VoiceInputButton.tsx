@@ -620,24 +620,6 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
     return null;
   }
 
-  // Determine status class for styling
-  const statusClass =
-    status === "error" || error
-      ? styles.statusError
-      : status === "reconnecting"
-        ? "status-reconnecting"
-        : status === "finalizing"
-          ? "status-finalizing"
-          : status === "processing"
-            ? "status-processing"
-            : status === "starting"
-              ? "status-starting"
-              : status === "receiving"
-                ? "status-receiving"
-                : status === "listening"
-                  ? "status-listening"
-                  : "";
-
   const button = (
     <button
       type="button"
@@ -725,7 +707,7 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
   ) {
     return (
       <div
-        className={`${styles.voiceInputContainer} ${isCapturing ? styles.listening : ""} ${statusClass}`}
+        className={`${styles.voiceInputContainer} ${isCapturing ? styles.listening : ""} ${status === "error" || error ? styles.statusError : ""}`}
         data-listening={isCapturing || undefined}
       >
         {button}

@@ -39,7 +39,7 @@ function ToolResultRendererComponent({
 
   return (
     <div
-      className={`${toolStyles.toolBlock} tool-result ${isError ? toolStyles.toolError : ""}`}
+      className={`${toolStyles.toolBlock} ${isError ? toolStyles.toolError : ""}`}
       data-tool-block
       data-tool-error={isError || undefined}
     >

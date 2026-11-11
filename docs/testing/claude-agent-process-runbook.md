@@ -45,9 +45,8 @@ entire run.
 - Capture the returned YA `sessionId` as the canonical session identifier. Do
   not replace it with a provider-native id.
 
-For CSS migrations, choose and drill into the owner with
-`pnpm css:inventory` before starting this runbook. The binding migration rules
-remain in [`topics/css-architecture.md`](../../topics/css-architecture.md).
+For CSS work, read [CSS architecture](../../topics/css-architecture.md) and
+run the class-string, emitted-hook and module contracts before browser verification.
 
 ## Route the task shape to a worker
 

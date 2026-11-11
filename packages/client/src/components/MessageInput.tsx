@@ -1,3 +1,4 @@
+import { MessageInputKeyboardSlot } from "./MessageInputKeyboardSlot";
 import {
   ForkSummaryDraftNotice,
   ComposerPromptSuggestion,
@@ -2384,7 +2385,7 @@ export function MessageInput({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={userCollapsed ? styles.chevronUp : "chevron-down"}
+            className={userCollapsed ? styles.chevronUp : ""}
             aria-hidden="true"
           >
             <polyline points="6 9 12 15 18 9" />
@@ -2556,15 +2557,17 @@ export function MessageInput({
 
         {showBangSuggestions && (
           <div
-            className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu} bang-completion-menu`}
+            className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu} `}
+            data-bang-completion-menu=""
             role="menu"
           >
             {bangMenuItems.map((item, index) => (
               <button
                 key={`${item.source}:${item.value}`}
                 type="button"
-                className={`${slashStyles.slashCommandItem}${item.source === "history" ? " bang-history-item" : ""}${index === selectedBangIndex ? ` ${slashStyles.active}` : ""}`}
+                className={`${slashStyles.slashCommandItem}${index === selectedBangIndex ? ` ${slashStyles.active}` : ""}`}
                 data-slash-command-item
+                data-bang-history-item={item.source === "history" || undefined}
                 onMouseEnter={() => setSelectedBangIndex(index)}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
@@ -2896,10 +2899,7 @@ export function MessageInput({
                 </div>
               )}
               {showMobileProjectQueueAction && (
-                <div
-                  className={`${actionStyles.messageInputKeyboardSecondarySlot} message-input-keyboard-project-queue-slot`}
-                  data-message-input-keyboard-secondary-slot
-                >
+                <MessageInputKeyboardSlot kind="projectQueue">
                   <button
                     type="button"
                     className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} ${actionStyles.projectQueueMode}`}
@@ -2925,13 +2925,10 @@ export function MessageInput({
                       />
                     )}
                   </button>
-                </div>
+                </MessageInputKeyboardSlot>
               )}
               {showMobileProjectQueueNewSessionAction && (
-                <div
-                  className={`${actionStyles.messageInputKeyboardSecondarySlot} message-input-keyboard-project-queue-new-session-slot`}
-                  data-message-input-keyboard-secondary-slot
-                >
+                <MessageInputKeyboardSlot kind="newSession">
                   <button
                     type="button"
                     className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} ${actionStyles.projectQueueMode} ${actionStyles.projectQueueNewSessionButton}`}
@@ -2957,13 +2954,10 @@ export function MessageInput({
                       />
                     )}
                   </button>
-                </div>
+                </MessageInputKeyboardSlot>
               )}
               {showMobileSessionAlternateAction && (
-                <div
-                  className={`${actionStyles.messageInputKeyboardSecondarySlot} message-input-keyboard-session-alternate-slot`}
-                  data-message-input-keyboard-secondary-slot
-                >
+                <MessageInputKeyboardSlot kind="sessionAlternate">
                   <button
                     type="button"
                     data-delivery-kind={mobileKeyboardAlternateAction.kind}
@@ -2989,14 +2983,14 @@ export function MessageInput({
                       />
                     )}
                   </button>
-                </div>
+                </MessageInputKeyboardSlot>
               )}
               {forkSummaryMode?.onSubmitWithoutSummary &&
                 mobileKeyboardAlternateAction && (
                   <button
                     type="button"
                     data-delivery-kind={mobileKeyboardAlternateAction.kind}
-                    className={`${actionStyles.messageInputKeyboardAction} message-input-keyboard-alternate ${composerActionsStateClasses[`${mobileKeyboardAlternateAction.kind}-mode`] ?? ""}`}
+                    className={`${actionStyles.messageInputKeyboardAction} ${composerActionsStateClasses[`${mobileKeyboardAlternateAction.kind}-mode`] ?? ""}`}
                     data-message-input-keyboard-action
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={mobileKeyboardAlternateAction.onClick}
@@ -3048,7 +3042,8 @@ export function MessageInput({
                   // See topics/composer-recall-drawer.md.
                   <button
                     type="button"
-                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} composer-recall-open`}
+                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} `}
+                    data-composer-recall-open=""
                     data-message-input-keyboard-action
                     data-message-input-keyboard-secondary
                     onPointerDown={(event) => event.preventDefault()}

@@ -6,7 +6,7 @@ export const SIDEBAR_MIN_WIDTH = 280; // Current default, minimum allowed
 export const SIDEBAR_MAX_WIDTH = 560; // 2x minimum
 export const SIDEBAR_COLLAPSED_WIDTH = 56;
 export const MIN_CONTENT_WIDTH = 600; // Minimum main content area width
-// Desktop breakpoint must match CSS @media (min-width: 1100px) in index.css
+// Desktop breakpoint must match CSS @media (min-width: 1100px) in NavigationLayout.module.css
 export const DESKTOP_BREAKPOINT = 1100;
 
 // Desktop mode when: viewport >= DESKTOP_BREAKPOINT

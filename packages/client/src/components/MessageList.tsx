@@ -5070,7 +5070,7 @@ export const MessageList = memo(function MessageList({
                     </div>
                     {pending.attachments?.length ? (
                       <div
-                        className={`${messageInputStyles.attachmentList} pending-message-attachments`}
+                        className={messageInputStyles.attachmentList}
                         data-attachment-list
                       >
                         {pending.attachments.map((file) => (
@@ -5131,7 +5131,7 @@ export const MessageList = memo(function MessageList({
               return (
                 <div
                   key={tailRow.key}
-                  className={`${styles.deferredMessage} project-queue-inline-message ${itemStyles.messageRenderRow} ${hasMessageAge ? `${itemStyles["has-message-age"]}` : ""} ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                  className={`${styles.deferredMessage} ${itemStyles.messageRenderRow} ${hasMessageAge ? `${itemStyles["has-message-age"]}` : ""} ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
                   data-deferred-message
                   data-message-render-row
                   data-has-message-age={hasMessageAge || undefined}
@@ -5149,7 +5149,7 @@ export const MessageList = memo(function MessageList({
                     </div>
                     {projectQueue.attachments?.length ? (
                       <div
-                        className={`${messageInputStyles.attachmentList} deferred-message-attachments-list`}
+                        className={messageInputStyles.attachmentList}
                         data-attachment-list
                       >
                         {projectQueue.attachments.map((file) => (
@@ -5319,7 +5319,7 @@ export const MessageList = memo(function MessageList({
                   </div>
                   {deferred.attachments?.length ? (
                     <div
-                      className={`${messageInputStyles.attachmentList} deferred-message-attachments-list`}
+                      className={messageInputStyles.attachmentList}
                       data-attachment-list
                     >
                       {deferred.attachments.map((file) => (

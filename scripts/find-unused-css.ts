@@ -144,7 +144,7 @@ Options:
   --json           Output as JSON
   --remove         Remove unused global CSS rules (writes changes to files)
   --dry-run        Show what would be removed without making changes
-  --modules-check  Check only blocking CSS Module contracts; ignore legacy debt
+  --modules-check  Check only blocking CSS Module contracts; ignore generated global findings
   --help           Show this help
 
 CSS Module rules are never removed automatically; module selectors are reported
@@ -608,13 +608,6 @@ export interface SourceUsageIndex {
    * selector strings, generated markup attributes, and regex literals.
    */
   exact: Map<string, Set<string>>;
-  /** Template-literal prefixes such as `status-` in `status-${tone}`. */
-  dynamic: Map<string, Set<string>>;
-}
-
-function propertyNameText(name: ts.PropertyName): string | undefined {
-  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text;
-  return undefined;
 }
 
 function scriptKind(filename: string): ts.ScriptKind {
@@ -682,15 +675,6 @@ function addSourceStringTokens(
   addMarkupClassTokens(exact, value, filename);
 }
 
-function addDynamicPrefix(
-  dynamic: Map<string, Set<string>>,
-  value: string,
-  filename: string,
-): void {
-  const match = /(?:^|\s)(\S*-)$/.exec(value);
-  if (match) addSourceFact(dynamic, match[1], filename);
-}
-
 /**
  * Record the class selectors a regular-expression literal spells out.
  *
@@ -746,7 +730,6 @@ export function buildSourceUsageIndex(
   srcFiles: Map<string, string>,
 ): SourceUsageIndex {
   const exact = new Map<string, Set<string>>();
-  const dynamic = new Map<string, Set<string>>();
 
   for (const [filename, content] of srcFiles) {
     const sourceFile = ts.createSourceFile(
@@ -768,7 +751,6 @@ export function buildSourceUsageIndex(
       }
       if (ts.isTemplateExpression(node)) {
         addTemplateTokens(exact, node.head.text, filename, true, false);
-        addDynamicPrefix(dynamic, node.head.text, filename);
         for (let index = 0; index < node.templateSpans.length; index++) {
           const literal = node.templateSpans[index].literal.text;
           addTemplateTokens(
@@ -778,9 +760,6 @@ export function buildSourceUsageIndex(
             false,
             index === node.templateSpans.length - 1,
           );
-          if (index < node.templateSpans.length - 1) {
-            addDynamicPrefix(dynamic, literal, filename);
-          }
         }
       }
       ts.forEachChild(node, visit);
@@ -789,331 +768,7 @@ export function buildSourceUsageIndex(
     visit(sourceFile);
   }
 
-  return { exact, dynamic };
-}
-
-/**
- * Build the narrower source index used to infer React ownership.
- *
- * The unused-CSS scan intentionally treats every source string as possible
- * runtime vocabulary. Ownership needs stronger evidence: a generic state,
- * role, or protocol string must not make its containing component the owner of
- * a same-named global selector. This index follows values that flow directly
- * into class-producing syntax while leaving the permissive index unchanged.
- */
-export function buildClassProducerUsageIndex(
-  srcFiles: Map<string, string>,
-): SourceUsageIndex {
-  const exact = new Map<string, Set<string>>();
-  const dynamic = new Map<string, Set<string>>();
-  const contentsByPath = new Map(
-    Array.from(srcFiles, ([filename, content]) => [
-      path.resolve(filename),
-      content,
-    ]),
-  );
-  const compilerOptions: ts.CompilerOptions = {
-    allowJs: true,
-    jsx: ts.JsxEmit.Preserve,
-    noLib: true,
-    noResolve: true,
-    target: ts.ScriptTarget.Latest,
-  };
-  const host = ts.createCompilerHost(compilerOptions);
-  host.fileExists = (filename) => contentsByPath.has(path.resolve(filename));
-  host.readFile = (filename) => contentsByPath.get(path.resolve(filename));
-  host.getSourceFile = (filename, languageVersion) => {
-    const content = contentsByPath.get(path.resolve(filename));
-    return content === undefined
-      ? undefined
-      : ts.createSourceFile(
-          path.resolve(filename),
-          content,
-          languageVersion,
-          true,
-          scriptKind(filename),
-        );
-  };
-  const program = ts.createProgram({
-    rootNames: Array.from(contentsByPath.keys()),
-    options: compilerOptions,
-    host,
-  });
-  const checker = program.getTypeChecker();
-
-  for (const filename of srcFiles.keys()) {
-    const sourceFile = program.getSourceFile(path.resolve(filename));
-    if (!sourceFile) {
-      throw new Error(`Could not parse source file: ${filename}`);
-    }
-
-    const transparentClassHelpers = new Set(["classNames", "clsx", "cn", "cx"]);
-
-    function resolveIdentifierInitializer(
-      node: ts.Identifier,
-      seenDeclarations: Set<ts.Symbol>,
-    ): { initializer: ts.Expression; symbol: ts.Symbol } | undefined {
-      const symbol = checker.getSymbolAtLocation(node);
-      if (!symbol || seenDeclarations.has(symbol)) return undefined;
-      const declaration = symbol.valueDeclaration;
-      if (!declaration || !ts.isVariableDeclaration(declaration)) {
-        return undefined;
-      }
-      if (!declaration.initializer) return undefined;
-      return { initializer: declaration.initializer, symbol };
-    }
-
-    function resolveObjectLiteral(
-      node: ts.Expression,
-      seenDeclarations: Set<ts.Symbol>,
-    ): ts.ObjectLiteralExpression | undefined {
-      if (ts.isObjectLiteralExpression(node)) return node;
-      if (!ts.isIdentifier(node)) return undefined;
-      const binding = resolveIdentifierInitializer(node, seenDeclarations);
-      if (!binding) return undefined;
-      const nextSeen = new Set(seenDeclarations);
-      nextSeen.add(binding.symbol);
-      return resolveObjectLiteral(binding.initializer, nextSeen);
-    }
-
-    function collectObjectValue(
-      object: ts.ObjectLiteralExpression,
-      propertyName: string | undefined,
-      seenDeclarations: Set<ts.Symbol>,
-    ): void {
-      for (const property of object.properties) {
-        if (ts.isSpreadAssignment(property)) {
-          const spreadObject = resolveObjectLiteral(
-            property.expression,
-            seenDeclarations,
-          );
-          if (spreadObject) {
-            collectObjectValue(spreadObject, propertyName, seenDeclarations);
-          }
-          continue;
-        }
-        if (!ts.isPropertyAssignment(property)) continue;
-        const name = propertyNameText(property.name);
-        if (propertyName === undefined || name === propertyName) {
-          collectClassExpression(property.initializer, seenDeclarations);
-        }
-      }
-    }
-
-    function collectClassHelperArgument(
-      node: ts.Expression,
-      seenDeclarations: Set<ts.Symbol>,
-    ): void {
-      const object = resolveObjectLiteral(node, seenDeclarations);
-      if (object) {
-        for (const property of object.properties) {
-          if (ts.isPropertyAssignment(property)) {
-            const name = propertyNameText(property.name);
-            if (name) addExactTokens(exact, name, filename);
-          } else if (ts.isShorthandPropertyAssignment(property)) {
-            addExactTokens(exact, property.name.text, filename);
-          } else if (ts.isSpreadAssignment(property)) {
-            collectClassHelperArgument(property.expression, seenDeclarations);
-          }
-        }
-        return;
-      }
-      collectClassExpression(node, seenDeclarations);
-    }
-
-    function collectClassExpression(
-      node: ts.Expression,
-      seenDeclarations = new Set<ts.Symbol>(),
-    ): void {
-      if (ts.isTemplateExpression(node)) {
-        addExactTokens(exact, node.head.text, filename);
-        addDynamicPrefix(dynamic, node.head.text, filename);
-        for (let index = 0; index < node.templateSpans.length; index++) {
-          collectClassExpression(
-            node.templateSpans[index].expression,
-            seenDeclarations,
-          );
-          const literal = node.templateSpans[index].literal.text;
-          addExactTokens(exact, literal, filename);
-          if (index < node.templateSpans.length - 1) {
-            addDynamicPrefix(dynamic, literal, filename);
-          }
-        }
-        return;
-      }
-      if (ts.isStringLiteralLike(node)) {
-        addExactTokens(exact, node.text, filename);
-        return;
-      }
-      if (ts.isIdentifier(node)) {
-        const binding = resolveIdentifierInitializer(node, seenDeclarations);
-        if (binding) {
-          const nextSeen = new Set(seenDeclarations);
-          nextSeen.add(binding.symbol);
-          collectClassExpression(binding.initializer, nextSeen);
-        }
-        return;
-      }
-      if (ts.isConditionalExpression(node)) {
-        collectClassExpression(node.whenTrue, seenDeclarations);
-        collectClassExpression(node.whenFalse, seenDeclarations);
-        return;
-      }
-      if (ts.isBinaryExpression(node)) {
-        const operator = node.operatorToken.kind;
-        if (operator === ts.SyntaxKind.AmpersandAmpersandToken) {
-          collectClassExpression(node.right, seenDeclarations);
-        } else if (
-          operator === ts.SyntaxKind.BarBarToken ||
-          operator === ts.SyntaxKind.QuestionQuestionToken ||
-          operator === ts.SyntaxKind.PlusToken
-        ) {
-          collectClassExpression(node.left, seenDeclarations);
-          collectClassExpression(node.right, seenDeclarations);
-        } else if (operator === ts.SyntaxKind.CommaToken) {
-          collectClassExpression(node.right, seenDeclarations);
-        }
-        return;
-      }
-      if (ts.isParenthesizedExpression(node)) {
-        collectClassExpression(node.expression, seenDeclarations);
-        return;
-      }
-      if (
-        ts.isAsExpression(node) ||
-        ts.isTypeAssertionExpression(node) ||
-        ts.isNonNullExpression(node) ||
-        ts.isSatisfiesExpression(node) ||
-        ts.isAwaitExpression(node)
-      ) {
-        collectClassExpression(node.expression, seenDeclarations);
-        return;
-      }
-      if (ts.isArrayLiteralExpression(node)) {
-        for (const element of node.elements) {
-          if (ts.isSpreadElement(element)) {
-            collectClassExpression(element.expression, seenDeclarations);
-          } else if (!ts.isOmittedExpression(element)) {
-            collectClassExpression(element, seenDeclarations);
-          }
-        }
-        return;
-      }
-      if (ts.isPropertyAccessExpression(node)) {
-        const object = resolveObjectLiteral(node.expression, seenDeclarations);
-        if (object) {
-          collectObjectValue(object, node.name.text, seenDeclarations);
-        }
-        return;
-      }
-      if (ts.isElementAccessExpression(node)) {
-        const object = resolveObjectLiteral(node.expression, seenDeclarations);
-        if (object) {
-          const propertyName =
-            node.argumentExpression &&
-            ts.isStringLiteralLike(node.argumentExpression)
-              ? node.argumentExpression.text
-              : undefined;
-          collectObjectValue(object, propertyName, seenDeclarations);
-        }
-        return;
-      }
-      if (ts.isCallExpression(node)) {
-        if (
-          ts.isIdentifier(node.expression) &&
-          transparentClassHelpers.has(node.expression.text)
-        ) {
-          for (const argument of node.arguments) {
-            collectClassHelperArgument(argument, seenDeclarations);
-          }
-          return;
-        }
-        if (ts.isPropertyAccessExpression(node.expression)) {
-          const method = node.expression.name.text;
-          if (method === "join" || method === "filter") {
-            collectClassExpression(
-              node.expression.expression,
-              seenDeclarations,
-            );
-          }
-        }
-      }
-    }
-
-    function visit(node: ts.Node): void {
-      if (ts.isJsxAttribute(node)) {
-        const name = node.name.getText(sourceFile);
-        if ((name === "className" || name === "class") && node.initializer) {
-          if (ts.isJsxExpression(node.initializer)) {
-            if (node.initializer.expression) {
-              collectClassExpression(node.initializer.expression);
-            }
-          } else if (ts.isStringLiteralLike(node.initializer)) {
-            collectClassExpression(node.initializer);
-          }
-        }
-      }
-
-      if (ts.isPropertyAssignment(node)) {
-        const name = propertyNameText(node.name);
-        if (name === "className" || name === "class") {
-          collectClassExpression(node.initializer);
-        }
-      }
-
-      if (
-        ts.isBinaryExpression(node) &&
-        ts.isPropertyAccessExpression(node.left) &&
-        (node.left.name.text === "className" || node.left.name.text === "class")
-      ) {
-        collectClassExpression(node.right);
-      }
-
-      if (
-        ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression)
-      ) {
-        const method = node.expression.name.text;
-        const receiver = node.expression.expression;
-        if (
-          ts.isPropertyAccessExpression(receiver) &&
-          receiver.name.text === "classList" &&
-          ["add", "contains", "remove", "replace", "toggle"].includes(method)
-        ) {
-          for (const argument of node.arguments) {
-            collectClassExpression(argument);
-          }
-        }
-        if (
-          method === "setAttribute" &&
-          node.arguments.length >= 2 &&
-          ts.isStringLiteralLike(node.arguments[0]) &&
-          ["class", "className"].includes(node.arguments[0].text)
-        ) {
-          collectClassExpression(node.arguments[1]);
-        }
-      }
-
-      ts.forEachChild(node, visit);
-    }
-
-    visit(sourceFile);
-  }
-
-  return { exact, dynamic };
-}
-
-/** Advisory ownership evidence for css:inventory; never global liveness. */
-export function findDynamicUsage(
-  className: string,
-  sourceIndex: SourceUsageIndex,
-): string[] {
-  const files = new Set<string>();
-  for (const [prefix, origins] of sourceIndex.dynamic) {
-    if (!className.startsWith(prefix)) continue;
-    for (const file of origins) files.add(file);
-  }
-  return Array.from(files);
+  return { exact };
 }
 
 export interface RuntimeClassFamily {

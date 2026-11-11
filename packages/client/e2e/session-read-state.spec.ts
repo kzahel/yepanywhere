@@ -282,7 +282,7 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
       await expect(sidebarRow).not.toHaveAttribute("data-session-unread");
       await page.keyboard.press("u");
       await expect(sidebarRow).toHaveAttribute("data-session-unread");
-      await sidebarRow.locator(".session-menu-trigger").click();
+      await sidebarRow.locator("[data-session-menu-trigger]").click();
       await page
         .getByRole("menuitem", { name: "Mark as read", exact: true })
         .click();
@@ -294,7 +294,9 @@ test("read toggles stay synchronized across sidebar, session menu and inbox", as
         .getByRole("complementary")
         .getByRole("button", { name: "Close sidebar", exact: true })
         .click();
-      const menu = page.locator("[data-session-header] .session-menu-trigger");
+      const menu = page.locator(
+        "[data-session-header] [data-session-menu-trigger]",
+      );
       await menu.click();
       await page
         .getByRole("menuitem", { name: "Mark as read", exact: true })

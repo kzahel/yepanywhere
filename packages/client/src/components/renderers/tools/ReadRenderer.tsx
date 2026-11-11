@@ -1,3 +1,4 @@
+import mediaStyles from "../../LocalMediaLink.module.css";
 import viewerStyles from "../../FileViewer.module.css";
 import pathStyles from "../../FilePathLink.module.css";
 
@@ -560,7 +561,7 @@ function ImageFileResult({
 
   return (
     <div className={styles.readImageResult} data-read-image-result>
-      <div className="local-media-link-group">
+      <div className={mediaStyles.group}>
         <IconButton
           variant="outline"
           elevated
@@ -580,7 +581,7 @@ function ImageFileResult({
             />
           </span>
         ) : (
-          <span className="local-media-type">image</span>
+          <span className={mediaStyles.type}>image</span>
         )}
       </div>
       {(hasDimensions || sizeKB > 0) && (

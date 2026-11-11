@@ -1,38 +1,8 @@
 {
-  "legacyGlobalStyles": {
-    "packages/client/src/styles/index.css": {
-      "maxLines": 0,
-      "reason": "Legacy React-owned application rules and coupled appearance groups; drain by owner to a target of zero."
-    },
-    "packages/client/src/styles/renderers.css": {
-      "maxLines": 0,
-      "reason": "Legacy React-owned renderer rules and coupled appearance groups; drain by owner to a target of zero."
-    },
-    "packages/client/src/styles/tool-rows.css": {
-      "maxLines": 0,
-      "reason": "Legacy React-owned tool-row rules and coupled appearance groups; drain by owner to a target of zero."
-    }
-  },
   "updated": "2026-11-11",
-  "note": "Only tokens.css, base.css and generated.css are permitted global purposes. Remaining legacy files have reasoned lower-only line ceilings with a target of zero. Purpose exceptions are counted and reasoned; --record only lowers them.",
+  "note": "Only tokens.css, base.css and generated.css are permitted globals. Purpose exceptions have counts and reasons; --record only lowers them.",
   "undefinedCustomProperties": {},
   "globalPurposeExceptions": {
-    "base:class:source-pane-resizing": {
-      "count": 2,
-      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
-    },
-    "base:class:session-transcript-selection-active": {
-      "count": 6,
-      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
-    },
-    "base:class:reload-banner": {
-      "count": 2,
-      "reason": "Document state applied by transcript selection shielding or source-pane drag; coupled target classes preserve the existing document-wide behavior."
-    },
-    "generated:authored-subject": {
-      "count": 2,
-      "reason": "Shared emitted/React media roots and highlighted range-line markers have one generated styling owner. Close by unifying those markup producers; React wrapper geometry remains in modules."
-    },
     "generated:context-attribute:data-highlighted-diff": {
       "count": 13,
       "reason": "Diff root scopes server-produced Shiki/diff line, gutter and prefix spans; React fallback rows use DiffOutput.module.css. Close when the emitted diff producer exposes the complete scoped source surface."
@@ -92,10 +62,6 @@
     "generated:context-attribute:data-file-viewer-code": {
       "count": 5,
       "reason": "FileViewer source root scopes only Shiki inline-paint resets and the emitted line background variable. React source wrappers and range geometry live in FileViewer.module.css. Close when Shiki emits its own unpainted source surface."
-    },
-    "generated:context:has-review-comment": {
-      "count": 1,
-      "reason": "The review controller annotates generated Shiki lines and React fallback rows. Emitted-line tint stays with generated styles; close if the annotation producer owns a scoped markup surface."
     },
     "generated:context-attribute:data-assistant-turn": {
       "count": 8,

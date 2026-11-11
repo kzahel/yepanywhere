@@ -152,7 +152,7 @@
   background: var(--bg-tertiary);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-fixed-xs);
   line-height: 1;
 }
 
@@ -857,7 +857,7 @@
   overflow: hidden;
   color: color-mix(in srgb, currentcolor 84%, var(--text-primary));
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-fixed-xs);
   font-variant-numeric: tabular-nums;
   line-height: 1;
   text-overflow: ellipsis;

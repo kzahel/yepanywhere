@@ -13,7 +13,7 @@ test.use({ serviceWorkers: "block", hasTouch: true });
 async function expectHeaderSizing(header: Locator, controlSize: number) {
   await expect.poll(async () => (await header.boundingBox())?.height).toBe(44);
   const controls = header.locator(
-    "[data-sidebar-toggle], [data-provider-badge-button], .session-menu-trigger",
+    "[data-sidebar-toggle], [data-provider-badge-button], [data-session-menu-trigger]",
   );
   const row = (await header.boundingBox())!;
   for (const control of await controls.all()) {
@@ -308,7 +308,7 @@ test("header preserves identity, overflow actions and rename typing during live 
       (element) => element.scrollWidth > element.clientWidth,
     ),
   ).toBe(true);
-  await expect(header.locator(".provider-badge")).toHaveText("So 6.1H");
+  await expect(header.locator("[data-provider-badge]")).toHaveText("So 6.1H");
   await expect(header.locator("[data-session-title-text]")).toBeVisible();
   await expect(
     header.getByRole("button", {
@@ -320,7 +320,7 @@ test("header preserves identity, overflow actions and rename typing during live 
       .querySelector("[data-session-title-text]")!
       .getBoundingClientRect();
     const menu = element
-      .querySelector(".session-menu-trigger")!
+      .querySelector("[data-session-menu-trigger]")!
       .getBoundingClientRect();
     return {
       titleWidth: title.width,
@@ -462,7 +462,9 @@ test("header preserves identity, overflow actions and rename typing during live 
       `${baseURL}/projects/${projectId}/sessions/${sessionId}`,
     );
     const mouseHeader = mousePage.locator("header[data-session-header]");
-    await expect(mouseHeader.locator(".session-menu-trigger")).toBeVisible();
+    await expect(
+      mouseHeader.locator("[data-session-menu-trigger]"),
+    ).toBeVisible();
     await expectHeaderSizing(mouseHeader, 36);
     await recordUiCapture(mousePage, "session-header-mouse-desktop");
     await mousePage.goto(`${baseURL}/projects`);

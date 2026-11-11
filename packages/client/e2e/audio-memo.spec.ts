@@ -237,7 +237,7 @@ test("desktop attachment panel shows recent upload origins and a readable hover 
     buffer: Buffer.from("must not silently omit"),
   });
   await expect.poll(() => !!failUpload).toBe(true);
-  await page.locator(".send-button-with-help").click();
+  await page.locator("[data-send-button-with-help]").click();
   failUpload!();
   await expect(
     page.getByText(

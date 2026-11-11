@@ -443,7 +443,7 @@ describe("MessageList selection and copy", () => {
   it("shields session chrome while transcript text is selected", () => {
     mockPointerCoarse(true);
 
-    const activeClass = "session-transcript-selection-active";
+    const activeAttribute = "data-session-transcript-selection-active";
     const { container, unmount } = render(
       <div data-session-page>
         <MessageList
@@ -469,33 +469,33 @@ describe("MessageList selection and copy", () => {
       document.dispatchEvent(new Event("selectionchange"));
     });
 
-    expect((shell as HTMLElement).classList.contains(activeClass)).toBe(true);
-    expect(document.body.classList.contains(activeClass)).toBe(true);
+    expect((shell as HTMLElement).hasAttribute(activeAttribute)).toBe(true);
+    expect(document.body.hasAttribute(activeAttribute)).toBe(true);
 
     selection?.removeAllRanges();
     act(() => {
       document.dispatchEvent(new Event("selectionchange"));
     });
 
-    expect((shell as HTMLElement).classList.contains(activeClass)).toBe(false);
-    expect(document.body.classList.contains(activeClass)).toBe(false);
+    expect((shell as HTMLElement).hasAttribute(activeAttribute)).toBe(false);
+    expect(document.body.hasAttribute(activeAttribute)).toBe(false);
 
     selection?.addRange(range);
     act(() => {
       document.dispatchEvent(new Event("selectionchange"));
     });
-    expect((shell as HTMLElement).classList.contains(activeClass)).toBe(true);
+    expect((shell as HTMLElement).hasAttribute(activeAttribute)).toBe(true);
 
     unmount();
 
-    expect((shell as HTMLElement).classList.contains(activeClass)).toBe(false);
-    expect(document.body.classList.contains(activeClass)).toBe(false);
+    expect((shell as HTMLElement).hasAttribute(activeAttribute)).toBe(false);
+    expect(document.body.hasAttribute(activeAttribute)).toBe(false);
   });
 
   it("does not shield session chrome for desktop pointer selection", () => {
     mockPointerCoarse(false);
 
-    const activeClass = "session-transcript-selection-active";
+    const activeAttribute = "data-session-transcript-selection-active";
     const { container } = render(
       <div data-session-page>
         <MessageList
@@ -519,8 +519,8 @@ describe("MessageList selection and copy", () => {
       document.dispatchEvent(new Event("selectionchange"));
     });
 
-    expect((shell as HTMLElement).classList.contains(activeClass)).toBe(false);
-    expect(document.body.classList.contains(activeClass)).toBe(false);
+    expect((shell as HTMLElement).hasAttribute(activeAttribute)).toBe(false);
+    expect(document.body.hasAttribute(activeAttribute)).toBe(false);
   });
 
   it("quotes recap selections through the reply pipeline", () => {

@@ -18,7 +18,7 @@ test("moves window controls without changing the filename row", async ({
   await page.locator('a[data-ya-private-project-file-link="true"]').click();
   const viewer = page.locator("[data-file-viewer]");
   const header = viewer.locator("[data-file-viewer-header]");
-  const filename = viewer.locator(".file-viewer-path");
+  const filename = viewer.locator("[data-file-viewer-path]");
   const close = viewer.getByRole("button", { name: "Close", exact: true });
   await expect(header).toHaveAttribute("data-window-actions-top", "true");
   const titleBefore = (await filename.boundingBox())!;

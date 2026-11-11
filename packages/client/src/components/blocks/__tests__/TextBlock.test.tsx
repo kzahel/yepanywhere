@@ -97,7 +97,7 @@ describe("TextBlock", () => {
     );
 
     expect(
-      container.querySelector(".text-block-aborted-mid-stream"),
+      container.querySelector("[data-text-block-aborted-mid-stream]"),
     ).toBeNull();
 
     cleanup();
@@ -111,7 +111,7 @@ describe("TextBlock", () => {
     );
 
     const marker = cut.container.querySelector(
-      ".text-block-aborted-mid-stream",
+      "[data-text-block-aborted-mid-stream]",
     );
     expect(marker?.textContent).toContain("interrupted by your message");
     expect(marker?.getAttribute("title")).toContain(

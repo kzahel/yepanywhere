@@ -515,7 +515,8 @@ export function NewSessionOptionsPanel({
   );
   const showThinkingSection = (
     <NewSessionOptionSection
-      className={`${optionStyles.newSessionHelperSection} new-session-show-thinking-section`}
+      className={optionStyles.newSessionHelperSection}
+      data-new-session-show-thinking-section=""
       title={sessionDefaultCopy.showThinking.title}
       caption={sessionDefaultCopy.showThinking.description}
       showCaption={showOptionCaptions}
@@ -744,7 +745,7 @@ export function NewSessionOptionsPanel({
   ) : null;
   const helperSideModelSection = showHelperSideModel ? (
     <NewSessionOptionSection
-      className={`${optionStyles.newSessionHelperSection} new-session-helper-model-section`}
+      className={optionStyles.newSessionHelperSection}
       title={sessionDefaultCopy.helperModel.title}
       caption={sessionDefaultCopy.helperModel.description}
       showCaption={showOptionCaptions}
@@ -903,7 +904,7 @@ export function NewSessionOptionsPanel({
       )}
       {effectiveSandboxLevel === "project-write" && !launchLock.limited && (
         <NewSessionOptionSection
-          className={`${optionStyles.newSessionHelperSection} new-session-sandbox-firewall-section`}
+          className={optionStyles.newSessionHelperSection}
           title={sessionDefaultCopy.sandboxFirewall.title}
           caption={sessionDefaultCopy.sandboxFirewall.description}
           showCaption={showOptionCaptions}

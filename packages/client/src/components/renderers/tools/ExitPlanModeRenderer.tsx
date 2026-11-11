@@ -99,9 +99,7 @@ export const exitPlanModeRenderer = defineTool(
             className={collapsibleStyles.collapsibleContent}
             data-collapsible__content
           >
-            <div
-              className={`${styles.inline} ${status === "pending" ? "pending" : ""}`}
-            >
+            <div className={styles.inline}>
               <PlanContent plan={plan} renderedHtml={renderedHtml} />
             </div>
           </div>

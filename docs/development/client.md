@@ -5,7 +5,7 @@
 Commands and code paths below are relative to the repository root unless stated
 otherwise.
 
-For client styles or React components using legacy global classes, read
+For client styles, class names or DOM styling hooks, read
 [CSS architecture](../../topics/css-architecture.md). For proposed UI appearance
 or interaction, read [UI design](../../topics/ui-design.md); for UI tweaks and
 browser verification, read [UI testing](../../topics/ui-testing.md). These

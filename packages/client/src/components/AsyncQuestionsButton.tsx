@@ -90,6 +90,7 @@ function QuestionMenuRow({
         <ButtonBase
           ref={previewRef}
           className={styles.preview}
+          data-question-preview
           title={age ? `${question.title}\n${age}` : question.title}
           aria-label={question.title}
           onClick={() => {
@@ -228,7 +229,7 @@ export function AsyncQuestionsButton({
     if (!open) return;
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
     const previews = panel.current?.querySelectorAll<HTMLButtonElement>(
-      `button.${styles.preview}`,
+      "button[data-question-preview]",
     );
     previews?.[previews.length - 1]?.focus({ preventScroll: true });
   }, [open]);
@@ -331,7 +332,7 @@ export function AsyncQuestionsButton({
           if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
           const targets = [
             ...(panel.current?.querySelectorAll<HTMLButtonElement>(
-              `button.${styles.preview}`,
+              "button[data-question-preview]",
             ) ?? []),
           ];
           const current = targets.indexOf(

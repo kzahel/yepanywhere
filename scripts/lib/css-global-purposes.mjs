@@ -12,10 +12,7 @@ export function globalPurposeFindings(text, purpose, families = []) {
   const findings = [];
   const generated = families
     .filter((family) => family.generated === true)
-    .map((family) => ({
-      pattern: new RegExp(family.pattern),
-      reactAuthored: family.reactAuthored ?? [],
-    }));
+    .map((family) => new RegExp(family.pattern));
   const add = (key, node) =>
     findings.push({ key: `${purpose}:${key}`, line: node.source?.start.line });
   const root = postcss.parse(text);
@@ -53,19 +50,21 @@ export function globalPurposeFindings(text, purpose, families = []) {
             }
           });
         } else if (purpose === "base") {
-          if (
-            classes.length &&
-            !selector.nodes.some(
-              (node) =>
-                node.type === "class" &&
-                [
-                  "source-pane-resizing",
-                  "session-transcript-selection-active",
-                ].includes(node.value),
-            )
-          )
-            add("authored-subject", rule);
           for (const node of classes) add(`class:${node.value}`, rule);
+          selector.walkAttributes((node) => {
+            if (
+              ![
+                "data-theme",
+                "data-source-pane-resizing",
+                "data-session-transcript-selection-active",
+                "data-session-page",
+                "data-session-header",
+                "data-session-input",
+                "data-reload-banner",
+              ].includes(node.attribute)
+            )
+              add(`attribute:${node.attribute}`, rule);
+          });
         } else {
           const subjectStart =
             selector.nodes.findLastIndex((node) => node.type === "combinator") +
@@ -76,23 +75,10 @@ export function globalPurposeFindings(text, purpose, families = []) {
             (node) => node.type === "attribute",
           );
           const generatedClass = (name) =>
-            generated.some(({ pattern }) => pattern.test(name));
-          const pureGeneratedClass = (name) =>
-            generated.some(
-              ({ pattern, reactAuthored }) =>
-                pattern.test(name) && !reactAuthored.includes(name),
-            );
-          const emittedSubject =
-            subject.some(
-              (node) => node.type === "class" && pureGeneratedClass(node.value),
-            ) ||
-            (subject.some(
-              (node) => node.type === "class" && generatedClass(node.value),
-            ) &&
-              selector.nodes.some(
-                (node) =>
-                  node.type === "class" && pureGeneratedClass(node.value),
-              ));
+            generated.some((pattern) => pattern.test(name));
+          const emittedSubject = subject.some(
+            (node) => node.type === "class" && generatedClass(node.value),
+          );
           // A React shell is only an anchor, never the styled subject. Tags
           // beneath a shell describe emitted markdown/HTML, not the shell.
           if (

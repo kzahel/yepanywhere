@@ -164,9 +164,7 @@ export function LoginPage() {
 
         {isSetupMode && <p className={styles.hint}>{t("loginSetupHint")}</p>}
 
-        {!isSetupMode && (
-          <p className="login-recovery-hint">{t("loginRecoveryHint")}</p>
-        )}
+        {!isSetupMode && <p>{t("loginRecoveryHint")}</p>}
       </div>
     </div>
   );

@@ -1189,7 +1189,7 @@ describe("Sidebar collapsed toggle", () => {
 
     const newSessionLink = screen.getByRole("link", { name: /New Session/i });
     const newSessionIcon = newSessionLink.querySelector(
-      ".sidebar-new-session-icon",
+      "[data-sidebar-new-session-icon]",
     );
     expect(newSessionIcon?.getAttribute("width")).toBe("16");
     expect(newSessionIcon?.getAttribute("height")).toBe("16");

@@ -676,8 +676,6 @@ export function SessionListItem({
     isCurrent && styles.current,
     hasUnread && styles.unread,
     isBtwAside && btwStyles.btwAsideSession,
-    isSelected && "selected",
-    isArchived && "archived",
     mode === "compact" && styles.compactRow,
     mode === "compact" &&
       providerChildren.length > 0 &&
@@ -845,6 +843,8 @@ export function SessionListItem({
       ref={liRef}
       className={liClasses}
       data-session-list-item
+      data-selected={isSelected || undefined}
+      data-archived={isArchived || undefined}
       data-session-list-item--compact={mode === "compact" || undefined}
       data-session-list-item--card={mode === "card" || undefined}
       data-btw-aside-session={isBtwAside || undefined}
@@ -1010,17 +1010,14 @@ export function SessionListItem({
                   {showTimestamp && updatedAt && formatRelativeTime(updatedAt)}
                   {briefAge && (
                     <span
-                      className="session-list-item__age"
+                      data-session-list-item__age=""
                       title={t("sessionListAgeTitle")}
                     >
                       Created {briefAge} ago
                     </span>
                   )}
                   {(userTurnCount != null || systemTurnCount != null) && (
-                    <span
-                      className="session-list-item__turns"
-                      title="User / system (assistant) turns (cached)"
-                    >
+                    <span title="User / system (assistant) turns (cached)">
                       U:{userTurnCount ?? 0} S:{systemTurnCount ?? 0}
                     </span>
                   )}

@@ -1,6 +1,6 @@
 /* Settings search field plus the adjacent match-values toggle that appears
    only while a query is active (contract: topics/settings-search.md). The
-   result-pane visibility vocabulary stays global in index.css: it styles rows
+   result-pane visibility belongs to SettingsRows.module.css: it styles rows
    the search results mount from every other settings pane. */
 
 .bar {

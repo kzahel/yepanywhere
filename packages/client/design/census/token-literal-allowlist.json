@@ -76,8 +76,8 @@
     "reason": "The 1.2rem composer glyph follows browser root-font preferences; keep its optical size until plan 182's composer control swaps define shared glyph geometry."
   },
   "components/MessageInputToolbar.module.css": {
-    "count": 6,
-    "reason": "Fixed 10/11/16px toolbar glyphs and labels must not scale with UI font tokens; the 5px cue corner and xs-plus-1px cue text have no exact token. Preserve geometry until plan 182's composer control swaps."
+    "count": 4,
+    "reason": "Fixed 11/16px toolbar glyphs and labels must not scale with UI font tokens; the 5px cue corner and xs-plus-1px cue text have no exact token. Preserve geometry until plan 182's composer control swaps."
   },
   "components/ModelOptionsSection.module.css": {
     "count": 1,

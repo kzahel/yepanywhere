@@ -99,7 +99,7 @@ test("viewer copy and revision menus copy only pushed GitHub links", async ({
   await expect(rawSource).toHaveAttribute("aria-pressed", "true");
 
   for (const control of [
-    viewer.locator(".file-viewer-path"),
+    viewer.locator("[data-file-viewer-path]"),
     copyLink,
     revision,
   ]) {

@@ -140,7 +140,9 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
     const list = page.locator("[data-message-list]");
-    const badge = page.locator("[data-provider-badge-button] .provider-badge");
+    const badge = page.locator(
+      "[data-provider-badge-button] [data-provider-badge]",
+    );
     await expect(badge).toHaveAttribute(
       "aria-label",
       "gpt-6.1-sol · Effort: High",

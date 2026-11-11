@@ -241,9 +241,7 @@ export function SessionMenu({
   const wrapperClasses = [
     styles.wrapper,
     overlayTrigger && styles.overlayTrigger,
-    "session-menu-wrapper",
     className,
-    isOpen && "is-open",
   ]
     .filter(Boolean)
     .join(" ");
@@ -258,9 +256,8 @@ export function SessionMenu({
         {...menu.triggerProps}
         size={triggerSize}
         label={t("sessionMenuOptions")}
-        className={["session-menu-trigger", triggerClassName]
-          .filter(Boolean)
-          .join(" ")}
+        className={["", triggerClassName].filter(Boolean).join(" ")}
+        data-session-menu-trigger=""
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();

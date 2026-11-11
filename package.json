@@ -33,10 +33,8 @@
     "css:check": "node scripts/check-css-architecture.mjs",
     "source:budgets": "node scripts/check-source-file-budgets.mjs",
     "css:health": "tsx scripts/css-health.ts",
-    "css:inventory": "tsx scripts/css-inventory.ts",
     "css:lint": "eslint --max-warnings 0 \"packages/client/src/**/*.css\" \"site/src/**/*.css\"",
     "css:modules:check": "tsx scripts/find-unused-css.ts --modules-check",
-    "css:touched": "tsx scripts/report-touched-css.ts",
     "css:unused": "tsx scripts/find-unused-css.ts",
     "capabilities:audit": "tsx scripts/audit-server-capabilities.ts",
     "console:scan": "node scripts/find-console-chatter.mjs",
@@ -68,7 +66,7 @@
     "test:e2e:sdk:real": "pnpm --filter server test:e2e:real",
     "test:e2e:sdk:local": "pnpm --filter server test:e2e:local",
     "test:e2e:sdk:local:quality": "pnpm --filter server test:e2e:local:quality",
-    "lint": "node scripts/check-css-architecture.mjs && node scripts/check-css-attribute-hooks.mjs && node scripts/check-source-file-budgets.mjs && node scripts/check-chromium-sandbox.mjs && pnpm -s css:unused && pnpm -s buttons:check && pnpm -s controls:check && pnpm -s tokens:check && pnpm css:lint && pnpm tools:check && node scripts/biome.cjs lint .",
+    "lint": "node scripts/check-css-architecture.mjs && node scripts/check-css-attribute-hooks.mjs && node scripts/check-css-class-strings.mjs && node scripts/check-source-file-budgets.mjs && node scripts/check-chromium-sandbox.mjs && pnpm -s css:unused && pnpm -s buttons:check && pnpm -s controls:check && pnpm -s tokens:check && pnpm css:lint && pnpm tools:check && node scripts/biome.cjs lint .",
     "format": "node scripts/biome.cjs format --write .",
     "format:check": "node scripts/biome.cjs format .",
     "prepare": "husky",
@@ -83,7 +81,8 @@
     "test:providers:all": "node scripts/run-native-provider-tests.mjs",
     "test:providers:app": "node scripts/run-native-app-tests.mjs",
     "controls:check": "tsx packages/client/scripts/design-controls-check.ts",
-    "tokens:check": "tsx packages/client/scripts/design-tokens-check.ts"
+    "tokens:check": "tsx packages/client/scripts/design-tokens-check.ts",
+    "css:classes": "node scripts/check-css-class-strings.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

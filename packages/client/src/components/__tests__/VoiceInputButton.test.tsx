@@ -152,7 +152,7 @@ vi.mock("../../lib/deviceDetection", () => ({
 }));
 
 vi.mock("../SpeechWaveform", () => ({
-  SpeechWaveform: () => <div className="composer-speech-waveform" />,
+  SpeechWaveform: () => <div data-composer-speech-waveform />,
 }));
 
 describe("VoiceInputButton", () => {
@@ -669,13 +669,17 @@ describe("VoiceInputButton", () => {
     speechState.isListening = true;
     view.rerender(<VoiceInputButton {...props} />);
     expect(onWaveformActiveChange).not.toHaveBeenCalled();
-    expect(document.querySelector(".composer-speech-waveform")).toBeTruthy();
+    expect(
+      document.querySelector("[data-composer-speech-waveform]"),
+    ).toBeTruthy();
 
     speechState.status = "idle";
     speechState.isListening = false;
     view.rerender(<VoiceInputButton {...props} />);
     act(() => vi.advanceTimersByTime(300));
-    expect(document.querySelector(".composer-speech-waveform")).toBeNull();
+    expect(
+      document.querySelector("[data-composer-speech-waveform]"),
+    ).toBeNull();
     expect(onWaveformActiveChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -696,7 +700,9 @@ describe("VoiceInputButton", () => {
     );
 
     const button = screen.getByRole("button", { name: "voiceInputStopLabel" });
-    expect(button.querySelector(".composer-speech-waveform")).toBeTruthy();
+    expect(
+      button.querySelector("[data-composer-speech-waveform]"),
+    ).toBeTruthy();
     expect(onWaveformActiveChange).toHaveBeenCalledWith(true);
   });
 
@@ -713,7 +719,7 @@ describe("VoiceInputButton", () => {
 
     const button = screen.getByRole("button", { name: "voiceInputStartLabel" });
     expect(button.getAttribute("data-inline-waveform")).toBe("true");
-    expect(button.querySelector(".composer-speech-waveform")).toBeNull();
+    expect(button.querySelector("[data-composer-speech-waveform]")).toBeNull();
   });
 
   it("prompts when browser-native capture is ready without sample access", () => {

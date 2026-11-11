@@ -93,15 +93,15 @@ describe("ThinkingControls", () => {
     );
 
     const sections = Array.from(
-      container.querySelectorAll(".thinking-controls-section"),
+      container.querySelectorAll("[data-thinking-controls-section]"),
     );
 
     expect(sections[0]?.getAttribute("data-thinking-section") === "mode").toBe(
       true,
     );
     expect(
-      sections[1]?.classList.contains(
-        "thinking-controls-section--show-thinking",
+      sections[1]?.hasAttribute(
+        "data-thinking-controls-section--show-thinking",
       ),
     ).toBe(true);
     expect(
@@ -124,7 +124,9 @@ describe("ThinkingControls", () => {
 
     expect(screen.queryByText("Show thinking")).toBeNull();
     expect(
-      container.querySelector(".thinking-controls-section--show-thinking"),
+      container.querySelector(
+        "[data-thinking-controls-section--show-thinking]",
+      ),
     ).toBeNull();
   });
 
