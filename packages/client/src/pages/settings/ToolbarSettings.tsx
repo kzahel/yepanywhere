@@ -651,6 +651,8 @@ export function ToolbarSettings() {
           label={t("appearanceToolbarDefaultActionTitle")}
           description={t("appearanceToolbarDefaultActionDescription")}
           doc="site/src/content/docs/sessions-and-approvals.md#steer-queue-and-interrupt"
+          // Message Delivery holds the searchable primary row.
+          searchable={false}
         >
           <Select
             value={busyComposerDefaultAction}
