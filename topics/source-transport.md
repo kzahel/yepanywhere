@@ -388,6 +388,14 @@ and resume-failure behavior. The ownership wiring remains:
 
 ## Recovery after a temporary outage
 
+A relay route retains its already-confirmed host's page through a temporary
+outage. Switching to a different relay host shows the connection startup shell
+until that destination's first connection succeeds. The previous host's
+connected state must never commit the destination's page or briefly expose an
+editor that will disappear when the new handshake starts. This changes no
+principal, credential, grant or server protocol.
+
+
 A retained source remains `reconnecting` after its ten-attempt rapid retry
 budget is exhausted. Budget exhaustion is not an authentication verdict and
 must not discard the context's connection or status subscription. While visible,

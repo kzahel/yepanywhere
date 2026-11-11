@@ -68,6 +68,17 @@ retains the unchanged 100 ms acknowledgement ceiling. The share upload succeeds
 in the captured trace, but delaying the session read did not reproduce its
 later chip loss, so no speculative attachment change was made.
 
+Source `3bd3414e9` passes all 26 [CI jobs](https://github.com/kzahel/yepanywhere/actions/runs/42973315052)
+and nine [runtime jobs](https://github.com/kzahel/yepanywhere/actions/runs/42973315142),
+but the remote-creation retry report still records a lost first key. A second
+deterministic regression exposes the relay gate committing host B's document
+under host A's stale connected state, before the disconnect effect removes it.
+Only the route-confirmed connected branch now admits a page; a different host
+stays in the existing startup shell until its first connection succeeds. The
+regression fails on the previous code, and all nine gate checks pass locally.
+This is presentation admission under existing connection ownership, with no
+new identity, authorization or protocol boundary.
+
 ## Remaining
 
 1. **First-attempt failures are common.** Five comparison runs failed 5–11

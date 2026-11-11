@@ -8,7 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
 import {
   MemoryRouter,
   Route,
@@ -91,8 +91,13 @@ vi.mock("../../i18n", () => ({
 
 let documentMounts = 0;
 let documentUnmounts = 0;
+const committedDocumentPaths: string[] = [];
 
 function CachedDocument() {
+  const location = useLocation();
+  useLayoutEffect(() => {
+    committedDocumentPaths.push(location.pathname);
+  }, [location.pathname]);
   const [text, setText] = useState("Loaded document");
 
   useEffect(() => {
@@ -170,6 +175,7 @@ describe("RelayConnectionGate", () => {
   beforeEach(() => {
     documentMounts = 0;
     documentUnmounts = 0;
+    committedDocumentPaths.length = 0;
     testState.connectViaRelay.mockReset();
     testState.clearHostSession.mockReset();
     testState.disconnect.mockReset();
@@ -204,6 +210,15 @@ describe("RelayConnectionGate", () => {
       await screen.findByRole("button", { name: "Loaded document" }),
     ).toBeTruthy();
     expect(testState.disconnect).not.toHaveBeenCalled();
+  });
+
+  it("never commits the destination document under the previous host's connected state", async () => {
+    render(<TestRoutes />);
+    await screen.findByRole("button", { name: "Loaded document" });
+    fireEvent.click(screen.getByRole("button", { name: "Open laptop" }));
+    expect(testState.disconnect).toHaveBeenCalled();
+    expect(committedDocumentPaths).toEqual(["/-/relay/macbook/document"]);
+    expect(screen.queryByTestId("connected-content")).toBeNull();
   });
 
   it("ignores a superseded host attempt that rejects after the current route connects", async () => {

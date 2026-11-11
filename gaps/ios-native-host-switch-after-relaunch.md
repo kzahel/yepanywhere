@@ -51,3 +51,11 @@ state. The opt-in input probe also records the last delivered DOM pointer's
 control, coordinates and relative time in the failure hierarchy. This
 separates a missed native tap from an absent readiness notification; all
 keyboard, overlap, draft and 100 ms assertions remain required.
+
+The frame-targeting candidate `c266ca15a` passes the complete
+[iOS run 42972762062](https://github.com/kzahel/yepanywhere/actions/runs/42972762062),
+including simulator native/UI tests, sequential typing and stream overlap,
+draft/background/relaunch/host-picker assertions and unsigned device linking.
+This qualifies that candidate's full workflow, while the older missing
+sidebar-opening event still lacks a captured delivery mechanism and remains
+an open reliability finding.
