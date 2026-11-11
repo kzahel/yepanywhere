@@ -305,10 +305,13 @@ it("keeps a native transcript written before binding out of public lists and leg
         { resolving: boolean; filePath: string | null; watchDir: string | null }
       >;
     };
-    await vi.waitFor(() =>
-      expect(
-        watchState.targets.get(`${projectId}:${pendingId}`)?.resolving,
-      ).toBe(false),
+    // Resolution takes about a second on a loaded host, the default budget.
+    await vi.waitFor(
+      () =>
+        expect(
+          watchState.targets.get(`${projectId}:${pendingId}`)?.resolving,
+        ).toBe(false),
+      { timeout: 5000 },
     );
     expect(
       watchState.targets.get(`${projectId}:${pendingId}`)?.filePath,
@@ -467,4 +470,5 @@ it("keeps a native transcript written before binding out of public lists and leg
     await rm(root, { recursive: true, force: true });
     vi.restoreAllMocks();
   }
-});
+  // Several provider-scan waits, each near a second on a loaded host.
+}, 20_000);

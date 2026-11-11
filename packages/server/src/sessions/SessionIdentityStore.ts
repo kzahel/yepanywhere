@@ -142,10 +142,13 @@ function decode(row: IdentityRow | undefined): SessionIdentity | undefined {
 
 /** Profile-owned indexed identity lookup, with no per-session cache or timers. */
 export class SessionIdentityStore {
-  // Eight fixed statements, released with this owner or the database.
+  // Seven fixed statements and one prepared on first use, all released with
+  // this owner or the database.
   private readonly byPublicId: SqliteStatement;
   private readonly byNativeRef: SqliteStatement;
-  private readonly byFamilyNativeId: SqliteStatement;
+  // Only viewer-path resolution reads it, so a server that never resolves one
+  // does not hold it; the test statement ceiling counts every live statement.
+  private byFamilyNativeId: SqliteStatement | undefined;
   private readonly byNativeIds: SqliteStatement;
   private readonly insert: SqliteStatement;
   private readonly bind: SqliteStatement;
@@ -164,10 +167,6 @@ export class SessionIdentityStore {
     );
     this.byNativeRef = database.prepare(
       "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id = ?",
-    );
-    // Family-prefix range of the unique binding index; scopes per family are few.
-    this.byFamilyNativeId = database.prepare(
-      "SELECT * FROM session_identities WHERE native_family = ? AND native_id = ?",
     );
     this.byNativeIds = database.prepare(
       "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id IN (SELECT value FROM json_each(?))",
@@ -209,6 +208,10 @@ export class SessionIdentityStore {
     family: NativeSessionFamily,
     id: NativeSessionId,
   ): SessionIdentity[] {
+    // Family-prefix range of the unique binding index; scopes per family are few.
+    this.byFamilyNativeId ??= this.database.prepare(
+      "SELECT * FROM session_identities WHERE native_family = ? AND native_id = ?",
+    );
     return this.byFamilyNativeId
       .all<IdentityRow>(family, id)
       .map((row) => decode(row)!);
@@ -374,6 +377,8 @@ export class SessionIdentityStore {
   close(): void {
     this.byPublicId.finalize();
     this.byNativeRef.finalize();
+    this.byFamilyNativeId?.finalize();
+    this.byFamilyNativeId = undefined;
     this.byNativeIds.finalize();
     this.insert.finalize();
     this.bind.finalize();
