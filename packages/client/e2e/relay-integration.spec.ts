@@ -331,7 +331,7 @@ test.describe("Full Relay Integration", () => {
         requestAnimationFrame(() => {
           const field =
             document.querySelector<HTMLTextAreaElement>(
-              ".new-session-form textarea",
+              "[data-new-session-form] textarea",
             ) ?? target;
           typingSamples.push({
             ms: performance.now() - started,
@@ -368,8 +368,10 @@ test.describe("Full Relay Integration", () => {
       const typing = tab.keyboard.type(text, { delay: 25 });
       release();
       await typing;
-      await expect(tab.locator(".new-session-form textarea")).toBeVisible();
-      await expect(tab.locator(".new-session-form textarea")).toHaveValue(
+      await expect(
+        tab.locator("[data-new-session-form] textarea"),
+      ).toBeVisible();
+      await expect(tab.locator("[data-new-session-form] textarea")).toHaveValue(
         initialText + text,
       );
       await expect

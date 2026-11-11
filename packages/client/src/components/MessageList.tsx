@@ -1,3 +1,8 @@
+import {
+  getSessionIsearchShortcutScope,
+  isCtrlKeyShortcut,
+} from "./composerSearchShortcuts";
+import messageInputStyles from "./MessageInput.module.css";
 import { reuseEqualSet } from "../lib/sessionDetail/transcriptSetReuse";
 import { btwAsideStatusClasses } from "./btwAsideStatusClasses";
 import type { BtwAsideTimelineItem } from "./chunkedTimelinePrepend";
@@ -198,48 +203,6 @@ const TRANSCRIPT_RENDER_MARKER_STYLE = {
   overflow: "hidden",
   pointerEvents: "none",
 } as const;
-
-function isCtrlKeyShortcut(
-  event: KeyboardEvent,
-  key: string,
-  code: string,
-  options: { allowAlt?: boolean } = {},
-): boolean {
-  if (
-    !event.ctrlKey ||
-    event.metaKey ||
-    event.shiftKey ||
-    (!options.allowAlt && event.altKey) ||
-    event.getModifierState("AltGraph")
-  ) {
-    return false;
-  }
-  return event.key.toLocaleLowerCase() === key || event.code === code;
-}
-
-function getSessionIsearchShortcutScope(
-  event: KeyboardEvent,
-): SessionIsearchScope | null {
-  if (
-    isCtrlKeyShortcut(event, "s", "KeyS", { allowAlt: true }) &&
-    event.altKey
-  ) {
-    return "full";
-  }
-  if (isCtrlKeyShortcut(event, "s", "KeyS")) {
-    return "all";
-  }
-  if (isCtrlKeyShortcut(event, "r", "KeyR", { allowAlt: true })) {
-    return "user";
-  }
-  if (
-    isCtrlKeyShortcut(event, "k", "KeyK", { allowAlt: true }) &&
-    event.altKey
-  ) {
-    return "links";
-  }
-  return null;
-}
 
 function getVisibleTurnEndTimestampMs(
   scrollContainer: HTMLElement,
@@ -884,9 +847,7 @@ function BtwAsideTimelineCard({
 
   return (
     <div
-      className={`${btwStyles.btwAsideCard} ${btwStyles.btwAsideCardHistory} ${btwAsideStatusClasses[aside.status] ?? ""} ${
-        aside.isFocused ? `${btwStyles["is-focused"]}` : ""
-      }`}
+      className={`${btwStyles.btwAsideCard} ${btwStyles.btwAsideCardHistory} ${btwAsideStatusClasses[aside.status] ?? ""} ${aside.isFocused ? `${btwStyles["is-focused"]}` : ""}`}
       data-btw-aside-card
       data-is-failed={aside.status === "failed" || undefined}
       data-is-stopped={aside.status === "stopped" || undefined}
@@ -1066,7 +1027,7 @@ function QueuedMessageActions({
     (isProject ? t("projectQueueInlineCancel") : t("sessionQueuedCancel"));
 
   return (
-    <div className="deferred-message-actions" data-queue-actions={variant}>
+    <div className={styles.deferredMessageActions} data-queue-actions={variant}>
       <CopyTextButton
         text={text}
         label={isProject ? t("projectQueueInlineCopy") : t("sessionQueuedCopy")}
@@ -5090,9 +5051,7 @@ export const MessageList = memo(function MessageList({
               return (
                 <div
                   key={tailRow.key}
-                  className={`${promptStyles.pendingMessage} ${itemStyles.messageRenderRow} ${
-                    hasMessageAge ? `${itemStyles["has-message-age"]}` : ""
-                  } ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                  className={`${promptStyles.pendingMessage} ${itemStyles.messageRenderRow} ${hasMessageAge ? `${itemStyles["has-message-age"]}` : ""} ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
                   data-pending-message
                   data-message-render-row
                   data-has-message-age={hasMessageAge || undefined}
@@ -5110,7 +5069,10 @@ export const MessageList = memo(function MessageList({
                       <LinkifiedText text={pending.content} />
                     </div>
                     {pending.attachments?.length ? (
-                      <div className="attachment-list pending-message-attachments">
+                      <div
+                        className={`${messageInputStyles.attachmentList} pending-message-attachments`}
+                        data-attachment-list
+                      >
                         {pending.attachments.map((file) => (
                           <AttachmentChip
                             key={file.id}
@@ -5135,7 +5097,7 @@ export const MessageList = memo(function MessageList({
                       >
                         {pending.status || "Sending..."}
                       </div>
-                      <div className="deferred-message-actions">
+                      <div className={styles.deferredMessageActions}>
                         <CopyTextButton
                           text={pending.content}
                           label="Copy message text"
@@ -5169,9 +5131,8 @@ export const MessageList = memo(function MessageList({
               return (
                 <div
                   key={tailRow.key}
-                  className={`deferred-message project-queue-inline-message ${itemStyles.messageRenderRow} ${
-                    hasMessageAge ? `${itemStyles["has-message-age"]}` : ""
-                  } ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                  className={`${styles.deferredMessage} project-queue-inline-message ${itemStyles.messageRenderRow} ${hasMessageAge ? `${itemStyles["has-message-age"]}` : ""} ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                  data-deferred-message
                   data-message-render-row
                   data-has-message-age={hasMessageAge || undefined}
                   data-is-message-age-visible={showAgeByDefault || undefined}
@@ -5187,7 +5148,10 @@ export const MessageList = memo(function MessageList({
                       <LinkifiedText text={projectQueue.content} />
                     </div>
                     {projectQueue.attachments?.length ? (
-                      <div className="attachment-list deferred-message-attachments-list">
+                      <div
+                        className={`${messageInputStyles.attachmentList} deferred-message-attachments-list`}
+                        data-attachment-list
+                      >
                         {projectQueue.attachments.map((file) => (
                           <AttachmentChip
                             key={file.id}
@@ -5202,13 +5166,15 @@ export const MessageList = memo(function MessageList({
                         ))}
                       </div>
                     ) : null}
-                    <div className="deferred-message-footer">
-                      <span className="deferred-message-status project-queue-inline-message-status">
+                    <div className={styles.deferredMessageFooter}>
+                      <span
+                        className={`${styles.deferredMessageStatus} ${styles.projectQueueInlineMessageStatus}`}
+                      >
                         {projectQueueStatus}
                       </span>
                       {tailRow.showAttachmentCountBadge ? (
                         <span
-                          className="deferred-message-attachments"
+                          className={styles.deferredMessageAttachments}
                           title={`${projectQueue.attachmentCount} attachment${
                             projectQueue.attachmentCount === 1 ? "" : "s"
                           } queued`}
@@ -5321,9 +5287,8 @@ export const MessageList = memo(function MessageList({
             return (
               <div
                 key={tailRow.key}
-                className={`deferred-message ${itemStyles.messageRenderRow} ${
-                  hasMessageAge ? `${itemStyles["has-message-age"]}` : ""
-                } ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                className={`${styles.deferredMessage} ${itemStyles.messageRenderRow} ${hasMessageAge ? `${itemStyles["has-message-age"]}` : ""} ${showAgeByDefault ? `${itemStyles["is-message-age-visible"]}` : ""}`}
+                data-deferred-message
                 data-message-render-row
                 data-has-message-age={hasMessageAge || undefined}
                 data-is-message-age-visible={showAgeByDefault || undefined}
@@ -5353,7 +5318,10 @@ export const MessageList = memo(function MessageList({
                     <LinkifiedText text={deferred.content} />
                   </div>
                   {deferred.attachments?.length ? (
-                    <div className="attachment-list deferred-message-attachments-list">
+                    <div
+                      className={`${messageInputStyles.attachmentList} deferred-message-attachments-list`}
+                      data-attachment-list
+                    >
                       {deferred.attachments.map((file) => (
                         <AttachmentChip
                           key={file.id}
@@ -5368,9 +5336,9 @@ export const MessageList = memo(function MessageList({
                       ))}
                     </div>
                   ) : null}
-                  <div className="deferred-message-footer">
+                  <div className={styles.deferredMessageFooter}>
                     <span
-                      className="deferred-message-status"
+                      className={styles.deferredMessageStatus}
                       title={
                         tailRow.isRecovered
                           ? t("sessionRecoveredQueuedPausedTitle")
@@ -5389,7 +5357,7 @@ export const MessageList = memo(function MessageList({
                     />
                     {tailRow.showAttachmentCountBadge ? (
                       <span
-                        className="deferred-message-attachments"
+                        className={styles.deferredMessageAttachments}
                         title={`${deferred.attachmentCount} attachment${
                           deferred.attachmentCount === 1 ? "" : "s"
                         } queued`}
@@ -5415,7 +5383,7 @@ export const MessageList = memo(function MessageList({
                       </span>
                     ) : null}
                     {tailRow.isRecovered ? (
-                      <div className="deferred-message-actions">
+                      <div className={styles.deferredMessageActions}>
                         <CopyTextButton
                           text={deferred.content}
                           label={t("sessionQueuedCopy")}

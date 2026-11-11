@@ -1,3 +1,624 @@
+/* biome-ignore-all lint/style/noExcessiveLinesPerFile: Keep the existing toolbar cascade together for the ownership-only composer move; control decomposition belongs to the composer pass. */
+.messageInputToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  --composer-toolbar-gap: clamp(0.25rem, 1.6vw, 0.5rem);
+  --composer-control-gap: clamp(0.25rem, 1.4vw, var(--space-2));
+  gap: var(--composer-toolbar-gap);
+  position: relative;
+  --composer-control-size: 32px;
+  --composer-primary-control-size: 36px;
+}
+
+.composerStatusAges {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.composerStatusChip {
+  color: color-mix(in srgb, var(--warning-color) 62%, var(--text-dimmed));
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  opacity: 0.88;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.composerActivityAgeCompact {
+  color: var(--text-muted);
+}
+
+.composerActivityAgeTime,
+.composerPositionAgeTime,
+.composerLivenessTime {
+  color: inherit;
+}
+
+.composerLivenessStatus.is-ok {
+  color: color-mix(in srgb, var(--success-color) 72%, var(--text-dimmed));
+}
+
+.composerLivenessStatus.is-warn {
+  color: color-mix(in srgb, var(--warning-color) 74%, var(--text-primary));
+}
+
+.composerProviderRuntimeStatus.is-warn {
+  color: color-mix(in srgb, var(--warning-color) 82%, var(--text-primary));
+}
+
+.composerProviderRuntimeStatus.is-danger {
+  color: color-mix(in srgb, var(--error-color) 82%, var(--text-primary));
+}
+
+.composerLivenessStatus.is-danger {
+  color: color-mix(in srgb, var(--error-color) 76%, var(--text-primary));
+}
+
+.composerLivenessStatus.is-muted {
+  color: var(--text-muted);
+}
+
+[data-message-input-wrapper] .messageInputToolbar.statusFloats {
+  position: static;
+}
+
+.sessionShortcutsHelp {
+  position: relative;
+  display: inline-flex;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  flex: 0 0 var(--composer-control-size);
+  align-items: center;
+  justify-content: center;
+}
+
+.sessionShortcutsHelpButton {
+  appearance: none;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sessionShortcutsHelpButton:hover,
+.sessionShortcutsHelpButton:focus-visible,
+.sessionShortcutsHelpButton[aria-expanded="true"] {
+  border-color: var(--focus-border);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.sessionShortcutsPopover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  width: min(320px, calc(100dvw - 32px));
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-secondary) 98%, transparent);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.28);
+  color: var(--text-secondary);
+}
+
+.sessionShortcutsPopover.is-isearch-guide {
+  width: min(260px, calc(100dvw - 32px));
+}
+
+.sessionShortcutsRow {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) 1fr;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 3px 0;
+  font-size: var(--font-size-xs);
+}
+
+.sessionShortcutsRowMuted {
+  color: var(--text-dimmed);
+}
+
+.sessionShortcutsKeys {
+  white-space: nowrap;
+}
+
+.sessionShortcutsRow kbd {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 3px;
+  padding: 0 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.sessionShortcutsSettings {
+  margin: var(--space-1) 0;
+  padding: var(--space-1) 0 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sessionShortcutsAction {
+  width: 100%;
+  margin-top: var(--space-1);
+  padding: 5px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.sessionShortcutsAction:hover,
+.sessionShortcutsAction:focus-visible {
+  border-color: var(--focus-border);
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.composerBottomOverflowButton {
+  position: relative;
+  z-index: 72;
+  display: inline-flex;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.composerBottomOverflowButton:hover,
+.composerBottomOverflowButton:focus-visible,
+.composerBottomOverflowButton[aria-expanded="true"] {
+  border-color: var(--focus-border);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.composerBottomOverflowMenu {
+  position: absolute;
+  bottom: 0;
+  z-index: 70;
+  left: 0;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  pointer-events: none;
+}
+
+.composerBottomOverflowMenuGroup {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  min-width: 0;
+  height: var(--composer-primary-control-size);
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-surface) 98%, transparent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.26);
+  pointer-events: auto;
+}
+
+.composerBottomOverflowMenuLeft {
+  right: calc(100% - 1px);
+  flex-direction: row;
+}
+
+.composerBottomOverflowMenuRight {
+  left: calc(100% - 1px);
+  flex-direction: row;
+}
+
+.contextToolbarControl {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.btwToolbarButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--composer-control-size);
+  min-width: 2.55rem;
+  padding: 0 0.45rem;
+  background: color-mix(in srgb, var(--provider-codex) 10%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--provider-codex) 42%, var(--border-color));
+  border-radius: var(--radius-md);
+  color: color-mix(in srgb, var(--provider-codex) 82%, var(--text-primary));
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.composerBottomOverflowMenuGroup .btwToolbarButton,
+.composerBottomOverflowMenuGroup .composerStatusAges {
+  flex: 0 0 auto;
+}
+
+.composerBottomOverflowMenuGroup .contextToolbarControl {
+  justify-content: center;
+}
+
+.composerBottomOverflowMenuGroup .composerStatusAges {
+  margin-left: 0;
+}
+.pendingApprovalIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  background: var(--status-badge-input-bg);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--status-badge-input-text);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pendingApprovalIndicator:hover {
+  background: color-mix(in srgb, var(--status-badge-input-bg) 80%, white 20%);
+}
+
+.pendingApprovalIndicator:active {
+  transform: scale(0.97);
+}
+
+.pendingApprovalDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-badge-input-text);
+  animation: pulse-indicator 1.5s ease-in-out infinite;
+}
+
+.pendingApprovalText {
+  font-weight: 500;
+}
+
+.messageInputActions {
+  display: flex;
+  gap: clamp(0.25rem, 1.4vw, 0.5rem);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+[data-message-input-keyboard-more-panel] .messageInputToolbar {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+[data-message-input-keyboard-more-panel] .messageInputActions {
+  justify-content: flex-end;
+}
+
+[data-message-input-keyboard-more-panel] .composerBottomOverflowInline {
+  /* biome-ignore lint/complexity/noImportantStyles: Preserve the compact keyboard panel reveal over measured overflow hiding during this ownership-only move. */
+  display: inline-flex !important;
+}
+
+[data-message-input-keyboard-more-panel] .composerBottomOverflow,
+[data-message-input-keyboard-more-panel] .composerStatusAges {
+  /* biome-ignore lint/complexity/noImportantStyles: Compact keyboard panels must suppress nested overflow and floating status in every measured layout state, as before. */
+  display: none !important;
+}
+.messageInputLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--composer-control-gap);
+  min-width: 0;
+  flex: 1;
+}
+
+[data-message-input-keyboard-more-panel] .messageInputLeft,
+[data-message-input-keyboard-more-panel] .messageInputActions {
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+}
+
+.renderModeToolbarButton,
+.conversationViewToolbarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+  position: relative;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.renderModeToolbarButton:hover,
+.conversationViewToolbarButton:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-input);
+  color: var(--text-primary);
+}
+
+.conversationViewToolbarButton.active {
+  color: var(--app-yep-green);
+  border-color: color-mix(
+    in srgb,
+    var(--app-yep-green) 48%,
+    var(--border-color)
+  );
+  background: color-mix(in srgb, var(--app-yep-green) 13%, transparent);
+}
+
+.renderModeToolbarButton.is-rendered {
+  color: var(--app-yep-green);
+  border-color: color-mix(
+    in srgb,
+    var(--app-yep-green) 45%,
+    var(--border-color)
+  );
+  background: color-mix(in srgb, var(--app-yep-green) 12%, transparent);
+}
+
+.renderModeToolbarButton.is-mixed {
+  color: var(--attention-color);
+  border-color: color-mix(
+    in srgb,
+    var(--attention-color) 45%,
+    var(--border-color)
+  );
+  background: color-mix(in srgb, var(--attention-color) 14%, transparent);
+}
+
+.renderModeToolbarButton.is-mixed::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.btwToolbarButton:hover:not(:disabled),
+.btwToolbarButton:focus-visible {
+  background: color-mix(in srgb, var(--provider-codex) 18%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--provider-codex) 65%,
+    var(--border-input)
+  );
+  color: var(--text-primary);
+  outline: none;
+}
+
+.btwToolbarButton.active {
+  background: color-mix(in srgb, var(--provider-codex) 30%, var(--bg-input));
+  border-color: color-mix(
+    in srgb,
+    var(--provider-codex) 78%,
+    var(--border-input)
+  );
+  color: var(--text-primary);
+}
+
+.btwToolbarButton.hasAsides {
+  background: color-mix(in srgb, var(--provider-codex) 18%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--provider-codex) 58%,
+    var(--border-input)
+  );
+  color: color-mix(in srgb, var(--provider-codex) 92%, var(--text-primary));
+}
+
+.btwToolbarButton.hasAsides:hover:not(:disabled),
+.btwToolbarButton.hasAsides:focus-visible {
+  background: color-mix(in srgb, var(--provider-codex) 26%, var(--bg-input));
+  color: var(--text-primary);
+}
+
+.btwToolbarButton.active:hover:not(:disabled),
+.btwToolbarButton.active:focus-visible {
+  background: color-mix(in srgb, var(--provider-codex) 38%, var(--bg-input));
+}
+
+.btwToolbarButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.composerBottomOverflowMenuGroup .renderModeToolbarButton,
+.composerBottomOverflowMenuGroup .conversationViewToolbarButton,
+.composerBottomOverflowMenuGroup .sessionShortcutsHelpButton,
+.composerBottomOverflowMenuGroup .contextToolbarControl {
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  min-width: var(--composer-control-size);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+@keyframes pulse-indicator {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (width <= 600px) {
+  .messageInputToolbar {
+    gap: 2px;
+    --composer-control-size: 30px;
+    --composer-primary-control-size: 36px;
+  }
+}
+
+@media (width <= 600px) {
+  [data-message-input-wrapper] .messageInputToolbar {
+    position: static;
+  }
+}
+
+@media (width <= 600px) {
+  .messageInputLeft,
+  .messageInputActions {
+    gap: 2px;
+  }
+}
+
+@media (width <= 600px) {
+  .messageInputLeft {
+    flex: 0 1 auto;
+    overflow: visible;
+  }
+}
+
+@media (width <= 600px) {
+  .composerBottomOverflowMenu {
+    max-width: calc(100dvw - 1rem);
+    overflow: visible;
+  }
+}
+
+@media (width <= 600px) {
+  .composerStatusAges {
+    position: absolute;
+    right: calc(var(--composer-primary-control-size) + 2rem);
+    bottom: calc(100% + 0.4375rem);
+    transform: translateY(1px);
+    z-index: 3;
+    margin-left: 0;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: min(78vw, 420px);
+  }
+}
+
+@media (width <= 600px) {
+  .composerStatusChip {
+    padding: 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--warning-color) 28%, transparent);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
+    color: color-mix(in srgb, var(--warning-color) 78%, var(--text-primary));
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.24);
+    opacity: 0.96;
+  }
+}
+
+@media (width <= 600px) {
+  .composerLivenessStatus.is-ok {
+    border-color: color-mix(in srgb, var(--success-color) 26%, transparent);
+    color: color-mix(in srgb, var(--success-color) 82%, var(--text-primary));
+  }
+}
+
+@media (width <= 600px) {
+  .composerLivenessStatus.is-danger {
+    border-color: color-mix(in srgb, var(--error-color) 30%, transparent);
+    color: color-mix(in srgb, var(--error-color) 82%, var(--text-primary));
+  }
+}
+
+@media (width <= 600px) {
+  .composerProviderRuntimeStatus.is-warn {
+    border-color: color-mix(in srgb, var(--warning-color) 34%, transparent);
+    color: color-mix(in srgb, var(--warning-color) 86%, var(--text-primary));
+  }
+}
+
+@media (width <= 600px) {
+  .composerProviderRuntimeStatus.is-danger {
+    border-color: color-mix(in srgb, var(--error-color) 34%, transparent);
+    color: color-mix(in srgb, var(--error-color) 86%, var(--text-primary));
+  }
+}
+
+@media (width <= 600px) {
+  .composerLivenessStatus.is-muted {
+    border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+    color: var(--text-muted);
+  }
+}
+
+@media (width <= 600px) {
+  .composerActivityAgeCompact {
+    border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+    background: color-mix(in srgb, var(--bg-surface) 98%, transparent);
+    color: var(--text-muted);
+  }
+}
+
+@media (width <= 480px) {
+  .messageInputToolbar {
+    --composer-control-size: 28px;
+    --composer-primary-control-size: 36px;
+  }
+}
+
 .overflowHidden.overflowHidden {
   display: none;
 }
@@ -16,12 +637,41 @@
   justify-content: center;
 }
 
-.fileViewerControllerActive :global(.message-input-left) {
+.fileViewerControllerActive .messageInputLeft {
   flex: 0 0 auto;
 }
 
-.fileViewerControllerActive :global(.composer-status-ages) {
+.fileViewerControllerActive .composerStatusAges {
   margin-left: 0;
+}
+
+.messageInputToolbar.statusFloats .composerStatusAges {
+  position: absolute;
+  right: calc(var(--composer-primary-control-size) + 2rem);
+  bottom: calc(100% + 0.4375rem);
+  transform: translateY(1px);
+  z-index: 3;
+  margin-left: 0;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: min(78vw, 420px);
+}
+
+.messageInputToolbar.statusFloats .composerStatusChip {
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--warning-color) 28%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
+  color: color-mix(in srgb, var(--warning-color) 78%, var(--text-primary));
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.24);
+  opacity: 0.96;
+}
+
+.messageInputToolbar.statusFloats .composerActivityAgeCompact {
+  border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 98%, transparent);
+  color: var(--text-muted);
 }
 
 .fileViewerOpen {
@@ -30,7 +680,7 @@
   pointer-events: none;
 }
 
-:global(.message-input-wrapper) :global(.message-input-toolbar).fileViewerOpen {
+[data-message-input-wrapper] .messageInputToolbar.fileViewerOpen {
   /* Override the phone layout's static toolbar position so z-index applies. */
   position: relative;
 }
@@ -228,7 +878,7 @@
   flex: 0 0 var(--composer-primary-control-size);
 }
 
-.waveformBackdropActive .waveformRegion > :global(.message-input-left) {
+.waveformBackdropActive .waveformRegion > .messageInputLeft {
   position: relative;
   z-index: 1;
 }
@@ -242,16 +892,14 @@
   padding: 0;
 }
 
-.waveformBackdropActive :global(.message-input-left .mode-button),
-.waveformBackdropActive :global(.message-input-left .attach-button),
-.waveformBackdropActive :global(.message-input-left .slash-command-button),
-.waveformBackdropActive :global(.message-input-left .thinking-toggle-button),
-.waveformBackdropActive
-  :global(.message-input-left .render-mode-toolbar-button),
-.waveformBackdropActive
-  :global(.message-input-left .conversation-view-toolbar-button),
+.waveformBackdropActive .messageInputLeft [data-mode-button],
+.waveformBackdropActive .messageInputLeft [data-attach-button],
+.waveformBackdropActive .messageInputLeft [data-slash-command-button],
+.waveformBackdropActive .messageInputLeft [data-thinking-toggle-button],
+.waveformBackdropActive .messageInputLeft .renderModeToolbarButton,
+.waveformBackdropActive .messageInputLeft .conversationViewToolbarButton,
 .waveformBackdropActive .doneButton,
-.waveformBackdropActive :global(.message-input-left .voice-input-button) {
+.waveformBackdropActive .messageInputLeft [data-voice-input-button] {
   background: color-mix(
     in srgb,
     var(--bg-surface) var(--waveform-control-surface-opacity),
@@ -259,26 +907,24 @@
   );
 }
 
-.waveformBackdropActive :global(.message-input-left .voice-input-status) {
+.waveformBackdropActive .messageInputLeft [data-voice-input-status] {
   padding: 1px 3px;
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
 }
 
 .waveformBackdropActive
-  :global(.message-input-left .mode-button:hover:not(:disabled)),
+  .messageInputLeft
+  [data-mode-button]:hover:not(:disabled),
 .waveformBackdropActive
-  :global(.message-input-left .attach-button:hover:not(:disabled)),
-.waveformBackdropActive
-  :global(.message-input-left .slash-command-button:hover),
-.waveformBackdropActive
-  :global(.message-input-left .thinking-toggle-button:hover),
-.waveformBackdropActive
-  :global(.message-input-left .render-mode-toolbar-button:hover),
-.waveformBackdropActive
-  :global(.message-input-left .conversation-view-toolbar-button:hover),
+  .messageInputLeft
+  [data-attach-button]:hover:not(:disabled),
+.waveformBackdropActive .messageInputLeft [data-slash-command-button]:hover,
+.waveformBackdropActive .messageInputLeft [data-thinking-toggle-button]:hover,
+.waveformBackdropActive .messageInputLeft .renderModeToolbarButton:hover,
+.waveformBackdropActive .messageInputLeft .conversationViewToolbarButton:hover,
 .waveformBackdropActive .doneButton:hover,
-.waveformBackdropActive :global(.message-input-left .voice-input-button:hover) {
+.waveformBackdropActive .messageInputLeft [data-voice-input-button]:hover {
   background: color-mix(
     in srgb,
     var(--bg-hover) var(--waveform-control-surface-opacity),
@@ -287,9 +933,8 @@
 }
 
 .waveformBackdropActive
-  :global(
-    .message-input-left .thinking-toggle-button[data-thinking-mode="auto"]
-  ) {
+  .messageInputLeft
+  [data-thinking-toggle-button][data-thinking-mode="auto"] {
   background: color-mix(
     in srgb,
     color-mix(in srgb, rgb(180, 140, 60) 12%, var(--bg-surface))
@@ -299,9 +944,8 @@
 }
 
 .waveformBackdropActive
-  :global(
-    .message-input-left .thinking-toggle-button[data-thinking-mode="on"]
-  ) {
+  .messageInputLeft
+  [data-thinking-toggle-button][data-thinking-mode="on"] {
   background: color-mix(
     in srgb,
     color-mix(in srgb, rgb(59, 130, 246) 15%, var(--bg-surface))
@@ -310,10 +954,8 @@
   );
 }
 
-.waveformBackdropActive
-  :global(.message-input-left .conversation-view-toolbar-button.active),
-.waveformBackdropActive
-  :global(.message-input-left .render-mode-toolbar-button.is-rendered) {
+.waveformBackdropActive .messageInputLeft .conversationViewToolbarButton.active,
+.waveformBackdropActive .messageInputLeft .renderModeToolbarButton.is-rendered {
   background: color-mix(
     in srgb,
     color-mix(in srgb, var(--app-yep-green) 13%, var(--bg-surface))
@@ -322,8 +964,7 @@
   );
 }
 
-.waveformBackdropActive
-  :global(.message-input-left .render-mode-toolbar-button.is-mixed) {
+.waveformBackdropActive .messageInputLeft .renderModeToolbarButton.is-mixed {
   background: color-mix(
     in srgb,
     color-mix(in srgb, var(--attention-color) 14%, var(--bg-surface))
@@ -333,7 +974,8 @@
 }
 
 .waveformBackdropActive
-  :global(.message-input-left .voice-input-button.listening) {
+  .messageInputLeft
+  [data-voice-input-button][data-listening] {
   background: color-mix(
     in srgb,
     color-mix(in srgb, rgb(239, 68, 68) 15%, var(--bg-surface))
@@ -382,7 +1024,7 @@
   align-self: center;
   padding: 4px 9px;
   border: 1px solid currentcolor;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
   font: 600 var(--font-size-xs) / 1 var(--font-ui);

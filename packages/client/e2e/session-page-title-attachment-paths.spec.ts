@@ -213,7 +213,7 @@ test("/title saves a typed title, and bare /title generates and applies one", as
 
 const attach = (page: Page, name: string) =>
   page
-    .locator(".message-input-wrapper input[type=file]")
+    .locator("[data-message-input-wrapper] input[type=file]")
     .first()
     .setInputFiles({
       name,

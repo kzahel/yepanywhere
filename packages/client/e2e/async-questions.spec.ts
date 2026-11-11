@@ -205,7 +205,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       const composer = page.locator("[data-composer-input]");
       await expect(composer).toBeVisible({ timeout: 30_000 });
       await composer.fill("Keep my main draft");
-      const toolbar = page.locator(".message-input-actions");
+      const toolbar = page.locator("[data-message-input-actions]");
       const badge = toolbar.getByRole("button", { name: /^3 questions/ });
       await expect(badge).toBeVisible();
       expect(sends).toHaveLength(viewport.name === "phone" ? 0 : 1);
@@ -426,7 +426,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
     });
     await expect(
       page
-        .locator(".message-input-actions")
+        .locator("[data-message-input-actions]")
         .getByRole("button", { name: /question/i }),
     ).toHaveCount(0);
     await expect(page.locator("[data-async-question-reply]")).not.toHaveCount(
@@ -443,7 +443,7 @@ test("async questions preserve context, drafts, scroll and ordinary delivery", a
       page.getByText(/Fade the count after 1 later turns or 53 composer edits/),
     ).toBeVisible();
     await page.goto(`${origin}/projects/${projectId}/sessions/${sessionId}`);
-    const toolbar = page.locator(".message-input-actions");
+    const toolbar = page.locator("[data-message-input-actions]");
     const composer = page.locator("[data-composer-input]");
     await expect(composer).toBeVisible({ timeout: 30_000 });
     await expect(

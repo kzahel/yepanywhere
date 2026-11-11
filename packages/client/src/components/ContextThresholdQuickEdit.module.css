@@ -1,0 +1,11 @@
+.contextThresholdQuickedit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.contextThresholdQuickeditTrigger {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}

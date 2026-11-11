@@ -5,7 +5,7 @@ import { I18nProvider } from "../../src/i18n";
 import { useLimitedUserBrowserDefaults } from "../../src/hooks/useLimitedUserBrowserDefaults";
 import { UI_KEYS } from "../../src/lib/storageKeys";
 import { UsersSettings } from "../../src/pages/settings/UsersSettings";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 /** What App mounts for everyone; shows the value it would have applied. */
 function Probe() {

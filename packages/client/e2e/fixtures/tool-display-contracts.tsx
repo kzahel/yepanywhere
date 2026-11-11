@@ -5,7 +5,7 @@ import { ToolCallRow } from "../../src/components/blocks/ToolCallRow";
 import { TaskNestedContent } from "../../src/components/renderers/tools/TaskNestedContent";
 import { toolDisplayDiagnostics } from "../../src/components/renderers/tools/displayDiagnostics";
 import { toolRegistry } from "../../src/components/renderers/tools";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 function Fixture() {
   const [corrected, setCorrected] = useState(false);
   const [complete, setComplete] = useState(false);

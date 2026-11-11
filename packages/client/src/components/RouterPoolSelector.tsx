@@ -1,3 +1,4 @@
+import optionStyles from "./NewSessionOptionsPanel.module.css";
 import {
   resolveRouterModel,
   routerAliasTargets,
@@ -598,7 +599,10 @@ export function RouterPoolSelector({
     : [];
   const chooseAccount =
     pool && poolAccounts?.accounts.length ? (
-      <div className={`new-session-helper-section ${styles.section}`}>
+      <div
+        className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
+        data-new-session-helper-section
+      >
         <h3>{accountLabel}</h3>
         <FilterDropdown<string>
           label={accountLabel}
@@ -673,7 +677,10 @@ export function RouterPoolSelector({
     ) : null;
   return (
     <>
-      <div className={`new-session-helper-section ${styles.section}`}>
+      <div
+        className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
+        data-new-session-helper-section
+      >
         <h3>{poolLabel}</h3>
         <FilterDropdown<string>
           label={poolLabel}

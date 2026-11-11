@@ -42,7 +42,7 @@ for (const hosted of [false, true])
         `${origin}/new-session?projectId=${owned.projectId}&provider=opencode&model=opencode%2Ffixture`,
       );
       await page
-        .locator("textarea.new-session-form-textarea")
+        .locator("textarea[data-new-session-form-textarea]")
         .pressSequentially("OWNED_OPENCODE_CREATION_INPUT");
       const acceptance = page.waitForResponse(
         (r) =>

@@ -100,7 +100,7 @@ for (const hosted of [false, true])
       await page.goto(
         `${origin}/new-session?projectId=${projectId}&provider=codex&model=gpt-6.1-sol`,
       );
-      const composer = page.locator("textarea.new-session-form-textarea");
+      const composer = page.locator("textarea[data-new-session-form-textarea]");
       await composer.waitFor();
       await composer.pressSequentially("OWNED_CODEX_CREATION");
       const accepted = page.waitForResponse(

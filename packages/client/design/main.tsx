@@ -6,7 +6,7 @@
 import { createRoot } from "react-dom/client";
 import { TooltipLayer } from "../src/components/ui/TooltipLayer";
 import { I18nProvider } from "../src/i18n";
-import "../src/styles/index.css";
+import "../src/styles/purposeGlobals";
 import { DesignApp } from "./DesignApp";
 
 const root = document.getElementById("root");

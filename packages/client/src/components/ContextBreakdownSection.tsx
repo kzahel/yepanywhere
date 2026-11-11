@@ -1,3 +1,4 @@
+import popoverStyles from "./ContextUsagePopover.module.css";
 import type {
   ContextBreakdown,
   ContextBreakdownCategory,
@@ -165,7 +166,7 @@ function Breakdown({ breakdown }: { breakdown: ContextBreakdown }) {
 
   return (
     <div className={styles.breakdown}>
-      <div className="context-threshold-popover-title">
+      <div className={popoverStyles.contextThresholdPopoverTitle}>
         {t("contextBreakdownTitle")}
       </div>
       <div className={styles.summary}>
@@ -264,7 +265,7 @@ export function ContextBreakdownSection({
     case "loading":
       return (
         <div className={styles.breakdown}>
-          <div className="context-threshold-popover-title">
+          <div className={popoverStyles.contextThresholdPopoverTitle}>
             {t("contextBreakdownTitle")}
           </div>
           <div className={styles.aside}>{t("contextBreakdownLoading")}</div>
@@ -273,7 +274,7 @@ export function ContextBreakdownSection({
     case "error":
       return (
         <div className={styles.breakdown}>
-          <div className="context-threshold-popover-title">
+          <div className={popoverStyles.contextThresholdPopoverTitle}>
             {t("contextBreakdownTitle")}
           </div>
           <div className={styles.aside}>

@@ -88,7 +88,7 @@ describe("composer textarea edits", () => {
 describe("composer textarea sizing", () => {
   it("resizes expanded textareas within the viewport cap", () => {
     const composer = document.createElement("div");
-    composer.className = "message-input";
+    composer.setAttribute("data-message-input", "");
     const textarea = document.createElement("textarea");
     textarea.rows = 3;
     composer.append(textarea);

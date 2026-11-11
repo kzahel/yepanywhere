@@ -8,7 +8,7 @@ import {
 } from "../../src/components/FileDiffViewLinks";
 import { ViewerWindowActions } from "../../src/components/ViewerWindowActions";
 import { I18nProvider } from "../../src/i18n";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Header.module.css";
 
 const path = "gaps/sketches/patient-topic-shift.md";

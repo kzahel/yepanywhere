@@ -22,7 +22,7 @@ import {
   createComposerDraftAttachmentState,
 } from "../../src/lib/sessionComposerSubmission";
 import type { ComposerAttachment } from "../../src/lib/sessionComposerAttachments";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 const draftKey = "draft-message-draft-history-1";
 const previewUrl = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="#202734"/><rect x="12" y="12" width="35" height="75" fill="#374458"/><rect x="56" y="12" width="91" height="15" fill="#82a18d"/><path d="M56 40h75M56 55h90M56 70h60" stroke="#a6afb9" stroke-width="5"/></svg>')}`;

@@ -1,0 +1,59 @@
+.attachButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  position: relative;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.attachButton:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-input);
+}
+
+.attachButton > svg {
+  display: block;
+}
+
+.attachButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attachCount {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--app-yep-green);
+  color: white;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-composer-bottom-overflow-menu-group] .attachButton {
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  min-width: var(--composer-control-size);
+  flex-shrink: 0;
+  padding: 0;
+}

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import { BackArrowIcon } from "../../src/components/BackArrowIcon";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Breadcrumbs.module.css";
 
 const PAPER = "research/speech-recognition/transcript-scoring/papers/";

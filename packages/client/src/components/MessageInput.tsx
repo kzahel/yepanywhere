@@ -1,3 +1,11 @@
+import {
+  ForkSummaryDraftNotice,
+  ComposerPromptSuggestion,
+} from "./ComposerDraftNotices";
+import { composerActionsStateClasses } from "./composerStateClasses";
+import actionStyles from "./ComposerActions.module.css";
+import voiceStyles from "./VoiceInputButton.module.css";
+import slashStyles from "./SlashCommandButton.module.css";
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import { AudioMemoPanel } from "./AudioMemoPanel";
 import { ComposerRecallMenu } from "./ComposerRecallMenu";
@@ -67,6 +75,7 @@ import {
 } from "../lib/commentAnchors";
 import {
   clearTextareaContentsUndoably,
+  getComposerViewportHeight,
   countDraftLines,
   getInsertedTextForEdit,
   isFullPaneComposerShortcut,
@@ -173,13 +182,6 @@ interface PendingDraftInputEdit {
   start: number;
   end: number;
   inputType?: string;
-}
-
-function getComposerViewportHeight(): number {
-  const visualViewportHeight = window.visualViewport?.height;
-  return typeof visualViewportHeight === "number"
-    ? Math.min(window.innerHeight, visualViewportHeight)
-    : window.innerHeight;
 }
 
 interface Props {
@@ -2318,7 +2320,8 @@ export function MessageInput({
     .find((attachment) => attachment.rendezAutoSendAt !== undefined)?.id;
   const composer = (
     <div
-      className={`message-input-wrapper${fullPane ? ` ${styles.fullPane}` : ""}`}
+      className={`${styles.messageInputWrapper}${fullPane ? ` ${styles.fullPane}` : ""}`}
+      data-message-input-wrapper
       data-composer-full-pane={fullPane ? "true" : undefined}
       onKeyDownCapture={handleComposerKeyDown}
     >
@@ -2365,7 +2368,7 @@ export function MessageInput({
       {!externalCollapsed && (
         <button
           type="button"
-          className="message-input-toggle"
+          className={styles.messageInputToggle}
           onClick={() => setUserCollapsed(!userCollapsed)}
           aria-label={
             userCollapsed ? t("messageInputExpand") : t("messageInputCollapse")
@@ -2381,7 +2384,7 @@ export function MessageInput({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={userCollapsed ? "chevron-up" : "chevron-down"}
+            className={userCollapsed ? styles.chevronUp : "chevron-down"}
             aria-hidden="true"
           >
             <polyline points="6 9 12 15 18 9" />
@@ -2396,20 +2399,14 @@ export function MessageInput({
         />
       )}
       <div
-        className={`message-input ${collapsed ? "message-input-collapsed" : ""} ${
+        className={`${styles.messageInput} ${collapsed ? styles.messageInputCollapsed : ""} ${
           collapsed &&
           (showCollapsedLineCount || showCollapsedDesktopMicrophone)
-            ? "has-collapsed-side-actions"
+            ? styles.hasCollapsedSideActions
             : ""
-        }${
-          showCollapsedMicrophone
-            ? ` ${styles.collapsedWithLeadingMicrophone}`
-            : ""
-        }${
-          showCollapsedMicrophone && !showCollapsedSendAction
-            ? ` ${styles.collapsedWithLeadingMicrophoneOnly}`
-            : ""
-        }`}
+        }${showCollapsedMicrophone ? ` ${styles.collapsedWithLeadingMicrophone}` : ""}${showCollapsedMicrophone && !showCollapsedSendAction ? ` ${styles.collapsedWithLeadingMicrophoneOnly}` : ""}`}
+        data-message-input
+        data-message-input-collapsed={collapsed || undefined}
         data-composer-shell="true"
         data-collapsed-leading-microphone={showCollapsedMicrophone || undefined}
       >
@@ -2530,9 +2527,7 @@ export function MessageInput({
         />
         {(showBangChip || showBangEscapedChip) && (
           <div
-            className={`bang-composer-chip${
-              showBangEscapedChip ? " bang-composer-chip-escaped" : ""
-            }`}
+            className={`${styles.bangComposerChip}${showBangEscapedChip ? ` ${styles.bangComposerChipEscaped}` : ""}`}
             role="status"
           >
             {showBangEscapedChip
@@ -2542,7 +2537,7 @@ export function MessageInput({
         )}
 
         {recognizedSkillTokens.length > 0 && (
-          <div className="skill-invocation-status" role="status">
+          <div className={styles.skillInvocationStatus} role="status">
             <span>{t("skillInvocationRecognized")}</span>
             <code>{recognizedSkillTokens.join(", ")}</code>
           </div>
@@ -2550,7 +2545,7 @@ export function MessageInput({
 
         {unrecognizedSkillTokens.length > 0 && (
           <div
-            className="skill-invocation-status skill-invocation-status--warning"
+            className={`${styles.skillInvocationStatus} ${styles.skillInvocationStatusWarning}`}
             role="status"
           >
             <span>{t("skillInvocationUnrecognized")}</span>
@@ -2561,16 +2556,15 @@ export function MessageInput({
 
         {showBangSuggestions && (
           <div
-            className="slash-command-menu composer-slash-command-menu bang-completion-menu"
+            className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu} bang-completion-menu`}
             role="menu"
           >
             {bangMenuItems.map((item, index) => (
               <button
                 key={`${item.source}:${item.value}`}
                 type="button"
-                className={`slash-command-item${
-                  item.source === "history" ? " bang-history-item" : ""
-                }${index === selectedBangIndex ? " active" : ""}`}
+                className={`${slashStyles.slashCommandItem}${item.source === "history" ? " bang-history-item" : ""}${index === selectedBangIndex ? ` ${slashStyles.active}` : ""}`}
+                data-slash-command-item
                 onMouseEnter={() => setSelectedBangIndex(index)}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
@@ -2587,7 +2581,7 @@ export function MessageInput({
 
         {showSlashSuggestions && (
           <div
-            className="slash-command-menu composer-slash-command-menu"
+            className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu}`}
             role="menu"
           >
             {matchingSlashCommands.map((command, index) => {
@@ -2596,27 +2590,31 @@ export function MessageInput({
                 <button
                   key={`${getCanonicalInvocationToken(command)}:${command.invocation?.kind ?? "legacy"}`}
                   type="button"
-                  className={`slash-command-item${index === selectedSlashIndex ? " active" : ""}`}
+                  className={`${slashStyles.slashCommandItem}${index === selectedSlashIndex ? ` ${slashStyles.active}` : ""}`}
+                  data-slash-command-item
                   onMouseEnter={() => setSelectedSlashIndex(index)}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => handleSlashCommand(command)}
                   role="menuitem"
                   aria-label={parts.label}
                 >
-                  <span className="slash-command-copy">
+                  <span className={slashStyles.slashCommandCopy}>
                     {/* shortcut + rest is one command word split for
                         highlighting; keep it a single inline run so no flex
                         gap lands inside the word. */}
                     <span>
                       {parts.shortcut && (
-                        <strong className="slash-command-shortcut">
+                        <strong
+                          className={slashStyles.slashCommandShortcut}
+                          data-slash-command-shortcut
+                        >
                           {parts.shortcut}
                         </strong>
                       )}
                       {parts.rest}
                     </span>
                     {(command.description || command.argumentHint) && (
-                      <span className="slash-command-detail">
+                      <span className={slashStyles.slashCommandDetail}>
                         {[command.description, command.argumentHint]
                           .filter(Boolean)
                           .join(" · ")}
@@ -2634,17 +2632,18 @@ export function MessageInput({
                 <button
                   key={`${getCanonicalInvocationToken(match.command)}:${value}`}
                   type="button"
-                  className={`slash-command-item${index === selectedSlashIndex ? " active" : ""}`}
+                  className={`${slashStyles.slashCommandItem}${index === selectedSlashIndex ? ` ${slashStyles.active}` : ""}`}
+                  data-slash-command-item
                   onMouseEnter={() => setSelectedSlashIndex(index)}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => handleSlashArgumentCompletion(match)}
                   role="menuitem"
                   aria-label={label}
                 >
-                  <span className="slash-command-copy">
+                  <span className={slashStyles.slashCommandCopy}>
                     <span>{label}</span>
                     {match.completion.description && (
-                      <span className="slash-command-detail">
+                      <span className={slashStyles.slashCommandDetail}>
                         {match.completion.description}
                       </span>
                     )}
@@ -2668,10 +2667,10 @@ export function MessageInput({
 
         {collapsed &&
           (showCollapsedLineCount || showCollapsedDesktopMicrophone) && (
-            <div className="message-input-collapsed-side-actions">
+            <div className={styles.messageInputCollapsedSideActions}>
               {showCollapsedLineCount && (
                 <span
-                  className="message-input-collapsed-line-count"
+                  className={styles.messageInputCollapsedLineCount}
                   title={t("messageInputCollapsedLineCount", {
                     count: String(collapsedLineCount),
                   })}
@@ -2692,7 +2691,7 @@ export function MessageInput({
                   onTranscriptionSettled={handleTranscriptionSettled}
                   disabled={disabled}
                   getTranscriptionContext={getTranscriptionContext}
-                  className="message-input-collapsed-mic"
+                  className={voiceStyles.messageInputCollapsedMic}
                 />
               )}
             </div>
@@ -2700,11 +2699,7 @@ export function MessageInput({
 
         {collapsed && (
           <div
-            className={`message-input-collapsed-actions${
-              showCollapsedMicrophone
-                ? ` ${styles.collapsedActionsWithMicrophone}`
-                : ""
-            }`}
+            className={`${styles.messageInputCollapsedActions}${showCollapsedMicrophone ? ` ${styles.collapsedActionsWithMicrophone}` : ""}`}
           >
             {showCollapsedMicrophone && (
               <VoiceInputButton
@@ -2717,7 +2712,7 @@ export function MessageInput({
                 onTranscriptionSettled={handleTranscriptionSettled}
                 disabled={disabled}
                 getTranscriptionContext={getTranscriptionContext}
-                className="message-input-collapsed-mic"
+                className={voiceStyles.messageInputCollapsedMic}
               />
             )}
             {showCollapsedSendAction && (
@@ -2725,11 +2720,12 @@ export function MessageInput({
                 type="button"
                 onClick={collapsedSubmitAction}
                 disabled={disabled || !canSubmit}
-                className={`send-button message-input-collapsed-send`}
+                className={`${actionStyles.sendButton} ${styles.messageInputCollapsedSend}`}
+                data-send-button
                 aria-label={collapsedActionLabel}
                 title={collapsedActionLabel}
               >
-                <DeliveryGlyph className="send-icon">
+                <DeliveryGlyph className={actionStyles.sendIcon}>
                   {collapsedActionIcon}
                 </DeliveryGlyph>
               </button>
@@ -2753,31 +2749,13 @@ export function MessageInput({
         )}
 
         {!collapsed && forkSummaryMode && (
-          <div className="fork-summary-draft">
-            <div className="fork-summary-draft-copy">
-              <span className="fork-summary-draft-label">
-                {forkSummaryMode.title}
-              </span>
-              <span className="fork-summary-draft-description">
-                {forkSummaryMode.description}
-              </span>
-            </div>
-            <button
-              type="button"
-              className="fork-summary-draft-cancel"
-              onClick={forkSummaryMode.onCancel}
-              aria-label={t("forkSummaryCancel")}
-              title={t("forkSummaryCancel")}
-            >
-              ×
-            </button>
-          </div>
+          <ForkSummaryDraftNotice mode={forkSummaryMode} />
         )}
 
         {/* Attachment chips - show below textarea when not collapsed */}
         {!collapsed &&
           (attachments.length > 0 || uploadProgress.length > 0) && (
-            <div className="attachment-list">
+            <div className={styles.attachmentList} data-attachment-list>
               {attachments.map((file) => {
                 const chip = (
                   <AttachmentChip
@@ -2834,38 +2812,28 @@ export function MessageInput({
         />
 
         {!collapsed && composerIsEmpty && promptSuggestion && (
-          <div className="prompt-suggestion">
-            <button
-              type="button"
-              className="prompt-suggestion-text"
-              onClick={() => {
-                const metadata = buildSubmissionMetadata("direct");
-                onDismissPromptSuggestion?.();
-                onSend(promptSuggestion, metadata);
-                textareaRef.current?.focus();
-              }}
-              title="Send this suggestion"
-            >
-              {promptSuggestion}
-            </button>
-            <button
-              type="button"
-              className="prompt-suggestion-dismiss"
-              onClick={onDismissPromptSuggestion}
-              aria-label="Dismiss suggestion"
-              title="Dismiss"
-            >
-              ×
-            </button>
-          </div>
+          <ComposerPromptSuggestion
+            suggestion={promptSuggestion}
+            onDismiss={onDismissPromptSuggestion}
+            onAccept={() => {
+              const metadata = buildSubmissionMetadata("direct");
+              onDismissPromptSuggestion?.();
+              onSend(promptSuggestion, metadata);
+              textareaRef.current?.focus();
+            }}
+          />
         )}
 
         {!collapsed && showMobileKeyboardCompact && !newSessionOptionsMode && (
-          <div className="message-input-keyboard-compact">
+          <div
+            className={styles.messageInputKeyboardCompact}
+            data-message-input-keyboard-compact
+          >
             {mobileKeyboardMoreOpen && (
               <div
                 id="message-input-keyboard-more-controls"
-                className="message-input-keyboard-more-panel"
+                className={styles.messageInputKeyboardMorePanel}
+                data-message-input-keyboard-more-panel
                 role="toolbar"
                 aria-label={t("toolbarOverflowMenu")}
                 onPointerDown={(event) => event.preventDefault()}
@@ -2880,11 +2848,13 @@ export function MessageInput({
               </div>
             )}
             <div
-              className={`message-input-keyboard-actions${forkSummaryMode?.onSubmitWithoutSummary ? " has-alternate" : ""}`}
+              data-message-input-keyboard-actions
+              className={`${actionStyles.messageInputKeyboardActions}${forkSummaryMode?.onSubmitWithoutSummary ? ` ${actionStyles.hasAlternate}` : ""}`}
             >
               <button
                 type="button"
-                className={`message-input-keyboard-more${mobileKeyboardMoreOpen ? " is-open" : ""}`}
+                className={`${styles.messageInputKeyboardMore}${mobileKeyboardMoreOpen ? ` ${styles["is-open"]}` : ""}`}
+                data-message-input-keyboard-more
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => setMobileKeyboardMoreOpen((open) => !open)}
                 aria-label={t("toolbarOverflowMenu")}
@@ -2896,11 +2866,8 @@ export function MessageInput({
               </button>
               {toolbarVisibility.microphone && (
                 <div
-                  className={`message-input-keyboard-secondary-slot ${styles.keyboardSpeechSlot}${
-                    toolbarVisibility.waveform
-                      ? ` ${styles.keyboardSpeechSlotWithWaveform}`
-                      : ""
-                  }`}
+                  className={`${actionStyles.messageInputKeyboardSecondarySlot} ${styles.keyboardSpeechSlot}${toolbarVisibility.waveform ? ` ${styles.keyboardSpeechSlotWithWaveform}` : ""}`}
+                  data-message-input-keyboard-secondary-slot
                   data-waveform-reserved={
                     toolbarVisibility.waveform || undefined
                   }
@@ -2924,15 +2891,21 @@ export function MessageInput({
                         ? setKeyboardWaveformActive
                         : undefined
                     }
-                    className="message-input-keyboard-action message-input-keyboard-secondary"
+                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary}`}
                   />
                 </div>
               )}
               {showMobileProjectQueueAction && (
-                <div className="message-input-keyboard-secondary-slot message-input-keyboard-project-queue-slot">
+                <div
+                  className={`${actionStyles.messageInputKeyboardSecondarySlot} message-input-keyboard-project-queue-slot`}
+                  data-message-input-keyboard-secondary-slot
+                >
                   <button
                     type="button"
-                    className="message-input-keyboard-action message-input-keyboard-secondary project-queue-mode"
+                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} ${actionStyles.projectQueueMode}`}
+                    data-message-input-keyboard-action
+                    data-message-input-keyboard-secondary
+                    data-project-queue-mode
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={handleProjectQueuePointerDelivery}
                     disabled={disabled}
@@ -2955,10 +2928,17 @@ export function MessageInput({
                 </div>
               )}
               {showMobileProjectQueueNewSessionAction && (
-                <div className="message-input-keyboard-secondary-slot message-input-keyboard-project-queue-new-session-slot">
+                <div
+                  className={`${actionStyles.messageInputKeyboardSecondarySlot} message-input-keyboard-project-queue-new-session-slot`}
+                  data-message-input-keyboard-secondary-slot
+                >
                   <button
                     type="button"
-                    className="message-input-keyboard-action message-input-keyboard-secondary project-queue-mode project-queue-new-session-button"
+                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} ${actionStyles.projectQueueMode} ${actionStyles.projectQueueNewSessionButton}`}
+                    data-project-queue-new-session-button
+                    data-message-input-keyboard-action
+                    data-message-input-keyboard-secondary
+                    data-project-queue-mode
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={handleProjectQueueNewSessionPointerDelivery}
                     disabled={disabled}
@@ -2980,10 +2960,16 @@ export function MessageInput({
                 </div>
               )}
               {showMobileSessionAlternateAction && (
-                <div className="message-input-keyboard-secondary-slot message-input-keyboard-session-alternate-slot">
+                <div
+                  className={`${actionStyles.messageInputKeyboardSecondarySlot} message-input-keyboard-session-alternate-slot`}
+                  data-message-input-keyboard-secondary-slot
+                >
                   <button
                     type="button"
-                    className={`message-input-keyboard-action message-input-keyboard-secondary ${mobileKeyboardAlternateAction.kind}-mode`}
+                    data-delivery-kind={mobileKeyboardAlternateAction.kind}
+                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} ${composerActionsStateClasses[`${mobileKeyboardAlternateAction.kind}-mode`] ?? ""}`}
+                    data-message-input-keyboard-action
+                    data-message-input-keyboard-secondary
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={mobileKeyboardAlternateAction.onClick}
                     disabled={disabled}
@@ -3009,7 +2995,9 @@ export function MessageInput({
                 mobileKeyboardAlternateAction && (
                   <button
                     type="button"
-                    className={`message-input-keyboard-action message-input-keyboard-alternate ${mobileKeyboardAlternateAction.kind}-mode`}
+                    data-delivery-kind={mobileKeyboardAlternateAction.kind}
+                    className={`${actionStyles.messageInputKeyboardAction} message-input-keyboard-alternate ${composerActionsStateClasses[`${mobileKeyboardAlternateAction.kind}-mode`] ?? ""}`}
+                    data-message-input-keyboard-action
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={mobileKeyboardAlternateAction.onClick}
                     disabled={disabled}
@@ -3034,7 +3022,9 @@ export function MessageInput({
               {bangQuery !== null && (
                 <button
                   type="button"
-                  className="message-input-keyboard-action message-input-keyboard-secondary bang-tab-mode"
+                  className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} ${actionStyles.bangTabMode}`}
+                  data-message-input-keyboard-action
+                  data-message-input-keyboard-secondary
                   onPointerDown={(event) => event.preventDefault()}
                   onClick={() => performBangTabComplete()}
                   disabled={disabled}
@@ -3058,7 +3048,9 @@ export function MessageInput({
                   // See topics/composer-recall-drawer.md.
                   <button
                     type="button"
-                    className="message-input-keyboard-action message-input-keyboard-secondary composer-recall-open"
+                    className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardSecondary} composer-recall-open`}
+                    data-message-input-keyboard-action
+                    data-message-input-keyboard-secondary
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={() => openRecallDrawer()}
                     disabled={disabled}
@@ -3084,11 +3076,10 @@ export function MessageInput({
                 )}
               <button
                 type="button"
-                className={`message-input-keyboard-action message-input-keyboard-primary ${effectivePrimaryActionKind}-mode${
-                  toolbarVisibility.waveform
-                    ? ` ${styles.keyboardPrimaryWithWaveform}`
-                    : ""
-                }`}
+                data-delivery-kind={effectivePrimaryActionKind}
+                className={`${actionStyles.messageInputKeyboardAction} ${actionStyles.messageInputKeyboardPrimary} ${composerActionsStateClasses[`${effectivePrimaryActionKind}-mode`] ?? ""}${toolbarVisibility.waveform ? ` ${styles.keyboardPrimaryWithWaveform}` : ""}`}
+                data-message-input-keyboard-action
+                data-message-input-keyboard-primary
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={handlePrimaryPointerDelivery}
                 onContextMenu={
@@ -3110,11 +3101,16 @@ export function MessageInput({
                 )}
               >
                 {mobileKeyboardActionDisplayLabel && (
-                  <span className="message-input-keyboard-primary-label">
+                  <span
+                    className={actionStyles.messageInputKeyboardPrimaryLabel}
+                    data-message-input-keyboard-primary-label
+                  >
                     {mobileKeyboardActionDisplayLabel}
                   </span>
                 )}
-                <DeliveryGlyph className="message-input-keyboard-primary-icon">
+                <DeliveryGlyph
+                  className={actionStyles.messageInputKeyboardPrimaryIcon}
+                >
                   {mobileKeyboardActionIcon}
                 </DeliveryGlyph>
                 {manualDeliverySpeechPrefix && (

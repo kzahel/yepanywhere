@@ -20,7 +20,7 @@ import { RememberedDisclosureStateProvider } from "../../src/contexts/Remembered
 import appStyles from "../../src/components/ProjectAppViewer.module.css";
 import menuStyles from "../../src/components/SourceContextMenu.module.css";
 import lastStyles from "../../src/components/LastSessionFile.module.css";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 function Site({ name, children }: { name: string; children: ReactNode }) {
   return (

@@ -230,7 +230,7 @@ test("Go to this turn in the recall drawer scrolls to that turn", async ({
   await expect(target).not.toBeInViewport();
   await session.composer.press("Control+ArrowUp");
   await page
-    .locator(".composer-recall-row")
+    .locator("[data-composer-recall-row]")
     .filter({ hasText: "Request number 24" })
     .getByRole("button", { name: "Go to this turn" })
     .click();

@@ -1,3 +1,4 @@
+import transcribingStyles from "./SpeechTranscribingChip.module.css";
 import { useI18n } from "../i18n";
 import { IconButton } from "./ui/Button";
 import { Spinner } from "./ui/Spinner";
@@ -28,13 +29,19 @@ export function SpeechTranscribingChip({ kind, onCancel }: Props) {
         ? t("speechFinalizingPlaceholder" as never)
         : t("speechTranscribingPlaceholder" as never);
   return (
-    <div className="speech-transcribing-chip" role="status" aria-live="polite">
+    <div
+      className={transcribingStyles.speechTranscribingChip}
+      role="status"
+      aria-live="polite"
+    >
       <Spinner size="small" />
-      <span className="speech-transcribing-label">{label}</span>
+      <span className={transcribingStyles.speechTranscribingLabel}>
+        {label}
+      </span>
       <IconButton
         size="small"
         label={t("speechTranscribingCancel" as never)}
-        className="speech-transcribing-cancel"
+        className={transcribingStyles.speechTranscribingCancel}
         onClick={onCancel}
       >
         ×

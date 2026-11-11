@@ -15,7 +15,7 @@ import {
 import { Modal } from "../../src/components/ui/Modal";
 import { I18nProvider, useI18n } from "../../src/i18n";
 import settingsStyles from "../../src/pages/settings/ArtifactSettings.module.css";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Mockup.module.css";
 
 const FILE = "/home/graehl/notes/garden-plan.html";

@@ -54,7 +54,7 @@ describe("SlashCommandButton", () => {
     );
 
     const shortcuts = Array.from(
-      document.querySelectorAll(".slash-command-shortcut"),
+      document.querySelectorAll("[data-slash-command-shortcut]"),
     ).map((node) => node.textContent);
     expect(shortcuts).toEqual(["/f", "/r", "/m"]);
   });

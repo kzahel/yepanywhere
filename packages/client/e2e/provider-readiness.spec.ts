@@ -136,7 +136,7 @@ test.describe("New Session provider readiness", () => {
 
     await page.goto(`${baseURL}/new-session?provider=codex&detached=1`);
     const providerPicker = page.locator(
-      '.new-session-provider-section button[aria-haspopup="menu"]',
+      '[data-new-session-provider-section] button[aria-haspopup="menu"]',
     );
     await expect(providerPicker).toBeEnabled();
     await expect(providerPicker).toContainText("Codex");
@@ -151,7 +151,9 @@ test.describe("New Session provider readiness", () => {
     await page
       .getByPlaceholder("Describe what you'd like help with...")
       .fill("Verify provider authentication at launch");
-    await expect(page.locator(".new-session-submit-button")).toBeEnabled();
+    await expect(
+      page.locator("[data-new-session-submit-button]"),
+    ).toBeEnabled();
 
     await page.setViewportSize({ width: 1000, height: 600 });
     await providerPicker.scrollIntoViewIfNeeded();
@@ -262,7 +264,9 @@ test.describe("New Session provider readiness", () => {
       await expect(
         page.getByText("Checking the configured gateway for models…"),
       ).toBeVisible();
-      await expect(page.locator(".new-session-submit-button")).toBeDisabled();
+      await expect(
+        page.locator("[data-new-session-submit-button]"),
+      ).toBeDisabled();
       expectNoUsageAheadOfRouteWork();
 
       await page.setViewportSize({ width: 1920, height: 1080 });
@@ -277,21 +281,27 @@ test.describe("New Session provider readiness", () => {
         ),
       ).toBeVisible();
       await expect(page.getByText("Saved Gateway").first()).toBeVisible();
-      await expect(page.locator(".new-session-submit-button")).toBeDisabled();
+      await expect(
+        page.locator("[data-new-session-submit-button]"),
+      ).toBeDisabled();
       await expect.poll(() => usageRequests).toBe(1);
 
       const aggregateRequestsBeforeRetry = aggregateRequests;
       await page.getByRole("button", { name: "Retry" }).click();
       await expect.poll(() => namedRequests).toBe(2);
       expect(aggregateRequests).toBe(aggregateRequestsBeforeRetry);
-      await expect(page.locator(".new-session-submit-button")).toBeDisabled();
+      await expect(
+        page.locator("[data-new-session-submit-button]"),
+      ).toBeDisabled();
 
       retryGate.open();
       await expect(page.getByText("Current Gateway").first()).toBeVisible();
       await expect(
         page.getByText("Checking the configured gateway for models…"),
       ).toHaveCount(0);
-      await expect(page.locator(".new-session-submit-button")).toBeEnabled();
+      await expect(
+        page.locator("[data-new-session-submit-button]"),
+      ).toBeEnabled();
 
       await page.setViewportSize({ width: 1920, height: 1080 });
       await capture(page, "gateway-ready-desktop-1920x1080.png");
@@ -346,6 +356,8 @@ test.describe("New Session provider readiness", () => {
         "No models are available from the configured gateway. Check that it is running, then retry.",
       ),
     ).toBeVisible();
-    await expect(page.locator(".new-session-submit-button")).toBeDisabled();
+    await expect(
+      page.locator("[data-new-session-submit-button]"),
+    ).toBeDisabled();
   });
 });

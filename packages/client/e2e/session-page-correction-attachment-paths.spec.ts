@@ -26,7 +26,7 @@ const png = Buffer.from(
 
 const attach = (page: Page, name: string) =>
   page
-    .locator(".message-input-wrapper input[type=file]")
+    .locator("[data-message-input-wrapper] input[type=file]")
     .first()
     .setInputFiles(
       name.endsWith(".png")
@@ -59,7 +59,7 @@ const urlLoads = (page: Page, url: string) =>
 
 const chipPreviewUrl = (page: Page) =>
   page
-    .locator(".attachment-list img")
+    .locator("[data-attachment-list] img")
     .first()
     .evaluate((image) => (image as HTMLImageElement).src);
 
@@ -174,7 +174,7 @@ test("an upload in flight asks before the page is left", async ({
   // A page the user has not touched may leave without asking.
   await session.composer.click();
   await attach(leaving, "pin-held.txt");
-  await expect(leaving.locator(".attachment-list")).toBeVisible();
+  await expect(leaving.locator("[data-attachment-list]")).toBeVisible();
 
   const dialog = leaving.waitForEvent("dialog");
   await leaving.close({ runBeforeUnload: true });

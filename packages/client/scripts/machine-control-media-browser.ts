@@ -104,7 +104,7 @@ export async function createMachineControlMediaBrowser(
             ).toBeHidden();
           }
         }
-        await expect(page.locator(".message-input")).toBeVisible({
+        await expect(page.locator("[data-message-input]")).toBeVisible({
           timeout: 15_000,
         });
       },

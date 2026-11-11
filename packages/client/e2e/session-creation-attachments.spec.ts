@@ -38,7 +38,7 @@ for (const hosted of [false, true])
       await page.goto(
         `${origin}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
       );
-      const composer = page.locator("textarea.new-session-form-textarea");
+      const composer = page.locator("textarea[data-new-session-form-textarea]");
       const original = hosted ? "" : "OWNED_ATTACHMENT_CREATION";
       if (original) await composer.pressSequentially(original);
       await page.locator('input[type="file"]').setInputFiles({
@@ -218,7 +218,7 @@ test("definitive attachment refusals preserve the draft and allow corrected inpu
     await page.goto(
       `${origin}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
     );
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.pressSequentially("OWNED_CORRECTED_ATTACHMENT");
     await page.locator('input[type="file"]').setInputFiles({
       name: "retained.txt",

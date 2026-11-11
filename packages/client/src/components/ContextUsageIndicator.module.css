@@ -1,0 +1,57 @@
+.contextUsageIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: default;
+}
+
+.contextUsagePie {
+  flex-shrink: 0;
+}
+
+.contextUsageLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (width <= 600px) {
+  [data-message-input-actions] .contextUsageIndicator {
+    position: static;
+    z-index: 2;
+    flex: 0 0 auto;
+    transform: none;
+    gap: 2px;
+    padding: 1px 4px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+  }
+}
+
+@media (width <= 600px) {
+  [data-message-input-wrapper]
+    [data-message-input-actions]
+    .contextUsageIndicator {
+    right: auto;
+    bottom: auto;
+  }
+}
+
+@media (width <= 480px) {
+  .contextUsagePie {
+    display: none;
+  }
+}
+
+[data-agent-card-meta] .contextUsageIndicator {
+  margin-left: auto;
+}
+
+[data-agent-metrics-wrap] + .contextUsageIndicator {
+  margin-left: 0;
+}
+[data-composer-bottom-overflow-menu-group] .contextUsageLabel {
+  display: none;
+}

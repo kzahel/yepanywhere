@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { I18nProvider } from "../../src/i18n";
 import { UsersSettings } from "../../src/pages/settings/UsersSettings";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 function Fixture() {
   const [updates, setUpdates] = useState(0);

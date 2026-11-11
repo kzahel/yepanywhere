@@ -19,7 +19,7 @@ const projectId = Buffer.from(join(e2ePaths.tempDir, "mockproject")).toString(
 );
 
 const composer = (page: Page) =>
-  page.locator("textarea.new-session-form-textarea");
+  page.locator("textarea[data-new-session-form-textarea]");
 
 const open = async (page: Page, baseURL: string | undefined) => {
   await page.goto(`${baseURL}/new-session?projectId=${projectId}`);
@@ -27,11 +27,13 @@ const open = async (page: Page, baseURL: string | undefined) => {
 };
 
 const attach = (page: Page, name: string) =>
-  page.locator(".new-session-form-toolbar input[type=file]").setInputFiles({
-    name,
-    mimeType: "text/plain",
-    buffer: Buffer.from(`contents of ${name}`),
-  });
+  page
+    .locator("[data-new-session-form-toolbar] input[type=file]")
+    .setInputFiles({
+      name,
+      mimeType: "text/plain",
+      buffer: Buffer.from(`contents of ${name}`),
+    });
 
 const chip = (page: Page, name: string) =>
   page.getByRole("button", { name: new RegExp(`Remove ${name}`) });

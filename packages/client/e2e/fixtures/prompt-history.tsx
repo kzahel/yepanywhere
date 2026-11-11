@@ -4,7 +4,7 @@ import { I18nProvider } from "../../src/i18n";
 import { PromptHistoryRail } from "../../src/components/PromptHistoryRail";
 import { rememberComposerPrompt } from "../../src/lib/composerHistory";
 import { UI_KEYS } from "../../src/lib/storageKeys";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 // The rail is opt-in; `?rail=off` exercises the default.
 localStorage.setItem(

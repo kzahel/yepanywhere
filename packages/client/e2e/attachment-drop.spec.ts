@@ -52,7 +52,7 @@ test("file drops stage draft attachments in new and existing sessions", async ({
     await page.goto(
       `${origin}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
     );
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await expect(composer).toBeVisible();
     await composer.pressSequentially("Use the attached references.");
     const surface = page.locator("[data-file-drop-surface]");

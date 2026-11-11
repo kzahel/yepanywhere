@@ -249,7 +249,7 @@ test("a staged attachment refuses Fork with summary before the fork composer ope
     messages: twoTurns,
   });
   await page
-    .locator(".message-input-wrapper input[type=file]")
+    .locator("[data-message-input-wrapper] input[type=file]")
     .first()
     .setInputFiles({
       name: "pin-notes.txt",
@@ -335,7 +335,7 @@ test("Handoff from a turn notch opens New Session prefilled from that turn on", 
       url.searchParams.get("projectId") === projectId &&
       url.searchParams.get("provider") === "claude",
   );
-  const composer = page.locator("textarea.new-session-form-textarea");
+  const composer = page.locator("textarea[data-new-session-form-textarea]");
   await expect(composer).toBeVisible();
   const prefill = await composer.inputValue();
   expect(prefill).toContain("You are taking over for a stopped session.");
@@ -538,6 +538,6 @@ test("/fork N forks after turn N and is recalled like a sent command", async ({
   // Accepted commands lead the recall drawer, ahead of the turns.
   await session.composer.press("Control+ArrowUp");
   await expect(
-    page.locator(".composer-recall-menu .slash-command-item").first(),
+    page.locator(".composer-recall-menu [data-slash-command-item]").first(),
   ).toContainText("/fork 2");
 });

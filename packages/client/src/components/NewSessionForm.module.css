@@ -1,3 +1,385 @@
+/* biome-ignore-all lint/style/noExcessiveLinesPerFile: Preserve the existing new-session responsive cascade in this ownership-only move; control decomposition belongs to the composer pass. */
+.newSessionForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.newSessionForm textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+  resize: none;
+  box-sizing: border-box;
+}
+
+.newSessionForm > button {
+  align-self: flex-end;
+}
+.newSessionFormCompact {
+  margin-bottom: 1.5rem;
+}
+
+.newSessionFormTextarea {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+  line-height: 1.35;
+  resize: none;
+  box-sizing: border-box;
+}
+
+.newSessionFormTextarea:focus {
+  outline: none;
+  border-color: var(--app-yep-green);
+  box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.15);
+}
+
+.newSessionFormToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.35rem;
+  --composer-control-size: 30px;
+  --composer-primary-control-size: 36px;
+}
+
+.newSessionFormToolbarLeft {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.newSessionFormToolbarActions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.newSessionContainer {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.newSessionHeader {
+  margin-bottom: 0.5rem;
+}
+
+.newSessionHeader h1 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+}
+
+.newSessionSubtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 34rem;
+}
+
+.newSessionTopLayout {
+  display: grid;
+  gap: 0.75rem;
+  align-items: start;
+  grid-template-areas:
+    "main"
+    "project"
+    "provider";
+}
+
+.newSessionMainStack {
+  grid-area: main;
+  min-width: 0;
+}
+
+.newSessionProjectSlot {
+  grid-area: project;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.newSessionProjectChooser {
+  position: relative;
+  padding: 0.4rem;
+  background: color-mix(in srgb, var(--bg-code) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 94%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.newSessionProjectControls {
+  display: grid;
+  grid-template-columns: minmax(0, 145px) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.newSessionProjectChooser.expanded .newSessionProjectControls {
+  grid-template-columns: 1fr;
+}
+
+.newSessionProjectSummary {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  container-type: inline-size;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.65rem;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.newSessionProjectSummaryBody {
+  min-width: 0;
+}
+
+.newSessionProjectSummaryTitle {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.newSessionProjectSummaryPath {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.newSessionProjectSummaryPathShort {
+  display: none;
+}
+
+@container (max-width: 205px) {
+  .newSessionProjectSummaryPathLong {
+    display: none;
+  }
+}
+
+@container (max-width: 205px) {
+  .newSessionProjectSummaryPathShort {
+    display: inline;
+  }
+}
+
+.newSessionProjectSummaryChevron {
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  place-self: center end;
+}
+
+.newSessionProjectChooser.expanded .newSessionProjectSummaryChevron {
+  transform: rotate(180deg);
+}
+
+.newSessionProjectInlineField {
+  min-width: 0;
+  position: relative;
+}
+
+.newSessionProjectInlineLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.newSessionProjectPanel {
+  position: absolute;
+  margin-top: var(--space-2);
+  top: calc(100% + var(--space-2));
+  inset-inline: 0;
+  z-index: 5;
+  padding: var(--space-2);
+  background: var(--bg-code);
+  border: 1px solid color-mix(in srgb, var(--border-color) 94%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.25);
+  max-height: min(28rem, 45vh);
+  overflow: hidden;
+}
+
+.newSessionProjectSuggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: min(28rem, 39vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.newSessionProjectInput {
+  width: 100%;
+  min-width: 0;
+  padding: 0.62rem 0.7rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+}
+
+.newSessionProjectInput:focus {
+  outline: none;
+  border-color: var(--app-yep-green);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.14);
+}
+
+.newSessionProjectFieldHint {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.newSessionProjectOption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.newSessionProjectOption:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-dimmed);
+}
+
+.newSessionProjectOption.selected {
+  border-color: var(--app-yep-green);
+  background: rgba(217, 119, 87, 0.08);
+}
+
+.newSessionProjectOptionName {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.newSessionProjectOptionPath {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  word-break: break-all;
+}
+
+.newSessionProjectEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.newSessionInputArea {
+  margin-bottom: 0;
+  container-type: inline-size;
+}
+
+.newSessionSubmitButton.newSessionSubmitButton {
+  width: var(--composer-primary-control-size);
+  height: var(--composer-primary-control-size);
+  border-radius: var(--radius-lg);
+}
+
+.newSessionProjectQueueButton.newSessionProjectQueueButton {
+  width: var(--composer-primary-control-size);
+  height: var(--composer-primary-control-size);
+  border-radius: var(--radius-lg);
+}
+
+.newSessionSubmitButton:disabled {
+  opacity: 1;
+  background: color-mix(in srgb, var(--app-yep-green) 46%, var(--bg-input));
+  color: color-mix(in srgb, white 76%, transparent);
+}
+
+.newSessionSubmitIcon.newSessionSubmitIcon {
+  width: 20px;
+  height: 20px;
+}
+
+@media (width <= 600px) {
+  .newSessionProjectSummary {
+    padding: 0.66rem 0.75rem;
+  }
+}
+
+@media (width <= 600px) {
+  .newSessionProjectSummaryPath {
+    display: none;
+  }
+}
+
+@media (width >= 900px) {
+  .newSessionTopLayout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-areas:
+      "main project"
+      "provider project";
+    gap: 1rem;
+  }
+}
+
+@media (width >= 900px) {
+  .newSessionProjectControls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width >= 900px) {
+  .newSessionProjectPanel {
+    max-height: min(28rem, 45vh);
+  }
+}
+@media (width <= 600px) {
+  .newSessionHeader h1 {
+    font-size: 1.05rem;
+  }
+}
+@media (width <= 600px) {
+  .newSessionSubtitle {
+    font-size: var(--font-size-sm);
+  }
+}
+
 /* A muted composer holds a draft the launch will not send — a fork copies the
    provider transcript instead. It stays readable so it can still inform the
    choice, but reads as inert and gives its height back to the options below. */
@@ -63,8 +445,8 @@
   text-align: left;
 }
 
-.selectedChoice :global(.mode-option-dot),
-.selectedChoice :global(.model-switch-indicator-dot) {
+.selectedChoice [data-mode-option-dot],
+.selectedChoice [data-model-switch-indicator-dot] {
   width: 10px;
   height: 10px;
 }
@@ -101,11 +483,11 @@
   min-block-size: calc(2lh + 2 * var(--space-2) + 2px);
 }
 
-.optionLayout :global(.new-session-provider-slot) {
+.optionLayout [data-new-session-provider-slot] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.optionLayout :global(.new-session-provider-slot) .compactProviderSection {
+.optionLayout [data-new-session-provider-slot] .compactProviderSection {
   grid-column: auto;
 }
 
@@ -113,8 +495,8 @@
   min-width: 0;
 }
 
-.secondaryOptions > :global(.new-session-helper-section),
-.secondaryOptions > :global(.new-session-mode-section) {
+.secondaryOptions > [data-new-session-helper-section],
+.secondaryOptions > [data-new-session-mode-section] {
   margin-bottom: 0;
 }
 
@@ -221,7 +603,7 @@
 }
 
 @media (width <= 600px) {
-  .optionLayout :global(.new-session-provider-slot) {
+  .optionLayout [data-new-session-provider-slot] {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -284,11 +666,11 @@
   margin-top: var(--space-2);
 }
 
-.captionedRecapDuration {
+.captionedRecapDuration.captionedRecapDuration {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.captionedRecapDuration :global(.recap-after-seconds-label) {
+.captionedRecapDuration [data-recap-after-seconds-label] {
   white-space: normal;
 }
 
@@ -353,27 +735,27 @@
   overflow: hidden;
 }
 
-.fullPane > :global(.new-session-header),
-.fullPane :global(.new-session-project-slot),
+.fullPane > .newSessionHeader,
+.fullPane .newSessionProjectSlot,
 .fullPane .newProject,
-.fullPane :global(.new-session-provider-slot),
+.fullPane [data-new-session-provider-slot],
 .fullPane .advancedSection,
 .fullPane .secondaryOptions {
   display: none;
 }
 
-.fullPane :global(.new-session-top-layout),
-.fullPane :global(.new-session-main-stack) {
+.fullPane .newSessionTopLayout,
+.fullPane .newSessionMainStack {
   display: block;
   min-height: 0;
   width: 100%;
 }
 
-.fullPane :global(.new-session-input-area) {
+.fullPane .newSessionInputArea {
   min-height: 0;
 }
 
-.fullPane :global(.speech-draft-field textarea) {
+.fullPane [data-speech-draft-field] textarea {
   max-height: 100%;
 }
 
@@ -467,66 +849,4 @@
 
 .toolbarActions {
   position: relative;
-}
-
-.shortcutsHelp {
-  flex-shrink: 0;
-}
-
-.shortcutsTrigger {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  list-style: none;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.shortcutsTrigger::-webkit-details-marker {
-  display: none;
-}
-
-.shortcutsQuestion {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-}
-
-.shortcutsTrigger:hover,
-.shortcutsTrigger:focus-visible {
-  color: var(--text-primary);
-}
-
-.shortcutsPopover {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 60;
-  display: grid;
-  gap: var(--space-2);
-  width: min(300px, calc(100dvw - 32px));
-  padding: var(--space-3);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.28);
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-}
-
-.shortcutsRow {
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.shortcutsRow kbd {
-  font-family: var(--font-mono);
 }

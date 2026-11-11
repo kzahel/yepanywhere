@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { AddProjectForm } from "../../src/components/AddProjectForm";
 import { I18nProvider } from "../../src/i18n";
 import { SettingsSection } from "../../src/pages/settings/SettingsSection";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Templates.module.css";
 import { AppReservations } from "./AppReservations";
 

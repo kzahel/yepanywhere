@@ -43,7 +43,7 @@ pattern have landed. For controls without a
 shared version yet, the owners above remain the reference.
 
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) (selected
-2026-11-10; steps 1–6 landed, step 7 landing by area) closes the leaks around shared
+2026-11-10; steps 1–7 landed) closes the leaks around shared
 controls: caller classes that override a control's look, `ButtonBase` uses
 that draw a button by hand, literal type sizes and radii, and census pages
 that still list swept work. `controls:check` now enforces caller-class ownership
@@ -54,8 +54,8 @@ with rich/specialized exceptions listed in Census/ButtonBase exceptions.
 counted reasons for remaining exceptions ([CSS contract](css-architecture.md#type-sizes-and-radii)). The
 purpose split preserves appearance: `tokens.css` owns themes/fonts,
 `base.css` owns document defaults/state, and `generated.css` styles emitted
-HTML. `index.css` remains the common ordered import entry plus legacy React
-rules; `renderers.css` and `tool-rows.css` also drain to zero. The playground
+HTML. `purposeGlobals.ts` is the common ordered entry (KaTeX, tokens, generated,
+base); the three legacy stylesheets are empty pending step 8 deletion. The playground
 reads token data from `tokens.css`; generated-content wrappers retain counted
 context exceptions ([global contract](css-architecture.md#contract)).
 Login pages share `LoginLayout.module.css`; host/monitor/share pages and relay
@@ -86,7 +86,12 @@ Shared page/session headers, viewport/split layout, /btw pane and footer chrome
 now have module owners. Header density, inline/dialog rename, connection states,
 selection shielding and content-width/overflow behavior retain their existing
 look. Stable data boundaries serve DOM consumers and browser fixtures; the
-composer controls remain unchanged until their final ownership-only move.
+composer controls now have module owners as well, with their look unchanged.
+Input, toolbar and new-session forms share action/dot styles; speech, mode,
+thinking, context, recall and attachment controls retain their previous states
+and responsive geometry. Sequential typing remains independent of streaming
+updates and must acknowledge every key within 100 ms. Control swaps still
+belong to plan 182's composer pass.
 Ownership repairs keep Bash/Web copied feedback visible after hover/focus ends
 for its existing three-second interval; source-view partial copy remains exact.
 Rendered Edit panels and Grep directory labels share their established owners.
@@ -629,8 +634,9 @@ The playground's pages:
   **Controls/Spinner** and **Controls/Tabs:** the shared states and variants.
 - **Controls/Dialog:** shared dialog sizes, forms, choices and confirmations.
 - **Patterns/Selectable card:** shared rich action and navigation surfaces.
-- **Census/Composer:** the remaining composer button classes with live CSS
-  locations and excluded raw buttons/fields with TSX locations. It owns plan
+- **Census/Composer:** remaining composer look rules with module locations and
+  excluded raw buttons/fields with TSX locations. Their appearance now lives
+  in owner/shared CSS Modules. It owns plan
   182's composer follow-up; no swept-family samples remain.
 - **Census/Control overrides:** every counted caller-style exception, split
   into button and other-control sections.

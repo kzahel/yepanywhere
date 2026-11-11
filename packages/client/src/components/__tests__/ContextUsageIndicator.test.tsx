@@ -21,13 +21,13 @@ describe("ContextUsageIndicator", () => {
       </I18nProvider>,
     );
 
-    const indicator = container.querySelector(".context-usage-indicator");
+    const indicator = container.querySelector("[data-context-usage-indicator]");
     expect(indicator?.getAttribute("title")).toBe(
       "Context: 19.4% (50.0K / 258.0K tokens)",
     );
-    expect(container.querySelector(".context-usage-label")?.textContent).toBe(
-      "19%",
-    );
+    expect(
+      container.querySelector("[data-context-usage-label]")?.textContent,
+    ).toBe("19%");
   });
 
   it("falls back to input-only tooltip when contextWindow is missing", () => {
@@ -39,7 +39,7 @@ describe("ContextUsageIndicator", () => {
       </I18nProvider>,
     );
 
-    const indicator = container.querySelector(".context-usage-indicator");
+    const indicator = container.querySelector("[data-context-usage-indicator]");
     expect(indicator?.getAttribute("title")).toBe(
       "Context: 25% (50.0K tokens)",
     );

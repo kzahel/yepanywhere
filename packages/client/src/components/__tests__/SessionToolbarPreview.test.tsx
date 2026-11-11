@@ -23,9 +23,9 @@ describe("ToolbarControlPreview", () => {
   it("renders the Project Queue specimen without the primary send button", () => {
     const { container } = renderControl("projectQueue");
 
-    expect(container.querySelector(".project-queue-button")).toBeTruthy();
+    expect(container.querySelector("[data-project-queue-button]")).toBeTruthy();
     expect(
-      container.querySelector(".project-queue-new-session-button"),
+      container.querySelector("[data-project-queue-new-session-button]"),
     ).toBeNull();
     expect(container.querySelector(".send-button-with-help")).toBeNull();
   });
@@ -34,7 +34,7 @@ describe("ToolbarControlPreview", () => {
     const { container } = renderControl("projectQueueNewSessionShortcut");
 
     expect(
-      container.querySelector(".project-queue-new-session-button"),
+      container.querySelector("[data-project-queue-new-session-button]"),
     ).toBeTruthy();
     expect(container.textContent).toContain("+");
     expect(container.querySelector(".send-button-with-help")).toBeNull();
@@ -43,16 +43,18 @@ describe("ToolbarControlPreview", () => {
   it("renders the Now specimen without the primary send button", () => {
     const { container } = renderControl("steerNow");
 
-    expect(container.querySelector(".steer-now-toggle")).toBeTruthy();
+    expect(container.querySelector("[data-steer-now-toggle]")).toBeTruthy();
     expect(container.querySelector(".send-button-with-help")).toBeNull();
   });
 
   it("renders the Conversation view specimen as active", () => {
     const { container } = renderControl("conversationView");
 
-    const button = container.querySelector(".conversation-view-toolbar-button");
+    const button = container.querySelector(
+      "[data-conversation-view-toolbar-button]",
+    );
     expect(button).toBeTruthy();
-    expect(button?.classList.contains("active")).toBe(true);
+    expect(button?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows a static waveform and its default button opacity", () => {
@@ -77,7 +79,7 @@ describe("ToolbarControlPreview", () => {
     ).toBeTruthy();
     expect(
       container
-        .querySelector(".message-input-toolbar")
+        .querySelector("[data-message-input-toolbar]")
         ?.getAttribute("data-waveform-button-background-opacity"),
     ).toBe("70");
   });

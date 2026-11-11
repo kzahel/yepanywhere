@@ -8,7 +8,7 @@ import { I18nProvider } from "../../src/i18n";
 import { IssueTypeBadge } from "../../src/pages/IssueTypeBadge";
 import { SettingsItem } from "../../src/pages/settings/SettingsItem";
 import { SettingsSection } from "../../src/pages/settings/SettingsSection";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Panel.module.css";
 
 type View = "pr" | "off" | "elsewhere" | "options";

@@ -186,7 +186,7 @@ test("moves only the next fragment when the caret changes mid-interim", async ({
   await emitSpeechResults(page, [
     { transcript: "spoken first", isFinal: false },
   ]);
-  await expect(page.locator(".speech-interim-inline")).toHaveText(
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
     "spoken first",
   );
 
@@ -198,7 +198,7 @@ test("moves only the next fragment when the caret changes mid-interim", async ({
     { transcript: "spoken first still speaking", isFinal: false },
   ]);
   await expect(textarea).toHaveValue("existing text");
-  await expect(page.locator(".speech-interim-inline")).toHaveText(
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
     "spoken first still speaking",
   );
 
@@ -209,7 +209,7 @@ test("moves only the next fragment when the caret changes mid-interim", async ({
   await expect(textarea).toHaveValue(
     "existing text spoken first still speaking",
   );
-  await expect(page.locator(".speech-interim-inline")).toHaveText(
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
     "resumed speech",
   );
 
@@ -283,7 +283,7 @@ test("sends the final ASR wording with its prefix when Send is pressed", async (
   await emitSpeechResults(page, [
     { transcript: "provisional words", isFinal: false },
   ]);
-  await expect(page.locator(".speech-interim-inline")).toHaveText(
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
     "provisional words",
   );
 
@@ -322,7 +322,9 @@ test("keeps keys typed while a dictated Send settles", async ({
     "set aside draft",
   );
   await emitSpeechResults(page, [{ transcript: "spoken", isFinal: false }]);
-  await expect(page.locator(".speech-interim-inline")).toHaveText("spoken");
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
+    "spoken",
+  );
   await page.evaluate(() => {
     Object.assign(window, {
       holdSpeechStop: true,
@@ -401,14 +403,14 @@ test("commits the interim text visible when Stop is pressed", async ({
   await emitSpeechResults(page, [
     { transcript: "provisional words", isFinal: false },
   ]);
-  await expect(page.locator(".speech-interim-inline")).toHaveText(
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
     "provisional words",
   );
 
   await page.getByRole("button", { name: "Stop voice input" }).click();
 
   await expect(textarea).toHaveValue("provisional words alpha omega");
-  await expect(page.locator(".speech-interim-inline")).toHaveCount(0);
+  await expect(page.locator("[data-speech-interim-inline]")).toHaveCount(0);
 });
 
 /**
@@ -522,7 +524,7 @@ for (const box of ["in-session", "new-session"] as const) {
         finals.length,
       );
     await emitInterim("spoken words");
-    await expect(page.locator(".speech-interim-inline")).toHaveText(
+    await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
       "spoken words",
     );
 
@@ -564,7 +566,7 @@ for (const box of ["in-session", "new-session"] as const) {
     for (const [index, character] of [...keys].entries()) {
       if (index % 4 === 2) {
         await emitInterim(`spoken words ${index}`);
-        await expect(page.locator(".speech-interim-inline")).toHaveText(
+        await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
           `spoken words ${index}`,
         );
       }

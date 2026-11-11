@@ -140,18 +140,18 @@ test("typing around the recall drawer acknowledges every key", async ({
   };
 
   const menu = page.locator(".composer-recall-menu");
-  const menuRows = menu.locator(".slash-command-item");
+  const menuRows = menu.locator("[data-slash-command-item]");
 
   // Open over every turn, move the selection while the transcript updates,
   // then type: the first key closes the still-open drawer and lands in the
   // draft.
   await page.keyboard.press("Control+ArrowUp");
   await expect(menu).toBeVisible();
-  await expect(menuRows.nth(0)).toHaveClass(/\bactive\b/);
+  await expect(menuRows.nth(0)).toHaveAttribute("data-composer-recall-active");
   await page.keyboard.press("ArrowDown");
   await updateTranscript();
   await page.keyboard.press("ArrowDown");
-  await expect(menuRows.nth(2)).toHaveClass(/\bactive\b/);
+  await expect(menuRows.nth(2)).toHaveAttribute("data-composer-recall-active");
   await expect(composer).toHaveValue("");
   const prefix = "Recall fixture turn 29";
   await typeMeasured("", prefix);
@@ -169,7 +169,7 @@ test("typing around the recall drawer acknowledges every key", async ({
   // typing after the drafted text.
   await page.keyboard.press("Control+ArrowUp");
   await expect(menu).toBeVisible();
-  const active = menu.locator(".slash-command-item.active");
+  const active = menu.locator("[data-composer-recall-active]");
   const accepted = (await active.textContent()) ?? "";
   expect(accepted.startsWith(prefix)).toBe(true);
   await page.keyboard.press("Enter");

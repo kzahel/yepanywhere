@@ -74,7 +74,7 @@ test("one menu click reaches a question far outside the render window", async ({
     });
     await expect(page.getByText(/^Later progress 239\./)).toBeVisible();
     await page
-      .locator(".message-input-actions")
+      .locator("[data-message-input-actions]")
       .getByRole("button", { name: /^1 question/ })
       .click();
     await page

@@ -12,7 +12,7 @@ import { ArtifactSettings } from "../../src/pages/settings/ArtifactSettings";
 import { useVersion } from "../../src/hooks/useVersion";
 import { I18nProvider } from "../../src/i18n";
 import { LocalFileModal } from "../../src/components/LocalMediaModal";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 function Fixture() {
   useVersion();

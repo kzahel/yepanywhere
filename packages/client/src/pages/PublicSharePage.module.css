@@ -107,7 +107,7 @@
 }
 
 .floatingControls .conversationToggle,
-.floatingControls :global(.message-follow-toggle) {
+.floatingControls [data-message-follow-toggle] {
   position: static;
   top: auto;
   right: auto;

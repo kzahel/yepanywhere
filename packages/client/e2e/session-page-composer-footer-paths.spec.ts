@@ -140,8 +140,8 @@ test("a pending question shows above a collapsed composer and Submit sends the a
   const footer = page.locator("[data-session-input-inner]");
   await expect(footer.getByText("Which parser should I use?")).toBeVisible();
   // The composer stays beneath the question, collapsed.
-  await expect(page.locator(".message-input")).toHaveClass(
-    /message-input-collapsed/,
+  await expect(page.locator("[data-message-input]")).toHaveAttribute(
+    "data-message-input-collapsed",
   );
 
   await footer.getByRole("button", { name: /Generated/ }).click();
@@ -163,8 +163,8 @@ test("the composer asks to resume an idle session and to queue for a busy one", 
     "placeholder",
     "Send a message to resume...",
   );
-  await expect(page.locator(".message-input")).not.toHaveClass(
-    /message-input-collapsed/,
+  await expect(page.locator("[data-message-input]")).not.toHaveAttribute(
+    "data-message-input-collapsed",
   );
 
   const busy = await openSessionPage(page, baseURL, {

@@ -1,3 +1,4 @@
+import speechStyles from "./SpeechControlMenu.module.css";
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -395,7 +396,7 @@ export function SpeechControlMenu({
     <div
       ref={rootRef}
       role="presentation"
-      className={`speech-control-menu${open ? " is-open" : ""}`}
+      className={`${speechStyles.speechControlMenu}${open ? ` ${speechStyles["is-open"]}` : ""}`}
       {...rootDataAttributes}
       onClickCapture={handleClickCapture}
       onContextMenu={handleContextMenu}
@@ -408,14 +409,14 @@ export function SpeechControlMenu({
       {open && (
         <div
           ref={panelRef}
-          className="speech-options-panel"
+          className={speechStyles.speechOptionsPanel}
           role="dialog"
           aria-label="Speech options"
         >
-          <div className="speech-options-header">
-            <div className="speech-options-title-block">
-              <span className="speech-options-title">Speech</span>
-              <span className="speech-options-subtitle">
+          <div className={speechStyles.speechOptionsHeader}>
+            <div className={speechStyles.speechOptionsTitleBlock}>
+              <span className={speechStyles.speechOptionsTitle}>Speech</span>
+              <span className={speechStyles.speechOptionsSubtitle}>
                 {selectedMethodLabel}
               </span>
             </div>
@@ -428,7 +429,7 @@ export function SpeechControlMenu({
             </IconButton>
           </div>
           {showSmartTurnControls && (
-            <section className="speech-options-section">
+            <section className={speechStyles.speechOptionsSection}>
               <SpeechSmartTurnControls
                 settings={smartTurnSettings}
                 onChange={onSmartTurnSettingsChange}
@@ -436,23 +437,23 @@ export function SpeechControlMenu({
               />
             </section>
           )}
-          <section className="speech-options-section">
-            <div className="speech-options-section-title">
+          <section className={speechStyles.speechOptionsSection}>
+            <div className={speechStyles.speechOptionsSectionTitle}>
               {t("speechSettingsMessagePrefixTitle")}
             </div>
             <SpeechMessagePrefixControls disabled={smartTurnDisabled} />
           </section>
           {showParakeetModelControls && (
-            <section className="speech-options-section">
+            <section className={speechStyles.speechOptionsSection}>
               <label
-                className="speech-options-section-title"
+                className={speechStyles.speechOptionsSectionTitle}
                 htmlFor={parakeetModelPresetId}
               >
                 {t("speechSettingsParakeetModelTitle")}
               </label>
               <select
                 id={parakeetModelPresetId}
-                className="speech-parakeet-model-select"
+                className={speechStyles.speechParakeetModelSelect}
                 value={selectedParakeetPreset}
                 onChange={(event) => {
                   const preset = event.currentTarget.value;
@@ -478,7 +479,7 @@ export function SpeechControlMenu({
               </select>
               <input
                 id={parakeetModelInputId}
-                className="speech-parakeet-model-input"
+                className={speechStyles.speechParakeetModelInput}
                 value={parakeetSpeechModel}
                 placeholder={t(
                   recentModels
@@ -500,8 +501,8 @@ export function SpeechControlMenu({
             </section>
           )}
           {selectedMethod === "ya-whisper" && recentModels && (
-            <section className="speech-options-section">
-              <div className="speech-options-section-title">
+            <section className={speechStyles.speechOptionsSection}>
+              <div className={speechStyles.speechOptionsSectionTitle}>
                 {t("speechSettingsWhisperModelTitle")}
               </div>
               <WhisperModelControls
@@ -512,10 +513,12 @@ export function SpeechControlMenu({
             </section>
           )}
           {showMethodSelector && (
-            <section className="speech-options-section">
-              <div className="speech-options-section-title">STT backend</div>
+            <section className={speechStyles.speechOptionsSection}>
+              <div className={speechStyles.speechOptionsSectionTitle}>
+                STT backend
+              </div>
               <div
-                className="speech-method-options"
+                className={speechStyles.speechMethodOptions}
                 role="radiogroup"
                 aria-label="STT backend"
               >
@@ -528,9 +531,7 @@ export function SpeechControlMenu({
                     <button
                       key={option.value}
                       type="button"
-                      className={`speech-method-option${
-                        selected ? " selected" : ""
-                      }`}
+                      className={`${speechStyles.speechMethodOption}${selected ? ` ${speechStyles.selected}` : ""}`}
                       role="radio"
                       aria-checked={selected}
                       aria-label={option.label}
@@ -544,19 +545,22 @@ export function SpeechControlMenu({
                         onMethodChange([option.value]);
                       }}
                     >
-                      <span className="speech-method-radio" aria-hidden="true">
+                      <span
+                        className={speechStyles.speechMethodRadio}
+                        aria-hidden="true"
+                      >
                         {selected && (
-                          <span className="speech-method-radio-dot" />
+                          <span className={speechStyles.speechMethodRadioDot} />
                         )}
                       </span>
-                      <span className="speech-method-copy">
-                        <span className="speech-method-label">
+                      <span className={speechStyles.speechMethodCopy}>
+                        <span className={speechStyles.speechMethodLabel}>
                           {option.label}
                         </span>
                         {option.description && (
                           <span
                             id={descriptionId}
-                            className="speech-method-description"
+                            className={speechStyles.speechMethodDescription}
                             title={option.description}
                           >
                             {option.description}
@@ -570,16 +574,16 @@ export function SpeechControlMenu({
             </section>
           )}
           {showMicDeviceControls && (
-            <section className="speech-options-section">
+            <section className={speechStyles.speechOptionsSection}>
               <label
-                className="speech-options-section-title"
+                className={speechStyles.speechOptionsSectionTitle}
                 htmlFor={micDeviceSelectId}
               >
                 Microphone
               </label>
               <select
                 id={micDeviceSelectId}
-                className="speech-mic-device-select"
+                className={speechStyles.speechMicDeviceSelect}
                 value={micDeviceId ?? ""}
                 onChange={(event) => {
                   onBeforeCaptureChange?.();
@@ -600,15 +604,17 @@ export function SpeechControlMenu({
                 ))}
               </select>
               {micDeviceError && (
-                <div className="speech-mic-device-error">{micDeviceError}</div>
+                <div className={speechStyles.speechMicDeviceError}>
+                  {micDeviceError}
+                </div>
               )}
             </section>
           )}
-          <section className="speech-options-section">
-            <div className="speech-options-section-title">
+          <section className={speechStyles.speechOptionsSection}>
+            <div className={speechStyles.speechOptionsSectionTitle}>
               {t("speechSettingsReducePlaybackSection")}
             </div>
-            <label className="speech-method-option">
+            <label className={speechStyles.speechMethodOption}>
               <input
                 type="checkbox"
                 checked={reducePlayback}
@@ -617,8 +623,8 @@ export function SpeechControlMenu({
                   setReducePlayback(event.currentTarget.checked);
                 }}
               />
-              <span className="speech-method-copy">
-                <span className="speech-method-label">
+              <span className={speechStyles.speechMethodCopy}>
+                <span className={speechStyles.speechMethodLabel}>
                   {t("speechSettingsReducePlaybackTitle")}
                 </span>
               </span>

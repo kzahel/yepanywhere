@@ -251,9 +251,9 @@ function ProcessMetrics({
 
   return (
     <span
-      // `agent-metrics-wrap` stays for the global ContextUsageIndicator
-      // sibling rule in styles/index.css.
-      className={cx("agent-metrics-wrap", styles.metricsWrap)}
+      // This data boundary preserves ContextUsageIndicator sibling geometry.
+      className={styles.metricsWrap}
+      data-agent-metrics-wrap
       ref={wrapperRef}
     >
       <ButtonBase
@@ -356,9 +356,8 @@ function ProcessCard({
             </Button>
           )}
         </div>
-        {/* `agent-card-meta` stays for the global ContextUsageIndicator
-            descendant rule in styles/index.css. */}
-        <div className={cx("agent-card-meta", styles.cardMeta)}>
+        {/* ContextUsageIndicator owns descendant geometry under this data boundary. */}
+        <div className={styles.cardMeta} data-agent-card-meta>
           <span className={styles.cardProject}>{process.projectName}</span>
           {process.pid !== undefined && (
             <span className={styles.cardPid}>
@@ -532,9 +531,8 @@ function ExternalProcessCard({
           </Badge>
           <Badge size="small">{t("agentsOutsideYa" as never)}</Badge>
         </div>
-        {/* `agent-card-meta` stays for the global ContextUsageIndicator
-            descendant rule in styles/index.css. */}
-        <div className={cx("agent-card-meta", styles.cardMeta)}>
+        {/* ContextUsageIndicator owns descendant geometry under this data boundary. */}
+        <div className={styles.cardMeta} data-agent-card-meta>
           <span className={styles.cardPid}>
             {t("agentsPid" as never, { pid: observation.pid })}
           </span>

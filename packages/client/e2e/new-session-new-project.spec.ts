@@ -31,15 +31,15 @@ test("New project starts a session in a fresh folder without Git", async ({
   await expect(git).toBeChecked();
   await git.uncheck();
   await page
-    .locator("textarea.new-session-form-textarea")
+    .locator("textarea[data-new-session-form-textarea]")
     .fill("Say hello from the new folder");
   await page
-    .locator(".new-session-project-chooser")
+    .locator("[data-new-session-project-chooser]")
     .evaluate((node) => node.scrollIntoView({ block: "start" }));
   await recordUiCapture(page, "new-project-desktop");
   await page.setViewportSize({ width: 375, height: 812 });
   await page
-    .locator(".new-session-project-chooser")
+    .locator("[data-new-session-project-chooser]")
     .evaluate((node) => node.scrollIntoView({ block: "start" }));
   await recordUiCapture(page, "new-project-phone");
   expect(
@@ -49,7 +49,7 @@ test("New project starts a session in a fresh folder without Git", async ({
   ).toBe(true);
   await page.setViewportSize({ width: 1200, height: 600 });
 
-  await page.locator(".new-session-submit-button").click();
+  await page.locator("[data-new-session-submit-button]").click();
   await expect(page).toHaveURL(/\/projects\/[^/]+\/sessions\/[^/]+$/, {
     timeout: 30_000,
   });
@@ -70,22 +70,22 @@ test("an unmatched typed path opens the same New project panel", async ({
   await expect(missingFolder).toBeVisible();
   // The search box is the path field: no second box repeats it.
   await expect(panel.getByRole("textbox")).toHaveCount(0);
-  await expect(page.locator(".new-session-project-summary-title")).toHaveText(
-    "no-such-project-yet",
-  );
+  await expect(
+    page.locator("[data-new-session-project-summary-title]"),
+  ).toHaveText("no-such-project-yet");
   // The suggestion list drops below the search; clicking away closes it and
   // leaves the panel.
   await expect(page.locator("#new-session-project-panel")).toBeVisible();
-  await page.locator("textarea.new-session-form-textarea").click();
+  await page.locator("textarea[data-new-session-form-textarea]").click();
   await expect(page.locator("#new-session-project-panel")).toBeHidden();
   await expect(missingFolder).toBeVisible();
   await page
-    .locator(".new-session-project-chooser")
+    .locator("[data-new-session-project-chooser]")
     .evaluate((node) => node.scrollIntoView({ block: "start" }));
   await recordUiCapture(page, "new-project-typed-path-desktop");
   await page.setViewportSize({ width: 375, height: 812 });
   await page
-    .locator(".new-session-project-chooser")
+    .locator("[data-new-session-project-chooser]")
     .evaluate((node) => node.scrollIntoView({ block: "start" }));
   await recordUiCapture(page, "new-project-typed-path-phone");
 });

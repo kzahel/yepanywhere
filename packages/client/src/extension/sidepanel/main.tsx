@@ -7,7 +7,7 @@ import { createRoot } from "react-dom/client";
 import { TooltipLayer } from "../../components/ui/TooltipLayer";
 import { initializeTheme } from "../../hooks/useTheme";
 import { I18nProvider } from "../../i18n";
-import "../../styles/index.css";
+import "../../styles/purposeGlobals";
 import { SidePanel } from "./SidePanel";
 
 initializeTheme();

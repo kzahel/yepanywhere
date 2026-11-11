@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { SettingsSection } from "../../src/pages/settings/SettingsSection";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Prompts.module.css";
 
 const DEFAULT_BLOCK =

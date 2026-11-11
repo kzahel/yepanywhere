@@ -1,0 +1,89 @@
+.newSessionProviderSlot {
+  grid-area: provider;
+  min-width: 0;
+  display: grid;
+  /* Same container-driven packing as the settings Session Defaults panel:
+     columns follow the slot's own width, collapsing to one on phones. */
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.65rem 1rem;
+  align-items: start;
+}
+.newSessionProviderSection {
+  margin-bottom: 0.9rem;
+}
+.newSessionProviderSlot .newSessionProviderSection {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.newSessionProviderSection h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-2);
+}
+.newSessionModelSection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.newSessionModelField {
+  min-width: 0;
+}
+
+.newSessionModelField h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-2);
+}
+
+.newSessionHelperSection {
+  margin-bottom: 0.65rem;
+}
+
+.newSessionHelperSection h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-2);
+}
+.newSessionModeSection {
+  margin-bottom: 0.75rem;
+}
+
+.newSessionProviderSlot > .newSessionModelSection,
+.newSessionProviderSlot > .newSessionHelperSection,
+.newSessionProviderSlot > .newSessionModeSection {
+  margin-bottom: 0;
+}
+
+.newSessionProviderSlot > .newSessionSandboxSection {
+  grid-column: span 2;
+}
+
+.newSessionModeSection h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-2);
+}
+
+.newSessionProviderSlot .newSessionModeSection {
+  grid-column: 1 / -1;
+}
+@media (width <= 600px) {
+  .newSessionProviderSlot > .newSessionSandboxSection {
+    grid-column: 1 / -1;
+  }
+}

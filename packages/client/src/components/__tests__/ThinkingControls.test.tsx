@@ -55,8 +55,8 @@ describe("ThinkingControls", () => {
     expect(
       screen
         .getByRole("group", { name: "Thinking amount" })
-        .classList.contains("thinking-effort-selector--settings"),
-    ).toBe(true);
+        .getAttribute("data-thinking-effort-variant"),
+    ).toBe("settings");
     expect(
       screen
         .getByRole("button", { name: "Thinking amount: High" })
@@ -105,7 +105,7 @@ describe("ThinkingControls", () => {
       ),
     ).toBe(true);
     expect(
-      sections[2]?.classList.contains("thinking-controls-section--effort"),
+      sections[2]?.hasAttribute("data-thinking-controls-section--effort"),
     ).toBe(true);
   });
 
@@ -145,13 +145,17 @@ describe("ThinkingControls", () => {
       />,
     );
 
-    expect(container.querySelector(".mode-option-dot.thinking-on")).toBeNull();
     expect(
-      container.querySelector(".thinking-controls-section--effort"),
+      container.querySelector(
+        '[data-thinking-section="mode"] button[aria-label="On"]',
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector("[data-thinking-controls-section--effort]"),
     ).toBeNull();
 
     const offModeButton = container
-      .querySelector(".mode-option-dot.thinking-off")
+      .querySelector('[data-thinking-section="mode"] button')
       ?.closest("button");
     expect(offModeButton).not.toBeNull();
 

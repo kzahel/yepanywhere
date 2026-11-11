@@ -161,7 +161,7 @@ test("saves a provider switch and starts with the options off their defaults", a
       },
     });
 
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.pressSequentially("Pinned option start");
     await page
       .getByRole("button", { name: "Start session", exact: true })

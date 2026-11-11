@@ -106,7 +106,7 @@ function getTextareaMinimumHeight(textarea: HTMLTextAreaElement): number {
 
 function getComposerChromeHeight(textarea: HTMLTextAreaElement): number {
   const composer = textarea.closest(
-    '[data-composer-shell="true"], .message-input',
+    '[data-composer-shell="true"], [data-message-input]',
   );
   if (!(composer instanceof HTMLElement)) return 0;
   return Math.max(
@@ -236,4 +236,11 @@ export function scrollCollapsedTextareaToCursor(
     maxScrollTop,
     Math.max(0, hardLineIndex * lineHeight),
   );
+}
+
+export function getComposerViewportHeight(): number {
+  const visualViewportHeight = window.visualViewport?.height;
+  return typeof visualViewportHeight === "number"
+    ? Math.min(window.innerHeight, visualViewportHeight)
+    : window.innerHeight;
 }

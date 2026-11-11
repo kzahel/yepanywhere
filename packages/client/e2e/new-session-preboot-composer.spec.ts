@@ -81,7 +81,7 @@ test("keys typed before the app loads reach the new-session composer", async ({
   const earlyBox = await preboot.boundingBox();
   await release();
 
-  const composer = page.locator("textarea.new-session-form-textarea");
+  const composer = page.locator("textarea[data-new-session-form-textarea]");
   await expect(composer).toBeFocused({ timeout: 30_000 });
   await expect(page.locator("#yep-preboot-composer")).toHaveCount(0);
   expect(
@@ -101,7 +101,7 @@ test("keys typed before the app loads reach the new-session composer", async ({
   );
   await expect(page.locator("[data-sidebar-floating-restore]")).toHaveCount(0);
   const adoptedBox = await page
-    .locator(".new-session-form .speech-draft-field")
+    .locator("[data-new-session-form] [data-speech-draft-field]")
     .boundingBox();
   expect(Math.abs(adoptedBox!.x - earlyBox!.x)).toBeLessThan(2);
   expect(Math.abs(adoptedBox!.width - earlyBox!.width)).toBeLessThan(2);
@@ -112,7 +112,7 @@ test("keys typed before the app loads reach the new-session composer", async ({
   expect(Math.max(...samples)).toBeLessThan(100);
   // Let project/provider discovery settle before reviewing the final form.
   await page.waitForURL((url) => url.searchParams.has("projectId"));
-  await expect(page.locator(".new-session-provider-slot")).toContainText(
+  await expect(page.locator("[data-new-session-provider-slot]")).toContainText(
     "Claude",
   );
   await expect(
@@ -145,7 +145,7 @@ test("a reload before the app adopts the composer keeps what was typed", async (
   await page.keyboard.type(" a reload", { delay: 10 });
 
   await release();
-  const composer = page.locator("textarea.new-session-form-textarea");
+  const composer = page.locator("textarea[data-new-session-form-textarea]");
   await expect(composer).toBeFocused({ timeout: 30_000 });
   await expect(composer).toHaveValue("typed before a reload");
   // Adopted once: the stash is spent, so a later reload does not add it again.
@@ -186,12 +186,14 @@ test("New Session route data arrives before the UI runtime executes", async ({
       "version",
     ]);
     expect(held.length).toBeGreaterThan(0);
-    await expect(page.locator(".new-session-form textarea")).toHaveCount(0);
+    await expect(page.locator("[data-new-session-form] textarea")).toHaveCount(
+      0,
+    );
   } finally {
     releasing = true;
     await Promise.all(held.map((route) => route.continue()));
   }
-  const composer = page.locator("textarea.new-session-form-textarea");
+  const composer = page.locator("textarea[data-new-session-form-textarea]");
   await expect(composer).toBeVisible();
   await composer.focus();
   let typed = "";
@@ -251,7 +253,7 @@ test("route data arrives before the New Session module executes", async ({
   await page.addInitScript(() => {
     const observer = new MutationObserver(() => {
       const input = document.querySelector<HTMLInputElement>(
-        ".new-session-project-input",
+        "[data-new-session-project-input]",
       );
       if (!input) return;
       Object.assign(window, { firstNewSessionProjectValue: input.value });
@@ -292,13 +294,17 @@ test("route data arrives before the New Session module executes", async ({
       ]),
     );
     expect(held.length).toBeGreaterThan(0);
-    await expect(page.locator(".new-session-form textarea")).toHaveCount(0);
+    await expect(page.locator("[data-new-session-form] textarea")).toHaveCount(
+      0,
+    );
   } finally {
     releasing = true;
     await Promise.all(held.map((route) => route.continue()));
   }
-  await expect(page.locator(".new-session-form textarea")).toBeVisible();
-  await page.locator(".new-session-form textarea").pressSequentially("ready");
+  await expect(page.locator("[data-new-session-form] textarea")).toBeVisible();
+  await page
+    .locator("[data-new-session-form] textarea")
+    .pressSequentially("ready");
   expect(projectDetailRequests).toEqual([]);
   expect(mathRequests).toEqual([]);
   expect(
@@ -365,9 +371,9 @@ for (const viewport of [
     const positions = () =>
       page.evaluate(() => {
         const selectors = [
-          ".new-session-provider-section",
-          ".new-session-model-section",
-          ".new-session-provider-slot > .new-session-helper-section",
+          "[data-new-session-provider-section]",
+          "[data-new-session-model-section]",
+          "[data-new-session-provider-slot] > [data-new-session-helper-section]",
           '[aria-controls="new-session-advanced-options"]',
         ];
         return selectors.map((selector) => {
@@ -379,9 +385,11 @@ for (const viewport of [
       });
     try {
       await page.goto(`${baseURL}/new-session`, { waitUntil: "commit" });
-      await expect(page.locator(".new-session-provider-slot")).toBeAttached();
+      await expect(
+        page.locator("[data-new-session-provider-slot]"),
+      ).toBeAttached();
       const before = await positions();
-      const composer = page.locator("textarea.new-session-form-textarea");
+      const composer = page.locator("textarea[data-new-session-form-textarea]");
       let draft = await composer.inputValue();
       await composer.press("ControlOrMeta+End");
       for (const path of releases.keys()) {
@@ -423,7 +431,7 @@ for (const viewport of [
         }
       }
       await expect(
-        page.locator(".new-session-model-field button").first(),
+        page.locator("[data-new-session-model-field] button").first(),
       ).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Refresh", exact: true }),
@@ -455,11 +463,11 @@ test("refresh preserves saved sidebar modes on New Session", async ({
     }, mode);
     await page.goto(`${baseURL}/new-session`);
     await expect(
-      page.locator("textarea.new-session-form-textarea"),
+      page.locator("textarea[data-new-session-form-textarea]"),
     ).toBeVisible();
     await page.reload();
     await expect(
-      page.locator("textarea.new-session-form-textarea"),
+      page.locator("textarea[data-new-session-form-textarea]"),
     ).toBeVisible();
     if (mode === "minimized") {
       await expect(
@@ -548,16 +556,18 @@ test("a sibling tab shows projects while version and catalog requests are held",
       `${baseURL}/new-session?projectId=${encodeURIComponent(project.id)}`,
       { waitUntil: "commit" },
     );
-    await expect(sibling.locator(".new-session-project-input")).toHaveValue(
-      project.path,
-    );
+    await expect(
+      sibling.locator("[data-new-session-project-input]"),
+    ).toHaveValue(project.path);
     await expect(
       sibling.getByText("Refreshing project…", { exact: false }),
     ).toBeVisible();
     await expect(
-      sibling.locator(".new-session-model-field button").first(),
+      sibling.locator("[data-new-session-model-field] button").first(),
     ).toBeVisible();
-    const composer = sibling.locator("textarea.new-session-form-textarea");
+    const composer = sibling.locator(
+      "textarea[data-new-session-form-textarea]",
+    );
     await composer.fill("");
     await composer.pressSequentially("project snapshot typing", { delay: 10 });
     await expect(composer).toHaveValue("project snapshot typing");
@@ -586,9 +596,9 @@ test("a sibling tab shows projects while version and catalog requests are held",
     await expect(
       sibling.getByText("Refreshing project…", { exact: false }),
     ).toHaveCount(0);
-    await expect(sibling.locator(".new-session-project-input")).toHaveValue(
-      project.path,
-    );
+    await expect(
+      sibling.locator("[data-new-session-project-input]"),
+    ).toHaveValue(project.path);
     await expect(composer).toHaveValue("project snapshot typing");
     expect(attempts).toEqual([]);
   } finally {
@@ -634,7 +644,7 @@ test("a sibling tab shows saved model and effort before settings or catalogs arr
     });
     await page.goto(`${baseURL}/new-session`);
     await expect(
-      page.locator(".new-session-model-field button").first(),
+      page.locator("[data-new-session-model-field] button").first(),
     ).toContainText("Sonnet");
     await page.waitForFunction(
       () => localStorage.getItem('ya:provider-row:["local","claude"]') !== null,
@@ -652,17 +662,19 @@ test("a sibling tab shows saved model and effort before settings or catalogs arr
     });
     await sibling.goto(page.url(), { waitUntil: "commit" });
     await expect(
-      sibling.locator(".new-session-model-field button").first(),
+      sibling.locator("[data-new-session-model-field] button").first(),
     ).toContainText("Sonnet");
     await expect(
       sibling.locator(
-        '.new-session-helper-section button[aria-label*="Thinking"]',
+        '[data-new-session-helper-section] button[aria-label*="Thinking"]',
       ),
     ).toContainText("High");
     await expect(
-      sibling.locator(".new-session-provider-section button"),
+      sibling.locator("[data-new-session-provider-section] button"),
     ).toContainText("Claude");
-    const composer = sibling.locator("textarea.new-session-form-textarea");
+    const composer = sibling.locator(
+      "textarea[data-new-session-form-textarea]",
+    );
     const originalDraft = await composer.inputValue();
     await composer.press("ControlOrMeta+End");
     await composer.pressSequentially("cached choices, live typing", {

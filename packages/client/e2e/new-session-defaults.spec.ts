@@ -172,7 +172,7 @@ test("remembers speed and router choices across clients while discovery preserve
     await expect(pool()).toContainText("Work");
     await expect(account()).toContainText("Weekly pace");
 
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.clear();
     await composer.evaluate((element) => {
       const field = element as HTMLTextAreaElement;

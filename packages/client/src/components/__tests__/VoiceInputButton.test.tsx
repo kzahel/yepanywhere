@@ -423,7 +423,7 @@ describe("VoiceInputButton", () => {
     const button = screen.getByRole("button", { name: "voiceInputStartLabel" });
     expect(button.className).not.toContain("listening");
     expect(button.getAttribute("aria-pressed")).toBe("false");
-    expect(document.querySelector(".voice-input-recording")).toBeNull();
+    expect(document.querySelector("[data-voice-input-recording]")).toBeNull();
     expect(screen.getByRole("status").textContent).toBe("Transcribing...");
   });
 
@@ -455,7 +455,7 @@ describe("VoiceInputButton", () => {
     const button = screen.getByRole("button", { name: "Finalizing..." });
     expect(button.className).not.toContain("listening");
     expect(button.getAttribute("aria-pressed")).toBe("false");
-    expect(document.querySelector(".voice-input-recording")).toBeNull();
+    expect(document.querySelector("[data-voice-input-recording]")).toBeNull();
   });
 
   it("reports a listening pending kind during active capture", () => {
@@ -624,10 +624,12 @@ describe("VoiceInputButton", () => {
       />,
     );
 
-    expect(document.querySelector(".voice-input-status")).toBeNull();
-    const recordingIcon = document.querySelector(".voice-input-recording");
+    expect(document.querySelector("[data-voice-input-status]")).toBeNull();
+    const recordingIcon = document.querySelector(
+      "[data-voice-input-recording]",
+    );
     expect(recordingIcon).toBeTruthy();
-    expect(recordingIcon?.classList.contains("is-speech-active")).toBe(false);
+    expect(recordingIcon?.hasAttribute("data-is-speech-active")).toBe(false);
   });
 
   it("keeps the waveform slot across a brief Smart Turn handoff", () => {
@@ -727,9 +729,9 @@ describe("VoiceInputButton", () => {
       />,
     );
 
-    expect(document.querySelector(".voice-input-status")?.textContent).toBe(
-      "Speak now...",
-    );
+    expect(
+      document.querySelector("[data-voice-input-status]")?.textContent,
+    ).toBe("Speak now...");
   });
 
   it("shows listening while browser-native speech is active", () => {
@@ -747,8 +749,8 @@ describe("VoiceInputButton", () => {
     expect(screen.getByRole("status").textContent).toBe("Listening...");
     expect(
       document
-        .querySelector(".voice-input-recording")
-        ?.classList.contains("is-speech-active"),
+        .querySelector("[data-voice-input-recording]")
+        ?.hasAttribute("data-is-speech-active"),
     ).toBe(true);
   });
 
@@ -781,7 +783,7 @@ describe("VoiceInputButton", () => {
     expect(button.getAttribute("data-speech-phase")).toBe("starting");
     expect(button.className).toContain("starting");
     expect(button.classList.contains("listening")).toBe(false);
-    expect(document.querySelector(".voice-input-recording")).toBeNull();
+    expect(document.querySelector("[data-voice-input-recording]")).toBeNull();
   });
 
   it("shows the selected STT backend inside the wider mic chip", () => {

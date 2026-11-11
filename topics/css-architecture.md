@@ -2,11 +2,11 @@
 
 > Component-owned client styles live in co-located CSS Modules. Global CSS is
 > limited to tokens, the base reset and styles for markup the client does not
-> author; the legacy global stylesheets are being drained to zero.
+> author; the three legacy global stylesheets are empty.
 
 Topic: css-architecture
 
-## Status: draining; target is little global CSS
+## Status: ownership drained; string-class ban remains
 
 Direction changed by the maintainer on 2026-11-10.
 [Plan 191](../docs/tactical/191-css-ownership-and-leak-closure.md) sequences
@@ -31,13 +31,13 @@ lift a ban. Before removing a rule-less row, preserve all its retired class
 names in `bannedClasses`. Recording exception counts never removes those bans.
 
 Step 6 separates the three continuing global purposes from the remaining
-React-owned legacy rules. `index.css` remains the shared import entry; it no
-longer owns tokens or document defaults. No rendered styles change.
+React-owned legacy rules. Step 7 drains those rules to their owners;
+`purposeGlobals.ts` imports the three continuing globals. No rendered styles change.
 Step 7 has landed single-owner pages: login layout, session-list layout and
 connection pulse reuse have one shared module each; logo sizes are owned
 variants. Public-share transcript reach-ins use stable data boundaries beneath local
-anchors. Tool rows own their pulse animation, retaining the final legacy
-keyframe definition so the ownership change preserves animation behavior.
+anchors. Tool rows own their pulse animation and its final keyframe definition
+so the ownership change preserves animation behavior.
 Settings rows and search visibility share `SettingsRows.module.css`; categories,
 previews, device lists, command samples and onboarding have explicit owners.
 Cross-owner row/preview selectors use the child’s stable data boundaries
@@ -80,6 +80,11 @@ Conditional split boundaries are present only while their corresponding layout
 state is active. Document selection shielding targets those boundaries; its
 `session-transcript-selection-active` state remains document-owned.
 
+The composer is now module-owned too: input/toolbar/new-session, speech, thinking,
+mode, recall, attachments and context controls retain their existing appearance.
+Shared action and option-dot modules own reused looks. Finite state maps reference
+module exports explicitly; measurement and tests use stable data boundaries.
+No composer control swaps belong to this move (plan 182 owns that pass).
 
 The target:
 
@@ -96,10 +101,8 @@ The target:
 - **Every exception is counted** in an allowlist with a reason; counts only
   fall.
 
-Until the legacy files are empty, the rules below still apply: new component
-CSS is modular, the legacy files cannot grow, and a feature change extracts
-its clearly owned legacy CSS when that is a bounded part of the same
-verification surface.
+The legacy files are empty and their ceilings are zero. Step 8 removes the
+files and introduces the string-class ban; new component CSS remains modular.
 
 ## Migration tracking
 
@@ -166,17 +169,14 @@ not carry a migration queue.
   stronger local selectors so review/hover tint cannot reorder their winner.
   Coupled typography moves preserve specificity and the final legacy values.
   `EmulatorStream.module.css` owns its video.
-- `index.css`, `renderers.css` and `tool-rows.css` contain only remaining legacy
-  component rules and coupled groups, with a **target of zero** and per-file
-  lower-only line ceilings in `scripts/css-architecture-baseline.json`.
+- `index.css`, `renderers.css` and `tool-rows.css` are empty, with zero-line
+  ceilings in `scripts/css-architecture-baseline.json`; step 8 deletes them.
   Feature work never raises these ceilings. New component styles use modules.
   `provider-colors.css` is folded into `tokens.css`; `emulator.css` is removed.
-- `index.css` is the common import entry, in this order: third-party KaTeX,
-  tokens, generated content, legacy renderers, legacy tool rows, base, then its
-  own legacy application rules. The main/remote app (including public share),
-  extension side panel, playground, mockups and browser fixtures share that
-  entry. A fixture importing only a legacy file must include any purpose globals
-  its rendered markup needs; do not assume legacy renderers still define them.
+- `purposeGlobals.ts` is the common import entry, in this order: third-party
+  KaTeX, tokens, generated content, base. Main/remote (including public share),
+  extension side panel, playground, mockups and browser fixtures share it.
+  Module CSS is imported by its owner; an empty legacy file supplies no styles.
 - A new non-module stylesheet fails `pnpm css:check`; the three purpose globals
   are fixed, not an extensible substitute for component ownership. When legacy
   lines or purpose findings fall, run `pnpm css:check --record` in the same
@@ -402,8 +402,9 @@ specific reason. New/increased counts, missing reasons and stale entries fail;
 to 57 type / 28 radius exceptions in 33 files. Those include semantic output
 and source-font reads that must preserve user typography preferences. Boot/crash
 fallbacks keep literal sizes and radii so they render without CSS or a theme. Composer
-files retain the reason `composer pass`; legacy global literals wait for
-steps 6–7 of plan 191. The type and radius scales live in
+files retain the reason `composer pass`. After the ownership moves, the census
+records 151 type / 41 radius exceptions in 85 files; rem-based geometry and
+configured typography keep their existing behavior. The type and radius scales live in
 [UI design](ui-design.md#shared-controls-and-the-design-playground).
 
 ## Command roles and exit behavior
@@ -776,8 +777,8 @@ Check what a moved declaration was actually defending against before calling it
 redundant. `.repo-status-bar .copy-button` restated `.copy-button`'s own values
 and looked like dead weight, but a second, unrelated `.copy-button` later in
 `index.css` was winning against it — `renderers.css` is `@import`ed at the top of
-`index.css`, so its rules preceded the application rules. The current entry
-still places legacy renderers before legacy application rules, after
+`index.css`, so its rules preceded the application rules. The old entry
+placed legacy renderers before legacy application rules, after
 tokens/generated content. A module class that replaces a descendant selector
 needs the same specificity the selector had, or the outcome silently becomes
 stylesheet order.

@@ -1,3 +1,21 @@
+import {
+  getIsearchPreviousKeys,
+  getIsearchAlternateRows,
+} from "./composerSearchShortcuts";
+import {
+  describeSessionLiveness,
+  formatLivenessAge,
+  describeLivenessSummary,
+  getBtwTitle,
+  isBtwPressed,
+  LAST_ACTIVITY_TEXT_PREFIX_THRESHOLD_MS,
+  type LivenessDisplay,
+} from "./composerToolbarStatus";
+export type { LivenessTone, LivenessDisplay } from "./composerToolbarStatus";
+import { messageInputToolbarStateClasses } from "./composerStateClasses";
+import voiceStyles from "./VoiceInputButton.module.css";
+import attachStyles from "./AttachmentButton.module.css";
+import actionStyles from "./ComposerActions.module.css";
 import { AttachmentButton } from "./AttachmentButton";
 import { useSourceContextMenu } from "./SourceContextMenu";
 import { useEscapeInterruptDisabled } from "../hooks/useEscapeInterruptDisabled";
@@ -178,67 +196,6 @@ function priorityToTierClass(priority: ToolbarNarrowingPriority): string {
   }
 }
 
-function getIsearchPreviousKeys(scope: SessionIsearchScope): string[] {
-  if (scope === "links") {
-    return ["Ctrl", "Alt", "K"];
-  }
-  if (scope === "full") {
-    return ["Ctrl", "Alt", "S"];
-  }
-  if (scope === "all") {
-    return ["Ctrl", "S"];
-  }
-  return ["Ctrl", "R"];
-}
-
-function getIsearchAlternateRows(
-  scope: SessionIsearchScope,
-  t: ToolbarTranslate,
-): Array<{
-  scope: SessionIsearchScope;
-  keys: string[];
-  label: string;
-}> {
-  return [
-    ...(scope === "user"
-      ? []
-      : [
-          {
-            scope: "user" as const,
-            keys: ["Ctrl", "R"],
-            label: t("toolbarShortcutUserTurns"),
-          },
-        ]),
-    ...(scope === "all"
-      ? []
-      : [
-          {
-            scope: "all" as const,
-            keys: ["Ctrl", "S"],
-            label: t("toolbarShortcutAllTurns"),
-          },
-        ]),
-    ...(scope === "full"
-      ? []
-      : [
-          {
-            scope: "full" as const,
-            keys: ["Ctrl", "Alt", "S"],
-            label: t("toolbarShortcutFullSession"),
-          },
-        ]),
-    ...(scope === "links"
-      ? []
-      : [
-          {
-            scope: "links" as const,
-            keys: ["Ctrl", "Alt", "K"],
-            label: t("toolbarShortcutLinks"),
-          },
-        ]),
-  ];
-}
-
 export interface MessageInputToolbarProps {
   onAttachmentPanel?: () => void;
   onRecordAudioMemo?: () => void;
@@ -376,142 +333,6 @@ export interface MessageInputToolbarProps {
   };
 }
 
-export type LivenessTone = "ok" | "warn" | "danger" | "muted";
-
-export interface LivenessDisplay {
-  prefix: string;
-  timestampMs: number | null;
-  tone: LivenessTone;
-  title: string;
-}
-
-function describeSessionLiveness(
-  snapshot: SessionLivenessSnapshot,
-  t: ToolbarTranslate,
-): LivenessDisplay {
-  const checkedMs = parseTimestampMs(snapshot.checkedAt);
-  const stateMs = parseTimestampMs(snapshot.lastStateChangeAt);
-  const progressMs = parseTimestampMs(
-    snapshot.lastVerifiedProgressAt ?? snapshot.lastProviderMessageAt,
-  );
-  const idleMs = parseTimestampMs(snapshot.lastVerifiedIdleAt);
-  const title = [
-    `status: ${snapshot.derivedStatus}`,
-    `work: ${snapshot.activeWorkKind}`,
-    snapshot.lastRawProviderEventAt
-      ? `raw provider: ${snapshot.lastRawProviderEventSource ?? "unknown"} at ${snapshot.lastRawProviderEventAt}`
-      : null,
-    `evidence: ${snapshot.evidence.join(", ")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  switch (snapshot.derivedStatus) {
-    case "verified-progressing":
-      return {
-        prefix: t("toolbarLivenessVerifiedProgress"),
-        timestampMs: progressMs ?? checkedMs,
-        tone: "ok",
-        title,
-      };
-    case "recently-active-unverified":
-      return {
-        prefix: t("toolbarLivenessUnverifiedTurn"),
-        timestampMs: stateMs ?? checkedMs,
-        tone: "warn",
-        title,
-      };
-    case "long-silent-unverified":
-      return {
-        prefix: t("toolbarLivenessLongSilent"),
-        timestampMs: progressMs ?? stateMs ?? checkedMs,
-        tone: "danger",
-        title,
-      };
-    case "verified-waiting-provider":
-      return {
-        prefix: t("toolbarLivenessWaitingOnProvider"),
-        timestampMs: progressMs ?? stateMs ?? checkedMs,
-        tone: "warn",
-        title,
-      };
-    case "verified-idle":
-      return {
-        prefix: t("toolbarLivenessVerifiedIdle"),
-        timestampMs: idleMs ?? stateMs ?? checkedMs,
-        tone: "muted",
-        title,
-      };
-    case "needs-attention":
-      return {
-        prefix:
-          snapshot.activeWorkKind === "waiting-input"
-            ? t("toolbarLivenessNeedsInput")
-            : t("toolbarLivenessNeedsAttention"),
-        timestampMs: stateMs ?? checkedMs,
-        tone: "danger",
-        title,
-      };
-  }
-
-  const unhandledStatus: never = snapshot.derivedStatus;
-  return {
-    prefix: t("toolbarLivenessUnknownState"),
-    timestampMs: checkedMs,
-    tone: "warn",
-    title: `${title}\nunknown status: ${String(unhandledStatus)}`,
-  };
-}
-
-function formatLivenessAge(
-  t: ToolbarTranslate,
-  timestampMs: number,
-  nowMs: number,
-): string {
-  const label = formatCompactRelativeAge(timestampMs, nowMs);
-  return label === "now"
-    ? t("toolbarRelativeAgeNow")
-    : t("toolbarRelativeAgePast", { age: label });
-}
-
-function describeLivenessSummary(
-  t: ToolbarTranslate,
-  display: LivenessDisplay,
-  nowMs: number,
-): string {
-  if (display.timestampMs === null) {
-    return display.prefix;
-  }
-  return t("toolbarLivenessSummary", {
-    state: display.prefix,
-    age: formatLivenessAge(t, display.timestampMs, nowMs),
-  });
-}
-
-function getBtwTitle(mode: BtwToolbarMode, t: ToolbarTranslate): string {
-  switch (mode) {
-    case "child-session":
-      return t("toolbarBtwChildSessionTitle");
-    case "focused-footer":
-      return t("toolbarBtwFocusedFooterTitle");
-    case "focused-pane":
-      return t("toolbarBtwFocusedPaneTitle");
-    case "focus-existing":
-      return t("toolbarBtwFocusExistingTitle");
-    case "start":
-      return t("toolbarBtwStartTitle");
-  }
-}
-
-function isBtwPressed(mode: BtwToolbarMode): boolean {
-  return (
-    mode === "child-session" ||
-    mode === "focused-footer" ||
-    mode === "focused-pane"
-  );
-}
-
-const LAST_ACTIVITY_TEXT_PREFIX_THRESHOLD_MS = 30 * 60 * 1000;
 const COMPACT_STATUS_QUERY = "(max-width: 600px)";
 
 // Widening headroom required before measured-compact status mode releases;
@@ -1142,11 +963,11 @@ export function MessageInputToolbarView({
   // keeps each control's inline and menu presentations mutually exclusive.
   const inlineTierClass = (
     key: SessionToolbarVisibilityKey,
-    ...extra: string[]
+    ...extra: (string | undefined)[]
   ): string =>
     [
       ...extra,
-      "composer-bottom-overflow-inline",
+      toolbarModuleStyles.composerBottomOverflowInline,
       priorityToTierClass(effectivePriority(key)),
       hiddenControls.has(key) ? toolbarModuleStyles.overflowHidden : "",
     ]
@@ -1154,7 +975,7 @@ export function MessageInputToolbarView({
       .join(" ");
   const menuTierClass = (
     key: SessionToolbarVisibilityKey,
-    ...extra: string[]
+    ...extra: (string | undefined)[]
   ): string => {
     const tierClass = priorityToTierClass(effectivePriority(key));
     return [
@@ -1196,7 +1017,7 @@ export function MessageInputToolbarView({
     showLivenessChip ||
     showPositionChip ||
     showLastActivityChip;
-  // The floating presentation needs `.status-floats` so the ages anchor over
+  // The floating presentation needs `[data-status-floats]` so the ages anchor over
   // the composer; wide+enabled keeps the inline row's positioning context.
   const applyStatusFloats =
     isCompactStatusMode || (statusFloats && showToolbarStatus);
@@ -1234,7 +1055,7 @@ export function MessageInputToolbarView({
     showSendButton ||
     canToggleSteerNow;
   const renderStatusAges = (
-    className: string,
+    className: string | undefined,
     ref?: RefObject<HTMLDivElement | null>,
   ) => {
     if (!showToolbarStatus || !statusControl) {
@@ -1245,11 +1066,13 @@ export function MessageInputToolbarView({
       <div
         ref={ref}
         className={className}
+        data-composer-status-ages
         {...toolbarControlMarker("sessionStatus")}
       >
         {showLivenessChip && livenessDisplay && (
           <div
-            className={`composer-status-chip composer-liveness-status is-${livenessDisplay.tone}`}
+            className={`${toolbarModuleStyles.composerStatusChip} ${toolbarModuleStyles.composerLivenessStatus} ${messageInputToolbarStateClasses[`is-${livenessDisplay.tone}`] ?? ""}`}
+            data-composer-liveness-status
             role="status"
             aria-label={t("toolbarLivenessAria", {
               summary: statusControl.livenessSummary ?? "",
@@ -1258,7 +1081,7 @@ export function MessageInputToolbarView({
           >
             {livenessDisplay.timestampMs !== null ? (
               <time
-                className="composer-liveness-time"
+                className={toolbarModuleStyles.composerLivenessTime}
                 dateTime={new Date(livenessDisplay.timestampMs).toISOString()}
                 title={`${formatAbsoluteTimestamp(livenessDisplay.timestampMs)}\n${livenessDisplay.title}`}
               >
@@ -1269,7 +1092,7 @@ export function MessageInputToolbarView({
                 )}
               </time>
             ) : (
-              <span className="composer-liveness-time">
+              <span className={toolbarModuleStyles.composerLivenessTime}>
                 {livenessDisplay.prefix}
               </span>
             )}
@@ -1277,7 +1100,8 @@ export function MessageInputToolbarView({
         )}
         {showProviderRuntimeChip && providerRuntimeDisplay && (
           <div
-            className={`composer-status-chip composer-provider-runtime-status is-${providerRuntimeDisplay.tone}`}
+            className={`${toolbarModuleStyles.composerStatusChip} ${toolbarModuleStyles.composerProviderRuntimeStatus} ${messageInputToolbarStateClasses[`is-${providerRuntimeDisplay.tone}`] ?? ""}`}
+            data-composer-provider-runtime-status
             role="status"
             aria-label={t("toolbarProviderRuntimeAria", {
               summary: providerRuntimeDisplay.summary,
@@ -1302,14 +1126,14 @@ export function MessageInputToolbarView({
         )}
         {showPositionChip && (
           <div
-            className="composer-status-chip composer-position-age composer-activity-age--compact"
+            className={`${toolbarModuleStyles.composerStatusChip} composer-position-age ${toolbarModuleStyles.composerActivityAgeCompact}`}
             role="status"
             aria-label={t("toolbarPositionAgeAria")}
           >
             <MessageAge
               timestampMs={statusControl.positionTimestampMs}
               nowMs={statusControl.nowMs}
-              className="composer-position-age-time"
+              className={toolbarModuleStyles.composerPositionAgeTime}
               formatLabel={(label) => {
                 const localizedLabel =
                   label === "now"
@@ -1322,18 +1146,14 @@ export function MessageInputToolbarView({
         )}
         {showLastActivityChip && (
           <div
-            className={`composer-status-chip composer-activity-age${
-              statusControl.showLastActivityPrefix
-                ? ""
-                : " composer-activity-age--compact"
-            }`}
+            className={`${toolbarModuleStyles.composerStatusChip} composer-activity-age${statusControl.showLastActivityPrefix ? "" : ` ${toolbarModuleStyles.composerActivityAgeCompact}`}`}
             role="status"
             aria-label={t("toolbarLastActivityAria")}
           >
             <MessageAge
               timestampMs={statusControl.lastActivityMs}
               nowMs={statusControl.nowMs}
-              className="composer-activity-age-time"
+              className={toolbarModuleStyles.composerActivityAgeTime}
               formatLabel={(label) => {
                 const localizedLabel =
                   label === "now" ? t("toolbarRelativeAgeNow") : label;
@@ -1359,6 +1179,7 @@ export function MessageInputToolbarView({
     return (
       <span
         className={className}
+        data-context-toolbar-control
         {...toolbarControlMarker("contextUsage", true)}
       >
         <ContextThresholdQuickEdit
@@ -1434,6 +1255,7 @@ export function MessageInputToolbarView({
       <label
         className={className}
         title={t("toolbarSteerNowTooltip")}
+        data-steer-now-toggle
         {...toolbarControlMarker("steerNow")}
       >
         <input
@@ -1464,14 +1286,14 @@ export function MessageInputToolbarView({
         disabled={actionsControl.disabled || topicShift.canSend === false}
         className={(menu ? menuTierClass : inlineTierClass)(
           "topicShift",
-          "send-button",
-          "patient-queue-action",
+          actionStyles.sendButton,
+          actionStyles.patientQueueAction,
         )}
         aria-label={t("toolbarTopicShiftLabel")}
         title={t("toolbarTopicShiftTooltip")}
         role={menu ? "menuitem" : undefined}
       >
-        <DeliveryGlyph className="send-icon">↷</DeliveryGlyph>
+        <DeliveryGlyph className={actionStyles.sendIcon}>↷</DeliveryGlyph>
       </button>
     );
   };
@@ -1503,12 +1325,12 @@ export function MessageInputToolbarView({
         : tooltip;
     const classNameFor = (
       key: "projectQueue" | "projectQueueNewSessionShortcut",
-      ...extra: string[]
+      ...extra: (string | undefined)[]
     ) =>
       (menu ? menuTierClass : inlineTierClass)(
         key,
-        "send-button",
-        "project-queue-button",
+        actionStyles.sendButton,
+        actionStyles.projectQueueButton,
         ...extra,
       );
     return (
@@ -1521,11 +1343,12 @@ export function MessageInputToolbarView({
               onClick={projectQueue.onProjectQueue}
               disabled={disabled}
               className={classNameFor("projectQueue")}
+              data-project-queue-button
               aria-label={deliveryLabel(t("toolbarProjectQueueLabel"))}
               title={deliveryTooltip(projectQueue.tooltip)}
               role={menu ? "menuitem" : undefined}
             >
-              <DeliveryGlyph className="send-icon">⇥</DeliveryGlyph>
+              <DeliveryGlyph className={actionStyles.sendIcon}>⇥</DeliveryGlyph>
               {speechPrefix && <SpeechPrefixActionCue prefix={speechPrefix} />}
             </button>
           )}
@@ -1566,15 +1389,16 @@ export function MessageInputToolbarView({
               disabled={disabled}
               className={classNameFor(
                 "projectQueueNewSessionShortcut",
-                "project-queue-new-session-button",
+                actionStyles.projectQueueNewSessionButton,
               )}
+              data-project-queue-new-session-button
               aria-label={deliveryLabel(
                 t("toolbarProjectQueueNewSessionLabel"),
               )}
               title={deliveryTooltip(projectQueue.newSessionTooltip)}
               role={menu ? "menuitem" : undefined}
             >
-              <DeliveryGlyph className="send-icon">⇥</DeliveryGlyph>
+              <DeliveryGlyph className={actionStyles.sendIcon}>⇥</DeliveryGlyph>
               <NewSessionQueueMark />
               {speechPrefix && <SpeechPrefixActionCue prefix={speechPrefix} />}
             </button>
@@ -1822,15 +1646,9 @@ export function MessageInputToolbarView({
   return (
     <div
       ref={setToolbarRef}
-      className={`message-input-toolbar${applyStatusFloats ? " status-floats" : ""} overflow-tier-${bottomOverflowTier}${
-        fileViewerController
-          ? ` ${toolbarModuleStyles.fileViewerControllerActive}`
-          : ""
-      }${coveringViewerOpen ? ` ${toolbarModuleStyles.fileViewerOpen}` : ""}${
-        waveformBackdropActive
-          ? ` ${toolbarModuleStyles.waveformBackdropActive}`
-          : ""
-      }`}
+      className={`${toolbarModuleStyles.messageInputToolbar}${applyStatusFloats ? ` ${toolbarModuleStyles.statusFloats}` : ""} overflow-tier-${bottomOverflowTier}${fileViewerController ? ` ${toolbarModuleStyles.fileViewerControllerActive}` : ""}${coveringViewerOpen ? ` ${toolbarModuleStyles.fileViewerOpen}` : ""}${waveformBackdropActive ? ` ${toolbarModuleStyles.waveformBackdropActive}` : ""}`}
+      data-message-input-toolbar
+      data-status-floats={applyStatusFloats || undefined}
       data-waveform-button-background-opacity={
         waveformBackdropActive
           ? normalizedWaveformButtonBackgroundOpacity
@@ -1842,13 +1660,13 @@ export function MessageInputToolbarView({
       onTouchStartCapture={handleToolbarTouchStartCapture}
     >
       <div
-        className={`${toolbarModuleStyles.waveformRegion}${
-          speechWaveformPreview
-            ? ` ${toolbarModuleStyles.waveformPreviewRegion}`
-            : ""
-        }`}
+        className={`${toolbarModuleStyles.waveformRegion}${speechWaveformPreview ? ` ${toolbarModuleStyles.waveformPreviewRegion}` : ""}`}
       >
-        <div ref={refs?.left} className="message-input-left">
+        <div
+          ref={refs?.left}
+          className={toolbarModuleStyles.messageInputLeft}
+          data-message-input-left
+        >
           {visibility.modeSelector && modeControl && (
             <span
               className={inlineTierClass("modeSelector")}
@@ -1865,7 +1683,10 @@ export function MessageInputToolbarView({
           )}
           {visibility.attachments && (
             <AttachmentButton
-              className={inlineTierClass("attachments", "attach-button")}
+              className={inlineTierClass(
+                "attachments",
+                attachStyles.attachButton,
+              )}
               onFiles={attachmentControl.onAttachClick}
               onMemo={attachmentControl.onRecordAudioMemo}
               onPanel={attachmentControl.onAttachmentPanel}
@@ -1902,11 +1723,11 @@ export function MessageInputToolbarView({
               {...toolbarControlMarker("renderMode")}
               className={inlineTierClass(
                 "renderMode",
-                "render-mode-toolbar-button",
+                toolbarModuleStyles.renderModeToolbarButton,
                 renderModeControl.state === "rendered"
-                  ? "is-rendered"
+                  ? toolbarModuleStyles["is-rendered"]
                   : renderModeControl.state === "mixed"
-                    ? "is-mixed"
+                    ? toolbarModuleStyles["is-mixed"]
                     : "",
               )}
               onClick={renderModeControl.onToggle}
@@ -1925,10 +1746,13 @@ export function MessageInputToolbarView({
             <button
               type="button"
               {...toolbarControlMarker("conversationView")}
+              data-conversation-view-toolbar-button
               className={inlineTierClass(
                 "conversationView",
-                "conversation-view-toolbar-button",
-                conversationViewControl.enabled ? "active" : "",
+                toolbarModuleStyles.conversationViewToolbarButton,
+                conversationViewControl.enabled
+                  ? toolbarModuleStyles.active
+                  : "",
               )}
               onClick={conversationViewControl.onToggle}
               title={conversationViewControl.title}
@@ -1984,7 +1808,8 @@ export function MessageInputToolbarView({
                 trigger={
                   <button
                     type="button"
-                    className="voice-input-button"
+                    className={voiceStyles.voiceInputButton}
+                    data-voice-input-button
                     disabled={speechControl.voiceButton.disabled}
                     title={t("voiceInputStart" as never)}
                     aria-label={t("voiceInputStartLabel" as never)}
@@ -2071,19 +1896,21 @@ export function MessageInputToolbarView({
       </div>
       {renderStatusAges(
         visibility.sessionStatus
-          ? inlineTierClass("sessionStatus", "composer-status-ages")
-          : "composer-status-ages",
+          ? inlineTierClass(
+              "sessionStatus",
+              toolbarModuleStyles.composerStatusAges,
+            )
+          : toolbarModuleStyles.composerStatusAges,
         refs?.status,
       )}
       {showBottomOverflow && (
         <div
-          className={`${toolbarModuleStyles.overflow} composer-bottom-overflow ${
-            bottomOverflowOpen ? "is-open" : ""
-          }`}
+          className={`${toolbarModuleStyles.overflow} ${toolbarModuleStyles.composerBottomOverflow} ${bottomOverflowOpen ? "is-open" : ""}`}
+          data-composer-bottom-overflow
         >
           <button
             type="button"
-            className="composer-bottom-overflow-button"
+            className={toolbarModuleStyles.composerBottomOverflowButton}
             aria-label={t("toolbarOverflowMenu")}
             aria-expanded={bottomOverflowOpen}
             onClick={() => setBottomOverflowOpen((open) => !open)}
@@ -2091,8 +1918,15 @@ export function MessageInputToolbarView({
             ...
           </button>
           {bottomOverflowOpen && (
-            <div className="composer-bottom-overflow-menu" role="menu">
-              <div className="composer-bottom-overflow-menu-group composer-bottom-overflow-menu-left">
+            <div
+              className={toolbarModuleStyles.composerBottomOverflowMenu}
+              data-composer-bottom-overflow-menu
+              role="menu"
+            >
+              <div
+                className={`${toolbarModuleStyles.composerBottomOverflowMenuGroup} ${toolbarModuleStyles.composerBottomOverflowMenuLeft}`}
+                data-composer-bottom-overflow-menu-group
+              >
                 {visibility.modeSelector &&
                   modeControl &&
                   isPriorityCollapsible("modeSelector") && (
@@ -2112,7 +1946,10 @@ export function MessageInputToolbarView({
                 {visibility.attachments &&
                   isPriorityCollapsible("attachments") && (
                     <AttachmentButton
-                      className={menuTierClass("attachments", "attach-button")}
+                      className={menuTierClass(
+                        "attachments",
+                        attachStyles.attachButton,
+                      )}
                       onFiles={attachmentControl.onAttachClick}
                       onMemo={attachmentControl.onRecordAudioMemo}
                       onPanel={attachmentControl.onAttachmentPanel}
@@ -2130,12 +1967,15 @@ export function MessageInputToolbarView({
                   renderStatusAges(
                     menuTierClass(
                       "sessionStatus",
-                      "composer-status-ages",
+                      toolbarModuleStyles.composerStatusAges,
                       "composer-status-ages--menu",
                     ),
                   )}
               </div>
-              <div className="composer-bottom-overflow-menu-group composer-bottom-overflow-menu-right">
+              <div
+                className={`${toolbarModuleStyles.composerBottomOverflowMenuGroup} ${toolbarModuleStyles.composerBottomOverflowMenuRight}`}
+                data-composer-bottom-overflow-menu-group
+              >
                 {visibility.slashMenu &&
                   slashControl &&
                   isPriorityCollapsible("slashMenu") && (
@@ -2168,11 +2008,11 @@ export function MessageInputToolbarView({
                       {...toolbarControlMarker("renderMode")}
                       className={menuTierClass(
                         "renderMode",
-                        "render-mode-toolbar-button",
+                        toolbarModuleStyles.renderModeToolbarButton,
                         renderModeControl.state === "rendered"
-                          ? "is-rendered"
+                          ? toolbarModuleStyles["is-rendered"]
                           : renderModeControl.state === "mixed"
-                            ? "is-mixed"
+                            ? toolbarModuleStyles["is-mixed"]
                             : "",
                       )}
                       onClick={renderModeControl.onToggle}
@@ -2194,10 +2034,13 @@ export function MessageInputToolbarView({
                     <button
                       type="button"
                       {...toolbarControlMarker("conversationView")}
+                      data-conversation-view-toolbar-button
                       className={menuTierClass(
                         "conversationView",
-                        "conversation-view-toolbar-button",
-                        conversationViewControl.enabled ? "active" : "",
+                        toolbarModuleStyles.conversationViewToolbarButton,
+                        conversationViewControl.enabled
+                          ? toolbarModuleStyles.active
+                          : "",
                       )}
                       onClick={conversationViewControl.onToggle}
                       title={conversationViewControl.title}
@@ -2259,7 +2102,7 @@ export function MessageInputToolbarView({
                       {...toolbarControlMarker("shortcutsHelp", true)}
                       className={menuTierClass(
                         "shortcutsHelp",
-                        "session-shortcuts-help-button",
+                        toolbarModuleStyles.sessionShortcutsHelpButton,
                       )}
                       aria-label={t("toolbarKeyboardShortcutsAria")}
                       aria-expanded={shortcutsPopoverOpen}
@@ -2279,23 +2122,28 @@ export function MessageInputToolbarView({
                   )}
                 {isPriorityCollapsible("contextUsage") &&
                   renderContextUsage(
-                    menuTierClass("contextUsage", "context-toolbar-control"),
+                    menuTierClass(
+                      "contextUsage",
+                      toolbarModuleStyles.contextToolbarControl,
+                    ),
                   )}
                 {isPriorityCollapsible("btw") &&
                   renderBtwButton(
                     menuTierClass(
                       "btw",
-                      "btw-toolbar-button",
-                      actionsControl.btw?.pressed ? "active" : "",
+                      toolbarModuleStyles.btwToolbarButton,
+                      actionsControl.btw?.pressed
+                        ? toolbarModuleStyles.active
+                        : "",
                       actionsControl.btw?.mode === "focus-existing"
-                        ? "has-asides"
+                        ? toolbarModuleStyles.hasAsides
                         : "",
                     ),
                     true,
                   )}
                 {isPriorityCollapsible("steerNow") &&
                   renderSteerNowToggle(
-                    menuTierClass("steerNow", "steer-now-toggle"),
+                    menuTierClass("steerNow", actionStyles.steerNowToggle),
                   )}
                 {renderTopicShiftButton(true)}
                 {renderProjectQueueButtons(true)}
@@ -2305,12 +2153,16 @@ export function MessageInputToolbarView({
           )}
         </div>
       )}
-      <div ref={refs?.actions} className="message-input-actions">
+      <div
+        ref={refs?.actions}
+        className={toolbarModuleStyles.messageInputActions}
+        data-message-input-actions
+      >
         <AsyncQuestionsButton compact={bottomOverflowTier} />
         {pendingApproval && (
           <button
             type="button"
-            className={`pending-approval-indicator ${pendingApproval.type}`}
+            className={`${toolbarModuleStyles.pendingApprovalIndicator} ${pendingApproval.type}`}
             onClick={pendingApproval.onExpand}
             title={
               pendingApproval.type === "tool-approval"
@@ -2318,8 +2170,8 @@ export function MessageInputToolbarView({
                 : t("toolbarPendingQuestionExpand")
             }
           >
-            <span className="pending-approval-dot" />
-            <span className="pending-approval-text">
+            <span className={toolbarModuleStyles.pendingApprovalDot} />
+            <span className={toolbarModuleStyles.pendingApprovalText}>
               {pendingApproval.type === "tool-approval"
                 ? t("toolbarApproval")
                 : t("toolbarQuestion")}
@@ -2334,7 +2186,7 @@ export function MessageInputToolbarView({
           <div
             className={inlineTierClass(
               "shortcutsHelp",
-              "session-shortcuts-help",
+              toolbarModuleStyles.sessionShortcutsHelp,
             )}
             onMouseLeave={() => {
               shortcutsControl.setOpen(false);
@@ -2343,7 +2195,7 @@ export function MessageInputToolbarView({
           >
             <button
               type="button"
-              className="session-shortcuts-help-button"
+              className={toolbarModuleStyles.sessionShortcutsHelpButton}
               {...toolbarControlMarker("shortcutsHelp", true)}
               aria-label={t("toolbarKeyboardShortcutsAria")}
               aria-expanded={shortcutsPopoverOpen}
@@ -2372,18 +2224,19 @@ export function MessageInputToolbarView({
             </button>
             {shortcutsPopoverOpen && (
               <div
-                className={`session-shortcuts-popover ${
-                  shortcutsControl.isearchScope !== null
-                    ? "is-isearch-guide"
-                    : ""
-                }`}
+                className={`${toolbarModuleStyles.sessionShortcutsPopover} ${shortcutsControl.isearchScope !== null ? toolbarModuleStyles["is-isearch-guide"] : ""}`}
                 role="dialog"
                 aria-label={t("toolbarKeyboardShortcutsAria")}
               >
                 {shortcutsControl.isearchScope !== null ? (
                   <>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         {getIsearchPreviousKeys(
                           shortcutsControl.isearchScope,
                         ).map((key) => (
@@ -2400,33 +2253,58 @@ export function MessageInputToolbarView({
                       </span>
                       <span>{t("toolbarShortcutPreviousMatch")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Enter</kbd>
                       </span>
                       <span>{t("toolbarShortcutJump")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>↑</kbd>
                         <kbd>↓</kbd>
                       </span>
                       <span>{t("toolbarShortcutPreviousNextMatch")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         {t("toolbarShortcutClick")}
                       </span>
                       <span>{t("toolbarShortcutPreviewRailJumps")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Esc</kbd>
                       </span>
                       <span>{t("toolbarShortcutCancelRestoreFocus")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>End</kbd>
                       </span>
@@ -2436,8 +2314,14 @@ export function MessageInputToolbarView({
                       shortcutsControl.isearchScope,
                       t,
                     ).map((row) => (
-                      <div key={row.label} className="session-shortcuts-row">
-                        <span className="session-shortcuts-keys">
+                      <div
+                        key={row.label}
+                        className={toolbarModuleStyles.sessionShortcutsRow}
+                        data-session-shortcuts-row
+                      >
+                        <span
+                          className={toolbarModuleStyles.sessionShortcutsKeys}
+                        >
                           {row.keys.map((key) => (
                             <kbd key={key}>{key}</kbd>
                           ))}
@@ -2456,8 +2340,13 @@ export function MessageInputToolbarView({
                   </>
                 ) : (
                   <>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>R</kbd>
                         <span>{t("commonOr")}</span>
@@ -2467,15 +2356,25 @@ export function MessageInputToolbarView({
                       </span>
                       <span>{t("toolbarShortcutUserTurnReverseSearch")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>S</kbd>
                       </span>
                       <span>{t("toolbarShortcutAllTurnReverseSearch")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>Alt</kbd>
                         <kbd>S</kbd>
@@ -2484,16 +2383,26 @@ export function MessageInputToolbarView({
                         {t("toolbarShortcutFullSessionReverseSearch")}
                       </span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>Alt</kbd>
                         <kbd>K</kbd>
                       </span>
                       <span>{t("toolbarShortcutLinkReverseSearch")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Enter</kbd>
                       </span>
                       <span>
@@ -2502,23 +2411,38 @@ export function MessageInputToolbarView({
                           : t("toolbarShortcutSend")}
                       </span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Shift</kbd>
                         <kbd>Enter</kbd>
                       </span>
                       <span>{t("toolbarShortcutNewLine")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>Enter</kbd>
                       </span>
                       <span>{shortcutsControl.queueShortcutLabel}</span>
                     </div>
                     {shortcutsControl.canForkAfterSummary && (
-                      <div className="session-shortcuts-row">
-                        <span className="session-shortcuts-keys">
+                      <div
+                        className={toolbarModuleStyles.sessionShortcutsRow}
+                        data-session-shortcuts-row
+                      >
+                        <span
+                          className={toolbarModuleStyles.sessionShortcutsKeys}
+                        >
                           <kbd>Ctrl</kbd>
                           <kbd>Alt</kbd>
                           <kbd>Enter</kbd>
@@ -2527,17 +2451,29 @@ export function MessageInputToolbarView({
                       </div>
                     )}
                     {shortcutSettings && (
-                      <div className="session-shortcuts-row session-shortcuts-row-muted">
-                        <span className="session-shortcuts-keys">
+                      <div
+                        className={`${toolbarModuleStyles.sessionShortcutsRow} ${toolbarModuleStyles.sessionShortcutsRowMuted}`}
+                        data-session-shortcuts-row
+                      >
+                        <span
+                          className={toolbarModuleStyles.sessionShortcutsKeys}
+                        >
                           {t("toolbarShortcutRightClickLongPress")}
                         </span>
                         <span>{t("toolbarShortcutChangeKeys")}</span>
                       </div>
                     )}
                     {shortcutsControl.settingsOpen && shortcutSettings && (
-                      <div className="session-shortcuts-settings">
-                        <div className="session-shortcuts-row">
-                          <span className="session-shortcuts-keys">
+                      <div
+                        className={toolbarModuleStyles.sessionShortcutsSettings}
+                      >
+                        <div
+                          className={toolbarModuleStyles.sessionShortcutsRow}
+                          data-session-shortcuts-row
+                        >
+                          <span
+                            className={toolbarModuleStyles.sessionShortcutsKeys}
+                          >
                             <kbd>Enter</kbd>
                           </span>
                           <span>
@@ -2548,22 +2484,32 @@ export function MessageInputToolbarView({
                         </div>
                         <button
                           type="button"
-                          className="session-shortcuts-action"
+                          className={toolbarModuleStyles.sessionShortcutsAction}
                           onClick={shortcutSettings.onSwapEnterAction}
                         >
                           {t("toolbarShortcutSwapEnterCtrlEnter")}
                         </button>
                       </div>
                     )}
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>B</kbd>
                       </span>
                       <span>{t("toolbarShortcutStartBtwAside")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Esc</kbd>
                       </span>
                       <span>
@@ -2574,15 +2520,25 @@ export function MessageInputToolbarView({
                         )}
                       </span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>P</kbd>
                       </span>
                       <span>{t("toolbarShortcutRecallLastSentText")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>K</kbd>
                       </span>
@@ -2590,8 +2546,13 @@ export function MessageInputToolbarView({
                         {t("toolbarShortcutCancelLatestQueuedMessage")}
                       </span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>O</kbd>
                       </span>
@@ -2599,29 +2560,49 @@ export function MessageInputToolbarView({
                         {t("toolbarShortcutToggleThinkingTranscript")}
                       </span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>End</kbd>
                       </span>
                       <span>{t("toolbarShortcutScrollToCurrent")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>G</kbd>
                       </span>
                       <span>{t("toolbarShortcutClearComposer")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>U</kbd>
                       </span>
                       <span>{t("toolbarShortcutFullPaneComposer")}</span>
                     </div>
-                    <div className="session-shortcuts-row">
-                      <span className="session-shortcuts-keys">
+                    <div
+                      className={toolbarModuleStyles.sessionShortcutsRow}
+                      data-session-shortcuts-row
+                    >
+                      <span
+                        className={toolbarModuleStyles.sessionShortcutsKeys}
+                      >
                         <kbd>Ctrl</kbd>
                         <kbd>Shift</kbd>
                         <kbd>M</kbd>
@@ -2635,14 +2616,19 @@ export function MessageInputToolbarView({
           </div>
         )}
         {renderContextUsage(
-          inlineTierClass("contextUsage", "context-toolbar-control"),
+          inlineTierClass(
+            "contextUsage",
+            toolbarModuleStyles.contextToolbarControl,
+          ),
         )}
         {renderBtwButton(
           inlineTierClass(
             "btw",
-            "btw-toolbar-button",
-            actionsControl.btw?.pressed ? "active" : "",
-            actionsControl.btw?.mode === "focus-existing" ? "has-asides" : "",
+            toolbarModuleStyles.btwToolbarButton,
+            actionsControl.btw?.pressed ? toolbarModuleStyles.active : "",
+            actionsControl.btw?.mode === "focus-existing"
+              ? toolbarModuleStyles.hasAsides
+              : "",
           ),
         )}
         {showStopButton && actionsControl.stop && (
@@ -2662,18 +2648,18 @@ export function MessageInputToolbarView({
               ],
               actionsControl.stop.onStop,
             )}
-            className="stop-button"
+            className={actionStyles.stopButton}
             aria-label={t("toolbarStop")}
             aria-haspopup="menu"
             title={`${t("toolbarStop")}${escapeInterruptDisabled ? "" : " (Esc)"} — ${t("toolbarStopOptionsHint")}`}
           >
-            <span className="stop-icon" />
+            <span className={actionStyles.stopIcon} />
           </button>
         )}
         {showActionsControl && actionsControl.send ? (
           <>
             {renderSteerNowToggle(
-              inlineTierClass("steerNow", "steer-now-toggle"),
+              inlineTierClass("steerNow", actionStyles.steerNowToggle),
             )}
             {!hidePrimaryDeliveryActions &&
               queueControl?.hasDualActions &&
@@ -2685,7 +2671,8 @@ export function MessageInputToolbarView({
                   disabled={
                     actionsControl.disabled || !actionsControl.send.canSend
                   }
-                  className="send-button queue-button"
+                  className={`${actionStyles.sendButton} ${actionStyles.queueButton}`}
+                  data-send-button
                   aria-label={
                     actionsControl.send.speechMessagePrefix
                       ? t("speechPrefixDeliveryLabel", {
@@ -2703,7 +2690,9 @@ export function MessageInputToolbarView({
                       : queueControl.queueTooltip
                   }
                 >
-                  <DeliveryGlyph className="send-icon queue-icon">
+                  <DeliveryGlyph
+                    className={`${actionStyles.sendIcon} queue-icon`}
+                  >
                     →
                   </DeliveryGlyph>
                   {actionsControl.send.speechMessagePrefix && (
@@ -2723,7 +2712,8 @@ export function MessageInputToolbarView({
                   disabled={
                     actionsControl.disabled || !actionsControl.send.canSend
                   }
-                  className="send-button steer-button"
+                  className={`${actionStyles.sendButton} steer-button`}
+                  data-send-button
                   aria-label={
                     actionsControl.send.speechMessagePrefix
                       ? t("speechPrefixDeliveryLabel", {
@@ -2741,7 +2731,9 @@ export function MessageInputToolbarView({
                       : t("toolbarSteerTooltip")
                   }
                 >
-                  <DeliveryGlyph className="send-icon">↗</DeliveryGlyph>
+                  <DeliveryGlyph className={actionStyles.sendIcon}>
+                    ↗
+                  </DeliveryGlyph>
                   {actionsControl.send.speechMessagePrefix && (
                     <SpeechPrefixActionCue
                       prefix={actionsControl.send.speechMessagePrefix}
@@ -2756,7 +2748,8 @@ export function MessageInputToolbarView({
                 disabled={
                   actionsControl.disabled || !actionsControl.send.canSend
                 }
-                className="send-button fork-summary-no-summary-button"
+                className={`${actionStyles.sendButton} fork-summary-no-summary-button`}
+                data-send-button
                 aria-label={
                   actionsControl.send.speechMessagePrefix
                     ? t("speechPrefixDeliveryLabel", {
@@ -2774,7 +2767,7 @@ export function MessageInputToolbarView({
                     : actionsControl.send.alternate.tooltip
                 }
               >
-                <DeliveryGlyph className="send-icon">
+                <DeliveryGlyph className={actionStyles.sendIcon}>
                   {actionsControl.send.alternate.icon}
                 </DeliveryGlyph>
                 {actionsControl.send.speechMessagePrefix && (
@@ -2801,11 +2794,11 @@ export function MessageInputToolbarView({
                 disabled={
                   actionsControl.disabled || !actionsControl.send.canSend
                 }
-                className={`send-button send-button-with-help ${
-                  actionsControl.send.primaryActionKind === "queue"
-                    ? "queue-mode"
-                    : ""
-                }`}
+                className={`${actionStyles.sendButton} send-button-with-help ${actionsControl.send.primaryActionKind === "queue" ? actionStyles.queueMode : ""}`}
+                data-send-button
+                data-queue-mode={
+                  actionsControl.send.primaryActionKind === "queue" || undefined
+                }
                 aria-label={
                   actionsControl.send.primarySpeechMessagePrefix
                     ? t("speechPrefixDeliveryLabel", {
@@ -2824,7 +2817,7 @@ export function MessageInputToolbarView({
                   tooltipMode,
                 )}
               >
-                <DeliveryGlyph className="send-icon">
+                <DeliveryGlyph className={actionStyles.sendIcon}>
                   {actionsControl.send.icon}
                 </DeliveryGlyph>
                 {actionsControl.send.primarySpeechMessagePrefix && (
@@ -3438,7 +3431,7 @@ export function MessageInputToolbar({
 
     // Content demand of a toolbar section, immune to flex stretching. A
     // stretched section reports its grown size through scrollWidth:
-    // .message-input-left is flex: 1, so once the status floats (leaving the
+    // [data-message-input-left] is flex: 1, so once the status floats (leaving the
     // row) the left section absorbs the freed room, and measuring rendered
     // sizes feeds that growth back into requiredWidth — compact mode then
     // stays latched at any window width. Children that are themselves

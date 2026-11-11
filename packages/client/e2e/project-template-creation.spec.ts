@@ -110,7 +110,7 @@ test("template palette preserves sequential input and inline state at desktop an
     });
     const slotBounds = await prepare.locator("xpath=../..").boundingBox();
     const layoutBounds = await page
-      .locator(".new-session-top-layout")
+      .locator("[data-new-session-top-layout]")
       .boundingBox();
     expect(slotBounds!.width).toBeGreaterThan(layoutBounds!.width * 0.9);
     await page
@@ -126,7 +126,7 @@ test("template palette preserves sequential input and inline state at desktop an
     ).toHaveValue("My story");
     await expect(inline.getByRole("radio", { name: /Web page/ })).toBeChecked();
     await page
-      .locator(".new-session-project-chooser")
+      .locator("[data-new-session-project-chooser]")
       .evaluate((node) => node.scrollIntoView({ block: "start" }));
     await recordUiCapture(page, `template-session-${viewport.width}`);
     expect(
@@ -464,7 +464,7 @@ for (const limited of [false, true]) {
             response.url().includes("/messages") &&
             response.request().method() === "POST",
         );
-        await page.locator(".new-session-submit-button").click();
+        await page.locator("[data-new-session-submit-button]").click();
         expect((await queued).ok()).toBe(true);
         await expect(page).toHaveURL(/\/projects\/[^/]+\/sessions\/[^/]+$/);
       }

@@ -1,0 +1,131 @@
+.recap-after-seconds-control {
+  display: grid;
+  grid-template-columns: max-content minmax(12rem, 28rem);
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  max-width: 100%;
+  --recap-mode-color: var(--link-color);
+}
+
+.recap-after-seconds-row {
+  width: 100%;
+}
+
+.recap-after-seconds-control input[type="range"] {
+  appearance: none;
+  height: 1.15rem;
+  border-radius: var(--radius-full);
+  background: transparent;
+  accent-color: var(--recap-mode-color);
+}
+
+.recap-after-seconds-control
+  input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.36rem;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    to right,
+    var(--recap-mode-color) 0%,
+    var(--recap-mode-color) var(--recap-slider-fill, 0%),
+    color-mix(in srgb, var(--recap-mode-color) 18%, var(--bg-tertiary))
+      var(--recap-slider-fill, 0%),
+    color-mix(in srgb, var(--recap-mode-color) 18%, var(--bg-tertiary)) 100%
+  );
+}
+
+.recap-after-seconds-control input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.32rem;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-full);
+  background: var(--recap-mode-color);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--recap-mode-color) 55%, transparent);
+}
+
+.recap-after-seconds-control input[type="range"]::-moz-range-track {
+  height: 0.36rem;
+  border-radius: var(--radius-full);
+  background: color-mix(
+    in srgb,
+    var(--recap-mode-color) 18%,
+    var(--bg-tertiary)
+  );
+}
+
+.recap-after-seconds-control input[type="range"]::-moz-range-progress {
+  height: 0.36rem;
+  border-radius: var(--radius-full);
+  background: var(--recap-mode-color);
+}
+
+.recap-after-seconds-control input[type="range"]::-moz-range-thumb {
+  width: 0.82rem;
+  height: 0.82rem;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-full);
+  background: var(--recap-mode-color);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--recap-mode-color) 55%, transparent);
+}
+
+.recap-after-seconds-control--off {
+  --recap-mode-color: var(--text-muted);
+}
+
+.recap-after-seconds-control--native {
+  --recap-mode-color: var(--success-color);
+}
+
+.recap-after-seconds-control--side-session {
+  --recap-mode-color: var(--link-color);
+}
+
+.recap-after-seconds-control--fork {
+  --recap-mode-color: var(--app-yep-yellow);
+}
+
+.recap-after-seconds-label {
+  white-space: nowrap;
+}
+
+.recap-after-seconds-control--inline {
+  display: grid;
+  grid-template-columns: minmax(18ch, 1fr) minmax(14rem, 1.35fr);
+  align-items: center;
+  gap: 0.35rem var(--space-2);
+  max-width: none;
+}
+
+.recap-after-seconds-control--inline .recap-after-seconds-label {
+  min-width: 0;
+  white-space: normal;
+}
+
+.recap-after-seconds-control--inline .recap-after-seconds-row {
+  min-width: 0;
+  max-width: none;
+}
+
+@container (max-width: 33rem) {
+  .recap-after-seconds-control--inline {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width <= 560px) {
+  .recap-after-seconds-control {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width <= 560px) {
+  .recap-after-seconds-label {
+    white-space: normal;
+  }
+}

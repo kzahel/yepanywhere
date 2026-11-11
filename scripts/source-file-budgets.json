@@ -1,6 +1,6 @@
 {
   "$comment": "Line budgets for production source files over the threshold fixed in scripts/check-source-file-budgets.mjs. Owned by topics/typescript-module-boundary-refactor.md#growth-guard. Lower with `pnpm source:budgets --record`; never raise without maintainer approval and a raise record.",
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "files": {
     "packages/client/src/api/client.ts": {
       "maxLines": 1913
@@ -15,20 +15,20 @@
       "maxLines": 1899
     },
     "packages/client/src/components/MessageInput.tsx": {
-      "maxLines": 3185
+      "maxLines": 3181
     },
     "packages/client/src/components/MessageInputToolbar.tsx": {
-      "maxLines": 3802
+      "maxLines": 3795
     },
     "packages/client/src/components/MessageList.tsx": {
-      "maxLines": 5574,
+      "maxLines": 5542,
       "raise": {
         "from": 5702,
         "reason": "Removing the export-star renderSelectors barrel splits its one import into per-module imports from the owning sessionDetail concern modules. Maintainer-approved 2026-11-06."
       }
     },
     "packages/client/src/components/NewSessionForm.tsx": {
-      "maxLines": 2689
+      "maxLines": 2687
     },
     "packages/client/src/components/Sidebar.tsx": {
       "maxLines": 1603

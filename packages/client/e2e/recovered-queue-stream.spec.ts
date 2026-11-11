@@ -187,7 +187,7 @@ test.describe("Recovered queue stream snapshots", () => {
     await expect.poll(() => connected, { timeout: 10_000 }).toBe(true);
 
     const recoveredChip = page
-      .locator(".deferred-message")
+      .locator("[data-deferred-message]")
       .filter({ hasText: "publish" });
     await expect(recoveredChip).toHaveCount(1);
     await expect(recoveredChip.getByText("Paused after restart")).toBeVisible();

@@ -1,0 +1,357 @@
+.toolbarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  min-width: var(--composer-control-size);
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.toolbarButton:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.toolbarButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbarButton svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.messageInputKeyboardAction.bangTabMode {
+  border-color: color-mix(
+    in srgb,
+    var(--accent-primary) 45%,
+    var(--border-color)
+  );
+  color: var(--accent-primary);
+  gap: 2px;
+}
+
+.messageInputKeyboardActions {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.messageInputKeyboardSecondarySlot {
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  flex: 0 0 48px;
+}
+
+.messageInputKeyboardSecondarySlot:empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.messageInputKeyboardAction {
+  min-width: 0;
+  min-height: 48px;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--app-yep-green);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.messageInputKeyboardAction.messageInputKeyboardSecondary {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  flex: 0 0 48px;
+  padding: 0;
+  font-size: 1.2rem;
+}
+
+.messageInputKeyboardAction.messageInputKeyboardPrimary.steerMode {
+  min-width: 48px;
+  flex: 1 1 48px;
+  container-name: mobile-keyboard-primary-action;
+  container-type: inline-size;
+}
+
+.messageInputKeyboardPrimary.steerMode .messageInputKeyboardPrimaryIcon {
+  font-size: 1.2rem;
+}
+@container mobile-keyboard-primary-action (max-width: 4rem) {
+  .messageInputKeyboardPrimary.steerMode .messageInputKeyboardPrimaryLabel {
+    display: none;
+  }
+}
+
+.messageInputKeyboardActions.hasAlternate .messageInputKeyboardAction {
+  padding-inline: var(--space-2);
+}
+
+.messageInputKeyboardAction.queueMode {
+  background: var(--attention-color);
+}
+
+.messageInputKeyboardAction.projectQueueMode {
+  background: var(--project-queue-button-bg, var(--project-queue-action-bg));
+}
+
+.projectQueueNewSessionButton {
+  --project-queue-button-bg: var(--project-queue-new-session-action-bg);
+}
+
+.messageInputKeyboardAction.projectQueueNewSessionButton {
+  position: relative;
+}
+
+.messageInputKeyboardAction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.queueButton,
+.stopButton {
+  width: var(--composer-primary-control-size);
+  height: var(--composer-primary-control-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.sendButton {
+  width: var(--composer-primary-control-size);
+  height: var(--composer-primary-control-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+  background: var(--app-yep-green);
+  color: white;
+  position: relative;
+}
+
+.sendButton,
+.stopButton,
+.queueButton {
+  box-sizing: border-box;
+}
+
+.sendButton:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.sendButton.queueMode {
+  background: var(--attention-color);
+}
+
+.sendButton.queueButton {
+  background: var(--attention-color);
+  color: white;
+}
+
+.sendButton.projectQueueButton {
+  background: var(--project-queue-button-bg, var(--project-queue-action-bg));
+  color: white;
+  box-shadow:
+    0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--project-queue-button-bg, var(--project-queue-action-bg)) 52%,
+      transparent
+    ),
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--project-queue-button-bg, var(--project-queue-action-bg)) 16%,
+      transparent
+    );
+}
+
+.sendButton.projectQueueButton:hover:not(:disabled) {
+  opacity: 1;
+  background: color-mix(
+    in srgb,
+    var(--project-queue-button-bg, var(--project-queue-action-bg)) 88%,
+    white
+  );
+  box-shadow:
+    0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--project-queue-button-bg, var(--project-queue-action-bg)) 68%,
+      transparent
+    ),
+    0 0 0 4px
+    color-mix(
+      in srgb,
+      var(--project-queue-button-bg, var(--project-queue-action-bg)) 22%,
+      transparent
+    );
+}
+
+.sendButton.projectQueueButton:disabled {
+  box-shadow: none;
+}
+
+.sendButton.patientQueueAction {
+  background: var(--patient-queue-action-bg);
+  color: white;
+}
+
+.steerNowToggle {
+  display: inline-flex;
+  box-sizing: border-box;
+  height: var(--composer-primary-control-size);
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.steerNowToggle:hover {
+  border-color: color-mix(in srgb, var(--text-muted) 55%, var(--border-color));
+  color: var(--text-primary);
+}
+
+.steerNowToggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--attention-color);
+}
+
+.steerNowToggle:has(input:checked) {
+  border-color: color-mix(in srgb, var(--attention-color) 70%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--attention-color) 20%,
+    var(--bg-tertiary)
+  );
+  color: var(--text-primary);
+}
+
+.steerNowToggle:has(input:disabled) {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.sendButton:disabled {
+  opacity: 0.4;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sendIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1;
+  width: 1em;
+  height: 1em;
+}
+
+.sendSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: send-spin 0.8s linear infinite;
+}
+
+@keyframes send-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stopButton {
+  background: var(--error-color);
+  color: white;
+}
+
+.stopButton:hover {
+  opacity: 0.85;
+}
+
+.stopIcon {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.queueButton {
+  background: var(--attention-color);
+  color: white;
+}
+
+.queueButton:hover {
+  opacity: 0.85;
+}
+
+[data-new-session-form-toolbar] .toolbarButton {
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  min-width: var(--composer-control-size);
+  border-radius: var(--radius-md);
+}
+
+[data-new-session-form-toolbar] .toolbarButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+[data-composer-bottom-overflow-menu-group] .steerNowToggle,
+[data-composer-bottom-overflow-menu-group] .sendButton.projectQueueButton {
+  flex: 0 0 auto;
+}

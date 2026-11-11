@@ -194,9 +194,9 @@
       "count": 1,
       "reason": "Inline text that toggles in place (a <span> inside running text), with its own Enter/Space handling; predates the button family."
     },
-    "components/NewSessionForm.tsx": {
+    "components/NewSessionShortcutsHelp.tsx": {
       "count": 1,
-      "reason": "A <details> summary whose disclosure behavior is native; predates the button family."
+      "reason": "composer pass"
     },
     "components/PathBreadcrumbs.tsx": {
       "count": 1,
@@ -403,29 +403,24 @@
   },
   "fieldLookRules": {
     "components/NewSessionForm.module.css": {
-      "count": 2,
-      "reason": "Composer (the session input and new-session form): its own later pass."
+      "count": 4,
+      "reason": "composer pass"
     },
     "components/NewSessionQueueOptions.module.css": {
       "count": 4,
       "reason": "Composer (the session input and new-session form): its own later pass."
     },
+    "components/SpeechDraftField.module.css": {
+      "count": 3,
+      "reason": "composer pass"
+    },
     "styles/base.css": {
       "count": 1,
       "reason": "Document-level native form controls inherit the UI font before their owning module chooses typography; this is the continuing base inheritance default."
-    },
-    "styles/index.css": {
-      "count": 8,
-      "reason": "The composer's textareas and steer-row toggle (composer pass)."
     }
   },
   "tabRoles": {},
-  "spinKeyframes": {
-    "styles/index.css": {
-      "count": 1,
-      "reason": "send-spin, the new-session submit's spinner: the composer pass."
-    }
-  },
+  "spinKeyframes": {},
   "nativeDialogs": {},
   "modalRoles": {
     "components/GoalPanel.tsx": {

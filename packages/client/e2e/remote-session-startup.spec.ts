@@ -108,7 +108,7 @@ async function installStartupProbe(page: Page) {
       }
 
       const headerVisible = isVisible("[data-session-header]");
-      const composerVisible = isVisible(".message-input-wrapper");
+      const composerVisible = isVisible("[data-message-input-wrapper]");
       headerSeen ||= headerVisible;
       composerSeen ||= composerVisible;
       if (headerSeen && !headerVisible) probe.headerLostAfterVisible = true;
@@ -156,7 +156,7 @@ async function expectSessionReady(page: Page) {
   await expect(page.locator("[data-session-header]")).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.locator(".message-input-wrapper")).toBeVisible({
+  await expect(page.locator("[data-message-input-wrapper]")).toBeVisible({
     timeout: 15_000,
   });
   await expect(

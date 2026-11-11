@@ -13,7 +13,7 @@ import { createRoot } from "react-dom/client";
 import { I18nProvider } from "../../src/i18n";
 import { CurrentSourceRuntimeProvider } from "../../src/contexts/SourceRuntimeContext";
 import { useDraftPersistence } from "../../src/hooks/useDraftPersistence";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 const sessionId = new URLSearchParams(window.location.search).get("session");
 const draftKey = sessionId

@@ -27,7 +27,7 @@ const queued = (
 const deferredPath = (tempId: string) =>
   `/sessions/${sessionId}/deferred/${tempId}`;
 const chip = (page: Page, text: string) =>
-  page.locator(".deferred-message").filter({ hasText: text });
+  page.locator("[data-deferred-message]").filter({ hasText: text });
 
 test("Edit returns a queued message with its effort command to the composer, only when the composer is free", async ({
   page,
@@ -55,7 +55,7 @@ test("Edit returns a queued message with its effort command to the composer, onl
   await expect(edit).toHaveCount(0);
   await session.composer.fill("");
   await page
-    .locator(".message-input-wrapper input[type=file]")
+    .locator("[data-message-input-wrapper] input[type=file]")
     .first()
     .setInputFiles({
       name: "pin-queue.txt",

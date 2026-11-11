@@ -14,7 +14,7 @@ import { LOCAL_CLIENT_SUMMARY_SOURCE_KEY } from "../../src/lib/clientSummaryStor
 import type { YaSourceRuntime } from "../../src/lib/sourceRuntime";
 import { SourceRuntimeProvider } from "../../src/lib/sourceRuntimeReact";
 import { FakeSourceTransport } from "../../src/lib/transport";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 /**
  * Mounts one Blob-backed media surface at a time, as a relayed client sees

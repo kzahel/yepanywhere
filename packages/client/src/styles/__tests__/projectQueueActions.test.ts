@@ -15,12 +15,12 @@ function escapeRegExp(value: string): string {
 }
 
 function getRuleDeclarations(css: string, selector: string): string {
-  const match = new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`).exec(
-    css,
-  );
+  const match = new RegExp(
+    `(?:^|\\n)${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`,
+  ).exec(css);
   expect(
     match,
-    `${selector} should have a dedicated rule in index.css.`,
+    `${selector} should have a dedicated style rule.`,
   ).not.toBeNull();
   return match?.[1] ?? "";
 }
@@ -54,7 +54,10 @@ function relativeLuminance(hex: string): number {
 
 describe("Project Queue action CSS contract", () => {
   it("makes the new-session action darker than the current-session action", async () => {
-    const css = await readClientStyles("tokens", "index");
+    const css = await readClientStyles(
+      "tokens",
+      "../components/ComposerActions.module",
+    );
     const currentSessionColor = getHexCustomProperty(
       css,
       "--project-queue-action-bg",
@@ -65,15 +68,15 @@ describe("Project Queue action CSS contract", () => {
     );
     const variantDeclarations = getRuleDeclarations(
       css,
-      ".project-queue-new-session-button",
+      ".projectQueueNewSessionButton",
     );
     const keyboardDeclarations = getRuleDeclarations(
       css,
-      ".message-input-keyboard-action.project-queue-mode",
+      ".messageInputKeyboardAction.projectQueueMode",
     );
     const toolbarDeclarations = getRuleDeclarations(
       css,
-      ".send-button.project-queue-button",
+      ".sendButton.projectQueueButton",
     );
 
     expect(relativeLuminance(newSessionColor)).toBeLessThan(

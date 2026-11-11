@@ -233,7 +233,7 @@ describe("MessageList queue rows", () => {
     expect(
       screen
         .getByText("patient second")
-        .closest(".deferred-message")
+        .closest("[data-deferred-message]")
         ?.classList.contains("patient-deferred-message"),
     ).toBe(false);
     expect(screen.getByText("Patient (waiting, 3m ago)")).toBeTruthy();

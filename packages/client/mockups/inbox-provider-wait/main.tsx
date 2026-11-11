@@ -10,7 +10,7 @@ import inboxStyles from "../../src/components/InboxContent.module.css";
 import { SessionListItem } from "../../src/components/SessionListItem";
 import { ThinkingIndicator } from "../../src/components/ThinkingIndicator";
 import { I18nProvider } from "../../src/i18n";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Inbox.module.css";
 
 /**

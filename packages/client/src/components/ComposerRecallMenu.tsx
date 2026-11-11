@@ -1,3 +1,5 @@
+import recallStyles from "./ComposerRecallMenu.module.css";
+import slashStyles from "./SlashCommandButton.module.css";
 import { useI18n } from "../i18n";
 import type { ComposerTurnRecallEntry } from "../lib/composerTurnRecall";
 
@@ -24,17 +26,22 @@ export function ComposerRecallMenu({
   const { t } = useI18n();
   return (
     <div
-      className="slash-command-menu composer-slash-command-menu composer-recall-menu"
+      className={`${slashStyles.slashCommandMenu} ${slashStyles.composerSlashCommandMenu} composer-recall-menu`}
       role="menu"
       aria-label={t("composerRecallMenuLabel")}
     >
       {matches.map((entry, index) => (
-        <div key={`${index}-${entry.id}`} className="composer-recall-row">
+        <div
+          key={`${index}-${entry.id}`}
+          className={recallStyles.composerRecallRow}
+          data-composer-recall-row
+        >
           <button
             type="button"
-            className={`slash-command-item composer-recall-preview${
-              index === activeIndex ? " active" : ""
-            }`}
+            className={`${slashStyles.slashCommandItem} ${recallStyles.composerRecallPreview}${index === activeIndex ? ` ${slashStyles.active}` : ""}`}
+            data-composer-recall-preview
+            data-slash-command-item
+            data-composer-recall-active={index === activeIndex || undefined}
             onMouseEnter={() => onHighlight(index)}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onAccept(entry)}
@@ -47,7 +54,8 @@ export function ComposerRecallMenu({
             // this turn and close the drawer (no composer/draft change).
             <button
               type="button"
-              className="composer-recall-goto"
+              className={recallStyles.composerRecallGoto}
+              data-composer-recall-goto
               onMouseEnter={() => onHighlight(index)}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => onGoTo(entry)}

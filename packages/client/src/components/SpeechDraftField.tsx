@@ -1,3 +1,4 @@
+import draftStyles from "./SpeechDraftField.module.css";
 import type { ReactNode } from "react";
 import type { SpeechTranscriptInsertionParts } from "../lib/speechRecognition";
 
@@ -20,19 +21,28 @@ export function SpeechDraftField({
 }) {
   return (
     <div
-      className={`speech-draft-field ${
-        interimDisplayTranscript ? "has-interim" : ""
-      }`}
+      className={`${draftStyles.speechDraftField} ${interimDisplayTranscript ? draftStyles.hasInterim : ""}`}
+      data-speech-draft-field
     >
-      <div className="speech-draft-inline">
+      <div className={draftStyles.speechDraftInline}>
         {interimDisplayTranscript && (
-          <div className="speech-draft-mirror" aria-hidden="true">
+          <div
+            className={draftStyles.speechDraftMirror}
+            data-speech-draft-mirror
+            aria-hidden="true"
+          >
             <span>{interimInsertion.before}</span>
             {interimInsertion.separatorBefore}
-            <span className="speech-interim-inline">
+            <span
+              className={draftStyles.speechInterimInline}
+              data-speech-interim-inline
+            >
               {interimInsertion.transcript}
             </span>
-            <span className="speech-interim-caret" />
+            <span
+              className={draftStyles.speechInterimCaret}
+              data-speech-interim-caret
+            />
             {interimInsertion.separatorAfter}
             <span>{interimInsertion.after}</span>
           </div>
@@ -41,7 +51,7 @@ export function SpeechDraftField({
       </div>
       {interimTranscript && (
         <div
-          className="speech-interim-status"
+          className={draftStyles.speechInterimStatus}
           role="status"
           aria-live="polite"
           aria-label="Tentative speech transcript"

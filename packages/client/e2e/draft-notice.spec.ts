@@ -74,7 +74,7 @@ test("draft review belongs to its session composer, never the Inbox", async ({
     page.getByRole("status", { name: "Draft needs attention" }),
   ).toHaveCount(0);
   await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
-  const composer = page.locator(".message-input-wrapper");
+  const composer = page.locator("[data-message-input-wrapper]");
   const notice = composer.getByRole("status", {
     name: "Draft needs attention",
   });

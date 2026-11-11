@@ -137,7 +137,7 @@ class YaNativeWebAppInstrumentedTest {
                   const transfer = new DataTransfer(); transfer.items.add(new File([new Uint8Array($uploadBytes)], 'native-upload.bin'));
                   input.files = transfer.files; input.dispatchEvent(new Event('change', {bubbles:true})); return true; })()
             """.trimIndent())
-            await(scenario, "document.querySelector('.attachment-list')?.textContent.includes('native-upload.bin') === true")
+            await(scenario, "document.querySelector('[data-attachment-list]')?.textContent.includes('native-upload.bin') === true")
             evaluate(scenario, """
                 window.nativeTypingLatencies = [];
                 window.nativeTypingInputLatencies = [];
@@ -190,7 +190,7 @@ class YaNativeWebAppInstrumentedTest {
             assertEquals(200, runBlocking { sibling.request("GET", "/version").status })
             // Hosted run 40179442039 exceeded 120 s while still transferring.
             // Allow 3x that observed bound; input latency gates stay unchanged.
-            await(scenario, "document.querySelector('.attachment-list')?.textContent.includes('native-upload.bin') === true && !document.querySelector('.attachment-list')?.textContent.includes('%')", 360)
+            await(scenario, "document.querySelector('[data-attachment-list]')?.textContent.includes('native-upload.bin') === true && !document.querySelector('[data-attachment-list]')?.textContent.includes('%')", 360)
             scenario.onActivity { activity ->
                 val proof = activity.nativeTransportDiagnostics() ?: org.json.JSONObject()
                 proof.remove("profileId")

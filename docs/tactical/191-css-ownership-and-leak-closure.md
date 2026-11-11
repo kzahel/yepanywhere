@@ -2,8 +2,7 @@
 
 Topic: css-architecture
 
-Status: steps 1–6 landed 2026-11-10; step 7 areas 1–7 landed.
-Steps 7–8 remain open. The maintainer
+Status: steps 1–7 landed 2026-11-10–11. Step 8 remains open. The maintainer
 replaced the "contained steady state" stance of
 [CSS architecture](../../topics/css-architecture.md) with a target of little
 global CSS and shared controls whose look callers cannot override. Steps run
@@ -211,7 +210,7 @@ media/fallback-diff vocabulary, to preserve their cascade and ownership.
 
 ### 7 — drain the legacy stylesheets by owner
 
-Landing by area, composer unchanged and last (2026-11-10–11).
+Landed by area, composer unchanged and last (2026-11-10–11).
 - Area 1 landed: monitor/share/relay setup, login/host pages and shared login/list/pulse. Remaining index/renderers/tool rows: 8,929/4,063/670.
 - Area 2 landed: settings/search/categories, previews, device/command reuse and onboarding. Remaining: 7,058/4,062/670.
 - Area 3 landed: source columns/rows/search/detail, diff/commit/blame/file-page chrome. Remaining: 6,733/3,316/670.
@@ -220,9 +219,10 @@ Landing by area, composer unchanged and last (2026-11-10–11).
 - Area 6 landed: transcript/blocks/tool rows/renderers and shared code/task/status/path/viewer/diff owners. Remaining: 4,350/35/0.
 - Review repairs landed: DOM/platform/perf hooks, exact source copy, Edit/Grep/copy feedback, media/base ordering, explicit composed winners and modular viewer range/source styles.
 - Area 7 landed: shared page/session headers, viewport/split/messages/footer chrome, /btw pane, status/overscroll/warnings. Remaining: 3,681/35/0 (3,716).
-- Census: 174 token exceptions / 80 files; 26 runtime families; zero unused globals/module selectors; generated findings 148, base 10.
-- Deferred: composer unchanged last; existing 49.375px header oracle/account-pane browser mismatches, login recovery and reload overlap. Only three approved selector hunks staged in the protected title spec.
-- Next: area 8 composer, then step 8's string-class ban and legacy-file removal.
+- Area 8 landed: composer/input/toolbar/new-session, speech/thinking/mode/context/attachments and shared action/dot modules; controls unchanged. Remaining: 0/0/0.
+- Census: 192 token exceptions / 85 files; 13 generated families; zero unused globals/module selectors; generated findings 148, base 10.
+- Deferred: composer swaps (plan 182), native instrumentation unavailable, existing header/account-pane browser mismatches, login recovery and reload overlap; peer edits preserved.
+- Next: step 8's string-class ban and deletion of the three empty legacy files.
 
 ### 8 — ban string class names in drained owners
 

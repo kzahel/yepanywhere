@@ -1,3 +1,4 @@
+import optionStyles from "./NewSessionOptionsPanel.module.css";
 import { useEffect, useState } from "react";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useI18n } from "../i18n";
@@ -39,7 +40,10 @@ export function MachineControlSessionSelection({
   }, [transport, eligible, onChange]);
   if (!eligible || !available) return null;
   return (
-    <div className={`new-session-helper-section ${styles.section}`}>
+    <div
+      className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
+      data-new-session-helper-section
+    >
       <h3>{t("newSessionMachineControlTitle")}</h3>
       <FilterDropdown<"off" | "on">
         label={t("newSessionMachineControlTitle")}

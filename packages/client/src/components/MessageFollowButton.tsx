@@ -1,3 +1,4 @@
+import followStyles from "./MessageFollowButton.module.css";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/Button";
 
@@ -22,7 +23,7 @@ export function MessageFollowButton({
     <Button
       size="small"
       elevated={elevated}
-      className={`message-follow-toggle${newOutputBelow ? " is-new-output" : ""}`}
+      className={`${followStyles.messageFollowToggle}${newOutputBelow ? ` ${followStyles["is-new-output"]}` : ""}`}
       onClick={onClick}
       aria-label={title}
       title={title}

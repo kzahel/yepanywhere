@@ -1,0 +1,132 @@
+.thinkingControlsPanel {
+  display: grid;
+  gap: var(--space-3);
+}
+.thinkingControlsPanelInline {
+  grid-template-columns: repeat(auto-fit, minmax(6rem, max-content));
+  column-gap: 1rem;
+  row-gap: var(--space-3);
+  align-items: start;
+  justify-content: start;
+}
+
+.thinkingControlsPanelInline .thinkingControlsSectionEffort {
+  grid-column: 1 / -1;
+}
+
+.thinkingToolbarMenuSection {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.thinkingToolbarMenuLabel {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.thinkingToolbarMenuOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.thinkingToolbarOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.thinkingToolbarOption:hover {
+  border-color: var(--border-input);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.thinkingToolbarOption.active {
+  border-color: var(--app-yep-green);
+  background: color-mix(in srgb, var(--app-yep-green) 13%, var(--bg-code));
+  color: var(--text-primary);
+}
+.thinkingToolbarOption.is-default:not(.active) {
+  border-style: dashed;
+  border-color: var(--border-input);
+  color: var(--text-secondary);
+}
+
+.thinkingEffortSelector {
+  --thinking-effort-control-size: var(--composer-control-size, 32px);
+  display: flex;
+  align-items: stretch;
+  min-height: var(--thinking-effort-control-size);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.thinking-effort-selector--toolbar {
+  height: var(--thinking-effort-control-size);
+}
+
+.thinking-effort-selector--settings {
+  --thinking-effort-control-size: 34px;
+  display: grid;
+  grid-template-columns: repeat(
+      var(--thinking-effort-option-count),
+      minmax(0, 1fr)
+    );
+  width: 100%;
+  max-width: 100%;
+  margin-top: var(--space-2);
+}
+
+.thinkingEffortOption {
+  height: 100%;
+  min-width: 2.5rem;
+  min-height: var(--thinking-effort-control-size);
+  padding: 0 0.5rem;
+  border: 0;
+  border-left: 1px solid var(--border-input);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.thinking-effort-selector--settings .thinkingEffortOption {
+  min-width: 0;
+}
+
+.thinkingEffortOption:first-child {
+  border-left: 0;
+}
+
+.thinkingEffortOption:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.thinkingEffortOption.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgb(59, 130, 246);
+}
+
+.thinkingEffortOption:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

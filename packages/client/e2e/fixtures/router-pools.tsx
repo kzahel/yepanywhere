@@ -10,7 +10,7 @@ import {
 } from "../../src/components/RouterPoolSelector";
 import { useRouterDiscovery } from "../../src/hooks/useRouterDiscovery";
 import { I18nProvider } from "../../src/i18n";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 // Browser-only service substitutes; AAR's pinned integration suite proves the
 // real control/native boundaries. This fixture never contacts a provider.

@@ -1,0 +1,118 @@
+.speechDraftField {
+  width: 100%;
+  min-width: 0;
+  display: block;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+  overflow: hidden;
+  --speech-draft-padding: 0.75rem;
+  --speech-draft-font-size: var(--font-size-base);
+  --speech-draft-line-height: normal;
+}
+
+.speechDraftField:focus-within {
+  border-color: var(--app-yep-green);
+  box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.15);
+}
+
+.speechDraftInline {
+  display: grid;
+  position: relative;
+}
+
+.speechDraftInline > textarea,
+.speechDraftMirror {
+  grid-area: 1 / 1;
+}
+
+.speechDraftField textarea,
+[data-message-input] .speechDraftField textarea,
+[data-new-session-form] .speechDraftField textarea {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--speech-draft-padding);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: var(--speech-draft-font-size);
+  line-height: var(--speech-draft-line-height);
+  outline: none;
+  overflow-y: hidden;
+}
+
+[data-new-session-form] .speechDraftField textarea {
+  overflow-y: auto;
+}
+
+[data-message-input-collapsed] .speechDraftField textarea {
+  overflow-y: hidden;
+}
+
+.speechDraftField.hasInterim textarea {
+  color: transparent;
+  caret-color: transparent;
+}
+
+.speechDraftField.hasInterim textarea::placeholder {
+  color: transparent;
+}
+
+.speechDraftMirror {
+  min-width: 0;
+  padding: var(--speech-draft-padding);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--speech-draft-font-size);
+  line-height: var(--speech-draft-line-height);
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+}
+
+.speechInterimInline {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+  text-decoration-skip-ink: auto;
+}
+.speechInterimCaret {
+  display: inline-block;
+  width: 1px;
+  height: 1.05em;
+  margin: 0 1px;
+  background: var(--text-primary);
+  vertical-align: text-bottom;
+  animation: speech-interim-caret-blink 1.06s step-end infinite;
+}
+
+@keyframes speech-interim-caret-blink {
+  0%,
+  49.99% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.speechInterimStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[data-new-session-form] .speechDraftField {
+  --speech-draft-padding: 0.6rem 0.7rem;
+  --speech-draft-line-height: 1.35;
+}

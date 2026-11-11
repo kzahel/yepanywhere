@@ -1,3 +1,47 @@
+.deferredMessage {
+  margin-bottom: var(--space-3);
+}
+
+.projectQueueInlineMessageStatus {
+  color: var(--project-queue-action-bg);
+}
+
+.deferredMessageFooter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.deferredMessageStatus {
+  font-size: var(--font-size-xs);
+  color: var(--attention-color);
+  font-style: italic;
+}
+
+.deferredMessageAttachments {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-dimmed);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
+.deferredMessageActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+@media (hover: none), (pointer: coarse), (width <= 600px) {
+  .deferredMessageActions {
+    flex-basis: 100%;
+    margin-top: var(--space-1);
+  }
+}
+
 .messageList {
   position: relative;
 }

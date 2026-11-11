@@ -1,3 +1,6 @@
+import { composerOptionDotStateClasses } from "./composerStateClasses";
+import dotStyles from "./ComposerOptionDot.module.css";
+import optionStyles from "./NewSessionOptionsPanel.module.css";
 import { RouterPoolSelector } from "./RouterPoolSelector";
 import { RouterClaudeAiConnectorsSelection } from "./RouterClaudeAiConnectorsSelection";
 import { MachineControlSessionSelection } from "./MachineControlSessionSelection";
@@ -245,7 +248,7 @@ export function NewSessionOptionsPanel({
   ]);
 
   const optionPlaceholder = (
-    className: string,
+    className: string | undefined,
     title: string,
     caption: string | undefined,
     triggerClassName?: string,
@@ -272,7 +275,7 @@ export function NewSessionOptionsPanel({
   const providerSection =
     providerChoices.length > 1 ? (
       <NewSessionOptionSection
-        className={`new-session-provider-section ${styles.compactProviderSection}`}
+        className={`${optionStyles.newSessionProviderSection} ${styles.compactProviderSection}`}
         title={sessionDefaultCopy.provider.title}
         caption={sessionDefaultCopy.provider.description}
         showCaption={showOptionCaptions}
@@ -290,7 +293,7 @@ export function NewSessionOptionsPanel({
               label: provider.displayName,
               icon: (
                 <span
-                  className={`provider-option-dot provider-${provider.name}`}
+                  className={`${dotStyles["provider-option-dot"]} ${composerOptionDotStateClasses[`provider-${provider.name}`] ?? ""}`}
                 />
               ),
               description: [
@@ -316,7 +319,7 @@ export function NewSessionOptionsPanel({
               selectedProvider ? (
                 <span className={styles.selectedChoice}>
                   <span
-                    className={`provider-option-dot provider-${selectedProvider}`}
+                    className={`${dotStyles["provider-option-dot"]} ${composerOptionDotStateClasses[`provider-${selectedProvider}`] ?? ""}`}
                     aria-hidden="true"
                   />
                   <span className={styles.selectedChoiceText}>
@@ -342,7 +345,7 @@ export function NewSessionOptionsPanel({
       </NewSessionOptionSection>
     ) : (
       optionPlaceholder(
-        `new-session-provider-section ${styles.compactProviderSection}`,
+        `${optionStyles.newSessionProviderSection} ${styles.compactProviderSection}`,
         sessionDefaultCopy.provider.title,
         sessionDefaultCopy.provider.description,
         styles.providerTrigger,
@@ -351,7 +354,7 @@ export function NewSessionOptionsPanel({
   const modelField =
     selectedProvider && modelOptions.length > 0 ? (
       <NewSessionOptionSection
-        className="new-session-model-field"
+        className={optionStyles.newSessionModelField}
         title={sessionDefaultCopy.model.title}
         caption={sessionDefaultCopy.model.description}
         showCaption={showOptionCaptions}
@@ -384,7 +387,7 @@ export function NewSessionOptionsPanel({
       </NewSessionOptionSection>
     ) : (
       optionPlaceholder(
-        "new-session-model-field",
+        optionStyles.newSessionModelField,
         sessionDefaultCopy.model.title,
         sessionDefaultCopy.model.description,
         undefined,
@@ -503,11 +506,16 @@ export function NewSessionOptionsPanel({
     </div>
   );
   const modelSection = (
-    <div className="new-session-model-section">{modelField}</div>
+    <div
+      className={optionStyles.newSessionModelSection}
+      data-new-session-model-section
+    >
+      {modelField}
+    </div>
   );
   const showThinkingSection = (
     <NewSessionOptionSection
-      className="new-session-helper-section new-session-show-thinking-section"
+      className={`${optionStyles.newSessionHelperSection} new-session-show-thinking-section`}
       title={sessionDefaultCopy.showThinking.title}
       caption={sessionDefaultCopy.showThinking.description}
       showCaption={showOptionCaptions}
@@ -530,7 +538,7 @@ export function NewSessionOptionsPanel({
   const serviceTierSection =
     serviceTierOptions.length > 0 ? (
       <NewSessionOptionSection
-        className="new-session-helper-section"
+        className={optionStyles.newSessionHelperSection}
         title={t("newSessionServiceTierTitle")}
         caption={t("newSessionServiceTierDescription")}
         showCaption={showOptionCaptions}
@@ -565,7 +573,7 @@ export function NewSessionOptionsPanel({
     ) : null;
   const effortSection = showThinkingControls ? (
     <NewSessionOptionSection
-      className={`new-session-helper-section ${styles.effortSection}`}
+      className={`${optionStyles.newSessionHelperSection} ${styles.effortSection}`}
       title={t("newSessionThinkingEffortTitle")}
       caption={sessionDefaultCopy.thinking.description}
       showCaption={showOptionCaptions}
@@ -582,7 +590,12 @@ export function NewSessionOptionsPanel({
                   ? "modelSettingsThinkingOffLabel"
                   : "modelSettingsThinkingAutoLabel",
               ),
-              icon: <span className={`mode-option-dot thinking-${option}`} />,
+              icon: (
+                <span
+                  className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`thinking-${option}`] ?? ""}`}
+                  data-mode-option-dot
+                />
+              ),
             })),
           ...(thinkingModeOptions.includes("on")
             ? effortOptions.map((option) => ({
@@ -590,7 +603,7 @@ export function NewSessionOptionsPanel({
                 label: option.label,
                 icon: (
                   <span
-                    className={`model-switch-indicator-dot tone-${option.value}`}
+                    className={`${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${option.value}`] ?? ""}`}
                   />
                 ),
                 description: showOptionCaptions
@@ -619,8 +632,11 @@ export function NewSessionOptionsPanel({
             <span
               className={
                 effectiveThinkingMode === "on"
-                  ? `model-switch-indicator-dot tone-${effectiveEffortLevel}`
-                  : `mode-option-dot thinking-${effectiveThinkingMode}`
+                  ? `${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${effectiveEffortLevel}`] ?? ""}`
+                  : `${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`thinking-${effectiveThinkingMode}`] ?? ""}`
+              }
+              data-mode-option-dot={
+                !(effectiveThinkingMode === "on") || undefined
               }
               aria-hidden="true"
             />
@@ -651,7 +667,7 @@ export function NewSessionOptionsPanel({
       : null);
   const recapSection = selectedProvider ? (
     <NewSessionOptionSection
-      className="new-session-helper-section"
+      className={optionStyles.newSessionHelperSection}
       title={sessionDefaultCopy.recap.title}
       caption={getRecapModeDescription(selectedRecapMode, t, recapAfterSeconds)}
       showCaption={showOptionCaptions}
@@ -661,7 +677,12 @@ export function NewSessionOptionsPanel({
         options={availableRecapModes.map((modeValue) => ({
           value: modeValue,
           label: recapModeLabels[modeValue],
-          icon: <span className={`mode-option-dot recap-${modeValue}`} />,
+          icon: (
+            <span
+              className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`recap-${modeValue}`] ?? ""}`}
+              data-mode-option-dot
+            />
+          ),
           description: showOptionCaptions
             ? getRecapModeDescription(modeValue, t, recapAfterSeconds)
             : undefined,
@@ -684,7 +705,8 @@ export function NewSessionOptionsPanel({
         triggerContent={
           <span className={styles.selectedChoice}>
             <span
-              className={`mode-option-dot recap-${selectedRecapMode}`}
+              className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`recap-${selectedRecapMode}`] ?? ""}`}
+              data-mode-option-dot
               aria-hidden="true"
             />
             <span className={styles.selectedChoiceText}>
@@ -719,7 +741,7 @@ export function NewSessionOptionsPanel({
   ) : null;
   const helperSideModelSection = showHelperSideModel ? (
     <NewSessionOptionSection
-      className="new-session-helper-section new-session-helper-model-section"
+      className={`${optionStyles.newSessionHelperSection} new-session-helper-model-section`}
       title={sessionDefaultCopy.helperModel.title}
       caption={sessionDefaultCopy.helperModel.description}
       showCaption={showOptionCaptions}
@@ -744,7 +766,7 @@ export function NewSessionOptionsPanel({
   ) : null;
   const promptSuggestionSection = selectedProvider ? (
     <NewSessionOptionSection
-      className="new-session-helper-section"
+      className={optionStyles.newSessionHelperSection}
       title={sessionDefaultCopy.suggestions.title}
       caption={promptSuggestionModeDescriptions[selectedPromptSuggestionMode]}
       showCaption={showOptionCaptions}
@@ -754,7 +776,12 @@ export function NewSessionOptionsPanel({
         options={availablePromptSuggestionModes.map((modeValue) => ({
           value: modeValue,
           label: promptSuggestionModeLabels[modeValue],
-          icon: <span className={`mode-option-dot suggestion-${modeValue}`} />,
+          icon: (
+            <span
+              className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`suggestion-${modeValue}`] ?? ""}`}
+              data-mode-option-dot
+            />
+          ),
           description: showOptionCaptions
             ? promptSuggestionModeDescriptions[modeValue]
             : undefined,
@@ -774,7 +801,8 @@ export function NewSessionOptionsPanel({
         triggerContent={
           <span className={styles.selectedChoice}>
             <span
-              className={`mode-option-dot suggestion-${selectedPromptSuggestionMode}`}
+              className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`suggestion-${selectedPromptSuggestionMode}`] ?? ""}`}
+              data-mode-option-dot
               aria-hidden="true"
             />
             <span className={styles.selectedChoiceText}>
@@ -787,7 +815,7 @@ export function NewSessionOptionsPanel({
   ) : null;
   const permissionSection = supportsPermissionMode ? (
     <NewSessionOptionSection
-      className="new-session-mode-section"
+      className={optionStyles.newSessionModeSection}
       title={sessionDefaultCopy.permission.title}
       showCaption={showOptionCaptions}
     >
@@ -796,7 +824,12 @@ export function NewSessionOptionsPanel({
         options={permissionModeOptions.map((permissionMode) => ({
           value: permissionMode,
           label: modeLabels[permissionMode],
-          icon: <span className={`mode-option-dot mode-${permissionMode}`} />,
+          icon: (
+            <span
+              className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`mode-${permissionMode}`] ?? ""}`}
+              data-mode-option-dot
+            />
+          ),
           description: modeDescriptions[permissionMode],
           disabled: isStarting,
         }))}
@@ -809,7 +842,8 @@ export function NewSessionOptionsPanel({
         triggerContent={
           <span className={styles.selectedChoice}>
             <span
-              className={`mode-option-dot mode-${effectivePermissionMode}`}
+              className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`mode-${effectivePermissionMode}`] ?? ""}`}
+              data-mode-option-dot
               aria-hidden="true"
             />
             <span className={styles.selectedChoiceText}>
@@ -824,7 +858,7 @@ export function NewSessionOptionsPanel({
     <>
       {!launchLock.limited && (
         <NewSessionOptionSection
-          className="new-session-helper-section new-session-sandbox-section"
+          className={`${optionStyles.newSessionHelperSection} ${optionStyles.newSessionSandboxSection}`}
           title={sessionDefaultCopy.sandbox.title}
           caption={sessionDefaultCopy.sandbox.description}
           showCaption={showOptionCaptions}
@@ -866,7 +900,7 @@ export function NewSessionOptionsPanel({
       )}
       {effectiveSandboxLevel === "project-write" && !launchLock.limited && (
         <NewSessionOptionSection
-          className="new-session-helper-section new-session-sandbox-firewall-section"
+          className={`${optionStyles.newSessionHelperSection} new-session-sandbox-firewall-section`}
           title={sessionDefaultCopy.sandboxFirewall.title}
           caption={sessionDefaultCopy.sandboxFirewall.description}
           showCaption={showOptionCaptions}
@@ -902,7 +936,7 @@ export function NewSessionOptionsPanel({
     </>
   ) : sessionSandboxUnavailableReason ? (
     <NewSessionOptionSection
-      className="new-session-helper-section new-session-sandbox-section"
+      className={`${optionStyles.newSessionHelperSection} ${optionStyles.newSessionSandboxSection}`}
       title={sessionDefaultCopy.sandbox.title}
       showCaption={showOptionCaptions}
     >
@@ -962,7 +996,10 @@ export function NewSessionOptionsPanel({
   return (
     <>
       {providerSlotFilled && (
-        <div className="new-session-provider-slot">
+        <div
+          className={optionStyles.newSessionProviderSlot}
+          data-new-session-provider-slot
+        >
           {fixedLaunchSection}
           {showProviderPicker && providerSection}
           {showModelPicker && modelSection}
@@ -1013,9 +1050,7 @@ export function NewSessionOptionsPanel({
       </div>
       <div
         id="new-session-advanced-options"
-        className={`${styles.secondaryOptions}${
-          isProjectChooserExpanded ? ` ${styles.secondaryOptionsHidden}` : ""
-        }`}
+        className={`${styles.secondaryOptions}${isProjectChooserExpanded ? ` ${styles.secondaryOptionsHidden}` : ""}`}
         data-new-session-secondary-options="true"
         hidden={!showAdvancedOptions}
       >

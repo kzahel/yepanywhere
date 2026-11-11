@@ -5,7 +5,7 @@ import type { AgentAuthRouterRecovery } from "@yep-anywhere/shared";
 import { api, type VersionInfo } from "../../src/api/client";
 import { AgentAuthRouterSettings } from "../../src/components/AgentAuthRouterControls";
 import { I18nProvider } from "../../src/i18n";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 // Browser-only component fixture. Real control/credential boundaries are covered
 // by server tests and AAR's cross-repository suite, not by these API substitutes.

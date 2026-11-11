@@ -488,7 +488,7 @@ test("New Session keeps launch options and restores project selection after clos
       await composer.pressSequentially(character);
       await expect(composer).toHaveValue(typed, { timeout: 100 });
     }
-    const form = page.locator(".new-session-form");
+    const form = page.locator("[data-new-session-form]");
     await form.evaluate((element) => {
       element.dataset.kept = "yes";
     });
@@ -499,7 +499,9 @@ test("New Session keeps launch options and restores project selection after clos
     if (await advanced.isVisible()) await advanced.click();
     const options = page.locator("[data-new-session-secondary-options]");
     await expect(options).toBeVisible();
-    const before = await page.locator(".new-session-provider-slot").innerText();
+    const before = await page
+      .locator("[data-new-session-provider-slot]")
+      .innerText();
     const appButton = page.getByRole("button", { name: "App", exact: true });
     await appButton.click();
     const app = page.getByRole("region", { name: "Project App" });
@@ -510,19 +512,23 @@ test("New Session keeps launch options and restores project selection after clos
         .getByRole("heading", { name: "Sketch garden" }),
     ).toBeVisible();
     if (size.width >= 1100) {
-      await expect(page.locator(".new-session-provider-slot")).toBeVisible();
+      await expect(
+        page.locator("[data-new-session-provider-slot]"),
+      ).toBeVisible();
       await expect(options).toBeVisible();
       await expect(composer).toHaveValue(typed);
     }
     await recordUiCapture(page, `new-session-app-open-${size.width}`);
     await app.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(page.locator(".new-session-project-chooser")).toBeVisible();
+    await expect(
+      page.locator("[data-new-session-project-chooser]"),
+    ).toBeVisible();
     await expect
-      .poll(() => page.locator(".new-session-provider-slot").innerText())
+      .poll(() => page.locator("[data-new-session-provider-slot]").innerText())
       .toBe(before);
     await expect(options).toBeVisible();
     await expect(
-      page.locator('.new-session-form[data-kept="yes"]'),
+      page.locator('[data-new-session-form][data-kept="yes"]'),
     ).toBeVisible();
     await expect(composer).toHaveValue(typed);
     await composer.scrollIntoViewIfNeeded();

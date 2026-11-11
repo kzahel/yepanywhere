@@ -7,7 +7,7 @@ import headerStyles from "../../src/components/ViewerHeader.module.css";
 import windowStyles from "../../src/components/ViewerWindowActions.module.css";
 import { I18nProvider } from "../../src/i18n";
 import type { Project } from "../../src/types";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Service.module.css";
 
 const project: Project = {

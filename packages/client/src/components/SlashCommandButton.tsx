@@ -1,3 +1,4 @@
+import slashStyles from "./SlashCommandButton.module.css";
 import {
   getCanonicalInvocationToken,
   type SlashCommand,
@@ -119,11 +120,11 @@ export function SlashCommandButton({
   }
 
   return (
-    <div className="slash-command-container">
+    <div className={slashStyles.slashCommandContainer}>
       <button
         ref={buttonRef}
         type="button"
-        className={`slash-command-button ${isOpen ? "active" : ""}`}
+        className={`${slashStyles.slashCommandButton} ${isOpen ? slashStyles.active : ""}`}
         onClick={handleToggle}
         disabled={disabled}
         title={t("slashCommandsLabel")}
@@ -131,14 +132,14 @@ export function SlashCommandButton({
         aria-expanded={isOpen}
         aria-haspopup="menu"
       >
-        <span className="slash-icon">/$</span>
+        <span className={slashStyles.slashIcon}>/$</span>
       </button>
       {isOpen &&
         menuPos &&
         createPortal(
           <div
             ref={menuRef}
-            className="slash-command-menu"
+            className={slashStyles.slashCommandMenu}
             style={{
               position: "fixed",
               bottom: menuPos.bottom,
@@ -172,22 +173,28 @@ function SlashCommandMenuItem({
   return (
     <button
       type="button"
-      className="slash-command-item"
+      className={slashStyles.slashCommandItem}
+      data-slash-command-item
       onClick={() => onSelect(command)}
       role="menuitem"
       aria-label={parts.label}
     >
-      <span className="slash-command-copy">
+      <span className={slashStyles.slashCommandCopy}>
         {/* shortcut + rest is one command word split for highlighting; keep it
             a single inline run so no flex gap lands inside the word. */}
         <span>
           {parts.shortcut && (
-            <strong className="slash-command-shortcut">{parts.shortcut}</strong>
+            <strong
+              className={slashStyles.slashCommandShortcut}
+              data-slash-command-shortcut
+            >
+              {parts.shortcut}
+            </strong>
           )}
           {parts.rest}
         </span>
         {(command.description || command.argumentHint) && (
-          <span className="slash-command-detail">
+          <span className={slashStyles.slashCommandDetail}>
             {[command.description, command.argumentHint]
               .filter(Boolean)
               .join(" · ")}

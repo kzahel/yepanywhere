@@ -7,7 +7,7 @@ import {
   codeFenceRootClass,
   useCodeFenceRenderers,
 } from "../../src/hooks/useCodeFenceRenderers";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 const board = "┌────────────┐\n│█◎●→·○◯◆■□  │\n│0123456789AB│\n└────────────┘";
 

@@ -90,7 +90,7 @@ test("limited New Session accepts prompt and staged files together before unavai
       if (r.method() === "POST") paths.push(new URL(r.url()).pathname);
     });
     await page.goto(`${f.origin}/new-session?projectId=${f.projectId}`);
-    const input = page.locator("textarea.new-session-form-textarea");
+    const input = page.locator("textarea[data-new-session-form-textarea]");
     await input.pressSequentially("OWNED_LIMITED_CREATION");
     await page.locator('input[type="file"]').setInputFiles({
       name: "limited.txt",
@@ -220,10 +220,10 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
       await route.fulfill({ response });
     });
     await expect(
-      page.locator("button.project-queue-new-session-button"),
+      page.locator("button[data-project-queue-new-session-button]"),
     ).toBeVisible();
     await page
-      .locator("button.project-queue-new-session-button")
+      .locator("button[data-project-queue-new-session-button]")
       .click({ button: "right" });
     await page
       .getByRole("button", { name: "Start new session now", exact: true })
@@ -332,7 +332,7 @@ async function originComposer(browser: Browser, linger = false) {
             buffer: Buffer.from("owned first input bytes"),
           });
       await page
-        .locator("button.project-queue-new-session-button")
+        .locator("button[data-project-queue-new-session-button]")
         .click({ button: "right" });
       await page
         .getByRole("button", { name: "Start new session now", exact: true })
@@ -542,7 +542,7 @@ test("background creation keeps options, clears captured files, and supports the
       })
       .check();
     await page.goto(formUrl);
-    const input = page.locator("textarea.new-session-form-textarea");
+    const input = page.locator("textarea[data-new-session-form-textarea]");
     const help = page.getByLabel("New session keyboard shortcuts", {
       exact: true,
     });
@@ -598,7 +598,7 @@ test("background creation keeps options, clears captured files, and supports the
     });
     await input.pressSequentially("Check the draft recovery behavior next");
     await expect(
-      page.locator("button.new-session-project-queue-button"),
+      page.locator("button[data-new-session-project-queue-button]"),
     ).toBeVisible();
     // A composing Enter and a shortcut in a different control must not submit.
     await input.dispatchEvent("keydown", {
@@ -696,7 +696,7 @@ test("background lost acknowledgement reloads into explicit recovery without dup
     );
     const formUrl = `${f.origin}/new-session?projectId=${f.projectId}&provider=codex&model=gpt-6.1-sol`;
     await page.goto(formUrl);
-    const input = page.locator("textarea.new-session-form-textarea");
+    const input = page.locator("textarea[data-new-session-form-textarea]");
     await input.pressSequentially("Keep my unconfirmed request recoverable");
     await page.route("**/api/session-creations/*", (route) =>
       loseRead ? route.abort("failed") : route.continue(),
@@ -763,8 +763,8 @@ async function queueDraftFixture(browser: Browser) {
     const page = await f.context.newPage();
     const formUrl = `${f.origin}/new-session?projectId=${f.projectId}&provider=codex&model=gpt-6.1-sol`;
     await page.goto(formUrl);
-    const input = page.locator("textarea.new-session-form-textarea");
-    const queue = page.locator("button.new-session-project-queue-button");
+    const input = page.locator("textarea[data-new-session-form-textarea]");
+    const queue = page.locator("button[data-new-session-project-queue-button]");
     await expect(input).toBeEditable();
     await expect(queue).toBeVisible();
     return { ...f, page, input, queue, formUrl, blocker };
@@ -957,7 +957,7 @@ test("Project Queue acceptance preserves a sibling attachment-only edit across r
     await expect(f.queue).toBeEnabled();
     const sibling = await f.context.newPage();
     await sibling.goto(f.formUrl);
-    const other = sibling.locator("textarea.new-session-form-textarea");
+    const other = sibling.locator("textarea[data-new-session-form-textarea]");
     await expect(other).toHaveValue("Sibling queue request");
     let saved!: () => void;
     const accepted = new Promise<void>((resolve) => {
@@ -1054,7 +1054,7 @@ test("Project Queue refusal preserves captured input and newer sibling work for 
     await sent;
     const sibling = await f.context.newPage();
     await sibling.goto(f.formUrl);
-    const other = sibling.locator("textarea.new-session-form-textarea");
+    const other = sibling.locator("textarea[data-new-session-form-textarea]");
     await expect(other).toHaveValue("Refused queue request");
     await other.pressSequentially(" with sibling recovery notes");
     release();

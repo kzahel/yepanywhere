@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { DEFAULT_INSTRUCTION_RESTORATION } from "@yep-anywhere/shared";
 import { I18nProvider } from "../../src/i18n";
 import { InstructionRestorationControl } from "../../src/pages/settings/InstructionRestorationControl";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 function Fixture() {
   const [updates, setUpdates] = useState(0);

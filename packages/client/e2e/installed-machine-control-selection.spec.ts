@@ -116,7 +116,7 @@ test("installed MC readiness preserves typing and its selected affordance at des
   });
   await page.route("**/api/machine-control", resolveReadiness);
   await page.goto(`${baseURL}/new-session`);
-  const composer = page.locator("textarea.new-session-form-textarea");
+  const composer = page.locator("textarea[data-new-session-form-textarea]");
   // Windows CI 37098979286 exhausted 5s while the cold Vite graph and
   // initial API reads loaded; its failure snapshot then showed the composer.
   // Allow 3x that observed bound without changing the typing latency checks.

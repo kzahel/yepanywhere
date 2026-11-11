@@ -1,3 +1,5 @@
+import { composerOptionDotStateClasses } from "./composerStateClasses";
+import dotStyles from "./ComposerOptionDot.module.css";
 import styles from "./ModelSwitchModal.module.css";
 import modelSectionStyles from "./ModelOptionsSection.module.css";
 import {
@@ -565,7 +567,7 @@ export function ModelSwitchModal({
                     : t("modelSwitchNextSend")}
                 </span>
                 <span
-                  className={`model-switch-indicator-dot tone-${currentIndicatorTone}`}
+                  className={`${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${currentIndicatorTone}`] ?? ""}`}
                   aria-hidden="true"
                 />
                 <span
@@ -596,7 +598,7 @@ export function ModelSwitchModal({
                     →
                   </span>
                   <span
-                    className={`model-switch-indicator-dot tone-${pendingIndicatorTone}`}
+                    className={`${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${pendingIndicatorTone}`] ?? ""}`}
                     aria-hidden="true"
                   />
                   <span
@@ -669,12 +671,16 @@ export function ModelSwitchModal({
                       value: mode,
                       icon: (
                         <span
-                          className={`model-switch-indicator-dot tone-${
-                            mode === "off"
-                              ? "off"
-                              : mode === "auto"
-                                ? "auto"
-                                : effectiveEffortLevel
+                          className={`${dotStyles.modelSwitchIndicatorDot} ${
+                            composerOptionDotStateClasses[
+                              `tone-${
+                                mode === "off"
+                                  ? "off"
+                                  : mode === "auto"
+                                    ? "auto"
+                                    : effectiveEffortLevel
+                              }`
+                            ] ?? ""
                           }`}
                         />
                       ),
@@ -726,7 +732,7 @@ export function ModelSwitchModal({
                       value: option.value,
                       icon: (
                         <span
-                          className={`model-switch-indicator-dot tone-${option.value}`}
+                          className={`${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${option.value}`] ?? ""}`}
                         />
                       ),
                       label: option.label,

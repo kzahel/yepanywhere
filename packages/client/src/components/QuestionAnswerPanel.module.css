@@ -29,7 +29,7 @@
 /* `chevron-up`/`chevron-down` is shared collapse-affordance vocabulary that
    MessageInput and ToolApprovalPanel also set on their own toggles, so it
    stays global and this module only reacts to it. */
-.toggle svg:global(.chevron-up) {
+.toggle svg[data-chevron-up] {
   transform: rotate(180deg);
 }
 

@@ -8,7 +8,7 @@ test.use({ serviceWorkers: "block" });
 // Each case waits out a real save debounce in two windows.
 test.setTimeout(90_000);
 
-const composer = "textarea.new-session-form-textarea";
+const composer = "textarea[data-new-session-form-textarea]";
 const slot = { kind: "new-session" };
 
 /** Type one key at a time after the first character; record any divergence. */

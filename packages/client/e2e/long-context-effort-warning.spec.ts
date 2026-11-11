@@ -212,7 +212,9 @@ test("a long-context effort change asks first and can fork at the new effort", a
     await expect(page.getByText("Done. Here is the summary.")).toBeVisible({
       timeout: 30_000,
     });
-    const thinkingToggle = page.locator(".thinking-toggle-button:visible");
+    const thinkingToggle = page.locator(
+      "[data-thinking-toggle-button]:visible",
+    );
     await expect(thinkingToggle).toBeVisible({ timeout: 15_000 });
     await thinkingToggle.click();
     await page.getByRole("menuitemradio", { name: "Max" }).click();

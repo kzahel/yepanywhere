@@ -63,13 +63,13 @@
 .defaultsPanel
   .sessionDefaultThinkingControls
   [data-thinking-section="mode"]
-  :global(.thinking-toolbar-menu-options) {
+  [data-thinking-toolbar-menu-options] {
   flex-wrap: nowrap;
 }
 
 .defaultsPanel
   .sessionDefaultThinkingControls
-  :global(.thinking-controls-section--effort) {
+  [data-thinking-controls-section--effort] {
   flex: 1 1 24rem;
   min-width: min(100%, 18rem);
   grid-column: auto;
@@ -79,7 +79,7 @@
   .defaultsPanel
     .sessionDefaultThinkingControls
     [data-thinking-section="mode"]
-    :global(.thinking-toolbar-menu-options) {
+    [data-thinking-toolbar-menu-options] {
     flex-wrap: wrap;
   }
 }
@@ -101,21 +101,21 @@
   }
 }
 
-.defaultsPanel :global(.new-session-provider-section),
-.defaultsPanel :global(.new-session-model-section) {
+.defaultsPanel [data-new-session-provider-section],
+.defaultsPanel [data-new-session-model-section] {
   margin-bottom: 0;
 }
 
-.defaultsPanel :global(.new-session-helper-section),
-.defaultsPanel :global(.new-session-mode-section) {
+.defaultsPanel [data-new-session-helper-section],
+.defaultsPanel [data-new-session-mode-section] {
   margin-bottom: 0;
 }
 
-:global(.mode-option-dot).keepaliveOff {
+[data-mode-option-dot].keepaliveOff {
   background: var(--text-muted);
 }
 
-:global(.mode-option-dot).keepaliveAuto {
+[data-mode-option-dot].keepaliveAuto {
   background: var(--success-color);
 }
 

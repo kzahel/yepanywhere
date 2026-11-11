@@ -1,3 +1,4 @@
+import optionStyles from "./NewSessionOptionsPanel.module.css";
 import type { AgentAuthRouterOverview } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
 import { FilterDropdown } from "./FilterDropdown";
@@ -25,7 +26,10 @@ export function RouterClaudeAiConnectorsSelection({
   if (!support) return null;
   const login = support.login;
   return (
-    <div className={`new-session-helper-section ${styles.section}`}>
+    <div
+      className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
+      data-new-session-helper-section
+    >
       <h3>{t("newSessionClaudeAiConnectorsTitle")}</h3>
       <FilterDropdown<"off" | "on">
         label={t("newSessionClaudeAiConnectorsTitle")}

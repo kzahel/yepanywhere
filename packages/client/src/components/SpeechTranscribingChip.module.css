@@ -1,0 +1,20 @@
+.speechTranscribingChip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.speechTranscribingLabel {
+  font-style: italic;
+}
+
+.speechTranscribingCancel {
+  margin-left: auto;
+}

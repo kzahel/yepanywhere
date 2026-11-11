@@ -1,3 +1,5 @@
+import { NewSessionShortcutsHelp } from "./NewSessionShortcutsHelp";
+import actionStyles from "./ComposerActions.module.css";
 import { FileDropZone } from "./FileDropZone";
 import {
   getSessionCreation,
@@ -871,13 +873,18 @@ export function NewSessionForm({
           <button
             key="detached"
             type="button"
-            className={`new-session-project-option ${isDetachedProject ? "selected" : ""}`}
+            className={`${styles.newSessionProjectOption} ${isDetachedProject ? styles.selected : ""}`}
+            data-new-session-project-option
+            data-selected={isDetachedProject || undefined}
             onClick={handleDetachedProject}
           >
-            <span className="new-session-project-option-name">
+            <span
+              className={styles.newSessionProjectOptionName}
+              data-new-session-project-option-name
+            >
               {t("newSessionProjectDetached")}
             </span>
-            <span className="new-session-project-option-path">
+            <span className={styles.newSessionProjectOptionPath}>
               {t("newSessionProjectDetachedHint")}
             </span>
           </button>,
@@ -886,7 +893,7 @@ export function NewSessionForm({
 
     if (projectsLoading) {
       rows.push(
-        <div key="loading" className="new-session-project-empty">
+        <div key="loading" className={styles.newSessionProjectEmpty}>
           {t("newSessionLoading")}
         </div>,
       );
@@ -897,7 +904,7 @@ export function NewSessionForm({
     if (projectSuggestions.length === 0) {
       if (!hasCustomProjectPath)
         rows.push(
-          <div key="no-matches" className="new-session-project-empty">
+          <div key="no-matches" className={styles.newSessionProjectEmpty}>
             {t("newSessionProjectNoMatches")}
           </div>,
         );
@@ -909,14 +916,23 @@ export function NewSessionForm({
         <button
           key={project.id}
           type="button"
-          className={`new-session-project-option ${currentProjectSelection?.id === project.id && !hasCustomProjectPath ? "selected" : ""}`}
+          className={`${styles.newSessionProjectOption} ${currentProjectSelection?.id === project.id && !hasCustomProjectPath ? styles.selected : ""}`}
+          data-new-session-project-option
+          data-selected={
+            (currentProjectSelection?.id === project.id &&
+              !hasCustomProjectPath) ||
+            undefined
+          }
           onClick={() => handleProjectOptionSelect(project)}
           title={project.path}
         >
-          <span className="new-session-project-option-name">
+          <span
+            className={styles.newSessionProjectOptionName}
+            data-new-session-project-option-name
+          >
             {project.name}
           </span>
-          <span className="new-session-project-option-path">
+          <span className={styles.newSessionProjectOptionPath}>
             {shortenPath(project.path)}
           </span>
         </button>
@@ -1922,12 +1938,19 @@ export function NewSessionForm({
             // scrollable so it can still be read, just not sent.
             readOnly={composerMuted}
             rows={composerMuted ? Math.min(rows, 3) : rows}
-            className="new-session-form-textarea"
+            className={styles.newSessionFormTextarea}
+            data-new-session-form-textarea
           />
         </SpeechDraftField>
         <ProjectFileCompletionMenu completion={fileCompletion} />
-        <div className="new-session-form-toolbar">
-          <div className="new-session-form-toolbar-left">
+        <div
+          className={styles.newSessionFormToolbar}
+          data-new-session-form-toolbar
+        >
+          <div
+            className={styles.newSessionFormToolbarLeft}
+            data-new-session-form-toolbar-left
+          >
             {allowAttachments && (
               <>
                 <input
@@ -1939,7 +1962,7 @@ export function NewSessionForm({
                 />
                 <button
                   type="button"
-                  className="toolbar-button"
+                  className={actionStyles.toolbarButton}
                   onClick={(event) => {
                     if (attachGesture.current.swiped) {
                       attachGesture.current.swiped = false;
@@ -2022,7 +2045,7 @@ export function NewSessionForm({
                   onPendingSpeechChange={handlePendingSpeechChange}
                   onTranscriptionSettled={handleTranscriptionSettled}
                   disabled={isStarting}
-                  className="toolbar-button"
+                  className={actionStyles.toolbarButton}
                   speechMethod={selectedSpeechMethod}
                   getTranscriptionContext={getTranscriptionContext}
                   smartTurn={activeSpeechSmartTurnSettings}
@@ -2032,7 +2055,7 @@ export function NewSessionForm({
             {!compact && !composerMuted && (
               <FullPaneComposerToggle
                 expanded={fullPane}
-                className={`toolbar-button ${styles.fullPaneToggle}`}
+                className={`${actionStyles.toolbarButton} ${styles.fullPaneToggle}`}
                 onToggle={() => {
                   toggleFullPane();
                   textareaRef.current?.focus();
@@ -2041,55 +2064,16 @@ export function NewSessionForm({
             )}
           </div>
           <div
-            className={`new-session-form-toolbar-actions ${styles.toolbarActions}`}
+            className={`${styles.newSessionFormToolbarActions} ${styles.toolbarActions}`}
           >
             {canCreateInBackground && toolbarVisibility.shortcutsHelp && (
-              <details
-                className={styles.shortcutsHelp}
-                onBlur={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget))
-                    event.currentTarget.open = false;
-                }}
-              >
-                <summary
-                  role="button"
-                  className={styles.shortcutsTrigger}
-                  aria-label={t("newSessionKeyboardShortcuts")}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      const details = event.currentTarget
-                        .parentElement as HTMLDetailsElement;
-                      details.open = false;
-                    }
-                  }}
-                >
-                  <span className={styles.shortcutsQuestion}>?</span>
-                </summary>
-                <div className={styles.shortcutsPopover}>
-                  <strong>{t("newSessionKeyboardShortcuts")}</strong>
-                  <div className={styles.shortcutsRow}>
-                    <kbd>⌘ Enter</kbd>
-                    <span>
-                      {describePrefixedDelivery(
-                        t("sessionCreationBackgroundAction"),
-                      )}
-                    </span>
-                  </div>
-                  {!compact && (
-                    <div className={styles.shortcutsRow}>
-                      <kbd>Ctrl U</kbd>
-                      <span>
-                        {t(
-                          fullPane
-                            ? "composerFullPaneRestore"
-                            : "composerFullPaneExpand",
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </details>
+              <NewSessionShortcutsHelp
+                compact={compact}
+                fullPane={fullPane}
+                backgroundLabel={describePrefixedDelivery(
+                  t("sessionCreationBackgroundAction"),
+                )}
+              />
             )}
             {toolbarVisibility.projectQueue && showProjectQueueAction && (
               <button
@@ -2101,13 +2085,18 @@ export function NewSessionForm({
                   templateProjectBusy ||
                   !canQueueProjectSession
                 }
-                className="send-button project-queue-button new-session-project-queue-button"
+                className={`${actionStyles.sendButton} ${actionStyles.projectQueueButton} ${styles.newSessionProjectQueueButton}`}
+                data-send-button
+                data-new-session-project-queue-button
+                data-project-queue-button
                 aria-label={describePrefixedDelivery(
                   t("toolbarProjectQueueLabel"),
                 )}
                 title={describePrefixedTooltip(projectQueueNewSessionTitle)}
               >
-                <DeliveryGlyph className="send-icon">⇥</DeliveryGlyph>
+                <DeliveryGlyph className={actionStyles.sendIcon}>
+                  ⇥
+                </DeliveryGlyph>
                 {manualDeliverySpeechPrefix && (
                   <SpeechPrefixActionCue prefix={manualDeliverySpeechPrefix} />
                 )}
@@ -2122,7 +2111,9 @@ export function NewSessionForm({
                 templateProjectBusy ||
                 !canStart
               }
-              className="send-button new-session-submit-button"
+              className={`${actionStyles.sendButton} ${styles.newSessionSubmitButton}`}
+              data-new-session-submit-button
+              data-send-button
               aria-label={describePrefixedDelivery(
                 launch?.startLabel ?? t(startActionKey),
               )}
@@ -2131,10 +2122,10 @@ export function NewSessionForm({
               )}
             >
               {isStarting ? (
-                <span className="send-spinner" />
+                <span className={actionStyles.sendSpinner} />
               ) : (
                 <svg
-                  className="send-icon new-session-submit-icon"
+                  className={`${actionStyles.sendIcon} ${styles.newSessionSubmitIcon}`}
                   width="20"
                   height="20"
                   viewBox="0 0 24 24"
@@ -2192,31 +2183,36 @@ export function NewSessionForm({
   const projectChooser = (
     <div
       ref={projectChooserRef}
-      className={`new-session-project-chooser ${isProjectChooserExpanded ? "expanded" : ""}`}
+      className={`${styles.newSessionProjectChooser} ${isProjectChooserExpanded ? styles.expanded : ""}`}
+      data-new-session-project-chooser
     >
       {/* The suggestion list drops below the search, not below New project. */}
       <div className={styles.projectSearchAnchor}>
-        <div className="new-session-project-controls">
+        <div className={styles.newSessionProjectControls}>
           <ButtonBase
-            className="new-session-project-summary"
+            className={styles.newSessionProjectSummary}
+            data-new-session-project-summary
             onClick={() => setIsProjectChooserExpanded((prev) => !prev)}
             aria-expanded={isProjectChooserExpanded}
             aria-controls="new-session-project-panel"
           >
-            <span className="new-session-project-summary-body">
-              <span className="new-session-project-summary-title">
+            <span className={styles.newSessionProjectSummaryBody}>
+              <span
+                className={styles.newSessionProjectSummaryTitle}
+                data-new-session-project-summary-title
+              >
                 {projectSummaryTitle}
               </span>
               <span
-                className="new-session-project-summary-path"
+                className={styles.newSessionProjectSummaryPath}
                 title={projectSummaryMeta}
               >
                 {isDetachedProject ? (
                   <>
-                    <span className="new-session-project-summary-path-long">
+                    <span className={styles.newSessionProjectSummaryPathLong}>
                       {t("newSessionProjectDetachedHint")}
                     </span>
-                    <span className="new-session-project-summary-path-short">
+                    <span className={styles.newSessionProjectSummaryPathShort}>
                       {t("newSessionProjectDetachedHintShort")}
                     </span>
                   </>
@@ -2226,7 +2222,7 @@ export function NewSessionForm({
               </span>
             </span>
             <svg
-              className="new-session-project-summary-chevron"
+              className={styles.newSessionProjectSummaryChevron}
               width="16"
               height="16"
               viewBox="0 0 24 24"
@@ -2241,8 +2237,8 @@ export function NewSessionForm({
             </svg>
           </ButtonBase>
 
-          <label className="new-session-project-inline-field">
-            <span className="new-session-project-inline-label">
+          <label className={styles.newSessionProjectInlineField}>
+            <span className={styles.newSessionProjectInlineLabel}>
               {t("newSessionProjectPathLabel")}
             </span>
             <input
@@ -2262,7 +2258,8 @@ export function NewSessionForm({
               onKeyDown={handleProjectInputKeyDown}
               placeholder={t("newSessionProjectPathPlaceholder")}
               disabled={isStarting}
-              className="new-session-project-input"
+              className={styles.newSessionProjectInput}
+              data-new-session-project-input
               spellCheck={false}
               list="new-session-project-options"
             />
@@ -2273,7 +2270,7 @@ export function NewSessionForm({
         </div>
 
         {projectPending && projectSnapshotPending && (
-          <p className="new-session-project-empty" role="status">
+          <p className={styles.newSessionProjectEmpty} role="status">
             {t("newSessionProjectRefreshing")}
           </p>
         )}
@@ -2294,13 +2291,16 @@ export function NewSessionForm({
         {isProjectChooserExpanded && projectPanelRows && (
           <div
             id="new-session-project-panel"
-            className="new-session-project-panel"
+            className={styles.newSessionProjectPanel}
           >
-            <p className="new-session-project-field-hint">
+            <p className={styles.newSessionProjectFieldHint}>
               {t("newSessionProjectPathHint")}
             </p>
 
-            <div className="new-session-project-suggestions">
+            <div
+              className={styles.newSessionProjectSuggestions}
+              data-new-session-project-suggestions
+            >
               {projectPanelRows}
             </div>
           </div>
@@ -2526,11 +2526,12 @@ export function NewSessionForm({
   if (compact) {
     return (
       <FileDropZone
+        data-new-session-form
         enabled={allowAttachments && !composerMuted && !isStarting}
         onFiles={addPendingFiles}
         ownerKey={`${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`}
         newSession
-        className="new-session-form new-session-form-compact"
+        className={`${styles.newSessionForm} ${styles.newSessionFormCompact}`}
         onKeyDownCapture={handleComposerKeyDown}
       >
         {creationRecovery}
@@ -2543,13 +2544,12 @@ export function NewSessionForm({
   // Full mode: form with header, input area, and mode selector
   return (
     <FileDropZone
+      data-new-session-form
       enabled={allowAttachments && !composerMuted && !isStarting}
       onFiles={addPendingFiles}
       ownerKey={`${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`}
       newSession
-      className={`new-session-form new-session-container${
-        fullPane ? ` ${styles.fullPane}` : ""
-      }${fullPaneWide ? ` ${styles.fullPaneWide}` : ""}`}
+      className={`${styles.newSessionForm} ${styles.newSessionContainer}${fullPane ? ` ${styles.fullPane}` : ""}${fullPaneWide ? ` ${styles.fullPaneWide}` : ""}`}
       data-composer-full-pane={fullPane ? "true" : undefined}
       onKeyDownCapture={handleComposerKeyDown}
       style={
@@ -2561,8 +2561,8 @@ export function NewSessionForm({
       {/* A launch is introduced by its own surface — the handoff dialog has a
           title — so the new-session prompt would only contradict it. */}
       {!launch && (
-        <div className="new-session-header">
-          <p className="new-session-subtitle">
+        <div className={styles.newSessionHeader}>
+          <p className={styles.newSessionSubtitle}>
             {t("newSessionHeaderSubtitle")}
           </p>
         </div>
@@ -2572,15 +2572,12 @@ export function NewSessionForm({
       {displayDefaultsError}
 
       <div
-        className={`new-session-top-layout ${styles.optionLayout}${
-          fixedProject ? ` ${styles.optionLayoutWithoutProject}` : ""
-        }${providerSlotFilled ? "" : ` ${styles.optionLayoutWithoutProvider}`}`}
+        className={`${styles.newSessionTopLayout} ${styles.optionLayout}${fixedProject ? ` ${styles.optionLayoutWithoutProject}` : ""}${providerSlotFilled ? "" : ` ${styles.optionLayoutWithoutProvider}`}`}
+        data-new-session-top-layout
       >
-        <div ref={mainStackRef} className="new-session-main-stack">
+        <div ref={mainStackRef} className={styles.newSessionMainStack}>
           <div
-            className={`new-session-input-area${
-              composerMuted ? ` ${styles.mutedComposer}` : ""
-            }`}
+            className={`${styles.newSessionInputArea}${composerMuted ? ` ${styles.mutedComposer}` : ""}`}
             data-composer-shell="true"
           >
             {inputArea}
@@ -2588,7 +2585,8 @@ export function NewSessionForm({
         </div>
         {!fixedProject && (
           <aside
-            className={`new-session-project-slot ${styles.projectControlsSlot}`}
+            className={`${styles.newSessionProjectSlot} ${styles.projectControlsSlot}`}
+            data-new-session-project-slot
           >
             {projectChooser}
             {!launch && projectQueueTargetProjectId && (

@@ -1,0 +1,209 @@
+.mode-button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: var(--composer-control-size);
+  max-width: 100%;
+  padding: 0 0.65rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mode-button:focus {
+  outline: none;
+}
+
+.mode-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-input);
+}
+
+.mode-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mode-button-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+[data-composer-bottom-overflow-menu-group] .mode-button .mode-dot {
+  width: 8px;
+  height: 8px;
+}
+.mode-dot.mode-default {
+  background: var(--timeline-dot-default);
+}
+
+.mode-dot.mode-acceptEdits {
+  background: var(--success-color);
+}
+
+.mode-dot.mode-plan {
+  background: var(--warning-color);
+}
+
+.mode-dot.mode-bypassPermissions {
+  background: var(--error-color);
+}
+
+.mode-dot.mode-auto {
+  background: var(--primary-color);
+}
+
+.mode-selector-options {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 0;
+}
+
+.mode-selector-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s ease;
+}
+
+.mode-selector-option:hover {
+  background: var(--bg-hover);
+}
+
+.mode-selector-option.selected {
+  background: rgba(217, 119, 87, 0.08);
+}
+
+.mode-selector-label {
+  flex: 1;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+}
+
+.mode-selector-check {
+  color: var(--app-yep-green);
+  display: flex;
+  align-items: center;
+}
+
+.mode-selector-timing-note {
+  margin: 0 var(--space-3) var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning-color) 10%, transparent);
+  color: var(--warning-color);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+.mode-selector-container {
+  position: relative;
+  display: inline-block;
+}
+.mode-selector-dropdown {
+  display: block;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: var(--space-2);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  min-width: 220px;
+  max-width: calc(100dvw - 16px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+.mode-selector-dropdown .mode-selector-options {
+  padding: var(--space-1) 0;
+}
+
+.mode-selector-dropdown .mode-selector-option {
+  padding: var(--space-2) var(--space-3);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+[data-composer-bottom-overflow-menu-group] .mode-button {
+  justify-content: center;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  min-width: var(--composer-control-size);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+@media (width <= 600px) {
+  .mode-button {
+    gap: 0.35rem;
+    height: var(--composer-control-size);
+    padding: 0 0.5rem;
+    box-sizing: border-box;
+  }
+}
+
+@media (width <= 600px) {
+  .mode-button .mode-dot {
+    width: 7px;
+    height: 7px;
+  }
+}
+
+@media (width <= 480px) {
+  .mode-button {
+    padding: 0 0.45rem;
+  }
+}
+
+@media (width <= 390px) {
+  .mode-button {
+    width: var(--composer-control-size);
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (width <= 390px) {
+  .mode-button-label {
+    display: none;
+  }
+}
+[data-composer-bottom-overflow-menu-group] .mode-selector-container {
+  flex: 0 0 auto;
+}
+[data-composer-bottom-overflow-menu-group] .mode-button-label {
+  display: none;
+}

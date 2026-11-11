@@ -1,3 +1,4 @@
+import contextStyles from "./ContextUsageIndicator.module.css";
 import { useI18n } from "../i18n";
 import type { ContextUsage } from "../types";
 
@@ -53,12 +54,16 @@ export function ContextUsageIndicator({
       });
 
   return (
-    <span className="context-usage-indicator" title={tooltip}>
+    <span
+      className={contextStyles.contextUsageIndicator}
+      data-context-usage-indicator
+      title={tooltip}
+    >
       <svg
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="context-usage-pie"
+        className={contextStyles.contextUsagePie}
         aria-hidden="true"
       >
         {/* Background circle - darker */}
@@ -84,7 +89,12 @@ export function ContextUsageIndicator({
         />
       </svg>
       {showLabel && (
-        <span className="context-usage-label">{displayPercentage}%</span>
+        <span
+          className={contextStyles.contextUsageLabel}
+          data-context-usage-label
+        >
+          {displayPercentage}%
+        </span>
       )}
     </span>
   );

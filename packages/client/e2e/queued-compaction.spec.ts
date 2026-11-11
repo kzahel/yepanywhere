@@ -106,7 +106,7 @@ test("Queue preserves compact order through reload and acknowledges typing durin
     expect((await queuedCompactResponse).status()).toBe(200);
     await expect(input).toHaveValue("");
     await expect(
-      page.locator(".deferred-message").filter({ hasText: "/compact" }),
+      page.locator("[data-deferred-message]").filter({ hasText: "/compact" }),
     ).toBeVisible();
     await input.pressSequentially("FOLLOWING_COMPACT");
     const queuedFollowupResponse = page.waitForResponse(
@@ -132,7 +132,7 @@ test("Queue preserves compact order through reload and acknowledges typing durin
     await page.reload();
     await expect(input).toHaveValue("");
     await expect(input).toBeEditable();
-    await expect(page.locator(".deferred-message")).toHaveCount(2);
+    await expect(page.locator("[data-deferred-message]")).toHaveCount(2);
     expect(
       (await f.requests()).filter((r) => r.method === "thread/compact/start"),
     ).toHaveLength(0);
@@ -158,11 +158,11 @@ test("Queue preserves compact order through reload and acknowledges typing durin
         .hover({ position: { x: 100, y: 100 } });
       await page.mouse.wheel(0, 1_000_000);
       await expect(
-        page.locator(".deferred-message").filter({ hasText: "/compact" }),
+        page.locator("[data-deferred-message]").filter({ hasText: "/compact" }),
       ).toBeInViewport();
       await expect(
         page
-          .locator(".deferred-message")
+          .locator("[data-deferred-message]")
           .filter({ hasText: "FOLLOWING_COMPACT" }),
       ).toBeInViewport();
       await page.mouse.move(2, 2);

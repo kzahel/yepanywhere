@@ -1,3 +1,5 @@
+import { modeSelectorStateClasses } from "./composerStateClasses";
+import modeSelectorStyles from "./ModeSelector.module.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useI18n } from "../i18n";
@@ -104,7 +106,7 @@ export function ModeSelector({
   const modeOptions = modes ?? getPermissionModeOptions({ currentMode: mode });
 
   const displayLabel = modeLabels[mode];
-  const displayDotClass = `mode-${mode}`;
+  const displayDotClass = modeSelectorStateClasses[`mode-${mode}`];
   const showNextTurnTiming = changesApplyNextTurn || modeChangePending;
   const buttonTitle = showNextTurnTiming
     ? `${t("modeClickToSelect" as never)} - ${t("modeNextTurnHint" as never)}`
@@ -114,7 +116,10 @@ export function ModeSelector({
   const optionsContent = (
     <>
       {showNextTurnTiming && (
-        <div className="mode-selector-timing-note" role="status">
+        <div
+          className={modeSelectorStyles["mode-selector-timing-note"]}
+          role="status"
+        >
           {t("modeNextTurnHint" as never)}
         </div>
       )}
@@ -124,14 +129,21 @@ export function ModeSelector({
         <button
           key={m}
           type="button"
-          className={`mode-selector-option ${mode === m ? "selected" : ""}`}
+          className={`${modeSelectorStyles["mode-selector-option"]} ${mode === m ? modeSelectorStyles.selected : ""}`}
           onClick={(e) => handleModeSelect(m, e)}
           aria-pressed={mode === m}
         >
-          <span className={`mode-dot mode-${m}`} />
-          <span className="mode-selector-label">{modeLabels[m]}</span>
+          <span
+            className={`${modeSelectorStyles["mode-dot"]} ${modeSelectorStateClasses[`mode-${m}`] ?? ""}`}
+          />
+          <span className={modeSelectorStyles["mode-selector-label"]}>
+            {modeLabels[m]}
+          </span>
           {mode === m && (
-            <span className="mode-selector-check" aria-hidden="true">
+            <span
+              className={modeSelectorStyles["mode-selector-check"]}
+              aria-hidden="true"
+            >
               <svg
                 width="16"
                 height="16"
@@ -155,29 +167,38 @@ export function ModeSelector({
   const dropdown = isOpen ? (
     <div
       ref={sheetRef}
-      className="mode-selector-dropdown"
+      className={modeSelectorStyles["mode-selector-dropdown"]}
+      data-mode-selector-dropdown
       role="dialog"
       tabIndex={-1}
       aria-label={t("modeSelectLabel" as never)}
     >
-      <div className="mode-selector-options">{optionsContent}</div>
+      <div className={modeSelectorStyles["mode-selector-options"]}>
+        {optionsContent}
+      </div>
     </div>
   ) : null;
 
   return (
-    <div className="mode-selector-container">
+    <div
+      className={modeSelectorStyles["mode-selector-container"]}
+      data-mode-selector-container
+    >
       <button
         ref={buttonRef}
         type="button"
-        className="mode-button"
+        className={modeSelectorStyles["mode-button"]}
+        data-mode-button
         onClick={handleButtonClick}
         disabled={disabled}
         title={buttonTitle}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span className={`mode-dot ${displayDotClass}`} />
-        <span className="mode-button-label">
+        <span
+          className={`${modeSelectorStyles["mode-dot"]} ${displayDotClass}`}
+        />
+        <span className={modeSelectorStyles["mode-button-label"]}>
           {displayLabel}
           {modeChangePending ? ` ${t("modePendingSuffix" as never)}` : null}
         </span>

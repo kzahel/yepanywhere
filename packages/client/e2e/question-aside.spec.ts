@@ -307,7 +307,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       if (native) await composer.press("Enter");
       else
         await page
-          .locator(".message-input-wrapper")
+          .locator("[data-message-input-wrapper]")
           .getByRole("button", { name: "Quick answer", exact: true })
           .click();
       const card = page.getByRole("region", { name: "Quick answer" });
@@ -357,7 +357,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       if (native) await composer.press("Enter");
       else
         await page
-          .locator(".message-input-wrapper")
+          .locator("[data-message-input-wrapper]")
           .getByRole("button", { name: "Save Q+A", exact: true })
           .click();
       await expect(card).toHaveCount(0);
@@ -367,7 +367,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       if (native) await composer.press("Enter");
       else
         await page
-          .locator(".message-input-wrapper")
+          .locator("[data-message-input-wrapper]")
           .getByRole("button", { name: "Quick answer", exact: true })
           .click();
       await expect(card.getByRole("alert")).toContainText(
@@ -392,7 +392,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       if (native) await composer.press("Enter");
       else
         await page
-          .locator(".message-input-wrapper")
+          .locator("[data-message-input-wrapper]")
           .getByRole("button", { name: "Quick answer", exact: true })
           .click();
       await expect(
@@ -421,7 +421,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       if (native) await composer.press("Enter");
       else
         await page
-          .locator(".message-input-wrapper")
+          .locator("[data-message-input-wrapper]")
           .getByRole("button", { name: "Send", exact: true })
           .click();
       await expect
@@ -447,7 +447,7 @@ test("question cards use existing forks, keep main typing, and save on empty", a
       if (native) await composer.press("Enter");
       else
         await page
-          .locator(".message-input-wrapper")
+          .locator("[data-message-input-wrapper]")
           .getByRole("button", { name: "Send", exact: true })
           .click();
       await expect(composer).not.toHaveAttribute(

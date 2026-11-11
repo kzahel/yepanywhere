@@ -139,7 +139,7 @@ test("phone-width relay interruption recovers the accepted session without a sec
       `${prefix}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
     );
     await page
-      .locator("textarea.new-session-form-textarea")
+      .locator("textarea[data-new-session-form-textarea]")
       .pressSequentially("OWNED_RELAY_ACCEPTANCE");
     await page.exposeFunction("armCreationDrop", () => {
       dropReplies = true;
@@ -259,7 +259,7 @@ test("a delayed accepted reply cannot navigate or clear another relay host's dra
     const formA = `${frontend.origin}/-/relay/${a.username}/new-session?projectId=${first.projectId}&provider=codex&model=gpt-6.1-sol`;
     const formB = `${frontend.origin}/-/relay/${b.username}/new-session?projectId=${second.projectId}&provider=codex&model=gpt-6.1-sol`;
     await page.goto(formA);
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.pressSequentially("OWNED_SOURCE_A_PROMPT");
     await page.evaluate(async () => {
       const path = "/src/lib/sourceRuntime.ts";

@@ -1,3 +1,5 @@
+import { recapAfterSecondsControlStateClasses } from "./composerStateClasses";
+import recapStyles from "./RecapAfterSecondsControl.module.css";
 import rowsStyles from "../pages/settings/SettingsRows.module.css";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
@@ -122,15 +124,25 @@ export function RecapAfterSecondsControl({
     <div
       className={
         className
-          ? `recap-after-seconds-control recap-after-seconds-control--${mode} ${className}`
-          : `recap-after-seconds-control recap-after-seconds-control--${mode}`
+          ? `${recapStyles["recap-after-seconds-control"]} ${recapAfterSecondsControlStateClasses[`recap-after-seconds-control--${mode}`] ?? ""} ${className}`
+          : `${recapStyles["recap-after-seconds-control"]} ${recapAfterSecondsControlStateClasses[`recap-after-seconds-control--${mode}`] ?? ""}`
       }
+      data-recap-after-seconds-control--inline={
+        className
+          ?.split(" ")
+          .includes(recapStyles["recap-after-seconds-control--inline"] ?? "") ||
+        undefined
+      }
+      data-recap-after-seconds-control
     >
-      <span className="recap-after-seconds-label">
+      <span
+        className={recapStyles["recap-after-seconds-label"]}
+        data-recap-after-seconds-label
+      >
         {label ?? t("recapAfterSecondsLabel")}
       </span>
       <span
-        className={`${rowsStyles.outputAppearanceSliderRow} recap-after-seconds-row`}
+        className={`${rowsStyles.outputAppearanceSliderRow} ${recapStyles["recap-after-seconds-row"]}`}
         data-range-number
       >
         <CommittedRangeInput

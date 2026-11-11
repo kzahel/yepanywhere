@@ -127,7 +127,7 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       `${owned.server.baseUrl}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
     );
     await page
-      .locator("textarea.new-session-form-textarea")
+      .locator("textarea[data-new-session-form-textarea]")
       .pressSequentially("Confirm this initial request exactly once");
     await page
       .getByRole("button", { name: "Open sidebar", exact: true })

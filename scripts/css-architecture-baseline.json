@@ -1,11 +1,11 @@
 {
   "legacyGlobalStyles": {
     "packages/client/src/styles/index.css": {
-      "maxLines": 3681,
+      "maxLines": 0,
       "reason": "Legacy React-owned application rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/renderers.css": {
-      "maxLines": 35,
+      "maxLines": 0,
       "reason": "Legacy React-owned renderer rules and coupled appearance groups; drain by owner to a target of zero."
     },
     "packages/client/src/styles/tool-rows.css": {
@@ -13,7 +13,7 @@
       "reason": "Legacy React-owned tool-row rules and coupled appearance groups; drain by owner to a target of zero."
     }
   },
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "note": "Only tokens.css, base.css and generated.css are permitted global purposes. Remaining legacy files have reasoned lower-only line ceilings with a target of zero. Purpose exceptions are counted and reasoned; --record only lowers them.",
   "undefinedCustomProperties": {},
   "globalPurposeExceptions": {

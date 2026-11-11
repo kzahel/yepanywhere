@@ -48,7 +48,7 @@ import { installModifierChordTracking } from "./lib/modifierChords";
 import { installFontDiagnostics } from "./lib/diagnostics/fontDiagnostics";
 import { loadSessionCoreModules } from "./lib/sessionRouteModules";
 import { preloadableComponent } from "./lib/preloadableComponent";
-import "./styles/index.css";
+import "./styles/purposeGlobals";
 
 function cachedModule<T>(load: () => Promise<T>): () => Promise<T> {
   let promise: Promise<T> | undefined;

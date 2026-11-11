@@ -1,3 +1,8 @@
+import { composerOptionDotStateClasses } from "../../components/composerStateClasses";
+import recapStyles from "../../components/RecapAfterSecondsControl.module.css";
+import thinkingStyles from "../../components/ThinkingControls.module.css";
+import dotStyles from "../../components/ComposerOptionDot.module.css";
+import optionStyles from "../../components/NewSessionOptionsPanel.module.css";
 import rowLayoutStyles from "./SettingsRows.module.css";
 import rowsStyles from "./SettingsRows.module.css";
 import {
@@ -613,7 +618,7 @@ export function ModelSettings() {
               ...availableProviders.map((p) => p.displayName),
             ]}
             valueText={selectedProvider?.displayName}
-            className={`new-session-provider-section ${styles.sessionDefaultProviderSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+            className={`${optionStyles.newSessionProviderSection} ${styles.sessionDefaultProviderSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
           >
             <SegmentedControl
               activation="manual"
@@ -627,7 +632,7 @@ export function ModelSettings() {
                 label: provider.displayName,
                 icon: (
                   <span
-                    className={`provider-option-dot provider-${provider.name}`}
+                    className={`${dotStyles["provider-option-dot"]} ${composerOptionDotStateClasses[`provider-${provider.name}`] ?? ""}`}
                   />
                 ),
               }))}
@@ -649,9 +654,12 @@ export function ModelSettings() {
               sessionDefaultCopy.model.title,
             ]}
             valueText={selectedModel ?? undefined}
-            className={`new-session-model-section ${styles.sessionDefaultModelSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+            className={`${optionStyles.newSessionModelSection} ${styles.sessionDefaultModelSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
           >
-            <div className="new-session-model-field">
+            <div
+              className={optionStyles.newSessionModelField}
+              data-new-session-model-field
+            >
               {selectedModels.length > 0 ? (
                 <FilterDropdown
                   label={t("newSessionModelTitle")}
@@ -678,7 +686,7 @@ export function ModelSettings() {
               description={sessionDefaultCopy.thinking.description}
               keywords={sessionDefaultCopy.thinking.settings?.keywords}
               valueText={`${effectiveThinkingMode} ${effectiveEffortLevel ?? ""}`.trim()}
-              className={`new-session-helper-section ${styles.sessionDefaultThinkingSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultThinkingSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <ThinkingControlsPanel
                 mode={effectiveThinkingMode}
@@ -700,7 +708,7 @@ export function ModelSettings() {
                 showThinkingControl={false}
                 provider={selectedProvider?.name}
                 t={t}
-                className={`thinking-controls-panel--inline ${styles.sessionDefaultThinkingControls}`}
+                className={`${thinkingStyles.thinkingControlsPanelInline} ${styles.sessionDefaultThinkingControls}`}
               />
             </SettingsItem>
           )}
@@ -711,7 +719,7 @@ export function ModelSettings() {
               label={sessionDefaultCopy.permission.title}
               keywords={sessionDefaultCopy.permission.settings?.keywords}
               valueText={modeLabels[effectiveDefaultPermissionMode]}
-              className={`new-session-mode-section ${styles.sessionDefaultModeSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionModeSection} ${styles.sessionDefaultModeSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <SegmentedControl
                 activation="manual"
@@ -722,7 +730,10 @@ export function ModelSettings() {
                   label: modeLabels[modeValue],
                   description: modeDescriptions[modeValue],
                   icon: (
-                    <span className={`mode-option-dot mode-${modeValue}`} />
+                    <span
+                      className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`mode-${modeValue}`] ?? ""}`}
+                      data-mode-option-dot
+                    />
                   ),
                 }))}
                 value={effectiveDefaultPermissionMode}
@@ -753,7 +764,7 @@ export function ModelSettings() {
                   ? t("newSessionSandboxLabel")
                   : undefined
               }
-              className={`new-session-helper-section ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
             >
               <Switch
                 checked={savedDefaults?.sandboxLevel === "project-write"}
@@ -788,7 +799,7 @@ export function ModelSettings() {
                   ? t("newSessionSandboxNetworkFirewallLabel")
                   : undefined
               }
-              className={`new-session-helper-section ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultSandboxSection} settings-item--session-default-block`}
             >
               <Switch
                 checked={
@@ -816,7 +827,7 @@ export function ModelSettings() {
               description={sessionDefaultCopy.showThinking.description}
               keywords={sessionDefaultCopy.showThinking.settings?.keywords}
               valueText={String(showThinking)}
-              className={`new-session-helper-section session-default-show-thinking-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} session-default-show-thinking-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <ShowThinkingControls
                 value={showThinking}
@@ -836,7 +847,7 @@ export function ModelSettings() {
               valueText={
                 promptSuggestionModeLabels[selectedPromptSuggestionMode]
               }
-              className={`new-session-helper-section session-default-suggestions-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} session-default-suggestions-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <SegmentedControl
                 activation="manual"
@@ -848,7 +859,8 @@ export function ModelSettings() {
                   tooltip: promptSuggestionModeDescriptions[modeValue],
                   icon: (
                     <span
-                      className={`mode-option-dot suggestion-${modeValue}`}
+                      className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`suggestion-${modeValue}`] ?? ""}`}
+                      data-mode-option-dot
                     />
                   ),
                 }))}
@@ -874,7 +886,7 @@ export function ModelSettings() {
             doc="topics/recaps.md#configuration-and-native-capability"
             keywords={sessionDefaultCopy.recap.settings?.keywords}
             valueText={recapModeLabels[selectedRecapMode]}
-            className={`new-session-helper-section ${styles.sessionDefaultRecapSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+            className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultRecapSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             after={
               selectedRecapMode !== "off" ? (
                 <RecapAfterSecondsControl
@@ -882,7 +894,7 @@ export function ModelSettings() {
                   disabled={settingsLoading}
                   label={recapAfterSecondsInlineLabels[selectedRecapMode]}
                   mode={selectedRecapMode}
-                  className={`${styles.recapDuration} recap-after-seconds-control--inline`}
+                  className={`${styles.recapDuration} ${recapStyles["recap-after-seconds-control--inline"]}`}
                   onCommit={(seconds) =>
                     updateNewSessionDefaults({ recapAfterSeconds: seconds })
                   }
@@ -902,7 +914,12 @@ export function ModelSettings() {
                   t,
                   selectedRecapAfterSeconds,
                 ),
-                icon: <span className={`mode-option-dot recap-${modeValue}`} />,
+                icon: (
+                  <span
+                    className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`recap-${modeValue}`] ?? ""}`}
+                    data-mode-option-dot
+                  />
+                ),
                 disabled:
                   canConfigureSessionSandbox &&
                   savedDefaults?.sandboxLevel === "project-write" &&
@@ -924,7 +941,7 @@ export function ModelSettings() {
               doc="topics/side-session-config.md"
               keywords={sessionDefaultCopy.helperModel.settings?.keywords}
               valueText={selectedHelperSideModel}
-              className={`new-session-helper-section session-default-helper-model-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} session-default-helper-model-section settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <FilterDropdown
                 label={sessionDefaultCopy.helperModel.title}
@@ -963,7 +980,7 @@ export function ModelSettings() {
                 ? t("modelSettingsForkSummaryAutoOpenLabel")
                 : undefined
             }
-            className={`new-session-helper-section ${styles.sessionDefaultForkSummarySection} settings-item--session-default-block`}
+            className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultForkSummarySection} settings-item--session-default-block`}
           >
             <Switch
               checked={forkSummaryAutoOpen}
@@ -981,7 +998,7 @@ export function ModelSettings() {
               map={settings?.clientDefaults?.compactAtContextPercent}
               updateSetting={updateSetting}
               disabled={settingsLoading}
-              className={`new-session-helper-section ${styles.sessionDefaultCompactSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultCompactSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             />
           )}
 
@@ -1013,7 +1030,7 @@ export function ModelSettings() {
                     ? t("modelSettingsForceYaCompactionLabel")
                     : undefined
                 }
-                className="new-session-helper-section session-default-force-ya-section settings-item--session-default-block"
+                className={`${optionStyles.newSessionHelperSection} session-default-force-ya-section settings-item--session-default-block`}
               >
                 <Switch
                   checked={forceYaOrchestratedCompaction}
@@ -1046,7 +1063,7 @@ export function ModelSettings() {
                 "inactivity",
               ]}
               valueText={`${selectedPromptCacheKeepalive.mode} ${selectedPromptCacheKeepalive.inactivityMinutes}m`}
-              className={`new-session-helper-section ${styles.sessionDefaultCacheKeepaliveSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
+              className={`${optionStyles.newSessionHelperSection} ${styles.sessionDefaultCacheKeepaliveSection} settings-item--session-default-block ${rowsStyles.itemWideControl}`}
             >
               <div className={styles.sessionDefaultCacheKeepaliveControls}>
                 <SegmentedControl
@@ -1060,7 +1077,8 @@ export function ModelSettings() {
                       tooltip: promptCacheKeepaliveModeDescriptions[modeValue],
                       icon: (
                         <span
-                          className={`mode-option-dot ${modeValue === "off" ? styles.keepaliveOff : styles.keepaliveAuto}`}
+                          className={`${dotStyles["mode-option-dot"]} ${modeValue === "off" ? styles.keepaliveOff : styles.keepaliveAuto}`}
+                          data-mode-option-dot
                         />
                       ),
                     }),

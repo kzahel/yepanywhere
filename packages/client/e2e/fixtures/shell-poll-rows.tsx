@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { ToolCallRow } from "../../src/components/blocks/ToolCallRow";
 import { displayProviders } from "../../src/components/renderers/tools/__fixtures__/displayProviders";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 
 const output =
   "timeout waiting for master-release-hostpaths-20260915 to reach not-running; current status=running";

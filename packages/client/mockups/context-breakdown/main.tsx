@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ContextUsageIndicator } from "../../src/components/ContextUsageIndicator";
 import tokenStyles from "../../src/components/ContextUsagePopover.module.css";
 import { I18nProvider } from "../../src/i18n";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Breakdown.module.css";
 
 // Sample figures follow the user's /context screenshot (Sonnet 5, 1M window).
@@ -192,7 +192,9 @@ function Breakdown({ initiallyOpen }: { initiallyOpen: string[] }) {
   return (
     <section className={styles.breakdown} aria-label="Context breakdown">
       <div className={styles.header}>
-        <span className="context-threshold-popover-title">Context window</span>
+        <span className={tokenStyles.contextThresholdPopoverTitle}>
+          Context window
+        </span>
         <span className={styles.model}>Sonnet 5</span>
       </div>
       <div className={styles.summary}>
@@ -258,7 +260,9 @@ function Unavailable() {
   return (
     <section className={styles.breakdown} aria-label="Context breakdown">
       <div className={styles.header}>
-        <span className="context-threshold-popover-title">Context window</span>
+        <span className={tokenStyles.contextThresholdPopoverTitle}>
+          Context window
+        </span>
       </div>
       <div className={styles.unavailable}>
         Breakdown needs this session's Claude process running in YA. It appears
@@ -271,7 +275,9 @@ function Unavailable() {
 function LastTurn() {
   return (
     <div className={tokenStyles.tokenUsage}>
-      <div className="context-threshold-popover-title">Last turn tokens</div>
+      <div className={tokenStyles.contextThresholdPopoverTitle}>
+        Last turn tokens
+      </div>
       <dl className={tokenStyles.rows}>
         {[
           ["Context", "69,712"],
@@ -324,7 +330,7 @@ function App() {
               }}
             />
             <div
-              className={`context-subscription-popover ${styles.popover}`}
+              className={`${tokenStyles.contextSubscriptionPopover} ${styles.popover}`}
               role="dialog"
               aria-label="Context usage"
             >

@@ -30,7 +30,7 @@ for (const hosted of [false, true])
         `${origin}/new-session?projectId=${owned.projectId}&provider=pi&model=owned%2Ffixture`,
       );
       await page
-        .locator("textarea.new-session-form-textarea")
+        .locator("textarea[data-new-session-form-textarea]")
         .pressSequentially("OWNED_PI_CREATION_INPUT");
       const accepted = page.waitForResponse(
         (r) =>

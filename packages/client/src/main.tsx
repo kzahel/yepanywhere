@@ -29,7 +29,7 @@ import { I18nProvider, useI18n } from "./i18n";
 import { installFontDiagnostics } from "./lib/diagnostics/fontDiagnostics";
 import { installModifierChordTracking } from "./lib/modifierChords";
 import { preloadableComponent } from "./lib/preloadableComponent";
-import "./styles/index.css";
+import "./styles/purposeGlobals";
 
 const App = preloadableComponent(async () => ({
   default: (await import("./App")).App,

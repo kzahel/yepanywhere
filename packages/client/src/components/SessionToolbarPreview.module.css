@@ -13,11 +13,11 @@
   pointer-events: none;
 }
 
-.preview :global(.message-input-toolbar) {
+.preview [data-message-input-toolbar] {
   width: 100%;
 }
 
-.preview :global(.message-input-actions) :global(.context-usage-indicator) {
+.preview [data-message-input-actions] [data-context-usage-indicator] {
   position: static;
   transform: none;
   background: transparent;
@@ -47,18 +47,18 @@
   min-width: 0;
 }
 
-.toolbarControlPreview :global(.message-input-toolbar) {
+.toolbarControlPreview [data-message-input-toolbar] {
   width: max-content;
   justify-content: flex-start;
   gap: 4px;
 }
 
-.toolbarControlPreview :global(.message-input-left),
-.toolbarControlPreview :global(.message-input-actions) {
+.toolbarControlPreview [data-message-input-left],
+.toolbarControlPreview [data-message-input-actions] {
   gap: 4px;
 }
 
-.toolbarControlPreview :global(.composer-status-ages) {
+.toolbarControlPreview [data-composer-status-ages] {
   margin-left: 0;
   position: static;
 }
@@ -76,7 +76,7 @@
 }
 
 @media (width <= 600px) {
-  .preview :global(.message-input-actions) {
+  .preview [data-message-input-actions] {
     flex: 0 1 auto;
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -85,7 +85,7 @@
 }
 
 @media (width <= 600px) {
-  .preview :global(.message-input-toolbar) {
+  .preview [data-message-input-toolbar] {
     flex-wrap: wrap;
     align-items: flex-start;
     justify-content: flex-start;
@@ -94,7 +94,7 @@
 }
 
 @media (width <= 600px) {
-  .preview :global(.message-input-left) {
+  .preview [data-message-input-left] {
     flex: 1 1 100%;
     flex-wrap: wrap;
     row-gap: var(--space-1);
@@ -103,7 +103,7 @@
 }
 
 @media (width <= 600px) {
-  .preview :global(.composer-status-ages) {
+  .preview [data-composer-status-ages] {
     position: static;
     flex: 1 1 auto;
     margin-left: 0;

@@ -621,7 +621,9 @@ try {
       .waitFor();
     await until(
       async () =>
-        !(await page.locator(".attachment-list").innerText()).includes("%"),
+        !(await page.locator("[data-attachment-list]").innerText()).includes(
+          "%",
+        ),
     );
   }
   await pause(1500);
@@ -976,7 +978,9 @@ try {
       .waitFor();
     await until(
       async () =>
-        !(await page.locator(".attachment-list").innerText()).includes("%"),
+        !(await page.locator("[data-attachment-list]").innerText()).includes(
+          "%",
+        ),
     );
     result.expectedAttachment = file.name;
     result.uploadReselection = await snapshot("upload-reselected");

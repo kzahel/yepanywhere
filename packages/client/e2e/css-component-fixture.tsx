@@ -1,7 +1,7 @@
 import { type ComponentType, type ReactNode, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nProvider } from "../src/i18n";
-import "../src/styles/index.css";
+import "../src/styles/purposeGlobals";
 
 const COMPONENT_PREFIX = "/src/components/";
 const NOOP_SENTINEL = "$noop";

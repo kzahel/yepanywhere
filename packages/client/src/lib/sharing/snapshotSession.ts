@@ -41,7 +41,7 @@ export function snapshotSession(title?: string): string {
     ".session-menu-wrapper",
     "[data-load-older-messages]",
     "[data-pending-message]",
-    ".deferred-message",
+    "[data-deferred-message]",
     "[data-processing-indicator]",
   ];
   for (const el of clone.querySelectorAll(removeSelectors.join(", "))) {

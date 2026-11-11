@@ -36,34 +36,39 @@ async function measureSteerAtWidth(width: number): Promise<{
 
 describe("mobile keyboard Steer sizing", () => {
   beforeAll(async () => {
-    const css = await readClientStyles("tokens", "base", "index");
+    const css = await readClientStyles(
+      "tokens",
+      "base",
+      "../components/ComposerActions.module",
+      "../components/MessageInput.module",
+    );
     browser = await chromium.launch({ chromiumSandbox: true });
     page = await browser.newPage();
     await page.setContent(`<!doctype html>
       <style>${css}</style>
       <div
         id="actions"
-        class="message-input-keyboard-actions"
+        class="messageInputKeyboardActions"
         style="--space-2: 8px; --space-4: 16px; --app-yep-green: green"
       >
-        <button class="message-input-keyboard-more">...</button>
-        <div class="message-input-keyboard-secondary-slot"></div>
-        <div class="message-input-keyboard-secondary-slot">
+        <button class="messageInputKeyboardMore">...</button>
+        <div class="messageInputKeyboardSecondarySlot"></div>
+        <div class="messageInputKeyboardSecondarySlot">
           <button
-            class="message-input-keyboard-action message-input-keyboard-secondary queue-mode"
+            class="messageInputKeyboardAction messageInputKeyboardSecondary queueMode"
           >
             →
           </button>
         </div>
         <button
           id="primary"
-          class="message-input-keyboard-action message-input-keyboard-primary steer-mode"
+          class="messageInputKeyboardAction messageInputKeyboardPrimary steerMode"
           aria-label="Steer current turn"
         >
-          <span id="label" class="message-input-keyboard-primary-label">
+          <span id="label" class="messageInputKeyboardPrimaryLabel">
             Steer
           </span>
-          <span class="message-input-keyboard-primary-icon" aria-hidden="true">
+          <span class="messageInputKeyboardPrimaryIcon" aria-hidden="true">
             ↗
           </span>
         </button>

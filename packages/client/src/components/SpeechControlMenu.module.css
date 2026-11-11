@@ -1,0 +1,189 @@
+.speechControlMenu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.speechControlMenu.is-open {
+  z-index: 40;
+}
+
+.speechOptionsPanel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.35rem);
+  z-index: 30;
+  width: min(30rem, calc(100dvw - 1rem));
+  max-height: min(94vh, 42rem);
+  overflow-y: auto;
+  padding: 0.45rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-new-session-form-toolbar] .speechOptionsPanel {
+  top: calc(100% + 0.35rem);
+  bottom: auto;
+  left: -2.4rem;
+  max-height: min(32rem, calc(100dvh - 1rem));
+}
+
+.speechOptionsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-bottom: 0.3rem;
+}
+
+.speechOptionsTitleBlock {
+  min-width: 0;
+  display: block;
+}
+
+.speechOptionsTitle {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.speechOptionsSubtitle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.speechOptionsSection {
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.speechOptionsSection:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.speechOptionsSection + .speechOptionsSection {
+  margin-top: 0.35rem;
+}
+
+.speechOptionsSectionTitle {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.speechMethodOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.25rem, 1fr));
+  gap: 0.25rem;
+}
+
+.speechMethodOption {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.speechMethodOption:hover,
+.speechMethodOption:focus-visible {
+  border-color: var(--border-input);
+  background: var(--bg-hover);
+}
+
+.speechMethodOption.selected {
+  border-color: var(--app-yep-green);
+  background: color-mix(in srgb, var(--app-yep-green) 12%, var(--bg-secondary));
+}
+
+.speechMethodRadio {
+  display: inline-flex;
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+.speechMethodOption.selected .speechMethodRadio {
+  border-color: var(--app-yep-green);
+}
+
+.speechMethodRadioDot {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: var(--radius-full);
+  background: var(--app-yep-green);
+}
+
+.speechMethodCopy {
+  min-width: 0;
+  display: block;
+}
+
+.speechMethodLabel {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.speechMethodDescription {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.speechMicDeviceSelect,
+.speechParakeetModelSelect,
+.speechParakeetModelInput {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  background: var(--bg-input);
+  font-size: var(--font-size-sm);
+}
+
+.speechParakeetModelSelect + .speechParakeetModelInput {
+  margin-top: var(--space-2);
+}
+
+.speechMicDeviceError {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.3;
+}

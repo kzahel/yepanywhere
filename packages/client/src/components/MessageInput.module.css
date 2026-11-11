@@ -1,3 +1,322 @@
+.messageInputWrapper {
+  position: relative;
+}
+
+.messageInputToggle {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  width: 32px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.messageInputToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.messageInputToggle svg {
+  transition: transform 0.2s ease;
+}
+
+.messageInputToggle svg.chevronUp {
+  transform: rotate(180deg);
+}
+.messageInput {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.messageInput textarea {
+  flex: 1;
+  padding: 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+  resize: none;
+}
+
+.forkSummaryDraft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-code));
+  border: 1px solid
+    color-mix(in srgb, var(--accent-primary) 35%, var(--border-color));
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.forkSummaryDraftCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.forkSummaryDraftLabel {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.forkSummaryDraftDescription {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forkSummaryDraftCancel {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.forkSummaryDraftCancel:hover,
+.forkSummaryDraftCancel:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+.bangComposerChip {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-code));
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.bangComposerChipEscaped {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.promptSuggestion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+}
+
+.promptSuggestionText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.promptSuggestionText:hover {
+  color: var(--text-primary);
+}
+
+.promptSuggestionDismiss {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.promptSuggestionDismiss:hover,
+.promptSuggestionDismiss:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+.messageInputCollapsed {
+  margin-top: var(--space-2);
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.messageInputCollapsed:focus-within {
+  opacity: 1;
+}
+
+.messageInputCollapsed textarea {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--font-size-sm);
+  min-height: 0;
+  padding-right: calc(var(--composer-primary-control-size, 36px) + 0.75rem);
+  caret-color: var(--text-primary);
+}
+
+.messageInputCollapsedSideActions,
+.messageInputCollapsedActions {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 2;
+}
+
+.messageInputCollapsedSideActions {
+  left: 0.375rem;
+}
+
+.messageInputCollapsedActions {
+  right: 0.375rem;
+}
+
+.messageInputCollapsedLineCount {
+  min-width: 1.7rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  text-align: center;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.16);
+}
+
+.messageInputCollapsedSend {
+  --composer-control-size: 30px;
+  --composer-primary-control-size: 30px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
+}
+
+@media (width > 600px) {
+  .messageInputCollapsed.hasCollapsedSideActions textarea {
+    padding-left: 5.5rem;
+  }
+}
+
+@media (width <= 600px) {
+  .messageInputCollapsedSideActions {
+    display: none;
+  }
+}
+
+.messageInputKeyboardCompact {
+  position: relative;
+  width: 100%;
+}
+
+.messageInputKeyboardMorePanel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.messageInputKeyboardMore {
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  flex: 0 0 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.messageInputKeyboardMore.is-open {
+  border-color: var(--app-yep-green);
+  background: var(--bg-hover);
+}
+
+.skillInvocationStatus {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.skillInvocationStatus code {
+  color: var(--link-color);
+  font-family: var(--font-mono);
+}
+
+.skillInvocationStatusWarning,
+.skillInvocationStatusWarning code {
+  color: var(--warning-color);
+}
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
 .keyboardSpeechSlot {
   overflow: hidden;
 }
@@ -26,13 +345,13 @@
   }
 
   .collapsedWithLeadingMicrophone.collapsedWithLeadingMicrophone
-    :global(.speech-draft-field)
+    [data-speech-draft-field]
     textarea {
     padding-left: calc(3.75rem + 0.75rem);
   }
 
   .collapsedWithLeadingMicrophoneOnly.collapsedWithLeadingMicrophoneOnly
-    :global(.speech-draft-field)
+    [data-speech-draft-field]
     textarea {
     padding-right: 0.75rem;
   }
@@ -100,8 +419,7 @@
   height: 15px;
 }
 
-[data-session-input-inner]:has(.fullPaneToggle)
-  > :global(.message-follow-toggle) {
+[data-session-input-inner]:has(.fullPaneToggle) > [data-message-follow-toggle] {
   right: 46px;
 }
 
@@ -118,7 +436,7 @@
 }
 
 @container keyboard-primary-with-waveform (max-width: 4rem) {
-  .keyboardPrimaryWithWaveform :global(.message-input-keyboard-primary-label) {
+  .keyboardPrimaryWithWaveform [data-message-input-keyboard-primary-label] {
     display: none;
   }
 }

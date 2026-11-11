@@ -1,0 +1,136 @@
+.slashCommandContainer {
+  position: relative;
+}
+
+.slashCommandButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+  min-width: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+[data-composer-bottom-overflow-menu-group] .slashCommandButton {
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  min-width: var(--composer-control-size);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.slashCommandButton:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-input);
+}
+
+.slashCommandButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slashCommandButton.active {
+  background: var(--bg-hover);
+  border-color: var(--border-input);
+  color: var(--text-primary);
+}
+
+.slashIcon {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+.slashCommandMenu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: var(--space-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 220px;
+  max-width: min(380px, calc(100dvw - var(--space-4)));
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.slashCommandItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.slashCommandCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slashCommandDetail {
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.slashCommandItem:hover {
+  background: var(--bg-hover);
+}
+
+.slashCommandItem.active {
+  background: var(--bg-hover);
+}
+
+.slashCommandShortcut {
+  color: var(--link-color);
+  font-weight: 700;
+}
+
+.slashCommandItem:first-child {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.slashCommandItem:last-child {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.slashCommandItem:only-child {
+  border-radius: var(--radius-md);
+}
+
+.composerSlashCommandMenu {
+  bottom: calc(100% - var(--space-1));
+  left: var(--space-2);
+  z-index: 120;
+}
+[data-composer-bottom-overflow-menu-group] .slashCommandContainer {
+  flex: 0 0 auto;
+}

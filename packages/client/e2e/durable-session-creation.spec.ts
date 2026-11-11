@@ -336,7 +336,7 @@ test("routed Claude accepts before startup and retains one session and native tu
     await page.goto(
       `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`,
     );
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.waitFor();
     await composer.pressSequentially(prompt);
     const responsePromise = page.waitForResponse(
@@ -403,7 +403,7 @@ test("a disappeared executable leaves a saved failed session and prompt after pa
     await page.goto(
       `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`,
     );
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.waitFor();
     await composer.pressSequentially(prompt);
     await unlink(owned.ownedCli);
@@ -457,7 +457,7 @@ test("retiring the form before acceptance preserves recovery and never creates t
     await page.goto(
       `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`,
     );
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.waitFor();
     await composer.pressSequentially(prompt);
     await page.route("**/api/projects/*/session-creations", async (route) => {
@@ -550,7 +550,7 @@ test("background typing during delayed acceptance stays responsive with 200 save
       localStorage.setItem("yep-anywhere-background-session-creation", "true"),
     );
     await page.goto(formUrl);
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.pressSequentially(prompt);
     await page.route("**/api/projects/*/session-creations", async (route) => {
       const response = await route.fetch();
@@ -667,7 +667,7 @@ test("router refusal preserves saved intent and never falls back to available di
       `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`,
     );
     await page
-      .locator("textarea.new-session-form-textarea")
+      .locator("textarea[data-new-session-form-textarea]")
       .pressSequentially(prompt);
     const accepted = page.waitForResponse(
       (response) =>

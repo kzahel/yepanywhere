@@ -1,3 +1,4 @@
+import attachStyles from "./AttachmentButton.module.css";
 import { useI18n } from "../i18n";
 import { hasCoarsePointer } from "../lib/deviceDetection";
 import { useAttachmentAction } from "../hooks/useAttachmentAction";
@@ -63,6 +64,7 @@ export function AttachmentButton({
         }}
         type="button"
         className={className}
+        data-attach-button
         data-session-toolbar-control="attachments"
         data-session-toolbar-special-context="true"
         data-attachment-menu="true"
@@ -102,7 +104,7 @@ export function AttachmentButton({
         >
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
         </svg>
-        {count > 0 && <span className="attach-count">{count}</span>}
+        {count > 0 && <span className={attachStyles.attachCount}>{count}</span>}
       </button>
       {menu.menu}
     </>

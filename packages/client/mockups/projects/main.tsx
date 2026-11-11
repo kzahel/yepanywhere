@@ -5,7 +5,7 @@ import { ProjectCard } from "../../src/components/ProjectCard";
 import { I18nProvider } from "../../src/i18n";
 import { UI_KEYS } from "../../src/lib/storageKeys";
 import type { Project } from "../../src/types";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Projects.module.css";
 
 const names = [

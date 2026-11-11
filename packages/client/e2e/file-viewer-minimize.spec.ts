@@ -499,7 +499,7 @@ for (const viewport of [
     await expect(controller).toBeVisible();
     await expect(controller).toContainText("README.md");
     const [leftControlsBox, controllerBox] = await Promise.all([
-      page.locator(".message-input-left").boundingBox(),
+      page.locator("[data-message-input-left]").boundingBox(),
       controller.boundingBox(),
     ]);
     if (!leftControlsBox || !controllerBox) {
@@ -513,16 +513,18 @@ for (const viewport of [
     ).toBeVisible();
     if (viewport.width <= 800) {
       await expect(
-        page.locator(".message-input-toolbar .voice-input-button"),
+        page.locator("[data-message-input-toolbar] [data-voice-input-button]"),
       ).toBeVisible();
       await expect(
-        page.locator(".message-input-toolbar .send-button-with-help"),
+        page.locator("[data-message-input-toolbar] .send-button-with-help"),
       ).toBeVisible();
     }
 
     await capture(page, `${viewport.name}-open`);
     if (viewport.name === "desktop") {
-      const modeButton = page.locator(".message-input-toolbar .mode-button");
+      const modeButton = page.locator(
+        "[data-message-input-toolbar] [data-mode-button]",
+      );
       await expect(modeButton).toBeVisible();
       const modeButtonBox = await modeButton.boundingBox();
       if (!modeButtonBox) {
@@ -532,7 +534,8 @@ for (const viewport of [
         ({ x, y }) =>
           document
             .elementFromPoint(x, y)
-            ?.closest(".message-input-toolbar .mode-button") !== null,
+            ?.closest("[data-message-input-toolbar] [data-mode-button]") !==
+          null,
         {
           x: modeButtonBox.x + modeButtonBox.width / 2,
           y: modeButtonBox.y + modeButtonBox.height / 2,
@@ -545,7 +548,7 @@ for (const viewport of [
       );
       await expect(viewer).not.toBeVisible();
       await expect(controller).toBeVisible();
-      await expect(page.locator(".mode-selector-dropdown")).toBeVisible();
+      await expect(page.locator("[data-mode-selector-dropdown]")).toBeVisible();
       await capture(page, "desktop-toolbar-action-parked");
       await page.keyboard.press("Escape");
       await controller
@@ -554,7 +557,7 @@ for (const viewport of [
       await expect(viewer).toBeVisible();
     } else {
       const conversationButton = page.locator(
-        ".message-input-toolbar .conversation-view-toolbar-button",
+        "[data-message-input-toolbar] [data-conversation-view-toolbar-button]",
       );
       await expect(conversationButton).toBeVisible();
       const conversationButtonBox = await conversationButton.boundingBox();
@@ -566,7 +569,7 @@ for (const viewport of [
           document
             .elementFromPoint(x, y)
             ?.closest(
-              ".message-input-toolbar .conversation-view-toolbar-button",
+              "[data-message-input-toolbar] [data-conversation-view-toolbar-button]",
             ) !== null,
         {
           x: conversationButtonBox.x + conversationButtonBox.width / 2,
@@ -603,7 +606,7 @@ for (const viewport of [
       await expect(finalLine).toBeVisible();
       const [finalLineBox, toolbarBox] = await Promise.all([
         finalLine.boundingBox(),
-        page.locator(".message-input-toolbar").boundingBox(),
+        page.locator("[data-message-input-toolbar]").boundingBox(),
       ]);
       if (!finalLineBox || !toolbarBox) {
         throw new Error("Expected final line and toolbar to have layout boxes");

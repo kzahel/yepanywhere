@@ -7,7 +7,7 @@ import { I18nProvider, useI18n } from "../../src/i18n";
 import { GitDiffBody } from "../../src/pages/GitStatusDiffPreview";
 import { SideBySideDiff } from "../../src/pages/SideBySideDiff";
 import { UnifiedDiff } from "../../src/pages/UnifiedDiff";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import previewStyles from "../../src/pages/SourcePreviewLayout.module.css";
 
 const long =

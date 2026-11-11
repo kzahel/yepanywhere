@@ -50,7 +50,7 @@ test("full workers expose queued sessions, promote once and resolve lost pre-dis
   const create = async (text: string) => {
     await page.goto(owned.formUrl);
     await page
-      .locator("textarea.new-session-form-textarea")
+      .locator("textarea[data-new-session-form-textarea]")
       .pressSequentially(text);
     const accepted = page.waitForResponse(
       (response) =>
@@ -215,7 +215,7 @@ test("a sibling tab's newer draft survives delayed acceptance", async ({
   });
   try {
     await page.goto(owned.formUrl);
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.pressSequentially("OWNED_ORIGINAL_DRAFT");
     await page.route("**/session-creations", async (route) => {
       const response = await route.fetch();
@@ -228,7 +228,7 @@ test("a sibling tab's newer draft survives delayed acceptance", async ({
       .click();
     await admitted;
     await sibling.goto(owned.formUrl);
-    const other = sibling.locator("textarea.new-session-form-textarea");
+    const other = sibling.locator("textarea[data-new-session-form-textarea]");
     await expect(other).toHaveValue("OWNED_ORIGINAL_DRAFT");
     await other.press("End");
     await other.pressSequentially(" newer sibling work");
@@ -275,7 +275,7 @@ test("independent browser draft handoff survives another device's creation ackno
   });
   try {
     await page.goto(owned.formUrl);
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await composer.pressSequentially("OWNED_DEVICE_DRAFT");
     await expect(composer).toHaveValue("OWNED_DEVICE_DRAFT");
     await composer.blur();
@@ -290,7 +290,7 @@ test("independent browser draft handoff survives another device's creation ackno
       })
       .toBe("OWNED_DEVICE_DRAFT");
     await otherPage.goto(owned.formUrl);
-    const other = otherPage.locator("textarea.new-session-form-textarea");
+    const other = otherPage.locator("textarea[data-new-session-form-textarea]");
     await expect(other).toHaveValue("OWNED_DEVICE_DRAFT");
     await page.route("**/session-creations", async (route) => {
       const response = await route.fetch();
@@ -378,7 +378,7 @@ test("switching acting account during acceptance keeps the new account's draft s
     ).toBe(201);
     await page.goto(owned.formUrl);
     await page
-      .locator("textarea.new-session-form-textarea")
+      .locator("textarea[data-new-session-form-textarea]")
       .pressSequentially("OWNED_OWNER_ONLY_PROMPT");
     await page.route("**/session-creations", async (route) => {
       acceptedRequestId = route.request().postDataJSON().requestId;
@@ -406,7 +406,7 @@ test("switching acting account during acceptance keeps the new account's draft s
     await page.reload();
     const identity = await page.request.get(`${owned.origin}/api/users/me`);
     expect((await identity.json()).username).toBe("alice");
-    const composer = page.locator("textarea.new-session-form-textarea");
+    const composer = page.locator("textarea[data-new-session-form-textarea]");
     await expect(composer).toHaveValue("");
     await composer.pressSequentially("OWNED_ALICE_UNSENT");
     release();

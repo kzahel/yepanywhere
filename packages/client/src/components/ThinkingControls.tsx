@@ -1,3 +1,9 @@
+import {
+  thinkingControlsStateClasses,
+  composerOptionDotStateClasses,
+} from "./composerStateClasses";
+import dotStyles from "./ComposerOptionDot.module.css";
+import thinkingStyles from "./ThinkingControls.module.css";
 import type {
   EffortLevel,
   ShowThinking,
@@ -69,22 +75,27 @@ export function ThinkingEffortSelector({
     "--thinking-effort-option-count": optionCount,
   } as CSSProperties;
   const classes = [
-    "thinking-effort-selector",
-    `thinking-effort-selector--${variant}`,
+    thinkingStyles.thinkingEffortSelector,
+    thinkingControlsStateClasses[`thinking-effort-selector--${variant}`],
     className,
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={classes} role="group" aria-label={ariaLabel} style={style}>
+    <div
+      className={classes}
+      data-thinking-effort-selector
+      data-thinking-effort-variant={variant}
+      role="group"
+      aria-label={ariaLabel}
+      style={style}
+    >
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
-          className={`thinking-effort-option ${
-            value === option.value ? "active" : ""
-          }`}
+          className={`${thinkingStyles.thinkingEffortOption} ${value === option.value ? thinkingStyles.active : ""}`}
           onClick={() => onChange(option.value)}
           disabled={disabled}
           title={option.description}
@@ -200,17 +211,21 @@ export function ShowThinkingControls({
 
   return (
     <div
-      className={`thinking-toolbar-menu-section thinking-controls-section thinking-controls-section--show-thinking ${className ?? ""}`.trim()}
+      className={`${thinkingStyles.thinkingToolbarMenuSection} thinking-controls-section thinking-controls-section--show-thinking ${className ?? ""}`.trim()}
     >
       {showLabel && (
         <div
-          className="thinking-toolbar-menu-label"
+          className={thinkingStyles.thinkingToolbarMenuLabel}
           title={t("showThinkingHint")}
         >
           {t("showThinkingTitle")}
         </div>
       )}
-      <div className="thinking-toolbar-menu-options" role="group">
+      <div
+        className={thinkingStyles.thinkingToolbarMenuOptions}
+        data-thinking-toolbar-menu-options
+        role="group"
+      >
         {SHOW_THINKING_CHOICES.map((v) => {
           const isExplicit = value === v;
           const isDefaultHere = inheritsDefault && effectiveShow === v;
@@ -219,9 +234,7 @@ export function ShowThinkingControls({
               key={v}
               optionRole={optionRole}
               checked={isExplicit || isDefaultHere}
-              className={`thinking-toolbar-option ${isExplicit ? "active" : ""} ${
-                isDefaultHere ? "is-default" : ""
-              }`.trim()}
+              className={`${thinkingStyles.thinkingToolbarOption} ${isExplicit ? thinkingStyles.active : ""} ${isDefaultHere ? thinkingStyles["is-default"] : ""}`.trim()}
               title={
                 isDefaultHere
                   ? `${t("showThinkingDefault")} — ${
@@ -280,27 +293,36 @@ export function ThinkingControlsPanel({
   const after = () => onSelect?.();
 
   return (
-    <div className={`thinking-controls-panel ${className ?? ""}`.trim()}>
+    <div
+      className={`${thinkingStyles.thinkingControlsPanel} ${className ?? ""}`.trim()}
+    >
       <div
-        className="thinking-toolbar-menu-section thinking-controls-section"
+        className={`${thinkingStyles.thinkingToolbarMenuSection} thinking-controls-section`}
         data-thinking-section="mode"
       >
-        <div className="thinking-toolbar-menu-label">
+        <div className={thinkingStyles.thinkingToolbarMenuLabel}>
           {t("modelSettingsThinkingTitle")}
         </div>
-        <div className="thinking-toolbar-menu-options" role="group">
+        <div
+          className={thinkingStyles.thinkingToolbarMenuOptions}
+          data-thinking-toolbar-menu-options
+          role="group"
+        >
           {availableModes.map((m) => (
             <ThinkingChoiceButton
               key={m}
               optionRole={optionRole}
               checked={mode === m}
-              className={`thinking-toolbar-option ${mode === m ? "active" : ""}`}
+              className={`${thinkingStyles.thinkingToolbarOption} ${mode === m ? thinkingStyles.active : ""}`}
               onClick={() => {
                 onSetMode(m);
                 after();
               }}
             >
-              <span className={`mode-option-dot thinking-${m}`} />
+              <span
+                className={`${dotStyles["mode-option-dot"]} ${composerOptionDotStateClasses[`thinking-${m}`] ?? ""}`}
+                data-mode-option-dot
+              />
               <span>{modeLabel(m)}</span>
             </ThinkingChoiceButton>
           ))}
@@ -317,12 +339,16 @@ export function ThinkingControlsPanel({
         />
       )}
       {showEffort && (
-        <div className="thinking-toolbar-menu-section thinking-controls-section thinking-controls-section--effort">
-          <div className="thinking-toolbar-menu-label">
+        <div
+          className={`${thinkingStyles.thinkingToolbarMenuSection} thinking-controls-section ${thinkingStyles.thinkingControlsSectionEffort}`}
+          data-thinking-controls-section--effort
+        >
+          <div className={thinkingStyles.thinkingToolbarMenuLabel}>
             {t("modelSettingsEffortTitle")}
           </div>
           <div
-            className="thinking-toolbar-menu-options effort-options"
+            className={`${thinkingStyles.thinkingToolbarMenuOptions} effort-options`}
+            data-thinking-toolbar-menu-options
             role="group"
           >
             {effortOptions.map((option) => (
@@ -330,9 +356,7 @@ export function ThinkingControlsPanel({
                 key={option.value}
                 optionRole={optionRole}
                 checked={mode === "on" && level === option.value}
-                className={`thinking-toolbar-option ${
-                  mode === "on" && level === option.value ? "active" : ""
-                }`}
+                className={`${thinkingStyles.thinkingToolbarOption} ${mode === "on" && level === option.value ? thinkingStyles.active : ""}`}
                 title={option.description}
                 onClick={() => {
                   if (onSetEffortMode) {
@@ -345,7 +369,7 @@ export function ThinkingControlsPanel({
                 }}
               >
                 <span
-                  className={`model-switch-indicator-dot tone-${option.value}`}
+                  className={`${dotStyles.modelSwitchIndicatorDot} ${composerOptionDotStateClasses[`tone-${option.value}`] ?? ""}`}
                   aria-hidden="true"
                 />
                 <span>{option.label}</span>

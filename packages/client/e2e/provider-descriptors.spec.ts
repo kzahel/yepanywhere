@@ -18,7 +18,7 @@ test("provider selector is usable before aggregate discovery finishes", async ({
   });
   try {
     await page.goto("/new-session");
-    const selector = page.locator(".new-session-provider-section button");
+    const selector = page.locator("[data-new-session-provider-section] button");
     await expect(selector).toContainText("Claude");
     expect(aggregateStarted).toBe(true);
     await selector.click();
@@ -26,7 +26,7 @@ test("provider selector is usable before aggregate discovery finishes", async ({
       page.getByRole("menu").getByRole("menuitemradio", { name: /^pi\b/i }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
-    const field = page.locator(".new-session-form textarea");
+    const field = page.locator("[data-new-session-form] textarea");
     // Worker-owned services retain earlier cases' server drafts. This case
     // measures discovery/input independence, not draft recovery.
     await field.fill("");

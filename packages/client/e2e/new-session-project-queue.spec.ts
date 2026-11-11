@@ -71,11 +71,11 @@ test.use({ serviceWorkers: "block" });
 async function assertQueueFollowsSelector(
   page: import("@playwright/test").Page,
 ) {
-  const selector = page.locator(".new-session-project-chooser");
+  const selector = page.locator("[data-new-session-project-chooser]");
   const queue = page.locator(
-    '.new-session-project-chooser + [data-new-session-project-queue="true"]',
+    '[data-new-session-project-chooser] + [data-new-session-project-queue="true"]',
   );
-  const provider = page.locator(".new-session-provider-slot");
+  const provider = page.locator("[data-new-session-provider-slot]");
 
   await expect(selector).toBeVisible();
   await expect(queue).toBeVisible();

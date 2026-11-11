@@ -1,3 +1,5 @@
+import { thinkingToolbarControlStateClasses } from "./composerStateClasses";
+import thinkingToolbarStyles from "./ThinkingToolbarControl.module.css";
 import type { ShowThinking } from "@yep-anywhere/shared";
 import type { MouseEvent, TouchEvent } from "react";
 import {
@@ -217,7 +219,8 @@ export function ThinkingToolbarControl({
     <div className={toolbarModuleStyles.thinkingControl} ref={rootRef}>
       <button
         type="button"
-        className={`thinking-toggle-button ${control.mode !== "off" ? `active ${control.mode}` : ""}`}
+        className={`${thinkingToolbarStyles.thinkingToggleButton} ${control.mode !== "off" ? `${thinkingToolbarStyles.active} ${thinkingToolbarControlStateClasses[control.mode] ?? ""}` : ""}`}
+        data-thinking-toggle-button
         data-thinking-mode={control.mode}
         onClick={(event) => {
           if (suppressTouchClickRef.current) {
@@ -238,7 +241,7 @@ export function ThinkingToolbarControl({
         aria-expanded={open}
       >
         <ThinkingIcon mode={control.mode} />
-        <span className="thinking-toggle-label">
+        <span className={thinkingToolbarStyles.thinkingToggleLabel}>
           {getToolbarThinkingLabel(t, control)}
         </span>
       </button>

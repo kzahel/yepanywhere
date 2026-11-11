@@ -77,7 +77,7 @@ test("lost HTTP acceptance reply recovers read-only and submits the initial prom
       `${origin}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
     );
     await page
-      .locator("textarea.new-session-form-textarea")
+      .locator("textarea[data-new-session-form-textarea]")
       .pressSequentially("OWNED_RECOVERY_PROMPT");
     await page
       .getByRole("button", { name: "Start session", exact: true })

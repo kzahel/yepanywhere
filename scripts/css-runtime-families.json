@@ -1,40 +1,5 @@
 [
   {
-    "pattern": "^is-(ok|warn|danger)$",
-    "source": "packages/client/src/components/MessageInputToolbar.tsx",
-    "reason": "Composer liveness and provider runtime tones interpolated into status chips."
-  },
-  {
-    "pattern": "^mode-(default|acceptEdits|plan|bypassPermissions|auto)$",
-    "source": "packages/client/src/components/ModeSelector.tsx",
-    "reason": "Permission-mode dots use the selected mode and menu mode values."
-  },
-  {
-    "pattern": "^thinking-effort-selector--(toolbar|settings)$",
-    "source": "packages/client/src/components/ThinkingControls.tsx",
-    "reason": "Selector variant interpolated into its root class."
-  },
-  {
-    "pattern": "^thinking-(off|auto|on)$",
-    "source": "packages/client/src/components/ThinkingControls.tsx",
-    "reason": "Thinking mode interpolated into option dots."
-  },
-  {
-    "pattern": "^provider-(claude|claude-gateway|claude-ollama|codex|codex-oss|gemini|gemini-acp|grok|opencode|pi|local)$",
-    "source": "packages/client/src/components/NewSessionOptionsPanel.tsx",
-    "reason": "Provider option dots interpolate the provider id; model settings uses the same vocabulary."
-  },
-  {
-    "pattern": "^(recap-(off|native|side-session|fork)|suggestion-(off|native))$",
-    "source": "packages/client/src/pages/settings/ModelSettings.tsx",
-    "reason": "Recap and suggestion option dots interpolate their finite mode values; keepalive now uses its local module."
-  },
-  {
-    "pattern": "^recap-after-seconds-control--(off|native|side-session|fork)$",
-    "source": "packages/client/src/components/RecapAfterSecondsControl.tsx",
-    "reason": "Recap mode interpolated into the root class."
-  },
-  {
     "pattern": "^fixed-font-markdown-heading-[1-6]$",
     "source": "packages/client/src/components/ui/FixedFontMathToggle.tsx",
     "reason": "Heading marker length generates the fixed-font heading level.",
@@ -66,40 +31,10 @@
     "reactAuthored": ["local-media-link-group", "local-media-type"]
   },
   {
-    "pattern": "^tone-(off|auto|low|medium|high|xhigh|max)$",
-    "source": "packages/client/src/components/ThinkingControls.tsx",
-    "reason": "Effort option values interpolated into indicator dots; model switch and new session share them."
-  },
-  {
     "pattern": "^file-link$",
     "source": "packages/shared/src/filePathDetection.ts",
     "reason": "Shared path linkifier emits clickable file anchors into generated output.",
     "generated": true
-  },
-  {
-    "pattern": "^steer-mode$",
-    "source": "packages/client/src/components/MessageInput.tsx",
-    "reason": "Keyboard action kind interpolated into primary and alternate action classes."
-  },
-  {
-    "pattern": "^(bang-composer-chip|message-input-(collapsed-actions|keyboard-actions|keyboard-more))$",
-    "source": "packages/client/src/components/MessageInput.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
-  },
-  {
-    "pattern": "^(new-session-container)$",
-    "source": "packages/client/src/components/NewSessionForm.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
-  },
-  {
-    "pattern": "^(composer-recall-preview)$",
-    "source": "packages/client/src/components/ComposerRecallMenu.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
-  },
-  {
-    "pattern": "^(speech-control-menu)$",
-    "source": "packages/client/src/components/SpeechControlMenu.tsx",
-    "reason": "Root class is joined directly to an optional, whitespace-prefixed state class; interpolation boundaries require an explicit family."
   },
   {
     "pattern": "^(shiki|line)$",

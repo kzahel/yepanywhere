@@ -19,6 +19,14 @@
     "count": 1,
     "reason": "The 1.25rem empty-state heading follows browser root-font preferences; close with an approved matching rem-based heading token."
   },
+  "components/ComposerActions.module.css": {
+    "count": 6,
+    "reason": "composer pass"
+  },
+  "components/ComposerOptionDot.module.css": {
+    "count": 2,
+    "reason": "composer pass"
+  },
   "components/ComposerRecents.module.css": {
     "count": 5,
     "reason": "composer pass"
@@ -67,8 +75,16 @@
     "count": 1,
     "reason": "Markdown prose uses the configured viewer offset, independent fixed-width code sizes and a 10px math floor; close with recognized output/math typography tokens."
   },
+  "components/MessageInput.module.css": {
+    "count": 1,
+    "reason": "composer pass"
+  },
   "components/MessageInputToolbar.module.css": {
-    "count": 7,
+    "count": 9,
+    "reason": "composer pass"
+  },
+  "components/ModeSelector.module.css": {
+    "count": 1,
     "reason": "composer pass"
   },
   "components/ModelOptionsSection.module.css": {
@@ -80,8 +96,8 @@
     "reason": "The 0.72rem provider heading and two 0.5rem card radii follow browser root-font preferences; close with approved matching rem-based model-picker tokens."
   },
   "components/NewSessionForm.module.css": {
-    "count": 1,
-    "reason": "0.5rem queue panel corners compute to 9.2px at the default 115% scale, over 1px from the 8px token."
+    "count": 4,
+    "reason": "composer pass"
   },
   "components/RenderItemComponent.module.css": {
     "count": 4,
@@ -103,6 +119,10 @@
     "count": 1,
     "reason": "The 1.1rem sidebar brand line preserves its root-font geometry; close with an approved matching brand typography token."
   },
+  "components/SpeechDraftField.module.css": {
+    "count": 2,
+    "reason": "composer pass"
+  },
   "components/SpeechPrefixActionCue.module.css": {
     "count": 1,
     "reason": "Tiny 0.42rem speech-prefix action glyph must fit its measured cue slot."
@@ -112,7 +132,7 @@
     "reason": "Thinking code uses the independent fixed-width inline size and its heading keeps a 10px optical floor; close with recognized code/heading typography tokens."
   },
   "components/VoiceInputButton.module.css": {
-    "count": 1,
+    "count": 2,
     "reason": "composer pass"
   },
   "components/WorkflowOutput.module.css": {
@@ -150,6 +170,10 @@
   "components/renderers/CodeOutput.module.css": {
     "count": 4,
     "reason": "Shared code output uses configured prose/fixed-width sizes and the 10px math floor; close when the checker recognizes output/math typography tokens."
+  },
+  "components/renderers/DiffOutput.module.css": {
+    "count": 3,
+    "reason": "Diff wrapper, highlighted and fallback rows follow the independently configured source metric. Close when the checker recognizes source-code typography tokens."
   },
   "components/renderers/ToolFallback.module.css": {
     "count": 1,
@@ -314,9 +338,5 @@
   "pages/settings/SpeechVocabularyControls.module.css": {
     "count": 1,
     "reason": "12px vocabulary editor frame corners; no matching radius token."
-  },
-  "components/renderers/DiffOutput.module.css": {
-    "count": 3,
-    "reason": "Diff wrapper, highlighted and fallback rows follow the independently configured source metric. Close when the checker recognizes source-code typography tokens."
   }
 }

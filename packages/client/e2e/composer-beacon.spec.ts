@@ -209,7 +209,7 @@ test("composer beacon acknowledges real sends and leaves typing and title option
         }
       ).testRecognition.emit("provisional words", false);
     });
-    await expect(page.locator(".speech-interim-inline")).toHaveText(
+    await expect(page.locator("[data-speech-interim-inline]")).toHaveText(
       "provisional words",
     );
     received = "";

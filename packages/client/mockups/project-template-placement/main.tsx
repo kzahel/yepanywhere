@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { AddProjectForm } from "../../src/components/AddProjectForm";
 import { I18nProvider } from "../../src/i18n";
-import "../../src/styles/index.css";
+import "../../src/styles/purposeGlobals";
 import styles from "./Placement.module.css";
 
 const templates = [

@@ -5,8 +5,7 @@ import { I18nProvider } from "../../src/i18n";
 import { useSelectionActionPresentation } from "../../src/hooks/useSelectionActionPresentation";
 import { useQuoteableTextSource } from "../../src/hooks/useQuoteableTextSource";
 import { UserPromptBlock } from "../../src/components/blocks/UserPromptBlock";
-import "../../src/styles/index.css";
-import "../../src/styles/renderers.css";
+import "../../src/styles/purposeGlobals";
 
 function HistoryBlock({ index }: { index: number }) {
   const ref = useQuoteableTextSource<HTMLParagraphElement>(

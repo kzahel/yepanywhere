@@ -52,7 +52,7 @@ function ContextTokenRows({ usage }: { usage: ContextUsage }) {
 
   return (
     <div className={styles.tokenUsage}>
-      <div className="context-threshold-popover-title">
+      <div className={styles.contextThresholdPopoverTitle}>
         {t("contextTokenUsageTitle")}
       </div>
       <dl className={styles.rows}>
@@ -123,7 +123,7 @@ export function ContextUsagePopover({
 
   return (
     <div
-      className="context-subscription-popover"
+      className={styles.contextSubscriptionPopover}
       role="dialog"
       aria-label={
         usage ? t("subscriptionUsageTitle") : t("contextTokenUsageTitle")
@@ -132,14 +132,17 @@ export function ContextUsagePopover({
     >
       {breakdown && <ContextBreakdownSection state={breakdown} />}
       {usage && (
-        <div className="subscription-usage-header">
+        <div
+          className={styles.subscriptionUsageHeader}
+          data-subscription-usage-header
+        >
           <div>
-            <div className="context-threshold-popover-title">
+            <div className={styles.contextThresholdPopoverTitle}>
               {t("subscriptionUsageTitle")}
             </div>
             {usage.accountLabel && <div>{usage.accountLabel}</div>}
             {binding && (
-              <div className="subscription-usage-summary">
+              <div className={styles.subscriptionUsageSummary}>
                 {usage.ordinaryUsageAllowed === true &&
                 binding.usedPercent >= 100
                   ? t("subscriptionUsageAllowed")
@@ -159,10 +162,10 @@ export function ContextUsagePopover({
           </IconButton>
         </div>
       )}
-      <div className="subscription-usage-windows">
+      <div className={styles.subscriptionUsageWindows}>
         {windows.map((window) => (
-          <div className="subscription-usage-window" key={window.id}>
-            <div className="subscription-usage-window-heading">
+          <div className={styles.subscriptionUsageWindow} key={window.id}>
+            <div className={styles.subscriptionUsageWindowHeading}>
               <span>
                 {scopeLabel(
                   window,
@@ -180,11 +183,11 @@ export function ContextUsagePopover({
                 })}
               </strong>
             </div>
-            <div className="subscription-usage-meter" aria-hidden="true">
+            <div className={styles.subscriptionUsageMeter} aria-hidden="true">
               <span style={{ width: `${window.usedPercent}%` }} />
             </div>
             {window.remainingCapacityUnits !== undefined && (
-              <div className="subscription-usage-reset">
+              <div className={styles.subscriptionUsageReset}>
                 {window.remainingCapacityUnits === null
                   ? t("subscriptionUsageCapacityUnknown")
                   : t("subscriptionUsageCapacity", {
@@ -193,7 +196,7 @@ export function ContextUsagePopover({
               </div>
             )}
             {window.resetsAt && (
-              <div className="subscription-usage-reset">
+              <div className={styles.subscriptionUsageReset}>
                 {t("subscriptionUsageResets", {
                   time: new Intl.DateTimeFormat(locale, {
                     dateStyle: "short",
