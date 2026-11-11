@@ -27,7 +27,7 @@
   },
   {
     "name": "collection-query-rest-revalidation",
-    "capabilities": ["collection-query-updates"],
+    "capabilities": ["collection-query-updates", "project-collection-updates"],
     "supportedSince": "2026-11-11",
     "evidence": "Plan190 collection query update source introduction,2026-11-11; no stable release yet.",
     "removal": "Retire absent-support collection event revalidation after its horizon. Keep explicit refresh, complete-search and out-of-bound pagination reads.",

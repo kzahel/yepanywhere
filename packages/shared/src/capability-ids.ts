@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  projectCollectionUpdates: {
+    id: 157,
+    direction: "server",
+    name: "project-collection-updates",
+    introducedIn: "0.12.0",
+  },
   collectionQueryUpdates: {
     id: 156,
     direction: "server",

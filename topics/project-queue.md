@@ -146,6 +146,18 @@ slices. Existing-session items keep their existing delivery policy. The optional
 summary association is additive; older servers omit it and older clients ignore
 it. This does not advertise the broader all-caller creation receipts capability.
 
+## Authoritative live query ownership
+
+Sources advertising `project-collection-updates` carry the global queue through
+[shared collection query updates](session-catalog-observation.md#project-and-projectqueue-query-extension).
+Queue items, recovered patient rows, dispatch state and server-computed scheduler
+statuses remain canonical. Live views share server reads and deadline wakes;
+the browser releases its fallback deadline contribution while its query is live.
+A failed stream restores ordinary REST/event/backstop behavior, and reconnect
+starts with an authoritative replacement. Explicit refresh and mutations fence
+old stream frames through their accepted response. Oversized collections retain
+the complete existing REST path; this adds no queue truncation or dispatch policy.
+
 ## Quiet Window
 
 Project Queue's quiet window is a user-interaction patience setting, not a

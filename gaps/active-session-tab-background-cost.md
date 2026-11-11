@@ -76,9 +76,12 @@ request the tab made and its WebSocket frames (header comment for usage).
    rows and exact membership/count updates rather than refetching on each event.
    Real browser coverage proves native Inbox changes and zero list/Inbox GETs
    during sequential typing on Node and Bun. [Evidence](../docs/research/190-collection-query-updates.md)
-   records scope and limits. `/api/projects`, `/api/project-queue`, complete search
-   and coverage beyond 500 session rows still use existing reads. Full combined
-   scenario qualification remains open.
+   records that first slice. Bounded `/api/projects` and `/api/project-queue`
+   now share the same update owner under a separate capability, including live
+   queue deadlines; [project extension evidence](../docs/research/190-project-collection-updates.md)
+   records that follow-up. Complete search and oversized collections keep
+   existing reads. Native project aggregation and full combined scenario
+   qualification remain open.
 3. **Known changed-file publication is now scoped.** The former complete
    generation walk and retained native catalog mirror are removed. Unknown
    new-file membership, complete consumers and project SQL aggregation still

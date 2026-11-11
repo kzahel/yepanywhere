@@ -202,6 +202,55 @@ remains in use. Source changes,
 pagehide and final unmount retire the old subscription; visibility/reconnect
 reacquire a replacement. No browser transcript persistence is added.
 
+### Project and ProjectQueue query extension
+
+`project-collection-updates` separately selects retained `/projects` and global
+`/project-queue` interests on the same stream. It does not extend the meaning of
+`collection-query-updates`; clients with only that older contract continue
+sending session/Inbox queries only. Canonical routes retain authentication,
+principal/grant filtering and underlying route availability. Project stream
+reads never ask for complete discovery. Neither stream adds launch authority.
+
+Project rows, queue items, recovered patient rows and scheduler-status records
+carry group-qualified identities. Queue statuses reconstruct their canonical
+project-keyed map, including authoritative removal and omitted optional fields.
+Session responses keep project choices as metadata under their original wire
+contract. Empty and incomplete project collections retain the existing client
+store semantics; a complete empty collection clears membership.
+
+The existing bounds apply to all groups together: at most 500 project rows, or
+500 total queue/item/recovery/status rows. Oversized canonical responses fail
+stream acquisition; an accepted REST response over the bound disables that
+interest, preserving the complete existing consumer rather than truncating it.
+This bounds streamed working state and wire updates. Canonical retained project
+materialization and native SQL project aggregation can still visit the eligible
+population; sharing/diffing these reads does not make that underlying work
+proportional to a changed session.
+
+Project interests acquire on accepted project publications and live overlays
+(counts, captions, code names and queue changes), not raw transcript-file events.
+Queue interests acquire on their own changes and relevant catalog/metadata/live
+scheduler inputs. Identical authorized viewers share each acquisition. While
+queue interest exists, the shared server wake honors future `nextAttemptAt` and
+`quietEligibleAt` and retains the prior five-second missed-event guard only for
+`ready`/`dispatching` states. A past waiting deadline is attempted once and cannot
+create a recurring empty timer. Final interest release cancels its wake.
+
+A live queue stream retires the browser deadline/backstop contribution; stream
+failure restores legacy revalidation/backstop while reconnect reacquires a fresh
+replacement. Explicit reads and queue mutations pause pushed admission through
+the accepted canonical snapshot and then reopen. Mutation failures also release
+that hold. A REST-only query without retained stream interest cannot pause or
+restart unrelated supported interests. Source changes cannot publish into the
+replacement source.
+
+The stable review corpus remains v0.8.0/v0.8.1 and the 60-day core releases
+v0.9.0, v0.9.1, v0.9.2, v0.10.0, v0.10.1, v0.10.2, v0.11.0; latest two are
+v0.11.0/v0.10.2. All lack the new extension and keep REST/events/queue backstop,
+with no project query sent. Capability 157 starts in 0.12.0 and is withdrawn
+without the collection event owner. Its fallback shares the recorded 2027-02-09
+sunset; no supported fallback or existing capability contract is removed here.
+
 ### Collection-update compatibility review — 2026-11-11
 
 The current supported v0.8.0 baseline through v0.11.0 lacks this endpoint. The

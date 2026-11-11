@@ -68,3 +68,82 @@ it("fails closed on missed, duplicated, stale or incomplete messages and accepts
     recentActivity: [],
   });
 });
+
+it("round-trips queue groups with colliding ids and project fields without stale metadata", () => {
+  const first = {
+    items: [{ id: "same", message: { text: "queued" }, targetTitle: "old" }],
+    recoveredSessionQueues: [{ id: "same", content: "patient" }],
+    projectStatuses: { same: { projectId: "same", state: "ready" } },
+    dispatchState: { paused: true },
+  };
+  const start = collectionView(first, "/project-queue");
+  expect(start.rows).toHaveLength(3);
+  const saved = applyCollectionUpdate(
+    undefined,
+    diffCollectionView("/project-queue", 1, undefined, start)!,
+  );
+  expect(saved.body).toEqual(first);
+  const next = {
+    ...first,
+    items: [{ id: "same", message: { text: "changed" } }],
+    projectStatuses: {},
+  };
+  const change = diffCollectionView(
+    "/project-queue",
+    2,
+    start,
+    collectionView(next, "/project-queue"),
+  )!;
+  expect(change.upserts).toHaveLength(1);
+  const accepted = applyCollectionUpdate(saved, change);
+  expect(accepted.body).toEqual(next);
+  expect((accepted.body.recoveredSessionQueues as unknown[])[0]).toBe(
+    first.recoveredSessionQueues[0],
+  );
+  const projects = {
+    projects: [{ id: "a", caption: "old" }, { id: "b" }],
+    catalog: { complete: false },
+  };
+  const view = collectionView(projects, "/projects");
+  const initial = applyCollectionUpdate(
+    undefined,
+    diffCollectionView("/projects", 1, undefined, view)!,
+  );
+  const updated = {
+    projects: [{ id: "a" }, { id: "b" }],
+    catalog: { complete: true },
+  };
+  const delta = diffCollectionView(
+    "/projects",
+    2,
+    view,
+    collectionView(updated, "/projects"),
+  )!;
+  expect(delta.upserts).toEqual([["projects:a", { id: "a" }]]);
+  expect(applyCollectionUpdate(initial, delta).body).toEqual(updated);
+  // Project options stay metadata on the older session/Inbox protocol.
+  expect(collectionView({ sessions: [], ...projects }).groups).toEqual({
+    sessions: [],
+  });
+  expect(() =>
+    collectionView(
+      {
+        projects: Array.from({ length: 501 }, (_, id) => ({ id: String(id) })),
+      },
+      "/projects",
+    ),
+  ).toThrow("Oversized");
+});
+
+it("enforces project row bounds after URL normalization", () => {
+  const body = {
+    projects: Array.from({ length: 501 }, (_, n) => ({ id: String(n) })),
+  };
+  for (const query of [
+    "/projects",
+    "/x/../projects",
+    "/%2e/projects",
+    "/projects?",
+  ])
+    expect(() => collectionView(body, query)).toThrow("Oversized");
+});

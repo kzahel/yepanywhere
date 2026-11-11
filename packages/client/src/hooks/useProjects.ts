@@ -1,3 +1,10 @@
+import { SERVER_CAPABILITIES } from "@yep-anywhere/shared";
+import { useCollectionUpdates } from "./useCollectionUpdates";
+import {
+  collectionQueryIsLive,
+  pauseCollectionUpdates,
+} from "../lib/collectionUpdates";
+import type { ProjectsResponse } from "../api/projectsClient";
 import { useEffect, useMemo } from "react";
 import { api } from "../api/client";
 import { createProjectsApi } from "../api/projectsClient";
@@ -195,14 +202,38 @@ export function useProjects({
     ready,
     hasData: projects.length > 0,
     revalidateOn: PROJECTS_REVALIDATE_EVENTS,
+    shouldRevalidateEvent: () => !collectionQueryIsLive(runtime, query.key),
+    fetcher: async (context) => {
+      const resume = pauseCollectionUpdates(runtime, query.key);
+      try {
+        return await query.fetcher(context);
+      } finally {
+        resume();
+      }
+    },
+  });
+  const live = useCollectionUpdates<ProjectsResponse>({
+    runtime,
+    key: query.key,
+    path: "/projects?summaryMode=retained",
+    capability: SERVER_CAPABILITIES.projectCollectionUpdates.name,
+    enabled: ready && projects.length <= 500,
+    applySnapshot: (data, context) =>
+      runtime.summary.reportProjectsCollectionSnapshot(
+        data,
+        context.requestStartedAt,
+      ),
+    fallback: () => {
+      void refetch({ force: true, background: true });
+    },
   });
 
   const status = catalogLoadState(catalog, projects.length);
   return {
     projects,
-    complete: !loading && catalog?.complete !== false,
-    loading: loading || status.awaitingFirstRows,
-    error: error ?? status.refreshError,
+    complete: (live || !loading) && catalog?.complete !== false,
+    loading: (!live && loading) || status.awaitingFirstRows,
+    error: (live ? null : error) ?? status.refreshError,
     refetch,
   };
 }

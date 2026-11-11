@@ -32,8 +32,10 @@ Still open:
   consumer/discovery reads explicitly materialize the requested corpus.
   Migrate consumers by their access pattern; moving a walk to SQL alone does
   not make it bounded.
-- Clients still refetch several lists per generation. SQL makes those server
-  reads cheap; changed-row delivery still requires capability/fallback review.
+- Bounded session/Inbox and project/ProjectQueue clients now receive shared
+  authoritative query changes behind separate capabilities. Complete search,
+  oversized views and transcript rendering retain their existing read paths;
+  full combined-scale qualification remains open.
 - Grok/OpenCode internal watcher reports from sessions outside YA and writes
   predating watcher startup still need reliable reconciliation. Activity
   inside YA rescans only the affected internally observed store.

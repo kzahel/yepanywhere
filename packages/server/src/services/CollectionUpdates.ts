@@ -6,6 +6,10 @@ import {
 } from "@yep-anywhere/shared/collection-updates";
 import type { EventBus } from "../watcher/index.js";
 import { busEventChangesSessionCollection } from "../sessions/sessionCollectionGeneration.js";
+import {
+  projectCollectionEvent,
+  projectQueueTransition,
+} from "./project-collection-updates.js";
 import { runOutsideRequestContext } from "../lib/outsideRequestContext.js";
 
 export interface CollectionUpdatesListener {
@@ -74,13 +78,18 @@ export class CollectionUpdates {
     // A join/explicit refresh validates canonical overlays, even without a bus event.
     retained.dirty = true;
     this.unsubscribe ??= this.bus.subscribe((event) => {
-      if (
-        !busEventChangesSessionCollection(event) &&
-        event.type !== "session-provider-phase-changed"
-      )
-        return;
-      for (const current of this.views.values()) current.dirty = true;
-      this.wake(100);
+      let changed = false;
+      for (const current of this.views.values()) {
+        const relevant =
+          projectCollectionEvent(current.query, event) ??
+          (busEventChangesSessionCollection(event) ||
+            event.type === "session-provider-phase-changed");
+        if (relevant) {
+          current.dirty = true;
+          changed = true;
+        }
+      }
+      if (changed) this.wake(100);
     });
     this.wake(0);
     let released = false;
@@ -145,6 +154,7 @@ export class CollectionUpdates {
     }
     const [reader, acquisition] = selected;
     try {
+      const readStartedAt = Date.now();
       const body = await acquisition.read(acquisition.controller.signal);
       if (this.views.get(view.key) !== view) return;
       if (
@@ -154,7 +164,7 @@ export class CollectionUpdates {
         view.dirty = true;
         return;
       }
-      const next = collectionView(body);
+      const next = collectionView(body, view.query);
       const bytes = Buffer.byteLength(JSON.stringify(next));
       if (
         bytes > 2 * 1024 ** 2 ||
@@ -171,7 +181,9 @@ export class CollectionUpdates {
       this.bytes += bytes - view.bytes;
       view.bytes = bytes;
       view.snapshot = next;
-      const deadline = body.nextTransitionAt;
+      const deadline =
+        body.nextTransitionAt ??
+        projectQueueTransition(view.query, body, readStartedAt);
       view.deadline =
         typeof deadline === "number" && deadline > Date.now()
           ? deadline

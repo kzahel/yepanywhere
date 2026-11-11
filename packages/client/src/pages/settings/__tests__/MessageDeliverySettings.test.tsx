@@ -48,6 +48,7 @@ vi.mock("../../../hooks/useServerSettings", () => ({
 
 vi.mock("../../../hooks/useVersion", () => ({
   useVersion: () => ({ version: versionState.version }),
+  useRetainedVersionInfo: () => versionState.version,
 }));
 
 vi.mock("../../../i18n", () => ({

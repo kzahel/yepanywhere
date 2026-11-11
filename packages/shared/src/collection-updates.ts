@@ -6,6 +6,10 @@ export const COLLECTION_UPDATE_GROUPS = [
   "recentActivity",
   "unread8h",
   "unread24h",
+  "projects",
+  "items",
+  "recoveredSessionQueues",
+  "projectStatuses",
 ] as const;
 export interface CollectionView {
   rows: Array<[string, Record<string, unknown>]>;
@@ -21,21 +25,56 @@ export interface CollectionUpdate {
   groups?: CollectionView["groups"];
   meta?: CollectionView["meta"];
 }
-export function collectionView(body: Record<string, unknown>): CollectionView {
+export function collectionView(
+  body: Record<string, unknown>,
+  query = "/sessions",
+): CollectionView {
   const rows = new Map<string, Record<string, unknown>>();
   const groups: Record<string, string[]> = {};
   const meta = { ...body };
-  for (const group of COLLECTION_UPDATE_GROUPS) {
-    if (!Array.isArray(body[group])) continue;
-    groups[group] = (body[group] as Record<string, unknown>[]).map((row) => {
-      const id = group === "sessions" ? row.id : row.sessionId;
+  const path = new URL(query, "http://collection.invalid").pathname;
+  const selected =
+    path === "/projects"
+      ? ["projects"]
+      : path === "/project-queue"
+        ? ["items", "recoveredSessionQueues", "projectStatuses"]
+        : COLLECTION_UPDATE_GROUPS.slice(0, 6);
+  for (const group of selected) {
+    const isStatuses = group === "projectStatuses";
+    const value = body[group];
+    if (
+      isStatuses
+        ? !value || typeof value !== "object" || Array.isArray(value)
+        : !Array.isArray(value)
+    )
+      continue;
+    const entries = isStatuses
+      ? Object.entries(value as Record<string, Record<string, unknown>>)
+      : (value as Record<string, unknown>[]).map((row) => ["", row] as const);
+    groups[group] = entries.map(([statusId, row]) => {
+      const id = isStatuses
+        ? statusId
+        : ["sessions", "projects", "items", "recoveredSessionQueues"].includes(
+              group,
+            )
+          ? row.id
+          : row.sessionId;
       if (typeof id !== "string")
         throw new Error("Invalid collection row identity");
-      rows.set(id, row);
-      return id;
+      const key = [
+        "projects",
+        "items",
+        "recoveredSessionQueues",
+        "projectStatuses",
+      ].includes(group)
+        ? group + ":" + id
+        : id;
+      rows.set(key, row);
+      return key;
     });
     delete meta[group];
   }
+  if (rows.size > 500) throw new Error("Oversized collection update");
   return { rows: [...rows], groups, meta };
 }
 export function diffCollectionView(
@@ -107,11 +146,20 @@ export function applyCollectionUpdate(
       new Set(ids).size !== ids.length
     )
       throw new Error("Invalid collection update membership");
-    body[group] = ids.map((id) => {
+    const members = ids.map((id) => {
       const row = rows.get(id);
       if (!row) throw new Error("Missing collection update row");
       return row;
     });
+    body[group] =
+      group === "projectStatuses"
+        ? Object.fromEntries(
+            ids.map((id, n) => [
+              id.slice("projectStatuses:".length),
+              members[n],
+            ]),
+          )
+        : members;
   }
   if (rows.size > 500) throw new Error("Oversized collection update");
   return {

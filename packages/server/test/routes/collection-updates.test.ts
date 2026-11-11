@@ -547,3 +547,100 @@ it("keeps a project page's global statistics on every accessible archive deadlin
   expect(after.stats.totalCount).toBe(1);
   expect(after.nextTransitionAt).toBe(midnight + 86_400_000);
 });
+
+it("shares project publications and queue deadlines without file-event reacquisition or stale-clock spinning", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(10000);
+  const bus = new EventBus();
+  const owner = new CollectionUpdates(bus);
+  owners.push(owner);
+  const projects = vi.fn(async () => ({
+    projects: [{ id: "a", caption: "one" }],
+    catalog,
+  }));
+  let state = "waiting",
+    caption = "one";
+  const queue = vi.fn(async () => ({
+    items: [{ id: "q", message: { text: caption } }],
+    recoveredSessionQueues: [],
+    projectStatuses: {
+      a: {
+        projectId: "a",
+        state,
+        quietEligibleAt: new Date(11000).toISOString(),
+      },
+    },
+  }));
+  const frames: CollectionUpdate[] = [];
+  const listeners = {
+    send: (frame: CollectionUpdate) => {
+      frames.push(frame);
+    },
+    fail: (error: unknown) => {
+      throw error;
+    },
+  };
+  const releaseProjects = owner.retain(
+    "auth",
+    "/projects?summaryMode=retained",
+    projects,
+    listeners,
+  );
+  const releaseQueue = owner.retain("auth", "/project-queue", queue, {
+    ...listeners,
+  });
+  const releasePeer = owner.retain("auth", "/project-queue", queue, {
+    ...listeners,
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(projects).toHaveBeenCalledTimes(1);
+  expect(queue).toHaveBeenCalledTimes(1);
+  event(bus);
+  await vi.advanceTimersByTimeAsync(200);
+  expect(projects).toHaveBeenCalledTimes(1);
+  expect(queue).toHaveBeenCalledTimes(1);
+  bus.emit({
+    type: "projects-changed",
+    projectIds: [],
+    collectionRefresh: true,
+  });
+  await vi.advanceTimersByTimeAsync(200);
+  expect(projects).toHaveBeenCalledTimes(2);
+  expect(queue).toHaveBeenCalledTimes(1);
+  caption = "two";
+  state = "ready";
+  await vi.advanceTimersByTimeAsync(600);
+  expect(queue).toHaveBeenCalledTimes(2);
+  expect(
+    frames.filter((frame) => frame.query === "/project-queue").at(-1)!.upserts,
+  ).toContainEqual(["items:q", { id: "q", message: { text: "two" } }]);
+  state = "blocked";
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(queue).toHaveBeenCalledTimes(3);
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(queue).toHaveBeenCalledTimes(3);
+  releasePeer();
+  releaseQueue();
+  releaseProjects();
+  expect(owner.getStats()).toEqual({
+    views: 0,
+    bytes: 0,
+    listening: false,
+    timer: false,
+  });
+});
+
+it("refuses normalized path aliases instead of allocating differently classified project interests", () => {
+  expect(collectionReadPath("/projects")).toBe(
+    "/api/projects?summaryMode=retained",
+  );
+  expect(collectionReadPath("/project-queue")).toBe("/api/project-queue?");
+  for (const query of [
+    "/x/../projects",
+    "/%2e/projects",
+    "//collection.invalid/projects",
+    "/x/../project-queue",
+    "/project-queue?summaryMode=retained",
+  ])
+    expect(() => collectionReadPath(query)).toThrow();
+});

@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { encodeCapabilityIds } from "@yep-anywhere/shared";
+import { encodeCapabilityIds, SERVER_CAPABILITIES } from "@yep-anywhere/shared";
 import {
   collectionView,
   diffCollectionView,
@@ -374,4 +374,43 @@ it("keeps an expanded query attached with another view retained and preserves fa
   expect(collectionQueryCoverage(runtime, key)).toBe(300);
   hook.unmount();
   inbox();
+});
+
+it("does not broaden session-update support to withdrawn project query support", async () => {
+  version.current = {
+    current: "0.12.0",
+    deniedCapabilityBits: encodeCapabilityIds([157]),
+  };
+  const { runtime, requests } = fixture("project-capability-withdrawal");
+  renderHook(() =>
+    useCollectionUpdates({
+      runtime,
+      key: "projects",
+      path: "/projects?summaryMode=retained",
+      enabled: true,
+      capability: SERVER_CAPABILITIES.projectCollectionUpdates.name,
+      applySnapshot: () => {},
+      fallback: () => {},
+    }),
+  );
+  renderHook(() => useObserve(runtime, () => {}));
+  await flush(() => expect(requests).toHaveLength(1));
+  const queries = JSON.parse(
+    new URL(requests[0]!.path, "http://source").searchParams.get("queries")!,
+  );
+  expect(queries).toEqual([path]);
+});
+
+it("does not restart supported streams when a legacy-only query performs a REST read", async () => {
+  const { runtime, requests } = fixture("legacy-query-pause");
+  renderHook(() => useObserve(runtime, () => {}));
+  await flush(() => expect(requests).toHaveLength(1));
+  requests[0]!.send(initial("supported"));
+  await flush(() => expect(collectionQueryIsLive(runtime, key)).toBe(true));
+  const resume = pauseCollectionUpdates(runtime, "unsupported-project-query");
+  await act(async () => {});
+  expect(requests[0]!.signal.aborted).toBe(false);
+  resume();
+  await act(async () => {});
+  expect(requests).toHaveLength(1);
 });

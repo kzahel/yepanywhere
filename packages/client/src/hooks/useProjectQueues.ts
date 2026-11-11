@@ -1,5 +1,7 @@
 import {
   type ProjectQueueDispatchState,
+  type ProjectQueueListResponse,
+  SERVER_CAPABILITIES,
   type ProjectQueueItemSummary,
   type ProjectQueueProjectStatus,
   type ProjectQueuePromoteNowResult,
@@ -29,6 +31,12 @@ import {
   type RetainedClientQuerySettlement,
   useRetainedClientQuery,
 } from "./useRetainedClientQuery";
+
+import { useCollectionUpdates } from "./useCollectionUpdates";
+import {
+  collectionQueryIsLive,
+  pauseCollectionUpdates,
+} from "../lib/collectionUpdates";
 
 export interface UseProjectQueuesResult {
   queuesByProject: Record<string, readonly ProjectQueueItemSummary[]>;
@@ -555,12 +563,44 @@ export function useProjectQueues(
     ready,
     hasData,
     revalidateOn: PROJECT_QUEUE_REVALIDATE_EVENTS,
-    fetcher: () => api.getProjectQueueItems(),
+    shouldRevalidateEvent: () =>
+      !collectionQueryIsLive(runtime, PROJECT_QUEUE_QUERY_KEY),
+    fetcher: async () => {
+      const resume = pauseCollectionUpdates(runtime, PROJECT_QUEUE_QUERY_KEY);
+      try {
+        return await api.getProjectQueueItems();
+      } finally {
+        resume();
+      }
+    },
     applySnapshot: (data, context) => {
       sourceSummary.reportProjectQueueGlobalCollectionSnapshot(
         data,
         context.requestStartedAt,
       );
+    },
+  });
+
+  const queueSnapshot = sourceSummary.getSnapshot().projectQueues;
+  const live = useCollectionUpdates<ProjectQueueListResponse>({
+    runtime,
+    key: PROJECT_QUEUE_QUERY_KEY,
+    path: "/project-queue",
+    capability: SERVER_CAPABILITIES.projectCollectionUpdates.name,
+    enabled:
+      ready &&
+      queryEnabled &&
+      queueSnapshot.globalItems.length +
+        queueSnapshot.recoveredSessionQueues.length +
+        queueSnapshot.projectStatusesByProject.size <=
+        500,
+    applySnapshot: (data, context) =>
+      sourceSummary.reportProjectQueueGlobalCollectionSnapshot(
+        data,
+        context.requestStartedAt,
+      ),
+    fallback: () => {
+      void refetch({ force: true, background: true });
     },
   });
 
@@ -573,6 +613,10 @@ export function useProjectQueues(
       setMutatingItemId(itemId);
       setMutationError(null);
       const requestSummary = sourceSummary;
+      const resumeUpdates = pauseCollectionUpdates(
+        runtime,
+        PROJECT_QUEUE_QUERY_KEY,
+      );
       try {
         // Queue editors spread the old message and replace its text; the
         // command it runs follows that text (topics/project-queue.md).
@@ -588,10 +632,11 @@ export function useProjectQueues(
         setMutationError(err instanceof Error ? err : new Error(String(err)));
         throw err;
       } finally {
+        resumeUpdates();
         setMutatingItemId(null);
       }
     },
-    [sourceSummary],
+    [sourceSummary, runtime],
   );
 
   const deleteItem = useCallback(
@@ -599,6 +644,10 @@ export function useProjectQueues(
       setMutatingItemId(itemId);
       setMutationError(null);
       const requestSummary = sourceSummary;
+      const resumeUpdates = pauseCollectionUpdates(
+        runtime,
+        PROJECT_QUEUE_QUERY_KEY,
+      );
       try {
         const response = await api.deleteProjectQueueItem(projectId, itemId);
         requestSummary.reportProjectQueueCollectionSnapshot(response.queue);
@@ -606,10 +655,11 @@ export function useProjectQueues(
         setMutationError(err instanceof Error ? err : new Error(String(err)));
         throw err;
       } finally {
+        resumeUpdates();
         setMutatingItemId(null);
       }
     },
-    [sourceSummary],
+    [sourceSummary, runtime],
   );
 
   const retryItem = useCallback(
@@ -617,6 +667,10 @@ export function useProjectQueues(
       setMutatingItemId(itemId);
       setMutationError(null);
       const requestSummary = sourceSummary;
+      const resumeUpdates = pauseCollectionUpdates(
+        runtime,
+        PROJECT_QUEUE_QUERY_KEY,
+      );
       try {
         const response = await api.retryProjectQueueItem(projectId, itemId);
         requestSummary.reportProjectQueueCollectionSnapshot(response.queue);
@@ -624,10 +678,11 @@ export function useProjectQueues(
         setMutationError(err instanceof Error ? err : new Error(String(err)));
         throw err;
       } finally {
+        resumeUpdates();
         setMutatingItemId(null);
       }
     },
-    [sourceSummary],
+    [sourceSummary, runtime],
   );
 
   const moveItemToTop = useCallback(
@@ -635,6 +690,10 @@ export function useProjectQueues(
       setMutatingItemId(itemId);
       setMutationError(null);
       const requestSummary = sourceSummary;
+      const resumeUpdates = pauseCollectionUpdates(
+        runtime,
+        PROJECT_QUEUE_QUERY_KEY,
+      );
       try {
         const response = await api.moveProjectQueueItemToTop(projectId, itemId);
         requestSummary.reportProjectQueueCollectionSnapshot(response.queue);
@@ -642,10 +701,11 @@ export function useProjectQueues(
         setMutationError(err instanceof Error ? err : new Error(String(err)));
         throw err;
       } finally {
+        resumeUpdates();
         setMutatingItemId(null);
       }
     },
-    [sourceSummary],
+    [sourceSummary, runtime],
   );
 
   const refetchQueuesWithSettlement = useCallback(() => {
@@ -661,6 +721,10 @@ export function useProjectQueues(
       if (mutatingRecoveredQueueIdRef.current) return;
       mutatingRecoveredQueueIdRef.current = queueId;
       setMutatingRecoveredQueueId(queueId);
+      const resumeUpdates = pauseCollectionUpdates(
+        runtime,
+        PROJECT_QUEUE_QUERY_KEY,
+      );
       setMutationError(null);
       try {
         if (action === "resume") {
@@ -674,11 +738,12 @@ export function useProjectQueues(
         setMutationError(err instanceof Error ? err : new Error(String(err)));
         throw err;
       } finally {
+        resumeUpdates();
         mutatingRecoveredQueueIdRef.current = null;
         setMutatingRecoveredQueueId(null);
       }
     },
-    [refetchQueuesWithSettlement, sourceKey],
+    [refetchQueuesWithSettlement, sourceKey, runtime],
   );
 
   const resumeRecoveredItem = useCallback(
@@ -697,6 +762,10 @@ export function useProjectQueues(
     setMutatingDispatchState(true);
     setMutationError(null);
     const requestSummary = sourceSummary;
+    const resumeUpdates = pauseCollectionUpdates(
+      runtime,
+      PROJECT_QUEUE_QUERY_KEY,
+    );
     try {
       const response = await api.pauseProjectQueueDispatch();
       requestSummary.reportProjectQueueGlobalCollectionSnapshot(response);
@@ -704,14 +773,19 @@ export function useProjectQueues(
       setMutationError(err instanceof Error ? err : new Error(String(err)));
       throw err;
     } finally {
+      resumeUpdates();
       setMutatingDispatchState(false);
     }
-  }, [sourceSummary]);
+  }, [sourceSummary, runtime]);
 
   const resumeDispatch = useCallback(async () => {
     setMutatingDispatchState(true);
     setMutationError(null);
     const requestSummary = sourceSummary;
+    const resumeUpdates = pauseCollectionUpdates(
+      runtime,
+      PROJECT_QUEUE_QUERY_KEY,
+    );
     try {
       const response = await api.resumeProjectQueueDispatch();
       requestSummary.reportProjectQueueGlobalCollectionSnapshot(response);
@@ -719,9 +793,10 @@ export function useProjectQueues(
       setMutationError(err instanceof Error ? err : new Error(String(err)));
       throw err;
     } finally {
+      resumeUpdates();
       setMutatingDispatchState(false);
     }
-  }, [sourceSummary]);
+  }, [sourceSummary, runtime]);
 
   const promoteNow = useCallback(
     async (
@@ -732,6 +807,10 @@ export function useProjectQueues(
       setMutatingPromoteItemId(itemId);
       setMutationError(null);
       const requestSummary = sourceSummary;
+      const resumeUpdates = pauseCollectionUpdates(
+        runtime,
+        PROJECT_QUEUE_QUERY_KEY,
+      );
       try {
         const response = await api.promoteProjectQueueNow(projectId, {
           itemId,
@@ -746,10 +825,11 @@ export function useProjectQueues(
         setMutationError(err instanceof Error ? err : new Error(String(err)));
         throw err;
       } finally {
+        resumeUpdates();
         setMutatingPromoteItemId(null);
       }
     },
-    [sourceSummary],
+    [sourceSummary, runtime],
   );
 
   const items = useMemo(
@@ -785,6 +865,7 @@ export function useProjectQueues(
 
   const backstopRef = useRef<ProjectQueueBackstopHandle | null>(null);
   useEffect(() => {
+    if (live) return;
     const handle = retainProjectQueueBackstop(sourceKey);
     backstopRef.current = handle;
     return () => {
@@ -793,19 +874,20 @@ export function useProjectQueues(
       }
       handle.release();
     };
-  }, [sourceKey]);
+  }, [sourceKey, live]);
 
   useEffect(() => {
+    if (live) return;
     backstopRef.current?.update(deadline, refetchQueuesWithSettlement);
-  }, [deadline, refetchQueuesWithSettlement]);
+  }, [deadline, refetchQueuesWithSettlement, live]);
 
   return {
     queuesByProject: storedQueuesByProject,
     items,
     projectStatusesByProject: storedProjectStatusesByProject,
     recoveredSessionQueues,
-    loading,
-    error: mutationError ?? queryError,
+    loading: !live && loading,
+    error: mutationError ?? (live ? null : queryError),
     mutatingItemId,
     mutatingRecoveredQueueId,
     mutatingDispatchState,

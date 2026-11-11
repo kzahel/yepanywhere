@@ -1067,8 +1067,10 @@ cold windows and SQL-owned ordinary append state now avoid history restoration
 on the ordinary changed read; unseen construction and exceptional selection remain.
 Stage 4's [bounded collection updates](../research/190-collection-query-updates.md)
 now carry canonical session/Inbox membership, rows and counts through a shared
-capability-gated stream. Projects, ProjectQueue, transcript rendering and full
-combined-scale qualification remain open. No full plan target is newly certified.
+capability-gated stream. The [project extension](../research/190-project-collection-updates.md)
+now carries bounded Projects/ProjectQueue and shares queue deadlines on the server.
+Native project aggregation, transcript rendering and full combined-scale
+qualification remain open. No full plan target is newly certified.
 This maintenance work does not displace release delivery or concurrent design work.
 
 ## Design language unification

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import { useRetainedVersionInfo } from "./useVersion";
 import { retainCollectionUpdates } from "../lib/collectionUpdates";
@@ -16,14 +16,21 @@ export function useCollectionUpdates<T>(options: {
   path: string;
   rows?: number;
   enabled: boolean;
+  capability?: string;
   applySnapshot(data: T, context: ClientQueryRequestContext): void;
   fallback(): void;
 }) {
+  const [status, setStatus] = useState<{
+    runtime: YaSourceRuntime;
+    key: string;
+    path: string;
+    live: boolean;
+  }>();
   const latest = useRef(options);
   latest.current = options;
   const supported = serverHasCapability(
     useRetainedVersionInfo(options.runtime.sourceKey),
-    SERVER_CAPABILITIES.collectionQueryUpdates,
+    options.capability ?? SERVER_CAPABILITIES.collectionQueryUpdates.name,
   );
   const { runtime, key, path, rows = 0, enabled } = options;
   useEffect(() => {
@@ -31,6 +38,14 @@ export function useCollectionUpdates<T>(options: {
     return retainCollectionUpdates(runtime, key, {
       path,
       rows,
+      onLiveChange: (live) => {
+        if (
+          latest.current.runtime === runtime &&
+          latest.current.key === key &&
+          latest.current.path === path
+        )
+          setStatus({ runtime, key, path, live });
+      },
       fallback: () => {
         if (
           latest.current.runtime === runtime &&
@@ -59,4 +74,12 @@ export function useCollectionUpdates<T>(options: {
       },
     });
   }, [runtime, key, path, rows, enabled, supported]);
+  return (
+    supported &&
+    enabled &&
+    status?.runtime === runtime &&
+    status.key === key &&
+    status.path === path &&
+    status.live
+  );
 }

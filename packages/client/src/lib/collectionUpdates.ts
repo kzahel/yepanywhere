@@ -16,6 +16,7 @@ interface Consumer {
   rows: number;
   publish(body: Record<string, unknown>): Promise<void>;
   fallback(): void;
+  onLiveChange?(live: boolean): void;
 }
 interface Entry {
   key: string;
@@ -81,6 +82,7 @@ class CollectionUpdateOwner {
   retain(key: string, consumer: Consumer) {
     const entry = this.entry(key);
     entry.consumers.add(consumer);
+    consumer.onLiveChange?.(entry.active);
     this.rebuild();
     let released = false;
     return () => {
@@ -109,6 +111,11 @@ class CollectionUpdateOwner {
       else this.rebuild();
     });
   }
+  private setLive(entry: Entry, live: boolean) {
+    if (entry.active === live) return;
+    entry.active = live;
+    for (const consumer of entry.consumers) consumer.onLiveChange?.(live);
+  }
   live(key: string) {
     return this.entries.get(key)?.active === true;
   }
@@ -131,9 +138,10 @@ class CollectionUpdateOwner {
     return true;
   }
   pause(key: string) {
-    const entry = this.entry(key);
+    const entry = this.entries.get(key);
+    if (!entry) return () => {};
     entry.holds++;
-    entry.active = false;
+    this.setLive(entry, false);
     entry.epoch++;
     this.signature = "";
     this.rebuild();
@@ -177,7 +185,7 @@ class CollectionUpdateOwner {
       this.stream?.close();
       this.stream = undefined;
       for (const entry of this.entries.values()) {
-        entry.active = false;
+        this.setLive(entry, false);
         entry.decoded = undefined;
       }
       if (!queries.size || queries.size > 8) return;
@@ -191,7 +199,7 @@ class CollectionUpdateOwner {
             "/activity/collections?queries=" + encodeURIComponent(signature);
           let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
           for (const entry of queries.values()) {
-            entry.active = false;
+            this.setLive(entry, false);
             entry.decoded = undefined;
           }
           void (async () => {
@@ -263,7 +271,7 @@ class CollectionUpdateOwner {
             return;
           const decoded = applyCollectionUpdate(entry.decoded, update);
           entry.decoded = decoded;
-          entry.active = true;
+          this.setLive(entry, true);
           entry.expanding = false;
           cancelPendingQueryRevalidation(this.runtime.sourceKey, entry.key);
           const consumer = [...entry.consumers][0]!;
@@ -276,7 +284,7 @@ class CollectionUpdateOwner {
   }
   private unavailable(queries: Map<string, Entry>) {
     for (const entry of queries.values()) {
-      entry.active = false;
+      this.setLive(entry, false);
       entry.expanding = false;
       [...entry.consumers][0]?.fallback();
     }
@@ -294,7 +302,7 @@ class CollectionUpdateOwner {
     window.removeEventListener("pagehide", this.hide);
     window.removeEventListener("pageshow", this.show);
     owners.delete(this.runtime);
-    for (const entry of this.entries.values()) entry.active = false;
+    for (const entry of this.entries.values()) this.setLive(entry, false);
     this.entries.clear();
   }
 }

@@ -43,7 +43,7 @@
       "maxLines": 1769
     },
     "packages/client/src/lib/clientSummaryState.ts": {
-      "maxLines": 2222
+      "maxLines": 2199
     },
     "packages/client/src/lib/connection/RelayProtocol.ts": {
       "maxLines": 1621

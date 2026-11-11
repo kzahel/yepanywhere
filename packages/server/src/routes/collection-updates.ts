@@ -48,10 +48,15 @@ export function collectionReadPath(query: string): string {
         ]
       : url.pathname === "/inbox"
         ? ["summaryMode", "projectId"]
-        : [];
+        : url.pathname === "/projects"
+          ? ["summaryMode"]
+          : url.pathname === "/project-queue"
+            ? []
+            : null;
   if (
     url.origin !== "http://collection.invalid" ||
-    !allowed.length ||
+    url.pathname !== query.split("?")[0] ||
+    allowed === null ||
     url.hash ||
     [...url.searchParams.keys()].some(
       (key) =>
@@ -62,7 +67,8 @@ export function collectionReadPath(query: string): string {
   const limit = Number(url.searchParams.get("limit") ?? "100");
   if (!Number.isInteger(limit) || limit < 1 || limit > 500)
     throw new Error("Invalid collection window");
-  url.searchParams.set("summaryMode", "retained");
+  if (url.pathname !== "/project-queue")
+    url.searchParams.set("summaryMode", "retained");
   return "/api" + url.pathname + "?" + url.searchParams;
 }
 export function createCollectionUpdateStream(
@@ -191,7 +197,12 @@ export function createCollectionUpdateStream(
                 if (!response.ok)
                   throw new Error("Collection canonical read refused");
                 const body = (await response.json()) as Record<string, unknown>;
-                if (!body.catalog)
+                if (
+                  new URL(query, "http://collection.invalid").pathname ===
+                  "/project-queue"
+                    ? !Array.isArray(body.items)
+                    : !body.catalog
+                )
                   throw new Error("Retained collections unavailable");
                 return body;
               },

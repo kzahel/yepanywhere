@@ -1,3 +1,4 @@
+import { ProjectQueueService } from "../../src/services/ProjectQueueService.js";
 import { randomUUID } from "node:crypto";
 import { NEW_SESSION_BOOTSTRAP } from "@yep-anywhere/shared";
 import { join } from "node:path";
@@ -44,6 +45,18 @@ it.each(["direct", "relay"])(
       );
     }
     const [visibleId, privateId] = projectPaths.map(encodeProjectId);
+    const projectQueueService = new ProjectQueueService({ dataDir });
+    await projectQueueService.initialize();
+    for (const [index, projectId] of [visibleId!, privateId!].entries())
+      await projectQueueService.createItem({
+        projectId,
+        projectPath: projectPaths[index]!,
+        creationProvenance: { surface: "api" },
+        request: {
+          target: { type: "new-session", provider: "claude" },
+          message: { text: "queue " + projectId },
+        },
+      });
     const serverSettingsService = new ServerSettingsService({ dataDir });
     const recentsService = new RecentsService({ dataDir });
     const limitedUsersService = new LimitedUsersService({ dataDir });
@@ -77,6 +90,7 @@ it.each(["direct", "relay"])(
       serverSettingsService,
       recentsService,
       limitedUsersService,
+      projectQueueService,
       authService,
       authDisabled: false,
       eventBus: bus,
@@ -169,6 +183,34 @@ it.each(["direct", "relay"])(
           .length;
       })
       .toBe(1);
+    for (const query of ["/projects?summaryMode=retained", "/project-queue"]) {
+      const abort = new AbortController();
+      const response = await instance.app.request(
+        "/api/activity/collections?queries=" +
+          encodeURIComponent(JSON.stringify([query])),
+        { headers, signal: abort.signal },
+        env,
+      );
+      expect(response.status).toBe(200);
+      const reader = response.body!.getReader();
+      try {
+        const frame = JSON.parse(
+          new TextDecoder().decode((await reader.read()).value!).trim(),
+        ) as CollectionUpdate;
+        const body = applyCollectionUpdate(undefined, frame).body;
+        expect(
+          (
+            body[
+              query.startsWith("/projects") ? "projects" : "items"
+            ] as Array<{ id: string; projectId?: string }>
+          ).map((row) => row.projectId ?? row.id),
+        ).toEqual([visibleId]);
+        expect(JSON.stringify(frame)).not.toContain(privateId!);
+      } finally {
+        abort.abort();
+        await reader.cancel();
+      }
+    }
     const abort = new AbortController();
     const query = "/sessions?limit=20";
     const updates = await instance.app.request(

@@ -758,7 +758,10 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     SERVER_CAPABILITIES.artifactRelayPreview.name,
   ];
   if (options?.collectionQueryUpdatesAvailable)
-    capabilities.push(SERVER_CAPABILITIES.collectionQueryUpdates.name);
+    capabilities.push(
+      SERVER_CAPABILITIES.collectionQueryUpdates.name,
+      SERVER_CAPABILITIES.projectCollectionUpdates.name,
+    );
   if (options?.getDraftSyncAvailable?.())
     capabilities.push(SERVER_CAPABILITIES.draftSync.name);
   if (options?.getRendezComposeAvailable?.())
@@ -956,7 +959,10 @@ export function createVersionRoutes(options?: VersionRouteOptions): Hono {
     });
     const deniedCapabilities = [
       ...(!options?.collectionQueryUpdatesAvailable
-        ? [SERVER_CAPABILITIES.collectionQueryUpdates.name]
+        ? [
+            SERVER_CAPABILITIES.collectionQueryUpdates.name,
+            SERVER_CAPABILITIES.projectCollectionUpdates.name,
+          ]
         : []),
       SERVER_CAPABILITIES.projectSessionDefaults.name,
       ...(options?.deniedCapabilities ?? []),

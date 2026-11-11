@@ -2699,3 +2699,42 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
   expect(activePhases(state)).toEqual([undefined]);
   expect(activeModels(state)).toEqual([undefined]);
 });
+
+it("publishes project display-only changes and clears omitted fields without activity changes", () => {
+  let state = createEmptyClientSummaryState();
+  const base = project("display", {
+    codeName: "one",
+    caption: { text: "old caption", source: "override" },
+    ownerUsername: "owner",
+    projectQueueCount: 1,
+  });
+  state = applyProjectsCollectionSnapshot(state, { projects: [base] }, NOW);
+  let version = NOW;
+  for (const update of [
+    { ...base, caption: { text: "new caption", source: "override" as const } },
+    { ...base, codeName: "two" },
+    { ...base, ownerUsername: "another" },
+    { ...base, projectQueueCount: 2 },
+    project("display"),
+  ]) {
+    const old = selectProjectCollectionRecord(state, "display");
+    state = applyProjectsCollectionSnapshot(
+      state,
+      { projects: [update] },
+      ++version,
+    );
+    const current = selectProjectCollectionRecord(state, "display")!;
+    expect(current).not.toBe(old);
+    expect(current.caption).toEqual(update.caption);
+    expect(current.codeName).toBe(update.codeName);
+    expect(current.ownerUsername).toBe(update.ownerUsername);
+    expect(current.projectQueueCount).toBe(update.projectQueueCount);
+    expect(current.lastActivity).toBe(base.lastActivity);
+    const unchanged = applyProjectsCollectionSnapshot(
+      state,
+      { projects: [update] },
+      version,
+    );
+    expect(selectProjectCollectionRecord(unchanged, "display")).toBe(current);
+  }
+});

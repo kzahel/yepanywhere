@@ -84,6 +84,9 @@ test("native collection writes update live views without full-list reads or dela
       otherReads.push(url.pathname);
   };
   page.on("request", recordRequests);
+  const projectsPage = await page.context().newPage();
+  projectsPage.on("request", recordRequests);
+  projectsPage.on("pageerror", (error) => errors.push(error.message));
   const inboxPage = await page.context().newPage();
   inboxPage.on("request", recordRequests);
   inboxPage.on("console", (message) => {
@@ -132,6 +135,50 @@ test("native collection writes update live views without full-list reads or dela
         streamQueries.flat().some((query) => query.startsWith("/sessions")),
       )
       .toBe(true);
+    const queued = await page.request.post(
+      backend.baseUrl + `/api/projects/${projectId}/queue`,
+      {
+        headers: { "X-Yep-Anywhere": "true" },
+        data: {
+          target: { type: "new-session", provider: "claude" },
+          message: { text: "Before streamed queue edit" },
+        },
+      },
+    );
+    expect(queued.status()).toBe(201);
+    const queueItem = (await queued.json()).item;
+    expect(
+      (
+        await page.request.post(backend.baseUrl + "/api/project-queue/pause", {
+          headers: { "X-Yep-Anywhere": "true" },
+        })
+      ).ok(),
+    ).toBe(true);
+    await projectsPage.goto(
+      backend.baseUrl + `/projects?queueItem=${queueItem.id}`,
+    );
+    const queueRow = projectsPage.locator(
+      `[data-project-queue-item-id="${queueItem.id}"]`,
+    );
+    await expect(queueRow).toContainText("Before streamed queue edit");
+    const isolatedCaption = "Caption changed without transcript activity";
+    expect(
+      (
+        await page.request.patch(
+          backend.baseUrl + `/api/projects/${projectId}/caption`,
+          {
+            headers: { "X-Yep-Anywhere": "true" },
+            data: { caption: isolatedCaption },
+          },
+        )
+      ).ok(),
+    ).toBe(true);
+    await expect(
+      projectsPage.getByText(isolatedCaption, { exact: true }),
+    ).toBeVisible();
+    for (const path of ["/projects?summaryMode=retained", "/project-queue"]) {
+      await expect.poll(() => streamQueries.flat().includes(path)).toBe(true);
+    }
     await page.bringToFront();
     const renamed = "Live authoritative collection";
     expect(
@@ -187,8 +234,49 @@ test("native collection writes update live views without full-list reads or dela
       });
     });
     timer = setInterval(append, 250);
+    const changedCaption = "Project caption arrived through live query";
+    const changedQueue = "Queue edit arrived through live query";
+    const mutations = (async () => {
+      await page.waitForTimeout(550);
+      expect(
+        (
+          await page.request.patch(
+            backend.baseUrl + `/api/projects/${projectId}/caption`,
+            {
+              headers: { "X-Yep-Anywhere": "true" },
+              data: { caption: changedCaption },
+            },
+          )
+        ).ok(),
+      ).toBe(true);
+      expect(
+        (
+          await page.request.patch(
+            backend.baseUrl +
+              `/api/projects/${projectId}/queue/${queueItem.id}`,
+            {
+              headers: { "X-Yep-Anywhere": "true" },
+              data: { message: { text: changedQueue } },
+            },
+          )
+        ).ok(),
+      ).toBe(true);
+      expect(
+        (
+          await page.request.post(
+            backend.baseUrl + "/api/project-queue/pause",
+            { headers: { "X-Yep-Anywhere": "true" } },
+          )
+        ).ok(),
+      ).toBe(true);
+    })();
     const text = "Keep all typed characters";
     await page.keyboard.type(text, { delay: 110 });
+    await mutations;
+    await expect(
+      projectsPage.getByText(changedCaption, { exact: true }),
+    ).toBeVisible();
+    await expect(queueRow).toContainText(changedQueue);
     clearInterval(timer);
     timer = undefined;
     await expect(input).toHaveValue(text);
@@ -234,6 +322,7 @@ test("native collection writes update live views without full-list reads or dela
       contentType: "application/json",
     });
     expect(fullReads).toEqual([]);
+    expect(otherReads).toEqual([]);
     await recordUiCapture(page, "collection-updates-desktop", {
       width: 1000,
       height: 600,
@@ -245,10 +334,25 @@ test("native collection writes update live views without full-list reads or dela
       width: 375,
       height: 812,
     });
+    if (process.env.YEP_E2E_UI_CAPTURE_DIR) {
+      for (const [name, width, height] of [
+        ["desktop", 1000, 600],
+        ["phone", 375, 812],
+      ] as const) {
+        await projectsPage.setViewportSize({ width, height });
+        await queueRow.scrollIntoViewIfNeeded();
+        await recordUiCapture(
+          projectsPage,
+          "project-collection-updates-" + name,
+          { width, height },
+        );
+      }
+    }
     expect(errors).toEqual([]);
   } finally {
     if (timer) clearInterval(timer);
     await inboxPage.close();
+    await projectsPage.close();
     await disposeYaServerProcess(backend);
     rmSync(projectPath, { recursive: true, force: true });
   }

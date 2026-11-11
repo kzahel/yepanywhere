@@ -358,39 +358,16 @@ function remapRecoveredSessionQueues(
   return changed ? remapped : queues;
 }
 
-function providerCountsEqual(
-  a: Project["sessionCountsByProvider"],
-  b: Project["sessionCountsByProvider"],
-): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  return aKeys.every((key) => {
-    const provider = key as ProviderName;
-    return a[provider] === b[provider];
-  });
-}
-
 function projectFieldsEqual(
   record: ProjectCollectionRecord,
   project: Project,
 ): boolean {
-  return (
-    record.id === project.id &&
-    record.path === project.path &&
-    record.name === project.name &&
-    record.sessionCount === project.sessionCount &&
-    providerCountsEqual(
-      record.sessionCountsByProvider,
-      project.sessionCountsByProvider,
-    ) &&
-    record.activeOwnedCount === project.activeOwnedCount &&
-    record.activeExternalCount === project.activeExternalCount &&
-    record.projectQueueBlockingCount === project.projectQueueBlockingCount &&
-    record.lastActivity === project.lastActivity
-  );
+  const {
+    observedAt: _observedAt,
+    snapshotObservedAt: _snapshotObservedAt,
+    ...fields
+  } = record;
+  return normalizedJsonEqual(fields, project);
 }
 
 function putProjectRecord(

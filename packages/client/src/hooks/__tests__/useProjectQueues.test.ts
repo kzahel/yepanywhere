@@ -1,3 +1,10 @@
+import { SERVER_CAPABILITIES } from "@yep-anywhere/shared";
+import {
+  collectionView,
+  diffCollectionView,
+} from "@yep-anywhere/shared/collection-updates";
+import { FakeSourceTransport } from "../../lib/transport/FakeSourceTransport";
+import { getSourceRuntimeRegistry } from "../../lib/sourceRuntime";
 // @vitest-environment jsdom
 
 import type {
@@ -81,6 +88,7 @@ vi.mock("../../contexts/RemoteConnectionContext", () => ({
 
 vi.mock("../useVersion", () => ({
   useVersion: () => ({ version: versionMock.version }),
+  useRetainedVersionInfo: () => versionMock.version,
 }));
 
 import { resetClientQueryControllerForTests } from "../../lib/clientQueryController";
@@ -1407,4 +1415,92 @@ describe("useProjectQueues backstop", () => {
     });
     expect(apiMock.getProjectQueueItems).toHaveBeenCalledTimes(2);
   });
+});
+
+it("retires the browser deadline backstop while live and restores it after stream failure", async () => {
+  vi.useFakeTimers();
+  const sourceKey = asClientSummarySourceKey("queue-live-backstop");
+  const registry = getSourceRuntimeRegistry();
+  const streams: ReadableStreamDefaultController<Uint8Array>[] = [];
+  const transport = new FakeSourceTransport({
+    fetchResponse: async (_path, init) => {
+      const body = new ReadableStream<Uint8Array>({
+        start: (controller) => {
+          streams.push(controller);
+          init!.signal!.addEventListener(
+            "abort",
+            () => {
+              try {
+                controller.close();
+              } catch {}
+            },
+            { once: true },
+          );
+        },
+      });
+      return new Response(body, {
+        headers: { "Content-Type": "application/x-ndjson" },
+      });
+    },
+  });
+  registry.registerSourceTransport(sourceKey, {
+    kind: "custom",
+    createTransport: () => transport,
+  });
+  setCurrentClientSummarySourceKey(sourceKey);
+  versionMock.version = {
+    capabilities: [
+      PROJECT_QUEUE_CAPABILITY,
+      SERVER_CAPABILITIES.projectCollectionUpdates.name,
+    ],
+  };
+  const response = {
+    items: [makeItem("live", PROJECT_ID)],
+    projectStatuses: { [PROJECT_ID]: makeProjectStatus("ready") },
+  };
+  apiMock.getProjectQueueItems.mockResolvedValue(response);
+  const settleLive = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+  };
+  try {
+    const hook = renderHook(() => useProjectQueues([PROJECT_ID]));
+    await settleLive();
+    expect(streams.length).toBeGreaterThan(0);
+    const active = streams.at(-1)!;
+    const seed = diffCollectionView(
+      "/project-queue",
+      1,
+      undefined,
+      collectionView(response, "/project-queue"),
+    )!;
+    await act(async () => {
+      active.enqueue(new TextEncoder().encode(JSON.stringify(seed) + "\n"));
+    });
+    await settleLive();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11000);
+    });
+    expect(apiMock.getProjectQueueItems).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      active.enqueue(
+        new TextEncoder().encode(
+          JSON.stringify({ ...seed, revision: 100, base: 99 }) + "\n",
+        ),
+      );
+    });
+    await settleLive();
+    expect(apiMock.getProjectQueueItems).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(apiMock.getProjectQueueItems).toHaveBeenCalledTimes(3);
+    hook.unmount();
+    await settleLive();
+  } finally {
+    registry.disposeSource(sourceKey);
+    resetProjectQueueBackstopsForTests();
+    vi.useRealTimers();
+  }
 });
