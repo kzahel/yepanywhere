@@ -53,6 +53,11 @@ const SessionDomLingerRouteMarker = lazy(() =>
     default: SessionDomLingerRouteMarker,
   })),
 );
+const NativeSessionPathRoute = lazy(() =>
+  import("./layouts").then(({ NativeSessionPathRoute }) => ({
+    default: NativeSessionPathRoute,
+  })),
+);
 const ActivityPage = lazy(() =>
   import("./pages/ActivityPage").then(({ ActivityPage }) => ({
     default: ActivityPage,
@@ -421,6 +426,10 @@ if (import.meta.env.DEV && window.location.port === String(__VITE_DEV_PORT__)) {
                     <Route
                       path="/projects/:projectId/sessions/:sessionId"
                       element={routeModule(<SessionDomLingerRouteMarker />)}
+                    />
+                    <Route
+                      path="/projects/:projectId/sessions/:nativeFamily/:nativeId"
+                      element={routeModule(<NativeSessionPathRoute />)}
                     />
                     <Route
                       path="/projects/:projectId/sessions/:sessionId/agents/:agentId"

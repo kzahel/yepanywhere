@@ -85,7 +85,7 @@ for (const hosted of [false, true])
         page.getByText("OWNED_PI_CONTINUED_REPLY", { exact: true }).first(),
       ).toBeVisible();
       await expect(page).toHaveURL(
-        `${origin}/projects/${owned.projectId}/sessions/${native}?yaSessionId=${receipt.sessionId}`,
+        `${origin}/projects/${owned.projectId}/sessions/pi/${native}`,
       );
       await expect(
         page.getByText("OWNED_PI_CREATION_REPLY", { exact: true }).first(),

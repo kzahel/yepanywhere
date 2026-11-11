@@ -169,9 +169,7 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     });
     await owned.releaseBinding();
     await expect(page).toHaveURL(
-      new RegExp(
-        `/sessions/019a0000-cccc-7ccc-8ccc-cccccccccccc\\?yaSessionId=${receipt.sessionId}$`,
-      ),
+      /\/sessions\/codex\/019a0000-cccc-7ccc-8ccc-cccccccccccc$/,
     );
     const source = await (
       await owned.request(`/sessions/${receipt.sessionId}/native-source`)

@@ -16,6 +16,7 @@ import {
   parseNativeSessionId,
   nativeSessionFamily,
   nativeSessionRef,
+  nativeViewerFields,
   parseYaSessionId,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
@@ -1784,9 +1785,10 @@ export function createApp(options: AppOptions): AppResult {
             type: "session-metadata-changed",
             sessionId,
             creation,
-            nativeSessionId:
+            ...nativeViewerFields(
               options.sessionMetadataService!.identities.resolveYa(sessionId)
-                ?.native?.id,
+                ?.native,
+            ),
             timestamp: creation.updatedAt,
           }),
       )

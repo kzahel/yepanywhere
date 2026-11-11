@@ -105,6 +105,16 @@ export function createSessionApi(fetchJSON: typeof FetchJson) {
         `/projects/${projectId}/sessions/${sessionId}/metadata`,
       ),
 
+    /** The YA session a `/sessions/<family>/<native id>` viewer path names. */
+    resolveNativeViewerSession: (
+      projectId: string,
+      family: string,
+      nativeId: string,
+    ) =>
+      fetchJSON<{ sessionId: string }>(
+        `/projects/${encodeURIComponent(projectId)}/native-sessions/${encodeURIComponent(family)}/${encodeURIComponent(nativeId)}`,
+      ),
+
     /** Move a session to a pool account, or to Direct; kills its process. */
     switchSessionRouterAccount: (
       sessionId: string,

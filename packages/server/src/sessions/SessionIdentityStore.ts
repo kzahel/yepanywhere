@@ -141,9 +141,10 @@ function decode(row: IdentityRow | undefined): SessionIdentity | undefined {
 
 /** Profile-owned indexed identity lookup, with no per-session cache or timers. */
 export class SessionIdentityStore {
-  // Seven fixed statements, released with this owner or the database.
+  // Eight fixed statements, released with this owner or the database.
   private readonly byPublicId: SqliteStatement;
   private readonly byNativeRef: SqliteStatement;
+  private readonly byFamilyNativeId: SqliteStatement;
   private readonly byNativeIds: SqliteStatement;
   private readonly insert: SqliteStatement;
   private readonly bind: SqliteStatement;
@@ -162,6 +163,10 @@ export class SessionIdentityStore {
     );
     this.byNativeRef = database.prepare(
       "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id = ?",
+    );
+    // Family-prefix range of the unique binding index; scopes per family are few.
+    this.byFamilyNativeId = database.prepare(
+      "SELECT * FROM session_identities WHERE native_family = ? AND native_id = ?",
     );
     this.byNativeIds = database.prepare(
       "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id IN (SELECT value FROM json_each(?))",
@@ -187,6 +192,20 @@ export class SessionIdentityStore {
         native.id,
       ),
     );
+  }
+
+  /**
+   * Viewer-path resolution, which carries no storage scope: every identity
+   * bound to this native id in any of the family's stores. Callers refuse
+   * more than one rather than choosing.
+   */
+  lookupViewerNative(
+    family: NativeSessionFamily,
+    id: NativeSessionId,
+  ): SessionIdentity[] {
+    return this.byFamilyNativeId
+      .all<IdentityRow>(family, id)
+      .map((row) => decode(row)!);
   }
 
   /**

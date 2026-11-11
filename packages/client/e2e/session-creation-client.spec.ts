@@ -1,6 +1,24 @@
-import { expect, test, type Browser } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
+
+/**
+ * The YA session the page shows. A `/sessions/codex/<native id>` address
+ * names it only through the server, so ask the viewer's own lookup.
+ */
+async function viewedSessionId(page: Page): Promise<string | undefined> {
+  const url = new URL(page.url());
+  const match = url.pathname.match(
+    /\/projects\/([^/]+)\/sessions\/(?:(codex)\/)?([^/]+)$/,
+  );
+  if (!match) return;
+  const [, projectId, family, id] = match;
+  if (!family) return url.searchParams.get("yaSessionId") ?? id;
+  const response = await page.request.get(
+    `${url.origin}/api/projects/${projectId}/native-sessions/${family}/${id}`,
+  );
+  return response.ok() ? (await response.json()).sessionId : undefined;
+}
 
 test.setTimeout(90000);
 test.skip(
@@ -161,7 +179,7 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
     await page.addInitScript(() => {
       const replace = history.replaceState.bind(history);
       history.replaceState = (data, unused, url) => {
-        if (String(url).includes("yaSessionId=")) {
+        if (String(url).includes("/sessions/codex/")) {
           (
             window as unknown as { publishNativeLabel: () => void }
           ).publishNativeLabel = () => replace(data, unused, url);
@@ -218,9 +236,10 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
         window as unknown as { publishNativeLabel: () => void }
       ).publishNativeLabel(),
     );
-    await expect(page).toHaveURL(
-      (url) => url.searchParams.get("yaSessionId") === parent.sessionId,
+    await expect(page).toHaveURL((url) =>
+      url.pathname.includes("/sessions/codex/"),
     );
+    await expect.poll(() => viewedSessionId(page)).toBe(parent.sessionId);
     let text = "";
     for (const c of "NEWER_PAGE_DRAFT") {
       await input.pressSequentially(c);
@@ -232,7 +251,7 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
       page.getByRole("button", { name: "Open saved session", exact: true }),
     ).toBeVisible();
     await expect(input).toHaveValue("NEWER_PAGE_DRAFT");
-    expect(page.url()).toContain(parent.sessionId);
+    expect(await viewedSessionId(page)).toBe(parent.sessionId);
     await recordUiCapture(page, "current-client-creation-recovery-desktop");
     await page.setViewportSize({ width: 375, height: 812 });
     await recordUiCapture(page, "current-client-creation-recovery-phone");
@@ -245,11 +264,7 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
     await page
       .getByRole("button", { name: "Open saved session", exact: true })
       .click();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname.endsWith(`/sessions/${receipt!.sessionId}`) ||
-        url.searchParams.get("yaSessionId") === receipt!.sessionId,
-    );
+    await expect.poll(() => viewedSessionId(page)).toBe(receipt!.sessionId);
     await expect
       .poll(
         async () =>
@@ -339,11 +354,7 @@ test("unchanged Session-page files are acknowledged once and stay cleared after 
     await f.start();
     const receipt = await (await accepted).json();
     expect(receipt.provider).toBe("codex");
-    await expect(f.page).toHaveURL(
-      (url) =>
-        url.pathname.endsWith(`/sessions/${receipt.sessionId}`) ||
-        url.searchParams.get("yaSessionId") === receipt.sessionId,
-    );
+    await expect.poll(() => viewedSessionId(f.page)).toBe(receipt.sessionId);
     await f.page.goto(f.path);
     await expect(f.input).toBeEditable();
     await expect(f.input).toHaveValue("");
@@ -400,11 +411,7 @@ test("lost creation reply and recovery read reload into conditional read-only dr
     await f.page
       .getByRole("button", { name: "Open saved session", exact: true })
       .click();
-    await expect(f.page).toHaveURL(
-      (url) =>
-        url.pathname.endsWith(`/sessions/${sessionId}`) ||
-        url.searchParams.get("yaSessionId") === sessionId,
-    );
+    await expect.poll(() => viewedSessionId(f.page)).toBe(sessionId!);
     await f.page.goto(f.path);
     await expect(f.input).toBeEditable();
     await expect(f.input).toHaveValue("");

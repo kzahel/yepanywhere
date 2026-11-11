@@ -13,7 +13,11 @@ import styles from "./NavigationLayout.module.css";
 import { Sidebar, SidebarToggleIcon } from "../components/Sidebar";
 import { GlossaryProjectProvider } from "../contexts/GlossaryContext";
 import { MOBILE_KEYBOARD_OPEN_VIEWPORT_RATIO } from "../lib/mobileKeyboardViewport";
-import { viewerYaSessionId } from "../lib/sessionViewerUrl";
+import {
+  readSessionViewerPath,
+  useNativeViewerVersion,
+  viewerYaSessionId,
+} from "../lib/sessionViewerUrl";
 import { useSidebarPreference } from "../hooks/useSidebarPreference";
 import { usePanelSlideAnimations } from "../hooks/usePanelSlideAnimations";
 import {
@@ -24,12 +28,13 @@ import {
 import { SidebarSessionFeedsProvider } from "../hooks/useSidebarSessionFeeds";
 import { useI18n } from "../i18n";
 import {
+  NativeSessionPathRoute,
   SessionDomLingerHost,
   SessionDomLingerRouteMarker,
   type SessionDomLingerElement,
 } from "./SessionDomLingerHost";
 
-export { SessionDomLingerRouteMarker };
+export { NativeSessionPathRoute, SessionDomLingerRouteMarker };
 
 export interface NavigationLayoutContext {
   /** Open the mobile sidebar */
@@ -137,6 +142,13 @@ function readSidebarSessionRouteFromPathname(
   pathname: string,
   search: string,
 ): { projectId: string; sessionId: string } | null {
+  const viewer = readSessionViewerPath(pathname, search);
+  if (viewer) {
+    return viewer.sessionId
+      ? { projectId: viewer.projectId, sessionId: viewer.sessionId }
+      : null;
+  }
+  // Pages under a session, such as a provider child agent, keep its row.
   const match = pathname.match(/(?:^|\/)projects\/([^/]+)\/sessions\/([^/]+)/);
   if (!match?.[1] || !match[2]) {
     return null;
@@ -169,10 +181,12 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
   const { panelSlideDurationMs } = usePanelSlideAnimations();
 
   const location = useLocation();
+  const nativeViewerVersion = useNativeViewerVersion();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a native path resolving changes the result
   const sidebarSessionMatch = useMemo(
     () =>
       readSidebarSessionRouteFromPathname(location.pathname, location.search),
-    [location.pathname, location.search],
+    [location.pathname, location.search, nativeViewerVersion],
   );
   const currentProjectId = useMemo(
     () => readProjectIdFromPathname(location.pathname),

@@ -1699,6 +1699,7 @@ export function useSession(
           ...(event.creation !== undefined && { creation: event.creation }),
           ...(event.nativeSessionId !== undefined && {
             nativeSessionId: event.nativeSessionId,
+            nativeSessionFamily: event.nativeSessionFamily,
           }),
           ...(event.title !== undefined && { customTitle: event.title }),
           ...(event.archived !== undefined && { isArchived: event.archived }),

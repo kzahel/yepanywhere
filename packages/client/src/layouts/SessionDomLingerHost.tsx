@@ -23,9 +23,13 @@ import { useSessionPerformanceSettings } from "../hooks/useSessionPerformanceSet
 import { useClientSummarySourceKey } from "../lib/clientSummaryStore";
 import { markReloadPerfPhase } from "../lib/diagnostics/reloadPerfProbe";
 import {
+  readSessionViewerPath,
+  rememberNativeViewerSession,
   sessionViewerSearch,
-  viewerYaSessionId,
+  useNativeViewerVersion,
 } from "../lib/sessionViewerUrl";
+import { api } from "../api/client";
+import { useI18n } from "../i18n";
 
 const SESSION_DOM_LINGER_TTL_MS = 60_000;
 const SESSION_DOM_LINGER_MAX_PARKED_ELEMENTS = 5_000;
@@ -226,17 +230,16 @@ function createSessionDomLingerKey(options: {
 function readSessionRouteFromPathname(
   pathname: string,
   search: string,
-): { projectId: string; sessionId: string } | null {
-  const match = pathname.match(
-    /(?:^|\/)projects\/([^/]+)\/sessions\/([^/]+)\/?$/,
-  );
-  if (!match?.[1] || !match[2]) {
-    return null;
-  }
-  return {
-    projectId: decodeURIComponent(match[1]),
-    sessionId: viewerYaSessionId(decodeURIComponent(match[2]), search),
-  };
+): { projectId: string; sessionId: string; resourcePathname: string } | null {
+  // An unresolved native path renders nothing until its route resolves it.
+  const viewer = readSessionViewerPath(pathname, search);
+  return viewer?.sessionId && viewer.resourcePathname
+    ? {
+        projectId: viewer.projectId,
+        sessionId: viewer.sessionId,
+        resourcePathname: viewer.resourcePathname,
+      }
+    : null;
 }
 
 export interface SessionDomLingerHostState {
@@ -253,6 +256,51 @@ export function SessionDomLingerRouteMarker() {
   return null;
 }
 
+/**
+ * Route for `/sessions/<family>/<native id>`. The host renders the session once
+ * the path names a known YA session; on a cold load this asks the server once.
+ */
+export function NativeSessionPathRoute() {
+  const { t } = useI18n();
+  const location = useLocation();
+  const nativeViewerVersion = useNativeViewerVersion();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a native path resolving changes the result
+  const viewer = useMemo(
+    () => readSessionViewerPath(location.pathname, location.search),
+    [location.pathname, location.search, nativeViewerVersion],
+  );
+  const [failure, setFailure] = useState<{ path: string; message: string }>();
+  const projectId = viewer?.projectId;
+  const native = viewer?.sessionId ? undefined : viewer?.native;
+  const family = native?.family;
+  const nativeId = native?.id;
+  useEffect(() => {
+    if (!projectId || !family || !nativeId) return;
+    let live = true;
+    api
+      .resolveNativeViewerSession(projectId, family, nativeId)
+      .then(({ sessionId }) =>
+        rememberNativeViewerSession(projectId, family, nativeId, sessionId),
+      )
+      .catch((error: unknown) => {
+        if (live)
+          setFailure({
+            path: location.pathname,
+            message: error instanceof Error ? error.message : String(error),
+          });
+      });
+    return () => {
+      live = false;
+    };
+  }, [projectId, family, nativeId, location.pathname]);
+  if (!native || failure?.path !== location.pathname) return null;
+  return (
+    <div className="error">
+      {t("sessionInvalidUrl")} {failure.message}
+    </div>
+  );
+}
+
 export function SessionDomLingerHost({
   children,
   sessionElement,
@@ -262,15 +310,17 @@ export function SessionDomLingerHost({
   const navigate = useNavigate();
   const navigationContext = useContext(UNSAFE_NavigationContext);
   const sourceKey = useClientSummarySourceKey();
+  const nativeViewerVersion = useNativeViewerVersion();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a native path resolving changes the result
   const currentSessionMatch = useMemo(
     () => readSessionRouteFromPathname(location.pathname, location.search),
-    [location.pathname, location.search],
+    [location.pathname, location.search, nativeViewerVersion],
   );
   const currentSessionRoute = useMemo<SessionDomLingerRoute | null>(() => {
     if (!currentSessionMatch) {
       return null;
     }
-    const { projectId, sessionId } = currentSessionMatch;
+    const { projectId, sessionId, resourcePathname } = currentSessionMatch;
     return {
       key: createSessionDomLingerKey({
         sourceKey,
@@ -284,10 +334,7 @@ export function SessionDomLingerHost({
       location: {
         hash: location.hash,
         key: location.key,
-        pathname: location.pathname.replace(
-          /[^/]+\/?$/,
-          encodeURIComponent(sessionId),
-        ),
+        pathname: resourcePathname,
         search: sessionViewerSearch(location.search),
         state: location.state,
       },
@@ -297,7 +344,6 @@ export function SessionDomLingerHost({
     currentSessionMatch,
     location.hash,
     location.key,
-    location.pathname,
     location.search,
     location.state,
     sourceKey,

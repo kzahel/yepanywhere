@@ -145,6 +145,11 @@ const SessionDomLingerRouteMarker = lazy(() =>
     default: SessionDomLingerRouteMarker,
   })),
 );
+const NativeSessionPathRoute = lazy(() =>
+  loadLayoutsModule().then(({ NativeSessionPathRoute }) => ({
+    default: NativeSessionPathRoute,
+  })),
+);
 
 const ActivityPage = lazy(() =>
   loadActivityPageModule().then(({ ActivityPage }) => ({
@@ -425,6 +430,10 @@ const APP_ROUTES = (
       <Route
         path="projects/:projectId/sessions/:sessionId"
         element={routeModule(<SessionDomLingerRouteMarker />)}
+      />
+      <Route
+        path="projects/:projectId/sessions/:nativeFamily/:nativeId"
+        element={routeModule(<NativeSessionPathRoute />)}
       />
       <Route
         path="projects/:projectId/sessions/:sessionId/agents/:agentId"

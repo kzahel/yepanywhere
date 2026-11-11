@@ -5,6 +5,7 @@ import {
   type SessionOwnership,
   type UrlProjectId,
   isUrlProjectId,
+  nativeViewerFields,
 } from "@yep-anywhere/shared";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
 import { tryClaimProjectPathIndex } from "../projects/projectPathIndex.js";
@@ -394,7 +395,7 @@ export function registerSessionDetailSubresourceRoutes(
         sandboxNetworkFirewall: metadata?.sandboxNetworkFirewall,
         initialPrompt:
           metadata?.initialPrompt ?? sessionSummary?.fullTitle ?? undefined,
-        nativeSessionId: storedIdentityFor(sessionId)?.native?.id,
+        ...nativeViewerFields(storedIdentityFor(sessionId)?.native),
         wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
         promptSuggestionMode: metadata?.promptSuggestionMode,
         recapAfterSeconds: metadata?.recapAfterSeconds,

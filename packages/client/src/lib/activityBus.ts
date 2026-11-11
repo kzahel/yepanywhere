@@ -130,6 +130,7 @@ export interface SessionMetadataChangedEvent {
   /** Optional on older servers; ordinary startup recovery remains available. */
   creation?: SessionCreationStatus;
   nativeSessionId?: string;
+  nativeSessionFamily?: string;
   nonHumanUserTurn?: NonHumanUserTurn | null;
   creationProvenance?: SessionCreationProvenance;
   type: "session-metadata-changed";

@@ -9,6 +9,7 @@ import {
   type SessionEffectiveModelSettings,
   type UrlProjectId,
   isUrlProjectId,
+  nativeViewerFields,
   withKnownGoal,
 } from "@yep-anywhere/shared";
 import { isRealUserTurn } from "@yep-anywhere/shared/transcript/messageProjection";
@@ -827,7 +828,7 @@ export function registerSessionDetailRoute(
             sandboxLevel: metadata?.sandboxLevel,
             sandboxNetworkFirewall: metadata?.sandboxNetworkFirewall,
             initialPrompt: metadata?.initialPrompt,
-            nativeSessionId: storedIdentityFor(sessionId)?.native?.id,
+            ...nativeViewerFields(storedIdentityFor(sessionId)?.native),
             wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
             promptSuggestionMode: metadata?.promptSuggestionMode,
             recapAfterSeconds: metadata?.recapAfterSeconds,
@@ -1289,7 +1290,7 @@ export function registerSessionDetailRoute(
         sandboxLevel: metadata?.sandboxLevel,
         sandboxNetworkFirewall: metadata?.sandboxNetworkFirewall,
         initialPrompt: metadata?.initialPrompt ?? session.fullTitle,
-        nativeSessionId: storedIdentityFor(sessionId)?.native?.id,
+        ...nativeViewerFields(storedIdentityFor(sessionId)?.native),
         wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
         promptSuggestionMode: metadata?.promptSuggestionMode,
         recapAfterSeconds: metadata?.recapAfterSeconds,

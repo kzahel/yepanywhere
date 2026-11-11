@@ -726,17 +726,31 @@ bounded recovery checks, explicit failure controls and reduced-motion behavior.
 The transcript owns the prompt's display once delivery is confirmed.
 
 Providers should publish the actual native session ID as soon as it is known.
-The committed binding is projected as optional `nativeSessionId` in detail,
-metadata and creation-change events. A current viewer replaces its history
-entry with `/projects/P/sessions/N?yaSessionId=Y` when N differs from Y: N is
-the provider's rollout ID; Y remains the permanent YA resource identity. The
-query disambiguates native IDs shared by providers/stores without exposing the
-storage root. No native-ID guessing, registry remap or resource migration occurs.
-The sidebar, API operations and retained DOM use Y. URL replacement preserves
-the mounted session, draft, hash and unrelated query parameters; reload resolves
-Y again. Existing Y-only URLs remain readable. An older server omits the optional
-field and the current client keeps its existing URL; older clients ignore the
-field. Native-facing links require a current client that understands the query.
+The committed binding is projected as optional `nativeSessionId` and
+`nativeSessionFamily` in detail, metadata and creation-change events. When N
+differs from Y, a current viewer replaces its history entry with
+`/projects/P/sessions/F/N`: F is the native family (`codex`, `pi`, …), N the
+provider's rollout ID, and Y remains the permanent YA resource identity. When
+they are equal, as for Claude, the URL stays `/sessions/Y`. The sidebar, API
+operations and retained DOM use Y. URL replacement preserves the mounted
+session, draft, hash and query parameters, because the client remembers which
+Y it gave that path.
+
+A cold load of `/sessions/F/N` asks
+`GET /api/projects/P/native-sessions/F/N`, which returns `{ sessionId: Y }`
+from the identity registry; nothing is guessed from transcripts. The path has
+no storage scope, so the project chooses between stores that bound the same N:
+a session whose original or working project is P wins. With no match in P, a
+single match elsewhere is returned, and the detail route redirects it as for
+any stale project link. Several matches return 409, never a choice. The route
+is project-scoped, so limited users get it exactly where they can view the
+project.
+
+`nativeSessionFamily` marks a server with that route. An older server sends
+only `nativeSessionId`; the current client then keeps the earlier form,
+`/sessions/N?yaSessionId=Y`, which stays readable, and upgrades it to the path
+form once its server supports the route. Existing Y-only URLs remain readable.
+Older clients ignore both fields. Native-facing links require a current client.
 Replacing only the native viewer label preserves ownership of an in-flight
 creation acknowledgement and its recovery control. Ownership checks compare
 the YA resource and history entry; leaving that view still prevents a late

@@ -11,10 +11,13 @@ import {
   type UploadedFile,
   type UserQuestionAnswers,
   type UrlProjectId,
+  NATIVE_SESSION_FAMILIES,
+  type NativeSessionId,
   agentHarness,
   isThinkingOption,
   isUrlProjectId,
   isYaSessionId,
+  parseNativeSessionId,
   truncateSessionTitle,
   readQueuedYaCommand,
   type SessionRewindReason,
@@ -1361,6 +1364,52 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     return true;
   };
+
+  // Resolve a `/sessions/<family>/<native id>` viewer path to its YA session
+  // (topics/session-identity.md § Immediate startup and native-facing viewer
+  // URLs). The project in the path picks between stores that share a native
+  // id; a session shown under another project still resolves when it is the
+  // only match, and the detail route then redirects as for any stale link.
+  routes.get("/projects/:projectId/native-sessions/:family/:nativeId", (c) => {
+    const projectId = c.req.param("projectId");
+    const family = NATIVE_SESSION_FAMILIES.find(
+      (name) => name === c.req.param("family"),
+    );
+    let nativeId: NativeSessionId;
+    try {
+      nativeId = parseNativeSessionId(c.req.param("nativeId"));
+    } catch {
+      return c.json({ error: "Invalid native session path" }, 400);
+    }
+    if (!isUrlProjectId(projectId) || !family)
+      return c.json({ error: "Invalid native session path" }, 400);
+    const identities = deps.sessionMetadataService?.identities;
+    if (!identities) return c.json({ error: "Session not found" }, 404);
+    const live = identities
+      .lookupViewerNative(family, nativeId)
+      .filter(
+        (identity) =>
+          creationStatusForSession(
+            deps.sessionMetadataService,
+            identity.sessionId,
+            deps.signal,
+          )?.state !== "deleted",
+      );
+    const inProject = live.filter(
+      (identity) =>
+        identity.projectId === projectId ||
+        deps.sessionMetadataService?.getMetadata(identity.sessionId)
+          ?.workingProjectId === projectId,
+    );
+    const matches = inProject.length ? inProject : live;
+    if (!matches.length) return c.json({ error: "Session not found" }, 404);
+    if (matches.length > 1)
+      return c.json(
+        { error: "Several sessions share this native id; open it by YA id" },
+        409,
+      );
+    return c.json({ sessionId: matches[0]!.sessionId });
+  });
 
   routes.get("/sessions/:sessionId/native-source", async (c) => {
     if (principalFor(c).kind !== "superuser")

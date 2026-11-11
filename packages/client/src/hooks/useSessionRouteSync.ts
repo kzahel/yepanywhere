@@ -78,11 +78,13 @@ export function useSessionRouteSync({
       location.hash ?? "",
       actualSessionId,
       session.nativeSessionId,
+      session.nativeSessionFamily,
     );
     if (target) navigate(target, { replace: true, state: location.state });
   }, [
     actualSessionId,
     session?.nativeSessionId,
+    session?.nativeSessionFamily,
     isDomLingerParked,
     navigate,
     location.pathname,

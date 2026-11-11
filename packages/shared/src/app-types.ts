@@ -692,6 +692,11 @@ export interface AppSessionSummary extends SessionSandboxSummary {
   creation?: SessionCreationStatus;
   /** Provider's bound rollout ID for viewer URLs; never a YA resource key. */
   nativeSessionId?: string;
+  /**
+   * Native family of `nativeSessionId`. Its presence means the server resolves
+   * `/sessions/<family>/<native id>` viewer paths; absent from older servers.
+   */
+  nativeSessionFamily?: string;
   /** Public, immutable account pin. Never contains transport credentials. */
   routerBinding?: {
     poolId?: string;

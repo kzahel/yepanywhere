@@ -98,3 +98,16 @@ export function nativeSessionRef(
   }
   return { family, storageScope, id: parseNativeSessionId(id) };
 }
+
+/**
+ * The public part of a bound native reference, for viewer URLs: the storage
+ * scope stays on the server. Empty while unbound, so it spreads into a
+ * response or event without adding keys.
+ */
+export function nativeViewerFields(
+  native: NativeSessionRef | null | undefined,
+): { nativeSessionId?: string; nativeSessionFamily?: NativeSessionFamily } {
+  return native
+    ? { nativeSessionId: native.id, nativeSessionFamily: native.family }
+    : {};
+}

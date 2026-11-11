@@ -649,6 +649,13 @@ describe("scoped durable session identity", () => {
             privateDir,
             currentProjectId,
           );
+          // Same native id in another store and project.
+          managedRow(
+            storage.getDatabase(),
+            "elsewhere-twin",
+            "native-file",
+            ambientDir,
+          );
         }
         app = createApp({
           grokSessionsDir,
@@ -665,6 +672,34 @@ describe("scoped durable session identity", () => {
         const result = await response.json();
         expect(result.session.id).toBe("permanent-ya");
         expect(result.session.nativeSessionId).toBe(nativeRef.id);
+        expect(result.session.nativeSessionFamily).toBe("claude");
+        // Viewer paths carry no storage scope; the path's project chooses.
+        const viewer = (project: string, family: string, id: string) =>
+          app!.app.request(
+            `/api/projects/${project}/native-sessions/${family}/${id}`,
+          );
+        for (const [project, sessionId] of [
+          [currentProjectId, "permanent-ya"],
+          [projectId, "elsewhere-twin"],
+        ]) {
+          const resolved = await viewer(project!, "claude", "native-file");
+          expect(resolved.status).toBe(200);
+          expect(await resolved.json()).toEqual({ sessionId });
+        }
+        const nowhere = toUrlProjectId("/nowhere");
+        expect((await viewer(nowhere, "claude", "native-file")).status).toBe(
+          409,
+        );
+        expect(
+          (await viewer(currentProjectId, "claude", "missing-native")).status,
+        ).toBe(200);
+        expect((await viewer(nowhere, "claude", "unknown")).status).toBe(404);
+        expect(
+          (await viewer(currentProjectId, "codex", "native-file")).status,
+        ).toBe(404);
+        expect(
+          (await viewer(currentProjectId, "nope", "native-file")).status,
+        ).toBe(400);
         expect(JSON.stringify(result.messages)).toContain(
           "correct private source",
         );

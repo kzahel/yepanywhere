@@ -1896,6 +1896,7 @@ export {
   parseNativeSessionId,
   nativeSessionFamily,
   nativeSessionRef,
+  nativeViewerFields,
   type YaSessionId,
   type NativeSessionId,
   type NativeSessionFamily,
