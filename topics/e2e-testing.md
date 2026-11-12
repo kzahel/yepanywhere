@@ -305,6 +305,9 @@ replaces them. Measure before and after on comparable runs:
 - First-attempt failures, retry passes, and final failures by case and commit.
   Separate product regressions, broken fixtures/builds, and intermittent tests.
   Repeated failures across commits are not a flakiness estimate.
+  A retry pass leaves its shard job green, so job results hide these cases.
+  `node scripts/e2e-flake-report.mjs --since <date>` counts them from the
+  shards' JSON reports, and `--case <substring>` lists each failing attempt.
 - Coverage retained at each boundary: which real browser, server, or transport
   failure would still be detected after a move or consolidation.
 

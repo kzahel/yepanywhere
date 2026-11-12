@@ -41,8 +41,8 @@ were relaxed. Contributing-model: 6-astra.
 ## Local failure 2026-11-07
 
 The first case, `artifact-viewer.spec.ts:136`, failed once in a full local
-run on 2026-11-07, with the uncaught frontend proxy error recorded in
-[frontend proxy writes headers twice](frontend-proxy-writes-headers-twice.md).
+run on 2026-11-07, with the uncaught frontend proxy error that `23021f5e6`
+later fixed (its gap was retired there).
 
 ## Full-run failure 2026-11-08
 
@@ -55,3 +55,12 @@ found, after the frontend proxy throws `Cannot write headers after they are
 sent to the client` (`packages/server/src/frontend/proxy.ts:132`). The case
 passes when its file runs alone. Not diagnosed; the proxy error is the
 first lead.
+
+## Proxy lead after `23021f5e6`
+
+The frontend proxy fix in `23021f5e6` (2026-11-11) removes the error named
+above. `limited-instructions.spec.ts` and `limited-browser-defaults.spec.ts`,
+which failed first attempts with it in 30 CI runs from 2026-11-07, have not
+failed with it since. Recheck this case under a full run before diagnosing
+further: the proxy lead may be the whole of the 2026-11-07 and -08 failures,
+but not of the earlier mode-transition or `useRef` symptoms.

@@ -496,3 +496,5 @@
 - agent-auth-router-startup-display - Keep the session account display current through startup without a new capability.
 
 - agent-api-bootstrap — Native instruction placement, transcript/title repair, and optional disclosure.
+
+- e2e-first-attempt-flakes - Browser cases that fail their first CI attempt and pass on retry: counting, diagnosis and fixes.
