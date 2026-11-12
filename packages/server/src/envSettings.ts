@@ -572,6 +572,13 @@ export const ENV_VAR_REGISTRY: EnvVarDescriptor[] = [
 
   // Authentication
   {
+    name: "YEP_AUTH_PASSWORD",
+    group: "Authentication",
+    secret: true,
+    description:
+      "Password for a bare --setup-auth. The CLI removes it from the environment at startup.",
+  },
+  {
     name: "AUTH_DISABLED",
     group: "Authentication",
     description:
