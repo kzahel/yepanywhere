@@ -32,7 +32,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { whichCommand } from "./sdk/which-command.js";
-import { takeSetupAuthPassword } from "./setup-auth-password.js";
+import {
+  type PasswordOption,
+  REMOTE_ACCESS_PASSWORD,
+  SETUP_AUTH_PASSWORD,
+  takePassword,
+} from "./cli-passwords.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,7 +105,10 @@ SETUP OPTIONS (for headless installation):
                         Registers with the relay to verify username availability.
                         Exits with error if username is taken.
                         --username: Relay username (3-32 chars, lowercase alphanumeric + hyphens)
-                        --password: SRP password (min 8 characters)
+                        --password: SRP password (min 8 characters); also
+                        --password=<pass>, --password-file <path|->, or a
+                        bare --password reading YEP_REMOTE_ACCESS_PASSWORD,
+                        as for --setup-auth
                         --relay: Relay URL (default: wss://relay.yepanywhere.com/ws)
 
 ENVIRONMENT VARIABLES:
@@ -113,6 +121,8 @@ ENVIRONMENT VARIABLES:
                                 updates.yepanywhere.com (default: true)
   YEP_AUTH_PASSWORD             Password for bare --setup-auth; always removed
                                 from the environment at startup
+  YEP_REMOTE_ACCESS_PASSWORD    Password for a bare --password with
+                                --setup-remote-access; always removed likewise
   HTTPS_SELF_SIGNED             Enable HTTPS with a self-signed certificate
   LOG_LEVEL                     Log level: fatal, error, warn, info, debug, trace
   LOG_PRETTY                    Pretty-print console logs (default: true)
@@ -289,22 +299,31 @@ if (authDisableIndex !== -1) {
   args.splice(authDisableIndex, 1);
 }
 
-// Parse --setup-auth and --setup-auth-pwfile; always scrubs YEP_AUTH_PASSWORD
-const setupAuth = takeSetupAuthPassword(args, process.env, (file) =>
-  fs.readFileSync(file, "utf-8"),
-);
-if ("error" in setupAuth) {
-  console.error(`Error: ${setupAuth.error}`);
-  process.exit(1);
+// Parse both setup passwords. Each always removes its environment variable,
+// so neither reaches the server or its agents.
+function takeCliPassword(option: PasswordOption): string | undefined {
+  const result = takePassword(args, option, process.env, (file) =>
+    fs.readFileSync(file, "utf-8"),
+  );
+  if ("error" in result) {
+    console.error(`Error: ${result.error}`);
+    process.exit(1);
+  }
+  return result.password;
 }
-const setupAuthPassword = setupAuth.password;
+const setupAuthPassword = takeCliPassword(SETUP_AUTH_PASSWORD);
+const remotePassword = takeCliPassword(REMOTE_ACCESS_PASSWORD);
 
 // Parse --setup-remote-access flag and its options
 const setupRemoteIndex = args.indexOf("--setup-remote-access");
 let setupRemoteAccess = false;
 let remoteUsername: string | undefined;
-let remotePassword: string | undefined;
 let remoteRelay: string | undefined;
+
+if (setupRemoteIndex === -1 && remotePassword !== undefined) {
+  console.error("Error: --password is only used with --setup-remote-access");
+  process.exit(1);
+}
 
 if (setupRemoteIndex !== -1) {
   setupRemoteAccess = true;
@@ -320,18 +339,6 @@ if (setupRemoteIndex !== -1) {
     }
     remoteUsername = usernameValue;
     args.splice(usernameIndex, 2);
-  }
-
-  // Parse --password
-  const passwordIndex = args.indexOf("--password");
-  if (passwordIndex !== -1) {
-    const passwordValue = args[passwordIndex + 1];
-    if (!passwordValue || passwordValue.startsWith("-")) {
-      console.error("Error: --password requires a value");
-      process.exit(1);
-    }
-    remotePassword = passwordValue;
-    args.splice(passwordIndex, 2);
   }
 
   // Parse --relay (optional)
@@ -352,7 +359,9 @@ if (setupRemoteIndex !== -1) {
     process.exit(1);
   }
   if (!remotePassword) {
-    console.error("Error: --setup-remote-access requires --password");
+    console.error(
+      "Error: --setup-remote-access requires --password <pass>, --password-file <path|->, or a bare --password with YEP_REMOTE_ACCESS_PASSWORD set",
+    );
     process.exit(1);
   }
 }

@@ -585,6 +585,13 @@ export const ENV_VAR_REGISTRY: EnvVarDescriptor[] = [
       "Password for a bare --setup-auth. The CLI removes it from the environment at startup.",
   },
   {
+    name: "YEP_REMOTE_ACCESS_PASSWORD",
+    group: "Authentication",
+    secret: true,
+    description:
+      "Password for a bare --password with --setup-remote-access. The CLI removes it from the environment at startup.",
+  },
+  {
     name: "AUTH_DISABLED",
     group: "Authentication",
     description:

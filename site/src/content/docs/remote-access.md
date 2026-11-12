@@ -40,6 +40,12 @@ enable the relay. For a headless setup:
 yepanywhere --setup-remote-access --username myserver --password "use-a-long-unique-password"
 ```
 
+As with `--setup-auth`, the password can stay out of the process list and
+shell history: use `--password-file <path>` (or `-` for standard input), or a
+bare `--password` with `YEP_REMOTE_ACCESS_PASSWORD` set, which Yep Anywhere
+removes from its environment at startup. `--password=-the-password` accepts a
+password that begins with `-`.
+
 Connect at [yepanywhere.com/remote](https://yepanywhere.com/remote). The browser
 and server authenticate with SRP and encrypt application messages before they
 cross the relay. The relay sees connection metadata and encrypted traffic, not
