@@ -1,5 +1,6 @@
 import type {
   CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -25,6 +26,10 @@ interface SelectionActionButtonProps {
   onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onPointerCancel?: () => void;
+  onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   specimen?: boolean;
 }
 
@@ -68,6 +73,10 @@ export function SelectionActionButton({
   onClick,
   onPointerDown,
   onPointerUp,
+  onPointerMove,
+  onPointerCancel,
+  onContextMenu,
+  onKeyDown,
   specimen = false,
 }: SelectionActionButtonProps) {
   const className = specimen ? styles.specimen : undefined;
@@ -103,6 +112,10 @@ export function SelectionActionButton({
         onPointerDown?.(event);
       }}
       onPointerUp={onPointerUp}
+      onPointerMove={onPointerMove}
+      onPointerCancel={onPointerCancel}
+      onContextMenu={onContextMenu}
+      onKeyDown={onKeyDown}
       onClick={onClick}
       aria-label={label}
     >

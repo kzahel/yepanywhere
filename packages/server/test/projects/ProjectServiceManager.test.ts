@@ -220,10 +220,18 @@ describe("project service ownership", { timeout: 25_000 }, () => {
       const project = await fixture(processService);
       await writeFile(
         join(project, "server.mjs"),
-        `import { appendFileSync } from 'node:fs';
+        `import { appendFileSync, existsSync, watchFile, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 appendFileSync('starts.txt', 'start\\n');
-createServer((_req, res) => res.end('ready')).listen(Number(process.env.PORT), '127.0.0.1');
+const server = createServer((_req, res) => {
+  if (existsSync('slow')) return;
+  res.statusCode = existsSync('unhealthy') ? 503 : 200;
+  res.end('ready');
+});
+server.listen(Number(process.env.PORT), '127.0.0.1');
+watchFile('close-listener', { interval: 20 }, () => {
+  if (existsSync('close-listener')) server.close(() => writeFileSync('closed', 'yes'));
+});
 `,
       );
       const data = join(root, "native-data");
@@ -242,6 +250,28 @@ createServer((_req, res) => res.end('ready')).listen(Number(process.env.PORT), '
       expect(manager.upstream("project")).toMatchObject({
         generation: first.generation,
       });
+      await writeFile(join(project, "unhealthy"), "yes");
+      expect(
+        (await manager.start("project", project, authorize)).generation,
+      ).toBe(first.generation);
+      await rm(join(project, "unhealthy"));
+      await writeFile(join(project, "slow"), "yes");
+      expect(
+        (await manager.start("project", project, authorize)).generation,
+      ).toBe(first.generation);
+      await rm(join(project, "slow"));
+      await writeFile(join(project, "close-listener"), "yes");
+      await expect
+        .poll(() => readFile(join(project, "closed"), "utf8").catch(() => ""))
+        .toBe("yes");
+      expect((await manager.status("project"))?.observed).toBe("running");
+      await rm(join(project, "close-listener"));
+      const recovered = await manager.start("project", project, authorize);
+      expect(recovered.generation).not.toBe(first.generation);
+      expect(recovered.observed).toBe("running");
+      expect(await readFile(join(project, "starts.txt"), "utf8")).toBe(
+        "start\nstart\n",
+      );
       const restored = new ProjectServiceManager(data);
       expect(await restored.status("project")).toMatchObject({
         observed: "stopped",

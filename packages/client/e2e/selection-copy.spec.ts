@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTestViteServer } from "./support/vite-server";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture";
+import { toUrlProjectId } from "@yep-anywhere/shared";
 
 let server: Awaited<ReturnType<typeof createTestViteServer>>;
 let base: string;
@@ -23,13 +24,66 @@ for (const mobile of [false, true]) {
     browser,
   }) => {
     const context = await browser.newContext({
-      viewport: { width: mobile ? 375 : 1000, height: mobile ? 812 : 600 },
+      viewport: { width: mobile ? 375 : 1200, height: mobile ? 812 : 600 },
       isMobile: mobile,
       hasTouch: mobile,
       permissions: ["clipboard-read", "clipboard-write"],
     });
     const page = await context.newPage();
     const errors: string[] = [];
+    const appProject = toUrlProjectId("/work/project");
+    let metadataReads = 0;
+    let starts = 0;
+    let createdShares = 0;
+    let releaseStart: () => void = () => {};
+    const startGate = new Promise<void>((resolve) => {
+      releaseStart = resolve;
+    });
+    await page.route("**/api/projects/*/app", async (route) => {
+      metadataReads++;
+      const serves = route
+        .request()
+        .url()
+        .includes(encodeURIComponent(appProject));
+      await route.fulfill({
+        json: {
+          projectId: appProject,
+          state: "stopped",
+          canStart: true,
+          canExecute: true,
+          declaration: serves ? { where: { kind: "process" } } : null,
+          ...(serves
+            ? {
+                fileLinks: {
+                  pathTemplate: "/{path}",
+                  baseUrl: "https://project.example/",
+                },
+              }
+            : {}),
+        },
+      });
+    });
+    await page.route("**/api/projects/*/app/start", async (route) => {
+      starts++;
+      await startGate;
+      await route.fulfill({ json: { started: true } });
+    });
+    await page.route("**/api/settings", (route) =>
+      route.fulfill({ json: { settings: { limitedUsersEnabled: false } } }),
+    );
+    await page.route("**/api/public-file-shares?*", (route) =>
+      route.fulfill({ json: { items: [] } }),
+    );
+    await page.route("**/api/public-file-shares", async (route) => {
+      createdShares++;
+      expect(route.request().postDataJSON()).toEqual({
+        projectId: toUrlProjectId("/work/other"),
+        path: "private.md",
+      });
+      await route.fulfill({
+        json: { url: "https://ya.example/share/file-secret" },
+      });
+    });
     page.on("pageerror", (error) => errors.push(error.message));
     try {
       await page.goto(`${base}e2e/fixtures/selection-copy.html`);
@@ -117,6 +171,98 @@ for (const mobile of [false, true]) {
           word,
         );
       }
+      await page.getByTestId("public-copy-source").evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        document.getSelection()!.removeAllRanges();
+        document.getSelection()!.addRange(range);
+        document.dispatchEvent(new Event("selectionchange"));
+      });
+      await expect(copy).toBeVisible();
+      await expect.poll(() => metadataReads).toBe(2);
+      expect(starts).toBe(0);
+      if (mobile) {
+        const box = (await copy.boundingBox())!;
+        const cdp = await context.newCDPSession(page);
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [
+            { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+          ],
+        });
+        await page.waitForTimeout(600);
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        await cdp.detach();
+      } else await copy.click({ button: "right" });
+      await page
+        .getByRole("menuitem", { name: "Copy Markdown with public links" })
+        .click();
+      const partial =
+        "Read [the report](<https://project.example/docs/report.md#L12>) and `~/other/private.md`.";
+      await expect
+        .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+        .toBe(partial);
+      await expect.poll(() => starts).toBe(1);
+      expect(createdShares).toBe(0);
+      await expect(page.getByRole("alert")).toContainText(
+        "local paths remaining: 1",
+      );
+      // Capture disables animations, which otherwise completes the toast fade.
+      if (process.env.YEP_E2E_UI_CAPTURE_DIR)
+        await page.getByRole("alert").evaluate((element) => {
+          element.style.animation = "none";
+        });
+      await recordUiCapture(
+        page,
+        `public-copy-${mobile ? "phone" : "desktop"}`,
+      );
+      await page
+        .getByRole("alert")
+        .getByText(/Copied;/)
+        .click();
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      expect(createdShares).toBe(0);
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+        partial,
+      );
+      // Reopen through the keyboard gesture; startup remains pending throughout.
+      await page.getByTestId("public-copy-source").evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        document.getSelection()!.removeAllRanges();
+        document.getSelection()!.addRange(range);
+        document.dispatchEvent(new Event("selectionchange"));
+      });
+      await expect(copy).toBeVisible();
+      await copy.focus();
+      await copy.press("Shift+F10");
+      await page
+        .getByRole("menuitem", { name: "Copy Markdown with public links" })
+        .click();
+      await page
+        .getByRole("button", { name: "Create public file links…" })
+        .click();
+      await expect(page.getByRole("dialog")).toContainText(
+        "/work/other/private.md",
+      );
+      await recordUiCapture(
+        page,
+        `public-copy-share-${mobile ? "phone" : "desktop"}`,
+      );
+      expect(createdShares).toBe(0);
+      await page
+        .getByRole("button", { name: "Create links and copy Markdown" })
+        .click();
+      await expect
+        .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+        .toBe(
+          "Read [the report](<https://project.example/docs/report.md#L12>) and [`~/other/private.md`](<https://ya.example/share/file-secret>).",
+        );
+      expect(createdShares).toBe(1);
+      releaseStart();
       const input = page.getByRole("textbox", { name: "Message" });
       // Time each keystroke in the page, from keydown to the frame after its
       // input. Timing the test's own round trips counted CI scheduling: run
@@ -152,6 +298,7 @@ for (const mobile of [false, true]) {
       expect(Math.max(...samples)).toBeLessThan(100);
       expect(errors).toEqual([]);
     } finally {
+      releaseStart();
       await context.close();
     }
   });

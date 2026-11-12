@@ -322,7 +322,8 @@ export class ProjectServiceManager {
       const previous = this.live.get(projectId);
       if (
         previous?.process.state === "running" &&
-        previous.record.mode === mode
+        previous.record.mode === mode &&
+        (await previous.process.isListening())
       )
         return (await this.status(projectId))!;
       const declaration = await readProjectService(projectPath, mode);
@@ -330,7 +331,10 @@ export class ProjectServiceManager {
         throw new Error(
           "Project has no process service declaration for this mode",
         );
-      if (previous?.process.state === "running")
+      if (
+        previous?.process.state === "running" &&
+        previous.record.mode !== mode
+      )
         throw new Error("Stop the current app before changing preview mode");
       // A failed stop still owns its process: retry termination before any replacement.
       if (previous) await previous.process.stop();

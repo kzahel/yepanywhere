@@ -29,6 +29,7 @@ import {
   useSelectionActionCapture,
 } from "./useSelectionActionCapture";
 import { useSelectionActionPreferences } from "./useSelectionActionPreferences";
+import { usePublicMarkdownCopy } from "./usePublicMarkdownCopy";
 
 interface UseSelectionActionPresentationOptions {
   applyQuoteAnchors: (
@@ -140,10 +141,11 @@ export function useSelectionActionPresentation({
     selectionNewSessionActionEnabled,
   } = useSelectionActionPreferences();
   const { t } = useI18n();
+  const selectionMenu = useSourceContextMenu(t, {
+    menu: t("sessionSelectionActionMenu" as never),
+  });
   const { menu: selectionContextMenu, openAt: openSelectionContextMenuAt } =
-    useSourceContextMenu(t, {
-      menu: t("sessionSelectionActionMenu" as never),
-    });
+    selectionMenu;
 
   const enabledSelectionActions = useMemo(() => {
     const actions: EnabledSelectionAction[] = [];
@@ -213,6 +215,7 @@ export function useSelectionActionPresentation({
     inert,
     isInteractiveTarget,
   });
+  const publicCopy = usePublicMarkdownCopy(capture.state?.snapshot ?? null);
 
   useEffect(() => {
     if (inert || !onQuoteSelection || !selectionQuoteActionEnabled) return;
@@ -310,6 +313,11 @@ export function useSelectionActionPresentation({
           },
         });
       }
+      if (publicCopy.available(snapshot))
+        actions.push({
+          label: t("publicMarkdownCopy"),
+          onSelect: () => publicCopy.copyPublic(snapshot),
+        });
       if (onStartNewSessionFromSelection) {
         actions.push({
           label: t("sessionNewSessionFromSelection" as never),
@@ -324,6 +332,8 @@ export function useSelectionActionPresentation({
       activateSelectionAction,
       onQuoteSelection,
       onStartNewSessionFromSelection,
+      publicCopy.copyPublic,
+      publicCopy.available,
       t,
     ],
   );
@@ -402,10 +412,51 @@ export function useSelectionActionPresentation({
           key={kind}
           kind={kind}
           label={label}
-          onPointerDown={() => {
-            selectionActionPointerAppliedRef.current = null;
+          onContextMenu={(event) => {
+            if (kind !== "source" && kind !== "text") return;
+            event.preventDefault();
+            event.stopPropagation();
+            openSelectionContextMenuAt(
+              event.clientX,
+              event.clientY,
+              event.currentTarget,
+              selectionContextMenuActions(selectionActions.snapshot),
+            );
           }}
+          onKeyDown={(event) => {
+            if (
+              (kind === "source" || kind === "text") &&
+              (event.key === "ContextMenu" ||
+                (event.shiftKey && event.key === "F10"))
+            ) {
+              event.preventDefault();
+              const rect = event.currentTarget.getBoundingClientRect();
+              openSelectionContextMenuAt(
+                rect.left,
+                rect.bottom,
+                event.currentTarget,
+                selectionContextMenuActions(selectionActions.snapshot),
+              );
+            }
+          }}
+          onPointerDown={(event) => {
+            selectionActionPointerAppliedRef.current = null;
+            if (kind === "source" || kind === "text")
+              selectionMenu.beginLongPressAt(
+                event,
+                event.currentTarget,
+                selectionContextMenuActions(selectionActions.snapshot),
+              );
+          }}
+          onPointerMove={selectionMenu.moveLongPressAt}
+          onPointerCancel={selectionMenu.endLongPress}
           onPointerUp={(event) => {
+            selectionMenu.endLongPress();
+            if (selectionMenu.consumeLongPressClick()) {
+              selectionActionPointerAppliedRef.current = kind;
+              return;
+            }
+            if (event.button !== 0) return;
             if (selectionActions.mobile) {
               event.preventDefault();
               if (activateSelectionAction(kind, selectionActions.snapshot)) {
@@ -442,6 +493,11 @@ export function useSelectionActionPresentation({
     dismiss: capture.dismiss,
     floatingSelectionActions,
     mobileSelectionActions,
-    selectionContextMenu,
+    selectionContextMenu: (
+      <>
+        {selectionContextMenu}
+        {publicCopy.shareDialog}
+      </>
+    ),
   };
 }

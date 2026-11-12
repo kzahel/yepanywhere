@@ -5,7 +5,32 @@ import { I18nProvider } from "../../src/i18n";
 import { useSelectionActionPresentation } from "../../src/hooks/useSelectionActionPresentation";
 import { useQuoteableTextSource } from "../../src/hooks/useQuoteableTextSource";
 import { UserPromptBlock } from "../../src/components/blocks/UserPromptBlock";
+import { ToastProvider } from "../../src/contexts/ToastContext";
+import { toUrlProjectId, SERVER_CAPABILITIES } from "@yep-anywhere/shared";
+import { applyVersionSnapshot } from "../../src/lib/versionQuery";
+import { LOCAL_CLIENT_SUMMARY_SOURCE_KEY } from "../../src/lib/clientSummarySourceKey";
 import "../../src/styles/purposeGlobals";
+
+const publicProject = toUrlProjectId("/work/project");
+const privateProject = toUrlProjectId("/work/other");
+const viewerHref = `http://localhost:3400/projects/${publicProject}/file?path=docs%2Freport.md&line=12`;
+applyVersionSnapshot(
+  {
+    current: "0.10.2",
+    latest: null,
+    updateAvailable: false,
+    capabilities: [
+      SERVER_CAPABILITIES.projectService.name,
+      SERVER_CAPABILITIES.publicFileShares.name,
+    ],
+  },
+  {
+    sourceKey: LOCAL_CLIENT_SUMMARY_SOURCE_KEY,
+    key: "version",
+    coverage: {},
+    requestStartedAt: Date.now(),
+  },
+);
 
 function HistoryBlock({ index }: { index: number }) {
   const ref = useQuoteableTextSource<HTMLParagraphElement>(
@@ -29,6 +54,9 @@ Plain assistant text.`,
     "**literal_source**",
     undefined,
     "literal",
+  );
+  const publicSource = useQuoteableTextSource<HTMLParagraphElement>(
+    `Read [the report](${viewerHref}) and \`~/other/private.md\`.`,
   );
   const [value, setValue] = useState("");
   const [tick, setTick] = useState(0);
@@ -84,6 +112,13 @@ Plain assistant text.`,
         <pre ref={rawSource} data-testid="raw-selection">
           {"**literal_source**"}
         </pre>
+        <p ref={publicSource} data-testid="public-copy-source">
+          Read <a href={viewerHref}>the report</a> and{" "}
+          <a href={`/projects/${privateProject}/file?path=private.md`}>
+            <code>~/other/private.md</code>
+          </a>
+          .
+        </p>
         {Array.from({ length: 250 }, (_, i) => (
           <HistoryBlock key={i} index={i} />
         ))}
@@ -127,6 +162,8 @@ Plain assistant text.`,
 }
 createRoot(document.getElementById("root")!).render(
   <I18nProvider>
-    <Fixture />
+    <ToastProvider>
+      <Fixture />
+    </ToastProvider>
   </I18nProvider>,
 );

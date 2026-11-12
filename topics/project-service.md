@@ -282,8 +282,9 @@ the app remains responsible for validating existence, symlinks and its serving
 boundary when a visitor follows the link. Mapping a file promises an app
 presentation, not permission to publish additional content.
 
-The initial implementation uses static mapping only. Reading this declaration
-and constructing a link must never probe or start an app, even when stopped.
+File links use static mapping. Reading this declaration and constructing a
+link do not probe or start an app. The explicit selection-copy action below
+requests startup after copying; opening its menu does not.
 Without `fileLinks`, no app query or launch is attempted. A future dynamic
 resolver must separately declare its protocol endpoint, supported paths and
 whether explicit resolution may start the app; absence of that declaration
@@ -319,9 +320,56 @@ Old servers ignore the optional declaration fields
 and retain their previous viewing behavior.
 
 **Decision:** static declarations precede a runtime resolver. They cover
-repository browsers without process startup, network requests or availability
-coupling. Public viewing is a separate per-app opt-in, so file-link support
+repository browsers without per-file requests or availability checks in the
+copy path. Public viewing is a separate per-app opt-in, so file-link support
 does not impose tunnel latency on interactive apps.
+
+### Copy selected Markdown with public links
+
+Select message text, then right-click or long-press its floating copy button to choose
+**Copy Markdown with public links**. The selection context menu and the
+copy button's keyboard context-menu gesture offer the same action when the
+selection contains project file references. Ordinary copy remains unchanged.
+
+Selection-time App metadata supplies the available mappings. Copying uses
+the metadata already received and writes the partially linked Markdown to the
+clipboard immediately, without waiting for metadata, startup or file sharing.
+Copying before metadata arrives can leave a reference local even when its
+project has a public mapping.
+Rendered project-path links and Markdown destinations pointing to the current
+YA viewer or a loopback YA viewer resolve to their underlying project files.
+Labels and file positions survive; an unresolved viewer destination becomes
+a local project path. Images, fenced code, foreign viewer-lookalike URLs and
+revision-specific viewer links are left unchanged. Cross-project references
+use their own project mappings, with the deepest registered project root owning an
+absolute path.
+
+A dismissible notice reports remaining local references and offers
+**Create public file links…** when the server supports dedicated file shares.
+The offer does not capture focus or delay copying. Its dialog lists the files
+before confirmation. Confirmation reuses existing file-share URLs and creates
+missing grants, then copies the updated Markdown. A partial failure retains
+the successfully acquired URLs for retry; closing the dialog stops further
+creation. No background completion replaces the clipboard without that
+explicit confirmation. Public share viewers do not offer this action.
+
+The explicit copy action also requests startup for mapped process apps under
+the caller's existing App-start authority. Metadata received after copying can
+trigger app startup, but cannot change the copied text. Requests are deduplicated
+while in flight, never start a
+live-preview instance, and do not reserve an address or enable serving. A
+startup failure produces a dismissible error notice. App links may grant
+access to the whole app; dedicated file links grant their file and permitted
+rendering assets instead.
+
+Start remains idempotent for a running app with a listening HTTP service,
+including one returning an error status. Before accepting an existing launch,
+the server checks its declared health path through the sandbox broker. Two
+failed connections allow replacement; a response timeout is inconclusive and
+leaves the existing launch alone. These checks are outside the clipboard path.
+Older servers keep their existing Start behavior. App metadata and Start use
+`project-service`; file-grant creation uses `public-file-shares`. No new route
+or response field is required.
 
 ## Standard declaration: where, start, status, stop, serving
 

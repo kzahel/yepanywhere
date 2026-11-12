@@ -162,7 +162,14 @@ export class ProjectServiceProcess {
     }
   }
 
-  private probe(pid: number): Promise<boolean> {
+  async isListening(): Promise<boolean> {
+    const pid = this.child?.pid;
+    return (
+      !!pid && ((await this.probe(pid, true)) || (await this.probe(pid, true)))
+    );
+  }
+
+  private probe(pid: number, acceptAnyStatus = false): Promise<boolean> {
     return new Promise((done) => {
       const req = request(
         {
@@ -177,12 +184,18 @@ export class ProjectServiceProcess {
           signal: this.startup.signal,
         },
         (response) => {
-          const ready = response.statusCode === this.command.readyStatus;
+          const ready =
+            acceptAnyStatus || response.statusCode === this.command.readyStatus;
           response.destroy();
           done(ready);
         },
       );
-      req.setTimeout(1000, () => req.destroy());
+      req.setTimeout(1000, () => {
+        // A slow response does not establish a missing listener. Only startup
+        // readiness treats a timeout as failure; an existing app stays alive.
+        done(acceptAnyStatus);
+        req.destroy();
+      });
       req.once("error", () => done(false));
       req.once("close", () => done(false));
       req.end();
