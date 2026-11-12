@@ -336,7 +336,9 @@ test("sidebar follows user sends while visits and background work stay put", asy
         )
         .toBe("sidebar-b");
       await page.reload();
-      await expect(composer).toBeVisible();
+      // A reload reboots the dev client with the browser cache off (routes
+      // are installed); a slow runner can spend over 5 s refetching modules.
+      await expect(composer).toBeVisible({ timeout: 30_000 });
       await page
         .getByRole("button", { name: "Open sidebar", exact: true })
         .click();

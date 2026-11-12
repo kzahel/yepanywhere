@@ -239,7 +239,9 @@ test("composer beacon acknowledges real sends and leaves typing and title option
       name: "Composer Hotkey Beacon",
       exact: true,
     });
-    await expect(setting).toBeChecked();
+    // Every navigation reboots the dev client; with routes installed the
+    // browser cache is off and a slow runner refetches 1,000+ modules.
+    await expect(setting).toBeChecked({ timeout: 30_000 });
     for (const viewport of [
       { name: "desktop", width: 1200, height: 600 },
       { name: "phone", width: 375, height: 812 },
@@ -255,7 +257,7 @@ test("composer beacon acknowledges real sends and leaves typing and title option
     await setting.locator("..").click();
     await expect(setting).not.toBeChecked();
     await page.goto(`${origin}/projects/${projectId}/sessions/beacon-session`);
-    await expect(composer).toBeVisible();
+    await expect(composer).toBeVisible({ timeout: 30_000 });
     await composer.focus();
     await page.keyboard.press("Control+Alt+Shift+F8");
     await expect(page).not.toHaveTitle(/\[YA1/);
