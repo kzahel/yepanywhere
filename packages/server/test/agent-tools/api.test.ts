@@ -136,7 +136,7 @@ it("runs the exact injected curl request and keeps legacy self authority separat
       }),
     );
     expect(bound.session.id).toBe("canonical-curl");
-    expect((await api(env, "/v0/help")).body).toContain("Operation reference");
+    expect((await api(env, "/v0/help")).body).toContain("Operation index");
     expect((await api(env, "/v0/servers/curl-profile/projects")).status).toBe(
       200,
     );

@@ -148,3 +148,36 @@ This is local, explicitly requested account use, not a CI auth distribution
 workflow. Reviewers continue to be launched through YA; the eval process runs
 directly so fixture env and personal context can be controlled without adding
 an arbitrary-environment injection API to YA.
+
+The `operation` case discovers `createSession` and reads its focused schema;
+fetching the full schema fails that case. `selection` discovers a named AAR
+pool, creates a worker with model/high effort/Fast tier/plan mode, and verifies
+its selected account and last-applied settings through session detail. The
+fixture derives readback from submitted controls; the grader rejects missing
+or wrong HTTP readback even when final prose claims success. Its scripted
+worker is API-contract evidence, not a live AAR/provider qualification.
+
+For a comparable baseline and candidate, run the same model, CLI, variants,
+cases and samples, then compare the complete reports:
+
+```sh
+pnpm exec tsx --conditions source scripts/agent-api-eval/compare.ts \
+  /tmp/ya-v0-before/results.json /tmp/ya-v0-after/results.json
+```
+
+The comparison refuses incomplete or duplicate matrices and reports each case
+as well as totals. It exits nonzero for task failures or increased aggregate
+requests, errors or fetched documentation bytes, both overall and per case. Path/response bytes,
+full-schema reads, command counts and duration remain visible. These small
+paired trials are descriptive; call/byte costs need no timing benchmark, and
+no host-latency or statistical model-quality claim follows from elapsed time.
+New tasks require their own successful trials rather than being treated as
+zero-cost unsupported baseline tasks. Normal CI verifies the new graders,
+private-HTTP workflow, focused-schema size advantage and help size against the
+observed 15,884-byte pre-change baseline, without calling models.
+
+The [2026-11-12 evidence](../../topics/http-api-v0.md#measured-discovery-evidence--2026-11-12)
+records a complete 10-trial comparison: 10/10 successes before and after,
+61→54 requests and 111,188→72,138 fetched documentation bytes, with all per-case
+checks passing. It also records rejected intermediate candidates, full-schema
+and bootstrap growth, new-task qualification, and the limit on timing claims.

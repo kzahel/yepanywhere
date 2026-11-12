@@ -3856,6 +3856,8 @@ export function createApp(options: AppOptions): AppResult {
       ),
     commands: apiCommands,
     ...productionApiSources({
+      supervisor,
+      agentAuthRouter,
       scanner,
       sessions: retainedCollections,
       metadata: options.sessionMetadataService,
@@ -3870,8 +3872,6 @@ export function createApp(options: AppOptions): AppResult {
           ? providers.filter((p) => options.enabledProviders!.includes(p.name))
           : providers;
       },
-      sessionState: (id) =>
-        supervisor.getProcessForSession(id)?.state.type ?? "not-running",
       ownedSessions: () =>
         ownedApiSessions(supervisor, options.sessionMetadataService),
       hiddenProjects: (username) => projectAppStore.hiddenProjectIds(username),

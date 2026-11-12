@@ -736,3 +736,29 @@ it("repeats create/message/follow over two owned ephemeral loopback TCP listener
     (await following.json()).conversation.messages[0].content[0].text,
   ).toContain("Reviewed");
 });
+
+it("resolves self at the access server for local commands and canonical receipts while peers remain explicit", async () => {
+  const a = fixture("A"),
+    b = fixture("B");
+  connect(a, b);
+  const self = await (await a.app.request("/v0/servers/self")).json();
+  expect(self).toMatchObject({ id: "A", local: true });
+  const response = await a.app.request("/v0/servers/self/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  expect(response.status).toBe(202);
+  const receipt = await response.json();
+  await a.commands.idle();
+  const observed = await (
+    await a.app.request(`/v0/servers/self/receipts/${receipt.id}`)
+  ).json();
+  expect(observed).toMatchObject({
+    destinationServerId: "A",
+    state: "accepted",
+  });
+  expect(a.starts()).toBe(1);
+  expect(b.starts()).toBe(0);
+  expect((await a.app.request("/v0/servers/typo/projects")).status).toBe(404);
+});

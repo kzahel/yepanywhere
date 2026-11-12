@@ -1,6 +1,8 @@
+import { correctSelection } from "./selection.js";
+import type { ApiSessionInspection } from "../../packages/server/src/core-api/selection-contracts.js";
 import type { ApiSession } from "../../packages/server/src/core-api/contracts.js";
 
-export const FIXTURE_REVISION = "agent-api-peers-8";
+export const FIXTURE_REVISION = "agent-api-selection-9";
 export const SERVER_ID = "00000000-0000-4000-8000-000000000001";
 export const OWN_SESSION_ID = "eval-owning-session";
 export const PROJECT_ID = "orchid-project";
@@ -32,6 +34,10 @@ sessions.push({
   updatedAt: "2026-01-02T00:00:00.000Z",
 });
 export const CASES = {
+  selection:
+    "Discover the Codex pool named Release pool and its model/effort/speed choices. Create one worker in Orchid on that pool using its Release model, high thinking effort, Fast speed, and plan permission mode. Read the worker session back and verify all those settings plus its selected pool and account. Report the worker id in sessionId, supported=true only after verification, and answer exactly as model|effort|serviceTier|poolId|accountId|permissionMode using observed values. Do not infer completion from creation acceptance.",
+  operation:
+    "Find the operation id and HTTP method/path used to create sessions, then fetch only that operation's exact schema. Report its operation id in answer. Avoid downloading the full OpenAPI schema.",
   workflow:
     "Create one Codex worker in Orchid and read its initial release answer. Queue a follow-up asking for its follow-up artifact, repeat that identical submission with the same retry key once, and follow its receipt for input consumption. Reconnect to its conversation and inspect trusted creation provenance. Report the worker id in sessionId, creator session id in sessionIds, and final follow-up artifact exactly in answer. Do not infer successful task completion from queue acceptance.",
   create:
@@ -69,6 +75,7 @@ export interface Answer {
   answer: string;
 }
 export interface Trace {
+  inspection?: ApiSessionInspection;
   receipt?: { id: string; kind: string; delivery: string };
   follow?: { cursor: string; reset: boolean; changed: boolean };
   method: string;
@@ -122,7 +129,52 @@ export function grade(
     typeof answer.answer !== "string"
   )
     return false;
+  // self is interpreted at the access server; normalize for evidence matching.
+  trace = trace.map((entry) => ({
+    ...entry,
+    path: entry.path.replace(
+      "/v0/servers/self/",
+      `/v0/servers/${targetServerId}/`,
+    ),
+  }));
   switch (caseId) {
+    case "operation":
+      return (
+        /\bcreateSession\b/.test(answer.answer) &&
+        trace.some(
+          (entry) =>
+            entry.status === 200 &&
+            entry.path === "/v0/schema?operation=createSession",
+        ) &&
+        !trace.some((entry) => entry.path === "/v0/schema")
+      );
+    case "selection":
+      return (
+        answer.sessionId === "eval-worker-1" &&
+        answer.supported === true &&
+        answer.answer ===
+          "release-model|high|priority|release-pool|release-account|plan" &&
+        trace.some(
+          (entry) =>
+            entry.status === 200 &&
+            entry.path.startsWith(`${root}/selection?`) &&
+            new URL(entry.path, "http://fixture").searchParams.get(
+              "provider",
+            ) === "codex",
+        ) &&
+        trace.some(
+          (entry) =>
+            entry.method === "POST" &&
+            entry.status === 202 &&
+            entry.path === `${root}/sessions`,
+        ) &&
+        trace.some(
+          (entry) =>
+            entry.status === 200 &&
+            entry.path === `${root}/sessions/eval-worker-1` &&
+            correctSelection(entry.inspection),
+        )
+      );
     case "workflow": {
       const sent = trace.filter(
         (entry) =>

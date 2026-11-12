@@ -60,3 +60,9 @@ run (7,389 client and 7,382 server tests, 94 server skips). The cleanup's isolat
 API smoke is clean and no production navigation changes. The stacks still do
 not identify a triggering test; changing global links or suppressing diagnostics
 would be an unrelated fixture audit. Evidence: `/tmp/p190/regroup/tests.log`.
+
+2026-11-12: the passing v0 selection/discovery workspace run on Node 24.22.1
+repeats five timer-only navigation diagnostics. No client navigation changes
+are part of this slice; all 137 focused core/agent-API checks are clean. The
+same unowned asynchronous stacks prevent a safely isolated fix here; no
+global suppression was added. Evidence: `/tmp/ya-v0-tests-final.log`.

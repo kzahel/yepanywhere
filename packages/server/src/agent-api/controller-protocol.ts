@@ -11,6 +11,7 @@ export const agentCatalogRequest = z
       "capabilities",
       "projects",
       "providers",
+      "selection",
       "sessions",
       "session",
       "conversation",

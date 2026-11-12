@@ -1,3 +1,5 @@
+import { selection, selectedInspection } from "./selection.js";
+import type { ApiSessionInspection } from "../../packages/server/src/core-api/selection-contracts.js";
 import { createPeerEvalRouter, PEER_SERVER_ID } from "./peer-fixture.js";
 import { openSqliteOrThrow } from "../../packages/server/src/storage/sqlite.js";
 import { migrateDiscoveryDatabase } from "../../packages/server/src/storage/discovery-sqlite.js";
@@ -35,7 +37,9 @@ export async function createFixture(
     throw new Error("Peer relay fixture supports only the workflow case");
   const localSessions = [...sessions];
   const apiServerId = peerRelay ? PEER_SERVER_ID : SERVER_ID;
-  const management = caseId === "create" || caseId === "workflow";
+  const management =
+    caseId === "create" || caseId === "workflow" || caseId === "selection";
+  const inspections = new Map<string, ApiSessionInspection>();
   const database = management ? openSqliteOrThrow(":memory:") : undefined;
   if (database) migrateDiscoveryDatabase(database);
   const receiptStore = database ? new ApiReceiptStore(database) : undefined;
@@ -51,6 +55,7 @@ export async function createFixture(
         {
           async start(project, request) {
             const id = `eval-worker-${++workerCount}`;
+            inspections.set(id, selectedInspection(request));
             workers.set(id, { prompt: request.message, followups: [] });
             localSessions.push({
               id,
@@ -186,6 +191,20 @@ export async function createFixture(
   const runtime = await createAgentApiRuntime({ serverId: SERVER_ID });
   const core = new CoreApi(apiServerId, {
     commands,
+    selection: async () => selection,
+    sessionInspection: (id) =>
+      inspections.get(id) ?? {
+        settings: {
+          source: "unavailable",
+          requestedModel: null,
+          model: null,
+          thinking: null,
+          effort: null,
+          permissionMode: null,
+          serviceTier: null,
+        },
+        routing: { mode: "unknown" },
+      },
     conversation: createConversationRead(conversations),
     followConversation: createConversationFollow(conversations, apiServerId),
     projects: async () => ({ items: projects }),
@@ -245,6 +264,7 @@ export async function createFixture(
     const routePath = req.url?.split("?")[0] ?? "";
     const capture =
       routePath.endsWith("/conversation/follow") ||
+      /\/sessions\/[^/]+$/.test(routePath) ||
       routePath.includes("/receipts/") ||
       (req.method === "POST" && routePath.startsWith("/v0/"));
     let captured = "";
@@ -262,11 +282,14 @@ export async function createFixture(
           if (capture && bytes <= 512 * 1024) captured += String(chunk);
         });
         response.on("end", () => {
+          let inspection: Trace["inspection"];
           let follow: Trace["follow"];
           let receipt: Trace["receipt"];
           if (capture && bytes <= 512 * 1024) {
             try {
               const data = JSON.parse(captured);
+              if (data.settings && data.routing)
+                inspection = { settings: data.settings, routing: data.routing };
               const value = data.receipt ?? data;
               if (
                 typeof value?.id === "string" &&
@@ -299,6 +322,7 @@ export async function createFixture(
             bytes,
             elapsedMs: performance.now() - start,
             atMs: start,
+            ...(inspection ? { inspection } : {}),
             ...(follow ? { follow } : {}),
             ...(receipt ? { receipt } : {}),
           });

@@ -64,8 +64,46 @@ export const createSessionRequest = z
       .default("default")
       .describe("Native permission mode, explicit bypass only when requested."),
     serviceTier: z.string().min(1).max(128).optional(),
+    routerPoolId: z
+      .string()
+      .min(1)
+      .max(256)
+      .optional()
+      .describe(
+        "Pool id from selection; select afresh at launch. No automatic direct fallback.",
+      ),
+    routerAccountId: z
+      .string()
+      .min(1)
+      .max(256)
+      .optional()
+      .describe("Explicit account, or manual account within routerPoolId."),
+    routerPolicy: z
+      .string()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe(
+        "Router policy id from selection. Requires routerPoolId; manual requires routerAccountId.",
+      ),
+    routerClaudeAiConnectors: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (body) => !body.routerPolicy || !!body.routerPoolId,
+    "routerPolicy requires routerPoolId",
+  )
+  .refine(
+    (body) => body.routerPolicy !== "manual" || !!body.routerAccountId,
+    "manual policy requires routerAccountId",
+  )
+  .refine(
+    (body) =>
+      body.routerClaudeAiConnectors === undefined ||
+      (body.provider === "claude" &&
+        !!(body.routerPoolId || body.routerAccountId)),
+    "Claude connectors require an explicit Claude router selection",
+  );
 export const sendMessageRequest = z
   .object({
     requestId: requestIdSchema,

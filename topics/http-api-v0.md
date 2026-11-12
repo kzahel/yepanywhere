@@ -15,7 +15,7 @@ archived session-core campaign.
 
 The ordinary app mounts `/v0`, `/v0/schema`, `/v0/me`, `/v0/servers`, and the
 self server's description, access, capabilities, projects, providers, sessions
-and single-session summary routes. Unknown targets never execute locally.
+and single-session detail routes. Unknown targets never execute locally.
 Compact conversations/following and separately authorized creation, messaging,
 receipts and provenance are specified below. Other planned resources remain
 absent.
@@ -38,14 +38,14 @@ Peer projections and limited-user provenance restrictions remain unchanged.
 This local projection adds no remote traversal or new grant.
 An opted-in related-section error fails the whole reply; retry from a fresh
 related page, or omit opt-in to read receipts alone. This additive optional
-projection keeps revision `2026-11-01.1`: absence is its compatibility signal,
+projection originally kept revision `2026-11-01.1`: absence is its compatibility signal,
 and existing access servers need no revision-only upgrade for receipt reads.
 Unreleased source builds that first introduced `related` can ignore the later
 direction/type filters; no stable release contains that intermediate contract.
 Callers needing those filters against arbitrary source builds must validate
 returned predicates/directions or consult the generated query schema.
 
-- `/v0` returns public server id, revision `2026-11-01.1`, unstable status and
+- `/v0` returns public server id, current revision `2026-11-12.1`, unstable status and
   discovery links. The documentation slice adds Markdown
   help at `/v0/help`, links help/me/schema from discovery, and generates field
   descriptions, operation semantics and example requests alongside OpenAPI.
@@ -66,8 +66,8 @@ returned predicates/directions or consult the generated query schema.
   filtering precedes pagination; hidden lists do not revoke direct access.
 - Projects use the existing retained project projection. Providers are exposed
   harness descriptors and supported steering/permission controls; this endpoint
-  performs no installation/authentication/model discovery. A model catalog is
-  later work. Sessions are retained native-catalog summaries with current
+  performs no installation/authentication/model discovery. Explicit launch catalog discovery is available through `selection`,
+  described below. Sessions are retained native-catalog summaries with current
   metadata/runtime overlays, not full transcripts or messages.
 - Catalog responses report `complete` and `refreshing`. A missing detail in an
   incomplete catalog returns `503 catalog_not_ready`; a missing or inaccessible
@@ -917,3 +917,123 @@ Absence means automatic peer sign-in cannot be assumed. It adds no agent-facing
 refresh/owner-grant routes to v0. Legacy fixed-expiry peer routing remains usable
 until its existing deadline when an older target lacks this capability. See
 [automatic peer authentication](peer-access.md#automatic-peer-authentication).
+
+## Launch selection and effective configuration — 2026-11-12
+
+Revision `2026-11-12.1` adds the following discoverable contract. There is no
+hosted web client dependency or change to legacy `/api` semantics. Older peers
+may omit the optional session-detail fields, and must advertise `selection`
+before a caller uses that operation. No existing peer operation grant expands
+to discovery implicitly.
+
+- Every server-addressed route accepts `self` for the receiving access server.
+  Both the launch adapter and peer router resolve it before choosing a target.
+  Replies and receipt scopes retain canonical server ids. A peer requires its
+  explicit discovered id; an unknown id still fails without local fallback.
+- The launch bootstrap uses `/v0/me` alone for identity-only tasks and
+  advertises `self` without a local server-list lookup. Earlier exact bootstrap
+  blocks remain recognizable for transcript presentation.
+- Default `/v0/help` includes a generated operation-id/method/path index with
+  links to focused help and OpenAPI, plus a compact create/send/follow recipe.
+  `operation` is the case-sensitive operation id, not a path alias. The full
+  `/v0/schema` remains available; focused selectors serve exactly one operation.
+- `GET /v0/servers/{serverId}/selection?provider=claude|codex` reads AAR launch
+  choices on demand. The default `routing=aar` reports granted pools and their
+  ids, names, account membership, revision and default policy; enabled account
+  descriptors and their model catalogs; router policies; and tier-selection
+  support. `routing=direct` explicitly reads the configured provider catalog
+  and its available provenance. Model rows preserve reported effort, thinking,
+  fast/auto support and service-tier ids/labels. Omitted controls are unknown,
+  not a promise of support. This query does not allocate or launch inference.
+  Existing provider descriptors and session lists start no catalog discovery.
+- Discovery requires the existing operator principal or an explicitly granted
+  peer `selection` operation. Limited users are refused before discovery. No
+  new identity, credential, administration authority or grant type is added.
+  All results are allow-listed projections: socket paths, authentication data,
+  pin ids, quota payloads and arbitrary upstream fields are excluded.
+  A disconnected/unconfigured catalog yields `available=false`; discovery
+  errors yield `503 selection_unavailable`, never a direct-login fallback.
+  Observations may be stale and launch rechecks eligibility and router grants.
+- Creation additionally accepts `routerPoolId`, `routerAccountId`,
+  `routerPolicy` and the app's explicit Claude connector choice. Policy needs a
+  pool; manual selection needs an account. Explicit selection takes precedence
+  over caller inheritance and may deliberately select another provider's
+  routed pool. Without explicit selection, a local routed caller retains its
+  pool/policy or explicit account, with its model when omitted; a provider
+  mismatch is refused. Thinking, tier and permission mode remain explicit
+  request controls, not implicitly inherited. Retry hashing includes all
+  selection fields, and no receipt or API-input semantics change.
+- Single-session detail additionally reports `settings` and `routing`; paged
+  session summaries retain their compact shape. Settings `source` is `live`,
+  `saved` or `unavailable`. Live values use the incumbent owner's last applied
+  effort, excluding a queued next-turn change, requested model, best-known
+  runtime model, thinking, permission mode and tier. The model may still be an
+  alias; it is not claimed as independently provider-confirmed. Saved values
+  come from the durable last-applied launch snapshot, including its revision;
+  they never manufacture a resolved model. With unavailable evidence, nulls
+  mean unknown; otherwise null controls select provider/default behavior.
+  Terminated owners do not override durable settings. Routing is `aar`,
+  `direct` or `unknown`; saved pool/account labels and policy evidence carry
+  their observation time when available. Reading never refreshes AAR. A pin
+  identifies intended routing, not proof that the current turn succeeded.
+
+The documentation eval adds operation discovery and a discover/create/verify
+AAR task. Its grader requires successful HTTP evidence and actual settings
+readback, not an answer that merely repeats the desired settings. The runner
+records response/path bytes and focused/full-schema reads in addition to its
+existing correctness, calls/errors/repeats, duration, docs bytes and usage.
+`compare.ts` refuses incomplete/duplicate or mismatched model/CLI matrices and
+reports paired per-case costs. Success, request/error count and
+fetched documentation bytes have aggregate and per-case nonregression checks; runtime and
+reported tokens remain descriptive, with no statistical latency/cache claim.
+
+### Measured discovery evidence — 2026-11-12
+
+On macOS, Codex CLI 0.167.0 and `gpt-6.1-sol`, medium effort, the existing
+identity/project/pagination/workflow/control cases ran twice each with the
+served-help variant, in fresh environments. Model, CLI, tasks, sample counts
+and grading were held constant. Raw reports remain private local artifacts;
+plan files retain exact documentation and harness hashes.
+
+| Measure (10 trials) | Before | Final |
+| --- | ---: | ---: |
+| Successful tasks | 10 | 10 |
+| HTTP calls | 61 | 54 |
+| HTTP errors | 0 | 0 |
+| Fetched documentation bytes | 111,188 | 72,138 |
+| Total response bytes | 167,273 | 127,881 |
+| Request-path bytes | 3,240 | 2,016 |
+| Shell commands | 59 | 48 |
+| Total elapsed seconds, descriptive only | 218.4 | 220.7 |
+
+Both aggregate and per-case request/error/documentation checks pass. Identity
+uses 2 rather than 3 requests across its two trials; project 10 rather than 12,
+pagination 14 rather than 16, workflow 28 rather than 30, and control remains
+at zero. Default help shrinks from 15,884 to 12,023 bytes. The bootstrap grows
+from 1,032 to 1,215 bytes to eliminate unnecessary local discovery. Full schema
+grows from 149,149 to 163,314 bytes because it now describes more functionality;
+callers can use the indexed focused schema instead. Durations are model/network
+observations, not a machine-latency benchmark: workflow duration increased in
+these two samples, and no latency or unique-context-token improvement is claimed.
+
+Iteration evidence is retained rather than excluded: index-only help passed
+10/10 tasks but increased requests to 70, failing the comparison. Adding the
+workflow recipe yielded 64 calls and one exact-artifact answer-format failure
+(9/10); it still failed acceptance. The final local/identity bootstrap and
+conditional settings-verification guidance produced the passing matrix above.
+The initial new-task harness also exposed a fixture returning saved rather
+than live model evidence and an overly prose-specific operation-id check.
+Those were corrected: the scripted incumbent now reports its accepted model,
+while grading still requires actual HTTP readback and rejects wrong settings.
+New AAR selection and focused-operation tasks subsequently pass 4/4 with no
+HTTP errors; these fixtures do not qualify live AAR accounts or provider APIs.
+
+The final compared help/schema/bootstrap SHA-256 prefixes are respectively
+`948396ae6b51`, `96418c6eb28c`, and `105a22b3da7a`. Reproduce with the runner and
+comparison commands in its README. Normal CI covers deterministic grading,
+redaction/authorization, native launch options, peer/local addressing,
+last-applied-vs-pending effort and preserved historical bootstrap presentation.
+Local Node 24.22.1 workspace tests, lint, formatting and typechecking pass;
+Linux/Windows execution remains CI qualification, with no OS-specific API
+behavior added. The known unrelated jsdom navigation diagnostics remain in
+[their existing gap](../gaps/client-unit-navigation-diagnostics.md).

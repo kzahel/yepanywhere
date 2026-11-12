@@ -159,6 +159,7 @@ describe("isolated v0 application and HTTP reads", () => {
     for (const operation of operations) {
       if (
         operationMethod(operation) === "POST" ||
+        operation.id === "selection" ||
         operation.id === "followReceipt" ||
         operation.id === "receipt" ||
         operation.id === "relationships"

@@ -202,7 +202,10 @@ export function nativeSessionCommandOwner(deps: {
       const caller = callerId ? deps.callerLaunch?.(callerId) : undefined;
       // A routed caller's child gets a fresh pick from the caller's pool, or
       // its explicit account through a new pin (plan 183); never Direct.
-      const routed = caller?.routerBinding;
+      const explicitRouter = Boolean(
+        request.routerPoolId || request.routerAccountId,
+      );
+      const routed = explicitRouter ? undefined : caller?.routerBinding;
       let model = request.model === "default" ? undefined : request.model;
       if (routed) {
         if (routed.provider !== request.provider)
@@ -210,7 +213,7 @@ export function nativeSessionCommandOwner(deps: {
             rejected: true,
             message: `This session runs on an Agent Auth Router ${routed.provider} account, so it can start only ${routed.provider} sessions, which use the same router pool or account.`,
           };
-        model ??= caller.model;
+        model ??= caller?.model;
         if (!model)
           return {
             rejected: true,
@@ -242,7 +245,16 @@ export function nativeSessionCommandOwner(deps: {
             model,
             requestedModel: request.model ?? model,
             ...thinking,
-            ...(routed ? routerSelectionFromBinding(routed) : {}),
+            ...(explicitRouter
+              ? {
+                  routerPoolId: request.routerPoolId,
+                  routerAccountId: request.routerAccountId,
+                  routerPolicy: request.routerPolicy,
+                  routerClaudeAiConnectors: request.routerClaudeAiConnectors,
+                }
+              : routed
+                ? routerSelectionFromBinding(routed)
+                : {}),
             serviceTier: request.serviceTier,
             globalInstructions: deps.globalInstructions(),
             recapMode: "off",

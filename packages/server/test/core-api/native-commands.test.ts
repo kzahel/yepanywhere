@@ -525,7 +525,11 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
     management: true as const,
   };
   try {
-    const create = async (requestId: string, provider: "claude" | "codex") => {
+    const create = async (
+      requestId: string,
+      provider: "claude" | "codex",
+      extra: Record<string, unknown> = {},
+    ) => {
       const receipt = commands.create(
         project,
         createSessionRequest.parse({
@@ -533,6 +537,7 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
           projectId: project.id,
           provider,
           message: "child work",
+          ...extra,
         }),
         launch,
       );
@@ -561,6 +566,29 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
       },
     });
     expect(startSession).toHaveBeenCalledTimes(1);
+    expect(
+      await create("explicit-pool", "codex", {
+        routerPoolId: "other-pool",
+        routerPolicy: "weekly-pace",
+        model: "release-model",
+        thinking: "on:high",
+        serviceTier: "priority",
+        permissionMode: "plan",
+      }),
+    ).toMatchObject({ state: "accepted" });
+    expect(startSession.mock.calls[1]![2]).toBe("plan");
+    expect(startSession.mock.calls[1]![3]).toMatchObject({
+      providerName: "codex",
+      routerPoolId: "other-pool",
+      routerPolicy: "weekly-pace",
+      model: "release-model",
+      effort: "high",
+      serviceTier: "priority",
+    });
+    expect(startSession.mock.calls[1]![3]).not.toHaveProperty(
+      "routerAccountId",
+      "acct",
+    );
   } finally {
     store.close();
     database.close();

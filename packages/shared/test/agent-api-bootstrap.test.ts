@@ -5,6 +5,10 @@ import {
   stripAgentApiBootstrapPrefix,
 } from "../src/agent-api-bootstrap.js";
 
+const previous = readFileSync(
+  new URL("./fixtures/agent-api-bootstrap-2026-11-01.txt", import.meta.url),
+  "utf8",
+).trimEnd();
 const legacy = readFileSync(
   new URL("./fixtures/agent-api-bootstrap-legacy.txt", import.meta.url),
   "utf8",
@@ -14,6 +18,7 @@ describe("exact historical API bootstrap presentation", () => {
     const task =
       "  Fix this.\n\n[Yep Anywhere API]\nThis heading is part of my request.  ";
     expect(stripAgentApiBootstrapPrefix(`${legacy}\n\n${task}`)).toBe(task);
+    expect(stripAgentApiBootstrapPrefix(`${previous}\n\n${task}`)).toBe(task);
     expect(
       stripAgentApiBootstrapPrefix(
         `${agentApiBootstrapInstructions(false)}\n\n${task}`,

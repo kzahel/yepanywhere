@@ -101,6 +101,9 @@ export class PeerApiRouter {
     caller: ApiPrincipal,
     input: PeerInput = {},
   ): Promise<unknown> {
+    // Resolve at the access server before considering any configured peer.
+    if (input.serverId === "self")
+      input = { ...input, serverId: this.local.serverId };
     const remote =
       input.serverId !== undefined && input.serverId !== this.local.serverId;
     if (!remote) {

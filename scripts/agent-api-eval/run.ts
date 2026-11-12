@@ -114,6 +114,7 @@ async function main() {
         "peer-fixture.ts",
         "instructions.ts",
         "process.ts",
+        "selection.ts",
       ].map(async (file) => [
         file,
         sha(await readFile(new URL(file, import.meta.url), "utf8")),
@@ -431,6 +432,22 @@ async function main() {
                   started
                 : null,
               requests: fixture.trace.length,
+              responseBytes: fixture.trace.reduce(
+                (sum, entry) => sum + entry.bytes,
+                0,
+              ),
+              requestPathBytes: fixture.trace.reduce(
+                (sum, entry) => sum + bytes(entry.path),
+                0,
+              ),
+              fullSchemaReads: fixture.trace.filter(
+                (entry) => entry.path === "/v0/schema" && entry.status === 200,
+              ).length,
+              focusedDocumentationReads: docs.filter((entry) =>
+                new URL(entry.path, "http://fixture").searchParams.has(
+                  "operation",
+                ),
+              ).length,
               errors: fixture.trace.filter((entry) => entry.status >= 400)
                 .length,
               repeatedRequests:

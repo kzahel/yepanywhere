@@ -34,7 +34,7 @@ function legacyAgentApiBootstrapInstructions(
 export const AGENT_API_BOOTSTRAP_NOTICE = "Agent API instructions added";
 
 /** Stable across launch grants: authority must come from the live connection. */
-export function agentApiBootstrapInstructions(windows: boolean): string {
+function previousAgentApiBootstrapInstructions(windows: boolean): string {
   const command = windows
     ? 'curl.exe -H "Authorization: $env:AGENT_YA_V0_AUTHORIZATION" "$env:AGENT_YA_V0_URL/v0/me"'
     : 'curl --unix-socket "$AGENT_YA_V0_SOCKET" -H "Authorization: $AGENT_YA_V0_AUTHORIZATION" "$AGENT_YA_V0_URL/v0/me"';
@@ -49,6 +49,19 @@ export function agentApiBootstrapInstructions(windows: boolean): string {
   ].join("\n");
 }
 
+/** Local discovery needs no peer listing; identity-only tasks need no reference. */
+export function agentApiBootstrapInstructions(windows: boolean): string {
+  return previousAgentApiBootstrapInstructions(windows)
+    .replace(
+      "Read GET /v0/help for operations and examples.",
+      "For identity-only tasks /v0/me is sufficient. For other tasks read GET /v0/help for the operation index and examples.",
+    )
+    .replace(
+      "Use only configured routes from /v0/servers; inspect the chosen server's /access and /capabilities.",
+      "Use serverId=self for this local server; no /v0/servers listing is needed for local work. For a peer use only configured ids from /v0/servers. Inspect the chosen server's /access and /capabilities before acting.",
+    );
+}
+
 const currentFragments = [false, true].map(agentApiBootstrapInstructions);
 const legacyFragments = [false, true].flatMap((windows) =>
   [false, true].flatMap((management) =>
@@ -57,11 +70,22 @@ const legacyFragments = [false, true].flatMap((windows) =>
     ),
   ),
 );
-const knownFragments = [...currentFragments, ...legacyFragments];
+const previousFragments = [false, true].map(
+  previousAgentApiBootstrapInstructions,
+);
+const knownFragments = [
+  ...currentFragments,
+  ...previousFragments,
+  ...legacyFragments,
+];
 
 /** Only exact YA-authored fragments qualify; a heading alone is user prose. */
 export function findAgentApiBootstrapInstructions(text: string): string | null {
-  return currentFragments.find((fragment) => text.includes(fragment)) ?? null;
+  return (
+    [...currentFragments, ...previousFragments].find((fragment) =>
+      text.includes(fragment),
+    ) ?? null
+  );
 }
 
 /** Presentation-only repair; never edit the provider's native transcript. */

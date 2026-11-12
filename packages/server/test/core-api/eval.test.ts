@@ -352,3 +352,109 @@ it.each([false, true])(
   },
   20_000,
 );
+
+it("discovers, creates and verifies a routed worker through the private HTTP adapter with focused docs", async () => {
+  const fixture = await createFixture("selection");
+  try {
+    const help = await read(fixture.environment, "/v0/help");
+    expect(help.status).toBe(200);
+    expect(help.body).toContain("/v0/schema?operation=createSession");
+    expect(help.body).toContain("| `selection` | GET |");
+    // The prior shipped help was 15,884 UTF-8 bytes (same bootstrap).
+    // Keep discovery below that observed baseline, including the new index.
+    expect(Buffer.byteLength(help.body)).toBeLessThan(15884);
+    const focused = await read(
+      fixture.environment,
+      "/v0/schema?operation=createSession",
+    );
+    const full = await read(fixture.environment, "/v0/schema");
+    expect(Buffer.byteLength(focused.body)).toBeLessThan(
+      Buffer.byteLength(full.body),
+    );
+    const schema = JSON.parse(focused.body);
+    expect(Object.keys(schema.paths)).toHaveLength(1);
+    const properties =
+      schema.paths["/v0/servers/{serverId}/sessions"].post.requestBody.content[
+        "application/json"
+      ].schema.properties;
+    expect(properties.routerPoolId).toBeDefined();
+    const root = "/v0/servers/self";
+    const choices = JSON.parse(
+      (await read(fixture.environment, `${root}/selection?provider=codex`))
+        .body,
+    );
+    expect(choices.accounts[0].models[0].serviceTiers[0].id).toBe("priority");
+    const created = JSON.parse(
+      (
+        await read(fixture.environment, `${root}/sessions`, true, {
+          requestId: "selection-eval-01",
+          projectId: PROJECT_ID,
+          provider: "codex",
+          message: "Review release",
+          routerPoolId: choices.pools[0].id,
+          model: choices.accounts[0].models[0].id,
+          thinking: "on:high",
+          serviceTier: "priority",
+          permissionMode: "plan",
+        })
+      ).body,
+    );
+    let receipt = JSON.parse(
+      (await read(fixture.environment, `${root}/receipts/${created.id}`)).body,
+    );
+    // Dispatch is asynchronous: identical-key/receipt observation never relaunches.
+    if (!receipt.sessionId)
+      receipt = JSON.parse(
+        (await read(fixture.environment, `${root}/receipts/${created.id}`))
+          .body,
+      );
+    const inspected = await read(
+      fixture.environment,
+      `${root}/sessions/${receipt.sessionId}`,
+    );
+    expect(inspected.status).toBe(200);
+    const answer = {
+      ...empty,
+      sessionId: "eval-worker-1",
+      supported: true,
+      answer: "release-model|high|priority|release-pool|release-account|plan",
+    };
+    expect(grade("selection", answer, fixture.trace)).toBe(true);
+    expect(
+      grade(
+        "selection",
+        answer,
+        fixture.trace.filter((entry) => !entry.inspection),
+      ),
+    ).toBe(false);
+    expect(
+      grade(
+        "selection",
+        answer,
+        fixture.trace.map((entry) =>
+          entry.inspection
+            ? {
+                ...entry,
+                inspection: {
+                  ...entry.inspection,
+                  settings: { ...entry.inspection.settings, effort: "low" },
+                },
+              }
+            : entry,
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      grade(
+        "operation",
+        { ...empty, answer: "createSession" },
+        fixture.trace.filter((entry) => entry.path !== "/v0/schema"),
+      ),
+    ).toBe(true);
+    expect(
+      grade("operation", { ...empty, answer: "createSession" }, fixture.trace),
+    ).toBe(false);
+  } finally {
+    await fixture.close();
+  }
+});

@@ -1,3 +1,11 @@
+import {
+  selectionQuery,
+  selectionSchema,
+  sessionInspectionSchema,
+  type ApiSelection,
+  type SelectionQuery,
+  type ApiSessionInspection,
+} from "./selection-contracts.js";
 import { relatedQuery } from "./relationship-graph-contracts.js";
 import type { SessionRelationshipRead } from "../sessions/session-relationship-read.js";
 import { receiptFollowQuery } from "./receipt-follow.js";
@@ -42,6 +50,11 @@ import {
 } from "./contracts.js";
 
 export interface CoreApiSources {
+  selection?(
+    query: SelectionQuery,
+    signal?: AbortSignal,
+  ): Promise<ApiSelection>;
+  sessionInspection?(sessionId: string): ApiSessionInspection;
   relationships?: SessionRelationshipRead;
   peerAuthentication?: () => boolean;
   /** Cheap local display facts; does not discover providers or probe peers. */
@@ -100,6 +113,8 @@ export class CoreApi {
       query?: PageQuery &
         ConversationFollowQuery & {
           operation?: string;
+          provider?: string;
+          routing?: string;
           includeRelated?: string;
           relatedLimit?: string;
           relatedCursor?: string;
@@ -193,7 +208,11 @@ export class CoreApi {
     input: Parameters<CoreApi["read"]>[2] = {},
   ) {
     input.signal?.throwIfAborted();
-    if (input.serverId !== undefined && input.serverId !== this.serverId) {
+    if (
+      input.serverId !== undefined &&
+      input.serverId !== "self" &&
+      input.serverId !== this.serverId
+    ) {
       throw new CoreApiError(
         "server_not_found",
         "Server is not configured here",
@@ -291,6 +310,7 @@ export class CoreApi {
               caller.kind !== "superuser" &&
               [
                 "receipt",
+                "selection",
                 "relationships",
                 "createSession",
                 "sendMessage",
@@ -316,6 +336,40 @@ export class CoreApi {
             ? { peerAuthentication: "refresh-v1" as const }
             : {}),
         };
+      case "selection": {
+        if (caller.kind === "limited")
+          throw new CoreApiError(
+            "forbidden",
+            "Launch catalog discovery requires operator authority",
+            403,
+          );
+        const parsed = selectionQuery.safeParse(input.query ?? {});
+        if (!parsed.success)
+          throw new CoreApiError(
+            "invalid_request",
+            "Choose provider=claude|codex and routing=aar|direct; inspect the selection schema",
+            400,
+          );
+        if (!this.sources.selection)
+          throw new CoreApiError(
+            "selection_unavailable",
+            "Launch catalog discovery is unavailable",
+            503,
+          );
+        try {
+          return selectionSchema.parse(
+            await this.sources.selection(parsed.data, input.signal),
+          );
+        } catch (error) {
+          if (error instanceof CoreApiError || input.signal?.aborted)
+            throw error;
+          throw new CoreApiError(
+            "selection_unavailable",
+            "Launch catalog discovery failed; no routing fallback was attempted",
+            503,
+          );
+        }
+      }
       case "providers":
         return this.page(
           await this.sources.providers(input.signal),
@@ -631,7 +685,11 @@ export class CoreApi {
               "Session not found",
               404,
             );
-          return item;
+          const inspection = this.sources.sessionInspection?.(item.id);
+          return {
+            ...item,
+            ...(inspection ? sessionInspectionSchema.parse(inspection) : {}),
+          };
         }
         const unique = [
           ...new Map(items.map((item) => [item.id, item])).values(),
