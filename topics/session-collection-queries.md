@@ -93,6 +93,33 @@ and malformed or missed revisions use existing recovery. Older stable servers
 and source builds without the bit keep complete metadata frames; no aggregate
 sidebar client cutover or new refresh owner is introduced.
 
+The client accepts every valid stream revision into its existing decoded query
+view and advances the existing request/coverage fence, including counter-only
+updates. A same-lineage nondecreasing catalog counter alone does not republish
+the unchanged display snapshot or reobserve its rows. Row upserts/removals,
+authoritative membership, other metadata (including loading/error state and
+deadlines), lineage changes and complete replacements still publish. No row
+membership is inferred on the client. Older metadata-replacement frames use
+the same conservative comparison; unsupported servers keep existing fallback.
+
+Sidebar and Inbox explicitly select initial-loading/error presentation. Once
+both catalog observations are complete, a boolean background-refresh toggle alone
+also leaves their display unchanged; raw status stays in the decoded query.
+Cold/loading/error/complete transitions, unknown metadata and all row/membership
+changes remain live. Consumers needing raw background-refresh state keep the
+default presentation; the shared entry uses the union of its consumers' needs.
+Changing that union reacquires an authoritative replacement, so a new raw-status
+consumer cannot inherit a suppressed loading-only snapshot.
+
+A scalar display version belongs to the retained query entry. Consumers mark a
+version published only inside successful request-fence acceptance. If a later
+counter update overtakes a pending row update, its complete decoded body still
+publishes the outstanding display version. Reconnect/visibility/pagination
+replacements advance it and heal local state even when their rows are identical.
+No second row snapshot, per-session cache, timer or server contract is added.
+[Display-publication outcome](../docs/research/190-collection-display-publication.md)
+owns qualification and measurements.
+
 [Navigation outcome](../docs/research/190-bounded-navigation-projection.md) owns
 measurements and qualification. This reduces selected-row/project work; it does
 not close restart, all-consumer memory or transcript-rendering targets.

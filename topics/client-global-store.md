@@ -128,6 +128,17 @@ Server collection snapshots and deltas carry the catalog lineage described in
 per source/query coverage. It can conditionally reconcile an already accepted
 generation rather than asking the server to rebuild the same projection.
 
+For collection streams, the source-owned decoded query view retains the latest
+wire catalog/revision. Query coverage and request fencing advance on every valid
+frame. The normalized display snapshot is republished for row, membership,
+error/deadline or lineage changes and authoritative replacements. Raw-status
+consumers also publish refresh status; Sidebar and Inbox explicitly select
+initial-loading/error presentation and ignore boolean background-refresh toggles
+between complete catalog observations. A catalog-counter-only update need not
+reobserve unchanged rows. The normalized catalog clock therefore describes the
+last display publication, not the live stream cursor.
+See [session collection queries](session-collection-queries.md#bounded-navigation-enrichment).
+
 Generation ordering does not flatten observation fidelity. A newer partial
 event can advance selected field groups without proving a full list membership
 or complete transcript summary. Source changes, catalog epoch changes, and

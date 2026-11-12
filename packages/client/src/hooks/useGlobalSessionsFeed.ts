@@ -725,6 +725,7 @@ export function useGlobalSessionsFeed(
     runtime,
     key: queryKey,
     path: "/sessions?" + updateParams,
+    catalogPresentation: "loading",
     rows: Math.max(requestedRows, queryRecords.length),
     enabled:
       ready &&

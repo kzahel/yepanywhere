@@ -1,3 +1,4 @@
+import { collectionDisplayChanged } from "./collectionDisplay";
 import {
   applyCollectionUpdate,
   type CollectionUpdate,
@@ -12,10 +13,11 @@ import { activityBus } from "./activityBus";
 import { cancelPendingQueryRevalidation } from "./clientQueryRevalidation";
 
 interface Consumer {
+  catalogPresentation?: "loading";
   metadataFields?: boolean;
   path: string;
   rows: number;
-  publish(body: Record<string, unknown>): Promise<void>;
+  publish(body: Record<string, unknown>, displayVersion: number): Promise<void>;
   fallback(): void;
   onLiveChange?(live: boolean): void;
 }
@@ -29,6 +31,8 @@ interface Entry {
   expanding?: boolean;
   decoded?: { revision: number; view: CollectionView };
   epoch: number;
+  /** Monotonic within this retained entry; no duplicate display snapshot is held. */
+  displayVersion: number;
 }
 /** Weak source owner; entries and stream disappear with the final mounted query. */
 const owners = new WeakMap<YaSourceRuntime, CollectionUpdateOwner>();
@@ -93,6 +97,7 @@ class CollectionUpdateOwner {
         disabled: false,
         active: false,
         epoch: 0,
+        displayVersion: 0,
       };
       this.entries.set(key, entry);
     }
@@ -202,7 +207,19 @@ class CollectionUpdateOwner {
       const metadataFields = [...queries.values()].every((entry) =>
         [...entry.consumers].every((consumer) => consumer.metadataFields),
       );
-      const signature = JSON.stringify([queryNames, metadataFields]);
+      const presentations = [...queries]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([query, entry]) => [
+          query,
+          [...entry.consumers].every(
+            (consumer) => consumer.catalogPresentation === "loading",
+          ),
+        ]);
+      const signature = JSON.stringify([
+        queryNames,
+        metadataFields,
+        presentations,
+      ]);
       if (signature === this.signature) return;
       this.signature = signature;
       if (this.retryTimer) clearTimeout(this.retryTimer);
@@ -320,12 +337,25 @@ class CollectionUpdateOwner {
           )
             return;
           const decoded = applyCollectionUpdate(entry.decoded, update);
+          if (
+            collectionDisplayChanged(
+              entry.decoded?.view,
+              decoded.view,
+              update,
+              [...entry.consumers].every(
+                (consumer) => consumer.catalogPresentation === "loading",
+              ),
+            )
+          )
+            entry.displayVersion++;
           entry.decoded = decoded;
           this.setLive(entry, true);
           entry.expanding = false;
           cancelPendingQueryRevalidation(this.runtime.sourceKey, entry.key);
           const consumer = [...entry.consumers][0]!;
-          void consumer.publish(decoded.body).catch(() => this.refresh());
+          void consumer
+            .publish(decoded.body, entry.displayVersion)
+            .catch(() => this.refresh());
         },
         onError: () => this.unavailable(queries),
         onClose: () => this.unavailable(queries),

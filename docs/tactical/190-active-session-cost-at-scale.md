@@ -19,7 +19,9 @@ Structural/ambiguous discovery and transcript rendering remain open. The sidebar
 checkpoint identified sparse-ID SQL access and repeated navigation enrichment.
 That shared stage 2/4 navigation slice is now implemented, including opt-in
 metadata field changes; [the outcome](../research/190-bounded-navigation-projection.md)
-owns correctness and before/after qualification. Full targets remain open.
+owns correctness and before/after qualification. Stage 4 now separates collection
+freshness from observable display publication; [the display outcome](../research/190-collection-display-publication.md)
+records modest browser gains. Full targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -62,7 +64,7 @@ request paths need a justification beyond improving one benchmark.
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
 | 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas, safe checkpoint restoration and source-owned Claude/Codex project facts implemented; structural discovery/remaining consumers open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition/Codex dispatch, indexed Claude warm windows and durable SQL cold-window queries and SQL-owned ordinary append state implemented; first construction and exceptional metadata work remain open |
-| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue extension implemented; transcript rendering remains open |
+| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue extension and observable display publication implemented; transcript rendering remains open |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Full fixture plus population/history controls recorded; numeric guards implemented; CPU/bytes/render/cold and qualitative acceptance remain open |
 
 These are architectural dependencies, not five large all-or-nothing rewrites.
@@ -70,7 +72,20 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — bounded navigation projection
+### Current focus — collection display publication
+
+Selected 2026-11-12: retain every decoded query revision and freshness fence,
+but publish ordinary updates only when their displayed data changes. Sidebar
+and Inbox opt into their existing initial-loading/error presentation; raw-status
+consumers retain refresh notifications. Shared consumer requirements use one
+conservative presentation union, with full replacement on changes. The
+[display outcome](../research/190-collection-display-publication.md) records
+correctness, review, final comparison pairs and the rejected counter-only trial.
+No server protocol, capability, membership rule or retained row cache is added.
+The next proposal is to attribute remaining per-append transcript projection
+and preprocessing, then extend the existing normalized view incrementally.
+
+### Previous focus — bounded navigation projection
 
 Selected 2026-11-12: the maintainer approved the improvements identified by the
 measurement checkpoint. Known IDs drive indexed candidate seeks, selected-parent
@@ -491,6 +506,18 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Display checkpoint, 2026-11-12: the [display outcome](../research/190-collection-display-publication.md)
+compares exact frozen `34a8c2e54` server/shared runtimes with before/after clients.
+Active browser work falls 62.9→57.1 ms/append for Claude and 63.6→58.7 for Codex
+(9.2% / 7.7%); typing work falls 73.2→65.8 / 72.2→67.5. These are one pair per
+provider, not flatness qualification. All 312 sequential keys pass 100 ms, all
+716 sampled markers arrive, and after visible p95 is 41–59 ms. Compaction maxima
+remain 322/324 ms. Separate Claude attribution sees message-list commit effects
+202→172 per 30 appends, but preprocessing still runs once per append. Server and
+wire behavior are unchanged; the browser 5 ms target and full CPU/delivery/
+flatness/idle/restart/cold/memory/additional-tab acceptance remain open. Next:
+profile shared transcript projection/preprocessing before choosing that slice.
+
 Navigation checkpoint, 2026-11-12: the [bounded projection outcome](../research/190-bounded-navigation-projection.md)
 compares a fresh `e1ef3fc59` baseline with the reviewed source. Active process CPU
 is 89.6→79.1 ms/append for Claude (two samples/build) and 138.3→129.0 for Codex
@@ -498,11 +525,12 @@ is 89.6→79.1 ms/append for Claude (two samples/build) and 138.3→129.0 for Co
 123.81→3.43 / 124.60→4.23 KiB per append. A separate Claude diagnostic reduces
 SQL calls 651→257 and relationship reads 404→12 per append. No resident session
 cache is introduced. Browser CPU does not improve (55.9→58.6 / 59.1→61.7 ms),
-and eight query frames still arrive per append; six change only freshness.
+and eight query frames still arrive per append; six carry catalog-only metadata
+(including refresh status, clarified in the later display outcome).
 All 468 keys pass 100 ms, all sampled markers appear, and after visible p95 stays
 41–54 ms, loop p99 12–14.5 ms. CPU/render targets and full delivery/flatness,
-idle/restart/cold/memory/additional-tab acceptance remain open. Next proposal:
-keep freshness-only query updates out of unchanged display publication.
+idle/restart/cold/memory/additional-tab acceptance remain open. The subsequent display checkpoint above addresses this publication
+boundary.
 
 Current measurement checkpoint, 2026-11-12 (`288b67493`): profiler-off canonical
 50k/200-compaction active runs observe Claude/Codex main CPU 72.3/92.8 ms/write,

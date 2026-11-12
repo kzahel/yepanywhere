@@ -341,6 +341,7 @@ export function InboxProvider({
     runtime,
     key: INBOX_QUERY_KEY,
     path: "/inbox?summaryMode=retained",
+    catalogPresentation: "loading",
     enabled: queryEnabled && isRemoteConnectionReady,
     applySnapshot: applyInboxSnapshot,
     fallback: () => {

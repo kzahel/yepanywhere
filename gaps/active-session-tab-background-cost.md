@@ -35,6 +35,26 @@ state and metadata are now SQL-owned with bounded residency;
 [cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
 slice. The derived list projection still rebuilds after restart.
 
+## Collection display follow-up — 2026-11-12
+
+The [display outcome](../docs/research/190-collection-display-publication.md)
+keeps every raw query revision/freshness fence while suppressing ordinary
+bookkeeping publications that do not affect the selected display. Sidebar and
+Inbox explicitly select initial-loading/error status; raw consumers preserve
+background-refresh notifications. Consumer requirements share one conservative
+union, with replacement on changes. No server protocol or session cache is added.
+
+Active browser CPU falls 62.9→57.1 ms/append for Claude and 63.6→58.7 for Codex
+(9.2% / 7.7%, one pair each), typing 73.2→65.8 / 72.2→67.5. All 312 keys pass
+100 ms and all 716 sampled markers arrive. After visible p95 is 41–59 ms, with
+compaction maxima 322/324 ms. Server/wire behavior is unchanged. A separate
+30-append Claude diagnostic reduces message-list commit effects 202→172, while
+transcript preprocessing remains once per append. “Catalog-only” frames include
+refresh status, not merely a counter: the rejected counter-only trial did not
+produce useful gains. The original 5 ms browser target and full acceptance stay
+open. Next: attribute remaining shared transcript projection/preprocessing and
+choose a bounded incremental slice with full-rebuild parity.
+
 ## Bounded navigation follow-up — 2026-11-12
 
 The [navigation outcome](../docs/research/190-bounded-navigation-projection.md)
@@ -46,10 +66,11 @@ per append. Separate Claude diagnostics reduce SQL calls 651→257 and child
 reads 404→12 per append; no per-session result cache is added.
 
 Browser work does not improve: observed means are 55.9→58.6 / 59.1→61.7 ms.
-Eight query frames still arrive per append; six change only catalog freshness.
+Eight query frames still arrive per append; six carry catalog-only metadata
+(including refresh status, clarified in the display follow-up above).
 Both diagnostic builds record 202 message-list commit effects per 30 appends.
-Separating freshness bookkeeping from unchanged display publication is the next
-shared architectural opportunity. The server remains authoritative for filters,
+The subsequent display follow-up above implements this shared publication
+boundary. The server remains authoritative for filters,
 order and membership. Input and p95 visible/loop checks pass; CPU/render/full
 wire acceptance and idle/restart/cold/memory/additional-tab targets stay open.
 The statement ceiling remains unchanged; lazy relationship reads avoid unused

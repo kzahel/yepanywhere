@@ -17,6 +17,8 @@ export function useCollectionUpdates<T>(options: {
   rows?: number;
   enabled: boolean;
   capability?: string;
+  /** Views showing initial loading/error, with no background-refresh indicator. */
+  catalogPresentation?: "loading";
   applySnapshot(data: T, context: ClientQueryRequestContext): void;
   fallback(): void;
 }) {
@@ -40,13 +42,23 @@ export function useCollectionUpdates<T>(options: {
       version,
       options.capability ?? SERVER_CAPABILITIES.collectionQueryUpdates.name,
     );
-  const { runtime, key, path, rows = 0, enabled } = options;
+  const {
+    runtime,
+    key,
+    path,
+    rows = 0,
+    enabled,
+    catalogPresentation,
+  } = options;
   useEffect(() => {
     if (!supported || !enabled) return;
+    // Advance only after a destination publication actually wins the query fence.
+    let publishedDisplayVersion: number | undefined;
     return retainCollectionUpdates(runtime, key, {
       path,
       rows,
       metadataFields,
+      catalogPresentation,
       onLiveChange: (live) => {
         if (
           latest.current.runtime === runtime &&
@@ -63,7 +75,7 @@ export function useCollectionUpdates<T>(options: {
         )
           latest.current.fallback();
       },
-      publish: async (body) => {
+      publish: async (body, displayVersion) => {
         if (
           latest.current.runtime !== runtime ||
           latest.current.key !== key ||
@@ -78,11 +90,24 @@ export function useCollectionUpdates<T>(options: {
           coverage: { minRows: rows },
           force: true,
           fetcher: async () => body as T,
-          applySnapshot,
+          applySnapshot: (data, context) => {
+            if (publishedDisplayVersion === displayVersion) return;
+            applySnapshot(data, context);
+            publishedDisplayVersion = displayVersion;
+          },
         });
       },
     });
-  }, [runtime, key, path, rows, enabled, supported, metadataFields]);
+  }, [
+    runtime,
+    key,
+    path,
+    rows,
+    enabled,
+    supported,
+    metadataFields,
+    catalogPresentation,
+  ]);
   return (
     supported &&
     enabled &&
