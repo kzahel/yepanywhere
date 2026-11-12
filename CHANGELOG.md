@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.12.0] - 2026-11-10
+## [0.12.0] - 2026-11-12
 
 ### Added
 - Preserve YA-owned session identities through provider creation, forks and
@@ -31,8 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recover progressing native uploads without an unconditional two-minute
   deadline, and improve managed artifact viewing over encrypted connections.
 - Bound server, SDK and client log retention.
+- Keep typing responsive while a session's title or settings update, by no
+  longer re-rendering every transcript text block on each session update.
 
 ### Security
+- Refuse browser pages with an opaque `null` origin, which any web page can
+  create with a sandboxed iframe. With local password auth off (the default),
+  such a page could read the local API and drive sessions over the WebSocket.
+- Trust a `*.ts.net` origin only as the Tailscale host being requested, so a
+  public Tailscale Funnel page cannot call another machine's server.
 - Refresh patched HTTP, authentication, routing and rendering dependencies.
 - Keep hosted features capability-gated for supported installed servers.
 
