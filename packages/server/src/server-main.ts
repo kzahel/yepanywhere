@@ -1428,7 +1428,7 @@ async function startServer() {
 
   // Function to start/restart relay client with current config
   async function updateRelayConnection() {
-    const relayConfig = remoteAccessService.getRelayConfig();
+    const relayConfig = remoteAccessService.getActiveRelayConfig();
     if (relayConfig?.url && relayConfig?.username) {
       const compatibility = await getServerCompatibilityInfo({
         browserSettingsBackupAvailable: true,

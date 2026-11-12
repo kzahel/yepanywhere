@@ -69,6 +69,8 @@ export function createRemoteAccessRoutes(
       if (refusal) return refusal;
 
       await remoteAccessService.configure(body.password);
+      // configure() enables Remote Access, which connects the relay.
+      await onRelayConfigChanged?.();
 
       // Get the username (relay username) that was used
       const newUsername = remoteAccessService.getUsername();
@@ -109,6 +111,7 @@ export function createRemoteAccessRoutes(
   app.post("/enable", async (c) => {
     try {
       await remoteAccessService.enable();
+      await onRelayConfigChanged?.();
       await recordAuthEvent(c, {
         event: "remote-access-enable",
         outcome: "success",
@@ -128,13 +131,15 @@ export function createRemoteAccessRoutes(
 
   /**
    * POST /api/remote-access/disable
-   * Disable remote access (keeps credentials).
+   * Disable remote access (keeps credentials and relay settings) and
+   * disconnect from the relay until it is enabled again.
    */
   app.post("/disable", async (c) => {
     try {
       const refusal = refuseSelfDisconnect(c, { refusesLogins: true });
       if (refusal) return refusal;
       await remoteAccessService.disable();
+      await onRelayConfigChanged?.();
       await recordAuthEvent(c, {
         event: "remote-access-disable",
         outcome: "success",
@@ -162,6 +167,7 @@ export function createRemoteAccessRoutes(
       if (refusal) return refusal;
 
       await remoteAccessService.clearCredentials();
+      await onRelayConfigChanged?.();
       await recordAuthEvent(c, {
         event: "remote-access-clear",
         outcome: "success",

@@ -354,6 +354,14 @@ Remote Access is therefore content-private from the relay operator, not
 anonymous, metadata-private, or availability-protected. This claim does not
 cover public shares, which deliberately use a different plaintext relay path.
 
+The server holds a relay connection only while Remote Access is enabled.
+Disabling it keeps the password verifier and relay settings for re-enabling,
+but closes the server's relay registration and does not reconnect, including
+after a restart; only enabling, or saving a new Remote Access password,
+connects again. Remote Access logins already established over the relay are
+not ended by disabling. The relay may release a username that stays
+unregistered for its reclaim period (90 days on the default relay).
+
 The client is part of the trust root. Malicious JavaScript served by a hosted
 client origin, a privileged browser extension, or a compromised packaged app
 can steal a password or cached resume secret before transport encryption helps.

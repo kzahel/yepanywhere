@@ -223,6 +223,15 @@ export class RemoteAccessService {
   }
 
   /**
+   * The relay the server should stay connected to: the configured relay
+   * while Remote Access is enabled, else none. Disabling keeps the settings
+   * for re-enabling but holds no relay connection.
+   */
+  getActiveRelayConfig(): RelayConfig | null {
+    return this.isEnabled() ? this.getRelayConfig() : null;
+  }
+
+  /**
    * Set the relay configuration.
    */
   async setRelayConfig(config: RelayConfig): Promise<void> {
