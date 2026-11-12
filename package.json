@@ -67,7 +67,7 @@
     "test:e2e:sdk:real": "pnpm --filter server test:e2e:real",
     "test:e2e:sdk:local": "pnpm --filter server test:e2e:local",
     "test:e2e:sdk:local:quality": "pnpm --filter server test:e2e:local:quality",
-    "lint": "node scripts/check-css-architecture.mjs && node scripts/check-css-attribute-hooks.mjs && node scripts/check-css-class-strings.mjs && node scripts/check-source-file-budgets.mjs && node scripts/check-chromium-sandbox.mjs && pnpm -s css:unused && pnpm -s buttons:check && pnpm -s controls:check && pnpm -s tokens:check && pnpm css:lint && pnpm tools:check && node scripts/biome.cjs lint .",
+    "lint": "node scripts/check-css-architecture.mjs && node scripts/check-css-attribute-hooks.mjs && node scripts/check-css-class-strings.mjs && node scripts/check-source-file-budgets.mjs && node scripts/check-chromium-sandbox.mjs && pnpm css:unused && pnpm buttons:check && pnpm controls:check && pnpm tokens:check && pnpm css:lint && pnpm tools:check && node scripts/biome.cjs lint .",
     "format": "node scripts/biome.cjs format --write .",
     "format:check": "node scripts/biome.cjs format .",
     "prepare": "husky",
