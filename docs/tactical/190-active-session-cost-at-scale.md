@@ -23,7 +23,10 @@ owns correctness and before/after qualification. Stage 4 now separates collectio
 freshness from observable display publication; [the display outcome](../research/190-collection-display-publication.md)
 records modest browser gains. Shared immutable tool-result facts are now reused
 across web projections; [the transcript outcome](../research/190-transcript-fact-reuse.md)
-records attribution and partial step 6 qualification. Full targets remain open.
+records attribution and partial step 6 qualification. An isolated real-renderer
+calibration now separates frame/input responsiveness from aggregate browser CPU;
+[the frontend outcome](../research/190-frontend-renderer-calibration.md) owns that
+boundary and baseline. Full targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -74,7 +77,30 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — transcript attribution and immutable facts
+### Current focus — isolate frontend responsiveness before more optimization
+
+Selected 2026-11-12: the maintainer asked to distinguish frontend rendering from
+backend/data/API work and measure completed non-streaming appends through the
+real transcript/session page first. The [frontend calibration](../research/190-frontend-renderer-calibration.md)
+compares transcript-only and full-page views at three loaded-history sizes,
+records actual mounted rows, frame gaps/long tasks, visible appends and native
+sequential typing. A 150 ms stall control must fail the 100 ms key deadline even
+when p95 frames hide it. The harness adds no production optimization or API.
+
+60 Hz gives approximately 16.7 ms between presentation opportunities; it does
+not require a whole append's aggregate browser CPU to finish in 5 ms. The
+original tab-work target remains an open efficiency aspiration, measured
+separately from frame/input responsiveness. Server targets and end-to-end
+qualification are unchanged. Streaming replacements, burst/scroll interaction
+and changing collection chrome remain subsequent independent workloads.
+The final calibration observes all 216 normal appends and 1,292 exact native
+key prefixes (maximum 19.6 ms), frame p95 10.3 ms / maximum 29.3 ms and no 50 ms
+long tasks. Aggregate CPU still misses 5 ms, while an initial append in the
+1,000-turn full page reaches 271.6–278.1 ms despite short frame gaps. Trace that
+reveal/follow-scroll boundary, then extend streaming/tail workloads. This is
+not full end-to-end acceptance.
+
+### Previous focus — transcript attribution and immutable facts
 
 Selected 2026-11-12: measure remaining browser work before choosing a general
 incremental compiler rewrite. Shared compilation accounts for about 5.55 ms per
@@ -522,6 +548,13 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+The [frontend calibration](../research/190-frontend-renderer-calibration.md)
+establishes a separate synthetic frontend measurement boundary. Its results
+qualify only completed-turn store-to-render appends and typing, not the provider
+reader, ingestion/transport or full 50k-session scenario. The original targets
+below remain open where previously open; frame/input evidence does not imply
+that the aggregate 5 ms tab-work target is met.
+
 Transcript checkpoint, 2026-11-12: [immutable fact reuse](../research/190-transcript-fact-reuse.md)
 compares fresh 245530262 before/after clients on the exact same baseline
 server/shared runtime. Active browser work falls 56.9→51.7 ms/append for Claude
@@ -826,6 +859,15 @@ still rebuild; [the outcome](../research/190-transcript-fact-reuse.md) records
 parity and qualification. Claude browser work falls 56.9→51.7 ms/append;
 Codex 59.2→58.7 is effectively unchanged. Both still miss 5 ms. Shared
 React/app-shell/store update work is the next measured boundary to investigate.
+
+2026-11-12 measurement outcome: [frontend calibration](../research/190-frontend-renderer-calibration.md)
+now isolates real store/renderer/composer work from backend/API work. All normal
+native keys meet 100 ms; frame p95 is 10.3 ms, with rare larger gaps and no 50 ms
+long tasks. The large full-page first reply can exceed 250 ms without a long
+blocking task. The original 5 ms tab-work target is still open. Loaded-history
+controls explicitly disable normal active-window trimming; streaming and live
+metadata/coalescer qualification remain open. No production optimization lands
+in this measurement slice.
 
 A write renders the new rows only.
 

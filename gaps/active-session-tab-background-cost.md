@@ -1,5 +1,17 @@
 # Active session updates still do unnecessary work
 
+The [isolated frontend calibration](../docs/research/190-frontend-renderer-calibration.md)
+now separates real store/renderer/composer responsiveness from provider/backend
+and aggregate browser CPU costs. Completed-turn appends compare transcript-only
+and full-page views at three history sizes; exact native key prefixes, frame
+gaps, long tasks and visible markers have independent observations and a stall
+negative control. This is measurement infrastructure. Production optimization,
+streaming/burst/scroll controls and end-to-end qualification remain open.
+Final normal runs observe all 216 appends / 1,292 exact key prefixes (max 19.6 ms),
+frame p95 10.3 ms / max 29.3 ms and no 50 ms long tasks. The 1,000-turn full-page
+first append can still take 271.6–278.1 ms to become visible; trace that scheduling
+boundary before interpreting aggregate browser CPU as a frame problem.
+
 Original finding, 2026-11-10: a browser tab showing a session whose transcript is being written costs the
 server about 15–19% of one core and the tab itself 5–12%, for as long as the
 session runs (measured with the inspector and a 1 ms CPU profiler attached,

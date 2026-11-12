@@ -1,0 +1,3826 @@
+{
+  "schema": 1,
+  "baseRevision": "bd2165618f270209f59621709e741eedfafa83d8",
+  "scope": "Synthetic normalized completed-turn frontend calibration; no production optimization or backend qualification.",
+  "excluded": [
+    "initial CLI no-op preflight on /tmp symlink",
+    "active-window trimming confounded append-matrix",
+    "pre-final-sampler append-verified/typing-verified/phone-verified",
+    "pre-sandbox-policy append-qualified/typing-qualified/phone-qualified/negative-qualified"
+  ],
+  "normalTotals": {
+    "cases": 28,
+    "appends": 216,
+    "keys": 1292,
+    "keyLatencyMs": {
+      "count": 1292,
+      "median": 4.8999998569488525,
+      "p95": 8.899999856948853,
+      "max": 19.59999990463257
+    },
+    "frameGapMs": {
+      "count": 25918,
+      "median": 8.300000190734863,
+      "p95": 10.300000190734863,
+      "max": 29.300000190734863
+    },
+    "longTasks": 0,
+    "gapsOver17_167Ms": 44,
+    "gapsOver33_833Ms": 0
+  },
+  "sourceSha256": {
+    "packages/client/e2e/transcript-performance/source.ts": "7e2f055a3fe5b3ded3bc307280feec48375cc2a28a3db2316daf89127f9730d2",
+    "packages/client/e2e/transcript-performance/sourceBinding.ts": "2b91d9b7b986b263c0a52ada8eea220b9234a7ff1c4b2e650de2aab158a006c3",
+    "packages/client/e2e/transcript-performance/index.html": "253c5b1aa263fb8fc7177bf56601460584a5abde192a3e68c03700dd485c57ad",
+    "packages/client/e2e/transcript-performance/entry.ts": "7374d3bd89a5d80c68d30295767038b7bf70745c3d1a21a7434ba7ca27d72db7",
+    "packages/client/e2e/transcript-performance/vite.config.ts": "b3417591434ac059189e36aeb9baf72f710a331def4adc95f9f68b5e1b536887",
+    "packages/client/e2e/transcript-performance/fixture.ts": "4aa0aae28b98756fb27b02b675d3daeb93ace18880f19cdb72c309fa81a6c3ac",
+    "packages/client/e2e/transcript-performance/render.tsx": "49dce7279e0fb4177db3f63574d0f3766104187bddcf6379cb1d5154a41fae29",
+    "scripts/perf-repro/transcript-browser-metrics.mjs": "7f47f3b9d2816561cfbe2a1270381348aa3d55b13aedbbfdaed47f869afbafd9",
+    "scripts/perf-repro/transcript-browser-metrics.test.mjs": "27ceca8f99b68604a0212cffeb9d9e6f7a603f8a7d05f30455b11d28cc6ff7a9",
+    "scripts/perf-repro/transcript-browser-probe.mjs": "f156fdc4f345c7564a3b112c7e159ed05f4f357344687903d4786af053a26d7e",
+    "scripts/perf-repro/transcript-browser-integrity.mjs": "e09d6a8c249eb84ab93570c22597b1c4fa9c0c61185168eabf1287a236446db2",
+    "scripts/perf-repro/transcript-browser.mjs": "288cf5a99f4af256f0128bf796dff7da0a6a263d38f7cfc20bb7d5fd01001c57"
+  },
+  "review": {
+    "sessionId": "15c0149d-8b75-4328-a7cd-718699841fdd",
+    "model": "gpt-6.1-sol",
+    "effort": "high",
+    "appliedPermissionMode": "bypassPermissions",
+    "status": "Sandboxed source and final numerical/provenance review cleared with no must-fix, should-fix or nit findings",
+    "finalTextSha256": "bda9bef20a5feaee5f2be151c1fb79647626b6de10a417718bf98eed9ea3f718"
+  },
+  "checks": {
+    "fullWorkspaceTests": {
+      "server": 7400,
+      "serverSkipped": 94,
+      "client": 7397,
+      "shared": 989,
+      "root": 23
+    },
+    "logs": {
+      "tests": "06bda3c7214a1d8251969d7f92ca343aaaaf6b2e2be69fce47944292787d87da",
+      "typecheck": "d96257936c1603b31007c0628567fa1959fb5b6bd7dc9583885e4271ba351bae",
+      "viewport-lint": "ad16d59832b4ac228a15c4434baefaa8d9f7e67622dd421f5e17e435019ed8b4",
+      "viewport-format": "8ce28f766f5313f48fe627f09a1b30f96193e05f4ee80274a87018977ec8c5d1",
+      "retention-types": "67090e141fa33090c606164c47d52f6a600fcd851711be16f30ed7006edc1234",
+      "budgets": "256300a2638a67128491fa3f627b1318e8b1ff56dd2c681a9848c1803fbfbc40",
+      "console": "26a748dfe9ba58f7f34b39cd4ee60c07a9861f443b22b7b8935df2f76a2f4287"
+    },
+    "measurementIntegrity": {
+      "unitTests": 1,
+      "browserControls": 9,
+      "mutatedControlsFail": [
+        "marker boundary",
+        "CSS visibility",
+        "ancestor clipping",
+        "body viewport propagation"
+      ]
+    },
+    "sandboxedStagedLintLogSha256": "a737fd872f413a347105b41adefa5eced06e02d9e9a86bf25045d275cc1175c3"
+  },
+  "runs": [
+    {
+      "label": "append-sandbox",
+      "at": "2026-11-12T11:34:52.431Z",
+      "rawPath": "/tmp/p190/frontend/append-sandbox/results.json",
+      "sha256": "f9928b1a1454e304d0a2aecd9763b28c7fc0ad175190314d5ca012e05538f7e3",
+      "logSha256": "604f135eaa617f313565a9f5de699aa3b6bf16dc0143937893a9194edb44efdb",
+      "options": {
+        "client-dist": "/tmp/p190/frontend/verified-build/packages/client/dist",
+        "out": "/tmp/p190/frontend/append-sandbox",
+        "appends": "8",
+        "repeats": "2",
+        "port": "3420",
+        "turns": "20,200,1000",
+        "views": "transcript,page",
+        "widths": "1280",
+        "interval": "1000"
+      },
+      "browser": "148.0.7778.96",
+      "identity": {
+        "root": "/private/tmp/p190/frontend/verified-build/packages/client/dist",
+        "files": 354,
+        "sha256": "b423f3c629b997476cb9174f7f9225f4a3e274468240837e8efe31130c3f50d6"
+      },
+      "harness": {
+        "transcript-browser.mjs": "288cf5a99f4af256f0128bf796dff7da0a6a263d38f7cfc20bb7d5fd01001c57",
+        "transcript-browser-integrity.mjs": "e09d6a8c249eb84ab93570c22597b1c4fa9c0c61185168eabf1287a236446db2",
+        "transcript-browser-probe.mjs": "f156fdc4f345c7564a3b112c7e159ed05f4f357344687903d4786af053a26d7e",
+        "transcript-browser-metrics.mjs": "7f47f3b9d2816561cfbe2a1270381348aa3d55b13aedbbfdaed47f869afbafd9",
+        "active-session-build.mjs": "904160c9e623437784e564b2ed242f28e3fb8b895e9d826da5dfb5f78f40a3e9",
+        "active-session-metrics.mjs": "291bbc3a111cc6f9c63350a1b6501f3cfcf5ea8b3b2c27fdee24e78cbacf49c5",
+        "../perf-suite/host-profile.mjs": "23018d2663008f49905370ef8f61470a96d5c50d06ba017ca7092af7f75b4afb",
+        "../perf-suite/ratchet-evaluation.mjs": "d46e337e92eb126b00a91b6c73f520e6a5d9157037fe125cbeb52fd80ae770e6",
+        "../perf-suite/core.mjs": "2cd5261c1feb91dddd68e42280c73cb7bb4c91998ae525ef1d7afb512b22c466",
+        "../perf-suite/config.json": "b091980a7c33149cdb43acb4da55671b22f252b38951a65344773b0ed13905ff"
+      },
+      "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+      "hostBaselinePass": true,
+      "allMeasuredHostWindowsPass": true,
+      "cpuBusyFractionRange": [0.105, 0.13],
+      "minimumAvailableMemoryBytes": 25356500992,
+      "maximumSwapGrowthBytes": 0,
+      "integrity": {
+        "passed": true,
+        "cases": 9
+      },
+      "aggregates": [
+        {
+          "width": 1280,
+          "turns": 20,
+          "view": "transcript",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 43.122875,
+            "max": 46.168124999999996
+          },
+          "frameGapMs": {
+            "count": 1921,
+            "median": 8.300000190734863,
+            "p95": 10.299999952316284,
+            "max": 16.09999990463257
+          },
+          "keyLatencyMs": null,
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 25.050000071525574,
+            "p95": 26.40000009536743,
+            "max": 26.40000009536743
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 0,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [84, 84],
+          "loadedMessages": [112, 112],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 20,
+          "view": "page",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 60.43025000000001,
+            "max": 60.542874999999995
+          },
+          "frameGapMs": {
+            "count": 1920,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 23.299999952316284
+          },
+          "keyLatencyMs": null,
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 31.74999988079071,
+            "p95": 35.700000047683716,
+            "max": 35.700000047683716
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 3,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [84, 84],
+          "loadedMessages": [112, 112],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 200,
+          "view": "transcript",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 43.095749999999995,
+            "max": 47.894625
+          },
+          "frameGapMs": {
+            "count": 1920,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 16.59999990463257
+          },
+          "keyLatencyMs": null,
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 74.94999992847443,
+            "p95": 77.79999995231628,
+            "max": 77.79999995231628
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 0,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [14, 14],
+          "loadedMessages": [832, 832],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 200,
+          "view": "page",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 53.633624999999995,
+            "max": 53.67525
+          },
+          "frameGapMs": {
+            "count": 1921,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 18.59999990463257
+          },
+          "keyLatencyMs": null,
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 82.20000004768372,
+            "p95": 84.89999985694885,
+            "max": 84.89999985694885
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 2,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [11, 11],
+          "loadedMessages": [832, 832],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 1000,
+          "view": "transcript",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 61.028,
+            "max": 65.08162499999999
+          },
+          "frameGapMs": {
+            "count": 1922,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 20.5
+          },
+          "keyLatencyMs": null,
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 88.45000004768372,
+            "p95": 92.80000019073486,
+            "max": 92.80000019073486
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 5,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [14, 14],
+          "loadedMessages": [4032, 4032],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 1000,
+          "view": "page",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 66.58387499999999,
+            "max": 67.09137500000001
+          },
+          "frameGapMs": {
+            "count": 1918,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 29.300000190734863
+          },
+          "keyLatencyMs": null,
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 91.50000011920929,
+            "p95": 271.60000014305115,
+            "max": 271.60000014305115
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 9,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [11, 11],
+          "loadedMessages": [4032, 4032],
+          "valid": true,
+          "inputDeadlineMet": true
+        }
+      ],
+      "cases": [
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 46.168124999999996,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2153.100000143051,
+              "at": 2153.300000190735,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2170.7000000476837,
+              "domLatencyMs": 17.399999856948853
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3153.100000143051,
+              "at": 3154.2000000476837,
+              "latenessMs": 1.0999999046325684,
+              "domAt": 3179.600000143051,
+              "domLatencyMs": 25.40000009536743
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4153.100000143051,
+              "at": 4153.200000047684,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 4177.900000095367,
+              "domLatencyMs": 24.700000047683716
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5153.100000143051,
+              "at": 5154.200000047684,
+              "latenessMs": 1.0999999046325684,
+              "domAt": 5179.400000095367,
+              "domLatencyMs": 25.200000047683716
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6153.100000143051,
+              "at": 6153.200000047684,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 6178.200000047684,
+              "domLatencyMs": 25
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7153.100000143051,
+              "at": 7153.200000047684,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 7178.300000190735,
+              "domLatencyMs": 25.100000143051147
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8153.100000143051,
+              "at": 8153.200000047684,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 8178.100000143051,
+              "domLatencyMs": 24.90000009536743
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9153.100000143051,
+              "at": 9153.300000190735,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 9178.200000047684,
+              "domLatencyMs": 24.899999856948853
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 60.43025000000001,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2119.5,
+              "at": 2119.5999999046326,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2145.2000000476837,
+              "domLatencyMs": 25.600000143051147
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3119.5,
+              "at": 3121.399999856949,
+              "latenessMs": 1.8999998569488525,
+              "domAt": 3155,
+              "domLatencyMs": 33.60000014305115
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4119.5,
+              "at": 4120.5,
+              "latenessMs": 1,
+              "domAt": 4155.099999904633,
+              "domLatencyMs": 34.59999990463257
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5119.5,
+              "at": 5120,
+              "latenessMs": 0.5,
+              "domAt": 5151.799999952316,
+              "domLatencyMs": 31.799999952316284
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6119.5,
+              "at": 6120.5,
+              "latenessMs": 1,
+              "domAt": 6150.200000047684,
+              "domLatencyMs": 29.700000047683716
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7119.5,
+              "at": 7121.399999856949,
+              "latenessMs": 1.8999998569488525,
+              "domAt": 7155.899999856949,
+              "domLatencyMs": 34.5
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8119.5,
+              "at": 8121.399999856949,
+              "latenessMs": 1.8999998569488525,
+              "domAt": 8157.099999904633,
+              "domLatencyMs": 35.700000047683716
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9119.5,
+              "at": 9120.099999904633,
+              "latenessMs": 0.5999999046325684,
+              "domAt": 9150,
+              "domLatencyMs": 29.90000009536743
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 43.095749999999995,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2156.5999999046326,
+              "at": 2156.7000000476837,
+              "latenessMs": 0.10000014305114746,
+              "domAt": 2234.5,
+              "domLatencyMs": 77.79999995231628
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3156.5999999046326,
+              "at": 3157.2999999523163,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 3232.399999856949,
+              "domLatencyMs": 75.09999990463257
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4156.599999904633,
+              "at": 4156.799999952316,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 4233.899999856949,
+              "domLatencyMs": 77.09999990463257
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5156.599999904633,
+              "at": 5157.399999856949,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 5232.399999856949,
+              "domLatencyMs": 75
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6156.599999904633,
+              "at": 6157.5,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 6232.399999856949,
+              "domLatencyMs": 74.89999985694885
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7156.599999904633,
+              "at": 7157.200000047684,
+              "latenessMs": 0.6000001430511475,
+              "domAt": 7232.399999856949,
+              "domLatencyMs": 75.19999980926514
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8156.599999904633,
+              "at": 8156.799999952316,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 8232.399999856949,
+              "domLatencyMs": 75.59999990463257
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9156.599999904633,
+              "at": 9157.399999856949,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 9226,
+              "domLatencyMs": 68.60000014305115
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 53.633624999999995,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2132.5999999046326,
+              "at": 2132.7999999523163,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2206.7999999523163,
+              "domLatencyMs": 74
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3132.5999999046326,
+              "at": 3132.9000000953674,
+              "latenessMs": 0.3000001907348633,
+              "domAt": 3215.2000000476837,
+              "domLatencyMs": 82.29999995231628
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4132.599999904633,
+              "at": 4132.799999952316,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 4215.200000047684,
+              "domLatencyMs": 82.40000009536743
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5132.599999904633,
+              "at": 5132.200000047684,
+              "latenessMs": 0,
+              "domAt": 5215.200000047684,
+              "domLatencyMs": 83
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6132.599999904633,
+              "at": 6133.700000047684,
+              "latenessMs": 1.1000001430511475,
+              "domAt": 6215.200000047684,
+              "domLatencyMs": 81.5
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7132.599999904633,
+              "at": 7133.099999904633,
+              "latenessMs": 0.5,
+              "domAt": 7215.200000047684,
+              "domLatencyMs": 82.10000014305115
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8132.599999904633,
+              "at": 8133,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 8215.299999952316,
+              "domLatencyMs": 82.29999995231628
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9132.599999904633,
+              "at": 9132.200000047684,
+              "latenessMs": 0,
+              "domAt": 9217.099999904633,
+              "domLatencyMs": 84.89999985694885
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 65.08162499999999,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2168.399999856949,
+              "at": 2168.5999999046326,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2260.2999999523163,
+              "domLatencyMs": 91.70000004768372
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3168.399999856949,
+              "at": 3168.5999999046326,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 3260.399999856949,
+              "domLatencyMs": 91.79999995231628
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4168.399999856949,
+              "at": 4169.299999952316,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 4254.399999856949,
+              "domLatencyMs": 85.09999990463257
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5168.399999856949,
+              "at": 5169.599999904633,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 5260.5,
+              "domLatencyMs": 90.90000009536743
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6168.399999856949,
+              "at": 6169.5,
+              "latenessMs": 1.1000001430511475,
+              "domAt": 6260.5,
+              "domLatencyMs": 91
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7168.399999856949,
+              "at": 7168.199999809265,
+              "latenessMs": 0,
+              "domAt": 7254.199999809265,
+              "domLatencyMs": 86
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8168.399999856949,
+              "at": 8168.899999856949,
+              "latenessMs": 0.5,
+              "domAt": 8254.199999809265,
+              "domLatencyMs": 85.29999995231628
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9168.399999856949,
+              "at": 9169.199999809265,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 9260.399999856949,
+              "domLatencyMs": 91.20000004768372
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 66.58387499999999,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2130.0999999046326,
+              "at": 2131,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 2401.9000000953674,
+              "domLatencyMs": 270.90000009536743
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3130.0999999046326,
+              "at": 3130.9000000953674,
+              "latenessMs": 0.8000001907348633,
+              "domAt": 3223,
+              "domLatencyMs": 92.09999990463257
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4130.099999904633,
+              "at": 4131.099999904633,
+              "latenessMs": 1,
+              "domAt": 4223.599999904633,
+              "domLatencyMs": 92.5
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5130.099999904633,
+              "at": 5130.599999904633,
+              "latenessMs": 0.5,
+              "domAt": 5224.799999952316,
+              "domLatencyMs": 94.20000004768372
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6130.099999904633,
+              "at": 6130.700000047684,
+              "latenessMs": 0.6000001430511475,
+              "domAt": 6215.900000095367,
+              "domLatencyMs": 85.20000004768372
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7130.099999904633,
+              "at": 7131,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 7222.900000095367,
+              "domLatencyMs": 91.90000009536743
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8130.099999904633,
+              "at": 8131.5,
+              "latenessMs": 1.4000000953674316,
+              "domAt": 8222.900000095367,
+              "domLatencyMs": 91.40000009536743
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9130.099999904633,
+              "at": 9131.099999904633,
+              "latenessMs": 1,
+              "domAt": 9223,
+              "domLatencyMs": 91.90000009536743
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "page"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 67.09137500000001,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2133.7999999523163,
+              "at": 2134,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2405.600000143051,
+              "domLatencyMs": 271.60000014305115
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3133.7999999523163,
+              "at": 3134.5,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 3225.9000000953674,
+              "domLatencyMs": 91.40000009536743
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4133.799999952316,
+              "at": 4134.299999952316,
+              "latenessMs": 0.5,
+              "domAt": 4225.900000095367,
+              "domLatencyMs": 91.60000014305115
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5133.799999952316,
+              "at": 5135.100000143051,
+              "latenessMs": 1.3000001907348633,
+              "domAt": 5225.900000095367,
+              "domLatencyMs": 90.79999995231628
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6133.799999952316,
+              "at": 6134.400000095367,
+              "latenessMs": 0.6000001430511475,
+              "domAt": 6217.600000143051,
+              "domLatencyMs": 83.20000004768372
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7133.799999952316,
+              "at": 7134.600000143051,
+              "latenessMs": 0.8000001907348633,
+              "domAt": 7225.900000095367,
+              "domLatencyMs": 91.29999995231628
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8133.799999952316,
+              "at": 8134.600000143051,
+              "latenessMs": 0.8000001907348633,
+              "domAt": 8225.799999952316,
+              "domLatencyMs": 91.19999980926514
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9133.799999952316,
+              "at": 9134.900000095367,
+              "latenessMs": 1.1000001430511475,
+              "domAt": 9225.900000095367,
+              "domLatencyMs": 91
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "transcript"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 61.028,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2172.7000000476837,
+              "at": 2172.899999856949,
+              "latenessMs": 0.19999980926513672,
+              "domAt": 2265.7000000476837,
+              "domLatencyMs": 92.80000019073486
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3172.7000000476837,
+              "at": 3173.899999856949,
+              "latenessMs": 1.1999998092651367,
+              "domAt": 3265.7000000476837,
+              "domLatencyMs": 91.80000019073486
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4172.700000047684,
+              "at": 4172.599999904633,
+              "latenessMs": 0,
+              "domAt": 4257.5,
+              "domLatencyMs": 84.90000009536743
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5172.700000047684,
+              "at": 5173.299999952316,
+              "latenessMs": 0.5999999046325684,
+              "domAt": 5249.200000047684,
+              "domLatencyMs": 75.90000009536743
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6172.700000047684,
+              "at": 6173.899999856949,
+              "latenessMs": 1.1999998092651367,
+              "domAt": 6265.799999952316,
+              "domLatencyMs": 91.90000009536743
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7172.700000047684,
+              "at": 7173.5,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 7257.399999856949,
+              "domLatencyMs": 83.89999985694885
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8172.700000047684,
+              "at": 8173.200000047684,
+              "latenessMs": 0.5,
+              "domAt": 8257.399999856949,
+              "domLatencyMs": 84.19999980926514
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9172.700000047684,
+              "at": 9173,
+              "latenessMs": 0.2999999523162842,
+              "domAt": 9257.5,
+              "domLatencyMs": 84.5
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "page"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 53.67525,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2143.399999856949,
+              "at": 2143.399999856949,
+              "latenessMs": 0,
+              "domAt": 2221.7999999523163,
+              "domLatencyMs": 78.40000009536743
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3143.399999856949,
+              "at": 3144.2000000476837,
+              "latenessMs": 0.8000001907348633,
+              "domAt": 3228.2999999523163,
+              "domLatencyMs": 84.09999990463257
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4143.399999856949,
+              "at": 4144.099999904633,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 4220,
+              "domLatencyMs": 75.90000009536743
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5143.399999856949,
+              "at": 5144.799999952316,
+              "latenessMs": 1.4000000953674316,
+              "domAt": 5228.299999952316,
+              "domLatencyMs": 83.5
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6143.399999856949,
+              "at": 6144.599999904633,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 6222.099999904633,
+              "domLatencyMs": 77.5
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7143.399999856949,
+              "at": 7145,
+              "latenessMs": 1.6000001430511475,
+              "domAt": 7220,
+              "domLatencyMs": 75
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8143.399999856949,
+              "at": 8143.299999952316,
+              "latenessMs": 0,
+              "domAt": 8219.899999856949,
+              "domLatencyMs": 76.59999990463257
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9143.399999856949,
+              "at": 9145.099999904633,
+              "latenessMs": 1.7000000476837158,
+              "domAt": 9228.299999952316,
+              "domLatencyMs": 83.20000004768372
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "transcript"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 47.894625,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2157.5999999046326,
+              "at": 2157.7999999523163,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2232.2000000476837,
+              "domLatencyMs": 74.40000009536743
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3157.5999999046326,
+              "at": 3158.5999999046326,
+              "latenessMs": 1,
+              "domAt": 3232.5,
+              "domLatencyMs": 73.90000009536743
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4157.599999904633,
+              "at": 4157.400000095367,
+              "latenessMs": 0,
+              "domAt": 4232.299999952316,
+              "domLatencyMs": 74.89999985694885
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5157.599999904633,
+              "at": 5157.400000095367,
+              "latenessMs": 0,
+              "domAt": 5232.400000095367,
+              "domLatencyMs": 75
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6157.599999904633,
+              "at": 6157.400000095367,
+              "latenessMs": 0,
+              "domAt": 6232.299999952316,
+              "domLatencyMs": 74.89999985694885
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7157.599999904633,
+              "at": 7157.5,
+              "latenessMs": 0,
+              "domAt": 7232.299999952316,
+              "domLatencyMs": 74.79999995231628
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8157.599999904633,
+              "at": 8158.299999952316,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 8234.299999952316,
+              "domLatencyMs": 76
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9157.599999904633,
+              "at": 9157.900000095367,
+              "latenessMs": 0.3000001907348633,
+              "domAt": 9232.299999952316,
+              "domLatencyMs": 74.39999985694885
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "page"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 60.542874999999995,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2134.0999999046326,
+              "at": 2134.2000000476837,
+              "latenessMs": 0.10000014305114746,
+              "domAt": 2158.2000000476837,
+              "domLatencyMs": 24
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3134.0999999046326,
+              "at": 3135.0999999046326,
+              "latenessMs": 1,
+              "domAt": 3167.2000000476837,
+              "domLatencyMs": 32.10000014305115
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4134.099999904633,
+              "at": 4134.799999952316,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 4166,
+              "domLatencyMs": 31.200000047683716
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5134.099999904633,
+              "at": 5134.099999904633,
+              "latenessMs": 0,
+              "domAt": 5165.700000047684,
+              "domLatencyMs": 31.600000143051147
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6134.099999904633,
+              "at": 6134.899999856949,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 6166.200000047684,
+              "domLatencyMs": 31.300000190734863
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7134.099999904633,
+              "at": 7134.700000047684,
+              "latenessMs": 0.6000001430511475,
+              "domAt": 7166.399999856949,
+              "domLatencyMs": 31.699999809265137
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8134.099999904633,
+              "at": 8135.099999904633,
+              "latenessMs": 1,
+              "domAt": 8167.399999856949,
+              "domLatencyMs": 32.299999952316284
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9134.099999904633,
+              "at": 9135,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 9167.599999904633,
+              "domLatencyMs": 32.59999990463257
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "transcript"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 43.122875,
+          "keys": {
+            "count": 0,
+            "latencyMs": [],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": ""
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2151.800000190735,
+              "at": 2151.9000000953674,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2171.100000143051,
+              "domLatencyMs": 19.200000047683716
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3151.800000190735,
+              "at": 3152.9000000953674,
+              "latenessMs": 1.0999999046325684,
+              "domAt": 3169.600000143051,
+              "domLatencyMs": 16.700000047683716
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4151.800000190735,
+              "at": 4152.700000047684,
+              "latenessMs": 0.8999998569488525,
+              "domAt": 4179.100000143051,
+              "domLatencyMs": 26.40000009536743
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5151.800000190735,
+              "at": 5152.800000190735,
+              "latenessMs": 1,
+              "domAt": 5178.100000143051,
+              "domLatencyMs": 25.299999952316284
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6151.800000190735,
+              "at": 6152.600000143051,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 6177.600000143051,
+              "domLatencyMs": 25
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7151.800000190735,
+              "at": 7152.5,
+              "latenessMs": 0.6999998092651367,
+              "domAt": 7178.600000143051,
+              "domLatencyMs": 26.100000143051147
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8151.800000190735,
+              "at": 8152.800000190735,
+              "latenessMs": 1,
+              "domAt": 8178,
+              "domLatencyMs": 25.199999809265137
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9151.800000190735,
+              "at": 9151.800000190735,
+              "latenessMs": 0,
+              "domAt": 9178,
+              "domLatencyMs": 26.199999809265137
+            }
+          ],
+          "longTasks": []
+        }
+      ]
+    },
+    {
+      "label": "typing-sandbox",
+      "at": "2026-11-12T11:36:58.968Z",
+      "rawPath": "/tmp/p190/frontend/typing-sandbox/results.json",
+      "sha256": "1037771c42f4d72ba9371141866afc2250c56e5107ee98d4f4e9478135bf376f",
+      "logSha256": "e26070a708c7d70ac094ad6ca0e6de2dfba89adb333ca8406b6841eb384f60ee",
+      "options": {
+        "client-dist": "/tmp/p190/frontend/verified-build/packages/client/dist",
+        "out": "/tmp/p190/frontend/typing-sandbox",
+        "appends": "8",
+        "repeats": "2",
+        "typing": true,
+        "port": "3420",
+        "turns": "20,200,1000",
+        "views": "transcript,page",
+        "widths": "1280",
+        "interval": "1000"
+      },
+      "browser": "148.0.7778.96",
+      "identity": {
+        "root": "/private/tmp/p190/frontend/verified-build/packages/client/dist",
+        "files": 354,
+        "sha256": "b423f3c629b997476cb9174f7f9225f4a3e274468240837e8efe31130c3f50d6"
+      },
+      "harness": {
+        "transcript-browser.mjs": "288cf5a99f4af256f0128bf796dff7da0a6a263d38f7cfc20bb7d5fd01001c57",
+        "transcript-browser-integrity.mjs": "e09d6a8c249eb84ab93570c22597b1c4fa9c0c61185168eabf1287a236446db2",
+        "transcript-browser-probe.mjs": "f156fdc4f345c7564a3b112c7e159ed05f4f357344687903d4786af053a26d7e",
+        "transcript-browser-metrics.mjs": "7f47f3b9d2816561cfbe2a1270381348aa3d55b13aedbbfdaed47f869afbafd9",
+        "active-session-build.mjs": "904160c9e623437784e564b2ed242f28e3fb8b895e9d826da5dfb5f78f40a3e9",
+        "active-session-metrics.mjs": "291bbc3a111cc6f9c63350a1b6501f3cfcf5ea8b3b2c27fdee24e78cbacf49c5",
+        "../perf-suite/host-profile.mjs": "23018d2663008f49905370ef8f61470a96d5c50d06ba017ca7092af7f75b4afb",
+        "../perf-suite/ratchet-evaluation.mjs": "d46e337e92eb126b00a91b6c73f520e6a5d9157037fe125cbeb52fd80ae770e6",
+        "../perf-suite/core.mjs": "2cd5261c1feb91dddd68e42280c73cb7bb4c91998ae525ef1d7afb512b22c466",
+        "../perf-suite/config.json": "b091980a7c33149cdb43acb4da55671b22f252b38951a65344773b0ed13905ff"
+      },
+      "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+      "hostBaselinePass": true,
+      "allMeasuredHostWindowsPass": true,
+      "cpuBusyFractionRange": [0.106, 0.124],
+      "minimumAvailableMemoryBytes": 25295880192,
+      "maximumSwapGrowthBytes": 0,
+      "integrity": {
+        "passed": true,
+        "cases": 9
+      },
+      "aggregates": [
+        {
+          "width": 1280,
+          "turns": 20,
+          "view": "transcript",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 93.7775,
+            "max": 96.8075
+          },
+          "frameGapMs": {
+            "count": 1921,
+            "median": 8.399999856948853,
+            "p95": 10.300000190734863,
+            "max": 18.299999952316284
+          },
+          "keyLatencyMs": {
+            "count": 174,
+            "median": 5.25,
+            "p95": 8.5,
+            "max": 9
+          },
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 24.550000071525574,
+            "p95": 33.799999952316284,
+            "max": 33.799999952316284
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 1,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [84, 84],
+          "loadedMessages": [112, 112],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 20,
+          "view": "page",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 118.966375,
+            "max": 128.4905
+          },
+          "frameGapMs": {
+            "count": 1920,
+            "median": 8.299999952316284,
+            "p95": 10.399999856948853,
+            "max": 18.59999990463257
+          },
+          "keyLatencyMs": {
+            "count": 174,
+            "median": 5.0,
+            "p95": 8.100000143051147,
+            "max": 13.800000190734863
+          },
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 29.200000047683716,
+            "p95": 40.200000047683716,
+            "max": 40.200000047683716
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 2,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [84, 84],
+          "loadedMessages": [112, 112],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 200,
+          "view": "transcript",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 80.84225,
+            "max": 91.217
+          },
+          "frameGapMs": {
+            "count": 1921,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 17.5
+          },
+          "keyLatencyMs": {
+            "count": 174,
+            "median": 3.8999998569488525,
+            "p95": 8.900000095367432,
+            "max": 9.700000047683716
+          },
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 74.59999990463257,
+            "p95": 88.79999995231628,
+            "max": 88.79999995231628
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 1,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [14, 14],
+          "loadedMessages": [832, 832],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 200,
+          "view": "page",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 101.140125,
+            "max": 113.794875
+          },
+          "frameGapMs": {
+            "count": 1920,
+            "median": 8.299999952316284,
+            "p95": 10.399999856948853,
+            "max": 20.09999990463257
+          },
+          "keyLatencyMs": {
+            "count": 174,
+            "median": 4.75,
+            "p95": 8.900000095367432,
+            "max": 13.299999952316284
+          },
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 75.45000004768372,
+            "p95": 92.59999990463257,
+            "max": 92.59999990463257
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 3,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [11, 11],
+          "loadedMessages": [832, 832],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 1000,
+          "view": "transcript",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 101.373875,
+            "max": 107.8485
+          },
+          "frameGapMs": {
+            "count": 1919,
+            "median": 8.299999952316284,
+            "p95": 10.399999856948853,
+            "max": 20
+          },
+          "keyLatencyMs": {
+            "count": 174,
+            "median": 5.149999976158142,
+            "p95": 9.399999856948853,
+            "max": 19.59999990463257
+          },
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 89.64999997615814,
+            "p95": 109.60000014305115,
+            "max": 109.60000014305115
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 9,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [14, 14],
+          "loadedMessages": [4032, 4032],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 1280,
+          "turns": 1000,
+          "view": "page",
+          "repetitions": 2,
+          "taskMsPerAppend": {
+            "min": 116.294,
+            "max": 124.493625
+          },
+          "frameGapMs": {
+            "count": 1916,
+            "median": 8.299999952316284,
+            "p95": 10.400000095367432,
+            "max": 23
+          },
+          "keyLatencyMs": {
+            "count": 174,
+            "median": 4.800000071525574,
+            "p95": 8.799999952316284,
+            "max": 17.09999990463257
+          },
+          "visibleLatencyMs": {
+            "count": 16,
+            "median": 89.85000002384186,
+            "p95": 278.10000014305115,
+            "max": 278.10000014305115
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 7,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [11, 11],
+          "loadedMessages": [4032, 4032],
+          "valid": true,
+          "inputDeadlineMet": true
+        }
+      ],
+      "cases": [
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 96.8075,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              7, 2.200000047683716, 5.200000047683716, 6.300000190734863,
+              5.400000095367432, 5, 3.9000000953674316, 8.900000095367432,
+              6.200000047683716, 7.200000047683716, 5.299999952316284,
+              8.399999856948853, 4.599999904632568, 6.5, 6.299999952316284,
+              3.700000047683716, 3.8999998569488525, 6.1000001430511475,
+              8.800000190734863, 6.900000095367432, 3.3000001907348633, 3,
+              2.799999952316284, 2.8999998569488525, 2.5999999046325684,
+              4.599999904632568, 4, 5.8999998569488525, 4.8999998569488525, 5,
+              7.400000095367432, 6.900000095367432, 7.900000095367432,
+              3.200000047683716, 2.4000000953674316, 2.299999952316284,
+              3.1999998092651367, 7.900000095367432, 6.200000047683716,
+              4.6000001430511475, 4.799999952316284, 6.1000001430511475,
+              7.400000095367432, 2.4000000953674316, 2.700000047683716,
+              2.299999952316284, 4.1000001430511475, 8.799999952316284,
+              3.3000001907348633, 8.099999904632568, 1.2999999523162842, 3,
+              3.3999998569488525, 6.699999809265137, 7.200000047683716,
+              6.3999998569488525, 6.599999904632568, 5.5, 7.3999998569488525,
+              2.5, 2.4000000953674316, 3, 4.3999998569488525, 5.299999952316284,
+              4.799999952316284, 5.8999998569488525, 8.700000047683716,
+              7.799999952316284, 8, 2.5, 3.1000001430511475, 5.300000190734863,
+              5.700000047683716, 7.800000190734863, 7.8999998569488525,
+              6.799999952316284, 7.200000047683716, 1.5, 3.1000001430511475,
+              2.5999999046325684, 3.3999998569488525, 7.799999952316284,
+              7.300000190734863, 3.700000047683716, 4.900000095367432,
+              7.299999952316284, 8.200000047683716
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2174.9000000953674,
+              "at": 2175,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2198.2000000476837,
+              "domLatencyMs": 23.200000047683716
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3174.9000000953674,
+              "at": 3176.100000143051,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 3206.600000143051,
+              "domLatencyMs": 30.5
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4174.900000095367,
+              "at": 4176.400000095367,
+              "latenessMs": 1.5,
+              "domAt": 4198.700000047684,
+              "domLatencyMs": 22.299999952316284
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5174.900000095367,
+              "at": 5175.100000143051,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 5193.800000190735,
+              "domLatencyMs": 18.700000047683716
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6174.900000095367,
+              "at": 6174.800000190735,
+              "latenessMs": 0,
+              "domAt": 6199.600000143051,
+              "domLatencyMs": 24.799999952316284
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7174.900000095367,
+              "at": 7175.5,
+              "latenessMs": 0.5999999046325684,
+              "domAt": 7199.5,
+              "domLatencyMs": 24
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8174.900000095367,
+              "at": 8175.900000095367,
+              "latenessMs": 1,
+              "domAt": 8200.400000095367,
+              "domLatencyMs": 24.5
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9174.900000095367,
+              "at": 9175.100000143051,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 9200.5,
+              "domLatencyMs": 25.399999856948853
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 118.966375,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              13.800000190734863, 9.400000095367432, 2.5999999046325684,
+              6.099999904632568, 4.700000047683716, 5.5, 7.8999998569488525,
+              6.299999952316284, 7.3999998569488525, 5, 5, 7.400000095367432,
+              4.300000190734863, 5, 5.099999904632568, 8.099999904632568,
+              1.7000000476837158, 4.699999809265137, 5, 4.599999904632568,
+              4.400000095367432, 4.700000047683716, 5.700000047683716,
+              5.199999809265137, 4.5, 4.8999998569488525, 9.599999904632568, 8,
+              5.200000047683716, 5, 1.5999999046325684, 3.700000047683716,
+              6.3999998569488525, 2, 3.200000047683716, 4.5, 4.700000047683716,
+              4.5, 4.900000095367432, 7.300000190734863, 8.100000143051147,
+              3.799999952316284, 8.600000143051147, 1.5, 3.1000001430511475,
+              7.3999998569488525, 1.7000000476837158, 6.700000047683716,
+              7.200000047683716, 3.9000000953674316, 4.400000095367432,
+              4.599999904632568, 4.799999952316284, 8, 5.299999952316284,
+              6.6000001430511475, 7.200000047683716, 2, 3.799999952316284,
+              5.099999904632568, 7.200000047683716, 4.1000001430511475, 8,
+              3.799999952316284, 4.700000047683716, 7, 5.300000190734863,
+              4.8999998569488525, 2.5999999046325684, 4.400000095367432,
+              8.200000047683716, 5.900000095367432, 4.799999952316284,
+              4.599999904632568, 7.5, 5.700000047683716, 8, 1.9000000953674316,
+              5, 5.300000190734863, 5.199999809265137, 4.700000047683716,
+              4.599999904632568, 4.099999904632568, 7.299999952316284,
+              4.799999952316284, 4.700000047683716
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2131.899999856949,
+              "at": 2132,
+              "latenessMs": 0.10000014305114746,
+              "domAt": 2165.7999999523163,
+              "domLatencyMs": 33.799999952316284
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3131.899999856949,
+              "at": 3133.0999999046326,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 3160.7999999523163,
+              "domLatencyMs": 27.700000047683716
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4131.899999856949,
+              "at": 4133.799999952316,
+              "latenessMs": 1.9000000953674316,
+              "domAt": 4159.599999904633,
+              "domLatencyMs": 25.799999952316284
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5131.899999856949,
+              "at": 5131.899999856949,
+              "latenessMs": 0,
+              "domAt": 5151,
+              "domLatencyMs": 19.100000143051147
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6131.899999856949,
+              "at": 6133.399999856949,
+              "latenessMs": 1.5,
+              "domAt": 6161,
+              "domLatencyMs": 27.600000143051147
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7131.899999856949,
+              "at": 7133.5,
+              "latenessMs": 1.6000001430511475,
+              "domAt": 7159.299999952316,
+              "domLatencyMs": 25.799999952316284
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8131.899999856949,
+              "at": 8132.099999904633,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 8159.200000047684,
+              "domLatencyMs": 27.100000143051147
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9131.899999856949,
+              "at": 9133.700000047684,
+              "latenessMs": 1.8000001907348633,
+              "domAt": 9168.899999856949,
+              "domLatencyMs": 35.19999980926514
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 91.217,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              9.700000047683716, 3.4000000953674316, 5.699999809265137,
+              8.900000095367432, 6.200000047683716, 3.8999998569488525,
+              4.1000001430511475, 3.299999952316284, 3.4000000953674316, 3,
+              2.4000000953674316, 3, 3.3999998569488525, 3.3000001907348633,
+              2.4000000953674316, 3.200000047683716, 4.900000095367432,
+              9.399999856948853, 2.799999952316284, 3.1000001430511475,
+              2.9000000953674316, 2.5, 5.5, 4.099999904632568, 6.5,
+              7.799999952316284, 7.1000001430511475, 3.299999952316284, 3,
+              2.3000001907348633, 2.8000001907348633, 4.400000095367432,
+              4.400000095367432, 7.200000047683716, 5.200000047683716, 8,
+              2.8999998569488525, 2.799999952316284, 2.8999998569488525, 3,
+              3.5999999046325684, 5, 6.6000001430511475, 7.199999809265137,
+              9.600000143051147, 7.799999952316284, 1.3999998569488525,
+              2.8999998569488525, 7, 6.900000095367432, 4.400000095367432,
+              3.9000000953674316, 4, 4.400000095367432, 6.5, 9,
+              2.3000001907348633, 3, 2.700000047683716, 2.200000047683716,
+              2.6000001430511475, 3.5999999046325684, 7.199999809265137, 3,
+              3.1000001430511475, 2.6000001430511475, 2.8999998569488525,
+              2.799999952316284, 2.799999952316284, 3.200000047683716,
+              4.700000047683716, 3.1000001430511475, 5.6000001430511475,
+              6.299999952316284, 4.599999904632568, 7.200000047683716, 6.5,
+              8.299999952316284, 2.299999952316284, 3.1000001430511475,
+              2.700000047683716, 3.5999999046325684, 2.9000000953674316,
+              3.200000047683716, 2.799999952316284, 5.599999904632568,
+              4.400000095367432
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2153.9000000953674,
+              "at": 2154,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2238.800000190735,
+              "domLatencyMs": 84.80000019073486
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3153.9000000953674,
+              "at": 3155.5,
+              "latenessMs": 1.5999999046325684,
+              "domAt": 3237.2000000476837,
+              "domLatencyMs": 81.70000004768372
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4153.900000095367,
+              "at": 4154.400000095367,
+              "latenessMs": 0.5,
+              "domAt": 4232.700000047684,
+              "domLatencyMs": 78.29999995231628
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5153.900000095367,
+              "at": 5153.600000143051,
+              "latenessMs": 0,
+              "domAt": 5230.5,
+              "domLatencyMs": 76.89999985694885
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6153.900000095367,
+              "at": 6154.700000047684,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 6230.5,
+              "domLatencyMs": 75.79999995231628
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7153.900000095367,
+              "at": 7156.100000143051,
+              "latenessMs": 2.200000047683716,
+              "domAt": 7230.5,
+              "domLatencyMs": 74.39999985694885
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8153.900000095367,
+              "at": 8155.700000047684,
+              "latenessMs": 1.7999999523162842,
+              "domAt": 8230.5,
+              "domLatencyMs": 74.79999995231628
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9153.900000095367,
+              "at": 9154.800000190735,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 9230.5,
+              "domLatencyMs": 75.69999980926514
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 113.794875,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              13.299999952316284, 7.700000047683716, 9.599999904632568,
+              2.4000000953674316, 7.200000047683716, 5, 4.699999809265137,
+              4.799999952316284, 4.799999952316284, 6.5, 7.5, 4.5, 4.5, 4.5,
+              8.600000143051147, 7, 3.299999952316284, 7.5, 6.5,
+              4.599999904632568, 4.400000095367432, 4.5, 7.900000095367432, 5.5,
+              4.400000095367432, 4.599999904632568, 7.299999952316284,
+              5.099999904632568, 5.3999998569488525, 9.299999952316284,
+              7.700000047683716, 1.5999999046325684, 5.5, 4.5, 4.5, 4, 4,
+              7.599999904632568, 6.200000047683716, 4.900000095367432, 4.5,
+              4.199999809265137, 4.299999952316284, 4.200000047683716,
+              4.200000047683716, 1.7000000476837158, 3.0999999046325684,
+              5.299999952316284, 8.099999904632568, 4, 8.199999809265137,
+              8.900000095367432, 8.5, 5.299999952316284, 4.700000047683716,
+              4.299999952316284, 8.600000143051147, 7.1000001430511475,
+              8.900000095367432, 6.400000095367432, 6, 10.299999952316284, 4,
+              7.700000047683716, 6.700000047683716, 5.1000001430511475,
+              4.700000047683716, 4.3999998569488525, 4, 4.200000047683716,
+              4.1000001430511475, 4.200000047683716, 3.8999998569488525,
+              9.200000047683716, 6.799999952316284, 5.299999952316284,
+              7.6000001430511475, 2.3000001907348633, 3.9000000953674316,
+              4.099999904632568, 7.700000047683716, 6.099999904632568, 6,
+              4.6000001430511475, 4.400000095367432, 4.400000095367432,
+              8.200000047683716
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2136.4000000953674,
+              "at": 2136.600000143051,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2229.2000000476837,
+              "domLatencyMs": 92.59999990463257
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3136.4000000953674,
+              "at": 3137.300000190735,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 3212.5,
+              "domLatencyMs": 75.19999980926514
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4136.400000095367,
+              "at": 4137.5,
+              "latenessMs": 1.0999999046325684,
+              "domAt": 4212.400000095367,
+              "domLatencyMs": 74.90000009536743
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5136.400000095367,
+              "at": 5137.300000190735,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 5212.600000143051,
+              "domLatencyMs": 75.29999995231628
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6136.400000095367,
+              "at": 6136.300000190735,
+              "latenessMs": 0,
+              "domAt": 6212.5,
+              "domLatencyMs": 76.19999980926514
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7136.400000095367,
+              "at": 7139.300000190735,
+              "latenessMs": 2.9000000953674316,
+              "domAt": 7212.5,
+              "domLatencyMs": 73.19999980926514
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8136.400000095367,
+              "at": 8138.400000095367,
+              "latenessMs": 2,
+              "domAt": 8220.800000190735,
+              "domLatencyMs": 82.40000009536743
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9136.400000095367,
+              "at": 9138.700000047684,
+              "latenessMs": 2.299999952316284,
+              "domAt": 9220.800000190735,
+              "domLatencyMs": 82.10000014305115
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 107.8485,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              19.5, 1.5999999046325684, 4, 8.099999904632568, 3.200000047683716,
+              3.5, 8.200000047683716, 9.200000047683716, 3.299999952316284,
+              3.1000001430511475, 2.299999952316284, 2.799999952316284, 3,
+              2.9000000953674316, 3.299999952316284, 4.400000095367432,
+              6.599999904632568, 2.9000000953674316, 6.6000001430511475,
+              7.599999904632568, 7.199999809265137, 2.5, 3.299999952316284,
+              2.5999999046325684, 2.6999998092651367, 5.900000095367432,
+              7.700000047683716, 7, 9.099999904632568, 7.400000095367432, 3,
+              4.6000001430511475, 5.5, 1.0999999046325684, 3.1000001430511475,
+              3.5999999046325684, 6.099999904632568, 6.5, 6.5,
+              7.700000047683716, 7.200000047683716, 2.1999998092651367,
+              3.200000047683716, 3.5, 8, 5.700000047683716, 5.299999952316284,
+              5, 7.8999998569488525, 5.700000047683716, 7.200000047683716, 6,
+              6.700000047683716, 6.900000095367432, 7.299999952316284,
+              7.299999952316284, 2.3999998569488525, 2.3999998569488525,
+              6.299999952316284, 6.799999952316284, 8.599999904632568,
+              9.200000047683716, 1.2999999523162842, 5.200000047683716,
+              5.099999904632568, 8.5, 7.400000095367432, 9.300000190734863, 7.5,
+              6.699999809265137, 7.099999904632568, 9.299999952316284,
+              2.0999999046325684, 3, 3.9000000953674316, 3.5999999046325684,
+              10.099999904632568, 1.8000001907348633, 4.800000190734863,
+              6.3999998569488525, 7.599999904632568, 8.299999952316284,
+              2.8999998569488525, 2.799999952316284, 4.700000047683716,
+              7.700000047683716, 8.099999904632568
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2170.9000000953674,
+              "at": 2171.0999999046326,
+              "latenessMs": 0.19999980926513672,
+              "domAt": 2280.2999999523163,
+              "domLatencyMs": 109.20000004768372
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3170.9000000953674,
+              "at": 3171.7999999523163,
+              "latenessMs": 0.8999998569488525,
+              "domAt": 3280.2000000476837,
+              "domLatencyMs": 108.40000009536743
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4170.900000095367,
+              "at": 4170.900000095367,
+              "latenessMs": 0,
+              "domAt": 4255.200000047684,
+              "domLatencyMs": 84.29999995231628
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5170.900000095367,
+              "at": 5171.900000095367,
+              "latenessMs": 1,
+              "domAt": 5263.599999904633,
+              "domLatencyMs": 91.69999980926514
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6170.900000095367,
+              "at": 6172,
+              "latenessMs": 1.0999999046325684,
+              "domAt": 6265.700000047684,
+              "domLatencyMs": 93.70000004768372
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7170.900000095367,
+              "at": 7171.700000047684,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 7263.5,
+              "domLatencyMs": 91.79999995231628
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8170.900000095367,
+              "at": 8171.799999952316,
+              "latenessMs": 0.8999998569488525,
+              "domAt": 8246.900000095367,
+              "domLatencyMs": 75.10000014305115
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9170.900000095367,
+              "at": 9171.700000047684,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 9255.299999952316,
+              "domLatencyMs": 83.59999990463257
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 116.294,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              15.400000095367432, 7.900000095367432, 1.9000000953674316,
+              2.799999952316284, 7.599999904632568, 7.099999904632568,
+              1.9000000953674316, 2.9000000953674316, 4.6000001430511475, 5,
+              4.299999952316284, 7, 6.5, 4.5, 4.599999904632568,
+              9.299999952316284, 4.5, 7.299999952316284, 2, 4.900000095367432,
+              7.299999952316284, 5.5, 6.200000047683716, 5.3999998569488525,
+              4.800000190734863, 4.5, 4.6000001430511475, 1.8999998569488525, 4,
+              8.400000095367432, 3.8000001907348633, 6.400000095367432,
+              7.799999952316284, 4.199999809265137, 5, 7.799999952316284,
+              1.9000000953674316, 4.400000095367432, 5.300000190734863,
+              4.400000095367432, 4.799999952316284, 7.1000001430511475,
+              7.099999904632568, 1.2999999523162842, 3.4000000953674316,
+              2.200000047683716, 2.8999998569488525, 5.700000047683716,
+              1.7999999523162842, 3.700000047683716, 3.1999998092651367,
+              7.700000047683716, 8.599999904632568, 8.099999904632568,
+              4.400000095367432, 4.299999952316284, 4.199999809265137,
+              4.700000047683716, 4.3999998569488525, 7.700000047683716,
+              3.1000001430511475, 8.599999904632568, 2.6000001430511475,
+              6.400000095367432, 6.099999904632568, 6.599999904632568,
+              4.200000047683716, 4.1000001430511475, 3.9000000953674316,
+              4.3999998569488525, 4.199999809265137, 4.299999952316284, 5, 5.5,
+              4.200000047683716, 8.799999952316284, 6.900000095367432,
+              1.9000000953674316, 3, 4.8999998569488525, 4.8999998569488525,
+              4.1000001430511475, 4, 8.400000095367432, 4, 6.799999952316284,
+              7.900000095367432
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2124.9000000953674,
+              "at": 2125,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2403.100000143051,
+              "domLatencyMs": 278.10000014305115
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3124.9000000953674,
+              "at": 3125.5,
+              "latenessMs": 0.5999999046325684,
+              "domAt": 3221.7000000476837,
+              "domLatencyMs": 96.20000004768372
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4124.900000095367,
+              "at": 4125.800000190735,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 4203.100000143051,
+              "domLatencyMs": 77.29999995231628
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5124.900000095367,
+              "at": 5127.200000047684,
+              "latenessMs": 2.299999952316284,
+              "domAt": 5219.700000047684,
+              "domLatencyMs": 92.5
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6124.900000095367,
+              "at": 6125.700000047684,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 6219.100000143051,
+              "domLatencyMs": 93.40000009536743
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7124.900000095367,
+              "at": 7126.200000047684,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 7219.700000047684,
+              "domLatencyMs": 93.5
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8124.900000095367,
+              "at": 8126.100000143051,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 8211.400000095367,
+              "domLatencyMs": 85.29999995231628
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9124.900000095367,
+              "at": 9126.200000047684,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 9213.400000095367,
+              "domLatencyMs": 87.20000004768372
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "page"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 124.493625,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              17.09999990463257, 2.4000000953674316, 4.900000095367432,
+              7.8999998569488525, 1.9000000953674316, 4, 5.200000047683716,
+              8.599999904632568, 4.799999952316284, 5.299999952316284,
+              4.799999952316284, 6.5, 5.299999952316284, 2.700000047683716,
+              4.799999952316284, 2.799999952316284, 7.1000001430511475, 7.5,
+              1.9000000953674316, 6.199999809265137, 4, 4.299999952316284,
+              3.0999999046325684, 4.599999904632568, 4.400000095367432,
+              6.8999998569488525, 4.900000095367432, 4.300000190734863,
+              4.599999904632568, 9.099999904632568, 3.799999952316284,
+              6.1000001430511475, 9, 4.099999904632568, 7.3999998569488525,
+              6.900000095367432, 6.599999904632568, 8.400000095367432, 4.5, 4.5,
+              4.900000095367432, 4.200000047683716, 4.200000047683716,
+              6.400000095367432, 4.900000095367432, 6, 7, 1.5999999046325684,
+              3.5999999046325684, 7.200000047683716, 8.600000143051147,
+              6.799999952316284, 8.899999856948853, 5.200000047683716,
+              4.900000095367432, 4.700000047683716, 7.299999952316284, 7,
+              7.299999952316284, 4.299999952316284, 4.3999998569488525,
+              7.700000047683716, 1.7000000476837158, 5.5, 4.1000001430511475,
+              4.200000047683716, 4.3999998569488525, 4.200000047683716, 8,
+              6.599999904632568, 4.6000001430511475, 3.5, 4, 4.299999952316284,
+              4.900000095367432, 8.299999952316284, 4.200000047683716,
+              8.299999952316284, 4, 9.399999856948853, 8.200000047683716,
+              4.900000095367432, 3.9000000953674316, 4.099999904632568,
+              4.599999904632568, 9, 8.399999856948853
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2131.0999999046326,
+              "at": 2131.2000000476837,
+              "latenessMs": 0.10000014305114746,
+              "domAt": 2183.5999999046326,
+              "domLatencyMs": 52.39999985694885
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3131.0999999046326,
+              "at": 3131.899999856949,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 3238.2999999523163,
+              "domLatencyMs": 106.40000009536743
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4131.099999904633,
+              "at": 4131.299999952316,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 4215.399999856949,
+              "domLatencyMs": 84.09999990463257
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5131.099999904633,
+              "at": 5132.200000047684,
+              "latenessMs": 1.1000001430511475,
+              "domAt": 5221.700000047684,
+              "domLatencyMs": 89.5
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6131.099999904633,
+              "at": 6131.299999952316,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 6213.399999856949,
+              "domLatencyMs": 82.09999990463257
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7131.099999904633,
+              "at": 7131.299999952316,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 7213.5,
+              "domLatencyMs": 82.20000004768372
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8131.099999904633,
+              "at": 8130.899999856949,
+              "latenessMs": 0,
+              "domAt": 8221.700000047684,
+              "domLatencyMs": 90.80000019073486
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9131.099999904633,
+              "at": 9131.5,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 9221.700000047684,
+              "domLatencyMs": 90.20000004768372
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 1000,
+            "view": "transcript"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 101.373875,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              19.59999990463257, 1.7999999523162842, 4.400000095367432, 8,
+              3.200000047683716, 3.1000001430511475, 3.6000001430511475,
+              5.3999998569488525, 8.299999952316284, 2, 5.400000095367432,
+              1.2000000476837158, 3.5, 1.0999999046325684, 2.700000047683716,
+              7.099999904632568, 1.1000001430511475, 3.5, 6.6000001430511475,
+              2.5, 2.299999952316284, 5.799999952316284, 4.8999998569488525,
+              6.5, 7.6000001430511475, 7.400000095367432, 9.399999856948853,
+              2.3999998569488525, 2.5999999046325684, 2.5, 3.200000047683716,
+              5.5, 3.4000000953674316, 10.099999904632568, 2.8999998569488525,
+              3, 2.3000001907348633, 2.8000001907348633, 2.8000001907348633,
+              2.3999998569488525, 5.6000001430511475, 6.799999952316284,
+              7.200000047683716, 7.3999998569488525, 9.600000143051147,
+              3.1000001430511475, 10.400000095367432, 5.700000047683716,
+              5.900000095367432, 7.400000095367432, 2.5, 2.1999998092651367,
+              4.5, 4.599999904632568, 9.299999952316284, 7.800000190734863,
+              7.6000001430511475, 2.4000000953674316, 2.4000000953674316,
+              5.400000095367432, 8.899999856948853, 9.799999952316284,
+              7.799999952316284, 3.299999952316284, 3.799999952316284,
+              3.5999999046325684, 3.6999998092651367, 3.9000000953674316,
+              5.599999904632568, 5.5, 4.599999904632568, 3.799999952316284, 3,
+              3.0999999046325684, 2.4000000953674316, 6.099999904632568,
+              9.900000095367432, 1.2000000476837158, 4.299999952316284,
+              5.099999904632568, 6.300000190734863, 4.700000047683716,
+              7.699999809265137, 7.5, 2.5999999046325684, 6.200000047683716, 9
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2165.5,
+              "at": 2165.7000000476837,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2275.300000190735,
+              "domLatencyMs": 109.60000014305115
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3165.5,
+              "at": 3166.800000190735,
+              "latenessMs": 1.3000001907348633,
+              "domAt": 3250.2000000476837,
+              "domLatencyMs": 83.39999985694885
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4165.5,
+              "at": 4166.600000143051,
+              "latenessMs": 1.1000001430511475,
+              "domAt": 4250.300000190735,
+              "domLatencyMs": 83.70000004768372
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5165.5,
+              "at": 5166.400000095367,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 5260.800000190735,
+              "domLatencyMs": 94.40000009536743
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6165.5,
+              "at": 6165.900000095367,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 6254.600000143051,
+              "domLatencyMs": 88.70000004768372
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7165.5,
+              "at": 7167.400000095367,
+              "latenessMs": 1.9000000953674316,
+              "domAt": 7258,
+              "domLatencyMs": 90.59999990463257
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-1006-0",
+              "scheduledAt": 8165.5,
+              "at": 8166.100000143051,
+              "latenessMs": 0.6000001430511475,
+              "domAt": 8252,
+              "domLatencyMs": 85.89999985694885
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-1007-0",
+              "scheduledAt": 9165.5,
+              "at": 9165.900000095367,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 9250.700000047684,
+              "domLatencyMs": 84.79999995231628
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "page"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 101.140125,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              13.200000047683716, 7, 2, 4, 5.6000001430511475,
+              4.599999904632568, 2.5999999046325684, 5.699999809265137, 7.5,
+              4.3999998569488525, 8.599999904632568, 7.299999952316284,
+              7.400000095367432, 2.200000047683716, 4.5, 12, 7.5,
+              1.7000000476837158, 5.799999952316284, 1.0999999046325684,
+              3.0999999046325684, 7.699999809265137, 1.7000000476837158,
+              4.099999904632568, 6.799999952316284, 1.2999999523162842,
+              4.1000001430511475, 6.599999904632568, 1.7000000476837158,
+              4.300000190734863, 4.5, 1.7999999523162842, 3.5, 5.5,
+              7.599999904632568, 4.5, 4.5, 4.799999952316284, 4.700000047683716,
+              4.5, 4.299999952316284, 4.799999952316284, 6.700000047683716,
+              6.800000190734863, 7.3999998569488525, 4.599999904632568,
+              4.099999904632568, 7.5, 1.7000000476837158, 5.599999904632568, 7,
+              7.5, 7.200000047683716, 4.299999952316284, 4.299999952316284,
+              3.9000000953674316, 8.299999952316284, 5.5, 4.300000190734863,
+              4.400000095367432, 4.5, 1.4000000953674316, 7, 6.400000095367432,
+              7.800000190734863, 6, 4.299999952316284, 4.299999952316284,
+              4.799999952316284, 8.600000143051147, 4.799999952316284,
+              4.299999952316284, 4.299999952316284, 4.1000001430511475,
+              3.8999998569488525, 4.400000095367432, 1.4000000953674316,
+              3.700000047683716, 6.199999809265137, 7, 7.599999904632568,
+              8.900000095367432, 4.200000047683716, 4.3999998569488525,
+              4.200000047683716, 7.299999952316284, 4.400000095367432
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2139.4000000953674,
+              "at": 2139.600000143051,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2231.600000143051,
+              "domLatencyMs": 92
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3139.4000000953674,
+              "at": 3140.7000000476837,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 3231.600000143051,
+              "domLatencyMs": 90.90000009536743
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4139.400000095367,
+              "at": 4140,
+              "latenessMs": 0.5999999046325684,
+              "domAt": 4215,
+              "domLatencyMs": 75
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5139.400000095367,
+              "at": 5139.900000095367,
+              "latenessMs": 0.5,
+              "domAt": 5215.100000143051,
+              "domLatencyMs": 75.20000004768372
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6139.400000095367,
+              "at": 6140.100000143051,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 6215.100000143051,
+              "domLatencyMs": 75
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7139.400000095367,
+              "at": 7139.5,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 7215.100000143051,
+              "domLatencyMs": 75.60000014305115
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8139.400000095367,
+              "at": 8140.100000143051,
+              "latenessMs": 0.7000000476837158,
+              "domAt": 8215,
+              "domLatencyMs": 74.89999985694885
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9139.400000095367,
+              "at": 9141.400000095367,
+              "latenessMs": 2,
+              "domAt": 9223.299999952316,
+              "domLatencyMs": 81.89999985694885
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 200,
+            "view": "transcript"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 80.84225,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              9.300000190734863, 8.299999952316284, 1.8000001907348633, 5,
+              3.8000001907348633, 7.200000047683716, 6.5, 3.700000047683716,
+              4.1000001430511475, 4, 9, 8.300000190734863, 6.5,
+              7.799999952316284, 3.200000047683716, 1, 5.900000095367432, 1, 3,
+              8.200000047683716, 1, 3.8999998569488525, 7.400000095367432,
+              2.4000000953674316, 7.200000047683716, 8.099999904632568, 2.5,
+              2.6000001430511475, 3.0999999046325684, 2.6999998092651367,
+              2.9000000953674316, 8.400000095367432, 1, 3.9000000953674316,
+              5.799999952316284, 8.099999904632568, 1.5, 2.4000000953674316,
+              9.200000047683716, 3, 9.300000190734863, 2.5, 2.8999998569488525,
+              3.200000047683716, 5.099999904632568, 8.299999952316284,
+              2.9000000953674316, 5.099999904632568, 6.299999952316284,
+              2.5999999046325684, 2.5999999046325684, 3.200000047683716,
+              6.299999952316284, 5.3999998569488525, 6.099999904632568,
+              8.100000143051147, 8.200000047683716, 2.4000000953674316,
+              2.6000001430511475, 6.599999904632568, 5.400000095367432,
+              7.799999952316284, 7.700000047683716, 3.8999998569488525,
+              3.700000047683716, 6, 7.900000095367432, 2.4000000953674316,
+              3.700000047683716, 6.8999998569488525, 6.5, 7.400000095367432,
+              2.5, 3.4000000953674316, 6.299999952316284, 7, 5.700000047683716,
+              2.200000047683716, 1.3000001907348633, 3.0999999046325684,
+              7.300000190734863, 6.5, 8.300000190734863, 2.1000001430511475,
+              2.8999998569488525, 3, 2.799999952316284
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-200-0",
+              "scheduledAt": 2155.5,
+              "at": 2155.600000143051,
+              "latenessMs": 0.10000014305114746,
+              "domAt": 2244.4000000953674,
+              "domLatencyMs": 88.79999995231628
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-201-0",
+              "scheduledAt": 3155.5,
+              "at": 3155.9000000953674,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 3227.7000000476837,
+              "domLatencyMs": 71.79999995231628
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-202-0",
+              "scheduledAt": 4155.5,
+              "at": 4156.600000143051,
+              "latenessMs": 1.1000001430511475,
+              "domAt": 4219.5,
+              "domLatencyMs": 62.89999985694885
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-203-0",
+              "scheduledAt": 5155.5,
+              "at": 5155.700000047684,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 5228.100000143051,
+              "domLatencyMs": 72.40000009536743
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-204-0",
+              "scheduledAt": 6155.5,
+              "at": 6156.800000190735,
+              "latenessMs": 1.3000001907348633,
+              "domAt": 6229.900000095367,
+              "domLatencyMs": 73.09999990463257
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-205-0",
+              "scheduledAt": 7155.5,
+              "at": 7155.600000143051,
+              "latenessMs": 0.10000014305114746,
+              "domAt": 7228.300000190735,
+              "domLatencyMs": 72.70000004768372
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-206-0",
+              "scheduledAt": 8155.5,
+              "at": 8156.100000143051,
+              "latenessMs": 0.6000001430511475,
+              "domAt": 8228.600000143051,
+              "domLatencyMs": 72.5
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-207-0",
+              "scheduledAt": 9155.5,
+              "at": 9155.900000095367,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 9227.900000095367,
+              "domLatencyMs": 72
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "page"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 128.4905,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              11.899999856948853, 7.400000095367432, 1.7999999523162842,
+              3.1000001430511475, 4.700000047683716, 5.099999904632568,
+              5.400000095367432, 10.100000143051147, 7.700000047683716,
+              3.9000000953674316, 4.900000095367432, 5.3999998569488525,
+              7.8999998569488525, 4.799999952316284, 4.599999904632568,
+              7.599999904632568, 6.799999952316284, 2.0999999046325684,
+              6.200000047683716, 4.900000095367432, 6.900000095367432,
+              4.6000001430511475, 5.5, 7.5, 5.5, 4.6000001430511475,
+              4.799999952316284, 7.299999952316284, 5, 4.700000047683716,
+              1.7999999523162842, 6.099999904632568, 6.1000001430511475,
+              7.099999904632568, 5.1000001430511475, 5, 4.400000095367432,
+              6.8999998569488525, 5, 4.299999952316284, 4.3999998569488525,
+              5.200000047683716, 6.700000047683716, 4.900000095367432, 7,
+              4.299999952316284, 7.800000190734863, 2.200000047683716, 4.5,
+              4.700000047683716, 6.799999952316284, 7.099999904632568, 7.5, 5,
+              4.599999904632568, 4.699999809265137, 4.5, 4.8999998569488525,
+              6.099999904632568, 4.5, 5.800000190734863, 8.099999904632568,
+              2.299999952316284, 4.400000095367432, 5.3999998569488525, 6.5,
+              7.099999904632568, 5.099999904632568, 4.599999904632568,
+              4.299999952316284, 6.900000095367432, 5.1000001430511475, 5.5, 8,
+              5.199999809265137, 4.200000047683716, 7, 1.6000001430511475,
+              4.200000047683716, 4.6000001430511475, 5.199999809265137,
+              9.400000095367432, 6.599999904632568, 4.6000001430511475,
+              4.700000047683716, 4.5, 4.5
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2128,
+              "at": 2128.0999999046326,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2167,
+              "domLatencyMs": 38.90000009536743
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3128,
+              "at": 3129,
+              "latenessMs": 1,
+              "domAt": 3159.7000000476837,
+              "domLatencyMs": 30.700000047683716
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4128,
+              "at": 4127.700000047684,
+              "latenessMs": 0,
+              "domAt": 4153.799999952316,
+              "domLatencyMs": 26.09999990463257
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5128,
+              "at": 5130.799999952316,
+              "latenessMs": 2.799999952316284,
+              "domAt": 5161.799999952316,
+              "domLatencyMs": 31
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6128,
+              "at": 6127.799999952316,
+              "latenessMs": 0,
+              "domAt": 6168,
+              "domLatencyMs": 40.200000047683716
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7128,
+              "at": 7127.599999904633,
+              "latenessMs": 0,
+              "domAt": 7144.599999904633,
+              "domLatencyMs": 17
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8128,
+              "at": 8129.200000047684,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 8160.5,
+              "domLatencyMs": 31.299999952316284
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9128,
+              "at": 9128,
+              "latenessMs": 0,
+              "domAt": 9161,
+              "domLatencyMs": 33
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "transcript"
+          },
+          "repeat": 1,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 93.7775,
+          "keys": {
+            "count": 87,
+            "latencyMs": [
+              6.1000001430511475, 7, 2.0999999046325684, 3.799999952316284,
+              3.700000047683716, 3.5, 8.100000143051147, 2.5,
+              2.6999998092651367, 2.799999952316284, 3.299999952316284,
+              4.200000047683716, 8.699999809265137, 7.800000190734863, 8,
+              2.299999952316284, 3.299999952316284, 6.599999904632568,
+              5.900000095367432, 4.8999998569488525, 5.3999998569488525,
+              6.700000047683716, 7, 7.8999998569488525, 6, 5.700000047683716,
+              2.700000047683716, 2.3000001907348633, 2.799999952316284,
+              3.4000000953674316, 4.299999952316284, 6.599999904632568, 9, 3,
+              2.9000000953674316, 2.799999952316284, 2.5999999046325684,
+              2.6000001430511475, 3.4000000953674316, 6.200000047683716,
+              5.599999904632568, 8.900000095367432, 2.299999952316284,
+              2.700000047683716, 2.3999998569488525, 6, 6.599999904632568,
+              4.400000095367432, 6, 7.599999904632568, 8.5, 2.5,
+              6.200000047683716, 6.8999998569488525, 6.700000047683716,
+              7.1000001430511475, 7.299999952316284, 2.4000000953674316,
+              2.299999952316284, 5.599999904632568, 5.199999809265137,
+              5.599999904632568, 6.299999952316284, 2.5999999046325684,
+              3.3000001907348633, 3.700000047683716, 6.3999998569488525, 7.5,
+              8.799999952316284, 2.1000001430511475, 2.5999999046325684,
+              2.299999952316284, 3.5, 4.099999904632568, 7.6000001430511475,
+              5.700000047683716, 7.299999952316284, 1.7000000476837158,
+              2.3999998569488525, 6.799999952316284, 5.299999952316284,
+              7.799999952316284, 7.3999998569488525, 7.700000047683716,
+              2.8000001907348633, 2.6999998092651367, 2.0999999046325684
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays responsive during transc"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2159.5,
+              "at": 2159.5,
+              "latenessMs": 0,
+              "domAt": 2178.5,
+              "domLatencyMs": 19
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3159.5,
+              "at": 3160.300000190735,
+              "latenessMs": 0.8000001907348633,
+              "domAt": 3185.5,
+              "domLatencyMs": 25.199999809265137
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4159.5,
+              "at": 4160.300000190735,
+              "latenessMs": 0.8000001907348633,
+              "domAt": 4185.600000143051,
+              "domLatencyMs": 25.299999952316284
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5159.5,
+              "at": 5159.400000095367,
+              "latenessMs": 0,
+              "domAt": 5179.400000095367,
+              "domLatencyMs": 20
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6159.5,
+              "at": 6160.400000095367,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 6194.200000047684,
+              "domLatencyMs": 33.799999952316284
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7159.5,
+              "at": 7161.600000143051,
+              "latenessMs": 2.1000001430511475,
+              "domAt": 7185.600000143051,
+              "domLatencyMs": 24
+            },
+            {
+              "marker": "probe-6-end",
+              "renderId": "reply-26-0",
+              "scheduledAt": 8159.5,
+              "at": 8160.700000047684,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 8185.300000190735,
+              "domLatencyMs": 24.600000143051147
+            },
+            {
+              "marker": "probe-7-end",
+              "renderId": "reply-27-0",
+              "scheduledAt": 9159.5,
+              "at": 9160.400000095367,
+              "latenessMs": 0.9000000953674316,
+              "domAt": 9187,
+              "domLatencyMs": 26.59999990463257
+            }
+          ],
+          "longTasks": []
+        }
+      ]
+    },
+    {
+      "label": "phone-sandbox",
+      "at": "2026-11-12T11:37:35.810Z",
+      "rawPath": "/tmp/p190/frontend/phone-sandbox/results.json",
+      "sha256": "c562b1dc45458f3bee746db3e71a19064d889ba6e8147dfcd1ae6e9dad5631ef",
+      "logSha256": "06c0439f51440dba1891ce16b59f2d72755baa1cf58abcdf166a4d5a68d5671a",
+      "options": {
+        "client-dist": "/tmp/p190/frontend/verified-build/packages/client/dist",
+        "out": "/tmp/p190/frontend/phone-sandbox",
+        "widths": "375",
+        "turns": "20,1000",
+        "appends": "6",
+        "repeats": "1",
+        "typing": true,
+        "port": "3420",
+        "views": "transcript,page",
+        "interval": "1000"
+      },
+      "browser": "148.0.7778.96",
+      "identity": {
+        "root": "/private/tmp/p190/frontend/verified-build/packages/client/dist",
+        "files": 354,
+        "sha256": "b423f3c629b997476cb9174f7f9225f4a3e274468240837e8efe31130c3f50d6"
+      },
+      "harness": {
+        "transcript-browser.mjs": "288cf5a99f4af256f0128bf796dff7da0a6a263d38f7cfc20bb7d5fd01001c57",
+        "transcript-browser-integrity.mjs": "e09d6a8c249eb84ab93570c22597b1c4fa9c0c61185168eabf1287a236446db2",
+        "transcript-browser-probe.mjs": "f156fdc4f345c7564a3b112c7e159ed05f4f357344687903d4786af053a26d7e",
+        "transcript-browser-metrics.mjs": "7f47f3b9d2816561cfbe2a1270381348aa3d55b13aedbbfdaed47f869afbafd9",
+        "active-session-build.mjs": "904160c9e623437784e564b2ed242f28e3fb8b895e9d826da5dfb5f78f40a3e9",
+        "active-session-metrics.mjs": "291bbc3a111cc6f9c63350a1b6501f3cfcf5ea8b3b2c27fdee24e78cbacf49c5",
+        "../perf-suite/host-profile.mjs": "23018d2663008f49905370ef8f61470a96d5c50d06ba017ca7092af7f75b4afb",
+        "../perf-suite/ratchet-evaluation.mjs": "d46e337e92eb126b00a91b6c73f520e6a5d9157037fe125cbeb52fd80ae770e6",
+        "../perf-suite/core.mjs": "2cd5261c1feb91dddd68e42280c73cb7bb4c91998ae525ef1d7afb512b22c466",
+        "../perf-suite/config.json": "b091980a7c33149cdb43acb4da55671b22f252b38951a65344773b0ed13905ff"
+      },
+      "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+      "hostBaselinePass": true,
+      "allMeasuredHostWindowsPass": true,
+      "cpuBusyFractionRange": [0.116, 0.131],
+      "minimumAvailableMemoryBytes": 26220118016,
+      "maximumSwapGrowthBytes": 0,
+      "integrity": {
+        "passed": true,
+        "cases": 9
+      },
+      "aggregates": [
+        {
+          "width": 375,
+          "turns": 20,
+          "view": "transcript",
+          "repetitions": 1,
+          "taskMsPerAppend": {
+            "min": 83.10516666666666,
+            "max": 83.10516666666666
+          },
+          "frameGapMs": {
+            "count": 720,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 11.599999904632568
+          },
+          "keyLatencyMs": {
+            "count": 62,
+            "median": 4.150000095367432,
+            "p95": 7.700000047683716,
+            "max": 9.400000095367432
+          },
+          "visibleLatencyMs": {
+            "count": 6,
+            "median": 25.40000009536743,
+            "p95": 33.200000047683716,
+            "max": 33.200000047683716
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 0,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [78],
+          "loadedMessages": [104],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 375,
+          "turns": 20,
+          "view": "page",
+          "repetitions": 1,
+          "taskMsPerAppend": {
+            "min": 96.69416666666667,
+            "max": 96.69416666666667
+          },
+          "frameGapMs": {
+            "count": 720,
+            "median": 8.300000190734863,
+            "p95": 10.399999856948853,
+            "max": 16.799999952316284
+          },
+          "keyLatencyMs": {
+            "count": 62,
+            "median": 4.950000047683716,
+            "p95": 8.700000047683716,
+            "max": 9.599999904632568
+          },
+          "visibleLatencyMs": {
+            "count": 6,
+            "median": 29.399999976158142,
+            "p95": 35.89999985694885,
+            "max": 35.89999985694885
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 0,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [78],
+          "loadedMessages": [104],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 375,
+          "turns": 1000,
+          "view": "transcript",
+          "repetitions": 1,
+          "taskMsPerAppend": {
+            "min": 96.06750000000001,
+            "max": 96.06750000000001
+          },
+          "frameGapMs": {
+            "count": 720,
+            "median": 8.300000190734863,
+            "p95": 10.300000190734863,
+            "max": 18.600000143051147
+          },
+          "keyLatencyMs": {
+            "count": 62,
+            "median": 4.600000023841858,
+            "p95": 9.900000095367432,
+            "max": 16.899999856948853
+          },
+          "visibleLatencyMs": {
+            "count": 6,
+            "median": 86.95000004768372,
+            "p95": 108.10000014305115,
+            "max": 108.10000014305115
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 1,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [11],
+          "loadedMessages": [4024],
+          "valid": true,
+          "inputDeadlineMet": true
+        },
+        {
+          "width": 375,
+          "turns": 1000,
+          "view": "page",
+          "repetitions": 1,
+          "taskMsPerAppend": {
+            "min": 103.35799999999999,
+            "max": 103.35799999999999
+          },
+          "frameGapMs": {
+            "count": 719,
+            "median": 8.299999952316284,
+            "p95": 10.399999856948853,
+            "max": 20.399999856948853
+          },
+          "keyLatencyMs": {
+            "count": 62,
+            "median": 5.5,
+            "p95": 8.299999952316284,
+            "max": 15.799999952316284
+          },
+          "visibleLatencyMs": {
+            "count": 6,
+            "median": 82.89999997615814,
+            "p95": 106.39999985694885,
+            "max": 106.39999985694885
+          },
+          "longTasks": 0,
+          "gapsOver17_167Ms": 1,
+          "gapsOver33_833Ms": 0,
+          "mountedRows": [11],
+          "loadedMessages": [4024],
+          "valid": true,
+          "inputDeadlineMet": true
+        }
+      ],
+      "cases": [
+        {
+          "config": {
+            "width": 375,
+            "turn": 20,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 83.10516666666666,
+          "keys": {
+            "count": 62,
+            "latencyMs": [
+              7.3999998569488525, 6.5, 5.599999904632568, 5.599999904632568,
+              3.700000047683716, 3.700000047683716, 3.200000047683716,
+              3.299999952316284, 3.1000001430511475, 2.9000000953674316,
+              2.5999999046325684, 2.8999998569488525, 4.200000047683716,
+              5.300000190734863, 3.1999998092651367, 5.900000095367432, 4.5,
+              6.800000190734863, 3.5999999046325684, 2.799999952316284,
+              4.1000001430511475, 6.8999998569488525, 1.5999999046325684,
+              4.6000001430511475, 7.700000047683716, 2.200000047683716,
+              9.400000095367432, 2, 5.299999952316284, 1, 2.700000047683716,
+              5.200000047683716, 7.200000047683716, 7.700000047683716,
+              3.200000047683716, 2.299999952316284, 3.9000000953674316,
+              4.6000001430511475, 6.199999809265137, 7.200000047683716,
+              7.599999904632568, 7.5, 2.3999998569488525, 4.1000001430511475,
+              6.3999998569488525, 8.899999856948853, 7, 1.5, 5.1000001430511475,
+              4.5, 7.3999998569488525, 7, 9.400000095367432, 2.5,
+              2.299999952316284, 3, 2.4000000953674316, 2.5999999046325684,
+              3.200000047683716, 3.3000001907348633, 3, 4.5
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2171.899999856949,
+              "at": 2172.0999999046326,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2190.899999856949,
+              "domLatencyMs": 18.799999952316284
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3171.899999856949,
+              "at": 3173.199999809265,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 3206.2999999523163,
+              "domLatencyMs": 33.10000014305115
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4171.899999856949,
+              "at": 4172.299999952316,
+              "latenessMs": 0.40000009536743164,
+              "domAt": 4198,
+              "domLatencyMs": 25.700000047683716
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5171.899999856949,
+              "at": 5173.099999904633,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 5198.199999809265,
+              "domLatencyMs": 25.09999990463257
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6171.899999856949,
+              "at": 6173.099999904633,
+              "latenessMs": 1.2000000476837158,
+              "domAt": 6206.299999952316,
+              "domLatencyMs": 33.200000047683716
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7171.899999856949,
+              "at": 7172.899999856949,
+              "latenessMs": 1,
+              "domAt": 7198,
+              "domLatencyMs": 25.100000143051147
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 375,
+            "turn": 20,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 96.69416666666667,
+          "keys": {
+            "count": 62,
+            "latencyMs": [
+              6.8999998569488525, 8.299999952316284, 2.0999999046325684,
+              6.900000095367432, 9.599999904632568, 1.7000000476837158,
+              4.6000001430511475, 7, 8.299999952316284, 7.5, 8.099999904632568,
+              5.1000001430511475, 4, 4.6000001430511475, 4.3999998569488525,
+              3.8000001907348633, 2, 5.799999952316284, 9.400000095367432, 7,
+              8.400000095367432, 6.3999998569488525, 6.299999952316284,
+              6.900000095367432, 3.799999952316284, 4.5, 3.700000047683716,
+              3.799999952316284, 3.6999998092651367, 4.700000047683716,
+              8.599999904632568, 1.7000000476837158, 5.700000047683716,
+              4.299999952316284, 5.599999904632568, 8.099999904632568,
+              1.2999999523162842, 2.9000000953674316, 8.900000095367432,
+              1.8999998569488525, 4.200000047683716, 4.299999952316284,
+              6.900000095367432, 8.5, 6.800000190734863, 8.199999809265137, 3.5,
+              5.699999809265137, 7.6000001430511475, 1.7999999523162842,
+              4.799999952316284, 7.200000047683716, 1.5, 3.5999999046325684,
+              7.900000095367432, 4.5, 8.700000047683716, 1.5, 4.200000047683716,
+              4.1000001430511475, 4.200000047683716, 7.900000095367432
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2117.2999999523163,
+              "at": 2117.2999999523163,
+              "latenessMs": 0,
+              "domAt": 2145.5999999046326,
+              "domLatencyMs": 28.299999952316284
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3117.2999999523163,
+              "at": 3117.899999856949,
+              "latenessMs": 0.5999999046325684,
+              "domAt": 3145.399999856949,
+              "domLatencyMs": 27.5
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4117.299999952316,
+              "at": 4123.699999809265,
+              "latenessMs": 6.3999998569488525,
+              "domAt": 4154.199999809265,
+              "domLatencyMs": 30.5
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-23-0",
+              "scheduledAt": 5117.299999952316,
+              "at": 5118.799999952316,
+              "latenessMs": 1.5,
+              "domAt": 5145.899999856949,
+              "domLatencyMs": 27.09999990463257
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-24-0",
+              "scheduledAt": 6117.299999952316,
+              "at": 6118.799999952316,
+              "latenessMs": 1.5,
+              "domAt": 6154.299999952316,
+              "domLatencyMs": 35.5
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-25-0",
+              "scheduledAt": 7117.299999952316,
+              "at": 7118.299999952316,
+              "latenessMs": 1,
+              "domAt": 7154.199999809265,
+              "domLatencyMs": 35.89999985694885
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 375,
+            "turn": 1000,
+            "view": "transcript"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 96.06750000000001,
+          "keys": {
+            "count": 62,
+            "latencyMs": [
+              11.299999952316284, 1.5, 4.5, 7.599999904632568,
+              1.8999998569488525, 5.6000001430511475, 0.8999998569488525, 5,
+              6.299999952316284, 6.200000047683716, 7.200000047683716,
+              7.299999952316284, 8.200000047683716, 2.6000001430511475,
+              2.799999952316284, 5.599999904632568, 0.8999998569488525,
+              3.3999998569488525, 8.300000190734863, 1.0999999046325684,
+              3.299999952316284, 7.699999809265137, 2.799999952316284,
+              5.1000001430511475, 3.299999952316284, 3.9000000953674316,
+              5.8999998569488525, 6, 8, 9.300000190734863, 8.200000047683716,
+              9.900000095367432, 7.799999952316284, 3.3999998569488525,
+              5.699999809265137, 7.299999952316284, 8.099999904632568,
+              3.200000047683716, 2.5, 2.3000001907348633, 2.5, 3,
+              3.3999998569488525, 4.099999904632568, 5, 7.300000190734863,
+              16.899999856948853, 1.6000001430511475, 4.700000047683716, 8,
+              2.8000001907348633, 2.299999952316284, 3, 3, 5.299999952316284,
+              8.5, 2.700000047683716, 2.9000000953674316, 2.0999999046325684,
+              2.799999952316284, 3.5999999046325684, 14.400000095367432
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2172.5,
+              "at": 2172.5,
+              "latenessMs": 0,
+              "domAt": 2265.0999999046326,
+              "domLatencyMs": 92.59999990463257
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3172.5,
+              "at": 3173.5999999046326,
+              "latenessMs": 1.0999999046325684,
+              "domAt": 3248.5999999046326,
+              "domLatencyMs": 75
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4172.5,
+              "at": 4175.599999904633,
+              "latenessMs": 3.0999999046325684,
+              "domAt": 4256.900000095367,
+              "domLatencyMs": 81.30000019073486
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5172.5,
+              "at": 5173.900000095367,
+              "latenessMs": 1.4000000953674316,
+              "domAt": 5282,
+              "domLatencyMs": 108.09999990463257
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6172.5,
+              "at": 6173.799999952316,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 6281.900000095367,
+              "domLatencyMs": 108.10000014305115
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7172.5,
+              "at": 7175.200000047684,
+              "latenessMs": 2.700000047683716,
+              "domAt": 7250.599999904633,
+              "domLatencyMs": 75.39999985694885
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "config": {
+            "width": 375,
+            "turn": 1000,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 103.35799999999999,
+          "keys": {
+            "count": 62,
+            "latencyMs": [
+              15.799999952316284, 5.400000095367432, 8.100000143051147, 2,
+              6.099999904632568, 7.900000095367432, 8.600000143051147,
+              8.299999952316284, 6.200000047683716, 8.299999952316284,
+              7.099999904632568, 7.8999998569488525, 7.8999998569488525, 5.5,
+              4.300000190734863, 3.5, 2.200000047683716, 6.900000095367432,
+              2.1000001430511475, 4.6000001430511475, 6.8999998569488525,
+              4.799999952316284, 4.700000047683716, 5.299999952316284,
+              6.799999952316284, 5.200000047683716, 5.799999952316284, 1,
+              4.700000047683716, 7.800000190734863, 3.299999952316284,
+              4.8999998569488525, 7.6000001430511475, 4.700000047683716, 5.5,
+              8.299999952316284, 4, 3.700000047683716, 7.700000047683716,
+              6.599999904632568, 6.900000095367432, 6.8999998569488525,
+              6.599999904632568, 1.7999999523162842, 3.799999952316284, 4, 2,
+              5.3999998569488525, 1.1000001430511475, 2.8999998569488525,
+              6.700000047683716, 5, 6.200000047683716, 7.199999809265137,
+              6.400000095367432, 6.799999952316284, 9, 6.6000001430511475,
+              4.1000001430511475, 3.9000000953674316, 4.5, 2.0999999046325684
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive during transcript updates typing stays"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-1000-0",
+              "scheduledAt": 2128.7999999523163,
+              "at": 2128.899999856949,
+              "latenessMs": 0.09999990463256836,
+              "domAt": 2181.7999999523163,
+              "domLatencyMs": 52.90000009536743
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-1001-0",
+              "scheduledAt": 3128.7999999523163,
+              "at": 3131.7999999523163,
+              "latenessMs": 3,
+              "domAt": 3238.199999809265,
+              "domLatencyMs": 106.39999985694885
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-1002-0",
+              "scheduledAt": 4128.799999952316,
+              "at": 4131.299999952316,
+              "latenessMs": 2.5,
+              "domAt": 4204.699999809265,
+              "domLatencyMs": 73.39999985694885
+            },
+            {
+              "marker": "probe-3-end",
+              "renderId": "reply-1003-0",
+              "scheduledAt": 5128.799999952316,
+              "at": 5130.299999952316,
+              "latenessMs": 1.5,
+              "domAt": 5213.099999904633,
+              "domLatencyMs": 82.79999995231628
+            },
+            {
+              "marker": "probe-4-end",
+              "renderId": "reply-1004-0",
+              "scheduledAt": 6128.799999952316,
+              "at": 6130.099999904633,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 6213.099999904633,
+              "domLatencyMs": 83
+            },
+            {
+              "marker": "probe-5-end",
+              "renderId": "reply-1005-0",
+              "scheduledAt": 7128.799999952316,
+              "at": 7129.599999904633,
+              "latenessMs": 0.7999999523162842,
+              "domAt": 7221.5,
+              "domLatencyMs": 91.90000009536743
+            }
+          ],
+          "longTasks": []
+        }
+      ]
+    },
+    {
+      "label": "negative-sandbox",
+      "at": "2026-11-12T11:37:45.027Z",
+      "rawPath": "/tmp/p190/frontend/negative-sandbox/results.json",
+      "sha256": "bc9dc9547326766412bf7f854777bff8c77a259554d824fe9f3f77051ec7f6bd",
+      "logSha256": "8bf32448859d3b5ead204da182cf0d626ed00ab789e2be004a780aba3cfcf924",
+      "options": {
+        "client-dist": "/tmp/p190/frontend/verified-build/packages/client/dist",
+        "out": "/tmp/p190/frontend/negative-sandbox",
+        "turns": "20",
+        "views": "page",
+        "appends": "3",
+        "repeats": "1",
+        "negative-control": true,
+        "port": "3420",
+        "widths": "1280",
+        "interval": "1000"
+      },
+      "browser": "148.0.7778.96",
+      "identity": {
+        "root": "/private/tmp/p190/frontend/verified-build/packages/client/dist",
+        "files": 354,
+        "sha256": "b423f3c629b997476cb9174f7f9225f4a3e274468240837e8efe31130c3f50d6"
+      },
+      "harness": {
+        "transcript-browser.mjs": "288cf5a99f4af256f0128bf796dff7da0a6a263d38f7cfc20bb7d5fd01001c57",
+        "transcript-browser-integrity.mjs": "e09d6a8c249eb84ab93570c22597b1c4fa9c0c61185168eabf1287a236446db2",
+        "transcript-browser-probe.mjs": "f156fdc4f345c7564a3b112c7e159ed05f4f357344687903d4786af053a26d7e",
+        "transcript-browser-metrics.mjs": "7f47f3b9d2816561cfbe2a1270381348aa3d55b13aedbbfdaed47f869afbafd9",
+        "active-session-build.mjs": "904160c9e623437784e564b2ed242f28e3fb8b895e9d826da5dfb5f78f40a3e9",
+        "active-session-metrics.mjs": "291bbc3a111cc6f9c63350a1b6501f3cfcf5ea8b3b2c27fdee24e78cbacf49c5",
+        "../perf-suite/host-profile.mjs": "23018d2663008f49905370ef8f61470a96d5c50d06ba017ca7092af7f75b4afb",
+        "../perf-suite/ratchet-evaluation.mjs": "d46e337e92eb126b00a91b6c73f520e6a5d9157037fe125cbeb52fd80ae770e6",
+        "../perf-suite/core.mjs": "2cd5261c1feb91dddd68e42280c73cb7bb4c91998ae525ef1d7afb512b22c466",
+        "../perf-suite/config.json": "b091980a7c33149cdb43acb4da55671b22f252b38951a65344773b0ed13905ff"
+      },
+      "capacityKey": "host-v1-darwin-arm64-14cpu-49152mib-ea2afc6d7ef43d47",
+      "hostBaselinePass": true,
+      "allMeasuredHostWindowsPass": true,
+      "cpuBusyFractionRange": [0.111, 0.111],
+      "minimumAvailableMemoryBytes": 26269646848,
+      "maximumSwapGrowthBytes": 0,
+      "integrity": {
+        "passed": true,
+        "cases": 9
+      },
+      "aggregates": [
+        {
+          "width": 1280,
+          "turns": 20,
+          "view": "page",
+          "repetitions": 1,
+          "taskMsPerAppend": {
+            "min": 157.70133333333334,
+            "max": 157.70133333333334
+          },
+          "frameGapMs": {
+            "count": 344,
+            "median": 8.299999952316284,
+            "p95": 10.400000095367432,
+            "max": 161.60000014305115
+          },
+          "keyLatencyMs": {
+            "count": 25,
+            "median": 5,
+            "p95": 9.900000095367432,
+            "max": 160.80000019073486
+          },
+          "visibleLatencyMs": {
+            "count": 3,
+            "median": 34.799999952316284,
+            "p95": 177.5,
+            "max": 177.5
+          },
+          "longTasks": 1,
+          "gapsOver17_167Ms": 1,
+          "gapsOver33_833Ms": 1,
+          "mountedRows": [69],
+          "loadedMessages": [92],
+          "valid": true,
+          "inputDeadlineMet": false
+        }
+      ],
+      "cases": [
+        {
+          "config": {
+            "width": 1280,
+            "turn": 20,
+            "view": "page"
+          },
+          "repeat": 0,
+          "valid": true,
+          "qualified": true,
+          "taskMsPerAppend": 157.70133333333334,
+          "keys": {
+            "count": 25,
+            "latencyMs": [
+              160.80000019073486, 8, 2.299999952316284, 4.099999904632568, 6,
+              5.5, 5.199999809265137, 5, 9.900000095367432, 5,
+              4.700000047683716, 5.1000001430511475, 4.900000095367432,
+              3.200000047683716, 1.6000001430511475, 6.3999998569488525,
+              5.200000047683716, 4.800000190734863, 4.799999952316284, 4.5, 9,
+              4.799999952316284, 4.599999904632568, 5, 6.700000047683716
+            ],
+            "everyPrefixMatchesAtInput": true,
+            "everyPrefixMatchesAtFrame": true,
+            "finalValue": "typing stays responsive d"
+          },
+          "markers": [
+            {
+              "marker": "probe-0-end",
+              "renderId": "reply-20-0",
+              "scheduledAt": 2156.2000000476837,
+              "at": 2156.4000000953674,
+              "latenessMs": 0.20000004768371582,
+              "domAt": 2333.9000000953674,
+              "domLatencyMs": 177.5
+            },
+            {
+              "marker": "probe-1-end",
+              "renderId": "reply-21-0",
+              "scheduledAt": 3156.2000000476837,
+              "at": 3156.7000000476837,
+              "latenessMs": 0.5,
+              "domAt": 3191.5,
+              "domLatencyMs": 34.799999952316284
+            },
+            {
+              "marker": "probe-2-end",
+              "renderId": "reply-22-0",
+              "scheduledAt": 4156.200000047684,
+              "at": 4157.5,
+              "latenessMs": 1.2999999523162842,
+              "domAt": 4189.700000047684,
+              "domLatencyMs": 32.200000047683716
+            }
+          ],
+          "longTasks": [
+            {
+              "at": 2162.9000000953674,
+              "ms": 154
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "captures": [
+    {
+      "path": ".artifacts/ui-testing/190-frontend-calibration/desktop.png",
+      "sha256": "0dbbb568d6bfae91f0d4c457035ff0880d4c3e7281c6289ef385876fd0799bc6"
+    },
+    {
+      "path": ".artifacts/ui-testing/190-frontend-calibration/phone.png",
+      "sha256": "436ceb05387ee88691432eeb15628397bfac181a17dcbd7f1cd466e7ffea9fca"
+    }
+  ]
+}

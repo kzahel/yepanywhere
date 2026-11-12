@@ -20,6 +20,18 @@ Changed text props and `dangerouslySetInnerHTML` updates should be treated as
 coarse updates. Incremental wins come from YA-owned chunking, block DOM updates,
 stable component identity, and lower update cadence.
 
+## Measurement boundaries
+
+The [isolated frontend calibration](../../docs/research/190-frontend-renderer-calibration.md)
+compares the real transcript and full session page with completed normalized
+turns, at controlled retained-history sizes. It measures frame opportunities,
+long tasks, visible markers and every native typing prefix separately from
+aggregate CPU. Unlimited history and disabled active-window trimming hold the
+history axis fixed; these are explicit fixture preferences, not normal defaults.
+Provider/network/backend work and high-rate streaming are separate workloads.
+The [performance suite](../../topics/performance-regression-suite.md) owns the
+harness contract and interpretation.
+
 ## Pipeline
 
 1. Session streams enter through `useSessionStream` and are dispatched in

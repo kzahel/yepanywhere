@@ -43,6 +43,24 @@ points and repetition counts live in `scripts/perf-suite/config.json`; targets
 live in `scripts/perf-suite/ratchets.json`. Scenario-specific thresholds do not
 belong in driver code.
 
+## Isolated frontend transcript calibration
+
+The [frontend calibration](../docs/research/190-frontend-renderer-calibration.md)
+uses `scripts/perf-repro/transcript-browser.mjs` and the client E2E fixture under
+`transcript-performance/`. It feeds normalized completed turns through the real
+store and renderer, comparing the transcript alone with the full session page.
+Its static host owns no backend. This separates renderer scaling from the
+50,000-session/provider-file scenario; it does not replace end-to-end qualification.
+
+Measure frame callback gaps, calibrated missed opportunities, long tasks,
+visible reply delivery and exact native typing prefixes. The hard input deadline
+is 100 ms per key. Aggregate TaskDuration/write remains a CPU efficiency measure,
+not a frame deadline. Append-only and typing runs stay separate. The negative
+control must detect a 150 ms key-task stall. Runtime/harness hashes, host capacity
+and eligibility, offered timestamps and raw results accompany each comparison.
+Timing calibration is opt-in; only its inexpensive measurement-integrity case
+joins the ordinary root test command. No CI timing ratchet changes.
+
 ## Driver contracts
 
 ### Server
