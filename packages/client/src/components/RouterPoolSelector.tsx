@@ -389,13 +389,21 @@ function windowShortLabel(t: Translate, w: QuotaWindow): string {
       });
 }
 
-/** A time of day for resets within a day; month and day beyond that. */
+/**
+ * A time of day for resets later today; month and day otherwise. A bare
+ * time reads as today, so a reset tomorrow evening, though under 24 hours
+ * away, must carry its date.
+ */
 export function formatReset(resetsAt: string, now = Date.now()): string {
   const at = new Date(resetsAt);
-  const withinDay = Math.abs(at.getTime() - now) < 24 * 60 * 60 * 1000;
+  const today = new Date(now);
+  const sameDay =
+    at.getFullYear() === today.getFullYear() &&
+    at.getMonth() === today.getMonth() &&
+    at.getDate() === today.getDate();
   return at.toLocaleString(
     undefined,
-    withinDay
+    sameDay
       ? { hour: "numeric", minute: "2-digit" }
       : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" },
   );

@@ -666,10 +666,14 @@ it("states the observation age only once it is at least ten minutes old", () => 
     observationAge(t, ago(3 * 24 * 60 * 60 * 1000), now, "inference"),
   ).toMatch(/^routerQuotaUsedOn:/);
 });
-it("formats resets within a day as a time and later ones with the date", () => {
-  const now = Date.parse("2026-10-05T10:00:00Z");
-  expect(formatReset("2026-10-05T14:15:00Z", now)).not.toMatch(/Oct/);
-  expect(formatReset("2026-10-08T12:00:00Z", now)).toMatch(/Oct/);
+it("formats resets later today as a time and any other day with the date", () => {
+  const now = new Date(2026, 9, 5, 21, 0).getTime();
+  const local = (day: number, hour: number) =>
+    new Date(2026, 9, day, hour, 0).toISOString();
+  expect(formatReset(local(5, 23), now)).not.toMatch(/Oct/);
+  // 23 hours away, but tomorrow: a bare "8:00 PM" would read as tonight.
+  expect(formatReset(local(6, 20), now)).toMatch(/Oct/);
+  expect(formatReset(local(8, 12), now)).toMatch(/Oct/);
 });
 it("labels a session pin by saved names and never shows the account id", () => {
   const t = ((key: string, params?: Record<string, unknown>) =>
