@@ -372,7 +372,7 @@ describe("allowed hosts self-disconnect", () => {
   });
   const allowedBy = (value: string | undefined) => ({
     host: (host: string) => wouldAllowHost(host, value),
-    origin: (origin: string) => wouldAllowOrigin(origin, value),
+    origin: (origin: string) => wouldAllowOrigin(origin, undefined, value),
   });
 
   it("reports only the caller's own Host or page Origin losing admission", () => {

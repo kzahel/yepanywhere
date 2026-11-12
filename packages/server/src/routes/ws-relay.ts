@@ -309,7 +309,7 @@ export function createWsRelayRoutes(
   return upgradeWebSocket((c) => {
     // Check origin before upgrading
     const origin = c.req.header("origin");
-    if (!isAllowedOrigin(origin)) {
+    if (!isAllowedOrigin(origin, c.req.header("host"))) {
       console.warn(`[WS Relay] Rejected connection from origin: ${origin}`);
       // Return empty handlers - connection will be closed immediately
       return {

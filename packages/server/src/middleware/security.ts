@@ -35,7 +35,8 @@ export const hostCheckMiddleware: MiddlewareHandler = async (c, next) => {
 };
 
 export const corsMiddleware = cors({
-  origin: (origin) => (isAllowedOrigin(origin) ? origin : null),
+  origin: (origin, c) =>
+    isAllowedOrigin(origin, c.req.header("host")) ? origin : null,
   credentials: true,
   allowMethods: ["GET", "POST", "PUT", "DELETE"],
   allowHeaders: ["Content-Type", "Authorization", "X-Yep-Anywhere"],

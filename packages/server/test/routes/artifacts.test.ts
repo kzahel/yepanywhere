@@ -336,7 +336,9 @@ it("routes the artifact Host on YA's actual HTTP port before YA APIs", async () 
     expect((await get("/api/version", "localhost:3400", "null")).status).toBe(
       403,
     );
-    expect(isAllowedOrigin("http://artifacts.localhost:9999")).toBe(false);
+    expect(isAllowedOrigin("http://artifacts.localhost:9999", undefined)).toBe(
+      false,
+    );
   } finally {
     updateAllowedHosts(undefined);
     listener.closeAllConnections();

@@ -20,6 +20,14 @@ is enabled, every `/api` route except the `/api/auth` login and status routes
 refuses a request that carries no valid credential; no operator route answers
 ahead of the host, CORS, custom-header, and authentication checks.
 
+Browser origins earn credentialed CORS and YA WebSocket access only when they
+are the allowed host being requested, a built-in loopback/private-network/Tauri
+origin, or an explicitly allowed host. Any web page can mint the opaque
+`Origin: null` with a sandboxed iframe, and anyone can publish one under
+`*.ts.net` with Tailscale Funnel, so neither is trusted on its own. A
+`*.ts.net` name remains an allowed Host, and its own pages keep same-origin
+access.
+
 The practical trust boundary is therefore **can use normal authenticated YA,
 including creating or controlling an ordinary session**. That authority should
 be treated as the authority of the operating-system account running YA. An

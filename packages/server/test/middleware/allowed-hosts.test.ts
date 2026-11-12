@@ -120,41 +120,134 @@ describe("allowed-hosts", () => {
     });
 
     it("allows missing origin (same-origin request)", () => {
-      expect(isAllowedOrigin(undefined)).toBe(true);
+      expect(isAllowedOrigin(undefined, undefined)).toBe(true);
     });
 
-    it('allows "null" origin (file://, about:blank)', () => {
-      expect(isAllowedOrigin("null")).toBe(true);
+    it('rejects the opaque "null" origin (sandboxed iframe, file:)', () => {
+      expect(isAllowedOrigin("null", undefined)).toBe(false);
     });
 
     it("allows localhost origins", () => {
-      expect(isAllowedOrigin("http://localhost:3400")).toBe(true);
-      expect(isAllowedOrigin("https://localhost")).toBe(true);
+      expect(isAllowedOrigin("http://localhost:3400", undefined)).toBe(true);
+      expect(isAllowedOrigin("https://localhost", undefined)).toBe(true);
     });
 
     it("allows Tauri desktop origins", () => {
-      expect(isAllowedOrigin("tauri://localhost")).toBe(true);
-      expect(isAllowedOrigin("http://tauri.localhost")).toBe(true);
-      expect(isAllowedOrigin("https://tauri.localhost")).toBe(true);
+      expect(isAllowedOrigin("tauri://localhost", undefined)).toBe(true);
+      expect(isAllowedOrigin("http://tauri.localhost", undefined)).toBe(true);
+      expect(isAllowedOrigin("https://tauri.localhost", undefined)).toBe(true);
     });
 
     it("allows private IP origins", () => {
-      expect(isAllowedOrigin("http://192.168.1.100:3400")).toBe(true);
-      expect(isAllowedOrigin("http://10.0.0.1")).toBe(true);
+      expect(isAllowedOrigin("http://192.168.1.100:3400", undefined)).toBe(
+        true,
+      );
+      expect(isAllowedOrigin("http://10.0.0.1", undefined)).toBe(true);
     });
 
-    it("allows Tailscale origins", () => {
-      expect(isAllowedOrigin("http://myhost.ts.net:3400")).toBe(true);
-      expect(isAllowedOrigin("https://foo.bar.ts.net")).toBe(true);
+    it("trusts a Tailscale origin only as the host being requested", () => {
+      // YA opened at its own name, directly or through Tailscale Serve.
+      expect(
+        isAllowedOrigin("https://mac.tail1234.ts.net", "mac.tail1234.ts.net"),
+      ).toBe(true);
+      expect(
+        isAllowedOrigin("http://myhost.ts.net:3400", "MyHost.ts.net:3400"),
+      ).toBe(true);
+      // A Funnel page on another ts.net name, or another port on this one.
+      expect(
+        isAllowedOrigin("https://evil.tail9999.ts.net", "mac.tail1234.ts.net"),
+      ).toBe(false);
+      expect(
+        isAllowedOrigin("https://evil.tail9999.ts.net", "localhost:3400"),
+      ).toBe(false);
+      expect(
+        isAllowedOrigin("http://myhost.ts.net:8080", "myhost.ts.net:3400"),
+      ).toBe(false);
+    });
+
+    it("trusts an explicitly allowed Tailscale name from another host", async () => {
+      vi.resetModules();
+      const mod = await loadModule();
+      mod.updateAllowedHosts("laptop.tail1234.ts.net");
+      expect(
+        mod.isAllowedOrigin("https://laptop.tail1234.ts.net", "localhost:3400"),
+      ).toBe(true);
     });
 
     it("rejects public origins", () => {
-      expect(isAllowedOrigin("https://evil.com")).toBe(false);
-      expect(isAllowedOrigin("https://attacker.github.io")).toBe(false);
+      expect(isAllowedOrigin("https://evil.com", undefined)).toBe(false);
+      expect(isAllowedOrigin("https://attacker.github.io", undefined)).toBe(
+        false,
+      );
     });
 
     it("rejects invalid URLs", () => {
-      expect(isAllowedOrigin("not-a-url")).toBe(false);
+      expect(isAllowedOrigin("not-a-url", undefined)).toBe(false);
+    });
+  });
+
+  describe("CORS middleware", () => {
+    async function corsApp() {
+      vi.resetModules();
+      process.env.ALLOWED_HOSTS = undefined;
+      const { Hono } = await import("hono");
+      const { corsMiddleware } = await import(
+        "../../src/middleware/security.js"
+      );
+      const app = new Hono();
+      app.use("*", corsMiddleware);
+      app.all("/api/x", (c) => c.text("ok"));
+      return app;
+    }
+
+    it("grants an opaque null origin neither reads nor credentialed mutations", async () => {
+      const app = await corsApp();
+      const read = await app.request("/api/x", {
+        headers: { Host: "localhost:3400", Origin: "null" },
+      });
+      expect(read.headers.get("Access-Control-Allow-Origin")).toBeNull();
+
+      const preflight = await app.request("/api/x", {
+        method: "OPTIONS",
+        headers: {
+          Host: "localhost:3400",
+          Origin: "null",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "x-yep-anywhere",
+        },
+      });
+      expect(preflight.headers.get("Access-Control-Allow-Origin")).toBeNull();
+
+      const local = await app.request("/api/x", {
+        headers: { Host: "localhost:3400", Origin: "http://localhost:3400" },
+      });
+      expect(local.headers.get("Access-Control-Allow-Origin")).toBe(
+        "http://localhost:3400",
+      );
+    });
+
+    it("grants a Tailscale Funnel page no credentialed access", async () => {
+      const app = await corsApp();
+      const funnel = await app.request("/api/x", {
+        method: "OPTIONS",
+        headers: {
+          Host: "localhost:3400",
+          Origin: "https://evil.tail9999.ts.net",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "x-yep-anywhere",
+        },
+      });
+      expect(funnel.headers.get("Access-Control-Allow-Origin")).toBeNull();
+
+      const own = await app.request("/api/x", {
+        headers: {
+          Host: "mac.tail1234.ts.net",
+          Origin: "https://mac.tail1234.ts.net",
+        },
+      });
+      expect(own.headers.get("Access-Control-Allow-Origin")).toBe(
+        "https://mac.tail1234.ts.net",
+      );
     });
   });
 
@@ -181,7 +274,8 @@ describe("allowed-hosts", () => {
 
       expect(mod.allowAllHosts()).toBe(true);
       expect(mod.isAllowedHost("anything.com:1234")).toBe(true);
-      expect(mod.isAllowedOrigin("https://anything.com")).toBe(true);
+      expect(mod.isAllowedOrigin("https://anything.com", undefined)).toBe(true);
+      expect(mod.isAllowedOrigin("null", undefined)).toBe(false);
     });
 
     it("handles whitespace in env var", async () => {
@@ -251,7 +345,8 @@ describe("allowed-hosts", () => {
     it("settings wildcard overrides even without env var wildcard", () => {
       mod.updateAllowedHosts("*");
       expect(mod.allowAllHosts()).toBe(true);
-      expect(mod.isAllowedOrigin("https://anything.com")).toBe(true);
+      expect(mod.isAllowedOrigin("https://anything.com", undefined)).toBe(true);
+      expect(mod.isAllowedOrigin("null", undefined)).toBe(false);
     });
 
     it("is case-insensitive", () => {

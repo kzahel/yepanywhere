@@ -12,7 +12,8 @@
  * Built-in allowed hostnames:
  * - localhost, 127.0.0.1, ::1, [::1], tauri.localhost
  * - Private IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
- * - *.ts.net (Tailscale, including nested subdomains)
+ * - *.ts.net (Tailscale, including nested subdomains). As an Origin, a
+ *   Tailscale name is trusted only when it is the host being requested.
  *
  * Plus ALLOWED_HOSTS env var and in-app settings (comma-separated hostnames, or "*" to allow all).
  */
@@ -129,6 +130,7 @@ export function isAllowedHostname(hostname: string): boolean {
 function hostnameAllowedBy(
   hostname: string,
   settings: Set<string> | "*" | null,
+  trustAnyTailscaleName = true,
 ): boolean {
   const h = hostname.toLowerCase();
   if (artifactHosts.has(h) || vhostHosts.has(h)) return false;
@@ -143,8 +145,11 @@ function hostnameAllowedBy(
   if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
   if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
 
-  // Tailscale (*.ts.net — supports nested subdomains like foo.bar.ts.net)
-  if (h.endsWith(".ts.net")) return true;
+  // Tailscale (*.ts.net — supports nested subdomains like foo.bar.ts.net).
+  // Safe as a Host: Tailscale controls these DNS records, so no attacker can
+  // rebind one to this machine. Not safe as an Origin: anyone can publish a
+  // public page under ts.net with Tailscale Funnel.
+  if (trustAnyTailscaleName && h.endsWith(".ts.net")) return true;
 
   // ALLOWED_HOSTS env var entries
   if (ENV_HOSTS !== "*" && ENV_HOSTS.size > 0 && ENV_HOSTS.has(h)) return true;
@@ -205,38 +210,63 @@ function hostAllowedBy(
 }
 
 /**
- * Validate an Origin header value.
+ * Validate an Origin header value against the request's Host header.
  *
- * Extracts hostname from the origin URL and checks it.
- * Returns true for missing/null origins (same-origin or non-browser clients).
+ * Returns true for a missing Origin (same-origin or non-browser clients), for
+ * a page served by the allowed host being requested, and for origins on the
+ * built-in or configured allowlist. Returns false for the opaque "null" origin
+ * and for other Tailscale names, which are only trusted as the requested host.
  */
-export function isAllowedOrigin(origin: string | undefined): boolean {
-  return originAllowedBy(origin, settingsHosts);
+export function isAllowedOrigin(
+  origin: string | undefined,
+  host: string | undefined,
+): boolean {
+  return originAllowedBy(origin, host, settingsHosts);
 }
 
 /** Whether an Origin would pass if the in-app setting were `value`. */
 export function wouldAllowOrigin(
   origin: string | undefined,
+  host: string | undefined,
   value: string | undefined,
 ): boolean {
-  return originAllowedBy(origin, parseAllowedHostsSetting(value));
+  return originAllowedBy(origin, host, parseAllowedHostsSetting(value));
 }
 
 function originAllowedBy(
   origin: string | undefined,
+  host: string | undefined,
   settings: Set<string> | "*" | null,
 ): boolean {
   if (isArtifactOrigin(origin)) return false;
   // No origin = same-origin request or non-browser client (allowed).
-  // "null" = about:blank, file://, sandboxed iframe, etc. (allowed).
-  if (!origin || origin === "null") return true;
+  if (!origin) return true;
+  // "null" is an opaque browser origin (sandboxed iframe, file:, data:,
+  // about:blank). Any web page can create one, so it never earns CORS or
+  // WebSocket trust, even with a wildcard allowed-hosts setting.
+  if (origin === "null") return false;
   if (ENV_HOSTS === "*" || settings === "*") return true;
 
+  let url: URL;
   try {
-    const hostname = new URL(origin).hostname.toLowerCase();
-    return hostnameAllowedBy(hostname, settings);
+    url = new URL(origin);
   } catch {
     // Invalid origin URL
+    return false;
+  }
+  // A page served by the allowed host it is calling, such as YA opened at its
+  // own Tailscale name (Tailscale Serve forwards the original Host).
+  if (host && sameAuthority(url, host) && hostAllowedBy(host, settings))
+    return true;
+  return hostnameAllowedBy(url.hostname.toLowerCase(), settings, false);
+}
+
+/** Whether `host` names the same host and port as `origin`. */
+function sameAuthority(origin: URL, host: string): boolean {
+  try {
+    // Parse with the origin's scheme so default ports normalize alike.
+    return new URL(`${origin.protocol}//${host}`).host === origin.host;
+  } catch {
     return false;
   }
 }
