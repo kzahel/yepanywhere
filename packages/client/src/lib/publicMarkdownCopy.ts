@@ -59,15 +59,28 @@ export function preparePublicMarkdownCopy(
     if (source) source += "\n\n";
     const offset = source.length;
     source += snippet.markdown;
-    const known = new Map<string, CopyProjectFile>();
+    const known = new Map<string, CopyProjectFile | null>();
+    const remember = (alias: string, file: CopyProjectFile) => {
+      const previous = known.get(alias);
+      known.set(
+        alias,
+        known.has(alias) &&
+          (!previous ||
+            copyFileKey(previous) !== copyFileKey(file) ||
+            previous.fragment !== file.fragment)
+          ? null
+          : file,
+      );
+    };
     const resolve = (
       value: string,
       projectId?: string,
+      destination = false,
     ): CopyProjectFile | null => {
       let path = value;
       let fragment = "";
       // Only our viewer routes and loopback viewer links describe this source.
-      if (/^https?:\/\//i.test(value)) {
+      if (/^(?:https?:)?\/\//i.test(value)) {
         if (!viewerUrl(value)) return null;
       }
       const local = parseLocalResourceHref(value, { currentHref });
@@ -89,6 +102,13 @@ export function preparePublicMarkdownCopy(
         if (cited) {
           path = cited.path;
           fragment ||= `L${cited.position.lineNumber}${cited.position.lineEnd ? `-L${cited.position.lineEnd}` : ""}`;
+        }
+        if (destination) {
+          try {
+            path = decodeURIComponent(path);
+          } catch {
+            return null;
+          }
         }
       }
       let project = roots.find(
@@ -139,18 +159,18 @@ export function preparePublicMarkdownCopy(
       const position = resource?.lineNumber;
       if (position && !file.fragment)
         file.fragment = `L${position}${resource?.lineEnd ? `-L${resource.lineEnd}` : ""}`;
-      known.set(href, file);
-      known.set(file.localPath, file);
-      known.set(file.path, file);
+      remember(href, file);
+      remember(file.localPath, { ...file, fragment: "" });
+      remember(file.path, { ...file, fragment: "" });
       const label = anchor.textContent?.trim();
-      if (label && /[/\\.]|^~/.test(label)) known.set(label, file);
+      if (label && /[/\\.]|^~/.test(label)) remember(label, file);
     }
     const markdown = snippet.markdown;
     // Fences, inline code, links and bare paths are consumed once, in source order.
     const tokens =
-      /(^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\2[^\n]*(?:\n|$)|(?![\s\S])))|(!?\[(?:\\.|[^\]\\\n]|\[[^\]\n]*\])*\]\(\s*(?:<[^>\n]+>|(?:\\.|[^\s()\\]|\([^()\n]*\))+)(?:\s+["'][^\n]*?["'])?\s*\))|(`+)([^`\n]+)\4|^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*(?:<[^>\n]+>|(?:\\.|[^\s()\\]|\([^()\n]*\))+)(?:[ \t]+["'][^\n]*?["'])?|(?:~\/|\/(?!\/)|[A-Za-z]:[\\/])[^\s<>`"']+|[^\s<>`"'()[\]]+\/[^ \s<>`"'()[\]]+/gm;
+      /(^(?:[ \t]*>[ \t]*)*[ \t]*(?:(?:[-+*]|\d+[.)])[ \t]+)?(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^(?:[ \t]*>[ \t]*)*[ \t]*\2[^\n]*(?:\n|$)|(?![\s\S])))|(!?\[(?:\\.|[^\]\\\n]|\[[^\]\n]*\])*\]\(\s*(?:<[^>\n]+>|(?:\\.|[^\s()\\]|\([^()\n]*\))+)(?:\s+["'][^\n]*?["'])?\s*\))|(`+)([^`\n]+)\4|^(?: {0,3}> ?)*(?: {4}|\t)[^\n]*(?:\n|$)|^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*(?:<[^>\n]+>|(?:\\.|[^\s()\\]|\([^()\n]*\))+)(?:[ \t]+["'][^\n]*?["'])?|(?:~\/|\/(?!\/)|[A-Za-z]:[\\/])[^\s<>`"']+|[^\s<>`"'()[\]]+\/[^ \s<>`"'()[\]]+/gm;
     for (const match of markdown.matchAll(tokens)) {
-      if (match[1]) continue;
+      if (match[1] || /^(?: {0,3}> ?)*(?: {4}|\t)/.test(match[0])) continue;
       let text = match[0];
       let label: string | undefined;
       let start = match.index;
@@ -177,11 +197,28 @@ export function preparePublicMarkdownCopy(
         label = match[0];
       } else {
         text = text.replace(/[.,;:!?]+$/, "");
+        for (const [open, close] of [
+          ["(", ")"],
+          ["[", "]"],
+          ["{", "}"],
+        ]) {
+          while (
+            text.endsWith(close!) &&
+            text.split(close!).length > text.split(open!).length
+          )
+            text = text.slice(0, -1);
+        }
         end = start + text.length;
         label = text;
       }
+      if (known.has(text) && !known.get(text)) continue;
       const file =
-        known.get(text) ?? resolve(text, snippet.sourceLocation?.projectId);
+        known.get(text) ??
+        resolve(
+          text,
+          snippet.sourceLocation?.projectId,
+          !!match[3] || definition,
+        );
       if (file)
         references.push({
           start: offset + start,
@@ -212,7 +249,11 @@ export function renderPublicMarkdownCopy(
     if (appUrl) appProjects.add(file.projectId);
     if (url && !appUrl && file.fragment) {
       const parsed = new URL(url);
-      parsed.hash = file.fragment;
+      const position = /^L(\d+)(?:-L(\d+))?$/.exec(file.fragment);
+      if (position) {
+        parsed.searchParams.set("line", position[1]!);
+        if (position[2]) parsed.searchParams.set("lineEnd", position[2]);
+      }
       url = parsed.href;
     }
     if (!url) unresolved.set(copyFileKey(file), file);

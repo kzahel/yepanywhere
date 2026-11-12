@@ -3,6 +3,7 @@ import { toUrlProjectId } from "@yep-anywhere/shared";
 import {
   preparePublicMarkdownCopy,
   renderPublicMarkdownCopy,
+  copyFileKey,
 } from "../publicMarkdownCopy";
 
 const projectId = toUrlProjectId("/work/project");
@@ -38,6 +39,57 @@ const apps = new Map([
 ]);
 
 describe("public Markdown copy", () => {
+  it("keeps prose punctuation outside paths and decodes destinations only", () => {
+    const result = renderPublicMarkdownCopy(
+      prepare(
+        "See (/work/project/a.md). [space](/work/project/a%20b.md) and `/work/project/a%20b.md`",
+      ),
+      apps,
+    );
+    expect(result.markdown).toContain(
+      "See ([/work/project/a.md](<https://project.example/view?path=a.md&ya_access=token>)).",
+    );
+    expect(result.markdown).toContain(
+      "[space](<https://project.example/view?path=a+b.md&ya_access=token>)",
+    );
+    expect(result.markdown).toContain("path=a%2520b.md");
+  });
+  it("leaves nested fences, indented code and foreign protocol-relative links alone", () => {
+    for (const source of [
+      "> ```sh\n> cat /work/project/a.md\n> ```",
+      "- ```sh\n  cat /work/project/a.md\n  ```",
+      "    cat /work/project/a.md",
+      `[foreign](//foreign.example/projects/${projectId}/file?path=a.md)`,
+    ])
+      expect(renderPublicMarkdownCopy(prepare(source), apps).markdown).toBe(
+        source,
+      );
+  });
+  it("leaves ambiguous rendered aliases local instead of using another project's path", () => {
+    const source = "`src/a.md` and `src/a.md`";
+    const copy = prepare(
+      source,
+      `<a href="/projects/${projectId}/file?path=src/a.md">src/a.md</a><a href="/projects/${otherId}/file?path=src/a.md">src/a.md</a>`,
+    );
+    expect(renderPublicMarkdownCopy(copy, apps).markdown).toBe(source);
+  });
+  it("uses the file-share viewer's line query while retaining its routing fragment", () => {
+    const copy = prepare("[range](/work/other/a.md:12-15)");
+    const file = copy.references[0]!.file;
+    const result = renderPublicMarkdownCopy(
+      copy,
+      apps,
+      new Map([
+        [
+          copyFileKey(file),
+          "https://ya.example/share/key/file?path=a.md#v=2&target=file",
+        ],
+      ]),
+    );
+    expect(result.markdown).toBe(
+      "[range](<https://ya.example/share/key/file?path=a.md&line=12&lineEnd=15#v=2&target=file>)",
+    );
+  });
   it("rewrites viewer destinations, preserves labels and citations, and keeps unmapped paths local", () => {
     const source = `[the report](http://localhost:3400/projects/${projectId}/file?path=docs%2Freport.md&line=12&lineEnd=15) and [other](</work/other/note.md>)`;
     const result = renderPublicMarkdownCopy(prepare(source), apps);
