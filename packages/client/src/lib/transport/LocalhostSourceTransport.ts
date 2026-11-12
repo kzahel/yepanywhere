@@ -97,6 +97,7 @@ class LocalhostTransportStatus implements SourceTransportStatus {
 export class LocalhostSourceTransport implements SourceTransport {
   readonly kind = "localhost" as const;
   readonly capabilities: SourceTransportCapabilities = {
+    streamedResponses: true,
     sameOriginUrls: true,
     device: {
       send: async (msg) => {

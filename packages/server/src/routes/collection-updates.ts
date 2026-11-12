@@ -101,9 +101,6 @@ export function createCollectionUpdateStream(
     const metadataFields = context.req.query("metadata") === "fields";
     if (streams >= 32)
       return context.json({ error: "Collection stream limit" }, 429);
-    streams++;
-    context.header("Cache-Control", "private, no-store");
-    context.header("Content-Type", "application/x-ndjson");
     // Membership/grants are resolved by the canonical routes, not by this key.
     const credential = createHash("sha256")
       .update(
@@ -122,6 +119,20 @@ export function createCollectionUpdateStream(
       context.get(PRINCIPAL_VARIABLE) ?? { kind: "superuser" },
       credential,
     ]);
+    const admission = owner.admission(audience, queries);
+    if (admission)
+      return context.json(
+        {
+          error:
+            admission === "full"
+              ? "Collection update view limit"
+              : "Collection update owner is closed",
+        },
+        admission === "full" ? 429 : 503,
+      );
+    streams++;
+    context.header("Cache-Control", "private, no-store");
+    context.header("Content-Type", "application/x-ndjson");
     return stream(context, async (output) => {
       const releases: Array<() => void> = [];
       const pending = new Map<string, string>();

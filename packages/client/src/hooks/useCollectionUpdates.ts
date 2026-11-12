@@ -34,10 +34,12 @@ export function useCollectionUpdates<T>(options: {
     version,
     SERVER_CAPABILITIES.collectionMetadataFields,
   );
-  const supported = serverHasCapability(
-    version,
-    options.capability ?? SERVER_CAPABILITIES.collectionQueryUpdates.name,
-  );
+  const supported =
+    options.runtime.transport.capabilities.streamedResponses === true &&
+    serverHasCapability(
+      version,
+      options.capability ?? SERVER_CAPABILITIES.collectionQueryUpdates.name,
+    );
   const { runtime, key, path, rows = 0, enabled } = options;
   useEffect(() => {
     if (!supported || !enabled) return;

@@ -190,6 +190,27 @@ shared acquisition or healthy peers. Query errors retain the existing client
 REST/event fallback; cleanup aborts queued/in-flight work, releases listeners
 and accepted views, and fences late completion.
 
+Collection NDJSON is an explicitly streamed response over encrypted WebSocket
+and relay transports. Cancelling its body or disconnecting the logical client
+releases its views, including when acquisition finishes after cancellation.
+An unsupported tunnel refuses the request before creating a producer. The
+client requires both the existing collection capability and a transport able to
+stream responses; plain multiplex WebSocket and native bridges with only finite
+response lifetimes retain REST/event ownership. Older supported stable servers
+(v0.8.0 through v0.11.0, including latest two v0.11.0/v0.10.2) lack the
+collection capabilities and receive no collection subscription request.
+
+View capacity is checked before opening a successful response: a full owner
+answers 429, a retired owner 503, without a partial acquisition or stack trace.
+Failure backoff belongs to the source and survives fallback REST reads and
+query-set changes (250 ms initially, doubling to at most five seconds). A valid
+replacement for every subscribed query resets it; visibility/reconnect may
+explicitly reacquire. Headers or partial initial query coverage cannot reset
+failure backoff or repeatedly defer the REST fallback.
+Quiet collections have no file-transfer inactivity deadline. Connection health
+and explicit cancellation still own their lifetime; ordinary file responses
+retain their bounded progress deadline.
+
 Client stream ownership is source/query scoped and ref-counted. Identical
 consumers and their retained controller share publication. A pushed result
 invalidates older HTTP admission and cancels pending whole-query revalidation.

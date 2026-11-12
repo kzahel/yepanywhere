@@ -66,3 +66,10 @@ repeats five timer-only navigation diagnostics. No client navigation changes
 are part of this slice; all 137 focused core/agent-API checks are clean. The
 same unowned asynchronous stacks prevent a safely isolated fix here; no
 global suppression was added. Evidence: `/tmp/ya-v0-tests-final.log`.
+
+2026-11-12: the final collection-stream repair workspace run passes 7,400 server
+tests (94 skips) and 7,394 client tests, repeating the same five unowned
+jsdom navigation diagnostics. Its focused collection/transport cases are
+clean. This change does not modify links or document navigation; the timer-only
+stacks still require a separate fixture attribution audit rather than global
+suppression. Evidence: `/tmp/collection-fix-test-final.log`.

@@ -120,6 +120,17 @@ export class CollectionUpdates {
       }
     };
   }
+  /** Admission and retain are synchronous, so no partial stream need open. */
+  admission(
+    audience: string,
+    queries: string[],
+  ): "closed" | "full" | undefined {
+    if (this.closed) return "closed";
+    const additional = queries.filter(
+      (query) => !this.views.has(JSON.stringify([audience, query])),
+    ).length;
+    if (this.views.size + additional > 64) return "full";
+  }
   private wake(delay: number) {
     const due = Date.now() + Math.max(0, delay);
     if (this.closed || (this.timer && this.due <= due)) return;

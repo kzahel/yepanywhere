@@ -1069,6 +1069,9 @@ Stage 4's [bounded collection updates](../research/190-collection-query-updates.
 now carry canonical session/Inbox membership, rows and counts through a shared
 capability-gated stream. The [project extension](../research/190-project-collection-updates.md)
 now carries bounded Projects/ProjectQueue and shares queue deadlines on the server.
+Collection response delivery now explicitly admits encrypted tunnels, releases
+departed viewers, and preserves source retry backoff across REST fallback;
+transports without a live response path retain REST ownership.
 [Combined qualification](../research/190-combined-scale-qualification.md) now
 records the full fixture and population/history controls. Warm list medians,
 loop p99 and typing pass their observed ceilings; CPU, bytes, browser work and

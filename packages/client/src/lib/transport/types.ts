@@ -103,6 +103,8 @@ export interface SpeechChannelFactory {
 }
 
 export interface SourceTransportCapabilities {
+  /** Can deliver and cancel a response before its producer reaches EOF. */
+  readonly streamedResponses?: boolean;
   /**
    * True when same-origin URLs, such as image or file URLs under `/api`, reach
    * this source. Media consumers branch on this, never on transport kind.

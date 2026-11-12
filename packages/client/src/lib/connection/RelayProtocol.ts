@@ -1,12 +1,10 @@
+import { armResponseBodyIdle, markLiveResponseBody } from "./responseBodyIdle";
 import {
   CONVERSATION_API_REVISION,
   CONVERSATION_CHANNEL,
 } from "@yep-anywhere/shared/experimental/conversation-protocol";
 import type { ConversationQuery } from "@yep-anywhere/shared/experimental/simple-client.generated";
-import {
-  RELAY_RESPONSE_STREAM_IDLE_TIMEOUT_MS,
-  RELAY_RESPONSE_STREAM_WINDOW_BYTES,
-} from "@yep-anywhere/shared";
+import { RELAY_RESPONSE_STREAM_WINDOW_BYTES } from "@yep-anywhere/shared";
 import type {
   ClientPing,
   DeviceServerMessage,
@@ -714,11 +712,15 @@ export class RelayProtocol {
    * are reported to the server, which sends no further ahead than its window,
    * so a slow reader slows the transfer instead of growing a buffer.
    */
-  private openResponseStream(id: string): ReadableStream<Uint8Array> {
+  private openResponseStream(
+    request: RelayRequest,
+  ): ReadableStream<Uint8Array> {
+    const id = request.id;
     let stream: ResponseStreamState | undefined;
     return new ReadableStream<Uint8Array>(
       {
         start: (controller) => {
+          markLiveResponseBody(request.path, controller);
           stream = {
             controller,
             receivedBytes: 0,
@@ -771,13 +773,10 @@ export class RelayProtocol {
 
   /** Fails a stream that makes no progress, as the server would. */
   private armResponseStreamIdle(id: string, stream: ResponseStreamState): void {
-    if (stream.idleTimer) clearTimeout(stream.idleTimer);
-    stream.idleTimer = setTimeout(() => {
-      if (this.responseStreams.get(id) !== stream) return;
+    armResponseBodyIdle(stream, () => {
       this.releaseResponseStream(id, stream);
       this.sendResponseStreamCancel(id);
-      stream.controller.error(new Error("Request timeout"));
-    }, RELAY_RESPONSE_STREAM_IDLE_TIMEOUT_MS);
+    });
   }
 
   private releaseResponseStream(id: string, stream: ResponseStreamState): void {
@@ -947,7 +946,7 @@ export class RelayProtocol {
           headers.set("content-length", String(start.length));
         }
         resolve(
-          new Response(this.openResponseStream(id), {
+          new Response(this.openResponseStream(request), {
             status: start.status,
             headers,
           }),

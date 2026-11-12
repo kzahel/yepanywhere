@@ -169,6 +169,7 @@ abstract class MultiplexSourceTransport<TConnection extends MultiplexConnection>
     );
     this.status = this.mutableStatus;
     this.capabilities = {
+      streamedResponses: config.kind === "secure",
       sameOriginUrls: config.sameOriginUrls,
       ...(config.device
         ? {

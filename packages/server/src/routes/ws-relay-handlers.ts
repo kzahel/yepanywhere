@@ -1,3 +1,4 @@
+import * as responsePolicy from "./ws-stream-policy.js";
 import type { ConversationSubscriptions } from "../experimental/conversation-subscriptions.js";
 import { subscribeConversationRelay } from "../experimental/conversation-relay.js";
 /**
@@ -33,7 +34,6 @@ import type {
 } from "@yep-anywhere/shared";
 import {
   BinaryFormat,
-  NEW_SESSION_BOOTSTRAP,
   RELAY_RESPONSE_STREAM_CHUNK_BYTES,
   RELAY_RESPONSE_STREAM_IDLE_TIMEOUT_MS,
   RELAY_RESPONSE_STREAM_WINDOW_BYTES,
@@ -118,7 +118,6 @@ import {
   hasEstablishedSrpTransport,
   tryLockWsConnectionMode,
 } from "./ws-transport-auth.js";
-import { internalWsRequestEnv } from "./ws-internal-request-env.js";
 import { parseApplicationClientMessage } from "./ws-transport-message-auth.js";
 
 /** Progress report interval in bytes (64KB) */
@@ -529,6 +528,7 @@ export function createConnectionState(options?: {
 export function cleanupConnectionState(connState: ConnectionState): void {
   if (connState.cleanupStarted) return;
   connState.cleanupStarted = true;
+  responsePolicy.abortCollections(connState);
   const activeRequest = connState.preauthPublicShareRequest;
   connState.preauthPublicShareRequest = null;
   activeRequest?.controller.abort();
@@ -1091,6 +1091,7 @@ async function streamRelayResponse(
   ws: WSAdapter,
 ): Promise<void> {
   const declaredLength = response.headers.get("Content-Length");
+  if (responsePolicy.dropClosedBody(connState, body)) return;
   const reader = body.getReader();
   if (
     connState.responseStreams.has(id) ||
@@ -1323,8 +1324,14 @@ export async function handleRequest(
             },
           }
         : null;
-    const internalEnv = internalWsRequestEnv(connState, srpTransport);
-    const response = await app.fetch(fetchRequest, internalEnv);
+    const response = await responsePolicy.dispatchRelay(
+      request,
+      fetchRequest,
+      srpTransport,
+      app,
+      connState,
+      responseFrameMode.kind === "srp_encrypted" && !!send.sendResponseChunk,
+    );
     const runAfterResponseTasks = async (): Promise<void> => {
       for (const task of afterResponseTasks) {
         try {
@@ -1355,20 +1362,13 @@ export async function handleRequest(
       !(legacyPublicShareRequest && !jsonResponse) &&
       (downloadResponse ||
         (!jsonResponse && isRelayBinaryMediaType(contentType)));
-    // Only this finite event-stream contract uses response streaming; ordinary
-    // live subscriptions retain their own subscription/teardown protocol.
-    const bootstrapResponse =
-      url.pathname === "/api/settings" &&
-      url.searchParams.get("bootstrap") === NEW_SESSION_BOOTSTRAP &&
-      contentType.startsWith("text/event-stream");
-    const streamedBody =
-      (request.stream === true || request.stream === "connection") &&
+    const streamedBody = responsePolicy.relayStreamBody(
+      request,
+      response,
       responseFrameMode.kind === "srp_encrypted" &&
-      !isPreauthPublicShareRequest &&
-      response.ok &&
-      (binaryResponse || bootstrapResponse)
-        ? response.body
-        : null;
+        !isPreauthPublicShareRequest,
+      binaryResponse,
+    );
     if (streamedBody && send.sendResponseChunk) {
       const headers = relayedResponseHeaders(response);
       await streamRelayResponse(

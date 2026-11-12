@@ -32,6 +32,20 @@ interface Entry {
 }
 /** Weak source owner; entries and stream disappear with the final mounted query. */
 const owners = new WeakMap<YaSourceRuntime, CollectionUpdateOwner>();
+
+function waitForRetry(deadline: number, signal: AbortSignal): Promise<void> {
+  const delay = deadline - Date.now();
+  if (delay <= 0 || signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, delay);
+    signal.addEventListener("abort", finish, { once: true });
+  });
+}
 class CollectionUpdateOwner {
   readonly transport;
   private readonly entries = new Map<string, Entry>();
@@ -39,6 +53,10 @@ class CollectionUpdateOwner {
   private queued = false;
   private disposed = false;
   private signature = "";
+  // Source-owned cooldown survives REST pause/resume and query-set rebuilds.
+  private retryAt = 0;
+  private failures = 0;
+  private retryTimer?: ReturnType<typeof setTimeout>;
   private removeVisibility?: () => void;
   private removeReconnect?: () => void;
   private readonly hide = () => {
@@ -187,6 +205,8 @@ class CollectionUpdateOwner {
       const signature = JSON.stringify([queryNames, metadataFields]);
       if (signature === this.signature) return;
       this.signature = signature;
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
       this.stream?.close();
       this.stream = undefined;
       for (const entry of this.entries.values()) {
@@ -194,6 +214,14 @@ class CollectionUpdateOwner {
         entry.decoded = undefined;
       }
       if (!queries.size || queries.size > 8) return;
+      if (this.retryAt > Date.now()) {
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = undefined;
+          this.signature = "";
+          this.rebuild();
+        }, this.retryAt - Date.now());
+        return;
+      }
       this.stream = createManagedStream(this.transport, {
         subscribe: ({ transport, handlers }) => {
           const epochs = new Map(
@@ -210,9 +238,15 @@ class CollectionUpdateOwner {
             entry.decoded = undefined;
           }
           void (async () => {
+            await waitForRetry(this.retryAt, abort.signal);
+            if (abort.signal.aborted) return;
             const response = await (transport.fetchStream
               ? transport.fetchStream(path, { signal: abort.signal })
               : transport.fetchResponse(path, { signal: abort.signal }));
+            if (abort.signal.aborted) {
+              await response.body?.cancel().catch(() => {});
+              return;
+            }
             if (
               !response.ok ||
               !response.headers
@@ -222,7 +256,8 @@ class CollectionUpdateOwner {
             )
               throw new Error("Collection updates unavailable");
             reader = response.body.getReader();
-            handlers.onOpen?.();
+            let opened = false;
+            const initializing = new Set(queries.keys());
             const decoder = new TextDecoder();
             let buffer = "";
             for (;;) {
@@ -238,8 +273,16 @@ class CollectionUpdateOwner {
                 if (!abort.signal.aborted) {
                   const update = JSON.parse(line) as CollectionUpdate;
                   const entry = queries.get(update.query);
-                  if (entry && epochs.get(entry) === entry.epoch)
+                  if (entry && epochs.get(entry) === entry.epoch) {
                     handlers.onEvent("collection", undefined, update);
+                    initializing.delete(update.query);
+                    if (!opened && !initializing.size) {
+                      this.failures = 0;
+                      this.retryAt = 0;
+                      opened = true;
+                      handlers.onOpen?.();
+                    }
+                  }
                 }
                 end = buffer.indexOf("\n");
               }
@@ -290,6 +333,8 @@ class CollectionUpdateOwner {
     });
   }
   private unavailable(queries: Map<string, Entry>) {
+    this.retryAt =
+      Date.now() + Math.min(5_000, 250 * 2 ** Math.min(this.failures++, 5));
     for (const entry of queries.values()) {
       this.setLive(entry, false);
       entry.expanding = false;
@@ -297,11 +342,15 @@ class CollectionUpdateOwner {
     }
   }
   refresh() {
-    this.stream?.restart();
+    this.retryAt = 0;
+    this.signature = "";
+    this.rebuild();
   }
   close() {
     if (this.disposed) return;
     this.disposed = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = undefined;
     this.stream?.close();
     this.stream = undefined;
     this.removeVisibility?.();

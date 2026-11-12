@@ -315,8 +315,13 @@ binary contract; it adds no client dependency, capability, or protocol version.
 ## Request Semantics When Not Ready
 
 Streamed GET requests preserve caller headers, including content negotiation.
-The finite New Session startup bundle uses the existing encrypted response
-stream, independently delivering ready parts. Ordinary live event subscriptions
+The finite New Session startup bundle and the bounded collection NDJSON route
+use the existing encrypted response stream. Collection bodies may remain quiet
+while the connection is healthy; finite file bodies retain their progress
+deadline. Source-local `streamedResponses` capability identifies a usable live
+response path, independently of server feature support. Plain multiplex
+WebSocket and finite-only native bridges retain collection REST fallback.
+Ordinary live event subscriptions
 remain on their subscription protocol. Cancelling a response or closing the
 connection interrupts a pending body read as well as a sender waiting for byte
 acknowledgements, so a quiet producer cannot retain a closed tab's stream.

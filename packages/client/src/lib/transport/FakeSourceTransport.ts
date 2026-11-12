@@ -101,7 +101,7 @@ function copySnapshot(
 function defaultCapabilities(
   kind: SourceTransportKind,
 ): SourceTransportCapabilities {
-  return { sameOriginUrls: kind !== "secure" };
+  return { sameOriginUrls: kind !== "secure", streamedResponses: true };
 }
 
 class FakeSourceTransportStatus implements SourceTransportStatus {

@@ -195,6 +195,115 @@ it("shares a query stream, fences a late REST response, and cancels queued whole
   revalidation.release();
 });
 
+it("keeps ordinary REST ownership when the transport cannot stream responses", async () => {
+  const { runtime, requests, transport } = fixture("no-streamed-responses");
+  Object.assign(transport.capabilities, { streamedResponses: false });
+  renderHook(() => useObserve(runtime, () => {}));
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(requests).toHaveLength(0);
+});
+
+it("cancels a response that arrives after its final consumer departed", async () => {
+  const { runtime, transport } = fixture("late-stream-response");
+  let resolve!: (response: Response) => void;
+  const cancelled = vi.fn();
+  const published = vi.fn(async () => {});
+  const fetch = vi.fn(
+    () =>
+      new Promise<Response>((r) => {
+        resolve = r;
+      }),
+  );
+  transport.fetchResponse = fetch;
+  const release = retainCollectionUpdates(runtime, key, {
+    path,
+    rows: 100,
+    publish: published,
+    fallback: () => {},
+  });
+  await flush(() => expect(fetch).toHaveBeenCalledOnce());
+  release();
+  await act(async () => {
+    await Promise.resolve();
+  });
+  resolve(
+    new Response(new ReadableStream({ cancel: cancelled }), {
+      headers: { "Content-Type": "application/x-ndjson" },
+    }),
+  );
+  await flush(() => expect(cancelled).toHaveBeenCalledOnce());
+  expect(published).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  "backs off incomplete initial coverage (partial=%s) without starving REST fallback",
+  async (partial) => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const releases: Array<() => void> = [];
+    try {
+      const { runtime, transport } = fixture(`incomplete-stream-${partial}`);
+      const fallbackKey = partial ? "missing-query" : key;
+      const fetch = vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start: (c) => {
+                if (partial)
+                  c.enqueue(
+                    new TextEncoder().encode(
+                      JSON.stringify(initial("first query only")) + "\n",
+                    ),
+                  );
+                c.close();
+              },
+            }),
+            { headers: { "Content-Type": "application/x-ndjson" } },
+          ),
+      );
+      transport.fetchResponse = fetch;
+      const run = vi.fn();
+      const revalidation = retainQueryRevalidation({
+        sourceKey: runtime.sourceKey,
+        key: fallbackKey,
+        subscriber: { events: [], debounceMs: 500, run },
+      });
+      releases.push(revalidation.release);
+      releases.push(
+        retainCollectionUpdates(runtime, key, {
+          path,
+          rows: 100,
+          publish: async () => {},
+          fallback: () => {
+            if (!partial) revalidation.schedule();
+          },
+        }),
+      );
+      if (partial)
+        releases.push(
+          retainCollectionUpdates(runtime, fallbackKey, {
+            path: "/sessions?limit=20",
+            rows: 20,
+            publish: async () => {},
+            fallback: () => revalidation.schedule(),
+          }),
+        );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_420);
+      });
+      expect(fetch.mock.calls.length).toBeLessThanOrEqual(3);
+      expect(run).toHaveBeenCalled();
+    } finally {
+      for (const release of releases.reverse()) release();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      vi.useRealTimers();
+    }
+  },
+);
+
 it("fences an old stream around REST pagination and widens shared coverage before resuming", async () => {
   const { runtime, requests } = fixture("stream-pagination");
   const accepted: unknown[] = [];
