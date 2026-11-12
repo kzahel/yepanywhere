@@ -4,6 +4,11 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createTestViteServer } from "./support/vite-server";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture";
 
+// The first page on a cold fixture server took 10.5 s to boot on CI (6.9 s
+// to transform the fixture). A failure restarts the worker and its server,
+// so every retry and later test paid that again against the 15 s default.
+test.setTimeout(60_000);
+
 let server: Awaited<ReturnType<typeof createTestViteServer>>;
 let base: string;
 test.beforeAll(async () => {

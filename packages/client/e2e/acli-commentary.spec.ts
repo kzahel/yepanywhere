@@ -11,6 +11,10 @@ import { createTestViteServer as createViteServer } from "./support/vite-server"
 import { createToolCommentaryRoutes } from "../../server/src/routes/tool-commentary";
 import type { ProjectScanner } from "../../server/src/projects/scanner";
 
+// Each test file boots its own cold server; on CI the first page can take
+// over 10 s to load, leaving little of the 15 s default for the test itself.
+test.setTimeout(60_000);
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const serverRequire = createRequire(join(root, "../server/package.json"));
 const { getRequestListener } = serverRequire("@hono/node-server");

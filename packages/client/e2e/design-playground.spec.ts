@@ -5,6 +5,10 @@ import { UI_KEYS } from "../src/lib/storageKeys";
 import { createTestViteServer } from "./support/vite-server";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture";
 
+// Each test file boots its own cold server; on CI the first page can take
+// over 10 s to load, leaving little of the 15 s default for the test itself.
+test.setTimeout(60_000);
+
 let server: Awaited<ReturnType<typeof createTestViteServer>>;
 let base: string;
 test.beforeAll(async () => {

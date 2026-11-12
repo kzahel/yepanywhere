@@ -15,6 +15,10 @@ import { LimitedUsersService } from "../../server/src/auth/LimitedUsersService";
 import { AuthService } from "../../server/src/auth/AuthService";
 import { SESSION_COOKIE_NAME } from "../../server/src/auth/routes";
 
+// Each test file boots its own cold server; on CI the first page can take
+// over 10 s to load, leaving little of the 15 s default for the test itself.
+test.setTimeout(60_000);
+
 const clientRoot = resolve(import.meta.dirname, "..");
 const require = createRequire(join(clientRoot, "../server/package.json"));
 const { getRequestListener } = require("@hono/node-server");
