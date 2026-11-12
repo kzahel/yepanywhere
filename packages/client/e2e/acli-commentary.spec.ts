@@ -65,6 +65,10 @@ const basicAcliOutput = {
 const note = (text: string) => ({ _acli: { commentary: [{ text }] } });
 
 test.beforeAll(async () => {
+  // The file-level limit does not reach hooks. This one runs a browser capture
+  // and boots a cold Vite server, and exceeded the 15 s default in CI runs
+  // 42990576039 and 43275032371.
+  test.setTimeout(60_000);
   const scratch = resolve(
     root,
     "../../.artifacts/ui-testing/2026-09-07-acli-commentary",

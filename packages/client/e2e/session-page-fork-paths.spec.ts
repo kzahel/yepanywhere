@@ -402,9 +402,11 @@ test("toggling auto-open on a started fork summary opens the fork when ready, an
   const progress = page.locator(
     "[data-fork-summary-display-object-generating]",
   );
+  // click(), not check(): the mocked reply makes the fork ready, which removes
+  // this row, and check() then cannot re-read the box and times out.
   await progress
     .getByRole("checkbox", { name: "Open in new tab when ready" })
-    .check();
+    .click();
 
   await expect
     .poll(session.requests)

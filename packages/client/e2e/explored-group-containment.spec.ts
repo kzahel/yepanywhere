@@ -116,7 +116,7 @@ function shareResponse(): PublicSessionShareResponse {
   };
 }
 
-async function openShare(page: Page, remoteClientURL: string) {
+async function openShare(page: Page, remotePreviewURL: string) {
   await page.routeWebSocket("wss://share-relay.test/ws", (socket) => {
     socket.onMessage((wire) => {
       const message = JSON.parse(String(wire));
@@ -142,7 +142,9 @@ async function openShare(page: Page, remoteClientURL: string) {
       "/share/public-secret?h=owner&r=wss%3A%2F%2Fshare-relay.test%2Fws",
     );
   });
-  await page.goto(`${remoteClientURL}/remote.html`);
+  // The built client: the shared dev server's cold first transform often
+  // outlasted the 5 s wait below, leaving only the loading screen.
+  await page.goto(`${remotePreviewURL}/remote.html`);
   // The share opens in Conversation view, which folds the reads into the turn's
   // activity summary; the explored group is inside that.
   const summary = page.locator("[data-conversation-activity-summary]");
@@ -153,10 +155,10 @@ async function openShare(page: Page, remoteClientURL: string) {
 
 test("explored entries stay on their own line instead of overlapping", async ({
   page,
-  remoteClientURL,
+  remotePreviewURL,
 }) => {
   await page.setViewportSize({ width: 1000, height: 600 });
-  await openShare(page, remoteClientURL);
+  await openShare(page, remotePreviewURL);
 
   const geometry = await page.evaluate(() => {
     const entries = [
