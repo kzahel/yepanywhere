@@ -91,6 +91,7 @@ export function installTranscriptProbe() {
             continue;
           item.domAt = performance.now();
           item.domLatencyMs = item.domAt - item.at;
+          item.retained = fixture.retained?.();
           break;
         }
       }

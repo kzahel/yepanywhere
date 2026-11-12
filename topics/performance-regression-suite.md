@@ -58,6 +58,13 @@ is 100 ms per key. Aggregate TaskDuration/write remains a CPU efficiency measure
 not a frame deadline. Append-only and typing runs stay separate. The negative
 control must detect a 150 ms key-task stall. Runtime/harness hashes, host capacity
 and eligibility, offered timestamps and raw results accompany each comparison.
+The [automatic-unloading follow-up](../docs/research/190-rolling-transcript-window.md)
+adds full-page `--retention rolling|growing` controls through actual focused-watch
+catch-up and coordinator ingestion. Normal initial history stays bounded, real
+compactions and timestamps cross the age guard, and per-reply store observations
+must prove accepted unloads. The growing control disables only unloading; it
+must not trim. These are separate from the fixed-history direct-store boundary.
+
 Timing calibration is opt-in; only its inexpensive measurement-integrity case
 joins the ordinary root test command. No CI timing ratchet changes.
 

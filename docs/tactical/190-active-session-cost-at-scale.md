@@ -77,7 +77,26 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — isolate frontend responsiveness before more optimization
+### Current focus — normal unloading and real frontend ingestion
+
+Selected 2026-11-12: measure the maintainer's normal long-session case with
+past compaction content allowed to unload. The [normal-window outcome](../research/190-rolling-transcript-window.md)
+uses the real focused-watch/catch-up/coordinator path, normal initial history,
+real-time compactions and an 85-update run crossing the 60-second safety guard.
+Both 1,000- and 10,000-turn backing-history controls retain 242 recent messages
+after two observed unloads, with reply visibility p95 39.3/39.5 ms. The typed
+normal run preserves all 1,292 prefixes, maximum acknowledgement 13.2 ms, while
+typing overlaps the second unload. Normal-case CPU remains about 58–59 ms per
+update; the 5 ms efficiency target and backend acceptance remain open.
+
+The retention-off control grows to 356 messages/four compaction markers and
+crosses the render-window virtualization threshold. This single paired run
+establishes no CPU win from unloading; the different mounted DOM is a separate
+attribution boundary. Prefer normal-window streaming/tool-completion qualification
+next, before prioritizing the expanded-history first-reply delay. No production
+optimization or protocol change is made by this measurement follow-up.
+
+### Previous focus — isolate frontend responsiveness before more optimization
 
 Selected 2026-11-12: the maintainer asked to distinguish frontend rendering from
 backend/data/API work and measure completed non-streaming appends through the
@@ -548,6 +567,13 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Normal-unloading checkpoint: [real frontend ingestion and compaction unloads](../research/190-rolling-transcript-window.md)
+are now measured separately from the deliberately retained-history case. The
+normal recent window drops old prefixes while open; reply visibility remains
+about 40 ms p95 and native typing stays below 100 ms in the controlled workload.
+This is frontend-only calibration with logical old backing history, not server
+file-read or whole-browser memory qualification.
+
 The [frontend calibration](../research/190-frontend-renderer-calibration.md)
 establishes a separate synthetic frontend measurement boundary. Its results
 qualify only completed-turn store-to-render appends and typing, not the provider
@@ -851,6 +877,13 @@ replacements/truncation and path elections retain full discovery. No full
 watcher-to-tab target is certified by these slices.
 
 ### 6 — render the open session incrementally in the tab
+
+2026-11-12 normal-window follow-up: [unloading qualification](../research/190-rolling-transcript-window.md)
+now proves two actual store prefix unloads through the real page's watch/catch-up
+path, including the real 60-second boundary-age guard. Normal-window replies
+are visible in about 40 ms p95, with native typing through the later unload.
+Streaming, backend and aggregate CPU targets remain open; no production speedup
+is claimed.
 
 2026-11-12 partial outcome: the web compiler reuses intrinsic tool-result
 decoding/output facts across immutable snapshots and both projections, without

@@ -4,10 +4,17 @@ import { LOCAL_CLIENT_SUMMARY_SOURCE_KEY } from "../../src/lib/clientSummaryStor
 import type { Message } from "../../src/types";
 import { project, projectId, sessionId, metadata } from "./fixture";
 
-export function installSource(messages: Message[]) {
+export function installSource(
+  initialMessages: Message[],
+  options = { rolling: false, totalTurns: 0 },
+) {
+  let messages = [...initialMessages];
+  let changeVersion = 0;
   const requests: string[] = [];
   const unexpected = new Set<string>();
-  const session = metadata(messages.length);
+  let session = metadata(
+    options.rolling ? options.totalTurns * 4 : messages.length,
+  );
   const sessions = [
     session,
     ...Array.from({ length: 200 }, (_, i) => ({
@@ -95,20 +102,39 @@ export function installSource(messages: Message[]) {
     if (
       p === `/projects/${projectId}/sessions/${sessionId}` ||
       p === `/projects/${projectId}/sessions/${sessionId}/metadata`
-    )
+    ) {
+      const after = options.rolling
+        ? url.searchParams.get("afterMessageId")
+        : null;
+      const anchor = after
+        ? messages.findIndex((message) => message.uuid === after)
+        : -1;
+      if (after && anchor < 0)
+        throw new Error(`Unknown fixture catch-up anchor ${after}`);
+      const selected = after ? messages.slice(anchor + 1) : messages;
       return {
         session,
-        messages,
+        messages: selected,
         ownership: session.ownership,
         processState: "idle",
         deferredMessages: [],
-        pagination: {
-          hasOlderMessages: false,
-          totalMessageCount: messages.length,
-          returnedMessageCount: messages.length,
-          totalCompactions: 0,
-        },
+        ...(!after
+          ? {
+              pagination: {
+                hasOlderMessages: options.rolling && options.totalTurns > 20,
+                totalMessageCount: session.messageCount,
+                returnedMessageCount: selected.length,
+                totalCompactions: options.rolling
+                  ? Math.floor(options.totalTurns / 10)
+                  : 0,
+                truncatedBeforeMessageId: options.rolling
+                  ? selected[0]?.uuid
+                  : undefined,
+              },
+            }
+          : {}),
       };
+    }
     if (p === `/projects/${projectId}/git`)
       return { isGitRepo: false, branch: null, files: [] };
     if (p === `/sessions/${sessionId}/mark-seen`)
@@ -178,11 +204,49 @@ export function installSource(messages: Message[]) {
       createTransport: () => transport,
     },
   );
+  // Mirror server push keepalives while the synthetic source owns its leases.
+  // Otherwise a quiet activity stream times out during the age-guarded run.
+  const heartbeat = setInterval(() => {
+    for (const sub of fake.getSubscriptions()) {
+      if (
+        !sub.closed &&
+        (sub.kind === "activity" || sub.kind === "session-watch")
+      )
+        fake.emitSubscriptionEvent(sub.id, "heartbeat", {});
+    }
+  }, 25_000);
   return {
     transport,
     requests,
     unexpected,
+    publish(rows: Message[]) {
+      const subscriptions = fake
+        .getSubscriptions("session-watch")
+        .filter((sub) => !sub.closed);
+      if (!subscriptions.length)
+        throw new Error("No real page watch subscription");
+      messages = [...messages, ...rows];
+      session = {
+        ...session,
+        messageCount: session.messageCount + rows.length,
+        updatedAt: new Date().toISOString(),
+      };
+      changeVersion++;
+      for (const sub of subscriptions)
+        if (!sub.closed)
+          fake.emitSubscriptionEvent(sub.id, "session-watch-change", {
+            type: "session-watch-change",
+            sessionId,
+            projectId,
+            provider: "claude",
+            changeVersion,
+            mtimeMs: Date.now(),
+            size: messages.length,
+            timestamp: new Date().toISOString(),
+          });
+    },
     dispose() {
+      clearInterval(heartbeat);
       transport.dispose();
     },
   };

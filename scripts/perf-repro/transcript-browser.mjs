@@ -158,6 +158,16 @@ async function run(options) {
     const turns = options.turns.split(",").map(Number);
     const views = options.views.split(",");
     const widths = options.widths.split(",").map(Number);
+    const retention = options.retention;
+    if (
+      !["fixed", "rolling", "growing"].includes(retention) ||
+      (retention !== "fixed" &&
+        (views.some((view) => view !== "page") ||
+          turns.some((turn) => turn < 20)))
+    )
+      throw new Error(
+        "Rolling retention requires the real session page and at least 20 backing turns",
+      );
     const count = Number(options.appends),
       intervalMs = Number(options.interval);
     if (
@@ -215,7 +225,7 @@ async function run(options) {
             ? `/projects/${projectId}/sessions/frontend-performance`
             : "/";
         await page.goto(
-          `${served.url}${route}?view=${config.view}&turns=${config.turn}`,
+          `${served.url}${route}?view=${config.view}&turns=${config.turn}&retention=${retention}`,
           { waitUntil: "networkidle" },
         );
         await page.waitForSelector("[data-composer-input]", { timeout: 20000 });
@@ -230,7 +240,10 @@ async function run(options) {
         const initialSnapshot = await page.evaluate(() =>
           window.__transcriptFixture.snapshot(),
         );
-        if (initialSnapshot.loadedMessages !== config.turn * 4)
+        if (
+          initialSnapshot.loadedMessages !==
+          (retention === "fixed" ? config.turn * 4 : 82)
+        )
           throw new Error(
             `Requested ${config.turn * 4} messages, retained ${initialSnapshot.loadedMessages} before measurement`,
           );
@@ -257,16 +270,26 @@ async function run(options) {
           intervalMs,
           stallMs: options["negative-control"] ? 150 : 0,
         });
+        const textLength = Math.floor(
+          ((count - 1) * intervalMs) / (retention === "fixed" ? 80 : 65),
+        );
+        const phrase = "typing stays responsive during transcript updates ";
         const text =
           options.typing || options["negative-control"]
-            ? "typing stays responsive during transcript updates "
-                .repeat(10)
-                .slice(0, Math.floor(((count - 1) * intervalMs) / 80))
+            ? phrase
+                .repeat(Math.ceil(textLength / phrase.length))
+                .slice(0, textLength)
             : "";
         await page.keyboard.type(text, { delay: 60 });
         await pause(
           Math.max(0, start + (count - 1) * intervalMs + 1000 - Date.now()),
         );
+        // Let the final native key's acknowledgement frame run even if the
+        // controller finishes typing after the nominal append window.
+        await page.evaluate(async () => {
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        });
         const raw = await page.evaluate(() =>
           window.__transcriptProbe.finish(),
         );
@@ -296,10 +319,66 @@ async function run(options) {
           ) + "\n",
         );
         const summary = summarizeTranscriptProbe(raw, calibration, count, text);
-        if (raw.snapshot.loadedMessages !== (config.turn + count) * 4)
+        if (
+          retention === "fixed" &&
+          raw.snapshot.loadedMessages !== (config.turn + count) * 4
+        )
           errors.push(
             `Unexpected retained message count: ${raw.snapshot.loadedMessages}`,
           );
+        if (retention !== "fixed") {
+          const initial = initialSnapshot;
+          const final = raw.snapshot;
+          const trace = raw.markers.map((marker) => marker.retained);
+          if (trace.some((sample) => !sample))
+            errors.push("Missing retention observations");
+          const expectedGrowing =
+            82 +
+            count * 3 +
+            Math.ceil(count / 5) +
+            [10, 30].filter((index) => index < count).length;
+          if (final.lastMessageId !== `reply-${config.turn + count - 1}`)
+            errors.push("Latest update missing from retained window");
+          if (
+            retention === "growing" &&
+            (final.trimRevision !== 0 ||
+              final.loadedMessages !== expectedGrowing)
+          )
+            errors.push("Unexpected trim in growing control");
+          if (
+            retention === "rolling" &&
+            count >= 80 &&
+            intervalMs === 1000 &&
+            (final.trimRevision < 2 ||
+              final.compactions > 2 ||
+              !trace.some(
+                (sample) =>
+                  sample?.trimRevision >= 2 &&
+                  sample.firstMessageId === "compact-live-10",
+              ))
+          )
+            errors.push("Required two compaction-window unloads not observed");
+          if (
+            retention === "rolling" &&
+            count === 85 &&
+            intervalMs === 1000 &&
+            (final.loadedMessages !== expectedGrowing - 114 ||
+              final.firstMessageId !== "compact-live-10")
+          )
+            errors.push("Unexpected canonical rolling retained window");
+          const secondTrim = raw.markers.find(
+            (marker) => marker.retained?.trimRevision >= 2,
+          );
+          if (
+            retention === "rolling" &&
+            options.typing &&
+            count >= 80 &&
+            intervalMs === 1000 &&
+            (!secondTrim || raw.keys.at(-1)?.at < secondTrim.domAt)
+          )
+            errors.push("Typing did not overlap the age-guarded unload");
+          summary.retention = { initial, final, trace };
+        }
         const eligibility = assessHostEligibility(
           host.capacity,
           windowHost.summary,
@@ -403,6 +482,7 @@ if (
       appends: { type: "string", default: "12" },
       interval: { type: "string", default: "1000" },
       repeats: { type: "string", default: "3" },
+      retention: { type: "string", default: "fixed" },
       typing: { type: "boolean" },
       serve: { type: "boolean" },
       "negative-control": { type: "boolean" },

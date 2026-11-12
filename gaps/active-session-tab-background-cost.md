@@ -1,5 +1,16 @@
 # Active session updates still do unnecessary work
 
+The [normal-unloading follow-up](../docs/research/190-rolling-transcript-window.md)
+now measures actual focused-watch/catch-up/coordinator ingestion with default
+initial history and automatic unloads enabled. Two store-prefix unloads occur
+while the page stays open, including the minute-age guard; 1,000/10,000-turn
+backing controls finish with the same 242-message recent window. Reply visibility
+p95 is 39.3/39.5 ms; all 1,292 typed prefixes survive the later unload, with
+13.2 ms maximum acknowledgement. CPU remains 58–59 ms/update, without a proven
+CPU improvement over the paired retention-off control. Prioritize normal-window
+streaming/tool-completion qualification before expanded-history delay; backend,
+whole-browser memory and full acceptance remain open.
+
 The [isolated frontend calibration](../docs/research/190-frontend-renderer-calibration.md)
 now separates real store/renderer/composer responsiveness from provider/backend
 and aggregate browser CPU costs. Completed-turn appends compare transcript-only
