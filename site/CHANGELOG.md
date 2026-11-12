@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [site-v1.15.0] - 2026-11-12
+
+### Added
+- Render web citations in assistant answers as source links.
+- Show stable compact model and thinking badges in the Inbox.
+- Filter settings search down to the individual matching controls.
+- Add reusable composer toolbar scenes to the design playground.
+- Document reading the `--setup-auth` password from a file, stdin or the
+  environment, and opting out of update checks with `YEP_UPDATE_CHECK=false`.
+
+### Changed
+- Publish the current remote client. On supporting servers, session lists,
+  the Inbox, projects and queues update from pushed query changes instead of
+  whole-list refetches; older servers keep the REST and event fallback.
+- Speed up long transcripts: session updates no longer re-render every text
+  block, and unchanged tool results are reused.
+- Address native sessions whose provider id differs by path
+  (`/sessions/<family>/<id>`) on supporting servers.
+- Reserve Inbox attention for questions and approvals.
+- Require Apply for session account changes, and scope Local Access apply
+  actions to connection settings.
+- Unify session prompt and account controls across screen sizes, and word
+  the async question controls with a dismiss action on the card.
+- Show the allocated router pool without refreshing the session, show the
+  Direct router chip only when a pool serves the provider, and date quota
+  resets that fall on another day.
+- Keep Agent API setup text out of session prompts and titles.
+- Give the phone reload notice a second row when it has extra actions, and
+  remove the subagent count pill from session rows.
+- Move styling into component-owned stylesheets.
+
+### Fixed
+- Admit relay pages only after their own connection succeeds.
+- Hand off draft storage identity before accepting composer input.
+- Fix collection streaming and source retry backoff.
+
 ## [site-v1.14.1] - 2026-11-10
 
 ### Added
