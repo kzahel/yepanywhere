@@ -326,9 +326,12 @@ describe("Inbox Routes", () => {
       vi.mocked(mockNotificationService.hasUnread).mockReturnValue(true);
       const project = createProject("proj1", "myproject", "/sessions/proj1");
       vi.mocked(mockScanner.listProjects).mockResolvedValue([project]);
+      // One instant for both rows: separate minutesAgo() calls can straddle a
+      // millisecond and make "acknowledged" the more recent session.
+      const updatedAt = minutesAgo(90);
       sessionsByDir.set("/sessions/proj1", [
-        createSession("delivered", "proj1", minutesAgo(90)),
-        createSession("acknowledged", "proj1", minutesAgo(90)),
+        createSession("delivered", "proj1", updatedAt),
+        createSession("acknowledged", "proj1", updatedAt),
       ]);
       metadataMap.set("delivered", {
         nonHumanUserTurn: {
