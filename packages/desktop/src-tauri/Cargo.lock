@@ -6234,7 +6234,7 @@ dependencies = [
 
 [[package]]
 name = "yep-anywhere-desktop"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "dirs 5.0.1",
  "libc",
