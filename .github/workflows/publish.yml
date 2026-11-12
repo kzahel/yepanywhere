@@ -45,6 +45,13 @@ jobs:
         timeout-minutes: 10
         run: pnpm -F @yep-anywhere/client exec playwright install chromium
 
+      # Same runtime as ci.yml's unit-tests job; the sandboxed session tests
+      # need Bubblewrap and fail release validation without it.
+      - name: Enable Linux app sandbox tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap slirp4netns iproute2 util-linux
+
       - uses: ./.github/actions/allow-chromium-sandbox
 
       - name: Run tests
