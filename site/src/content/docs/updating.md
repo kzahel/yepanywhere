@@ -13,6 +13,13 @@ Restart `yepanywhere` after the update. Your server state remains in the active
 Yep Anywhere data directory, and provider transcripts remain in the provider's
 own storage.
 
+The server checks `updates.yepanywhere.com` for a newer release when a client
+asks for version information, normally reusing the answer for a day, and sends
+its version and a random install identifier. It never installs anything
+itself. To turn the check off, start it with `YEP_UPDATE_CHECK=false`; the
+device bridge version check stops as well, though downloading the bridge
+still contacts the update server.
+
 ## Source checkouts
 
 ```bash

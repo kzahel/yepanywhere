@@ -152,6 +152,12 @@ export const ENV_VAR_REGISTRY: EnvVarDescriptor[] = [
     description: "Open the dashboard in your default browser on startup.",
   },
   {
+    name: "YEP_UPDATE_CHECK",
+    group: "Server & network",
+    description:
+      "Set false to stop checking updates.yepanywhere.com for new app and device bridge versions. Default true.",
+  },
+  {
     name: "MAINTENANCE_PORT",
     group: "Server & network",
     description:

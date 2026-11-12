@@ -109,6 +109,8 @@ ENVIRONMENT VARIABLES:
   YEP_DATA_DIR                  Data directory override
   YEP_PROFILE                   Profile name (creates ~/.yep-anywhere-{profile}/)
   AUTH_DISABLED                 Disable auth (bypass even if enabled in settings)
+  YEP_UPDATE_CHECK              Set false to stop update checks against
+                                updates.yepanywhere.com (default: true)
   YEP_AUTH_PASSWORD             Password for bare --setup-auth; always removed
                                 from the environment at startup
   HTTPS_SELF_SIGNED             Enable HTTPS with a self-signed certificate

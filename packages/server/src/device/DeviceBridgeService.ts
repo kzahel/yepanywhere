@@ -17,6 +17,7 @@ import type {
   RTCIceCandidateInit,
 } from "@yep-anywhere/shared";
 import { WebSocket } from "ws";
+import { isUpdateCheckEnabled } from "../update-check.js";
 import { isNewerSemver } from "../utils/semver.js";
 
 /** Fallback bridge version if update server is unreachable. */
@@ -397,7 +398,9 @@ export class DeviceBridgeService {
 
     const [installedVersion, latestVersion] = await Promise.all([
       this.getInstalledBinaryVersion(binary.path),
-      getBridgeVersion({ forceRefresh: options?.forceRefresh }),
+      isUpdateCheckEnabled()
+        ? getBridgeVersion({ forceRefresh: options?.forceRefresh })
+        : null,
     ]);
 
     const state =

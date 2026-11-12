@@ -386,6 +386,18 @@ Use signed/bundled or locally served client assets when the threat model
 includes compromise of both the relay and live hosted client delivery; see
 [`trusted-client-packaging.md`](trusted-client-packaging.md).
 
+## Update Server Contact
+
+The server asks `updates.yepanywhere.com` for the newest release when a client
+requests version information, reusing the answer for a day unless the client
+asks for a fresh check, and sends its version and random install identifier.
+It never installs anything. The device bridge status asks the same host for
+the newest bridge version. Setting `YEP_UPDATE_CHECK=false` (or `0`, `no`,
+`off`) stops both checks; the server then reports no newer release or bridge.
+Downloading the device bridge, an explicit user action, still asks for the
+bridge version it needs. The desktop runtime skips the release check on its
+own.
+
 ## Multiple YA Servers And Orchestration
 
 The implemented multi-host monitor and relay mux do not create server-to-server

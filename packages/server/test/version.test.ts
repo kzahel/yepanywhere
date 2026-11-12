@@ -801,3 +801,30 @@ describe("process-generation version facts", () => {
     expect(getCurrentVersionInfoComputations()).toBe(1);
   });
 });
+
+describe("YEP_UPDATE_CHECK opt-out", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("answers a fresh version request without contacting the update server", async () => {
+    vi.stubEnv("YEP_UPDATE_CHECK", "false");
+    const fetch = vi.fn(async () => {
+      throw new Error("update server contacted");
+    });
+    vi.stubGlobal("fetch", fetch);
+    const { createVersionRoutes } = await importVersion();
+    const app = createVersionRoutes({
+      getSessionSandboxAvailability: async () => ({
+        state: "unsupported-platform",
+        platform: "test",
+      }),
+    });
+
+    const body = await (await app.request("/?fresh=1")).json();
+
+    expect(body.latest).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

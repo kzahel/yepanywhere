@@ -105,6 +105,7 @@ import type {
   SpeechBackendCapabilities,
   SpeechBackendInfo,
 } from "../services/voice/SpeechBackend.js";
+import { isUpdateCheckEnabled } from "../update-check.js";
 import { isNewerSemver } from "../utils/semver.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -400,6 +401,7 @@ async function getLatestVersion(
   installId?: string,
   options?: { forceRefresh?: boolean },
 ): Promise<string | null> {
+  if (!isUpdateCheckEnabled()) return null;
   // Return cached value if fresh
   if (
     !options?.forceRefresh &&
