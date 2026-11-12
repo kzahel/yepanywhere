@@ -2,13 +2,17 @@
 
 ## Release scope
 
-Prepare npm 0.12.0, Desktop Stable 0.8.0, Chrome extension 0.1.5, website
+Prepare npm 0.12.0, Desktop Stable 0.10.0, Chrome extension 0.1.5, website
 1.14.0 with its stable remote client, and Android companion 0.1.4 CI builds
 for internal testing. Android public-beta promotion and the experimental
 Android host are outside this cut. The maintainer authorized publication
 after reviewing the preflight and explicitly accepted Android's remaining
 input-latency qualification. Manual desktop upgrade qualification is scoped
 to one OS; tagged CI retains its normal platform/signing gates.
+
+Desktop was tagged separately on November 12 as 0.10.0 rather than the
+prepared 0.8.0: Latest had meanwhile published 0.9.6901, and a 0.8.0 Stable
+would have ranked below it, stranding Latest users who switch to Stable.
 
 ## Source preflight
 

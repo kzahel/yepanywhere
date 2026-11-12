@@ -170,7 +170,8 @@ common source, and all four release workflows passed. Android public-beta
 promotion remains a separate delivery step.
 
 The November 10 coordinated release is being prepared as npm 0.12.0,
-Desktop Stable 0.8.0, extension 0.1.5, website/remote 1.14.0 and Android
+Desktop Stable 0.10.0 (renumbered from the untagged 0.8.0 so Stable
+overtakes Latest 0.9.x), extension 0.1.5, website/remote 1.14.0 and Android
 companion 0.1.4 CI builds for internal testing. The maintainer authorized
 publication after reviewing preflight and explicitly accepted the Android
 input-latency qualification limit. The

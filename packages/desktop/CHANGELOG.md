@@ -2,13 +2,14 @@
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-11-10
+## [0.10.0] - 2026-11-12
 
 ### Added
 - Bundle Yep Anywhere 0.12.0's session identity and relationship work,
   provider-waiting Inbox section and current provider integrations.
-- Stable 0.8.0 overtakes the 0.7.x Latest series, allowing those users to
-  select Stable and upgrade through the signed updater.
+- Stable 0.10.0 overtakes the 0.9.x Latest series, allowing those users to
+  select Stable and upgrade through the signed updater. The prepared 0.8.0
+  Stable was never tagged; it would have ranked below Latest 0.9.x.
 
 ### Changed
 - Refresh shared controls, menus, forms, dialogs and status indicators.
