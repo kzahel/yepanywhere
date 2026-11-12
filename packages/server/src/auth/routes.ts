@@ -11,6 +11,7 @@ import {
 } from "../desktop/DesktopBootstrapService.js";
 import type { AuthService } from "./AuthService.js";
 import type { LimitedUsersService } from "./LimitedUsersService.js";
+import { LoginThrottle, loginClientAddress } from "./login-throttle.js";
 import { PRINCIPAL_VARIABLE, type Principal } from "./principal.js";
 import { getAuthenticatedSrpTransport } from "../middleware/authenticated-transport.js";
 import { recordAuthEvent } from "../security/authAuditLog.js";
@@ -98,6 +99,7 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
     isLimitedUsersEnabled,
     getOwnerRelayUsername,
   } = deps;
+  const loginThrottle = new LoginThrottle();
 
   /** An owner cookie session or a Remote Access owner login. */
   const isOwnerRequest = async (c: Context): Promise<boolean> => {
@@ -336,11 +338,8 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
     return c.json({ success: true });
   });
 
-  /**
-   * POST /api/auth/login
-   * Login with password
-   */
-  app.post("/login", async (c) => {
+  /** One login attempt; calls rejectPassword when a password was wrong. */
+  const checkLogin = async (c: Context, rejectPassword: () => void) => {
     // A named login is a limited user (topics/limited-users.md); it needs no
     // superuser account to exist and never grants superuser access.
     const rawBody = await c.req
@@ -366,6 +365,7 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
           account: requestedUsername,
           reason: "limited-users-off",
         });
+        rejectPassword();
         return c.json({ error: "Invalid username or password" }, 401);
       }
       if (
@@ -387,6 +387,7 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
             ? "bad-password"
             : "unknown-user",
         });
+        rejectPassword();
         return c.json({ error: "Invalid username or password" }, 401);
       }
       await limitedUsers.recordLogin(requestedUsername);
@@ -437,6 +438,7 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
         account: "owner",
         reason: "bad-password",
       });
+      rejectPassword();
       return c.json({ error: "Invalid password" }, 401);
     }
 
@@ -457,6 +459,34 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
     });
 
     return c.json({ success: true });
+  };
+
+  /**
+   * POST /api/auth/login
+   * Login with password. Rejected passwords are throttled per client address
+   * and globally (login-throttle.ts); a throttled attempt gets 429 with
+   * Retry-After before any password is checked.
+   */
+  app.post("/login", async (c) => {
+    const clientAddress = loginClientAddress(c);
+    const retryAfter = loginThrottle.reserve(clientAddress);
+    if (retryAfter > 0) {
+      c.header("Retry-After", String(retryAfter));
+      return c.json(
+        {
+          error: `Too many failed login attempts. Try again in ${retryAfter} seconds.`,
+        },
+        429,
+      );
+    }
+    let rejected = false;
+    try {
+      return await checkLogin(c, () => {
+        rejected = true;
+      });
+    } finally {
+      if (!rejected) loginThrottle.release(clientAddress);
+    }
   });
 
   /**

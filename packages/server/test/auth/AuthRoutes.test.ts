@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthService } from "../../src/auth/AuthService.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
+import { LoginThrottle } from "../../src/auth/login-throttle.js";
 import {
   SESSION_COOKIE_NAME,
   createAuthRoutes,
@@ -412,5 +413,66 @@ describe("Auth routes - Remote Access owner", () => {
       ).status,
     ).toBe(401);
     expect(await authService.verifyPassword("first-secret-pw")).toBe(true);
+  });
+});
+
+describe("Auth routes - failed login throttling", () => {
+  let authService: AuthService;
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), "auth-throttle-test-"));
+    authService = new AuthService({
+      dataDir: testDir,
+      cookieSecret: "test-cookie-secret",
+    });
+    await authService.initialize();
+  });
+
+  afterEach(async () => {
+    await authService.flushPendingWrites();
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
+
+  it("charges only rejected passwords, including concurrent ones", async () => {
+    const routes = createAuthRoutes({ authService });
+    const login = (password: string) =>
+      routes.request("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+    await routes.request("/enable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "right-secret-pw" }),
+    });
+
+    // More successes than the burst allows failures; each is released.
+    const successes = await Promise.all(
+      Array.from({ length: 5 }, () => login("right-secret-pw")),
+    );
+    successes.push(await login("right-secret-pw"));
+    expect(successes.map((r) => r.status)).toEqual(Array(6).fill(200));
+    // Every guess is in flight before the first one is rejected.
+    const guesses = await Promise.all(
+      Array.from({ length: 7 }, () => login("wrong-secret-pw")),
+    );
+    expect(guesses.map((r) => r.status).sort()).toEqual([
+      401, 401, 401, 401, 401, 429, 429,
+    ]);
+    const throttled = await login("right-secret-pw");
+    expect(throttled.status).toBe(429);
+    expect(Number(throttled.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+
+  it("refills per address over time", () => {
+    let now = 0;
+    const throttle = new LoginThrottle(() => now);
+    for (let i = 0; i < 5; i++) expect(throttle.reserve("a")).toBe(0);
+    expect(throttle.reserve("a")).toBe(12);
+    expect(throttle.reserve("b")).toBe(0);
+    now += 12_000;
+    expect(throttle.reserve("a")).toBe(0);
   });
 });

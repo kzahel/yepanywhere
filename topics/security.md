@@ -20,6 +20,16 @@ is enabled, every `/api` route except the `/api/auth` login and status routes
 refuses a request that carries no valid credential; no operator route answers
 ahead of the host, CORS, custom-header, and authentication checks.
 
+Password guessing at `POST /api/auth/login`, for the superuser and limited
+users alike, is throttled in memory: each client address may sustain five
+rejected passwords a minute (burst five) and all addresses together thirty
+(burst thirty). Every attempt holds a slot until its outcome is known, so
+concurrent guesses cannot outrun the limit, and only a rejected password
+keeps its slot, so correct logins are never charged. A refused attempt gets
+HTTP 429 with `Retry-After` before any password is checked. The address is
+the TCP peer, never a forwarded header, so clients behind one reverse proxy
+share its limit. Restart clears the counters.
+
 Browser origins earn credentialed CORS and YA WebSocket access only when they
 are the allowed host being requested, a built-in loopback/private-network/Tauri
 origin, or an explicitly allowed host. Any web page can mint the opaque
