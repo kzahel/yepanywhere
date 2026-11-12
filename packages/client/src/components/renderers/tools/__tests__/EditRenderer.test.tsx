@@ -857,7 +857,6 @@ describe("EditRenderer collapsed preview fallback", () => {
           projectId="project-1"
           projectPath="/repo"
           sessionId="session-1"
-          sessionTitle="Fix polling"
           provider="codex"
           model="gpt-5.4"
           thinking={{ type: "adaptive", display: "summarized" }}

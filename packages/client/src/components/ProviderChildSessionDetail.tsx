@@ -105,7 +105,6 @@ export function ProviderChildSessionDetail({
             projectId={projectId}
             projectPath={null}
             sessionId={sessionId}
-            sessionTitle={title}
           >
             {content.messages.length > 0 ? (
               <TaskNestedContent

@@ -3179,7 +3179,6 @@ function SessionPageContent({
                 projectId={projectId}
                 projectPath={project?.path ?? null}
                 sessionId={sessionId}
-                sessionTitle={displayTitle}
                 provider={effectiveProvider}
                 model={effectiveModelConfig?.requestedModel ?? liveBadgeModel}
                 thinking={sourceReviewModelSettings.thinking}

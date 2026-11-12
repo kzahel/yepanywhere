@@ -3,6 +3,10 @@ import { memo, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AgentContentProvider, useAgentContent } from "../AgentContentContext";
 import {
+  SessionMetadataProvider,
+  useOptionalSessionMetadata,
+} from "../SessionMetadataContext";
+import {
   SchemaValidationProvider,
   useSchemaValidationContext,
 } from "../SchemaValidationContext";
@@ -110,6 +114,47 @@ describe("context value stability", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Parent render" }));
 
+    expect(renderCount).toBe(settledRenderCount);
+  });
+
+  it("does not notify session-metadata consumers when a session update rebuilds thinking or renames the session", () => {
+    // Every transcript text block consumes this context; a new value on each
+    // session update re-rendered the whole transcript under typing.
+    let renderCount = 0;
+    const TranscriptRow = memo(function TranscriptRow() {
+      renderCount += 1;
+      return <span>{useOptionalSessionMetadata()?.projectId}</span>;
+    });
+
+    function SessionHarness() {
+      const [title, setTitle] = useState("First title");
+      return (
+        <>
+          <button type="button" onClick={() => setTitle(`${title}!`)}>
+            Rename
+          </button>
+          <span>{title}</span>
+          <SessionMetadataProvider
+            projectId="proj-1"
+            projectPath="/repo"
+            sessionId="session-1"
+            provider="codex"
+            thinking={{ type: "adaptive", display: "summarized" }}
+            effort="high"
+          >
+            <TranscriptRow />
+          </SessionMetadataProvider>
+        </>
+      );
+    }
+
+    render(<SessionHarness />);
+    const settledRenderCount = renderCount;
+
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+
+    expect(screen.getByText("First title!!")).toBeDefined();
     expect(renderCount).toBe(settledRenderCount);
   });
 });
