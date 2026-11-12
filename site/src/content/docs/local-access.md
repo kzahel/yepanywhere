@@ -36,6 +36,20 @@ yepanywhere --setup-auth "use-a-long-unique-password"
 The command writes the password and exits; start the server normally
 afterwards.
 
+A password on the command line is visible in the process list and saved in
+shell history. To avoid that, read it from a file, or from standard input
+with `-`; a trailing newline is dropped:
+
+```bash
+yepanywhere --setup-auth-pwfile /run/secrets/yep-password
+pass show yep-anywhere | yepanywhere --setup-auth-pwfile -
+```
+
+Or set `YEP_AUTH_PASSWORD` and pass `--setup-auth` with no value. Yep Anywhere
+removes that variable from its environment at startup, so the agents it runs
+never see it. A password that begins with `-` can also be given as
+`--setup-auth=-the-password`.
+
 Leave **Require Password** on whenever the server listens beyond localhost,
 such as with **Local Network Access** or behind your own reverse proxy.
 

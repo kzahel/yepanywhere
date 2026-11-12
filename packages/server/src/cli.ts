@@ -32,6 +32,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { whichCommand } from "./sdk/which-command.js";
+import { takeSetupAuthPassword } from "./setup-auth-password.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,6 +88,12 @@ SETUP OPTIONS (for headless installation):
   --setup-auth <password>
                         Set up local authentication with the given password
                         (min 6 characters). Exits after setup.
+                        --setup-auth=<password> accepts one beginning with -.
+  --setup-auth-pwfile <path>
+                        As --setup-auth, reading the password from a file
+                        (- for stdin), keeping it out of the process list
+                        and shell history. A trailing newline is dropped.
+                        Bare --setup-auth reads YEP_AUTH_PASSWORD instead.
 
   --setup-remote-access --username <name> --password <pass> [--relay <url>]
                         Set up remote access with SRP authentication.
@@ -102,6 +109,8 @@ ENVIRONMENT VARIABLES:
   YEP_DATA_DIR                  Data directory override
   YEP_PROFILE                   Profile name (creates ~/.yep-anywhere-{profile}/)
   AUTH_DISABLED                 Disable auth (bypass even if enabled in settings)
+  YEP_AUTH_PASSWORD             Password for bare --setup-auth; always removed
+                                from the environment at startup
   HTTPS_SELF_SIGNED             Enable HTTPS with a self-signed certificate
   LOG_LEVEL                     Log level: fatal, error, warn, info, debug, trace
   LOG_PRETTY                    Pretty-print console logs (default: true)
@@ -151,6 +160,9 @@ EXAMPLES:
 
   # Reset local auth password (headless recovery)
   yepanywhere --setup-auth "mypassword123"
+
+  # Same, without the password in the process list or shell history
+  yepanywhere --setup-auth-pwfile /run/secrets/yep-password
 
   # Emergency auth bypass (temporary)
   yepanywhere --auth-disable
@@ -275,18 +287,15 @@ if (authDisableIndex !== -1) {
   args.splice(authDisableIndex, 1);
 }
 
-// Parse --setup-auth flag
-const setupAuthIndex = args.indexOf("--setup-auth");
-let setupAuthPassword: string | undefined;
-if (setupAuthIndex !== -1) {
-  const passwordValue = args[setupAuthIndex + 1];
-  if (!passwordValue || passwordValue.startsWith("-")) {
-    console.error("Error: --setup-auth requires a password value");
-    process.exit(1);
-  }
-  setupAuthPassword = passwordValue;
-  args.splice(setupAuthIndex, 2);
+// Parse --setup-auth and --setup-auth-pwfile; always scrubs YEP_AUTH_PASSWORD
+const setupAuth = takeSetupAuthPassword(args, process.env, (file) =>
+  fs.readFileSync(file, "utf-8"),
+);
+if ("error" in setupAuth) {
+  console.error(`Error: ${setupAuth.error}`);
+  process.exit(1);
 }
+const setupAuthPassword = setupAuth.password;
 
 // Parse --setup-remote-access flag and its options
 const setupRemoteIndex = args.indexOf("--setup-remote-access");

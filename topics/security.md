@@ -30,6 +30,13 @@ HTTP 429 with `Retry-After` before any password is checked. The address is
 the TCP peer, never a forwarded header, so clients behind one reverse proxy
 share its limit. Restart clears the counters.
 
+`yepanywhere --setup-auth` replaces the local password without the old one.
+Besides a command-line value it reads the password from a file or standard
+input (`--setup-auth-pwfile <path|->`) or, given no value, from
+`YEP_AUTH_PASSWORD`. The CLI removes `YEP_AUTH_PASSWORD` from its environment
+at startup whether or not it is used, so a server and its agents never
+inherit it.
+
 Browser origins earn credentialed CORS and YA WebSocket access only when they
 are the allowed host being requested, a built-in loopback/private-network/Tauri
 origin, or an explicitly allowed host. Any web page can mint the opaque
