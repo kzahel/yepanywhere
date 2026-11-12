@@ -10,6 +10,13 @@ confirmed-path DOM annotations, and cached web assembly. Display objects,
 previous-row stabilization, grouping, selectors, React and interaction state
 remain in the existing web adapters and renderer.
 
+The adapter also owns one shared compiler factory across snapshots. Its weak
+immutable-input facts avoid decoding unchanged tool output in every activity
+and display projection; they retain no row windows or history. The shared
+compiler README owns the immutability, dependency and lifetime contract. The
+array-result cache here remains distinct and bounded to three augment variants
+per weak array key. Do not instantiate the compiler factory per cache miss.
+
 - Production web projection goes through `getCachedWebTranscriptProjection`.
 - Define every augment's cache identity in `cache.ts`; the exhaustive key map
   makes omissions a type error.

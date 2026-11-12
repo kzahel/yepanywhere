@@ -35,6 +35,29 @@ state and metadata are now SQL-owned with bounded residency;
 [cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
 slice. The derived list projection still rebuilds after restart.
 
+## Transcript fact follow-up — 2026-11-12
+
+The [transcript outcome](../docs/research/190-transcript-fact-reuse.md) narrows
+the earlier compiler hypothesis: sampled compiler work is about 5.55 ms/append
+for Claude and 0.37 ms for Codex. The canonical web adapter now reuses intrinsic
+tool-result decoding and lazy output facts across immutable snapshots and its
+activity/display projections. Weak keys hold no row windows or history; pairing,
+status, ordering and folds still rebuild from the complete current window,
+preserving fresh-rebuild parity through rewind, compaction and replacement.
+
+Active browser work falls 56.9→51.7 ms/append for Claude (9.1%), while Codex
+59.2→58.7 is effectively unchanged; typing is 66.6→64.8 / 68.8→67.7. These are
+single pairs, not statistical qualification. All 312 exact keys pass 100 ms and
+all 716 sampled markers arrive. After visible p95 is 41–47 ms, with compaction
+maxima 324/319 ms. Server and wire are held fixed; their targets remain open.
+A separate final Claude profile cuts compiler work 5.56→0.62 ms/append
+(88.9%); sampled React/app work barely changes. The 5 ms browser target remains
+far away. Most common cost is React/app-shell/
+store/layout; the next proposal is to attribute repeated notifications/commits
+and narrow the existing shared publication/subscription boundary, preserving
+server-authoritative membership and freshness/recovery fences. This is partial
+step 6, not complete incremental rendering.
+
 ## Collection display follow-up — 2026-11-12
 
 The [display outcome](../docs/research/190-collection-display-publication.md)

@@ -21,7 +21,9 @@ That shared stage 2/4 navigation slice is now implemented, including opt-in
 metadata field changes; [the outcome](../research/190-bounded-navigation-projection.md)
 owns correctness and before/after qualification. Stage 4 now separates collection
 freshness from observable display publication; [the display outcome](../research/190-collection-display-publication.md)
-records modest browser gains. Full targets remain open.
+records modest browser gains. Shared immutable tool-result facts are now reused
+across web projections; [the transcript outcome](../research/190-transcript-fact-reuse.md)
+records attribution and partial step 6 qualification. Full targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -64,7 +66,7 @@ request paths need a justification beyond improving one benchmark.
 | 1 | Establish ownership and cost boundaries | Audit durable facts, live overlays, list/detail consumers and retained copies; use step 1's baseline | Source audit and isolated ownership diagnostics recorded; ownership and SQL query slices implemented; remaining owners open |
 | 2 | Complete the SQL-owned catalog and bounded session working set | Indexed lists/Inbox/counts, changed-file publication, on-demand metadata and project projections; original steps 4–5 and catalog-related restart work in step 8 | Shared Codex discovery and retained SQL queries implemented; canonical seen/lazy metadata implemented; SQL catalog reads/deltas, safe checkpoint restoration and source-owned Claude/Codex project facts implemented; structural discovery/remaining consumers open |
 | 3 | Complete bounded transcript ingestion | Shared reader lifecycle/contract with provider-specific decoding; original step 2, still required for both Claude and Codex | Shared acquisition/Codex dispatch, indexed Claude warm windows and durable SQL cold-window queries and SQL-owned ordinary append state implemented; first construction and exceptional metadata work remain open |
-| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue extension and observable display publication implemented; transcript rendering remains open |
+| 4 | Carry authoritative changes through clients | List/page/count changes, reconnect catch-up and incremental transcript rendering; original steps 3 and 6 | Bounded session/Inbox query updates implemented behind a new capability; project/queue extension, observable display publication and immutable transcript fact reuse implemented; full incremental rendering remains open |
 | 5 | Qualify sustained operation and retain regression gates | Measure every slice, then full end-to-end acceptance; remaining idle work in step 8 and ratchets in step 7 | Full fixture plus population/history controls recorded; numeric guards implemented; CPU/bytes/render/cold and qualitative acceptance remain open |
 
 These are architectural dependencies, not five large all-or-nothing rewrites.
@@ -72,7 +74,21 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — collection display publication
+### Current focus — transcript attribution and immutable facts
+
+Selected 2026-11-12: measure remaining browser work before choosing a general
+incremental compiler rewrite. Shared compilation accounts for about 5.55 ms per
+Claude append but only 0.37 ms for Codex in separate profiles. The web adapter
+now owns one compiler instance reusing immutable result decoding and lazy output
+facts across snapshots and activity/display views. Weak keys retain no windows
+or history. Full-window pairing, status, ordering, augments and folds preserve
+fresh-rebuild parity through rewind, compaction and replacement.
+The [transcript outcome](../research/190-transcript-fact-reuse.md) records
+checks, review and before/after browser results. This is partial step 6 work;
+remaining common React/store notification costs now outrank further compiler
+rewrites for this fixture. Server-owned membership and recovery remain unchanged.
+
+### Previous focus — collection display publication
 
 Selected 2026-11-12: retain every decoded query revision and freshness fence,
 but publish ordinary updates only when their displayed data changes. Sidebar
@@ -506,6 +522,21 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Transcript checkpoint, 2026-11-12: [immutable fact reuse](../research/190-transcript-fact-reuse.md)
+compares fresh 245530262 before/after clients on the exact same baseline
+server/shared runtime. Active browser work falls 56.9→51.7 ms/append for Claude
+(9.1%); Codex 59.2→58.7 is effectively unchanged. Typing work is 66.6→64.8 /
+68.8→67.7. One pair per provider is not statistical flatness qualification.
+All 312 exact keys pass 100 ms, all 716 sampled markers arrive, after visible
+p95 is 41–47 ms and loop p99 14.9–16.7. After compaction maxima reach 324/319 ms.
+Server/wire behavior is held fixed; no server gain is claimed. Separate
+profiles show compiler cost is substantial only for Claude in this fixture;
+a separate after profile reduces Claude compiler work 5.56→0.62 ms/append
+(88.9%), while React/app JavaScript self-time barely changes. Most common work
+remains React/app-shell/store/layout. The 5 ms browser target,
+CPU/full-delivery/flatness/extra-tab and lifecycle/memory acceptance remain open.
+
+
 Display checkpoint, 2026-11-12: the [display outcome](../research/190-collection-display-publication.md)
 compares exact frozen `34a8c2e54` server/shared runtimes with before/after clients.
 Active browser work falls 62.9→57.1 ms/append for Claude and 63.6→58.7 for Codex
@@ -787,6 +818,14 @@ replacements/truncation and path elections retain full discovery. No full
 watcher-to-tab target is certified by these slices.
 
 ### 6 — render the open session incrementally in the tab
+
+2026-11-12 partial outcome: the web compiler reuses intrinsic tool-result
+decoding/output facts across immutable snapshots and both projections, without
+retaining history or guessing closed turns. Full-window relationship rules
+still rebuild; [the outcome](../research/190-transcript-fact-reuse.md) records
+parity and qualification. Claude browser work falls 56.9→51.7 ms/append;
+Codex 59.2→58.7 is effectively unchanged. Both still miss 5 ms. Shared
+React/app-shell/store update work is the next measured boundary to investigate.
 
 A write renders the new rows only.
 

@@ -28,7 +28,21 @@ experimental producer never serializes them.
 
 Web production callers continue through `getCachedWebTranscriptProjection`.
 The same-input cache stays web-owned and must account for every augment field.
-Server projection and parity tooling call the compiler directly. New semantic
+Server projection and parity tooling call `compileTranscriptProjection` directly;
+that full rebuild retains no facts between calls. The web adapter owns one
+`createTranscriptProjectionCompiler` instance across snapshots and across its
+activity and display projections. Creating that factory per call loses reuse.
+It memoizes only intrinsic result decoding and shell-output facts, with weak
+immutable Message/block/result keys and one tool-name variant per block. It
+holds no message arrays, render rows or session-ID index. Source envelopes,
+nested blocks and returned result payloads must remain immutable; a replacement
+object invalidates decoding even when its ID or nested block is shared.
+
+Pairing, order, live/approval/orphan status, augments and every fold still derive
+from the full current window. A later result can finish an older background
+command, and a rewind, compaction, prepend or replacement must match a fresh
+full rebuild without mutating an older projection. The factory shares the same
+compiler stages; it adds no provider-specific path or protocol contract. New semantic
 stages belong in the narrowest owning module and run exactly once in
 `compiler.ts`; do not create compatibility facades or a second web pipeline.
 

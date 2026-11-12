@@ -106,6 +106,22 @@ owns its observable behavior and evidence limits. This completes the package
 seam and pure projection portion of plan 130's second step; acquisition,
 subscription lifecycle, compatibility approval and live clients remain ahead.
 
+## Immutable fact reuse in the web compiler
+
+The web adapter owns one compiler instance across immutable snapshots and its
+activity/display projections. Intrinsic tool-result decoding and shell-output
+facts are memoized by source envelope, block, tool name and decoded result
+identity. Weak keys retain no message arrays or historical row projections; a
+replaced input object invalidates facts even when its ID is unchanged. Source
+messages, nested blocks and returned decoded payloads must stay immutable.
+
+Every compilation still derives pairing, order, live/approval/orphan status,
+augments and folds from the complete current window. Completion evidence can
+change an earlier command row; rewind, compaction and pagination must agree with
+a fresh full rebuild and preserve older output snapshots. The full compiler and
+factory use one implementation. This is incremental intrinsic decoding, not
+complete append-only presentation compilation or a native protocol change.
+
 ## Original Native Consumer Direction (2026-08-02)
 
 The real second consumer is now identified: an Android Compose companion whose

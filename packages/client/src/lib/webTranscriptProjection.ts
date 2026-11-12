@@ -1,10 +1,13 @@
 import type { Message } from "../types";
 import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { getCachedTranscriptProjection } from "./transcriptProjection/cache";
-import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
+import { createTranscriptProjectionCompiler } from "@yep-anywhere/shared/transcript/compiler";
 import type { MessageProjectionDiagnostics } from "@yep-anywhere/shared/transcript/messageProjection";
 import type { TranscriptProjectionAugments } from "@yep-anywhere/shared/transcript/types";
 import { applyRecentProjectPathLinks } from "./recentProjectPathLinks";
+
+// Weak input keys share intrinsic decoding across views without retaining history.
+const compileTranscriptProjection = createTranscriptProjectionCompiler();
 
 const webProjectionDiagnostics: MessageProjectionDiagnostics = {
   onAssistantMessage(details) {

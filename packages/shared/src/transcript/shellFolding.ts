@@ -1,3 +1,7 @@
+import type {
+  TranscriptProjectionMemo,
+  ToolOutputFacts,
+} from "./projectionMemo.js";
 import type { RenderItem, ToolCallItem } from "./items.js";
 import {
   extractDetachedCellId,
@@ -43,6 +47,7 @@ function extractSessionIdFromWriteStdinInput(
 
 function extractSessionIdFromToolResult(
   item: ToolCallItem,
+  memo?: TranscriptProjectionMemo,
 ): string | undefined {
   const structured = item.toolResult?.structured;
   if (isRecord(structured)) {
@@ -54,17 +59,14 @@ function extractSessionIdFromToolResult(
     }
   }
 
-  const raw = item.toolResult?.content ?? "";
-  const text = typeof raw === "string" ? raw : "";
-  // Accept provider envelopes and the SESSION_ID=N convention code-mode
-  // scripts print precisely so the session can be reconnected later.
-  const match = text.match(
-    /(?:^|\n)\s*(?:Process\s+running\s+with\s+session\s+ID|session[_\s]?id|session)\s*[:=]?\s*(\d+)\b/i,
-  );
-  if (!match?.[1]) {
-    return undefined;
+  const facts = readToolOutputFacts(item, memo);
+  if (!("sessionId" in facts)) {
+    // Accept both provider envelopes and the script convention SESSION_ID=N.
+    facts.sessionId = toolResultContent(item).match(
+      /(?:^|\n)\s*(?:Process\s+running\s+with\s+session\s+ID|session[_\s]?id|session)\s*[:=]?\s*(\d+)\b/i,
+    )?.[1];
   }
-  return match[1];
+  return facts.sessionId;
 }
 
 function extractCellIdFromWriteStdinInput(input: unknown): string | undefined {
@@ -76,9 +78,14 @@ function extractCellIdFromWriteStdinInput(input: unknown): string | undefined {
 
 /** A code-mode script that outlives its yield window detaches into a cell
  * ("Script running with cell ID N"); a later `wait` call polls that cell. */
-function extractCellIdFromToolResult(item: ToolCallItem): string | undefined {
-  const raw = item.toolResult?.content ?? "";
-  return extractDetachedCellId(typeof raw === "string" ? raw : "");
+function extractCellIdFromToolResult(
+  item: ToolCallItem,
+  memo?: TranscriptProjectionMemo,
+): string | undefined {
+  const facts = readToolOutputFacts(item, memo);
+  if (!("cellId" in facts))
+    facts.cellId = extractDetachedCellId(toolResultContent(item));
+  return facts.cellId;
 }
 
 function withLinkedCommand(input: unknown, command: string): unknown {
@@ -147,6 +154,42 @@ const PROCESS_EXITED_RE = /(?:^|\n)\s*Process exited with code \d+/i;
 const BACKGROUND_ENDED_STATUS_RE =
   /^(completed|failed|killed|stopped|success|error|done)/i;
 
+function readToolOutputFacts(
+  item: ToolCallItem,
+  memo?: TranscriptProjectionMemo,
+): ToolOutputFacts {
+  const result = item.toolResult;
+  const cached = result && memo?.outputs.get(result);
+  if (cached) return cached;
+  // Parse each fact on demand: a cold Read result must not pay for shell
+  // completion/launch scans that its consumer never requests.
+  const facts: ToolOutputFacts = {};
+  if (result) memo?.outputs.set(result, facts);
+  return facts;
+}
+
+function processExited(
+  item: ToolCallItem,
+  memo?: TranscriptProjectionMemo,
+): boolean {
+  const facts = readToolOutputFacts(item, memo);
+  facts.exited ??= PROCESS_EXITED_RE.test(toolResultContent(item));
+  return facts.exited;
+}
+
+function backgroundLaunch(
+  item: ToolCallItem,
+  memo?: TranscriptProjectionMemo,
+): ToolOutputFacts {
+  const facts = readToolOutputFacts(item, memo);
+  if (!("launchId" in facts)) {
+    const match = toolResultContent(item).match(BACKGROUND_LAUNCH_ID_RE);
+    facts.launchId = match?.[1];
+    facts.launchIsSession = !!match && /session\s+ID/i.test(match[0]);
+  }
+  return facts;
+}
+
 function getRecordField(value: unknown, field: string): unknown {
   return isRecord(value) ? value[field] : undefined;
 }
@@ -188,7 +231,10 @@ function toolResultContent(item: ToolCallItem): string {
  * BashOutput/TaskOutput poll reporting completion, a KillShell, or a Codex
  * unified-exec/wait poll whose chunk carries an exit code.
  */
-export function annotateBackgroundCommands(items: RenderItem[]): RenderItem[] {
+export function annotateBackgroundCommands(
+  items: RenderItem[],
+  memo?: TranscriptProjectionMemo,
+): RenderItem[] {
   const endedKeys = new Set<string>();
   const addEnded = (...keys: Array<string | false | undefined>) => {
     for (const key of keys) {
@@ -251,7 +297,7 @@ export function annotateBackgroundCommands(items: RenderItem[]): RenderItem[] {
     ) {
       const finished =
         typeof getRecordField(structured, "exit_code") === "number" ||
-        PROCESS_EXITED_RE.test(toolResultContent(item));
+        processExited(item, memo);
       if (finished) {
         const sessionId = extractSessionIdFromWriteStdinInput(input);
         const cellId = extractCellIdFromWriteStdinInput(input);
@@ -272,7 +318,7 @@ export function annotateBackgroundCommands(items: RenderItem[]): RenderItem[] {
       return item;
     }
 
-    const content = toolResultContent(item);
+    const facts = backgroundLaunch(item, memo);
     const keys: string[] = [`tool:${item.id}`];
     let backgrounded =
       getRecordField(item.toolInput, "run_in_background") === true;
@@ -284,15 +330,14 @@ export function annotateBackgroundCommands(items: RenderItem[]): RenderItem[] {
       backgrounded = true;
       keys.push(structuredTaskId, `session:${structuredTaskId}`);
     }
-    const launchMatch = content.match(BACKGROUND_LAUNCH_ID_RE);
-    if (launchMatch?.[1]) {
+    if (facts.launchId) {
       backgrounded = true;
-      keys.push(launchMatch[1]);
-      if (/session\s+ID/i.test(launchMatch[0])) {
-        keys.push(`session:${launchMatch[1]}`);
+      keys.push(facts.launchId);
+      if (facts.launchIsSession) {
+        keys.push(`session:${facts.launchId}`);
       }
     }
-    const detachedCell = extractDetachedCellId(content);
+    const detachedCell = extractCellIdFromToolResult(item, memo);
     if (detachedCell) {
       backgrounded = true;
       keys.push(`cell:${detachedCell}`);
@@ -313,7 +358,10 @@ export function annotateBackgroundCommands(items: RenderItem[]): RenderItem[] {
   });
 }
 
-export function enrichWriteStdinWithCommand(items: RenderItem[]): RenderItem[] {
+export function enrichWriteStdinWithCommand(
+  items: RenderItem[],
+  memo?: TranscriptProjectionMemo,
+): RenderItem[] {
   const sessionToMetadata = new Map<
     string,
     { command?: string; filePath?: string; toolName?: string }
@@ -332,8 +380,8 @@ export function enrichWriteStdinWithCommand(items: RenderItem[]): RenderItem[] {
       isCommandSessionToolName(item.toolName) ||
       isFileSessionToolName(item.toolName)
     ) {
-      const sessionId = extractSessionIdFromToolResult(item);
-      const cellId = extractCellIdFromToolResult(item);
+      const sessionId = extractSessionIdFromToolResult(item, memo);
+      const cellId = extractCellIdFromToolResult(item, memo);
       if (!sessionId && !cellId) {
         return item;
       }
@@ -377,7 +425,7 @@ export function enrichWriteStdinWithCommand(items: RenderItem[]): RenderItem[] {
 
     // A poll can itself detach into a new cell; carry the origin metadata
     // forward so a later wait on that cell still links to the command.
-    const detachedCellId = extractCellIdFromToolResult(item);
+    const detachedCellId = extractCellIdFromToolResult(item, memo);
     if (detachedCellId && metadata) {
       const existing = cellToMetadata.get(detachedCellId) ?? {};
       cellToMetadata.set(detachedCellId, {
@@ -390,7 +438,7 @@ export function enrichWriteStdinWithCommand(items: RenderItem[]): RenderItem[] {
     // A wait's collected script output may reveal the shell session the
     // script started (e.g. a printed SESSION_ID=N line); bridge the origin
     // metadata to that session so later polls of it link to the command.
-    const declaredSessionId = extractSessionIdFromToolResult(item);
+    const declaredSessionId = extractSessionIdFromToolResult(item, memo);
     if (declaredSessionId && metadata) {
       const existing = sessionToMetadata.get(declaredSessionId) ?? {};
       sessionToMetadata.set(declaredSessionId, {
@@ -451,6 +499,7 @@ function isShellPollToolName(toolName: string): boolean {
  */
 export function coalesceDetachedPollContinuations(
   items: RenderItem[],
+  memo?: TranscriptProjectionMemo,
 ): RenderItem[] {
   const waitIndicesByCell = new Map<string, number[]>();
   for (let index = 0; index < items.length; index++) {
@@ -488,7 +537,7 @@ export function coalesceDetachedPollContinuations(
     if (item === undefined) continue;
 
     if (item.type === "tool_call" && isShellPollToolName(item.toolName)) {
-      let cellId = extractCellIdFromToolResult(item);
+      let cellId = extractCellIdFromToolResult(item, memo);
       let after = i;
       while (cellId) {
         const waitIndex = takeNextWaitOnCell(cellId, after);
@@ -504,7 +553,7 @@ export function coalesceDetachedPollContinuations(
         };
         cellId =
           wait.toolResult !== undefined
-            ? extractCellIdFromToolResult(wait)
+            ? extractCellIdFromToolResult(wait, memo)
             : undefined;
       }
     }

@@ -1,4 +1,8 @@
 import {
+  projectToolResultOnce,
+  type TranscriptProjectionMemo,
+} from "./projectionMemo.js";
+import {
   isInjectedContinuationPrompt,
   isSyntheticNoResponseTurn,
 } from "../claude-sdk-schema/guards.js";
@@ -52,6 +56,7 @@ export function projectTranscriptMessages(
   messages: Message[],
   augments?: TranscriptProjectionAugments,
   diagnostics?: MessageProjectionDiagnostics,
+  memo?: TranscriptProjectionMemo,
 ): RenderItem[] {
   const items: RenderItem[] = [];
   const toolCallIndices = new Map<string, number>(); // tool_use_id → index in items
@@ -81,7 +86,14 @@ export function projectTranscriptMessages(
   // Reconciliation can place a result before its call; retain result order
   // while pairing only after every call in the loaded window is registered.
   for (const { block, message } of toolResults) {
-    attachToolResult(block, message, items, pendingToolCalls, diagnostics);
+    attachToolResult(
+      block,
+      message,
+      items,
+      pendingToolCalls,
+      diagnostics,
+      memo,
+    );
   }
 
   return items;
@@ -916,6 +928,7 @@ function attachToolResult(
   items: RenderItem[],
   pendingToolCalls: Map<string, number>,
   diagnostics?: MessageProjectionDiagnostics,
+  memo?: TranscriptProjectionMemo,
 ): void {
   const toolUseId = block.tool_use_id;
   if (!toolUseId) return;
@@ -934,44 +947,61 @@ function attachToolResult(
   const item = items[index];
   if (item?.type !== "tool_call") return;
 
-  // Attach result to existing tool call
-  // Handle both camelCase (toolUseResult) and snake_case (tool_use_result) from SDK
-  let structured =
-    resultMessage.toolUseResult ??
-    (resultMessage as Record<string, unknown>).tool_use_result;
+  const {
+    data: resultData,
+    background: isBackgroundProcessResult,
+    interrupted: isInterruptedProcessResult,
+  } = projectToolResultOnce(memo, resultMessage, block, item.toolName, () => {
+    // Attach result to existing tool call
+    // Handle both camelCase (toolUseResult) and snake_case (tool_use_result) from SDK
+    let structured =
+      resultMessage.toolUseResult ??
+      (resultMessage as Record<string, unknown>).tool_use_result;
 
-  // SDK 0.2.76+: Agent tool has no structured tool_use_result.
-  // Parse agentId and usage stats from the text content blocks instead.
-  if (!structured && (item.toolName === "Agent" || item.toolName === "Task")) {
-    structured = parseAgentResultFromText(block);
-  }
-  structured = normalizeBashFailureResult(item, block, structured);
-  const projectPathLinks = readProjectPathLinkTargets(block._projectPathLinks);
+    // SDK 0.2.76+: Agent tool has no structured tool_use_result.
+    // Parse agentId and usage stats from the text content blocks instead.
+    if (
+      !structured &&
+      (item.toolName === "Agent" || item.toolName === "Task")
+    ) {
+      structured = parseAgentResultFromText(block);
+    }
+    structured = normalizeBashFailureResult(item, block, structured);
+    const projectPathLinks = readProjectPathLinkTargets(
+      block._projectPathLinks,
+    );
 
-  const resultData: ToolResultData = {
-    content: typeof block.content === "string" ? block.content : "",
-    isError: block.is_error || false,
-    structured,
-    ...(projectPathLinks ? { projectPathLinks } : {}),
-    ...(resultMessage.toolResultMedia?.some(
-      (media) => media.toolCallId === block.tool_use_id,
-    )
-      ? {
-          media: resultMessage.toolResultMedia.filter(
-            (media) => media.toolCallId === block.tool_use_id,
-          ),
-        }
-      : {}),
-  };
-  const isBackgroundProcessResult = isBackgroundProcessToolResult(
-    block,
-    item.toolName,
-  );
-  const isInterruptedProcessResult = isInterruptedToolResult(
-    block,
-    resultData,
-    item.toolName,
-  );
+    const resultData: ToolResultData = {
+      content: typeof block.content === "string" ? block.content : "",
+      isError: block.is_error || false,
+      structured,
+      ...(projectPathLinks ? { projectPathLinks } : {}),
+      ...(resultMessage.toolResultMedia?.some(
+        (media) => media.toolCallId === block.tool_use_id,
+      )
+        ? {
+            media: resultMessage.toolResultMedia.filter(
+              (media) => media.toolCallId === block.tool_use_id,
+            ),
+          }
+        : {}),
+    };
+    const isBackgroundProcessResult = isBackgroundProcessToolResult(
+      block,
+      item.toolName,
+    );
+    const isInterruptedProcessResult = isInterruptedToolResult(
+      block,
+      resultData,
+      item.toolName,
+    );
+
+    return {
+      data: resultData,
+      background: isBackgroundProcessResult,
+      interrupted: isInterruptedProcessResult,
+    };
+  });
 
   // A streaming result is the running call's output so far; the call stays
   // pending and its final result can still attach.
