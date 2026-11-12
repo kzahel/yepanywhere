@@ -146,6 +146,12 @@ measurements are shared within each mounted renderer and capped at 4096 pairs.
 Output appearance changes invalidate those measurements and rebuild wrappers;
 async results are discarded after source replacement or unmount.
 
+Raw message source remains React-owned: Unicode grid normalization must not
+replace its text nodes or issue links. Metadata refreshes and live text updates
+must preserve readable source without a React reconciliation error. The raw
+view retains verbatim copying and its selected output font; grid wrappers apply
+to rendered HTML code blocks.
+
 The browser regression uses the real enhancement hook and shipped fonts:
 `pnpm --filter @yep-anywhere/client exec playwright test --config playwright.code-grid.config.ts`.
 It checks symbol/reference row alignment, fallback for an isolated double-width

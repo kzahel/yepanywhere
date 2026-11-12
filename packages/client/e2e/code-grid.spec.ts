@@ -92,6 +92,19 @@ test("code grids preserve symbol advances, copying and typing during streaming",
   });
   await expect(board.locator("[data-ya-code-cell]").first()).toBeVisible();
   expect(await board.locator("code").textContent()).toBe(original);
+  // Background issue metadata changes the React-owned source text structure.
+  // Font normalization must not have replaced the text React will remove.
+  await page.getByRole("button", { name: "Refresh issue links" }).click();
+  expect(errors).toEqual([]);
+  await expect(page.locator("#react-source a")).toHaveText("#42");
+  await expect(page.locator("#react-source code")).toHaveText(
+    "before ◯ #42 after",
+  );
+  await page.getByRole("button", { name: "Refresh issue links" }).click();
+  await expect(page.locator("#react-source a")).toHaveCount(0);
+  await expect(page.locator("#react-source code")).toHaveText(
+    "before ◯ #42 after",
+  );
   await expect(
     board.locator("[data-ya-code-cell] [data-ya-code-cell]"),
   ).toHaveCount(0);
@@ -150,6 +163,9 @@ test("code grids preserve symbol advances, copying and typing during streaming",
     (await composer.getAttribute("data-latencies")) ?? "[]",
   ) as number[];
   expect(Math.max(...latencies)).toBeLessThan(100);
+  await expect(page.locator("#react-source code")).toHaveText(
+    "before ◯ #42 after",
+  );
   console.log(
     "[typing] key count and maximum input-to-frame milliseconds",
     latencies.length,

@@ -243,9 +243,13 @@ function enhance(
     const pre = code.parentElement;
     if (pre) {
       addCopyButton(pre);
-      void normalizeGrid(code).catch((error: unknown) =>
-        window.reportError(error),
-      );
+      // Raw message text contains React-owned links and text nodes. Replacing
+      // those nodes breaks reconciliation when issue metadata or text changes.
+      if (!pre.hasAttribute("data-text-block-source")) {
+        void normalizeGrid(code).catch((error: unknown) =>
+          window.reportError(error),
+        );
+      }
     }
   }
   for (const code of root.querySelectorAll<HTMLElement>(ANY_CODE_SELECTOR)) {
