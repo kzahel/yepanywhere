@@ -1420,15 +1420,14 @@ it("joins durable scoped children into retained global rows after SQL reopen whi
       first.catalog?.catalogGeneration,
     );
     expect(next).not.toHaveProperty("unchanged");
-    const accepted = vi.spyOn(index, "accepted");
+    const accepted = vi.spyOn(index, "acceptedMany");
     const page: GlobalSessionsResponse = await (
       await routes.request("/?summaryMode=retained&limit=1&q=public-a")
     ).json();
     expect(page.sessions.map((s) => s.id)).toEqual(["public-a"]);
-    expect(accepted).toHaveBeenCalledExactlyOnceWith(
-      parents[0]!.native,
-      "public-a",
-    );
+    expect(accepted).toHaveBeenCalledExactlyOnceWith([
+      { native: parents[0]!.native, sessionId: "public-a" },
+    ]);
     accepted.mockClear();
     const filtered: GlobalSessionsResponse = await (
       await routes.request(
@@ -1437,7 +1436,9 @@ it("joins durable scoped children into retained global rows after SQL reopen whi
     ).json();
     expect(filtered.sessions.some((r) => r.id === "public-b")).toBe(false);
     expect(
-      accepted.mock.calls.some(([native]) => native.storageScope === scopeB),
+      accepted.mock.calls
+        .flatMap(([parents]) => parents)
+        .some(({ native }) => native.storageScope === scopeB),
     ).toBe(false);
     expect(scan).not.toHaveBeenCalled();
     expect(reader).not.toHaveBeenCalled();

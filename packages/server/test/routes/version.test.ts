@@ -78,6 +78,13 @@ describe("Version Routes", () => {
       getServerCapabilities({ collectionQueryUpdatesAvailable: true }),
     ).toContain(name);
   });
+  it("advertises field metadata only with the retained collection owner", () => {
+    const name = SERVER_CAPABILITIES.collectionMetadataFields.name;
+    expect(getServerCapabilities()).not.toContain(name);
+    expect(
+      getServerCapabilities({ collectionQueryUpdatesAvailable: true }),
+    ).toContain(name);
+  });
   // A version-implied capability is inferred only from a release at least
   // its introducedIn. A source build between releases reports the previous
   // tag's version, so a capability left out of this list is invisible to the

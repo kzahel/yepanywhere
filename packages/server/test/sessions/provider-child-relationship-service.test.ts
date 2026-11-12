@@ -10,7 +10,12 @@ import {
   type ProviderChildSource,
 } from "../../src/sessions/ProviderChildRelationshipService.js";
 import { SessionIdentityStore } from "../../src/sessions/SessionIdentityStore.js";
-import { SessionRelationshipStore } from "../../src/sessions/SessionRelationshipStore.js";
+import {
+  relationshipResourceKey,
+  type RelationshipResource,
+  type RelationshipFact,
+  SessionRelationshipStore,
+} from "../../src/sessions/SessionRelationshipStore.js";
 import { resolveProviderChildSessions } from "../../src/sessions/provider-child-sessions.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 
@@ -773,4 +778,157 @@ describe("profile-owned provider child facts", () => {
     expect(reads).toBe(2);
     expect(f.service.accepted(native("parent"), owner.sessionId)).toEqual([]);
   });
+});
+
+it("batches selected parents across scopes while preserving empty, withheld, aliases and multi-page children", () => {
+  const f = fixture();
+  const database = f.db.getDatabase();
+  const prepare = database.prepare.bind(database);
+  let reads = 0;
+  let tracking = false;
+  vi.spyOn(database, "prepare").mockImplementation((sql) => {
+    const statement = prepare(sql);
+    for (const method of ["all", "get"] as const) {
+      const original = statement[method].bind(statement);
+      vi.spyOn(statement, method).mockImplementation((...values) => {
+        if (tracking) reads++;
+        return original(...values);
+      });
+    }
+    return statement;
+  });
+  const store = new SessionRelationshipStore(database);
+  const resource = (id: string): RelationshipResource => ({
+    kind: "native",
+    serverId: "local",
+    native: native(id),
+  });
+  const publish = (
+    parent: RelationshipResource,
+    facts: RelationshipFact[] = [],
+    state: "complete" | "partial" = "complete",
+  ) => {
+    expect(
+      store.publish({
+        observation: {
+          producer: "provider-child-snapshot-v1",
+          sourceKey: relationshipResourceKey(parent),
+          sourceVersion: "v1",
+          extractorVersion: 1,
+          observedAt: "2026-11-12T12:00:00.000Z",
+        },
+        expectedRevision: null,
+        facts,
+        progress: { state, cursor: "{}" },
+      }),
+    ).toBe(true);
+  };
+  const parents = Array.from({ length: 250 }, (_, i) => ({
+    native: native(`parent-${i}`),
+    sessionId: `public-${i}`,
+  }));
+  for (let i = 0; i < 249; i++)
+    publish(resource(`parent-${i}`), [], i === 248 ? "partial" : "complete");
+  // Initialize the service's SQL owner before counting hot-path reads.
+  expect(f.service.accepted(parents[0]!.native, "first")).toEqual([]);
+  tracking = true;
+  const empty = f.service.acceptedMany(parents);
+  tracking = false;
+  expect(reads).toBe(8); // Four chunks, one edge seek and one checkpoint seek each.
+  expect(empty.size).toBe(250);
+  expect(empty.get("public-247")).toEqual([]);
+  expect(empty.get("public-248")).toBeUndefined();
+  expect(empty.get("public-249")).toBeUndefined();
+  const facts = Array.from(
+    { length: 70 },
+    (_, i): RelationshipFact => ({
+      type: "provider_child",
+      source: resource("prolific"),
+      target: resource(`child-${i}`),
+      recordKey: `child-${i}`,
+      trust: "provider-observed",
+      metadata: {
+        title: `Child ${i}`,
+        nativeUpdatedAt: new Date(1_800_000_000_000 + i * 1000).toISOString(),
+      },
+    }),
+  );
+  publish(resource("prolific"), facts);
+  publish(resource("competing"), [
+    { ...facts[0]!, source: resource("competing") },
+  ]);
+  const otherScope: RelationshipResource = {
+    kind: "native",
+    serverId: "local",
+    native: nativeSessionRef(
+      "codex",
+      "/other/scope",
+      parseNativeSessionId("prolific"),
+    ),
+  };
+  publish(otherScope);
+  const selected = f.service.acceptedMany([
+    { native: native("prolific"), sessionId: "public-parent" },
+    { native: native("prolific"), sessionId: "public-alias" },
+    { native: otherScope.native, sessionId: "other-scope" },
+  ]);
+  const expected = facts
+    .slice(1)
+    .reverse()
+    .map((fact) => ({
+      id: fact.target.kind === "native" ? fact.target.native.id : "",
+      parentSessionId: "public-parent",
+      title: fact.metadata!.title,
+      updatedAt: fact.metadata!.nativeUpdatedAt,
+    }));
+  expect(selected.get("public-parent")).toEqual(expected);
+  expect(selected.get("public-alias")).toEqual(
+    expected.map((child) => ({ ...child, parentSessionId: "public-alias" })),
+  );
+  expect(selected.get("other-scope")).toEqual([]);
+  expect(f.service.accepted(native("competing"), "competing")).toBeUndefined();
+  // Trust filtering follows the first20 ordered active rows, never moves ahead
+  // of the evidence bound. A later provider observation cannot rescue a withheld edge.
+  for (const parentId of ["withheld-evidence", "mixed-evidence"]) {
+    const parent = resource(parentId);
+    publish(parent);
+    const fact: RelationshipFact = {
+      type: "provider_child",
+      source: parent,
+      target: resource(`${parentId}-child`),
+      recordKey: "one",
+      trust: "provider-observed",
+    };
+    for (let i = 0; i < 21; i++)
+      store.record(
+        {
+          producer: i === 20 ? "z-provider" : `a-${String(i).padStart(2, "0")}`,
+          sourceKey: parentId,
+          sourceVersion: "v1",
+          extractorVersion: 1,
+          observedAt: new Date(1_800_000_000_000 + i * 1000).toISOString(),
+        },
+        [
+          {
+            ...fact,
+            trust:
+              i === 20 || (parentId === "mixed-evidence" && i % 2 === 0)
+                ? "provider-observed"
+                : "peer-attested",
+            metadata: { title: `accepted-${i}` },
+          },
+        ],
+      );
+  }
+  const bounded = f.service.acceptedMany(
+    ["withheld-evidence", "mixed-evidence"].map((sessionId) => ({
+      sessionId,
+      native: native(sessionId),
+    })),
+  );
+  expect(bounded.get("withheld-evidence")).toBeUndefined();
+  expect(bounded.get("mixed-evidence")).toMatchObject([
+    { title: "accepted-18" },
+  ]);
+  store.dispose();
 });

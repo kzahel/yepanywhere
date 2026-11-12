@@ -24,6 +24,8 @@ export interface CollectionUpdate {
   removed: string[];
   groups?: CollectionView["groups"];
   meta?: CollectionView["meta"];
+  /** Opt-in field replacements; initial/recovery frames still carry complete metadata. */
+  metaFields?: { set: CollectionView["meta"]; removed: string[] };
 }
 export function collectionView(
   body: Record<string, unknown>,
@@ -82,6 +84,7 @@ export function diffCollectionView(
   revision: number,
   before: CollectionView | undefined,
   next: CollectionView,
+  metadataFields = false,
 ): CollectionUpdate | undefined {
   const old = new Map(before?.rows);
   const current = new Map(next.rows);
@@ -97,6 +100,21 @@ export function diffCollectionView(
     JSON.stringify(before?.meta) === JSON.stringify(next.meta)
       ? undefined
       : next.meta;
+  const metaFields =
+    meta && before && metadataFields
+      ? {
+          set: Object.fromEntries(
+            Object.entries(next.meta).filter(
+              ([key, value]) =>
+                !Object.hasOwn(before.meta, key) ||
+                JSON.stringify(before.meta[key]) !== JSON.stringify(value),
+            ),
+          ),
+          removed: Object.keys(before.meta).filter(
+            (key) => !Object.hasOwn(next.meta, key),
+          ),
+        }
+      : undefined;
   if (before && !upserts.length && !removed.length && !groups && !meta) return;
   return {
     query,
@@ -105,7 +123,7 @@ export function diffCollectionView(
     upserts,
     removed,
     ...(groups ? { groups } : {}),
-    ...(meta ? { meta } : {}),
+    ...(metaFields ? { metaFields } : meta ? { meta } : {}),
   };
 }
 export function applyCollectionUpdate(
@@ -136,7 +154,27 @@ export function applyCollectionUpdate(
     rows.set(id, row);
   }
   const groups = update.groups ?? previous!.view.groups;
-  const meta = update.meta ?? previous!.view.meta;
+  const fields = update.metaFields;
+  if (
+    fields !== undefined &&
+    (update.base === null ||
+      update.meta !== undefined ||
+      !fields ||
+      typeof fields !== "object" ||
+      !fields.set ||
+      typeof fields.set !== "object" ||
+      Array.isArray(fields.set) ||
+      !Array.isArray(fields.removed) ||
+      fields.removed.some(
+        (key) => typeof key !== "string" || Object.hasOwn(fields.set, key),
+      ) ||
+      new Set(fields.removed).size !== fields.removed.length)
+  )
+    throw new Error("Invalid collection metadata fields");
+  const meta = fields
+    ? { ...previous!.view.meta, ...fields.set }
+    : (update.meta ?? previous!.view.meta);
+  for (const key of fields?.removed ?? []) delete meta[key];
   const body = { ...meta };
   for (const [group, ids] of Object.entries(groups)) {
     if (

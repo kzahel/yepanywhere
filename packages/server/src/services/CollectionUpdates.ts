@@ -22,7 +22,12 @@ interface View {
   query: string;
   listeners: Map<
     CollectionUpdatesListener,
-    { initialized: boolean; read: CollectionRead; controller: AbortController }
+    {
+      initialized: boolean;
+      read: CollectionRead;
+      controller: AbortController;
+      metadataFields: boolean;
+    }
   >;
   snapshot?: CollectionView;
   revision: number;
@@ -50,6 +55,7 @@ export class CollectionUpdates {
     query: string,
     read: CollectionRead,
     listener: CollectionUpdatesListener,
+    metadataFields = false,
   ): () => void {
     if (this.closed) throw new Error("Collection update owner is closed");
     const key = JSON.stringify([audience, query]);
@@ -71,6 +77,7 @@ export class CollectionUpdates {
     const retained = view;
     const state = {
       initialized: false,
+      metadataFields,
       read,
       controller: new AbortController(),
     };
@@ -177,6 +184,16 @@ export class CollectionUpdates {
         view.snapshot,
         next,
       );
+      const fieldChange =
+        change &&
+        [...view.listeners.values()].some((state) => state.metadataFields) &&
+        diffCollectionView(
+          view.query,
+          view.revision + 1,
+          view.snapshot,
+          next,
+          true,
+        );
       if (change) view.revision++;
       this.bytes += bytes - view.bytes;
       view.bytes = bytes;
@@ -192,7 +209,9 @@ export class CollectionUpdates {
         view.dirty = true;
       for (const [listener, state] of [...view.listeners]) {
         const frame = state.initialized
-          ? change
+          ? state.metadataFields
+            ? fieldChange
+            : change
           : diffCollectionView(view.query, view.revision, undefined, next);
         if (frame) {
           try {

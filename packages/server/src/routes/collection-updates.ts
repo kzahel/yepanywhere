@@ -98,6 +98,7 @@ export function createCollectionUpdateStream(
     } catch {
       return context.json({ error: "Invalid collection queries" }, 400);
     }
+    const metadataFields = context.req.query("metadata") === "fields";
     if (streams >= 32)
       return context.json({ error: "Collection stream limit" }, 429);
     streams++;
@@ -207,6 +208,7 @@ export function createCollectionUpdateStream(
                 return body;
               },
               { send: enqueue, fail: stop },
+              metadataFields,
             ),
           );
         }

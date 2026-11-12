@@ -54,5 +54,18 @@
         "marker": "SIDEBAR_SESSION_WINDOW_FALLBACK"
       }
     ]
+  },
+  {
+    "name": "collection-metadata-replacement-fallback",
+    "capabilities": ["collection-metadata-fields"],
+    "supportedSince": "2026-11-12",
+    "evidence": "Plan190 collection metadata field support; exact optional bit distinguishes source builds, no stable release yet.",
+    "removal": "Retire complete-metadata stream fallback after the supported-server horizon. Preserve full initial/recovery snapshots.",
+    "locations": [
+      {
+        "path": "packages/client/src/hooks/useCollectionUpdates.ts",
+        "marker": "COLLECTION_METADATA_FIELDS_FALLBACK"
+      }
+    ]
   }
 ]

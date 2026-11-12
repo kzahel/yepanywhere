@@ -187,13 +187,17 @@ describe("Projects Routes", () => {
 
   it("enriches project list responses with Project Queue counts", async () => {
     const project = createProject();
+    const listAll = vi.fn();
     const routes = createProjectsRoutes({
       scanner: {
-        listProjects: vi.fn(async () => [project]),
+        listProjects: vi.fn(async () => [
+          project,
+          { ...project, id: toUrlProjectId("/other-project") },
+        ]),
       } as unknown as ProjectScanner,
       readerFactory: vi.fn(),
       projectQueueService: {
-        listAll: vi.fn(() => [
+        listAll: listAll.mockImplementation(() => [
           {
             id: "queue-1",
             projectId: project.id,
@@ -245,6 +249,8 @@ describe("Projects Routes", () => {
     expect(response.status).toBe(200);
 
     const json = await response.json();
+    expect(listAll).toHaveBeenCalledTimes(1);
+    expect(json.projects[1].projectQueueCount).toBe(0);
     expect(json.projects[0]).toMatchObject({
       id: project.id,
       codeName: "prj",

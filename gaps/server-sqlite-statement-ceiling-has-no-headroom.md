@@ -24,3 +24,13 @@ way, a ceiling breach during a catalog write should fail loudly in tests.
 
 Found 2026-11-11 while diagnosing the CI failure of
 session-native-allocation.test.ts on 8e0e5e279.
+
+
+Plan190 navigation follow-up, 2026-11-12: the batch reader initially reproduced
+this exact failure in the allocation test. A copied-source control records the
+65-statement exception in the catalog catch. Legacy relationship page/evidence
+statements now prepare on first use, reducing unused allocation while keeping
+the ceiling at 64. The existing test passes. This does not change the guard's
+fixed-count policy or make every caught catalog error fail loudly; those broader
+questions remain open. Qualification is in the
+[navigation outcome](../docs/research/190-bounded-navigation-projection.md).

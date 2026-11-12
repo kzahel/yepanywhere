@@ -8,7 +8,11 @@ import { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import { NotificationService } from "../notifications/NotificationService.js";
 import { SessionQueryCheckpoint } from "./session-query-checkpoint.js";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
-import { isYaSessionId, type NativeSessionRef } from "@yep-anywhere/shared";
+import {
+  isYaSessionId,
+  type NativeSessionRef,
+  type ProviderChildSessionSummary,
+} from "@yep-anywhere/shared";
 import { getProjectName } from "../projects/paths.js";
 import {
   projectCatalogIdentities,
@@ -447,7 +451,9 @@ export class RetainedSessionQuery {
   }
   private hydrate(
     row: CollectionStoredRow,
-    children: RetainedItemsDeps["providerChildRelationships"],
+    children:
+      | ReadonlyMap<string, ProviderChildSessionSummary[] | undefined>
+      | undefined,
     forInbox = false,
   ): GlobalSessionItem & { modelConfig?: InboxModelConfig } {
     const item = JSON.parse(row.item) as StoredCollectionItem;
@@ -459,14 +465,28 @@ export class RetainedSessionQuery {
         this.deps.supervisor?.getProcessForSession(item.id),
         { isExternal: this.deps.externalTracker?.isExternal(item.id) },
       );
-    if (children && row.parent_json) {
-      const accepted = children?.accepted(
-        JSON.parse(row.parent_json) as NativeSessionRef,
-        item.id,
-      );
-      if (accepted !== undefined) item.providerChildren = accepted;
-    }
+    const accepted = children?.get(item.id);
+    if (accepted !== undefined) item.providerChildren = accepted;
     return forInbox && modelConfig ? { ...item, modelConfig } : item;
+  }
+  private hydrateRows(
+    rows: readonly CollectionStoredRow[],
+    relationships?: RetainedItemsDeps["providerChildRelationships"],
+    forInbox = false,
+  ) {
+    const children = relationships?.acceptedMany(
+      rows.flatMap((row) =>
+        row.parent_json
+          ? [
+              {
+                sessionId: row.id,
+                native: JSON.parse(row.parent_json) as NativeSessionRef,
+              },
+            ]
+          : [],
+      ),
+    );
+    return rows.map((row) => this.hydrate(row, children, forInbox));
   }
   private catalog() {
     const state = this.service.getState();
@@ -486,9 +506,7 @@ export class RetainedSessionQuery {
       projects.set(row.project_id, JSON.parse(row.name_json) as string);
     }
     return {
-      sessions: rows
-        .slice(0, query.limit)
-        .map((row) => this.hydrate(row, relationships)),
+      sessions: this.hydrateRows(rows.slice(0, query.limit), relationships),
       hasMore: rows.length > query.limit,
       stats: this.sql.stats(query.accessibleProjectIds),
       projects: [...projects]
@@ -564,9 +582,7 @@ export class RetainedSessionQuery {
       }
       const selectedAt = performance.now();
       const snapshot: SidebarSessionSnapshot<GlobalSessionItem> = {
-        rows: [...selected.values()].map((row) =>
-          this.hydrate(row, relationships),
-        ),
+        rows: this.hydrateRows([...selected.values()], relationships),
         windows,
         catalog: this.catalog(),
         nextTransitionAt: this.archiveTransition(accessibleProjectIds),
@@ -596,13 +612,18 @@ export class RetainedSessionQuery {
       const selected = new Set(
         selectParents?.(result.sessions).map((item) => item.id) ?? [],
       );
-      result.sessions = result.sessions.map((item) =>
-        selected.has(item.id)
-          ? this.hydrate(
-              this.sql.get(item.id)!,
-              this.deps.providerChildRelationships,
-            )
-          : item,
+      const enriched = new Map(
+        this.hydrateRows(
+          this.sql.select({
+            sessionIds: [...selected],
+            limit: selected.size,
+            includeArchived: true,
+          }),
+          this.deps.providerChildRelationships,
+        ).map((item) => [item.id, item]),
+      );
+      result.sessions = result.sessions.map(
+        (item) => enriched.get(item.id) ?? item,
       );
       return result;
     });
@@ -627,9 +648,8 @@ export class RetainedSessionQuery {
       for (const row of [
         ...this.sql.select(query, "attention=0 AND active=1"),
         ...this.sql.select(
-          query,
-          "attention=0 AND id IN (SELECT value FROM json_each(?))",
-          [queue],
+          { ...query, sessionIds: options.queueIds },
+          "attention=0",
         ),
       ])
         active.set(row.id, row);
@@ -659,7 +679,7 @@ export class RetainedSessionQuery {
         ),
       ];
       return {
-        sessions: rows.map((row) => this.hydrate(row, undefined, true)),
+        sessions: this.hydrateRows(rows, undefined, true),
         catalog: this.catalog(),
         nextTransitionAt: (() => {
           const projects = this.deadlineProjects({

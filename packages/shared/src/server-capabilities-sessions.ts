@@ -1033,57 +1033,6 @@ export const SESSIONS_SERVER_CAPABILITIES = {
         "YA is self-hosted with no forced upgrade, so the population of servers without the conditional read never converges and the client's enumeration fallback never becomes removable.",
     },
   },
-  projectCollectionUpdates: {
-    id: CAPABILITY_ID_ALLOCATIONS.projectCollectionUpdates.id,
-    name: "project-collection-updates",
-    kind: "transitional",
-    area: "sessions",
-    introducedIn: "0.12.0",
-    advertisement: { kind: "version-implied" },
-    description:
-      "Authoritative bounded project and global ProjectQueue query changes over the shared collection stream.",
-    clientFallback:
-      "Keep existing project/queue REST revalidation and queue deadline backstop; send no project collection stream queries.",
-    serverContract: {
-      routes: ["GET /api/activity/collections"],
-      requestFields: [
-        "queries: /projects?summaryMode=retained, /project-queue",
-      ],
-      responseFields: [
-        "groups.projects",
-        "groups.items",
-        "groups.recoveredSessionQueues",
-        "groups.projectStatuses",
-      ],
-    },
-    lifecycle: { kind: "transitional" },
-  },
-  collectionQueryUpdates: {
-    id: CAPABILITY_ID_ALLOCATIONS.collectionQueryUpdates.id,
-    name: "collection-query-updates",
-    kind: "transitional",
-    area: "sessions",
-    introducedIn: "0.12.0",
-    advertisement: { kind: "version-implied" },
-    description:
-      "Authoritative bounded session and Inbox query snapshots followed by row and membership changes.",
-    clientFallback:
-      "Keep existing retained REST reads and event-driven revalidation; send no collection stream request.",
-    serverContract: {
-      routes: ["GET /api/activity/collections"],
-      requestFields: ["queries"],
-      responseFields: [
-        "query",
-        "revision",
-        "base",
-        "upserts",
-        "removed",
-        "groups",
-        "meta",
-      ],
-    },
-    lifecycle: { kind: "transitional" },
-  },
   retainedSessionCollections: {
     id: CAPABILITY_ID_ALLOCATIONS.retainedSessionCollections.id,
     name: "retained-session-collections",

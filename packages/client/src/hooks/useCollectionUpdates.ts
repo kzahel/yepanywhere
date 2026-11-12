@@ -28,8 +28,14 @@ export function useCollectionUpdates<T>(options: {
   }>();
   const latest = useRef(options);
   latest.current = options;
+  const version = useRetainedVersionInfo(options.runtime.sourceKey);
+  // COLLECTION_METADATA_FIELDS_FALLBACK: old servers retain complete metadata frames.
+  const metadataFields = serverHasCapability(
+    version,
+    SERVER_CAPABILITIES.collectionMetadataFields,
+  );
   const supported = serverHasCapability(
-    useRetainedVersionInfo(options.runtime.sourceKey),
+    version,
     options.capability ?? SERVER_CAPABILITIES.collectionQueryUpdates.name,
   );
   const { runtime, key, path, rows = 0, enabled } = options;
@@ -38,6 +44,7 @@ export function useCollectionUpdates<T>(options: {
     return retainCollectionUpdates(runtime, key, {
       path,
       rows,
+      metadataFields,
       onLiveChange: (live) => {
         if (
           latest.current.runtime === runtime &&
@@ -73,7 +80,7 @@ export function useCollectionUpdates<T>(options: {
         });
       },
     });
-  }, [runtime, key, path, rows, enabled, supported]);
+  }, [runtime, key, path, rows, enabled, supported, metadataFields]);
   return (
     supported &&
     enabled &&

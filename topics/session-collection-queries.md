@@ -5,7 +5,7 @@ share one query owner per `RetainedSessionCollections` and dependency set.
 `retained-session-query.ts` owns synchronization and lifecycle;
 `session-collection-sql.ts` owns its portable SQLite working tables. The
 unretained compatibility path and standalone `/api/sessions/stats` retain
-their existing behavior. This does not change the public API.
+their existing behavior. The retained REST response shapes are unchanged.
 
 ## Authority and lifetime
 
@@ -64,6 +64,38 @@ Checkpoints from before this attention rule rebuild from canonical facts.
 Active and queued selections use separate bounded queries before merging. Archive expiry visits indexed rows crossing the cutoff, in chunks without decoding response JSON, including
 clock reversal or disabling automatic archive; explicit metadata wins.
 Recaps advance display time, never provider unread time.
+
+## Bounded navigation enrichment
+
+Known queued/selected session IDs drive primary-key seeks through `json_each`,
+then the same grants, archive/search filters and locale cursor ordering apply.
+An empty set returns immediately. The timeline index no longer scans unrelated
+sessions to prove a queued ID absent. Normal timeline pages keep their existing
+access path and equal-timestamp exception.
+
+Selected parents join the profile-owned relationship store in chunks of 64,
+with independently limited 32-edge pages per parent and two-parent ambiguity
+lookahead per child. Existing relationship projection policy remains authoritative;
+partial, unpublished, withheld and accepted-empty results remain distinct.
+No provider storage is acquired or per-session result cache retained. Internal
+complete reads also enrich only their selected parents through this boundary.
+Project responses group visible queue counts from one `listAll()` result,
+preserving the existing canonical project-path identity rules.
+
+Collection streams can opt into `metadata=fields` only after the exact optional
+`collection-metadata-fields` bit (159) is advertised. It adds `metaFields.set`
+and `metaFields.removed` for changed top-level metadata fields. A catalog token
+change no longer resends an unchanged project dictionary; the client preserves
+that dictionary's reference. The server still supplies authoritative rows,
+ordering and membership. Legacy and opt-in listeners share one acquisition and
+revision. Initial/reconnect/backpressure replacements carry complete metadata,
+and malformed or missed revisions use existing recovery. Older stable servers
+and source builds without the bit keep complete metadata frames; no aggregate
+sidebar client cutover or new refresh owner is introduced.
+
+[Navigation outcome](../docs/research/190-bounded-navigation-projection.md) owns
+measurements and qualification. This reduces selected-row/project work; it does
+not close restart, all-consumer memory or transcript-rendering targets.
 
 ## Sidebar snapshots
 

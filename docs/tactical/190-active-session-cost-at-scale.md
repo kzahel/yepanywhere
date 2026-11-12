@@ -16,8 +16,10 @@ capability-gated fallback. Projects and ProjectQueue now share that architecture
 under a separate extension capability. Full scenario targets remain open. Combined-scale qualification is now recorded;
 source-owned Claude/Codex project facts and indexed points are implemented.
 Structural/ambiguous discovery and transcript rendering remain open. The sidebar SQL/rendering foundation is implemented; the current measurement
-checkpoint identifies sparse-ID SQL access and repeated navigation enrichment
-as the next proposed stage 2/4 slice, without selecting a larger rewrite.
+checkpoint identified sparse-ID SQL access and repeated navigation enrichment.
+That shared stage 2/4 navigation slice is now implemented, including opt-in
+metadata field changes; [the outcome](../research/190-bounded-navigation-projection.md)
+owns correctness and before/after qualification. Full targets remain open.
 Proposed 2026-11-10; the maintainer agreed the scenario, the targets and that step 2
 (reading a long session incrementally) must happen. Step 1 (the scenario and
 a measured baseline) is done; at the scenario's scale both providers saturate
@@ -68,7 +70,20 @@ An implementation slice must stand on its own with response parity and an
 observable reduction in whole-corpus work. Measurement and correctness gates
 apply throughout, rather than waiting for the last stage.
 
-### Current focus — measure remaining update cost and choose the next slice
+### Current focus — bounded navigation projection
+
+Selected 2026-11-12: the maintainer approved the improvements identified by the
+measurement checkpoint. Known IDs drive indexed candidate seeks, selected-parent
+child relationships use bounded SQL batches, and project queue counts share one
+request-local snapshot. Optional metadata field changes retain unchanged project
+dictionaries while the server remains authoritative for membership and ordering.
+No provider-specific row cache or aggregate-sidebar client cutover is introduced.
+The [navigation outcome](../research/190-bounded-navigation-projection.md) records
+parity, mixed-version recovery, unchanged statement ceilings, review and measured
+before/after results. Stage 2/4 qualification continues; transcript rendering,
+bounded preview acquisition, quiet-host/restart and full acceptance remain open.
+
+### Previous focus — measure remaining update cost and choose the next slice
 
 Selected 2026-11-12: measure the current build before more implementation. The
 [current-cost investigation](../research/190-current-cost-regroup.md) records
@@ -475,6 +490,19 @@ checked. Write-to-visible is measured from the append to the moment the
 write's marker appears in the tab's DOM.
 
 ## Where it stands
+
+Navigation checkpoint, 2026-11-12: the [bounded projection outcome](../research/190-bounded-navigation-projection.md)
+compares a fresh `e1ef3fc59` baseline with the reviewed source. Active process CPU
+is 89.6→79.1 ms/append for Claude (two samples/build) and 138.3→129.0 for Codex
+(one pair); main CPU is 74.8→64.1 and 95.1→84.7. Encoded collection traffic drops
+123.81→3.43 / 124.60→4.23 KiB per append. A separate Claude diagnostic reduces
+SQL calls 651→257 and relationship reads 404→12 per append. No resident session
+cache is introduced. Browser CPU does not improve (55.9→58.6 / 59.1→61.7 ms),
+and eight query frames still arrive per append; six change only freshness.
+All 468 keys pass 100 ms, all sampled markers appear, and after visible p95 stays
+41–54 ms, loop p99 12–14.5 ms. CPU/render targets and full delivery/flatness,
+idle/restart/cold/memory/additional-tab acceptance remain open. Next proposal:
+keep freshness-only query updates out of unchanged display publication.
 
 Current measurement checkpoint, 2026-11-12 (`288b67493`): profiler-off canonical
 50k/200-compaction active runs observe Claude/Codex main CPU 72.3/92.8 ms/write,

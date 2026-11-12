@@ -122,133 +122,142 @@ it("shares acquisition and a trailing race across tabs, keeps audiences separate
   expect(read).toHaveBeenCalledTimes(2);
 });
 
-it("sends exact bounded SQL views and changes one row without provider discovery", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "collection-views-"));
-  folders.push(dir);
-  const now = Date.now();
-  const projectId = toUrlProjectId("/collection/project");
-  const rows: SessionCatalogRow[] = Array.from({ length: 40 }, (_, n) => ({
-    catalogFamily: "claude",
-    storeKey: "store",
-    sessionId: "session-" + n,
-    projectId,
-    projectPath: "/collection/project",
-    projectIdentityKey: "/collection/project",
-    projectName: "Project",
-    updatedAt: new Date(now - n * 1000).toISOString(),
-    title: "Session " + n,
-    fidelity: "head",
-    sourceVersion: "v1",
-    location: { kind: "provider", recordId: "session-" + n },
-  }));
-  rows[30]!.updatedAt = new Date(now - 1_800_000 + 60_000).toISOString();
-  const retained = await seedRetainedCollection(dir, rows);
-  collections.push(retained);
-  const bus = new EventBus();
-  const lifetime = new AbortController();
-  const owner = new CollectionUpdates(bus, lifetime.signal);
-  owners.push(owner);
-  const scanner = new ProjectScanner({ projectsDir: join(dir, "no-native") });
-  const scan = vi.spyOn(scanner, "listProjects");
-  const deps = {
-    retainedCollections: retained,
-    eventBus: bus,
-    scanner,
-    readerFactory: vi.fn(
-      () => new ClaudeSessionReader({ sessionDir: join(dir, "no-native") }),
-    ),
-  };
-  const app = new Hono();
-  app.route("/api/sessions", createGlobalSessionsRoutes(deps));
-  app.route("/api/inbox", createInboxRoutes(deps));
-  const reads = vi.fn(
-    async (_context: unknown, path: string, signal: AbortSignal) =>
-      app.request(path, { signal }),
-  );
-  app.get(
-    "/api/activity/collections",
-    createCollectionUpdateStream(owner, reads),
-  );
-  const query = "/sessions?limit=20";
-  const response = await app.request(
-    "/api/activity/collections?queries=" +
-      encodeURIComponent(JSON.stringify([query])),
-  );
-  expect(response.status).toBe(200);
-  const reader = response.body!.getReader();
-  const first = JSON.parse(
-    new TextDecoder().decode((await reader.read()).value!).trim(),
-  ) as CollectionUpdate;
-  const decoded = applyCollectionUpdate(undefined, first);
-  expect(decoded.body).toEqual(
-    await (await app.request(collectionReadPath(query))).json(),
-  );
-  expect(first.upserts).toHaveLength(20);
-  expect(first.groups!.sessions).toHaveLength(20);
-  const inbox = (await (
-    await app.request("/api/inbox?summaryMode=retained")
-  ).json()) as {
-    nextTransitionAt: number;
-    recentActivity: Array<{ sessionId: string }>;
-  };
-  expect(
-    inbox.recentActivity.some((row) => row.sessionId === rows[30]!.sessionId),
-  ).toBe(false);
-  expect(inbox.nextTransitionAt).toBe(now + 60_001);
-  const prepare = retained.queryDatabase.prepare.bind(retained.queryDatabase);
-  const plans: string[] = [];
-  vi.spyOn(retained.queryDatabase, "prepare").mockImplementation((query) => {
-    if (
-      query.startsWith("SELECT updated_ms") &&
-      query.includes("ORDER BY updated_ms ASC")
-    ) {
-      const explain = prepare("EXPLAIN QUERY PLAN " + query);
-      try {
-        plans.push(
-          ...explain
-            .all<{ detail: string }>(projectId, now)
-            .map((row) => row.detail),
-        );
-      } finally {
-        explain.finalize();
+it.each([false, true])(
+  "sends exact bounded SQL views without provider discovery (metadata fields %s)",
+  async (metadataFields) => {
+    const dir = await mkdtemp(join(tmpdir(), "collection-views-"));
+    folders.push(dir);
+    const now = Date.now();
+    const projectId = toUrlProjectId("/collection/project");
+    const rows: SessionCatalogRow[] = Array.from({ length: 40 }, (_, n) => ({
+      catalogFamily: "claude",
+      storeKey: "store",
+      sessionId: "session-" + n,
+      projectId,
+      projectPath: "/collection/project",
+      projectIdentityKey: "/collection/project",
+      projectName: "Project",
+      updatedAt: new Date(now - n * 1000).toISOString(),
+      title: "Session " + n,
+      fidelity: "head",
+      sourceVersion: "v1",
+      location: { kind: "provider", recordId: "session-" + n },
+    }));
+    rows[30]!.updatedAt = new Date(now - 1_800_000 + 60_000).toISOString();
+    const retained = await seedRetainedCollection(dir, rows);
+    collections.push(retained);
+    const bus = new EventBus();
+    const lifetime = new AbortController();
+    const owner = new CollectionUpdates(bus, lifetime.signal);
+    owners.push(owner);
+    const scanner = new ProjectScanner({ projectsDir: join(dir, "no-native") });
+    const scan = vi.spyOn(scanner, "listProjects");
+    const deps = {
+      retainedCollections: retained,
+      eventBus: bus,
+      scanner,
+      readerFactory: vi.fn(
+        () => new ClaudeSessionReader({ sessionDir: join(dir, "no-native") }),
+      ),
+    };
+    const app = new Hono();
+    app.route("/api/sessions", createGlobalSessionsRoutes(deps));
+    app.route("/api/inbox", createInboxRoutes(deps));
+    const reads = vi.fn(
+      async (_context: unknown, path: string, signal: AbortSignal) =>
+        app.request(path, { signal }),
+    );
+    app.get(
+      "/api/activity/collections",
+      createCollectionUpdateStream(owner, reads),
+    );
+    const query = "/sessions?limit=20";
+    const response = await app.request(
+      "/api/activity/collections?queries=" +
+        encodeURIComponent(JSON.stringify([query])) +
+        (metadataFields ? "&metadata=fields" : ""),
+    );
+    expect(response.status).toBe(200);
+    const reader = response.body!.getReader();
+    const first = JSON.parse(
+      new TextDecoder().decode((await reader.read()).value!).trim(),
+    ) as CollectionUpdate;
+    const decoded = applyCollectionUpdate(undefined, first);
+    expect(decoded.body).toEqual(
+      await (await app.request(collectionReadPath(query))).json(),
+    );
+    expect(first.upserts).toHaveLength(20);
+    expect(first.groups!.sessions).toHaveLength(20);
+    const inbox = (await (
+      await app.request("/api/inbox?summaryMode=retained")
+    ).json()) as {
+      nextTransitionAt: number;
+      recentActivity: Array<{ sessionId: string }>;
+    };
+    expect(
+      inbox.recentActivity.some((row) => row.sessionId === rows[30]!.sessionId),
+    ).toBe(false);
+    expect(inbox.nextTransitionAt).toBe(now + 60_001);
+    const prepare = retained.queryDatabase.prepare.bind(retained.queryDatabase);
+    const plans: string[] = [];
+    vi.spyOn(retained.queryDatabase, "prepare").mockImplementation((query) => {
+      if (
+        query.startsWith("SELECT updated_ms") &&
+        query.includes("ORDER BY updated_ms ASC")
+      ) {
+        const explain = prepare("EXPLAIN QUERY PLAN " + query);
+        try {
+          plans.push(
+            ...explain
+              .all<{ detail: string }>(projectId, now)
+              .map((row) => row.detail),
+          );
+        } finally {
+          explain.finalize();
+        }
       }
-    }
-    return prepare(query);
-  });
-  await retainedSessionQuery(retained, deps).inbox({
-    accessibleProjectIds: [projectId],
-    queueIds: [],
-    now,
-  });
-  expect(plans.length).toBeGreaterThan(0);
-  for (const plan of plans) expect(plan).toContain("project_id=?");
+      return prepare(query);
+    });
+    await retainedSessionQuery(retained, deps).inbox({
+      accessibleProjectIds: [projectId],
+      queueIds: [],
+      now,
+    });
+    expect(plans.length).toBeGreaterThan(0);
+    for (const plan of plans) expect(plan).toContain("project_id=?");
 
-  const snapshot = collectionView(decoded.body);
-  const changed = structuredClone(rows[0]!);
-  changed.title = "Changed";
-  changed.sourceVersion = "v2";
-  Object.assign(rows[0]!, changed);
-  await retained.refresh();
-  event(bus);
-  const next = JSON.parse(
-    new TextDecoder().decode((await reader.read()).value!).trim(),
-  ) as CollectionUpdate;
-  expect(next.base).toBe(first.revision);
-  expect(next.upserts.map(([id]) => id)).toEqual([rows[0]!.sessionId]);
-  expect(next.groups).toBeUndefined();
-  const result = applyCollectionUpdate(
-    { revision: first.revision, view: snapshot },
-    next,
-  );
-  expect((result.body.sessions as Array<{ title: string }>)[0]!.title).toBe(
-    "Changed",
-  );
-  expect(scan).not.toHaveBeenCalled();
-  expect(deps.readerFactory).not.toHaveBeenCalled();
-  lifetime.abort();
-  await reader.cancel();
-  expect(owner.getStats().views).toBe(0);
-});
+    const snapshot = collectionView(decoded.body);
+    const changed = structuredClone(rows[0]!);
+    changed.title = "Changed";
+    changed.sourceVersion = "v2";
+    Object.assign(rows[0]!, changed);
+    await retained.refresh();
+    event(bus);
+    const next = JSON.parse(
+      new TextDecoder().decode((await reader.read()).value!).trim(),
+    ) as CollectionUpdate;
+    expect(next.base).toBe(first.revision);
+    expect(next.upserts.map(([id]) => id)).toEqual([rows[0]!.sessionId]);
+    expect(next.groups).toBeUndefined();
+    if (metadataFields) {
+      expect(next.meta).toBeUndefined();
+      expect(next.metaFields!.set).toHaveProperty("catalog");
+      expect(next.metaFields!.set).not.toHaveProperty("projects");
+    } else expect(next.meta).toHaveProperty("projects");
+    const result = applyCollectionUpdate(
+      { revision: first.revision, view: snapshot },
+      next,
+    );
+    expect((result.body.sessions as Array<{ title: string }>)[0]!.title).toBe(
+      "Changed",
+    );
+    expect(scan).not.toHaveBeenCalled();
+    expect(deps.readerFactory).not.toHaveBeenCalled();
+    lifetime.abort();
+    await reader.cancel();
+    expect(owner.getStats().views).toBe(0);
+  },
+);
 
 it("rejects arbitrary reads and enforces the subscription budget before allocation", () => {
   for (const path of [
@@ -643,4 +652,63 @@ it("refuses normalized path aliases instead of allocating differently classified
     "/project-queue?summaryMode=retained",
   ])
     expect(() => collectionReadPath(query)).toThrow();
+});
+
+it("shares one acquisition across legacy and field-metadata listeners without repeating options", async () => {
+  vi.useFakeTimers();
+  const bus = new EventBus();
+  const owner = new CollectionUpdates(bus);
+  owners.push(owner);
+  let revision = 1;
+  const projects = Array.from({ length: 200 }, (_, n) => ({
+    id: String(n),
+    name: "Project ".repeat(20),
+  }));
+  const read = vi.fn(async () => ({
+    sessions: [],
+    projects,
+    catalog: { generation: revision },
+  }));
+  const legacy: CollectionUpdate[] = [],
+    fields: CollectionUpdate[] = [];
+  const fail = (error: unknown) => {
+    throw error;
+  };
+  const releaseLegacy = owner.retain("same", "/sessions", read, {
+    send: (frame) => {
+      legacy.push(frame);
+    },
+    fail,
+  });
+  const releaseFields = owner.retain(
+    "same",
+    "/sessions",
+    read,
+    {
+      send: (frame) => {
+        fields.push(frame);
+      },
+      fail,
+    },
+    true,
+  );
+  await vi.advanceTimersByTimeAsync(0);
+  expect(read).toHaveBeenCalledTimes(1);
+  revision++;
+  event(bus);
+  await vi.advanceTimersByTimeAsync(150);
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(legacy[1]!.meta!.projects).toEqual(projects);
+  expect(fields[1]!.metaFields).toEqual({
+    set: { catalog: { generation: 2 } },
+    removed: [],
+  });
+  expect(JSON.stringify(fields[1]).length).toBeLessThan(300);
+  for (const frames of [legacy, fields]) {
+    let decoded: ReturnType<typeof applyCollectionUpdate> | undefined;
+    for (const frame of frames) decoded = applyCollectionUpdate(decoded, frame);
+    expect(decoded!.body).toEqual(await read());
+  }
+  releaseLegacy();
+  releaseFields();
 });

@@ -1,6 +1,6 @@
-# A tab open on a long, active session costs a sixth of a core
+# Active session updates still do unnecessary work
 
-A browser tab showing a session whose transcript is being written costs the
+Original finding, 2026-11-10: a browser tab showing a session whose transcript is being written costs the
 server about 15–19% of one core and the tab itself 5–12%, for as long as the
 session runs (measured with the inspector and a 1 ms CPU profiler attached,
 which add a little). Every transcript write publishes a catalog generation,
@@ -34,6 +34,26 @@ publication still occur; client deltas remain separate work. Canonical seen
 state and metadata are now SQL-owned with bounded residency;
 [cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
 slice. The derived list projection still rebuilds after restart.
+
+## Bounded navigation follow-up — 2026-11-12
+
+The [navigation outcome](../docs/research/190-bounded-navigation-projection.md)
+implements indexed known-ID selection, batched child enrichment, grouped queue
+counts and capability-gated metadata field changes. On a fresh exact-current
+baseline, Claude active process CPU drops 89.6→79.1 ms/append (two samples/build),
+Codex 138.3→129.0 (one pair). Collection traffic drops about 97%, to 3.43/4.23 KiB
+per append. Separate Claude diagnostics reduce SQL calls 651→257 and child
+reads 404→12 per append; no per-session result cache is added.
+
+Browser work does not improve: observed means are 55.9→58.6 / 59.1→61.7 ms.
+Eight query frames still arrive per append; six change only catalog freshness.
+Both diagnostic builds record 202 message-list commit effects per 30 appends.
+Separating freshness bookkeeping from unchanged display publication is the next
+shared architectural opportunity. The server remains authoritative for filters,
+order and membership. Input and p95 visible/loop checks pass; CPU/render/full
+wire acceptance and idle/restart/cold/memory/additional-tab targets stay open.
+The statement ceiling remains unchanged; lazy relationship reads avoid unused
+allocation and pass the existing native-publication integration.
 
 ## Current measurement checkpoint — 2026-11-12
 

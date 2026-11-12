@@ -148,88 +148,140 @@ export class ProviderChildRelationshipService {
   }
 
   /** SQL only. Undefined is unpublished/partial-empty; [] is accepted empty. */
-  accepted(
-    native: NativeSessionRef,
-    publicParentId: string,
-  ): ProviderChildSessionSummary[] | undefined {
-    if (this.retired) return undefined;
-    const resource = this.resource(native);
-    const children: ProviderChildSessionSummary[] = [];
-    let filtered = false;
-    let after: string | undefined;
-    do {
-      // The route/catalog owner already authorizes this exact native parent.
-      // Its native children retain that parent's read-only navigation scope;
-      // no unrelated session, creator receipt or transitive grant is admitted.
-      const page = projectRelationshipBatch(
-        this.index,
-        {
-          resources: [resource],
-          direction: "outgoing",
-          type: "provider_child",
-          after,
-        },
-        {
-          anchor: (candidate) =>
-            relationshipResourceKey(candidate) === this.key(native),
-          endpoint: (candidate, _edge, position) => {
-            if (candidate.kind !== "native") return undefined;
-            if (position === "target") {
-              // Conflicting observations cannot silently acquire parenting.
-              const parents = this.index.list({
-                resource: candidate,
-                direction: "incoming",
-                type: "provider_child",
-                limit: 2,
-              });
-              if (parents.edges.length !== 1 || parents.next) return undefined;
-            }
-            return candidate.native;
-          },
-          evidence: (entry) =>
-            entry.trust === "provider-observed"
-              ? { metadata: entry.metadata, observedAt: entry.observedAt }
-              : undefined,
-        },
-      );
-      if (!page) return undefined;
-      filtered ||= page.withheld;
-      for (const edge of page.relationships) {
-        const evidence = edge.evidence.sort((a, b) =>
-          b.observedAt.localeCompare(a.observedAt),
-        )[0]!;
-        const m = evidence.metadata;
-        children.push({
-          id: edge.target.id,
-          parentSessionId: publicParentId,
-          ...(m.title ? { title: m.title } : {}),
-          ...(m.agentType ? { agentType: m.agentType } : {}),
-          ...(m.toolUseId ? { toolUseId: m.toolUseId } : {}),
-          ...(m.spawnDepth !== undefined ? { spawnDepth: m.spawnDepth } : {}),
-          updatedAt: m.nativeUpdatedAt ?? evidence.observedAt,
-        });
+  accepted(native: NativeSessionRef, publicParentId: string) {
+    return this.acceptedMany([{ native, sessionId: publicParentId }]).get(
+      publicParentId,
+    );
+  }
+
+  /** One bounded projection of selected parents; no provider I/O or retained row cache. */
+  acceptedMany(
+    parents: readonly { native: NativeSessionRef; sessionId: string }[],
+  ) {
+    const result = new Map<string, ProviderChildSessionSummary[] | undefined>();
+    if (this.retired || !parents.length) return result;
+    const reader = this.index.batch();
+    // Raw pages are capped at 64 parents × 32 edges. Evidence is read/released per page.
+    for (let offset = 0; offset < parents.length; offset += 64) {
+      const selected = parents.slice(offset, offset + 64).map((parent) => ({
+        ...parent,
+        resource: this.resource(parent.native),
+        children: [] as ProviderChildSessionSummary[],
+        filtered: false,
+        after: undefined as string | undefined,
+      }));
+      let pending = selected;
+      while (pending.length) {
+        const outgoing = reader.pages(
+          pending,
+          "outgoing",
+          "provider_child",
+          32,
+        );
+        const targets = new Map<string, RelationshipResource>();
+        for (const page of outgoing.values())
+          for (const edge of page.edges)
+            if (edge.target.kind === "native")
+              targets.set(relationshipResourceKey(edge.target), edge.target);
+        const incoming = reader.pages(
+          [...targets.values()].map((resource) => ({ resource })),
+          "incoming",
+          "provider_child",
+          2,
+        );
+        const next: typeof pending = [];
+        for (const parent of pending) {
+          const key = relationshipResourceKey(parent.resource);
+          const page = outgoing.get(key)!;
+          const evidence = reader.evidence(page.edges.map((edge) => edge.id));
+          const projected = projectRelationshipBatch(
+            {
+              list: (input) =>
+                input.direction === "outgoing"
+                  ? page
+                  : incoming.get(relationshipResourceKey(input.resource))!,
+              evidence: (id) => evidence.get(id) ?? [],
+            },
+            {
+              resources: [parent.resource],
+              direction: "outgoing",
+              type: "provider_child",
+              after: parent.after,
+              limit: 32,
+            },
+            {
+              anchor: (candidate) => relationshipResourceKey(candidate) === key,
+              endpoint: (candidate, _edge, position) => {
+                if (candidate.kind !== "native") return undefined;
+                if (position === "target") {
+                  const parents = incoming.get(
+                    relationshipResourceKey(candidate),
+                  )!;
+                  if (parents.edges.length !== 1 || parents.next)
+                    return undefined;
+                }
+                return candidate.native;
+              },
+              evidence: (entry) =>
+                entry.trust === "provider-observed"
+                  ? { metadata: entry.metadata, observedAt: entry.observedAt }
+                  : undefined,
+            },
+          )!;
+          parent.filtered ||= projected.withheld;
+          for (const edge of projected.relationships) {
+            const evidence = edge.evidence.sort((a, b) =>
+              b.observedAt.localeCompare(a.observedAt),
+            )[0]!;
+            const m = evidence.metadata;
+            parent.children.push({
+              id: edge.target.id,
+              parentSessionId: parent.sessionId,
+              ...(m.title ? { title: m.title } : {}),
+              ...(m.agentType ? { agentType: m.agentType } : {}),
+              ...(m.toolUseId ? { toolUseId: m.toolUseId } : {}),
+              ...(m.spawnDepth !== undefined
+                ? { spawnDepth: m.spawnDepth }
+                : {}),
+              updatedAt: m.nativeUpdatedAt ?? evidence.observedAt,
+            });
+          }
+          parent.after = projected.scanAfter ?? undefined;
+          if (parent.after) next.push(parent);
+        }
+        pending = next;
       }
-      after = page.scanAfter ?? undefined;
-    } while (after);
-    children.sort(
-      (a, b) =>
-        b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id),
-    );
-    if (children.length)
-      return (
-        this.sources
-          .get(this.key(native))
-          ?.source.overlayActivity?.(children) ?? children
+      const empty = selected.filter(
+        (parent) => !parent.children.length && !parent.filtered,
       );
-    if (filtered) return undefined;
-    const checkpoint = this.index.checkpoint(
-      SNAPSHOT_PRODUCER,
-      this.key(native),
-    );
-    return checkpoint &&
-      (checkpoint.state === "complete" || hadComplete(checkpoint.cursor))
-      ? []
-      : undefined;
+      const checkpoints = reader.checkpoints(
+        SNAPSHOT_PRODUCER,
+        empty.map((parent) => parent.resource),
+      );
+      for (const parent of selected) {
+        parent.children.sort(
+          (a, b) =>
+            b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id),
+        );
+        const checkpoint = checkpoints.get(
+          relationshipResourceKey(parent.resource),
+        );
+        result.set(
+          parent.sessionId,
+          parent.children.length
+            ? (this.sources
+                .get(this.key(parent.native))
+                ?.source.overlayActivity?.(parent.children) ?? parent.children)
+            : !parent.filtered &&
+                checkpoint &&
+                (checkpoint.state === "complete" ||
+                  hadComplete(checkpoint.cursor))
+              ? []
+              : undefined,
+        );
+      }
+    }
+    return result;
   }
 
   /** A retained source can receive native events without another list read. */

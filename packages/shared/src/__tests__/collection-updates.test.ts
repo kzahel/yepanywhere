@@ -147,3 +147,69 @@ it("enforces project row bounds after URL normalization", () => {
   ])
     expect(() => collectionView(body, query)).toThrow("Oversized");
 });
+
+it("retains unchanged options through metadata edits, removals, mixed formats and recovery", () => {
+  const projects = [{ id: "p", name: "Stable" }];
+  const first = collectionView({
+    sessions: [{ id: "a" }],
+    projects,
+    catalog: { generation: 1 },
+    nextTransitionAt: 10,
+  });
+  const seed = diffCollectionView("q", 1, undefined, first, true)!;
+  expect(seed.metaFields).toBeUndefined();
+  let accepted = applyCollectionUpdate(undefined, seed);
+  const next = collectionView({
+    sessions: [{ id: "a" }],
+    projects: [...projects],
+    catalog: { generation: 2 },
+  });
+  const change = diffCollectionView("q", 2, first, next, true)!;
+  expect(change.meta).toBeUndefined();
+  expect(change.metaFields).toEqual({
+    set: { catalog: { generation: 2 } },
+    removed: ["nextTransitionAt"],
+  });
+  const updated = applyCollectionUpdate(
+    accepted,
+    JSON.parse(JSON.stringify(change)),
+  );
+  expect(updated.body).toEqual({
+    sessions: [{ id: "a" }],
+    projects,
+    catalog: { generation: 2 },
+  });
+  expect(updated.body.projects).toBe(accepted.body.projects);
+  expect(accepted.body.nextTransitionAt).toBe(10);
+  // Legacy peers still get complete replacements; the current decoder accepts both.
+  const legacy = diffCollectionView("q", 3, next, first)!;
+  expect(legacy.meta).toEqual(first.meta);
+  accepted = applyCollectionUpdate(updated, legacy);
+  const replacement = diffCollectionView("q", 5, undefined, next, true)!;
+  expect(applyCollectionUpdate(accepted, replacement).body).toEqual(
+    updated.body,
+  );
+  for (const invalid of [
+    { ...change, meta: {} },
+    { ...change, base: null },
+    { ...change, metaFields: { set: [], removed: [] } },
+    { ...change, metaFields: { set: { same: 1 }, removed: ["same"] } },
+    { ...change, metaFields: { set: {}, removed: ["x", "x"] } },
+  ])
+    expect(() =>
+      applyCollectionUpdate(
+        applyCollectionUpdate(undefined, seed),
+        JSON.parse(JSON.stringify(invalid)),
+      ),
+    ).toThrow();
+  const reordered = {
+    ...first,
+    meta: { nextTransitionAt: 10, catalog: { generation: 1 }, projects },
+  };
+  const reorderFrame = diffCollectionView("q", 2, first, reordered, true)!;
+  // A metadata-key order change cannot silently skip a shared stream revision.
+  expect(
+    applyCollectionUpdate(applyCollectionUpdate(undefined, seed), reorderFrame)
+      .revision,
+  ).toBe(2);
+});

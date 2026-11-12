@@ -290,3 +290,11 @@ Sol 6.1 high/bypass reviewed through YA 3400, session
 and corrected (Inbox median labels and provider-specific unchanged-metadata
 percentages); final review has no must-fix, should-fix or nit findings. Review is
 read-only, without tests/builds, probes, source changes or server operations.
+
+
+## Follow-up
+
+The approved navigation slice and opt-in unchanged-metadata preservation are
+implemented in [bounded navigation projection](190-bounded-navigation-projection.md).
+That outcome compares a fresh `e1ef3fc59` baseline with the reviewed source;
+the figures above remain the historical attribution checkpoint.

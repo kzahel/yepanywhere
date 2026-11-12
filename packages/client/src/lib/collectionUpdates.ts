@@ -12,6 +12,7 @@ import { activityBus } from "./activityBus";
 import { cancelPendingQueryRevalidation } from "./clientQueryRevalidation";
 
 interface Consumer {
+  metadataFields?: boolean;
   path: string;
   rows: number;
   publish(body: Record<string, unknown>): Promise<void>;
@@ -179,7 +180,11 @@ class CollectionUpdateOwner {
       this.queued = false;
       if (this.disposed) return;
       const queries = this.selected();
-      const signature = JSON.stringify([...queries.keys()].sort());
+      const queryNames = JSON.stringify([...queries.keys()].sort());
+      const metadataFields = [...queries.values()].every((entry) =>
+        [...entry.consumers].every((consumer) => consumer.metadataFields),
+      );
+      const signature = JSON.stringify([queryNames, metadataFields]);
       if (signature === this.signature) return;
       this.signature = signature;
       this.stream?.close();
@@ -196,7 +201,9 @@ class CollectionUpdateOwner {
           );
           const abort = new AbortController();
           const path =
-            "/activity/collections?queries=" + encodeURIComponent(signature);
+            "/activity/collections?queries=" +
+            encodeURIComponent(queryNames) +
+            (metadataFields ? "&metadata=fields" : "");
           let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
           for (const entry of queries.values()) {
             this.setLive(entry, false);

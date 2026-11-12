@@ -11,6 +11,8 @@ import type {
 } from "../storage/sqlite.js";
 
 export interface CollectionPageQuery {
+  /** Drive sparse candidates through primary-key seeks before applying policy/order. */
+  sessionIds?: readonly string[];
   filterProjectId?: string;
   searchQuery?: string;
   afterCursor?: string;
@@ -381,6 +383,7 @@ export class SessionCollectionSql {
     extra = "",
     extraArgs: SqliteValue[] = [],
   ): CollectionStoredRow[] {
+    if (query.sessionIds?.length === 0) return [];
     if (
       query.afterCursor?.startsWith("[") &&
       query.afterSessionId === undefined
@@ -420,7 +423,12 @@ export class SessionCollectionSql {
       }
     }
     const where: string[] = ["1"];
-    const args: SqliteValue[] = [];
+    const args: SqliteValue[] =
+      query.sessionIds === undefined ? [] : [JSON.stringify(query.sessionIds)];
+    const from =
+      query.sessionIds === undefined
+        ? `${this.prefix}_rows`
+        : `(SELECT DISTINCT value AS selected_id FROM json_each(?)) AS selected CROSS JOIN ${this.prefix}_rows ON id=selected_id`;
     if (!query.includeArchived) where.push("archived=0");
     if (query.starredOnly) where.push("starred=1");
     if (query.categorizedOnly) where.push("categorized=1");
@@ -452,12 +460,12 @@ export class SessionCollectionSql {
     }
     const condition = where.join(" AND ");
     const keys = this.prepare(
-      `SELECT id,updated_ms FROM ${this.prefix}_rows WHERE ${condition} ORDER BY updated_ms DESC,id LIMIT ?`,
+      `SELECT id,updated_ms FROM ${from} WHERE ${condition} ORDER BY updated_ms DESC,id LIMIT ?`,
     ).all<{ id: string; updated_ms: number }>(...args, query.limit);
     if (!keys.length) return [];
     const boundary = keys.at(-1)!.updated_ms;
     const ties = this.prepare(
-      `SELECT id,updated_ms FROM ${this.prefix}_rows WHERE ${condition} AND updated_ms=?`,
+      `SELECT id,updated_ms FROM ${from} WHERE ${condition} AND updated_ms=?`,
     ).all<{ id: string; updated_ms: number }>(...args, boundary);
     const selected = [...keys.filter((r) => r.updated_ms !== boundary), ...ties]
       .sort((a, b) => b.updated_ms - a.updated_ms || a.id.localeCompare(b.id))

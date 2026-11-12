@@ -1,3 +1,4 @@
+import { projectQueueCounts } from "./project-queue-counts.js";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import {
   mergeCreationProjectCards,
@@ -12,7 +13,6 @@ import {
   normalizeProjectName,
   toUrlProjectId,
   type ProjectCaption,
-  type ProjectQueueItemSummary,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
 import { type Context, Hono } from "hono";
@@ -181,10 +181,6 @@ function processBlocksProjectQueue(process: Process): boolean {
   );
 }
 
-function isVisibleProjectQueueItem(item: ProjectQueueItemSummary): boolean {
-  return item.status === "queued" || item.status === "failed";
-}
-
 function projectIdsShareIdentity(left: string, right: string): boolean {
   if (left === right) return true;
   try {
@@ -220,20 +216,6 @@ function getActivityCountsForProject(
     }
   }
   return total;
-}
-
-function getProjectQueueCountForProject(
-  projectQueueService: ProjectsDeps["projectQueueService"],
-  projectId: string,
-): number {
-  if (!projectQueueService) return 0;
-  return projectQueueService
-    .listAll()
-    .filter(
-      (item) =>
-        isVisibleProjectQueueItem(item) &&
-        projectIdsShareIdentity(item.projectId, projectId),
-    ).length;
 }
 
 /**
@@ -507,6 +489,9 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     const codeNameByProjectId = await codeNamesForProjects(rawProjects);
     const captionByProjectId = await captionsForProjects(rawProjects);
 
+    const queueCount = projectQueueCounts(
+      deps.projectQueueService?.listAll() ?? [],
+    );
     // Enrich projects with active counts (all keyed by UrlProjectId now)
     const nativeProjects = rawProjects.map((project) => {
       const counts = getActivityCountsForProject(activityCounts, project.id);
@@ -517,10 +502,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
         activeOwnedCount: counts.activeOwnedCount,
         activeExternalCount: counts.activeExternalCount,
         projectQueueBlockingCount: counts.projectQueueBlockingCount,
-        projectQueueCount: getProjectQueueCountForProject(
-          deps.projectQueueService,
-          project.id,
-        ),
+        projectQueueCount: queueCount(project.id),
       };
     });
 
@@ -602,7 +584,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     const counts = getActivityCountsForProject(activityCounts, project.id);
     const codeNameByProjectId = await codeNamesForProjects([project]);
     const projectQueueCount = deps.projectQueueService
-      ? getProjectQueueCountForProject(deps.projectQueueService, project.id)
+      ? projectQueueCounts(deps.projectQueueService.listAll())(project.id)
       : 0;
 
     const cards = mergeCreationProjectCards(

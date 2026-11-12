@@ -1,3 +1,4 @@
+import { RelationshipBatchReader } from "./session-relationship-batch-read.js";
 import { createHash } from "node:crypto";
 import {
   nativeSessionRef,
@@ -179,11 +180,8 @@ export class SessionRelationshipStore {
   private readonly retireSource;
   private readonly checkpointRow;
   private readonly writeCheckpoint;
-  private readonly outgoing;
-  private readonly incoming;
-  private readonly outgoingType;
-  private readonly incomingType;
-  private readonly evidenceRows;
+  private readonly reads = new Map<string, SqliteStatement>();
+  private batchReader?: RelationshipBatchReader;
   private disposed = false;
 
   constructor(private readonly database: SqliteDatabase) {
@@ -213,21 +211,33 @@ export class SessionRelationshipStore {
       `INSERT INTO session_relationship_checkpoints(producer, source_key, revision, source_version, extractor_version, state, cursor) VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(producer, source_key) DO UPDATE SET revision = excluded.revision, source_version = excluded.source_version, extractor_version = excluded.extractor_version, state = excluded.state, cursor = excluded.cursor`,
     );
-    // Fixed, indexed SQL variants avoid scanning other types or inactive edges.
-    const page = (endpoint: "source" | "target", typed: boolean) =>
-      database.prepare(
-        `SELECT id, type, source, target FROM session_relationship_edges
+  }
+
+  /** Fixed read vocabulary, prepared only when that read path is used. */
+  private read(sql: string): SqliteStatement {
+    if (this.disposed) throw new Error("Relationship store is disposed");
+    let statement = this.reads.get(sql);
+    if (!statement) {
+      statement = this.database.prepare(sql);
+      this.reads.set(sql, statement);
+    }
+    return statement;
+  }
+  private page(endpoint: "source" | "target", typed: boolean) {
+    return this.read(`SELECT id, type, source, target FROM session_relationship_edges
        WHERE active = 1 AND ${endpoint} = ? AND id > ? ${typed ? "AND type = ?" : ""}
-       ORDER BY id LIMIT ?`,
-      );
-    this.outgoing = page("source", false);
-    this.incoming = page("target", false);
-    this.outgoingType = page("source", true);
-    this.incomingType = page("target", true);
-    this.evidenceRows = database.prepare(
-      `SELECT * FROM session_relationship_evidence WHERE edge_id = ? AND (? = 1 OR state = 'active')
-       ORDER BY producer, source_key, record_key LIMIT ?`,
+       ORDER BY id LIMIT ?`);
+  }
+
+  /** SQL batch reader shares this store's lifetime and canonical resource codec. */
+  batch() {
+    if (this.disposed) throw new Error("Relationship store is disposed");
+    this.batchReader ??= new RelationshipBatchReader(
+      this.database,
+      relationshipResourceKey,
+      decodeRelationshipResource,
     );
+    return this.batchReader;
   }
 
   checkpoint(
@@ -398,11 +408,13 @@ export class SessionRelationshipStore {
       ...(input.type ? [input.type] : []),
       limit + 1,
     ];
-    const outgoing = input.type ? this.outgoingType : this.outgoing;
-    const incoming = input.type ? this.incomingType : this.incoming;
     const selected = [
-      ...(direction === "incoming" ? [] : outgoing.all<EdgeRow>(...parameters)),
-      ...(direction === "outgoing" ? [] : incoming.all<EdgeRow>(...parameters)),
+      ...(direction === "incoming"
+        ? []
+        : this.page("source", Boolean(input.type)).all<EdgeRow>(...parameters)),
+      ...(direction === "outgoing"
+        ? []
+        : this.page("target", Boolean(input.type)).all<EdgeRow>(...parameters)),
     ];
     const rows = [
       ...new Map(selected.map((row) => [row.id, row])).values(),
@@ -422,7 +434,8 @@ export class SessionRelationshipStore {
     edgeId: string,
     options: { history?: boolean; limit?: number } = {},
   ): RelationshipEvidence[] {
-    return this.evidenceRows
+    return this.read(`SELECT * FROM session_relationship_evidence WHERE edge_id = ? AND (? = 1 OR state = 'active')
+       ORDER BY producer, source_key, record_key LIMIT ?`)
       .all<{
         producer: string;
         source_key: string;
@@ -451,6 +464,9 @@ export class SessionRelationshipStore {
     if (this.disposed) return;
     this.disposed = true;
     this.pendingSources?.finalize();
+    this.batchReader?.dispose();
+    for (const statement of this.reads.values()) statement.finalize();
+    this.reads.clear();
     for (const statement of [
       this.insertEdge,
       this.insertEvidence,
@@ -458,11 +474,6 @@ export class SessionRelationshipStore {
       this.retireSource,
       this.checkpointRow,
       this.writeCheckpoint,
-      this.outgoing,
-      this.incoming,
-      this.outgoingType,
-      this.incomingType,
-      this.evidenceRows,
     ])
       statement.finalize();
   }

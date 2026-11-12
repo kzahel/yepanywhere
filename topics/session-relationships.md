@@ -351,6 +351,18 @@ accepted empty. This grants neither access to another top-level session nor
 access to creator receipts. Other adapters must supply their own existing
 policy; endpoint access alone never authorizes receipt/proof visibility.
 
+Navigation now batches this same provider-child policy over selected parents.
+The store owns four lazy bulk statements: outgoing and incoming pages, evidence,
+and checkpoints. Requests keep no durable result maps; 64 parents share an
+outgoing read, each with its own 32-edge limit. Incoming ambiguity remains a
+two-edge lookahead, evidence stays at the first 20 ordered active rows before
+trust filtering, and checkpoints distinguish accepted-empty from unknown.
+Legacy single-resource page/evidence shapes are also lazy (five fixed shapes),
+so using the batch path does not allocate unused legacy reads. Disposal finalizes
+only allocated statements and rejects later preparation, including via a held
+bulk-reader reference. No statement ceiling is raised. See the
+[navigation outcome](../docs/research/190-bounded-navigation-projection.md).
+
 Batch scan progress is private control data, not a public pagination contract.
 Its cursor may advance over withheld rows, so neither it nor a raw count or
 inferred has-more bit may enter API replies. Progress is held in private class

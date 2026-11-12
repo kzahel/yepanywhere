@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  collectionMetadataFields: {
+    id: 159,
+    direction: "server",
+    name: "collection-metadata-fields",
+    introducedIn: "0.12.0",
+  },
   sidebarSessionSnapshot: {
     id: 158,
     direction: "server",

@@ -414,3 +414,51 @@ it("does not restart supported streams when a legacy-only query performs a REST 
   await act(async () => {});
   expect(requests).toHaveLength(1);
 });
+
+it("negotiates metadata fields explicitly and returns to legacy after capability withdrawal", async () => {
+  version.current = {
+    current: "0.12.0",
+    capabilityBits: encodeCapabilityIds([
+      SERVER_CAPABILITIES.collectionQueryUpdates.id,
+      SERVER_CAPABILITIES.collectionMetadataFields.id,
+    ]),
+  };
+  const { runtime, requests } = fixture("metadata-fields");
+  const accepted: Record<string, unknown>[] = [];
+  const hook = renderHook(() =>
+    useObserve(runtime, (body) => {
+      accepted.push(body);
+    }),
+  );
+  await flush(() => expect(requests).toHaveLength(1));
+  expect(requests[0]!.path).toContain("metadata=fields");
+  const first = collectionView({
+    sessions: [{ id: "same" }],
+    projects: [{ id: "p" }],
+    catalog: { generation: 1 },
+    nextTransitionAt: 10,
+  });
+  const second = collectionView({
+    sessions: [{ id: "same" }],
+    projects: [{ id: "p" }],
+    catalog: { generation: 2 },
+  });
+  requests[0]!.send(diffCollectionView(path, 1, undefined, first, true)!);
+  await flush(() => expect(accepted).toHaveLength(1));
+  requests[0]!.send(diffCollectionView(path, 2, first, second, true)!);
+  await flush(() => expect(accepted).toHaveLength(2));
+  expect(accepted[1]).toEqual({
+    sessions: [{ id: "same" }],
+    projects: [{ id: "p" }],
+    catalog: { generation: 2 },
+  });
+  expect(accepted[1]!.projects).toBe(accepted[0]!.projects);
+  version.current = { current: "0.12.0" };
+  hook.rerender();
+  await flush(() => expect(requests).toHaveLength(2));
+  expect(requests[0]!.signal.aborted).toBe(true);
+  expect(requests[1]!.path).not.toContain("metadata=fields");
+  requests[1]!.send(diffCollectionView(path, 3, undefined, first)!);
+  await flush(() => expect(accepted).toHaveLength(3));
+  expect(accepted[2]!.nextTransitionAt).toBe(10);
+});

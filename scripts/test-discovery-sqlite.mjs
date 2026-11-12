@@ -24,7 +24,7 @@ const {
 const { loadSqliteDriver } = await import(
   pathToFileURL(resolve(storageDir, "sqlite.js")).href
 );
-const { SessionRelationshipStore } = await import(
+const { SessionRelationshipStore, relationshipResourceKey } = await import(
   pathToFileURL(resolve(storageDir, "../sessions/SessionRelationshipStore.js"))
     .href
 );
@@ -103,6 +103,92 @@ async function collectionCursorContract(database) {
       ids,
       expected.map((row) => row.id),
     );
+    // Sparse candidates use the same scope, cursor and locale-tie policy without
+    // walking the timeline. Duplicates and unknown ids cannot change membership.
+    const candidates = [
+      rows[202].id,
+      rows[4].id,
+      rows[3].id,
+      rows[2].id,
+      rows[4].id,
+      "missing",
+    ];
+    const sparse = expected.filter((row) => candidates.includes(row.id));
+    const originalPrepare = database.prepare.bind(database);
+    let candidateSql;
+    database.prepare = (query) => {
+      if (!candidateSql && query.startsWith("SELECT id,updated_ms FROM"))
+        candidateSql = query;
+      return originalPrepare(query);
+    };
+    try {
+      assert.deepEqual(
+        sql
+          .select({ limit: 10, sessionIds: candidates }, "attention=0")
+          .map((r) => r.id),
+        sparse.map((r) => r.id),
+      );
+    } finally {
+      database.prepare = originalPrepare;
+    }
+    assert(
+      candidateSql,
+      "Capture the actual queued-candidate production SELECT",
+    );
+    assert.deepEqual(sql.select({ limit: 10, sessionIds: [] }), []);
+    assert.deepEqual(
+      sql.select({
+        limit: 10,
+        sessionIds: candidates,
+        accessibleProjectIds: [],
+      }),
+      [],
+    );
+    assert.deepEqual(
+      sql
+        .select({
+          limit: 10,
+          sessionIds: candidates,
+          accessibleProjectIds: [rows[0].projectId],
+          searchQuery: "row 202",
+        })
+        .map((r) => r.id),
+      [rows[202].id],
+    );
+    const sparseTail = sql.select({
+      limit: 10,
+      sessionIds: candidates,
+      afterCursor: JSON.stringify([sparse[0].updatedAt, sparse[0].id]),
+    });
+    assert.deepEqual(
+      sparseTail.map((r) => r.id),
+      sparse.slice(1).map((r) => r.id),
+    );
+    const planStatement = database.prepare(
+      "EXPLAIN QUERY PLAN " + candidateSql,
+    );
+    const plan = planStatement.all(JSON.stringify(candidates), 10);
+    planStatement.finalize();
+    assert(
+      plan.some((r) => /SEARCH .* USING INDEX .*\(id=\?\)/.test(r.detail)),
+      JSON.stringify(plan),
+    );
+    assert(
+      !plan.some((r) => /SCAN collection_query_.*_rows/.test(r.detail)),
+      JSON.stringify(plan),
+    );
+    sql.put({ ...rows[202], isArchived: true }, null, 202, false, false);
+    assert.deepEqual(
+      sql.select({ limit: 10, sessionIds: candidates }).map((r) => r.id),
+      sparse.filter((row) => row.id !== rows[202].id).map((r) => r.id),
+    );
+    assert.deepEqual(
+      sql
+        .select({ limit: 10, sessionIds: candidates, includeArchived: true })
+        .map((r) => r.id),
+      sparse.map((r) => r.id),
+    );
+    sql.put(rows[202], null, 202, false, false);
     // A failed SQL continuation must fail the read, never masquerade as an
     // authoritative empty page after the tuple parser catches an exception.
     const prepare = database.prepare.bind(database);
@@ -287,6 +373,84 @@ function relationshipContract(database) {
     assert.equal(publish("v3", 3, "complete", [fact("three")]), true);
     assert.deepEqual(children(), ["three"]);
     assert.equal(store.checkpoint("runtime-contract", "parent").revision, 4);
+    // The portable bulk adapter must match the existing bounded store exactly,
+    // including page continuations and the first20 evidence policy.
+    const many = Array.from({ length: 70 }, (_, i) => fact(`bulk-${i}`));
+    assert.equal(publish("v4", 4, "complete", many), true);
+    for (let i = 0; i < 21; i++)
+      store.record(
+        { ...observation("v4"), producer: `a-${String(i).padStart(2, "0")}` },
+        [
+          {
+            ...many[0],
+            trust: i % 2 ? "peer-attested" : "provider-observed",
+            metadata: { title: `Evidence ${i}` },
+          },
+        ],
+      );
+    const batch = store.batch();
+    let after;
+    do {
+      const expected = store.list({
+        resource: parent,
+        direction: "outgoing",
+        type: "provider_child",
+        limit: 32,
+        after,
+      });
+      const actual = batch
+        .pages([{ resource: parent, after }], "outgoing", "provider_child", 32)
+        .get(relationshipResourceKey(parent));
+      assert.deepEqual(actual, expected);
+      const evidence = batch.evidence(expected.edges.map((edge) => edge.id));
+      for (const edge of expected.edges) {
+        assert.deepEqual(
+          evidence.get(edge.id),
+          store.evidence(edge.id, { limit: 20 }),
+        );
+        if (edge.target.sessionId === "bulk-0") {
+          assert.equal(evidence.get(edge.id).length, 20);
+          assert.deepEqual(
+            evidence.get(edge.id).map((row) => row.producer),
+            Array.from(
+              { length: 20 },
+              (_, i) => `a-${String(i).padStart(2, "0")}`,
+            ),
+          );
+          assert(
+            evidence.get(edge.id).some((row) => row.trust === "peer-attested"),
+          );
+          assert(
+            evidence
+              .get(edge.id)
+              .some((row) => row.trust === "provider-observed"),
+          );
+        }
+
+        assert.deepEqual(
+          batch
+            .pages([{ resource: edge.target }], "incoming", "provider_child", 2)
+            .get(relationshipResourceKey(edge.target)),
+          store.list({
+            resource: edge.target,
+            direction: "incoming",
+            type: "provider_child",
+            limit: 2,
+          }),
+        );
+      }
+      after = actual.next;
+    } while (after);
+    store.dispose();
+    assert.throws(() => store.list({ resource: parent }), /disposed/);
+    assert.throws(() => store.evidence("edge"), /disposed/);
+    assert.throws(() => store.batch(), /disposed/);
+    assert.throws(
+      () =>
+        batch.pages([{ resource: parent }], "outgoing", "provider_child", 32),
+      /disposed/,
+    );
+    assert.throws(() => batch.evidence(["edge"]), /disposed/);
   } finally {
     store.dispose();
   }
