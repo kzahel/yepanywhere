@@ -258,6 +258,8 @@ not acquire this filesystem destination.
 
 The visible claimant renews every 15 seconds. Hiding the tab, navigating away,
 changing project, starting the session, or disconnecting releases its claim.
+Leaving or reloading the page sends that release as a request that outlives
+the page; where the connection cannot outlive it, the lease expiry below applies.
 Loss of the browser expires eligibility after 45 seconds; the shared server
 cleanup sweep restores the fallback symlink within another minute. During that
 cleanup delay, stale draft deliveries fail rather than reaching a session.
