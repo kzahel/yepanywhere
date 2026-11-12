@@ -1,3 +1,4 @@
+import { ownedApiSessions } from "./core-api/owned-sessions.js";
 import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatcherRegistry.js";
 import { createClaudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { createSessionReaderAdmission } from "./sessions/session-reader-admission.js";
@@ -3872,24 +3873,7 @@ export function createApp(options: AppOptions): AppResult {
       sessionState: (id) =>
         supervisor.getProcessForSession(id)?.state.type ?? "not-running",
       ownedSessions: () =>
-        supervisor
-          .getAllProcesses()
-          .filter((process) => !process.isTerminated)
-          .map((process) => {
-            const info = process.getInfo();
-            const metadata = options.sessionMetadataService?.getMetadata(
-              process.sessionId,
-            );
-            return {
-              id: process.sessionId,
-              projectId: metadata?.workingProjectId ?? process.projectId,
-              provider: process.provider,
-              title: metadata?.customTitle ?? info.sessionTitle,
-              createdByUser: metadata?.createdByUser,
-              updatedAt: info.startedAt,
-              state: process.state.type,
-            };
-          }),
+        ownedApiSessions(supervisor, options.sessionMetadataService),
       hiddenProjects: (username) => projectAppStore.hiddenProjectIds(username),
     }),
     conversation: createConversationRead(conversationSubscriptions),

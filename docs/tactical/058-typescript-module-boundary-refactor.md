@@ -5252,3 +5252,13 @@ method facade for existing callers and tripwires. No captured instance state,
 format/selection/error behavior or filesystem ordering changes. This isolates
 native directory decoding before the SQL project-facts ownership work and
 shrinks the frozen scanner; the budget is ratcheted in the same commit.
+
+### Agent API owned-session catalog seam — 2026-11-12
+
+Moved the active-owner projection from `app.ts` to
+`core-api/owned-sessions.ts` without changing its mapping or filters. The
+metadata service is an explicit parameter in place of the captured app
+options. This bounded prerequisite makes room for the authorized v0
+configuration/discovery wiring; it does not advance the deferred general
+composition-root campaign. Existing core-api app/catalog checks qualify the
+seam.
