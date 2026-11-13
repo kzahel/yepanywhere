@@ -1,0 +1,26 @@
+name: Install the Linux app sandbox runtime
+description: >-
+  Installs Bubblewrap and its network helpers for the tests that launch a real
+  app sandbox. The install retries: CI runs 43053733536 and 43054663633 each
+  lost five jobs to "Temporary failure resolving azure.archive.ubuntu.com",
+  where `apt-get update` exits 0 with stale indexes and the install then
+  fails. Each attempt refreshes the indexes again for that reason.
+runs:
+  using: composite
+  steps:
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        for attempt in 1 2 3 4; do
+          if sudo apt-get -o Acquire::Retries=3 update &&
+            sudo apt-get -o Acquire::Retries=3 install -y \
+              bubblewrap slirp4netns iproute2 util-linux; then
+            exit 0
+          fi
+          if [ "$attempt" -lt 4 ]; then
+            echo "::warning::apt attempt $attempt failed; retrying"
+            sleep $((attempt * 15))
+          fi
+        done
+        echo "::error::Could not install the app sandbox runtime after 4 attempts"
+        exit 1

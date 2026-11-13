@@ -34,6 +34,12 @@ concurrency:
 # Server checks run at the supported Node floor. SQLite boundary and Bun
 # distribution checks live in sqlite.yml; managed runners retain their own floor.
 
+# Every job sets timeout-minutes, because a hung job otherwise holds the run,
+# and the deployment that waits on it, for GitHub's six-hour default. Limits
+# without their own note are 2.5-4x the slowest of 60 `main` runs measured
+# 2026-11-13: site-build 0.6m, audit 1.1m, lint 5.0m, typecheck 3.8m,
+# windows-host-awake-smoke 1.9m and an e2e shard 12.2m.
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -185,6 +191,7 @@ jobs:
 
   site-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -199,6 +206,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -227,6 +235,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -284,6 +293,7 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -300,9 +310,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Enable Linux app sandbox tests
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap slirp4netns iproute2 util-linux
+        uses: ./.github/actions/install-app-sandbox-runtime
       - uses: ./.github/actions/allow-chromium-sandbox
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -374,6 +382,7 @@ jobs:
 
   windows-host-awake-smoke:
     runs-on: windows-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -400,6 +409,7 @@ jobs:
       matrix:
         shard: ${{ fromJSON(inputs.e2e_shards == '2' && '[1,2]' || inputs.e2e_shards == '3' && '[1,2,3]' || '[1,2,3,4]') }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -410,9 +420,7 @@ jobs:
       - run: pnpm install
       - run: pnpm -F @yep-anywhere/client exec playwright install chromium
       - name: Install sandbox runtime for the real live-preview test
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap slirp4netns util-linux iproute2
+        uses: ./.github/actions/install-app-sandbox-runtime
       - uses: ./.github/actions/allow-chromium-sandbox
       - name: Plan this shard's spec files
         run: >-
