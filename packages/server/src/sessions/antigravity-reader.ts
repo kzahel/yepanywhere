@@ -7,6 +7,7 @@ import {
   type UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { Message, SessionSummary } from "../supervisor/types.js";
+import type { SDKMessage } from "../sdk/types.js";
 import {
   AntigravityRuntime,
   type AntigravitySessionSetup,
@@ -39,6 +40,13 @@ export class AntigravitySessionReader implements ISessionReader {
   private listing?: Promise<NativeListEntry[]>;
   private listCache?: { at: number; rows: NativeListEntry[] };
   private details = new Map<string, Promise<LoadedSession | null>>();
+  // Native session/load rewrites the conversation files, which the provider
+  // watcher reports as a change and viewers refetch. Reuse a cold read until
+  // the files differ from their post-load state, so reading cannot loop.
+  private coldReads = new Map<
+    string,
+    { version: string; entries: SDKMessage[]; model?: string }
+  >();
   private runtimes = new Set<AntigravityRuntime>();
   private closed = false;
 
@@ -73,11 +81,12 @@ export class AntigravitySessionReader implements ISessionReader {
   ): Promise<T> {
     if (this.closed) throw new Error("Antigravity reader is closed");
     const command = await findAntigravityRuntime();
-    if (!command) throw new Error("Antigravity ACP runtime is not installed");
+    if (!command)
+      throw new Error("Antigravity is not installed (install the agy CLI)");
     const runtime = new AntigravityRuntime();
     this.runtimes.add(runtime);
     try {
-      await runtime.connect(command, this.projectPath);
+      await runtime.connect(command.command, this.projectPath, command.args);
       return await operation(runtime);
     } finally {
       await runtime.close();
@@ -152,12 +161,12 @@ export class AntigravitySessionReader implements ISessionReader {
       id,
       projectId,
       provider: "antigravity",
-      title: row?.title || "Antigravity session",
-      fullTitle: row?.title || null,
+      title: row?.title || metadata.title || "Antigravity session",
+      fullTitle: row?.title || metadata.title || null,
       createdAt: metadata.info.birthtime.toISOString(),
       updatedAt: new Date(metadata.updatedAtMs).toISOString(),
       messageCount: 0,
-      ownership: { owner: "external" },
+      ownership: { owner: "none" },
     };
   }
 
@@ -175,7 +184,7 @@ export class AntigravitySessionReader implements ISessionReader {
   async getSession(
     id: string,
     projectId: UrlProjectId,
-    afterMessageId?: string,
+    _afterMessageId?: string,
   ): Promise<LoadedSession | null> {
     const key = `${projectId}:${id}`;
     let pending = this.details.get(key);
@@ -186,20 +195,11 @@ export class AntigravitySessionReader implements ISessionReader {
       this.details.set(key, pending);
       void pending.finally(() => this.details.delete(key)).catch(() => {});
     }
-    const loaded = await pending;
-    if (!loaded || !afterMessageId || loaded.data.provider !== "antigravity")
-      return loaded;
-    const messages = loaded.data.session.messages;
-    const index = messages.findIndex(
-      (message) => message.uuid === afterMessageId,
-    );
-    return {
-      ...loaded,
-      data: {
-        provider: "antigravity",
-        session: { messages: index < 0 ? messages : messages.slice(index + 1) },
-      },
-    };
+    // Return the whole history even for `afterMessageId`: the detail route
+    // slices after the anchor itself, and a pre-sliced list hides that anchor,
+    // which the route reports as a miss and the client applies as a
+    // replacement window, dropping earlier turns.
+    return pending;
   }
 
   private async readSession(
@@ -216,9 +216,16 @@ export class AntigravitySessionReader implements ISessionReader {
       .reverse()
       .find((entry) => entry.type === "assistant" && entry.message?.model)
       ?.message?.model;
+    const cached = entries ? undefined : this.coldReads.get(id);
+    if (cached?.version === metadata.sourceVersion) {
+      entries = cached.entries;
+      model = cached.model;
+    }
     if (!entries) {
       if (antigravitySessionOwned(metadata.scope, id)) return null;
-      const owner = ownAntigravitySession(metadata.scope, id);
+      const owner = ownAntigravitySession(metadata.scope, id, {
+        historyRead: true,
+      });
       const transcript = new AntigravityTranscript(id);
       try {
         await this.withRuntime(async (runtime) => {
@@ -240,6 +247,18 @@ export class AntigravitySessionReader implements ISessionReader {
         owner.release();
       }
       entries = transcript.messages;
+      const loaded = await this.metadata(id);
+      this.coldReads.delete(id);
+      if (loaded) {
+        this.coldReads.set(id, {
+          version: loaded.sourceVersion,
+          entries,
+          model,
+        });
+        // A few recently opened sessions per project; each is bounded.
+        if (this.coldReads.size > 4)
+          this.coldReads.delete(this.coldReads.keys().next().value!);
+      }
     }
     const messages: Message[] = entries.map((entry) => ({
       ...entry,
@@ -316,6 +335,7 @@ export class AntigravitySessionReader implements ISessionReader {
   }
   async close(): Promise<void> {
     this.closed = true;
+    this.coldReads.clear();
     await Promise.all([...this.runtimes].map((runtime) => runtime.close()));
     this.listCache = undefined;
   }

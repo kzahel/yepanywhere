@@ -566,8 +566,9 @@ function buildCandidateGroups(
 
   pushGroup(preferredGroup);
   pushGroup(projectGroup);
-  if (process.env.ENABLED_PROVIDERS?.split(",").includes("antigravity"))
-    pushGroup("antigravity");
+  // Like Grok/pi/OpenCode, the reader's project-path filter over the retained
+  // native catalog is the membership test; it starts no Antigravity process.
+  pushGroup("antigravity");
 
   if (mayHaveCodexSessions(project, catalog)) {
     pushGroup("codex");

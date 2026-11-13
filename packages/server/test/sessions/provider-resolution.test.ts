@@ -234,7 +234,10 @@ describe("provider resolution", () => {
         provider: "codex",
       },
       {
-        readerFactory: vi.fn(() => reader),
+        // Antigravity's always-listed native source gets its own empty reader.
+        readerFactory: vi.fn((project) =>
+          project.provider === "antigravity" ? makeReader(null) : reader,
+        ),
         sessionIndexService,
       },
     );

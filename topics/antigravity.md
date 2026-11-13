@@ -1,20 +1,26 @@
 # Antigravity provider
 
-Status: experimental, explicitly opt-in. The initial target is Google's
-Antigravity ACP runtime 1.4.5. The live qualification used macOS arm64; Linux
+Status: experimental, available by default when a runtime is installed. The
+current target is the ACP server built into Google's `agy` CLI (1.5.8, run as
+`agy acp`); the standalone ACP runtime 1.4.5 remains supported. The live
+qualification used macOS arm64; Linux
 uses the same POSIX process boundary but has not been live-qualified. Windows remains unavailable
 until its native child-tree teardown is qualified. This is a separate provider;
 legacy Gemini histories and execution settings never migrate implicitly.
 
 ## Native installation and authentication
 
-Install the official `antigravity-acp` distribution from the
-[ACP Registry](https://github.com/agentclientprotocol/registry/blob/main/antigravity-acp/agent.json).
-Keep `agy_acp_server.par` and its matching `localharness_external` helper
-together. Put the executable on `PATH`, or set `ANTIGRAVITY_ACP_PATH` to its
-absolute path. An explicit path never falls back to another installation.
-YA resolves executable symlinks before launch so the companion stays beside it.
-YA does not download, update or reconfigure the runtime.
+Install Google's `agy` CLI and sign in with it. `agy` 1.5 and later include
+an ACP server (`agy acp`) that reuses the CLI's saved login and its
+`GEMINI_HOME/antigravity-cli` store; YA prefers it whenever `agy` is on `PATH`.
+Otherwise YA uses the standalone
+[`antigravity-acp` distribution](https://github.com/agentclientprotocol/registry/blob/main/antigravity-acp/agent.json):
+keep `agy_acp_server.par` and its matching `localharness_external` helper
+together and put the executable on `PATH`. `ANTIGRAVITY_ACP_PATH` names either
+executable explicitly; a file named `agy` is launched as `agy acp`. An explicit
+path never falls back to another installation. YA resolves executable symlinks
+before launch so the companion stays beside it. YA does not download, update or
+reconfigure the runtime.
 
 On Linux, the pinned 1.4.5 bootstrap requires a resolvable `nobody` group name,
 even for an unprivileged caller. A missing name aborts before ACP initialization.
@@ -23,7 +29,7 @@ records the Ubuntu alias using that user's existing primary GID. An installed
 host needs administrator-provided group configuration; YA never edits it.
 
 This is one integration interface for Antigravity, not a separate model or
-subscription. Google's `agy` terminal CLI is a different distribution and also
+subscription. Google's `agy` terminal CLI also
 offers [headless stream-JSON input/output](https://antigravity.google/docs/cli/headless/).
 A 2026-11-03 bounded CLI probe successfully reused the CLI's saved login with
 `agy -p ... --output-format stream-json`; it did not authenticate again. Direct
@@ -31,15 +37,15 @@ CLI integration therefore remains an alternative to ACP, but the YA provider
 implemented here still uses ACP. CLI permission round-trips, cancellation,
 history and continuation have not been qualified as a replacement adapter.
 
-Sign into Google's official ACP integration externally, for example through a
-supported editor. YA starts the runtime with its existing environment, native
+Sign in through the `agy` CLI or another official Google client. YA starts the runtime with its existing environment, native
 `GEMINI_HOME` and settings. Google owns credential storage and refresh. YA never
 reads tokens, calls `authenticate` or `logout`, forwards an OAuth callback,
 switches accounts, or selects an API-billed method. A missing login fails with
 the native error; it does not start YA-managed sign-in.
 
-The November 3 live probe found that CLI 1.4.12 and ACP 1.4.5 required separate
-initial sign-ins even under the same home. The ACP runtime saved its own
+The November 3 live probe found that CLI 1.4.12 and the standalone ACP 1.4.5
+required separate initial sign-ins even under the same home; on 2026-11-13,
+`agy acp` 1.5.8 reused the CLI's login with no further sign-in. The ACP runtime saved its own
 `auth.type=oauth-personal` setting; subsequent native creation and replay reused
 that saved login without another auth call. Do not infer ACP readiness from a
 successful `agy models` invocation or the old Gemini credential file.
@@ -52,8 +58,10 @@ Account access remains Google's decision.
 
 ## Vanilla execution
 
-Include `antigravity` in the existing `ENABLED_PROVIDERS` allow-list to expose
-the preview. It is absent from ordinary provider discovery otherwise. Existing
+The provider is listed by default, reports itself not installed without a
+runtime, and is hidden by an `ENABLED_PROVIDERS` allow-list that omits it, like
+every other provider. Session lists always include its native source, whose
+retained-catalog project filter decides membership without starting `agy`. Existing
 clients use the normal provider discovery and session routes; older servers
 never advertise it, so updated clients send no new unsupported action. No
 released capability is broadened and no new route or wire format is required.
@@ -66,8 +74,12 @@ catalog is the actual account's `session/new` response, not the CLI's catalog
 or a static list. A coalesced, short-lived blank probe checks readiness without
 sending a model prompt, then removes only its proven scratch session files.
 
-Native Default, Auto Edit and YOLO correspond to YA default, accept-edits and
-bypass-permissions. YA's Plan permission mode is refused; use native `/plan`.
+YA default and accept-edits select the native mode the runtime offers:
+`default` and `accept-edits` in `agy` 1.5+, `default` and `auto_edit` in the
+standalone 1.4.x runtime. Bypass-permissions selects 1.4.x `yolo`; `agy` 1.5+
+offers no such mode, so YA launches that session's server with
+`--dangerously-skip-permissions`. A requested mode the runtime does not offer
+fails the start. YA's Plan permission mode is refused; use native `/plan`.
 Permission replies use the actual offered option IDs and never promote Allow
 once to Allow always. Native fixed-choice questions require an offered answer.
 Missing handlers and interrupted requests cancel. Stop requests native
@@ -86,21 +98,31 @@ history observation remain unqualified.
 ## Identity and history
 
 The existing YA admission owner retains the public session identity. The
-provider-native UUID is a continuation address under the canonical
-`GEMINI_HOME/antigravity-acp/conversations` store (default `~/.gemini`). Resume
+provider-native UUID is a continuation address under the active runtime's
+canonical store (default `GEMINI_HOME` is `~/.gemini`):
+`antigravity-cli/conversations` for `agy acp`, `antigravity-acp/conversations`
+for the standalone runtime. Sessions in the other store are not resumable
+while `agy` is preferred. Resume
 validates the original store, physical database and project before native
 effects. Rejected native resume never falls back to `session/new` or replays
 queued input into another conversation.
 
-History comes from native `.meta`/database facts and ACP `session/list` and
-`session/load`, with no YA shadow transcript or protobuf decoder. Reading never
+History comes from native file facts and ACP `session/list` and
+`session/load`, with no YA shadow transcript or protobuf decoder. The standalone
+runtime writes a `<uuid>.meta` JSON file holding the project path; `agy` 1.5+
+writes none and instead records each conversation's workspace URIs and title in
+its `conversation_summaries.db` index. YA reads only that table's id,
+workspace and title columns, read-only, cached per index file version. When
+several workspace URIs are listed (`/private/tmp/x`, `/tmp/x`), the last is the
+cwd the client supplied and matches YA's project binding. Reading never
 sends a prompt or auth request. Unknown/foreign project files are not adopted.
 The native replay API may update Google's own continuation metadata; YA does
 not treat it as a byte-preserving database export.
 
 The preview uses a local in-process owner, even when the shared provider host
 is enabled. Cold resume uses native `session/load` to restore history before
-new input. While that owner lives, detail reads use its bounded native-event
+new input; it first waits for an in-progress cold history read of the same
+conversation to release it, while a second live owner is still refused. While that owner lives, detail reads use its bounded native-event
 projection rather than loading the same native session a second time. This
 in-memory view survives YA's short transport replay window, is discarded on
 owner exit, and is never persisted as a substitute transcript. Concurrent use
@@ -108,7 +130,10 @@ of the same conversation in a separate editor/CLI is not qualified.
 
 App browsing uses the shared catalog and provider-root watcher described below.
 Explicit native history and title reads own subprocesses; reader disposal closes
-them. Native title lookups coalesce and cache their ACP list for five seconds,
+them. Because `session/load` itself rewrites the conversation files, which the
+provider watcher reports and viewers refetch, a cold history read is reused
+until those files differ from their post-load state (at most four per project
+reader). Without this, opening a session could reload it repeatedly. Native title lookups coalesce and cache their ACP list for five seconds,
 cap at 2,000 entries and refuse unsupported pagination.
 At most eight detail reads per cached reader may run concurrently. Replay is
 bounded to 8 MiB/10,000 messages and protocol frames to 16 MiB; excess fails
@@ -118,6 +143,18 @@ The live projection has the same 8 MiB/10,000-message limit. It is retained only
 for an owned provider session and adds no timers or background history reads.
 
 Text and generic tool records are normalized from actual native notifications.
+Live text and thinking blocks publish `_isStreaming` snapshots of one message
+id and commit it without the flag when the next block, a tool call or the turn
+end closes it, so viewers with response streaming off see only the commit.
+Live messages carry arrival timestamps; detail reads of a live owner see
+committed content only. `agy` 1.5+ echoes each submitted prompt as
+`user_message_chunk` during the turn; YA already published that turn's user
+message, so the live projection ignores the echo, while `session/load` replay
+keeps native user chunks as history. Detail reads return the complete history
+for anchored (`afterMessageId`) requests, leaving the anchor for the detail
+route to find; a pre-sliced list would read as an anchor miss and the client
+would replace its window with the tail. Native readers report no owner; a live
+YA owner, not the reader, establishes ownership.
 ACP does not provide YA's durable input UUID, so exact live-to-history user-turn
 links are not promised; see the existing
 [input-identity gap](../gaps/provider-user-turn-durable-identity.md).
@@ -156,10 +193,11 @@ Native project facts are not duplicated in the scanner's persistent cache.
 Existing project permissions, hidden directories, ownership metadata and public
 session adoption still apply.
 
-Antigravity discovery reads at most 2,000 `.meta` records, in batches of eight,
-with a 16 KiB metadata limit. Native database and WAL file facts version rows;
-their contents are never decoded. These rows have identity fidelity and no
-inferred title. Browsing starts no native agent, login or model prompt. Explicit
+Antigravity discovery enumerates at most 2,000 `<uuid>.db` conversations, in
+batches of eight, with a 16 KiB `.meta` limit where that file exists. Native
+database and WAL file facts version rows; conversation databases are never
+decoded. Standalone-runtime rows have identity fidelity and no inferred title;
+`agy` rows take the native title from the summaries index at head fidelity. Browsing starts no native agent, login or model prompt. Explicit
 history reads still use Google's loader and preserve the active-owner guard.
 App-owned Antigravity session listings consume accepted catalog rows instead
 of repeating native inventories per project. Public catalog projection honors

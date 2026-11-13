@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   fromUrlProjectId,
   parseNativeSessionId,
@@ -25,11 +25,13 @@ import {
 import {
   AntigravityRuntime,
   ownAntigravitySession,
+  ownAntigravitySessionAfterReads,
   antigravitySessionsDir,
   findAntigravityRuntime,
   type AntigravitySessionSetup,
 } from "./antigravity-runtime.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
+import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 
 const DEFAULT_MODEL: ModelInfo = { id: "default", name: "Antigravity default" };
 
@@ -96,10 +98,8 @@ export class AntigravityProvider implements AgentProvider {
     try {
       const command = await findAntigravityRuntime();
       if (!command)
-        throw new Error(
-          "Install Google's official Antigravity ACP runtime first",
-        );
-      await runtime.connect(command, cwd);
+        throw new Error("Install Google's Antigravity CLI (agy) first");
+      await runtime.connect(command.command, cwd, command.args);
       const setup = await runtime.call<AntigravitySessionSetup>("session/new", {
         cwd,
         mcpServers: [],
@@ -122,11 +122,23 @@ export class AntigravityProvider implements AgentProvider {
       await runtime.close();
       // Reclaim only our blank native probe, after the owning child has exited.
       if (sessionId && /^[0-9a-f-]{36}$/i.test(sessionId)) {
-        const base = join(antigravitySessionsDir(), sessionId);
-        const metadata = await readFile(`${base}.meta`, "utf8")
-          .then((text) => JSON.parse(text) as { cwd?: string })
-          .catch(() => null);
-        if (metadata?.cwd === cwd) {
+        const sessionsDir = antigravitySessionsDir();
+        const base = join(sessionsDir, sessionId);
+        const metadata = await readAntigravityMetadata(
+          sessionsDir,
+          sessionId,
+        ).catch(() => null);
+        const probeCwd = await realpath(cwd).catch(() => cwd);
+        if (
+          metadata &&
+          (metadata.cwd === cwd ||
+            (await realpath(metadata.cwd).catch(() => null)) === probeCwd)
+        ) {
+          // The CLI layout also keeps a per-conversation artifact directory.
+          await rm(join(dirname(sessionsDir), "brain", sessionId), {
+            recursive: true,
+            force: true,
+          });
           for (const suffix of [
             ".meta",
             ".db",
@@ -277,18 +289,25 @@ export class AntigravityProvider implements AgentProvider {
       if (signal.aborted) return;
       const namespace = await this.getNewSessionNamespace();
       if (options.resumeSessionId)
-        owner = ownAntigravitySession(
+        owner = await ownAntigravitySessionAfterReads(
           namespace.storageScope,
           options.resumeSessionId,
+          signal,
         );
       const command = await findAntigravityRuntime();
       if (!command)
         throw new Error(
-          "Install Google's official Antigravity ACP runtime and sign in externally first",
+          "Install Google's Antigravity CLI (agy) and sign in with it first",
         );
       runtime.onPermission = (params) =>
         this.permission(params, options, signal);
-      await runtime.connect(command, options.cwd);
+      const skipPermissions =
+        options.permissionMode === "bypassPermissions" &&
+        command.layout === "cli";
+      await runtime.connect(command.command, options.cwd, [
+        ...command.args,
+        ...(skipPermissions ? ["--dangerously-skip-permissions"] : []),
+      ]);
       void runtime.closed.then(stop);
       const replay = options.resumeSessionId
         ? new AntigravityTranscript(options.resumeSessionId)
@@ -327,13 +346,27 @@ export class AntigravityProvider implements AgentProvider {
         });
         resolvedModel = options.model;
       }
-      const mode =
+      // Use only offered native modes: 1.4.x named them auto_edit/yolo,
+      // agy 1.5+ offers accept-edits and grants YOLO through a launch flag.
+      const offered = new Set(
+        setup.modes?.availableModes.map((entry) => entry.id) ?? [
+          "default",
+          "auto_edit",
+          "yolo",
+        ],
+      );
+      const wanted =
         options.permissionMode === "acceptEdits"
-          ? "auto_edit"
-          : options.permissionMode === "bypassPermissions"
-            ? "yolo"
-            : "default";
-      if (options.permissionMode)
+          ? ["accept-edits", "auto_edit"]
+          : options.permissionMode === "bypassPermissions" && !skipPermissions
+            ? ["yolo"]
+            : ["default"];
+      const mode = wanted.find((entry) => offered.has(entry));
+      if (!mode && options.permissionMode)
+        throw new Error(
+          `Antigravity does not offer the ${options.permissionMode} permission mode`,
+        );
+      if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
       yield {
         type: "system",
@@ -365,29 +398,34 @@ export class AntigravityProvider implements AgentProvider {
           type: "user",
           uuid,
           session_id: id,
+          timestamp: new Date().toISOString(),
           message: { role: "user", content: text },
         };
         owner.record(echo);
         yield echo;
-        const transcript = new AntigravityTranscript(id, `${id}:${uuid}`);
+        const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
         const updates: SDKMessage[] = [];
         let wake: (() => void) | undefined;
         let done = false;
+        const publish = (converted: SDKMessage) => {
+          if (
+            converted.type === "assistant" &&
+            converted.message &&
+            resolvedModel
+          )
+            converted.message.model = resolvedModel;
+          // Detail reads see committed content; only the stream is partial.
+          const { _isStreaming: _partial, ...committed } = converted;
+          owner!.record(committed);
+          if (updates.at(-1)?.uuid === converted.uuid)
+            updates[updates.length - 1] = converted;
+          else updates.push(converted);
+        };
         runtime.onUpdate = (update, updateSessionId) => {
           if (updateSessionId !== id) return;
-          const converted = transcript.accept(update);
-          if (converted) {
-            if (
-              converted.type === "assistant" &&
-              converted.message &&
-              resolvedModel
-            )
-              converted.message.model = resolvedModel;
-            owner!.record(converted);
-            if (updates.at(-1)?.uuid === converted.uuid)
-              updates[updates.length - 1] = converted;
-            else updates.push(converted);
-          }
+          // agy 1.5+ echoes the prompt back; YA already published `echo`.
+          if (update.sessionUpdate === "user_message_chunk") return;
+          for (const converted of transcript.accept(update)) publish(converted);
           wake?.();
           wake = undefined;
         };
@@ -415,6 +453,11 @@ export class AntigravityProvider implements AgentProvider {
           await new Promise<void>((resolve) => {
             wake = resolve;
           });
+        }
+        const last = transcript.close();
+        if (last) {
+          publish(last);
+          yield updates.shift()!;
         }
         if (failure) throw failure;
         const response = await request;

@@ -194,7 +194,7 @@ ENABLED_PROVIDERS=claude VOICE_INPUT=false PORT=4000 YEP_PROFILE=dev pnpm dev
 ```
 
 Environment variables:
-- `ENABLED_PROVIDERS` - Comma-separated list of provider names to expose (default: all). Valid names: `claude`, `claude-gateway`, `claude-ollama`, `codex`, `codex-oss`, `gemini`, `gemini-acp`, `opencode`, `grok`
+- `ENABLED_PROVIDERS` - Comma-separated list of provider names to expose (default: all). Valid names: `claude`, `claude-gateway`, `claude-ollama`, `codex`, `codex-oss`, `gemini`, `gemini-acp`, `antigravity`, `opencode`, `grok`, `pi`
 - `VOICE_INPUT` - Set to `false` to disable the voice input button server-side (default: `true`)
 - `YEP_PROVIDER_HOST_ENABLED` - Set to `true` or `false` to control shared
   provider hosting. It defaults to `false` on macOS and `true` on Linux.

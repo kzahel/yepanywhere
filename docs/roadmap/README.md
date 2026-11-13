@@ -611,6 +611,13 @@ observation, shared-host ownership and the broader tool/media matrix remain
 open. See the
 [provider contract](../../topics/antigravity.md). Legacy Gemini remains frozen.
 
+**Antigravity default-on, 2026-11-13:** the provider now uses the ACP server
+built into Google's `agy` CLI 1.5 (`agy acp`) with the CLI's login and store,
+is listed without `ENABLED_PROVIDERS`, and takes native titles from `agy`'s
+summaries index. Live macOS checks fixed duplicated prompts, a catch-up that
+dropped earlier turns, streaming shown with streaming off, and cold resume
+racing a history read. The open items above still apply.
+
 **Scoping direction, 2026-11-03:** use Antigravity discovery and eventual
 legacy Gemini execution retirement to consolidate shared native-store catalog,
 project contribution and exact reader-resolution paths. Preserve read-only

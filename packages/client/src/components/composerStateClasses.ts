@@ -16,6 +16,7 @@ export const composerOptionDotStateClasses: Record<string, string | undefined> =
     "provider-codex-oss": composerOptionDotStyles["provider-codex-oss"],
     "provider-gemini": composerOptionDotStyles["provider-gemini"],
     "provider-gemini-acp": composerOptionDotStyles["provider-gemini-acp"],
+    "provider-antigravity": composerOptionDotStyles["provider-antigravity"],
     "provider-grok": composerOptionDotStyles["provider-grok"],
     "provider-opencode": composerOptionDotStyles["provider-opencode"],
     "provider-pi": composerOptionDotStyles["provider-pi"],

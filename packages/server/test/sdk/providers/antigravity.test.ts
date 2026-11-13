@@ -59,6 +59,8 @@ readline.createInterface({input:process.stdin}).on('line', line => {
  if(m.method === 'session/list') return reply(m.id,{sessions:[{sessionId:id,title:'Original question'}]});
  if(m.method === 'session/prompt') {
   prompt=m.id;
+  // agy 1.5+ echoes the submitted prompt during the live turn.
+  update({sessionUpdate:'user_message_chunk',content:{type:'text',text:m.params.prompt[0].text}});
   update({sessionUpdate:'usage_update',used:123,size:1048576});
   if(m.params.prompt[0].text === 'approval') {
    return send({jsonrpc:'2.0',id:100,method:'session/request_permission',params:{sessionId:id,
@@ -154,6 +156,31 @@ describe("Antigravity native process boundary", () => {
           metadata.identities.resolveYa(receipt.sessionId)?.native?.id,
         ).toBe(nativeId);
         expect(receipt.sessionId).not.toBe(nativeId);
+        // The native prompt echo must not duplicate YA's own user message.
+        expect(
+          active
+            ?.getMessageHistory()
+            .filter((m) => m.type === "user" && m.message?.content === "hello"),
+        ).toHaveLength(1);
+        // An anchored catch-up is incremental: the reader must leave the
+        // anchor for the route to find, or the client replaces its window.
+        const detailPath = `/api/projects/${projectId}/sessions/${receipt.sessionId}`;
+        const detail = await (
+          await app.app.request(detailPath, {
+            headers: { "X-Yep-Anywhere": "true" },
+          })
+        ).json();
+        const [first, ...rest] = detail.messages as Array<{ uuid: string }>;
+        const anchored = await (
+          await app.app.request(
+            `${detailPath}?afterMessageId=${encodeURIComponent(first!.uuid)}`,
+            { headers: { "X-Yep-Anywhere": "true" } },
+          )
+        ).json();
+        expect(anchored.pagination).toBeUndefined();
+        expect(anchored.messages.map((m: { uuid: string }) => m.uuid)).toEqual(
+          rest.map((m) => m.uuid),
+        );
         const nativeCatalog = await new AntigravitySessionCatalogAdapter().scan(
           {
             catalogEpoch: "test",
@@ -375,6 +402,38 @@ describe("Antigravity native process boundary", () => {
         await session.abort();
       }
       expect(session.isProcessAlive?.()).toBe(false);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "publishes partial text as streaming snapshots, then commits it",
+    async () => {
+      const session = await new AntigravityProvider().startSession({
+        cwd: directory,
+        initialMessage: { text: "hello", uuid: "input-1" },
+      });
+      try {
+        const messages: SDKMessage[] = [];
+        for await (const message of session.iterator) {
+          messages.push(message);
+          if (message.type === "result") break;
+        }
+        const turn = messages.filter(
+          (m) => m.type === "user" || m.type === "assistant",
+        );
+        // Snapshots may coalesce before the consumer reads them.
+        const [echo, ...assistant] = turn;
+        const committed = assistant.pop();
+        expect([echo?.type, echo?.message?.content]).toEqual(["user", "hello"]);
+        expect(assistant.length).toBeGreaterThan(0);
+        expect(assistant.every((m) => m._isStreaming === true)).toBe(true);
+        expect(committed?._isStreaming).toBeUndefined();
+        expect(committed?.message?.content).toBe("Hello world");
+        expect(new Set(turn.slice(1).map((m) => m.uuid)).size).toBe(1);
+        expect(turn.every((m) => typeof m.timestamp === "string")).toBe(true);
+      } finally {
+        await session.abort();
+      }
     },
   );
 

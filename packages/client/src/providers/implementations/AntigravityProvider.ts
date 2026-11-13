@@ -12,11 +12,11 @@ export class AntigravityProvider implements Provider {
     description:
       "Google's native Antigravity ACP agent using its existing sign-in.",
     limitations: [
-      "Experimental local integration; enable antigravity in ENABLED_PROVIDERS",
-      "Requires the official ACP runtime, signed in externally",
+      "Experimental local integration",
+      "Requires the agy CLI (or the standalone ACP runtime), signed in",
       "Text and file references only",
     ],
     website: "https://antigravity.google/docs/",
-    cliName: "agy_acp_server.par",
+    cliName: "agy",
   };
 }

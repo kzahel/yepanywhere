@@ -6,10 +6,11 @@ import {
   ANTIGRAVITY_SESSION_ID,
   readAntigravityMetadata,
 } from "../antigravity-metadata.js";
-import type {
-  NativeSessionCatalogAdapter,
-  SessionCatalogScanContext,
-  SessionCatalogRow,
+import {
+  SESSION_CATALOG_TITLE_MAX_LENGTH,
+  type NativeSessionCatalogAdapter,
+  type SessionCatalogScanContext,
+  type SessionCatalogRow,
 } from "../catalog-types.js";
 import { buildCatalogRow, isWithinScanMode } from "./row.js";
 
@@ -30,8 +31,8 @@ export class AntigravitySessionCatalogAdapter
       for await (const entry of await opendir(this.storeKey)) {
         context.signal.throwIfAborted();
         if (
-          !entry.name.endsWith(".meta") ||
-          !ANTIGRAVITY_SESSION_ID.test(entry.name.slice(0, -5))
+          !entry.name.endsWith(".db") ||
+          !ANTIGRAVITY_SESSION_ID.test(entry.name.slice(0, -3))
         )
           continue;
         if (files.length >= ANTIGRAVITY_METADATA_LIMIT)
@@ -51,7 +52,7 @@ export class AntigravitySessionCatalogAdapter
       context.signal.throwIfAborted();
       const batch = await Promise.allSettled(
         files.slice(offset, offset + 8).map(async (file) => {
-          const id = file.slice(0, -5);
+          const id = file.slice(0, -3);
           const metadata = await readAntigravityMetadata(this.storeKey, id);
           if (
             !metadata ||
@@ -65,7 +66,16 @@ export class AntigravitySessionCatalogAdapter
               sessionId: id,
               projectPath: metadata.cwd,
               updatedAtMs: metadata.updatedAtMs,
-              fidelity: "identity",
+              // agy 1.5+ keeps a native title in its summaries index.
+              ...(metadata.title
+                ? {
+                    title: metadata.title.slice(
+                      0,
+                      SESSION_CATALOG_TITLE_MAX_LENGTH,
+                    ),
+                  }
+                : {}),
+              fidelity: metadata.title ? "head" : "identity",
               sourceVersion: metadata.sourceVersion,
               location: { kind: "file", path: metadata.path },
             }),

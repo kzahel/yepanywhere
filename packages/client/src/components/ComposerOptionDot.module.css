@@ -45,6 +45,10 @@
   background: var(--provider-gemini);
 }
 
+.provider-option-dot.provider-antigravity {
+  background: var(--provider-gemini);
+}
+
 .provider-option-dot.provider-grok {
   background: var(--provider-grok);
 }

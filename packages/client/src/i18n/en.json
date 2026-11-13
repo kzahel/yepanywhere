@@ -1359,7 +1359,7 @@
   "newSessionProviderDescriptionCodexOss": "Open-source models via Codex",
   "newSessionProviderDescriptionGemini": "Google",
   "newSessionProviderDescriptionGeminiAcp": "Google via ACP",
-  "newSessionProviderDescriptionAntigravity": "Use your installed Google Antigravity ACP agent and existing sign-in",
+  "newSessionProviderDescriptionAntigravity": "Google",
   "newSessionProviderDescriptionGrok": "xAI",
   "newSessionProviderDescriptionOpenCode": "OpenCode agent",
   "newSessionProviderDescriptionPi": "pi agent",

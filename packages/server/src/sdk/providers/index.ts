@@ -292,9 +292,7 @@ export function getAllProviders(): AgentProvider[] {
     codexOSSProvider,
     geminiAliasProvider,
     geminiACPProvider,
-    ...(process.env.ENABLED_PROVIDERS?.split(",").includes("antigravity")
-      ? [antigravityProvider]
-      : []),
+    antigravityProvider,
     grokACPProvider, // Phase 1: additive only (see grok-acp.ts header + topics/grok.md)
     opencodeProvider,
     piProvider,

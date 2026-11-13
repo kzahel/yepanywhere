@@ -116,6 +116,8 @@ function getProviderLabel(
     case "gemini":
     case "gemini-acp":
       return "Gemini";
+    case "antigravity":
+      return "Antigravity";
     case "grok":
       return "Grok";
     case "opencode":
@@ -138,6 +140,7 @@ function getProviderBadgeColor(
       return "var(--provider-codex)";
     case "gemini":
     case "gemini-acp":
+    case "antigravity":
       return "var(--provider-gemini)";
     case "grok":
       return "var(--provider-grok)";

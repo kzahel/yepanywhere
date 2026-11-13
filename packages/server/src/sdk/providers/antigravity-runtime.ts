@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { access, realpath } from "node:fs/promises";
+import { accessSync, constants, existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import type { SDKMessage } from "../types.js";
 
@@ -23,22 +23,38 @@ export interface AntigravitySessionSetup {
     currentModelId: string;
     availableModels: Array<{ modelId: string; name: string }>;
   };
+  modes?: {
+    currentModeId: string;
+    availableModes: Array<{ id: string; name?: string }>;
+  };
 }
 
+/** The active runtime's native conversation store. Without an installed
+ * runtime this names the `agy` CLI store, the current distribution. */
 export function antigravitySessionsDir(): string {
+  const layout = resolveAntigravityRuntime()?.layout ?? "cli";
   return resolve(
     process.env.GEMINI_HOME || join(homedir(), ".gemini"),
-    "antigravity-acp",
+    layout === "cli" ? "antigravity-cli" : "antigravity-acp",
     "conversations",
   );
 }
 
+/** The `agy` CLI store keeps per-conversation workspaces here, not in `.meta`. */
+export function antigravitySummariesPath(sessionsDir: string): string {
+  return join(dirname(sessionsDir), "conversation_summaries.db");
+}
+
 // One entry per live preview owner; removed when its iterator closes. The preview
 // stays in-process so readers never replay a database held by another owner.
-const ownedNativeSessions = new Map<
-  string,
-  { history?: Map<string, SDKMessage>; bytes: number }
->();
+interface NativeSessionOwner {
+  history?: Map<string, SDKMessage>;
+  bytes: number;
+  /** A bounded history read, which a live session may wait out. */
+  historyRead: boolean;
+  released: Promise<void>;
+}
+const ownedNativeSessions = new Map<string, NativeSessionOwner>();
 export function antigravityLiveHistory(
   scope: string,
   id: string,
@@ -49,17 +65,53 @@ export function antigravityLiveHistory(
 export function antigravitySessionOwned(scope: string, id: string): boolean {
   return ownedNativeSessions.has(`${scope}\0${id}`);
 }
-export function ownAntigravitySession(scope: string, id: string) {
+/**
+ * Own a native session for a live run, first waiting out any history read:
+ * opening a cold session reads it while the user may already be sending.
+ * Another live owner still refuses.
+ */
+export async function ownAntigravitySessionAfterReads(
+  scope: string,
+  id: string,
+  signal: AbortSignal,
+) {
+  for (;;) {
+    const current = ownedNativeSessions.get(`${scope}\0${id}`);
+    if (!current?.historyRead) return ownAntigravitySession(scope, id);
+    await new Promise<void>((resolve, reject) => {
+      const abort = () =>
+        reject(new Error("Antigravity session start aborted"));
+      if (signal.aborted) return abort();
+      signal.addEventListener("abort", abort, { once: true });
+      void current.released.then(() => {
+        signal.removeEventListener("abort", abort);
+        resolve();
+      });
+    });
+  }
+}
+export function ownAntigravitySession(
+  scope: string,
+  id: string,
+  options: { historyRead?: boolean } = {},
+) {
   const key = `${scope}\0${id}`;
   if (ownedNativeSessions.has(key))
     throw new Error("Antigravity session already has a local owner");
-  const owner: { history?: Map<string, SDKMessage>; bytes: number } = {
+  let release!: () => void;
+  const owner: NativeSessionOwner = {
     bytes: 0,
+    historyRead: options.historyRead === true,
+    released: new Promise<void>((resolve) => {
+      release = resolve;
+    }),
   };
   ownedNativeSessions.set(key, owner);
   return {
     release: () => {
+      if (ownedNativeSessions.get(key) !== owner) return;
       ownedNativeSessions.delete(key);
+      release();
     },
     record(message: SDKMessage) {
       if (!message.uuid)
@@ -83,27 +135,60 @@ export function ownAntigravitySession(scope: string, id: string) {
   };
 }
 
-export async function findAntigravityRuntime(): Promise<string | null> {
+/** How YA starts Antigravity's ACP server, and which native store it writes.
+ * `cli`: the `agy` CLI's built-in `agy acp` (1.5+), sharing the CLI's login and
+ * `antigravity-cli` store. `acp`: the standalone ACP distribution (1.4.x). */
+export interface AntigravityRuntimeCommand {
+  command: string;
+  args: string[];
+  layout: "cli" | "acp";
+}
+
+function layoutFor(path: string): AntigravityRuntimeCommand["layout"] {
+  return basename(path) === "agy" ? "cli" : "acp";
+}
+
+// Positive resolutions only, so installing a runtime later is still noticed.
+let resolved: { key: string; runtime: AntigravityRuntimeCommand } | undefined;
+
+/** Synchronous so the store path can be derived wherever it is needed. */
+export function resolveAntigravityRuntime(): AntigravityRuntimeCommand | null {
   // The preview's process-group teardown is qualified only on POSIX hosts.
   if (process.platform === "win32") return null;
   const explicit = process.env.ANTIGRAVITY_ACP_PATH;
-  const names = ["agy_acp_server.par", "antigravity-acp"];
+  const key = `${explicit ?? ""}\0${process.env.PATH ?? ""}`;
+  if (resolved?.key === key && existsSync(resolved.runtime.command))
+    return resolved.runtime;
+  const names = ["agy", "agy_acp_server.par", "antigravity-acp"];
+  const directories = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+  // Name order wins over PATH order: the CLI's built-in server is preferred.
   const candidates = explicit
     ? [explicit]
-    : (process.env.PATH ?? "")
-        .split(delimiter)
-        .filter(Boolean)
-        .flatMap((directory) => names.map((name) => join(directory, name)));
+    : names.flatMap((name) =>
+        directories.map((directory) => join(directory, name)),
+      );
   for (const candidate of candidates) {
     try {
-      await access(candidate);
+      accessSync(candidate, constants.X_OK);
       // Resolve launcher symlinks so Google's companion harness stays beside it.
-      return await realpath(candidate);
+      const command = realpathSync(candidate);
+      const layout = layoutFor(candidate);
+      const runtime = {
+        command,
+        args: layout === "cli" ? ["acp"] : [],
+        layout,
+      };
+      resolved = { key, runtime };
+      return runtime;
     } catch {
       /* Continue PATH discovery; an explicit path never falls back. */
     }
   }
   return null;
+}
+
+export async function findAntigravityRuntime(): Promise<AntigravityRuntimeCommand | null> {
+  return resolveAntigravityRuntime();
 }
 
 /** Native ACP transport. No authenticate/logout calls or credential inspection.

@@ -9,12 +9,30 @@ export class AntigravityTranscript {
   // Bounded by the same 8 MiB/10,000-message replay limits; discarded with it.
   private tools = new Map<string, SDKMessage>();
 
+  /** `live` stamps arrival time; native replay carries no timestamps. */
   constructor(
     private readonly sessionId: string,
     private readonly prefix = sessionId,
+    private readonly live = false,
   ) {}
 
-  accept(update: AntigravityUpdate): SDKMessage | undefined {
+  private stamp(): { timestamp?: string } {
+    return this.live ? { timestamp: new Date().toISOString() } : {};
+  }
+
+  /** Commits the open text block: the same id without `_isStreaming`. */
+  close(): SDKMessage | undefined {
+    const message = this.text?.message;
+    this.text = undefined;
+    return message ? structuredClone(message) : undefined;
+  }
+
+  /**
+   * Live messages for one native update, in order. A text or thinking block
+   * publishes `_isStreaming` snapshots and is committed when another block
+   * starts or the caller closes it. `messages` holds committed history only.
+   */
+  accept(update: AntigravityUpdate): SDKMessage[] {
     this.bytes += Buffer.byteLength(JSON.stringify(update), "utf8");
     if (this.bytes > 8 * 1024 * 1024 || this.messages.length >= 10_000)
       throw new Error(
@@ -33,13 +51,17 @@ export class AntigravityTranscript {
         content.type !== "text" ||
         typeof content.text !== "string"
       )
-        return;
+        return [];
+      const out: SDKMessage[] = [];
       if (this.text?.kind !== kind) {
+        const committed = this.close();
+        if (committed) out.push(committed);
         const role = kind === "user_message_chunk" ? "user" : "assistant";
         const message: SDKMessage = {
           type: role,
           uuid: `${this.prefix}:${this.messages.length}`,
           session_id: this.sessionId,
+          ...this.stamp(),
           message: { role, content: "" },
         };
         this.messages.push(message);
@@ -50,12 +72,14 @@ export class AntigravityTranscript {
         kind === "agent_thought_chunk"
           ? [{ type: "thinking", thinking: this.text!.value }]
           : this.text!.value;
-      return structuredClone(this.text!.message);
+      out.push({ ...structuredClone(this.text!.message), _isStreaming: true });
+      return out;
     }
-    if (kind !== "tool_call" && kind !== "tool_call_update") return;
-    this.text = undefined;
+    if (kind !== "tool_call" && kind !== "tool_call_update") return [];
+    const committed = this.close();
+    const out = committed ? [committed] : [];
     const id = update.toolCallId;
-    if (!id) return;
+    if (!id) return out;
     if (kind === "tool_call") {
       let message = this.tools.get(id);
       if (!message) {
@@ -63,6 +87,7 @@ export class AntigravityTranscript {
           type: "assistant",
           uuid: `${id}:call`,
           session_id: this.sessionId,
+          ...this.stamp(),
           message: {
             role: "assistant",
             content: [
@@ -78,13 +103,15 @@ export class AntigravityTranscript {
         this.tools.set(id, message);
         this.messages.push(message);
       }
-      return structuredClone(message);
+      out.push(structuredClone(message));
+      return out;
     }
-    if (update.status !== "completed" && update.status !== "failed") return;
+    if (update.status !== "completed" && update.status !== "failed") return out;
     const message: SDKMessage = {
       type: "user",
       uuid: `${id}:result`,
       session_id: this.sessionId,
+      ...this.stamp(),
       message: {
         role: "user",
         content: [
@@ -105,6 +132,7 @@ export class AntigravityTranscript {
     );
     if (existing >= 0) this.messages[existing] = message;
     else this.messages.push(message);
-    return message;
+    out.push(message);
+    return out;
   }
 }
