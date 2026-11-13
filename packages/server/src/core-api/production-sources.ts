@@ -7,6 +7,8 @@ import type { ProjectScanner } from "../projects/scanner.js";
 import { isDetachedProjectPath } from "../projects/paths.js";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
+import { projectCatalogIdentities } from "../sessions/catalog-identity.js";
+import type { SessionCatalogRow } from "../sessions/catalog-types.js";
 import type { AgentProvider } from "../sdk/providers/types.js";
 import type { ApiSession } from "./contracts.js";
 import type { CoreApiSources } from "./service.js";
@@ -14,7 +16,13 @@ import type { CoreApiSources } from "./service.js";
 export function productionApiSources(deps: {
   scanner: Pick<ProjectScanner, "readRetainedProjects">;
   sessions: Pick<RetainedSessionCollections, "read">;
-  metadata?: Pick<SessionMetadataService, "getMetadata">;
+  /**
+   * With its identity store, native catalog rows are projected to public ids.
+   * Without one a row keeps its native id, which is the public id only for a
+   * session YA did not create.
+   */
+  metadata?: Pick<SessionMetadataService, "getMetadata"> &
+    Partial<Pick<SessionMetadataService, "identities" | "getMetadataBatch">>;
   providers: () => readonly (Pick<
     AgentProvider,
     "name" | "displayName" | "supportsSteering" | "supportsPermissionMode"
@@ -94,16 +102,27 @@ export function productionApiSources(deps: {
       signal?.throwIfAborted();
       const result = await deps.sessions.read();
       signal?.throwIfAborted();
+      // Catalog rows are keyed by native id. A session keeps the YA id its
+      // creator was given once its process ends only through this projection.
+      const rows: readonly Readonly<SessionCatalogRow>[] = deps.metadata
+        ?.identities
+        ? await projectCatalogIdentities(
+            result.rows,
+            deps.metadata as SessionMetadataService,
+            signal,
+          )
+        : result.rows;
+      signal?.throwIfAborted();
       // Session-wide metadata cannot disambiguate conflicting native sources.
       const sourceProjects = new Map<string, string>();
       const ambiguous = new Set<string>();
-      for (const row of result.rows) {
+      for (const row of rows) {
         const previous = sourceProjects.get(row.sessionId);
         if (previous !== undefined && previous !== row.projectId)
           ambiguous.add(row.sessionId);
         sourceProjects.set(row.sessionId, row.projectId);
       }
-      const items = result.rows
+      const items = rows
         .filter((row) => !ambiguous.has(row.sessionId))
         .filter((r) => !isDetachedProjectPath(r.projectPath))
         .map((row) => {

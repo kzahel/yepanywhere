@@ -228,6 +228,13 @@ requests. Examples below are proposed routes, not installed endpoints:
 | `POST /v0/servers/{serverId}/sessions/{sessionId}/prompts` | Submit input with explicit supported delivery semantics |
 | `GET /v0/servers/{serverId}/sessions/{sessionId}/relationships` | Recorded provenance and optional related-session links |
 
+A `sessionId` is the session's YA id for its whole life: collections, detail,
+receipts, relationships and conversations name a session by the id its
+creation receipt reported, while its process runs and after it ends. A provider
+that names its own conversation, such as a Codex thread id, never replaces
+that id, and the same session is never listed twice under both spellings.
+[Session identity](session-identity.md) owns the binding.
+
 Choose explicit observation, pending-input and interrupt/stop operations before
 their implementation. Do not hide them in ambiguous configuration patches.
 Root collections make sessions directly addressable without redundant project
