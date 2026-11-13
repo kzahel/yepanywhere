@@ -158,11 +158,40 @@ function parseElapsedSeconds(text) {
 }
 
 /**
- * One `ps` snapshot: start time and parent of every process. Null where `ps`
- * is unavailable (Windows), where identity cannot be verified.
+ * Windows has no `ps`; CIM reports each process's creation time and parent.
+ * Null when PowerShell cannot be run, where identity cannot be verified.
+ */
+function windowsProcessSnapshot() {
+  let output;
+  try {
+    output = execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-CimInstance Win32_Process | ForEach-Object { if ($_.CreationDate) { '{0} {1} {2}' -f $_.ProcessId, $_.ParentProcessId, ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() } }",
+      ],
+      { encoding: "utf8", windowsHide: true },
+    );
+  } catch {
+    return null;
+  }
+  const processes = new Map();
+  for (const line of output.split(/\r?\n/)) {
+    const [pid, ppid, startedAt] = line.trim().split(/\s+/).map(Number);
+    if (Number.isInteger(pid) && Number.isFinite(startedAt))
+      processes.set(pid, { ppid, startedAt });
+  }
+  return processes.size ? processes : null;
+}
+
+/**
+ * One snapshot: start time and parent of every process. Null where neither
+ * `ps` nor CIM is available, where identity cannot be verified.
  */
 function processSnapshot() {
-  if (process.platform === "win32") return null;
+  if (process.platform === "win32") return windowsProcessSnapshot();
   const output = execFileSync("ps", ["-A", "-o", "pid=,ppid=,etime=,stat="], {
     encoding: "utf8",
     env: { ...process.env, LC_ALL: "C" },
@@ -215,7 +244,13 @@ function ancestors(snapshot) {
   let pid = process.pid;
   while (snapshot?.has(pid) && !chain.has(pid) && pid > 1) {
     chain.add(pid);
-    pid = snapshot.get(pid).ppid;
+    const entry = snapshot.get(pid);
+    // Windows keeps a dead parent's PID on its children and may reuse it; a
+    // process created after this one is not its parent.
+    const parent = snapshot.get(entry.ppid);
+    if (parent && parent.startedAt > entry.startedAt + START_TIME_TOLERANCE_MS)
+      break;
+    pid = entry.ppid;
   }
   return chain;
 }
@@ -310,7 +345,7 @@ async function waitUntil(predicate, timeoutMs) {
 async function stop(options) {
   const snapshot = processSnapshot();
   if (!snapshot) {
-    fail("stop cannot verify process identity on this platform");
+    fail("stop cannot verify process identity: no process listing available");
   }
   const record = stopTarget(options, snapshot);
   const state = inspect(snapshot, record);

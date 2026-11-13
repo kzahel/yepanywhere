@@ -106,8 +106,12 @@ It signals a process only when that PID's current start time matches the
 record within 5 seconds, so a stale record can never stop the process that
 later reuses its PID. `stop` refuses the default `~/.yep-anywhere` instance
 without `--allow-default`, and always refuses an instance whose recorded
-processes include an ancestor of the stopping command. Identity checks use
-`ps`, so `stop` refuses on Windows.
+processes include an ancestor of the stopping command. Identity checks read
+process start times from `ps`, and on Windows from CIM through PowerShell,
+whose creation times also bound the ancestor walk because Windows keeps a dead
+parent's PID. Where neither listing can be read, `list` reports a live PID as
+`unverified` and `stop` refuses. A stopped Windows server is terminated without
+running JavaScript, so it leaves a stale record.
 
 ## Older-server compatibility
 

@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -34,19 +35,22 @@ function writeRecord(dataDir, fields) {
   );
 }
 
-// Identity is verified with ps, which Windows lacks; stop refuses there.
-describe.skipIf(process.platform === "win32")("ya:instance", () => {
+describe("ya:instance", () => {
   const cleanup = [];
   afterEach(() => {
     for (const action of cleanup.splice(0)) action();
   });
 
   function setup() {
-    const home = mkdtempSync("/tmp/ya-instance-");
+    // macOS's per-user tmpdir is long; the tool only needs a short home.
+    const home = mkdtempSync(
+      join(process.platform === "win32" ? tmpdir() : "/tmp", "ya-instance-"),
+    );
     cleanup.push(() => rmSync(home, { recursive: true, force: true }));
+    const homeEnv = { ...process.env, HOME: home, USERPROFILE: home };
     const run = (...args) =>
       spawnSync(process.execPath, [script, ...args], {
-        env: { ...process.env, HOME: home },
+        env: homeEnv,
         encoding: "utf8",
       });
     const idle = () => {
@@ -63,7 +67,7 @@ describe.skipIf(process.platform === "win32")("ya:instance", () => {
       cleanup.push(() => child.exitCode === null && child.kill("SIGKILL"));
       return record;
     };
-    return { home, run, idle };
+    return { home, homeEnv, run, idle };
   }
 
   it("stops only the process whose PID and start time match the record", async () => {
@@ -92,11 +96,12 @@ describe.skipIf(process.platform === "win32")("ya:instance", () => {
     const stopped = run("stop", "--port", "45001");
     expect(stopped.stderr).toBe("");
     expect(stopped.status).toBe(0);
-    expect(await side.exited).toBe(null);
+    // POSIX reports the signal with a null code; Windows terminates with 1.
+    expect(await side.exited).toBe(process.platform === "win32" ? 1 : null);
   });
 
   it("refuses the default instance and any instance it runs under", () => {
-    const { home, run, idle } = setup();
+    const { home, homeEnv, run, idle } = setup();
     const main = idle();
     writeRecord(join(home, ".yep-anywhere"), { ...main, port: 45002 });
     const refusedDefault = run("stop", "--port", "45002");
@@ -128,7 +133,7 @@ describe.skipIf(process.platform === "win32")("ya:instance", () => {
         process.stdout.write(JSON.stringify({ status: result.status, stderr: result.stderr }));
         `,
       ],
-      { env: { ...process.env, HOME: home }, encoding: "utf8" },
+      { env: homeEnv, encoding: "utf8" },
     );
     const nested = JSON.parse(parent.stdout);
     expect(nested.status).toBe(1);
