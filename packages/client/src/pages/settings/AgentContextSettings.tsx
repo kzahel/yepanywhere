@@ -162,7 +162,6 @@ export function AgentContextSettings() {
               recomputeHasChanges({ instructions: value });
               setSaveError(null);
             }}
-            placeholder={t("agentContextPlaceholder")}
             rows={10}
           />
           <div

@@ -1771,7 +1771,6 @@
   "agentContextDescription": "这些说明会包含在每个会话的 system prompt 中，可用于编码规范、项目上下文或参考文件路径。",
   "agentContextGlobalInstructions": "全局指令",
   "agentContextGlobalInstructionsDescription": "在支持 system prompt 的情况下会追加到 system prompt；对其他提供商会加在第一条消息之前。",
-  "agentContextPlaceholder": "使用 TypeScript strict mode。优先采用函数式模式。\n\n项目上下文：~/code/dotfiles/projects/README.md",
   "agentContextCharacters": "{current}/{max} 个字符",
   "agentContextSuggestedHintsTitle": "建议的上下文提示",
   "agentContextSuggestedHintsDescription": "供代理使用的可选上下文；会与全局指令组合，但单独保存。",

@@ -891,7 +891,6 @@
   "agentContextDescription": "Instructions incluses dans la première invite système de chaque session. Utilisez-les pour les conventions, le contexte du projet ou référencer des fichiers.",
   "agentContextGlobalInstructions": "Instructions globales",
   "agentContextGlobalInstructionsDescription": "Ajoutées à l’invite système quand elle est prise en charge. Préfixées au premier message pour les autres fournisseurs.",
-  "agentContextPlaceholder": "Utilisez le mode strict TypeScript. Privilégiez les patterns fonctionnels.\n\nContexte projet : ~/code/dotfiles/projects/README.md",
   "agentContextCharacters": "{current}/{max} caractères",
   "agentContextSaveFailed": "Impossible d’enregistrer les instructions",
   "lifecycleWebhooksTitle": "Webhooks du cycle de vie",

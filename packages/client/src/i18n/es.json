@@ -878,7 +878,6 @@
   "agentContextDescription": "Instrucciones incluidas en el prompt del sistema de cada sesión. Útil para convenciones, contexto de proyecto o rutas de archivos.",
   "agentContextGlobalInstructions": "Instrucciones globales",
   "agentContextGlobalInstructionsDescription": "Se añaden al prompt del sistema cuando el proveedor lo admite. Para otros proveedores, se anteponen al primer mensaje.",
-  "agentContextPlaceholder": "Usa TypeScript en modo estricto. Prefiere patrones funcionales.\n\nContexto del proyecto: ~/code/dotfiles/projects/README.md",
   "agentContextCharacters": "{current}/{max} caracteres",
   "agentContextSaveFailed": "Error al guardar las instrucciones",
   "advancedPublicShareTitle": "Compartir público de solo lectura",

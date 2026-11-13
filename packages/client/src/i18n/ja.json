@@ -891,7 +891,6 @@
   "agentContextDescription": "各セッションのシステムプロンプトに含まれる指示です。コーディング規約、プロジェクト文脈、参照すべきファイルパスをここに記載します。",
   "agentContextGlobalInstructions": "グローバル指示",
   "agentContextGlobalInstructionsDescription": "対応している場合はシステムプロンプトに追加されます。その他のプロバイダーでは最初のメッセージの先頭に付加されます。",
-  "agentContextPlaceholder": "TypeScript を strict モードで使用。関数型スタイルを優先。\n\nプロジェクト文脈: ~/code/dotfiles/projects/README.md",
   "agentContextCharacters": "{current}/{max} 文字",
   "agentContextSaveFailed": "指示の保存に失敗しました",
   "lifecycleWebhooksTitle": "ライフサイクル Webhook",

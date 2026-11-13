@@ -890,7 +890,6 @@
   "agentContextDescription": "Anweisungen werden in jeden Systemprompt hinzugefügt. Nutze es für Coding-Konventionen, Projektkontext oder Pfade.",
   "agentContextGlobalInstructions": "Globale Anweisungen",
   "agentContextGlobalInstructionsDescription": "An den Systemprompt angehängt, wenn er unterstützt wird. Für andere Anbieter an die erste Nachricht vorangestellt.",
-  "agentContextPlaceholder": "Nutze TypeScript strict mode. Bevorzuge funktionale Patterns.\n\nProjektkontext: ~/code/dotfiles/projects/README.md",
   "agentContextCharacters": "{current}/{max} Zeichen",
   "agentContextSaveFailed": "Konnte Anweisungen nicht speichern",
   "lifecycleWebhooksTitle": "Lebenszyklus-Webhooks",

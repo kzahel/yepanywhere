@@ -3568,7 +3568,6 @@
   "agentContextDescription": "Instructions included in every session's system prompt. Use this for coding conventions, project context, or paths to reference files.",
   "agentContextGlobalInstructions": "Global Instructions",
   "agentContextGlobalInstructionsDescription": "Appended to the system prompt when supported. Prepended to the first message for other providers.",
-  "agentContextPlaceholder": "Use TypeScript strict mode. Prefer functional patterns.\n\nProject context: ~/code/dotfiles/projects/README.md",
   "agentContextCharacters": "{current}/{max} characters",
   "agentContextSuggestedHintsTitle": "Suggested context hints",
   "agentContextSuggestedHintsDescription": "Optional agent-facing context composed with, but separate from, global instructions.",
