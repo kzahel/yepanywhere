@@ -92,6 +92,11 @@ export class RetainedSessionCollections {
   private retryAfter = 0;
   private refreshError?: string;
   private initialized = false;
+  /**
+   * A whole discovery finished in this process. An empty profile publishes
+   * no generation, so the generation alone would leave it incomplete forever.
+   */
+  private discovered = false;
   private projectView: CatalogProjectsView = {
     projects: [],
     complete: false,
@@ -165,7 +170,7 @@ export class RetainedSessionCollections {
     return {
       catalogEpoch: snapshot.catalogEpoch,
       catalogGeneration: snapshot.catalogGeneration,
-      complete: snapshot.catalogGeneration > 0,
+      complete: this.discovered || snapshot.catalogGeneration > 0,
       refreshing: Boolean(this.work || this.timer),
       ...(this.refreshError ? { refreshError: this.refreshError } : {}),
     };
@@ -217,7 +222,7 @@ export class RetainedSessionCollections {
         ...this.getState(),
         catalogEpoch: result.snapshot.catalogEpoch,
         catalogGeneration: result.snapshot.catalogGeneration,
-        complete: result.snapshot.catalogGeneration > 0,
+        complete: this.discovered || result.snapshot.catalogGeneration > 0,
       },
     };
   }
@@ -494,6 +499,7 @@ export class RetainedSessionCollections {
     );
     this.controller.signal.throwIfAborted();
     await this.catalog.reconcile(adapters);
+    if (!changedPaths) this.discovered = true;
 
     // The first publication is usable before any optional tail is opened.
     const accepted = changedPaths

@@ -59,6 +59,11 @@ enumeration. Its empty result cannot delete rows a client already holds.
 Saved rows remain visible while a replacement is built or a provider fails.
 An empty first-ever catalog keeps the existing loading state until refresh
 settles; a failed refresh exposes its error alongside any saved rows.
+A whole discovery that finds no native session store publishes no generation.
+Once it settles in the running server, that empty generation-0 catalog reports
+`complete: true`, so a missing session is a definite absence rather than a
+permanent `catalog_not_ready`. After a restart it is incomplete again until
+the first discovery settles.
 
 `RetainedSessionCollections` owns one finite refresh shared by both routes and
 all callers. The first read loads durable state and queues reconciliation after

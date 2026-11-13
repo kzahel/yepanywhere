@@ -1131,6 +1131,44 @@ it("keeps the last accepted rows on failure and stops publication after disposal
   expect(emitted).not.toHaveBeenCalled();
 });
 
+it.each([
+  ["no native store exists", []],
+  [
+    "its native stores hold no session",
+    [
+      {
+        catalogFamily: "claude",
+        storeKey: "store",
+        scan: async () => ({ sourceVersion: "v1", rows: [] }),
+      },
+    ],
+  ],
+] satisfies [string, NativeSessionCatalogAdapter[]][])(
+  "reports a discovered catalog complete when %s",
+  async (_name, discovered) => {
+    dataDir = await mkdtemp(join(tmpdir(), "retained-empty-"));
+    const adapters = vi.fn(async () => discovered);
+    collections = new RetainedSessionCollections({
+      dataDir,
+      database: openTestDiscoveryDatabase(dataDir),
+      adapters,
+    });
+    expect((await collections.read()).catalog.complete).toBe(false);
+    await collections.refresh();
+    expect(await collections.read()).toMatchObject({
+      rows: [],
+      catalog: { complete: true, refreshing: false },
+    });
+    // A later failed refresh keeps the established catalog and reports why.
+    adapters.mockRejectedValueOnce(new Error("Provider unavailable"));
+    collections.invalidate();
+    await collections.refresh();
+    expect((await collections.read()).catalog).toMatchObject({
+      complete: true,
+      refreshError: "Provider unavailable",
+    });
+  },
+);
 it("joins durable scoped children into retained global rows after SQL reopen while native refresh is blocked", async () => {
   dataDir = await realpath(
     await mkdtemp(join(tmpdir(), "retained-child-sql-")),
