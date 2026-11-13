@@ -498,3 +498,5 @@
 - agent-api-bootstrap — Native instruction placement, transcript/title repair, and optional disclosure.
 
 - e2e-first-attempt-flakes - Browser cases that fail their first CI attempt and pass on retry: counting, diagnosis and fixes.
+
+- transcript-indexer - Plan 192: one forward transcript reader with provider source adapters and configured consumers (issues, Codex questions, vocabulary).
