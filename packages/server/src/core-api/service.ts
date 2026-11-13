@@ -818,18 +818,35 @@ export class CoreApi {
     // the creation is accepted that session is not established, so it cannot
     // have moved; the creator and project checks above are the whole authority.
     if (
-      caller.kind === "peer" &&
-      receipt?.sessionId &&
-      !(
-        receipt.kind === "createSession" &&
-        ["dispatching", "queued", "failed"].includes(receipt.state)
-      )
+      caller.kind !== "peer" ||
+      !receipt?.sessionId ||
+      (receipt.kind === "createSession" &&
+        ["dispatching", "queued", "failed"].includes(receipt.state))
     )
+      return;
+    const sessionId = receipt.sessionId;
+    try {
       await this.read("session", caller, {
         serverId: this.serverId,
-        sessionId: receipt.sessionId,
+        sessionId,
         signal,
       });
+    } catch (error) {
+      // An uncertain launch may have named a session that never came to
+      // exist. Listed in no project at all, it has no project to protect.
+      if (
+        !(
+          receipt.kind === "createSession" &&
+          receipt.state === "uncertain" &&
+          error instanceof CoreApiError &&
+          error.code === "session_not_found" &&
+          !(await this.sources.sessions(signal)).items.some(
+            (session) => session.id === sessionId,
+          )
+        )
+      )
+        throw error;
+    }
   }
 
   private commandAccess(

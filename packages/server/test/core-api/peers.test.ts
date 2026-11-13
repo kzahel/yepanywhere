@@ -62,6 +62,7 @@ function fixture(id: string) {
   let starts = 0,
     sends = 0,
     refusal: string | undefined,
+    crash = false,
     held: Promise<void> | undefined;
   const subscriptions = new ConversationSubscriptions(async (sessionId) => ({
     close() {},
@@ -97,7 +98,8 @@ function fixture(id: string) {
         starts++;
         const sessionId = `created-${starts}`;
         // Native admission names the session before it starts or refuses it.
-        if (refusal || held) allocated?.(sessionId);
+        if (refusal || held || crash) allocated?.(sessionId);
+        if (crash) throw new Error("native start crashed");
         if (refusal) return { rejected: true, message: refusal };
         await held;
         sessions.push({ ...sessions[0]!, id: sessionId });
@@ -178,6 +180,9 @@ function fixture(id: string) {
     sends: () => sends,
     refuseStarts: (message: string) => {
       refusal = message;
+    },
+    crashStarts: () => {
+      crash = true;
     },
     holdStarts: () => {
       let release!: () => void;
@@ -607,6 +612,32 @@ it("lets a peer read why the target refused its creation, though no session exis
   connect(c, b);
   expect(
     (await c.app.request(`/v0/servers/B/receipts/${receipt.id}`)).status,
+  ).toBe(404);
+});
+it("lets a peer read an uncertain creation whose named session exists in no project", async () => {
+  const a = fixture("A"),
+    b = fixture("B");
+  connect(a, b);
+  a.launch({
+    id: "parent",
+    launchId: "uncertain-create",
+    management: true,
+    peerAccess: true,
+  });
+  b.crashStarts();
+  const receipt = await (await post(a, "/v0/servers/B/sessions")).json();
+  await b.commands.idle();
+  const observed = await a.app.request(`/v0/servers/B/receipts/${receipt.id}`);
+  expect(observed.status).toBe(200);
+  expect(await observed.json()).toMatchObject({
+    state: "uncertain",
+    sessionId: "created-1",
+    failure: { code: "launch_uncertain" },
+  });
+  // The launch may have got far enough to exist; then access is rechecked.
+  b.sessions.push({ ...b.sessions[0]!, id: "created-1", projectId: "secret" });
+  expect(
+    (await a.app.request(`/v0/servers/B/receipts/${receipt.id}`)).status,
   ).toBe(404);
 });
 it("checks a receipt's current session project and outgoing revocation before releasing a result", async () => {
