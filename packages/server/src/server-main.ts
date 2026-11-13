@@ -31,10 +31,7 @@ import {
   initCodexCorrelationDebugLogger,
 } from "./codex/correlationDebugLogger.js";
 import { loadConfig } from "./config.js";
-import {
-  registerDevWrapperBackend,
-  reportDevWrapperListening,
-} from "./dev-wrapper-client.js";
+import { registerDevWrapperBackend } from "./dev-wrapper-client.js";
 import { DeviceBridgeService } from "./device/DeviceBridgeService.js";
 import { detectAdb } from "./device/adb.js";
 import { DESKTOP_BOOTSTRAP_PROTOCOL_VERSION } from "./desktop/DesktopBootstrapService.js";
@@ -110,6 +107,7 @@ import { syncGatewayServiceExports } from "./sdk/providers/gatewayServiceExport.
 import { ClaudeOllamaProvider } from "./sdk/providers/claude-ollama.js";
 import { grokACPProvider } from "./sdk/providers/grok-acp.js";
 import { configureAuthAudit } from "./security/authAuditLog.js";
+import { announceLocalhostListening } from "./server-instance-record.js";
 import {
   BrowserProfileService,
   BrowserSettingsBackupService,
@@ -1668,15 +1666,7 @@ async function startServer() {
     providerSessionWatchers.requestActivation(
       installService.getCatalogFamilies(),
     );
-    void reportDevWrapperListening({
-      host: "127.0.0.1",
-      port: info.port,
-    }).catch((error) => {
-      console.error(
-        "[DevWrapper] Failed to report acquired localhost bind:",
-        error,
-      );
-    });
+    announceLocalhostListening(info.port, config.dataDir, serverProtocol);
     // Write port to file if requested (for test harnesses)
     if (config.portFile) {
       fs.writeFileSync(config.portFile, String(info.port));

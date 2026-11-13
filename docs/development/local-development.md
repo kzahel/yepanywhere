@@ -99,6 +99,7 @@ Server state is stored in a data directory (default: `~/.yep-anywhere/`). This i
 - `push-subscriptions.json` - Web push subscriptions
 - `vapid.json` - VAPID keys for push
 - `auth.json` - Authentication state (password hash, sessions)
+- `server-instance.json` - The running server's identity, for `pnpm ya:instance`
 
 Follow [Project Directory Storage](../../topics/project-directory-storage.md)
 for the app-data default and explicit global opt-in for project-local storage.
@@ -125,6 +126,31 @@ Environment variables:
 - `CLAUDE_CONFIG_DIR` - Claude Code config directory (default: `~/.claude`). Use this to point at a Claude Code profile (e.g., `~/.claude-work`). Sessions are scanned from `{CLAUDE_CONFIG_DIR}/projects/`.
 
 Note: By default, all instances share `~/.claude/projects/` (SDK-managed sessions). Set `CLAUDE_CONFIG_DIR` to use a different Claude Code profile per instance.
+
+#### Starting and stopping side instances
+
+Never stop a YA server with `pkill -f`, `killall`, or a PID found by port or
+command line. Every source server runs the same `tsx --conditions source
+src/index.ts` command, so a pattern meant for a test server also matches the
+YA you are working in. Use `pnpm ya:instance`, which acts on the
+[instance record](../../topics/server-runtime.md#local-instance-record) each
+server writes to its data directory:
+
+```bash
+# Background source server on ~/.yep-anywhere-agytest and any free port;
+# prints its URL, PID, launch log and stop command once it listens.
+AUTH_DISABLED=true pnpm ya:instance start --profile agytest
+
+pnpm ya:instance list                      # recorded instances and status
+pnpm ya:instance stop --profile agytest    # or --data-dir DIR, or --port N
+```
+
+`start` takes `--port N` for a fixed port and passes other environment
+variables through. `stop` signals the dev wrapper when the instance runs under
+`pnpm dev`, so the whole stack stops; it refuses the default profile unless
+given `--allow-default`, and refuses any instance it is running under. Under
+`pnpm dev`, a backend killed by anything other than the wrapper is restarted
+([wrapper lifetime](../../topics/reload-safe-provider-runtimes.md)).
 
 ## Provider & Feature Configuration
 

@@ -45,7 +45,7 @@ function request(port, message) {
   });
 }
 
-it("restarts once per request, ignores retired exits and reaps launcher descendants", async () => {
+it("restarts once per request, replaces unrequested backend exits and reaps launcher descendants", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ya-dev-portable-"));
   const eventsFile = join(directory, "events.jsonl");
   const fixture = join(here, "fixtures/dev-wrapper-registered-child.mjs");
@@ -136,12 +136,29 @@ it("restarts once per request, ignores retired exits and reaps launcher descenda
       expect(output).not.toContain("[Recovery]");
       expect(output).not.toContain("invalid backend registration");
     }
+    // A backend exit the wrapper did not request (another process signalled
+    // it, or it crashed) is replaced while Vite and the wrapper keep running,
+    // up to the crash-loop budget. Exhausting the budget runs the wrapper's
+    // terminal cleanup, which on Windows a signal from here would bypass.
+    const servers = async () =>
+      (await events()).filter((event) => event.role === "server");
+    for (let exit = 1; exit <= 3; exit++) {
+      const backend = (await servers()).at(-1);
+      const count = (await servers()).length;
+      await request(backend.controlPort, { exit: true });
+      await expect
+        .poll(async () => (await servers()).length, { timeout: 10_000 })
+        .toBe(count + 1);
+      expect(wrapper.exitCode ?? wrapper.signalCode).toBeNull();
+      expect(alive(backend.pid)).toBe(false);
+    }
+    expect(output).toContain(
+      "[Recovery] Backend exited without a wrapper request",
+    );
     const all = await events();
-    const backend = all.filter((event) => event.role === "server").at(-1);
-    // A clean backend exit asks the actual wrapper to execute terminal cleanup,
-    // including Windows, where child.kill(SIGTERM) would bypass JS handlers.
-    await request(backend.controlPort, { exit: true });
-    await expect.poll(() => wrapper.exitCode, { timeout: 10_000 }).toBe(0);
+    await request((await servers()).at(-1).controlPort, { exit: true });
+    await expect.poll(() => wrapper.exitCode, { timeout: 10_000 }).toBe(1);
+    expect(output).toContain("restarts within 60s; giving up");
     expect(pids(all).filter(alive)).toEqual([]);
   } catch (error) {
     throw new Error(`${error.message}\n${output}`, { cause: error });

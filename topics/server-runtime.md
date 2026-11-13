@@ -87,6 +87,28 @@ fails the body rather than returning a successful short response. This avoids
 depending on Node's Readable.toWeb event/cancellation ordering for file bodies;
 HTTP range and conditional-response contracts retain their existing meanings.
 
+## Local instance record
+
+Once its localhost listener is bound, every server writes
+`{dataDir}/server-instance.json` (owner-only mode). The file names the process
+serving that data directory: version `1`, a random `instanceId`, `pid`, process
+start time `startedAt` (epoch ms), `host`, `port`, `url`, `dataDir`, `profile`,
+and `supervisor`. Under `pnpm dev`, `supervisor` names the dev wrapper by
+`pid` and `startedAt`, because only signalling the wrapper ends that YA
+lifetime; it is `null` otherwise. The server removes the file on any exit that
+runs JavaScript, and only while the file still names its own `pid` and
+`instanceId`, so a newer server for the same data directory keeps its record. A
+killed server leaves a stale record that its successor overwrites.
+
+`pnpm ya:instance list|start|stop` reads these records
+([local development](../docs/development/local-development.md#running-multiple-instances)).
+It signals a process only when that PID's current start time matches the
+record within 5 seconds, so a stale record can never stop the process that
+later reuses its PID. `stop` refuses the default `~/.yep-anywhere` instance
+without `--allow-default`, and always refuses an instance whose recorded
+processes include an ancestor of the stopping command. Identity checks use
+`ps`, so `stop` refuses on Windows.
+
 ## Older-server compatibility
 
 The engine floor changes immediately for new server releases. There is no

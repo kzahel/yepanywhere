@@ -191,6 +191,15 @@ and provider descendant. A separately started foreground host may survive a
 wrapper that merely attached to it, but it is not a machine daemon and ends
 with its own terminal owner.
 
+Only the wrapper ends its lifetime. A Hono exit the wrapper did not request,
+whether a crash, a clean exit, or a signal from another process, starts a
+replacement Hono generation after 500 ms; Vite and the provider host keep
+running. A fourth such exit within 60 seconds is treated as a crash loop: the
+wrapper runs terminal cleanup and exits with status 1. To stop a wrapper-run
+YA, signal the wrapper (Ctrl-C, `SIGTERM`), or run `pnpm ya:instance stop`,
+which signals the wrapper named in the
+[instance record](server-runtime.md#local-instance-record).
+
 ### Stable host and per-session workers
 
 The shared host is deliberately provider-neutral. It authenticates Hono,
