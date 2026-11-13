@@ -5262,3 +5262,20 @@ options. This bounded prerequisite makes room for the authorized v0
 configuration/discovery wiring; it does not advance the deferred general
 composition-root campaign. Existing core-api app/catalog checks qualify the
 seam.
+
+### Agent API production composition and controller projections — 2026-11-13
+
+A move-only prerequisite for plan 192 isolates the existing command construction
+from `app.ts` into `core-api/production-commands.ts`, with options/supervisor
+passed explicitly. The native owner, dynamic settings/context callbacks and
+persistence-error log retain their order and behavior. The trusted provider
+controller's existing input projection and response validation move into
+`agent-api/controller-protocol.ts`; `provider-session-owner.ts` keeps the call
+wiring. No route, credential, operation or response shape changes in this slice.
+The subsequent API implementation extends those domain modules separately.
+
+Tier 1: shared build, server typecheck, API/host integration tests, exact-file
+lint/format and whitespace checks. Tier 2: root lint/typecheck/tests; native
+creation/replacement additionally passes the four Claude/Codex app combinations.
+Source budgets lower for both hubs. These are dependency-parameter conversions
+and relocations, with no mutable state or back-import into either hub.

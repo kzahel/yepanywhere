@@ -3,7 +3,6 @@ import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatc
 import { createClaudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { createSessionReaderAdmission } from "./sessions/session-reader-admission.js";
 import {
-  agentApiCallerLaunch,
   effectiveGlobalInstructions,
   reviewLaunchDefaults,
 } from "./sessions/derived-launch-sources.js";
@@ -31,8 +30,8 @@ import { API_OWNER_VARIABLE } from "./core-api/contracts.js";
 import { ApiReceiptStore } from "./core-api/receipt-store.js";
 import { profileSessionRelationships } from "./sessions/SessionRelationshipWriter.js";
 import { reconcileSessionRelationships } from "./sessions/session-relationship-reconciliation.js";
-import { SessionCommands } from "./core-api/session-commands.js";
-import { nativeSessionCommandOwner } from "./core-api/native-session-commands.js";
+import type { SessionCommands } from "./core-api/session-commands.js";
+import { createProductionApiCommands } from "./core-api/production-commands.js";
 import type { MiddlewareHandler, Context } from "hono";
 import {
   createConversationRead,
@@ -3827,24 +3826,11 @@ export function createApp(options: AppOptions): AppResult {
     discoverySqlite.getDatabase(),
     sessionRelationships,
   );
-  apiCommands = new SessionCommands(
+  apiCommands = createProductionApiCommands(
     publicServerId,
     apiReceipts,
-    nativeSessionCommandOwner({
-      supervisor,
-      creations: options.sessionMetadataService?.creations,
-      callerLaunch: agentApiCallerLaunch(options, supervisor),
-      globalInstructions: () =>
-        effectiveGlobalInstructions(options.serverSettingsService),
-    }),
-    () =>
-      options.serverSettingsService?.getSetting("agentApiManagementEnabled") ===
-      true,
-    (error) =>
-      getLogger().error(
-        { error },
-        "Agent API command outcome persistence failed",
-      ),
+    options,
+    supervisor,
   );
   const coreSources: CoreApiSources = {
     relationships: relationshipRead,

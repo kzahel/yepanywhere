@@ -1,3 +1,5 @@
+import { operations, type Operation } from "../core-api/contracts.js";
+import type { ApiReadPort } from "../core-api/service.js";
 import { launchContextSchema } from "../core-api/contracts.js";
 import { z } from "zod";
 
@@ -39,3 +41,26 @@ export const agentCatalogRequest = z
   .strict();
 export const AGENT_CATALOG_TIMEOUT_MS = 10_000;
 export const AGENT_CATALOG_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Serializable, trusted controller projection; signals and owner proof stay local. */
+export function agentCatalogInput(
+  input: NonNullable<Parameters<ApiReadPort>[2]>,
+) {
+  return {
+    serverId: input.serverId,
+    sessionId: input.sessionId,
+    receiptId: input.receiptId,
+    body: input.body,
+    launch: input.launch,
+    query: input.query,
+  };
+}
+export function parseAgentCatalogReply(
+  operation: Operation,
+  _input: NonNullable<Parameters<ApiReadPort>[2]>,
+  result: unknown,
+) {
+  return operations
+    .find((item) => item.id === operation)!
+    .response.safeParse(result);
+}

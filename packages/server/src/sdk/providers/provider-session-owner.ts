@@ -2,10 +2,11 @@ import { parseProviderSteeringState } from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
 import {
   agentCatalogRequest,
+  agentCatalogInput,
+  parseAgentCatalogReply,
   AGENT_CATALOG_TIMEOUT_MS,
 } from "../../agent-api/controller-protocol.js";
 import { CoreApiError, type ApiReadPort } from "../../core-api/service.js";
-import { operations } from "../../core-api/contracts.js";
 import type {
   PermissionMode,
   SessionSandboxEnforcement,
@@ -1367,14 +1368,7 @@ export class ProviderSessionOwner {
   ): ReturnType<ApiReadPort> {
     const parsed = agentCatalogRequest.safeParse({
       operation,
-      input: {
-        serverId: input.serverId,
-        sessionId: input.sessionId,
-        receiptId: input.receiptId,
-        body: input.body,
-        launch: input.launch,
-        query: input.query,
-      },
+      input: agentCatalogInput(input),
     });
     if (!parsed.success)
       return Promise.reject(
@@ -1417,9 +1411,11 @@ export class ProviderSessionOwner {
         input.signal?.removeEventListener("abort", abort);
         if (error) reject(error);
         else {
-          const response = operations
-            .find((item) => item.id === parsed.data.operation)!
-            .response.safeParse(result);
+          const response = parseAgentCatalogReply(
+            parsed.data.operation,
+            input,
+            result,
+          );
           if (!response.success) reject(new Error("Invalid catalog response"));
           else resolve(response.data as Awaited<ReturnType<ApiReadPort>>);
         }
