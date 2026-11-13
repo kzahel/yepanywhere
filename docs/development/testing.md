@@ -226,6 +226,15 @@ platforms. Passing on one contributor's OS is not sufficient evidence. When
 other-OS validation is unavailable, state that limitation in the handoff.
 Never weaken a security boundary merely to make another platform pass.
 
+Run native Windows checks in the interactive desktop session, not directly in
+an OpenSSH session. An administrator's SSH session is elevated, and Windows
+refuses to follow the junctions pnpm creates under `node_modules` from it
+("The path cannot be traversed because it contains an untrusted mount point"),
+so nothing resolves and the failure looks like a missing package. Start the
+command from a process that already runs on the desktop, such as a terminal
+multiplexer session, and read its output from a file. Servers started that way
+end when their launching window closes.
+
 ## Device Control Testing
 
 Use the Android emulator only when testing the device-control/device-bridge feature. Check with `source ~/.profile && adb devices` and deploy/test on the emulator for changes that touch device streaming, `/api/devices`, `deviceBridge`, or `packages/device-bridge`. For general client, server, web UI, provider, relay, or rendering changes, do not require emulator testing.
