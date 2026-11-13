@@ -133,7 +133,9 @@ export function createV0Routes(
           : forwarded.data.body,
         {
           status: forwarded.data.status,
-          headers: forwarded.data.headers,
+          // A raw Response bypasses the context headers set above, and the
+          // receiving server owns caching policy whatever the target sent.
+          headers: { ...forwarded.data.headers, "Cache-Control": "no-store" },
         },
       );
     const possible = result as { receipt?: unknown; creation?: unknown };

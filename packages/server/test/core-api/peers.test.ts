@@ -288,14 +288,16 @@ it("creates, messages and follows across real v0 authentication, with separate d
   ).toEqual([]);
   seedHistoricalReceiptAlias(b.receipts, "parent", "local-renamed");
   expect(b.receipts.get(first.id)?.creator.sessionId).toBe("parent");
+  const forwarded = await a.app.request("/v0/servers/B/projects");
+  expect(forwarded.headers.get("cache-control")).toBe("no-store");
   expect(
-    (await (await a.app.request("/v0/servers/B/projects")).json()).items.map(
-      (p: { id: string }) => p.id,
-    ),
+    (await forwarded.json()).items.map((p: { id: string }) => p.id),
   ).toEqual(["p"]);
-  expect(
-    (await a.app.request("/v0/servers/B/sessions/private/conversation")).status,
-  ).toBe(404);
+  const refused = await a.app.request(
+    "/v0/servers/B/sessions/private/conversation",
+  );
+  expect(refused.status).toBe(404);
+  expect(refused.headers.get("cache-control")).toBe("no-store");
   expect(
     (
       await post(a, "/v0/servers/B/sessions", {
