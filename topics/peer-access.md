@@ -529,6 +529,8 @@ owner setup, immediate server identity, credential/generation and operation ID;
 source identity/session assertions are not stronger than source attestation.
 Owner listings paginate server metadata, show recent nonsecret audit and at most
 20 recorded session creations per direction, and link locally created sessions.
+An outgoing creation whose reply never arrived is listed as `uncertain` with
+no session, so work that may exist on the target is not hidden from its owner.
 No password, invitation secret, verifier, owner resume key or prompt body enters
 these projections. Changing human Remote Access credentials keeps independent
 peer credentials; Remote Access links to the incoming-control revocation view.

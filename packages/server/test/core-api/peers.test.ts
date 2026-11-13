@@ -411,6 +411,10 @@ it("persists uncertain intent before sending, recovers a lost response with one 
   expect((await post(a, "/v0/servers/B/sessions")).status).toBe(503);
   await b.commands.idle();
   expect(a.outbound.list("parent", 0, 10).items[0]?.state).toBe("uncertain");
+  // Connections activity shows the creation whose reply never arrived.
+  expect(a.outbound.forPeer("B")).toMatchObject([
+    { state: "uncertain", sessionId: null, sourceSessionId: "parent" },
+  ]);
   seedHistoricalOutboundAlias(a.outbound, "parent", "canonical");
   a.launch({
     id: "canonical",

@@ -11,9 +11,14 @@ import { profileSessionRelationships } from "../sessions/SessionRelationshipWrit
 /** Durable intent before network I/O. Stores hashes and outcomes, never prompt bodies. */
 export class PeerOutboundStore {
   private readonly statements = new Map<string, SqliteStatement>();
+  /**
+   * Recent session creations sent to a peer. A record is reserved under its
+   * HTTP method and becomes `createSession` only when the reply confirms it,
+   * so an uncertain creation is recognized by its creation path.
+   */
   forPeer(serverId: string) {
     return this.statement(
-      "SELECT record_json FROM peer_api_outbound WHERE destination_server_id = ? AND json_extract(record_json, '$.operation') = 'createSession' ORDER BY json_extract(record_json, '$.createdAt') DESC, id DESC LIMIT 20",
+      "SELECT record_json FROM peer_api_outbound WHERE destination_server_id = ? AND (json_extract(record_json, '$.operation') = 'createSession' OR (json_extract(record_json, '$.operation') = 'POST' AND json_extract(record_json, '$.resource') LIKE '%/sessions')) ORDER BY json_extract(record_json, '$.createdAt') DESC, id DESC LIMIT 20",
     )
       .all<{ record_json: string }>(serverId)
       .map((row) => {
