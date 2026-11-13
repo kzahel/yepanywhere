@@ -199,6 +199,14 @@ unversioned parent override to this prerelease and rejects the frozen install.
 CI verifies the worker's frozen install before auditing it so the deployment's
 npm 10 boundary stays covered.
 
+The 2026-11-14 repair raises the website's Astro floor to `^7.4.7`, resolving
+7.4.12, for [attribute injection in dynamic tag names](https://github.com/advisories/GHSA-mh32-jxcr-mh9f)
+and [a case-variant read through the image endpoint](https://github.com/advisories/GHSA-r3h5-4585-7x3w),
+both patched after 7.4.6. The lockfile moves Astro's own dependency graph with
+it. The website audit had been failing unseen: the audit job stopped at the
+workspace audit's Hono findings, so its later steps never ran. Each audit step
+now runs whether or not an earlier one failed.
+
 The STT recovery snapshot raises `filelock` to 4.2.1 for its SQLite reader/writer
 lock and Windows soft-lock advisories. Linux/Python 3.12 resolution for the
 snapshot and its NeMo constraint consumer preserves the pinned Torch and

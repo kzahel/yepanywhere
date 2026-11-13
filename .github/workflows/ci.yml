@@ -248,20 +248,29 @@ jobs:
       # A failure here means a new, untriaged advisory: fix it or triage it in both
       # places — never ignore without a table entry.
       - run: pnpm audit
+      # Each later step runs even after a failure above. The audits are
+      # independent, and stopping at the first one hid a website advisory
+      # behind a workspace one until the workspace was repaired.
       # Standalone npm manifests are outside the pnpm workspace. Include dev
       # dependencies: the sharing worker's Wrangler/Miniflare edge is dev-only.
       - run: npm audit --package-lock-only
+        if: ${{ !cancelled() }}
         working-directory: site
       - name: Verify sharing worker frozen install
+        if: ${{ !cancelled() }}
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: sharing-worker
       - run: npm audit --package-lock-only
+        if: ${{ !cancelled() }}
         working-directory: sharing-worker
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        if: ${{ !cancelled() }}
         with:
           python-version: "3.12"
       - run: python3 -m pip install --disable-pip-version-check pip-audit==2.10.1
+        if: ${{ !cancelled() }}
       - name: Audit pinned speech recovery packages
+        if: ${{ !cancelled() }}
         run: |
           # The one commit-pinned Transformers VCS requirement has no PyPI
           # version to query. Exclude only that known input; --strict rejects
