@@ -239,6 +239,55 @@ test("recovered queue entries resume, steer and delete, and resuming makes the p
   ]);
 });
 
+test("a recovered entry the server already dropped leaves the page without a delete error", async ({
+  page,
+  baseURL,
+}) => {
+  const recovered = (id: string, content: string) =>
+    queued(`temp-${id}`, content, {
+      id,
+      kind: "patient",
+      status: "paused-after-restart",
+      metadata: { deliveryIntent: "patient" },
+    });
+  const session = await openSessionPage(page, baseURL, {
+    owner: "none",
+    deferredMessages: [
+      recovered("pin-rec-gone", "Deleted elsewhere"),
+      recovered("pin-rec-resumed", "Resumed elsewhere"),
+    ],
+  });
+  const base = `/sessions/${sessionId}/recovered-queue`;
+  const missing = { error: "Recovered queued message not found" };
+  await session.answer("DELETE", `${base}/pin-rec-gone`, (route) =>
+    json(route, 404, missing),
+  );
+  await session.answer("POST", `${base}/pin-rec-resumed/resume`, (route) =>
+    json(route, 404, missing),
+  );
+  // Another client removed both entries after this page last read the queue.
+  session.setDeferredMessages([
+    recovered("pin-rec-resumed", "Resumed elsewhere"),
+  ]);
+
+  await chip(page, "Deleted elsewhere")
+    .getByRole("button", { name: "Delete recovered queued message" })
+    .click();
+  // Deleting an entry that is already gone achieved what was asked.
+  await expect(chip(page, "Deleted elsewhere")).toHaveCount(0);
+  await expect(session.toast("Failed to delete")).toHaveCount(0);
+
+  session.setDeferredMessages([]);
+  await chip(page, "Resumed elsewhere")
+    .getByRole("button", { name: "Resume recovered queued message" })
+    .click();
+  // The resume did not happen here, so it still reports, and the chip goes.
+  await expect(
+    session.toast("Failed to resume recovered queued message"),
+  ).toBeVisible();
+  await expect(chip(page, "Resumed elsewhere")).toHaveCount(0);
+});
+
 test("Project Queue items in the session resume dispatch, cancel, edit into the composer and steer", async ({
   page,
   baseURL,

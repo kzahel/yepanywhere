@@ -255,6 +255,12 @@ server-confirmed and id-addressed: Resume preserves resume-through ordering,
 and Delete removes only the selected durable id. Full context and Steer now
 remain on the session page; there is no project-level Resume all control.
 
+A session page can show a recovered chip whose entry the server no longer
+holds. When Delete, Resume, or Steer now reports the entry missing, the page
+rereads the session's queue so the chip goes. Delete then reports nothing,
+since the entry is gone as asked; Resume and Steer now still report that they
+did not run.
+
 ## What we are removing and why
 
 Each removed piece maps to a concrete bug class it produced:

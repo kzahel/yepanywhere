@@ -383,6 +383,26 @@ export function useSessionQueuedMessageActions({
     [sessionId, setDeferredMessages, showToast, t],
   );
 
+  // A recovered chip can outlive its server entry: a session with no live
+  // process has no queue stream, so another client's delete or resume goes
+  // unseen here. When the server reports the entry missing, read its queue
+  // again so the chip does not stay and fail a second time.
+  const dropMissingRecoveredEntry = useCallback(
+    async (err: unknown): Promise<boolean> => {
+      if ((err as { status?: number } | null)?.status !== 404) {
+        return false;
+      }
+      try {
+        const data = await api.getSessionMetadata(projectId, sessionId);
+        setDeferredMessages(data.deferredMessages ?? []);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [projectId, sessionId, setDeferredMessages],
+  );
+
   const handleDeleteRecoveredDeferred = useCallback(
     async (queueId: string) => {
       try {
@@ -392,6 +412,10 @@ export function useSessionQueuedMessageActions({
         );
         setDeferredMessages(result.deferredMessages ?? []);
       } catch (err) {
+        // Already gone is what the delete asked for.
+        if (await dropMissingRecoveredEntry(err)) {
+          return;
+        }
         console.error("Failed to delete recovered queued message:", err);
         const errorMsg = err instanceof Error ? err.message : String(err);
         showToast(
@@ -400,7 +424,7 @@ export function useSessionQueuedMessageActions({
         );
       }
     },
-    [sessionId, setDeferredMessages, showToast, t],
+    [dropMissingRecoveredEntry, sessionId, setDeferredMessages, showToast, t],
   );
 
   const handleResumeRecoveredDeferred = useCallback(
@@ -421,6 +445,7 @@ export function useSessionQueuedMessageActions({
         setProcessState(result.processState ?? "idle");
         setDeferredMessages(result.deferredMessages ?? []);
       } catch (err) {
+        void dropMissingRecoveredEntry(err);
         console.error("Failed to resume recovered queued message:", err);
         const errorMsg = err instanceof Error ? err.message : String(err);
         showToast(
@@ -429,7 +454,15 @@ export function useSessionQueuedMessageActions({
         );
       }
     },
-    [sessionId, setDeferredMessages, setProcessState, setStatus, showToast, t],
+    [
+      dropMissingRecoveredEntry,
+      sessionId,
+      setDeferredMessages,
+      setProcessState,
+      setStatus,
+      showToast,
+      t,
+    ],
   );
 
   const handleSteerRecoveredDeferred = useCallback(
@@ -450,6 +483,7 @@ export function useSessionQueuedMessageActions({
         setProcessState(result.processState ?? "idle");
         setDeferredMessages(result.deferredMessages ?? []);
       } catch (err) {
+        void dropMissingRecoveredEntry(err);
         console.error("Failed to steer recovered queued message:", err);
         const errorMsg = err instanceof Error ? err.message : String(err);
         showToast(
@@ -458,7 +492,15 @@ export function useSessionQueuedMessageActions({
         );
       }
     },
-    [sessionId, setDeferredMessages, setProcessState, setStatus, showToast, t],
+    [
+      dropMissingRecoveredEntry,
+      sessionId,
+      setDeferredMessages,
+      setProcessState,
+      setStatus,
+      showToast,
+      t,
+    ],
   );
 
   const handleCancelLatestDeferred = useCallback(() => {
