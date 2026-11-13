@@ -6,12 +6,25 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionRouterAccountPane } from "../SessionRouterAccountPane";
 import { SessionRouterAccountChip } from "../SessionRouterAccountChip";
 
 const OTHER_POOL = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const OPUS = {
+  id: "claude-opus-5-5",
+  name: "Opus 5.5",
+  supportsEffort: true,
+  supportsAdaptiveThinking: true,
+  supportedReasoningEfforts: [
+    { reasoningEffort: "high", description: "High" },
+    { reasoningEffort: "max", description: "Max" },
+  ],
+};
+const HAIKU = { ...OPUS, id: "claude-haiku-5-5", name: "Haiku 5.5" };
 const POOL = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const { mockSwitch, mockShowToast } = vi.hoisted(() => ({
   mockSwitch: vi.fn(),
@@ -37,7 +50,7 @@ vi.mock("../../hooks/useRouterDiscovery", () => ({
               id: POOL,
               name: "Work",
               provider: "claude",
-              accountIds: ["a", "b"],
+              accountIds: ["a", "b", "c"],
             },
             {
               id: OTHER_POOL,
@@ -46,11 +59,24 @@ vi.mock("../../hooks/useRouterDiscovery", () => ({
               accountIds: ["b"],
             },
           ],
-          accounts: ["a", "b"].map((id) => ({
+          accounts: ["a", "b", "c"].map((id) => ({
             id,
             displayName: `Account ${id}`,
             provider: "claude",
             enabled: true,
+            models: [id === "c" ? HAIKU : OPUS],
+            windows:
+              id === "b"
+                ? [
+                    {
+                      bucket: "five_hour",
+                      scope: "all",
+                      remainingPercent: 40,
+                      resetsAt: null,
+                      windowMinutes: 300,
+                    },
+                  ]
+                : [],
           })),
         }
       : null,
@@ -62,12 +88,58 @@ vi.mock("../../hooks/useActingPrincipal", () => ({
 vi.mock("../../i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
+vi.mock("../FilterDropdown", () => ({
+  FilterDropdown: ({
+    label,
+    options,
+    selected,
+    onChange,
+  }: {
+    label: string;
+    options: Array<{
+      value: string;
+      label: string;
+      description?: string;
+      disabled?: boolean;
+      meta?: ReactNode;
+    }>;
+    selected: string[];
+    onChange: (selected: string[]) => void;
+  }) => (
+    <div data-testid={`filter-${label}`}>
+      <span data-testid="selected">{selected[0] ?? ""}</span>
+      {options.map((option) => (
+        <button
+          type="button"
+          key={option.value}
+          disabled={option.disabled}
+          title={option.description}
+          onClick={() => onChange([option.value])}
+        >
+          {option.label}
+          {option.meta}
+        </button>
+      ))}
+    </div>
+  ),
+}));
 
 const item = (name: string) => screen.getByRole("button", { name });
+const dropdown = (label: string) =>
+  within(screen.getByTestId(`filter-${label}`));
+const chosen = (label: string) =>
+  dropdown(label).getByTestId("selected").textContent;
+const pick = (label: string, option: string | RegExp) =>
+  fireEvent.click(dropdown(label).getByRole("button", { name: option }));
+const launch = {
+  models: ["claude-opus-5-5", "opus"],
+  thinking: { type: "adaptive" as const },
+  effort: "high" as const,
+};
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 const binding = {
@@ -95,31 +167,84 @@ describe("Session router account controls", () => {
         sessionId="s"
         binding={binding}
         provider="claude"
+        launch={launch}
         canSwitch
         onSwitched={onSwitched}
       />,
     );
-    const pool = screen.getByRole("combobox", { name: "sessionAccountPool" });
-    const account = screen.getByRole("combobox", { name: "routerAccount" });
     const apply = item("sessionAccountApply") as HTMLButtonElement;
-    expect((account as HTMLSelectElement).value).toBe("a");
+    expect(chosen("routerAccount")).toBe("a");
     expect(apply.disabled).toBe(true);
-    fireEvent.change(pool, { target: { value: OTHER_POOL } });
-    expect((account as HTMLSelectElement).value).toBe("");
+    pick("sessionAccountPool", "Personal");
+    expect(chosen("routerAccount")).toBe("");
     expect(apply.disabled).toBe(true);
-    fireEvent.change(account, { target: { value: "b" } });
+    pick("routerAccount", /^Account b/);
     expect(apply.disabled).toBe(false);
     expect(mockSwitch).not.toHaveBeenCalled();
     fireEvent.click(apply);
     fireEvent.click(apply);
     expect(mockSwitch).toHaveBeenCalledTimes(1);
-    expect((pool as HTMLSelectElement).disabled).toBe(true);
+    // Every choice locks while applying.
+    expect(
+      dropdown("sessionAccountPool")
+        .getAllByRole("button")
+        .every((b) => (b as HTMLButtonElement).disabled),
+    ).toBe(true);
     expect(mockSwitch).toHaveBeenCalledWith("s", {
       routerPoolId: OTHER_POOL,
       routerAccountId: "b",
     });
     finish({ routerBinding: null });
     await waitFor(() => expect(onSwitched).toHaveBeenCalledTimes(1));
+  });
+
+  it("shows each account's quota and refuses accounts that cannot serve the session's model and effort", () => {
+    const view = render(
+      <SessionRouterAccountPane
+        sessionId="s"
+        binding={binding}
+        provider="claude"
+        launch={launch}
+        canSwitch
+        onSwitched={vi.fn()}
+      />,
+    );
+    const rows = () =>
+      dropdown("routerAccount")
+        .getAllByRole("button")
+        .map((b) => [
+          b.textContent,
+          b.title,
+          (b as HTMLButtonElement).disabled,
+        ]);
+    expect(rows()).toEqual([
+      ["Account arouterQuotaNotObserved", "sessionAccountCurrentOption", false],
+      ["Account brouterQuotaLineNoReset", "", false],
+      ["Account crouterQuotaNotObserved", "routerReasonModelUnavailable", true],
+    ]);
+    expect(
+      dropdown("sessionAccountPool").getByRole("button", { name: "Work" })
+        .title,
+    ).toBe("routerPoolCompatibleAccounts · routerPoolBestRemaining");
+    // An effort the catalog lacks rules out every account, and the pool.
+    view.rerender(
+      <SessionRouterAccountPane
+        sessionId="s"
+        binding={binding}
+        provider="claude"
+        launch={{ ...launch, effort: "low" }}
+        canSwitch
+        onSwitched={vi.fn()}
+      />,
+    );
+    expect(rows().map((row) => row[2])).toEqual([true, true, true]);
+    expect(
+      (
+        dropdown("sessionAccountPool").getByRole("button", {
+          name: "Personal",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("keeps a refused selection for retry and can explicitly apply direct login", async () => {
@@ -130,35 +255,21 @@ describe("Session router account controls", () => {
         sessionId="s"
         binding={binding}
         provider="claude"
+        launch={launch}
         canSwitch
         onSwitched={onSwitched}
       />,
     );
-    fireEvent.change(screen.getByRole("combobox", { name: "routerAccount" }), {
-      target: { value: "b" },
-    });
+    pick("routerAccount", /^Account b/);
     fireEvent.click(item("sessionAccountApply"));
     await waitFor(() =>
       expect(mockShowToast).toHaveBeenCalledWith("routerSwitchFailed", "error"),
     );
     expect(onSwitched).not.toHaveBeenCalled();
-    expect(
-      (
-        screen.getByRole("combobox", {
-          name: "routerAccount",
-        }) as HTMLSelectElement
-      ).value,
-    ).toBe("b");
+    expect(chosen("routerAccount")).toBe("b");
     mockSwitch.mockResolvedValue({ routerBinding: null });
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "sessionAccountPool" }),
-      {
-        target: { value: "" },
-      },
-    );
-    expect(
-      screen.queryByRole("combobox", { name: "routerAccount" }),
-    ).toBeNull();
+    pick("sessionAccountPool", "sessionAccountDirectLogin");
+    expect(screen.queryByTestId("filter-routerAccount")).toBeNull();
     expect(mockSwitch).toHaveBeenCalledTimes(1);
     fireEvent.click(item("sessionAccountApply"));
     await waitFor(() => expect(onSwitched).toHaveBeenCalledTimes(1));
@@ -173,19 +284,16 @@ describe("Session router account controls", () => {
         sessionId="s"
         binding={{ ...binding, poolId: undefined, poolName: undefined }}
         provider="claude"
+        launch={launch}
         canSwitch
         onSwitched={onSwitched}
       />,
     );
+    expect(chosen("sessionAccountPool")).toBe("unpooled");
     expect((item("sessionAccountApply") as HTMLButtonElement).disabled).toBe(
       true,
     );
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "sessionAccountPool" }),
-      {
-        target: { value: "" },
-      },
-    );
+    pick("sessionAccountPool", "sessionAccountDirectLogin");
     fireEvent.click(item("sessionAccountApply"));
     await waitFor(() => expect(onSwitched).toHaveBeenCalledTimes(1));
     expect(mockSwitch).toHaveBeenCalledWith("s", null);

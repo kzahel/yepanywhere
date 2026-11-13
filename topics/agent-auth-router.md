@@ -147,6 +147,17 @@ continuation, remote executors, limited users and sandboxes cannot change a pin.
 ([plan 185](../docs/tactical/185-switch-session-router-account.md)). The
 Account tab shows the current binding separately from the draft selection.
 Choose a Pool and Router account, or **This computer (direct login)** in Pool.
+Both dropdowns use New Session's pool and account rows: each pool shows how
+many of its accounts fit and their best remaining quota, and each account
+shows its status dot, cached quota windows with reset times and any reason it
+cannot serve the session. The pane offers accounts only, never router policies,
+because the switch pins one account. The current account is marked Current.
+Fit is judged as the switch route judges it: the first of the session's live
+resolved model and saved requested model (without a `[1m]` suffix) that the
+account's own catalog resolves, with the saved thinking, effort and tier. An
+account that cannot serve them is shown disabled with the reason, and a pool
+with no such account is disabled; with no known model only disabled accounts
+are excluded and the route decides. Cached quota and auth states remain advice.
 Changing either dropdown has no server-side effect. Changing pools clears the
 account choice; Apply stays disabled until a different, available account is
 selected (or Direct is selected for a routed session). Discovery refreshes do

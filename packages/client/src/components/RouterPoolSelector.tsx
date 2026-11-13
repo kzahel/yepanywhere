@@ -12,8 +12,9 @@ import {
   type ProviderSessionDefaults,
   type ThinkingOption,
 } from "@yep-anywhere/shared";
+import type { ReactNode } from "react";
 import { useI18n } from "../i18n";
-import { FilterDropdown } from "./FilterDropdown";
+import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import styles from "./RouterPoolSelector.module.css";
 import { Banner } from "./ui/Banner";
 import { Button } from "./ui/Button";
@@ -344,7 +345,7 @@ export function routerAccountIssue(
 }
 
 /** Why no account in the pool can serve the selection. */
-function poolReason(
+export function poolReason(
   t: Translate,
   accounts: OverviewAccount[],
   model: string | null,
@@ -524,6 +525,136 @@ function AccountQuota({ account }: { account: OverviewAccount }) {
   );
 }
 
+type RouterStatusTone = "ready" | "advice" | "blocked";
+
+const TONES: Record<RouterStatusTone, string | undefined> = {
+  ready: styles.ready,
+  advice: styles.advice,
+  blocked: styles.blocked,
+};
+
+function statusDot(tone: RouterStatusTone) {
+  return <span className={`${styles.dot} ${TONES[tone]}`} />;
+}
+
+/**
+ * A labelled dropdown section styled like New Session's other options. The
+ * existing session's Account pane uses it too, so both surfaces match.
+ */
+export function RouterDropdownSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
+      data-new-session-helper-section
+    >
+      <h3>{label}</h3>
+      {children}
+    </div>
+  );
+}
+
+/** Rows shared by New Session's selector and the session Account pane. */
+export function routerDirectOption(
+  t: Translate,
+  disabled: boolean,
+  label = t("routerDirect"),
+): FilterOption<string> {
+  return {
+    value: DIRECT,
+    label,
+    description: t("routerDirectDescription"),
+    icon: statusDot("ready"),
+    disabled,
+  };
+}
+
+/** A held choice the router no longer lists; visible but not selectable. */
+export function routerHeldOption(
+  value: string,
+  label: string,
+): FilterOption<string> {
+  return { value, label, icon: statusDot("blocked"), disabled: true };
+}
+
+export function routerPoolOption(
+  t: Translate,
+  pool: { id: string; name: string; accountIds: string[] },
+  {
+    compatible,
+    modelLabel,
+    reason,
+    best,
+    policyLabel,
+    disabled,
+  }: {
+    compatible: number;
+    modelLabel: string;
+    /** Why no account fits; shown when `compatible` is zero. */
+    reason: string;
+    /** Best remaining percent among the fitting accounts. */
+    best: number | null;
+    policyLabel?: string;
+    disabled: boolean;
+  },
+): FilterOption<string> {
+  return {
+    value: pool.id,
+    label: pool.name,
+    description: [
+      policyLabel,
+      compatible
+        ? t("routerPoolCompatibleAccounts", {
+            count: compatible,
+            total: pool.accountIds.length,
+            model: modelLabel,
+          })
+        : reason,
+      best !== null &&
+        t("routerPoolBestRemaining", { percent: Math.round(best) }),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    icon: statusDot(compatible ? "ready" : "blocked"),
+    disabled: disabled || compatible === 0,
+  };
+}
+
+/** Best remaining percent among accounts, each judged by its own model. */
+export function bestRemaining(
+  accounts: OverviewAccount[],
+  concreteModel: (account: OverviewAccount) => string | undefined,
+): number | null {
+  const remaining = accounts
+    .map((a) => tightestRemaining(a, concreteModel(a)))
+    .filter((r): r is number => r !== null);
+  return remaining.length ? Math.max(...remaining) : null;
+}
+
+export function routerAccountOption(
+  t: Translate,
+  account: OverviewAccount,
+  index: number,
+  issue: RouterAccountIssue | null,
+  disabled: boolean,
+  note?: string,
+): FilterOption<string> {
+  return {
+    value: account.id,
+    label:
+      account.displayName || t("routerAccountNumber", { number: index + 1 }),
+    description: [note, issue?.text].filter(Boolean).join(" · ") || undefined,
+    icon: statusDot(issue ? (issue.blocking ? "blocked" : "advice") : "ready"),
+    meta: <AccountQuota account={account} />,
+    disabled: disabled || !!issue?.blocking,
+  };
+}
+
 export function RouterPoolSelector({
   data,
   provider,
@@ -573,14 +704,6 @@ export function RouterPoolSelector({
   const unavailable = !!value && (!pool || !members.length);
   const poolLabel = t("routerPool");
   const accountLabel = t("routerAccount");
-  const tones = {
-    ready: styles.ready,
-    advice: styles.advice,
-    blocked: styles.blocked,
-  };
-  const dot = (tone: keyof typeof tones) => (
-    <span className={`${styles.dot} ${tones[tone]}`} />
-  );
   const describePool = (poolId: string) => {
     const accounts = routerPoolAccounts(data, poolId, provider);
     const poolModels = routedModels(data, provider, poolId);
@@ -607,11 +730,7 @@ export function RouterPoolSelector({
     : [];
   const chooseAccount =
     pool && poolAccounts?.accounts.length ? (
-      <div
-        className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
-        data-new-session-helper-section
-      >
-        <h3>{accountLabel}</h3>
+      <RouterDropdownSection label={accountLabel}>
         <FilterDropdown<string>
           label={accountLabel}
           options={[
@@ -620,32 +739,26 @@ export function RouterPoolSelector({
               label: p.label,
               description:
                 p.id === pool.policy ? t("routerPolicyPoolDefault") : undefined,
-              icon: dot(members.length ? "ready" : "blocked"),
+              icon: statusDot(members.length ? "ready" : "blocked"),
               disabled: disabled || !members.length,
             })),
-            ...poolAccounts.accounts.map((a, index) => {
-              const issue = routerAccountIssue(
+            ...poolAccounts.accounts.map((a, index) =>
+              routerAccountOption(
                 t,
                 a,
-                model,
-                poolAccounts.modelLabel,
-                poolAccounts.concreteModel,
-                thinking,
-                serviceTier,
-              );
-              return {
-                value: a.id,
-                label:
-                  a.displayName ||
-                  t("routerAccountNumber", { number: index + 1 }),
-                description: issue?.text,
-                icon: dot(
-                  issue ? (issue.blocking ? "blocked" : "advice") : "ready",
+                index,
+                routerAccountIssue(
+                  t,
+                  a,
+                  model,
+                  poolAccounts.modelLabel,
+                  poolAccounts.concreteModel,
+                  thinking,
+                  serviceTier,
                 ),
-                meta: <AccountQuota account={a} />,
-                disabled: disabled || !!issue?.blocking,
-              };
-            }),
+                disabled,
+              ),
+            ),
           ]}
           selected={
             value?.accountId
@@ -681,34 +794,17 @@ export function RouterPoolSelector({
         {showCaption && (
           <p className={styles.caption}>{t("routerAccountCaption")}</p>
         )}
-      </div>
+      </RouterDropdownSection>
     ) : null;
   return (
     <>
-      <div
-        className={`${optionStyles.newSessionHelperSection} ${styles.section}`}
-        data-new-session-helper-section
-      >
-        <h3>{poolLabel}</h3>
+      <RouterDropdownSection label={poolLabel}>
         <FilterDropdown<string>
           label={poolLabel}
           options={[
-            {
-              value: DIRECT,
-              label: t("routerDirect"),
-              description: t("routerDirectDescription"),
-              icon: dot("ready"),
-              disabled,
-            },
+            routerDirectOption(t, disabled),
             ...(value?.poolId && !pool
-              ? [
-                  {
-                    value: value.poolId,
-                    label: t("routerPoolUnavailable"),
-                    icon: dot("blocked"),
-                    disabled: true,
-                  },
-                ]
+              ? [routerHeldOption(value.poolId, t("routerPoolUnavailable"))]
               : []),
             ...pools.map((p) => {
               const { accounts, concreteModel, modelLabel } = describePool(
@@ -722,40 +818,22 @@ export function RouterPoolSelector({
                 thinking,
                 serviceTier,
               );
-              const best = compatible
-                .map((a) => tightestRemaining(a, concreteModel))
-                .filter((r): r is number => r !== null);
-              return {
-                value: p.id,
-                label: p.name,
-                description: [
-                  routerPolicyLabel(data, p.policy),
-                  compatible.length
-                    ? t("routerPoolCompatibleAccounts", {
-                        count: compatible.length,
-                        total: p.accountIds.length,
-                        model: modelLabel,
-                      })
-                    : poolReason(
-                        t,
-                        accounts,
-                        model,
-                        modelLabel,
-                        concreteModel,
-                        thinking,
-                        serviceTier,
-                      ),
-                  ...(best.length
-                    ? [
-                        t("routerPoolBestRemaining", {
-                          percent: Math.round(Math.max(...best)),
-                        }),
-                      ]
-                    : []),
-                ].join(" · "),
-                icon: dot(compatible.length ? "ready" : "blocked"),
-                disabled: disabled || compatible.length === 0,
-              };
+              return routerPoolOption(t, p, {
+                policyLabel: routerPolicyLabel(data, p.policy),
+                compatible: compatible.length,
+                modelLabel,
+                reason: poolReason(
+                  t,
+                  accounts,
+                  model,
+                  modelLabel,
+                  concreteModel,
+                  thinking,
+                  serviceTier,
+                ),
+                best: bestRemaining(compatible, () => concreteModel),
+                disabled,
+              });
             }),
           ]}
           selected={[value?.poolId ?? DIRECT]}
@@ -797,7 +875,7 @@ export function RouterPoolSelector({
         {showCaption && (
           <p className={styles.caption}>{t("routerPoolCaption")}</p>
         )}
-      </div>
+      </RouterDropdownSection>
       {chooseAccount}
     </>
   );

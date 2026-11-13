@@ -207,6 +207,12 @@ export function SessionPageModals({
                 sessionId={actualSessionId}
                 binding={session.routerBinding}
                 provider={effectiveProvider}
+                launch={{
+                  models: [liveBadgeModel, savedLaunchSettings?.requestedModel],
+                  thinking: savedLaunchSettings?.thinking,
+                  effort: savedLaunchSettings?.effort,
+                  serviceTier: savedLaunchSettings?.serviceTier,
+                }}
                 canSwitch={
                   creationPrincipalResolved &&
                   creationPrincipal.username === null &&

@@ -23,9 +23,8 @@
   gap: var(--space-3);
 }
 
-.select {
-  width: 100%;
-  min-width: 0;
+.trigger {
+  text-align: left;
 }
 
 .actions {
