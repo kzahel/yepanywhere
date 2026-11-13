@@ -338,6 +338,13 @@ async function up(options) {
     state.serverId = (await client.expect("/v0")).json.serverId;
     state.url = node.url;
     state.project = project;
+    // The API spells a Windows path with forward slashes; keep its id.
+    const spelling = (path) => path.replaceAll("\\", "/").toLowerCase();
+    state.projectId = (
+      await client.expect("/v0/servers/self/projects?limit=100")
+    ).json.items.find((item) => spelling(item.path) === spelling(project))?.id;
+    if (!state.projectId)
+      throw new Error(`${node.name}: its scratch project was not registered`);
     writeState(node, state);
   }
 
@@ -498,7 +505,7 @@ async function smokeEdge(client, source, target, check) {
       reply.text.includes("createSession") ? undefined : "schema lacks it",
   );
   await get("projects", `${base}/projects`, (reply) =>
-    reply.json.items.some((item) => item.path === readState(target).project)
+    reply.json.items.some((item) => item.id === readState(target).projectId)
       ? undefined
       : "target's scratch project is not listed",
   );
@@ -616,7 +623,7 @@ async function inferenceEdge(client, source, target, options, check) {
         entry.id === options.pool,
     );
     project = (await client.expect(`${base}/projects`)).json.items.find(
-      (item) => item.path === readState(target).project,
+      (item) => item.id === readState(target).projectId,
     );
     const offered = [
       ...new Set(
