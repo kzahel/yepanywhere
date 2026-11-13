@@ -804,8 +804,8 @@ test.describe("Full Relay Integration", () => {
         },
         body: JSON.stringify({ projectId, sessionId, mode: "frozen" }),
       });
-      // Name the refusal: a first attempt fails here intermittently in CI and
-      // a bare `ok` reports nothing about why
+      // Name the refusal: a first attempt is refused here intermittently in
+      // CI with a retryable 409, which a bare `ok` would not report
       // (gaps/relay-large-public-share-create-flake.md).
       const createBody = await createResponse.text();
       expect(
