@@ -1,8 +1,5 @@
 # Yep Anywhere Agent Instructions
 
-If `AGENTS.local.md` exists, read it before acting. Its machine-local
-instructions take precedence over this file.
-
 Core contributors are two different people; do not conflate them when
 attributing history:
 
