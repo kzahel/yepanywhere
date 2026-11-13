@@ -86,9 +86,9 @@ function fixture(onSessionLookup?: () => void) {
       items: [{ id: "p", name: "P", path: "/fixture" }],
     }),
     providers: async () => [],
-    sessions: async () => (
-      onSessionLookup?.(),
-      {
+    sessions: async () => {
+      onSessionLookup?.();
+      return {
         items: [
           {
             id: "worker",
@@ -99,8 +99,8 @@ function fixture(onSessionLookup?: () => void) {
             updatedAt: "",
           },
         ],
-      }
-    ),
+      };
+    },
   });
   const app = new Hono<{ Variables: { yaPrincipal: typeof SUPERUSER } }>();
   app.use("*", async (c, next) => {
