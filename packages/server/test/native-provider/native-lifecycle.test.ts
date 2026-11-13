@@ -186,7 +186,9 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       // reader replays of ~3s each. Use 35s, 2.16x that measured maximum.
       // Runs 42060535825 / 42063066589: OpenCode cold max 12.591s -> 30s
       // (2.38x, both git variants). Mac triple-suite overlap (2026-11-05)
-      // measures Grok cold at 6.389s -> 20s (3.13x).
+      // measures Grok cold at 6.389s -> 20s (3.13x). Claude passes in
+      // 2.3-2.7s on Linux and run 43022773170 exhausted the former 5s default,
+      // so the remaining providers get 15s, 3x that lower bound.
       timeout:
         provider === "antigravity"
           ? 35_000
@@ -194,7 +196,7 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
             ? 30_000
             : provider === "grok"
               ? 20_000
-              : 5_000,
+              : 15_000,
     },
     async (gitProject) => {
       const phases = {

@@ -46,6 +46,9 @@ function api(env: Record<string, string>, path: string) {
     req.setTimeout(5000, () => req.destroy(new Error("API fixture timed out")));
   });
 }
+// One real PowerShell/curl launch takes 1.5-3.6 s on hosted Windows runners
+// (ten passing CI runs, 2026-11-13) and CI 43518179454 killed one at the
+// former 10,000 ms limit. Each launch gets 3x that observed lower bound.
 function shell(command: string, env: NodeJS.ProcessEnv) {
   return new Promise<string>((resolve, reject) => {
     const child = spawn(
@@ -53,7 +56,7 @@ function shell(command: string, env: NodeJS.ProcessEnv) {
       process.platform === "win32"
         ? ["-NoProfile", "-NonInteractive", "-Command", command]
         : ["-c", command],
-      { env, stdio: ["ignore", "pipe", "ignore"], timeout: 10000 },
+      { env, stdio: ["ignore", "pipe", "ignore"], timeout: 30_000 },
     );
     let output = "";
     child.stdout.on("data", (data) => {
@@ -70,8 +73,8 @@ function shell(command: string, env: NodeJS.ProcessEnv) {
   });
 }
 
-// Windows CI 41286192672 exceeded 5,000 ms across two real PowerShell/curl
-// launches. Allow 4x that observed lower bound for the bootstrap workflow.
+// The workflow makes two shell launches. The test bound outlasts both launch
+// limits, so a slow shell reports its own exit instead of a bare timeout.
 it("runs the exact injected curl request and keeps legacy self authority separate", async () => {
   const native = createControllableIterator();
   let delivered!: StartSessionOptions;
@@ -178,7 +181,7 @@ it("runs the exact injected curl request and keeps legacy self authority separat
     await session.abort();
     await session.iterator.return?.();
   }
-}, 20_000);
+}, 65_000);
 
 it("keeps a real owner API alive across controller detach/reattach and honors detached revocation", async () => {
   const native = createControllableIterator();
