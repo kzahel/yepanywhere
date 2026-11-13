@@ -814,12 +814,16 @@ export class CoreApi {
       (!receipt || !this.receiptVisible(caller, receipt))
     )
       throw new CoreApiError("receipt_not_found", "Receipt not found", 404);
-    // A creation refused before dispatch may name a session that never
-    // existed; the creator and project checks above are its whole authority.
+    // Native admission names a session before it starts or refuses it. Until
+    // the creation is accepted that session is not established, so it cannot
+    // have moved; the creator and project checks above are the whole authority.
     if (
       caller.kind === "peer" &&
       receipt?.sessionId &&
-      !(receipt.kind === "createSession" && receipt.state === "failed")
+      !(
+        receipt.kind === "createSession" &&
+        ["dispatching", "queued", "failed"].includes(receipt.state)
+      )
     )
       await this.read("session", caller, {
         serverId: this.serverId,

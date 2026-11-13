@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { SUPERUSER } from "../../src/auth/principal.js";
 import { CoreApi, type CoreApiSources } from "../../src/core-api/service.js";
 import {
@@ -61,7 +61,8 @@ function fixture(id: string) {
   }));
   let starts = 0,
     sends = 0,
-    refusal: string | undefined;
+    refusal: string | undefined,
+    held: Promise<void> | undefined;
   const subscriptions = new ConversationSubscriptions(async (sessionId) => ({
     close() {},
     async read() {
@@ -95,11 +96,10 @@ function fixture(id: string) {
       ) {
         starts++;
         const sessionId = `created-${starts}`;
-        if (refusal) {
-          // Native admission names the session before it can be refused.
-          allocated?.(sessionId);
-          return { rejected: true, message: refusal };
-        }
+        // Native admission names the session before it starts or refuses it.
+        if (refusal || held) allocated?.(sessionId);
+        if (refusal) return { rejected: true, message: refusal };
+        await held;
         sessions.push({ ...sessions[0]!, id: sessionId });
         consumed?.();
         return { sessionId };
@@ -178,6 +178,16 @@ function fixture(id: string) {
     sends: () => sends,
     refuseStarts: (message: string) => {
       refusal = message;
+    },
+    holdStarts: () => {
+      let release!: () => void;
+      held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return () => {
+        held = undefined;
+        release();
+      };
     },
     launch: (value?: ApiLaunchContext) => {
       launch = value;
@@ -521,6 +531,40 @@ it("fences target revocation while a create waits on its catalog before durable 
   expect(b.starts()).toBe(0);
 });
 
+it("lets a peer follow its creation while the target is still launching the named session", async () => {
+  const a = fixture("A"),
+    b = fixture("B");
+  connect(a, b);
+  a.launch({
+    id: "parent",
+    launchId: "launching-create",
+    management: true,
+    peerAccess: true,
+  });
+  const release = b.holdStarts();
+  const receipt = await (await post(a, "/v0/servers/B/sessions")).json();
+  await vi.waitFor(() =>
+    expect(b.receipts.get(receipt.id)?.sessionId).toBe("created-1"),
+  );
+  const launching = await a.app.request(
+    `/v0/servers/B/receipts/${receipt.id}/follow?waitMs=0`,
+  );
+  expect(launching.status).toBe(200);
+  expect((await launching.json()).receipt).toMatchObject({
+    state: "dispatching",
+    sessionId: "created-1",
+  });
+  release();
+  await b.commands.idle();
+  expect(
+    await (await a.app.request(`/v0/servers/B/receipts/${receipt.id}`)).json(),
+  ).toMatchObject({ state: "accepted", sessionId: "created-1" });
+  // Once established, a session moved outside the grant hides its receipt.
+  b.sessions.find((s) => s.id === "created-1")!.projectId = "secret";
+  expect(
+    (await a.app.request(`/v0/servers/B/receipts/${receipt.id}`)).status,
+  ).toBe(404);
+});
 it("lets a peer read why the target refused its creation, though no session exists", async () => {
   const a = fixture("A"),
     b = fixture("B");
