@@ -128,11 +128,16 @@ test("launch steering preserves live owners across settings changes and server r
       );
     await page.goto(`${f.server.baseUrl}/settings/message-delivery`);
     await expect(select).toHaveValue("immediate");
-    for (const [name, viewport] of [
-      ["desktop", { width: 1280, height: 900 }],
-      ["phone", { width: 375, height: 812 }],
+    for (const [name, viewport, categoryNav] of [
+      ["desktop", { width: 1280, height: 900 }, 1],
+      ["phone", { width: 375, height: 812 }, 0],
     ] as const) {
       await page.setViewportSize(viewport);
+      // The column layout follows a measured width a frame or more later and
+      // remounts the pane, detaching a select located before it settles.
+      await expect(page.locator("[data-settings-category-nav]")).toHaveCount(
+        categoryNav,
+      );
       await select.scrollIntoViewIfNeeded();
       await expect(page.getByText(/Active session modes:/)).toBeVisible();
       await recordUiCapture(page, `provider-steering-${name}`);
@@ -182,7 +187,8 @@ test("launch steering preserves live owners across settings changes and server r
     });
     await toggle.click();
     await page.getByRole("button", { name: /^Undo changes on/ }).click();
-    expect(writes.length).toBeGreaterThanOrEqual(2);
+    // Undo's PUT is issued after the click resolves.
+    await expect.poll(() => writes.length).toBeGreaterThanOrEqual(2);
     expect(writes.every((body) => !("steeringModes" in body))).toBe(true);
     expect(errors).toEqual([]);
   } finally {

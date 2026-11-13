@@ -1,6 +1,9 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
-import { readCollectionsOverRest } from "./support/managed-routes.js";
+import {
+  readCollectionsOverRest,
+  routeWithDrain,
+} from "./support/managed-routes.js";
 import {
   json,
   liveUpdate,
@@ -192,7 +195,10 @@ test("the breadcrumb's move menu lists other projects and moves the session", as
   baseURL,
 }) => {
   await readCollectionsOverRest(page);
-  await page.route(
+  // The move refetches projects as the test ends; drained, teardown cannot
+  // force-continue this fetch-then-fulfill and fail it as already handled.
+  await routeWithDrain(
+    page,
     (url) => url.pathname === "/api/projects",
     async (route) => {
       if (route.request().method() !== "GET") return route.fallback();

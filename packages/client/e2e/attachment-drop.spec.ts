@@ -1,7 +1,5 @@
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
 
 test.setTimeout(90_000);
@@ -16,28 +14,21 @@ test.afterAll(() => presentUiCaptures());
 test("file drops stage draft attachments in new and existing sessions", async ({
   browser,
 }) => {
-  const owned = await createCodexCreationFixture(false);
+  // The built client: a per-attempt Vite server compiled the session route on
+  // first navigation, which under CI load outlasted the 5 s waits below.
+  const owned = await createCodexCreationFixture(
+    false,
+    false,
+    {},
+    { serveBuiltClient: true },
+  );
   const context = await browser.newContext({
     serviceWorkers: "block",
     viewport: { width: 1000, height: 600 },
     colorScheme: "dark",
   });
-  let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
   try {
-    vite = await createTestViteServer({
-      configFile: resolve("vite.config.ts"),
-      root: process.cwd(),
-      server: {
-        host: "127.0.0.1",
-        hmr: false,
-        proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-      },
-    });
-    await vite.listen();
-    const address = vite.httpServer!.address();
-    if (!address || typeof address === "string")
-      throw Error("Missing owned listener");
-    const origin = `http://127.0.0.1:${address.port}`;
+    const origin = owned.server.baseUrl;
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -198,7 +189,6 @@ test("file drops stage draft attachments in new and existing sessions", async ({
     await release.dispose();
   } finally {
     await context.close();
-    await vite?.close();
     await owned.close();
   }
 });

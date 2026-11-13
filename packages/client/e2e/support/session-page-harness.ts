@@ -5,6 +5,7 @@ import {
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
 import { e2ePaths, expect } from "../fixtures.js";
+import { routeWithDrain } from "./managed-routes.js";
 
 /**
  * Opens the seeded `mock-session-001` session with its transcript, owner and
@@ -116,7 +117,10 @@ export async function openSessionPage(
       ? route.fulfill({ json: { complete: true } })
       : route.fallback(),
   );
-  await page.route(
+  // Fetch-then-fulfill: drained, so a read still in flight at teardown is not
+  // force-continued and then failed as already handled.
+  await routeWithDrain(
+    page,
     new RegExp(
       `/api/projects/[^/]+/sessions/${sessionId}(?:/metadata)?(?:\\?|$)`,
     ),
