@@ -201,7 +201,8 @@ function runningRecord(node, records = recordedInstances()) {
   return records.find(
     (entry) =>
       resolve(entry.dataDir ?? "") === node.dataDir &&
-      entry.status === "running",
+      // Windows has no `ps` to verify identity with; a live PID is its best.
+      (entry.status === "running" || entry.status === "unverified"),
   );
 }
 
