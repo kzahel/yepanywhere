@@ -19,7 +19,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useLocalAuthControls } from "../../hooks/useLocalAuthControls";
 import { useRemoteBasePath } from "../../hooks/useRemoteBasePath";
 import {
   peerConnectionsApi,
@@ -144,6 +145,8 @@ function Host({
 export function ServerConnectionsSettings() {
   const { t } = useI18n();
   const { version } = useVersion();
+  const localAuth = useLocalAuthControls();
+  const navigate = useNavigate();
   const supportsRefresh = serverHasCapability(
     version,
     SERVER_CAPABILITIES.peerAuthenticationRefresh,
@@ -372,8 +375,32 @@ export function ServerConnectionsSettings() {
     }
   };
   const selectedPeer = data?.peers.find((peer) => peer.serverId === details);
-  if (!data)
+  if (!data) {
+    // Peer administration needs owner proof even when the UI password is off
+    // (topics/peer-access.md), so an auth-off load failure needs a next step.
+    if (error && localAuth.ready && !localAuth.authEnabled)
+      return (
+        <div role="alert" className={styles.root}>
+          <p>
+            {t(
+              localAuth.authDisabledByEnv
+                ? "connectionsAuthDisabledByFlag"
+                : "connectionsNeedsOwnerPassword",
+            )}
+          </p>
+          {!localAuth.authDisabledByEnv && (
+            <div>
+              <Button
+                onClick={() => navigate(`${basePath}/settings/local-access`)}
+              >
+                {t("connectionsOpenLocalAccess")}
+              </Button>
+            </div>
+          )}
+        </div>
+      );
     return <p role={error ? "alert" : "status"}>{error || t("loading")}</p>;
+  }
   return (
     <div className={styles.root}>
       <header className={styles.header}>
