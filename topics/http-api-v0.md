@@ -627,7 +627,9 @@ admission can name a session before it starts or refuses it. Until the target
 accepts the creation, the peer that requested it can read and follow the
 receipt through `dispatching` and `queued`, and a refused creation stays
 readable: its `failed` state and failure explain the refusal even though the
-named session never existed. One peer cannot
+named session never existed. An `uncertain` creation is readable the same way
+while its named session is listed in no project; once that session exists,
+current access to it is required again. One peer cannot
 read another peer's receipts even if both may view the same project. A peer's
 relationship response exposes only its own creation receipt and no target-local
 initiated relationships. The operator retains the full local view. Foreign
@@ -972,7 +974,9 @@ to discovery implicitly.
   pool; manual selection needs an account. Explicit selection also needs a
   model id from that selection's catalog, since the router has no default
   model; without one the receipt fails with `admission_rejected` and a message
-  saying to name a model. Explicit selection takes precedence
+  saying to name a model. A project whose directory no longer exists on the
+  target is refused the same way, naming the path, since the catalog keeps a
+  project while its transcripts remain. Explicit selection takes precedence
   over caller inheritance and may deliberately select another provider's
   routed pool. Without explicit selection, a local routed caller retains its
   pool/policy or explicit account, with its model when omitted; a provider

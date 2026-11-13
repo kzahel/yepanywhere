@@ -34,6 +34,11 @@ export function nativeSessionCommandOwner(deps: {
   callerLaunch?: (
     sessionId: string,
   ) => { routerBinding?: RouterBindingRef; model?: string } | undefined;
+  /**
+   * Whether a catalog project's directory still exists. The catalog keeps a
+   * project while its transcripts remain, after the directory is gone.
+   */
+  projectDirectoryExists?: (path: string) => Promise<boolean>;
 }): SessionCommandOwner {
   type Watch = {
     pending: Map<string, { consumed: () => void; ended: () => void }>;
@@ -228,6 +233,15 @@ export function nativeSessionCommandOwner(deps: {
               "Name a model: a session started from a router session needs one its router account offers.",
           };
       }
+      // No provider can start here; a refusal, not an uncertain launch.
+      if (
+        deps.projectDirectoryExists &&
+        !(await deps.projectDirectoryExists(project.path))
+      )
+        return {
+          rejected: true,
+          message: `The project's directory no longer exists on this server: ${project.path}`,
+        };
       // The router has no default model; say so here, in v0's terms, before
       // its own refusal reaches the receipt worded for the settings UI.
       if (explicitRouter && !model)

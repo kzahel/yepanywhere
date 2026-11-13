@@ -502,6 +502,7 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
       getProcessForSession: () => undefined,
     } as never,
     globalInstructions: () => undefined,
+    projectDirectoryExists: async (path) => path !== "/removed",
     callerLaunch: (id) =>
       id === "parent"
         ? {
@@ -599,6 +600,26 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
       failure: {
         code: "admission_rejected",
         message: expect.stringContaining("Name a model"),
+      },
+    });
+    expect(startSession).toHaveBeenCalledTimes(2);
+    // The catalog keeps a project whose directory is gone; nothing can start.
+    const removed = commands.create(
+      { id: "gone", name: "Removed", path: "/removed" },
+      createSessionRequest.parse({
+        requestId: "removed-directory",
+        projectId: "gone",
+        provider: "claude",
+        prompt: "child work",
+      }),
+      launch,
+    );
+    await commands.idle();
+    expect(store.get(removed.id)).toMatchObject({
+      state: "failed",
+      failure: {
+        code: "admission_rejected",
+        message: expect.stringContaining("no longer exists"),
       },
     });
     expect(startSession).toHaveBeenCalledTimes(2);

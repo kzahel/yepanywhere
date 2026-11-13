@@ -61,6 +61,11 @@ export class SessionCommands {
     private readonly owner: SessionCommandOwner,
     readonly enabled: () => boolean,
     private readonly onError: (error: unknown) => void = () => {},
+    /** A launch that ended without an outcome; the receipt hides raw errors. */
+    private readonly onLaunchFailure: (
+      receiptId: string,
+      reason: unknown,
+    ) => void = () => {},
   ) {
     store.recoverInterrupted();
   }
@@ -136,8 +141,9 @@ export class SessionCommands {
       if (this.disposed) return;
       this.store.update(receipt.id, { state: "accepted", sessionId });
     };
-    const failed = () => {
+    const failed = (reason?: unknown) => {
       if (this.disposed) return;
+      this.onLaunchFailure(receipt.id, reason);
       const current = this.store.get(receipt.id);
       if (current?.state === "accepted" && current.sessionId) {
         this.ended(receipt.id);

@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { SessionCommands } from "./session-commands.js";
 import { nativeSessionCommandOwner } from "./native-session-commands.js";
 import type { ApiReceiptStore } from "./receipt-store.js";
@@ -31,6 +32,11 @@ export function createProductionApiCommands(
         true,
       creations: options.sessionMetadataService?.creations,
       callerLaunch: agentApiCallerLaunch(options, supervisor),
+      projectDirectoryExists: (path) =>
+        stat(path).then(
+          (entry) => entry.isDirectory(),
+          () => false,
+        ),
       globalInstructions: () =>
         effectiveGlobalInstructions(options.serverSettingsService),
     }),
@@ -41,6 +47,21 @@ export function createProductionApiCommands(
       getLogger().error(
         { error },
         "Agent API command outcome persistence failed",
+      ),
+    // The receipt says only that the outcome is uncertain; say why here.
+    (receiptId, reason) =>
+      getLogger().warn(
+        {
+          event: "agent_api_launch_failed",
+          receiptId,
+          reason:
+            reason instanceof Error
+              ? (reason.stack ?? reason.message)
+              : reason === undefined
+                ? "no reason reported"
+                : String(reason),
+        },
+        "Agent API session launch ended without a durable outcome",
       ),
   );
 }
