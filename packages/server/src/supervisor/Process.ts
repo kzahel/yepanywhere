@@ -98,6 +98,7 @@ import {
   type LivenessProbeResult,
   type LivenessProcessState,
 } from "./liveness.js";
+import { type LocalNotice, buildLocalNoticeMessage } from "./local-notice.js";
 import { isResumeDropsTurnRefusalText } from "./resume-truncation.js";
 import type {
   AgentActivity,
@@ -2667,13 +2668,7 @@ export class Process {
    * persisted, so a reload never shows less than the live view did.
    */
   private async publishLocalNotice(
-    notice: {
-      content: string;
-      details?: string[];
-      detailsOpen?: boolean;
-      tempId?: string;
-      providerCommandText?: string;
-    },
+    notice: LocalNotice,
     persist?: (message: DurableLocalCommandMessage) => Promise<void>,
   ): Promise<DurableLocalCommandMessage> {
     const previousPublication = this.localNoticePublication;
@@ -2694,27 +2689,11 @@ export class Process {
               !message.isSynthetic &&
               (message.type === "assistant" || message.type === "user"),
           )?.uuid;
-      const id = randomUUID();
-      const message: DurableLocalCommandMessage = {
-        type: "system",
-        subtype: "local_command",
-        content: notice.content,
-        ...(notice.details ? { details: notice.details } : {}),
-        ...(notice.detailsOpen ? { detailsOpen: true } : {}),
-        session_id: this._sessionId,
-        uuid: id,
-        id,
-        timestamp: new Date().toISOString(),
-        ...(notice.tempId !== undefined ? { tempId: notice.tempId } : {}),
-        ...(notice.providerCommandText
-          ? { providerCommandText: notice.providerCommandText }
-          : {}),
-        ...(typeof placementAfterMessageId === "string"
-          ? { placementAfterMessageId }
-          : {}),
-        isMeta: false,
-        isSynthetic: true,
-      };
+      const message = buildLocalNoticeMessage(
+        notice,
+        this._sessionId,
+        placementAfterMessageId,
+      );
       await persist?.(message);
       this.bufferForReplay(message as SDKMessage);
       this.emit({ type: "message", message: message as SDKMessage });

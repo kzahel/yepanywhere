@@ -2205,25 +2205,18 @@ export class ClaudeProvider implements AgentProvider {
         if (!native) return { handled: false };
         // One goal command at a time: pause and resume each read the state
         // they are about to change.
-        const operation = goalCommandTail.then(async () => {
-          let providerCommandText: string | undefined;
-          const result = await runClaudeGoalCommand(argument, {
+        const operation = goalCommandTail.then(() =>
+          runClaudeGoalCommand(argument, {
             tracker: goalTracker,
             // Goal text is a Claude local command, not a visible user turn. It
             // takes the most urgent lane because the lower lanes wait for a
             // boundary a goal loop never reaches: releasing the Stop hook is
             // what ends the turn, and that release is the message itself.
             send: (text) => {
-              providerCommandText = text;
               queue.push({ text, priority: "now", metadata: { hidden: true } });
             },
-          });
-          // Claude persists the hidden line as a command row; the receipt
-          // names it so a reload shows the receipt alone.
-          return providerCommandText
-            ? { ...result, providerCommandText }
-            : result;
-        });
+          }),
+        );
         goalCommandTail = operation.then(
           () => {},
           () => {},

@@ -347,8 +347,26 @@ function goalStatusLabel(status: ClaudeGoalStatus | null): string {
  * clears the Stop hook and reinstalls the remembered objective. Every receipt
  * describes the confirmed state, or says the transition is still unconfirmed —
  * a refused command never reports success.
+ *
+ * Claude persists each line sent as a command row of its own. The result
+ * names the last one so the receipt can stand in for that row on reload.
  */
 export async function runClaudeGoalCommand(
+  argument: string | undefined,
+  deps: ClaudeGoalCommandDeps,
+): Promise<ProviderCommandResult> {
+  let providerCommandText: string | undefined;
+  const result = await runGoalControl(argument, {
+    ...deps,
+    send: (text) => {
+      providerCommandText = text;
+      deps.send(text);
+    },
+  });
+  return providerCommandText ? { ...result, providerCommandText } : result;
+}
+
+async function runGoalControl(
   argument: string | undefined,
   deps: ClaudeGoalCommandDeps,
 ): Promise<ProviderCommandResult> {

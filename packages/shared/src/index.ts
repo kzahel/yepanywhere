@@ -1222,14 +1222,14 @@ export type {
   InputRequest,
   // Recents types
   EnrichedRecentEntry,
-  // Connected browser types
+} from "./app-types.js";
+export type {
   ConnectionInfo,
   ConnectionsResponse,
-  // Browser profile types
   BrowserProfileOrigin,
   BrowserProfileInfo,
   BrowserProfilesResponse,
-} from "./app-types.js";
+} from "./browser-connections.js";
 
 export type {
   ToolDisplayAction,

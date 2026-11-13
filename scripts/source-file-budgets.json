@@ -9,7 +9,7 @@
       "maxLines": 1693
     },
     "packages/client/src/components/FileViewer.tsx": {
-      "maxLines": 2465
+      "maxLines": 2462
     },
     "packages/client/src/components/LocalMediaModal.tsx": {
       "maxLines": 1899
@@ -46,7 +46,7 @@
       "maxLines": 2199
     },
     "packages/client/src/lib/connection/RelayProtocol.ts": {
-      "maxLines": 1621
+      "maxLines": 1620
     },
     "packages/client/src/lib/connection/SecureConnection.ts": {
       "maxLines": 2095
@@ -61,7 +61,7 @@
       "maxLines": 1642
     },
     "packages/client/src/pages/SessionPage.tsx": {
-      "maxLines": 3602
+      "maxLines": 3601
     },
     "packages/client/src/pages/settings/AppearanceSettings.tsx": {
       "maxLines": 1807
@@ -136,7 +136,7 @@
       "maxLines": 1877
     },
     "packages/server/src/supervisor/Process.ts": {
-      "maxLines": 6582
+      "maxLines": 6566
     },
     "packages/server/src/supervisor/Supervisor.ts": {
       "maxLines": 6953
