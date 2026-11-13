@@ -589,6 +589,19 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
       "routerAccountId",
       "acct",
     );
+    // The router has no default model, so an explicit selection must name one.
+    expect(
+      await create("explicit-pool-no-model", "codex", {
+        routerPoolId: "other-pool",
+      }),
+    ).toMatchObject({
+      state: "failed",
+      failure: {
+        code: "admission_rejected",
+        message: expect.stringContaining("Name a model"),
+      },
+    });
+    expect(startSession).toHaveBeenCalledTimes(2);
   } finally {
     store.close();
     database.close();

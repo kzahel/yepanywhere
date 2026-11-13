@@ -962,7 +962,10 @@ to discovery implicitly.
   Observations may be stale and launch rechecks eligibility and router grants.
 - Creation additionally accepts `routerPoolId`, `routerAccountId`,
   `routerPolicy` and the app's explicit Claude connector choice. Policy needs a
-  pool; manual selection needs an account. Explicit selection takes precedence
+  pool; manual selection needs an account. Explicit selection also needs a
+  model id from that selection's catalog, since the router has no default
+  model; without one the receipt fails with `admission_rejected` and a message
+  saying to name a model. Explicit selection takes precedence
   over caller inheritance and may deliberately select another provider's
   routed pool. Without explicit selection, a local routed caller retains its
   pool/policy or explicit account, with its model when omitted; a provider

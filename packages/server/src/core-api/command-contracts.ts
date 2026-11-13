@@ -38,7 +38,7 @@ export const createSessionRequest = z
       .max(256)
       .optional()
       .describe(
-        "Native/YA model selector; omitted or default uses the harness default. No installation or protocol upgrade is performed.",
+        "Native/YA model selector; omitted or default uses the harness default. Required with routerPoolId or routerAccountId: name a model id from that selection's catalog. No installation or protocol upgrade is performed.",
       ),
     thinking: z
       .enum([

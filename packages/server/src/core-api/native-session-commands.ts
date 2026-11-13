@@ -228,6 +228,14 @@ export function nativeSessionCommandOwner(deps: {
               "Name a model: a session started from a router session needs one its router account offers.",
           };
       }
+      // The router has no default model; say so here, in v0's terms, before
+      // its own refusal reaches the receipt worded for the settings UI.
+      if (explicitRouter && !model)
+        return {
+          rejected: true,
+          message:
+            "Name a model: a router pool or account needs a model id from its selection catalog.",
+        };
       let result: Awaited<ReturnType<Supervisor["startSession"]>>;
       try {
         result = await deps.supervisor.startSession(
