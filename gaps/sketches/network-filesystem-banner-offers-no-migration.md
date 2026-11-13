@@ -62,6 +62,8 @@ What makes the move itself its own piece of work rather than a banner tweak:
   location is recorded so the next start finds it is the open design question.
   `YEP_DATA_DIR` lives in the launcher's environment and the server cannot set
   it for itself, so this may need a pointer file that `getDataDir` consults.
+  [First-start placement](first-start-data-directory-placement.md) proposes
+  a symlink at `~/.yep-anywhere` instead, which needs no new lookup.
 - **The old directory must not be deleted by YA.** A copy that leaves the
   original in place is recoverable; anything else is a destructive action on the
   user's only copy of their session metadata.
