@@ -198,6 +198,17 @@ quota and needs `--model`, since the router has no default model. `down
 stopped leaves its integration for you to revoke in the router. `smoke` exits
 1 when any check fails and prints each failure; `--json` gives every result.
 
+`pnpm mesh:testbed agent --model ID` measures the API and its documentation
+through a real agent. It starts a session on node `a` with a goal and no
+instructions about the API: start one session on node `b` that replies with a
+set token, wait for the reply, stop it, and report. The agent has only the
+bootstrap any eligible YA session receives. The grade is read from node `b`'s
+own records (one session attributed to that agent, the reply, its routing and
+that it stopped) and then compared with the agent's report. `--driver-model`
+gives the agent a different model from the worker; `--provider codex` runs
+both on Codex. The agent runs in bypass-permissions mode in node `a`'s scratch
+project, since it needs a shell to call the API.
+
 ## Provider & Feature Configuration
 
 Server Connections is available without environment configuration. Pair devices

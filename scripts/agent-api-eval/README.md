@@ -221,6 +221,22 @@ from the retained HTTP traces, including those historical reports. This qualifie
 or a statistical model comparison; inspect comparison results separately from
 per-task success.
 
+## A real agent on a real mesh
+
+The fixture trials above supply a scripted server and judge an isolated model.
+`pnpm mesh:testbed agent`
+([local development](../../docs/development/local-development.md#local-mesh-testbed))
+is the complementary check: real paired servers, a real routed provider on
+both ends, the shipped bootstrap as the agent's only instruction, and a grade
+read from the target server's records. It answers whether an agent that knows
+nothing but its goal can find another server, start work there, verify it and
+stop it. It spends account quota and is run by hand, like the trials here.
+
+On 2026-11-13, on three standalone macOS profiles, Claude Haiku 5.5 driving
+and working passed all seven checks in three of three runs, in about 35
+seconds each, and Codex `gpt-6-luna` passed all seven in one run of 90 seconds.
+Three runs establish that the path works, not a success rate.
+
 ## Native cross-host control qualification
 
 `test/native-provider/native-v0-peer-target.test.ts` is an explicit opt-in

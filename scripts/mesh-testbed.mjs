@@ -47,6 +47,11 @@ Commands:
   router    Connect each node to the local Agent Auth Router and grant it
             the named pools, so sessions can run without a provider login.
             Needs the router's CLI: set AAR_CLI if "aar" is not on PATH.
+  agent     Give a real agent on the first node one task and nothing but
+            YA's ordinary API bootstrap: start a session on the second node,
+            get a set reply, stop it, report. Graded from the second node's
+            own records. Needs "router" and --model; --driver-model picks
+            the agent's model when it should differ from the worker's.
   down      Stop the nodes and keep their data. --purge also disconnects
             each node from the router and removes its data.
 
@@ -64,6 +69,7 @@ Options:
   --model ID         smoke --inference: model id from the pool's catalog
                      (required; the router has no default model)
   --pool NAME        smoke --inference: router pool (default: first granted)
+  --driver-model ID  agent: the driving agent's model (default: --model)
   --purge            down: remove the nodes' data directories
 
 Node data lives in ~/.yep-anywhere-NAME-<node>. Its testbed/ subdirectory
@@ -102,6 +108,7 @@ function parseArgs(argv) {
     else if (arg === "--provider") options.provider = value();
     else if (arg === "--model") options.model = value();
     else if (arg === "--pool") options.pool = value();
+    else if (arg === "--driver-model") options.driverModel = value();
     else if (arg === "-h" || arg === "--help") options.command = "help";
     else fail(`unknown option ${arg}\n\n${USAGE}`);
   }
@@ -885,6 +892,221 @@ async function smoke(options) {
   if (failed.length) process.exit(1);
 }
 
+const AGENT_DEADLINE_MS = 420_000;
+
+/**
+ * Documentation and API usability, measured end to end: the agent is told
+ * what to achieve and never how. It has only what any eligible YA session
+ * gets, and the grade comes from the target's records, not the agent's word.
+ */
+async function agent(options) {
+  const nodes = describeNodes(options);
+  const [source, target] = nodes;
+  if (!options.model)
+    fail("agent needs --model (and optionally --driver-model)");
+  const provider = options.provider ?? "claude";
+  const from = await connect(source);
+  const to = await connect(target);
+  const sourceId = readState(source).serverId;
+  const targetId = readState(target).serverId;
+  const token = `MESH-AGENT-${randomBytes(4).toString("hex").toUpperCase()}`;
+  const results = [];
+  const check = (name, problem, note) =>
+    results.push({
+      check: name,
+      ok: !problem,
+      problems: problem ? [problem] : [],
+      ...(note ? { note } : {}),
+    });
+  const finish = () => {
+    const failed = results.filter((result) => !result.ok);
+    if (options.json) console.log(JSON.stringify(results, null, 2));
+    else {
+      for (const result of results)
+        console.log(
+          `${result.ok ? "ok  " : "FAIL"} ${result.check}${
+            result.problems.length ? `: ${result.problems.join("; ")}` : ""
+          }${result.note ? ` (${result.note})` : ""}`,
+        );
+      console.log(
+        `${results.length - failed.length}/${results.length} agent checks passed`,
+      );
+    }
+    if (failed.length) process.exit(1);
+  };
+  const listed = async (client) =>
+    (await client.expect("/v0/servers/self/sessions?limit=100")).json.items;
+
+  const pool = (
+    await from.expect(`/v0/servers/self/selection?provider=${provider}`)
+  ).json.pools?.find(
+    (entry) =>
+      !options.pool || entry.name === options.pool || entry.id === options.pool,
+  );
+  if (!pool)
+    fail(`${source.name} offers no ${provider} router pool; run "router"`);
+  const before = new Set((await listed(to)).map((session) => session.id));
+  const started = Date.now();
+  const task = [
+    "This session can reach a Yep Anywhere HTTP API, and through it one or more other Yep Anywhere servers.",
+    `On the other server whose id is ${targetId}, start exactly one new ${provider} session in that server's project.`,
+    `Use that server's router pool and the model ${options.model}, and give it this prompt: Reply with exactly this text and nothing else: ${token}`,
+    "Wait until that session has replied, then stop it and confirm from the API that it stopped.",
+    "Do not start a second session, and do not read or change anything else.",
+    'Finish with one line of JSON and nothing after it: {"serverId": "<its server id>", "sessionId": "<the session you started>", "reply": "<its reply>", "stopped": <true or false>}',
+  ].join("\n");
+  const created = await from.request("/v0/servers/self/sessions", {
+    method: "POST",
+    headers: { "Idempotency-Key": `mesh-agent-${token}` },
+    body: {
+      projectId: readState(source).projectId,
+      provider,
+      prompt: task,
+      // The agent needs its shell for the API; the scratch project is its cwd.
+      permissionMode: "bypassPermissions",
+      routerPoolId: pool.id,
+      model: options.driverModel ?? options.model,
+    },
+  });
+  if (created.status !== 202) {
+    check(
+      "agent launch",
+      `status ${created.status} ${created.text.slice(0, 200)}`,
+    );
+    return finish();
+  }
+  const deadline = started + AGENT_DEADLINE_MS;
+  let driverId;
+  let report;
+  let lastText = "";
+  try {
+    for (;;) {
+      const receipt = (
+        await from.expect(`/v0/servers/self/receipts/${created.json.id}`)
+      ).json;
+      if (receipt.state === "failed" || receipt.state === "uncertain")
+        throw new Error(
+          `launch ${receipt.state}: ${receipt.failure?.code} ${receipt.failure?.message}`,
+        );
+      if (receipt.state === "accepted" && receipt.sessionId) {
+        driverId = receipt.sessionId;
+        break;
+      }
+      if (Date.now() > deadline) throw new Error("launch did not settle");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    check("agent launch", undefined, `session ${driverId} on ${source.name}`);
+  } catch (error) {
+    check("agent launch", String(error?.message ?? error));
+    return finish();
+  }
+  for (;;) {
+    const conversation = await from.request(
+      `/v0/servers/self/sessions/${driverId}/conversation?maxMessages=50`,
+    );
+    const texts = (conversation.json?.messages ?? [])
+      .filter((message) => message.role === "agent")
+      .flatMap((message) => message.content.map((part) => part.text ?? ""));
+    lastText = texts.at(-1) ?? lastText;
+    for (const text of texts.reverse()) {
+      const match = text.match(/\{[^{}]*"sessionId"[^{}]*\}/);
+      if (!match) continue;
+      try {
+        report = JSON.parse(match[0]);
+      } catch {
+        /* Not the final line yet. */
+      }
+      if (report) break;
+    }
+    if (report && conversation.json.activity === "idle") break;
+    if (Date.now() > deadline) break;
+    await from.request(
+      `/v0/servers/self/sessions/${driverId}/conversation/follow?waitMs=4000`,
+    );
+  }
+  const seconds = Math.round((Date.now() - started) / 1000);
+  check(
+    "agent finished",
+    report
+      ? undefined
+      : `no final JSON line within ${AGENT_DEADLINE_MS / 1000}s; last said: ${lastText.slice(-240)}`,
+    `${seconds}s`,
+  );
+
+  // Ground truth: what the target recorded, whatever the agent claims.
+  const mine = [];
+  for (const session of await listed(to)) {
+    if (before.has(session.id)) continue;
+    const creation = (
+      await to.expect(`/v0/servers/self/sessions/${session.id}/relationships`)
+    ).json.creation;
+    if (
+      creation?.creator?.serverId === sourceId &&
+      creation.creator.sessionId === driverId
+    )
+      mine.push(session);
+  }
+  check(
+    "one remote session",
+    mine.length === 1
+      ? undefined
+      : `the target records ${mine.length} sessions created by the agent`,
+    mine[0] ? `session ${mine[0].id} on ${target.name}` : undefined,
+  );
+  if (mine[0]) {
+    const remote = mine[0];
+    const conversation = (
+      await to.expect(`/v0/servers/self/sessions/${remote.id}/conversation`)
+    ).json;
+    check(
+      "remote reply",
+      conversation.messages.some(
+        (message) =>
+          message.role === "agent" &&
+          message.content.some((part) => part.text?.includes(token)),
+      )
+        ? undefined
+        : "the remote session never replied with the token",
+    );
+    const detail = (await to.expect(`/v0/servers/self/sessions/${remote.id}`))
+      .json;
+    check(
+      "remote routing",
+      // A stopped session reports its saved request; `model` is live-only.
+      detail.routing?.mode === "aar" &&
+        detail.settings?.requestedModel === options.model
+        ? undefined
+        : `routing ${detail.routing?.mode}, model ${detail.settings?.requestedModel}`,
+    );
+    check(
+      "remote stopped",
+      detail.state === "not-running"
+        ? undefined
+        : `the remote session is ${detail.state}`,
+    );
+    check(
+      "agent report",
+      report?.sessionId === remote.id &&
+        report.serverId === targetId &&
+        String(report.reply).includes(token) &&
+        report.stopped === true
+        ? undefined
+        : `reported ${JSON.stringify(report)}`,
+    );
+  }
+  // Leave nothing running: the agent itself, and anything it left behind.
+  for (const [client, id] of [
+    [from, driverId],
+    ...mine.map((session) => [to, session.id]),
+  ])
+    await client.request(`/v0/servers/self/sessions/${id}/stop`, {
+      method: "POST",
+      headers: { "Idempotency-Key": `mesh-agent-cleanup-${id}` },
+      body: {},
+    });
+  finish();
+}
+
 /** The router's owner CLI; grants are an owner act the node cannot perform. */
 function routerOwner(operation, body = {}) {
   const [command, ...args] = (process.env.AAR_CLI ?? "aar")
@@ -1008,6 +1230,7 @@ try {
   else if (options.command === "status") await status(options);
   else if (options.command === "smoke") await smoke(options);
   else if (options.command === "router") await router(options);
+  else if (options.command === "agent") await agent(options);
   else if (options.command === "down") await down(options);
   else {
     console.log(USAGE);
