@@ -33,7 +33,10 @@ export async function readCodexAsyncQuestions(
   if (isCompressedCodexRolloutPath(filePath)) return undefined;
   const stats = await stat(filePath);
   const result = await previews.run({
-    key: filePath,
+    // Callers reach one rollout through different spellings (a symlinked
+    // sessions directory, /tmp vs /private/tmp); keying by file identity
+    // lets them share one scan per version instead of each rereading it.
+    key: `${stats.dev}:${stats.ino}`,
     sourceVersion: version(stats),
     isCurrent: async (sourceVersion) =>
       version(await stat(filePath)) === sourceVersion,
@@ -92,6 +95,9 @@ export async function readCodexAsyncQuestions(
         const message = getCodexAsyncAgentMessageItem(entry);
         if (!message?.questions || seen.has(message.id)) continue;
         seen.add(message.id);
+        const askedAt = Number.isFinite(Date.parse(entry.timestamp))
+          ? entry.timestamp
+          : undefined;
         for (let index = message.questions.length - 1; index >= 0; index--) {
           const question = message.questions[index]!;
           if (replies.delete(quoteReplyKey(question.title))) continue;
@@ -100,6 +106,7 @@ export async function readCodexAsyncQuestions(
             index,
             title: question.title.slice(0, 320),
             age,
+            ...(askedAt ? { askedAt } : {}),
           });
           if (questions.length === MAX_QUESTIONS) break;
         }

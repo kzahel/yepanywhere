@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import {
   collectAsyncQuestions,
+  getQuestionElapsedMs,
   getQuestionReminderStage,
+  QUESTION_REMINDER_MAX_AGE_MS,
 } from "./asyncQuestions";
 
 describe("async question reminders", () => {
@@ -17,6 +19,7 @@ describe("async question reminders", () => {
           {
             type: "assistant",
             uuid: "question-message",
+            timestamp: "2026-11-10T08:00:00.000Z",
             codexAgentMessageDelivery: "async",
             codexAsyncQuestions: [
               { title: "Choose a color", options: ["Blue", "Green"] },
@@ -40,11 +43,17 @@ describe("async question reminders", () => {
       },
     ];
     const questions = collectAsyncQuestions(items);
+    const askedAtMs = Date.parse("2026-11-10T08:00:00.000Z");
     expect(
-      questions.map(({ title, age, renderId }) => ({ title, age, renderId })),
+      questions.map(({ title, age, renderId, askedAtMs }) => ({
+        title,
+        age,
+        renderId,
+        askedAtMs,
+      })),
     ).toEqual([
-      { title: "Choose a color", age: 1, renderId: "question-text" },
-      { title: "Anything else?", age: 1, renderId: "question-text" },
+      { title: "Choose a color", age: 1, renderId: "question-text", askedAtMs },
+      { title: "Anything else?", age: 1, renderId: "question-text", askedAtMs },
     ]);
     expect(collectAsyncQuestions([items[0]!, ...items])).toHaveLength(2);
   });
@@ -128,5 +137,38 @@ describe("async question reminders", () => {
     expect(getQuestionReminderStage(0, 160)).toBe("quiet");
     expect(getQuestionReminderStage(8, 0)).toBe("retired");
     expect(getQuestionReminderStage(0, 600)).toBe("retired");
+  });
+
+  it("retires a question by its age when no turns follow it", () => {
+    const now = Date.parse("2026-11-13T08:00:00.000Z");
+    const day = 24 * 60 * 60 * 1000;
+    const stale = now - QUESTION_REMINDER_MAX_AGE_MS;
+    expect(
+      getQuestionReminderStage(0, 0, 3, getQuestionElapsedMs({}, now)),
+    ).toBe("recent");
+    expect(
+      getQuestionReminderStage(
+        0,
+        0,
+        3,
+        getQuestionElapsedMs({ askedAtMs: now - day }, now),
+      ),
+    ).toBe("recent");
+    expect(
+      getQuestionReminderStage(
+        0,
+        0,
+        3,
+        getQuestionElapsedMs({ askedAtMs: stale }, now),
+      ),
+    ).toBe("retired");
+    // Without its own time, a preview is at least as old as the session's
+    // last activity; its own time wins when present.
+    expect(
+      getQuestionElapsedMs({ sessionActivityMs: stale }, now),
+    ).toBe(QUESTION_REMINDER_MAX_AGE_MS);
+    expect(
+      getQuestionElapsedMs({ askedAtMs: now - day, sessionActivityMs: now }, now),
+    ).toBe(day);
   });
 });

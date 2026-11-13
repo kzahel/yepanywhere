@@ -250,9 +250,11 @@ icon and count with a full accessible label. There is no pulse or focus theft.
 The wider, viewport-capped menu opens upward and may cover the composer.
 Oldest questions appear at the top, newest at the bottom. Each ellipsized,
 single-line preview has an outlined background, a right-side worded
-**Dismiss** button, and a separator between rows. The row tooltip adds the
-question's age in turns once it is at least one turn old. **×** appears only
-in the menu heading, where it closes the menu.
+**Dismiss** button, and a separator between rows. When the question's time
+is known, the row shows how long ago it was asked (**2h**, **3d**) at its
+trailing edge; the row tooltip adds the question's age in turns once it is at
+least one turn old. **×** appears only in the menu heading, where it closes
+the menu.
 Opening focuses the newest row; arrow keys navigate and Escape closes.
 
 **Dismiss** silently dismisses a reminder without navigating, deleting
@@ -281,6 +283,11 @@ no separate feature-enable setting. For a positive value `n`:
 - A text change counts once; unchanged notifications and clearing to empty
   do not count. Inline answer typing does not age reminders. Whichever turn
   or edit threshold arrives first governs each stage.
+- Turns never advance in a session left idle, so a question also reaches the
+  retired stage three days after it was asked, whatever its turn and edit
+  ages. A question without its own time is aged from its session's last
+  activity, which it cannot postdate; with neither, only turns and edits
+  age it.
 - A focused button or open menu is not retired underneath the interaction.
   New questions restore visibility without reviving old aged/dismissed counts.
 
@@ -308,7 +315,10 @@ window aging out. Dismissal without a sent quote reply remains local state.
 The server's existing bounded recent-question scan excludes questions answered
 by this same quote-reply rule, so unopened-session reminders also recover after
 client storage loss. It compares full titles before clipping previews and
-introduces no new response fields or capability. Older servers may still show
+introduces no new capability. Each preview carries an optional `askedAt`, the
+question message's recorded time; absent from older servers and from
+projections persisted before it existed, it falls back to session activity as
+described under reminder duration. Older servers may still show
 collection reminders until the new client opens that transcript and saves its
 recovered answers locally.
 
@@ -329,7 +339,8 @@ title text only, and they remain visible and clickable while it is shown.
 
 Click or right-click a count to open previews directly. Aggregate menus group
 questions by session, with the most recently updated session last; questions
-within each group remain oldest-first. Compact counts retain an icon and
+within each group remain oldest-first. Each session heading shows how long ago
+that session was last active. Compact counts retain an icon and
 accessible description. Where space is tightest — a sidebar session row, the
 sidebar Inbox entry, a crowded composer — the control is the icon plus any
 current count and never spells out its name, so it cannot crowd out the title

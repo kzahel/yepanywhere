@@ -74,9 +74,13 @@ populate fields outside `SessionListSummary` is not.
 
 Codex question previews read bounded head metadata and at most the final 2 MiB,
 not a full parse. They stop at 128 questions or 32 subsequent user turns and
-retain only 320-character preview titles. A process-wide, source-versioned
+retain only 320-character preview titles, each with its message's recorded
+time when the line carries a valid one. A process-wide, source-versioned
 single-flight cache retains at most 8 MiB of preview results and rejects a
-result when the rollout's stat version changes during the read. Compressed
+result when the rollout's stat version changes during the read. It is keyed by
+file identity (device and inode), so callers that reach one rollout through
+different path spellings, such as a symlinked sessions directory, share one
+read per version. Compressed
 rollouts leave this optional projection unknown. A fresh indexed Codex row
 without the projection supplies its base facts to the lightweight reader, which
 acquires the question preview without rereading the transcript head. Dirty or

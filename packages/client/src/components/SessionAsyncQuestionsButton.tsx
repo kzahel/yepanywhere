@@ -8,6 +8,7 @@ import { useQuestionReminderTurns } from "../hooks/useQuestionReminderTurns";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
 import type { AsyncQuestion } from "../lib/asyncQuestions";
+import { parseTimestampMs } from "../lib/messageAge";
 import {
   type AsyncQuestionRecord,
   getQuestionRecords,
@@ -79,7 +80,10 @@ function QuestionButton({
     void revision;
     const questions: AsyncQuestion[] = [];
     const records: Record<string, AsyncQuestionRecord> = {};
-    const groupTitles = new Map<string, { id: string; title: string }>();
+    const groupTitles = new Map<
+      string,
+      { id: string; title: string; activityMs?: number }
+    >();
     const targets = new Map<
       string,
       {
@@ -107,20 +111,28 @@ function QuestionButton({
       const storageKey = questionStorageKey(sourceKey, row.id);
       const local = getQuestionRecords(storageKey);
       omitted ||= row.asyncQuestions?.omitted ?? false;
-      for (const preview of row.asyncQuestions?.questions ?? []) {
+      const activityMs = parseTimestampMs(row.updatedAt) ?? undefined;
+      for (const { askedAt, ...preview } of row.asyncQuestions?.questions ??
+        []) {
         const localId = JSON.stringify([preview.messageId, preview.index]);
         const id = JSON.stringify([row.id, preview.messageId, preview.index]);
+        const askedAtMs = parseTimestampMs(askedAt);
         questions.push({
           ...preview,
           id,
           renderId: preview.messageId,
           options: [],
+          ...(askedAtMs === null ? {} : { askedAtMs }),
+          ...(activityMs === undefined
+            ? {}
+            : { sessionActivityMs: activityMs }),
         });
         if (local[localId]) records[id] = local[localId]!;
         groupTitles.set(id, {
           id: row.id,
           title:
             row.customTitle || row.title || t("asyncQuestionSessionFallback"),
+          ...(activityMs === undefined ? {} : { activityMs }),
         });
         targets.set(id, {
           sessionId: row.id,

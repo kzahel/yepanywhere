@@ -61,6 +61,16 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.age,
+.groupAge {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-weight: normal;
+  white-space: nowrap;
+}
+.age {
+  margin-inline-start: auto;
+}
 .unseen {
   flex: 0 0 5px;
   block-size: 5px;

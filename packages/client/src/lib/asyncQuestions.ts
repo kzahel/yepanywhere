@@ -5,6 +5,7 @@ import {
   quoteReplyKey,
 } from "@yep-anywhere/shared/transcript/quoteReplies";
 import { contentBlocksText } from "@yep-anywhere/shared/transcript/slashCommandBodies";
+import { parseTimestampMs } from "./messageAge";
 
 export interface AsyncQuestion {
   id: string;
@@ -14,7 +15,29 @@ export interface AsyncQuestion {
   title: string;
   options: readonly string[];
   age: number;
+  /** When the question's message was recorded, when known. */
+  askedAtMs?: number;
+  /**
+   * The session's last activity, for a server preview that lacks the
+   * question's own time. The question is at least this old.
+   */
+  sessionActivityMs?: number;
   answer?: string;
+}
+
+/**
+ * A question this old stops reminding even when no turns follow it, as in a
+ * session left idle; turns alone never age it there.
+ */
+export const QUESTION_REMINDER_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Time since the question was asked (or, failing that, last activity). */
+export function getQuestionElapsedMs(
+  question: Pick<AsyncQuestion, "askedAtMs" | "sessionActivityMs">,
+  nowMs: number,
+): number | undefined {
+  const since = question.askedAtMs ?? question.sessionActivityMs;
+  return since === undefined ? undefined : Math.max(0, nowMs - since);
 }
 
 export type QuestionReminderStage = "recent" | "quiet" | "retired";
@@ -32,7 +55,10 @@ export function getQuestionReminderStage(
   turns: number,
   edits: number,
   reminderTurns = 3,
+  elapsedMs?: number,
 ): QuestionReminderStage {
+  if (elapsedMs !== undefined && elapsedMs >= QUESTION_REMINDER_MAX_AGE_MS)
+    return "retired";
   const limits = getQuestionReminderThresholds(reminderTurns);
   if (turns >= limits.overflowTurns || edits >= limits.overflowEdits)
     return "retired";
@@ -71,6 +97,7 @@ export function collectAsyncQuestions(
         const key = quoteReplyKey(question.title);
         const answer = turns.size < 32 ? replies.get(key) : undefined;
         replies.delete(key);
+        const askedAtMs = parseTimestampMs(message.timestamp);
         questions.push({
           id,
           messageId,
@@ -79,6 +106,7 @@ export function collectAsyncQuestions(
           title: question.title,
           options: question.options ?? [],
           age: turns.size,
+          ...(askedAtMs === null ? {} : { askedAtMs }),
           ...(answer === undefined ? {} : { answer }),
         });
       }

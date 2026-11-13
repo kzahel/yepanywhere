@@ -646,6 +646,11 @@ export interface AppSessionSummary
       index: number;
       title: string;
       age: number;
+      /**
+       * When the question's message was recorded. Absent from older servers
+       * and from projections persisted before the field existed.
+       */
+      askedAt?: string;
     }[];
     omitted: boolean;
   };

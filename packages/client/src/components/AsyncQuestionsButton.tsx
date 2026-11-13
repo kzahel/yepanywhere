@@ -2,11 +2,14 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ComposerOverflowTier } from "../hooks/useMessageInputToolbarLayout";
 import { useAsyncQuestions } from "../contexts/AsyncQuestionsContext";
 import { isQuestionAnswered } from "../lib/asyncQuestionRecords";
+import { useMinuteNow } from "../hooks/useRelativeNow";
 import { useI18n } from "../i18n";
 import {
+  getQuestionElapsedMs,
   getQuestionReminderStage,
   type AsyncQuestion,
 } from "../lib/asyncQuestions";
+import { formatCompactRelativeAge } from "../lib/messageAge";
 import styles from "./AsyncQuestions.module.css";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
 import { Menu, MenuItem } from "./ui/Menu";
@@ -50,10 +53,12 @@ function QuestionMenuRow({
   question,
   showDismissed,
   state,
+  nowMs,
 }: {
   question: AsyncQuestion;
   showDismissed: boolean;
   state: AsyncQuestionsMenuState;
+  nowMs: number;
 }) {
   const { t } = useI18n();
   const [contextPoint, setContextPoint] = useState<PopoverPoint | null>(null);
@@ -121,6 +126,11 @@ function QuestionMenuRow({
           onTouchCancel={clearTimer}
         >
           <span className={styles.previewText}>{question.title}</span>
+          {question.askedAtMs !== undefined && (
+            <span className={styles.age}>
+              {formatCompactRelativeAge(question.askedAtMs, nowMs)}
+            </span>
+          )}
           {!state.records[question.id]?.seen && (
             <span
               className={styles.unseen}
@@ -176,7 +186,10 @@ export function AsyncQuestionsButton({
   overflow?: boolean;
   compact?: ComposerOverflowTier;
   inventory?: AsyncQuestionsMenuState;
-  groupTitles?: ReadonlyMap<string, { id: string; title: string }>;
+  groupTitles?: ReadonlyMap<
+    string,
+    { id: string; title: string; activityMs?: number }
+  >;
   omitted?: boolean;
 }) {
   const context = useAsyncQuestions();
@@ -188,6 +201,14 @@ export function AsyncQuestionsButton({
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
+  const nowMs = useMinuteNow();
+  const stage = (question: AsyncQuestion) =>
+    getQuestionReminderStage(
+      question.age,
+      state?.records[question.id]?.edits ?? 0,
+      state?.reminderTurns,
+      getQuestionElapsedMs(question, nowMs),
+    );
   const pending =
     state?.questions.filter(
       (question) => !isQuestionAnswered(state.records[question.id]),
@@ -198,22 +219,8 @@ export function AsyncQuestionsButton({
   const reminders = pending.filter(
     (question) => !state?.records[question.id]?.dismissed,
   );
-  const recent = reminders.filter(
-    (question) =>
-      getQuestionReminderStage(
-        question.age,
-        state?.records[question.id]?.edits ?? 0,
-        state?.reminderTurns,
-      ) === "recent",
-  );
-  const retired = reminders.every(
-    (question) =>
-      getQuestionReminderStage(
-        question.age,
-        state?.records[question.id]?.edits ?? 0,
-        state?.reminderTurns,
-      ) === "retired",
-  );
+  const recent = reminders.filter((question) => stage(question) === "recent");
+  const retired = reminders.every((question) => stage(question) === "retired");
   const newest = recent.reduce<AsyncQuestion | undefined>(
     (youngest, question) =>
       !youngest || question.age <= youngest.age ? question : youngest,
@@ -365,12 +372,22 @@ export function AsyncQuestionsButton({
                   groupTitles.get(visible[index - 1]!.id)?.id !==
                     groupTitles.get(question.id)?.id) && (
                   <li className={styles.groupHeading}>
-                    {groupTitles.get(question.id)?.title}
+                    <span>{groupTitles.get(question.id)?.title}</span>
+                    {groupTitles.get(question.id)?.activityMs !== undefined && (
+                      <span className={styles.groupAge}>
+                        {" · "}
+                        {formatCompactRelativeAge(
+                          groupTitles.get(question.id)!.activityMs!,
+                          nowMs,
+                        )}
+                      </span>
+                    )}
                   </li>
                 )}
               <QuestionMenuRow
                 question={question}
                 showDismissed={showDismissed}
+                nowMs={nowMs}
                 state={{
                   ...state,
                   open: (selected) => {

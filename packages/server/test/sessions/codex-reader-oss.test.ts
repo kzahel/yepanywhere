@@ -284,6 +284,7 @@ describe("CodexSessionReader - OSS Support", () => {
       `\n${event({ type: "agent_message", message: "x".repeat(2 * 1024 * 1024) })}\n${question}\n`,
     );
     const projectId = "test-project" as UrlProjectId;
+    const askedAt = (JSON.parse(question) as { timestamp: string }).timestamp;
     const first = await reader.getSessionListSummary(sessionId, projectId);
     expect(first?.asyncQuestions).toEqual({
       questions: [
@@ -292,6 +293,7 @@ describe("CodexSessionReader - OSS Support", () => {
           index: 0,
           title: "Which path?",
           age: 0,
+          askedAt,
         },
       ],
       omitted: true,
@@ -324,6 +326,7 @@ describe("CodexSessionReader - OSS Support", () => {
         index: 0,
         title: "Which path?",
         age: 0,
+        askedAt,
       },
     ]);
     await appendFile(
