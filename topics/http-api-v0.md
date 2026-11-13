@@ -615,7 +615,10 @@ already admitted native agent work intact.
 
 The target checks originating-peer identity and current project grants on
 receipt reads, follows, mutation retries and provenance. A receipt for an
-existing session also requires current access to that session. One peer cannot
+existing session also requires current access to that session. A creation the
+target refused before dispatch stays readable by the peer that requested it:
+its `failed` state and failure explain the refusal even though the session it
+may name never existed. One peer cannot
 read another peer's receipts even if both may view the same project. A peer's
 relationship response exposes only its own creation receipt and no target-local
 initiated relationships. The operator retains the full local view. Foreign

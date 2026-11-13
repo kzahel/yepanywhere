@@ -60,7 +60,8 @@ function fixture(id: string) {
     updatedAt: "",
   }));
   let starts = 0,
-    sends = 0;
+    sends = 0,
+    refusal: string | undefined;
   const subscriptions = new ConversationSubscriptions(async (sessionId) => ({
     close() {},
     async read() {
@@ -83,9 +84,22 @@ function fixture(id: string) {
     id,
     receipts,
     {
-      async start(_project, _request, _receipt, _settled, _failed, consumed) {
+      async start(
+        _project,
+        _request,
+        _receipt,
+        _settled,
+        _failed,
+        consumed,
+        allocated,
+      ) {
         starts++;
         const sessionId = `created-${starts}`;
+        if (refusal) {
+          // Native admission names the session before it can be refused.
+          allocated?.(sessionId);
+          return { rejected: true, message: refusal };
+        }
         sessions.push({ ...sessions[0]!, id: sessionId });
         consumed?.();
         return { sessionId };
@@ -162,6 +176,9 @@ function fixture(id: string) {
     sessions,
     starts: () => starts,
     sends: () => sends,
+    refuseStarts: (message: string) => {
+      refusal = message;
+    },
     launch: (value?: ApiLaunchContext) => {
       launch = value;
     },
@@ -504,6 +521,50 @@ it("fences target revocation while a create waits on its catalog before durable 
   expect(b.starts()).toBe(0);
 });
 
+it("lets a peer read why the target refused its creation, though no session exists", async () => {
+  const a = fixture("A"),
+    b = fixture("B");
+  connect(a, b);
+  a.launch({
+    id: "parent",
+    launchId: "refused-create",
+    management: true,
+    peerAccess: true,
+  });
+  b.refuseStarts("Router rejected the operation");
+  const created = await post(a, "/v0/servers/B/sessions");
+  expect(created.status).toBe(202);
+  const receipt = await created.json();
+  await b.commands.idle();
+  const observed = await a.app.request(`/v0/servers/B/receipts/${receipt.id}`);
+  expect(observed.status).toBe(200);
+  expect(await observed.json()).toMatchObject({
+    state: "failed",
+    sessionId: "created-1",
+    failure: {
+      code: "admission_rejected",
+      message: "Router rejected the operation",
+    },
+  });
+  expect(
+    (
+      await a.app.request(
+        `/v0/servers/B/receipts/${receipt.id}/follow?waitMs=0`,
+      )
+    ).status,
+  ).toBe(200);
+  // An identical retry resolves the same refused receipt without a new start.
+  expect((await (await post(a, "/v0/servers/B/sessions")).json()).id).toBe(
+    receipt.id,
+  );
+  expect(b.starts()).toBe(1);
+  // Another peer still cannot read it.
+  const c = fixture("C");
+  connect(c, b);
+  expect(
+    (await c.app.request(`/v0/servers/B/receipts/${receipt.id}`)).status,
+  ).toBe(404);
+});
 it("checks a receipt's current session project and outgoing revocation before releasing a result", async () => {
   const a = fixture("A"),
     b = fixture("B");
