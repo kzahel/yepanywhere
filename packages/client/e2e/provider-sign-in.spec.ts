@@ -136,8 +136,8 @@ test("signs Claude and Codex in through server-run login flows", async ({
 
   await claude.scrollIntoViewIfNeeded();
   await recordUiCapture(page, "provider-sign-in-desktop");
-  // The phone layout remounts the settings tree; the panel resumes the
-  // running flow from the server.
+  // The settings pane stays mounted across the phone breakpoint, so the
+  // running flow and the code typed so far are both still there.
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(async () => {
     await claude.scrollIntoViewIfNeeded();
@@ -145,9 +145,9 @@ test("signs Claude and Codex in through server-run login flows", async ({
       claude.getByRole("link", { name: "Open Claude sign-in page" }),
     ).toBeVisible();
   }).toPass();
+  await expect(codeInput).toHaveValue("abc#123");
   await recordUiCapture(page, "provider-sign-in-phone");
 
-  await codeInput.pressSequentially("abc#123");
   await claude.getByRole("button", { name: "Submit code" }).click();
   await expect.poll(() => submittedCodes).toEqual(["abc#123"]);
   await expect(

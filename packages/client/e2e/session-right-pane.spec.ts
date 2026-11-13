@@ -556,11 +556,8 @@ test("Apps settings explains wildcard hosting without a domain default", async (
       await field.scrollIntoViewIfNeeded();
     }).toPass();
     await recordUiCapture(page, `apps-settings-${size.width}`);
-    if (size.width === 375) {
-      await page
-        .getByRole("button", { name: "plan .localhost", exact: true })
-        .click();
-    }
+    // The pane stays mounted across the phone breakpoint, so the app opened
+    // above is still open.
     await page
       .getByRole("checkbox", { name: "Public — no link required" })
       .scrollIntoViewIfNeeded();

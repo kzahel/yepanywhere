@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { AgentAuthRouterOverview } from "@yep-anywhere/shared";
 import { e2ePaths, expect, test } from "./fixtures.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 
@@ -44,33 +45,42 @@ test("reads the full session title on phone and desktop without losing the draft
       },
     });
   });
-  await page.route("**/api/agent-auth-router/selection", (route) =>
-    route.fulfill({
-      json: {
-        pools: [
-          {
-            id: "work-pool",
-            name: "Work accounts",
-            provider: "claude",
-            accountIds: ["work-primary", "work-backup"],
-          },
-        ],
-        accounts: [
-          {
-            id: "work-primary",
-            displayName: "Work primary",
-            provider: "claude",
-            enabled: true,
-          },
-          {
-            id: "work-backup",
-            displayName: "Work backup",
-            provider: "claude",
-            enabled: true,
-          },
-        ],
+  // Typed as the server's response: the Account pane reads each account's
+  // catalog and quota rows, so a partial account is not a state it can meet.
+  const overview: AgentAuthRouterOverview = {
+    observedAt: timestamp,
+    quotaFreshSeconds: 120,
+    pools: [
+      {
+        id: "work-pool",
+        name: "Work accounts",
+        provider: "claude",
+        accountIds: ["work-primary", "work-backup"],
+        policy: "manual",
+        revision: 1,
+        bindings: [],
       },
-    }),
+    ],
+    accounts: [
+      ["work-primary", "Work primary"],
+      ["work-backup", "Work backup"],
+    ].map(([id, displayName]) => ({
+      id: id!,
+      displayName,
+      provider: "claude",
+      enabled: true,
+      renewal: "manual",
+      freshness: "fresh",
+      models: [],
+      catalogAt: timestamp,
+      attemptedAt: null,
+      error: null,
+      quota: null,
+      windows: [],
+    })),
+  };
+  await page.route("**/api/agent-auth-router/selection", (route) =>
+    route.fulfill({ json: overview }),
   );
   await page.route(
     `**/api/agent-auth-router/sessions/${sessionId}/switch`,
@@ -305,17 +315,21 @@ test("reads the full session title on phone and desktop without losing the draft
     await expect(
       page.getByRole("tab", { name: "Account", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-    await expect(
-      accountPane.getByRole("combobox", { name: "Router account" }),
-    ).toBeVisible();
+    const account = accountPane.getByRole("button", {
+      name: "Filter by Router account",
+      exact: true,
+    });
+    await expect(account).toBeVisible();
     await expect(page.getByRole("menu")).toHaveCount(0);
     const apply = accountPane.getByRole("button", {
       name: "Apply account change",
     });
     await expect(apply).toBeDisabled();
-    await accountPane
-      .getByRole("combobox", { name: "Router account" })
-      .selectOption("work-backup");
+    await account.click();
+    await page
+      .getByRole("menu", { name: "Filter by Router account" })
+      .getByRole("menuitemradio", { name: /Work backup/ })
+      .click();
     await expect(apply).toBeEnabled();
     await expect(
       accountPane.getByText("Current account: Work accounts · Work primary"),

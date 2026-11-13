@@ -139,16 +139,18 @@ test("native v0 creation retains the trusted receipt/input identity and public i
     ).json();
     const path = `/v0/servers/${identity.server.id}`;
     const body = {
-      requestId: randomUUID(),
       projectId: owned.projectId,
       provider: "codex",
       model: "gpt-6.1-sol",
-      message: "OWNED_NATIVE_CREATION",
+      prompt: "OWNED_NATIVE_CREATION",
     };
+    // v0 takes the request identity from this header; the replay after
+    // restart reuses it.
+    const creation = { ...headers, "Idempotency-Key": randomUUID() };
     const create = () =>
       fetch(`${owned.server.baseUrl}${path}/sessions`, {
         method: "POST",
-        headers,
+        headers: creation,
         body: JSON.stringify(body),
       });
     const initial = await create();

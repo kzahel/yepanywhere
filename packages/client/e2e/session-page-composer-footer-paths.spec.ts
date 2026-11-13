@@ -2,6 +2,7 @@ import { expect, test } from "./fixtures.js";
 import {
   json,
   liveUpdate,
+  streamResponses,
   openSessionPage,
   sessionId,
   typeEachKeyWithin100ms,
@@ -211,6 +212,7 @@ test("a typed reason denies an approval with feedback, each key shown within 100
   page,
   baseURL,
 }) => {
+  await streamResponses(page);
   const session = await openWithRequest(page, baseURL, approvalRequest, true);
   await session.answer("POST", inputPath, accepted);
   const footer = page.locator("[data-session-input-inner]");
@@ -241,6 +243,7 @@ test("a typed Other answer is sent, each key shown within 100 ms", async ({
   page,
   baseURL,
 }) => {
+  await streamResponses(page);
   const session = await openWithRequest(page, baseURL, questionRequest, true);
   await session.answer("POST", inputPath, accepted);
   const footer = page.locator("[data-session-input-inner]");

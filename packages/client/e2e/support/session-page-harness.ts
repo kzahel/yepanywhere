@@ -307,6 +307,16 @@ export async function typeEachKeyWithin100ms(
   expect(Math.max(...acknowledgementMs)).toBeLessThan(100);
 }
 
+/**
+ * Turns Response Streaming on for the page, before it loads. The setting
+ * defaults off, which drops streaming rows; a case that types against live
+ * updates needs them rendered to carry its concurrent-update load.
+ */
+export const streamResponses = (page: Page) =>
+  page.addInitScript(() =>
+    localStorage.setItem("yep-anywhere-streaming-enabled", "true"),
+  );
+
 /** A streaming assistant row, for live updates while a case types. */
 export const liveUpdate = (count: number) => ({
   uuid: "pin-live",

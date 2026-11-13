@@ -89,6 +89,10 @@ async function openLiveSession(page: Page) {
       },
     });
     const projectId = Buffer.from(projectPath).toString("base64url");
+    // Response Streaming defaults off, which drops the delta-only live tail.
+    await page.addInitScript(() =>
+      localStorage.setItem("yep-anywhere-streaming-enabled", "true"),
+    );
     const now = Date.now();
     const row = {
       id: "sel-a",

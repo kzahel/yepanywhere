@@ -105,14 +105,12 @@ test("automatically discovers Jira and GitHub references from viewed and recent 
   const skip = page.getByRole("button", { name: "Skip all", exact: true });
   if (await skip.isVisible()) await skip.click();
   await expect(
-    page.getByLabel("Enable automatic issue discovery (experimental)"),
+    page.getByLabel("Enable automatic issue discovery"),
   ).toBeVisible();
   const scopeBox = await page.getByLabel("Indexing scope").boundingBox();
   expect(scopeBox!.width).toBeGreaterThan(100);
   expect(scopeBox!.x + scopeBox!.width).toBeLessThanOrEqual(1000);
-  await page
-    .getByLabel("Enable automatic issue discovery (experimental)")
-    .check();
+  await page.getByLabel("Enable automatic issue discovery").check();
   await expect
     .poll(
       async () =>

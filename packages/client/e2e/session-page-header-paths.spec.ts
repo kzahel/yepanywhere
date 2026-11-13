@@ -7,6 +7,7 @@ import {
 import {
   json,
   liveUpdate,
+  streamResponses,
   openSessionPage,
   projectId,
   sessionId,
@@ -483,6 +484,7 @@ test("keys typed into the retitle field each show within 100 ms during live upda
   page,
   baseURL,
 }) => {
+  await streamResponses(page);
   const session = await openSessionPage(page, baseURL, { owner: "self" });
   const retitlePath = `/projects/${projectId}/sessions/${sessionId}/retitle`;
   await session.answer("POST", retitlePath, (route) =>

@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
 const runtime = {
   sourceKey: "localhost",
   transport: { fetch: vi.fn(), capabilities: { sameOriginUrls: true } },
+  // An absolute path resolves against the registered projects.
+  summary: { getSnapshot: () => ({ projects: { entities: new Map() } }) },
 };
 vi.mock("../../contexts/SourceRuntimeContext", () => ({
   useCurrentSourceRuntime: () => runtime,

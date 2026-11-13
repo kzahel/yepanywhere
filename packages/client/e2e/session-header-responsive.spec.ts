@@ -49,6 +49,9 @@ test("header preserves identity, overflow actions and rename typing during live 
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
     localStorage.setItem("yep-anywhere-project-code-names-enabled", "true");
+    // Response Streaming defaults off; the rename typing below runs against
+    // rendered streaming rows.
+    localStorage.setItem("yep-anywhere-streaming-enabled", "true");
   });
   await readCollectionsOverRest(page);
   await routeWithDrain(page, /\/api\/projects(?:\?|$)/, async (route) => {
