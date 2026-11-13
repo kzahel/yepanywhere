@@ -47,17 +47,39 @@
 .twoColumn {
   display: grid;
   grid-template-columns: max-content minmax(0, var(--content-max-width));
+  /* One row that fills the page, so each column scrolls on its own: choosing
+     a category resets the detail pane without moving the category list. */
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-4);
+  height: 100%;
   min-height: 0;
   width: fit-content;
   max-width: 100%;
-  padding: 1rem;
+  padding: 1rem 1rem 0;
   box-sizing: border-box;
   margin: 0 auto;
 }
+.categoryNav,
+.contentPanel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Room for focus rings and selected borders the scrollport would clip. */
+  padding: 2px 2px 1rem;
+}
 .categoryNav {
   max-width: 18rem;
-  overflow-y: auto;
+}
+
+/* The search field stays at the top of the rail while categories scroll
+   beneath it; the rail's padding would otherwise show rows above it. */
+.categoryNavSearch {
+  position: sticky;
+  top: -2px;
+  z-index: 1;
+  margin-top: -2px;
+  padding-top: 2px;
+  display: flow-root;
+  background: var(--bg-surface);
 }
 
 .twoColumn [data-settings-category-label] {
@@ -67,7 +89,6 @@
 .contentPanel {
   min-width: 0;
   max-width: var(--content-max-width);
-  overflow-y: auto;
 }
 .twoColumn [data-settings-category-chevron] {
   display: none;

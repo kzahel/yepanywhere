@@ -514,123 +514,112 @@ export function SettingsLayout() {
     />
   );
 
-  // Narrow settings: category list OR category detail (not both)
-  if (!useTwoColumnSettings) {
-    if (!category) {
-      // Show category list
-      return (
-        <MainContent
-          isWideScreen={isWideScreen}
-          innerRef={settingsContainerRef}
-        >
-          <PageHeader
-            title={t("pageTitleSettings")}
-            onTitleClick={handleSettingsTitleClick}
-          />
-          <main
-            ref={setSettingsScrollContainerRef}
-            className={pageStyles.pageScrollContainer}
-            data-page-scroll-container
-          >
-            <div
-              className={`${pageStyles.pageContentInner} ${layoutStyles.categoryListShell}`}
-              data-page-content-inner
-            >
-              {searchBar}
-              {searchResults ?? (
-                <div className={layoutStyles.categoryList}>
-                  {visibleCategories.map((cat) => (
-                    <SettingsCategoryItem
-                      key={cat.id}
-                      category={cat}
-                      isActive={false}
-                      onClick={() => handleCategoryClick(cat.id)}
-                    />
-                  ))}
-                  {canBackUpBrowserSettings && <SettingsBackupActions />}
-                  {principalResolved && <SettingsClipboardTransfer />}
-                </div>
-              )}
-            </div>
-          </main>
-        </MainContent>
-      );
-    }
-
-    // Show category detail with back button
+  // Narrow settings with no category open: the category list alone.
+  if (!useTwoColumnSettings && !category) {
     return (
       <MainContent isWideScreen={isWideScreen} innerRef={settingsContainerRef}>
         <PageHeader
-          title={resolvedPaneTitle}
-          showBack
-          onBack={handleBack}
-          actions={undoButton}
+          title={t("pageTitleSettings")}
+          onTitleClick={handleSettingsTitleClick}
         />
         <main
           ref={setSettingsScrollContainerRef}
           className={pageStyles.pageScrollContainer}
           data-page-scroll-container
         >
-          <div className={pageStyles.pageContentInner} data-page-content-inner>
-            <SettingsJumpTargetProvider value={jumpTargetValue}>
-              <SettingsPaneTitleProvider value={setPaneTitle}>
-                <SettingsUndoProvider value={setUndoRegistration}>
-                  <SettingsPane key={effectiveCategory}>
-                    {categoryPane}
-                  </SettingsPane>
-                </SettingsUndoProvider>
-              </SettingsPaneTitleProvider>
-            </SettingsJumpTargetProvider>
+          <div
+            className={`${pageStyles.pageContentInner} ${layoutStyles.categoryListShell}`}
+            data-page-content-inner
+          >
+            {searchBar}
+            {searchResults ?? (
+              <div className={layoutStyles.categoryList}>
+                {visibleCategories.map((cat) => (
+                  <SettingsCategoryItem
+                    key={cat.id}
+                    category={cat}
+                    isActive={false}
+                    onClick={() => handleCategoryClick(cat.id)}
+                  />
+                ))}
+                {canBackUpBrowserSettings && <SettingsBackupActions />}
+                {principalResolved && <SettingsClipboardTransfer />}
+              </div>
+            )}
           </div>
         </main>
       </MainContent>
     );
   }
 
-  // Desktop: two-column layout with category list on left, content on right
+  // Category detail. Narrow and wide share one element tree so a width change
+  // across the two-column threshold re-lays out the open pane instead of
+  // remounting it, keeping its unsaved drafts and focus. Wide shows
+  // the category rail beside the pane, and each column scrolls on its own so
+  // navigation resets only the detail pane.
+  const detailPane = (
+    <SettingsJumpTargetProvider value={jumpTargetValue}>
+      <SettingsPaneTitleProvider value={setPaneTitle}>
+        <SettingsUndoProvider value={setUndoRegistration}>
+          <SettingsPane key={effectiveCategory}>{categoryPane}</SettingsPane>
+        </SettingsUndoProvider>
+      </SettingsPaneTitleProvider>
+    </SettingsJumpTargetProvider>
+  );
   return (
     <MainContent isWideScreen={isWideScreen} innerRef={settingsContainerRef}>
       <PageHeader
         title={resolvedPaneTitle}
-        titleElement={settingsBreadcrumb}
+        titleElement={useTwoColumnSettings ? settingsBreadcrumb : undefined}
+        showBack={!useTwoColumnSettings}
+        onBack={useTwoColumnSettings ? undefined : handleBack}
         actions={undoButton}
       />
       <main
-        ref={setSettingsScrollContainerRef}
+        ref={useTwoColumnSettings ? undefined : setSettingsScrollContainerRef}
         className={pageStyles.pageScrollContainer}
         data-page-scroll-container
       >
-        <div className={layoutStyles.twoColumn}>
-          <nav className={layoutStyles.categoryNav} data-settings-category-nav>
-            {searchBar}
-            <div className={layoutStyles.categoryList}>
-              {visibleCategories.map((cat) => (
-                <SettingsCategoryItem
-                  key={cat.id}
-                  category={cat}
-                  isActive={!searchActive && effectiveCategory === cat.id}
-                  onClick={() => handleCategoryClick(cat.id)}
-                />
-              ))}
-              {canBackUpBrowserSettings && <SettingsBackupActions />}
-              {principalResolved && <SettingsClipboardTransfer />}
-            </div>
-          </nav>
+        <div
+          className={
+            useTwoColumnSettings
+              ? layoutStyles.twoColumn
+              : pageStyles.pageContentInner
+          }
+          data-page-content-inner={useTwoColumnSettings ? undefined : true}
+        >
+          {useTwoColumnSettings && (
+            <nav
+              className={layoutStyles.categoryNav}
+              data-settings-category-nav
+            >
+              <div className={layoutStyles.categoryNavSearch}>{searchBar}</div>
+              <div className={layoutStyles.categoryList}>
+                {visibleCategories.map((cat) => (
+                  <SettingsCategoryItem
+                    key={cat.id}
+                    category={cat}
+                    isActive={!searchActive && effectiveCategory === cat.id}
+                    onClick={() => handleCategoryClick(cat.id)}
+                  />
+                ))}
+                {canBackUpBrowserSettings && <SettingsBackupActions />}
+                {principalResolved && <SettingsClipboardTransfer />}
+              </div>
+            </nav>
+          )}
           <div
-            className={layoutStyles.contentPanel}
-            data-settings-content-panel
+            ref={
+              useTwoColumnSettings ? setSettingsScrollContainerRef : undefined
+            }
+            className={
+              useTwoColumnSettings ? layoutStyles.contentPanel : undefined
+            }
+            data-settings-content-panel={
+              useTwoColumnSettings ? true : undefined
+            }
           >
-            {searchResults ?? (
-              <SettingsJumpTargetProvider value={jumpTargetValue}>
-                <SettingsPaneTitleProvider value={setPaneTitle}>
-                  <SettingsUndoProvider value={setUndoRegistration}>
-                    <SettingsPane key={effectiveCategory}>
-                      {categoryPane}
-                    </SettingsPane>
-                  </SettingsUndoProvider>
-                </SettingsPaneTitleProvider>
-              </SettingsJumpTargetProvider>
-            )}
+            {(useTwoColumnSettings && searchResults) || detailPane}
           </div>
         </div>
       </main>
