@@ -8,7 +8,6 @@
   border-radius: var(--radius-md);
   background: var(--bg-surface);
   color: var(--text-primary);
-  font: inherit;
   text-align: start;
   overflow-wrap: anywhere;
   transition:
