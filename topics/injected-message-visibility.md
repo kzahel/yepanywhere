@@ -128,6 +128,17 @@ expandable detail, but does not render as a user bubble. Server-side user-turn
 slicing also treats the skill body as synthetic, and fork-after source
 validation rejects the body as a selected user-authored request.
 
+### Claude `/goal` command row (landed 2026-11-13)
+
+YA runs a Claude `/goal` by sending a hidden `/goal …` line and publishing
+its own goal receipt. Claude persists that line as a `<command-name>/goal`
+user row, which reload rendered as a grey `/goal …` block beside the
+receipt. The receipt now records the line in `providerCommandText`, and
+`mergeLocalCommandMessages` drops the first matching command row after the
+receipt's position. Receipts stored before that field match on
+`/goal <objective>`. A `/goal` typed in Claude's own UI has no receipt and
+still renders as its command row.
+
 ### Codex resumed environment context (landed 2026-06-30)
 
 Codex can persist a user-role `response_item` containing only

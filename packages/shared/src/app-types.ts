@@ -599,6 +599,13 @@ export interface DurableLocalCommandMessage extends AppMessageExtensions {
   session_id: string;
   isSynthetic: true;
   placementAfterMessageId?: string;
+  /**
+   * The slash-command line YA delivered to the provider to produce this
+   * receipt, e.g. `/goal <objective>`. The provider persists its own copy of
+   * that line, which the receipt makes redundant, so transcript merging drops
+   * the copy instead of rendering the command twice.
+   */
+  providerCommandText?: string;
 }
 
 export interface DurableRecapMessage extends AppMessageExtensions {

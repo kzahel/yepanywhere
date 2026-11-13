@@ -208,4 +208,6 @@ export interface ProviderCommandResult {
   completion?: "completed";
   /** Optional YA-local result to publish without creating a provider turn. */
   output?: ProviderCommandOutput;
+  /** Hidden slash-command line YA sent the provider while running this. */
+  providerCommandText?: string;
 }

@@ -4,6 +4,10 @@ import type {
   DurableSyntheticDoneMessage,
 } from "@yep-anywhere/shared";
 import { REWOUND_GROUP_SUBTYPE } from "@yep-anywhere/shared";
+import {
+  formatCommandTurn,
+  parseCommandTurn,
+} from "@yep-anywhere/shared/transcript/commandTurn";
 import type { NotificationService } from "../notifications/index.js";
 import type { SDKMessage } from "../sdk/types.js";
 import type { Message, Session, SessionSummary } from "../supervisor/types.js";
@@ -252,8 +256,52 @@ export function mergeLocalCommandMessages(
         rewoundGroups,
       ),
     } as Message);
+    dropDeliveredCommandCopy(merged, insertAt + 1, command);
   }
   return merged;
+}
+
+/**
+ * The hidden command line YA sent for a receipt. Receipts written before
+ * `providerCommandText` existed are `/goal` set or resume receipts whose
+ * first detail is the objective YA sent.
+ */
+function deliveredCommandText(
+  command: DurableLocalCommandMessage,
+): string | undefined {
+  if (command.providerCommandText) return command.providerCommandText;
+  const objective = command.details?.[0];
+  return command.content === "/goal" && objective
+    ? `/goal ${objective}`
+    : undefined;
+}
+
+function normalizeCommandLine(text: string): string {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Remove the provider's persisted copy of the command YA delivered for this
+ * receipt: Claude records the hidden `/goal …` line as a command row after the
+ * receipt's anchor, which would otherwise render beside the receipt.
+ */
+function dropDeliveredCommandCopy(
+  merged: Message[],
+  from: number,
+  command: DurableLocalCommandMessage,
+): void {
+  const text = deliveredCommandText(command);
+  if (!text) return;
+  const wanted = normalizeCommandLine(text);
+  const index = merged.findIndex((message, position) => {
+    if (position < from || message.type !== "user") return false;
+    const content = (message.message as { content?: unknown } | undefined)
+      ?.content;
+    if (typeof content !== "string") return false;
+    const turn = parseCommandTurn(content);
+    return !!turn && normalizeCommandLine(formatCommandTurn(turn)) === wanted;
+  });
+  if (index >= 0) merged.splice(index, 1);
 }
 
 interface RewoundGroupFacts {

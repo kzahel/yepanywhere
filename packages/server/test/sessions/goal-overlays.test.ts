@@ -76,6 +76,40 @@ describe("durable goal receipts", () => {
     expect(ids(result)).toEqual(["assistant", "set", "clear", "next"]);
     expect(mergeLocalCommandMessages(result, commands)).toEqual(result);
   });
+  it("replaces Claude's persisted copy of the hidden /goal line with the receipt", () => {
+    // Claude records the line YA sent as a command row after the anchor; a
+    // reload showed it beside the receipt (the double echo).
+    const commandRow = (id: string, second: number, args: string): Message => ({
+      id,
+      uuid: id,
+      type: "user",
+      timestamp: goal(id, second).timestamp,
+      message: {
+        role: "user",
+        content: `<command-name>/goal</command-name>\n  <command-message>goal</command-message>\n  <command-args>${args}</command-args>`,
+      },
+    });
+    const history = [
+      provider("before", 1),
+      commandRow("claude-goal", 2, "Finish the work"),
+      provider("after", 3),
+      commandRow("user-typed", 9, "Something else"),
+    ];
+    const tagged = {
+      ...goal("receipt", 2, "before"),
+      providerCommandText: "/goal Finish the work",
+    };
+    expect(ids(mergeLocalCommandMessages(history, [tagged]))).toEqual([
+      "before",
+      "receipt",
+      "after",
+      "user-typed",
+    ]);
+    // Receipts persisted before providerCommandText fall back to the objective.
+    expect(
+      ids(mergeLocalCommandMessages(history, [goal("legacy", 2, "before")])),
+    ).toEqual(["before", "legacy", "after", "user-typed"]);
+  });
   it("keeps old receipts out of a tail or incremental window", () => {
     const result = mergeLocalCommandMessages(
       [provider("tail", 20)],

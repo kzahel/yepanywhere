@@ -2652,6 +2652,7 @@ export class Process {
           content: result.output.summary,
           details: result.output.details,
           tempId: options?.tempId,
+          providerCommandText: result.providerCommandText,
         },
         options?.persistOutput,
       );
@@ -2671,6 +2672,7 @@ export class Process {
       details?: string[];
       detailsOpen?: boolean;
       tempId?: string;
+      providerCommandText?: string;
     },
     persist?: (message: DurableLocalCommandMessage) => Promise<void>,
   ): Promise<DurableLocalCommandMessage> {
@@ -2704,6 +2706,9 @@ export class Process {
         id,
         timestamp: new Date().toISOString(),
         ...(notice.tempId !== undefined ? { tempId: notice.tempId } : {}),
+        ...(notice.providerCommandText
+          ? { providerCommandText: notice.providerCommandText }
+          : {}),
         ...(typeof placementAfterMessageId === "string"
           ? { placementAfterMessageId }
           : {}),
