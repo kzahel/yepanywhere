@@ -190,7 +190,9 @@ pnpm mesh:testbed smoke --inference --provider codex --model gpt-6-luna
 the named pools through the router's owner CLI (`AAR_CLI`, default `aar`).
 `smoke --inference` then runs one real session around the ring (a→b, b→c,
 c→a): create, identical retry, launch, reply, routing readback, follow-up
-prompt, pending requests, provenance and verified stop. It spends account
+prompt, provenance, answering the provider's permission request for a command,
+cancelling a running turn and verified stop. Passing lines note whether a
+request was approved and what the cancel did. It spends account
 quota and needs `--model`, since the router has no default model. `down
 --purge` disconnects a running node from the router; a node purged while
 stopped leaves its integration for you to revoke in the router. `smoke` exits

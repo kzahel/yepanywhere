@@ -42,7 +42,8 @@ Commands:
             v0 peer route. Calls no model. Exits 1 when a check fails.
             --inference adds one real routed session around the ring
             (a->b, b->c, ..., last->a): create, retry, follow, reply,
-            follow-up prompt, stop. Run "router" first.
+            follow-up prompt, permission approval, cancel, stop. Run
+            "router" first.
   router    Connect each node to the local Agent Auth Router and grant it
             the named pools, so sessions can run without a provider login.
             Needs the router's CLI: set AAR_CLI if "aar" is not on PATH.
@@ -543,10 +544,12 @@ async function inferenceEdge(client, source, target, options, check) {
   const provider = options.provider ?? "claude";
   const token = randomBytes(4).toString("hex").toUpperCase();
   const deadline = Date.now() + INFERENCE_DEADLINE_MS;
+  let note;
   const step = async (name, run) => {
     try {
+      note = undefined;
       const problem = await run();
-      check(edge, name, problem ? [problem] : []);
+      check(edge, name, problem ? [problem] : [], note);
       return !problem;
     } catch (error) {
       check(edge, name, [String(error?.message ?? error)]);
@@ -698,13 +701,95 @@ async function inferenceEdge(client, source, target, options, check) {
     await settle(reply.json.id, (receipt) => receipt.delivery === "consumed");
     await answered(sessionId, `MESH-${token}-TWO`);
   });
-  await step("pending requests", async () => {
-    const reply = await client.request(
-      `${base}/sessions/${sessionId}/requests`,
+  // In default permission mode a provider asks before it runs a command. The
+  // source answers that request on the target; a provider that runs the
+  // command unasked still passes, and the note says which happened.
+  await step("approval", async () => {
+    const reply = await command(
+      `/sessions/${sessionId}/prompts`,
+      `${key}-three`,
+      {
+        prompt: `Run this shell command in the current directory: mkdir mesh-approval-${token.toLowerCase()}\nThen reply with exactly this text and nothing else: MESH-${token}-THREE`,
+      },
     );
-    return reply.status === 200 && Array.isArray(reply.json.items)
-      ? undefined
-      : `status ${reply.status} ${reply.text.slice(0, 200)}`;
+    if (reply.status !== 202)
+      return `status ${reply.status} ${reply.text.slice(0, 200)}`;
+    let approved = 0;
+    for (;;) {
+      const pending = await client.request(
+        `${base}/sessions/${sessionId}/requests`,
+      );
+      if (pending.status !== 200)
+        return `requests returned ${pending.status} ${pending.text.slice(0, 160)}`;
+      for (const item of pending.json.items) {
+        if (!item.canRespond)
+          return `a ${item.kind} request cannot be answered`;
+        const answer = await command(
+          `/sessions/${sessionId}/requests/${encodeURIComponent(item.id)}/response`,
+          `${key}-approve-${approved}`,
+          { response: "approve" },
+        );
+        if (
+          answer.status !== 202 &&
+          answer.json?.error?.code !== "request_not_pending"
+        )
+          return `approve returned ${answer.status} ${answer.text.slice(0, 160)}`;
+        approved++;
+      }
+      const conversation = await client.request(
+        `${base}/sessions/${sessionId}/conversation`,
+      );
+      if (conversation.status !== 200)
+        return `conversation returned ${conversation.status}`;
+      if (
+        conversation.json.messages.some(
+          (message) =>
+            message.role === "agent" &&
+            message.content.some((part) =>
+              part.text?.includes(`MESH-${token}-THREE`),
+            ),
+        )
+      )
+        break;
+      if (Date.now() > deadline) return "no reply after the command";
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    note = approved
+      ? `approved ${approved} permission request${approved > 1 ? "s" : ""}`
+      : "the provider ran the command without asking";
+  });
+  let aborted = false;
+  await step("cancel", async () => {
+    const reply = await command(
+      `/sessions/${sessionId}/prompts`,
+      `${key}-four`,
+      {
+        prompt:
+          "Write the numbers from 1 to 300, one per line, each followed by a sentence about that number.",
+      },
+    );
+    if (reply.status !== 202)
+      return `status ${reply.status} ${reply.text.slice(0, 200)}`;
+    await settle(reply.json.id, (receipt) => receipt.delivery === "consumed");
+    const cancel = await command(
+      `/sessions/${sessionId}/cancel`,
+      `${key}-cancel`,
+      {},
+    );
+    if (cancel.status !== 202)
+      return `cancel returned ${cancel.status} ${cancel.text.slice(0, 200)}`;
+    const receipt = await settle(
+      cancel.json.id,
+      (current) => current.state === "accepted",
+    );
+    if (typeof receipt.result?.supported !== "boolean")
+      return `result ${JSON.stringify(receipt.result)}`;
+    aborted = receipt.result.aborted === true;
+    note = receipt.result.interrupted
+      ? "interrupted the turn"
+      : aborted
+        ? "hard-aborted the process"
+        : "nothing left to interrupt";
   });
   await step("provenance", async () => {
     const reply = await client.request(
@@ -721,6 +806,14 @@ async function inferenceEdge(client, source, target, options, check) {
       `${key}-stop`,
       {},
     );
+    // A cancel that had to hard-abort already ended the process.
+    if (aborted && reply.json?.error?.code === "session_not_running") {
+      note = "already ended by the cancel";
+      const ended = await client.request(`${base}/sessions/${sessionId}`);
+      return ended.status === 200
+        ? undefined
+        : `ended session read returned ${ended.status}`;
+    }
     if (reply.status !== 202)
       return `status ${reply.status} ${reply.text.slice(0, 200)}`;
     const receipt = await settle(
@@ -739,8 +832,14 @@ async function inferenceEdge(client, source, target, options, check) {
 async function smoke(options) {
   const nodes = describeNodes(options);
   const results = [];
-  const check = (edge, name, problems) =>
-    results.push({ edge, check: name, ok: !problems.length, problems });
+  const check = (edge, name, problems, note) =>
+    results.push({
+      edge,
+      check: name,
+      ok: !problems.length,
+      problems,
+      ...(note ? { note } : {}),
+    });
   const clients = new Map();
   for (const node of nodes) clients.set(node.name, await connect(node));
   for (const source of nodes)
@@ -776,6 +875,9 @@ async function smoke(options) {
       console.log(
         `FAIL ${result.edge} ${result.check}: ${result.problems.join("; ")}`,
       );
+    for (const result of results)
+      if (result.ok && result.note)
+        console.log(`     ${result.edge} ${result.check}: ${result.note}`);
     console.log(
       `${results.length - failed.length}/${results.length} checks passed over ${nodes.length * (nodes.length - 1)} edges`,
     );
