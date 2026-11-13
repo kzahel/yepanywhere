@@ -301,7 +301,9 @@ Copy public URL — session project-path autolinks and artifact previews
 included — copies the mapped app link whenever one resolves, ahead of any
 caller-supplied YA file-share link; there is one mapping contract for all
 entry points. The File Viewer's Share surface keeps the YA file share as a
-second choice. Normal clicks still open YA's regular project file viewer,
+second choice. An absolute path uses the app of the deepest registered project
+containing it, as selection copy does, so a `~/agents` file opened from a
+`~/draft` session offers the `~/agents` app link. Normal clicks still open YA's regular project file viewer,
 including session autolinks; the app route is a public-copy action. A page
 viewed through a public share (`/share/…`, `play.html`) has no project
 authority, so it cannot offer the app link and copies its own share link. Show the public destination and explain that the bearer

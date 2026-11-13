@@ -33,13 +33,28 @@ export function copyFileKey(file: CopyProjectFile): string {
   return JSON.stringify([file.projectId, file.path]);
 }
 
+/** The deepest registered project root containing an absolute path. */
+export function owningProject<T extends { path: string }>(
+  path: string,
+  projects: Iterable<T>,
+): T | undefined {
+  if (!isAbsoluteLikePath(path)) return undefined;
+  let owner: T | undefined;
+  for (const project of projects)
+    if (
+      (!owner || project.path.length > owner.path.length) &&
+      getProjectRelativePath(path, project.path) !== null
+    )
+      owner = project;
+  return owner;
+}
+
 /** Recover project paths from both rendered autolinks and authored viewer URLs. */
 export function preparePublicMarkdownCopy(
   snippets: readonly MarkdownSelectionSnippet[],
   projects: readonly { id: string; path: string }[],
   currentHref: string,
 ): PublicMarkdownCopy {
-  const roots = [...projects].sort((a, b) => b.path.length - a.path.length);
   const references: CopyReference[] = [];
   const viewerUrl = (href: string): URL | null => {
     try {
@@ -111,10 +126,9 @@ export function preparePublicMarkdownCopy(
           }
         }
       }
-      let project = roots.find(
-        (entry) =>
-          isAbsoluteLikePath(path) &&
-          getProjectRelativePath(path, entry.path) !== null,
+      let project: { id: string; path: string } | undefined = owningProject(
+        path,
+        projects,
       );
       if (!project && projectId && isUrlProjectId(projectId)) {
         project = { id: projectId, path: fromUrlProjectId(projectId) };
