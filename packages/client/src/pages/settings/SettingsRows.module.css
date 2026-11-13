@@ -33,6 +33,7 @@
 .section h2 {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-lg);
+  font-weight: 600;
 }
 
 .group {
@@ -127,7 +128,9 @@
 
 .itemInfo strong {
   display: block;
-  margin-bottom: var(--space-1);
+  margin-bottom: 2px;
+  font-size: var(--font-size-base);
+  font-weight: 500;
 }
 
 .itemInfo p {
@@ -280,7 +283,8 @@
 
 .subsection h3 {
   margin: 0 0 var(--space-2);
-  font-size: 1em; /* Matches the row label it titles, not the hints below it. */
+  font-size: var(--font-size-base);
+  font-weight: 600;
 }
 
 .subsectionHint {
