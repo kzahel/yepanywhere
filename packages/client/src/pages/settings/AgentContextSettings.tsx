@@ -155,6 +155,7 @@ export function AgentContextSettings() {
           </div>
           <Textarea
             mono
+            aria-label={t("agentContextGlobalInstructions")}
             value={instructions}
             onChange={(e) => {
               const value = e.target.value.slice(0, MAX_LENGTH);
