@@ -229,13 +229,22 @@
   box-shadow: 0 14px 35px rgba(0, 0, 0, 0.25);
   max-height: min(28rem, 45vh);
   overflow: hidden;
+  /* The list takes whatever height the hint leaves; a separate list cap
+     clipped its last rows whenever the hint wrapped. */
+  display: flex;
+  flex-direction: column;
+}
+
+.newSessionProjectPanel > :not(.newSessionProjectSuggestions) {
+  flex-shrink: 0;
 }
 
 .newSessionProjectSuggestions {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  max-height: min(28rem, 39vh);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -364,11 +373,6 @@
   }
 }
 
-@media (width >= 900px) {
-  .newSessionProjectPanel {
-    max-height: min(28rem, 45vh);
-  }
-}
 @media (width <= 600px) {
   .newSessionHeader h1 {
     font-size: 1.05rem;
