@@ -273,7 +273,13 @@ export class ApiReceiptStore {
       ).all<{ receipt_json: string }>();
       for (const row of rows) {
         const receipt = this.decode(row)!;
-        if (receipt.state === "accepted" && receipt.delivery === "consumed")
+        // Accepted input still awaits consumption evidence. An accepted
+        // control already recorded its outcome and delivers no input.
+        if (
+          receipt.state === "accepted" &&
+          (receipt.delivery === "consumed" ||
+            (receipt.kind !== "createSession" && receipt.kind !== "prompt"))
+        )
           continue;
         const next = this.updateWithinTransaction(
           receipt.id,

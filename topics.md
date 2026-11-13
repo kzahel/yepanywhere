@@ -500,3 +500,5 @@
 - e2e-first-attempt-flakes - Browser cases that fail their first CI attempt and pass on retry: counting, diagnosis and fixes.
 
 - transcript-indexer - Plan 192: one forward transcript reader with provider source adapters and configured consumers (issues, Codex questions, vocabulary).
+
+- v0 review follow-ups and mesh testbed - Fixes from the 2026-11-13 independent v0 review, a scripted multi-profile mesh testbed, and eval/baseline tightening.

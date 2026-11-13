@@ -1112,7 +1112,9 @@ after termination even without native transcript content.
 Control retries resolve the existing receipt before acquiring an incumbent
 again, so a lost reply cannot make the same command interrupt a later turn or
 stop a resumed process. An interrupted/restarted unfinished reservation is
-uncertain and is never automatically repeated. Idle activity, accepted control
+uncertain and is never automatically repeated. A control that recorded its
+outcome before the restart keeps that receipt unchanged: it delivers no input,
+so restart adds no delivery uncertainty or failure. Idle activity, accepted control
 and consumed input do not establish successful completion of a particular
 prompt. Mode/model/effort changes, richer updates and ACP conformance remain
 outside this slice. The [blocking-question gap](../gaps/v0-blocking-questions-need-a-launch-policy.md)
