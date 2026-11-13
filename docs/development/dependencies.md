@@ -91,6 +91,14 @@ A fresh audit also reported [Hono JSX boundary escaping](https://github.com/advi
 all Hono workspace consumers now resolve 4.13.12, above its 4.13.7 patch floor.
 No new advisory exclusions or install-script permissions are added.
 
+The 2026-11-13 repair raises all three Hono consumers to `^4.13.16`, resolving
+4.13.18, for five advisories patched in 4.13.16 that had failed the audit job
+on `main`: [`csrf()` request checks](https://github.com/advisories/GHSA-4h7h-rv7c-7m2v),
+[`css` helper escaping](https://github.com/advisories/GHSA-3gg2-335m-rxc6),
+`mount()` path forwarding, `validator('form')` and RegExpRouter wildcard
+middleware. The lockfile change is Hono alone; `pnpm -r update hono` also moved
+unrelated transitive packages and was not used.
+
 The 2026-10-03 CI repair resolves Firebase Admin's `@fastify/busboy` edge
 to 3.2.2 within its declared range, above the 3.2.1 patch floor for
 [multipart resource exhaustion](https://github.com/advisories/GHSA-xjh9-v7x6-24jw)
