@@ -173,3 +173,13 @@ three-phase integration plan. Two tracks:
 - **8.2 Trusted-client packaging verification** — see
   [`trusted-client-packaging.md`](trusted-client-packaging.md) § "Deferred
   Verification Setup"; relevant only when pursuing signed/local installs.
+- **8.3 Mistral Vibe provider** — lowest priority; recorded 2026-11-13 as
+  considered and known, with no current user need. Vibe
+  ([`mistralai/mistral-vibe`](https://github.com/mistralai/mistral-vibe),
+  Apache-2.0) is Mistral's terminal coding agent. It ships an ACP server
+  (`vibe-acp`), so the likely route is another dedicated ACP provider beside
+  Grok and Antigravity; see [`acp.md`](acp.md). Its models are Mistral's
+  (Devstral and others), paid through a Mistral plan or API key, and trail
+  the frontier models YA's existing providers already reach. Revisit only if
+  a Mistral model becomes worth using for its cost, local open weights or
+  vendor diversity. Nothing was installed or tested.
