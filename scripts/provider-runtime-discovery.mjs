@@ -838,6 +838,15 @@ export function requestProviderHost(
   });
 }
 
+/** Only proven absence counts; an unreadable owner identity is not absence. */
+function providerHostOwnerAbsent(descriptor) {
+  try {
+    return processIdentityState(descriptor.owner) === "absent";
+  } catch {
+    return false;
+  }
+}
+
 export async function discoverProviderHost(
   paths,
   { expectedIdentity, timeoutMs = DEFAULT_STATUS_TIMEOUT_MS } = {},
@@ -855,6 +864,17 @@ export async function discoverProviderHost(
     descriptor = readProviderHostDescriptor(paths);
   } catch (error) {
     return { state: "ownership-unknown", error: errorMessage(error) };
+  }
+  // Incompatibility protects a running host from a launcher built from other
+  // sources. A descriptor whose owner process is gone describes no host, so it
+  // is recoverable whatever sources wrote it; otherwise the next source change
+  // after a host dies uncleanly leaves every launch refusing to start.
+  if (providerHostOwnerAbsent(descriptor)) {
+    return {
+      state: "unresponsive",
+      descriptor,
+      error: "Provider host owner process is gone",
+    };
   }
   if (descriptor.hostProtocolVersion !== PROVIDER_HOST_PROTOCOL_VERSION) {
     return { state: "incompatible", descriptor, incompatibility: "protocol" };

@@ -96,6 +96,9 @@ and the manifests/lockfile that resolve those imports. Both launchers compute
 the same expected identity before discovery. A different checkout, changed
 import, changed dependency resolution, or build identity is incompatible and
 cannot be authenticated, registered, or attached as the current host.
+That refusal protects a running host. A descriptor whose owner process is
+proven gone is recovered like an unresponsive host whatever sources wrote it,
+so a host that died without cleanup cannot block later launches.
 
 Host protocol version 3 is newline-delimited JSON over the control socket.
 Every request carries a request id, token, Hono generation, and protocol

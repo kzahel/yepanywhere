@@ -1412,6 +1412,51 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     }
   });
 
+  it("recovers a dead host's descriptor written by different sources", async () => {
+    const runtimeRoot = await mkdtemp(
+      join(runtimeTmpDir, "provider-host-dead-incompatible-"),
+    );
+    temporaryPaths.push(runtimeRoot);
+    const paths = resolveProviderHostPaths({
+      YEP_PROVIDER_HOST_RUNTIME_DIR: runtimeRoot,
+    });
+    if (!paths) throw new Error("expected provider host paths");
+    const owner = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+    if (!owner.pid) throw new Error("fixture process did not start");
+    const ownerPid = owner.pid;
+    await new Promise((resolve) => owner.once("exit", resolve));
+    await waitUntil(() => readProcessStartTime(ownerPid) === null);
+
+    createProviderHostToken(paths.tokenPath);
+    writeProviderHostDescriptor(paths, {
+      descriptorId: "dead-incompatible-host",
+      hostProtocolVersion: 3,
+      features: ["runtime-control"],
+      controlSocketPath: paths.controlSocketPath,
+      tokenFilePath: paths.tokenPath,
+      owner: { pid: ownerPid, startTime: "exited-before-source-change" },
+      startedAt: new Date().toISOString(),
+      sourceIdentity: { projectRoot: `${runtimeRoot}-older-sources` },
+      buildIdentity: "test",
+      processGroups: [],
+    });
+    const expectedIdentity = {
+      sourceIdentity: { projectRoot: runtimeRoot },
+      buildIdentity: "test",
+    };
+    const discovery = await discoverProviderHost(paths, {
+      expectedIdentity,
+      timeoutMs: 50,
+    });
+    expect(discovery.state).toBe("unresponsive");
+    if (discovery.state !== "unresponsive") return;
+
+    await recoverProviderHost(paths, discovery.descriptor);
+    await expect(
+      discoverProviderHost(paths, { expectedIdentity, timeoutMs: 50 }),
+    ).resolves.toEqual({ state: "absent" });
+  });
+
   it("fails closed when a stale descriptor PID identity is ambiguous", async () => {
     const runtimeRoot = await mkdtemp(
       join(runtimeTmpDir, "provider-host-ambiguous-"),
