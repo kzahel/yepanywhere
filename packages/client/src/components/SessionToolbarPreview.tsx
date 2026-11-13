@@ -227,7 +227,6 @@ export function SessionToolbarPreview() {
   const previewNowMs = useMemo(() => Date.now(), []);
   return (
     <SessionToolbarPreviewView
-      waveformPreview
       visibility={visibility}
       priority={priority}
       waveformButtonBackgroundOpacityPercent={
