@@ -83,7 +83,9 @@ The supported non-watch `scripts/dev.js` path probes that descriptor before
 starting Hono. It attaches to a compatible host, starts one when absent, or
 performs verified bounded recovery when an identified host is nonresponsive.
 Hono receives the discovered endpoint and token through private environment
-state. A host started by the wrapper retains wrapper IPC as its terminal-owner
+state. A wrapper reload repeats the probe after the old Hono stops: a host
+still absent or nonresponsive after the bounded wait is stopped and replaced
+before the replacement Hono starts, and any other state is kept. A host started by the wrapper retains wrapper IPC as its terminal-owner
 channel; a separately started foreground host retains its terminal instead.
 Standalone `USE_MOCK_SDK=true` servers do not discover or start an ambient
 provider host. An explicitly supplied wrapper host remains available for

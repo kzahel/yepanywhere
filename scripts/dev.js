@@ -231,6 +231,7 @@ let clientBuild = null;
 let clientBuildPromise = null;
 const retiredClientBuilds = [];
 let providerRuntimeHostChild = null;
+let replacingProviderRuntimeHost = false;
 let wrapperControlServer = null;
 const wrapperControlSockets = new Set();
 const providerRuntimeProcessGroups = new Map();
@@ -581,12 +582,37 @@ async function startProviderRuntimeHost() {
   });
   host.on("exit", (code, signal) => {
     if (providerRuntimeHostChild === host) providerRuntimeHostChild = null;
-    if (wrapperState === "shutting-down") return;
+    if (wrapperState === "shutting-down" || replacingProviderRuntimeHost) {
+      return;
+    }
     console.error(
       `[ProviderRuntimeHost] Exited unexpectedly (code=${code}, signal=${signal})`,
     );
     void shutdownWrapper("Provider runtime host exited unexpectedly", 1);
   });
+}
+
+/**
+ * A reload keeps the provider host so its sessions survive. A host that stays
+ * unanswering for the whole wait has no usable sessions left, and the
+ * replacement backend could not start one, so replace it instead.
+ */
+async function replaceUnresponsiveProviderRuntimeHost() {
+  if (!providerHostPaths) return;
+  const discovery = await waitForProviderHost();
+  if (discovery.state !== "absent" && discovery.state !== "unresponsive") {
+    return;
+  }
+  console.error(
+    `[Reload] Provider runtime host is ${discovery.state}${discovery.error ? ` (${discovery.error})` : ""}; replacing it`,
+  );
+  replacingProviderRuntimeHost = true;
+  try {
+    await stopProviderRuntimeHost();
+    await startProviderRuntimeHost();
+  } finally {
+    replacingProviderRuntimeHost = false;
+  }
 }
 
 async function stopProviderRuntimeHost() {
@@ -802,6 +828,8 @@ async function completeServerReload(server) {
     if (wrapperState !== "reloading") return;
     if (client) client.yaReloading = true;
     await stopManagedChild(client, "Vite reload");
+    if (wrapperState !== "reloading") return;
+    await replaceUnresponsiveProviderRuntimeHost();
   } catch (error) {
     console.error(`[Reload] ${errorMessage(error)}`);
     await shutdownWrapper("Development reload cleanup failed", 1);
