@@ -546,7 +546,11 @@ loops. Abort/end revokes and releases the runtime when the last launch ends.
 Disable is sticky across pending starts and applies by public profile id to
 hosted workers. `/me`, help/schema and local identity stay available while a
 hosted controller detaches; dependent catalogs return retryable
-`controller_unavailable` until a matching controller attaches. The authenticated
+`controller_unavailable` until a matching controller attaches. A controller
+that cannot parse its worker's request can only be a different version of the
+same code, since the worker validated it first; it answers
+`503 controller_unavailable` naming the version mismatch and the restart that
+resolves it, never a `400` that blames the caller. The authenticated
 worker socket dispatches only bounded catalog reads; stale replies and stalled
 reads are cancelled. An older source host without revocation support must be
 restarted before launching with this option. In-process desktop/Windows paths

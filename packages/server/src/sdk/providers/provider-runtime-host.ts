@@ -1710,9 +1710,9 @@ class HostedAgentSession {
     try {
       if (!parsed.success)
         throw new CoreApiError(
-          "invalid_request",
-          "Invalid catalog request",
-          400,
+          "controller_unavailable",
+          "This session's API runtime and the server are different versions; restart the server, then start a new session",
+          503,
         );
       if (!this.options.agentApi || !this.options.onAgentApiRead)
         throw new CoreApiError(
