@@ -21,6 +21,7 @@
     "i18n:scan": "node scripts/find-raw-i18n-copy.mjs",
     "agent:monitor": "node scripts/monitor-agent-process.mjs",
     "ya:instance": "node scripts/ya-instance.mjs",
+    "mesh:testbed": "node scripts/mesh-testbed.mjs",
     "artifact:capture": "tsx packages/client/scripts/capture-artifact.ts",
     "design:index": "tsx packages/client/scripts/design-index.ts",
     "design:shot": "tsx packages/client/scripts/design-shot.ts",

@@ -152,6 +152,50 @@ given `--allow-default`, and refuses any instance it is running under. Under
 `pnpm dev`, a backend killed by anything other than the wrapper is restarted
 ([wrapper lifetime](../../topics/reload-safe-provider-runtimes.md)).
 
+#### Local mesh testbed
+
+`pnpm mesh:testbed` runs several standalone servers on this machine and pairs
+every one with every other, for exercising [peer access](../../topics/peer-access.md)
+and [HTTP v0](../../topics/http-api-v0.md) across real processes without
+touching the default profile:
+
+```bash
+pnpm mesh:testbed up        # start nodes a, b, c; log in, configure and pair them
+pnpm mesh:testbed status    # URLs, server ids, owner passwords, edge state
+pnpm mesh:testbed smoke     # discovery and reads over all six edges; no model
+pnpm mesh:testbed down      # stop them; --purge also removes their data
+```
+
+Each node is a `ya:instance` profile `mesh-<node>` on a fixed port (3480,
+3490, 3500 by default), so pairings survive `down` and `up`. Its data
+directory holds a `testbed/` subdirectory with a generated owner password,
+a scratch project and its own Claude, Codex, Gemini, Pi and Grok directories.
+A node therefore lists none of your sessions and has no provider login or API
+key; only Claude and Codex are enabled. `up` enables Agent API discovery and
+session commands on each node and pairs through the owner invitation ceremony
+with every server-addressed operation granted in both directions. `--nodes`,
+`--name` and `--base-port` select another mesh; `up --ui` also serves the built
+web client on each node.
+
+Model work goes through the Agent Auth Router, never a native login:
+
+```bash
+AAR_CLI="node /path/to/agent-auth-router/dist/cli.js" \
+  pnpm mesh:testbed router --pools Work-claude,personal-codex-pool
+pnpm mesh:testbed smoke --inference --model claude-haiku-5-5
+pnpm mesh:testbed smoke --inference --provider codex --model gpt-6-luna
+```
+
+`router` connects each node to the local router and grants its new integration
+the named pools through the router's owner CLI (`AAR_CLI`, default `aar`).
+`smoke --inference` then runs one real session around the ring (a→b, b→c,
+c→a): create, identical retry, launch, reply, routing readback, follow-up
+prompt, pending requests, provenance and verified stop. It spends account
+quota and needs `--model`, since the router has no default model. `down
+--purge` disconnects a running node from the router; a node purged while
+stopped leaves its integration for you to revoke in the router. `smoke` exits
+1 when any check fails and prints each failure; `--json` gives every result.
+
 ## Provider & Feature Configuration
 
 Server Connections is available without environment configuration. Pair devices
