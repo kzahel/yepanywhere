@@ -196,8 +196,7 @@ panes open, their widths, or unrelated animations. The preference applies
 immediately, supports Appearance undo, and transfers with browser settings.
 
 **Apps** owns artifact delivery, expiry/deletion options, static vhosts and
-app-link protection. Remote Access provides a link there; Local Access omits
-the migration notice.
+app-link protection. Remote Access and Local Access omit the migration notice.
 **Appearance → Session right pane** remains a default-off browser preference;
 it places session file viewers and detected apps in the same right pane,
 without changing hosting or access policy. Apps configuration is

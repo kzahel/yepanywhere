@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useI18n } from "../../i18n";
 import { useVersion } from "../../hooks/useVersion";
 import { ArtifactSettings } from "./ArtifactSettings";
@@ -20,10 +19,4 @@ export function AppsSettings() {
       <McpAppViewsSettings />
     </SettingsSection>
   );
-}
-
-export function AppsSettingsLink() {
-  const { t } = useI18n();
-  // Absolute: the settings category routes are siblings, so "../apps" resolved to "/apps".
-  return <Link to="/settings/apps">{t("settingsAppsLink")}</Link>;
 }

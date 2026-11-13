@@ -37,7 +37,6 @@ import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
 import { HideInSettingsSearch } from "./SettingsSearchContext";
 import { SettingsSection } from "./SettingsSection";
-import { AppsSettingsLink } from "./AppsSettings";
 
 const DEFAULT_PUBLIC_SHARE_VIEWER_BASE_URL = buildYaClientPublicShareBaseUrl(
   DEFAULT_YA_CLIENT_BASE_URL,
@@ -653,7 +652,6 @@ export function RemoteAccessSettings() {
         remoteConnection ? t("remoteAccessConnectedDescription") : undefined
       }
     >
-      <AppsSettingsLink />
       {remoteSessionGroup}
       {hostIdentityItem && (
         <div className={rowsStyles.group} data-settings-group>

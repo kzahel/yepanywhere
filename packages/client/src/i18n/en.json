@@ -740,7 +740,6 @@
   "settingsAppsTitle": "Apps",
   "settingsAppsDescription": "Hosting, ports, public addresses",
   "settingsAppsUnavailable": "This server does not advertise app and artifact configuration.",
-  "settingsAppsLink": "Artifact and app hosting settings have moved to Apps.",
   "settingsLocalAccessTitle": "Local Access",
   "settingsLocalAccessDescription": "Network binding, auth, file access",
   "settingsRemoteTitle": "Remote Access",
