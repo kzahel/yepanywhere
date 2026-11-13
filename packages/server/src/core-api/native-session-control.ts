@@ -7,7 +7,12 @@ import type { SessionCommandOwner } from "./session-commands.js";
 export function nativeSessionControl(deps: {
   supervisor: Pick<Supervisor, "getProcessForSession"> &
     Partial<
-      Pick<Supervisor, "interruptProcess" | "abortProcessWithVerification">
+      Pick<
+        Supervisor,
+        | "interruptProcess"
+        | "abortProcessWithVerification"
+        | "pauseRecapsUntilUserTurn"
+      >
     >;
   dataDir?: string;
   approvalAuditEnabled?: () => boolean;
@@ -108,6 +113,9 @@ export function nativeSessionControl(deps: {
             aborted: result.hardAborted === true,
           };
         }
+        // As the UI's Stop does: a stopped session starts no background
+        // recap until its next user turn. Interrupt pauses them itself.
+        await deps.supervisor.pauseRecapsUntilUserTurn?.(process.id);
         const result = await deps.supervisor.abortProcessWithVerification?.(
           process.id,
         );

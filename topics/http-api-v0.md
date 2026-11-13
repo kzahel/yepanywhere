@@ -1126,7 +1126,8 @@ state, `result` and `failure` to learn the actual control outcome. `cancel`
 uses existing YA interruption and queue behavior and reports
 `{interrupted,supported,aborted}`; it can hard-abort and does not automatically
 resume. `stop` uses verified termination and reports `stopped` plus native
-verification facts, or a recorded failure. Session metadata stays readable
+verification facts, or a recorded failure. Like the UI's Stop, it first pauses
+the session's background recaps until its next user turn. Session metadata stays readable
 after termination even without native transcript content.
 
 Control retries resolve the existing receipt before acquiring an incumbent

@@ -21,7 +21,12 @@ export function nativeSessionCommandOwner(deps: {
     "startSession" | "getAllProcesses" | "getProcessForSession"
   > &
     Partial<
-      Pick<Supervisor, "interruptProcess" | "abortProcessWithVerification">
+      Pick<
+        Supervisor,
+        | "interruptProcess"
+        | "abortProcessWithVerification"
+        | "pauseRecapsUntilUserTurn"
+      >
     >;
   dataDir?: string;
   approvalAuditEnabled?: () => boolean;

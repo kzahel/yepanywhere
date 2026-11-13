@@ -33,6 +33,7 @@ function fixture(onSessionLookup?: () => void) {
   const store = new ApiReceiptStore(database);
   let interrupted = 0,
     stopped = 0;
+  const order: string[] = [];
   const makeProcess = () => {
     const controlled = createControllableIterator();
     const process = new Process(controlled.iterator, {
@@ -57,7 +58,12 @@ function fixture(onSessionLookup?: () => void) {
         interrupted++;
         return { success: false, supported: true, hardAborted: true };
       },
+      pauseRecapsUntilUserTurn: async () => {
+        order.push("pause-recaps");
+        return true;
+      },
       abortProcessWithVerification: async () => {
+        order.push("stop");
         stopped++;
         return {
           sessionId: "worker",
@@ -125,6 +131,7 @@ function fixture(onSessionLookup?: () => void) {
       process = makeProcess();
     },
     counts: () => ({ interrupted, stopped }),
+    order,
     post: (path: string, body: unknown) =>
       app.request(`/v0/servers/self/sessions/worker/${path}`, {
         method: "POST",
@@ -223,6 +230,8 @@ it("records actual hard-abort and stop outcomes and never repeats them against a
     ).toEqual(observed);
   }
   expect(f.counts()).toEqual({ interrupted: 1, stopped: 1 });
+  // Stop pauses background recaps first, as the UI's Stop does, and once.
+  expect(f.order).toEqual(["pause-recaps", "stop"]);
 });
 
 it.each(["cancel", "stop"] as const)(
