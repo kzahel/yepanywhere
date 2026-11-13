@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api/client";
+import { useMachineControlStatus } from "./useMachineControlStatus";
 import type { FilterOption } from "../components/FilterDropdown";
 import {
   restoreRouterSelection,
@@ -121,7 +122,7 @@ export function useNewSessionOptions({
     selectedEffortLevel,
     selectedRecapMode,
     sandboxLevel,
-    machineControlSelected,
+    machineControlChoice,
     sandboxNetworkFirewall,
     recapAfterSeconds,
     selectedPromptSuggestionMode,
@@ -136,7 +137,7 @@ export function useNewSessionOptions({
   const selectMachineControl = useCallback((selected: boolean) => {
     dispatchOptions({
       type: "choose",
-      field: "machineControlSelected",
+      field: "machineControlChoice",
       value: selected,
     });
   }, []);
@@ -496,12 +497,12 @@ export function useNewSessionOptions({
   const effectivePermissionMode = permissionModeOptions.includes(mode)
     ? mode
     : "default";
-  const supportsInstalledMachineControl = serverHasCapability(
+  const installedMachineControlCapable = serverHasCapability(
     versionInfo,
     SERVER_CAPABILITIES.installedMachineControl.name,
   );
   const machineControlEligible =
-    supportsInstalledMachineControl &&
+    installedMachineControlCapable &&
     effectiveSandboxLevel === "none" &&
     !launch &&
     effectivePermissionMode !== "plan" &&
@@ -510,6 +511,31 @@ export function useNewSessionOptions({
       : ["claude", "claude-gateway", "claude-ollama"].includes(
           selectedProvider ?? "",
         ));
+  const { status: machineControlStatus } = useMachineControlStatus(
+    machineControlEligible,
+  );
+  const machineControlAvailable =
+    machineControlEligible && machineControlStatus.available;
+  // The choice made here, else the server's default for eligible launches.
+  const machineControlSelected =
+    machineControlAvailable &&
+    (machineControlChoice ?? machineControlStatus.enabled);
+  // A queued session carries no choice, so it starts with the server default.
+  const machineControlQueueBlocked =
+    machineControlAvailable &&
+    machineControlSelected !== machineControlStatus.enabled;
+  // Until readiness is known the launch says nothing and the server decides.
+  const supportsInstalledMachineControl =
+    installedMachineControlCapable &&
+    (machineControlStatus.known || !machineControlEligible);
+  useEffect(() => {
+    if (!machineControlEligible)
+      dispatchOptions({
+        type: "choose",
+        field: "machineControlChoice",
+        value: null,
+      });
+  }, [machineControlEligible]);
   const getLegacyProviderDefaultSeed = useCallback(
     (providerName: ProviderName) => ({
       model:
@@ -770,7 +796,9 @@ export function useNewSessionOptions({
     hasSelectedProviderModel,
     helperSideModel,
     helperSideModelOptions,
+    machineControlAvailable,
     machineControlEligible,
+    machineControlQueueBlocked,
     machineControlSelected,
     permissionModeOptions,
     providerChoices,

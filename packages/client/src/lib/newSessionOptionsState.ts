@@ -61,7 +61,8 @@ export interface NewSessionOptionsState {
   selectedEffortLevel: EffortLevel;
   selectedRecapMode: RecapMode;
   sandboxLevel: SessionSandboxLevel;
-  machineControlSelected: boolean;
+  /** Null follows the server's Machine Control default until changed here. */
+  machineControlChoice: boolean | null;
   sandboxNetworkFirewall: boolean;
   recapAfterSeconds: number;
   selectedPromptSuggestionMode: PromptSuggestionMode;
@@ -80,7 +81,7 @@ export const INITIAL_NEW_SESSION_OPTIONS: NewSessionOptionsState = {
   selectedEffortLevel: "high",
   selectedRecapMode: "off",
   sandboxLevel: "none",
-  machineControlSelected: false,
+  machineControlChoice: null,
   sandboxNetworkFirewall: true,
   recapAfterSeconds: DEFAULT_RECAP_AFTER_SECONDS,
   selectedPromptSuggestionMode: "off",
@@ -100,7 +101,7 @@ type SingleFieldChoice =
   | "selectedPromptSuggestionMode"
   | "sandboxNetworkFirewall"
   | "routerConnectorsChoice"
-  | "machineControlSelected";
+  | "machineControlChoice";
 
 export type NewSessionOptionsAction =
   | { type: "sourceChanged"; sourceKey: string }
@@ -151,6 +152,7 @@ export function newSessionOptionsReducer(
             : null,
         routerSelectionCustomized: false,
         routerConnectorsChoice: null,
+        machineControlChoice: null,
       });
     case "seed":
     case "switchProvider":

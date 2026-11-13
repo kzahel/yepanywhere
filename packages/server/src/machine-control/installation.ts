@@ -11,7 +11,7 @@ import {
   realpath,
   rm,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve, win32 } from "node:path";
 import { z } from "zod";
 import { verifyMachineControlSignature } from "./signature.js";
@@ -411,4 +411,72 @@ export function defaultInstallation(
     return resolve(environment.LOCALAPPDATA, "Machine Control");
   if (platform === "linux") return "/usr/share/machine-control";
   throw new Error("Machine Control installation location unavailable");
+}
+
+// Official release signers, from MC's release configuration. Authority comes
+// from the signature, so an install location never needs to be trusted.
+const releasePublishers: Record<string, string | undefined> = {
+  darwin: "VD7BYQ6ABM",
+  win32: "Kyle Graehl",
+};
+
+/** The operator's publisher override, else the official release signer. */
+export function installationPublisher(
+  platform: string,
+  environment: NodeJS.ProcessEnv,
+) {
+  const configured =
+    platform === "darwin"
+      ? environment.YEP_MC_TEAM_ID
+      : environment.YEP_MC_PUBLISHER;
+  return configured || releasePublishers[platform];
+}
+
+/** Standard locations in preference order; YEP_MC_APP is the only one if set. */
+export function installationCandidates(
+  platform: string,
+  environment: NodeJS.ProcessEnv,
+): string[] {
+  if (environment.YEP_MC_APP) return [environment.YEP_MC_APP];
+  const standard = defaultInstallation(platform, environment);
+  if (platform !== "darwin") return [standard];
+  // macOS installs a dragged app system-wide or for one user.
+  const home = environment.HOME || homedir();
+  return [standard, join(home, "Applications", "Machine Control.app")];
+}
+
+/** Nothing verified; `found` says a candidate location was occupied. */
+export class MachineControlUnavailable extends Error {
+  constructor(readonly found: boolean) {
+    super("Machine Control installation unavailable");
+  }
+}
+
+const occupied = (path: string) =>
+  lstat(path).then(
+    () => true,
+    () => false,
+  );
+
+/** The first candidate that verifies; a failed one never hides a later one. */
+export async function findInstalledMachineControl(
+  platform: string,
+  environment: NodeJS.ProcessEnv,
+  verify: (
+    installation: string,
+    publisher: string | undefined,
+    platform: NodeJS.Platform,
+  ) => Promise<InstalledMachineControl> = verifyInstalledMachineControl,
+  exists: (path: string) => Promise<boolean> = occupied,
+): Promise<InstalledMachineControl> {
+  const publisher = installationPublisher(platform, environment);
+  let found = false;
+  for (const candidate of installationCandidates(platform, environment)) {
+    try {
+      return await verify(candidate, publisher, platform as NodeJS.Platform);
+    } catch {
+      found ||= await exists(candidate);
+    }
+  }
+  throw new MachineControlUnavailable(found);
 }

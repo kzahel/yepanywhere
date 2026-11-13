@@ -31,6 +31,7 @@
     "collection-query-updates": "2026-11-11",
     "project-collection-updates": "2026-11-11",
     "sidebar-session-snapshot": "2026-11-11",
-    "collection-metadata-fields": "2026-11-12"
+    "collection-metadata-fields": "2026-11-12",
+    "machine-control-setting": "2026-11-13"
   }
 }

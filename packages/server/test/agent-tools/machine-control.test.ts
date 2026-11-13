@@ -142,6 +142,54 @@ describe("installed Machine Control launch", () => {
     expect(launchProvider).not.toHaveBeenCalled();
   });
 
+  it("applies the operator default unless the launch declines, and never blocks on it", async () => {
+    const enabledByDefault = () => true;
+    const dependencies = {
+      environment: { PATH: "/usr/bin" },
+      platform: "linux",
+      enabledByDefault,
+    };
+    const advertised = start();
+    await startMachineControlSession("codex", options, advertised, {
+      ...dependencies,
+      verify: async () => installed,
+    });
+    expect(advertised.mock.calls[0]?.[0].globalInstructions).toContain(
+      "agent instructions",
+    );
+
+    const verify = vi.fn(async () => installed);
+    const declined = start();
+    const launch = { ...options, machineControl: false };
+    await startMachineControlSession("codex", launch, declined, {
+      ...dependencies,
+      verify,
+    });
+    expect(declined).toHaveBeenCalledWith(launch);
+    expect(verify).not.toHaveBeenCalled();
+
+    // A standing default must not fail every launch once the app is removed;
+    // a choice made for this launch still refuses.
+    const missing = async () => {
+      throw new Error("absent");
+    };
+    const unadvertised = start();
+    await startMachineControlSession("codex", options, unadvertised, {
+      ...dependencies,
+      verify: missing,
+      exists: async () => false,
+    });
+    expect(unadvertised).toHaveBeenCalledWith(options);
+    await expect(
+      startMachineControlSession(
+        "codex",
+        { ...options, machineControl: true },
+        start(),
+        { ...dependencies, verify: missing, exists: async () => false },
+      ),
+    ).rejects.toThrow("integrity");
+  });
+
   it("refuses a retired component selection before discovery", async () => {
     await expect(
       startMachineControlSession(

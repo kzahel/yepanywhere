@@ -55,8 +55,8 @@ import { createDraftRoutes } from "./routes/drafts.js";
 import { ConversationSubscriptions } from "./experimental/conversation-subscriptions.js";
 import { retireLegacyComputerControl } from "./machine-control/legacy-retirement.js";
 import {
-  createMachineControlRoutes,
-  supportsInstalledMachineControl,
+  machineControlEnabled,
+  mountMachineControl,
 } from "./routes/machine-control.js";
 import { createConversationSource } from "./experimental/conversation-source.js";
 import { createExperimentalConversationRoutes } from "./routes/experimental-conversation.js";
@@ -774,6 +774,7 @@ export function createApp(options: AppOptions): AppResult {
       grokBuildUseXaiApiKey: options.serverSettingsService?.getSetting(
         "grokBuildUseXaiApiKey",
       ),
+      machineControlEnabled: machineControlEnabled(options),
     }),
   });
   const codexSessionsDir = options.codexSessionsDir ?? CODEX_SESSIONS_DIR;
@@ -1088,8 +1089,7 @@ export function createApp(options: AppOptions): AppResult {
   // Mount /api routers only after the security and auth middleware above:
   // Hono runs only the middleware registered before a route, so an earlier
   // mount answers without them (test/auth/api-auth-boundary.test.ts).
-  if (supportsInstalledMachineControl())
-    app.route("/api", createMachineControlRoutes());
+  const machineControlMounted = mountMachineControl(app, options);
   const templateSources = new TemplateSourceService(effectiveDataDir);
   const templateCreations = new TemplateCreationService(
     effectiveDataDir,
@@ -3040,7 +3040,7 @@ export function createApp(options: AppOptions): AppResult {
     createVersionRoutes({
       getLatestVersion: options.getLatestVersion,
       collectionQueryUpdatesAvailable: !!options.eventBus,
-      installedMachineControlAvailable: supportsInstalledMachineControl(),
+      installedMachineControlAvailable: machineControlMounted,
       agentSessionViewAvailable: agentSelfEnabled(),
       peerConnectionsAvailable: !!options.peerAccess,
       agentApiAvailable: ["darwin", "linux", "win32"].includes(

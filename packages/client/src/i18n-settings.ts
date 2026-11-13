@@ -162,6 +162,15 @@ export function getSettingsCategories(
       description: t("settingsAgentContextDescription"),
     },
     {
+      id: "machine-control",
+      label: t("settingsMachineControlTitle"),
+      description: t("settingsMachineControlDescription"),
+      requires: {
+        anyCapability: [SERVER_CAPABILITIES.machineControlSetting.name],
+        unsupportedMessage: t("settingsMachineControlUnsupportedServer"),
+      },
+    },
+    {
       id: "notifications",
       label: t("settingsNotificationsTitle"),
       description: t("settingsNotificationsDescription"),

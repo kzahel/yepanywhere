@@ -61,6 +61,7 @@ export const settingsCategoryEmojiIcons: Record<string, string> = {
   speech: "🎙️",
   environment: "⚙️",
   about: "ℹ️",
+  "machine-control": "🖥️",
   emulator: "🤖",
   development: "🛠️",
 };
@@ -299,6 +300,15 @@ export const settingsCategoryIcons: Record<string, ReactNode> = {
     </Icon>
   ),
 
+  "machine-control": (
+    <Icon>
+      {/* Display on a stand, with a pointer on screen */}
+      <rect x="2" y="4" width="20" height="13" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+      <path d="M10 8l5 3-2 .7-.8 2z" fill="currentColor" />
+    </Icon>
+  ),
+
   emulator: (
     <Icon>
       {/* Robot head */}
@@ -339,6 +349,7 @@ const CATEGORY_CLASSES: Record<string, string | undefined> = {
   speech: iconsStyles.iconSpeech,
   environment: iconsStyles.iconEnvironment,
   about: iconsStyles.iconAbout,
+  "machine-control": iconsStyles.iconMachineControl,
   emulator: iconsStyles.iconEmulator,
   development: iconsStyles.iconDevelopment,
 };

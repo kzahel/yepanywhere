@@ -470,6 +470,7 @@ export function NewSessionForm({
     hasSelectedProviderModel,
     helperSideModel,
     machineControlEligible,
+    machineControlQueueBlocked,
     machineControlSelected,
     recapAfterSeconds,
     refetchSettings,
@@ -1485,8 +1486,7 @@ export function NewSessionForm({
         isRecentSpeechAttribution,
         isStarting,
         launchLock,
-        machineControlEligible,
-        machineControlSelected,
+        machineControlQueueBlocked,
         attachmentsRef,
         pendingUploadsRef,
         principal,
@@ -1746,7 +1746,7 @@ export function NewSessionForm({
     allowProjectQueue &&
       !projectPending &&
       !displayDefaultsPending &&
-      !(machineControlSelected && machineControlEligible) &&
+      !machineControlQueueBlocked &&
       showProjectQueueAction &&
       (message.trim() || speechPending !== null || interimTranscript) &&
       pendingFilesReadyForProjectQueue &&
@@ -1759,16 +1759,15 @@ export function NewSessionForm({
             SERVER_CAPABILITIES.projectQueueRouterSelection.name,
           ))),
   );
-  const projectQueueNewSessionTitle =
-    machineControlSelected && machineControlEligible
-      ? t("machineControlImmediateLaunchOnly")
-      : !pendingFilesReadyForProjectQueue
-        ? t("projectQueueNewSessionAttachmentsPreparing")
-        : hasProjectQueueTargetProject
-          ? projectQueueCtrlEnterEnabled
-            ? t("toolbarProjectQueueTooltipWithShortcut")
-            : t("toolbarProjectQueueTooltip")
-          : t("projectQueueNewSessionNeedsProject");
+  const projectQueueNewSessionTitle = machineControlQueueBlocked
+    ? t("machineControlImmediateLaunchOnly")
+    : !pendingFilesReadyForProjectQueue
+      ? t("projectQueueNewSessionAttachmentsPreparing")
+      : hasProjectQueueTargetProject
+        ? projectQueueCtrlEnterEnabled
+          ? t("toolbarProjectQueueTooltipWithShortcut")
+          : t("toolbarProjectQueueTooltip")
+        : t("projectQueueNewSessionNeedsProject");
   const manualDeliverySpeechPrefix =
     speechMessagePrefix &&
     asrAttributionMs > 0 &&

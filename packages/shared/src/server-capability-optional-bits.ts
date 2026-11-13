@@ -112,6 +112,11 @@ export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
     index: CAPABILITY_ID_ALLOCATIONS.installedMachineControl.id,
     introducedIn: "0.9.4",
   },
+  machineControlSetting: {
+    name: "machine-control-setting",
+    index: CAPABILITY_ID_ALLOCATIONS.machineControlSetting.id,
+    introducedIn: "0.12.0",
+  },
   nativePushSubscriptions: {
     name: "native-push-subscriptions-v1",
     index: CAPABILITY_ID_ALLOCATIONS.nativePushSubscriptions.id,

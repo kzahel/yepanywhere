@@ -6079,6 +6079,58 @@ describe("NewSessionForm", () => {
       expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
     });
 
+    it("follows the server's machine control default and withholds Queue only for a differing choice", async () => {
+      showProjectQueue();
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "installed-machine-control"],
+      };
+      mockConnectionFetch.mockImplementation(async (path: string) =>
+        path === "/machine-control" ? { available: true, enabled: true } : {},
+      );
+      renderForm();
+      typeDraft("default on");
+      const queueButton = () =>
+        screen.getByRole("button", {
+          name: "toolbarProjectQueueLabel",
+        }) as HTMLButtonElement;
+      // On without opening the options, and a queued session starts the same
+      // way, so Queue stays available.
+      await waitFor(() => expect(queueButton().disabled).toBe(false));
+      openAdvancedOptions();
+      expect(selectedDropdownValue("newSessionMachineControlTitle")).toBe("on");
+
+      fireEvent.click(
+        dropdownOption("newSessionMachineControlTitle", "showThinkingOff"),
+      );
+      expect(queueButton().disabled).toBe(true);
+      expect(queueButton().getAttribute("title")).toBe(
+        "machineControlImmediateLaunchOnly",
+      );
+      fireEvent.click(startButton());
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockStartSession.mock.calls[0]?.[2]).toEqual(
+        expect.objectContaining({ machineControl: false }),
+      );
+    });
+
+    it("leaves machine control to the server until readiness is known", async () => {
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "installed-machine-control"],
+      };
+      mockConnectionFetch.mockImplementation((path: string) =>
+        path === "/machine-control"
+          ? new Promise(() => {})
+          : Promise.resolve({}),
+      );
+      renderForm();
+      typeDraft("before readiness");
+      fireEvent.click(startButton());
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockStartSession.mock.calls[0]?.[2]).not.toHaveProperty(
+        "machineControl",
+      );
+    });
+
     it("records a started prompt in composer history but not a queued one", async () => {
       showProjectQueue();
       renderForm();

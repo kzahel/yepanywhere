@@ -1196,7 +1196,10 @@ passes its bounded slice. YA's former Windows component installer, updater,
 resident supervisor and product controls are retired with bounded compatibility
 refusal and exact-instance cleanup. Remaining provider/platform cells are listed
 in the owning [topic](../../topics/optional-computer-control.md). This separately
-authorized work does not displace release delivery above.
+authorized work does not displace release delivery above. A default-off
+server setting (2026-11-13) now offers the installed app to every eligible
+launch, with per-user Mac discovery, built-in release publishers and a
+Settings pane that links to the download page; it is live-tested on macOS.
 
 The maintainer proposed an experimental
 [Chrome extension client](../tactical/151-chrome-extension-client.md) on

@@ -149,12 +149,17 @@ verified Machine Control `mc-sudo` helper. Defaults stay unchanged.
 ## Installed Machine Control instructions
 
 **Current:** eligible local Claude-family and unrestricted Codex launches can
-select default-off Machine Control in advanced New Session options. Capability
-112 gates both read-only installation readiness and the optional `machineControl`
-launch field. Explicit false suppresses `YEP_MC_CONTROL`; older hosts receive
-neither new requests nor the field. Selected queue submission is unavailable.
+select Machine Control in advanced New Session options. Capability 112 gates
+both read-only installation readiness and the optional `machineControl`
+launch field. A default-off server setting advertises it to every eligible
+launch that carries no choice, and the picker starts there; an explicit
+false suppresses that setting and `YEP_MC_CONTROL`. Older hosts receive
+neither new requests nor the field. Queue submission is unavailable only
+while the shown choice differs from the server default.
 Remote executors, plan mode, session sandboxes and fixed launches remain
 ineligible. Existing context and environment survive composition.
+[Optional computer control](optional-computer-control.md#server-default) owns
+the setting's contract.
 
 YA verifies the installed app and complete Python client before adding its
 command directory to PATH and an exact command path plus `agent instructions`

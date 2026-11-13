@@ -92,6 +92,7 @@ describe("SettingsLayout capability gating", () => {
     expect(gatedCategories.map((category) => category.id).sort()).toEqual([
       "emulator",
       "issues",
+      "machine-control",
       "project-templates",
       "server-connections",
       "users",

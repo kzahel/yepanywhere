@@ -457,6 +457,7 @@ authorize writes or relax the sessions/Inbox gate. See
   GitHub status controls have their own optional capability. Additive content,
   cache-policy and status response fields document their absence behavior there.
 - [Computer Control](optional-computer-control.md): retired IDs 70/71 stay
-  reserved; Installed Machine Control uses distinct ID 112.
+  reserved; Installed Machine Control uses distinct ID 112, and its server
+  default setting uses ID 160.
 - [Hosted compatibility](remote-hosted-compatibility.md): broad protocol/floor
   decisions, transient client/server skew and separate transport formats.

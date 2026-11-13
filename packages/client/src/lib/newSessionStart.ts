@@ -217,8 +217,7 @@ export interface NewSessionQueueDeps extends NewSessionAttachmentDeps {
   isRecentSpeechAttribution: RecentSpeechAttribution["isRecent"];
   isStarting: boolean;
   launchLock: LaunchLock;
-  machineControlEligible: NewSessionOptions["machineControlEligible"];
-  machineControlSelected: NewSessionOptions["machineControlSelected"];
+  machineControlQueueBlocked: NewSessionOptions["machineControlQueueBlocked"];
   principal: { username: string | null };
   projectInput: string;
   projectPending: boolean;
@@ -732,8 +731,7 @@ export async function queueNewSessionForProject(
     isRecentSpeechAttribution,
     isStarting,
     launchLock,
-    machineControlEligible,
-    machineControlSelected,
+    machineControlQueueBlocked,
     attachmentsRef,
     pendingUploadsRef,
     principal,
@@ -777,8 +775,7 @@ export async function queueNewSessionForProject(
     ),
     launchLimited: launchLock.limited,
     effectiveSandboxLevel,
-    machineControlSelected,
-    machineControlEligible,
+    machineControlQueueBlocked,
     creatingTemplateProject,
     templateProjectBusy,
   });

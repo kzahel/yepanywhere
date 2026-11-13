@@ -1,8 +1,7 @@
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../../machine-control/legacy-retirement.js";
 import { delimiter, win32 } from "node:path";
 import {
-  defaultInstallation,
-  verifyInstalledMachineControl,
+  findInstalledMachineControl,
   type InstalledMachineControl,
 } from "../../machine-control/installation.js";
 import { startNativeSudoSession } from "./native-sudo.js";
@@ -20,6 +19,17 @@ export interface MachineControlDependencies {
     publisher: string | undefined,
     platform: NodeJS.Platform,
   ) => Promise<InstalledMachineControl>;
+  /** Whether a path is occupied, to tell a failed install from an absent one. */
+  exists?: (path: string) => Promise<boolean>;
+  /** The operator's setting; defaults to the launch's runtime snapshot. */
+  enabledByDefault?: () => boolean;
+}
+
+let enabledByDefault = () => false;
+
+/** Wired to the runtime snapshot, so a provider worker sees the setting too. */
+export function setMachineControlDefault(getter: () => boolean) {
+  enabledByDefault = getter;
 }
 
 /** Advertisement is launcher context, never an MC grant or OS containment. */
@@ -32,7 +42,11 @@ export async function startMachineControlSession(
   if (options.computerControl) throw new Error(RETIRED_COMPUTER_CONTROL_ERROR);
   const environment = dependencies.environment ?? process.env;
   const platform = dependencies.platform ?? process.platform;
-  const selected = options.machineControl ?? environment.YEP_MC_CONTROL === "1";
+  const seeded = environment.YEP_MC_CONTROL === "1";
+  const defaulted =
+    options.machineControl === undefined &&
+    (dependencies.enabledByDefault ?? enabledByDefault)();
+  const selected = options.machineControl ?? (seeded || defaulted);
   if (
     !selected ||
     !["darwin", "win32", "linux"].includes(platform) ||
@@ -46,20 +60,18 @@ export async function startMachineControlSession(
     (provider === "codex" && options.permissionMode !== "bypassPermissions")
   )
     return start(options);
-  const app =
-    environment.YEP_MC_APP ?? defaultInstallation(platform, environment);
-  const publisher =
-    platform === "darwin"
-      ? environment.YEP_MC_TEAM_ID
-      : environment.YEP_MC_PUBLISHER;
   let installation: InstalledMachineControl;
   try {
-    installation = await (dependencies.verify ?? verifyInstalledMachineControl)(
-      app,
-      publisher,
-      platform as NodeJS.Platform,
+    installation = await findInstalledMachineControl(
+      platform,
+      environment,
+      dependencies.verify,
+      dependencies.exists,
     );
   } catch {
+    // The setting is a standing default, so a missing or unverified install
+    // leaves the launch unadvertised. A choice made for this launch refuses.
+    if (defaulted && !seeded) return start(options);
     throw new Error(
       "Configured Machine Control desktop installation is missing, incompatible, or failed publisher/integrity verification",
     );

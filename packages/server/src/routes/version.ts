@@ -785,8 +785,12 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterMostRemaining.name);
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterSessionSwitch.name);
   }
+  // The readiness route and the default setting mount together.
   if (options?.installedMachineControlAvailable)
-    capabilities.push(SERVER_CAPABILITIES.installedMachineControl.name);
+    capabilities.push(
+      SERVER_CAPABILITIES.installedMachineControl.name,
+      SERVER_CAPABILITIES.machineControlSetting.name,
+    );
   if (options?.agentSessionViewAvailable)
     capabilities.push(SERVER_CAPABILITIES.agentSessionView.name);
   if (options?.peerConnectionsAvailable) {

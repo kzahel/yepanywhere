@@ -101,7 +101,7 @@ export function NewSessionOptionsPanel({
     handleProviderSelect,
     helperSideModel,
     helperSideModelOptions,
-    machineControlEligible,
+    machineControlAvailable,
     machineControlSelected,
     permissionModeOptions,
     providerChoices,
@@ -991,9 +991,7 @@ export function NewSessionOptionsPanel({
     effectiveSandboxLevel === "project-write"
       ? sessionDefaultCopy.sandbox.title
       : null,
-    machineControlSelected && machineControlEligible
-      ? t("newSessionMachineControlTitle")
-      : null,
+    machineControlSelected ? t("newSessionMachineControlTitle") : null,
     routerClaudeAiConnectors ? t("newSessionClaudeAiConnectorsTitle") : null,
   ].filter((label): label is string => label !== null);
 
@@ -1110,7 +1108,7 @@ export function NewSessionOptionsPanel({
         {promptSuggestionSection}
         {sandboxSection}
         <MachineControlSessionSelection
-          eligible={machineControlEligible}
+          available={machineControlAvailable}
           selected={machineControlSelected}
           onChange={selectMachineControl}
           disabled={isStarting}

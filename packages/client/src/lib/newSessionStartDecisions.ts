@@ -264,8 +264,8 @@ export function buildNewSessionStartOptions(input: {
 /**
  * Project Queue's refusals before a pending dictation can defer the press: a
  * pool or account the server cannot queue or launch (never dropped, so the
- * item cannot run on the direct login), machine control (immediate launches
- * only), and a template being made.
+ * item cannot run on the direct login), a Machine Control choice the queued
+ * session cannot carry, and a template being made.
  */
 export function projectQueueRefusalBeforeDefer(input: {
   /** The shown router selection's source, restored or chosen; null for Direct. */
@@ -275,8 +275,8 @@ export function projectQueueRefusalBeforeDefer(input: {
   queueRouterCapable: boolean;
   launchLimited: boolean;
   effectiveSandboxLevel: SessionSandboxLevel;
-  machineControlSelected: boolean;
-  machineControlEligible: boolean;
+  /** The form's choice differs from the default a queued session starts with. */
+  machineControlQueueBlocked: boolean;
   creatingTemplateProject: boolean;
   templateProjectBusy: boolean;
 }):
@@ -299,7 +299,7 @@ export function projectQueueRefusalBeforeDefer(input: {
       return { kind: "refuse", toastKey: "routerLaunchUnsupported" };
     }
   }
-  if (input.machineControlSelected && input.machineControlEligible) {
+  if (input.machineControlQueueBlocked) {
     return { kind: "silent" };
   }
   if (input.creatingTemplateProject || input.templateProjectBusy) {

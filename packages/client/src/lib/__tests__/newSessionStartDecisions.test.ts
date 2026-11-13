@@ -293,8 +293,7 @@ describe("Project Queue decisions", () => {
       queueRouterCapable: true,
       launchLimited: false,
       effectiveSandboxLevel: "none",
-      machineControlSelected: false,
-      machineControlEligible: false,
+      machineControlQueueBlocked: false,
       creatingTemplateProject: false,
       templateProjectBusy: false,
       ...input,
@@ -321,10 +320,9 @@ describe("Project Queue decisions", () => {
   });
 
   it("returns without a toast for machine control and a template (N3)", () => {
-    expect(
-      refusal({ machineControlSelected: true, machineControlEligible: true }),
-    ).toEqual({ kind: "silent" });
-    expect(refusal({ machineControlSelected: true })).toBeNull();
+    expect(refusal({ machineControlQueueBlocked: true })).toEqual({
+      kind: "silent",
+    });
     expect(refusal({ templateProjectBusy: true })).toEqual({ kind: "silent" });
   });
 

@@ -761,6 +761,31 @@ export const SESSIONS_SERVER_CAPABILITIES = {
       reason: "Optional independently installed desktop product.",
     },
   },
+  machineControlSetting: {
+    id: CAPABILITY_ID_ALLOCATIONS.machineControlSetting.id,
+    name: "machine-control-setting",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.12.0",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.machineControlSetting.id,
+    },
+    description:
+      "Server-wide default advertisement of installed Machine Control to eligible launches, with its Settings switch.",
+    clientFallback:
+      "Hide the Machine Control settings category, send no setting write, and start the New Session picker off.",
+    serverContract: {
+      routes: ["PUT /api/machine-control"],
+      routeModules: ["packages/server/src/routes/machine-control-setting.ts"],
+      requestFields: ["enabled"],
+      responseFields: ["enabled", "found"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Optional independently installed desktop product.",
+    },
+  },
   computerControl: {
     id: CAPABILITY_ID_ALLOCATIONS.computerControl.id,
     name: "optional-computer-control",

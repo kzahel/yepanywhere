@@ -145,6 +145,11 @@ const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   speech: lazy(() =>
     import("./SpeechSettings").then((m) => ({ default: m.SpeechSettings })),
   ),
+  "machine-control": lazy(() =>
+    import("./MachineControlSettings").then((m) => ({
+      default: m.MachineControlSettings,
+    })),
+  ),
   emulator: lazy(() =>
     import("./EmulatorSettings").then((m) => ({ default: m.EmulatorSettings })),
   ),

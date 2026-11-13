@@ -188,6 +188,10 @@
   --settings-category-icon-offset-x: 0.5px;
 }
 
+.iconMachineControl {
+  --settings-category-icon-accent: #0f766e;
+}
+
 .iconEmulator {
   --settings-category-icon-accent: #ea580c;
 }

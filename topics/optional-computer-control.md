@@ -6,7 +6,9 @@ Status: installed desktop consumer and legacy retirement complete, 2026-10-03.
 Mac and Windows native/browser model use, full-app live/reloaded media and
 YA close/restart/crash isolation are accepted. Linux x64 installed CLI/core
 desktop use is accepted. [Tactical 142](../docs/tactical/142-machine-control-desktop-consumer.md)
-owns implementation and exact acceptance records.
+owns implementation and exact acceptance records. The
+[server default](#server-default), per-user Mac location and built-in release
+publishers were added 2026-11-13 and live-tested on macOS only.
 
 ## Ownership and authority
 
@@ -31,16 +33,26 @@ and crash leave the independent app alone. No sandbox is widened to deliver MC.
 
 ## Discovery and configuration
 
-**Current:** default-off local launches discover standard installed locations:
-`/Applications/Machine Control.app`, `Machine Control` under Windows
-`LOCALAPPDATA`, and `/usr/share/machine-control` on Linux. `YEP_MC_APP` explicitly
-selects another app/product resource root; extracted AppImages use their
-`usr/share/machine-control` root. Publisher authority is independently configured
-with `YEP_MC_TEAM_ID` on Mac or `YEP_MC_PUBLISHER` on Windows. Linux uses the
-pinned MC updater key shipped with YA to authenticate `files.json.sig`.
+**Current:** default-off local launches discover standard installed locations
+in order and use the first that verifies: `/Applications/Machine Control.app`
+then `~/Applications/Machine Control.app` on Mac, `Machine Control` under
+Windows `LOCALAPPDATA`, and `/usr/share/machine-control` on Linux. A location
+that fails verification never hides a later one. `YEP_MC_APP` explicitly
+selects another app/product resource root and is then the only location tried;
+extracted AppImages and custom Windows install directories use it.
+
+**Decision (2026-11-13):** YA ships the official release publishers, the Mac
+Team ID and the Windows signer name from Machine Control's release
+configuration, as it already ships the Linux updater key that authenticates
+`files.json.sig`. Trust comes from the signature, never from the location.
+`YEP_MC_TEAM_ID` on Mac or `YEP_MC_PUBLISHER` on Windows still overrides the
+built-in publisher. Before this, discovery found nothing on a stock install
+without those variables, so the feature was invisible.
+
 `YEP_MC_CONTROL=1` can seed programmatic launch advertisement; an explicit
 session `false` overrides it. Restart YA and its shared provider host after
-changing launch configuration.
+changing launch environment. The [server default](#server-default) needs no
+restart.
 
 YA authenticates the package and full CLI dependency inventory before executing
 its offline identity probe. Mac checks the signed app and team. Windows checks
@@ -64,6 +76,43 @@ APP --publisher TRUSTED_PUBLISHER` for offline installation, identity,
 instructions, context, relocation and negative checks. Omit publisher on Linux.
 Reading identity/instructions neither requests access nor mutates the desktop.
 
+## Server default
+
+**Decision (2026-11-13):** one server-wide, default-off setting, **Offer
+Machine Control to agents**, in Settings → Machine Control. It is stored as
+`machineControlEnabled` in server settings and written only through
+`PUT /api/machine-control` with `{ "enabled": boolean }`; the reply is
+`{ "enabled" }`. A limited user can reach neither route.
+
+While it is on, every eligible launch that carries no choice of its own
+advertises the installed command: New Session, Project Queue, HTTP v0
+creation and a resumed session's next process. Eligibility is unchanged, so
+plan mode, YA sandboxes, remote executors and other providers stay
+unadvertised. A launch's explicit `machineControl` boolean still wins in
+either direction. The setting takes effect at the next provider launch and is
+carried to provider workers in the launch's runtime snapshot.
+
+The setting is an advertisement, exactly as the per-session choice is. It
+grants no Machine Control access and starts no resident.
+
+A missing or unverifiable installation never blocks a launch that only the
+setting selected: that session starts unadvertised. A launch that explicitly
+asks for Machine Control, or one seeded by `YEP_MC_CONTROL=1`, still refuses.
+
+`GET /api/machine-control` additionally reports `enabled` (the setting) and,
+when unavailable, `found`: true when a standard or selected location is
+occupied by something that failed verification. The Settings pane shows the
+verified version, or says the app is missing or unverified and links to the
+Machine Control download page. YA does not download, install or update the
+app; a person installs it on the server's computer and grants its OS
+permissions there.
+
+Permanent optional capability 160, `machine-control-setting`, covers the
+write, the two response fields and the Settings category. It is advertised
+with capability 112. Without it the client hides the category, never sends
+the write, and treats absent `enabled`/`found` as false, which is the
+existing 112 behavior.
+
 ## Session selection and compatibility
 
 **Current:** permanent optional capability 112, `installed-machine-control`,
@@ -71,20 +120,26 @@ exposes authenticated read-only `GET /api/machine-control`. It reports bounded
 `{ available, version? }` readiness without private paths, settings mutation,
 resident startup or grants. Installation readiness is separate from eligibility.
 
-The advanced New Session options offer default-off Machine Control to eligible
-local Claude-family sessions outside plan mode and unrestricted local Codex
+The advanced New Session options offer Machine Control to eligible local
+Claude-family sessions outside plan mode and unrestricted local Codex
 sessions. Remote executors, YA sandboxes and fixed launches are ineligible.
-Selection resets on source/eligibility changes. Immediate explicit launches
-carry optional boolean `machineControl` through all four session routes and
-supervisor/provider composition. Existing context and child environment survive.
+The picker starts at the [server default](#server-default), off unless that
+setting is on, and a choice made in the form resets on source/eligibility
+changes. The form reads readiness once it is eligible, whether or not the
+options are open. Immediate launches carry the shown choice as boolean
+`machineControl` through all four session routes and supervisor/provider
+composition; until readiness has answered they carry no field, so the server
+default decides. Existing context and child environment survive.
 The exact safely quoted command path accompanies PATH because login shells
 may replace PATH. Native sudo remains independent.
 
 When capability 112 is absent, the client hides the picker and sends neither
 readiness requests nor the field, including to older servers advertising legacy
 IDs 70/71. The reviewed optional corpus is v0.9.0, v0.9.1 and v0.9.2; the new
-contract is introduced in 0.9.4. Selected queue submission is disabled with an
-explanation; turning it off restores ordinary queue submission.
+contract is introduced in 0.9.4. A queued session carries no choice and
+starts with the server default, so Project Queue from New Session is disabled
+with an explanation only while the shown choice differs from that default;
+resetting it restores ordinary queue submission.
 
 ## Native Mac delegation (retired)
 
