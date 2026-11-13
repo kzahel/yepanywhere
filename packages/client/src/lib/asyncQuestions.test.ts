@@ -164,11 +164,14 @@ describe("async question reminders", () => {
     ).toBe("retired");
     // Without its own time, a preview is at least as old as the session's
     // last activity; its own time wins when present.
+    expect(getQuestionElapsedMs({ sessionActivityMs: stale }, now)).toBe(
+      QUESTION_REMINDER_MAX_AGE_MS,
+    );
     expect(
-      getQuestionElapsedMs({ sessionActivityMs: stale }, now),
-    ).toBe(QUESTION_REMINDER_MAX_AGE_MS);
-    expect(
-      getQuestionElapsedMs({ askedAtMs: now - day, sessionActivityMs: now }, now),
+      getQuestionElapsedMs(
+        { askedAtMs: now - day, sessionActivityMs: now },
+        now,
+      ),
     ).toBe(day);
   });
 });
