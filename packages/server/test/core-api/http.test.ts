@@ -170,7 +170,7 @@ describe("isolated v0 application and HTTP reads", () => {
       expect(response.status, path).toBe(200);
       expect(
         operation.response.safeParse(
-          operation.id === "help"
+          ["help", "targetHelp"].includes(operation.id)
             ? await response.text()
             : await response.json(),
         ).success,

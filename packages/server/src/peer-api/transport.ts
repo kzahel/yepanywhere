@@ -1,4 +1,9 @@
 import {
+  PEER_ENVELOPE_VERSION,
+  RECEIPT_HEADER,
+  type ApiHttpReply,
+} from "../core-api/http-contracts.js";
+import {
   operations,
   operationMethod,
   type Operation,
@@ -22,6 +27,21 @@ export function peerOperationRequest(
   attestation: PeerAttestation,
   token: string,
 ) {
+  if (input.http)
+    return {
+      method: input.http.method,
+      path: input.http.path,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": input.http.contentType ?? "application/json",
+        "X-YA-Peer-Envelope": PEER_ENVELOPE_VERSION,
+        "X-YA-Peer-Context": Buffer.from(JSON.stringify(attestation)).toString(
+          "base64url",
+        ),
+        ...(input.http.key ? { "Idempotency-Key": input.http.key } : {}),
+      },
+      ...(input.http.body !== undefined ? { body: input.http.body } : {}),
+    };
   const descriptor = operations.find((op) => op.id === operation)!;
   if (!descriptor.path.includes(":serverId"))
     throw new CoreApiError(
@@ -32,7 +52,8 @@ export function peerOperationRequest(
   const path = descriptor.path
     .replace(":serverId", encodeURIComponent(input.serverId ?? ""))
     .replace(":sessionId", encodeURIComponent(input.sessionId ?? ""))
-    .replace(":receiptId", encodeURIComponent(input.receiptId ?? ""));
+    .replace(":receiptId", encodeURIComponent(input.receiptId ?? ""))
+    .replace(":requestId", encodeURIComponent(input.pendingRequestId ?? ""));
   const url = new URL(`/v0${path}`, "http://peer.internal");
   for (const [key, value] of Object.entries(input.query ?? {}))
     if (value !== undefined) url.searchParams.set(key, value);
@@ -42,20 +63,37 @@ export function peerOperationRequest(
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json" as const,
+      "X-YA-Peer-Envelope": PEER_ENVELOPE_VERSION,
+      ...((input.body as { requestId?: string })?.requestId
+        ? { "Idempotency-Key": (input.body as { requestId: string }).requestId }
+        : {}),
       "X-YA-Peer-Context": Buffer.from(JSON.stringify(attestation)).toString(
         "base64url",
       ),
     },
-    ...(operationMethod(descriptor) === "POST" ? { body: input.body } : {}),
+    ...(operationMethod(descriptor) === "POST"
+      ? {
+          body: JSON.stringify(
+            input.body && typeof input.body === "object"
+              ? Object.fromEntries(
+                  Object.entries(input.body).filter(
+                    ([key]) => key !== "requestId",
+                  ),
+                )
+              : input.body,
+          ),
+        }
+      : {}),
   };
 }
 
 export function validatePeerReply(
-  operation: Operation,
+  _operation: Operation,
   serverId: string,
   status: number,
   headers: Headers,
   value: unknown,
+  opaque = false,
 ) {
   if (headers.get("X-YA-Server-ID") !== serverId)
     throw new CoreApiError(
@@ -63,32 +101,38 @@ export function validatePeerReply(
       "Peer response identity does not match",
       502,
     );
+  if (opaque)
+    return {
+      status,
+      headers: Object.fromEntries(
+        [...headers].filter(([name]) =>
+          [
+            "content-type",
+            "x-ya-server-id",
+            RECEIPT_HEADER.toLowerCase(),
+          ].includes(name.toLowerCase()),
+        ),
+      ),
+      body: typeof value === "string" ? value : JSON.stringify(value),
+    } satisfies ApiHttpReply;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      /* Markdown help. */
+    }
+  }
   if (status < 200 || status >= 300) {
     const error =
       value && typeof value === "object"
-        ? (value as { error?: unknown }).error
+        ? (value as { error?: object }).error
         : undefined;
-    const restored = CoreApiError.restore({
-      ...(error && typeof error === "object" ? error : {}),
-      status,
-    });
-    if (restored) throw restored;
-    throw new CoreApiError(
-      "peer_unsupported",
-      "Peer does not support this operation",
-      501,
+    throw (
+      CoreApiError.restore({ ...error, status }) ??
+      new CoreApiError("peer_unsupported", "Target rejected operation", 501)
     );
   }
-  const parsed = operations
-    .find((op) => op.id === operation)!
-    .response.safeParse(value);
-  if (!parsed.success)
-    throw new CoreApiError(
-      "peer_unsupported",
-      "Peer response does not match the operation contract",
-      501,
-    );
-  return parsed.data;
+  return value;
 }
 
 /** No failover or retry. Plain HTTP is allowed only for explicit loopback fixtures. */
@@ -144,13 +188,6 @@ export class HttpPeerTransport implements PeerTransport {
     input: PeerInput,
     attestation: PeerAttestation,
   ) {
-    const descriptor = operations.find((op) => op.id === operation)!;
-    if (!descriptor.path.includes(":serverId"))
-      throw new CoreApiError(
-        "peer_unsupported",
-        "Only server-addressed resources can be forwarded",
-        501,
-      );
     const signal = AbortSignal.any([
       AbortSignal.timeout(10_000),
       ...(input.signal ? [input.signal] : []),
@@ -170,27 +207,18 @@ export class HttpPeerTransport implements PeerTransport {
           "Configured peer identity does not match",
           502,
         );
-      const path = descriptor.path
-        .replace(":serverId", encodeURIComponent(this.serverId))
-        .replace(":sessionId", encodeURIComponent(input.sessionId ?? ""))
-        .replace(":receiptId", encodeURIComponent(input.receiptId ?? ""));
-      const url = new URL(`/v0${path}`, this.origin);
-      for (const [key, value] of Object.entries(input.query ?? {}))
-        if (value !== undefined) url.searchParams.set(key, value);
-      const response = await this.fetcher(url, {
-        method: operationMethod(descriptor),
+      const request = peerOperationRequest(
+        operation,
+        { ...input, serverId: this.serverId },
+        attestation,
+        this.token,
+      );
+      const response = await this.fetcher(new URL(request.path, this.origin), {
+        method: request.method,
         signal,
         redirect: "error",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          "Content-Type": "application/json",
-          "X-YA-Peer-Context": Buffer.from(
-            JSON.stringify(attestation),
-          ).toString("base64url"),
-        },
-        ...(operationMethod(descriptor) === "POST"
-          ? { body: JSON.stringify(input.body) }
-          : {}),
+        headers: request.headers,
+        ...(request.body !== undefined ? { body: request.body } : {}),
       });
       if (response.headers.get("X-YA-Server-ID") !== this.serverId) {
         await response.body?.cancel();
@@ -200,27 +228,15 @@ export class HttpPeerTransport implements PeerTransport {
           502,
         );
       }
-      const value = JSON.parse(await this.response(response));
-      if (!response.ok) {
-        const restored = CoreApiError.restore({
-          ...value.error,
-          status: response.status,
-        });
-        if (restored) throw restored;
-        throw new CoreApiError(
-          "peer_unsupported",
-          "Peer does not support this operation",
-          501,
-        );
-      }
-      const parsed = descriptor.response.safeParse(value);
-      if (!parsed.success)
-        throw new CoreApiError(
-          "peer_unsupported",
-          "Peer response does not match the operation contract",
-          501,
-        );
-      return parsed.data;
+      const value = await this.response(response);
+      return validatePeerReply(
+        operation,
+        this.serverId,
+        response.status,
+        response.headers,
+        value,
+        Boolean(input.http),
+      );
     } catch (error) {
       if (error instanceof CoreApiError) throw error;
       throw new CoreApiError(

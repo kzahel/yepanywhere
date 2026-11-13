@@ -1,3 +1,5 @@
+import { isFullSchemaPath } from "./documentation-metrics.js";
+import { TARGET_ARTIFACT, TARGET_PROOF } from "./target-contract.js";
 import { correctSelection } from "./selection.js";
 import type { ApiSessionInspection } from "../../packages/server/src/core-api/selection-contracts.js";
 import type { ApiSession } from "../../packages/server/src/core-api/contracts.js";
@@ -34,6 +36,12 @@ sessions.push({
   updatedAt: "2026-01-02T00:00:00.000Z",
 });
 export const CASES = {
+  target_contract:
+    "Discover the other server's target-only probe operation from its own documentation and exact schema, use it, and report the returned artifact exactly in answer. Do not assume the access server implements the same API.",
+  approval:
+    "A worker named Approval worker is blocked. Inspect why, approve its pending permission request, and read the artifact it produces afterward. Report the worker session id and that artifact exactly in answer. Do not claim success from admission alone.",
+  controls:
+    "Interrupt the worker named Interrupt worker and stop the worker named Stop worker. Inspect their control receipts and resulting session states. Report their ids in sessionIds and answer as interrupt-state|stop-state using observed session state values. Do not automatically resume them.",
   selection:
     "Discover the Codex pool named Release pool and its model/effort/speed choices. Create one worker in Orchid on that pool using its Release model, high thinking effort, Fast speed, and plan permission mode. Read the worker session back and verify all those settings plus its selected pool and account. Report the worker id in sessionId, supported=true only after verification, and answer exactly as model|effort|serviceTier|poolId|accountId|permissionMode using observed values. Do not infer completion from creation acceptance.",
   operation:
@@ -76,7 +84,16 @@ export interface Answer {
 }
 export interface Trace {
   inspection?: ApiSessionInspection;
-  receipt?: { id: string; kind: string; delivery: string };
+  receipt?: {
+    id: string;
+    kind: string;
+    delivery: string;
+    state?: string;
+    result?: Record<string, unknown>;
+  };
+  sessionState?: string;
+  pendingId?: string;
+  artifact?: string;
   follow?: { cursor: string; reset: boolean; changed: boolean };
   method: string;
   path: string;
@@ -138,15 +155,107 @@ export function grade(
     ),
   }));
   switch (caseId) {
+    case "target_contract":
+      return (
+        answer.answer === TARGET_ARTIFACT &&
+        read(`${root}/help`) &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.path === `${root}/schema?operation=targetProbe`,
+        ) &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.path === `${root}/extension/probe?proof=${TARGET_PROOF}` &&
+            t.artifact === TARGET_ARTIFACT,
+        )
+      );
+    case "approval":
+      return (
+        answer.sessionId === "approval-worker" &&
+        answer.answer === "approved-artifact-4d8" &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.path === `${root}/sessions/approval-worker/requests` &&
+            t.pendingId === "permission-001",
+        ) &&
+        trace.some(
+          (t) =>
+            t.method === "POST" &&
+            t.status === 202 &&
+            t.path ===
+              `${root}/sessions/approval-worker/requests/permission-001/response`,
+        ) &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.receipt?.kind === "respond" &&
+            t.receipt.state === "accepted" &&
+            t.receipt.result?.accepted === true,
+        ) &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.path.startsWith(
+              `${root}/sessions/approval-worker/conversation`,
+            ) &&
+            t.artifact === "approved-artifact-4d8",
+        )
+      );
+    case "controls":
+      return (
+        answer.answer === "idle|terminated" &&
+        ["interrupt-worker", "stop-worker"].every((id) =>
+          answer.sessionIds.includes(id),
+        ) &&
+        ["cancel", "stop"].every(
+          (kind) =>
+            trace.some(
+              (t) =>
+                t.method === "POST" &&
+                t.status === 202 &&
+                t.path ===
+                  `${root}/sessions/${kind === "cancel" ? "interrupt" : "stop"}-worker/${kind}`,
+            ) &&
+            trace.some(
+              (t) =>
+                t.status === 200 &&
+                t.receipt?.kind === kind &&
+                t.receipt.state === "accepted" &&
+                (kind === "cancel"
+                  ? t.receipt.result?.interrupted === true
+                  : t.receipt.result?.stopped === true),
+            ),
+        ) &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.path === `${root}/sessions/interrupt-worker` &&
+            t.sessionState === "idle",
+        ) &&
+        trace.some(
+          (t) =>
+            t.status === 200 &&
+            t.path === `${root}/sessions/stop-worker` &&
+            t.sessionState === "terminated",
+        )
+      );
     case "operation":
       return (
         /\bcreateSession\b/.test(answer.answer) &&
         trace.some(
           (entry) =>
             entry.status === 200 &&
-            entry.path === "/v0/schema?operation=createSession",
+            [
+              "/v0/schema?operation=createSession",
+              `${root}/schema?operation=createSession`,
+            ].includes(entry.path),
         ) &&
-        !trace.some((entry) => entry.path === "/v0/schema")
+        !trace.some(
+          (entry) => entry.status === 200 && isFullSchemaPath(entry.path),
+        )
       );
     case "selection":
       return (
@@ -180,8 +289,8 @@ export function grade(
         (entry) =>
           entry.method === "POST" &&
           entry.status === 202 &&
-          entry.path === `${root}/sessions/eval-worker-1/messages` &&
-          entry.receipt?.kind === "sendMessage",
+          entry.path === `${root}/sessions/eval-worker-1/prompts` &&
+          entry.receipt?.kind === "prompt",
       );
       const repeated =
         sent.length >= 2 &&

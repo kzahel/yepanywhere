@@ -482,7 +482,7 @@ export class DelegatedPeerAccess {
           );
         if (
           policy.operations.some(
-            (op) => op === "createSession" || op === "sendMessage",
+            (op) => op === "createSession" || op === "prompt",
           ) &&
           input.acknowledgeExecutionAuthority !== "server-account"
         )

@@ -1,3 +1,4 @@
+import { PEER_ENVELOPE_VERSION } from "../core-api/http-contracts.js";
 import { Hono } from "hono";
 import type { ApiPrincipal } from "../core-api/peer-policy.js";
 import { type CoreApi, CoreApiError } from "../core-api/service.js";
@@ -58,7 +59,7 @@ async function readPeerBody(request: Request, caller: ApiPrincipal) {
       chunks.push(value);
     }
     caller.assertActive();
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return Buffer.concat(chunks).toString("utf8");
   } finally {
     signal.removeEventListener("abort", aborted);
     // A malicious stream's cancel promise must not keep its slot alive either.
@@ -150,7 +151,7 @@ export function createPeerReceiver(
         );
       const authorization = c.req.header("Authorization") ?? "";
       const encoded = c.req.header("X-YA-Peer-Context");
-      if (encoded && encoded.length > 2048)
+      if (encoded && encoded.length > 16 * 1024)
         throw new CoreApiError("invalid_request", "Invalid peer context", 400);
       if (!authorization.startsWith("Bearer ") || authorization.length > 256)
         throw new CoreApiError(
@@ -159,7 +160,7 @@ export function createPeerReceiver(
           401,
         );
       const attestation = peerAttestation.parse(
-        encoded && encoded.length <= 2048
+        encoded && encoded.length <= 16 * 1024
           ? JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"))
           : { sessionId: null, launchId: null },
       );
@@ -197,6 +198,12 @@ export function createPeerReceiver(
           "unauthorized",
           "Peer transport and credential generation do not match",
           401,
+        );
+      if (c.req.header("X-YA-Peer-Envelope") !== PEER_ENVELOPE_VERSION)
+        throw new CoreApiError(
+          "peer_incompatible",
+          `Peer wrapper requires version ${PEER_ENVELOPE_VERSION}`,
+          501,
         );
       c.set(PRINCIPAL_VARIABLE, acquired.principal);
       await next();

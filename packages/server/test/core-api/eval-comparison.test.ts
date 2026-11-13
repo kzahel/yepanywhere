@@ -12,7 +12,16 @@ it("refuses missing, duplicate, failed and mismatched trials rather than rewardi
     fetchedDocumentationBytes: 100,
     commandCount: 2,
     elapsedMs: 10,
-    trace: [],
+    trace: [
+      {
+        method: "GET",
+        path: "/v0/help",
+        status: 200,
+        bytes: 100,
+        elapsedMs: 1,
+        atMs: 0,
+      },
+    ],
   };
   const baseline = {
     cliVersion: "same",
@@ -31,7 +40,13 @@ it("refuses missing, duplicate, failed and mismatched trials rather than rewardi
   expect(
     compareReports(baseline, {
       ...baseline,
-      results: [{ ...trial, fetchedDocumentationBytes: 50 }],
+      results: [
+        {
+          ...trial,
+          fetchedDocumentationBytes: 50,
+          trace: [{ ...trial.trace[0]!, bytes: 50 }],
+        },
+      ],
     }).passed,
   ).toBe(true);
   for (const results of [[], [trial, trial]])
@@ -73,4 +88,61 @@ it("refuses missing, duplicate, failed and mismatched trials rather than rewardi
   expect(offset.checks.noAdditionalRequests).toBe(true);
   expect(offset.checks.noAdditionalRequestsPerCase).toBe(false);
   expect(offset.passed).toBe(false);
+});
+
+it("counts target documentation and full schemas from actual trace bytes rather than a stale summary", () => {
+  const trial = {
+    caseId: "target_contract",
+    variant: "help",
+    sample: 0,
+    success: true,
+    requests: 3,
+    errors: 0,
+    fetchedDocumentationBytes: 1,
+    commandCount: 3,
+    elapsedMs: 3,
+    trace: [
+      {
+        method: "GET",
+        path: "/v0/help",
+        status: 200,
+        bytes: 100,
+        elapsedMs: 1,
+        atMs: 0,
+      },
+      {
+        method: "GET",
+        path: "/v0/servers/target/help",
+        status: 200,
+        bytes: 200,
+        elapsedMs: 1,
+        atMs: 1,
+      },
+      {
+        method: "GET",
+        path: "/v0/servers/target/schema",
+        status: 200,
+        bytes: 300,
+        elapsedMs: 1,
+        atMs: 2,
+      },
+    ],
+  };
+  const report = {
+    cliVersion: "same",
+    plan: {
+      model: "same",
+      effort: "medium",
+      lane: "test",
+      peerRelay: true,
+      peerIdentityService: false,
+      cases: ["target_contract"],
+      variants: ["help"],
+      samples: 1,
+    },
+    results: [trial],
+  };
+  const result = compareReports(report, report);
+  expect(result.before.fetchedDocumentationBytes).toBe(600);
+  expect(result.before.fullSchemaReads).toBe(1);
 });

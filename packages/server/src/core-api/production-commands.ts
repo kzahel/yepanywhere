@@ -14,6 +14,7 @@ export function createProductionApiCommands(
   publicServerId: string,
   apiReceipts: ApiReceiptStore,
   options: {
+    dataDir?: string;
     serverSettingsService?: ServerSettingsService;
     sessionMetadataService?: SessionMetadataService;
   },
@@ -24,6 +25,10 @@ export function createProductionApiCommands(
     apiReceipts,
     nativeSessionCommandOwner({
       supervisor,
+      dataDir: options.dataDir,
+      approvalAuditEnabled: () =>
+        options.serverSettingsService?.getSetting("approvalAuditLogEnabled") ===
+        true,
       creations: options.sessionMetadataService?.creations,
       callerLaunch: agentApiCallerLaunch(options, supervisor),
       globalInstructions: () =>

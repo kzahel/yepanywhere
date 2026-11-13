@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { operations } from "../core-api/contracts.js";
 
 export const IDENTITY_SERVICE_VERSION = 1;
 export const IDENTITY_SERVICE_STATE_BYTES = 8 * 1024 * 1024;
@@ -36,13 +35,10 @@ export const clientIntroductionSchema = z
   })
   .strict();
 export type ClientIntroduction = z.infer<typeof clientIntroductionSchema>;
-const resourceOperations = operations
-  .filter((op) => op.path.includes(":serverId"))
-  .map((op) => op.id);
 export const accessPolicySchema = z
   .object({
     projects: z.array(z.string().min(1).max(4096)).max(64),
-    operations: z.array(z.enum(resourceOperations)).min(1).max(32),
+    operations: z.array(z.string().min(1).max(128)).min(1).max(32),
     expiresAt: milliseconds,
   })
   .strict()

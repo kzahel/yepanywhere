@@ -152,7 +152,7 @@ it.each(["direct", "relay"] as const)(
       "projects",
       "session",
       "createSession",
-      "sendMessage",
+      "prompt",
       "receipt",
       "followReceipt",
     ] as const;
@@ -189,7 +189,7 @@ it.each(["direct", "relay"] as const)(
         requestId: "refresh-create-001",
         projectId: "p",
         provider: "codex",
-        message: "Review",
+        prompt: "Review",
         permissionMode: "default",
       },
     })) as { sessionId: string };
@@ -199,10 +199,10 @@ it.each(["direct", "relay"] as const)(
       query: { waitMs: "0" },
     })) as { receipt: { sessionId: string } };
     expect(followed.receipt.sessionId).toBe("created-1");
-    await a.read("sendMessage", {
+    await a.read("prompt", {
       serverId: b.id,
       sessionId: "created-1",
-      body: { requestId: "refresh-message-001", message: "Continue" },
+      body: { requestId: "refresh-message-001", prompt: "Continue" },
     });
     expect(b.starts()).toBe(1);
     expect(b.sends()).toBe(1);

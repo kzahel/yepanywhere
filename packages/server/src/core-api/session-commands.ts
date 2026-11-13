@@ -1,15 +1,26 @@
+import type {
+  PendingRequests,
+  ControlOperation,
+} from "./session-control-contracts.js";
 import { followReceipt, type ReceiptFollowQuery } from "./receipt-follow.js";
 import type { ApiProject, ApiLaunchContext, ApiSession } from "./contracts.js";
 import type {
   ApiReceipt,
   CreateSessionRequest,
-  SendMessageRequest,
+  PromptRequest,
   ApiCreator,
 } from "./command-contracts.js";
 import type { ApiReceiptStore } from "./receipt-store.js";
 import { CoreApiError } from "./errors.js";
 
 export interface SessionCommandOwner {
+  requests?(sessionId: string): PendingRequests;
+  prepareControl?(
+    sessionId: string,
+    operation: ControlOperation,
+    pendingRequestId?: string,
+    response?: "approve" | "deny",
+  ): () => Promise<Record<string, unknown>>;
   recover?(
     receipt: ApiReceipt,
     consumed?: () => void,
@@ -18,7 +29,7 @@ export interface SessionCommandOwner {
   canSend?(sessionId: string): boolean;
   send?(
     sessionId: string,
-    request: SendMessageRequest,
+    request: PromptRequest,
     receipt: ApiReceipt,
     consumed: () => void,
     ended: () => void,
@@ -228,7 +239,7 @@ export class SessionCommands {
   }
   replaySend(
     sessionId: string,
-    request: SendMessageRequest,
+    request: PromptRequest,
     launch?: ApiLaunchContext,
     authenticated?: ApiCreator,
     checkPayload = true,
@@ -236,7 +247,7 @@ export class SessionCommands {
     return this.store.lookup(
       {
         requestId: request.requestId,
-        kind: "sendMessage",
+        kind: "prompt",
         projectId: "",
         sessionId,
         creator: this.creator(launch, authenticated),
@@ -247,7 +258,7 @@ export class SessionCommands {
   }
   send(
     session: ApiSession,
-    request: SendMessageRequest,
+    request: PromptRequest,
     launch?: ApiLaunchContext,
     authenticated?: ApiCreator,
   ) {
@@ -273,7 +284,7 @@ export class SessionCommands {
       );
     const { created, receipt } = this.store.reserve({
       requestId: request.requestId,
-      kind: "sendMessage",
+      kind: "prompt",
       projectId: session.projectId,
       sessionId: session.id,
       creator: this.creator(launch, authenticated),
@@ -317,6 +328,86 @@ export class SessionCommands {
     }
     return this.store.get(receipt.id)!;
   }
+  requests(id: string): PendingRequests {
+    return this.owner.requests?.(id) ?? { items: [] };
+  }
+  control(
+    operation: ControlOperation,
+    session: ApiSession,
+    request: { requestId: string; response?: "approve" | "deny" },
+    pendingRequestId?: string,
+    launch?: ApiLaunchContext,
+    authenticated?: ApiCreator,
+  ) {
+    if (this.disposed || !this.enabled())
+      throw new CoreApiError(
+        "forbidden",
+        "Session control authority is no longer active",
+        403,
+      );
+    const input = {
+      requestId: request.requestId,
+      kind: operation,
+      projectId: session.projectId,
+      sessionId: session.id,
+      creator: this.creator(launch, authenticated),
+      payload: { ...request, pendingRequestId },
+    };
+    const replay = this.store.lookup(input);
+    if (replay) return replay;
+    if (this.active.size >= 16)
+      throw new CoreApiError(
+        "command_capacity",
+        "Session controls are busy",
+        503,
+      );
+    if (!this.owner.prepareControl)
+      throw new CoreApiError(
+        "session_not_running",
+        "Session controls are unavailable",
+        409,
+      );
+    // Capture the incumbent before the durable reservation; retries never acquire another owner.
+    const execute = this.owner.prepareControl(
+      session.id,
+      operation,
+      pendingRequestId,
+      request.response,
+    );
+    const reserved = this.store.reserve({
+      ...input,
+      destinationServerId: this.serverId,
+    });
+    if (!reserved.created) return reserved.receipt;
+    const work = execute()
+      .then(
+        (result) => {
+          if (!this.disposed)
+            this.store.update(reserved.receipt.id, {
+              state: "accepted",
+              result,
+            });
+        },
+        (error) => {
+          if (!this.disposed)
+            this.store.update(reserved.receipt.id, {
+              state: "failed",
+              failure: {
+                code:
+                  error instanceof CoreApiError ? error.code : "control_failed",
+                message:
+                  error instanceof CoreApiError
+                    ? error.message
+                    : "Provider control failed; inspect session state",
+              },
+            });
+        },
+      )
+      .catch(this.onError)
+      .finally(() => this.active.delete(work));
+    this.active.add(work);
+    return this.store.get(reserved.receipt.id)!;
+  }
   async follow(id: string, query: ReceiptFollowQuery, signal?: AbortSignal) {
     // Reattach positive incumbent-owner evidence after controller replacement.
     await this.receipt(id);
@@ -337,6 +428,7 @@ export class SessionCommands {
         receipt.delivery !== "unknown")
     )
       return receipt;
+    if (!["createSession", "prompt"].includes(receipt.kind)) return receipt;
     const evidence = await this.owner.recover?.(
       receipt,
       () => this.consumed(id),

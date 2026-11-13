@@ -73,3 +73,9 @@ jsdom navigation diagnostics. Its focused collection/transport cases are
 clean. This change does not modify links or document navigation; the timer-only
 stacks still require a separate fixture attribution audit rather than global
 suppression. Evidence: `/tmp/collection-fix-test-final.log`.
+
+2026-11-13: plan 192's passing initial workspace run repeats the five unowned
+jsdom navigation diagnostics, with 7,401 client cases passing. No client source
+changes in this API/control slice. The asynchronous stacks still identify no
+triggering test; a safe repair needs the fixture attribution audit above,
+not global navigation interception or diagnostic suppression.

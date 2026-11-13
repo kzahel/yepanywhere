@@ -1,5 +1,10 @@
+import {
+  httpReplySchema,
+  RECEIPT_HEADER,
+} from "../../core-api/http-contracts.js";
+import { receiptBindingSchema } from "../../core-api/command-contracts.js";
 import { bodyLimit } from "hono/body-limit";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { PRINCIPAL_VARIABLE } from "../../auth/principal.js";
 import type { ApiPrincipal } from "../../core-api/peer-policy.js";
 import {
@@ -67,51 +72,89 @@ export function createV0Routes(
           ),
       }),
     );
-  for (const operation of operations) {
-    routes.on(operationMethod(operation), operation.path || "/", async (c) => {
-      let body: unknown;
-      if (operationMethod(operation) === "POST") {
-        try {
-          body = readBody
-            ? await readBody(c.req.raw, c.get(PRINCIPAL_VARIABLE))
-            : await c.req.json();
-        } catch (error) {
-          if (error instanceof CoreApiError) throw error;
-          throw new CoreApiError(
-            "invalid_request",
-            "Expected a JSON request body",
-            400,
-          );
-        }
-      }
-      const result = await api.read(
-        operation.id,
-        c.get(PRINCIPAL_VARIABLE) as ApiPrincipal,
-        {
-          serverId: c.req.param("serverId"),
-          sessionId: c.req.param("sessionId"),
-          receiptId: c.req.param("receiptId"),
-          body,
-          query: c.req.query(),
-          signal: c.get(API_SIGNAL_VARIABLE) ?? c.req.raw.signal,
-          launch: c.get(API_LAUNCH_VARIABLE),
-          ...(c.get(API_OWNER_VARIABLE)
-            ? { ownerAuthenticated: true as const }
+  const handle = async (
+    c: Context<{
+      Variables: {
+        yaPrincipal: ApiPrincipal;
+        yaApiLaunch: ApiLaunchContext;
+        yaApiSignal: AbortSignal;
+        yaApiOwnerAuthenticated: true;
+      };
+    }>,
+    operation?: (typeof operations)[number],
+  ) => {
+    const url = new URL(c.req.url);
+    const method = c.req.method;
+    if (method !== "GET" && method !== "POST")
+      throw new CoreApiError("not_found", "Unknown v0 resource", 404);
+    let text: string | undefined;
+    if (method === "POST") {
+      const raw = readBody
+        ? await readBody(c.req.raw, c.get(PRINCIPAL_VARIABLE))
+        : await c.req.text();
+      text = typeof raw === "string" ? raw : JSON.stringify(raw);
+    }
+    const serverId =
+      c.req.param("serverId") ??
+      url.pathname.match(/^\/v0\/servers\/([^/]+)/)?.[1];
+    const result = await api.read(
+      operation?.id ?? "server",
+      c.get(PRINCIPAL_VARIABLE),
+      {
+        serverId: serverId ? decodeURIComponent(serverId) : undefined,
+        sessionId: c.req.param("sessionId"),
+        receiptId: c.req.param("receiptId"),
+        pendingRequestId: c.req.param("requestId"),
+        query: c.req.query(),
+        http: {
+          method,
+          ...(c.req.header("Content-Type")
+            ? { contentType: c.req.header("Content-Type") }
+            : {}),
+          path: `${url.pathname}${url.search}`,
+          ...(text !== undefined ? { body: text } : {}),
+          ...(c.req.header("Idempotency-Key")
+            ? { key: c.req.header("Idempotency-Key") }
             : {}),
         },
+        ...(!operation ? { unknownRoute: true } : {}),
+        signal: c.get(API_SIGNAL_VARIABLE) ?? c.req.raw.signal,
+        launch: c.get(API_LAUNCH_VARIABLE),
+        ...(c.get(API_OWNER_VARIABLE)
+          ? { ownerAuthenticated: true as const }
+          : {}),
+      },
+    );
+    const forwarded = httpReplySchema.safeParse(result);
+    if (forwarded.success)
+      return new Response(
+        [204, 205, 304].includes(forwarded.data.status)
+          ? null
+          : forwarded.data.body,
+        {
+          status: forwarded.data.status,
+          headers: forwarded.data.headers,
+        },
       );
-      if (operation.id === "help")
-        return c.body(result as string, 200, {
-          "Content-Type": "text/markdown; charset=utf-8",
-        });
-      return c.json(result, operationMethod(operation) === "POST" ? 202 : 200);
-    });
-  }
-  routes.all("*", (c) =>
-    c.json(
-      { error: { code: "not_found", message: "Unknown v0 resource" } },
-      404,
-    ),
-  );
+    const possible = result as { receipt?: unknown; creation?: unknown };
+    const binding = receiptBindingSchema.safeParse(
+      possible?.receipt ?? possible?.creation ?? result,
+    );
+    if (binding.success)
+      c.header(
+        RECEIPT_HEADER,
+        Buffer.from(JSON.stringify(binding.data)).toString("base64url"),
+      );
+    if (operation?.id === "help" || operation?.id === "targetHelp")
+      return c.body(result as string, 200, {
+        "Content-Type": "text/markdown; charset=utf-8",
+      });
+    return c.json(result, method === "POST" ? 202 : 200);
+  };
+  for (const operation of operations)
+    routes.on(operationMethod(operation), operation.path || "/", (c) =>
+      handle(c, operation),
+    );
+  routes.all("*", (c) => handle(c));
   return routes;
 }

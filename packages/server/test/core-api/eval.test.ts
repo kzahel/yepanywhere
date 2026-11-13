@@ -1,3 +1,4 @@
+import { apiCommand } from "../support/api-command-request.js";
 import { request } from "node:http";
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
@@ -131,7 +132,10 @@ function read(
         socketPath: env.AGENT_YA_V0_SOCKET,
         method: body === undefined ? "GET" : "POST",
         headers: authenticated
-          ? { Authorization: env.AGENT_YA_V0_AUTHORIZATION }
+          ? {
+              Authorization: env.AGENT_YA_V0_AUTHORIZATION,
+              ...(body !== undefined ? apiCommand(body).headers : {}),
+            }
           : {},
       },
       (response) => {
@@ -145,7 +149,7 @@ function read(
       },
     );
     req.on("error", reject);
-    req.end(body === undefined ? undefined : JSON.stringify(body));
+    req.end(body === undefined ? undefined : apiCommand(body).body);
   });
 }
 
@@ -290,7 +294,7 @@ it.each([false, true])(
             requestId: "eval-create-1",
             projectId: PROJECT_ID,
             provider: "codex",
-            message: "Release review",
+            prompt: "Release review",
           })
         ).body,
       );
@@ -303,10 +307,10 @@ it.each([false, true])(
       await read(fixture.environment, path + "/conversation");
       const input = {
         requestId: "eval-message-1",
-        message: "Follow-up artifact",
+        prompt: "Follow-up artifact",
       };
       const sent = JSON.parse(
-        (await read(fixture.environment, path + "/messages", true, input)).body,
+        (await read(fixture.environment, path + "/prompts", true, input)).body,
       );
       await read(fixture.environment, path + "/relationships");
       await read(fixture.environment, path + "/conversation/follow?waitMs=0");
@@ -320,7 +324,7 @@ it.each([false, true])(
         grade("workflow", answer, fixture.trace, false, fixture.apiServerId),
       ).toBe(false);
       const repeated = JSON.parse(
-        (await read(fixture.environment, path + "/messages", true, input)).body,
+        (await read(fixture.environment, path + "/prompts", true, input)).body,
       );
       expect(repeated.id).toBe(sent.id);
       expect(
@@ -390,7 +394,7 @@ it("discovers, creates and verifies a routed worker through the private HTTP ada
           requestId: "selection-eval-01",
           projectId: PROJECT_ID,
           provider: "codex",
-          message: "Review release",
+          prompt: "Review release",
           routerPoolId: choices.pools[0].id,
           model: choices.accounts[0].models[0].id,
           thinking: "on:high",
@@ -458,3 +462,122 @@ it("discovers, creates and verifies a routed worker through the private HTTP ada
     await fixture.close();
   }
 });
+
+it.each(["target_contract", "approval", "controls"] as const)(
+  "grades %s from protected peer effects and rejects unsupported claims",
+  // Windows ARM64 owned VM exhausted 5 s; 20 s retains 4x that observed floor.
+  { timeout: 20_000 },
+  async (caseId) => {
+    const fixture = await createFixture(caseId, true);
+    const root = `/v0/servers/${fixture.apiServerId}`;
+    const get = (path: string) => read(fixture.environment, root + path);
+    const post = (path: string, input: unknown) =>
+      read(fixture.environment, root + path, true, input);
+    let answer = { ...empty };
+    try {
+      await get("/help");
+      if (caseId === "target_contract") {
+        await get("/schema?operation=targetProbe");
+        expect((await get("/extension/probe?proof=wrong")).status).toBe(400);
+        const result = await get("/extension/probe?proof=target-shape-37");
+        expect(result.status).toBe(200);
+        expect(JSON.parse(result.body).unfamiliarField).toEqual([
+          "retained",
+          37,
+        ]);
+        answer.answer = "target-artifact-6e2";
+        await fixture.peers!.source.store.mutate((state) => {
+          state.outgoing[0]!.operations = state.outgoing[0]!.operations.filter(
+            (op) => op !== "targetProbe",
+          );
+        });
+        expect(
+          (await get("/extension/probe?proof=target-shape-37")).status,
+        ).toBe(403);
+        await fixture.peers!.source.store.mutate((state) => {
+          state.outgoing[0]!.operations.push("targetProbe");
+        });
+        await fixture.peers!.target.store.mutate((state) => {
+          state.incoming[0]!.operations = state.incoming[0]!.operations.filter(
+            (op) => op !== "targetProbe",
+          );
+        });
+        expect(
+          (await get("/extension/probe?proof=target-shape-37")).status,
+        ).toBe(403);
+      } else if (caseId === "approval") {
+        await get("/sessions/approval-worker/requests");
+        const input = { requestId: "approve-fixture-001", response: "approve" };
+        const response = await post(
+          "/sessions/approval-worker/requests/permission-001/response",
+          input,
+        );
+        expect(response.status).toBe(202);
+        const receipt = JSON.parse(response.body);
+        expect(
+          JSON.parse(
+            (
+              await post(
+                "/sessions/approval-worker/requests/permission-001/response",
+                input,
+              )
+            ).body,
+          ).id,
+        ).toBe(receipt.id);
+        await get(`/receipts/${receipt.id}`);
+        expect(
+          (
+            await post(
+              "/sessions/approval-worker/requests/permission-001/response",
+              { ...input, requestId: "different-approval-001" },
+            )
+          ).status,
+        ).toBe(409);
+        await get("/sessions/approval-worker/conversation");
+        answer = {
+          ...answer,
+          sessionId: "approval-worker",
+          answer: "approved-artifact-4d8",
+        };
+      } else {
+        for (const [id, op] of [
+          ["interrupt-worker", "cancel"],
+          ["stop-worker", "stop"],
+        ]) {
+          const response = await post(`/sessions/${id}/${op}`, {
+            requestId: `${op}-fixture-001`,
+          });
+          expect(response.status).toBe(202);
+          await get(`/receipts/${JSON.parse(response.body).id}`);
+          await get(`/sessions/${id}`);
+        }
+        answer = {
+          ...answer,
+          sessionIds: ["interrupt-worker", "stop-worker"],
+          answer: "idle|terminated",
+        };
+      }
+      expect(
+        grade(caseId, answer, fixture.trace, false, fixture.apiServerId),
+      ).toBe(true);
+      expect(grade(caseId, answer, [], false, fixture.apiServerId)).toBe(false);
+      expect(
+        grade(
+          caseId,
+          answer,
+          fixture.trace.map((t) => ({
+            ...t,
+            receipt: undefined,
+            artifact: undefined,
+            sessionState: undefined,
+            pendingId: undefined,
+          })),
+          false,
+          fixture.apiServerId,
+        ),
+      ).toBe(false);
+    } finally {
+      await fixture.close();
+    }
+  },
+);

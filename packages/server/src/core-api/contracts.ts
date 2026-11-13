@@ -1,4 +1,9 @@
 import {
+  controlRequest,
+  respondRequest,
+  pendingRequestsSchema,
+} from "./session-control-contracts.js";
+import {
   selectionQuery,
   selectionSchema,
   sessionInspectionSchema,
@@ -7,7 +12,7 @@ import { receiptFollowQuery, receiptFollowSchema } from "./receipt-follow.js";
 import { relatedQuery } from "./relationship-graph-contracts.js";
 import {
   createSessionRequest,
-  sendMessageRequest,
+  promptRequest,
   receiptSchema,
   relationshipsSchema,
 } from "./command-contracts.js";
@@ -19,7 +24,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-11-12.1";
+export const API_REVISION = "2026-11-13.1";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -336,7 +341,7 @@ export const operations = [
     id: "createSession",
     path: "/servers/:serverId/sessions",
     method: "POST",
-    request: createSessionRequest,
+    request: z.object(createSessionRequest.shape).omit({ requestId: true }),
     response: receiptSchema,
   },
   {
@@ -351,16 +356,48 @@ export const operations = [
     paginated: true,
   },
   {
-    id: "sendMessage",
-    path: "/servers/:serverId/sessions/:sessionId/messages",
+    id: "prompt",
+    path: "/servers/:serverId/sessions/:sessionId/prompts",
     method: "POST",
-    request: sendMessageRequest,
+    request: promptRequest.omit({ requestId: true }),
     response: receiptSchema,
   },
   {
     id: "followReceipt",
     path: "/servers/:serverId/receipts/:receiptId/follow",
     response: receiptFollowSchema,
+  },
+  { id: "targetHelp", path: "/servers/:serverId/help", response: z.string() },
+  {
+    id: "targetSchema",
+    path: "/servers/:serverId/schema",
+    response: z.record(z.string(), z.unknown()),
+  },
+  {
+    id: "requests",
+    path: "/servers/:serverId/sessions/:sessionId/requests",
+    response: pendingRequestsSchema,
+  },
+  {
+    id: "respond",
+    path: "/servers/:serverId/sessions/:sessionId/requests/:requestId/response",
+    method: "POST",
+    request: respondRequest.omit({ requestId: true }),
+    response: receiptSchema,
+  },
+  {
+    id: "cancel",
+    path: "/servers/:serverId/sessions/:sessionId/cancel",
+    method: "POST",
+    request: controlRequest.omit({ requestId: true }),
+    response: receiptSchema,
+  },
+  {
+    id: "stop",
+    path: "/servers/:serverId/sessions/:sessionId/stop",
+    method: "POST",
+    request: controlRequest.omit({ requestId: true }),
+    response: receiptSchema,
   },
 ] as const;
 export type Operation = (typeof operations)[number]["id"];
@@ -379,6 +416,43 @@ export const operationDocumentation: Record<
   Operation,
   { summary: string; description: string; example: string }
 > = {
+  targetHelp: {
+    summary: "Read this target's API guide",
+    description:
+      "Read the selected target's Markdown help. Use operation to select one target operation. Access and target builds may implement different APIs.",
+    example: "/v0/servers/{serverId}/help",
+  },
+  targetSchema: {
+    summary: "Read this target's API schema",
+    description:
+      "Read the selected target's schema, optionally selecting one operation. The access server forwards without validating operation shapes.",
+    example: "/v0/servers/{serverId}/schema",
+  },
+  requests: {
+    summary: "Inspect pending approval or question",
+    description:
+      "Read pending input with stable id, kind, description and canRespond. Questions are visible but cannot be answered through v0.",
+    example: "/v0/servers/{serverId}/sessions/{sessionId}/requests",
+  },
+  respond: {
+    summary: "Answer a pending permission request",
+    description:
+      'Requires management authority. POST {response:"approve"|"deny"} with Idempotency-Key. Uses the same native approval and audit path as the UI. A new answer to a resolved request returns request_not_pending. Questions cannot be answered. Retry the identical command/key to recover its receipt.',
+    example:
+      "/v0/servers/{serverId}/sessions/{sessionId}/requests/{requestId}/response",
+  },
+  cancel: {
+    summary: "Interrupt the incumbent session",
+    description:
+      "Requires management authority. POST {} with Idempotency-Key. Uses YA interruption, including existing queue handling and possible hard-abort fallback. Receipt result reports interrupted/supported/aborted. No automatic resume. Identical retries never act on later work.",
+    example: "/v0/servers/{serverId}/sessions/{sessionId}/cancel",
+  },
+  stop: {
+    summary: "Stop the incumbent provider process",
+    description:
+      "Requires management authority. POST {} with Idempotency-Key. Uses verified YA shutdown; session metadata stays readable. Identical retries never stop a later resumed process. Inspect receipt state/result/failure rather than assuming success from admission.",
+    example: "/v0/servers/{serverId}/sessions/{sessionId}/stop",
+  },
   describe: {
     summary: "Discover this API",
     description:
@@ -445,11 +519,11 @@ export const operationDocumentation: Record<
       "List retained summaries, optionally filtered by exact projectId. Newest updatedAt first, then id. Resource grants, creator access and hidden projects apply before pagination. Ambiguous cross-project ids are omitted. This does not return messages or completion results.",
     example: "/v0/servers/{serverId}/sessions?projectId={projectId}&limit=1",
   },
-  sendMessage: {
+  prompt: {
     summary: "Queue attributed input on an active session",
     description:
-      "Requires explicit management authority like createSession. POST strict JSON {requestId,message,delivery?:'queue'}. Reuse the identical key/body after response loss. Only the incumbent active native owner receives input; stopped sessions return409 session_not_running, with no automatic resume, steering, model/mode change or restart. Input can be consumed together with other queued messages. The202 receipt distinguishes accepted from native-input consumed; neither proves provider acknowledgement or successful completion. Follow the receipt for delivery evidence and its session conversation for the reply.",
-    example: "/v0/servers/{serverId}/sessions/{sessionId}/messages",
+      "Requires explicit management authority like createSession. Supply Idempotency-Key and POST strict JSON {prompt,delivery?:'queue'}. Reuse the identical key/body after response loss. Only the incumbent active native owner receives input; stopped sessions return409 session_not_running, with no automatic resume, steering, model/mode change or restart. Input can be consumed together with other queued messages. The202 receipt distinguishes accepted from native-input consumed; neither proves provider acknowledgement or successful completion. Follow the receipt for delivery evidence and its session conversation for the reply.",
+    example: "/v0/servers/{serverId}/sessions/{sessionId}/prompts",
   },
   followReceipt: {
     summary: "Follow one submission receipt",
@@ -466,7 +540,7 @@ export const operationDocumentation: Record<
   createSession: {
     summary: "Create a native session with retry identity",
     description:
-      'Requires explicit default-off session-command enablement and operator authority; launch credentials also require management=true and a bound owning session. POST JSON {requestId,projectId,provider,message,model?,thinking?,permissionMode?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. requestId is a unique 8–128 character retry key. Example: {"requestId":"review-2026-01","projectId":"<projectId>","provider":"codex","message":"Review the change and report findings","thinking":"on:high","permissionMode":"default"}. Returns 202 with a durable receipt before native launch completes. Reuse the identical request/key after response loss; conflicting payloads return409. Never resend an uncertain request with a new key unless intentionally accepting duplicate work. Only existing projects and configured local Claude/Codex harnesses are qualified. Use selection to discover model and router ids. Explicit router fields select that pool/account; otherwise a local routed caller inherits its pool/account and omitted model. Native admission owns capacity; no checkout/delegation policy is added.',
+      'Requires explicit default-off session-command enablement and operator authority; launch credentials also require management=true and a bound owning session. POST JSON {projectId,provider,prompt,model?,thinking?,permissionMode?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Supply a unique 8–128 character Idempotency-Key header. Example: {"projectId":"<projectId>","provider":"codex","prompt":"Review the change and report findings","thinking":"on:high","permissionMode":"default"}. Returns 202 with a durable receipt before native launch completes. Reuse the identical request/key after response loss; conflicting payloads return409. Never resend an uncertain request with a new key unless intentionally accepting duplicate work. Only existing projects and configured local Claude/Codex harnesses are qualified. Use selection to discover model and router ids. Explicit router fields select that pool/account; otherwise a local routed caller inherits its pool/account and omitted model. Native admission owns capacity; no checkout/delegation policy is added.',
     example: "/v0/servers/{serverId}/sessions",
   },
   receipt: {
@@ -514,7 +588,10 @@ export const errorDescriptions = {
   503: "catalog_not_ready: session absence is uncertain in an incomplete catalog; controller_unavailable: the catalog owner is detached/reloading. Retry reads later; neither means the session was deleted. conversation_unavailable means unsupported, unreadable or over-budget history; do not infer successful completion.",
 };
 
-export function apiHelp(selected?: Operation) {
+export function apiHelp(selected?: Operation, targetServerId?: string) {
+  const docsRoot = targetServerId
+    ? `/v0/servers/${encodeURIComponent(targetServerId)}`
+    : "/v0";
   if (selected) {
     const operation = operations.find(
       (operation) => operation.id === selected,
@@ -525,7 +602,7 @@ export function apiHelp(selected?: Operation) {
       `${operationMethod(operation)} /v0${operation.path.replace(/:([A-Za-z]+)/g, "{$1}")}`,
       doc.description,
       `Example: ${operationMethod(operation)} ${doc.example}`,
-      `Exact schema: GET /v0/schema?operation=${selected}`,
+      `Exact schema: GET ${docsRoot}/schema?operation=${selected}`,
     ].join("\n\n");
   }
   return [
@@ -533,7 +610,7 @@ export function apiHelp(selected?: Operation) {
     "",
     `Revision: ${API_REVISION}. Unstable: routes, fields and behavior may change.`,
     "",
-    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Input messaging requires the same explicit management authority. Configured peer adapters expose target-authorized server addressing; inspect servers, access and capabilities.peerRouting rather than assuming a route. Configuration, interruption, command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
+    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Input messaging requires the same explicit management authority. Configured peer adapters expose target-authorized server addressing; inspect servers, access and capabilities.peerRouting rather than assuming a route. Pending permission requests can be inspected and answered; cancel interrupts and may hard-abort, and stop verifies provider shutdown. Configuration changes, arbitrary command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
     "",
     "## Connect and discover",
     "",
@@ -541,6 +618,7 @@ export function apiHelp(selected?: Operation) {
     "",
     "Read GET /v0 for serverId, GET /v0/me for caller identity, and GET /v0/schema for exact parameter and response schemas. Copy ids from responses, not names or local paths. URL-encode path ids and query values. A session belongs to a server; projects and paths are not global across hosts.",
     "",
+    "Before peer work, read GET /v0/servers/{serverId}/help and /schema on that target. The access server may implement different operations and shapes; top-level help/schema describe only the receiving server.",
     "For one operation, use GET /v0/help?operation={operationId} or GET /v0/schema?operation={operationId}. Prefer the relevant operation schema over fetching the entire reference when you only need one request body.",
     "",
     "Use serverId=self for this receiving server, including creates and receipt reads; responses always contain canonical ids. Use an explicit discovered server id for a peer. operation is the exact operationId in the index below, not a URL alias.",
@@ -551,7 +629,7 @@ export function apiHelp(selected?: Operation) {
     "| --- | --- | --- | --- |",
     ...operations.map(
       (operation) =>
-        `| \`${operation.id}\` | ${operationMethod(operation)} | \`/v0${operation.path.replace(/:([A-Za-z]+)/g, "{$1}")}\` | [help](/v0/help?operation=${operation.id}) · [schema](/v0/schema?operation=${operation.id}) |`,
+        `| \`${operation.id}\` | ${operationMethod(operation)} | \`/v0${operation.path.replace(/:([A-Za-z]+)/g, "{$1}")}\` | [help](${docsRoot}/help?operation=${operation.id}) · [schema](${docsRoot}/schema?operation=${operation.id}) |`,
     ),
     "",
     "## Find a project and its sessions",
@@ -572,11 +650,11 @@ export function apiHelp(selected?: Operation) {
     "",
     "## Create, send and verify",
     "",
-    "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {requestId,projectId,provider,message,permissionMode?,model?,thinking?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Only claude/codex are qualified. permissionMode defaults to default. requestId is an 8–128 character retry key; reuse identical key/body after response loss. thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max. Query selection?provider=codex for AAR pools and their catalogs, or add routing=direct for the host provider catalog. Use ids from those responses.",
+    "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {projectId,provider,prompt,permissionMode?,model?,thinking?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Only claude/codex are qualified. permissionMode defaults to default. Supply Idempotency-Key as an 8–128 character header; reuse identical key/body after response loss. thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max. Query selection?provider=codex for AAR pools and their catalogs, or add routing=direct for the host provider catalog. Use ids from those responses.",
     "",
     "Creation returns 202 with a durable receipt {id,sessionId,state,delivery,completion,...}; sessionId can be null until admission settles. GET /v0/servers/{serverId}/receipts/{id}/follow?waitMs=4000 to observe it. Reissue with after={cursor}; changed replies replace the receipt. Admission and delivery=consumed are not completion. When the task requires verifying launch controls, read /sessions/{sessionId} for effective settings and routing. Read /sessions/{sessionId}/conversation or /conversation/follow for the actual answer.",
     "",
-    "POST /v0/servers/{serverId}/sessions/{sessionId}/messages with JSON {requestId,message,delivery?:'queue'}. It queues only on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. Follow that receipt for delivery=consumed and the conversation for the reply. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. completion remains unknown; inspect the requested result in the conversation.",
+    "POST /v0/servers/{serverId}/sessions/{sessionId}/prompts with Idempotency-Key and JSON {prompt,delivery?:'queue'}. It queues only on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. Follow that receipt for delivery=consumed and the conversation for the reply. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. completion remains unknown; inspect the requested result in the conversation.",
     "",
     "## Errors and observation",
     "",
@@ -641,6 +719,22 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                   }
                 : {}),
               parameters: [
+                ...(operationMethod(operation) === "POST"
+                  ? [
+                      {
+                        name: "Idempotency-Key",
+                        in: "header",
+                        required: true,
+                        description:
+                          "Unique retry key; reuse identical key and body after response loss. Never generate a new key to retry uncertain work.",
+                        schema: {
+                          type: "string",
+                          minLength: 8,
+                          maxLength: 128,
+                        },
+                      },
+                    ]
+                  : []),
                 ...(operation.id === "selection"
                   ? Object.entries(selectionQuery.shape).map(
                       ([name, schema]) => ({
@@ -663,7 +757,9 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                       }),
                     )
                   : []),
-                ...(["help", "schema"].includes(operation.id)
+                ...(["help", "schema", "targetHelp", "targetSchema"].includes(
+                  operation.id,
+                )
                   ? [
                       {
                         name: "operation",
@@ -746,7 +842,7 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                             status as keyof typeof errorDescriptions
                           ],
                     content: {
-                      [operation.id === "help" &&
+                      [["help", "targetHelp"].includes(operation.id) &&
                       (status === 200 || status === 202)
                         ? "text/markdown"
                         : "application/json"]: {

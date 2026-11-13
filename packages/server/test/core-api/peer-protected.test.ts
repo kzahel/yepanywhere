@@ -45,7 +45,7 @@ const operations: Operation[] = [
   "sessions",
   "session",
   "createSession",
-  "sendMessage",
+  "prompt",
   "receipt",
   "followReceipt",
   "relationships",
@@ -118,7 +118,7 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
     requestId: "protected-create-001",
     projectId: "p",
     provider: "codex",
-    message: "Review the change",
+    prompt: "Review the change",
     permissionMode: "default",
   };
   const created = (await a.read("createSession", { serverId: b.id, body })) as {
@@ -140,10 +140,10 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
     query: { waitMs: "0" },
   })) as { receipt: { sessionId: string } };
   expect(receipt.receipt.sessionId).toBe("created-1");
-  await a.read("sendMessage", {
+  await a.read("prompt", {
     serverId: b.id,
     sessionId: receipt.receipt.sessionId,
-    body: { requestId: "protected-message-001", message: "Please continue" },
+    body: { requestId: "protected-message-001", prompt: "Please continue" },
   });
   expect(b.sends()).toBe(1);
   const { sourceServerId: _source, ...rotation } = grant(a.id);
@@ -254,7 +254,7 @@ it("uses an owned real relay and replenishes poisoned claimed routes without sha
     requestId: "relay-create-001",
     projectId: "p",
     provider: "codex",
-    message: "Review via relay",
+    prompt: "Review via relay",
     permissionMode: "default",
   };
   await a.read("createSession", { serverId: b.id, body });
@@ -303,7 +303,7 @@ it("discovers and creates through private native HTTP, fences old grants across 
     requestId: "native-peer-create-001",
     projectId: "p",
     provider: "codex",
-    message: "Review from a native owner",
+    prompt: "Review from a native owner",
   });
   expect(response.status).toBe(202);
   expect(response.body.creator).toMatchObject({
@@ -363,7 +363,7 @@ it("recovers a protected mutation's lost reply with its identical key and report
     requestId: "protected-lost-reply",
     projectId: "p",
     provider: "codex",
-    message: "Accept once",
+    prompt: "Accept once",
   };
   await expect(
     a.read("createSession", {

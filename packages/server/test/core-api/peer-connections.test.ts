@@ -194,7 +194,7 @@ it("pairs through real ordinary SRP, verifies both directions and preserves peer
       requestId: "connection-test-create",
       projectId: "p",
       provider: "codex",
-      message: "Review through UI-created credentials",
+      prompt: "Review through UI-created credentials",
     },
   });
   expect(created).toMatchObject({ state: "dispatching" });
@@ -206,10 +206,10 @@ it("pairs through real ordinary SRP, verifies both directions and preserves peer
     receiptId: (created as { id: string }).id,
     query: { waitMs: "0" },
   })) as { receipt: { sessionId: string } };
-  await a.read("sendMessage", {
+  await a.read("prompt", {
     serverId: b.id,
     sessionId: observed.receipt.sessionId,
-    body: { requestId: "pair-message-test", message: "Please continue" },
+    body: { requestId: "pair-message-test", prompt: "Please continue" },
   });
   expect(b.sends()).toBe(1);
   expect(
@@ -594,7 +594,7 @@ it("preserves scoped read-only grants during owner renewal", async () => {
         requestId: "read-only-no-create",
         projectId: "p",
         provider: "codex",
-        message: "Not authorized",
+        prompt: "Not authorized",
       },
     }),
   ).rejects.toMatchObject({ code: "forbidden" });
@@ -660,7 +660,7 @@ it("lets a qualified native session create, message and follow through owner-pai
       requestId: "paired-native-create",
       projectId: "p",
       provider: "codex",
-      message: "Create through paired API",
+      prompt: "Create through paired API",
     },
   );
   expect(created.status).toBe(202);
@@ -678,8 +678,8 @@ it("lets a qualified native session create, message and follow through owner-pai
   const sent = await nativeRequest(
     runtime,
     token,
-    `/v0/servers/${b.id}/sessions/created-1/messages`,
-    { requestId: "paired-native-message", message: "Continue" },
+    `/v0/servers/${b.id}/sessions/created-1/prompts`,
+    { requestId: "paired-native-message", prompt: "Continue" },
   );
   expect(sent.status).toBe(202);
   const followed = await nativeRequest(

@@ -226,3 +226,20 @@ production change handles an explicitly requested Claude SDK classified abort;
 blanket interception of independent fixtures would hide their real failures.
 Evidence: ignored `tasks/batching-investigation/native-workspace-final.log`
 and `native-nested-final.log`. No unrelated diagnostics were suppressed.
+
+2026-11-13: plan 192's first final workspace run exhausted the unchanged
+5-second guard in `packages/relay/test/e2e/relay-mux.e2e.test.ts`,
+`enforces the live-circuit limit across mux sockets from one IP`. The same
+file passes all eleven cases in isolation (80 ms test time, one worker), and
+the earlier workspace run passed all relay cases. No relay source changed.
+The timeout log has no per-barrier attribution, so neither load nor a
+particular socket race is established. Preserve readiness/control/close phase
+information on recurrence before changing the relay's admission semantics or
+its guard; no speculative timeout increase is included in session controls.
+
+The focused prerequisite API/provider-host run passes 177 cases but repeats
+older intentional provider-worker exit/legacy-identity warnings. The workspace
+also repeats deliberate queue/provider/clearloop fault diagnostics. Those
+fixtures span separate identity, queue and teardown contracts; globally muting
+them would obscure real negative-path failures. New native controls explicitly
+assert no provider/model errors. No global logger suppression was added.

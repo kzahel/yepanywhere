@@ -82,7 +82,7 @@ it("enrolls two key-bound clients, delivers opaque directional proposals and bou
       "capabilities",
       "session",
       "createSession",
-      "sendMessage",
+      "prompt",
       "followConversation",
     ],
     expiresAt: Date.now() + 600_000,

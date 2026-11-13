@@ -1,3 +1,4 @@
+import { PEER_ENVELOPE_VERSION } from "../core-api/http-contracts.js";
 import {
   PEER_AUTHENTICATION,
   PEER_IDENTITY_PATH,
@@ -390,13 +391,18 @@ export class SrpPeerTransport implements PeerTransport {
               const result =
                 privateRequest?.path === PEER_REFRESH_PATH &&
                 sequenced.msg.status === 200
-                  ? peerRefreshReceipt.parse(sequenced.msg.body)
+                  ? peerRefreshReceipt.parse(
+                      typeof sequenced.msg.body === "string"
+                        ? JSON.parse(sequenced.msg.body)
+                        : sequenced.msg.body,
+                    )
                   : validatePeerReply(
                       operation,
                       this.serverId,
                       sequenced.msg.status,
                       new Headers(sequenced.msg.headers),
                       sequenced.msg.body,
+                      Boolean(input.http),
                     );
               finish(undefined, result);
               return;
@@ -475,7 +481,14 @@ export class SrpPeerTransport implements PeerTransport {
                 "Peer server metadata proof failed",
                 502,
               );
-            const info = peerServerInfo.parse(JSON.parse(decoded));
+            const infoValue = JSON.parse(decoded);
+            if (infoValue.envelopeVersion !== PEER_ENVELOPE_VERSION)
+              throw new CoreApiError(
+                "peer_incompatible",
+                `Peer envelope ${infoValue.envelopeVersion ?? "unknown"}; this build requires ${PEER_ENVELOPE_VERSION}`,
+                501,
+              );
+            const info = peerServerInfo.parse(infoValue);
             if (
               info.serverId !== this.serverId ||
               info.credentialId !== invitation.credentialId ||

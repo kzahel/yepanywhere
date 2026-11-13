@@ -1,3 +1,4 @@
+import { apiCommand } from "../../../support/api-command-request.js";
 // Scripted provider, real owner/socket/HTTP adapters. Never exposes its lease.
 import { request as httpRequest } from "node:http";
 import { MessageQueue } from "../../../../src/sdk/messageQueue.js";
@@ -69,7 +70,9 @@ const metadata = await owner.start(async (hooks) => ({
                   method: requestBody === undefined ? "GET" : "POST",
                   headers: {
                     Authorization: env.AGENT_YA_V0_AUTHORIZATION,
-                    "Content-Type": "application/json",
+                    ...(requestBody !== undefined
+                      ? apiCommand(requestBody).headers
+                      : {}),
                   },
                 },
                 (response) => {
@@ -88,7 +91,7 @@ const metadata = await owner.start(async (hooks) => ({
               req.end(
                 requestBody === undefined
                   ? undefined
-                  : JSON.stringify(requestBody),
+                  : apiCommand(requestBody).body,
               );
             },
           );

@@ -24,7 +24,7 @@ const operations: Operation[] = [
   "conversation",
   "followConversation",
   "createSession",
-  "sendMessage",
+  "prompt",
   "receipt",
   "followReceipt",
   "relationships",
@@ -164,7 +164,7 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
     requestId: "oidc-peer-create",
     projectId: "p",
     provider: "codex",
-    message: "OIDC reviewer",
+    prompt: "OIDC reviewer",
   });
   expect(created.status).toBe(202);
   expect(created.body.creator).toMatchObject({
@@ -179,9 +179,9 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
     sid = receipt.body.receipt.sessionId;
   expect(
     (
-      await nativeRequest(runtime, token, `${base}/sessions/${sid}/messages`, {
+      await nativeRequest(runtime, token, `${base}/sessions/${sid}/prompts`, {
         requestId: "oidc-peer-message",
-        message: "Continue",
+        prompt: "Continue",
       })
     ).status,
   ).toBe(202);

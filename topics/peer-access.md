@@ -611,3 +611,34 @@ peer policy, cleaning up its temporary owner login through the normal lifecycle.
 Saved host details and history remain visible after sign-in expires, with a
 fresh-login action for the outgoing direction. Browser passwords remain blank
 when opening that action.
+
+## Target-owned operation forwarding — 2026-11-13
+
+[HTTP v0](http-api-v0.md#target-owned-peer-apis-and-session-control--2026-11-13)
+owns the version-2 peer wrapper and session-control contract. A peer can expose
+operations and JSON shapes unknown to its access server. The access server
+forwards bounded target-scoped HTTP requests and opaque responses, including
+Markdown documentation, without applying its own operation schemas.
+
+SRP authentication, identity binding, credential refresh, encrypted frames,
+relay registration and one request per channel are retained. The protected
+server-info proof adds wrapper version 2; incompatible wrappers fail before
+mutation submission. Current frame/body/channel sizes and deadlines remain.
+This alpha transition expects coordinated endpoint updates and recreated
+connections when needed, with no automatic grant/state migration.
+
+Grants still name operations and projects. The source attaches its outgoing
+operation ceiling to the existing source session/launch attestation; the target
+maps its own route and intersects that ceiling with current incoming and
+Identity Service authority. Bounded operation strings replace intermediary
+build-local enums. New operations still require explicit grants. Fresh owner pairing takes its
+operation set from the target-issued grant; renewing a narrower existing
+outgoing grant preserves that narrower set. No category
+model, onward routing, owner-administration access or restricted-user role is
+introduced. Unsandboxed session control still has the server-account authority
+stated above.
+
+Opaque responses carry only selected content-type, server-identity and receipt
+headers. Receipt metadata correlates uncertain outbound intent and delayed
+canonical destination bindings without exposing prompt bodies or requiring
+access-side receipt-schema upgrades. This is separate from task completion.

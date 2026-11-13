@@ -1,3 +1,4 @@
+import { TARGET_OPERATION } from "./target-contract.js";
 import { IdentityServiceStore } from "../../packages/server/src/identity-service/store.js";
 import { createIdentityService } from "../../packages/server/src/identity-service/service.js";
 import { relationshipSchema } from "../../packages/server/src/identity-service/contracts.js";
@@ -112,7 +113,8 @@ export async function createPeerEvalRouter(
     }
     const granted = operations
       .filter((operation) => operation.path.includes(":serverId"))
-      .map((operation) => operation.id);
+      .map((operation) => operation.id as string);
+    granted.push(TARGET_OPERATION);
     await a.setAgentAccess({ enabled: true });
     if (useIdentityService) {
       const issuer = "http://127.0.0.1:45679";
@@ -176,7 +178,13 @@ export async function createPeerEvalRouter(
         replace: false,
       });
     }
-    return { router, grantId: a.agentAccess().grantId!, close };
+    return {
+      router,
+      source: a,
+      target: b,
+      grantId: a.agentAccess().grantId!,
+      close,
+    };
   } catch (error) {
     await close();
     throw error;

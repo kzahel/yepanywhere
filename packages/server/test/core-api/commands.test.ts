@@ -1,3 +1,4 @@
+import { apiCommand } from "../support/api-command-request.js";
 import { seedHistoricalReceiptAlias } from "../support/legacy-session-aliases.js";
 import {
   PeerDirectory,
@@ -30,7 +31,7 @@ const body = createSessionRequest.parse({
   requestId: "review-0001",
   projectId: "p",
   provider: "codex",
-  message: "Review this change",
+  prompt: "Review this change",
   thinking: "on:high",
 });
 function fixture(
@@ -102,7 +103,7 @@ function http(
           method: body === undefined ? "GET" : "POST",
           headers: {
             Authorization: authorization,
-            "Content-Type": "application/json",
+            ...(body !== undefined ? apiCommand(body).headers : {}),
             ...headers,
           },
         },
@@ -124,7 +125,7 @@ function http(
           ),
         ),
       );
-      req.end(body === undefined ? undefined : JSON.stringify(body));
+      req.end(body === undefined ? undefined : apiCommand(body).body);
     },
   );
 }
@@ -194,7 +195,7 @@ it.skipIf(process.platform === "win32")(
         principal: { kind: "superuser" },
       });
       expect(
-        (await http(runtime, path, token, { ...body, message: "different" }))
+        (await http(runtime, path, token, { ...body, prompt: "different" }))
           .status,
       ).toBe(409);
       expect(
@@ -210,7 +211,7 @@ it.skipIf(process.platform === "win32")(
       const oversized = {
         ...body,
         requestId: "too-large",
-        message: "界".repeat(90000),
+        prompt: "界".repeat(90000),
       };
       const outcome = await http(runtime, path, token, oversized).then(
         (response) => response.status,

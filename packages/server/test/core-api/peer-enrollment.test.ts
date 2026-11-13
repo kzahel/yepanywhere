@@ -37,7 +37,7 @@ const permissions: Operation[] = [
   "conversation",
   "followConversation",
   "createSession",
-  "sendMessage",
+  "prompt",
   "receipt",
   "followReceipt",
   "relationships",

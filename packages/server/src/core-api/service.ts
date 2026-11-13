@@ -1,3 +1,5 @@
+import type { ApiHttpRequest } from "./http-contracts.js";
+import { respondRequest, controlRequest } from "./session-control-contracts.js";
 import {
   selectionQuery,
   selectionSchema,
@@ -9,10 +11,7 @@ import {
 import { relatedQuery } from "./relationship-graph-contracts.js";
 import type { SessionRelationshipRead } from "../sessions/session-relationship-read.js";
 import { receiptFollowQuery } from "./receipt-follow.js";
-import {
-  createSessionRequest,
-  sendMessageRequest,
-} from "./command-contracts.js";
+import { createSessionRequest, promptRequest } from "./command-contracts.js";
 import type { SessionCommands } from "./session-commands.js";
 import {
   conversationQuery,
@@ -90,7 +89,7 @@ const describePrincipal = (principal: ApiPrincipal) =>
       ? { kind: principal.kind, serverId: principal.serverId }
       : { kind: principal.kind };
 
-/** Application operations have no HTTP, provider-registry or discovery ownership. */
+/** Local contract dispatcher, without provider-registry or discovery ownership. */
 export class CoreApi {
   constructor(
     readonly serverId: string,
@@ -109,6 +108,9 @@ export class CoreApi {
       serverId?: string;
       sessionId?: string;
       receiptId?: string;
+      pendingRequestId?: string;
+      http?: ApiHttpRequest;
+      unknownRoute?: boolean;
       body?: unknown;
       query?: PageQuery &
         ConversationFollowQuery & {
@@ -127,7 +129,30 @@ export class CoreApi {
       /** Independent owner proof from the host, never a public request field. */
       ownerAuthenticated?: true;
     } = {},
-  ) {
+  ): Promise<unknown> {
+    if (input.unknownRoute)
+      throw new CoreApiError("not_found", "Unknown v0 resource", 404);
+    if (input.http?.method === "POST") {
+      let body: unknown;
+      try {
+        body = JSON.parse(input.http.body ?? "{}");
+      } catch {
+        throw new CoreApiError("invalid_request", "Expected JSON body", 400);
+      }
+      if (
+        !body ||
+        typeof body !== "object" ||
+        Array.isArray(body) ||
+        "requestId" in body ||
+        !input.http.key
+      )
+        throw new CoreApiError(
+          "invalid_request",
+          "Use Idempotency-Key header and a JSON object body",
+          400,
+        );
+      input = { ...input, body: { ...body, requestId: input.http.key } };
+    }
     assertPeerOperation(caller, operation);
     if (caller.kind === "peer")
       input = {
@@ -163,9 +188,9 @@ export class CoreApi {
       const result = await (cancelled
         ? Promise.race([pending, cancelled])
         : pending);
-      if (operation === "createSession" || operation === "sendMessage")
+      if (operation === "createSession" || operation === "prompt")
         await this.assertReceipt(caller, result as ApiReceipt, input.signal);
-      return operation === "sendMessage"
+      return operation === "prompt"
         ? { ...(result as ApiReceipt), requestedSessionId: input.sessionId }
         : result;
     } catch (error) {
@@ -173,6 +198,7 @@ export class CoreApi {
       // when reserve/lookup discovered it after an asynchronous catalog read.
       if (
         caller.kind === "peer" &&
+        (operation === "createSession" || operation === "prompt") &&
         error instanceof CoreApiError &&
         error.code === "request_id_conflict"
       ) {
@@ -188,7 +214,7 @@ export class CoreApi {
               )
             : commands.replaySend(
                 input.sessionId!,
-                sendMessageRequest.parse(input.body),
+                promptRequest.parse(input.body),
                 input.launch,
                 creator,
                 false,
@@ -229,7 +255,7 @@ export class CoreApi {
     const selected = input.query?.operation;
     if (
       selected &&
-      (!["help", "schema"].includes(operation) ||
+      (!["help", "schema", "targetHelp", "targetSchema"].includes(operation) ||
         !operationIds.includes(selected as Operation))
     )
       throw new CoreApiError(
@@ -265,8 +291,11 @@ export class CoreApi {
           me: "/v0/me",
           servers: "/v0/servers",
         };
+      case "targetHelp":
+        return apiHelp(selected as Operation | undefined, this.serverId);
       case "help":
         return apiHelp(selected as Operation | undefined);
+      case "targetSchema":
       case "schema":
         return apiSchema(
           Boolean(input.launch),
@@ -313,7 +342,10 @@ export class CoreApi {
                 "selection",
                 "relationships",
                 "createSession",
-                "sendMessage",
+                "prompt",
+                "respond",
+                "cancel",
+                "stop",
                 "followReceipt",
               ].includes(id)
             )
@@ -391,6 +423,45 @@ export class CoreApi {
           catalog: result.catalog,
         };
       }
+      case "requests": {
+        await this.read("session", caller, {
+          ...input,
+          query: undefined,
+          http: undefined,
+        });
+        return (
+          this.sources.commands?.requests(input.sessionId!) ?? { items: [] }
+        );
+      }
+      case "respond":
+      case "cancel":
+      case "stop": {
+        const commands = this.commandAccess(caller, input.launch);
+        const parsed = (
+          operation === "respond" ? respondRequest : controlRequest
+        ).safeParse(input.body);
+        if (!parsed.success)
+          throw new CoreApiError(
+            "invalid_request",
+            "Invalid session control body",
+            400,
+          );
+        const session = (await this.read("session", caller, {
+          ...input,
+          query: undefined,
+          http: undefined,
+        })) as ApiSession;
+        const receipt = await commands.control(
+          operation,
+          session,
+          parsed.data,
+          input.pendingRequestId,
+          input.launch,
+          caller.kind === "peer" ? peerCreator(caller) : undefined,
+        );
+        await this.assertReceipt(caller, receipt, input.signal);
+        return receipt;
+      }
       case "createSession": {
         const commands = this.commandAccess(caller, input.launch);
         const body = createSessionRequest.safeParse(input.body);
@@ -453,9 +524,9 @@ export class CoreApi {
           },
         );
       }
-      case "sendMessage": {
+      case "prompt": {
         const commands = this.commandAccess(caller, input.launch);
-        const body = sendMessageRequest.safeParse(input.body);
+        const body = promptRequest.safeParse(input.body);
         if (!body.success)
           throw new CoreApiError(
             "invalid_request",
@@ -475,7 +546,11 @@ export class CoreApi {
           return replay;
         }
         const session = sessionSchema.parse(
-          await this.read("session", caller, { ...input, query: undefined }),
+          await this.read("session", caller, {
+            ...input,
+            query: undefined,
+            http: undefined,
+          }),
         );
         input.signal?.throwIfAborted();
         assertPeerOperation(caller, operation);
@@ -546,7 +621,11 @@ export class CoreApi {
             "Provenance access requires operator authority",
             403,
           );
-        await this.read("session", caller, { ...input, query: undefined });
+        await this.read("session", caller, {
+          ...input,
+          query: undefined,
+          http: undefined,
+        });
         if (caller.kind === "peer") {
           const creation = this.sources.commands?.store.relationships(
             input.sessionId!,
@@ -603,7 +682,11 @@ export class CoreApi {
             "Invalid follow cursor or window",
             400,
           );
-        await this.read("session", caller, { ...input, query: undefined });
+        await this.read("session", caller, {
+          ...input,
+          query: undefined,
+          http: undefined,
+        });
         if (!this.sources.followConversation)
           throw new CoreApiError(
             "conversation_unavailable",
@@ -629,7 +712,11 @@ export class CoreApi {
             "Invalid conversation window",
             400,
           );
-        await this.read("session", caller, { ...input, query: undefined });
+        await this.read("session", caller, {
+          ...input,
+          query: undefined,
+          http: undefined,
+        });
         if (!this.sources.conversation)
           throw new CoreApiError(
             "conversation_unavailable",

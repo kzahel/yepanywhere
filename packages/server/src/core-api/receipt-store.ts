@@ -231,7 +231,7 @@ export class ApiReceiptStore {
     patch: Partial<
       Pick<
         ApiReceipt,
-        "state" | "sessionId" | "queueId" | "delivery" | "failure"
+        "state" | "sessionId" | "queueId" | "delivery" | "failure" | "result"
       >
     >,
   ) {
@@ -246,7 +246,7 @@ export class ApiReceiptStore {
     patch: Partial<
       Pick<
         ApiReceipt,
-        "state" | "sessionId" | "queueId" | "delivery" | "failure"
+        "state" | "sessionId" | "queueId" | "delivery" | "failure" | "result"
       >
     >,
   ) {

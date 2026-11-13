@@ -9,6 +9,7 @@ export const peerAttestation = z
   .object({
     sessionId: z.string().min(1).max(256).nullable(),
     launchId: z.string().min(1).max(256).nullable(),
+    operations: z.array(z.string().min(1).max(128)).max(64).optional(),
   })
   .strict();
 export type PeerAttestation = z.infer<typeof peerAttestation>;
@@ -19,7 +20,7 @@ export interface IncomingPeerGrant {
   generation?: number;
   allProjects?: true;
   projects: readonly string[];
-  operations: readonly Operation[];
+  operations: readonly string[];
   expiresAt: number;
   identityBinding?: IdentityServicePeerBinding;
   access?: readonly { tokenHash: string; expiresAt: number }[];
@@ -27,7 +28,7 @@ export interface IncomingPeerGrant {
 export interface PeerRequestAuthority {
   grant: IncomingPeerGrant;
   projects: readonly string[];
-  operations: readonly Operation[];
+  operations: readonly string[];
   expiresAt: number;
   assertActive(): void;
 }
@@ -149,9 +150,11 @@ export class PeerDirectory {
       projects: authority
         ? grant.projects.filter((id) => authority.projects.includes(id))
         : grant.projects,
-      operations: authority
-        ? grant.operations.filter((op) => authority.operations.includes(op))
-        : grant.operations,
+      operations: grant.operations.filter(
+        (op) =>
+          (!authority || authority.operations.includes(op)) &&
+          (!attestation.operations || attestation.operations.includes(op)),
+      ),
       sourceSessionId: attestation.sessionId,
       sourceLaunchId: attestation.launchId,
       signal: controller.signal,

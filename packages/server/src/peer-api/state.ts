@@ -26,7 +26,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { isValidRelayUsername } from "@yep-anywhere/shared";
-import { operations, type Operation } from "../core-api/contracts.js";
+import { operations } from "../core-api/contracts.js";
 import { CoreApiError } from "../core-api/errors.js";
 import { generateVerifier } from "../crypto/srp-server.js";
 import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.js";
@@ -39,7 +39,7 @@ const boundedId = z.string().min(1).max(4096);
 const resourceOperations = operations
   .filter((op) => op.path.includes(":serverId"))
   .map((op) => op.id);
-const ops = z.array(z.enum(resourceOperations)).min(1).max(32);
+const ops = z.array(z.string().min(1).max(128)).min(1).max(32);
 const publicUuid = z.string().uuid();
 const expiration = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const generation = z.number().int().min(1).max(2_147_483_647);
@@ -460,9 +460,9 @@ export function uiPairing(
   );
 }
 
-export function peerGrantOperations(operations: readonly Operation[]) {
+export function peerGrantOperations(operations: readonly string[]) {
   const result = [
-    ...new Set<Operation>(["server", "access", "capabilities", ...operations]),
+    ...new Set<string>(["server", "access", "capabilities", ...operations]),
   ];
   if (
     result.some((op) =>
@@ -472,8 +472,12 @@ export function peerGrantOperations(operations: readonly Operation[]) {
         "receipt",
         "followReceipt",
         "relationships",
+        "requests",
+        "respond",
+        "cancel",
+        "stop",
         "createSession",
-        "sendMessage",
+        "prompt",
       ].includes(op),
     ) &&
     !result.includes("session")
@@ -723,7 +727,7 @@ export class PeerAccessStore {
       );
     const operations = peerGrantOperations(input.operations);
     if (
-      operations.some((op) => op === "createSession" || op === "sendMessage") &&
+      operations.some((op) => op === "createSession" || op === "prompt") &&
       input.acknowledgeExecutionAuthority !== "server-account"
     )
       throw new CoreApiError(

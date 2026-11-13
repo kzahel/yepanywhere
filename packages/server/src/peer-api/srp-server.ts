@@ -1,4 +1,8 @@
 import {
+  PEER_ENVELOPE_VERSION,
+  RECEIPT_HEADER,
+} from "../core-api/http-contracts.js";
+import {
   PEER_IDENTITY_PATH,
   PEER_REFRESH_PATH,
 } from "./authentication-contracts.js";
@@ -314,6 +318,7 @@ class PeerChannel {
         ? { authentication: peer.authentication.protocol }
         : {}),
       serverId: this.options.serverId,
+      envelopeVersion: PEER_ENVELOPE_VERSION,
       credentialId: peer.id,
       generation: peer.generation,
       ...(peer.origin === "fleet" ? { fleet: 1 as const } : {}),
@@ -348,7 +353,11 @@ class PeerChannel {
     )
       throw new Error("Invalid peer request target");
     const body =
-      message.body === undefined ? undefined : JSON.stringify(message.body);
+      message.body === undefined
+        ? undefined
+        : typeof message.body === "string"
+          ? message.body
+          : JSON.stringify(message.body);
     if (body && Buffer.byteLength(body) > PEER_BODY_BYTES)
       throw new Error("Oversized peer body");
     const request = new Request(target, {
@@ -374,8 +383,16 @@ class PeerChannel {
       );
       reply = {
         status: response.status,
-        headers: { "X-YA-Server-ID": this.options.serverId },
-        body: JSON.parse(bytes.toString("utf8")),
+        headers: {
+          "X-YA-Server-ID": this.options.serverId,
+          ...(response.headers.has("Content-Type")
+            ? { "Content-Type": response.headers.get("Content-Type")! }
+            : {}),
+          ...(response.headers.has(RECEIPT_HEADER)
+            ? { [RECEIPT_HEADER]: response.headers.get(RECEIPT_HEADER)! }
+            : {}),
+        },
+        body: bytes.toString("utf8"),
       };
     } catch (error) {
       const failure =

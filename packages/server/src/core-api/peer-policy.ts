@@ -11,7 +11,7 @@ export interface PeerPrincipal {
   credentialGeneration?: number;
   allProjects?: true;
   projects: readonly string[];
-  operations: readonly Operation[];
+  operations: readonly string[];
   sourceSessionId: string | null;
   sourceLaunchId: string | null;
   signal: AbortSignal;

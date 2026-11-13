@@ -1,3 +1,5 @@
+import { TargetContractFixture } from "./target-contract.js";
+import { CoreApiError } from "../../packages/server/src/core-api/errors.js";
 import { selection, selectedInspection } from "./selection.js";
 import type { ApiSessionInspection } from "../../packages/server/src/core-api/selection-contracts.js";
 import { createPeerEvalRouter, PEER_SERVER_ID } from "./peer-fixture.js";
@@ -17,7 +19,6 @@ import {
 } from "../../packages/server/src/core-api/conversation.js";
 import { ConversationSubscriptions } from "../../packages/server/src/experimental/conversation-subscriptions.js";
 import type { Message } from "../../packages/shared/src/transcript/message.js";
-import { CoreApi } from "../../packages/server/src/core-api/service.js";
 import {
   OWN_SESSION_ID,
   projects,
@@ -33,12 +34,37 @@ export async function createFixture(
   peerRelay = false,
   peerIdentityService = false,
 ) {
-  if (peerRelay && caseId !== "workflow")
-    throw new Error("Peer relay fixture supports only the workflow case");
+  if (
+    peerRelay &&
+    !["workflow", "target_contract", "approval", "controls"].includes(caseId)
+  )
+    throw new Error("Peer relay case is not supported");
   const localSessions = [...sessions];
   const apiServerId = peerRelay ? PEER_SERVER_ID : SERVER_ID;
   const management =
-    caseId === "create" || caseId === "workflow" || caseId === "selection";
+    peerRelay ||
+    caseId === "create" ||
+    caseId === "workflow" ||
+    caseId === "selection" ||
+    caseId === "approval" ||
+    caseId === "controls";
+  let approvalPending = true;
+  if (caseId === "approval" || caseId === "controls") {
+    for (const [id, title, state] of caseId === "approval"
+      ? [["approval-worker", "Approval worker", "waiting-input"]]
+      : [
+          ["interrupt-worker", "Interrupt worker", "in-turn"],
+          ["stop-worker", "Stop worker", "in-turn"],
+        ])
+      localSessions.push({
+        id: id!,
+        title: title!,
+        state: state!,
+        projectId: projects[0]!.id,
+        provider: "codex",
+        updatedAt: new Date().toISOString(),
+      });
+  }
   const inspections = new Map<string, ApiSessionInspection>();
   const database = management ? openSqliteOrThrow(":memory:") : undefined;
   if (database) migrateDiscoveryDatabase(database);
@@ -53,10 +79,56 @@ export async function createFixture(
         apiServerId,
         receiptStore,
         {
+          requests(id) {
+            return {
+              items:
+                id === "approval-worker" && approvalPending
+                  ? [
+                      {
+                        id: "permission-001",
+                        kind: "permission" as const,
+                        description: "Approve fixture release check",
+                        canRespond: true,
+                      },
+                    ]
+                  : [],
+            };
+          },
+          prepareControl(id, operation, pendingId, response) {
+            const session = localSessions.find((s) => s.id === id);
+            if (!session)
+              throw new CoreApiError(
+                "session_not_found",
+                "Unknown worker",
+                404,
+              );
+            if (
+              operation === "respond" &&
+              (!approvalPending ||
+                pendingId !== "permission-001" ||
+                response !== "approve")
+            )
+              throw new CoreApiError(
+                "request_not_pending",
+                "Request not pending",
+                409,
+              );
+            return async () => {
+              if (operation === "respond") {
+                approvalPending = false;
+                session.state = "idle";
+                return { accepted: true };
+              }
+              session.state = operation === "cancel" ? "idle" : "terminated";
+              return operation === "cancel"
+                ? { interrupted: true, supported: true, aborted: false }
+                : { stopped: true };
+            };
+          },
           async start(project, request) {
             const id = `eval-worker-${++workerCount}`;
             inspections.set(id, selectedInspection(request));
-            workers.set(id, { prompt: request.message, followups: [] });
+            workers.set(id, { prompt: request.prompt, followups: [] });
             localSessions.push({
               id,
               projectId: project.id,
@@ -71,7 +143,7 @@ export async function createFixture(
           send(id, request, receipt, consumed) {
             const worker = workers.get(id);
             if (!worker) return { accepted: false };
-            worker.followups.push({ id: receipt.id, text: request.message });
+            worker.followups.push({ id: receipt.id, text: request.prompt });
             consumed();
             notifyWorker();
             return { accepted: true };
@@ -152,26 +224,37 @@ export async function createFixture(
             : undefined;
           return {
             sessionId,
-            messages: workerMessages ?? [
-              {
-                type: "user",
-                uuid: "question",
-                content: "Which release artifact is ready?",
-              },
-              ...noise,
-              {
-                type: "assistant",
-                uuid: "answer",
-                content:
-                  management && sessionId.startsWith("eval-worker-")
-                    ? "The release artifact is created-5b7."
-                    : worker
-                      ? done
-                        ? "The release artifact is worker-9c4."
-                        : "Working on the release."
-                      : "The release artifact is orchid-7f2.",
-              },
-            ],
+            messages:
+              sessionId === "approval-worker"
+                ? [
+                    {
+                      type: "assistant",
+                      uuid: "approval-output",
+                      content: approvalPending
+                        ? "Awaiting permission."
+                        : "The artifact is approved-artifact-4d8.",
+                    },
+                  ]
+                : (workerMessages ?? [
+                    {
+                      type: "user",
+                      uuid: "question",
+                      content: "Which release artifact is ready?",
+                    },
+                    ...noise,
+                    {
+                      type: "assistant",
+                      uuid: "answer",
+                      content:
+                        management && sessionId.startsWith("eval-worker-")
+                          ? "The release artifact is created-5b7."
+                          : worker
+                            ? done
+                              ? "The release artifact is worker-9c4."
+                              : "Working on the release."
+                            : "The release artifact is orchid-7f2.",
+                    },
+                  ]),
             activity:
               caseId === "evidence"
                 ? "unknown"
@@ -189,7 +272,7 @@ export async function createFixture(
     },
   );
   const runtime = await createAgentApiRuntime({ serverId: SERVER_ID });
-  const core = new CoreApi(apiServerId, {
+  const core = new TargetContractFixture(apiServerId, {
     commands,
     selection: async () => selection,
     sessionInspection: (id) =>
@@ -264,6 +347,9 @@ export async function createFixture(
     const routePath = req.url?.split("?")[0] ?? "";
     const capture =
       routePath.endsWith("/conversation/follow") ||
+      routePath.endsWith("/conversation") ||
+      routePath.endsWith("/requests") ||
+      routePath.endsWith("/extension/probe") ||
       /\/sessions\/[^/]+$/.test(routePath) ||
       routePath.includes("/receipts/") ||
       (req.method === "POST" && routePath.startsWith("/v0/"));
@@ -300,6 +386,8 @@ export async function createFixture(
                   id: value.id,
                   kind: value.kind,
                   delivery: value.delivery,
+                  state: value.state,
+                  result: value.result,
                 };
               if (
                 typeof data.cursor === "string" &&
@@ -315,7 +403,29 @@ export async function createFixture(
               /* Not a successful follow response. */
             }
           }
+          let sessionState: string | undefined,
+            pendingId: string | undefined,
+            artifact: string | undefined;
+          try {
+            const data = JSON.parse(captured);
+            if (
+              typeof data.state === "string" &&
+              typeof data.provider === "string"
+            )
+              sessionState = data.state;
+            pendingId = data.items?.find(
+              (item: { id?: string; canRespond?: boolean }) => item.canRespond,
+            )?.id;
+            artifact = data.extensionResult?.artifact;
+            if (captured.includes("approved-artifact-4d8"))
+              artifact = "approved-artifact-4d8";
+          } catch {
+            /* Non-JSON documentation has no domain evidence. */
+          }
           trace.push({
+            ...(sessionState ? { sessionState } : {}),
+            ...(pendingId ? { pendingId } : {}),
+            ...(artifact ? { artifact } : {}),
             method: req.method ?? "GET",
             path: req.url ?? "/",
             status: response.statusCode ?? 502,
@@ -369,6 +479,7 @@ export async function createFixture(
     : `http://127.0.0.1:${typeof address === "object" && address ? address.port : ""}`;
   return {
     apiServerId,
+    peers,
     management,
     workerFinished,
     trace,

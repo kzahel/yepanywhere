@@ -15,7 +15,7 @@ import { SessionCommands } from "../../src/core-api/session-commands.js";
 import { nativeSessionCommandOwner } from "../../src/core-api/native-session-commands.js";
 import {
   createSessionRequest,
-  sendMessageRequest,
+  promptRequest,
 } from "../../src/core-api/command-contracts.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
@@ -194,7 +194,7 @@ it.each(["superuser", "peer"] as const)(
         model: "fixture-model",
         thinking: "on:high",
         permissionMode: "bypassPermissions",
-        message: "/clear",
+        prompt: "/clear",
       });
       const creator =
         principal === "peer"
@@ -257,9 +257,9 @@ it.each(["superuser", "peer"] as const)(
         updatedAt: "",
         state: "in-turn",
       };
-      const input = sendMessageRequest.parse({
+      const input = promptRequest.parse({
         requestId: "native-input-1",
-        message: "Follow up",
+        prompt: "Follow up",
       });
       const sent = commands.send(session, input, launch);
       expect(sent).toMatchObject({
@@ -388,9 +388,9 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     });
     const failed = commands.send(
       session,
-      sendMessageRequest.parse({
+      promptRequest.parse({
         requestId: "rejected-push",
-        message: "Rejected",
+        prompt: "Rejected",
       }),
     );
     expect(queue.depth).toBe(0);
@@ -402,16 +402,16 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     push.mockRestore();
     const first = commands.send(
       session,
-      sendMessageRequest.parse({
+      promptRequest.parse({
         requestId: "batched-first",
-        message: "First",
+        prompt: "First",
       }),
     );
     const second = commands.send(
       session,
-      sendMessageRequest.parse({
+      promptRequest.parse({
         requestId: "batched-second",
-        message: "Second",
+        prompt: "Second",
       }),
     );
     const combined = queue.concatDrain({ interrupted: true })!;
@@ -426,9 +426,9 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     expect(process.hasConsumedApiInput(second.id)).toBe(true);
     const pending = commands.send(
       session,
-      sendMessageRequest.parse({
+      promptRequest.parse({
         requestId: "aborted-input",
-        message: "Not consumed",
+        prompt: "Not consumed",
       }),
     );
     commands.close();
@@ -445,9 +445,9 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     });
     const cancelled = commands.send(
       session,
-      sendMessageRequest.parse({
+      promptRequest.parse({
         requestId: "cancelled-input",
-        message: "Cancel this",
+        prompt: "Cancel this",
       }),
     );
     const cancelBefore = await commands.follow(cancelled.id, { waitMs: "0" });
@@ -467,9 +467,9 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     expect(subscriptions.size).toBe(1); // Only Process's incumbent queue observer remains.
     const aborted = commands.send(
       session,
-      sendMessageRequest.parse({
+      promptRequest.parse({
         requestId: "final-aborted",
-        message: "Never consumed",
+        prompt: "Never consumed",
       }),
     );
     expect(subscriptions.size).toBeGreaterThan(0);
@@ -536,7 +536,7 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
           requestId,
           projectId: project.id,
           provider,
-          message: "child work",
+          prompt: "child work",
           ...extra,
         }),
         launch,

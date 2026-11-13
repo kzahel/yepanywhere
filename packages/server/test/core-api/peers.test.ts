@@ -1,3 +1,4 @@
+import { apiCommand } from "../support/api-command-request.js";
 import {
   seedHistoricalReceiptAlias,
   seedHistoricalOutboundAlias,
@@ -42,7 +43,7 @@ const body = {
   requestId: "peer-create-001",
   projectId: "p",
   provider: "codex",
-  message: "Review the change",
+  prompt: "Review the change",
   permissionMode: "default",
 };
 function fixture(id: string) {
@@ -196,14 +197,14 @@ function connect(
 const post = (fixture: Fixture, path: string, payload: unknown = body) =>
   fixture.app.request(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    ...apiCommand(payload),
   });
 const peerHeaders = (
   token: string,
   context = { sessionId: "parent", launchId: "launch-A" },
 ) => ({
   Authorization: `Bearer ${token}`,
+  "X-YA-Peer-Envelope": "2",
   "X-YA-Peer-Context": Buffer.from(JSON.stringify(context)).toString(
     "base64url",
   ),
@@ -240,9 +241,9 @@ it("creates, messages and follows across real v0 authentication, with separate d
   });
   expect(receipt.destinationServerId).toBe("B");
   expect(receipt.sessionId).toBe("created-1");
-  const message = await post(a, "/v0/servers/B/sessions/created-1/messages", {
+  const message = await post(a, "/v0/servers/B/sessions/created-1/prompts", {
     requestId: "peer-message-001",
-    message: "Please explain",
+    prompt: "Please explain",
     delivery: "queue",
   });
   expect(message.status).toBe(202);
@@ -408,7 +409,7 @@ it("persists uncertain intent before sending, recovers a lost response with one 
     (
       await post(a, "/v0/servers/B/sessions", {
         ...body,
-        message: "Different prompt",
+        prompt: "Different prompt",
       })
     ).status,
   ).toBe(409);
@@ -443,9 +444,9 @@ it("keeps same-project peer receipts private and rechecks grants on replay and p
   ).toBe(404);
   expect(
     (
-      await post(a, "/v0/servers/B/sessions/created-1/messages", {
+      await post(a, "/v0/servers/B/sessions/created-1/prompts", {
         requestId: "revoked-input-001",
-        message: "No",
+        prompt: "No",
       })
     ).status,
   ).toBe(404);
@@ -580,26 +581,28 @@ it("authorizes conflicting receipts before disclosing mismatch and accepts targe
     b.receiver.request(path, {
       method: "POST",
       headers: {
+        ...apiCommand(payload).headers,
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        "X-YA-Peer-Envelope": "2",
       },
-      body: JSON.stringify(payload),
+      body: apiCommand(payload).body,
     });
-  for (const message of [body.message, "Conflicting private request"])
+  for (const message of [body.prompt, "Conflicting private request"])
     expect(
-      (await direct("/v0/servers/B/sessions", { ...body, message })).status,
+      (await direct("/v0/servers/B/sessions", { ...body, prompt: message }))
+        .status,
     ).toBe(404);
   const input = {
     requestId: "canonical-input-001",
-    message: "Explain",
+    prompt: "Explain",
     delivery: "queue",
   };
   expect(
-    (await post(a, "/v0/servers/B/sessions/parent/messages", input)).status,
+    (await post(a, "/v0/servers/B/sessions/parent/prompts", input)).status,
   ).toBe(202);
   seedHistoricalReceiptAlias(b.receipts, "parent", "canonical-target");
   b.sessions.find((s) => s.id === "parent")!.id = "canonical-target";
-  const retry = await post(a, "/v0/servers/B/sessions/parent/messages", input);
+  const retry = await post(a, "/v0/servers/B/sessions/parent/prompts", input);
   expect(retry.status).toBe(202);
   expect(await retry.json()).toMatchObject({
     requestedSessionId: "parent",
@@ -608,12 +611,12 @@ it("authorizes conflicting receipts before disclosing mismatch and accepts targe
   expect(b.sends()).toBe(1);
   expect(b.receipts.get(created.id)?.creator.sessionId).toBeNull();
   b.directory.put({ ...grant, projects: [] });
-  for (const message of [input.message, "Conflicting private input"])
+  for (const message of [input.prompt, "Conflicting private input"])
     expect(
       (
-        await direct("/v0/servers/B/sessions/parent/messages", {
+        await direct("/v0/servers/B/sessions/parent/prompts", {
           ...input,
-          message,
+          prompt: message,
         })
       ).status,
     ).toBe(404);
@@ -632,7 +635,11 @@ it("releases all receiver slots on revocation of unfinished request bodies, even
     return b.receiver.request(
       new Request("http://127.0.0.1/v0/servers/B/sessions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${ab.token}` },
+        headers: {
+          Authorization: `Bearer ${ab.token}`,
+          "X-YA-Peer-Envelope": "2",
+          "Idempotency-Key": "blocked-body-001",
+        },
         body: stream,
         duplex: "half",
       } as RequestInit & { duplex: "half" }),
@@ -709,21 +716,16 @@ it("repeats create/message/follow over two owned ephemeral loopback TCP listener
   const origin = `http://127.0.0.1:${address.port}`;
   const response = await fetch(`${origin}/v0/servers/B/sessions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...apiCommand(body),
   });
   expect(response.status).toBe(202);
   await response.json();
   await b.commands.idle();
   const input = await fetch(
-    `${origin}/v0/servers/B/sessions/created-1/messages`,
+    `${origin}/v0/servers/B/sessions/created-1/prompts`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: "tcp-message-001",
-        message: "Explain",
-      }),
+      ...apiCommand({ requestId: "tcp-message-001", prompt: "Explain" }),
     },
   );
   expect(input.status).toBe(202);
@@ -745,8 +747,7 @@ it("resolves self at the access server for local commands and canonical receipts
   expect(self).toMatchObject({ id: "A", local: true });
   const response = await a.app.request("/v0/servers/self/sessions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...apiCommand(body),
   });
   expect(response.status).toBe(202);
   const receipt = await response.json();

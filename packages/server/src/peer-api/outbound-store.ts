@@ -3,7 +3,7 @@ import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 import {
   outboundSchema,
   type ApiOutbound,
-  type ApiReceipt,
+  type ReceiptBinding,
 } from "../core-api/command-contracts.js";
 import { CoreApiError } from "../core-api/errors.js";
 import { profileSessionRelationships } from "../sessions/SessionRelationshipWriter.js";
@@ -103,12 +103,15 @@ export class PeerOutboundStore {
       return record;
     });
   }
-  confirm(record: ApiOutbound, receipt: ApiReceipt) {
+  confirm(record: ApiOutbound, receipt: ReceiptBinding) {
     return this.database.transaction(() =>
       this.confirmWithinTransaction(record, receipt),
     );
   }
-  private confirmWithinTransaction(record: ApiOutbound, receipt: ApiReceipt) {
+  private confirmWithinTransaction(
+    record: ApiOutbound,
+    receipt: ReceiptBinding,
+  ) {
     const row = this.statement(
       "SELECT record_json FROM peer_api_outbound WHERE id = ?",
     ).get<{ record_json: string }>(record.id);
@@ -124,8 +127,7 @@ export class PeerOutboundStore {
       receipt.creator.serverId !== current.sourceServerId ||
       receipt.creator.principal.kind !== "peer" ||
       receipt.creator.sessionId !== current.attestedSessionId ||
-      receipt.requestId !== current.requestId ||
-      receipt.kind !== current.operation
+      receipt.requestId !== current.requestId
     )
       throw new CoreApiError(
         "peer_identity_mismatch",
@@ -134,6 +136,7 @@ export class PeerOutboundStore {
       );
     const next: ApiOutbound = {
       ...current,
+      operation: receipt.kind,
       state: "confirmed",
       receipt,
       destinationSessionId: receipt.sessionId ?? current.destinationSessionId,
@@ -144,7 +147,7 @@ export class PeerOutboundStore {
     this.relationships.outboundWithinTransaction(next);
   }
   /** Only an already correlated receipt can enrich its source-side binding. */
-  observe(serverId: string, receipt: ApiReceipt) {
+  observe(serverId: string, receipt: ReceiptBinding) {
     const rows = this.statement(
       "SELECT record_json FROM peer_api_outbound WHERE destination_server_id = ? AND remote_receipt_id = ? LIMIT 10000",
     ).all<{ record_json: string }>(serverId, receipt.id);
@@ -156,8 +159,7 @@ export class PeerOutboundStore {
           receipt.creator.serverId !== record.sourceServerId ||
           receipt.creator.principal.kind !== "peer" ||
           receipt.creator.sessionId !== record.attestedSessionId ||
-          receipt.requestId !== record.requestId ||
-          receipt.kind !== record.operation
+          receipt.requestId !== record.requestId
         )
           throw new CoreApiError(
             "peer_identity_mismatch",

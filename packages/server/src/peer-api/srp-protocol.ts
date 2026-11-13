@@ -1,3 +1,4 @@
+import { PEER_ENVELOPE_VERSION } from "../core-api/http-contracts.js";
 import type { RawData } from "ws";
 import { z } from "zod";
 import { CoreApiError } from "../core-api/errors.js";
@@ -42,6 +43,7 @@ export const peerServerInfo = z
     protocol: z.enum([PEER_PROTOCOL, PEER_REFRESH_PROTOCOL]),
     authentication: z.literal("refresh-v1").optional(),
     serverId: z.string().uuid(),
+    envelopeVersion: z.literal(PEER_ENVELOPE_VERSION),
     sourceServerId: z.uuid().optional(),
     credentialId: z.string().uuid(),
     generation: z.number().int().positive(),
@@ -62,8 +64,10 @@ export const peerWireRequest = z
     headers: z
       .object({
         Authorization: z.string().max(256),
-        "Content-Type": z.literal("application/json"),
-        "X-YA-Peer-Context": z.string().max(2048),
+        "Content-Type": z.string().max(128),
+        "X-YA-Peer-Context": z.string().max(16 * 1024),
+        "X-YA-Peer-Envelope": z.literal(PEER_ENVELOPE_VERSION),
+        "Idempotency-Key": z.string().min(8).max(128).optional(),
         "X-YA-Fleet-Grant": z
           .string()
           .max(32 * 1024)

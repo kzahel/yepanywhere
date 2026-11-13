@@ -2,14 +2,12 @@
 
 Topic: http-api-v0
 
-Status: local compact reads/following and opt-in native creation/messaging
-implemented, 2026-10-30. The maintainer selected
-HTTP-first design, explicit server addressing, agent-discoverable identity/access,
-and creation provenance, then authorized implementation. The delivered subset
-is specified below; peer routing/enrollment remain later slices.
-Launch-bound bootstrap is implemented. [Implementation and tests](../docs/tactical/165-http-api-v0.md)
-track the staged work. This does not reprioritize releases or restart the
-archived session-core campaign.
+Status: local reads/following, native creation/queued prompts, directional
+peer access, target-owned forwarding and basic session controls are implemented.
+Revision `2026-11-13.1` adds target help/schema, opaque peer operations,
+header-based retry keys and requests/respond/cancel/stop under
+[plan 192](../docs/tactical/192-v0-session-control-and-peer-contracts.md).
+The API remains alpha and deliberately unstable. Release priority is unchanged.
 
 ## Implemented local read contract
 
@@ -45,7 +43,7 @@ direction/type filters; no stable release contains that intermediate contract.
 Callers needing those filters against arbitrary source builds must validate
 returned predicates/directions or consult the generated query schema.
 
-- `/v0` returns public server id, current revision `2026-11-12.1`, unstable status and
+- `/v0` returns public server id, current revision `2026-11-13.1`, unstable status and
   discovery links. The documentation slice adds Markdown
   help at `/v0/help`, links help/me/schema from discovery, and generates field
   descriptions, operation semantics and example requests alongside OpenAPI.
@@ -222,9 +220,12 @@ requests. Examples below are proposed routes, not installed endpoints:
 | `GET /v0/servers/{serverId}/sessions` | Bounded, filtered session catalog |
 | `POST /v0/servers/{serverId}/sessions` | Create a native YA session in a selected workspace |
 | `GET /v0/servers/{serverId}/sessions/{sessionId}` | Session facts and state |
-| `PATCH /v0/servers/{serverId}/sessions/{sessionId}` | Supported configuration/metadata changes |
-| `GET /v0/servers/{serverId}/sessions/{sessionId}/messages` | Bounded visible history |
-| `POST /v0/servers/{serverId}/sessions/{sessionId}/messages` | Submit input with explicit supported delivery semantics |
+| `GET /v0/servers/{serverId}/sessions/{sessionId}/requests` | Pending permission/question input |
+| `POST /v0/servers/{serverId}/sessions/{sessionId}/requests/{requestId}/response` | Answer permission input |
+| `POST /v0/servers/{serverId}/sessions/{sessionId}/cancel` | Existing YA interrupt behavior |
+| `POST /v0/servers/{serverId}/sessions/{sessionId}/stop` | Verified provider shutdown |
+| `GET /v0/servers/{serverId}/sessions/{sessionId}/conversation` | Bounded visible history |
+| `POST /v0/servers/{serverId}/sessions/{sessionId}/prompts` | Submit input with explicit supported delivery semantics |
 | `GET /v0/servers/{serverId}/sessions/{sessionId}/relationships` | Recorded provenance and optional related-session links |
 
 Choose explicit observation, pending-input and interrupt/stop operations before
@@ -334,8 +335,8 @@ session before dispatch. Preserve v0 state meanings, authorization and native
 input semantics when extracting shared implementation; the web contract needs
 its own capability rather than broadening `agent-api-management`.
 
-`POST /v0/servers/{serverId}/sessions` accepts strict JSON with `requestId`,
-`projectId`, `provider` and exact initial `message`. Optional model,
+`POST /v0/servers/{serverId}/sessions` accepts an `Idempotency-Key` header
+and strict JSON with `projectId`, `provider` and exact initial `prompt`. Optional model,
 thinking/effort, permission mode and service tier map to incumbent native
 launch controls. Permission mode defaults to `default`; bypass must be explicit.
 Only configured local Claude/Codex providers and catalog projects are qualified.
@@ -403,9 +404,9 @@ no oversized request may reserve or launch work.
 
 ### Attributed queued input and consumption
 
-`POST /v0/servers/{serverId}/sessions/{sessionId}/messages` accepts strict JSON
-`{requestId,message,delivery?:"queue"}`. It uses the same explicit management
-opt-in, trusted origin and durable scoped retry rules as creation. `message`
+`POST /v0/servers/{serverId}/sessions/{sessionId}/prompts` accepts strict JSON
+`{prompt,delivery?:"queue"}` and an `Idempotency-Key` header. It uses the same explicit management
+opt-in, trusted origin and durable scoped retry rules as creation. `prompt`
 is nonblank exact text, at most 100,000 characters. Only the incumbent active
 native owner can accept a new input; otherwise return `409 session_not_running`.
 There is no implicit resume, interruption, steering, mode/model change or provider
@@ -1037,3 +1038,82 @@ Local Node 24.22.1 workspace tests, lint, formatting and typechecking pass;
 Linux/Windows execution remains CI qualification, with no OS-specific API
 behavior added. The known unrelated jsdom navigation diagnostics remain in
 [their existing gap](../gaps/client-unit-navigation-diagnostics.md).
+
+## Target-owned peer APIs and session control — 2026-11-13
+
+The access server's API revision does not constrain a target's operation table.
+For a peer, read `/v0/servers/{serverId}/help` and `/schema` on that target;
+`?operation={operationId}` selects its focused documentation. Top-level help
+and schema describe the receiving server. The new discovery operation ids are
+`targetHelp` and `targetSchema`; the existing top-level resources remain useful
+for local bootstrap.
+
+Forwarding authenticates the local caller and its immutable launch authority,
+then sends the target-scoped method/path/query, body text, content type and
+retry key through the existing protected peer transport. It does not parse
+operation bodies or validate target response schemas. Target status, selected
+headers and body text survive, including Markdown help, unfamiliar JSON fields
+and errors the access build does not recognize. Server descriptions likewise
+remain target-owned; access-local names and saved host facts remain available
+on the access server's server list. A response's `local` field is the target's
+own observation rather than an access-side rewrite.
+
+Incoming and outgoing operation/project grants remain separate. The source
+attests its outgoing operation ceiling; the target maps its own route to its
+operation id and enforces the intersection. Intermediaries store bounded
+operation-name strings, enabling explicitly granted target-only operations.
+Unknown operations gain no automatic grant. No caller can route onward, reach
+ordinary `/api` or peer administration, choose an arbitrary origin, or supply
+peer credentials/attestation in the public request. Revocation, expiry and
+source launch fencing remain in force.
+
+The peer wrapper is version 2 inside the existing SRP/NaCl exchange. Its version
+is authenticated in the protected server-info proof before submission. Wrapper
+mismatch returns `peer_incompatible`; both alpha endpoints need the initial
+update. No old-format migration, credential copying, automatic connection
+reset or compatibility aliases are added. Recreate affected alpha connections
+and use fresh API fixture state as needed. Browser/native-client login,
+ordinary sessions and provider transcripts keep their existing contracts.
+
+Every v0 mutation uses an `Idempotency-Key` header (8–128 characters from
+letters/digits/`._:-`), replacing the body `requestId`. The receipt's `requestId`
+still reports that key. Creation and follow-up text is a plain `prompt` string;
+follow-up operation id is `prompt` at `POST .../sessions/{id}/prompts`.
+Old `message`/`sendMessage` spellings have no aliases. Other launch, selection,
+settings and conversation/follow shapes remain unchanged.
+
+The access server reserves outbound intent before submission, with source,
+target, method/path/query, key and body fingerprint. It learns receipt and
+canonical destination bindings from a bounded `X-YA-Receipt` header rather
+than parsing operation results. Receipt reads/follows can fill a delayed
+creation binding. Admission or a confirmed remote receipt does not prove task
+completion. Current payload/frame/deadline limits and four-second follows
+remain; no streaming or new waiter polling is introduced.
+
+`GET .../sessions/{id}/requests` lists the current pending input with stable id,
+kind, description, tool name/input and `canRespond`. Questions are visible
+with `canRespond:false`. `POST .../requests/{requestId}/response` accepts
+`{response:"approve"|"deny"}` and resolves the native permission request used
+by the UI, recording decisions through the existing optional approval audit
+log. A new command for a resolved/withdrawn request returns
+`409 request_not_pending`; an identical retry returns its original receipt.
+Combined approval/mode changes and question answers are unsupported.
+
+`cancel` and `stop` accept `{}`. All three control mutations require existing
+management authority and their peer operation grants, with session/project
+access rechecked at the target. They return durable receipts; inspect receipt
+state, `result` and `failure` to learn the actual control outcome. `cancel`
+uses existing YA interruption and queue behavior and reports
+`{interrupted,supported,aborted}`; it can hard-abort and does not automatically
+resume. `stop` uses verified termination and reports `stopped` plus native
+verification facts, or a recorded failure. Session metadata stays readable
+after termination even without native transcript content.
+
+Control retries resolve the existing receipt before acquiring an incumbent
+again, so a lost reply cannot make the same command interrupt a later turn or
+stop a resumed process. An interrupted/restarted unfinished reservation is
+uncertain and is never automatically repeated. Idle activity, accepted control
+and consumed input do not establish successful completion of a particular
+prompt. Mode/model/effort changes, richer updates and ACP conformance remain
+outside this slice. The [blocking-question gap](../gaps/v0-blocking-questions-need-a-launch-policy.md)
+remains open.

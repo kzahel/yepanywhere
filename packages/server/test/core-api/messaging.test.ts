@@ -7,7 +7,7 @@ import {
   SessionCommands,
   type SessionCommandOwner,
 } from "../../src/core-api/session-commands.js";
-import { sendMessageRequest } from "../../src/core-api/command-contracts.js";
+import { promptRequest } from "../../src/core-api/command-contracts.js";
 import { CoreApi } from "../../src/core-api/service.js";
 import { SUPERUSER } from "../../src/auth/principal.js";
 
@@ -20,9 +20,9 @@ const session = {
   state: "in-turn",
 };
 const launch = { id: "parent", launchId: "launch", management: true as const };
-const input = sendMessageRequest.parse({
+const input = promptRequest.parse({
   requestId: "follow-up-001",
-  message: "Give the result",
+  prompt: "Give the result",
 });
 function fixture(owner: SessionCommandOwner) {
   const database = openSqliteOrThrow(":memory:");
@@ -71,13 +71,13 @@ it("binds retry identity to native input, follows consumption, and preserves rec
   });
   try {
     const [first, retry] = await Promise.all([
-      f.core.call("sendMessage", SUPERUSER, {
+      f.core.call("prompt", SUPERUSER, {
         serverId: "A",
         sessionId: "target",
         body: input,
         launch,
       }),
-      f.core.call("sendMessage", SUPERUSER, {
+      f.core.call("prompt", SUPERUSER, {
         sessionId: "target",
         body: input,
         launch,
@@ -87,16 +87,16 @@ it("binds retry identity to native input, follows consumption, and preserves rec
       state: "accepted",
       delivery: "unknown",
       completion: "unknown",
-      kind: "sendMessage",
+      kind: "prompt",
       creator: { sessionId: "parent" },
     });
     const id = (first as { id: string }).id;
     expect(retry).toHaveProperty("id", id);
     expect(sends).toBe(1);
     await expect(
-      f.core.call("sendMessage", SUPERUSER, {
+      f.core.call("prompt", SUPERUSER, {
         sessionId: "target",
-        body: { ...input, message: "different" },
+        body: { ...input, prompt: "different" },
         launch,
       }),
     ).rejects.toMatchObject({ code: "request_id_conflict", status: 409 });
@@ -118,21 +118,21 @@ it("binds retry identity to native input, follows consumption, and preserves rec
     running = false;
     ended();
     expect(
-      await f.core.call("sendMessage", SUPERUSER, {
+      await f.core.call("prompt", SUPERUSER, {
         sessionId: "target",
         body: input,
         launch,
       }),
     ).toMatchObject({ id, delivery: "consumed" });
     await expect(
-      f.core.call("sendMessage", SUPERUSER, {
+      f.core.call("prompt", SUPERUSER, {
         sessionId: "target",
         body: { ...input, requestId: "follow-up-002" },
         launch,
       }),
     ).rejects.toMatchObject({ code: "session_not_running", status: 409 });
     await expect(
-      f.core.call("sendMessage", SUPERUSER, {
+      f.core.call("prompt", SUPERUSER, {
         sessionId: "target",
         body: input,
         launch: { id: "parent", launchId: "read-only" },
@@ -155,7 +155,7 @@ it("keeps stronger consumption evidence after a late admission error", async () 
     },
   });
   try {
-    const receipt = await f.core.call("sendMessage", SUPERUSER, {
+    const receipt = await f.core.call("prompt", SUPERUSER, {
       sessionId: "target",
       body: input,
       launch,

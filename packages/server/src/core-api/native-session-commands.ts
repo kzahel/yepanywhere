@@ -1,3 +1,4 @@
+import { nativeSessionControl } from "./native-session-control.js";
 import type { SessionCreationStore } from "../sessions/SessionCreationStore.js";
 import {
   thinkingOptionToConfig,
@@ -18,7 +19,12 @@ export function nativeSessionCommandOwner(deps: {
   supervisor: Pick<
     Supervisor,
     "startSession" | "getAllProcesses" | "getProcessForSession"
-  >;
+  > &
+    Partial<
+      Pick<Supervisor, "interruptProcess" | "abortProcessWithVerification">
+    >;
+  dataDir?: string;
+  approvalAuditEnabled?: () => boolean;
   globalInstructions: () => string | undefined;
   creations?: SessionCreationStore;
   /**
@@ -109,6 +115,7 @@ export function nativeSessionCommandOwner(deps: {
     };
   };
   return {
+    ...nativeSessionControl(deps),
     close() {
       for (const entry of watches.values()) entry.release();
       watches.clear();
@@ -126,7 +133,7 @@ export function nativeSessionCommandOwner(deps: {
         process.noteInputIntent();
         const result = process.queueMessage(
           {
-            text: request.message,
+            text: request.prompt,
             uuid: receipt.id,
             tempId: receipt.id,
             metadata: {
@@ -226,7 +233,7 @@ export function nativeSessionCommandOwner(deps: {
         result = await deps.supervisor.startSession(
           project.path,
           {
-            text: request.message,
+            text: request.prompt,
             uuid: receipt.id,
             tempId: receipt.id,
             metadata: {

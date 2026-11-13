@@ -74,6 +74,7 @@ const bootstrapSchema = z.object({
     .nullable(),
 });
 const grantSchema = z.object({
+  operations: z.array(z.string().min(1).max(128)).min(1).max(64),
   policyRevision: z.number().int().nonnegative(),
   invitation: invitationSchema,
   identity: peerHostSchema,
@@ -358,6 +359,7 @@ export class PeerConnections {
     return {
       policyRevision: fence.revision,
       invitation,
+      operations: [...(current?.operations ?? controlOperations)],
       identity: this.manager.identity(),
       relay: this.bootstrap(input.identity.serverId).relay,
     };
@@ -536,7 +538,7 @@ export class PeerConnections {
             {
               invitation: issued.invitation,
               route: routeForPeer(input.route, issued.relay),
-              operations: existing?.operations ?? controlOperations,
+              operations: existing?.operations ?? issued.operations,
               allowAgentSessions: existing?.allowAgentSessions ?? true,
               replace: input.replace,
             },

@@ -38,7 +38,7 @@ const operations: Operation[] = [
   "conversation",
   "followConversation",
   "createSession",
-  "sendMessage",
+  "prompt",
   "receipt",
   "followReceipt",
   "relationships",
@@ -143,7 +143,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
     requestId: "fleet-native-create",
     projectId: "p",
     provider: "codex",
-    message: "Review this change",
+    prompt: "Review this change",
   });
   expect(created.status).toBe(202);
   expect(created.body.creator).toMatchObject({
@@ -170,8 +170,8 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   const sent = await nativeRequest(
     runtime,
     token,
-    `${base}/sessions/${sid}/messages`,
-    { requestId: "fleet-native-message", message: "Continue" },
+    `${base}/sessions/${sid}/prompts`,
+    { requestId: "fleet-native-message", prompt: "Continue" },
   );
   expect(sent.status).toBe(202);
   expect(target.starts()).toBe(1);
@@ -555,7 +555,7 @@ it("refuses observation after identity service token expiry while retaining nati
             requestId: "fleet-expiry-create",
             projectId: "p",
             provider: "codex",
-            message: "accepted work",
+            prompt: "accepted work",
           },
         },
         { sessionId: "parent", launchId: null },
@@ -681,7 +681,7 @@ it("does not confirm an expired source reply even before its expiry timer runs",
         requestId: "fleet-source-late-reply",
         projectId: "p",
         provider: "codex",
-        message: "accepted before response",
+        prompt: "accepted before response",
       },
     );
     expect(result.status).toBe(401);

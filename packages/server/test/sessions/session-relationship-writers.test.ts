@@ -391,7 +391,7 @@ it("publishes creator edges atomically with receipts, only after a destination i
   expect(f.edges("canonical-ya")).toHaveLength(1);
   f.reserve({
     requestId: "send-existing-0001",
-    kind: "sendMessage",
+    kind: "prompt",
     sessionId: "existing",
   });
   const operator = f.reserve({

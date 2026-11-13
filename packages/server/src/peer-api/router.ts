@@ -9,17 +9,21 @@ import {
 } from "../core-api/contracts.js";
 import type { ApiPrincipal } from "../core-api/peer-policy.js";
 import {
-  createSessionRequest,
-  sendMessageRequest,
-  receiptSchema,
+  receiptBindingSchema,
   type ApiOutbound,
 } from "../core-api/command-contracts.js";
+import {
+  httpReplySchema,
+  RECEIPT_HEADER,
+  assertTargetPath,
+} from "../core-api/http-contracts.js";
+import { peerOperationRequest } from "./transport.js";
 import type { PeerOutboundStore } from "./outbound-store.js";
 import type { PeerInput, PeerTransport } from "./transport.js";
 
 export interface OutgoingPeer {
   serverId: string;
-  operations: readonly Operation[];
+  operations: readonly string[];
   transport: PeerTransport;
   allowAgentSessions?: boolean;
   expiresAt?: number;
@@ -182,7 +186,7 @@ export class PeerApiRouter {
         "Outgoing peer credential expired",
         401,
       );
-    if (!peer.operations.includes(operation))
+    if (!input.http && !peer.operations.includes(operation))
       throw new CoreApiError(
         "forbidden",
         "Outgoing peer operation is not granted",
@@ -205,30 +209,39 @@ export class PeerApiRouter {
     if (input.launch) this.agentControllers.add(controller);
     this.activeCount++;
     try {
+      const request =
+        input.http ??
+        (() => {
+          const wire = peerOperationRequest(
+            operation,
+            input,
+            { sessionId: null, launchId: null },
+            "",
+          );
+          const body = input.body as { requestId?: string } | undefined;
+          return {
+            method: wire.method,
+            path: wire.path,
+            ...(wire.body !== undefined ? { body: wire.body as string } : {}),
+            ...(body?.requestId ? { key: body.requestId } : {}),
+          };
+        })();
+      assertTargetPath(request.path, peer.serverId);
       let attestation = {
         sessionId: input.launch?.id
           ? this.canonicalSessionId(input.launch.id)
           : null,
         launchId: input.launch?.launchId ?? null,
+        operations: [...peer.operations],
       };
       let record: ApiOutbound | undefined;
-      if (operation === "createSession" || operation === "sendMessage") {
-        const parsed = (
-          operation === "createSession"
-            ? createSessionRequest
-            : sendMessageRequest
-        ).safeParse(input.body);
-        if (!parsed.success)
+      if (request.method === "POST") {
+        if (!request.key)
           throw new CoreApiError(
             "invalid_request",
-            "Invalid peer command request",
+            "Idempotency-Key is required",
             400,
           );
-        input = { ...input, body: parsed.data };
-        const resource =
-          operation === "createSession"
-            ? createSessionRequest.parse(parsed.data).projectId
-            : input.sessionId!;
         record = this.outbound.reserve(
           {
             sourceServerId: this.local.serverId,
@@ -236,28 +249,32 @@ export class PeerApiRouter {
             attestedSessionId: attestation.sessionId,
             sourceLaunchId: attestation.launchId,
             destinationServerId: peer.serverId,
-            operation,
-            resource,
-            requestId: parsed.data.requestId,
+            operation: request.method,
+            resource: request.path,
+            requestId: request.key,
           },
-          parsed.data,
+          request.body,
         );
         attestation = {
+          ...attestation,
           sessionId: record.attestedSessionId,
           launchId: record.sourceLaunchId,
         };
       }
-      const result = await peer.transport.request(
-        operation,
-        {
-          ...input,
-          launch: undefined,
-          signal: AbortSignal.any([
-            controller.signal,
-            ...(input.signal ? [input.signal] : []),
-          ]),
-        },
-        attestation,
+      const reply = httpReplySchema.parse(
+        await peer.transport.request(
+          operation,
+          {
+            ...input,
+            http: request,
+            launch: undefined,
+            signal: AbortSignal.any([
+              controller.signal,
+              ...(input.signal ? [input.signal] : []),
+            ]),
+          },
+          attestation,
+        ),
       );
       if (this.closed)
         throw new CoreApiError(
@@ -277,34 +294,37 @@ export class PeerApiRouter {
           "Outgoing peer access was revoked",
           403,
         );
-      if (record) {
-        const receipt = receiptSchema.parse(result);
-        if (
-          receipt.destinationServerId !== peer.serverId ||
-          receipt.creator.serverId !== this.local.serverId ||
-          receipt.creator.principal.kind !== "peer" ||
-          receipt.creator.sessionId !== attestation.sessionId ||
-          receipt.requestId !== record.requestId ||
-          receipt.kind !== operation ||
-          (operation === "createSession"
-            ? receipt.projectId !== record.resource
-            : receipt.requestedSessionId !== record.resource)
-        )
+      const encoded = new Headers(reply.headers).get(RECEIPT_HEADER);
+      if (encoded) {
+        if (encoded.length > 16 * 1024)
           throw new CoreApiError(
             "peer_identity_mismatch",
-            "Peer command attribution does not match",
+            "Oversized receipt metadata",
             502,
           );
-        this.outbound.confirm(record, receipt);
+        const binding = receiptBindingSchema.parse(
+          JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
+        );
+        if (record) this.outbound.confirm(record, binding);
+        else this.outbound.observe(peer.serverId, binding);
       }
-      if (operation === "receipt")
-        this.outbound.observe(peer.serverId, receiptSchema.parse(result));
-      if (operation === "followReceipt" || operation === "relationships") {
-        const response = result as { receipt?: unknown; creation?: unknown };
-        const receipt =
-          operation === "followReceipt" ? response.receipt : response.creation;
-        if (receipt)
-          this.outbound.observe(peer.serverId, receiptSchema.parse(receipt));
+      if (input.http) return reply;
+      // Internal owner/preflight callers use the typed port; public forwarding is opaque.
+      let result: unknown;
+      try {
+        result = JSON.parse(reply.body);
+      } catch {
+        result = reply.body;
+      }
+      if (reply.status < 200 || reply.status >= 300) {
+        const restored = CoreApiError.restore({
+          ...((result as { error?: object })?.error ?? {}),
+          status: reply.status,
+        });
+        throw (
+          restored ??
+          new CoreApiError("peer_unsupported", "Target rejected request", 501)
+        );
       }
       if (operation === "server") {
         const reported = serverSchema.parse(result);

@@ -2254,7 +2254,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         requestId: "bridge-create-1",
         projectId: "worker-project",
         provider: "claude",
-        message: "Review",
+        prompt: "Review",
       };
       first.queue.push({
         text: JSON.stringify({
@@ -2284,9 +2284,9 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
       };
       expect(JSON.parse(repeated.body).id).toBe(receipt.id);
       expect(launches).toBe(1);
-      const sendBody = { requestId: "bridge-message-1", message: "Follow up" };
+      const sendBody = { requestId: "bridge-message-1", prompt: "Follow up" };
       const sendPath =
-        "/v0/servers/profile-api-host/sessions/api-fixture/messages";
+        "/v0/servers/profile-api-host/sessions/api-fixture/prompts";
       first.queue.push({
         text: JSON.stringify({ path: sendPath, body: sendBody }),
         uuid: "proxy-batch",

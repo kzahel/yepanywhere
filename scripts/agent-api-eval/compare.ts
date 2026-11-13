@@ -1,3 +1,7 @@
+import {
+  fetchedDocumentationBytes,
+  isFullSchemaPath,
+} from "./documentation-metrics.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import type { Trace } from "./cases.js";
@@ -76,7 +80,10 @@ export function compareReports(before: Report, after: Report) {
     successes: report.results.filter((row) => row.success).length,
     requests: sum(report.results, "requests"),
     errors: sum(report.results, "errors"),
-    fetchedDocumentationBytes: sum(report.results, "fetchedDocumentationBytes"),
+    fetchedDocumentationBytes: report.results.reduce(
+      (sum, row) => sum + fetchedDocumentationBytes(row.trace),
+      0,
+    ),
     responseBytes: report.results.reduce(
       (sum, row) => sum + row.trace.reduce((n, entry) => n + entry.bytes, 0),
       0,
@@ -91,7 +98,7 @@ export function compareReports(before: Report, after: Report) {
       (sum, row) =>
         sum +
         row.trace.filter(
-          (entry) => entry.path === "/v0/schema" && entry.status === 200,
+          (entry) => isFullSchemaPath(entry.path) && entry.status === 200,
         ).length,
       0,
     ),

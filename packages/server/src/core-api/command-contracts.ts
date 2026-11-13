@@ -24,7 +24,7 @@ export const createSessionRequest = z
       .describe(
         "Configured native harness. Other providers, remote executors and blank-session creation are not qualified in this slice.",
       ),
-    message: z
+    prompt: z
       .string()
       .min(1)
       .max(100000)
@@ -104,10 +104,10 @@ export const createSessionRequest = z
         !!(body.routerPoolId || body.routerAccountId)),
     "Claude connectors require an explicit Claude router selection",
   );
-export const sendMessageRequest = z
+export const promptRequest = z
   .object({
     requestId: requestIdSchema,
-    message: z
+    prompt: z
       .string()
       .min(1)
       .max(100000)
@@ -123,7 +123,7 @@ export const sendMessageRequest = z
       ),
   })
   .strict();
-export type SendMessageRequest = z.infer<typeof sendMessageRequest>;
+export type PromptRequest = z.infer<typeof promptRequest>;
 export type CreateSessionRequest = z.infer<typeof createSessionRequest>;
 export const creatorSchema = z.object({
   serverId: z
@@ -154,7 +154,7 @@ export type ApiCreator = z.infer<typeof creatorSchema>;
 export const receiptSchema = z.object({
   id: z.string(),
   requestId: requestIdSchema,
-  kind: z.enum(["createSession", "sendMessage"]),
+  kind: z.enum(["createSession", "prompt", "respond", "cancel", "stop"]),
   state: z
     .enum(["dispatching", "queued", "accepted", "failed", "uncertain"])
     .describe(
@@ -183,9 +183,22 @@ export const receiptSchema = z.object({
     .describe(
       "No completion claim is inferred from idle activity or unrelated replies. Follow the conversation and inspect evidence.",
     ),
+  result: z.record(z.string(), z.unknown()).optional(),
   failure: z.object({ code: z.string(), message: z.string() }).optional(),
 });
 export type ApiReceipt = z.infer<typeof receiptSchema>;
+export const receiptBindingSchema = receiptSchema
+  .pick({
+    id: true,
+    requestId: true,
+    kind: true,
+    projectId: true,
+    sessionId: true,
+    creator: true,
+    destinationServerId: true,
+  })
+  .extend({ kind: z.string().min(1).max(128) });
+export type ReceiptBinding = z.infer<typeof receiptBindingSchema>;
 export const outboundSchema = z.object({
   id: z.string(),
   sourceServerId: z.string(),
@@ -205,12 +218,12 @@ export const outboundSchema = z.object({
     .describe(
       "Last positively observed canonical session on the destination. Receipt observation fills pending creation bindings without another mutation.",
     ),
-  operation: z.enum(["createSession", "sendMessage"]),
+  operation: z.string().min(1).max(128),
   resource: z.string(),
   requestId: requestIdSchema,
   state: z.enum(["uncertain", "confirmed"]),
   createdAt: z.string(),
-  receipt: receiptSchema.nullable(),
+  receipt: receiptBindingSchema.nullable(),
 });
 export type ApiOutbound = z.infer<typeof outboundSchema>;
 export const relationshipsSchema = z.object({

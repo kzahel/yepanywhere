@@ -1,3 +1,4 @@
+import { apiCommand } from "../support/api-command-request.js";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -184,7 +185,10 @@ export function nativeRequest(
         {
           socketPath: runtime.socketPath,
           method: body === undefined ? "GET" : "POST",
-          headers: { Authorization: token, "Content-Type": "application/json" },
+          headers: {
+            Authorization: token,
+            ...(body !== undefined ? apiCommand(body).headers : {}),
+          },
         },
         (response) => {
           let text = "";
@@ -197,7 +201,7 @@ export function nativeRequest(
         },
       );
       request.on("error", reject);
-      request.end(body === undefined ? undefined : JSON.stringify(body));
+      request.end(body === undefined ? undefined : apiCommand(body).body);
     },
   );
 }

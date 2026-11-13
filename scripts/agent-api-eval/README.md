@@ -107,7 +107,7 @@ The plan records `peerIdentityService` separately so this is not mistaken for ma
 enrollment or a live external-provider qualification. Profile keys and credentials
 stay in owned fixture storage and are removed on cleanup.
 
-`--peer-relay` currently supports `workflow` only. It wraps the scripted native
+`--peer-relay` supports `workflow`, `target_contract`, `approval` and `controls`. It wraps the scripted native
 work in real independent peer managers, private profile storage, protected SRP
 and an owned ephemeral relay. The model receives its source launch connection,
 discovers the other authorized host and uses server-addressed HTTP there. The
@@ -181,3 +181,82 @@ records a complete 10-trial comparison: 10/10 successes before and after,
 61→54 requests and 111,188→72,138 fetched documentation bytes, with all per-case
 checks passing. It also records rejected intermediate candidates, full-schema
 and bootstrap growth, new-task qualification, and the limit on timing claims.
+
+## Target-owned API and control tasks
+
+[Plan 192](../../docs/tactical/192-v0-session-control-and-peer-contracts.md)
+adds three tasks to the same protected peer fixture. `target_contract` discovers
+an operation absent from the access table, reads the target's focused schema,
+submits its required query and returns the unfamiliar result. `approval` inspects
+and answers a blocked worker, then reads its post-approval artifact. `controls`
+interrupts one worker, stops another and verifies both receipts and session
+states. Graders require actual domain effects and reject unsupported prose.
+These workers remain scripted; native CLI and cross-host qualification are
+separate from documentation usability.
+
+```sh
+pnpm exec tsx --conditions source scripts/agent-api-eval/run.ts --run \
+  --peer-relay --variants help --cases target_contract,approval,controls \
+  --max-trials 3
+```
+
+Mutation bodies now use a plain `prompt` string and `Idempotency-Key` headers.
+The grader and fixture follow the target's operation names and schemas, while
+receipt admission/delivery remains separate from task completion. Normal CI
+covers the new task effects, grader rejection and both incoming/outgoing grant
+ceilings without calling models.
+
+The November 13 candidate passes all eight tasks: four existing local tasks,
+one existing peer workflow and these three new peer tasks, with zero HTTP
+errors. The paired comparison intentionally does not pass its byte/call
+non-increase gates: local requests are 35→34 while documentation bytes are
+71,176→76,212; peer requests are 15→18 and bytes 12,023→49,985. The peer trace
+adds target help and two focused target schemas as intended. The expanded
+guide alone is about 1.2 KiB larger. Target-addressed documentation was initially
+missing from the aggregate byte counter; comparison now derives this metric
+from the retained HTTP traces, including those historical reports. This qualifies behavior, not an efficiency improvement
+or a statistical model comparison; inspect comparison results separately from
+per-task success.
+
+## Native cross-host control qualification
+
+`test/native-provider/native-v0-peer-target.test.ts` is an explicit opt-in
+fixture, skipped in normal CI. It launches the pinned real Codex executable
+against the scripted local model, then serves the protected peer API. On the
+owned target, set `YEP_NATIVE_PEER_SOURCE_ID` to a fresh UUID and
+`YEP_NATIVE_PEER_TARGET_READY` to an owner-private temporary JSON path, then run:
+
+```sh
+pnpm --filter @yep-anywhere/server test \
+  test/native-provider/native-v0-peer-target.test.ts --maxWorkers=1
+```
+
+The ready file contains this short-lived fixture's invitation, server id and
+listener port. Orchestrate target startup, private file transfer and a temporary
+listener-port firewall rule through the machine testbed's common CLI. On the
+controller, use the copied ready file and the target's reachable address:
+
+```sh
+pnpm exec tsx --conditions source \
+  scripts/agent-api-eval/native-peer-control.ts READY_JSON \
+  ws://TARGET:PORT/peer/ws
+```
+
+The controller uses an isolated private agent API and a new peer manager; it
+checks real approval, native output, prompt retry, interrupt, verified stop,
+retained metadata, unknown response fields and delayed provenance. It prints
+only outcome booleans and call count. It uses no provider sign-in or configured
+user peer. Signal target teardown by creating `READY_JSON.done` on the target
+within its declared 120-second external-controller window; remove the fixture
+JSON, temporary firewall rule and profile afterward and restore testbed power
+state. This is manual native qualification, separate from real-model evals.
+
+The November 13 macOS→native Windows ARM64 Node 24.22.1 run passed all these
+checks (31 HTTP calls); the retained controller then passes the same scenario
+with 25 calls. Native Windows Codex also passed the local approval/
+interrupt/stop case in 17.67 seconds after an earlier 20-second run reached its
+first model request but exhausted that guard; its retained 60-second Windows
+budget is three times that observed lower bound. Native macOS Claude/Codex
+controls and the four existing app creation/replacement combinations passed.
+These focused results do not establish a passing whole-repository Windows
+suite; [the baseline limitation remains](../../gaps/windows-validation-baseline.md).

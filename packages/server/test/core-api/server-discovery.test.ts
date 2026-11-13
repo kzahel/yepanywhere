@@ -50,8 +50,7 @@ function fixture() {
     architecture: "x64",
     icon: "🖥️",
     label: "target-label",
-    secret: "remote-secret",
-    setupUsername: "owner-login",
+    futureFact: "target-extension",
   };
   let calls = 0;
   const saved = new Map<string, ApiServerMetadata>([
@@ -93,7 +92,14 @@ function fixture() {
         serverId: id,
         async request() {
           calls++;
-          return remote;
+          return {
+            status: 200,
+            headers: {
+              "X-YA-Server-ID": id,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(remote),
+          };
         },
       },
     });
@@ -170,8 +176,9 @@ it("describes self and addressable peers through socket-free HTTP without probin
   const descriptor = await (await f.app.request("/v0/servers/B")).json();
   expect(descriptor).toEqual({
     id: "B",
-    local: false,
-    label: "Windows builder",
+    local: true,
+    label: "target-label",
+    futureFact: "target-extension",
     hostname: "fresh-builder",
     os: "win32",
     architecture: "x64",
@@ -187,7 +194,7 @@ it("describes self and addressable peers through socket-free HTTP without probin
     os: "win32",
   });
   expect((await (await f.app.request("/v0/servers/B")).json()).label).toBe(
-    "Renamed builder",
+    "target-label",
   );
   expect(
     (await (await f.app.request("/v0/servers")).json()).items[1].hostname,
@@ -249,25 +256,31 @@ it("keeps metadata behind existing caller, launch, expiry and pagination filters
     items: [{ id: "A" }],
   });
 });
-it("keeps old peers addressable with optional metadata and rejects a different reported identity", async () => {
+it("preserves target response fields and validates the protected envelope identity", async () => {
   const f = fixture();
   f.remote({ id: "B", local: true });
   expect(await (await f.app.request("/v0/servers/B")).json()).toMatchObject({
     id: "B",
-    label: "Windows builder",
-    hostname: "recorded-builder",
+    local: true,
   });
   f.saved.delete("B");
   expect(await (await f.app.request("/v0/servers/B")).json()).toEqual({
     id: "B",
-    local: false,
+    local: true,
   });
   f.remote({ id: "wrong-profile", local: true, hostname: "spoofed" });
   const mismatch = await f.app.request("/v0/servers/B");
-  expect(mismatch.status).toBe(502);
-  expect(await mismatch.json()).toMatchObject({
-    error: { code: "peer_identity_mismatch" },
-  });
+  expect(mismatch.status).toBe(200);
+  expect(await mismatch.json()).toMatchObject({ id: "wrong-profile" });
+  expect(() =>
+    validatePeerReply(
+      "server",
+      "B",
+      200,
+      new Headers({ "X-YA-Server-ID": "wrong-profile" }),
+      "{}",
+    ),
+  ).toThrow("identity");
   const schema = apiSchema(false, "servers");
   expect(JSON.stringify(schema)).toContain("Reported hostname");
   expect(

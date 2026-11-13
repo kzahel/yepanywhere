@@ -1,3 +1,7 @@
+import {
+  isDocumentationPath,
+  isFullSchemaPath,
+} from "./documentation-metrics.js";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -68,8 +72,18 @@ async function main() {
   const peerIdentityService = process.argv.includes("--peer-identity-service");
   const peerRelay =
     process.argv.includes("--peer-relay") || peerIdentityService;
-  if (peerRelay && cases.some((caseId) => caseId !== "workflow"))
-    throw new Error("--peer-relay currently supports only workflow");
+  if (
+    peerRelay &&
+    cases.some(
+      (caseId) =>
+        !["workflow", "target_contract", "approval", "controls"].includes(
+          caseId,
+        ),
+    )
+  )
+    throw new Error(
+      "--peer-relay supports workflow,target_contract,approval,controls",
+    );
   const samples = integer("samples", 1, 3);
   const maxTrials = integer("max-trials", 3, 63);
   if (samples * variants.length * cases.length > maxTrials)
@@ -412,9 +426,7 @@ async function main() {
               );
             const docs = fixture.trace.filter(
               (entry) =>
-                ["/v0/help", "/v0/schema"].includes(
-                  entry.path.split("?")[0]!,
-                ) && entry.status === 200,
+                isDocumentationPath(entry.path) && entry.status === 200,
             );
             const row = {
               caseId,
@@ -441,7 +453,7 @@ async function main() {
                 0,
               ),
               fullSchemaReads: fixture.trace.filter(
-                (entry) => entry.path === "/v0/schema" && entry.status === 200,
+                (entry) => isFullSchemaPath(entry.path) && entry.status === 200,
               ).length,
               focusedDocumentationReads: docs.filter((entry) =>
                 new URL(entry.path, "http://fixture").searchParams.has(

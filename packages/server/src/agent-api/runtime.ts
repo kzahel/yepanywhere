@@ -28,6 +28,8 @@ const independent = new Set<Operation>([
   "describe",
   "help",
   "schema",
+  "targetHelp",
+  "targetSchema",
   "me",
   "servers",
   "server",
