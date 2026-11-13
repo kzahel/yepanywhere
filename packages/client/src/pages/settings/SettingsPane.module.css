@@ -1,0 +1,101 @@
+/* Placeholder rows shown while a pane's code chunk loads. They echo the
+   settings row geometry (SettingsRows.module.css `.item`) so the pane
+   appears to fill in rather than swap. The fade-in waits briefly, so a
+   chunk that arrives quickly never shows anything. */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  opacity: 0;
+  animation: skeleton-appear 0.25s ease-out 0.15s forwards;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  background: var(--bg-code);
+  border-radius: var(--radius-md);
+}
+
+.lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bar,
+.control {
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.title {
+  width: 28%;
+  height: 10px;
+}
+
+.description {
+  width: 62%;
+  height: 8px;
+}
+
+.control {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 20px;
+  border-radius: var(--radius-lg);
+}
+
+.row:nth-child(2) .title {
+  width: 22%;
+}
+
+.row:nth-child(2) .description {
+  width: 48%;
+}
+
+.row:nth-child(3) .title {
+  width: 34%;
+}
+
+.row:nth-child(3) .description {
+  width: 70%;
+}
+
+.row:nth-child(4) .title {
+  width: 25%;
+}
+
+.row:nth-child(4) .description {
+  width: 55%;
+}
+
+@keyframes skeleton-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .control {
+    animation: none;
+  }
+}
