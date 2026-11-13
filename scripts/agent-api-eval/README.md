@@ -85,7 +85,10 @@ exact project lookup, matching sessions beyond page one, summary inspection
 among similar titles, incomplete-catalog absence, unsupported writes/remote
 routing and an ordinary arithmetic task that should need no API calls. Graders
 compare domain identifiers and requested results with fixture truth and real
-successful API evidence, not exact prose or a prescribed call sequence. The
+successful API evidence, not exact prose or a prescribed call sequence. Request
+evidence is matched by what was asked for, not how the URL was typed: a
+trailing slash, the `self` alias, percent-encoding and query order do not
+change a grade. The
 control case fails if it makes unnecessary API calls. `conversation` extracts an exact
 artifact from prose amid native tool noise; `evidence` checks that unknown activity
 and incomplete coverage are not reported as successful completion. `follow` waits

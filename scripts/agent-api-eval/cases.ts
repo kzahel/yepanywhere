@@ -124,6 +124,33 @@ export const answerSchema = {
   ],
   additionalProperties: false,
 };
+/**
+ * One spelling per request, so a grader compares what was asked for and not
+ * how the agent typed it: decoded path segments, no trailing slash, the
+ * `self` alias resolved, and query parameters decoded and sorted.
+ */
+export function canonicalRequestPath(path: string, targetServerId: string) {
+  const url = new URL(path, "http://fixture");
+  const segments = url.pathname.split("/").map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  });
+  while (segments.length > 2 && segments.at(-1) === "") segments.pop();
+  if (
+    segments[1] === "v0" &&
+    segments[2] === "servers" &&
+    segments[3] === "self"
+  )
+    segments[3] = targetServerId;
+  const query = [...url.searchParams]
+    .sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y))
+    .map(([name, value]) => `${name}=${value}`)
+    .join("&");
+  return query ? `${segments.join("/")}?${query}` : segments.join("/");
+}
 export function grade(
   caseId: CaseId,
   answer: Answer | null,
@@ -149,10 +176,7 @@ export function grade(
   // self is interpreted at the access server; normalize for evidence matching.
   trace = trace.map((entry) => ({
     ...entry,
-    path: entry.path.replace(
-      "/v0/servers/self/",
-      `/v0/servers/${targetServerId}/`,
-    ),
+    path: canonicalRequestPath(entry.path, targetServerId),
   }));
   switch (caseId) {
     case "target_contract":

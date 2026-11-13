@@ -16,6 +16,7 @@ import {
   PROJECT_ID,
   OWN_SESSION_ID,
   type Answer,
+  type Trace,
 } from "../../../../scripts/agent-api-eval/cases.js";
 
 const empty: Answer = {
@@ -581,3 +582,70 @@ it.each(["target_contract", "approval", "controls"] as const)(
     }
   },
 );
+
+it("grades a request by what it asked for, however the agent spelled its URL", () => {
+  const root = `/v0/servers/${SERVER_ID}`;
+  const answer = { ...empty, answer: "target-artifact-6e2" };
+  const entry = (path: string, extra: Partial<Trace> = {}): Trace => ({
+    method: "GET",
+    path,
+    status: 200,
+    bytes: 1,
+    elapsedMs: 1,
+    atMs: 1,
+    ...extra,
+  });
+  const probe = { artifact: "target-artifact-6e2" };
+  const spelled = (help: string, schema: string, proof: string) => [
+    entry(help),
+    entry(schema),
+    entry(proof, probe),
+  ];
+  expect(
+    grade(
+      "target_contract",
+      answer,
+      spelled(
+        `${root}/help`,
+        `${root}/schema?operation=targetProbe`,
+        `${root}/extension/probe?proof=target-shape-37`,
+      ),
+    ),
+  ).toBe(true);
+  // A trailing slash, the self alias, percent-encoding, an empty trailing
+  // parameter separator and a reordered query all name the same requests.
+  expect(
+    grade(
+      "target_contract",
+      answer,
+      spelled(
+        "/v0/servers/self/help/",
+        `/v0/servers/${encodeURIComponent(SERVER_ID)}/schema?operation=targetProbe&`,
+        `${root}/extension/probe?proof=target%2Dshape%2D37`,
+      ),
+    ),
+  ).toBe(true);
+  // A different request is still a different request.
+  expect(
+    grade(
+      "target_contract",
+      answer,
+      spelled(
+        `${root}/help`,
+        `${root}/schema?operation=createSession`,
+        `${root}/extension/probe?proof=target-shape-37`,
+      ),
+    ),
+  ).toBe(false);
+  expect(
+    grade(
+      "target_contract",
+      answer,
+      spelled(
+        `${root}/help`,
+        `${root}/schema?operation=targetProbe`,
+        `${root}/extension/probe?proof=target-shape-38`,
+      ),
+    ),
+  ).toBe(false);
+});
