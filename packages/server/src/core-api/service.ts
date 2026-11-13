@@ -451,6 +451,11 @@ export class CoreApi {
           query: undefined,
           http: undefined,
         })) as ApiSession;
+        // The lookup is asynchronous; recheck authority that may have been
+        // revoked while it ran, as creation and prompts do.
+        input.signal?.throwIfAborted();
+        this.commandAccess(caller, input.launch);
+        assertPeerOperation(caller, operation);
         const receipt = await commands.control(
           operation,
           session,

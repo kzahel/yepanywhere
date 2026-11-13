@@ -27,7 +27,7 @@ const cleanups: Array<() => void | Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
-function fixture() {
+function fixture(onSessionLookup?: () => void) {
   const database = openSqliteOrThrow(":memory:");
   migrateDiscoveryDatabase(database);
   const store = new ApiReceiptStore(database);
@@ -86,18 +86,21 @@ function fixture() {
       items: [{ id: "p", name: "P", path: "/fixture" }],
     }),
     providers: async () => [],
-    sessions: async () => ({
-      items: [
-        {
-          id: "worker",
-          projectId: "p",
-          provider: "codex",
-          title: "Worker",
-          state: "idle",
-          updatedAt: "",
-        },
-      ],
-    }),
+    sessions: async () => (
+      onSessionLookup?.(),
+      {
+        items: [
+          {
+            id: "worker",
+            projectId: "p",
+            provider: "codex",
+            title: "Worker",
+            state: "idle",
+            updatedAt: "",
+          },
+        ],
+      }
+    ),
   });
   const app = new Hono<{ Variables: { yaPrincipal: typeof SUPERUSER } }>();
   app.use("*", async (c, next) => {
@@ -222,6 +225,23 @@ it("records actual hard-abort and stop outcomes and never repeats them against a
   expect(f.counts()).toEqual({ interrupted: 1, stopped: 1 });
 });
 
+it.each(["cancel", "stop"] as const)(
+  "does not execute %s when its launch is revoked during the session lookup",
+  async (operation) => {
+    const revoked = new AbortController();
+    const f = fixture(() => revoked.abort());
+    await expect(
+      f.core.read(operation, SUPERUSER, {
+        serverId: "A",
+        sessionId: "worker",
+        body: { requestId: `revoked-${operation}-001` },
+        signal: revoked.signal,
+      }),
+    ).rejects.toThrow();
+    await f.commands.idle();
+    expect(f.counts()).toEqual({ interrupted: 0, stopped: 0 });
+  },
+);
 it("keeps peer control payload conflicts as 409 after the original approval has resolved", async () => {
   const f = fixture();
   const directory = new PeerDirectory([

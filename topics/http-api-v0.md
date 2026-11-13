@@ -1101,7 +1101,8 @@ Combined approval/mode changes and question answers are unsupported.
 
 `cancel` and `stop` accept `{}`. All three control mutations require existing
 management authority and their peer operation grants, with session/project
-access rechecked at the target. They return durable receipts; inspect receipt
+access rechecked at the target. Authority revoked while the target session is
+being resolved refuses the control before it reaches the provider. They return durable receipts; inspect receipt
 state, `result` and `failure` to learn the actual control outcome. `cancel`
 uses existing YA interruption and queue behavior and reports
 `{interrupted,supported,aborted}`; it can hard-abort and does not automatically
