@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { createLocalStorageBoolean } from "../lib/localStorageValue";
 import { UI_KEYS } from "../lib/storageKeys";
 
-const store = createLocalStorageBoolean(UI_KEYS.streamingEnabled, true);
+const store = createLocalStorageBoolean(UI_KEYS.streamingEnabled, false);
 
 export const subscribeStreamingEnabled = store.subscribe;
 
