@@ -804,8 +804,15 @@ test.describe("Full Relay Integration", () => {
         },
         body: JSON.stringify({ projectId, sessionId, mode: "frozen" }),
       });
-      expect(createResponse.ok).toBe(true);
-      const created = (await createResponse.json()) as { url: string };
+      // Name the refusal: a first attempt fails here intermittently in CI and
+      // a bare `ok` reports nothing about why
+      // (gaps/relay-large-public-share-create-flake.md).
+      const createBody = await createResponse.text();
+      expect(
+        createResponse.ok,
+        `POST /api/public-shares: ${createResponse.status} ${createBody.slice(0, 500)}`,
+      ).toBe(true);
+      const created = JSON.parse(createBody) as { url: string };
       const shareUrl = new URL(created.url);
       const secret = shareUrl.pathname.split("/").at(-1);
       expect(secret).toBeTruthy();
