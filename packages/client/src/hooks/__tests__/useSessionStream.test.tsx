@@ -84,7 +84,7 @@ describe("useSessionStream", () => {
     expect(subscription).toMatchObject({
       sessionId: "session-1",
       lastEventId: undefined,
-      options: { wantsLiveDeltas: true },
+      options: { wantsLiveDeltas: false },
       closed: false,
     });
 
