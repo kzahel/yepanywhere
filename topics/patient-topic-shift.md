@@ -90,8 +90,10 @@ compact for one item. No provider has that exemption.
 
 The item's source and threshold travel in the persisted patient queue
 metadata. A held item keeps an idle process alive like other patient items.
-After a server restart, recovered patient items come back paused as before.
-When resumed, they evaluate compaction again at their next delivery point.
+An orderly reload/restart restores previously running patient items through
+[orderly queue recovery](reload-safe-provider-runtimes.md#orderly-queue-recovery).
+Crash/interrupted recovery remains paused. Restored or manually resumed items
+evaluate compaction again at their next delivery point.
 
 ## Compatibility
 

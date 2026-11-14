@@ -746,7 +746,7 @@ describe("ProjectQueueScheduler", () => {
     await waitFor(() => expect(supervisor.resumeCalls).toHaveLength(1), 400);
   });
 
-  it("resumes a sandboxed session inside its sandbox for a queued turn", async () => {
+  it("restores the sandbox and tool rules for a queued existing-session turn", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
       creations: admittedCreations,
@@ -756,6 +756,7 @@ describe("ProjectQueueScheduler", () => {
       idleGraceMs: 1,
       blockedRetryMs: 10,
       getSessionLaunchMetadata: () => ({
+        permissions: { deny: ["Bash(rm *)"] },
         sandboxLevel: "project-write",
         sandboxNetworkFirewall: false,
         sandboxStateKey: "state-1",
@@ -776,6 +777,7 @@ describe("ProjectQueueScheduler", () => {
     await waitFor(() => expect(supervisor.resumeCalls).toHaveLength(1));
     expect(supervisor.resumeCalls[0]?.projectPath).toBe("/sandboxed/project");
     expect(supervisor.resumeModelSettings[0]).toMatchObject({
+      permissions: { deny: ["Bash(rm *)"] },
       sandboxLevel: "project-write",
       sandboxNetworkFirewall: false,
       sandboxStateKey: "state-1",

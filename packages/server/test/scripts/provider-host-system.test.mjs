@@ -65,18 +65,22 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         if (/^(npm_|PNPM_)/i.test(name)) delete env[name];
       delete env.VITEST;
       delete env.YEP_PROVIDER_RUNTIME_WORKER_PATH;
-      const wrapper = spawn(process.execPath, [join(root, "scripts/dev.js")], {
-        cwd: root,
-        env,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
       let output = "";
-      wrapper.stdout.on("data", (c) => {
-        output += c;
-      });
-      wrapper.stderr.on("data", (c) => {
-        output += c;
-      });
+      const startWrapper = () => {
+        const child = spawn(process.execPath, [join(root, "scripts/dev.js")], {
+          cwd: root,
+          env,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        child.stdout.on("data", (c) => {
+          output += c;
+        });
+        child.stderr.on("data", (c) => {
+          output += c;
+        });
+        return child;
+      };
+      let wrapper = startWrapper();
       const api = async (path, body, method) => {
         const response = await fetch(`http://127.0.0.1:${port}/api${path}`, {
           method: method ?? (body === undefined ? "GET" : "POST"),
@@ -98,6 +102,7 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           .trim()
           .split("\n")
           .map(JSON.parse);
+      let occupied;
       let worker;
       let pendingWorker;
       let lastPendingStatus;
@@ -108,7 +113,8 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           `/projects/${project.project.id}/session-creations`,
           {
             requestId: crypto.randomUUID(),
-            message: "hold",
+            message: "hold verify-rule",
+            permissions: { deny: ["Bash(echo forbidden)"] },
             provider: "claude",
             mode: "bypassPermissions",
           },
@@ -198,6 +204,17 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           { mode: "default" },
           "PUT",
         );
+        const backlog = await api(`/projects/${project.project.id}/queue`, {
+          target: { type: "existing-session", sessionId: session.sessionId },
+          message: { text: "project backlog after patient work" },
+        });
+        const patient = await api(`/sessions/${session.sessionId}/messages`, {
+          message: "patient backlog across reload",
+          deferred: true,
+          tempId: "reload-patient",
+          messageMetadata: { deliveryIntent: "patient", patienceSeconds: 3600 },
+        });
+        expect(patient.deferredMessages).toHaveLength(1);
         const oldGeneration = worker.attachedServerGeneration;
         // Stop Hono consumption at the actual detach boundary. The worker emits
         // output and asks for approval while no replacement owns its callback.
@@ -223,6 +240,30 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         // Reattachment happens during startup, before Hono binds its HTTP
         // listener. Host ownership alone is not an HTTP readiness barrier.
         await waitFor(() => api("/version"));
+        expect((await api("/project-queue")).dispatchState).toEqual({
+          status: "running",
+        });
+        const recoveredQueue = (
+          await api(
+            `/projects/${project.project.id}/sessions/${session.sessionId}`,
+          )
+        ).deferredMessages;
+        expect(recoveredQueue).toEqual([
+          expect.objectContaining({
+            tempId: "reload-patient",
+            status: "queued",
+          }),
+        ]);
+        await api(
+          `/sessions/${session.sessionId}/deferred/reload-patient`,
+          undefined,
+          "DELETE",
+        );
+        await api(
+          `/projects/${project.project.id}/queue/${backlog.item.id}`,
+          undefined,
+          "DELETE",
+        );
         const pendingStatus = await api(
           `/projects/${project.project.id}/sessions/${pendingSession.sessionId}`,
         );
@@ -266,6 +307,13 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         );
         const facts = await barriers();
         expect(
+          facts.find(
+            (event) =>
+              event.type === "restricted-approval" &&
+              event.id === session.sessionId,
+          )?.result.behavior,
+        ).toBe("deny");
+        expect(
           facts.filter(
             (e) => e.type === "provider-started" && e.id === session.sessionId,
           ),
@@ -293,11 +341,144 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
             (e) => e.type === "module" && e.target.endsWith("/src/index.ts"),
           ).length,
         ).toBeGreaterThanOrEqual(2);
+        // An orderly full wrapper/host stop has no surviving provider worker.
+        // Its successor must reactivate the conversation and restore the queue.
+        await waitFor(
+          async () =>
+            (await api(`/sessions/${pendingSession.sessionId}/process`)).process
+              ?.state === "idle",
+        );
+        await api(`/sessions/${session.sessionId}/messages`, {
+          message: "patient across full restart",
+          deferred: true,
+          tempId: "cold-patient",
+          messageMetadata: { deliveryIntent: "patient", patienceSeconds: 3600 },
+        });
+        await api(`/projects/${project.project.id}/queue`, {
+          target: { type: "existing-session", sessionId: session.sessionId },
+          message: { text: "project after cold restart" },
+        });
+        wrapper.kill("SIGTERM");
+        await waitFor(
+          () => wrapper.exitCode !== null || wrapper.signalCode !== null,
+          15_000,
+        );
+        expect(
+          existsSync(join(directory, "data/queue-restart-handoff.json")),
+        ).toBe(true);
+        wrapper = startWrapper();
+        await waitFor(() => api("/version"));
+        expect((await api("/project-queue")).dispatchState).toEqual({
+          status: "running",
+        });
+        const coldStatus = await api(
+          `/projects/${project.project.id}/sessions/${session.sessionId}`,
+        );
+        expect(coldStatus.deferredMessages).toEqual([
+          expect.objectContaining({ tempId: "cold-patient", status: "queued" }),
+        ]);
+        expect(
+          (await barriers()).filter(
+            (e) => e.type === "provider-started" && e.id === session.sessionId,
+          ),
+        ).toHaveLength(2);
+        // Stopping an active non-surviving turn must not authorize replay.
+        const interrupted = await api(
+          `/projects/${project.project.id}/session-creations`,
+          {
+            requestId: crypto.randomUUID(),
+            message: "hold",
+            provider: "claude",
+            mode: "default",
+          },
+        );
+        await waitFor(
+          async () =>
+            (await api(`/sessions/${interrupted.sessionId}/process`)).process
+              ?.state === "waiting-input",
+        );
+        wrapper.kill("SIGTERM");
+        await waitFor(
+          () => wrapper.exitCode !== null || wrapper.signalCode !== null,
+          15_000,
+        );
+        expect(
+          existsSync(join(directory, "data/queue-restart-handoff.json")),
+        ).toBe(false);
+        wrapper = startWrapper();
+        await waitFor(() => api("/version"));
+        expect((await api("/project-queue")).dispatchState).toMatchObject({
+          status: "paused",
+          reason: "restart",
+        });
+        const interruptedStatus = await api(
+          `/projects/${project.project.id}/sessions/${session.sessionId}`,
+        );
+        expect(interruptedStatus.deferredMessages).toEqual([
+          expect.objectContaining({
+            tempId: "cold-patient",
+            status: "paused-after-restart",
+          }),
+        ]);
+        expect(
+          (await api(`/sessions/${session.sessionId}/process`)).process,
+        ).toBeNull();
+        const recoveredItem = interruptedStatus.deferredMessages[0];
+        await api(
+          `/sessions/${session.sessionId}/recovered-queue/${recoveredItem.id}/resume`,
+          {},
+        );
+        await api("/project-queue/resume", {});
+        wrapper.kill("SIGTERM");
+        await waitFor(
+          () => wrapper.exitCode !== null || wrapper.signalCode !== null,
+          15_000,
+        );
+        expect(
+          existsSync(join(directory, "data/queue-restart-handoff.json")),
+        ).toBe(true);
+        // A successor that cannot bind must neither start queued work nor
+        // grant another successor permission to continue it.
+        occupied = createServer();
+        await new Promise((resolve) =>
+          occupied.listen(port, "127.0.0.1", resolve),
+        );
+        const beforeFailedStart = (await barriers()).filter(
+          (e) => e.type === "provider-started",
+        ).length;
+        const outputStart = output.length;
+        wrapper = startWrapper();
+        await waitFor(() =>
+          output.slice(outputStart).includes(`Port ${port} is already in use`),
+        );
+        wrapper.kill("SIGTERM");
+        await waitFor(
+          () => wrapper.exitCode !== null || wrapper.signalCode !== null,
+          15_000,
+        );
+        expect(
+          (await barriers()).filter((e) => e.type === "provider-started"),
+        ).toHaveLength(beforeFailedStart);
+        expect(
+          existsSync(join(directory, "data/queue-restart-handoff.json")),
+        ).toBe(false);
+        await new Promise((resolve) => occupied.close(resolve));
+        occupied = undefined;
+        wrapper = startWrapper();
+        await waitFor(() => api("/version"));
+        expect((await api("/project-queue")).dispatchState).toMatchObject({
+          status: "paused",
+          reason: "restart",
+        });
+        expect(
+          (await api(`/sessions/${session.sessionId}/process`)).process,
+        ).toBeNull();
       } catch (error) {
         throw new Error(
           `${error.stack}\n${JSON.stringify({ lastPendingStatus, barriers: await barriers() }, null, 2)}\n${output.slice(-16000)}`,
         );
       } finally {
+        if (occupied) await new Promise((resolve) => occupied.close(resolve));
         wrapper.kill("SIGTERM");
         await waitFor(
           () => wrapper.exitCode !== null || wrapper.signalCode !== null,

@@ -142,6 +142,76 @@ an active-turn interruption but delays loading the changed server code. The new
 reload-safe hosts provide the other useful choice: replace the backend now
 while the current turn continues under its wrapper-lifetime owner.
 
+## Orderly queue recovery
+
+The maintainer selected scheduling continuity for intentional maintenance on
+2026-11-14: applying server changes must not require an additional Resume when
+work was already running. Safe Reload keeps eligible workers alive; an orderly
+full restart may stop idle workers and reactivate their saved sessions. Both
+restore waiting queues, without replaying interrupted turns.
+
+| Queue | Successful orderly replacement | Crash, interrupted work or failed handoff |
+| --- | --- | --- |
+| Project Queue | Restore its previous running/manual-paused intent after session queues are restored. | Persisted backlog stays paused after restart. |
+| Patient session queue | Restore only previously running, still-waiting entries in compose order, through normal patient/compaction gates. | Surviving entries stay paused for explicit Resume, Steer now or Delete. |
+| Regular direct/deferred queue | Keep existing drain/detach blockers; do not add persistence. | Owner loss still loses volatile entries. |
+
+The private app-data `queue-restart-handoff.json` is a one-use permission record,
+not another queue store. It is committed synchronously immediately before the
+old Hono exits, only after admitted writes drain and providers verifiably stop
+or detach without interruption. Project scheduling is paused and its in-flight
+work drained before taking the provider inventory. A replacement consumes the
+record before startup can fail, requires the old PID to be gone and accepts it
+only within five minutes. Missing, malformed, expired or already consumed
+records confer no automatic continuation. Cleanup failure or a forced stop
+cannot publish a new permission record. The first upgrade from an older server
+that cannot write a handoff still loads paused and may require Resume once.
+
+Queue data still loads conservatively paused. Only after retained workers
+reattach and all startup/listener binding succeeds does recovery restore patient
+queues and then enable Project Queue. Browser and provider Agent API admission
+remain closed through that recovery, and shutdown joins their admitted writes.
+A generation that never finishes startup cannot publish another continuation
+handoff.
+It preserves already paused patient work, explicit Kill and automation-pause
+exemptions, current launch controls, provider-specific patience, compaction
+gates and project-idle checks. Cold patient recovery uses the prior owner's
+allow/deny tool rules captured in the private handoff; absent rule evidence
+leaves cold patient work paused. Existing-session Project Queue dispatch also
+uses the captured rules for owners stopped by the handoff, with current live
+owner rules taking precedence. Surviving-worker reattachment initializes its
+replacement Process with those same rules, so the new controller does not
+weaken the retained worker's tool-approval policy. This preserves execution restrictions without adding
+an authentication principal or widening an API grant. Explicit default model
+and service-tier settings override older enqueue-time choices. Failed,
+compacting or unconfirmed gates leave that session's patient work paused.
+Recorded provider background work counts as interrupted when its owner is
+stopped, including Codex work that does not retain an otherwise idle session;
+surviving reload detachment can still continue it. A session containing older paused/uncertain
+patient work is left paused as a group rather than letting restored items jump
+it. Restore failures leave remaining work visible and paused; there is no
+background retry loop. An interrupted or unconfirmed compaction/turn is never
+silently retried.
+
+Scheduled safe restart remembers its own temporary dispatch pause and patient
+preservation separately from an existing user pause. Cancelling the schedule
+restores only that temporary pause; it does not undo a later manual pause.
+
+Paths that forcefully kill Hono, including the current Windows wrapper fallback,
+cannot publish an orderly handoff and retain paused recovery. The portable
+queue/admission checks run on all hosts; the assembled provider-host continuity
+case targets capable Linux/macOS Node launches.
+
+Local macOS Node 24.22.1 verification covers successful reload, full cold restart,
+forced interruption, failed port binding without handoff regeneration, retained
+tool denial, queue ordering, failed compaction gates, repeated-restart rule
+retention and real browser/provider HTTP admission. The expanded assembled case
+uses one owned fixture and a model-free provider seam; its local duration grew
+from about 8 seconds to 25 seconds for these additional lifecycle boundaries.
+Workspace checks pass and the requested Sol 6.1 High review accepts the final
+change. Linux/Windows execution remains for CI; this is not additional native
+provider or platform qualification.
+
 ## Why `detached` Or `setsid` Alone Cannot Work
 
 Node's `detached` spawn option changes process-group/session ownership on Unix,

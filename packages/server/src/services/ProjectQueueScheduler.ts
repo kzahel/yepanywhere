@@ -12,6 +12,7 @@ import {
   DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,
   type LimitedUserGrants,
   type PermissionMode,
+  type PermissionRules,
   type ProjectQueueItem,
   type ProjectQueueProjectStatus,
   type ProjectQueuePromoteNowResult,
@@ -178,6 +179,7 @@ interface PromoteNowOptions {
 }
 
 export interface ProjectQueueSessionLaunchMetadata {
+  permissions?: PermissionRules;
   sandboxLevel?: SessionSandboxLevel;
   sandboxNetworkFirewall?: boolean;
   sandboxStateKey?: string;
@@ -1102,6 +1104,7 @@ export class ProjectQueueScheduler {
     const session = this.options.getSessionLaunchMetadata?.(
       item.target.sessionId,
     );
+    if (session?.permissions) modelSettings.permissions = session.permissions;
     let projectPath = item.projectPath;
     if (session?.sandboxLevel === "project-write") {
       modelSettings.sandboxLevel = "project-write";

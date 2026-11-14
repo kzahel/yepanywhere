@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { finishServerRestart } from "../server-restart-control.js";
 import { requestDevWrapperReload } from "../dev-wrapper-client.js";
 import { markDevReloadRequested } from "../dev-reload-signal.js";
 import type { NotificationService } from "../notifications/index.js";
@@ -64,7 +65,7 @@ export async function triggerServerRestart({
   notificationService,
   beforeRestart,
   beforeRestartTimeoutMs = DEFAULT_RESTART_CLEANUP_TIMEOUT_MS,
-  exit = (code) => process.exit(code),
+  exit = finishServerRestart,
   exitDelayMs = 100,
   requestWrapperReload = requestDevWrapperReload,
 }: TriggerServerRestartOptions = {}): Promise<void> {

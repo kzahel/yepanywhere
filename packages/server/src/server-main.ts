@@ -23,6 +23,20 @@ import {
 } from "@yep-anywhere/shared";
 import { createApp } from "./app.js";
 import { reattachProviderRuntimes } from "./server-provider-reattach.js";
+import {
+  shutdownProviderSessions,
+  shutdownOwnedGateway,
+} from "./server-provider-shutdown.js";
+import {
+  beginServerShutdown,
+  setServerRestartHandler,
+  drainServerRequests,
+  holdQueueRecoveryAdmission,
+  completeQueueRecovery,
+} from "./server-restart-control.js";
+import { QueueRestartHandoff } from "./services/QueueRestartHandoff.js";
+import { restoreRestartQueues } from "./services/restoreRestartQueues.js";
+import { effectiveGlobalInstructions } from "./sessions/derived-launch-sources.js";
 import { markdownAugmentCacheDiagnostics } from "./augments/markdown-augments.js";
 import { AuthService } from "./auth/AuthService.js";
 import { UserUsageService } from "./auth/UserUsageService.js";
@@ -96,9 +110,7 @@ import { MockServerClaudeProvider } from "./sdk/mock.js";
 import {
   closeProviderRuntimeHostRegistration,
   ensureProviderRuntimeHost,
-  hasHostedProviderRuntime,
   isProviderRuntimeHostAvailable,
-  retainProviderRuntimeProcessGroup,
 } from "./sdk/providers/provider-runtime-host.js";
 import { isProviderHostDegraded } from "./sdk/providers/provider-host-status.js";
 import { ClaudeGatewayProvider } from "./sdk/providers/claude-gateway.js";
@@ -234,6 +246,7 @@ let providerSessionWatchersForShutdown: ProviderSessionWatcherRegistry | null =
 let attachmentStagingCleanupTimer: ReturnType<typeof setInterval> | null = null;
 let stopResourceSampling: (() => void) | null = null;
 let isShuttingDown = false;
+let queueRestartForShutdown: QueueRestartHandoff | undefined;
 
 /**
  * Graceful shutdown handler.
@@ -248,6 +261,8 @@ async function gracefulShutdown(signal: string): Promise<void> {
     return;
   }
   isShuttingDown = true;
+  beginServerShutdown();
+  let shutdownVerified = await drainServerRequests();
   // Shutdown is intentional on every platform, whether providers are aborted
   // locally or detached to the Linux host. Cleanup is not new task activity.
   stopNotificationsForShutdown?.();
@@ -264,6 +279,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     const pendingUpdates =
       await providerInstallationCoordinator.waitForLocalUpdates(updateDrainMs);
     if (pendingUpdates.length > 0) {
+      shutdownVerified = false;
       console.warn(
         `[Shutdown] Provider installation update for ${pendingUpdates.join(", ")} ` +
           `still running after ${updateDrainMs}ms; exiting anyway — stale-writer ` +
@@ -271,6 +287,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
       );
     }
   } catch (error) {
+    shutdownVerified = false;
     console.error(
       "[Shutdown] Error draining provider installation updates:",
       error,
@@ -292,6 +309,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
       await hostAwakeForShutdown.shutdown();
       console.log("[Shutdown] Host-awake assertion released");
     } catch (error) {
+      shutdownVerified = false;
       console.error("[Shutdown] Error releasing host-awake assertion:", error);
     }
   }
@@ -302,97 +320,32 @@ async function gracefulShutdown(signal: string): Promise<void> {
       await securityClientForShutdown.shutdown();
       console.log("[Shutdown] Security-client audit state flushed");
     } catch (error) {
+      shutdownVerified = false;
       console.error("[Shutdown] Error flushing security-client audit:", error);
     }
   }
-
-  if (supervisorForShutdown) {
-    // Join admitted background maintenance before taking the abort/detach
-    // inventory so no in-flight maintenance can outlive shutdown.
-    await supervisorForShutdown.stopBackgroundTasks();
-    const processes = supervisorForShutdown.getAllProcesses();
-    if (processes.length > 0) {
-      console.log(
-        `[Shutdown] Aborting ${processes.length} active session(s)...`,
-      );
-      await Promise.all(
-        processes.map(async (p) => {
-          try {
-            if (
-              signal === "SIGHUP" &&
-              hasHostedProviderRuntime(p.sessionId) &&
-              p.queueDepth === 0 &&
-              !p.hasVolatileDeferredMessages()
-            ) {
-              try {
-                await supervisorForShutdown?.prepareForServerReload(p);
-              } catch (error) {
-                // A retained callback must never resume under stale standing policy.
-                await p.abort();
-                throw error;
-              }
-              await p.detachForServerReload();
-              console.log(
-                `[Shutdown] Detached ${p.provider} session ${p.sessionId}`,
-              );
-            } else {
-              await p.abort();
-              console.log(`[Shutdown] Aborted session ${p.sessionId}`);
-            }
-          } catch (error) {
-            console.error(
-              `[Shutdown] Error aborting session ${p.sessionId}:`,
-              error,
-            );
-          }
-        }),
-      );
-    }
-  }
-
-  let retainedGateway = false;
-  if (signal === "SIGHUP") {
-    const retentions =
-      await ClaudeGatewayProvider.retainOwnedGatewayProcessGroups(
-        retainProviderRuntimeProcessGroup,
-      );
-    for (const retention of retentions) {
-      if (retention.error) {
-        console.error(
-          `[Shutdown] Could not retain managed Claude Gateway process group ${retention.processGroupId}:`,
-          retention.error,
-        );
-      } else if (retention.relinquished) {
-        console.log(
-          `[Shutdown] Managed Claude Gateway process group ${retention.processGroupId} retained by wrapper`,
-        );
-      }
-    }
-    // Stop the gateway unless every service handed its child over: a child
-    // that stayed owned here is still this process's to kill.
-    retainedGateway =
-      retentions.length > 0 &&
-      retentions.every((retention) => retention.relinquished);
-  }
-  if (!retainedGateway) {
-    try {
-      await ClaudeGatewayProvider.shutdownGateway();
-      console.log("[Shutdown] Managed Claude Gateway stopped");
-    } catch (error) {
-      console.error("[Shutdown] Error stopping managed Claude Gateway:", error);
-    }
-  }
-
-  closeProviderRuntimeHostRegistration();
 
   if (disposeAppForShutdown) {
     try {
       await disposeAppForShutdown();
       console.log("[Shutdown] Session readers disposed");
     } catch (error) {
+      shutdownVerified = false;
       console.error("[Shutdown] Error disposing session readers:", error);
     }
   }
+
+  shutdownVerified =
+    (await shutdownProviderSessions(
+      signal,
+      supervisorForShutdown,
+      queueRestartForShutdown,
+    )) && shutdownVerified;
+
+  shutdownVerified = (await shutdownOwnedGateway(signal)) && shutdownVerified;
+
+  closeProviderRuntimeHostRegistration();
+
   projectGlossarySubscriptionsForShutdown?.dispose();
   projectGlossarySubscriptionsForShutdown = null;
   projectWorktreeSubscriptionsForShutdown?.dispose();
@@ -406,6 +359,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
       await deviceBridgeForShutdown.shutdown();
       console.log("[Shutdown] Device bridge shut down");
     } catch (error) {
+      shutdownVerified = false;
       console.error("[Shutdown] Error shutting down emulator bridge:", error);
     }
   }
@@ -424,6 +378,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     try {
       await store.waitForPendingWrites();
     } catch (error) {
+      shutdownVerified = false;
       console.error(`[Shutdown] Error waiting on ${name} state:`, error);
     }
   }
@@ -431,8 +386,13 @@ async function gracefulShutdown(signal: string): Promise<void> {
 
   closeCodexCorrelationDebugLogger();
   console.log("[Shutdown] Cleanup complete, exiting");
+  if (shutdownVerified) queueRestartForShutdown?.commit();
   process.exit(0);
 }
+
+setServerRestartHandler(() => {
+  void gracefulShutdown("restart");
+});
 
 // Register shutdown handlers early
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
@@ -598,6 +558,13 @@ const sessionQueuePersistenceService = new SessionQueuePersistenceService({
   dataDir: config.dataDir,
   eventBus,
 });
+const queueRestartHandoff = new QueueRestartHandoff(
+  config.dataDir,
+  projectQueueService,
+  sessionQueuePersistenceService,
+);
+const queueRestartRecord = queueRestartHandoff.consume();
+holdQueueRecoveryAdmission(queueRestartRecord !== undefined);
 const sessionDiscoveryIndexRegistry = new SessionDiscoveryIndexRegistry();
 const sessionIndexService = new SessionIndexService({
   database: discoverySqlite.getDatabase(),
@@ -1126,6 +1093,7 @@ async function startServer() {
     projectMetadataService,
     projectQueueService,
     sessionQueuePersistenceService,
+    queueRestartHandoff,
     dirtyFileEditorService,
     sessionIndexService,
     sessionDiscoveryIndexRegistry,
@@ -1241,7 +1209,11 @@ async function startServer() {
   supervisorForShutdown = supervisor;
   deviceBridgeForShutdown = deviceBridgeService ?? null;
 
-  await reattachProviderRuntimes(supervisor, sessionMetadataService);
+  const reattached = await reattachProviderRuntimes(
+    supervisor,
+    sessionMetadataService,
+    queueRestartHandoff,
+  );
   markStartup("retained provider runtimes reattached");
 
   // Set up debug context for maintenance server
@@ -1751,6 +1723,19 @@ async function startServer() {
     });
     markStartup("maintenance server started");
   }
+
+  // No waiting input may run until all startup/binding work has succeeded.
+  await completeQueueRecovery(async () => {
+    await restoreRestartQueues(reattached ? queueRestartRecord : undefined, {
+      projectQueueService,
+      sessionQueuePersistenceService,
+      sessionMetadataService,
+      supervisor,
+      getGlobalInstructions: () =>
+        effectiveGlobalInstructions(serverSettingsService),
+    });
+  });
+  queueRestartForShutdown = queueRestartHandoff;
 
   const totalStartupMs = Date.now() - startupStart;
   console.log(`[Startup] completed in ${totalStartupMs}ms`);

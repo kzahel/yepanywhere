@@ -1,5 +1,6 @@
 import type { SessionMetadataService } from "./metadata/index.js";
 import { listHostedProviderRuntimes } from "./sdk/providers/provider-runtime-host.js";
+import type { QueueRestartHandoff } from "./services/QueueRestartHandoff.js";
 import type { Supervisor } from "./supervisor/Supervisor.js";
 
 export async function reattachProviderRuntimes(
@@ -8,9 +9,12 @@ export async function reattachProviderRuntimes(
     SessionMetadataService,
     "getEffectiveLaunchSettings"
   >,
-): Promise<void> {
+  handoff?: QueueRestartHandoff,
+): Promise<boolean> {
+  let complete = true;
   const hostedProviderRuntimes = await listHostedProviderRuntimes().catch(
     (error) => {
+      complete = false;
       console.error(
         "[ProviderRuntimeHost] Failed to list retained runtimes:",
         error,
@@ -27,6 +31,10 @@ export async function reattachProviderRuntimes(
         sessionMetadataService.getEffectiveLaunchSettings(runtime.sessionId)
           ?.permissionMode ?? runtime.reattach.permissionMode,
         {
+          permissions: handoff?.permissionRulesForSession(
+            runtime.sessionId,
+            undefined,
+          ),
           providerName: runtime.providerName,
           model: runtime.reattach.model,
           serviceTier: runtime.reattach.serviceTier,
@@ -43,10 +51,12 @@ export async function reattachProviderRuntimes(
         `[ProviderRuntimeHost] Reattached ${runtime.providerName} session ${runtime.sessionId}`,
       );
     } catch (error) {
+      complete = false;
       console.error(
         `[ProviderRuntimeHost] Failed to reattach session ${runtime.sessionId}:`,
         error,
       );
     }
   }
+  return complete;
 }

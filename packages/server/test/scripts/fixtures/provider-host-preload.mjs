@@ -108,6 +108,19 @@ if (
           if (result.behavior !== "allow")
             throw new Error("Original approval denied");
         }
+        if (text.includes("verify-rule")) {
+          const result = await options.onToolApproval(
+            "Bash",
+            { command: "echo forbidden" },
+            {
+              signal: new AbortController().signal,
+              toolUseId: "restricted-approval",
+            },
+          );
+          record({ type: "restricted-approval", id, result });
+          if (result.behavior !== "deny")
+            throw new Error("Tool restriction was lost during reload");
+        }
         yield emit({
           type: "assistant",
           message: {

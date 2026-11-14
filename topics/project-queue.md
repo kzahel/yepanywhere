@@ -80,20 +80,20 @@ idle predicate; standalone yacron is explicitly ineligible.
   (edit/save, delete/cancel, retry, reorder, Start/Force start, or Steer now)
   resumes dispatch globally before completing that action. Read-only actions
   such as Copy do not resume dispatch.
-- A server restart with persisted Project Queue backlog starts
-  paused-after-restart by default. After inspecting any work that may have been
-  interrupted by the restart, the user can use Resume or act on an item; either
-  path resumes dispatch.
-- Dev-mode scheduled safe restart also pauses Project Queue dispatch before
-  waiting for active sessions and in-memory session queued messages, including
-  per-process direct/short-term deferred queues, to drain. Live patient
-  session-queue entries are preserved as restart-paused work once those
-  volatile blockers have drained. The durable Project Queue backlog survives
-  the restart and remains visibly paused until the user resumes it. Persisted
-  recovered patient session-queue entries are reported as preserved work in
-  safe-restart status rather than as drain blockers, but they still count as
-  project-busy for Project Queue promotion so project-level work cannot jump
-  ahead of restart-paused per-session work.
+- An orderly reload or restart preserves dispatch intent: running backlog resumes
+  automatically and an explicit manual pause remains paused. This includes Safe
+  Reload with surviving provider workers and a full orderly stop after active
+  work and volatile queues drain. The next server must consume a fresh, one-use
+  local handoff; see [orderly queue recovery](reload-safe-provider-runtimes.md#orderly-queue-recovery).
+- Crashes, forced/interrupted shutdowns, failed cleanup, stale handoffs and failed
+  startup keep the conservative paused-after-restart behavior. Resume or an item
+  action explicitly enables dispatch after inspecting interrupted work.
+- Dev-mode scheduled safe restart temporarily pauses Project Queue while active
+  sessions and volatile session queues drain. Live patient entries are preserved
+  at the safe boundary. After a successful handoff, previously running patient
+  entries rejoin their delivery path before Project Queue resumes. Previously
+  recovered paused patient entries remain paused and still block their project:
+  project-level work cannot jump ahead of session work awaiting inspection.
 - Empty Project Queue state is always normal/running. Do not preserve a hidden
   pause after the last queued/failed/dispatching item leaves the queue.
 

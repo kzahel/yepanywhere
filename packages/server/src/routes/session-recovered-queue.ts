@@ -5,7 +5,7 @@ import type {
 } from "../services/SessionQueuePersistenceService.js";
 import type { UserMessage } from "../sdk/types.js";
 import type { Process } from "../supervisor/Process.js";
-import type { Supervisor } from "../supervisor/Supervisor.js";
+import type { ModelSettings, Supervisor } from "../supervisor/Supervisor.js";
 import { persistLaunchMetadata } from "../sessions/session-launch-metadata.js";
 import { parseOptionalExecutor } from "../sessions/session-launch-settings.js";
 import {
@@ -29,6 +29,7 @@ export async function ensureProcessForRecoveredItem(
   sessionId: string,
   item: PersistedSessionQueuedMessage,
   existing: Process | undefined,
+  launchOverrides?: Pick<ModelSettings, "permissions">,
 ): Promise<{ process: Process } | { error: string; status: 400 | 503 }> {
   let process = existing;
   const mode = item.message.mode ?? item.mode;
@@ -57,6 +58,7 @@ export async function ensureProcessForRecoveredItem(
           globalInstructions: deps.getGlobalInstructions(),
           recapAfterSeconds: metadata?.recapAfterSeconds,
           promptSuggestionMode: metadata?.promptSuggestionMode,
+          ...launchOverrides,
         },
       );
     } catch (error) {

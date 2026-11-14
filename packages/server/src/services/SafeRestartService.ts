@@ -20,6 +20,7 @@ export interface SafeRestartServiceOptions {
   getWorkerActivity: () => SafeRestartWorkerActivity;
   getPreservedWork?: () => SafeRestartPreservedWork[];
   preparePreservedWork?: () => Promise<void> | void;
+  cancelPreservedWork?: () => void;
   restart: () => Promise<void> | void;
   pauseProjectQueueDispatch?: () => Promise<boolean> | boolean;
   resumeProjectQueueDispatch?: () => Promise<void>;
@@ -41,6 +42,7 @@ export class SafeRestartService {
     | (() => SafeRestartPreservedWork[])
     | undefined;
   private readonly preparePreservedWork?: () => Promise<void> | void;
+  private readonly cancelPreservedWork?: () => void;
   private readonly restart: () => Promise<void> | void;
   private readonly pauseProjectQueueDispatch?: () => Promise<boolean> | boolean;
   private readonly resumeProjectQueueDispatch?: () => Promise<void>;
@@ -59,6 +61,7 @@ export class SafeRestartService {
     this.getWorkerActivity = options.getWorkerActivity;
     this.getPreservedWorkSnapshot = options.getPreservedWork;
     this.preparePreservedWork = options.preparePreservedWork;
+    this.cancelPreservedWork = options.cancelPreservedWork;
     this.restart = options.restart;
     this.pauseProjectQueueDispatch = options.pauseProjectQueueDispatch;
     this.resumeProjectQueueDispatch = options.resumeProjectQueueDispatch;
@@ -119,6 +122,7 @@ export class SafeRestartService {
       await this.resumeProjectQueueDispatch?.();
     }
     this.projectQueuePausedBySchedule = false;
+    this.cancelPreservedWork?.();
     this.emitChange();
     return this.getState();
   }

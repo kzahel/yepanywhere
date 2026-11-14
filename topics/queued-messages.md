@@ -52,10 +52,12 @@ minutes.
    entries are durable server state while queued on every provider. Delivery
    timing remains provider-specific: providers without verified background-work
    retention promote patient intent at the ordinary turn-end boundary, but must
-   not weaken its restart durability. Restart-loaded patient entries surface as
-   `paused-after-restart` queue chips and require an explicit action: resume
-   (rejoin the provider's patient/deferred delivery path), steer (deliver now),
-   or delete.
+   not weaken its restart durability. An orderly reload/restart automatically
+   restores previously running patient entries through their usual delivery
+   path, preserving order, patience and compaction gates. Crash/interrupted
+   recovery and entries already paused before reload surface as
+   `paused-after-restart` chips and require Resume, Steer now or Delete. See
+   [orderly queue recovery](reload-safe-provider-runtimes.md#orderly-queue-recovery).
 5. **YA commands are explicitly tagged controls.** A queued YA-routed command
    uses the Process-local `pendingYaCommands` lane and a `kind: "ya-command"`
    summary. It is never inferred from slash-shaped queued text and never enters
@@ -86,9 +88,10 @@ minutes.
   last submission is still queued they do nothing; the message stays queued
   and only the chip's explicit Edit or cancel controls remove it.
 - **Process restart / session stop.** Short-term direct/deferred queue state is
-  gone. Persisted patient entries load as `paused-after-restart`; clients
-  reflect those server-reported entries on the next sync and never resurrect
-  queue state locally.
+  gone. Patient entries initially load paused. A verified orderly handoff can
+  restore only those still waiting and previously running; uncertain or already
+  dispatched operations are never replayed. Clients render the resulting
+  server projection and never resurrect queue state locally.
 - **YA-local command boundary.** An accepted command may use the same queued
   chip while an agent turn remains active. The control lane resolves locally at
   the first safe boundary, and ordinary queued provider work stays held until

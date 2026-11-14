@@ -78,6 +78,14 @@ Maintainer has authorized the exact exception.
 
 ## Known Exceptions
 
+**Orderly reload queue continuity** is always on, authorized by the maintainer
+on 2026-11-14 after comparing restart behaviors. A successful user-requested
+reload/restart preserves previously running queue intent and manual pauses;
+it does not replay interrupted turns or uncertain operations. Crash recovery
+remains paused. This makes applying server changes continue already-requested
+work without another Resume action. See
+[orderly queue recovery](reload-safe-provider-runtimes.md#orderly-queue-recovery).
+
 **Server Connections availability** defaults on, authorized by the maintainer
 on 2026-11-01. An empty installation needs no separate enable step; each device
 still requires owner-authenticated enrollment and a directional grant. No peer

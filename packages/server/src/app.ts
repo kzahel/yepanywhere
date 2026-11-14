@@ -412,6 +412,10 @@ import type {
   SessionQueuePersistenceService,
 } from "./services/SessionQueuePersistenceService.js";
 import { SafeRestartService } from "./services/SafeRestartService.js";
+import type { QueueRestartHandoff } from "./services/QueueRestartHandoff.js";
+import { safeRestartQueueCallbacks } from "./services/safeRestartQueueCallbacks.js";
+import { serverAdmissionMiddleware } from "./server-restart-control.js";
+import { serverAgentApiAdmission } from "./server-agent-api-admission.js";
 import type { SharingService } from "./services/SharingService.js";
 import type { SpeechBackendRegistry } from "./services/voice/registry.js";
 import { VocabularyStore } from "./services/voice/VocabularyStore.js";
@@ -455,6 +459,7 @@ import {
 import { LifecycleWebhookService } from "./webhooks/LifecycleWebhookService.js";
 
 export interface AppOptions extends ProviderObservationCallbacks {
+  queueRestartHandoff?: QueueRestartHandoff;
   /** False for self-contained hosts with no external provider sessions. */
   externalSessionsEnabled?: boolean;
   /** Owned update-service lookup for embedded applications and test fixtures. */
@@ -783,6 +788,7 @@ export function createApp(options: AppOptions): AppResult {
   const piSessionsDir = options.piSessionsDir ?? PI_SESSIONS_DIR;
 
   const app = new Hono<{ Bindings: HttpBindings }>();
+  app.use("*", serverAdmissionMiddleware);
   app.use("*", async (c, next) => {
     const host = c.req.header("Host") ?? new URL(c.req.url).host;
     const dispatched = artifactServer
@@ -1855,6 +1861,7 @@ export function createApp(options: AppOptions): AppResult {
       externalTracker?.dispose();
       await options.peerAccess?.close();
       apiCommands?.close();
+      await apiCommands?.idle();
       apiReceipts?.close();
       await supervisor.stopBackgroundTasks();
       await rendezCompose?.close();
@@ -2471,18 +2478,20 @@ export function createApp(options: AppOptions): AppResult {
     createAgentAuthRouterRoutes(agentAuthRouter, () => supervisor),
   );
 
-  const readAgentApi: ApiReadPort = async (operation, caller, input) => {
-    if (
-      !agentApiController ||
-      options.serverSettingsService?.getSetting("agentApiEnabled") !== true
-    )
-      throw new CoreApiError(
-        "controller_unavailable",
-        "Agent API catalog access is unavailable",
-        503,
-      );
-    return agentApiController.read(operation, caller, input);
-  };
+  const readAgentApi: ApiReadPort = serverAgentApiAdmission(
+    async (operation, caller, input) => {
+      if (
+        !agentApiController ||
+        options.serverSettingsService?.getSetting("agentApiEnabled") !== true
+      )
+        throw new CoreApiError(
+          "controller_unavailable",
+          "Agent API catalog access is unavailable",
+          503,
+        );
+      return agentApiController.read(operation, caller, input);
+    },
+  );
   supervisor = new Supervisor({
     creationAttachments: options.sessionMetadataService
       ? new CreationAttachments(
@@ -2937,6 +2946,10 @@ export function createApp(options: AppOptions): AppResult {
         const metadata = options.sessionMetadataService?.getMetadata(sessionId);
         if (!metadata) return undefined;
         return {
+          permissions: options.queueRestartHandoff?.permissionRulesForSession(
+            sessionId,
+            supervisor.getProcessForSession(sessionId),
+          ),
           sandboxLevel: metadata.sandboxLevel,
           sandboxNetworkFirewall: metadata.sandboxNetworkFirewall,
           sandboxStateKey: metadata.sandboxStateKey,
@@ -2959,6 +2972,10 @@ export function createApp(options: AppOptions): AppResult {
     });
   }
 
+  options.queueRestartHandoff?.setProjectQueueDrain(() =>
+    projectQueueScheduler?.dispose(),
+  );
+
   const isManualReloadMode =
     process.env.NO_BACKEND_RELOAD === "true" ||
     process.env.NO_FRONTEND_RELOAD === "true";
@@ -2971,31 +2988,19 @@ export function createApp(options: AppOptions): AppResult {
           getPreservedWork: () =>
             getPreservedRestartWork(options.sessionQueuePersistenceService),
           preparePreservedWork: async () => {
+            options.queueRestartHandoff?.rememberPatientQueues(
+              supervisor.getAllProcesses(),
+            );
             await supervisor.preserveRestartablePatientQueuesForRestart();
           },
+          cancelPreservedWork: () =>
+            options.queueRestartHandoff?.forgetPreservedPatients(),
           restart: () =>
             triggerServerRestart({
               notificationService: options.notificationService,
               beforeRestart: disposeSessionReaders,
             }),
-          pauseProjectQueueDispatch: async () => {
-            const service = options.projectQueueService;
-            if (!service || service.listAll().length === 0) return false;
-            if (service.isDispatchPaused()) return false;
-            await service.pauseDispatch("restart");
-            return true;
-          },
-          resumeProjectQueueDispatch: async () => {
-            const service = options.projectQueueService;
-            if (!service) return;
-            const dispatchState = service.getDispatchState();
-            if (
-              dispatchState.status === "paused" &&
-              dispatchState.reason === "restart"
-            ) {
-              await service.resumeDispatch();
-            }
-          },
+          ...safeRestartQueueCallbacks(options),
         })
       : undefined;
 

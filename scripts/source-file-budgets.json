@@ -115,7 +115,7 @@
       "maxLines": 1528
     },
     "packages/server/src/server-main.ts": {
-      "maxLines": 1768
+      "maxLines": 1753
     },
     "packages/server/src/services/ProjectQueueService.ts": {
       "maxLines": 1532
