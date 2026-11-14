@@ -199,10 +199,14 @@ it.each(["direct", "relay"] as const)(
       query: { waitMs: "0" },
     })) as { receipt: { sessionId: string } };
     expect(followed.receipt.sessionId).toBe("created-1");
-    await a.read("prompt", {
+    await a.read("createInput", {
       serverId: b.id,
       sessionId: "created-1",
-      body: { requestId: "refresh-message-001", prompt: "Continue" },
+      body: {
+        requestId: "refresh-message-001",
+        type: "prompt",
+        text: "Continue",
+      },
     });
     expect(b.starts()).toBe(1);
     expect(b.sends()).toBe(1);

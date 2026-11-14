@@ -13,6 +13,8 @@ import type { SessionCatalogRow } from "../sessions/catalog-types.js";
 import type { AgentProvider } from "../sdk/providers/types.js";
 import type { ApiSession } from "./contracts.js";
 import type { CoreApiSources } from "./service.js";
+import { apiSessionState } from "./owned-sessions.js";
+import { isClaudeProviderName } from "@yep-anywhere/shared";
 
 export function productionApiSources(deps: {
   scanner: Pick<ProjectScanner, "readRetainedProjects">;
@@ -158,11 +160,15 @@ export function productionApiSources(deps: {
             title: metadata?.customTitle ?? row.title ?? null,
             updatedAt: row.updatedAt,
             createdByUser: metadata?.createdByUser,
-            state:
-              deps.sessionState?.(row.sessionId) ??
-              deps.supervisor?.getProcessForSession(row.sessionId)?.state
-                .type ??
-              "not-running",
+            state: (() => {
+              const process = deps.supervisor?.getProcessForSession(
+                row.sessionId,
+              );
+              return (
+                deps.sessionState?.(row.sessionId) ??
+                (process ? apiSessionState(process) : "not-running")
+              );
+            })(),
           };
         });
       const byId = new Map<string, ApiSession>(
@@ -194,6 +200,10 @@ export function productionApiSources(deps: {
         name: p.displayName,
         supportsSteering: p.supportsSteering,
         supportsPermissionMode: p.supportsPermissionMode,
+        compaction: {
+          supported: p.name === "codex" || isClaudeProviderName(p.name),
+          honorsInstructions: isClaudeProviderName(p.name),
+        },
       }));
     },
     hiddenProjects: deps.hiddenProjects,

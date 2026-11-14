@@ -80,6 +80,10 @@ import {
 } from "../sessions/session-sandbox-inheritance.js";
 import { parseSessionSandboxLevel } from "./session-sandbox-settings.js";
 import { parseSlashCommandSubmission } from "../sdk/slashCommandEmulation.js";
+import {
+  deferSessionInput,
+  prepareQueuedCompaction,
+} from "./session-input-admission.js";
 import { dispatchProviderCommand } from "../supervisor/provider-command.js";
 import { tryRestartCompact } from "../supervisor/restart-compaction.js";
 import type { PermissionMode, SDKMessage, UserMessage } from "../sdk/types.js";
@@ -4384,39 +4388,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // must retain its selected delivery boundary.
     const parsed = parseSlashCommandSubmission(body.message);
     if (parsed?.name === "compact" && body.deferred) {
-      if (
-        process.provider !== "codex" &&
-        !isClaudeSdkProviderName(process.provider)
-      )
-        return c.json(
-          { error: "Queued compaction is unavailable for this provider" },
-          409,
-        );
-      if (
-        userMessage.attachments?.length ||
-        userMessage.images?.length ||
-        userMessage.documents?.length
-      )
-        return c.json(
-          { error: "Queue compaction separately from attachments" },
-          400,
-        );
-      const commands = await process.supportedCommands();
-      if (
-        !commands?.some(
-          (command) => command.name.replace(/^\//, "") === "compact",
-        )
-      )
-        return c.json(
-          { error: "This session does not advertise compaction" },
-          409,
-        );
-      if (userMessage.metadata)
-        userMessage.metadata.compactAboveContextPercent = undefined;
-      userMessage.queuedCompact = {
-        command: "compact",
-        argument: parsed.argument,
-      };
+      const refusal = await prepareQueuedCompaction(
+        process,
+        userMessage,
+        parsed.argument,
+      );
+      if (refusal) return c.json({ error: refusal.message }, refusal.status);
     }
     if (parsed && !userMessage.queuedCompact) {
       const providerResult = await dispatchProviderCommand(
@@ -4451,12 +4428,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       process.queuedCompactionBlocksInput ||
       (userMessage.metadata?.turnEffort && process.state.type !== "idle")
     ) {
-      if (body.mode) {
-        process.setPermissionMode(body.mode);
-      }
-      await process.primeSupportedCommandsForMessage(userMessage);
-      const deferredResult = process.deferMessage(userMessage, {
-        promoteIfReady: true,
+      const deferredResult = await deferSessionInput(process, userMessage, {
+        mode: body.mode,
       });
       if (!deferredResult.success) {
         return c.json(
@@ -4467,7 +4440,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           410,
         );
       }
-      await process.waitForPatientQueuePersistenceIdle();
       return c.json({
         queued: true,
         deferred: deferredResult.deferred,

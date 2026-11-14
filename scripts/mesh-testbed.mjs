@@ -490,7 +490,13 @@ async function smokeEdge(client, source, target, check) {
       : "reply does not carry the target's identity",
   );
   await get("access", `${base}/access`, (reply) => {
-    const expected = ["sessions", "createSession", "prompt", "cancel", "stop"];
+    const expected = [
+      "sessions",
+      "createSession",
+      "createInput",
+      "cancel",
+      "stop",
+    ];
     const missing = expected.filter(
       (operation) => !reply.json.operations.includes(operation),
     );
@@ -696,13 +702,10 @@ async function inferenceEdge(client, source, target, options, check) {
         : undefined;
   });
   await step("follow-up prompt", async () => {
-    const reply = await command(
-      `/sessions/${sessionId}/prompts`,
-      `${key}-two`,
-      {
-        prompt: `Reply with exactly this text and nothing else: MESH-${token}-TWO`,
-      },
-    );
+    const reply = await command(`/sessions/${sessionId}/inputs`, `${key}-two`, {
+      type: "prompt",
+      text: `Reply with exactly this text and nothing else: MESH-${token}-TWO`,
+    });
     if (reply.status !== 202)
       return `status ${reply.status} ${reply.text.slice(0, 200)}`;
     await settle(reply.json.id, (receipt) => receipt.delivery === "consumed");
@@ -713,10 +716,11 @@ async function inferenceEdge(client, source, target, options, check) {
   // command unasked still passes, and the note says which happened.
   await step("approval", async () => {
     const reply = await command(
-      `/sessions/${sessionId}/prompts`,
+      `/sessions/${sessionId}/inputs`,
       `${key}-three`,
       {
-        prompt: `Run this shell command in the current directory: mkdir mesh-approval-${token.toLowerCase()}\nThen reply with exactly this text and nothing else: MESH-${token}-THREE`,
+        type: "prompt",
+        text: `Run this shell command in the current directory: mkdir mesh-approval-${token.toLowerCase()}\nThen reply with exactly this text and nothing else: MESH-${token}-THREE`,
       },
     );
     if (reply.status !== 202)
@@ -768,11 +772,11 @@ async function inferenceEdge(client, source, target, options, check) {
   let aborted = false;
   await step("cancel", async () => {
     const reply = await command(
-      `/sessions/${sessionId}/prompts`,
+      `/sessions/${sessionId}/inputs`,
       `${key}-four`,
       {
-        prompt:
-          "Write the numbers from 1 to 300, one per line, each followed by a sentence about that number.",
+        type: "prompt",
+        text: "Write the numbers from 1 to 300, one per line, each followed by a sentence about that number.",
       },
     );
     if (reply.status !== 202)

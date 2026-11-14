@@ -225,7 +225,9 @@ requests. Examples below are proposed routes, not installed endpoints:
 | `POST /v0/servers/{serverId}/sessions/{sessionId}/cancel` | Existing YA interrupt behavior |
 | `POST /v0/servers/{serverId}/sessions/{sessionId}/stop` | Verified provider shutdown |
 | `GET /v0/servers/{serverId}/sessions/{sessionId}/conversation` | Bounded visible history |
-| `POST /v0/servers/{serverId}/sessions/{sessionId}/prompts` | Submit input with explicit supported delivery semantics |
+| `POST /v0/servers/{serverId}/sessions/{sessionId}/inputs` | Queue a prompt or compaction through YA's queue |
+| `GET /v0/servers/{serverId}/sessions/{sessionId}/inputs` | Pending queued input |
+| `POST /v0/servers/{serverId}/sessions/{sessionId}/inputs/{inputId}/cancel` | Remove pending queued input |
 | `GET /v0/servers/{serverId}/sessions/{sessionId}/relationships` | Recorded provenance and optional related-session links |
 
 A `sessionId` is the session's YA id for its whole life: collections, detail,
@@ -459,36 +461,106 @@ no oversized request may reserve or launch work.
 
 ### Attributed queued input and consumption
 
-`POST /v0/servers/{serverId}/sessions/{sessionId}/prompts` accepts strict JSON
-`{prompt,delivery?:"queue"}` and an `Idempotency-Key` header. It uses the same explicit management
-opt-in, trusted origin and durable scoped retry rules as creation. `prompt`
-is nonblank exact text, at most 100,000 characters. Only the incumbent active
-native owner can accept a new input; otherwise return `409 session_not_running`.
-There is no implicit resume, interruption, steering, mode/model change or provider
+`POST /v0/servers/{serverId}/sessions/{sessionId}/inputs` (`createInput`)
+accepts strict JSON `{type:"prompt",text,delivery?}` or
+`{type:"compact",instructions?,delivery?}` and an `Idempotency-Key` header.
+It uses the same explicit management opt-in, trusted origin and durable scoped
+retry rules as creation. `text` is nonblank exact text, at most 100,000
+characters; slash text is not translated. Only the incumbent active native
+owner can accept a new input; otherwise return `409 session_not_running`.
+There is no implicit resume, interruption, mode/model change or provider
 restart. An authorized identical retry resolves the original receipt before
 looking at the mutable catalog or checking whether its process still runs.
 A conflicting body/key returns 409; no input is repeated.
 
-A `202` receipt's `state=accepted` means native queue admission. `delivery=unknown`
-awaits evidence. `delivery=consumed` means the native provider input iterator
-consumed that API input; it does not mean provider acknowledgement or successful
-response completion. Native batching can consume several submitted messages in
-one turn, including interrupt concatenation. Internal constituent identities
-survive that batching and hosted queue notifications. They are server-stamped;
-the public request body cannot supply submission/origin metadata. Queue removal
-or a user echo alone never establishes consumption.
+Input enters YA's provider-agnostic queue through the same admission code as
+the composer's `POST /api/sessions/{id}/messages`
+(`routes/session-input-admission.ts`), so delivery intents, queued compaction
+and patient persistence cannot drift between humans and agents. The provider's
+native input queue is not exposed (no `direct` delivery):
+
+- `deferred` (default) is YA's regular queue, delivered at the next turn
+  boundary. `patient` waits for verified idle plus the default quiet interval
+  and survives restart as `paused-after-restart`. `steer` (prompts only) joins
+  an active turn where the provider supports steering and otherwise queues
+  after it. An idle session receives deferred and steer input at once.
+- `type:"compact"` is [explicit queued compaction](queued-messages.md#explicit-queued-compaction),
+  never parsed from text. Claude receives `/compact <instructions>`; Codex uses
+  its native compaction RPC and ignores instructions. Later input waits until
+  compaction succeeds; a failure holds it until the compaction is cancelled.
+  A session that cannot queue compaction returns
+  `409 compaction_unsupported` before any receipt exists. Provider descriptors
+  report `compaction: {supported, honorsInstructions}`.
+- A follow-up after compaction is simply a second queued input. Self-compaction
+  is compact, then the continuation prompt, then ending the turn.
+
+The receipt id is also the input's queue id (`tempId`), so receipt, list entry
+and cancellation share one id. A `202` receipt's `state=accepted` means YA queue
+admission. `input` reports `{type, delivery, status, compaction?}`: `status` is
+`queued`, `released` (handed to the provider), `cancelled` (removed before
+delivery) or `paused` (left the live queue without delivery evidence, for
+example across a restart, with `delivery=uncertain`). `delivery=consumed`
+means the native provider input iterator consumed that API input; it does not
+mean provider acknowledgement or successful response completion. Native
+batching can consume several submitted messages in one turn, including
+interrupt concatenation; constituent identities survive that batching. They are
+server-stamped; the public request body cannot supply submission/origin
+metadata. A user echo alone never establishes consumption. Compact receipts
+report `compaction` pending, compacting, compacted, failed or unconfirmed, and
+`completion` compacted, failed or unconfirmed (no outcome after 180 seconds),
+because YA observes that outcome; a compacted input reports `delivery=consumed`.
+Claude consuming the `/compact` text is not compaction evidence, and a queue
+drain or transfer that removes a compaction reports `paused` with uncertain
+delivery rather than success. A prompt counts as released only with native
+admission or consumption evidence; an ambiguous removal, such as an interrupt
+that drains and requeues the queue, leaves it queued. Admission rechecks command authority
+and owner shutdown synchronously before the queue mutation.
+A steer the provider takes directly into its active turn yields no
+consumption evidence, so its delivery stays unknown (uncertain once the owner
+ends). Prompt `completion=unknown` remains explicit; idle or an unrelated reply
+does not complete it. Follow the session's compact prose to interpret the response.
 
 When an owner completes, aborts or detaches, or existing session controls remove
 unconsumed input, `delivery=uncertain` is explicit. Restart conservatively marks admitted but
 unconfirmed delivery uncertain. Receipt reads/follow can reattach to a uniquely
 identified incumbent owner and reconcile positive admission/consumption evidence;
-they never automatically requeue input. Each process/queue retains at most 512
+they never automatically requeue input. Queue status is observed only while the
+admitting command owner runs. Each process/queue retains at most 512
 positive API identities for this reconciliation; absent evidence is inconclusive.
 Native observation shares one monitor per process, bounded to 128 processes and
 1,024 pending API inputs, and releases after consumption, cancellation, completion
-or command service shutdown. No transcript poller is added. `completion=unknown` remains
-explicit for every receipt; idle or an unrelated reply does not complete it.
-Follow the session's compact prose to interpret the response.
+or command service shutdown. No transcript poller is added.
+
+`GET .../sessions/{sessionId}/inputs` (`inputs`) lists the canonical queue
+projection in delivery order, at most 500 items: composer-queued items with
+`receiptId: null`, restart-paused patient items (also for a stopped session),
+a running compaction and YA-owned commands (`type:"command"`, not
+cancellable). Items report id, type, recorded delivery intent, status
+(`queued`, `paused-after-restart`, `compacting`, `failed`, `unconfirmed`),
+cancellability, creation time and recorded creator provenance (`origin`,
+`sourceSessionId`, `sentByUser`). Limited users are refused; peers need an
+explicit `inputs` grant and see `text: null` without `conversation`.
+
+`POST .../sessions/{sessionId}/inputs/{inputId}/cancel` (`cancelInput`) with
+`{}` and an `Idempotency-Key` removes a queued or restart-paused item, or a v0
+steer the provider has not consumed. It replaces the internal deferred,
+recovered-queue and steering deletion routes for agents. A dispatched
+compaction or YA-owned command returns `409 input_not_cancellable`; input no
+longer pending returns `409 input_not_pending`, both before any receipt exists.
+The receipt result is `{cancelled:true,inputId}`. It is a POST rather than
+`DELETE` so every v0 mutation keeps one retry, receipt and peer-envelope
+contract. Steer now, resuming paused items, editing, delivery changes,
+reordering and the cross-session Project Queue are not exposed.
+
+Session reads report `state: "compacting"` while a YA-scheduled compaction
+(queued, or a patient compact-first gate) runs, which the provider reports as
+an ordinary turn. Compaction started by typed provider text is not detected.
+
+`createInput` replaced the earlier `prompt` operation without a route alias. A
+stored peer grant that names `prompt` still authorizes `createInput`, because
+[pairings stay frozen at their original operation list](../gaps/peer-grant-operations-frozen-at-pairing.md);
+`inputs` and `cancelInput` need their own grants, which new trusted-control
+pairings receive. Both endpoints of a forwarded call need this build.
 
 `GET /v0/servers/{serverId}/receipts/{receiptId}/follow` is operator-only like
 receipt reads. The first request returns `{cursor,changed:true,receipt}`. Reissue
@@ -1148,8 +1220,9 @@ ordinary sessions and provider transcripts keep their existing contracts.
 
 Every v0 mutation uses an `Idempotency-Key` header (8–128 characters from
 letters/digits/`._:-`), replacing the body `requestId`. The receipt's `requestId`
-still reports that key. Creation and follow-up text is a plain `prompt` string;
-follow-up operation id is `prompt` at `POST .../sessions/{id}/prompts`.
+still reports that key. Creation text is a plain `prompt` string. Follow-up
+input was the `prompt` operation at `POST .../sessions/{id}/prompts` until
+`createInput` replaced it on 2026-11-14.
 Old `message`/`sendMessage` spellings have no aliases. Other launch, selection,
 settings and conversation/follow shapes remain unchanged.
 
@@ -1192,3 +1265,54 @@ and consumed input do not establish successful completion of a particular
 prompt. Mode/model/effort changes, richer updates and ACP conformance remain
 outside this slice. The [blocking-question gap](../gaps/v0-blocking-questions-need-a-launch-policy.md)
 remains open.
+
+## Queued inputs and compaction — 2026-11-14
+
+Status: implemented as `createInput`, `inputs` and `cancelInput` (revision
+`2026-11-14.2`); the contract is in
+[attributed queued input](#attributed-queued-input-and-consumption).
+
+Maintainer direction: YA's provider-agnostic queue is the main thing YA adds
+over a raw provider, so agents need it through v0. Queueing is required,
+deletion is useful for cleanliness, and human conveniences such as Steer now on
+a parked draft are not needed. A unified compaction wrapper is useful but
+secondary. `direct` delivery stays unexposed. Optimize these slices for agent
+callers. The eventual direction is for v0 to become a cleaner, better-organized
+API that the YA client could also use, but this slice does not design for that
+migration.
+
+### Evidence
+
+On 2026-11-14 a Claude session (Fable 5.2, AAR-routed) was asked to compact
+itself through v0 and continue. With no compact operation, it queued
+`/compact <instructions>` through `prompt`, then started a detached watcher to
+send the continuation once the session settled. The watcher read v0
+`state=idle` 13 seconds into a two-minute compaction and posted early. It
+worked only because Claude's own input queue held the prompt until compaction
+finished. Discovery took about 70 seconds before the compaction itself.
+
+Live Haiku 5.5 probes the same day queued `/compact` and then a follow-up
+during an active turn. YA's regular queue (`deferred: true` on
+`/api/sessions/{id}/messages`), its patient queue, and v0 `prompt` each
+delivered one compaction followed by one correct follow-up. Only the first two
+used explicit queued compaction. v0 `prompt` wrote into the provider's native
+input queue: it bypassed YA's queue entirely, gained no visible queue entry,
+cancellation or failure hold, and never used Codex's native compaction RPC.
+
+### Differences from the proposal
+
+- Removal is `POST .../inputs/{inputId}/cancel`, not `DELETE`, so it shares the
+  POST-plus-key receipt path and the peer envelope, which carries only GET and
+  POST.
+- Per-provider compaction support is on provider descriptors rather than
+  server capabilities, because it differs by harness.
+- `compacting` covers YA-scheduled compaction only; detecting compaction a
+  provider starts from typed text would need Process changes.
+- Stored `prompt` peer grants authorize `createInput` (see the contract), so
+  paired servers keep follow-up input without re-pairing.
+
+### Remaining decisions
+
+Stopped sessions keep `409 session_not_running` unless a later decision allows
+patient input with explicit resume. Pending text follows peer conversation
+access; a bounded preview was not needed for operator callers.

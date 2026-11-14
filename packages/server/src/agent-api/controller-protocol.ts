@@ -23,7 +23,9 @@ export const agentCatalogRequest = z
       "createSession",
       "receipt",
       "relationships",
-      "prompt",
+      "createInput",
+      "inputs",
+      "cancelInput",
       "followReceipt",
       "targetHelp",
       "targetSchema",
@@ -39,6 +41,7 @@ export const agentCatalogRequest = z
         receiptId: z.string().min(1).max(128).optional(),
         body: z.unknown().optional(),
         pendingRequestId: z.string().max(4096).optional(),
+        inputId: z.string().min(1).max(256).optional(),
         http: httpRequestSchema.optional(),
         unknownRoute: z.boolean().optional(),
         launch: launchContextSchema.optional(),
@@ -66,6 +69,7 @@ export function agentCatalogInput(
     query: input.query,
     http: input.http,
     pendingRequestId: input.pendingRequestId,
+    inputId: input.inputId,
     unknownRoute: input.unknownRoute,
   };
 }

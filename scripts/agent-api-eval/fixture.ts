@@ -143,7 +143,10 @@ export async function createFixture(
           send(id, request, receipt, consumed) {
             const worker = workers.get(id);
             if (!worker) return { accepted: false };
-            worker.followups.push({ id: receipt.id, text: request.prompt });
+            worker.followups.push({
+              id: receipt.id,
+              text: request.type === "prompt" ? request.text : "/compact",
+            });
             consumed();
             notifyWorker();
             return { accepted: true };

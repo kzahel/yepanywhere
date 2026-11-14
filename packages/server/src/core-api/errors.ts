@@ -27,6 +27,9 @@ const statuses = {
   selection_unavailable: 503,
   relationships_unavailable: 503,
   anchor_unavailable: 404,
+  compaction_unsupported: 409,
+  input_not_pending: 409,
+  input_not_cancellable: 409,
 } as const;
 export class CoreApiError extends Error {
   constructor(

@@ -25,8 +25,24 @@ export function assertPeerOperation(
 ) {
   if (caller.kind !== "peer") return;
   caller.assertActive();
-  if (!caller.operations.includes(operation))
+  if (!peerOperationGranted(caller.operations, operation))
     throw new CoreApiError("forbidden", "Peer operation is not granted", 403);
+}
+
+/**
+ * Stored grants keep the operation list from their pairing. A grant recorded
+ * before the inputs API carries prompt, whose successor createInput queues
+ * the same input through YA's queue; listing and removing input still need
+ * their own grants.
+ */
+export function peerOperationGranted(
+  operations: readonly string[],
+  operation: string,
+) {
+  return (
+    operations.includes(operation) ||
+    (operation === "createInput" && operations.includes("prompt"))
+  );
 }
 
 export function peerProject(caller: PeerPrincipal, projectId: string) {

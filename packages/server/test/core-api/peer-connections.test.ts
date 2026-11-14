@@ -206,10 +206,14 @@ it("pairs through real ordinary SRP, verifies both directions and preserves peer
     receiptId: (created as { id: string }).id,
     query: { waitMs: "0" },
   })) as { receipt: { sessionId: string } };
-  await a.read("prompt", {
+  await a.read("createInput", {
     serverId: b.id,
     sessionId: observed.receipt.sessionId,
-    body: { requestId: "pair-message-test", prompt: "Please continue" },
+    body: {
+      requestId: "pair-message-test",
+      type: "prompt",
+      text: "Please continue",
+    },
   });
   expect(b.sends()).toBe(1);
   expect(
@@ -678,8 +682,8 @@ it("lets a qualified native session create, message and follow through owner-pai
   const sent = await nativeRequest(
     runtime,
     token,
-    `/v0/servers/${b.id}/sessions/created-1/prompts`,
-    { requestId: "paired-native-message", prompt: "Continue" },
+    `/v0/servers/${b.id}/sessions/created-1/inputs`,
+    { requestId: "paired-native-message", type: "prompt", text: "Continue" },
   );
   expect(sent.status).toBe(202);
   const followed = await nativeRequest(

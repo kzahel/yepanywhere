@@ -45,7 +45,7 @@ const operations: Operation[] = [
   "sessions",
   "session",
   "createSession",
-  "prompt",
+  "createInput",
   "receipt",
   "followReceipt",
   "relationships",
@@ -140,10 +140,14 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
     query: { waitMs: "0" },
   })) as { receipt: { sessionId: string } };
   expect(receipt.receipt.sessionId).toBe("created-1");
-  await a.read("prompt", {
+  await a.read("createInput", {
     serverId: b.id,
     sessionId: receipt.receipt.sessionId,
-    body: { requestId: "protected-message-001", prompt: "Please continue" },
+    body: {
+      requestId: "protected-message-001",
+      type: "prompt",
+      text: "Please continue",
+    },
   });
   expect(b.sends()).toBe(1);
   const { sourceServerId: _source, ...rotation } = grant(a.id);

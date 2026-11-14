@@ -104,7 +104,10 @@ work keeps its order; waiting patient work retains its existing readiness
 policy. Native Codex compaction uses its RPC, while Claude receives its exact
 command and optional instructions. The command never joins prose batches,
 steers into an active turn, or becomes text on an interrupt-drain batch.
-Queue the follow-up as a separate message.
+Queue the follow-up as a separate message. Agents queue the same operation
+through the v0 [`createInput`](http-api-v0.md#attributed-queued-input-and-consumption)
+`type:"compact"`, which shares the composer's admission code and reports the
+outcome on its receipt.
 
 Compaction waits for provider-retained background work to end. Claude's
 fallback also ignores results until its exact command input has been consumed.
@@ -134,7 +137,8 @@ Hard-abort recovery reactivates the existing conversation without using a
 compact as its launch prompt, then restores and dispatches the ordered queue.
 Before provider dispatch, YA removes their replayable durable entry; a command
 already handed to the provider is never silently replayed on restart. This does
-not add durable regular queues, receipts for compaction, or automatic recovery
+not add durable regular queues, composer receipts for compaction (v0 input
+receipts observe it while their owner runs), or automatic recovery
 of uncertain operations. A retained worker may finish after its controller
 leaves; an old callback cannot dispatch into a departed controller.
 

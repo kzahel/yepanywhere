@@ -12,7 +12,7 @@ import {
 import { relatedQuery } from "./relationship-graph-contracts.js";
 import type { SessionRelationshipRead } from "../sessions/session-relationship-read.js";
 import { receiptFollowQuery } from "./receipt-follow.js";
-import { createSessionRequest, promptRequest } from "./command-contracts.js";
+import { createSessionRequest, inputRequest } from "./command-contracts.js";
 import type { SessionCommands } from "./session-commands.js";
 import {
   conversationQuery,
@@ -24,6 +24,7 @@ import {
 } from "./conversation.js";
 import {
   assertPeerOperation,
+  peerOperationGranted,
   peerProject,
   peerCreator,
   type ApiPrincipal,
@@ -114,6 +115,7 @@ export class CoreApi {
       sessionId?: string;
       receiptId?: string;
       pendingRequestId?: string;
+      inputId?: string;
       http?: ApiHttpRequest;
       unknownRoute?: boolean;
       body?: unknown;
@@ -193,9 +195,9 @@ export class CoreApi {
       const result = await (cancelled
         ? Promise.race([pending, cancelled])
         : pending);
-      if (operation === "createSession" || operation === "prompt")
+      if (operation === "createSession" || operation === "createInput")
         await this.assertReceipt(caller, result as ApiReceipt, input.signal);
-      return operation === "prompt"
+      return operation === "createInput"
         ? { ...(result as ApiReceipt), requestedSessionId: input.sessionId }
         : result;
     } catch (error) {
@@ -203,7 +205,7 @@ export class CoreApi {
       // when reserve/lookup discovered it after an asynchronous catalog read.
       if (
         caller.kind === "peer" &&
-        (operation === "createSession" || operation === "prompt") &&
+        (operation === "createSession" || operation === "createInput") &&
         error instanceof CoreApiError &&
         error.code === "request_id_conflict"
       ) {
@@ -217,9 +219,9 @@ export class CoreApi {
                 creator,
                 false,
               )
-            : commands.replaySend(
+            : commands.replayInput(
                 input.sessionId!,
-                promptRequest.parse(input.body),
+                inputRequest.parse(input.body),
                 input.launch,
                 creator,
                 false,
@@ -336,7 +338,7 @@ export class CoreApi {
           operations: operationIds.filter((id) => {
             if (caller.kind === "peer")
               return (
-                caller.operations.includes(id) &&
+                peerOperationGranted(caller.operations, id) &&
                 (readOperationIds.includes(id) ||
                   Boolean(this.sources.commands?.enabled()))
               );
@@ -347,7 +349,9 @@ export class CoreApi {
                 "selection",
                 "relationships",
                 "createSession",
-                "prompt",
+                "createInput",
+                "inputs",
+                "cancelInput",
                 "respond",
                 "cancel",
                 "stop",
@@ -438,9 +442,30 @@ export class CoreApi {
           this.sources.commands?.requests(input.sessionId!) ?? { items: [] }
         );
       }
+      case "inputs": {
+        if (caller.kind === "limited")
+          throw new CoreApiError(
+            "forbidden",
+            "Queued input access requires operator authority",
+            403,
+          );
+        await this.read("session", caller, {
+          ...input,
+          query: undefined,
+          http: undefined,
+        });
+        const items =
+          this.sources.commands?.inputs(
+            input.sessionId!,
+            caller.kind !== "peer" ||
+              peerOperationGranted(caller.operations, "conversation"),
+          ) ?? [];
+        return { items, nextCursor: null };
+      }
       case "respond":
       case "cancel":
-      case "stop": {
+      case "stop":
+      case "cancelInput": {
         const commands = this.commandAccess(caller, input.launch);
         const parsed = (
           operation === "respond" ? respondRequest : controlRequest
@@ -465,7 +490,7 @@ export class CoreApi {
           operation,
           session,
           parsed.data,
-          input.pendingRequestId,
+          operation === "cancelInput" ? input.inputId : input.pendingRequestId,
           input.launch,
           caller.kind === "peer" ? peerCreator(caller) : undefined,
         );
@@ -534,9 +559,9 @@ export class CoreApi {
           },
         );
       }
-      case "prompt": {
+      case "createInput": {
         const commands = this.commandAccess(caller, input.launch);
-        const body = promptRequest.safeParse(input.body);
+        const body = inputRequest.safeParse(input.body);
         if (!body.success)
           throw new CoreApiError(
             "invalid_request",
@@ -545,7 +570,7 @@ export class CoreApi {
           );
         const authenticated =
           caller.kind === "peer" ? peerCreator(caller) : undefined;
-        const replay = commands.replaySend(
+        const replay = commands.replayInput(
           input.sessionId!,
           body.data,
           input.launch,
@@ -564,7 +589,16 @@ export class CoreApi {
         );
         input.signal?.throwIfAborted();
         assertPeerOperation(caller, operation);
-        return commands.send(session, body.data, input.launch, authenticated);
+        return commands.input(
+          session,
+          body.data,
+          input.launch,
+          authenticated,
+          () => {
+            this.commandAccess(caller, input.launch);
+            assertPeerOperation(caller, operation);
+          },
+        );
       }
       case "followReceipt": {
         if (caller.kind === "limited")

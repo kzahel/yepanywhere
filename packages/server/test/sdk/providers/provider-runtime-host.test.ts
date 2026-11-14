@@ -2329,9 +2329,13 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
       };
       expect(JSON.parse(repeated.body).id).toBe(receipt.id);
       expect(launches).toBe(1);
-      const sendBody = { requestId: "bridge-message-1", prompt: "Follow up" };
+      const sendBody = {
+        requestId: "bridge-message-1",
+        type: "prompt",
+        text: "Follow up",
+      };
       const sendPath =
-        "/v0/servers/profile-api-host/sessions/api-fixture/prompts";
+        "/v0/servers/profile-api-host/sessions/api-fixture/inputs";
       first.queue.push({
         text: JSON.stringify({ path: sendPath, body: sendBody }),
         uuid: "proxy-batch",

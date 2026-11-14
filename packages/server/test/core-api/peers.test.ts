@@ -273,10 +273,10 @@ it("creates, messages and follows across real v0 authentication, with separate d
   });
   expect(receipt.destinationServerId).toBe("B");
   expect(receipt.sessionId).toBe("created-1");
-  const message = await post(a, "/v0/servers/B/sessions/created-1/prompts", {
+  const message = await post(a, "/v0/servers/B/sessions/created-1/inputs", {
     requestId: "peer-message-001",
-    prompt: "Please explain",
-    delivery: "queue",
+    type: "prompt",
+    text: "Please explain",
   });
   expect(message.status).toBe(202);
   expect(b.sends()).toBe(1);
@@ -482,9 +482,10 @@ it("keeps same-project peer receipts private and rechecks grants on replay and p
   ).toBe(404);
   expect(
     (
-      await post(a, "/v0/servers/B/sessions/created-1/prompts", {
+      await post(a, "/v0/servers/B/sessions/created-1/inputs", {
         requestId: "revoked-input-001",
-        prompt: "No",
+        type: "prompt",
+        text: "No",
       })
     ).status,
   ).toBe(404);
@@ -736,15 +737,15 @@ it("authorizes conflicting receipts before disclosing mismatch and accepts targe
     ).toBe(404);
   const input = {
     requestId: "canonical-input-001",
-    prompt: "Explain",
-    delivery: "queue",
+    type: "prompt",
+    text: "Explain",
   };
   expect(
-    (await post(a, "/v0/servers/B/sessions/parent/prompts", input)).status,
+    (await post(a, "/v0/servers/B/sessions/parent/inputs", input)).status,
   ).toBe(202);
   seedHistoricalReceiptAlias(b.receipts, "parent", "canonical-target");
   b.sessions.find((s) => s.id === "parent")!.id = "canonical-target";
-  const retry = await post(a, "/v0/servers/B/sessions/parent/prompts", input);
+  const retry = await post(a, "/v0/servers/B/sessions/parent/inputs", input);
   expect(retry.status).toBe(202);
   expect(await retry.json()).toMatchObject({
     requestedSessionId: "parent",
@@ -753,12 +754,12 @@ it("authorizes conflicting receipts before disclosing mismatch and accepts targe
   expect(b.sends()).toBe(1);
   expect(b.receipts.get(created.id)?.creator.sessionId).toBeNull();
   b.directory.put({ ...grant, projects: [] });
-  for (const message of [input.prompt, "Conflicting private input"])
+  for (const message of [input.text, "Conflicting private input"])
     expect(
       (
-        await direct("/v0/servers/B/sessions/parent/prompts", {
+        await direct("/v0/servers/B/sessions/parent/inputs", {
           ...input,
-          prompt: message,
+          text: message,
         })
       ).status,
     ).toBe(404);
@@ -864,10 +865,14 @@ it("repeats create/message/follow over two owned ephemeral loopback TCP listener
   await response.json();
   await b.commands.idle();
   const input = await fetch(
-    `${origin}/v0/servers/B/sessions/created-1/prompts`,
+    `${origin}/v0/servers/B/sessions/created-1/inputs`,
     {
       method: "POST",
-      ...apiCommand({ requestId: "tcp-message-001", prompt: "Explain" }),
+      ...apiCommand({
+        requestId: "tcp-message-001",
+        type: "prompt",
+        text: "Explain",
+      }),
     },
   );
   expect(input.status).toBe(202);

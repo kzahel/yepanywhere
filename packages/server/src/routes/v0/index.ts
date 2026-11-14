@@ -105,6 +105,7 @@ export function createV0Routes(
         sessionId: c.req.param("sessionId"),
         receiptId: c.req.param("receiptId"),
         pendingRequestId: c.req.param("requestId"),
+        inputId: c.req.param("inputId"),
         query: c.req.query(),
         http: {
           method,

@@ -478,6 +478,9 @@ export function peerGrantOperations(operations: readonly string[]) {
         "stop",
         "createSession",
         "prompt",
+        "createInput",
+        "inputs",
+        "cancelInput",
       ].includes(op),
     ) &&
     !result.includes("session")
@@ -727,7 +730,9 @@ export class PeerAccessStore {
       );
     const operations = peerGrantOperations(input.operations);
     if (
-      operations.some((op) => op === "createSession" || op === "prompt") &&
+      operations.some((op) =>
+        ["createSession", "prompt", "createInput"].includes(op),
+      ) &&
       input.acknowledgeExecutionAuthority !== "server-account"
     )
       throw new CoreApiError(

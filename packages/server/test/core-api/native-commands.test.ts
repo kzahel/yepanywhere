@@ -15,7 +15,7 @@ import { SessionCommands } from "../../src/core-api/session-commands.js";
 import { nativeSessionCommandOwner } from "../../src/core-api/native-session-commands.js";
 import {
   createSessionRequest,
-  promptRequest,
+  inputRequest,
 } from "../../src/core-api/command-contracts.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
@@ -257,18 +257,38 @@ it.each(["superuser", "peer"] as const)(
         updatedAt: "",
         state: "in-turn",
       };
-      const input = promptRequest.parse({
+      const input = inputRequest.parse({
         requestId: "native-input-1",
-        prompt: "Follow up",
+        type: "prompt",
+        text: "Follow up",
       });
-      const sent = commands.send(session, input, launch);
+      const sent = await commands.input(session, input, launch);
       expect(sent).toMatchObject({
         state: "accepted",
         delivery: "unknown",
         completion: "unknown",
+        input: { type: "prompt", delivery: "deferred", status: "queued" },
       });
-      expect(commands.send(session, input, launch).id).toBe(sent.id);
-      expect(nativeProcess.getInfo().queueDepth).toBe(1);
+      expect((await commands.input(session, input, launch)).id).toBe(sent.id);
+      // Held in YA's queue during the active turn, not the native input queue.
+      expect(nativeProcess.getInfo().queueDepth).toBe(0);
+      expect(
+        nativeProcess
+          .getDeferredQueueSummary()
+          .map((item) => [item.tempId, item.metadata?.origin]),
+      ).toEqual([[sent.id, "coordination"]]);
+      expect(commands.inputs(publicId, true)).toMatchObject([
+        {
+          id: sent.id,
+          receiptId: sent.id,
+          type: "prompt",
+          delivery: "deferred",
+          status: "queued",
+          cancellable: true,
+          text: "Follow up",
+          creator: { origin: "coordination" },
+        },
+      ]);
       expect(steers).toBe(0);
       const before = await commands.follow(sent.id, {});
       const waiting = commands.follow(sent.id, {
@@ -276,11 +296,13 @@ it.each(["superuser", "peer"] as const)(
         waitMs: "4000",
       });
       releaseFirst();
-      expect(await waiting).toMatchObject({
-        changed: true,
-        receipt: { delivery: "consumed", completion: "unknown" },
-      });
       await secondInput;
+      expect(store.get(sent.id)).toMatchObject({
+        delivery: "consumed",
+        completion: "unknown",
+        input: { status: "released" },
+      });
+      expect((await waiting).changed).toBe(true);
       expect(consumed).toEqual([receipt.id, sent.id]);
       expect(starts).toBe(1);
       expect(steers).toBe(0);
@@ -307,17 +329,17 @@ it.each(["superuser", "peer"] as const)(
         state: "uncertain",
         failure: { code: "launch_uncertain" },
       });
-      expect(commands.send(session, input, launch)).toMatchObject({
+      expect(await commands.input(session, input, launch)).toMatchObject({
         id: sent.id,
         delivery: "consumed",
       });
-      expect(() =>
-        commands.send(
+      await expect(
+        commands.input(
           session,
           { ...input, requestId: "native-input-2" },
           launch,
         ),
-      ).toThrow("incumbent active native owner");
+      ).rejects.toThrow("incumbent active native owner");
       expect(starts).toBe(2);
       // Assert outside the expected failure path: no swallowed provider assertion.
       expect(provenanceCountsAtStart).toEqual([1, 2]);
@@ -386,11 +408,13 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     const push = vi.spyOn(queue, "push").mockImplementationOnce(() => {
       throw new Error("push rejected");
     });
-    const failed = commands.send(
+    const failed = await commands.input(
       session,
-      promptRequest.parse({
+      inputRequest.parse({
         requestId: "rejected-push",
-        prompt: "Rejected",
+        type: "prompt",
+        delivery: "steer",
+        text: "Rejected",
       }),
     );
     expect(queue.depth).toBe(0);
@@ -400,18 +424,22 @@ it("preserves batched input identities, rejects false push evidence, and tears d
       delivery: "uncertain",
     });
     push.mockRestore();
-    const first = commands.send(
+    const first = await commands.input(
       session,
-      promptRequest.parse({
+      inputRequest.parse({
         requestId: "batched-first",
-        prompt: "First",
+        type: "prompt",
+        delivery: "steer",
+        text: "First",
       }),
     );
-    const second = commands.send(
+    const second = await commands.input(
       session,
-      promptRequest.parse({
+      inputRequest.parse({
         requestId: "batched-second",
-        prompt: "Second",
+        type: "prompt",
+        delivery: "steer",
+        text: "Second",
       }),
     );
     const combined = queue.concatDrain({ interrupted: true })!;
@@ -424,11 +452,13 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     expect(store.get(first.id)?.delivery).toBe("consumed");
     expect(store.get(second.id)?.delivery).toBe("consumed");
     expect(process.hasConsumedApiInput(second.id)).toBe(true);
-    const pending = commands.send(
+    const pending = await commands.input(
       session,
-      promptRequest.parse({
+      inputRequest.parse({
         requestId: "aborted-input",
-        prompt: "Not consumed",
+        type: "prompt",
+        delivery: "steer",
+        text: "Not consumed",
       }),
     );
     commands.close();
@@ -443,11 +473,13 @@ it("preserves batched input identities, rejects false push evidence, and tears d
       changed: true,
       receipt: { delivery: "consumed" },
     });
-    const cancelled = commands.send(
+    const cancelled = await commands.input(
       session,
-      promptRequest.parse({
+      inputRequest.parse({
         requestId: "cancelled-input",
-        prompt: "Cancel this",
+        type: "prompt",
+        delivery: "steer",
+        text: "Cancel this",
       }),
     );
     const cancelBefore = await commands.follow(cancelled.id, { waitMs: "0" });
@@ -465,11 +497,13 @@ it("preserves batched input identities, rejects false push evidence, and tears d
       "uncertain",
     );
     expect(subscriptions.size).toBe(1); // Only Process's incumbent queue observer remains.
-    const aborted = commands.send(
+    const aborted = await commands.input(
       session,
-      promptRequest.parse({
+      inputRequest.parse({
         requestId: "final-aborted",
-        prompt: "Never consumed",
+        type: "prompt",
+        delivery: "steer",
+        text: "Never consumed",
       }),
     );
     expect(subscriptions.size).toBeGreaterThan(0);

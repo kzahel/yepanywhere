@@ -19,5 +19,5 @@ export const pendingRequestsSchema = z.object({
     )
     .max(1),
 });
-export type ControlOperation = "respond" | "cancel" | "stop";
+export type ControlOperation = "respond" | "cancel" | "stop" | "cancelInput";
 export type PendingRequests = z.infer<typeof pendingRequestsSchema>;

@@ -38,7 +38,7 @@ const operations: Operation[] = [
   "conversation",
   "followConversation",
   "createSession",
-  "prompt",
+  "createInput",
   "receipt",
   "followReceipt",
   "relationships",
@@ -170,8 +170,8 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   const sent = await nativeRequest(
     runtime,
     token,
-    `${base}/sessions/${sid}/prompts`,
-    { requestId: "fleet-native-message", prompt: "Continue" },
+    `${base}/sessions/${sid}/inputs`,
+    { requestId: "fleet-native-message", type: "prompt", text: "Continue" },
   );
   expect(sent.status).toBe(202);
   expect(target.starts()).toBe(1);

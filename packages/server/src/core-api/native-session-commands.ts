@@ -9,42 +9,48 @@ import type { Process } from "../supervisor/Process.js";
 import type { SessionCommandOwner } from "./session-commands.js";
 import { CoreApiError } from "./errors.js";
 import {
+  nativeSessionInputs,
+  type NativeSessionInputDeps,
+} from "./native-session-inputs.js";
+import {
   RouterRefusedBeforeProvider,
   type RouterBindingRef,
   routerSelectionFromBinding,
 } from "../services/AgentAuthRouter.js";
 
 /** Uses incumbent native ownership. Monitoring is shared per process, not caller. */
-export function nativeSessionCommandOwner(deps: {
-  supervisor: Pick<
-    Supervisor,
-    "startSession" | "getAllProcesses" | "getProcessForSession"
-  > &
-    Partial<
-      Pick<
-        Supervisor,
-        | "interruptProcess"
-        | "abortProcessWithVerification"
-        | "pauseRecapsUntilUserTurn"
-      >
-    >;
-  dataDir?: string;
-  approvalAuditEnabled?: () => boolean;
-  globalInstructions: () => string | undefined;
-  creations?: SessionCreationStore;
-  /**
-   * The calling session's router pin and model, so a child of a routed
-   * session runs on the router rather than the owner's direct login.
-   */
-  callerLaunch?: (
-    sessionId: string,
-  ) => { routerBinding?: RouterBindingRef; model?: string } | undefined;
-  /**
-   * Whether a catalog project's directory still exists. The catalog keeps a
-   * project while its transcripts remain, after the directory is gone.
-   */
-  projectDirectoryExists?: (path: string) => Promise<boolean>;
-}): SessionCommandOwner {
+export function nativeSessionCommandOwner(
+  deps: Omit<NativeSessionInputDeps, "supervisor"> & {
+    supervisor: Pick<
+      Supervisor,
+      "startSession" | "getAllProcesses" | "getProcessForSession"
+    > &
+      Partial<
+        Pick<
+          Supervisor,
+          | "interruptProcess"
+          | "abortProcessWithVerification"
+          | "pauseRecapsUntilUserTurn"
+        >
+      >;
+    dataDir?: string;
+    approvalAuditEnabled?: () => boolean;
+    globalInstructions: () => string | undefined;
+    creations?: SessionCreationStore;
+    /**
+     * The calling session's router pin and model, so a child of a routed
+     * session runs on the router rather than the owner's direct login.
+     */
+    callerLaunch?: (
+      sessionId: string,
+    ) => { routerBinding?: RouterBindingRef; model?: string } | undefined;
+    /**
+     * Whether a catalog project's directory still exists. The catalog keeps a
+     * project while its transcripts remain, after the directory is gone.
+     */
+    projectDirectoryExists?: (path: string) => Promise<boolean>;
+  },
+): SessionCommandOwner {
   type Watch = {
     pending: Map<string, { consumed: () => void; ended: () => void }>;
     release: () => void;
@@ -124,9 +130,19 @@ export function nativeSessionCommandOwner(deps: {
       if (!acquired.pending.size) acquired.release();
     };
   };
+  const control = nativeSessionControl(deps);
+  const inputs = nativeSessionInputs(deps);
   return {
-    ...nativeSessionControl(deps),
+    ...control,
+    prepareControl(id, operation, pendingRequestId, response) {
+      return operation === "cancelInput"
+        ? inputs.prepareCancel(id, pendingRequestId ?? "")
+        : control.prepareControl!(id, operation, pendingRequestId, response);
+    },
+    checkInput: inputs.check,
+    inputs: inputs.list,
     close() {
+      inputs.close();
       for (const entry of watches.values()) entry.release();
       watches.clear();
       pending = 0;
@@ -135,31 +151,40 @@ export function nativeSessionCommandOwner(deps: {
       const process = deps.supervisor.getProcessForSession(id);
       return Boolean(process && !process.isTerminated);
     },
-    send(id, request, receipt, consumed, ended) {
+    async send(
+      id,
+      request,
+      receipt,
+      consumed,
+      ended,
+      progress = () => {},
+      admissible,
+    ) {
       const process = deps.supervisor.getProcessForSession(id);
       if (!process || process.isTerminated) return { accepted: false };
-      const release = watch(process, receipt.id, consumed, ended);
+      // Compaction reports its outcome through the queue, not input consumption.
+      const release =
+        request.type === "prompt"
+          ? watch(process, receipt.id, consumed, ended)
+          : () => {};
       try {
-        process.noteInputIntent();
-        const result = process.queueMessage(
-          {
-            text: request.prompt,
-            uuid: receipt.id,
-            tempId: receipt.id,
-            metadata: {
-              apiSubmissionId: receipt.id,
-              origin: "coordination",
-              sourceSessionId:
-                receipt.creator.principal.kind === "peer"
-                  ? undefined
-                  : (receipt.creator.sessionId ?? undefined),
-              serverReceivedAt: receipt.createdAt,
-            },
+        const result = await inputs.admit(
+          process,
+          request,
+          receipt,
+          (patch) => {
+            // Input that left the queue undelivered can no longer be consumed.
+            if (
+              patch.delivery === "cancelled" ||
+              patch.delivery === "uncertain"
+            )
+              release();
+            progress(patch);
           },
-          { allowSteer: false },
+          admissible,
         );
-        if (!result.success) release();
-        return { accepted: result.success };
+        if (!result.accepted) release();
+        return result;
       } catch (error) {
         release();
         throw error;

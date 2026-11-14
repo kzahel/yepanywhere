@@ -481,8 +481,8 @@ export class DelegatedPeerAccess {
             "Acceptance must fit the proposal and next 30 days",
           );
         if (
-          policy.operations.some(
-            (op) => op === "createSession" || op === "prompt",
+          policy.operations.some((op) =>
+            ["createSession", "prompt", "createInput"].includes(op),
           ) &&
           input.acknowledgeExecutionAuthority !== "server-account"
         )

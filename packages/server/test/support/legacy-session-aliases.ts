@@ -68,7 +68,11 @@ export function seedHistoricalReceiptAlias(
         const scope = JSON.parse(row.scope_key) as unknown[];
         if (previous.creator.principal.kind !== "peer" && scope[1] === oldId)
           scope[1] = newId;
-        if (previous.kind === "prompt" && scope[4] === oldId) scope[4] = newId;
+        if (
+          (previous.kind === "prompt" || previous.kind === "input") &&
+          scope[4] === oldId
+        )
+          scope[4] = newId;
         statement(
           "UPDATE agent_api_receipts SET scope_key = ?, session_id = ?, source_session_id = ?, receipt_json = ? WHERE id = ?",
         ).run(

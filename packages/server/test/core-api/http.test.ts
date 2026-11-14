@@ -163,7 +163,8 @@ describe("isolated v0 application and HTTP reads", () => {
         operation.id === "selection" ||
         operation.id === "followReceipt" ||
         operation.id === "receipt" ||
-        operation.id === "relationships"
+        operation.id === "relationships" ||
+        operation.id === "inputs"
       )
         continue;
       const path = `/v0${operation.path.replace(":serverId", "A").replace(":sessionId", "b")}`;

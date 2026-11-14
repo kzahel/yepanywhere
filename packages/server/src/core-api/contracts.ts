@@ -12,10 +12,11 @@ import { receiptFollowQuery, receiptFollowSchema } from "./receipt-follow.js";
 import { relatedQuery } from "./relationship-graph-contracts.js";
 import {
   createSessionRequest,
-  promptRequest,
+  inputBody,
   receiptSchema,
   relationshipsSchema,
 } from "./command-contracts.js";
+import { pendingInputsSchema } from "./input-contracts.js";
 import { z } from "zod";
 import { backingStoreSchema } from "./backing-store.js";
 import {
@@ -25,7 +26,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-11-14.1";
+export const API_REVISION = "2026-11-14.2";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -138,7 +139,16 @@ export const providerSchema = z.object({
   supportsSteering: z
     .boolean()
     .describe(
-      "Harness capability; no v0 steering endpoint is implemented yet.",
+      "Harness capability. createInput delivery=steer joins an active turn only when true; otherwise it queues after the turn.",
+    ),
+  compaction: z
+    .object({
+      supported: z.boolean(),
+      honorsInstructions: z.boolean(),
+    })
+    .optional()
+    .describe(
+      "Queued compaction through createInput type=compact. A running session must also advertise compaction. Absent from older targets.",
     ),
   supportsPermissionMode: z
     .boolean()
@@ -164,7 +174,7 @@ export const sessionSchema = z.object({
   state: z
     .string()
     .describe(
-      "Observed runtime/catalog state, not a guarantee that a turn has completed. This resource is a summary, not a transcript.",
+      "Observed runtime/catalog state, for example idle, in-turn, waiting-input, compacting (a YA-queued compaction is running) or not-running; not a guarantee that a turn has completed. This resource is a summary, not a transcript.",
     ),
 });
 export type ApiProject = z.infer<typeof projectSchema>;
@@ -362,10 +372,22 @@ export const operations = [
     paginated: true,
   },
   {
-    id: "prompt",
-    path: "/servers/:serverId/sessions/:sessionId/prompts",
+    id: "createInput",
+    path: "/servers/:serverId/sessions/:sessionId/inputs",
     method: "POST",
-    request: promptRequest.omit({ requestId: true }),
+    request: inputBody,
+    response: receiptSchema,
+  },
+  {
+    id: "inputs",
+    path: "/servers/:serverId/sessions/:sessionId/inputs",
+    response: pendingInputsSchema,
+  },
+  {
+    id: "cancelInput",
+    path: "/servers/:serverId/sessions/:sessionId/inputs/:inputId/cancel",
+    method: "POST",
+    request: controlRequest.omit({ requestId: true }),
     response: receiptSchema,
   },
   {
@@ -504,7 +526,7 @@ export const operationDocumentation: Record<
   capabilities: {
     summary: "Discover implemented operations",
     description:
-      "Read target implementation support, independently of caller/resource authorization. peerRouting indicates whether this caller can use the access server's configured peer adapter; it never implies onward access through a target. Provider steering flags do not imply a v0 steering endpoint.",
+      "Read target implementation support, independently of caller/resource authorization. peerRouting indicates whether this caller can use the access server's configured peer adapter; it never implies onward access through a target. Provider steering flags describe createInput delivery=steer, not a separate endpoint.",
     example: "/v0/servers/{serverId}/capabilities",
   },
   projects: {
@@ -525,11 +547,24 @@ export const operationDocumentation: Record<
       "List retained summaries, optionally filtered by exact projectId. Newest updatedAt first, then id. Resource grants, creator access and hidden projects apply before pagination. Ambiguous cross-project ids are omitted. This does not return messages or completion results.",
     example: "/v0/servers/{serverId}/sessions?projectId={projectId}&limit=1",
   },
-  prompt: {
-    summary: "Queue attributed input on an active session",
+  createInput: {
+    summary: "Queue a prompt or compaction on an active session",
     description:
-      "Requires explicit management authority like createSession. Supply Idempotency-Key and POST strict JSON {prompt,delivery?:'queue'}. Reuse the identical key/body after response loss. Only the incumbent active native owner receives input; stopped sessions return409 session_not_running, with no automatic resume, steering, model/mode change or restart. Input can be consumed together with other queued messages. The202 receipt distinguishes accepted from native-input consumed; neither proves provider acknowledgement or successful completion. Follow the receipt for delivery evidence and its session conversation for the reply.",
-    example: "/v0/servers/{serverId}/sessions/{sessionId}/prompts",
+      'Requires explicit management authority like createSession. Supply Idempotency-Key and POST strict JSON {type:"prompt",text,delivery?} or {type:"compact",instructions?,delivery?}. Input enters YA\'s provider-agnostic queue, the same one the composer uses. delivery: deferred (default, next turn boundary), patient (verified idle plus a short quiet interval; survives restart paused) or steer (prompts only: joins the active turn where supported). An idle session receives deferred and steer input at once. Compaction is a distinct queue entry: later input waits until it succeeds, and a failure holds later input until the compaction is cancelled. To compact yourself and continue, queue compact, then queue the continuation prompt, then end your turn. Unsupported compaction returns 409 compaction_unsupported. Only the incumbent active native owner receives input; stopped sessions return 409 session_not_running, with no automatic resume, model/mode change or restart. The 202 receipt id is also the input id. Follow it: input.status reports queued/released/cancelled/paused, delivery=consumed means the provider consumed the input, and compact receipts report completion compacted/failed/unconfirmed. Prompt completion stays unknown; read the conversation for the reply.',
+    example: "/v0/servers/{serverId}/sessions/{sessionId}/inputs",
+  },
+  inputs: {
+    summary: "List pending queued input",
+    description:
+      "Operator or explicitly granted peer read of the session's pending queue in delivery order, including composer-queued items (receiptId=null), restart-paused patient items and a running compaction. Each item has id, type, delivery, status, cancellable, createdAt and recorded creator provenance. text is null for peers without conversation access. Delivered input leaves this list; follow its receipt or the conversation. A stopped session can still list restart-paused items, which resume only from the UI.",
+    example: "/v0/servers/{serverId}/sessions/{sessionId}/inputs",
+  },
+  cancelInput: {
+    summary: "Remove pending queued input",
+    description:
+      "Requires management authority. POST {} with Idempotency-Key, using an id from inputs (for v0 input, its receipt id). Removes a queued or restart-paused item, or a steer the provider has not consumed. A dispatched compaction or YA-owned command returns 409 input_not_cancellable; input that was already delivered or removed returns 409 input_not_pending. Receipt result reports cancelled=true. There is no edit, reorder or steer-now.",
+    example:
+      "/v0/servers/{serverId}/sessions/{sessionId}/inputs/{inputId}/cancel",
   },
   followReceipt: {
     summary: "Follow one submission receipt",
@@ -589,7 +624,7 @@ export const errorDescriptions = {
   401: "Authentication missing, invalid or expired. Host authentication may return its existing error format.",
   403: "Request denied by host, origin, custom-header or principal policy. The hosting security layer may use its existing error format.",
   404: "Unknown resource/server, or session absent/inaccessible/ambiguous in a complete catalog; anchor_unavailable means choose another history window explicitly. No target fallback.",
-  409: "request_id_conflict: retry key names a different payload; identity_pending: owning session is not bound yet; session_not_running: input requires the incumbent active owner.",
+  409: "request_id_conflict: retry key names a different payload; identity_pending: owning session is not bound yet; session_not_running: input requires the incumbent active owner; compaction_unsupported: this session cannot queue compaction; input_not_pending/input_not_cancellable: the queued input can no longer be removed.",
   500: "internal_error: unexpected read failure; private exception details are not returned.",
   503: "catalog_not_ready: session absence is uncertain in an incomplete catalog; controller_unavailable: the catalog owner is detached/reloading. Retry reads later; neither means the session was deleted. conversation_unavailable means history could not be acquired or projected, including unsupported/unreadable sources or the acquisition deadline. Usable size-limited windows return partial coverage instead; do not infer successful completion.",
 };
@@ -616,7 +651,7 @@ export function apiHelp(selected?: Operation, targetServerId?: string) {
     "",
     `Revision: ${API_REVISION}. Unstable: routes, fields and behavior may change.`,
     "",
-    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Input messaging requires the same explicit management authority. Configured peer adapters expose target-authorized server addressing; inspect servers, access and capabilities.peerRouting rather than assuming a route. Pending permission requests can be inspected and answered; cancel interrupts and may hard-abort, and stop verifies provider shutdown. Configuration changes, arbitrary command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
+    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Queued input (prompts and compaction through YA's queue) requires the same explicit management authority; pending input can be listed and removed. Configured peer adapters expose target-authorized server addressing; inspect servers, access and capabilities.peerRouting rather than assuming a route. Pending permission requests can be inspected and answered; cancel interrupts and may hard-abort, and stop verifies provider shutdown. Configuration changes, arbitrary command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
     "",
     "## Connect and discover",
     "",
@@ -660,7 +695,7 @@ export function apiHelp(selected?: Operation, targetServerId?: string) {
     "",
     "Creation returns 202 with a durable receipt {id,sessionId,state,delivery,completion,...}; sessionId can be null until admission settles. GET /v0/servers/{serverId}/receipts/{id}/follow?waitMs=4000 to observe it. Reissue with after={cursor}; changed replies replace the receipt. Admission and delivery=consumed are not completion. When the task requires verifying launch controls, read /sessions/{sessionId} for effective settings and routing. Read /sessions/{sessionId}/conversation or /conversation/follow for the actual answer.",
     "",
-    "POST /v0/servers/{serverId}/sessions/{sessionId}/prompts with Idempotency-Key and JSON {prompt,delivery?:'queue'}. It queues only on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. Follow that receipt for delivery=consumed and the conversation for the reply. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. completion remains unknown; inspect the requested result in the conversation.",
+    'POST /v0/servers/{serverId}/sessions/{sessionId}/inputs with Idempotency-Key and JSON {type:"prompt",text,delivery?:"deferred"|"patient"|"steer"} or {type:"compact",instructions?,delivery?:"deferred"|"patient"}. Input uses YA\'s queue on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. GET the same path for pending input, and POST .../inputs/{inputId}/cancel to remove one. Follow the receipt for input.status, delivery=consumed and compaction completion, and the conversation for the reply. To compact yourself and continue, queue compact, then your continuation prompt, then end your turn. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. Prompt completion remains unknown; inspect the requested result in the conversation.',
     "",
     "## Errors and observation",
     "",
@@ -799,7 +834,9 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                     description:
                       match[1] === "serverId"
                         ? "Public server id from GET /v0/servers, or self for the receiving access server. Unknown targets fail without local fallback."
-                        : "Canonical YA session id from this target's session collection.",
+                        : match[1] === "inputId"
+                          ? "Pending input id from this session's inputs list."
+                          : "Canonical YA session id from this target's session collection.",
                     schema: { type: "string", minLength: 1 },
                   }),
                 ),

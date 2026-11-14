@@ -167,14 +167,14 @@ try {
   );
   if (!JSON.stringify(output).includes("OWNED_WINDOWS_PEER_RESULT"))
     throw Error("Native output missing");
-  const prompt = { prompt: "WAIT_FOR_CROSS_HOST_CANCEL" };
+  const prompt = { type: "prompt", text: "WAIT_FOR_CROSS_HOST_CANCEL" };
   const sent = await api<ApiReceipt>(
-    `${base}/sessions/${sid}/prompts`,
+    `${base}/sessions/${sid}/inputs`,
     prompt,
     "cross-prompt-001",
   );
   const retry = await api<ApiReceipt>(
-    `${base}/sessions/${sid}/prompts`,
+    `${base}/sessions/${sid}/inputs`,
     prompt,
     "cross-prompt-001",
   );

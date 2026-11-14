@@ -313,8 +313,8 @@ export function grade(
         (entry) =>
           entry.method === "POST" &&
           entry.status === 202 &&
-          entry.path === `${root}/sessions/eval-worker-1/prompts` &&
-          entry.receipt?.kind === "prompt",
+          entry.path === `${root}/sessions/eval-worker-1/inputs` &&
+          entry.receipt?.kind === "input",
       );
       const repeated =
         sent.length >= 2 &&

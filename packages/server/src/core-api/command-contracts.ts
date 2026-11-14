@@ -104,26 +104,71 @@ export const createSessionRequest = z
         !!(body.routerPoolId || body.routerAccountId)),
     "Claude connectors require an explicit Claude router selection",
   );
-export const promptRequest = z
+const promptInput = z
   .object({
-    requestId: requestIdSchema,
-    prompt: z
+    type: z.literal("prompt"),
+    text: z
       .string()
       .min(1)
       .max(100000)
       .refine((value) => value.trim().length > 0)
       .describe(
-        "Follow-up text for the incumbent native session owner. No automatic resume, mode/model change, interruption or command translation.",
+        "Exact input text for the incumbent session. Slash text is not translated; queue compaction with type=compact.",
       ),
     delivery: z
-      .literal("queue")
-      .default("queue")
+      .enum(["deferred", "patient", "steer"])
+      .default("deferred")
       .describe(
-        "Append to the native input queue. Does not steer/intercept an active turn. Busy inputs may be consumed together; consumption is not successful response completion.",
+        "deferred: YA's regular queue, delivered at the next turn boundary. patient: waits for verified idle plus a short quiet interval, and survives restart paused. steer: joins the active turn where the provider supports steering, otherwise queues after it. An idle session receives deferred and steer input at once.",
       ),
   })
   .strict();
-export type PromptRequest = z.infer<typeof promptRequest>;
+const compactInput = z
+  .object({
+    type: z.literal("compact"),
+    instructions: z
+      .string()
+      .min(1)
+      .max(10000)
+      .refine((value) => value.trim().length > 0)
+      .optional()
+      .describe(
+        "Optional focus instructions. Claude receives them after /compact; Codex's native compaction ignores them.",
+      ),
+    delivery: z
+      .enum(["deferred", "patient"])
+      .default("deferred")
+      .describe(
+        "When compaction starts: deferred at the next turn boundary, patient after verified idle. Later input waits until compaction succeeds; a failure holds it visibly until the compaction is cancelled.",
+      ),
+  })
+  .strict();
+/** Request body without the header-supplied retry key. */
+export const inputBody = z.discriminatedUnion("type", [
+  promptInput,
+  compactInput,
+]);
+export const inputRequest = z.discriminatedUnion("type", [
+  promptInput.extend({ requestId: requestIdSchema }),
+  compactInput.extend({ requestId: requestIdSchema }),
+]);
+export type InputRequest = z.infer<typeof inputRequest>;
+export const inputProgressSchema = z.object({
+  type: z.enum(["prompt", "compact"]),
+  delivery: z
+    .enum(["deferred", "patient", "steer"])
+    .describe("Requested delivery."),
+  status: z
+    .enum(["queued", "released", "cancelled", "paused"])
+    .describe(
+      "queued: held in YA's queue. released: handed to the provider. cancelled: removed before delivery. paused: preserved across a server restart; inspect inputs.",
+    ),
+  compaction: z
+    .enum(["pending", "compacting", "compacted", "failed", "unconfirmed"])
+    .optional()
+    .describe("Compact inputs only."),
+});
+export type InputProgress = z.infer<typeof inputProgressSchema>;
 export type CreateSessionRequest = z.infer<typeof createSessionRequest>;
 export const creatorSchema = z.object({
   serverId: z
@@ -154,7 +199,19 @@ export type ApiCreator = z.infer<typeof creatorSchema>;
 export const receiptSchema = z.object({
   id: z.string(),
   requestId: requestIdSchema,
-  kind: z.enum(["createSession", "prompt", "respond", "cancel", "stop"]),
+  kind: z
+    .enum([
+      "createSession",
+      "input",
+      "cancelInput",
+      "respond",
+      "cancel",
+      "stop",
+      "prompt",
+    ])
+    .describe(
+      "prompt appears only on receipts recorded before the inputs API replaced it.",
+    ),
   state: z
     .enum(["dispatching", "queued", "accepted", "failed", "uncertain"])
     .describe(
@@ -174,15 +231,18 @@ export const receiptSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   delivery: z
-    .enum(["unknown", "consumed", "uncertain"])
+    .enum(["unknown", "consumed", "uncertain", "cancelled"])
     .describe(
-      "unknown awaits evidence; uncertain means owner/restart lost delivery proof. consumed means the native provider input iterator consumed the input, not provider acknowledgement or successful completion.",
+      "unknown awaits evidence; uncertain means owner/restart lost delivery proof. consumed means the native provider consumed the input (for compaction, that it compacted), not provider acknowledgement or successful completion. cancelled means removed from YA's queue before delivery.",
     ),
   completion: z
-    .enum(["unknown"])
+    .enum(["unknown", "compacted", "failed", "unconfirmed"])
     .describe(
-      "No completion claim is inferred from idle activity or unrelated replies. Follow the conversation and inspect evidence.",
+      "Prompts stay unknown: no completion claim is inferred from idle activity or unrelated replies, so follow the conversation. Compact inputs report the observed compaction outcome; unconfirmed means no outcome after 180 seconds.",
     ),
+  input: inputProgressSchema
+    .optional()
+    .describe("Queue progress for input receipts."),
   result: z.record(z.string(), z.unknown()).optional(),
   failure: z.object({ code: z.string(), message: z.string() }).optional(),
 });

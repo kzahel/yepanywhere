@@ -7,7 +7,10 @@ import {
   type ApiServerMetadata,
   type Operation,
 } from "../core-api/contracts.js";
-import type { ApiPrincipal } from "../core-api/peer-policy.js";
+import {
+  peerOperationGranted,
+  type ApiPrincipal,
+} from "../core-api/peer-policy.js";
 import {
   receiptBindingSchema,
   type ApiOutbound,
@@ -186,7 +189,7 @@ export class PeerApiRouter {
         "Outgoing peer credential expired",
         401,
       );
-    if (!input.http && !peer.operations.includes(operation))
+    if (!input.http && !peerOperationGranted(peer.operations, operation))
       throw new CoreApiError(
         "forbidden",
         "Outgoing peer operation is not granted",

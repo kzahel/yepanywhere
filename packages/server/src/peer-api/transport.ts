@@ -53,7 +53,8 @@ export function peerOperationRequest(
     .replace(":serverId", encodeURIComponent(input.serverId ?? ""))
     .replace(":sessionId", encodeURIComponent(input.sessionId ?? ""))
     .replace(":receiptId", encodeURIComponent(input.receiptId ?? ""))
-    .replace(":requestId", encodeURIComponent(input.pendingRequestId ?? ""));
+    .replace(":requestId", encodeURIComponent(input.pendingRequestId ?? ""))
+    .replace(":inputId", encodeURIComponent(input.inputId ?? ""));
   const url = new URL(`/v0${path}`, "http://peer.internal");
   for (const [key, value] of Object.entries(input.query ?? {}))
     if (value !== undefined) url.searchParams.set(key, value);

@@ -308,10 +308,11 @@ it.each([false, true])(
       await read(fixture.environment, path + "/conversation");
       const input = {
         requestId: "eval-message-1",
-        prompt: "Follow-up artifact",
+        type: "prompt",
+        text: "Follow-up artifact",
       };
       const sent = JSON.parse(
-        (await read(fixture.environment, path + "/prompts", true, input)).body,
+        (await read(fixture.environment, path + "/inputs", true, input)).body,
       );
       await read(fixture.environment, path + "/relationships");
       await read(fixture.environment, path + "/conversation/follow?waitMs=0");
@@ -325,7 +326,7 @@ it.each([false, true])(
         grade("workflow", answer, fixture.trace, false, fixture.apiServerId),
       ).toBe(false);
       const repeated = JSON.parse(
-        (await read(fixture.environment, path + "/prompts", true, input)).body,
+        (await read(fixture.environment, path + "/inputs", true, input)).body,
       );
       expect(repeated.id).toBe(sent.id);
       expect(

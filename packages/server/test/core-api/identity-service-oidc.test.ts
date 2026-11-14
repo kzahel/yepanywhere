@@ -24,7 +24,7 @@ const operations: Operation[] = [
   "conversation",
   "followConversation",
   "createSession",
-  "prompt",
+  "createInput",
   "receipt",
   "followReceipt",
   "relationships",
@@ -179,9 +179,10 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
     sid = receipt.body.receipt.sessionId;
   expect(
     (
-      await nativeRequest(runtime, token, `${base}/sessions/${sid}/prompts`, {
+      await nativeRequest(runtime, token, `${base}/sessions/${sid}/inputs`, {
         requestId: "oidc-peer-message",
-        prompt: "Continue",
+        type: "prompt",
+        text: "Continue",
       })
     ).status,
   ).toBe(202);

@@ -5,6 +5,7 @@ import type { ApiReceiptStore } from "./receipt-store.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { ServerSettingsService } from "../services/ServerSettingsService.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
+import type { SessionQueuePersistenceService } from "../services/SessionQueuePersistenceService.js";
 import {
   agentApiCallerLaunch,
   effectiveGlobalInstructions,
@@ -18,6 +19,7 @@ export function createProductionApiCommands(
     dataDir?: string;
     serverSettingsService?: ServerSettingsService;
     sessionMetadataService?: SessionMetadataService;
+    sessionQueuePersistenceService?: SessionQueuePersistenceService;
   },
   supervisor: Supervisor,
 ) {
@@ -26,6 +28,8 @@ export function createProductionApiCommands(
     apiReceipts,
     nativeSessionCommandOwner({
       supervisor,
+      sessionQueuePersistenceService: options.sessionQueuePersistenceService,
+      sessionMetadataService: options.sessionMetadataService,
       dataDir: options.dataDir,
       approvalAuditEnabled: () =>
         options.serverSettingsService?.getSetting("approvalAuditLogEnabled") ===

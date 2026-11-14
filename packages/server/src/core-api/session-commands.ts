@@ -7,9 +7,11 @@ import type { ApiProject, ApiLaunchContext, ApiSession } from "./contracts.js";
 import type {
   ApiReceipt,
   CreateSessionRequest,
-  PromptRequest,
+  InputRequest,
   ApiCreator,
 } from "./command-contracts.js";
+import type { ApiPendingInput } from "./input-contracts.js";
+import type { InputReceiptPatch } from "./native-session-inputs.js";
 import type { ApiReceiptStore } from "./receipt-store.js";
 import { CoreApiError } from "./errors.js";
 
@@ -27,13 +29,28 @@ export interface SessionCommandOwner {
     ended?: () => void,
   ): Promise<{ sessionId: string; consumed?: boolean } | undefined>;
   canSend?(sessionId: string): boolean;
+  /** Refuses input the session cannot take, before any receipt exists. */
+  checkInput?(sessionId: string, request: InputRequest): Promise<void>;
   send?(
     sessionId: string,
-    request: PromptRequest,
+    request: InputRequest,
     receipt: ApiReceipt,
     consumed: () => void,
     ended: () => void,
-  ): { accepted: boolean };
+    progress?: (patch: InputReceiptPatch) => void,
+    /** False once authority or the command owner ended; nothing is queued. */
+    admissible?: () => boolean,
+  ):
+    | { accepted: boolean; failure?: { code: string; message: string } }
+    | Promise<{
+        accepted: boolean;
+        failure?: { code: string; message: string };
+      }>;
+  inputs?(
+    sessionId: string,
+    receiptFor: (id: string) => boolean,
+    includeText: boolean,
+  ): ApiPendingInput[];
   close?(): void;
   start(
     project: ApiProject,
@@ -217,20 +234,78 @@ export class SessionCommands {
   private consumed(id: string) {
     if (this.disposed) return;
     try {
+      const input = this.store.get(id)?.input;
       this.store.update(id, {
         state: "accepted",
         delivery: "consumed",
         failure: undefined,
+        ...(input ? { input: { ...input, status: "released" as const } } : {}),
       });
     } catch (error) {
       this.onError(error);
     }
   }
+  /** A confirmed removal is final for the input's own receipt. */
+  private inputCancelled(sessionId: string, inputId: string) {
+    try {
+      const input = this.store.get(inputId);
+      if (
+        input?.kind !== "input" ||
+        input.delivery === "consumed" ||
+        input.sessionId !== this.store.resolveId(sessionId)
+      )
+        return;
+      this.store.update(inputId, {
+        delivery: "cancelled",
+        failure: undefined,
+        ...(input.input
+          ? { input: { ...input.input, status: "cancelled" as const } }
+          : {}),
+      });
+    } catch (error) {
+      this.onError(error);
+    }
+  }
+  /** Queue progress never weakens stronger delivery evidence. */
+  private inputProgress(id: string, patch: InputReceiptPatch) {
+    if (this.disposed) return;
+    try {
+      const current = this.store.get(id);
+      if (!current) return;
+      const { input: reported, ...rest } = patch;
+      const input = reported && { ...reported };
+      if (current.delivery === "consumed" && rest.delivery !== undefined)
+        delete rest.delivery;
+      if (current.delivery === "consumed" && rest.failure) delete rest.failure;
+      if (current.delivery === "consumed" && input?.status) delete input.status;
+      this.store.update(id, {
+        ...rest,
+        ...(input
+          ? { input: { ...current.input, ...input } as ApiReceipt["input"] }
+          : {}),
+      });
+    } catch (error) {
+      this.onError(error);
+    }
+  }
+  inputs(sessionId: string, includeText: boolean): ApiPendingInput[] {
+    return (
+      this.owner.inputs?.(
+        sessionId,
+        (id) => this.store.get(id)?.kind === "input",
+        includeText,
+      ) ?? []
+    );
+  }
   private ended(id: string) {
     if (this.disposed) return;
     try {
       const receipt = this.store.get(id);
-      if (receipt && receipt.delivery !== "consumed")
+      if (
+        receipt &&
+        receipt.delivery !== "consumed" &&
+        receipt.delivery !== "cancelled"
+      )
         this.store.update(id, {
           delivery: "uncertain",
           failure: {
@@ -243,9 +318,9 @@ export class SessionCommands {
       this.onError(error);
     }
   }
-  replaySend(
+  replayInput(
     sessionId: string,
-    request: PromptRequest,
+    request: InputRequest,
     launch?: ApiLaunchContext,
     authenticated?: ApiCreator,
     checkPayload = true,
@@ -253,7 +328,7 @@ export class SessionCommands {
     return this.store.lookup(
       {
         requestId: request.requestId,
-        kind: "prompt",
+        kind: "input",
         projectId: "",
         sessionId,
         creator: this.creator(launch, authenticated),
@@ -262,25 +337,30 @@ export class SessionCommands {
       checkPayload,
     );
   }
-  send(
+  async input(
     session: ApiSession,
-    request: PromptRequest,
+    request: InputRequest,
     launch?: ApiLaunchContext,
     authenticated?: ApiCreator,
+    /** Throws when the caller's authority ended during an await. */
+    authorize: () => void = () => {},
   ) {
-    if (this.disposed)
-      throw new CoreApiError(
-        "controller_unavailable",
-        "Session command owner is closing",
-        503,
-      );
-    if (!this.enabled())
-      throw new CoreApiError(
-        "forbidden",
-        "Session command enablement was revoked before admission",
-        403,
-      );
-    const replay = this.replaySend(session.id, request, launch, authenticated);
+    const admissible = () => {
+      if (this.disposed)
+        throw new CoreApiError(
+          "controller_unavailable",
+          "Session command owner is closing",
+          503,
+        );
+      if (!this.enabled())
+        throw new CoreApiError(
+          "forbidden",
+          "Session command enablement was revoked before admission",
+          403,
+        );
+    };
+    admissible();
+    const replay = this.replayInput(session.id, request, launch, authenticated);
     if (replay) return replay;
     if (!this.owner.canSend?.(session.id) || !this.owner.send)
       throw new CoreApiError(
@@ -288,9 +368,12 @@ export class SessionCommands {
         "Only the incumbent active native owner can receive input; automatic resume is not supported",
         409,
       );
+    await this.owner.checkInput?.(session.id, request);
+    admissible();
+    authorize();
     const { created, receipt } = this.store.reserve({
       requestId: request.requestId,
-      kind: "prompt",
+      kind: "input",
       projectId: session.projectId,
       sessionId: session.id,
       creator: this.creator(launch, authenticated),
@@ -299,20 +382,31 @@ export class SessionCommands {
     });
     if (!created) return receipt;
     try {
-      const result = this.owner.send(
+      const result = await this.owner.send(
         session.id,
         request,
         receipt,
         () => this.consumed(receipt.id),
         () => this.ended(receipt.id),
+        (patch) => this.inputProgress(receipt.id, patch),
+        () => {
+          try {
+            admissible();
+            authorize();
+            return true;
+          } catch {
+            return false;
+          }
+        },
       );
+      if (this.disposed) return this.store.get(receipt.id)!;
       this.store.update(
         receipt.id,
         result.accepted
           ? { state: "accepted" }
           : {
               state: "failed",
-              failure: {
+              failure: result.failure ?? {
                 code: "input_rejected",
                 message:
                   "The native owner rejected input before queue admission",
@@ -388,11 +482,13 @@ export class SessionCommands {
     const work = execute()
       .then(
         (result) => {
-          if (!this.disposed)
-            this.store.update(reserved.receipt.id, {
-              state: "accepted",
-              result,
-            });
+          if (this.disposed) return;
+          this.store.update(reserved.receipt.id, {
+            state: "accepted",
+            result,
+          });
+          if (operation === "cancelInput" && pendingRequestId)
+            this.inputCancelled(session.id, pendingRequestId);
         },
         (error) => {
           if (!this.disposed)
@@ -434,7 +530,11 @@ export class SessionCommands {
         receipt.delivery !== "unknown")
     )
       return receipt;
-    if (!["createSession", "prompt"].includes(receipt.kind)) return receipt;
+    if (!["createSession", "prompt", "input"].includes(receipt.kind))
+      return receipt;
+    // A consumed /compact command is not compaction; only its observed
+    // outcome is evidence.
+    if (receipt.input?.type === "compact") return receipt;
     const evidence = await this.owner.recover?.(
       receipt,
       () => this.consumed(id),

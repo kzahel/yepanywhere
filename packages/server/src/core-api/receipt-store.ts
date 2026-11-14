@@ -231,7 +231,14 @@ export class ApiReceiptStore {
     patch: Partial<
       Pick<
         ApiReceipt,
-        "state" | "sessionId" | "queueId" | "delivery" | "failure" | "result"
+        | "state"
+        | "sessionId"
+        | "queueId"
+        | "delivery"
+        | "completion"
+        | "input"
+        | "failure"
+        | "result"
       >
     >,
   ) {
@@ -246,7 +253,14 @@ export class ApiReceiptStore {
     patch: Partial<
       Pick<
         ApiReceipt,
-        "state" | "sessionId" | "queueId" | "delivery" | "failure" | "result"
+        | "state"
+        | "sessionId"
+        | "queueId"
+        | "delivery"
+        | "completion"
+        | "input"
+        | "failure"
+        | "result"
       >
     >,
   ) {
@@ -278,7 +292,8 @@ export class ApiReceiptStore {
         if (
           receipt.state === "accepted" &&
           (receipt.delivery === "consumed" ||
-            (receipt.kind !== "createSession" && receipt.kind !== "prompt"))
+            receipt.delivery === "cancelled" ||
+            !["createSession", "prompt", "input"].includes(receipt.kind))
         )
           continue;
         const next = this.updateWithinTransaction(
