@@ -21,7 +21,7 @@ import {
   ownerRouteSchema,
   normalizeOwnerRoute,
 } from "./owner-client.js";
-import { invitationSchema, peerRouteSchema } from "./state.js";
+import { invitationSchema, peerOperations, peerRouteSchema } from "./state.js";
 
 const controlOperations = operations
   .filter((op) => op.path.includes(":serverId"))
@@ -336,7 +336,7 @@ export class PeerConnections {
             ? { allProjects: true }
             : {}),
           projects: current?.projects ?? [],
-          operations: current?.operations ?? controlOperations,
+          operations: current ? peerOperations(current) : controlOperations,
           ...(automatic
             ? { authentication: PEER_AUTHENTICATION }
             : input.automaticSignIn === false ||
@@ -359,7 +359,7 @@ export class PeerConnections {
     return {
       policyRevision: fence.revision,
       invitation,
-      operations: [...(current?.operations ?? controlOperations)],
+      operations: current ? peerOperations(current) : [...controlOperations],
       identity: this.manager.identity(),
       relay: this.bootstrap(input.identity.serverId).relay,
     };

@@ -110,6 +110,8 @@ export function rememberPeer(
   state.connections = [...others, record];
   return record;
 }
+/** recordPeerAudit keeps this many newest entries. */
+export const PEER_AUDIT_LIMIT = 512;
 export function recordPeerAudit(
   state: PeerMetadataState,
   action: PeerAudit["action"],
@@ -132,5 +134,5 @@ export function recordPeerAudit(
       ...operation,
       ...(initiatingServerId ? { initiatingServerId } : {}),
     }),
-  ].slice(-512);
+  ].slice(-PEER_AUDIT_LIMIT);
 }

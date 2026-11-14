@@ -152,7 +152,7 @@ it.each(["direct", "relay"] as const)(
       "projects",
       "session",
       "createSession",
-      "prompt",
+      "createInput",
       "receipt",
       "followReceipt",
     ] as const;

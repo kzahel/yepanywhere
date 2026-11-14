@@ -465,7 +465,21 @@ alone does not prove revocation. No new SRP purpose or cryptographic protocol
 is introduced. Credential changes and connection teardown fence pending proofs.
 
 A new trusted-control connection includes all current and future projects and
-resource operations. Automatic sign-in is the normal pairing choice, using the
+resource operations. Both ends store an `allOperations` marker, and each
+evaluates it against its own build when it authorizes a request, so operations
+a later release adds reach the pairing without re-pairing and removed ones
+lapse. The target grants the intersection of its build's operations, the
+source's attested list and any delegated authority; a call needs both builds to
+know the operation. Renewal through Server Connections keeps the marker. An
+owner API grant, rotation or outgoing import states a fixed list and clears it;
+a narrower credential that renewal preserves keeps its fixed list. Identity
+Service grants always keep fixed lists. Loading a pre-marker (version 3) store marks a
+manual all-projects record only when its retained audit reaches its creation,
+every issuance of that incoming credential (or every import for that target
+since its last removal, because replacement keeps an outgoing list across
+credential ids) came from Server Connections, and its list still holds every
+operation those control lists have carried since 2026-10-31. Pruned or mixed history stays fixed; re-pair to cover it. Owner
+peer readback reports `allOperations` and the effective list. Automatic sign-in is the normal pairing choice, using the
 90-day inactivity policy below. An explicitly unchecked automatic sign-in choice
 creates a fixed 30-day grant and is recorded on both ends; it never qualifies as
 an inferred legacy default. This permits YA
@@ -633,9 +647,10 @@ Grants still name operations and projects. The source attaches its outgoing
 operation ceiling to the existing source session/launch attestation; the target
 maps its own route and intersects that ceiling with current incoming and
 Identity Service authority. Bounded operation strings replace intermediary
-build-local enums. New operations still require explicit grants. Fresh owner pairing takes its
-operation set from the target-issued grant; renewing a narrower existing
-outgoing grant preserves that narrower set. No category
+build-local enums. A trusted-control pairing covers each build's current
+operations on both ends ([Server Connections settings](#server-connections-settings));
+every other grant needs new operations by name. Renewing a narrower existing
+fixed-list grant preserves that narrower set. No category
 model, onward routing, owner-administration access or restricted-user role is
 introduced. Unsandboxed session control still has the server-account authority
 stated above.

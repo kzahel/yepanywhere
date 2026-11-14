@@ -26,6 +26,7 @@ import {
   type PeerAccessState,
   type StoredOutgoingPeer,
   outgoingPeerPolicy,
+  peerOperations,
   uiPairingOperation,
   retirePeerAgentAccess,
 } from "./state.js";
@@ -291,7 +292,7 @@ export class PeerAccessManager {
           return {
             principal: { kind: "peer", serverId: peer.sourceServerId },
             scope: peer.allProjects ? "all-projects" : "project-grants",
-            operations: peer.operations,
+            operations: peerOperations(peer),
           };
         if (path !== PEER_REFRESH_PATH || request.method !== "POST")
           throw new CoreApiError(
@@ -458,7 +459,7 @@ export class PeerAccessManager {
         ...(peer.authentication ? { access: peer.authentication.access } : {}),
         ...(peer.allProjects ? { allProjects: true as const } : {}),
         projects: peer.projects,
-        operations: peer.operations,
+        operations: peerOperations(peer),
         expiresAt: peer.expiresAt,
         ...(peer.origin === "fleet" ? { identityBinding: peer.binding } : {}),
       });
@@ -503,7 +504,7 @@ export class PeerAccessManager {
       }
       this.router.put({
         serverId: peer.invitation.targetServerId,
-        operations: peer.operations,
+        operations: peerOperations(peer),
         allowAgentSessions: peer.allowAgentSessions,
         ...(this.authentication.eligible(peer)
           ? {}
@@ -539,6 +540,7 @@ export class PeerAccessManager {
           generation,
           projects,
           allProjects,
+          allOperations,
           operations,
           expiresAt,
           origin,
@@ -548,7 +550,8 @@ export class PeerAccessManager {
           generation,
           projects,
           allProjects,
-          operations,
+          allOperations: allOperations === true,
+          operations: peerOperations({ allOperations, operations }),
           expiresAt,
           origin,
         }),
@@ -558,11 +561,13 @@ export class PeerAccessManager {
           invitation,
           operations,
           allProjects,
+          allOperations,
           allowAgentSessions,
           route,
           origin,
         }) => ({
           allProjects: allProjects === true,
+          allOperations: allOperations === true,
           origin,
           selected:
             state.selected[invitation.targetServerId] ===
@@ -571,7 +576,7 @@ export class PeerAccessManager {
           credentialId: invitation.credentialId,
           generation: invitation.generation,
           expiresAt: invitation.expiresAt,
-          operations,
+          operations: peerOperations({ allOperations, operations }),
           allowAgentSessions,
           route,
         }),

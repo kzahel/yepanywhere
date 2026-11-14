@@ -556,11 +556,12 @@ Session reads report `state: "compacting"` while a YA-scheduled compaction
 (queued, or a patient compact-first gate) runs, which the provider reports as
 an ordinary turn. Compaction started by typed provider text is not detected.
 
-`createInput` replaced the earlier `prompt` operation without a route alias. A
-stored peer grant that names `prompt` still authorizes `createInput`, because
-[pairings stay frozen at their original operation list](../gaps/peer-grant-operations-frozen-at-pairing.md);
-`inputs` and `cancelInput` need their own grants, which new trusted-control
-pairings receive. Both endpoints of a forwarded call need this build.
+`createInput` replaced the earlier `prompt` operation without a route alias,
+and a grant naming `prompt` authorizes nothing. Trusted-control pairings cover
+every current operation ([peer access](peer-access.md#server-connections-settings)),
+so they reach `createInput`, `inputs` and `cancelInput` without re-pairing; an
+explicit grant needs each by name. Both endpoints of a forwarded call need this
+build.
 
 `GET /v0/servers/{serverId}/receipts/{receiptId}/follow` is operator-only like
 receipt reads. The first request returns `{cursor,changed:true,receipt}`. Reissue
@@ -1308,8 +1309,8 @@ cancellation or failure hold, and never used Codex's native compaction RPC.
   server capabilities, because it differs by harness.
 - `compacting` covers YA-scheduled compaction only; detecting compaction a
   provider starts from typed text would need Process changes.
-- Stored `prompt` peer grants authorize `createInput` (see the contract), so
-  paired servers keep follow-up input without re-pairing.
+- Paired servers keep follow-up input because trusted-control pairings now
+  cover every current operation, not through a `prompt` alias.
 
 ### Remaining decisions
 

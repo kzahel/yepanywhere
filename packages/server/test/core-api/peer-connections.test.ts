@@ -2,6 +2,10 @@ import WebSocket from "ws";
 import { SRPClientSession, SRPRoutines, SRPParameters } from "tssrp6a";
 import { afterEach, expect, it, vi } from "vitest";
 import { once } from "node:events";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import { upgradeWebSocket } from "@hono/node-server";
 import { WebSocketServer } from "ws";
@@ -18,6 +22,10 @@ import { getAuthenticatedSrpTransport } from "../../src/middleware/authenticated
 import { RemoteAccessService } from "../../src/remote-access/RemoteAccessService.js";
 import { RemoteSessionService } from "../../src/remote-access/RemoteSessionService.js";
 import { PeerConnections } from "../../src/peer-api/connections.js";
+import {
+  PeerAccessStore,
+  uiPairingOperation,
+} from "../../src/peer-api/state.js";
 import { PeerOwnerClient } from "../../src/peer-api/owner-client.js";
 import { RelayClientService } from "../../src/services/RelayClientService.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
@@ -740,6 +748,7 @@ it("preserves each server’s narrower outgoing policy independently on renewal"
     return true;
   });
   await a.manager.store.mutate((next) => {
+    delete next.outgoing[0]!.allOperations;
     next.outgoing[0]!.operations = [
       "server",
       "access",
@@ -777,6 +786,7 @@ it("preserves each server’s narrower outgoing policy independently on renewal"
   );
   expect(b.manager.store.read().outgoing[0]?.allowAgentSessions).toBe(true);
   await b.manager.store.mutate((next) => {
+    delete next.outgoing[0]!.allOperations;
     next.outgoing[0]!.operations = [
       "server",
       "access",
@@ -922,4 +932,293 @@ it("retains an explicit fixed choice and preserves a fixed reverse direction whe
   expect(b.manager.store.read().outgoing[0]!.invitation.automaticSignIn).toBe(
     false,
   );
+});
+
+// The release before the inputs API: no createInput, inputs or cancelInput.
+const releasedBeforeInputs = [
+  "server",
+  "access",
+  "capabilities",
+  "projects",
+  "providers",
+  "selection",
+  "sessions",
+  "session",
+  "conversation",
+  "followConversation",
+  "createSession",
+  "receipt",
+  "relationships",
+  "prompt",
+  "followReceipt",
+  "targetHelp",
+  "targetSchema",
+  "requests",
+  "respond",
+  "cancel",
+  "stop",
+];
+
+it("lets a trusted pairing use operations added after it was paired, on both ends", async () => {
+  const a = await ownerProfile(),
+    b = await ownerProfile(),
+    controller = new PeerConnections(a.manager);
+  const input = {
+    route: b.ownerRoute,
+    username: "owner-pair-test",
+    password: "pair-test-password",
+  };
+  const paired = await controller.connect(
+    input,
+    guard,
+    AbortSignal.timeout(5000),
+  );
+  expect(paired.outcome, paired.issue).toBe("connected");
+  expect(a.manager.store.read().outgoing[0]!.allOperations).toBe(true);
+  expect(b.manager.store.read().incoming[0]!.allOperations).toBe(true);
+  // Both ends hold an older release's list; only the marker grants the rest.
+  await a.manager.store.mutate((next) => {
+    next.outgoing[0]!.operations = [...releasedBeforeInputs];
+  });
+  await b.manager.store.mutate((next) => {
+    next.incoming[0]!.operations = [...releasedBeforeInputs];
+  });
+  const access = (await a.read("access", { serverId: b.id })) as {
+    operations: string[];
+  };
+  expect(access.operations).toEqual(
+    expect.arrayContaining(["createInput", "inputs", "cancelInput"]),
+  );
+  expect(access.operations).not.toContain("prompt");
+  // Owner readback reports the marker and the effective list.
+  for (const peer of [
+    a.manager.publicState().outgoing[0]!,
+    b.manager.publicState().incoming[0]!,
+  ]) {
+    expect(peer.allOperations).toBe(true);
+    expect(peer.operations).toContain("cancelInput");
+    expect(peer.operations).not.toContain("prompt");
+  }
+  const created = (await a.router.read("createSession", SUPERUSER, {
+    serverId: b.id,
+    ownerAuthenticated: true,
+    body: {
+      requestId: "trusted-later-create",
+      projectId: "p",
+      provider: "codex",
+      prompt: "Start",
+    },
+  })) as { id: string };
+  await expect
+    .poll(() => b.receipts.get(created.id)?.sessionId)
+    .toBe("created-1");
+  await a.read("createInput", {
+    serverId: b.id,
+    sessionId: "created-1",
+    body: { requestId: "trusted-later-input", type: "prompt", text: "Next" },
+  });
+  expect(b.sends()).toBe(1);
+
+  const renewed = await controller.connect(
+    { ...input, replace: true },
+    guard,
+    AbortSignal.timeout(5000),
+  );
+  expect(renewed.outcome, renewed.issue).toBe("connected");
+  for (const peer of [
+    a.manager.store.read().outgoing[0]!,
+    b.manager.store.read().incoming[0]!,
+  ]) {
+    expect(peer.allOperations).toBe(true);
+    expect(peer.operations).toContain("cancelInput");
+    expect(peer.operations).not.toContain("prompt");
+  }
+  // An owner API rotation states its own list and leaves trusted control.
+  const incoming = b.manager.store.read().incoming[0]!;
+  await b.manager.issue(
+    {
+      projects: ["p"],
+      operations: ["projects"],
+      expiresAt: Date.now() + 60_000,
+    },
+    incoming.id,
+  );
+  expect(b.manager.store.read().incoming[0]).toMatchObject({
+    operations: ["server", "access", "capabilities", "projects"],
+  });
+  expect(b.manager.store.read().incoming[0]!.allOperations).toBeUndefined();
+}, 15_000);
+
+it("marks only pre-marker trusted-control pairings with complete Server Connections history when loading version 3", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ya-peer-v3-"));
+  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const serverId = randomUUID(),
+    store = new PeerAccessStore(serverId, directory);
+  await store.initialize();
+  const control = releasedBeforeInputs.filter((op) => op !== "prompt");
+  const trusted = randomUUID(),
+    rotated = randomUUID(),
+    narrowed = randomUUID(),
+    renewedExplicit = randomUUID(),
+    pruned = randomUUID();
+  const grant = (operations: string[]) => ({
+    allProjects: true as const,
+    projects: [],
+    operations,
+    // The historical fixed 30-day UI default, eligible for refresh migration.
+    expiresAt: Date.now() + 30 * 24 * 60 * 60_000 - 1000,
+    acknowledgeExecutionAuthority: "server-account" as const,
+  });
+  // Server Connections records an operation id; the owner API does not.
+  const connections = (source: string, operations = control) =>
+    store.issue(
+      { sourceServerId: source, ...grant(operations) },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      randomUUID(),
+      source,
+      true,
+    );
+  const renew = (source: string) => {
+    const peer = store
+      .read()
+      .incoming.find((p) => p.sourceServerId === source)!;
+    return store.issue(
+      grant(peer.operations),
+      peer.id,
+      undefined,
+      undefined,
+      undefined,
+      randomUUID(),
+      source,
+      true,
+    );
+  };
+  for (const source of [trusted, narrowed, pruned]) await connections(source);
+  await renew(pruned);
+  await store.issue({ sourceServerId: rotated, ...grant(control) });
+  // An explicit grant without stop, later renewed through Server Connections.
+  const explicit = control.filter((op) => op !== "stop");
+  await store.issue({ sourceServerId: renewedExplicit, ...grant(explicit) });
+  await renew(renewedExplicit);
+  await store.close();
+
+  const state = JSON.parse(await readFile(store.path, "utf8"));
+  state.version = 3;
+  for (const peer of state.incoming) {
+    delete peer.allOperations;
+    peer.pairingOrigin = "server-connections";
+    if (peer.sourceServerId !== renewedExplicit)
+      peer.operations =
+        peer.sourceServerId === narrowed
+          ? releasedBeforeInputs.filter((op) => op !== "relationships")
+          : [...releasedBeforeInputs];
+  }
+  const prunedId = state.incoming.find(
+    (p: { sourceServerId: string }) => p.sourceServerId === pruned,
+  ).id;
+  state.audit = state.audit.filter(
+    (e: { credentialId?: string; generation?: number }) =>
+      e.credentialId !== prunedId || e.generation !== 1,
+  );
+  // connections/owner import the current credential, previous-owner imports
+  // an earlier credential whose list replacement kept, removed deletes it.
+  type History = "connections" | "owner" | "previous-owner" | "removed";
+  const outgoing = (history: History[]) => {
+    const id = randomUUID(),
+      previous = randomUUID(),
+      targetServerId = randomUUID();
+    for (const entry of history)
+      state.audit.push({
+        id: randomUUID(),
+        at: new Date().toISOString(),
+        serverId: targetServerId,
+        actor: "owner",
+        ...(entry === "removed"
+          ? { action: "outgoing-removed" }
+          : {
+              action: "outgoing-imported",
+              credentialId: entry === "previous-owner" ? previous : id,
+              generation: 1,
+              ...(entry === "connections" ? { operationId: randomUUID() } : {}),
+            }),
+      });
+    return {
+      origin: "manual",
+      invitation: {
+        version: 1,
+        sourceServerId: serverId,
+        targetServerId,
+        credentialId: id,
+        generation: 1,
+        username: `peer-${id}`,
+        secret: "a".repeat(43),
+        expiresAt: Date.now() + 60_000,
+      },
+      route: { kind: "direct", url: "ws://127.0.0.1:12345/peer/ws" },
+      operations: [...releasedBeforeInputs],
+      allowAgentSessions: true,
+      allProjects: true,
+      pairingOrigin: "server-connections",
+    };
+  };
+  state.outgoing = [
+    outgoing(["connections"]),
+    outgoing(["owner", "connections"]),
+    outgoing([]),
+    outgoing(["previous-owner", "connections"]),
+    outgoing(["previous-owner", "removed", "connections"]),
+  ];
+  await writeFile(store.path, JSON.stringify(state), { mode: 0o600 });
+
+  const loaded = new PeerAccessStore(serverId, directory);
+  await loaded.initialize();
+  const read = loaded.read(),
+    source = (id: string) =>
+      read.incoming.find((p) => p.sourceServerId === id)!;
+  expect(read.version).toBe(4);
+  expect(source(trusted)).toMatchObject({ allOperations: true });
+  expect(source(trusted).operations).toEqual(
+    expect.arrayContaining(["createInput", "inputs", "cancelInput"]),
+  );
+  expect(source(trusted).operations).not.toContain("prompt");
+  expect(uiPairingOperation(read, source(trusted))).toBeTruthy();
+  expect(uiPairingOperation(read, source(narrowed))).toBeUndefined();
+  for (const id of [rotated, narrowed, renewedExplicit, pruned])
+    expect(source(id).allOperations, id).toBeUndefined();
+  expect(source(renewedExplicit).operations).not.toContain("stop");
+  expect(read.outgoing.map((p) => p.allOperations)).toEqual([
+    true,
+    undefined,
+    undefined,
+    undefined,
+    true,
+  ]);
+  const migrated = await readFile(store.path, "utf8");
+  expect(JSON.parse(migrated).version).toBe(4);
+  await loaded.close();
+  const reopened = new PeerAccessStore(serverId, directory);
+  await reopened.initialize();
+  expect(await readFile(store.path, "utf8")).toBe(migrated);
+  await reopened.close();
+
+  // A full audit may have pruned an outgoing credential's owner API import.
+  state.outgoing = [outgoing(["connections"])];
+  state.audit = [
+    ...Array.from({ length: 511 }, () => ({
+      id: randomUUID(),
+      at: new Date().toISOString(),
+      action: "verified",
+      serverId: randomUUID(),
+      actor: "owner",
+    })),
+    state.audit.at(-1),
+  ];
+  await writeFile(store.path, JSON.stringify(state), { mode: 0o600 });
+  const full = new PeerAccessStore(serverId, directory);
+  await full.initialize();
+  expect(full.read().outgoing[0]!.allOperations).toBeUndefined();
+  await full.close();
 });

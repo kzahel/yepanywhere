@@ -24,7 +24,6 @@ import {
 } from "./conversation.js";
 import {
   assertPeerOperation,
-  peerOperationGranted,
   peerProject,
   peerCreator,
   type ApiPrincipal,
@@ -338,7 +337,7 @@ export class CoreApi {
           operations: operationIds.filter((id) => {
             if (caller.kind === "peer")
               return (
-                peerOperationGranted(caller.operations, id) &&
+                caller.operations.includes(id) &&
                 (readOperationIds.includes(id) ||
                   Boolean(this.sources.commands?.enabled()))
               );
@@ -458,7 +457,7 @@ export class CoreApi {
           this.sources.commands?.inputs(
             input.sessionId!,
             caller.kind !== "peer" ||
-              peerOperationGranted(caller.operations, "conversation"),
+              caller.operations.includes("conversation"),
           ) ?? [];
         return { items, nextCursor: null };
       }

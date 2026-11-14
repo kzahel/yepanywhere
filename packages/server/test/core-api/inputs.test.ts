@@ -14,10 +14,6 @@ import { SessionCommands } from "../../src/core-api/session-commands.js";
 import { nativeSessionCommandOwner } from "../../src/core-api/native-session-commands.js";
 import { CoreApi } from "../../src/core-api/service.js";
 import { apiSessionState } from "../../src/core-api/owned-sessions.js";
-import {
-  assertPeerOperation,
-  type PeerPrincipal,
-} from "../../src/core-api/peer-policy.js";
 import { SUPERUSER } from "../../src/auth/principal.js";
 import type { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
 import type { ApiReceipt } from "../../src/core-api/command-contracts.js";
@@ -396,27 +392,6 @@ it("lists and cancels a restart-paused patient item without a running process", 
     );
     expect(service.listSession("target")).toEqual([]);
   });
-});
-
-it("lets a pairing stored with prompt queue input, but not list or cancel it", () => {
-  const peer = (operations: string[]): PeerPrincipal => ({
-    kind: "peer",
-    serverId: "B",
-    credentialId: "c",
-    projects: ["p"],
-    operations,
-    sourceSessionId: null,
-    sourceLaunchId: null,
-    signal: new AbortController().signal,
-    assertActive() {},
-  });
-  expect(() =>
-    assertPeerOperation(peer(["session", "prompt"]), "createInput"),
-  ).not.toThrow();
-  for (const operation of ["inputs", "cancelInput"] as const)
-    expect(() =>
-      assertPeerOperation(peer(["session", "prompt"]), operation),
-    ).toThrow("not granted");
 });
 
 it("claims compaction only from its own confirmed outcome, not consumed command text or drains", async () => {
