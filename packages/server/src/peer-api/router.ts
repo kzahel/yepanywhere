@@ -7,7 +7,7 @@ import {
   type ApiServerMetadata,
   type Operation,
 } from "../core-api/contracts.js";
-import { type ApiPrincipal } from "../core-api/peer-policy.js";
+import type { ApiPrincipal } from "../core-api/peer-policy.js";
 import {
   receiptBindingSchema,
   type ApiOutbound,
