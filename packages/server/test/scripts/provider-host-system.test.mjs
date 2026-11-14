@@ -34,6 +34,9 @@ async function waitFor(fn, timeout = 60_000) {
 describe.skipIf(!["linux", "darwin"].includes(process.platform))(
   "assembled production provider worker",
   () => {
+    // Intel CI 43617217632 exhausted 150s, then passed unchanged in 136.4s.
+    // Allow 2x that observed limit for the complete multi-restart scenario;
+    // individual readiness, ownership and shutdown barriers stay bounded below.
     it("retains the original callback, provider and worker across real Hono/wrapper replacement", async () => {
       const directory = await mkdtemp(
         join(process.platform === "darwin" ? "/tmp" : tmpdir(), "ya-system-"),
@@ -497,6 +500,6 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         );
         await rm(directory, { recursive: true, force: true });
       }
-    }, 150_000);
+    }, 300_000);
   },
 );
