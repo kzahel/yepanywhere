@@ -93,7 +93,22 @@ Measure the 100 ms input acknowledgement contract in the browser, from the
 native key event's timestamp through a rendered, retained field value. The
 native-app and relationship-refresh probes record each value after two
 animation frames, check every typed prefix and require every sample below
-100 ms. A dropped character or a late browser update fails the check.
+100 ms on controlled hosts. Shared CI can have a separately documented
+regression ceiling derived from its observed timing history; this does not
+change the 100 ms responsiveness target or relax character-retention, focus
+or input-identity checks.
+
+For `queued-compaction.spec.ts` and `field-ownership.spec.ts`, the maintainer
+authorized a 500 ms ceiling when `CI` is set, retaining 100 ms locally. The
+November 7–14, 2026 history covers 78 queued-compaction executions (246.4 ms
+maximum) and 34 field-ownership executions (132.5 ms maximum), giving this
+ceiling 2.0–3.8 times the observed maxima. Every measured window exceeding
+100 ms records a `typing-target-miss` annotation, including passing CI cases.
+The JSON diagnostics retain the original samples, target and active ceiling;
+`scripts/e2e-flake-report.mjs` counts annotated executions separately from
+retry passes and terminal failures. Older reports lack these annotations.
+Other typing checks keep their current gates. This bounded CI policy does
+not establish that the application meets its responsiveness target on CI.
 
 Playwright command/assertion round trips use the controller's clock and can
 include IPC or host scheduling delays after the browser has already rendered.

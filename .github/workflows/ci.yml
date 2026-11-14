@@ -461,6 +461,7 @@ jobs:
             packages/client/test-results/**/trace.zip
             packages/client/test-results/**/test-failed-*.png
             packages/client/test-results/**/error-context.md
+            packages/client/test-results/**/attachments/typing-diagnostics-*.json
           if-no-files-found: ignore
           retention-days: 7
 

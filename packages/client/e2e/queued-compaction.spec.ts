@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
+import {
+  startTypingDiagnostics,
+  typingAckLimitMs,
+} from "./support/typing-diagnostics.js";
 
 test.setTimeout(90_000); // Owned server/worker startup, two viewports and joined teardown.
 test.skip(
@@ -11,7 +15,7 @@ test.afterAll(() => presentUiCaptures());
 
 test("Queue preserves compact order through reload and acknowledges typing during completion", async ({
   browser,
-}) => {
+}, testInfo) => {
   const f = await createCodexCreationFixture(
     true,
     false,
@@ -168,6 +172,7 @@ test("Queue preserves compact order through reload and acknowledges typing durin
       await page.mouse.move(2, 2);
       await recordUiCapture(page, `queued-compact-${name}`);
     }
+    const attachTypingDiagnostics = await startTypingDiagnostics(input);
     await input.evaluate((element) => {
       const input = element as HTMLTextAreaElement & {
         acks: { value: string; latency: number }[];
@@ -219,10 +224,10 @@ test("Queue preserves compact order through reload and acknowledges typing durin
       (element) =>
         (element as HTMLTextAreaElement & { acks: { latency: number }[] }).acks,
     );
+    const maxMs = Math.max(...acks.map((ack) => ack.latency));
+    await attachTypingDiagnostics(testInfo, "queued-compaction", acks, maxMs);
     expect(acks).toHaveLength(text.length);
-    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThanOrEqual(
-      100,
-    );
+    expect(maxMs).toBeLessThanOrEqual(typingAckLimitMs);
     await expect
       .poll(
         async () =>

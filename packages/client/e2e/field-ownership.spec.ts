@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { createTestViteServer } from "./support/vite-server";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture";
+import {
+  startTypingDiagnostics,
+  typingAckLimitMs,
+} from "./support/typing-diagnostics";
 
 let server: Awaited<ReturnType<typeof createTestViteServer>>;
 let base: string;
@@ -23,7 +27,7 @@ test.afterAll(async () => {
 // appearing on the first character must not remount the editor or steal focus.
 test("field slots retain native typing, focus and touch targets under updates", async ({
   browser,
-}) => {
+}, testInfo) => {
   for (const touch of [false, true]) {
     const context = await browser.newContext({
       viewport: touch
@@ -39,6 +43,7 @@ test("field slots retain native typing, focus and touch targets under updates", 
       await expect(search).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       await search.focus();
+      const attachTypingDiagnostics = await startTypingDiagnostics(search);
       await search.evaluate((element) => {
         const input = element as HTMLInputElement;
         const state = window as unknown as {
@@ -90,13 +95,18 @@ test("field slots retain native typing, focus and touch targets under updates", 
             }
           ).fieldSamples,
       );
+      const maxMs = Math.max(...samples.map((sample) => sample.delay));
+      await attachTypingDiagnostics(
+        testInfo,
+        `field-${touch ? "phone" : "desktop"}`,
+        samples,
+        maxMs,
+      );
       expect(samples.map((sample) => sample.value)).toEqual(
         [...text].map((_, index) => text.slice(0, index + 1)),
       );
       expect(samples.every((sample) => sample.retained)).toBe(true);
-      expect(Math.max(...samples.map((sample) => sample.delay))).toBeLessThan(
-        100,
-      );
+      expect(maxMs).toBeLessThanOrEqual(typingAckLimitMs);
       expect(
         await search.evaluate(
           (element) =>

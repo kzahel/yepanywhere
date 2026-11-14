@@ -13,7 +13,8 @@
  *
  * --since defaults to seven days ago; artifacts are retained for 14 days.
  * --case prints each failing attempt of matching cases with its error, worker
- * and duration. Reports are cached by run, so a repeat invocation only
+ * and duration, plus recorded typing-target misses even when the case passed.
+ * Reports are cached by run, so a repeat invocation only
  * downloads new runs. See topics/e2e-testing.md#measuring-value-time-and-instability.
  */
 
@@ -97,10 +98,34 @@ function visit(suite, file, context) {
       const key = `${spec.file ?? file} :: ${spec.title}`;
       let entry = cases.get(key);
       if (!entry) {
-        entry = { executions: 0, flaky: [], failed: [], errors: new Map() };
+        entry = {
+          executions: 0,
+          flaky: [],
+          failed: [],
+          targetMisses: [],
+          errors: new Map(),
+        };
         cases.set(key, entry);
       }
       entry.executions++;
+      const targetMisses = test.results.flatMap((result) =>
+        (result.annotations ?? [])
+          .filter((annotation) => annotation.type === "typing-target-miss")
+          .map((annotation) => ({
+            retry: result.retry,
+            description: annotation.description,
+          })),
+      );
+      if (targetMisses.length) {
+        entry.targetMisses.push(context);
+        if (options.case && key.includes(options.case)) {
+          for (const miss of targetMisses)
+            console.log(
+              `${context.createdAt} run ${context.run} ${context.sha} ${spec.file}:${spec.line} ` +
+                `retry ${miss.retry} typing target exceeded: ${miss.description}`,
+            );
+        }
+      }
       if (test.status !== "flaky" && test.status !== "unexpected") continue;
       (test.status === "flaky" ? entry.flaky : entry.failed).push(context);
       for (const result of test.results) {
@@ -155,20 +180,26 @@ console.log(
 );
 const rows = [...cases]
   .filter(
-    ([, entry]) => entry.flaky.length + entry.failed.length >= options.min,
+    ([, entry]) =>
+      entry.flaky.length + entry.failed.length >= options.min ||
+      entry.targetMisses.length >= options.min,
   )
   .sort(
     ([, a], [, b]) =>
       b.flaky.length + b.failed.length - (a.flaky.length + a.failed.length),
   );
 for (const [key, entry] of rows) {
-  const last = [...entry.flaky, ...entry.failed]
+  const last = [...entry.flaky, ...entry.failed, ...entry.targetMisses]
     .map((context) => context.createdAt)
     .sort()
     .at(-1);
   console.log(
     `\n${entry.flaky.length} flaky, ${entry.failed.length} failed of ${entry.executions}, last ${last}  ${key}`,
   );
+  if (entry.targetMisses.length)
+    console.log(
+      `  Recorded 100 ms typing target exceeded in ${entry.targetMisses.length} execution${entry.targetMisses.length === 1 ? "" : "s"} (includes passing cases; older reports have no annotations)`,
+    );
   for (const [message, count] of [...entry.errors]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 2))
