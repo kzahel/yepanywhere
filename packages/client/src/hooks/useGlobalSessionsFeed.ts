@@ -103,6 +103,7 @@ export interface UseGlobalSessionsFeedResult {
   ready: boolean;
   loading: boolean;
   error: Error | null;
+  requestError: Error | null;
   hasMore: boolean;
   loadMore: () => Promise<void>;
   refetch: () => Promise<void>;
@@ -917,6 +918,8 @@ export function useGlobalSessionsFeed(
       enabled &&
       (loading || (!ready && !queryState) || catalogState.awaitingFirstRows),
     error: error ?? catalogState.refreshError,
+    /** Catalogue uncertainty does not prevent paging through healthy rows. */
+    requestError: error,
     hasMore: queryState?.hasMore ?? false,
     loadMore,
     // An explicit refresh is a fidelity request, not a freshness one: a user

@@ -242,7 +242,7 @@ it("keeps scoped OpenCode identities through native catalogue, public history, W
           [{ ...boundRow, nativeDirectoryProjectId: workingId }],
           metadata,
         ),
-      ).rejects.toThrow("Session identity conflicts");
+      ).resolves.toEqual([]);
       const project = await app.scanner.getOrCreateProject(
         toUrlProjectId(worktree),
       );

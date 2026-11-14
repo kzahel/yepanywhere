@@ -292,7 +292,7 @@ it("keeps delivery receipts out of SQL attention while preserving pending questi
   retainedSessionQuery(f.collections, f.deps).dispose();
   const database = openTestDiscoveryDatabase(f.directory);
   database.exec(
-    "UPDATE collection_cache_rows SET attention=1; UPDATE collection_checkpoint SET snapshot=json_set(snapshot,'$.format',1)",
+    "UPDATE collection_cache_rows SET attention=1; UPDATE collection_checkpoint SET snapshot=json_set(snapshot,'$.format',2)",
   );
   const metadata = vi.spyOn(f.metadata, "getMetadataBatch");
   const restored = new RetainedSessionQuery(f.collections, f.deps);

@@ -13,6 +13,7 @@ import type {
   DiscoveredSessionIdentity,
   SessionIdentity,
 } from "./SessionIdentityStore.js";
+import { SessionIdentityConflict } from "./SessionIdentityStore.js";
 import type { SessionCatalogRow } from "./catalog-types.js";
 
 /** Compact native rows name their actual store; absent scope is not ambient. */
@@ -93,7 +94,40 @@ export async function projectCatalogIdentities(
   metadata?: SessionMetadataService,
   signal?: AbortSignal,
 ): Promise<ProjectedCatalogRow[]> {
-  if (signal?.aborted) return [];
+  return (await projectCatalogIdentityResult(nativeRows, metadata, signal))
+    .rows;
+}
+
+export interface CatalogIdentityProjection {
+  rows: ProjectedCatalogRow[];
+  /** Request-owned native evidence, never exposed as public session metadata. */
+  conflicts: Readonly<SessionCatalogRow>[];
+}
+
+export const CATALOG_IDENTITY_CONFLICT_MESSAGE =
+  "Some sessions could not be matched to their saved project folders. Other sessions are still available.";
+
+/** Existing catalogue uncertainty/error fields also describe withheld rows. */
+export function catalogWithIdentityConflicts<T extends { complete: boolean }>(
+  catalog: T,
+  hasConflicts: boolean,
+): T & { refreshError?: string } {
+  return hasConflicts
+    ? {
+        ...catalog,
+        complete: false,
+        refreshError: CATALOG_IDENTITY_CONFLICT_MESSAGE,
+      }
+    : catalog;
+}
+
+export async function projectCatalogIdentityResult(
+  nativeRows: readonly Readonly<SessionCatalogRow>[],
+  metadata?: SessionMetadataService,
+  signal?: AbortSignal,
+): Promise<CatalogIdentityProjection> {
+  const conflicts: Readonly<SessionCatalogRow>[] = [];
+  if (signal?.aborted) return { rows: [], conflicts };
   const excluded = new Set<number>();
   const identities = metadata?.identities;
   let cached = identities && boundProjections.get(identities);
@@ -163,7 +197,7 @@ export async function projectCatalogIdentities(
     // rows read their own, as each row did before batching.
     let yielded = false;
     for (const [index, { position, native }] of scoped.entries()) {
-      if (signal?.aborted) return [];
+      if (signal?.aborted) return { rows: [], conflicts };
       const row = nativeRows[position]!;
       const bound = yielded
         ? identities.lookupNative(native)
@@ -183,7 +217,7 @@ export async function projectCatalogIdentities(
           physicalProject(fromUrlProjectId(bound.projectId)),
           physicalProject(row.projectPath),
         ]);
-        if (signal?.aborted) return [];
+        if (signal?.aborted) return { rows: [], conflicts };
         if (
           original !== undefined &&
           discovered !== undefined &&
@@ -208,7 +242,7 @@ export async function projectCatalogIdentities(
             getProjectIdentityKey(
               (await physicalProject(original)) ?? original,
             ) === directoryKey;
-          if (signal?.aborted) return [];
+          if (signal?.aborted) return { rows: [], conflicts };
         }
         if (matches) projectId = bound.projectId;
       }
@@ -237,7 +271,7 @@ export async function projectCatalogIdentities(
     // Only adoption candidates need legacy metadata. Bound identities never
     // acquire cold metadata merely to repeat their existing projection.
     for (let offset = 0; offset < candidates.length; offset += 256) {
-      if (signal?.aborted) return [];
+      if (signal?.aborted) return { rows: [], conflicts };
       const chunk = candidates.slice(offset, offset + 256);
       const batch = metadata?.getMetadataBatch?.(
         chunk.map((candidate) => String(candidate.native.id)),
@@ -251,14 +285,17 @@ export async function projectCatalogIdentities(
       if (offset + 256 < candidates.length)
         await new Promise<void>((resolve) => setImmediate(resolve));
     }
-    if (signal?.aborted) return [];
+    if (signal?.aborted) return { rows: [], conflicts };
     for (const [index, identity] of identities
-      .adoptDiscoveredBatch(candidates)
+      .observeDiscoveredBatch(candidates)
       .entries()) {
       const position = positions[index]!;
-      if (identity) project(position, identity);
+      if (identity instanceof SessionIdentityConflict) {
+        conflicts.push(nativeRows[position]!);
+        excluded.add(position);
+      } else if (identity) project(position, identity);
       else excluded.add(position);
     }
   }
-  return rows.filter((_, index) => !excluded.has(index));
+  return { rows: rows.filter((_, index) => !excluded.has(index)), conflicts };
 }

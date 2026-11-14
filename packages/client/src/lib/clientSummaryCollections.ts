@@ -20,7 +20,7 @@ import type {
   InboxResponse,
 } from "../api/client";
 import type { Project, SessionStatus } from "../types";
-import type { InboxTier } from "./inboxTiers";
+import { INBOX_TIERS, type InboxTier } from "./inboxTiers";
 
 export type SessionCollectionObservationKind =
   | "full-snapshot"
@@ -180,6 +180,34 @@ export interface InboxCounts {
   needsAttention: number;
   active: number;
   total: number;
+}
+
+/** Accept proved rows from an incomplete read without treating omissions as deletion. */
+export function acceptInboxRows(
+  previous: InboxCollectionState,
+  incomingTiers: InboxCollectionState["tiers"],
+  incomingDetails: InboxCollectionState["rowDetails"],
+  catalog?: RetainedSessionCollectionState,
+): Pick<InboxCollectionState, "tiers" | "rowDetails"> {
+  const incoming = { tiers: incomingTiers, rowDetails: incomingDetails };
+  if (catalog?.complete !== false) return incoming;
+  const observed = new Set(INBOX_TIERS.flatMap((tier) => incoming.tiers[tier]));
+  const tiers = { ...incoming.tiers };
+  for (const tier of INBOX_TIERS)
+    tiers[tier] = [
+      ...incoming.tiers[tier],
+      ...previous.tiers[tier].filter((id) => !observed.has(id)),
+    ].slice(0, 20); // Match the server's bounded tier window; fresh rows win.
+  const rowDetails = new Map<string, InboxRowDetails>();
+  for (const id of INBOX_TIERS.flatMap((tier) => tiers[tier])) {
+    const details = incoming.rowDetails?.get(id);
+    const old = previous.rowDetails?.get(id);
+    rowDetails.set(id, {
+      providerPhase: details?.providerPhase ?? old?.providerPhase,
+      modelConfig: details?.modelConfig ?? old?.modelConfig,
+    });
+  }
+  return { tiers, rowDetails };
 }
 
 export interface SessionCollectionState {

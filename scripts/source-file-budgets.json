@@ -1,6 +1,6 @@
 {
   "$comment": "Line budgets for production source files over the threshold fixed in scripts/check-source-file-budgets.mjs. Owned by topics/typescript-module-boundary-refactor.md#growth-guard. Lower with `pnpm source:budgets --record`; never raise without maintainer approval and a raise record.",
-  "updated": "2026-11-13",
+  "updated": "2026-11-14",
   "files": {
     "packages/client/src/api/client.ts": {
       "maxLines": 1913
@@ -43,7 +43,7 @@
       "maxLines": 1769
     },
     "packages/client/src/lib/clientSummaryState.ts": {
-      "maxLines": 2199
+      "maxLines": 2198
     },
     "packages/client/src/lib/connection/RelayProtocol.ts": {
       "maxLines": 1620

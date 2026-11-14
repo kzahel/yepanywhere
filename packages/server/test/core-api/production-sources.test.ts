@@ -152,6 +152,7 @@ it("keeps a session under the YA id its creator holds once only its native trans
       fidelity: "head",
       location: { kind: "file", path: `/store/rollout-${thread}.jsonl` },
     };
+    let nativeRows = [row];
     let running = true;
     const sources = productionApiSources({
       scanner: {
@@ -163,7 +164,7 @@ it("keeps a session under the YA id its creator holds once only its native trans
       },
       sessions: {
         read: async () => ({
-          rows: [row],
+          rows: nativeRows,
           catalog: {
             catalogEpoch: "fixture",
             catalogGeneration: 1,
@@ -214,6 +215,37 @@ it("keeps a session under the YA id its creator holds once only its native trans
         (await app.request(`/v0/servers/A/sessions/${thread}`)).status,
       ).toBe(404);
     }
+    const healthy = { ...row, sessionId: "healthy-import" };
+    nativeRows = [
+      {
+        ...row,
+        projectId: toUrlProjectId("/work/conflicting"),
+        projectPath: "/work/conflicting",
+      },
+      healthy,
+    ];
+    const partial = await app.request("/v0/servers/A/sessions");
+    expect(partial.status).toBe(200);
+    const partialBody = await partial.json();
+    expect(partialBody.items.map((item: { id: string }) => item.id)).toEqual([
+      healthy.sessionId,
+    ]);
+    expect(partialBody.catalog.complete).toBe(false);
+    const unavailable = await app.request(`/v0/servers/A/sessions/${publicId}`);
+    expect(unavailable.status).toBe(503);
+    expect((await unavailable.json()).error.code).toBe("catalog_not_ready");
+    running = true;
+    const owned = await app.request(`/v0/servers/A/sessions/${publicId}`);
+    expect(owned.status).toBe(200);
+    expect((await owned.json()).projectId).toBe(projectId);
+    running = false;
+    expect(
+      (await app.request(`/v0/servers/A/sessions/${healthy.sessionId}`)).status,
+    ).toBe(200);
+    nativeRows = [row, healthy];
+    expect(
+      (await app.request(`/v0/servers/A/sessions/${publicId}`)).status,
+    ).toBe(200);
   } finally {
     closeTestDiscoveryDatabases();
     await rm(dir, { recursive: true });

@@ -308,8 +308,9 @@ function SessionSearchPage() {
     [feed.projects, sessions],
   );
   useEffect(() => {
-    if (feed.hasMore && !feed.loading && !feed.error) void feed.loadMore();
-  }, [feed.hasMore, feed.loading, feed.error, feed.loadMore]);
+    if (feed.hasMore && !feed.loading && !feed.requestError)
+      void feed.loadMore();
+  }, [feed.hasMore, feed.loading, feed.requestError, feed.loadMore]);
   const min = durationMs(young, 0),
     max = durationMs(old, Infinity);
   const invalidRange = !Number.isFinite(min) || Number.isNaN(max) || min > max;
@@ -886,7 +887,13 @@ function SessionSearchPage() {
             </Banner>
           )}
           {(feed.error || scan.error || actionError) && (
-            <Banner tone="error">
+            <Banner
+              tone={
+                feed.requestError || scan.error || actionError
+                  ? "error"
+                  : "warning"
+              }
+            >
               {feed.error?.message ?? scan.error ?? actionError}
             </Banner>
           )}

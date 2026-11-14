@@ -55,6 +55,14 @@ them through triggers in the row-update transaction.
 - Project display options are project-sized. Changes to a resolved project name
   invalidate that project's indexed members. Legacy unscoped, pending/conflicting
   identity rows and OpenCode alias overrides retain conservative revalidation.
+  Withheld identity conflicts remain indexed as unstable sources, including in
+  restart checkpoints. Revalidation recomputes their status and keeps response
+  completeness false until resolved or removed. This adds no per-session timer
+  or process-lifetime diagnostic map. Catalogue warnings do not stop All Sessions
+  pagination through the remaining healthy rows.
+  Checkpoint format 3 records this derived source meaning. Older checkpoints
+  rebuild once; an older server also rejects the newer format rather than
+  treating a withheld source as a definite missing session after rollback.
 
 Filters, principal project grants, archive state and time cursors apply in SQL
 before page or tier limits. Page JSON is decoded only after selection. Child

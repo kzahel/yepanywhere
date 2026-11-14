@@ -57,6 +57,11 @@ Each response includes `catalogEpoch`, `catalogGeneration`, `complete`, and
 it does not mean every optional field is fresh. Generation 0 has no accepted
 enumeration. Its empty result cannot delete rows a client already holds.
 Saved rows remain visible while a replacement is built or a provider fails.
+Public identity projection can independently make a response incomplete when
+native rows conflict with stored session ownership. Healthy rows remain
+available, while existing `refreshError` supplies a generic warning; completeness
+recovers when those rows are repaired or removed. This does not mutate native
+enumeration facts or silently move sessions to a discovered project.
 An empty first-ever catalog keeps the existing loading state until refresh
 settles; a failed refresh exposes its error alongside any saved rows.
 A whole discovery that finds no native session store publishes no generation.

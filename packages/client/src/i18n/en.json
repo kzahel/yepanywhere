@@ -1242,6 +1242,7 @@
   "inboxRefreshing": "Refreshing...",
   "inboxLoading": "Loading inbox...",
   "inboxError": "Error loading inbox: {message}",
+  "inboxIncompleteWarning": "Some Inbox entries may be missing or out of date. You can still use the sessions shown. Refresh to check again.",
   "inboxEmptyTitle": "All caught up!",
   "inboxEmptyDescription": "No sessions need attention.",
   "inboxEmptyDescriptionProject": "No sessions need attention in this project.",

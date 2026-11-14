@@ -164,8 +164,8 @@ export class SessionCollectionSql {
   }
   unstableSources() {
     return this.prepare(
-      `SELECT key FROM ${this.prefix}_sources WHERE unstable=1`,
-    ).all<{ key: string }>();
+      `SELECT key,unstable FROM ${this.prefix}_sources WHERE unstable>0`,
+    ).all<{ key: string; unstable: number }>();
   }
   putSource(row: CollectionSource) {
     this.prepare(

@@ -2619,7 +2619,7 @@ describe("clientSummaryState", () => {
   });
 });
 
-it("keeps inbox provider phases from the latest complete inbox snapshot only", () => {
+it("accepts healthy partial inbox rows while preserving omitted rows and optional live details", () => {
   const held = {
     phase: "background" as const,
     work: [
@@ -2653,6 +2653,15 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
     state: ReturnType<typeof createEmptyClientSummaryState>,
   ) => selectInboxResponse(state).active.map((item) => item.modelConfig);
 
+  const coldPartial = applyInboxCollectionSnapshot(
+    createEmptyClientSummaryState(),
+    inbox([inboxItem("healthy-cold", { activity: "in-turn" })], false),
+    50,
+  );
+  expect(
+    selectInboxResponse(coldPartial).active.map((item) => item.sessionId),
+  ).toEqual(["healthy-cold"]);
+
   let state = applyInboxCollectionSnapshot(
     createEmptyClientSummaryState(),
     inbox([
@@ -2682,14 +2691,23 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
   expect(activePhases(state)).toEqual([held, undefined]);
   expect(activeModels(state)).toEqual([modelConfig, undefined]);
 
-  // A partial catalog keeps the last complete tiers and their phases.
+  // Incomplete results must still admit newly observed healthy sessions.
   state = applyInboxCollectionSnapshot(
     state,
-    inbox([inboxItem("held", { activity: "in-turn" })], false),
+    inbox(
+      [
+        inboxItem("held", { activity: "in-turn" }),
+        inboxItem("new-healthy", { activity: "in-turn" }),
+      ],
+      false,
+    ),
     200,
   );
-  expect(activePhases(state)).toEqual([held, undefined]);
-  expect(activeModels(state)).toEqual([modelConfig, undefined]);
+  expect(
+    selectInboxResponse(state).active.map((item) => item.sessionId),
+  ).toEqual(["held", "new-healthy", "plain"]);
+  expect(activePhases(state)).toEqual([held, undefined, undefined]);
+  expect(activeModels(state)).toEqual([modelConfig, undefined, undefined]);
 
   state = applyInboxCollectionSnapshot(
     state,
@@ -2698,6 +2716,31 @@ it("keeps inbox provider phases from the latest complete inbox snapshot only", (
   );
   expect(activePhases(state)).toEqual([undefined]);
   expect(activeModels(state)).toEqual([undefined]);
+});
+
+it("bounds Inbox fallback rows during a persistent incomplete catalogue", () => {
+  let state = createEmptyClientSummaryState();
+  for (let index = 0; index < 30; index++)
+    state = applyInboxCollectionSnapshot(
+      state,
+      {
+        catalog: {
+          catalogEpoch: "partial",
+          catalogGeneration: 1,
+          complete: false,
+          refreshing: false,
+        },
+        needsAttention: [],
+        active: [inboxItem(`healthy-${index}`)],
+        recentActivity: [],
+        unread8h: [],
+        unread24h: [],
+      },
+      index,
+    );
+  expect(selectInboxResponse(state).active).toHaveLength(20);
+  expect(selectInboxResponse(state).active[0]?.sessionId).toBe("healthy-29");
+  expect(state.inbox.rowDetails?.size).toBe(20);
 });
 
 it("publishes project display-only changes and clears omitted fields without activity changes", () => {

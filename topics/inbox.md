@@ -40,7 +40,16 @@ This additive display has no capability advertisement. Supported older servers
 (including v0.10.2 and v0.11.0) omit `modelConfig`; the client leaves the badge
 out and sends the same existing Inbox request. A complete Inbox snapshot owns
 these optional display facts; other collections cannot overwrite them, and an
-incomplete catalog preserves the last complete display alongside its tiers.
+incomplete catalog accepts newly observed healthy rows and tier moves, retaining
+omitted rows as potentially stale within the existing twenty-row tier windows
+rather than declaring them deleted. Fresh rows take precedence; fallback rows
+and their model/phase details cannot accumulate during a persistent conflict. Missing
+optional model/phase details preserve their last observation until a complete
+snapshot supplies authoritative replacement. A catalogue failure/identity
+conflict shows a nonblocking warning alongside readable sessions; it does not
+show the all-caught-up empty state or hide healthy rows. A complete recovery
+replaces membership normally and clears the warning. No new request or response
+field is required: absent catalogue/error fields retain ordinary behavior.
 
 ### Client view filters
 

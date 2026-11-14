@@ -34,6 +34,7 @@ test("Inbox keeps model cards and typing stable through activity and older-serve
   };
   let providerPhase: SessionProviderPhase | undefined;
   let omitModels = false;
+  let incomplete = false;
   let requests = 0;
   const listeners: Array<() => void> = [];
   await page.routeWebSocket("**/api/ws", (socket) => {
@@ -90,7 +91,21 @@ test("Inbox keeps model cards and typing stable through activity and older-serve
     requests++;
     return route.fulfill({
       json: {
-        active: Array.from({ length: 20 }, (_, i) => item(i)),
+        ...(incomplete
+          ? {
+              catalog: {
+                catalogEpoch: "inbox-conflict-fixture",
+                catalogGeneration: 1,
+                complete: false,
+                refreshing: false,
+                refreshError:
+                  "Some sessions could not be matched to their saved project folders.",
+              },
+            }
+          : {}),
+        active: incomplete
+          ? [item(100), ...Array.from({ length: 19 }, (_, i) => item(i + 1))]
+          : Array.from({ length: 20 }, (_, i) => item(i)),
         recentActivity: Array.from({ length: 20 }, (_, i) => item(i + 20)),
         unread8h: Array.from({ length: 20 }, (_, i) => item(i + 40)),
         unread24h: Array.from({ length: 20 }, (_, i) => item(i + 60)),
@@ -162,6 +177,98 @@ test("Inbox keeps model cards and typing stable through activity and older-serve
     expect(await geometry()).toEqual(before);
   }
 
+  incomplete = true;
+  await refresh();
+  const warning = page.getByText(
+    "Some Inbox entries may be missing or out of date. You can still use the sessions shown. Refresh to check again.",
+  );
+  await expect(warning).toBeVisible();
+  await expect(card(100)).toBeVisible();
+  // Cached omissions remain clearly uncertain; healthy incoming rows still
+  // appear even on a cold incomplete snapshot (also covered by the store test).
+  for (const viewport of [
+    { width: 1000, height: 600 },
+    { width: 375, height: 812 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await warning.scrollIntoViewIfNeeded();
+    await recordUiCapture(page, `inbox-incomplete-${viewport.width}`, viewport);
+  }
+
+  // A catalogue warning must not stop All Sessions from loading healthy rows
+  // on later pages. Exercise its page-owned automatic pagination as well.
+  const sessionsPage = await page.context().newPage();
+  try {
+    await readCollectionsOverRest(sessionsPage);
+    await sessionsPage.route(/\/api\/sessions(?:\?|$)/, async (route) => {
+      const requested = new URL(route.request().url());
+      if (requested.searchParams.get("includeArchived") !== "true")
+        return route.continue();
+      const next = requested.searchParams.has("after");
+      requested.searchParams.delete("after");
+      requested.searchParams.delete("knownGeneration");
+      requested.searchParams.set("limit", "2");
+      const response = await route.fetch({ url: requested.href });
+      const body = await response.json();
+      await route.fulfill({
+        json: {
+          ...body,
+          sessions: Array.from({ length: next ? 1 : 500 }, (_, index) => ({
+            ...body.sessions[0],
+            id: next ? "healthy-next-page" : `healthy-page-${index}`,
+            title: next
+              ? "Healthy session on the next page"
+              : `Healthy session ${index}`,
+            fullTitle: next
+              ? "Healthy session on the next page"
+              : `Healthy session ${index}`,
+            customTitle: undefined,
+            initialPrompt: undefined,
+          })),
+          hasMore: !next,
+          catalog: {
+            ...body.catalog,
+            complete: false,
+            refreshing: false,
+            refreshError:
+              "Some sessions could not be matched to their saved project folders.",
+          },
+        },
+      });
+    });
+    await sessionsPage.goto("/sessions");
+    await sessionsPage
+      .getByRole("searchbox", { name: "Search sessions..." })
+      .fill("Healthy session on the next page");
+    await expect(
+      sessionsPage.getByText("Healthy session on the next page", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    const notice = sessionsPage.getByText(
+      "Some sessions could not be matched to their saved project folders.",
+      { exact: true },
+    );
+    for (const viewport of [
+      { width: 1000, height: 600 },
+      { width: 375, height: 812 },
+    ]) {
+      await sessionsPage.setViewportSize(viewport);
+      await notice.scrollIntoViewIfNeeded();
+      await recordUiCapture(
+        sessionsPage,
+        `sessions-incomplete-${viewport.width}`,
+        viewport,
+      );
+    }
+  } finally {
+    await sessionsPage.close();
+  }
+  incomplete = false;
+  await refresh();
+  await expect(warning).toBeHidden();
+  await expect(cards).toHaveCount(100);
+
   // Keep the full Inbox updating while typing in the ordinary composer.
   // This display adds no Inbox input of its own.
   listeners.length = 0;
@@ -197,6 +304,7 @@ test("Inbox keeps model cards and typing stable through activity and older-serve
   });
   // Leave room for Inbox's 500 ms event debounce to publish each update.
   const timer = setInterval(() => {
+    incomplete = !incomplete;
     providerPhase = providerPhase ? undefined : waiting;
     for (const emit of listeners) emit();
   }, 650);

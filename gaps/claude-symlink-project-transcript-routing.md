@@ -42,5 +42,7 @@ recheck filesystem-dependent rows. A real-symlink/SQLite regression covers list
 and inbox success, changed and missing symlink refusal, and scope isolation.
 This repairs the collection failure, not the earlier history/watch/resume report:
 full real-Claude alias history across shutdown/restart remains unqualified, so
-that remainder stays open. Genuine conflicting rows also still need
-[collection isolation](session-catalog-conflict-breaks-collections.md).
+that remainder stays open. The subsequent collection containment repair now
+withholds conflicting observations, publishes healthy rows with explicit
+uncertainty, and clears that state after recovery; it does not qualify the
+earlier full-history/watch/resume scenarios.

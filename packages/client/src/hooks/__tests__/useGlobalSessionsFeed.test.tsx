@@ -304,6 +304,7 @@ describe("useGlobalSessionsFeed", () => {
     });
     expect(result.current.feed.loading).toBe(false);
     expect(result.current.feed.error?.message).toBe("Provider unavailable");
+    expect(result.current.feed.requestError).toBeNull();
   });
 
   it("keeps the complete request on an older server", async () => {

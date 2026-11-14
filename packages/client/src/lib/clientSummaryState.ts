@@ -35,6 +35,7 @@ import {
   type GlobalSessionsCollectionSnapshot,
   type InboxCollectionSnapshot,
   inboxRowDetails,
+  acceptInboxRows,
   type ProjectCollectionRecord,
   type ProjectCollectionSnapshot,
   type ProjectQueueCollectionRecord,
@@ -1037,13 +1038,11 @@ function putInboxSnapshot(
     ? next.inbox.tiers
     : tiers;
 
-  const partial = snapshot.catalog?.complete === false;
   return {
     ...next,
     inbox: {
       ...next.inbox,
-      tiers: partial ? next.inbox.tiers : stableTiers,
-      rowDetails: partial ? next.inbox.rowDetails : rowDetails,
+      ...acceptInboxRows(next.inbox, stableTiers, rowDetails, snapshot.catalog),
       catalog: snapshot.catalog,
       requestStartedAt,
       fetchedAt: Date.now(),

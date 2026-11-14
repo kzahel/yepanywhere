@@ -552,6 +552,7 @@ export function InboxContent({
     unread24h: allUnread24h,
     loading,
     error,
+    warning,
     refresh,
   } = useInboxContext();
 
@@ -802,7 +803,11 @@ export function InboxContent({
           </Banner>
         )}
 
-        {!pageLoading && !error && isEmpty && (
+        {warning && (
+          <Banner tone="warning">{t("inboxIncompleteWarning")}</Banner>
+        )}
+
+        {!pageLoading && !error && !warning && isEmpty && (
           <div className={collectionStyles.inboxEmpty} data-inbox-empty>
             <svg
               width="48"

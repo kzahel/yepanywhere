@@ -3,7 +3,8 @@ import type { SqliteDatabase } from "../storage/sqlite.js";
 import type { SessionCatalogToken } from "./SessionCatalogService.js";
 
 export interface QueryCheckpoint {
-  format: 2;
+  /** Format 3 preserves withheld identity-conflict sources for revalidation. */
+  format: 3;
   signature: string;
   revision: number;
   token: SessionCatalogToken;
@@ -54,7 +55,7 @@ export class SessionQueryCheckpoint {
           try {
             const saved = JSON.parse(state.snapshot) as QueryCheckpoint;
             if (
-              saved.format === 2 &&
+              saved.format === 3 &&
               saved.signature === signature &&
               saved.revision === state.revision &&
               Number.isSafeInteger(saved.nextOrdinal) &&

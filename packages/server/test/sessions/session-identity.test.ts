@@ -222,7 +222,7 @@ describe("scoped durable session identity", () => {
       identities: store,
       getMetadata: () => undefined,
     } as unknown as SessionMetadataService;
-    const adopt = vi.spyOn(store, "adoptDiscoveredBatch");
+    const adopt = vi.spyOn(store, "observeDiscoveredBatch");
     const projected = await projectCatalogIdentities(
       [
         row("/fixture/a", "same-native"),
@@ -240,8 +240,7 @@ describe("scoped durable session identity", () => {
       "legacy-native",
     ]);
 
-    // A binding that disagrees still reaches adoption, which rejects the
-    // whole publication without adopting its other rows.
+    // Conflicting observations are withheld without blocking valid imports.
     await expect(
       projectCatalogIdentities(
         [
@@ -250,13 +249,15 @@ describe("scoped durable session identity", () => {
         ],
         metadata,
       ),
-    ).rejects.toThrow(SessionIdentityConflict);
+    ).resolves.toEqual([
+      expect.objectContaining({ sessionId: "unseen-native" }),
+    ]);
     await expect(
       projectCatalogIdentities(
         [row("/fixture/a", "same-native", projectId, "codex")],
         metadata,
       ),
-    ).rejects.toThrow(SessionIdentityConflict);
+    ).resolves.toEqual([]);
     expect(
       store.lookupNative(
         nativeSessionRef(
@@ -265,7 +266,7 @@ describe("scoped durable session identity", () => {
           parseNativeSessionId("unseen-native"),
         ),
       ),
-    ).toBeUndefined();
+    ).toMatchObject({ sessionId: "unseen-native" });
   });
 
   it("rejects partial bindings and preserves surrounding writes on transaction failure", () => {
@@ -290,6 +291,53 @@ describe("scoped durable session identity", () => {
     } finally {
       select.finalize();
     }
+  });
+
+  it("withholds every ambiguous new claim and rolls back unexpected storage errors", () => {
+    const { database, store } = fixture();
+    const candidate = (id: string, scope: string, project = projectId) => ({
+      native: nativeSessionRef("claude", scope, parseNativeSessionId(id)),
+      provider: "claude" as const,
+      projectId: project,
+      createdAt,
+    });
+    for (const reverse of [false, true]) {
+      const claims = [
+        candidate("ambiguous", "/store/a"),
+        candidate("ambiguous", "/store/b"),
+      ];
+      const observed = store.observeDiscoveredBatch(
+        reverse ? claims.reverse() : claims,
+      );
+      expect(
+        observed.every((result) => result instanceof SessionIdentityConflict),
+      ).toBe(true);
+      expect(store.resolveYa(parseYaSessionId("ambiguous"))).toBeUndefined();
+    }
+    const sameNative = [
+      candidate("project-conflict", "/store/a"),
+      candidate("project-conflict", "/store/a", toUrlProjectId("/different")),
+    ];
+    expect(
+      store
+        .observeDiscoveredBatch(sameNative)
+        .every((result) => result instanceof SessionIdentityConflict),
+    ).toBe(true);
+    expect(
+      store.resolveYa(parseYaSessionId("project-conflict")),
+    ).toBeUndefined();
+    database.exec(
+      "CREATE TRIGGER fail_import BEFORE INSERT ON session_identities WHEN NEW.session_id='broken' BEGIN SELECT RAISE(ABORT,'storage failed'); END",
+    );
+    expect(() =>
+      store.observeDiscoveredBatch([
+        candidate("before-storage-error", "/store/a"),
+        candidate("broken", "/store/a"),
+      ]),
+    ).toThrow("storage failed");
+    expect(
+      store.resolveYa(parseYaSessionId("before-storage-error")),
+    ).toBeUndefined();
   });
 
   it("keeps the Codex rollout address native while projecting the public id and OSS launch variant", async () => {

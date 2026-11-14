@@ -293,6 +293,58 @@ export class SessionIdentityStore {
     );
   }
 
+  /**
+   * Read-side discovery isolates identity conflicts without weakening strict
+   * adoption. Preflight before writing so ambiguous new public claims do not
+   * acquire whichever native source happened to be enumerated first.
+   * All valid adoptions still share one transaction; storage failures roll back.
+   */
+  observeDiscoveredBatch(
+    inputs: readonly DiscoveredSessionIdentity[],
+  ): Array<SessionIdentity | SessionIdentityConflict | undefined> {
+    if (inputs.length === 0) return [];
+    return this.database.transaction(() => {
+      const observations = inputs.map((input) => {
+        try {
+          return this.adopt(input, false, true);
+        } catch (error) {
+          if (error instanceof SessionIdentityConflict) return error;
+          throw error;
+        }
+      });
+      const claims = new Map<
+        string,
+        { signature: string; positions: number[] }
+      >();
+      const ambiguous = new Set<string>();
+      for (const [position, identity] of observations.entries()) {
+        if (!identity || identity instanceof SessionIdentityConflict) continue;
+        const signature = JSON.stringify([
+          identity.provider,
+          identity.projectId,
+          identity.native?.family,
+          identity.native?.storageScope,
+          identity.native?.id,
+        ]);
+        const previous = claims.get(identity.sessionId);
+        if (previous) {
+          previous.positions.push(position);
+          if (previous.signature !== signature)
+            ambiguous.add(identity.sessionId);
+        } else
+          claims.set(identity.sessionId, { signature, positions: [position] });
+      }
+      for (const id of ambiguous)
+        for (const position of claims.get(id)!.positions)
+          observations[position] = new SessionIdentityConflict();
+      return observations.map((identity, index) =>
+        identity && !(identity instanceof SessionIdentityConflict)
+          ? this.adopt(inputs[index]!)
+          : identity,
+      );
+    });
+  }
+
   /** Only a known successful owned native copy may bypass discovery quarantine. */
   adoptCopiedNative(
     input: Omit<DiscoveredSessionIdentity, "legacyProvider">,
@@ -303,6 +355,7 @@ export class SessionIdentityStore {
   private adopt(
     input: DiscoveredSessionIdentity,
     copied = false,
+    preflight = false,
   ): SessionIdentity | undefined {
     validateNative(input.native);
     if (nativeSessionFamily(input.provider) !== input.native.family) {
@@ -323,6 +376,14 @@ export class SessionIdentityStore {
     const provider = input.legacyProvider ?? input.provider;
     if (nativeSessionFamily(provider) !== input.native.family)
       throw new SessionIdentityConflict();
+    if (preflight)
+      return {
+        sessionId,
+        provider,
+        projectId: input.projectId,
+        createdAt: input.createdAt,
+        native: input.native,
+      };
     this.insert.run(
       sessionId,
       provider,

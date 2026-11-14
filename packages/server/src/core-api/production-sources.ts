@@ -7,7 +7,7 @@ import type { ProjectScanner } from "../projects/scanner.js";
 import { isDetachedProjectPath } from "../projects/paths.js";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
-import { projectCatalogIdentities } from "../sessions/catalog-identity.js";
+import { projectCatalogIdentityResult } from "../sessions/catalog-identity.js";
 import type { SessionCatalogRow } from "../sessions/catalog-types.js";
 import type { AgentProvider } from "../sdk/providers/types.js";
 import type { ApiSession } from "./contracts.js";
@@ -104,14 +104,14 @@ export function productionApiSources(deps: {
       signal?.throwIfAborted();
       // Catalog rows are keyed by native id. A session keeps the YA id its
       // creator was given once its process ends only through this projection.
-      const rows: readonly Readonly<SessionCatalogRow>[] = deps.metadata
-        ?.identities
-        ? await projectCatalogIdentities(
+      const projection = deps.metadata?.identities
+        ? await projectCatalogIdentityResult(
             result.rows,
             deps.metadata as SessionMetadataService,
             signal,
           )
-        : result.rows;
+        : { rows: result.rows, conflicts: [] };
+      const rows: readonly Readonly<SessionCatalogRow>[] = projection.rows;
       signal?.throwIfAborted();
       // Session-wide metadata cannot disambiguate conflicting native sources.
       const sourceProjects = new Map<string, string>();
@@ -157,7 +157,8 @@ export function productionApiSources(deps: {
       return {
         items: [...byId.values()].filter((item) => !ambiguous.has(item.id)),
         catalog: {
-          complete: result.catalog.complete,
+          complete:
+            result.catalog.complete && projection.conflicts.length === 0,
           refreshing: result.catalog.refreshing,
         },
       };

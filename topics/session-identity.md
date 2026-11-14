@@ -379,9 +379,29 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   projects or authorize another native storage scope. Missing paths or distinct
   physical directories still refuse as identity conflicts. Filesystem-dependent
   projections, including retained collection reads, recheck the paths rather than
-  permanently caching their equivalence. Genuine conflicts can still fail a
-  collection read; bounded row isolation with explicit incomplete-catalog
-  diagnostics remains [follow-up work](../gaps/session-catalog-conflict-breaks-collections.md).
+  permanently caching their equivalence.
+- Read-side catalogue projection withholds conflicting native observations
+  while continuing to publish healthy rows. The selected project, public id,
+  native binding, metadata and transcript are never rewritten to settle a
+  conflict. An independently established managed/live session may still supply
+  its canonical summary under its saved project. Strict adoption/startup
+  operations continue to refuse conflicts. New discovery preflights a batch
+  before writing: competing new claims for one public id are all withheld,
+  independent of enumeration order, and valid imports share one transaction.
+  Unexpected storage/validation failures still propagate and roll back.
+  Retained list/Inbox/sidebar and recents responses use existing `complete:false`
+  and a generic `refreshError` when observations are withheld. v0 session lists
+  likewise report incomplete state; missing direct v0 reads use the existing
+  `503 catalog_not_ready`, while independently proved resources remain readable.
+  Native evidence stays private to the request or the lifecycle-owned derived
+  source index; no raw paths, conflict identities or per-row logs enter warnings.
+  Unresolved rows are rechecked on normal reads without a new poller, including
+  after checkpoint restoration. Repair or removal clears their uncertainty.
+  Compatibility review uses the existing `complete`/`refreshError` fields in
+  v0.9.0, v0.9.1, v0.9.2, v0.10.0, v0.10.1, v0.10.2 and v0.11.0. No route,
+  response field or capability meaning is added. When catalogue/error fields are
+  absent, the current client keeps its ordinary presentation and sends the same
+  requests; older clients retain their existing incomplete-result presentation.
 - Focused Claude/Codex watches resolve the stored native root/id while retaining
   the subscription's YA id and effective project in change events. Provider hints
   cannot override that binding, and event paths remain physical native paths.

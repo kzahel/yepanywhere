@@ -193,6 +193,8 @@ interface InboxContextValue {
   loading: boolean;
   /** Error from the last fetch attempt, if any */
   error: Error | null;
+  /** An incomplete catalogue must not hide the sessions we could read. */
+  warning?: Error | null;
   /** Force a full refresh with server sort order */
   refresh: () => Promise<void>;
   /** Refetch data (maintains stable ordering) */
@@ -396,7 +398,8 @@ export function InboxProvider({
         unread24h: inbox.unread24h,
         inbox,
         loading: loading || (queryEnabled && catalogState.awaitingFirstRows),
-        error: error ?? catalogState.refreshError,
+        error,
+        warning: catalogState.refreshError,
         refresh,
         refetch,
         totalNeedsAttention,

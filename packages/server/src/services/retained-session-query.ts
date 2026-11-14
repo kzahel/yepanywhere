@@ -16,6 +16,8 @@ import {
 import { getProjectName } from "../projects/paths.js";
 import {
   projectCatalogIdentities,
+  projectCatalogIdentityResult,
+  catalogWithIdentityConflicts,
   nativeCatalogSessionRef,
 } from "../sessions/catalog-identity.js";
 import {
@@ -243,11 +245,13 @@ export class RetainedSessionQuery {
         if (row) native.set(key, row);
       }
     const originals = [...native.values()];
-    const projected = await projectCatalogIdentities(
+    const projection = await projectCatalogIdentityResult(
       originals,
       this.deps.sessionMetadataService,
       this.service.querySignal,
     );
+    const projected = projection.rows;
+    const conflicts = new Set(projection.conflicts.map(sessionCatalogRowKey));
     const projectedByKey = new Map(
       projected.map((row) => [
         sessionCatalogRowKey({ ...row, sessionId: row.nativeSessionId }),
@@ -273,17 +277,20 @@ export class RetainedSessionQuery {
             project_id: publicRow?.projectId ?? null,
             project_path: publicRow?.projectPath ?? null,
             ordinal: previous?.ordinal ?? ++this.nextOrdinal,
-            unstable: Number(
-              Boolean(
-                this.deps.sessionMetadataService &&
-                  (!row.nativeStorageScope ||
-                    !publicRow ||
-                    (row.catalogFamily === "claude" &&
-                      publicRow.projectId !== row.projectId) ||
-                    (row.catalogFamily === "opencode" &&
-                      row.nativeDirectoryProjectId)),
-              ),
-            ),
+            // 2 is a withheld identity conflict; 1 is ordinary revalidation.
+            unstable: conflicts.has(key)
+              ? 2
+              : Number(
+                  Boolean(
+                    this.deps.sessionMetadataService &&
+                      (!row.nativeStorageScope ||
+                        !publicRow ||
+                        (row.catalogFamily === "claude" &&
+                          publicRow.projectId !== row.projectId) ||
+                        (row.catalogFamily === "opencode" &&
+                          row.nativeDirectoryProjectId)),
+                  ),
+                ),
           });
         }
       });
@@ -441,7 +448,7 @@ export class RetainedSessionQuery {
     if (this.checkpoint && revision !== undefined)
       this.checkpoint.save(
         {
-          format: 2,
+          format: 3,
           signature: this.checkpointSignature,
           revision,
           token: this.token,
@@ -498,11 +505,14 @@ export class RetainedSessionQuery {
   }
   private catalog() {
     const state = this.service.getState();
-    return {
-      ...state,
-      ...this.token,
-      complete: !!this.token && this.token.catalogGeneration > 0,
-    };
+    return catalogWithIdentityConflicts(
+      {
+        ...state,
+        ...this.token,
+        complete: !!this.token && this.token.catalogGeneration > 0,
+      },
+      this.sql.unstableSources().some((source) => source.unstable === 2),
+    );
   }
   private pageResult(
     query: CollectionPageQuery,
