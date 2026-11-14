@@ -86,3 +86,11 @@ client cases pass. The API's focused reader/core/HTTP cases are clean and no
 client navigation code changed. The asynchronous stacks still provide no
 owning fixture, so an isolated repair requires the attribution audit above.
 Evidence: local `/tmp/ya-conversation-tests-node24.log`.
+
+2026-11-14: reusable peer-channel verification on Node 24.22.1 repeats five
+`Error: Not implemented: navigation (except hash changes)` diagnostics with
+only jsdom timer stacks. The 52 focused peer/identity-service checks are clean;
+no client navigation changes belong to this transport slice. The stacks still
+do not identify an owning fixture, so an isolated repair needs the attribution
+audit above rather than a global diagnostic filter. Evidence:
+[workspace test log](/tmp/ya-peer-all-final.log).

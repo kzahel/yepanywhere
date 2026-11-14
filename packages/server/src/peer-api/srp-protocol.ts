@@ -9,6 +9,13 @@ export const PEER_REPLY_BYTES = 256 * 1024;
 export const PEER_HANDSHAKE_BYTES = 8 * 1024;
 export const PEER_HANDSHAKE_MS = 10_000;
 export const PEER_CHANNEL_MS = 12_000;
+export const PEER_IDLE_MS = 20_000;
+export const PEER_LIFETIME_MS = 5 * 60_000;
+export const PEER_CONCURRENT_REQUESTS = 8;
+export const PEER_REUSE = "reuse-v1";
+export const peerCancel = z
+  .object({ type: z.literal("cancel"), id: z.string().uuid() })
+  .strict();
 export const PEER_PROTOCOL = "peer-v0";
 export const PEER_REFRESH_PROTOCOL = "peer-v1";
 const hex = z
@@ -67,6 +74,7 @@ export const peerWireRequest = z
         "Content-Type": z.string().max(128),
         "X-YA-Peer-Context": z.string().max(16 * 1024),
         "X-YA-Peer-Envelope": z.literal(PEER_ENVELOPE_VERSION),
+        "X-YA-Peer-Channel": z.literal(PEER_REUSE).optional(),
         "Idempotency-Key": z.string().min(8).max(128).optional(),
         "X-YA-Fleet-Grant": z
           .string()
@@ -204,6 +212,40 @@ export class PeerHelloBudget {
 /** Shared by one profile's incoming and outgoing channels, including pre-auth. */
 export class PeerChannelBudget {
   private readonly entries = new Set<AbortController>();
+  private readonly requests = new Set<AbortController>();
+  private readonly work = new Set<AbortController>();
+  acquireWork() {
+    if (this.closed || this.work.size >= 128)
+      throw new CoreApiError(
+        "command_capacity",
+        "Peer handler capacity reached",
+        503,
+      );
+    const controller = new AbortController();
+    this.work.add(controller);
+    return { controller, release: () => this.work.delete(controller) };
+  }
+  private readonly idle = new Map<AbortController, () => void>();
+  /** Idle retention shares a profile-wide cap across incoming/outgoing peers. */
+  retain(controller: AbortController, close: () => void) {
+    this.idle.delete(controller);
+    this.idle.set(controller, close);
+    if (this.idle.size > 8) this.idle.values().next().value?.();
+  }
+  busy(controller: AbortController) {
+    this.idle.delete(controller);
+  }
+  acquireRequest() {
+    if (this.closed || this.requests.size >= 32)
+      throw new CoreApiError(
+        "command_capacity",
+        "Peer request capacity reached",
+        503,
+      );
+    const controller = new AbortController();
+    this.requests.add(controller);
+    return { controller, release: () => this.requests.delete(controller) };
+  }
   readonly hello = new PeerHelloBudget();
   private closed = false;
   private cryptography = 0;
@@ -226,6 +268,7 @@ export class PeerChannelBudget {
     return !this.closed && this.entries.size < 32;
   }
   acquire() {
+    if (!this.available()) this.idle.values().next().value?.();
     if (!this.available() || !this.hello.admitConnection())
       throw new CoreApiError(
         "command_capacity",
@@ -240,6 +283,7 @@ export class PeerChannelBudget {
       release: () => {
         if (released) return;
         released = true;
+        this.idle.delete(controller);
         this.entries.delete(controller);
       },
     };
@@ -247,5 +291,7 @@ export class PeerChannelBudget {
   close() {
     this.closed = true;
     for (const entry of this.entries) entry.abort();
+    for (const request of this.requests) request.abort();
+    for (const work of this.work) work.abort();
   }
 }

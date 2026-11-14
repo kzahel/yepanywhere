@@ -2,6 +2,7 @@ import { protectedProfile, nativeRequest } from "./peer-fixture.js";
 import { once } from "node:events";
 import { afterEach, expect, it, vi } from "vitest";
 import WebSocket from "ws";
+import { SrpPeerTransport } from "../../src/peer-api/srp-client.js";
 import { SRPClientSession } from "tssrp6a";
 import { createRelayServer } from "../../../relay/src/server.js";
 import { SUPERUSER } from "../../src/auth/principal.js";
@@ -95,10 +96,17 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
       return originalStep1.apply(this, args);
     });
   const cancelledCrypto = new AbortController();
-  const settingUp = a.read("projects", {
-    serverId: b.id,
-    signal: cancelledCrypto.signal,
-  });
+  const setupBudget = new PeerChannelBudget();
+  cleanup.push(() => setupBudget.close());
+  const setupTransport = new SrpPeerTransport(invitation, b.route, setupBudget);
+  const settingUp = setupTransport.request(
+    "projects",
+    {
+      serverId: b.id,
+      signal: cancelledCrypto.signal,
+    },
+    { sessionId: null, launchId: null },
+  );
   try {
     await startedCrypto;
     cancelledCrypto.abort();
@@ -153,7 +161,7 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
   const { sourceServerId: _source, ...rotation } = grant(a.id);
   const rotated = await b.manager.issue(rotation, invitation.credentialId);
   await expect(a.read("projects", { serverId: b.id })).rejects.toMatchObject({
-    code: "unauthorized",
+    code: expect.stringMatching(/^(unauthorized|peer_unavailable)$/),
   });
   await a.manager.importOutgoing({
     invitation: rotated,
@@ -167,7 +175,7 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
   });
   await b.manager.store.revokeIncoming(invitation.credentialId);
   await expect(a.read("projects", { serverId: b.id })).rejects.toMatchObject({
-    code: "unauthorized",
+    code: expect.stringMatching(/^(unauthorized|peer_unavailable)$/),
   });
 }, 20_000);
 

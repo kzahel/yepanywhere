@@ -668,7 +668,8 @@ it("does not confirm an expired source reply even before its expiry timer runs",
       if (
         this.url === target.route.url &&
         args[0] === "message" &&
-        args[2] === true
+        args[2] === true &&
+        target.starts() === 1
       )
         vi.setSystemTime(authority.expiresAt + 1);
       return original.apply(this, args);

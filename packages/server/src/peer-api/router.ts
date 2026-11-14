@@ -77,6 +77,7 @@ export class PeerApiRouter {
     const peer = this.peers.get(serverId);
     if (peer)
       for (const controller of this.active.get(peer) ?? []) controller.abort();
+    peer?.transport.close?.();
     this.peers.delete(serverId);
   }
   close() {

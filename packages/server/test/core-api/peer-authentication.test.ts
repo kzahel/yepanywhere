@@ -221,8 +221,11 @@ it.each(["direct", "relay"] as const)(
       ),
     ).rejects.toMatchObject({ status: 401 });
     await b.manager.store.revokeIncoming(invitation.credentialId);
+    // Revocation closes an already authenticated channel; fresh authentication is denied.
     await expect(a.read("projects", { serverId: b.id })).rejects.toMatchObject({
-      status: 401,
+      status: expect.toSatisfy(
+        (status: number) => status === 401 || status === 503,
+      ),
     });
   },
   20_000,

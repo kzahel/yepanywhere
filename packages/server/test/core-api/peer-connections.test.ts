@@ -107,6 +107,8 @@ async function ownerProfile(runtimeControl?: { envOverride?: boolean }) {
   const address = server.address();
   if (!address || typeof address === "string") throw Error("No server");
   cleanup.push(async () => {
+    // Peer sockets belong to the manager, not this ordinary-owner WebSocketServer.
+    await profile.manager.close();
     for (const ws of wss.clients) ws.terminate();
     await new Promise<void>((resolve) => wss.close(() => resolve()));
     await new Promise<void>((resolve) => server.close(() => resolve()));

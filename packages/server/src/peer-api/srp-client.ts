@@ -15,15 +15,13 @@ import {
   bigIntToArrayBuffer,
   type SRPClientSessionStep2,
 } from "tssrp6a";
-import { BinaryFormat, isRelayClientError } from "@yep-anywhere/shared";
+import { isRelayClientError } from "@yep-anywhere/shared";
 import { z } from "zod";
 import { CoreApiError } from "../core-api/errors.js";
 import {
   deriveSecretboxKey,
   deriveTransportKey,
   decrypt,
-  encryptToBinaryEnvelope,
-  decryptBinaryEnvelopeRaw,
 } from "../crypto/nacl-wrapper.js";
 import {
   invitationSchema,
@@ -41,7 +39,6 @@ import type { Operation } from "../core-api/contracts.js";
 import type { PeerAttestation } from "./directory.js";
 import {
   PEER_WIRE_BYTES,
-  PEER_REPLY_BYTES,
   PEER_HANDSHAKE_BYTES,
   PEER_CHANNEL_MS,
   PEER_PROTOCOL,
@@ -49,21 +46,38 @@ import {
   peerChallenge,
   peerVerify,
   peerServerInfo,
-  peerWireReply,
   peerWireRequest,
   wireBytes,
   awaitPeerWork,
   type PeerChannelBudget,
 } from "./srp-protocol.js";
 
+import {
+  PeerClientChannel,
+  PeerChannelNotSubmitted,
+  type PeerConnection,
+} from "./srp-client-channel.js";
+
 const routines = new SRPRoutines(new SRPParameters());
 const proofEnvelope = z
   .object({ nonce: z.string().max(128), ciphertext: z.string().max(4096) })
   .strict();
 
-/** A fresh mutually authenticated channel per request; no reconnect or resend. */
+/** Demand-driven authenticated channels; never replay a submitted request. */
 export class SrpPeerTransport implements PeerTransport {
   readonly serverId: string;
+  private fingerprint?: string;
+  private legacyFingerprint?: string;
+  private reuseFingerprint?: string;
+  private readonly channels = new Set<PeerClientChannel>();
+  private readonly liveChannels = new Set<PeerClientChannel>();
+  private closed = false;
+  close() {
+    this.closed = true;
+    for (const channel of this.liveChannels) channel.close();
+    this.liveChannels.clear();
+    this.channels.clear();
+  }
   private readonly invitation: PeerInvitation;
   private readonly route: PeerRoute;
   // Shared profile admission bounds queued handshakes to 32. A legacy relay
@@ -169,7 +183,13 @@ export class SrpPeerTransport implements PeerTransport {
       );
     if (protocol === PEER_PROTOCOL && invitation.expiresAt <= Date.now())
       throw new CoreApiError("unauthorized", "Peer invitation expired", 401);
-    const admission = this.budget.acquire();
+    if (this.closed)
+      throw new CoreApiError(
+        "peer_unavailable",
+        "Peer transport is closed",
+        503,
+      );
+    const admission = this.budget.acquireRequest();
     const identityServiceExpiry = new AbortController();
     let identityServiceDeadline: ReturnType<typeof setTimeout> | undefined;
     const signal = AbortSignal.any([
@@ -178,7 +198,6 @@ export class SrpPeerTransport implements PeerTransport {
       AbortSignal.timeout(PEER_CHANNEL_MS),
       ...(input.signal ? [input.signal] : []),
     ]);
-    let releaseHandshake = () => {};
     try {
       signal.throwIfAborted();
       this.identityService?.assertActive();
@@ -213,17 +232,6 @@ export class SrpPeerTransport implements PeerTransport {
         );
         identityServiceDeadline.unref?.();
       }
-      const step1 = await awaitPeerWork(
-        this.budget.crypto(() =>
-          new SRPClientSession(routines).step1(
-            invitation.username,
-            invitation.secret,
-          ),
-        ),
-        signal,
-      );
-      releaseHandshake = await this.enterHandshake(signal);
-      signal.throwIfAborted();
       const request = {
         type: "request" as const,
         id: randomUUID(),
@@ -250,27 +258,157 @@ export class SrpPeerTransport implements PeerTransport {
           "Peer request is outside its supported wire limits",
           400,
         );
-      return await new Promise<unknown>((resolve, reject) => {
+      const fingerprint = JSON.stringify([
+        invitation.credentialId,
+        invitation.generation,
+        invitation.secret,
+        protocol,
+      ]);
+      signal.throwIfAborted();
+      if (this.closed)
+        throw new CoreApiError(
+          "peer_unavailable",
+          "Peer transport is closed",
+          503,
+        );
+      if (!privateRequest && this.fingerprint !== fingerprint) {
+        for (const old of this.channels) old.close();
+        this.channels.clear();
+        this.fingerprint = fingerprint;
+      }
+      for (const old of this.liveChannels)
+        if (old.closed) this.liveChannels.delete(old);
+      for (const old of this.channels)
+        if (old.closed) this.channels.delete(old);
+      let channel = privateRequest
+        ? undefined
+        : [...this.channels].find((candidate) => candidate.available);
+      if (!channel) {
+        if (!privateRequest && this.channels.size >= 4)
+          throw new CoreApiError(
+            "command_capacity",
+            "Peer channel pool capacity reached",
+            503,
+          );
+        channel = new PeerClientChannel(
+          this.budget,
+          (setupSignal) => this.connect(invitation, protocol, setupSignal),
+          !privateRequest && this.legacyFingerprint !== fingerprint,
+          this.serverId,
+          this.reuseFingerprint === fingerprint,
+        );
+        this.liveChannels.add(channel);
+        if (!privateRequest) this.channels.add(channel);
+      }
+      const wire = peerWireRequest.parse(request);
+      const reply = await channel
+        .request(wire, signal, assertIdentityServiceActive)
+        .catch((error: unknown) => {
+          if (!(error instanceof PeerChannelNotSubmitted)) {
+            // A target may have rolled back. Re-probe on the next call, without
+            // retrying this possibly submitted operation or weakening auth.
+            if (!channel.hasReply && this.reuseFingerprint === fingerprint)
+              this.reuseFingerprint = undefined;
+            throw error;
+          }
+          signal.throwIfAborted();
+          if (this.closed)
+            throw new CoreApiError(
+              "peer_unavailable",
+              "Peer transport is closed",
+              503,
+            );
+          if (channel.reuseSupported === false)
+            this.legacyFingerprint = fingerprint;
+          // Only demonstrably unsent work can use a different connection.
+          const single = new PeerClientChannel(
+            this.budget,
+            (setupSignal) => this.connect(invitation, protocol, setupSignal),
+            false,
+            this.serverId,
+          );
+          this.liveChannels.add(single);
+          return single
+            .request(wire, signal, assertIdentityServiceActive)
+            .finally(() => {
+              single.close();
+              this.liveChannels.delete(single);
+            });
+        });
+      if (!privateRequest) {
+        if (channel.reuseSupported === false)
+          this.legacyFingerprint = fingerprint;
+        if (channel.reuseSupported === true)
+          this.reuseFingerprint = fingerprint;
+      }
+      assertIdentityServiceActive();
+      return privateRequest?.path === PEER_REFRESH_PATH && reply.status === 200
+        ? peerRefreshReceipt.parse(
+            typeof reply.body === "string"
+              ? JSON.parse(reply.body)
+              : reply.body,
+          )
+        : validatePeerReply(
+            operation,
+            this.serverId,
+            reply.status,
+            new Headers(reply.headers),
+            reply.body,
+            Boolean(input.http),
+          );
+    } catch (error) {
+      if (error instanceof CoreApiError) throw error;
+      throw new CoreApiError(
+        "peer_unavailable",
+        "Peer request did not establish an outcome; retry only with the same key",
+        503,
+      );
+    } finally {
+      if (identityServiceDeadline) clearTimeout(identityServiceDeadline);
+      admission.release();
+    }
+  }
+
+  private async connect(
+    invitation: PeerInvitation,
+    protocol: typeof PEER_PROTOCOL | typeof PEER_REFRESH_PROTOCOL,
+    signal: AbortSignal,
+  ): Promise<PeerConnection> {
+    let releaseHandshake = () => {};
+    try {
+      const step1 = await awaitPeerWork(
+        this.budget.crypto(() =>
+          new SRPClientSession(routines).step1(
+            invitation.username,
+            invitation.secret,
+          ),
+        ),
+        signal,
+      );
+      releaseHandshake = await this.enterHandshake(signal);
+      signal.throwIfAborted();
+      return await new Promise<PeerConnection>((resolve, reject) => {
         const ws = new WebSocket(this.route.url, {
           maxPayload: PEER_WIRE_BYTES,
           perMessageDeflate: false,
         });
-        let phase: "relay" | "challenge" | "verify" | "reply" =
+        let phase: "relay" | "challenge" | "verify" =
           this.route.kind === "relay" ? "relay" : "challenge";
         let step2: SRPClientSessionStep2 | undefined,
           key: Uint8Array | undefined;
         let settled = false,
           processing = false;
-        const finish = (error?: CoreApiError, result?: unknown) => {
+        const finish = (error?: CoreApiError, result?: PeerConnection) => {
           if (settled) return;
           settled = true;
           releaseHandshake();
           signal.removeEventListener("abort", abort);
-          // The one reply is already in memory; no graceful-close linger can
-          // retain unlimited source sockets against a noncooperative peer.
-          ws.terminate();
-          if (error) reject(error);
-          else resolve(result);
+          ws.removeAllListeners();
+          ws.on("error", () => {});
+          if (error) {
+            ws.terminate();
+            reject(error);
+          } else resolve(result!);
         };
         const abort = () =>
           finish(
@@ -348,65 +486,6 @@ export class SrpPeerTransport implements PeerTransport {
           processing = true;
           void (async () => {
             const bytes = wireBytes(data);
-            if (phase === "reply") {
-              if (!isBinary || !key)
-                throw new CoreApiError(
-                  "peer_unsupported",
-                  "Encrypted peer reply required",
-                  501,
-                );
-              const decoded = decryptBinaryEnvelopeRaw(bytes, key);
-              if (!decoded || decoded.format !== BinaryFormat.JSON)
-                throw new CoreApiError(
-                  "peer_identity_mismatch",
-                  "Invalid protected peer reply",
-                  502,
-                );
-              const sequenced = z
-                .object({ seq: z.literal(0), msg: peerWireReply })
-                .strict()
-                .parse(
-                  JSON.parse(
-                    new TextDecoder("utf-8", { fatal: true }).decode(
-                      decoded.payload,
-                    ),
-                  ),
-                );
-              if (sequenced.msg.id !== request.id)
-                throw new CoreApiError(
-                  "peer_identity_mismatch",
-                  "Peer reply correlation does not match",
-                  502,
-                );
-              if (
-                Buffer.byteLength(JSON.stringify(sequenced.msg.body)) >
-                PEER_REPLY_BYTES
-              )
-                throw new CoreApiError(
-                  "peer_response_too_large",
-                  "Peer reply exceeds 256 KiB; narrow limit or maxMessages",
-                  502,
-                );
-              assertIdentityServiceActive();
-              const result =
-                privateRequest?.path === PEER_REFRESH_PATH &&
-                sequenced.msg.status === 200
-                  ? peerRefreshReceipt.parse(
-                      typeof sequenced.msg.body === "string"
-                        ? JSON.parse(sequenced.msg.body)
-                        : sequenced.msg.body,
-                    )
-                  : validatePeerReply(
-                      operation,
-                      this.serverId,
-                      sequenced.msg.status,
-                      new Headers(sequenced.msg.headers),
-                      sequenced.msg.body,
-                      Boolean(input.http),
-                    );
-              finish(undefined, result);
-              return;
-            }
             if (isBinary || bytes.length > PEER_HANDSHAKE_BYTES)
               throw new CoreApiError(
                 "peer_unsupported",
@@ -512,20 +591,11 @@ export class SrpPeerTransport implements PeerTransport {
                 502,
               );
             key = deriveTransportKey(base, info.transportNonce);
-            assertIdentityServiceActive();
-            releaseHandshake();
-            const frame = encryptToBinaryEnvelope(
-              JSON.stringify({ seq: 0, msg: request }),
+            finish(undefined, {
+              ws,
               key,
-            );
-            if (frame.byteLength > PEER_WIRE_BYTES)
-              throw new CoreApiError(
-                "invalid_request",
-                "Peer request exceeds its 384 KiB wire limit",
-                400,
-              );
-            phase = "reply";
-            ws.send(frame);
+              expiresAt: info.expiresAt,
+            });
           })()
             .catch((error: unknown) =>
               finish(
@@ -545,17 +615,8 @@ export class SrpPeerTransport implements PeerTransport {
         signal.addEventListener("abort", abort, { once: true });
         if (signal.aborted) abort();
       });
-    } catch (error) {
-      if (error instanceof CoreApiError) throw error;
-      throw new CoreApiError(
-        "peer_unavailable",
-        "Peer request did not establish an outcome; retry only with the same key",
-        503,
-      );
     } finally {
-      if (identityServiceDeadline) clearTimeout(identityServiceDeadline);
       releaseHandshake();
-      admission.release();
     }
   }
 }

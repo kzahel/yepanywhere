@@ -14,6 +14,7 @@ import type { PeerAttestation } from "./directory.js";
 export type PeerInput = NonNullable<Parameters<CoreApi["read"]>[2]>;
 export interface PeerTransport {
   readonly serverId: string;
+  close?(): void;
   request(
     operation: Operation,
     input: PeerInput,

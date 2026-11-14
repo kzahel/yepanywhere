@@ -732,13 +732,14 @@ export class PeerAccessManager {
         input.route,
         this.budget,
       );
-      const result = invitation.authentication
-        ? await transport.identity(signal)
-        : await transport.request(
+      const result = await (invitation.authentication
+        ? transport.identity(signal)
+        : transport.request(
             "access",
             { serverId: invitation.targetServerId, signal },
             { sessionId: null, launchId: null },
-          );
+          )
+      ).finally(() => transport.close());
       const access = accessSchema.parse(result);
       if (
         access.principal.kind !== "peer" ||
