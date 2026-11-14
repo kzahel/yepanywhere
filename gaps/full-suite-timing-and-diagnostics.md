@@ -1,5 +1,15 @@
 # Full server suite has timing failures and unasserted diagnostics
 
+2026-11-14: the Claude catalogue project-alias repair passes the full Node
+25.8.2/macOS workspace (7,466 server / 7,417 client cases, 166.07 s server).
+Its 16 focused identity/projection checks are warning-free. The full run still
+emits `Unknown or dead provider runtime`, `Process terminated`,
+`Clearloop restart reconcile failed for a leftover running loop` (`disk full`)
+and jsdom `Not implemented: navigation (except hash changes)` diagnostics from
+the existing failure/navigation fixtures. Correctly asserting those diagnostics
+requires changes in their separate lifecycle/navigation owners; global logger
+or navigation suppression in a catalogue fix would hide unrelated regressions.
+
 2026-11-04: New Session startup/draft freshness passes the full Node 22.23.3
 macOS workspace (6,950 server / 7,097 client; 150.34 s server, 134.49 s client).
 The same two jsdom `Not implemented: navigation (except hash changes)` errors

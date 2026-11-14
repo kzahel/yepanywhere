@@ -79,8 +79,8 @@ export type ProjectedCatalogRow = Readonly<
  * and the catalog reuses a row's object while the row is unchanged, so such a
  * row projects the same way for as long as its object lives. Rows without a
  * native scope, unbound rows (adopted ones are kept from their next read),
- * rows whose binding conflicts and OpenCode-overridden rows are projected on
- * every read.
+ * rows whose binding conflicts and rows reconciled through filesystem paths
+ * are projected on every read.
  */
 const boundProjections = new WeakMap<
   object,
@@ -110,7 +110,15 @@ export async function projectCatalogIdentities(
     // public projection boundary: one indexed read per provider store finds
     // existing bindings, and only rows without one enter the publication's
     // single adoption transaction.
-    const physicalProjects = new Map<string, Promise<string>>();
+    const physicalProjects = new Map<string, Promise<string | undefined>>();
+    const physicalProject = (path: string) => {
+      let physical = physicalProjects.get(path);
+      if (!physical) {
+        physical = realpath(path).catch(() => undefined);
+        physicalProjects.set(path, physical);
+      }
+      return physical;
+    };
     const pendingFamilies = new Map<string, boolean>();
     const scoped: Array<{ position: number; native: NativeSessionRef }> = [];
     for (const [position, row] of nativeRows.entries()) {
@@ -162,6 +170,28 @@ export async function projectCatalogIdentities(
         : boundIdentities[index];
       let projectId = row.projectId;
       if (
+        row.catalogFamily === "claude" &&
+        bound &&
+        bound.projectId !== row.projectId
+      ) {
+        // Claude records physical cwd (e.g. /private/tmp on macOS), while
+        // admission keeps the project the caller selected. Exact native
+        // binding plus two successfully resolved paths proves this alias;
+        // neither a missing path nor an unrelated project can approve it.
+        yielded = true;
+        const [original, discovered] = await Promise.all([
+          physicalProject(fromUrlProjectId(bound.projectId)),
+          physicalProject(row.projectPath),
+        ]);
+        if (signal?.aborted) return [];
+        if (
+          original !== undefined &&
+          discovered !== undefined &&
+          getProjectIdentityKey(original) === getProjectIdentityKey(discovered)
+        )
+          projectId = bound.projectId;
+      }
+      if (
         row.catalogFamily === "opencode" &&
         bound &&
         bound.projectId !== row.projectId &&
@@ -173,13 +203,11 @@ export async function projectCatalogIdentities(
         );
         let matches = getProjectIdentityKey(original) === directoryKey;
         if (!matches) {
-          let physical = physicalProjects.get(original);
-          if (!physical) {
-            physical = realpath(original).catch(() => original);
-            physicalProjects.set(original, physical);
-          }
           yielded = true;
-          matches = getProjectIdentityKey(await physical) === directoryKey;
+          matches =
+            getProjectIdentityKey(
+              (await physicalProject(original)) ?? original,
+            ) === directoryKey;
           if (signal?.aborted) return [];
         }
         if (matches) projectId = bound.projectId;
@@ -193,7 +221,7 @@ export async function projectCatalogIdentities(
         nativeSessionFamily(provider) === native.family
       ) {
         const projected = project(position, bound);
-        // An OpenCode override depends on the filesystem; it is not kept.
+        // Alias/worktree overrides depend on the filesystem; they are not kept.
         if (projectId === row.projectId)
           cached.set(row, Object.freeze(projected));
         continue;

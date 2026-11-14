@@ -278,6 +278,8 @@ export class RetainedSessionQuery {
                 this.deps.sessionMetadataService &&
                   (!row.nativeStorageScope ||
                     !publicRow ||
+                    (row.catalogFamily === "claude" &&
+                      publicRow.projectId !== row.projectId) ||
                     (row.catalogFamily === "opencode" &&
                       row.nativeDirectoryProjectId)),
               ),

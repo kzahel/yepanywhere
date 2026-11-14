@@ -31,3 +31,16 @@ correction as a fix for this defect. Run evidence is in
 isolated native transcript.
 
 Found 2026-09-12 while validating tactical 128 with real Claude sessions on macOS.
+
+2026-11-14: a live API-created Claude probe selected `/tmp/ya-compact-probe`,
+while its native catalogue reported `/private/tmp/ya-compact-probe`. The exact
+native binding already existed, but collection projection rejected the project
+spelling and caused Inbox, Projects, Sessions and Issues reads to return 500.
+Catalogue projection now recognizes successfully resolved aliases for an exact
+Claude binding and preserves its original public id/project; retained reads
+recheck filesystem-dependent rows. A real-symlink/SQLite regression covers list
+and inbox success, changed and missing symlink refusal, and scope isolation.
+This repairs the collection failure, not the earlier history/watch/resume report:
+full real-Claude alias history across shutdown/restart remains unqualified, so
+that remainder stays open. Genuine conflicting rows also still need
+[collection isolation](session-catalog-conflict-breaks-collections.md).

@@ -1,5 +1,5 @@
 import { seedRetainedCollection } from "../utils/retained-query-fixture.js";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
@@ -7,6 +7,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { readRetainedSessionItems } from "../../src/routes/retained-session-collections.js";
 import type { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
 import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
+import { retainedSessionQuery } from "../../src/services/retained-session-query.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import {
   closeTestDiscoveryDatabases,
@@ -116,6 +117,62 @@ it("projects an OpenCode row moved to its bound project on every read", async ()
     expect(Object.isFrozen(projected)).toBe(false);
     expect(lookups.mock.calls.at(-1)?.[0]).toHaveLength(1);
   }
+});
+
+it("keeps a bound Claude project alias in retained lists and rechecks a changed symlink", async () => {
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "ya-claude-alias-")));
+  dirs.push(dir);
+  const physical = join(dir, "physical");
+  const other = join(dir, "other");
+  const alias = join(dir, "alias");
+  await Promise.all([physical, other].map((path) => mkdir(path)));
+  const linkType = process.platform === "win32" ? "junction" : "dir";
+  await symlink(physical, alias, linkType);
+  const metadata = createTestSessionMetadataService(dir);
+  await metadata.initialize();
+  const id = "33333333-3333-4333-8333-333333333333";
+  const native = row(id, physical);
+  await projectCatalogIdentities([row(id, alias)], metadata);
+
+  const collection = await seedRetainedCollection(dir, [native]);
+  owned.push(collection);
+  const deps = { sessionMetadataService: metadata };
+  const result = await readRetainedSessionItems(collection, deps);
+  expect(result.sessions).toEqual([
+    expect.objectContaining({ id, projectId: toUrlProjectId(alias) }),
+  ]);
+  expect(result.projects).toEqual([
+    { id: toUrlProjectId(alias), name: "alias" },
+  ]);
+  const inbox = await retainedSessionQuery(collection, deps).inbox({
+    queueIds: [],
+    now: Date.parse(native.updatedAt),
+  });
+  expect(inbox.sessions).toEqual([
+    expect.objectContaining({ id, projectId: toUrlProjectId(alias) }),
+  ]);
+  await expect(
+    projectCatalogIdentities(
+      [{ ...native, nativeStorageScope: "/unrelated-native-store" }],
+      metadata,
+    ),
+  ).rejects.toThrow("Session identity conflicts");
+
+  // Keep the same published row object: filesystem-dependent projections must
+  // not inherit the permanent cache used for a matching project id.
+  await projectCatalogIdentities([native], metadata);
+  await rm(alias);
+  await symlink(other, alias, linkType);
+  await expect(projectCatalogIdentities([native], metadata)).rejects.toThrow(
+    "Session identity conflicts",
+  );
+  await expect(readRetainedSessionItems(collection, deps)).rejects.toThrow(
+    "Session identity conflicts",
+  );
+  await rm(alias);
+  await expect(projectCatalogIdentities([native], metadata)).rejects.toThrow(
+    "Session identity conflicts",
+  );
 });
 
 it("orders project options with equal names by id, not by row order", async () => {

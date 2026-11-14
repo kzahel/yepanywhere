@@ -372,6 +372,16 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   that string may also be another session's unrelated public metadata key.
   Other provider adoption and the remaining source/watch consumers are still
   being migrated before differing-id launches are enabled.
+- Claude catalogue rows with an exact existing native binding retain that
+  binding's public session id and selected project when both project paths
+  successfully resolve to the same physical directory. This includes macOS
+  `/tmp` versus `/private/tmp` and explicit directory symlinks. It does not merge
+  projects or authorize another native storage scope. Missing paths or distinct
+  physical directories still refuse as identity conflicts. Filesystem-dependent
+  projections, including retained collection reads, recheck the paths rather than
+  permanently caching their equivalence. Genuine conflicts can still fail a
+  collection read; bounded row isolation with explicit incomplete-catalog
+  diagnostics remains [follow-up work](../gaps/session-catalog-conflict-breaks-collections.md).
 - Focused Claude/Codex watches resolve the stored native root/id while retaining
   the subscription's YA id and effective project in change events. Provider hints
   cannot override that binding, and event paths remain physical native paths.
