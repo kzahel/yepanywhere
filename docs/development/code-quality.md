@@ -5,6 +5,9 @@
 Commands and code paths below are relative to the repository root unless stated
 otherwise.
 
+See [code comments](../../topics/comments.md) for comment quality and the
+open cleanup/enforcement direction.
+
 ## Zero-Warning Commits
 
 Before committing, the checks you run must be warning-free, not merely

@@ -108,6 +108,8 @@
 - Client global store (coarse normalized sessions/projects/project queues/inbox summary cache, not transcript state)
 - [React state patterns](react-state-patterns.md) (effect and store publication,
   convergence, snapshot identity, subscription scope, and lifecycle ownership)
+- [Code comments](comments.md) (quality guidance, required retention and warning
+  explanations, cleanup direction, and pstack review workflow)
 - Session summary fidelity (bounded list projections, complete-index isolation,
   and partial-observation nondowngrade rules)
 - Client source runtime topology (per-YA-server runtime boundary above summary/query/session-detail stores)
