@@ -220,6 +220,33 @@ it("uses one SQL owner for list and Inbox polls and touches only changed metadat
   expect(reads.mock.calls.length).toBeLessThan(20);
 });
 
+it("leaves a live session's row alone on a read that projects it unchanged", async () => {
+  const f = await fixture(8);
+  f.processes.set(f.id(1), {
+    state: { type: "in-turn" },
+    getPendingInputRequest: () => null,
+  });
+  await f.getInbox();
+  // Counts every row change on the connection, trigger-made ones included.
+  const changes = () =>
+    f.collections.queryDatabase
+      .prepare("SELECT total_changes() AS changes")
+      .get<{ changes: number }>()!.changes;
+  const settled = changes();
+  expect((await f.getInbox()).active[0].sessionId).toBe(f.id(1));
+  await f.get();
+  expect(changes()).toBe(settled);
+
+  // A live change that no catalog or metadata event announces still lands.
+  f.processes.set(f.id(1), {
+    state: { type: "waiting-input" },
+    getPendingInputRequest: () => ({ type: "question", id: "request-1" }),
+  });
+  const inbox = await f.getInbox();
+  expect(inbox.needsAttention[0].sessionId).toBe(f.id(1));
+  expect(changes()).toBeGreaterThan(settled);
+});
+
 it("keeps delivery receipts out of SQL attention while preserving pending questions and approvals", async () => {
   const f = await fixture(32);
   await f.getInbox();

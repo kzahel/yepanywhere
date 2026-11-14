@@ -91,6 +91,8 @@ export class RetainedSessionQuery {
   private pendingIds = new Set<string>();
   /** Project names are response-sized, not one entry per session. */
   private names = new Map<string, string>();
+  /** The working index's project rows, read again only after they change. */
+  private projectRows?: ReturnType<SessionCollectionSql["sourceProjects"]>;
   private chain: Promise<void> = Promise.resolve();
   private disposed = false;
   private readonly unsubscribers: Array<() => void> = [];
@@ -172,6 +174,7 @@ export class RetainedSessionQuery {
         return await read();
       } catch (error) {
         this.token = undefined;
+        this.projectRows = undefined;
         throw error;
       }
     });
@@ -285,16 +288,19 @@ export class RetainedSessionQuery {
       if (offset + 256 < originals.length)
         await new Promise<void>((resolve) => setImmediate(resolve));
     }
-    this.sql.db.transaction(() => {
-      for (const id of sourceProjects) this.sql.refreshProject(id);
-    });
+    // Most reads follow a write that changed no project: skip the write
+    // transaction, and reuse the project rows it would have left unchanged.
+    if (sourceProjects.size)
+      this.sql.db.transaction(() => {
+        for (const id of sourceProjects) this.sql.refreshProject(id);
+      });
+    if (full || sourceProjects.size || !this.projectRows)
+      this.projectRows = this.sql.sourceProjects();
     const names = new Map(
-      this.sql
-        .sourceProjects()
-        .map((row) => [
-          row.project_id,
-          (this.deps.projectDisplayName ?? getProjectName)(row.project_path),
-        ]),
+      this.projectRows.map((row) => [
+        row.project_id,
+        (this.deps.projectDisplayName ?? getProjectName)(row.project_path),
+      ]),
     );
     for (const id of new Set([...this.names.keys(), ...names.keys()]))
       if (this.names.get(id) !== names.get(id))

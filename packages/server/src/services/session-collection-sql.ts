@@ -202,7 +202,9 @@ export class SessionCollectionSql {
     const ids = this.prepare(`SELECT id FROM ${this.prefix}_dirty`).all<{
       id: string;
     }>();
-    this.prepare(`DELETE FROM ${this.prefix}_dirty`).run();
+    // Most reads find nothing queued, and even an empty DELETE is a write
+    // transaction on the temp store, journal and all.
+    if (ids.length) this.prepare(`DELETE FROM ${this.prefix}_dirty`).run();
     return ids.map((row) => row.id);
   }
   liveIds() {
@@ -235,25 +237,59 @@ export class SessionCollectionSql {
     parentJson: string | null = null,
     attention?: boolean,
   ) {
-    if (!this.building) this.remove(item.id);
     const ms = Date.parse(item.updatedAt);
     const archived = automatic
       ? cutoff !== undefined && Number.isFinite(ms) && ms < cutoff
       : Boolean(item.isArchived);
+    const flags = {
+      archived: Number(archived),
+      automatic: Number(automatic),
+      attention: Number(attention ?? Boolean(item.pendingInputType)),
+      live: Number(live),
+    };
+    const json = JSON.stringify(item);
+    if (!this.building) {
+      // Every read projects each live session again, and most projections
+      // equal the stored row. Every other column derives from `item`, so an
+      // equal row is left alone: replacing it would fire the count, option
+      // and durable-mirror triggers to arrive at the same state.
+      const stored = this.prepare(
+        `SELECT item,archived,automatic,attention,live,native_key,ordinal,parent_json FROM ${this.prefix}_rows WHERE id=?`,
+      ).get<
+        typeof flags &
+          Pick<
+            CollectionStoredRow,
+            "item" | "native_key" | "ordinal" | "parent_json"
+          >
+      >(item.id);
+      if (
+        stored &&
+        stored.item === json &&
+        stored.archived === flags.archived &&
+        stored.automatic === flags.automatic &&
+        stored.attention === flags.attention &&
+        stored.live === flags.live &&
+        stored.native_key === nativeKey &&
+        stored.ordinal === ordinal &&
+        stored.parent_json === parentJson
+      )
+        return;
+      if (stored) this.remove(item.id);
+    }
     this.prepare(
       `INSERT INTO ${this.prefix}_rows VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     ).run(
       item.id,
       item.projectId,
       Number.isFinite(ms) ? ms : 0,
-      Number(archived),
-      Number(automatic),
+      flags.archived,
+      flags.automatic,
       Number(Boolean(item.isStarred)),
       Number(Boolean(item.sidebarCategory)),
       Number(Boolean(item.hasUnread)),
-      Number(attention ?? Boolean(item.pendingInputType)),
+      flags.attention,
       Number(item.activity === "in-turn"),
-      Number(live),
+      flags.live,
       JSON.stringify(item.provider),
       JSON.stringify(item.executor ?? "local"),
       ordinal,
@@ -273,7 +309,7 @@ export class SessionCollectionSql {
           item.initialPrompt,
         ].map((s) => (typeof s === "string" ? s.toLowerCase() : null)),
       ),
-      JSON.stringify(item),
+      json,
     );
   }
   /** Time changes only rows crossing an archive boundary, never a timer per row. */
@@ -300,8 +336,10 @@ export class SessionCollectionSql {
     }
   }
   stats(accessible?: readonly string[]): GlobalSessionStats {
+    // Grouped in SQL: the table holds a row per project, and every list read
+    // asks for these totals.
     const rows = this.prepare(
-      `SELECT * FROM ${this.prefix}_counts ${accessible ? "WHERE project_id IN (SELECT value FROM json_each(?))" : ""}`,
+      `SELECT provider,executor,SUM(total) AS total,SUM(archived) AS archived,SUM(starred) AS starred,SUM(unread) AS unread FROM ${this.prefix}_counts ${accessible ? "WHERE project_id IN (SELECT value FROM json_each(?))" : ""} GROUP BY provider,executor`,
     ).all<{
       provider: string;
       executor: string;

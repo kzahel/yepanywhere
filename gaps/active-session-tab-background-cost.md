@@ -58,6 +58,105 @@ state and metadata are now SQL-owned with bounded residency;
 [cold-state evidence](../docs/research/190-cold-state-sql.md) records this third
 slice. The derived list projection still rebuilds after restart.
 
+## Server survey at 10,000 sessions — 2026-11-13
+
+A survey of `68cc52815` with `scripts/perf-repro/active-session.mjs` at
+10,000 idle sessions (200 projects, one 200-compaction session, one tab),
+looking for costs the earlier slices missed. One repetition per figure unless
+stated; the host was shared with other work.
+
+| Measure | Target | Claude | Codex |
+|---|---:|---:|---:|
+| Server main CPU per write | ≤ 5 ms | 57.8 | 57.0 |
+| Server process CPU per write | ≤ 15 ms | 72.3 | 95.6 |
+| Tab work per write | ≤ 5 ms | 35.9 | 38.0 |
+| Write to visible, p95 | ≤ 250 ms | 46 | 38 |
+| Event-loop delay, p99 | ≤ 50 ms | 11 | 10.1 |
+| Idle RSS | ≤ 300 MiB | 491 | 514 |
+| Cold open to first paint | ≤ 300 ms | 1,112 | 1,031 |
+| Restart to usable lists | ≤ 1,000 ms | 896 | 1,236 |
+
+These match the 50,000-session figures: the cost still does not come from
+the population.
+
+**CPU per write is not a stable unit on this host.** The same build measured
+50.1, 57.8, 69.6 and 79.2 ms of main-thread CPU per write for Claude in four
+runs, and 32.5 ms in a run that overlapped a CPU-heavy job. Busier hosts
+gave lower figures, which fits core and frequency selection rather than
+work done. Compare builds only interleaved and repeated, and prefer counts
+where a change can be counted.
+
+**Where the server's time goes** (1 ms profile, Claude, per write): reading
+the appended transcript is 2.4 ms. The list pipeline is most of the rest:
+`RetainedSessionQuery.synchronize` 12.3 ms, page building 8.1 ms, collection
+refresh and diffing 4.5 ms, catalog commit 2 ms, with 19 ms of the total
+inside SQLite.
+
+**Changed here** (no protocol or behavior change):
+
+- `synchronize` opened a write transaction to refresh zero projects and
+  reread and decoded the whole project table on every list read. Both now
+  happen only when a project's source changed.
+- Every list read deleted from the empty `dirty` temp table, a write
+  transaction on the temp store each time.
+- List totals summed one row per project, provider and executor in
+  JavaScript on every page; they are grouped in SQL.
+- Each live session's row was deleted and reinserted on every list read
+  even when its projection was identical, firing the count, option and
+  durable-mirror triggers. A new test saw 22 row changes for two reads with
+  one live session; there are now none. The scenario has no YA-owned
+  session, so its numbers do not show this one.
+- In the tab, `MessageAge` built an `Intl` formatter per row per render
+  (about 20 µs each); formatters are reused for a minute.
+
+Counted on the server over 50 writes: write transactions fall from 12.0 to
+5.0 per write and statements run from 257 to 243. End-to-end CPU does not
+move outside the noise above: main-thread CPU per write was 69.6 and 79.2
+before, 72.3 and 74.8 after (Claude), 91.7 and 90.8 (Codex). Treat these as
+removed work, not as a measured speedup.
+
+**Found, not changed:**
+
+- **About 190 statement prepares per write**, nearly one per statement run.
+  `SessionCollectionSql` caches 8 statements and one refresh cycle uses 24
+  distinct ones, so 47 of 52 uses prepared again; the checkpoint and catalog
+  stores prepare and finalize per call (the 47 of 52 is from an Inbox read
+  and two list reads in a test). A cache of 16 already exceeds the
+  64-statement test ceiling on the shared connection, so raising it needs
+  the maintainer decision
+  [required SQLite](../topics/required-sqlite.md#runtime-portable-sqlite)
+  reserves. Native `prepare` was 3.25 ms per write in the profile.
+- **The discovery database commits in rollback-journal mode with full
+  sync**, several times per write. An experiment build with
+  `journal_mode = WAL` and `synchronous = NORMAL`, interleaved with the two
+  above, measured 69.2 and 68.7 ms (Claude) and 85.2 ms (Codex) main-thread
+  CPU per write, about 6% under the build it was derived from, with
+  event-loop p99 12.7 to 12.9 ms against 13.5 to 16.4 ms. Three pairs on
+  macOS, where `fsync` is cheap; a Linux host should gain more. The journal
+  mode is a recorded decision in the same topic and durability of manual
+  titles and issue decisions is the trade, so this is a proposal.
+- **The stall recorder** costs most of the idle CPU and stalls the loop
+  about 100 ms every 30 seconds:
+  [gap](stall-recorder-idle-cost-and-rotation-stall.md).
+- **Every Codex write refetches its project.** Codex project activity is
+  the rollout's mtime, so each write advances `lastActivity`, commits it,
+  emits `projects-changed`, and the open tab's `useProject` requests
+  `GET /api/projects/:id` (120 requests in 120 writes; none for Claude,
+  whose activity is the project directory's mtime). About 2.6 ms of server
+  time per write plus the request.
+- **Project names are recomputed for every project on every list read**
+  (about 2.3 ms per write) because nothing signals that a chosen name
+  changed. A revision counter on `ProjectMetadataService` would let the
+  query owner skip it; the wiring lands in `app.ts`, which is at its line
+  budget.
+- **Codex question previews** rescan the rollout tail per write (2.6 ms):
+  [plan 192](../docs/tactical/192-transcript-indexer.md), step 3.
+- **Codex spends about 38 ms per write off the main thread** and 6 ms in
+  garbage collection; Claude spends 14 ms and 2 ms. Not attributed.
+- **In the tab**, `getBoundingClientRect` forces layout for 2.4 ms per
+  write from several callers, one of them `measurePromptBlockSize`; the rest
+  of the 36 to 38 ms is React reconciliation, as before.
+
 ## Transcript fact follow-up — 2026-11-12
 
 The [transcript outcome](../docs/research/190-transcript-fact-reuse.md) narrows

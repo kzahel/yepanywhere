@@ -1086,6 +1086,15 @@ loop p99 and typing pass their observed ceilings; CPU, bytes, browser work and
 cold opens still miss. Source-owned Claude/Codex project facts and point reads
 are the recommended next slice; bounded preview consumers and transcript
 rendering remain open. Full goal acceptance is not certified.
+A 2026-11-13 [survey at 10,000 sessions](../../gaps/active-session-tab-background-cost.md#server-survey-at-10000-sessions--2026-11-13)
+finds the same per-write cost as at 50,000 and shows that CPU per write
+varies by half with host load, so builds are compared interleaved or by
+counts. It removes seven of twelve write transactions per write from the
+list pipeline with no measured CPU change, and records four candidates that
+need a decision: statement reuse under the 64-statement ceiling, WAL for the
+discovery database (about 6% in an experiment), the
+[stall recorder's idle cost](../../gaps/stall-recorder-idle-cost-and-rotation-stall.md),
+and a project refetch on every Codex write.
 This maintenance work does not displace release delivery or concurrent design work.
 
 ## Design language unification

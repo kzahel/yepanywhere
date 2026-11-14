@@ -567,6 +567,14 @@ write's marker appears in the tab's DOM.
 
 ## Where it stands
 
+Survey, 2026-11-13: a [10,000-session pass](../../gaps/active-session-tab-background-cost.md#server-survey-at-10000-sessions--2026-11-13)
+over the current build reproduces the 50,000-session costs, removes
+redundant list-pipeline writes (12 to 5 write transactions per write, no
+measured CPU change) and lists what it found and left: statement prepares
+on nearly every execution, rollback-journal commits, the stall recorder and
+a per-write project refetch for Codex. It also shows per-write CPU moving
+by half with host load on the measurement host. No target is closed.
+
 Normal-unloading checkpoint: [real frontend ingestion and compaction unloads](../research/190-rolling-transcript-window.md)
 are now measured separately from the deliberately retained-history case. The
 normal recent window drops old prefixes while open; reply visibility remains

@@ -78,15 +78,39 @@ export function formatCompactRelativeAge(
     const hours = Math.floor((elapsedMs % DAY_MS) / HOUR_MS);
     return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
   }
-  return new Date(timestampMs).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  return dateFormat("day", { month: "short", day: "numeric" }).format(
+    timestampMs,
+  );
 }
 
 export function formatAbsoluteTimestamp(timestampMs: number): string {
-  return new Date(timestampMs).toLocaleString(undefined, {
+  return dateFormat("absolute", {
     dateStyle: "medium",
     timeStyle: "medium",
-  });
+  }).format(timestampMs);
+}
+
+/**
+ * `toLocaleString` with options builds a formatter on every call, about
+ * twenty microseconds each, and a transcript formats a timestamp per row on
+ * every render. A formatter keeps the locale and time zone it was built
+ * with, so each is rebuilt after a minute rather than kept for the page's
+ * life.
+ */
+const FORMAT_LIFETIME_MS = 60 * 1000;
+const dateFormats = new Map<
+  string,
+  { format: Intl.DateTimeFormat; builtAt: number }
+>();
+function dateFormat(
+  key: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const now = Date.now();
+  const cached = dateFormats.get(key);
+  if (cached && Math.abs(now - cached.builtAt) < FORMAT_LIFETIME_MS)
+    return cached.format;
+  const format = new Intl.DateTimeFormat(undefined, options);
+  dateFormats.set(key, { format, builtAt: now });
+  return format;
 }
