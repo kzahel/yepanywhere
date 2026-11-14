@@ -5289,3 +5289,15 @@ explicit parameters. Inventory failure handling, launch settings, ordering and
 logs are unchanged. Tier 1/2 checks cover this move; existing provider-host and
 portable wrapper tests substitute for SDK E2E because no adapter or transport
 behavior changes.
+
+### Codex compaction-output classification — 2026-11-14
+
+Move `isCodexCompactionOutput` and `codexCompactionOutputHasCheckpoint`
+verbatim from `sessions/normalization.ts` into `codex/compaction-output.ts`,
+with only exports/imports added. This isolates the existing checkpoint
+classification before adding launch-instruction disclosures to the frozen
+normalizer. No dependencies, signatures or behavior change.
+
+Tier 1: shared build, server typecheck, focused Codex normalization/reader
+tests, exact-file lint and diff checks. Tier 2 follows with the instruction
+visibility repair in the same work session.
