@@ -42,13 +42,8 @@ import {
   type ClaudeSessionEntry,
   getMessageContent,
   isConversationEntry,
-  isSyntheticNoResponseTurn,
 } from "@yep-anywhere/shared";
-import {
-  assistantContentParts,
-  formatAgentExcerpt,
-  systemAwaySummaryExcerpt,
-} from "./agent-excerpt.js";
+import { readClaudeLatestAgentExcerpt } from "./latest-agent-excerpt.js";
 import { collectVisibleClaudeEntries } from "./claude-messages.js";
 import {
   lastAgentExcerptFromState,
@@ -854,11 +849,11 @@ export class ClaudeSessionReader implements ISessionReader {
 
   /**
    * Fast, on-demand recompute of the hover-card excerpt for a non-running
-   * session: read the file and scan raw lines from the end, parsing only until
-   * an assistant turn qualifies — skipping the full parse + DAG build the
-   * summary path does. Approximates the active branch (a post-rewind dead
-   * branch could win), which is acceptable for a preview. Used to refresh a
-   * stale preview on focus/hover. See topics/session-hovercard-recent-activity.md.
+   * session: scan raw lines backward from the end within a byte budget,
+   * skipping the full parse + DAG build the summary path does. Approximates
+   * the active branch (a post-rewind dead branch could win), which is
+   * acceptable for a preview. Used to refresh a stale preview on focus/hover.
+   * See topics/session-hovercard-recent-activity.md.
    */
   async getLastAgentExcerpt(sessionId: string): Promise<string | undefined> {
     const filePath = await this.findSessionFile(sessionId);
@@ -870,40 +865,7 @@ export class ClaudeSessionReader implements ISessionReader {
       const excerpt = lastAgentExcerptFromState(cached.summaryState);
       if (excerpt) return excerpt;
     }
-    let content: string;
-    try {
-      content = await readFile(filePath, "utf-8");
-    } catch {
-      return undefined;
-    }
-    const lines = content.split("\n");
-    let trailingTool: string | undefined;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i]?.trim();
-      if (!line) continue;
-      let entry: {
-        type?: string;
-        subtype?: string;
-        content?: unknown;
-        message?: { content?: unknown; model?: unknown };
-      };
-      try {
-        entry = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      const awaySummary = systemAwaySummaryExcerpt(entry);
-      if (awaySummary) return awaySummary;
-      if (entry.type !== "assistant") continue;
-      // No model produced this text, so quoting it would attribute a reply to
-      // the agent that it never gave.
-      if (isSyntheticNoResponseTurn(entry)) continue;
-      const { text, toolName } = assistantContentParts(entry.message?.content);
-      const excerpt = formatAgentExcerpt(text);
-      if (excerpt) return excerpt;
-      if (!trailingTool && toolName) trailingTool = toolName;
-    }
-    return trailingTool ? `⚙ ${trailingTool}` : undefined;
+    return readClaudeLatestAgentExcerpt(filePath);
   }
 
   /**

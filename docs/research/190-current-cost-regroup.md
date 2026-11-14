@@ -79,9 +79,9 @@ fresh-restart memory are different lifecycle states, not memory-flatness proof.
 Claude's cold detail splits into 256.5 ms project resolution, 33.4 ms reading and
 425.7 ms augmentation. Codex spends 239.6/1,105.8/148.4 ms in those phases. Logs
 again show a complete Codex rollout read during opening/preview, including
-488,416,881 bytes and 151,979 entries on initial open. The
-[bounded preview gap](../../gaps/codex-preview-refresh-parses-whole-rollout.md)
-remains real even though ordinary appends are bounded.
+488,416,881 bytes and 151,979 entries on initial open. The bounded
+preview gap was real at the time even though ordinary appends were bounded; it
+was fixed by [provider history step 1](../../topics/provider-history-facts.md#delivery-order).
 
 ## Population and history controls
 

@@ -260,8 +260,8 @@ records native parity, watcher/registration freshness, scale measurements and
 remaining structural/ambiguous discovery. This does not close all-write flatness.
 Collection metadata replacement, duplicate detail requests and transcript
 rendering remain broad shared consumers. A separate
-[Codex preview defect](codex-preview-refresh-parses-whole-rollout.md) parses
-roughly 495 MB on cold open despite bounded ordinary detail updates. Quiet-host,
+Codex preview defect parsed roughly 495 MB on cold open; the preview now uses
+a bounded tail read ([provider history step 1](../topics/provider-history-facts.md#delivery-order)). Quiet-host,
 restart, memory attribution and full acceptance remain open.
 
 ## How it was measured

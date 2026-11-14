@@ -33,7 +33,7 @@ breaks a different assumption.
 
 | Axis | What grows | Cost today when unindexed | Target |
 | --- | --- | --- | --- |
-| Length | Bytes in one session | A preview or tail read decodes the whole rollout. Plan 190's qualification measured a Codex preview refresh reading 495 MB / 154k lines with ~493 MB heap growth ([gap](../gaps/codex-preview-refresh-parses-whole-rollout.md)). | Per-request bytes and decode bounded by the selected window plus bounded prefix facts. |
+| Length | Bytes in one session | A preview or tail read decodes the whole rollout. Plan 190's qualification measured a Codex preview refresh reading 495 MB / 154k lines with ~493 MB heap growth (since bounded; delivery step 1). | Per-request bytes and decode bounded by the selected window plus bounded prefix facts. |
 | Count | Sessions on the host | Cross-session features (search, issue association, questions, vocabulary) each keep their own reader and cursor, and cold or reset paths rescan. Catalog lists already use SQL. | Background work proportional to appended bytes; first builds on demand or in explicit, resumable, yielding batches. |
 
 Neither is an outage today. The goal is a design that stays sensible and
@@ -45,7 +45,8 @@ specific benchmark.
 | Piece | Status |
 | --- | --- |
 | [Claude durable source index](claude.md#durable-source-facts-and-incremental-writer-ownership) | Implemented. Compact source facts, logical positions, tool ownership and task checkpoints in the profile's SQLite. Unchanged sources reopen and ordinary appends update without rebuilding the history graph ([index evidence](../docs/research/190-claude-durable-index.md), [writer evidence](../docs/research/190-claude-sql-writer.md)). Unseen files and exceptional rewinds/branches still need a full pass. This is the pattern to extend. |
-| [Codex compact-tail windows](codex-sessions.md#compact-tail-source-reads) | Implemented, partially reachable. Blockwise native windows and an append cache, but activation needs a cached summary hint some callers lack, and complete-reader fallbacks remain. No durable logical facts. |
+| [Codex compact-tail windows](codex-sessions.md#compact-tail-source-reads) | Implemented. Blockwise native windows and an append cache; detail and v0 conversation both pass the summary hint that activates them. Complete-reader fallbacks remain for other shapes. No durable logical facts. |
+| Latest-state point reads (`sessions/transcript-tail.ts`) | Implemented for the hover excerpt. A backward line reader over plain JSONL with a byte budget, plus one single-flight per file version that retains the answer, including unknown. The primitive for further latest-state questions. |
 | [Session catalog and summary index](session-catalog-observation.md) | Implemented. Cross-session lists come from SQL; [summary fidelity](session-summary-fidelity.md) governs complete-summary claims. Not a transcript-window index. |
 | [Shared append framing](../docs/tactical/192-transcript-indexer.md) | Step 1 implemented: one append source and cursor model under issue indexing and content search. Its common runner is still under review. |
 | [Durable relationships](session-relationships.md) | Implemented SQL query service with its own authoritative writers. A neighbor, not a cache to fold in. |
@@ -204,8 +205,8 @@ adds its row here before adding a reader.
 | Consumer | Query | Notes |
 | --- | --- | --- |
 | Session detail: tail, older pages, reconnect catch-up, in-session search (`routes/session-detail-routes.ts`, `sessions/bound-session-reader.ts`) | Window, page | Preserve rewind groups, task snapshots, global IDs and counts. |
-| v0 conversation and read-follow (`experimental/provider-conversation-source.ts`, `core-api/conversation.ts`) | Window, page | Today Codex passes no summary hint, so it always takes the complete reader; detail passes one. Select visible groups before acquiring payload. Pending attention stays with live owners. |
-| Preview and hovercard (`getLastAgentExcerpt`, `routes/sessions.ts`) | Point | Today Codex has no excerpt reader and falls back to a complete normalized read ([gap](../gaps/codex-preview-refresh-parses-whole-rollout.md)); Claude's reads the whole file on a cache miss and parses backwards. |
+| v0 conversation and read-follow (`experimental/provider-conversation-source.ts`, `core-api/conversation.ts`) | Window, page | Codex passes the same summary hint as detail, so eligible rollouts take the compact tail. Select visible groups before acquiring payload. Pending attention stays with live owners. |
+| Preview and hovercard (`getLastAgentExcerpt`, `routes/sessions.ts`) | Point | Done for Claude and Codex: a bounded tail read, with no complete-read fallback ([contract](session-hovercard-recent-activity.md#on-demand-refresh-of-idle-previews-focus--hover)). Remaining: the recap overlay comparison loads the session summary; Pi parses its session; Gemini, Grok, OpenCode and Antigravity take a named complete read. The Claude scan approximates the active branch. |
 | Complete summaries, model/context (`sessions/reader.ts`, `sessions/codex-reader.ts`, `indexes/SqliteSessionSummaryIndex.ts`) | Point | Head and tail facts have different freshness; reducers keep token/context semantics. |
 | Async questions (`sessions/codex-async-questions.ts`) | Point, forward | Answer/dismissal state is domain state, not rebuildable facts. |
 | Task lists and cross-window state (`claude-source-index.ts`, `claude-linear-writer.ts`) | Prefix facts | A tail must not lose state created before it. |
@@ -243,8 +244,11 @@ provisional, truncate/replace, rewind, branch, malformed/oversized records and
 cancellation. [Measurement-host rules](performance-regression-suite.md#performance-measurement-hosts)
 apply; UI-affecting changes keep the sequential-typing gate.
 
-1. **Length axis, point query:** bounded latest-agent-excerpt for both
-   providers; delete preview's complete-read fallback.
+1. **Length axis, point query (done 2026-11-14):** bounded latest-agent
+   excerpt for Claude and Codex; preview's complete-read fallback removed for
+   them. The 200 largest local Codex rollouts (13–512 MB) answered in 182 ms
+   total, one unknown; the excerpt matched the complete read on 299 of 299
+   compared rollouts. v0 conversation now passes the Codex summary hint.
 2. **Length axis, windows:** app detail and v0 conversation share one
    eligible Claude/Codex window path with cancellation and coverage; no
    caller-specific complete fallback.
@@ -269,7 +273,6 @@ apply; UI-affecting changes keep the sequential-typing gate.
   merely to complete an abstraction.
 
 Related open gaps: [conversation acquisition](../gaps/conversation-window-acquisition-cost.md),
-[Codex preview](../gaps/codex-preview-refresh-parses-whole-rollout.md),
 [rewind visibility](../gaps/rewind-records-ignored-by-secondary-readers.md),
 [search index](../gaps/all-sessions-search-index.md),
 [vocabulary live arrival](../gaps/vocabulary-learning-has-no-live-tail.md),

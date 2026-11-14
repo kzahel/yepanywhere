@@ -136,11 +136,28 @@ export function systemAwaySummaryExcerpt(entry: unknown): string | undefined {
 export function extractLastAgentExcerpt(
   messages: Message[],
 ): string | undefined {
+  const { prose, trailingTool } = scanAgentExcerpt(messages);
+  return prose ?? toolExcerpt(trailingTool);
+}
+
+export function toolExcerpt(toolName: string | undefined): string | undefined {
+  return toolName ? `⚙ ${toolName}` : undefined;
+}
+
+/**
+ * The two halves of the excerpt rule, kept apart for bounded readers: `prose`
+ * is final wherever it is found, while `trailingTool` only becomes the answer
+ * once the scan has covered the whole history and found no prose.
+ */
+export function scanAgentExcerpt(messages: Message[]): {
+  prose?: string;
+  trailingTool?: string;
+} {
   let trailingTool: string | undefined;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     const awaySummary = systemAwaySummaryExcerpt(m);
-    if (awaySummary) return awaySummary;
+    if (awaySummary) return { prose: awaySummary };
     const isAssistant =
       m?.type === "assistant" || m?.message?.role === "assistant";
     if (!isAssistant) continue;
@@ -149,8 +166,8 @@ export function extractLastAgentExcerpt(
     if (isSyntheticNoResponseTurn(m)) continue;
     const { text, toolName } = assistantContentParts(m.message?.content);
     const excerpt = formatAgentExcerpt(text);
-    if (excerpt) return excerpt;
+    if (excerpt) return { prose: excerpt };
     if (!trailingTool && toolName) trailingTool = toolName;
   }
-  return trailingTool ? `⚙ ${trailingTool}` : undefined;
+  return trailingTool ? { trailingTool } : {};
 }

@@ -45,7 +45,6 @@ import {
   type ProviderChildSessionSummary,
   type ThinkingConfig,
   type UrlProjectId,
-  getModelContextWindow,
   parseCodexSessionEntry,
   nativeSessionRef,
   parseNativeSessionId,
@@ -68,11 +67,7 @@ import {
   canonicalizeProjectPath,
   getProjectIdentityKey,
 } from "../projects/paths.js";
-import type {
-  ContextUsage,
-  Message,
-  SessionSummary,
-} from "../supervisor/types.js";
+import type { Message, SessionSummary } from "../supervisor/types.js";
 import {
   codexRolloutRepresentation,
   findCodexRolloutRepresentation,
@@ -144,6 +139,12 @@ import {
   type CodexParsedEntrySnapshot,
   CodexRolloutWindowReader,
 } from "./codex-rollout-window.js";
+import { readCodexLatestAgentExcerpt } from "./latest-agent-excerpt.js";
+import {
+  type CodexSummaryContextCandidate,
+  codexContextUsageFromCandidate,
+  extractCodexContextUsage,
+} from "./codex-context-usage.js";
 import { SummaryParserClient } from "./summary-parser-worker-client.js";
 import {
   type CodexEntryCacheBudget,
@@ -414,11 +415,6 @@ export interface CodexSummaryStreamMetrics {
 interface CodexSummaryTitleCandidate {
   title: string | null;
   fullTitle: string | null;
-}
-
-interface CodexSummaryContextCandidate {
-  inputTokens: number;
-  contextWindow?: number;
 }
 
 interface CodexSummaryState {
@@ -826,6 +822,12 @@ export class CodexSessionReader implements ISessionReader {
       deferAsyncQuestions: options?.deferAsyncQuestions,
     });
     return summary ? toSessionListSummary(summary) : null;
+  }
+
+  /** Bounded hover-card excerpt; undefined is unknown. */
+  async getLastAgentExcerpt(sessionId: string): Promise<string | undefined> {
+    const file = await this.findSessionFile(sessionId);
+    return file ? readCodexLatestAgentExcerpt(file.filePath) : undefined;
   }
 
   async getRecoveredLaunchSettings(
@@ -2808,7 +2810,7 @@ export class CodexSessionReader implements ISessionReader {
     const provider = summary.provider === "codex-oss" ? "codex-oss" : "codex";
     const model = this.extractModel(window.entries) ?? summary.model;
     const contextUsage =
-      this.extractContextUsage(window.entries, model, provider) ??
+      extractCodexContextUsage(window.entries, model, provider) ??
       summary.contextUsage;
     return {
       ...summary,
@@ -3211,7 +3213,7 @@ export class CodexSessionReader implements ISessionReader {
 
     const model = state.model;
     const provider = this.determineProvider(metaEntry, model);
-    const contextUsage = this.contextUsageFromSummaryCandidate(
+    const contextUsage = codexContextUsageFromCandidate(
       state.contextCandidate,
       model,
       provider,
@@ -3261,28 +3263,6 @@ export class CodexSessionReader implements ISessionReader {
     };
   }
 
-  private contextUsageFromSummaryCandidate(
-    candidate: CodexSummaryContextCandidate | undefined,
-    model: string | undefined,
-    provider: "codex" | "codex-oss",
-  ): ContextUsage | undefined {
-    if (!candidate) {
-      return undefined;
-    }
-
-    const contextWindow =
-      candidate.contextWindow ?? getModelContextWindow(model, provider);
-    const percentage = Math.min(
-      100,
-      Math.round((candidate.inputTokens / contextWindow) * 100),
-    );
-    return {
-      inputTokens: candidate.inputTokens,
-      percentage,
-      contextWindow,
-    };
-  }
-
   private async buildSessionSummaryFromEntries(
     sessionId: string,
     projectId: UrlProjectId,
@@ -3301,7 +3281,7 @@ export class CodexSessionReader implements ISessionReader {
     const model = this.extractModel(entries);
     const provider = this.determineProvider(metaEntry, model);
     const turnContext = this.extractTurnContext(entries);
-    const contextUsage = this.extractContextUsage(entries, model, provider);
+    const contextUsage = extractCodexContextUsage(entries, model, provider);
     const forkedFromSessionId =
       typeof metaEntry.payload.forked_from_id === "string"
         ? metaEntry.payload.forked_from_id
@@ -3622,54 +3602,6 @@ export class CodexSessionReader implements ISessionReader {
       0,
     );
     return assistantCount + countCodexUserTurns(entries, provenance);
-  }
-
-  /**
-   * Extract context usage from token_count events.
-   *
-   * @param entries - Codex session entries
-   * @param model - Model ID for determining context window size (fallback)
-   * @param provider - Provider for model-less context-window fallback
-   */
-  private extractContextUsage(
-    entries: CodexSessionEntry[],
-    model: string | undefined,
-    provider: "codex" | "codex-oss",
-  ): ContextUsage | undefined {
-    // Find last token_count event
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const entry = entries[i];
-      if (
-        entry &&
-        entry.type === "event_msg" &&
-        entry.payload.type === "token_count"
-      ) {
-        const info = entry.payload.info;
-        if (info?.last_token_usage || info?.total_token_usage) {
-          // Codex context meter is based on the latest turn's input_tokens,
-          // not cumulative totals and not cached-input totals.
-          const usage = info.last_token_usage ?? info.total_token_usage;
-          if (!usage) continue;
-          const inputTokens = usage.input_tokens;
-
-          if (inputTokens === 0) continue;
-
-          // Prefer model_context_window from Codex if available, fall back to model-based lookup
-          const contextWindow =
-            info.model_context_window && info.model_context_window > 0
-              ? info.model_context_window
-              : getModelContextWindow(model, provider);
-          const percentage = Math.min(
-            100,
-            Math.round((inputTokens / contextWindow) * 100),
-          );
-
-          return { inputTokens, percentage, contextWindow };
-        }
-      }
-    }
-
-    return undefined;
   }
 
   /**

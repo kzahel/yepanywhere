@@ -181,8 +181,9 @@ overlap and must not be added.
   falls back to `loadRestartSourceSession` when no excerpt reader is available.
   The neighboring bounded read has only 584 entries / 1.93 MB cached but waits
   behind that full parse. This violates the intended reader contract even
-  though normal active writes are bounded. See the
-  [preview defect](../../gaps/codex-preview-refresh-parses-whole-rollout.md).
+  though normal active writes are bounded. The preview
+  defect was fixed later by a bounded tail read
+  ([provider history step 1](../../topics/provider-history-facts.md#delivery-order)).
 
 ## Gates and next scope
 

@@ -1516,9 +1516,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         }
       }
 
-      // Claude uses the fast reverse-scan when there is no durable overlay to
-      // compare; every other provider goes through the cross-provider load +
-      // normalize, then a shared extractor on the uniform message form.
+      // A bounded reader's undefined is unknown, never a cue for a complete
+      // read; only readers with no bounded excerpt yet take that one.
       const sourceDeps = providerResolutionDeps(deps);
       const bound = boundSessionSource(
         transcriptProject,
@@ -1540,12 +1539,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             )
           : undefined;
       const readable = bound ?? legacy;
-      lastAgentText ??= readable?.source.reader.getLastAgentExcerpt
-        ? await readable.source.reader.getLastAgentExcerpt(
-            readable.nativeSessionId,
-          )
-        : undefined;
-      if (lastAgentText === undefined) {
+      const reader = readable?.source.reader;
+      if (lastAgentText === undefined && reader?.getLastAgentExcerpt) {
+        lastAgentText = await reader.getLastAgentExcerpt(
+          readable!.nativeSessionId,
+        );
+      } else if (lastAgentText === undefined) {
         const normalized = await loadRestartSourceSession(
           transcriptProject,
           sessionId,

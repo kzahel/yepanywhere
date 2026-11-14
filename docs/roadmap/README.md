@@ -1117,9 +1117,10 @@ costs in proportion to the answer, not the session's length, and upkeep costs
 in proportion to what changed, not the session count. It extends the Claude
 durable index to a shared bounded-query module. Its delivery order starts
 with the length axis (bounded preview excerpt, then shared detail/v0 windows,
-then Codex durable facts) before forward consumers on the count axis. Nothing
-beyond the existing Claude index and Codex windows is implemented yet; the
-acquisition gaps remain open. All Sessions text indexing is a separate
+then Codex durable facts) before forward consumers on the count axis. Step 1
+is done (2026-11-14): Claude and Codex hover excerpts use a bounded tail read
+with no complete-read fallback, and v0 conversation passes the Codex summary
+hint. Shared windows, Codex durable facts and the count axis remain open. All Sessions text indexing is a separate
 downstream project and does not gate this work.
 
 This maintenance work does not displace release delivery or concurrent design work.

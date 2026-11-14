@@ -288,18 +288,33 @@ when the user expresses interest:
   the uniform `Message[]` that every provider's reader yields through
   `normalizeSession`, so one implementation covers Claude, Codex, Gemini,
   OpenCode, Grok (and pi via whichever reader serves it).
-- **Endpoint** `POST …/sessions/:id/refresh-preview` is hybrid for cost:
-  Claude uses the *fast* `ClaudeSessionReader.getLastAgentExcerpt` (reverse-scan
-  of raw JSONL lines, no full parse/DAG); every other provider goes through
-  `loadRestartSourceSession` (cross-provider resolve + `getSession` +
-  `normalizeSession`) and the shared extractor. Either way, when text is found
-  it emits a `session-updated` carrying `lastAgentText`. The result arrives at
-  the client through the live path (not the HTTP response), so the row/hover
-  updates **in place — no flicker, no whole-list refetch**.
-- The extraction helpers (`formatAgentExcerpt`, `assistantContentParts`) live in
-  `sessions/agent-excerpt.ts` and are shared by the Claude summary path
-  (`reader.ts`), the Claude fast scan, and the normalized path, so all three
-  produce identical output.
+- **Endpoint** `POST …/sessions/:id/refresh-preview` asks the session's
+  reader for `getLastAgentExcerpt`. Claude and Codex answer with a bounded
+  backward read of the native file (`sessions/latest-agent-excerpt.ts`): at
+  most 4 MiB from the end, independent of session length, one read per file
+  version shared by concurrent callers and retained until the file changes.
+  Claude first peeks its warm transcript cache. Codex re-normalizes the read
+  window with the full reader's rules and the shared extractor, so its excerpt
+  equals the complete-read excerpt whenever it answers. Pi uses its own reader.
+  When a text is found it emits a `session-updated` carrying `lastAgentText`.
+  The result arrives at the client through the live path (not the HTTP
+  response), so the row/hover updates **in place — no flicker, no whole-list
+  refetch**.
+- **Unknown is an answer.** A bounded reader answers unknown when no prose lies
+  within its budget, when only a tool label was found but the read stopped
+  before the start of the file, when a Codex rollout's own file has no prose
+  and its parsed metadata does not show it is self-contained (a fork's parent
+  may hold prose), when the file changes during the read, and for compressed
+  Codex rollouts. The route then
+  returns `lastAgentText: null`, emits nothing, and leaves the card as it was;
+  it never retries with a complete read. Only providers whose readers have no
+  bounded excerpt yet (Gemini, Grok, OpenCode, Antigravity) take the named
+  complete read through `loadRestartSourceSession`. See
+  [provider history facts](provider-history-facts.md).
+- The extraction helpers (`formatAgentExcerpt`, `assistantContentParts`,
+  `scanAgentExcerpt`) live in `sessions/agent-excerpt.ts` and are shared by the
+  Claude summary path (`reader.ts`), the bounded scans, and the normalized
+  path, so all of them produce identical output.
 - **Triggers:** opening a non-running session (`useSession` `handleLoadComplete`
   when `owner === "none"`) and resting a non-touch pointer on a Themed-mode
   non-running row until its card is due. Native list hover, touch entry, and
