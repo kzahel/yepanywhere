@@ -295,6 +295,8 @@ export interface StartSessionOptions {
   agentApiEnvironment?: Record<string, string>;
   /** Public bootstrap fragment, independently refreshed on Codex resume. */
   agentApiInstructions?: string;
+  /** Verified MC advertisement, delivered through Codex's native instruction channel. */
+  machineControlInstructions?: string;
   /** Explicit installed MC advertisement; no resident grant or supervisor. */
   machineControl?: boolean;
   /** Trusted owner-supplied child environment; never a client request field. */

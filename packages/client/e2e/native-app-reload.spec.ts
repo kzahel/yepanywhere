@@ -11,6 +11,7 @@ import {
   nativeAppFixture,
   appBarrier,
 } from "../../server/test/native-provider/app-fixture.js";
+import { machineControlInstructions } from "@yep-anywhere/shared/machine-control-instructions";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
 
 test.afterAll(() => presentUiCaptures());
@@ -18,7 +19,17 @@ for (const provider of ["claude", "codex"] as const)
   test(`${provider} browser reconnect preserves draft, input identity and final history`, async ({
     page,
   }) => {
-    const f = await nativeAppFixture(provider, { agentApiManagement: true });
+    const f = await nativeAppFixture(provider, {
+      agentApiManagement: true,
+      ...(provider === "codex"
+        ? {
+            codexDeveloperInstructions: machineControlInstructions(
+              "0.7.2",
+              "'/owned/Machine Control/machine-control'",
+            ),
+          }
+        : {}),
+    });
     const errors: string[] = [];
     const frames: string[] = [];
     let typing = false;
@@ -73,20 +84,33 @@ for (const provider of ["claude", "codex"] as const)
         const notice = page
           .locator("details[data-system-message]")
           .filter({ hasText: "Agent API instructions added" });
+        const machineControlNotice = page
+          .locator("details[data-system-message]")
+          .filter({ hasText: "Machine Control instructions added" });
         await expect(notice).toHaveCount(1);
+        await expect(machineControlNotice).toHaveCount(1);
         await expect(
           page.locator('[data-render-type="user_prompt"]').first(),
         ).toContainText("BROWSER_INITIAL_INPUT");
         await expect(
           page.locator('[data-render-type="user_prompt"]'),
         ).not.toContainText("[Yep Anywhere API]");
+        await expect(
+          page.locator('[data-render-type="user_prompt"]'),
+        ).not.toContainText("[Installed Machine Control]");
         for (const [name, viewport] of [
           ["desktop", { width: 1000, height: 600 }],
           ["phone", { width: 375, height: 812 }],
         ] as const) {
           await page.setViewportSize(viewport);
+          // A fresh narrow load avoids the separately tracked viewport-resize
+          // pane offset (gaps/session-pane-persistent-offset.md).
+          if (name === "phone") await page.reload();
+          await expect(notice).toBeVisible();
+          await expect(machineControlNotice).toBeVisible();
           await expect(notice).not.toHaveAttribute("open", "");
-          await recordUiCapture(page, `api-instructions-${name}`);
+          await expect(machineControlNotice).not.toHaveAttribute("open", "");
+          await recordUiCapture(page, `launch-instructions-${name}`);
           await notice.locator("summary").click();
           await expect(notice).toHaveAttribute("open", "");
           await expect(notice).toContainText(
@@ -100,6 +124,20 @@ for (const provider of ["claude", "codex"] as const)
           if (name === "phone")
             await recordUiCapture(page, "api-instructions-phone-expanded");
           await notice.locator("summary").click();
+          await machineControlNotice.locator("summary").click();
+          await expect(machineControlNotice).toContainText(
+            "/owned/Machine Control/machine-control",
+          );
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth,
+            ),
+          ).toBe(true);
+          await recordUiCapture(
+            page,
+            `machine-control-instructions-${name}-expanded`,
+          );
+          await machineControlNotice.locator("summary").click();
         }
         await page.setViewportSize({ width: 1000, height: 600 });
       }
@@ -308,7 +346,18 @@ const watch=fs.watch(path.dirname(gate),(_event,name)=>{if(String(name)===path.b
         )?.pid,
       ).toBe(before.pid);
       expect(f.model.requests).toHaveLength(provider === "codex" ? 5 : 4);
-      expect(page.url()).toContain(created.sessionId);
+      const viewer = new URL(page.url());
+      const nativePath = viewer.pathname.match(/\/sessions\/([^/]+)\/([^/]+)$/);
+      if (nativePath) {
+        // Native-facing viewer URLs still name the original YA resource.
+        expect(
+          (
+            await f.api(
+              `/projects/${created.projectId}/native-sessions/${nativePath[1]}/${nativePath[2]}`,
+            )
+          ).sessionId,
+        ).toBe(created.sessionId);
+      } else expect(viewer.pathname).toContain(created.sessionId);
       expect(errors).toEqual([]);
       for (const [name, viewport] of [
         ["desktop", { width: 1000, height: 600 }],

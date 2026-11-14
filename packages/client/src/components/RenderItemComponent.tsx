@@ -2,6 +2,7 @@ import { ConversationActivitySummary } from "./ConversationActivity";
 import promptStyles from "./blocks/UserPromptBlock.module.css";
 import collapsibleStyles from "./Collapsible.module.css";
 import { memo, useCallback, useRef } from "react";
+import { MACHINE_CONTROL_INSTRUCTIONS_NOTICE } from "@yep-anywhere/shared/machine-control-instructions";
 import { AGENT_API_BOOTSTRAP_NOTICE } from "@yep-anywhere/shared/agent-api-bootstrap";
 import { useSessionRewind } from "../contexts/SessionRewindContext";
 import { useI18n } from "../i18n";
@@ -742,11 +743,13 @@ export const RenderItemComponent = memo(function RenderItemComponent({
               label={
                 item.content === AGENT_API_BOOTSTRAP_NOTICE
                   ? t("agentApiInstructionsAdded")
-                  : isToolOutput
-                    ? item.content
-                      ? t("toolOutputFrom", { tool: item.content })
-                      : t("toolOutput")
-                    : undefined
+                  : item.content === MACHINE_CONTROL_INSTRUCTIONS_NOTICE
+                    ? t("machineControlInstructionsAdded")
+                    : isToolOutput
+                      ? item.content
+                        ? t("toolOutputFrom", { tool: item.content })
+                        : t("toolOutput")
+                      : undefined
               }
             />
           );

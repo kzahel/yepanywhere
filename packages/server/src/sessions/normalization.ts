@@ -44,10 +44,7 @@ import {
   normalizeCodexToolOutputWithContext,
   parseCodexToolArguments,
 } from "../codex/normalization.js";
-import {
-  codexDeveloperMessage,
-  codexMessageText,
-} from "../codex/instruction-messages.js";
+import * as instructions from "../codex/instruction-messages.js";
 import {
   isCodexCompactionOutput,
   codexCompactionOutputHasCheckpoint,
@@ -491,7 +488,7 @@ function convertCodexEntries(
       ) {
         continue;
       }
-      const msg = convertCodexResponseItem(
+      const converted = convertCodexResponseItem(
         entry,
         messageIndex,
         state.toolCallContexts,
@@ -500,7 +497,7 @@ function convertCodexEntries(
         userResponseKind,
         clientUserMessageId,
       );
-      if (msg) {
+      for (const msg of instructions.codexInstructionMessages(converted)) {
         tagCodexMessageSourceByteOffset(msg, entry);
         attachCodexProviderForkTurnId(
           msg,
@@ -595,7 +592,7 @@ function convertCodexEntries(
           state.closedToolResultIds,
           sessionId,
         );
-        const eventMessages = msg ? [msg] : [];
+        const eventMessages = instructions.codexInstructionMessages(msg);
         const taskCompleteError = convertCodexTaskCompleteError(
           entry,
           sessionId,
@@ -1129,7 +1126,7 @@ function convertCodexResponseItem(
   closedToolResultIds: Set<string>,
   userResponseKind?: CodexUserResponseKind,
   clientUserMessageId?: string,
-): Message | null {
+): Message | Message[] | null {
   const payload = entry.payload;
   const positionalUuid = `codex-${codexEntryPosition(entry, index)}-${entry.timestamp}`;
   const uuid = codexDurableResponseItemUuid(
@@ -1153,7 +1150,7 @@ function convertCodexResponseItem(
         };
       }
       if (payload.role === "developer") {
-        return codexDeveloperMessage(payload, uuid, entry.timestamp);
+        return instructions.developerMessages(payload, uuid, entry.timestamp);
       }
       if (
         userResponseKind === "hidden-provider-context" ||
@@ -1301,7 +1298,7 @@ function convertCodexMessagePayload(
 ): Message {
   const content: ContentBlock[] = [];
 
-  const fullText = codexMessageText(payload);
+  const fullText = instructions.codexMessageText(payload);
   if (fullText.trim()) {
     content.push({
       type: "text",
@@ -1902,7 +1899,7 @@ function convertCodexEventMsg(
       codexUserTurnProvenance: "event-only",
       message: {
         role: "user",
-        content: codexUserMessageEventText(entry),
+        content: codexUserMessageEventText(entry, false),
       },
       timestamp: entry.timestamp,
     };

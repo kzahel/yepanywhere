@@ -198,3 +198,12 @@ fallback still recognizes old unprovenanced rows. There is no current product
 requirement to restore that surface for server-classified context. Reconsider
 only if a concrete debugging or transparency need emerges; it is not
 outstanding work for the Codex authorship fix.
+
+### Installed Machine Control advertisement (landed 2026-11-14)
+
+Codex Machine Control advertisements use native developer context and render
+only as collapsed informational disclosures. Complete known historical
+`[Global context]` wrappers containing that advertisement also collapse, keeping
+the actual request and attachments as the user turn and correcting derived
+titles. The exact recognition, resume and compatibility contract lives in
+[agent context injection](agent-context-injection.md#installed-machine-control-placement).

@@ -1,5 +1,6 @@
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../../machine-control/legacy-retirement.js";
 import { delimiter, win32 } from "node:path";
+import { machineControlInstructions } from "@yep-anywhere/shared/machine-control-instructions";
 import {
   findInstalledMachineControl,
   type InstalledMachineControl,
@@ -80,20 +81,16 @@ export async function startMachineControlSession(
     platform === "win32"
       ? `& '${installation.command.replaceAll("'", "''")}'`
       : `'${installation.command.replaceAll("'", "'\\''")}'`;
-  const fragment = [
-    "[Installed Machine Control]",
-    `Machine Control ${installation.version} is available on this agent's execution host.`,
-    `For desktop/browser control, first read its workflow with: ${quoted} agent instructions`,
-    `Invoke that exact command path if your shell replaces PATH. The host target is this execution machine.`,
-    "Discovery and these instructions grant no access. Follow MC doctor/claims and native access approval; do not start a second resident, switch to the operator's machine, or automatically retry an uncertain mutation.",
-    "Closing this YA session does not revoke independently granted MC access. Use MC Stop or native grant expiry to revoke it.",
-    "MC owns its access, arming, lifecycle and updates. YA session selection only advertises the command; it does not contain unrelated same-user shell access. Administrator authentication is a separately selected helper.",
-  ].join("\n");
+  const fragment = machineControlInstructions(installation.version, quoted);
   return start({
     ...options,
-    globalInstructions: [options.globalInstructions, fragment]
-      .filter(Boolean)
-      .join("\n\n"),
+    ...(provider === "codex"
+      ? { machineControlInstructions: fragment }
+      : {
+          globalInstructions: [options.globalInstructions, fragment]
+            .filter(Boolean)
+            .join("\n\n"),
+        }),
     agentEnvironment: {
       ...options.agentEnvironment,
       ...(platform === "win32"

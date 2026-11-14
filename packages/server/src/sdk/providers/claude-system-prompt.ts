@@ -1,4 +1,5 @@
 import { findAgentApiBootstrapInstructions } from "@yep-anywhere/shared/agent-api-bootstrap";
+import { findMachineControlInstructions } from "@yep-anywhere/shared/machine-control-instructions";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
@@ -14,7 +15,9 @@ export function claudeSessionSystemPrompt(
   sandbox: SessionSandboxRuntime | undefined,
 ): Options["systemPrompt"] {
   const refreshInstructions = Boolean(
-    globalInstructions && findAgentApiBootstrapInstructions(globalInstructions),
+    globalInstructions &&
+      (findAgentApiBootstrapInstructions(globalInstructions) ||
+        findMachineControlInstructions(globalInstructions)),
   );
   const instructions = sandbox?.instructions;
   if (instructions && !instructions.startFromDefault) {

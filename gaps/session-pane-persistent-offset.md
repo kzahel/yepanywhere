@@ -52,3 +52,14 @@ the triggering sequence and sidebar toggling without a reload.
 
 Found 2026-09-28 from the user's second observed occurrence.
 Contributing-model: 6-Astra.
+
+2026-11-14: the isolated Codex native browser scenario reproduced left clipping
+when resizing 1000×600 to 375×812 before instruction-disclosure captures.
+The transcript and composer shifted together. Reloading only that owned browser
+page at the phone width restored the expected geometry; no shared server was
+restarted. The instruction-visibility check now takes its phone capture after
+that fresh narrow load. This is a capture workaround, not a layout repair or
+closure. No bounding-rectangle/transform trace was retained in this run.
+Evidence: `.artifacts/ui-testing/2026-11-14-machine-control-instructions/launch-instructions-phone.png`
+and the corrected fresh-load capture at
+`.artifacts/ui-testing/2026-11-14-machine-control-instructions-final/launch-instructions-phone.png`.

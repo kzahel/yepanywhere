@@ -15,6 +15,10 @@ import { fileURLToPath } from "node:url";
 import * as zlib from "node:zlib";
 import type { CodexSessionEntry, UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  machineControlInstructions,
+  MACHINE_CONTROL_INSTRUCTIONS_NOTICE,
+} from "@yep-anywhere/shared/machine-control-instructions";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { SqliteSessionSummaryIndex } from "../../src/indexes/SqliteSessionSummaryIndex.js";
 import { getLogger } from "../../src/logging/logger.js";
@@ -178,86 +182,151 @@ describe("CodexSessionReader - OSS Support", () => {
     );
   };
 
-  it("repairs a historical API prefix in full/head reads and a fresh persisted index without rewriting history", async () => {
-    const sessionId = "legacy-api-bootstrap";
-    const projectId = "test-project" as UrlProjectId;
-    const legacy = (
-      await readFile(
-        new URL(
-          "../../../shared/test/fixtures/agent-api-bootstrap-legacy.txt",
-          import.meta.url,
-        ),
-        "utf8",
-      )
-    ).trimEnd();
-    const prompt = `${legacy}\n\nFix the actual task.`;
-    await createSessionFile(sessionId, "openai", "gpt-6.1-sol");
-    const filePath = join(testDir, `${sessionId}.jsonl`);
-    const original = (await readFile(filePath, "utf8")).replace(
-      "Hello world",
-      prompt
-        .replaceAll("\\", "\\\\")
-        .replaceAll('"', '\\"')
-        .replaceAll("\n", "\\n"),
-    );
-    await writeFile(filePath, original);
-    for (const readMode of ["head", "full"] as const) {
-      expect(
-        await reader.getSessionSummary(sessionId, projectId, { readMode }),
-      ).toMatchObject({
-        title: "Fix the actual task.",
-        fullTitle: "Fix the actual task.",
+  it.each([
+    ["API", "event"],
+    ["Machine Control", "event"],
+    ["Machine Control", "paired"],
+  ])(
+    "repairs a historical %s %s prefix in full/head reads and a fresh persisted index without rewriting history",
+    async (kind, shape) => {
+      const sessionId = "legacy-api-bootstrap";
+      const projectId = "test-project" as UrlProjectId;
+      const legacy = (
+        await readFile(
+          new URL(
+            "../../../shared/test/fixtures/agent-api-bootstrap-legacy.txt",
+            import.meta.url,
+          ),
+          "utf8",
+        )
+      ).trimEnd();
+      const mc = machineControlInstructions(
+        "0.7.2",
+        "'/owned/Machine Control/machine-control'",
+      ).replace("\n[/Installed Machine Control]", "");
+      const prefix =
+        kind === "API"
+          ? legacy
+          : `[Global context]\n[Global instructions]\nKeep this operator context.\n\n${mc}\n\n---`;
+      const prompt = `${prefix}\n\nFix the actual task.`;
+      await createSessionFile(sessionId, "openai", "gpt-6.1-sol");
+      const filePath = join(testDir, `${sessionId}.jsonl`);
+      let original = (await readFile(filePath, "utf8")).replace(
+        "Hello world",
+        prompt
+          .replaceAll("\\", "\\\\")
+          .replaceAll('"', '\\"')
+          .replaceAll("\n", "\\n"),
+      );
+      if (shape === "paired") {
+        const entries = original
+          .trimEnd()
+          .split("\n")
+          .map((line) => JSON.parse(line));
+        const eventIndex = entries.findIndex(
+          (entry) => entry.payload.type === "user_message",
+        );
+        entries.splice(eventIndex, 0, {
+          type: "response_item",
+          timestamp: entries[eventIndex].timestamp,
+          payload: {
+            id: "original-user-id",
+            type: "message",
+            role: "user",
+            content: [
+              { type: "input_text", text: prompt },
+              {
+                type: "input_image",
+                file_path: "/owned/image.png",
+                mime_type: "image/png",
+              },
+            ],
+          },
+        });
+        original =
+          entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n";
+      }
+      await writeFile(filePath, original);
+      for (const readMode of ["head", "full"] as const) {
+        expect(
+          await reader.getSessionSummary(sessionId, projectId, { readMode }),
+        ).toMatchObject({
+          title: "Fix the actual task.",
+          fullTitle: "Fix the actual task.",
+        });
+      }
+      const loaded = await reader.getSession(sessionId, projectId);
+      const users = normalizeSession(loaded!).messages.filter(
+        (m) => m.type === "user",
+      );
+      expect(users).toHaveLength(1);
+      if (shape === "paired") {
+        expect(users[0]?.uuid).toBe("original-user-id");
+        expect(users[0]?.message?.content).toEqual([
+          { type: "text", text: "Fix the actual task." },
+          {
+            type: "input_image",
+            file_path: "/owned/image.png",
+            mime_type: "image/png",
+          },
+        ]);
+      } else expect(users[0]?.message?.content).toBe("Fix the actual task.");
+      if (kind === "Machine Control") {
+        expect(
+          normalizeSession(loaded!).messages.find(
+            (m) => m.content === MACHINE_CONTROL_INSTRUCTIONS_NOTICE,
+          ),
+        ).toMatchObject({
+          details: [
+            `[Global instructions]\nKeep this operator context.\n\n${mc}`,
+          ],
+        });
+      }
+      const dataDir = join(testDir, "indexes");
+      const database = openTestDiscoveryDatabase(testDir);
+      const initial = new SessionIndexService({ database, dataDir });
+      await initial.initialize();
+      await initial.getSessionSummaryWithCache(
+        testDir,
+        projectId,
+        sessionId,
+        reader,
+      );
+      initial.dispose();
+      const store = new SqliteSessionSummaryIndex(database);
+      const scope = reader.getIndexScopeKey(testDir);
+      const persisted = store.read(scope)!;
+      Object.assign(persisted.sessions[sessionId]!, {
+        title: "[Yep Anywhere API] You are running...",
+        fullTitle: prompt,
       });
-    }
-    const loaded = await reader.getSession(sessionId, projectId);
-    expect(
-      normalizeSession(loaded!).messages.find((m) => m.type === "user")?.message
-        ?.content,
-    ).toBe("Fix the actual task.");
-    const dataDir = join(testDir, "indexes");
-    const database = openTestDiscoveryDatabase(testDir);
-    const initial = new SessionIndexService({ database, dataDir });
-    await initial.initialize();
-    await initial.getSessionSummaryWithCache(
-      testDir,
-      projectId,
-      sessionId,
-      reader,
-    );
-    initial.dispose();
-    const store = new SqliteSessionSummaryIndex(database);
-    const scope = reader.getIndexScopeKey(testDir);
-    const persisted = store.read(scope)!;
-    Object.assign(persisted.sessions[sessionId]!, {
-      title: "[Yep Anywhere API] You are running...",
-      fullTitle: prompt,
-    });
-    store.save(scope, { ...persisted, version: 5 });
-    const index = new SessionIndexService({
-      database: openTestDiscoveryDatabase(testDir),
-      dataDir,
-    });
-    await index.initialize();
-    const parse = vi.spyOn(reader, "getSessionSummary");
-    try {
-      expect(
-        await index.getSessionSummaryWithCache(
-          testDir,
-          projectId,
-          sessionId,
-          reader,
-        ),
-      ).toMatchObject({
-        title: "Fix the actual task.",
-        fullTitle: "Fix the actual task.",
+      store.save(scope, { ...persisted, version: 5 });
+      const index = new SessionIndexService({
+        database: openTestDiscoveryDatabase(testDir),
+        dataDir,
       });
-      expect(parse).not.toHaveBeenCalled();
-      expect(await readFile(filePath, "utf8")).toBe(original);
-    } finally {
-      index.dispose();
-      parse.mockRestore();
-    }
-  });
+      await index.initialize();
+      const parse = vi.spyOn(reader, "getSessionSummary");
+      try {
+        expect(
+          await index.getSessionSummaryWithCache(
+            testDir,
+            projectId,
+            sessionId,
+            reader,
+          ),
+        ).toMatchObject({
+          title: "Fix the actual task.",
+          fullTitle: "Fix the actual task.",
+        });
+        expect(parse).not.toHaveBeenCalled();
+        expect(await readFile(filePath, "utf8")).toBe(original);
+      } finally {
+        index.dispose();
+        parse.mockRestore();
+      }
+    },
+  );
 
   it("discovers recent async questions without loading transcript history", async () => {
     const sessionId = "questions-without-open-transcript";

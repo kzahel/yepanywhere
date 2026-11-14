@@ -71,6 +71,7 @@ export async function nativeAppFixture(
   provider: AppProvider,
   options: {
     agentApiManagement?: boolean;
+    codexDeveloperInstructions?: string;
     additionalProviders?: readonly AppProvider[];
     signal?: AbortSignal;
   } = {},
@@ -278,7 +279,7 @@ export async function nativeAppFixture(
     );
     await writeFile(
       join(env.CODEX_HOME!, "config.toml"),
-      `model_provider = "owned_fixture"\n[model_providers.owned_fixture]\nname = "Owned local model"\nbase_url = "${model.url}/v1"\nwire_api = "responses"\nenv_key = "OPENAI_API_KEY"\nsupports_websockets = false\n[analytics]\nenabled = false\n`,
+      `model_provider = "owned_fixture"\n${options.codexDeveloperInstructions ? `developer_instructions = ${JSON.stringify(options.codexDeveloperInstructions)}\n` : ""}[model_providers.owned_fixture]\nname = "Owned local model"\nbase_url = "${model.url}/v1"\nwire_api = "responses"\nenv_key = "OPENAI_API_KEY"\nsupports_websockets = false\n[analytics]\nenabled = false\n`,
     );
     mark("profile files");
     for (const selected of enabledProviders) {

@@ -47,9 +47,9 @@ import {
 } from "./codex-live-event-conversion.js";
 import { log } from "./codex-log.js";
 import {
-  configureCodexApiBootstrap,
-  injectResumedCodexApiBootstrap,
-} from "./codex-api-bootstrap.js";
+  configureCodexLaunchInstructions,
+  injectResumedCodexLaunchInstructions,
+} from "./codex-launch-instructions.js";
 import { asCodexTurnCompletedNotification } from "./codex-notification-guards.js";
 import type {
   ListMcpServerStatusParams,
@@ -500,7 +500,7 @@ export class CodexSession {
       options,
       policy,
     );
-    await configureCodexApiBootstrap(
+    await configureCodexLaunchInstructions(
       appServer,
       options,
       threadStartParams,
@@ -520,7 +520,7 @@ export class CodexSession {
     )
       throw new Error("Codex resumed a different native thread");
     const sessionId = threadResult.thread.id;
-    await injectResumedCodexApiBootstrap(appServer, options, sessionId);
+    await injectResumedCodexLaunchInstructions(appServer, options, sessionId);
     connection.sessionId = sessionId;
     agentctlSessionEnvBridge.publishSessionId(
       options.publicSessionId ?? sessionId,

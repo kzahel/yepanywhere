@@ -131,7 +131,11 @@ options are open. Immediate launches carry the shown choice as boolean
 composition; until readiness has answered they carry no field, so the server
 default decides. Existing context and child environment survive.
 The exact safely quoted command path accompanies PATH because login shells
-may replace PATH. Native sudo remains independent.
+may replace PATH. Codex uses native developer instructions and a collapsed
+**Machine Control instructions added** transcript disclosure; Claude uses its
+system append, refreshed on resume. Historical Codex title and user-turn repair
+is bounded by [the placement contract](agent-context-injection.md#installed-machine-control-placement).
+Native sudo remains independent.
 
 When capability 112 is absent, the client hides the picker and sends neither
 readiness requests nor the field, including to older servers advertising legacy

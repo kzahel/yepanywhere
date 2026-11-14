@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { agentApiBootstrapInstructions } from "@yep-anywhere/shared";
 import { AGENT_API_BOOTSTRAP_NOTICE } from "@yep-anywhere/shared/agent-api-bootstrap";
+import {
+  machineControlInstructions,
+  MACHINE_CONTROL_INSTRUCTIONS_NOTICE,
+} from "@yep-anywhere/shared/machine-control-instructions";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
@@ -15,15 +19,70 @@ afterEach(async () => {
 describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
   "native API instructions: %s",
   (provider) => {
+    it("refreshes Machine Control on cold resume with API discovery disabled", {
+      timeout: 20_000,
+    }, async () => {
+      const context = (command: string): Partial<StartSessionOptions> => {
+        const fragment = machineControlInstructions("0.7.2", `'${command}'`);
+        return provider === "codex"
+          ? { machineControlInstructions: fragment }
+          : { globalInstructions: fragment };
+      };
+      const launch = { agentSelf: false, ...context("/owned/initial-command") };
+      const f = await nativeFixture(provider, "gentle", { launch });
+      fixture = f;
+      const initial = await f.model.next();
+      expect(JSON.stringify(initial.body)).toContain("/owned/initial-command");
+      initial.finish("INITIAL_MC_DONE");
+      await f.idle();
+      const nativeId = f.nativeId();
+      await f.stop();
+      await f.restart({
+        agentSelf: false,
+        ...context("/owned/current-command"),
+        resumeSessionId: nativeId,
+        initialMessage: {
+          text: "MC_RESUME_REQUEST",
+          uuid: "33333333-3333-4333-8333-333333333333",
+        },
+      });
+      const resumed = await f.model.next();
+      const text = JSON.stringify(
+        provider === "codex" ? resumed.body.input : resumed.body.system,
+      );
+      expect(text).toContain("/owned/current-command");
+      expect(text).not.toContain("[Yep Anywhere API]");
+      const user =
+        provider === "codex"
+          ? (resumed.body.input as Array<{ role?: string }>).filter(
+              (item) => item.role === "user",
+            )
+          : resumed.body.messages;
+      expect(JSON.stringify(user)).not.toContain("[Installed Machine Control]");
+      resumed.finish("RESUMED_MC_DONE");
+      await f.idle();
+      expect(f.errors).toEqual([]);
+      expect(f.model.failures).toEqual([]);
+      expect(f.diagnostics).toEqual([]);
+    });
+
     it("keeps user input/title clean through compaction and grants-changing cold resume", {
       timeout: 20_000,
     }, async () => {
+      const mc = machineControlInstructions(
+        "1.2.3",
+        "'/owned/initial machine-control'",
+      );
+      const resumedMc = machineControlInstructions(
+        "1.2.4",
+        "'/owned/resumed machine-control'",
+      );
       const launch: Partial<StartSessionOptions> = {
         agentSelf: false,
         agentApi: { serverId: "native-api-bootstrap", management: true },
         ...(provider.startsWith("claude")
-          ? { globalInstructions: "OPERATOR_INITIAL" }
-          : {}),
+          ? { globalInstructions: `OPERATOR_INITIAL\n\n${mc}` }
+          : { machineControlInstructions: mc }),
       };
       const f = await nativeFixture(provider, "gentle", {
         launch,
@@ -46,6 +105,9 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
       const initial = await f.model.next();
       expect(bodyText(initial.body)).toContain("[Yep Anywhere API]");
       expect(bodyText(initial.body)).toContain(
+        "/owned/initial machine-control",
+      );
+      expect(bodyText(initial.body)).toContain(
         provider.startsWith("claude")
           ? "OPERATOR_INITIAL"
           : "OPERATOR_CODEX_INSTRUCTIONS",
@@ -57,6 +119,9 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
           initial.body.input as Array<{ role?: string }>
         ).filter((item) => item.role === "user");
         expect(JSON.stringify(userItems)).not.toContain("[Yep Anywhere API]");
+        expect(JSON.stringify(userItems)).not.toContain(
+          "[Installed Machine Control]",
+        );
       }
       f.proc.deferMessage({
         text: "/compact",
@@ -76,6 +141,9 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
       );
       const afterCompact = await f.model.next();
       expect(bodyText(afterCompact.body)).toContain("[Yep Anywhere API]");
+      expect(bodyText(afterCompact.body)).toContain(
+        "/owned/initial machine-control",
+      );
       afterCompact.finish("COMPACT_DONE");
       await f.idle();
       const nativeId = f.nativeId();
@@ -87,7 +155,19 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
         .filter((m) => m.type === "user" || m.type === "assistant")
         .map((m) => m.message?.content);
       expect(JSON.stringify(prose)).not.toContain("[Yep Anywhere API]");
+      expect(JSON.stringify(prose)).not.toContain(
+        "[Installed Machine Control]",
+      );
       if (provider === "codex") {
+        expect(
+          messages.find(
+            (m) => m.content === MACHINE_CONTROL_INSTRUCTIONS_NOTICE,
+          ),
+        ).toMatchObject({
+          type: "system",
+          subtype: "informational",
+          details: [mc],
+        });
         expect(
           messages.find((m) => m.content === AGENT_API_BOOTSTRAP_NOTICE),
         ).toMatchObject({
@@ -101,8 +181,8 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
         resumeSessionId: nativeId,
         agentApi: { serverId: "native-api-bootstrap", management: false },
         ...(provider.startsWith("claude")
-          ? { globalInstructions: "OPERATOR_CHANGED" }
-          : {}),
+          ? { globalInstructions: `OPERATOR_CHANGED\n\n${resumedMc}` }
+          : { machineControlInstructions: resumedMc }),
         initialMessage: {
           text: "RESUMED_API_USER_REQUEST",
           uuid: "22222222-2222-4222-8222-222222222222",
@@ -110,6 +190,9 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
       });
       const resumed = await f.model.next();
       expect(bodyText(resumed.body)).toContain("[Yep Anywhere API]");
+      expect(bodyText(resumed.body)).toContain(
+        "/owned/resumed machine-control",
+      );
       expect(bodyText(resumed.body)).not.toContain(
         "This launch has explicit session-command authority",
       );
@@ -124,6 +207,9 @@ describe.each(providers.filter((p) => p.startsWith("claude") || p === "codex"))(
       expect(
         JSON.stringify(f.events.filter((m) => m.type === "user")),
       ).not.toContain("[Yep Anywhere API]");
+      expect(
+        JSON.stringify(f.events.filter((m) => m.type === "user")),
+      ).not.toContain("[Installed Machine Control]");
       expect(f.errors).toEqual([]);
       expect(f.model.failures).toEqual([]);
       expect(f.diagnostics).toEqual([]);

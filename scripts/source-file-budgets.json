@@ -130,7 +130,7 @@
       "maxLines": 3867
     },
     "packages/server/src/sessions/normalization.ts": {
-      "maxLines": 2304
+      "maxLines": 2301
     },
     "packages/server/src/sessions/opencode-reader.ts": {
       "maxLines": 1877

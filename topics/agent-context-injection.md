@@ -412,7 +412,8 @@ Historical Codex user messages and derived titles have only the exact known
 YA prefix plus its blank-line delimiter removed for presentation. User prose,
 unknown/partial lookalikes and provider-native files stay intact. The correction
 also applies to already-persisted summary indexes without flushing or rewriting
-them. This does not normalize the separate general `[Global context]` wrapper.
+them. Machine Control-bearing historical wrappers have the additional bounded
+repair described below; other general `[Global context]` wrappers are unchanged.
 
 Native no-inference regression scenarios qualify creation, effective Codex
 operator instructions, queued compaction, changed-grant cold resume, clean
@@ -423,3 +424,43 @@ and OpenCode (message `system`), but YA has not adopted those for general contex
 or widened API eligibility. Grok/Antigravity ACP extensions and cross-platform
 acceptance remain separate qualifications.
 See [HTTP v0](http-api-v0.md#local-agent-bootstrap).
+
+## Installed Machine Control placement
+
+Eligible Machine Control launches keep the existing verification, PATH and
+selection contract in [optional computer control](optional-computer-control.md).
+Codex receives its exact advertisement through native developer instructions,
+composed with effective operator, sandbox and Agent API instructions. Cold
+resume explicitly inserts the current fragment before user input; a failed
+configuration read or insertion refuses the launch rather than sending a
+visible user-prefix fallback. Native compaction reconstructs the instructions.
+Claude-family launches keep the system-prompt append and disable prompt
+snapshot reuse while the advertisement is present, so resume uses current
+installation guidance. General operator context keeps its existing placement.
+
+A retained Codex developer entry containing the complete YA Machine Control
+fragment produces a collapsed **Machine Control instructions added** row.
+Expansion shows its exact text. When a developer entry contains both API and
+Machine Control instructions, it produces two independently expandable rows
+with distinct stable ids and the same source position. Unrelated developer
+instructions remain hidden. A notice advertises the CLI and confers no access.
+
+Historical user turns beginning with `[Global context]` are repaired only when
+a complete known Machine Control fragment ends the injected context immediately
+before the exact `\n\n---\n\n` delimiter. The injected context, including any
+preceding operator context, is retained in the collapsed disclosure; only the
+actual request remains in the user turn. Attachments and user-turn identity
+survive. Fresh and already-persisted derived titles use that same actual request,
+without rewriting native history or clearing indexes. Explicit custom titles
+remain separate. Partial, unknown, quoted and delimiter-free lookalikes remain
+unchanged. Existing informational rows/details carry these disclosures without
+new requests or capabilities; older clients retain their existing rendering.
+
+Native create/compact/cold-resume coverage extends the existing API scenario,
+including changed MC version/command guidance. The focused browser scenario
+checks separate collapsed/expanded disclosures at desktop and phone sizes,
+with real sequential typing during concurrent output and history reload.
+These checks pass locally on macOS with Node 24.22.1, Codex 0.167.0 and
+Claude 2.1.322 / SDK 0.3.322. The browser phone capture uses a fresh narrow
+load because of the separately tracked [resize offset](../gaps/session-pane-persistent-offset.md);
+Linux and Windows native/browser acceptance for this repair remains external.

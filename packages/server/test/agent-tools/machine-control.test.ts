@@ -114,9 +114,9 @@ describe("installed Machine Control launch", () => {
       { environment, platform: "darwin", verify },
     );
     const launch = launchProvider.mock.calls[0]?.[0];
-    expect(launch?.globalInstructions).toContain("Existing");
-    expect(launch?.globalInstructions).toContain("App'\\''s CLI");
-    expect(launch?.globalInstructions).toContain("agent instructions");
+    expect(launch?.globalInstructions).toBe("Existing");
+    expect(launch?.machineControlInstructions).toContain("App'\\''s CLI");
+    expect(launch?.machineControlInstructions).toContain("agent instructions");
     expect(launch?.agentEnvironment).toEqual({
       AGENT_YA_API_TOKEN: "synthetic",
       PATH: `${installed.directory}${delimiter}${environment.PATH}`,
@@ -154,7 +154,7 @@ describe("installed Machine Control launch", () => {
       ...dependencies,
       verify: async () => installed,
     });
-    expect(advertised.mock.calls[0]?.[0].globalInstructions).toContain(
+    expect(advertised.mock.calls[0]?.[0].machineControlInstructions).toContain(
       "agent instructions",
     );
 
@@ -215,7 +215,9 @@ describe("installed Machine Control launch", () => {
         command: "C:\\Example App's CLI\\machine-control.cmd",
       }),
     });
-    expect(launchProvider.mock.calls[0]?.[0].globalInstructions).toContain(
+    expect(
+      launchProvider.mock.calls[0]?.[0].machineControlInstructions,
+    ).toContain(
       "& 'C:\\Example App''s CLI\\machine-control.cmd' agent instructions",
     );
     expect(

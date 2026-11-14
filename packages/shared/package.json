@@ -25,6 +25,11 @@
       "import": "./dist/agent-api-bootstrap.js",
       "types": "./dist/agent-api-bootstrap.d.ts"
     },
+    "./machine-control-instructions": {
+      "source": "./src/machine-control-instructions.ts",
+      "import": "./dist/machine-control-instructions.js",
+      "types": "./dist/machine-control-instructions.d.ts"
+    },
     "./sqlite": {
       "source": "./src/sqlite.ts",
       "import": "./dist/sqlite.js",

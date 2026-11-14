@@ -46,6 +46,7 @@ import {
   type CodexProviderConfig,
   formatCodexLoginCommand,
 } from "../../../src/sdk/providers/codex.js";
+import { machineControlInstructions } from "@yep-anywhere/shared/machine-control-instructions";
 import * as codexApprovals from "../../../src/sdk/providers/codex-approvals.js";
 import * as codexItemConversion from "../../../src/sdk/providers/codex-item-conversion.js";
 import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
@@ -2088,9 +2089,14 @@ describe("CodexProvider app-server lifecycle", () => {
     },
   );
 
-  it.each(["config/read", "thread/inject_items"])(
-    "stops before user input when API bootstrap %s is rejected",
-    async (method) => {
+  it.each([
+    ["API", "config/read"],
+    ["API", "thread/inject_items"],
+    ["Machine Control", "config/read"],
+    ["Machine Control", "thread/inject_items"],
+  ])(
+    "stops before user input when %s instructions %s are rejected",
+    async (kind, method) => {
       const tempDir = mkdtempSync(join(tmpdir(), "codex-api-rejected-"));
       const logPath = join(tempDir, "requests.jsonl");
       const source = buildFakeCodexPermissionAppServer(logPath).replace(
@@ -2116,7 +2122,14 @@ describe("CodexProvider app-server lifecycle", () => {
         resumeSessionId:
           method === "thread/inject_items" ? "thread-policy" : undefined,
         agentSelf: false,
-        agentApi: { serverId: "codex-api-rejected" },
+        ...(kind === "API"
+          ? { agentApi: { serverId: "codex-api-rejected" } }
+          : {
+              machineControlInstructions: machineControlInstructions(
+                "0.7.2",
+                "'/owned/machine-control'",
+              ),
+            }),
         initialMessage: { text: "NEVER_SUBMITTED" },
       });
       try {

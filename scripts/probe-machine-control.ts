@@ -42,7 +42,7 @@ await startMachineControlSession(
     },
   },
 );
-assert(launch?.globalInstructions?.includes(installed.command));
+assert(launch?.machineControlInstructions?.includes(installed.command));
 assert(launch?.agentEnvironment?.PATH?.startsWith(installed.directory));
 const instructions = await execute(installed.python, [
   "-I",
