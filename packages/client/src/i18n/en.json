@@ -2143,7 +2143,6 @@
   "contextBreakdownSummary": "{used} of {max} · {percent}%",
   "contextBreakdownFree": "{tokens} free",
   "contextBreakdownMeterAria": "{used} of {max} tokens used",
-  "contextBreakdownComposition": "What the used part holds",
   "contextBreakdown_systemPrompt": "Harness prompt",
   "contextBreakdown_systemTools": "Tool definitions",
   "contextBreakdown_mcpTools": "MCP tools",

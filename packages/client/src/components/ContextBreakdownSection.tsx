@@ -203,7 +203,14 @@ function Breakdown({ breakdown }: { breakdown: ContextBreakdown }) {
           />
         )}
       </div>
-      <div className={styles.caption}>{t("contextBreakdownComposition")}</div>
+      <svg className={styles.connector} aria-hidden="true">
+        <line
+          x1={`${percentOf(breakdown.totalTokens)}%`}
+          y1="0"
+          x2="100%"
+          y2="100%"
+        />
+      </svg>
       <div className={styles.composition} aria-hidden="true">
         {used.map((category) => (
           <span

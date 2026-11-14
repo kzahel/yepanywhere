@@ -77,10 +77,15 @@
   background: var(--warning-color);
 }
 
-.caption {
-  margin-top: var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
+.connector {
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin-block: calc(-1 * var(--space-1));
+  overflow: visible;
+  stroke: var(--text-dimmed);
+  stroke-width: 1px;
+  stroke-dasharray: 2.5 2.5;
 }
 
 .composition {

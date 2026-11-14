@@ -24,7 +24,8 @@ answers, the section shows, above the existing quota and last-turn rows:
 - a window meter, with any compaction reserve hatched and a tick at the
   automatic-compaction point when the provider reports one;
 - a composition bar scaled to the used tokens only, so small categories stay
-  visible at low occupancy;
+  visible at low occupancy, with a faint dashed connector from the used
+  window meter's endpoint to the composition bar's right edge;
 - one row per used category with its tokens and share of the used total.
 
 Rows carry YA labels for the provider's categories: Harness prompt, Tool
