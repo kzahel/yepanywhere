@@ -7,6 +7,14 @@ share one query owner per `RetainedSessionCollections` and dependency set.
 unretained compatibility path and standalone `/api/sessions/stats` retain
 their existing behavior. The retained REST response shapes are unchanged.
 
+Localhost tabs use finite retained REST reads, refreshed by WebSocket activity
+events. They do not acquire endless HTTP collection responses: tabs share the
+browser's per-origin HTTP/1 connection pool, so several live responses can
+prevent even an initial session list from loading. Secure/relay transports
+continue to use multiplexed collection updates. This choice preserves list
+availability across tabs at the cost of repeated bounded reads after changes;
+it does not restore the complete provider-corpus walk.
+
 ## Authority and lifetime
 
 Provider/catalog rows remain native facts. Identity projection, metadata,

@@ -16,7 +16,51 @@ import {
 import { recordUiCapture } from "./support/ui-capture";
 
 test.use({ serviceWorkers: "block" });
-test("native collection writes update live views without full-list reads or delayed typing", async ({
+test("eight localhost tabs retain session lists without exhausting HTTP connections", async ({
+  context,
+}) => {
+  test.setTimeout(60_000);
+  const projectPath = mkdtempSync(join(tmpdir(), "collection-tabs-"));
+  const backend = await startYaServerProcess({
+    label: "collection tabs",
+    serveBuiltClient: true,
+    mockClaudeSession: {
+      projectPath,
+      sessionId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      content: "Visible across eight tabs",
+      timestamp: new Date().toISOString(),
+    },
+  });
+  const pages: import("@playwright/test").Page[] = [];
+  try {
+    for (let n = 0; n < 8; n++) {
+      const page = await context.newPage();
+      pages.push(page);
+      await page.goto(backend.baseUrl + "/inbox", {
+        waitUntil: "domcontentloaded",
+        timeout: 5_000,
+      });
+      await expect(page.locator("[data-sidebar-desktop]")).toContainText(
+        "Visible across eight tabs",
+      );
+    }
+    // Browser fetch, not APIRequestContext: all tabs share the HTTP/1 pool.
+    const rows = await pages[7]!.evaluate(async () => {
+      const response = await fetch(
+        "/api/sessions?summaryMode=retained&limit=50",
+        { signal: AbortSignal.timeout(5_000) },
+      );
+      return (await response.json()).sessions.length;
+    });
+    expect(rows).toBeGreaterThan(0);
+  } finally {
+    await Promise.all(pages.map((page) => page.close()));
+    await disposeYaServerProcess(backend);
+    rmSync(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("native collection writes update localhost views through retained reads without delayed typing", async ({
   page,
 }, info) => {
   test.setTimeout(60_000);
@@ -81,7 +125,7 @@ test("native collection writes update live views without full-list reads or dela
     if (["/api/sessions", "/api/inbox"].includes(url.pathname))
       fullReads.push(url.pathname + url.search);
     if (["/api/projects", "/api/project-queue"].includes(url.pathname))
-      otherReads.push(url.pathname);
+      otherReads.push(url.pathname + url.search);
   };
   page.on("request", recordRequests);
   const projectsPage = await page.context().newPage();
@@ -125,16 +169,7 @@ test("native collection writes update live views without full-list reads or dela
     await expect(
       inboxPage.locator("[data-session-list-item--card]").first(),
     ).toBeVisible();
-    await expect
-      .poll(() =>
-        streamQueries.flat().some((query) => query.startsWith("/inbox")),
-      )
-      .toBe(true);
-    await expect
-      .poll(() =>
-        streamQueries.flat().some((query) => query.startsWith("/sessions")),
-      )
-      .toBe(true);
+    expect(streamQueries).toEqual([]);
     const queued = await page.request.post(
       backend.baseUrl + `/api/projects/${projectId}/queue`,
       {
@@ -176,9 +211,6 @@ test("native collection writes update live views without full-list reads or dela
     await expect(
       projectsPage.getByText(isolatedCaption, { exact: true }),
     ).toBeVisible();
-    for (const path of ["/projects?summaryMode=retained", "/project-queue"]) {
-      await expect.poll(() => streamQueries.flat().includes(path)).toBe(true);
-    }
     await page.bringToFront();
     const renamed = "Live authoritative collection";
     expect(
@@ -193,7 +225,7 @@ test("native collection writes update live views without full-list reads or dela
       ).ok(),
     ).toBe(true);
     await expect(page.locator("[data-session-header]")).toContainText(renamed);
-    // Cross the old 500 ms refetch boundary after the initial stream handshake.
+    // Cross the 500 ms event-driven revalidation boundary.
     await page.waitForTimeout(650);
     const inboxRow = inboxPage
       .locator("[data-session-list-item--card]")
@@ -321,8 +353,15 @@ test("native collection writes update live views without full-list reads or dela
       ),
       contentType: "application/json",
     });
-    expect(fullReads).toEqual([]);
-    expect(otherReads).toEqual([]);
+    expect(fullReads.length).toBeGreaterThan(0);
+    for (const path of [...fullReads, ...otherReads]) {
+      const url = new URL(path, backend.baseUrl);
+      if (url.pathname !== "/api/project-queue")
+        expect(url.searchParams.get("summaryMode")).toBe("retained");
+      if (url.pathname === "/api/sessions")
+        expect(Number(url.searchParams.get("limit"))).toBeLessThanOrEqual(500);
+    }
+    expect(streamQueries).toEqual([]);
     await recordUiCapture(page, "collection-updates-desktop", {
       width: 1000,
       height: 600,

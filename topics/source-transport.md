@@ -320,7 +320,12 @@ use the existing encrypted response stream. Collection bodies may remain quiet
 while the connection is healthy; finite file bodies retain their progress
 deadline. Source-local `streamedResponses` capability identifies a usable live
 response path, independently of server feature support. Plain multiplex
-WebSocket and finite-only native bridges retain collection REST fallback.
+WebSocket, localhost HTTP and finite-only native bridges retain collection REST
+fallback. Localhost collection reads must finish: an endless HTTP/1 response
+per tab can occupy every browser connection slot for that origin, blocking
+session lists, new tabs and unrelated requests. Finite file/bootstrap response
+bodies remain supported. Secure/relay response streams use their multiplexed
+connection and do not consume an HTTP slot per tab.
 Ordinary live event subscriptions
 remain on their subscription protocol. Cancelling a response or closing the
 connection interrupts a pending body read as well as a sender waiting for byte
@@ -691,6 +696,9 @@ into deliberately): per-source auth-required signaling replacing the global
   (present with an active count while uploads run; no long-lived bookkeeping).
 - `capabilities.sameOriginUrls = true`; `device` present via the stream
   WebSocket.
+- `capabilities.streamedResponses = false` for live collection acquisition.
+  Lists use finite retained SQL reads and existing WebSocket invalidations.
+  Multiple tabs must remain able to load lists and issue ordinary HTTP requests.
 
 At most one localhost source can exist per app: same-origin fetch is pinned to
 `window.location`. This asymmetry is by construction — multi-source means one

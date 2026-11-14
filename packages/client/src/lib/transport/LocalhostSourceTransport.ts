@@ -97,7 +97,9 @@ class LocalhostTransportStatus implements SourceTransportStatus {
 export class LocalhostSourceTransport implements SourceTransport {
   readonly kind = "localhost" as const;
   readonly capabilities: SourceTransportCapabilities = {
-    streamedResponses: true,
+    // Endless HTTP/1 responses exhaust the browser's shared six-connection pool.
+    // Collections use finite retained reads plus WebSocket invalidations here.
+    streamedResponses: false,
     sameOriginUrls: true,
     device: {
       send: async (msg) => {
