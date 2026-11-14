@@ -5279,3 +5279,13 @@ lint/format and whitespace checks. Tier 2: root lint/typecheck/tests; native
 creation/replacement additionally passes the four Claude/Codex app combinations.
 Source budgets lower for both hubs. These are dependency-parameter conversions
 and relocations, with no mutable state or back-import into either hub.
+
+### Retained provider reattachment — 2026-11-14
+
+Move the existing startup reattachment loop from `server-main.ts` to
+`server-provider-reattach.ts` before adding orderly queue recovery. The only
+signature change makes the captured Supervisor and session metadata service
+explicit parameters. Inventory failure handling, launch settings, ordering and
+logs are unchanged. Tier 1/2 checks cover this move; existing provider-host and
+portable wrapper tests substitute for SDK E2E because no adapter or transport
+behavior changes.

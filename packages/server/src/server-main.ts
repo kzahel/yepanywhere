@@ -22,6 +22,7 @@ import {
   unionSpeechVoiceBackends,
 } from "@yep-anywhere/shared";
 import { createApp } from "./app.js";
+import { reattachProviderRuntimes } from "./server-provider-reattach.js";
 import { markdownAugmentCacheDiagnostics } from "./augments/markdown-augments.js";
 import { AuthService } from "./auth/AuthService.js";
 import { UserUsageService } from "./auth/UserUsageService.js";
@@ -97,7 +98,6 @@ import {
   ensureProviderRuntimeHost,
   hasHostedProviderRuntime,
   isProviderRuntimeHostAvailable,
-  listHostedProviderRuntimes,
   retainProviderRuntimeProcessGroup,
 } from "./sdk/providers/provider-runtime-host.js";
 import { isProviderHostDegraded } from "./sdk/providers/provider-host-status.js";
@@ -1241,46 +1241,7 @@ async function startServer() {
   supervisorForShutdown = supervisor;
   deviceBridgeForShutdown = deviceBridgeService ?? null;
 
-  const hostedProviderRuntimes = await listHostedProviderRuntimes().catch(
-    (error) => {
-      console.error(
-        "[ProviderRuntimeHost] Failed to list retained runtimes:",
-        error,
-      );
-      return [];
-    },
-  );
-  for (const runtime of hostedProviderRuntimes) {
-    if (!runtime.sessionId) continue;
-    try {
-      await supervisor.reactivateSession(
-        runtime.projectPath,
-        runtime.sessionId,
-        sessionMetadataService.getEffectiveLaunchSettings(runtime.sessionId)
-          ?.permissionMode ?? runtime.reattach.permissionMode,
-        {
-          providerName: runtime.providerName,
-          model: runtime.reattach.model,
-          serviceTier: runtime.reattach.serviceTier,
-          thinking: runtime.reattach.thinking,
-          effort: runtime.reattach.effort,
-          clientName: runtime.reattach.clientName,
-          executor: runtime.reattach.executor,
-          sandboxLevel: runtime.reattach.sandboxLevel,
-          sandboxNetworkFirewall: runtime.reattach.sandboxNetworkFirewall,
-          sandboxStateKey: runtime.reattach.sandboxStateKey,
-        },
-      );
-      console.log(
-        `[ProviderRuntimeHost] Reattached ${runtime.providerName} session ${runtime.sessionId}`,
-      );
-    } catch (error) {
-      console.error(
-        `[ProviderRuntimeHost] Failed to reattach session ${runtime.sessionId}:`,
-        error,
-      );
-    }
-  }
+  await reattachProviderRuntimes(supervisor, sessionMetadataService);
   markStartup("retained provider runtimes reattached");
 
   // Set up debug context for maintenance server
