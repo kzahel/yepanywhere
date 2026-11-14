@@ -284,7 +284,25 @@ possible ([provider-version-support](provider-version-support.md)).
 Recheck, 2026-11-04: installed Codex is still `0.166.0`, npm `latest`, and
 `pnpm codex:protocol:check` reports no drift. Nothing to refresh.
 
-Current source refresh, 2026-11-06 (0.167.0, generated types only):
+Current source refresh, 2026-11-14 (0.169.0, generated types only):
+
+- The installed CLI already reports `0.169.0`, npm's latest stable release.
+  The reference checkout is `rust-v0.169.0` (`d32063f96c`); compatibility
+  markers and the native test dependency advance from `0.167.0`.
+- The generated subset adds answer-moderation metadata for Chat history,
+  an attached-thread parent id, assistant completion token telemetry,
+  MCP resource request metadata, per-turn environment replacement and
+  file-id audio tool results. YA does not consume these new fields.
+  `inferenceHookDenied` uses YA's existing terminal error fallback;
+  it is not a transient capacity failure to retry.
+- A no-turn `model/list` returns nine models, with `gpt-6.1-sol` the
+  default at low effort. The regenerated protocol passes its drift check.
+- Server and test-helper type checks pass. The combined Claude/Codex/OSS
+  native run passes 34 cases, with two unrelated cases skipped. The
+  provider suite passes 824 tests through the normal isolated-home runner.
+  No paid model turn ran; qualification was on Linux.
+
+Previous source refresh, 2026-11-06 (0.167.0, generated types only):
 
 - Installed Codex is `codex-cli 0.167.0`, npm `latest`; the official
   `rust-v0.167.0` tag resolves to `086ccc833`. `expectedVersion`,
@@ -1390,7 +1408,24 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-11-10 (Claude Code 2.1.322 / SDK 0.3.322):
+Current source refresh, 2026-11-14 (Claude Code 2.1.325 / SDK 0.3.325):
+
+- The SDK and its native packages advance from `0.3.322` to `0.3.325`.
+  The standalone CLI already reports `2.1.325`; compatibility markers
+  advance with the bundled executable.
+- SDK additions include session archive/unarchive, managed-model matching,
+  plugin reload refusal while busy, machine-policy read status, and
+  structured invalid-config diagnostics. Existing YA calls still typecheck.
+  The tool declarations add optional document image/page metadata and
+  incremental skill edits. No adapter change is required by these additions.
+- No-turn SDK handshakes before and after the upgrade return identical
+  model metadata and command names. Server/test-helper type checks,
+  the provider suite and the combined native scenarios pass as recorded
+  in the Codex entry above. No paid model turn ran.
+- Existing provider-host workers must restart to load the updated SDK.
+  The refresh does not restart the shared server or its active sessions.
+
+Previous source refresh, 2026-11-10 (Claude Code 2.1.322 / SDK 0.3.322):
 
 - The SDK and native packages advance from 0.3.321 to 0.3.322; the
   bundled executable and the standalone install both report Claude Code
@@ -2523,9 +2558,9 @@ The server package currently pins provider-adjacent packages as follows:
 
 | package | current/wanted | latest observed | role |
 |---|---:|---:|---|
-| `@anthropic-ai/claude-agent-sdk` | `0.3.318` | `0.3.318` | Active Claude provider dependency |
+| `@anthropic-ai/claude-agent-sdk` | `0.3.325` | `0.3.325` | Active Claude provider dependency |
 | `@agentclientprotocol/sdk` | `0.12.0` | `1.9.0` | Active ACP client dependency for Grok/Gemini |
 
-Claude SDK observed 2026-11-04; ACP SDK observed 2026-10-16.
+Claude SDK observed 2026-11-14; ACP SDK observed 2026-10-16.
 
 Treat both rows as provider-refresh inputs.

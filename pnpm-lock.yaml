@@ -256,8 +256,8 @@ importers:
         specifier: ^0.12.0
         version: 0.12.0(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.322
-        version: 0.3.322(@anthropic-ai/sdk@0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
+        specifier: ^0.3.325
+        version: 0.3.325(@anthropic-ai/sdk@0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       '@anthropic-ai/sdk':
         specifier: 0.100.1
         version: 0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
@@ -371,8 +371,8 @@ importers:
         specifier: 1.5.0
         version: 1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(@smithy/signature-v4@5.7.5)(ws@8.21.3)(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       '@openai/codex':
-        specifier: 0.167.0
-        version: 0.167.0
+        specifier: 0.169.0
+        version: 0.169.0
       opencode-ai:
         specifier: 1.18.9
         version: 1.18.9
@@ -409,52 +409,52 @@ packages:
   '@antfu/install-pkg@2.0.1':
     resolution: {integrity: sha512-iCKVQcIC0e3oDxEfs3SHQGW+ovhBMZmS1TE+bTk50rVyMCBmCfClv7Qi3HQKlumYwvjb/iIMeWCW2i67q6kFfQ==}
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.322':
-    resolution: {integrity: sha512-LoKkldW2zkLfaOLQD44mL1Ot4Aup8dBIo356LEeO3v2vF7JVNhMllQIXhhGpbYRz57QaYsGvOe0Kb4SbssHwcg==}
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.325':
+    resolution: {integrity: sha512-0u8bTug2zH+zWE8CMiFrm/ldmH20uA9B/zhXpI7ATHFJnpPMdwTqE56CFM0m3LOwnNum0jpRn7XV1dn6Pf2pqA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.322':
-    resolution: {integrity: sha512-rTvLS9G1OzjMIaSXrJglQtmRtVcaRmMbJQC+ND02+atCA463ac7Ty/Wc6tyzBGk8zFFGKWnfAhKtLZTNg91eMg==}
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.325':
+    resolution: {integrity: sha512-HD3YRFyM5H5QH2usS/WD6gobk3BEp2jq9dKyrkhAVdQIqFMlrcSrRhGA0i3R1IOLxtPAYkmDGepZ62k1kMOW9Q==}
     cpu: [x64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.322':
-    resolution: {integrity: sha512-zvgvVA/Mxpu1QttICZ1DGDlmgGo62HdVgKg6WbDGDQ3dgxtRC/kpCIepjtGEL8O1iO5NRxQ4mv8okLwCFcyrLQ==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.325':
+    resolution: {integrity: sha512-72y6QNRZC4eMCxne/wNsuwNHsViSkgFKlYMCUVXxmiR9gpIMd3rf++oJMIsSuEAQqzqT7jwCrdtibv6R4bx5PA==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.322':
-    resolution: {integrity: sha512-H1v33+MxB5JMPlnJLZffiOQ+6muxyA7tgHPyYQ+So4TH7uRhaPcjv2X03CUo5U9gXleO6u+X8ngNNDRFtfUaSg==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.325':
+    resolution: {integrity: sha512-28oVrCEN6M6MJP8Od4SK/scal1QdLbn5Sci+qL8j55l6csHtPeUYF9zdjWLniFKph43pejfZf5te/Vf/bwehkw==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.322':
-    resolution: {integrity: sha512-jprUZMcQ3XcpoxwKRQ0fi3qAM1zYcytmNGhlD0gWDknbbSu8di5jLU7231ihJrCr4gbbtDu3FiFUd6w9EBEjfw==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.325':
+    resolution: {integrity: sha512-BHewYUTd7mDLR5iHTVt6Q28gJKLC5C24b1H3NM0qGt9dxnjVUh1Lza52GzHY2Rb9hAPQymLSXWuVh1OFoFQatA==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.322':
-    resolution: {integrity: sha512-M/i7uV5wQf1kvjiPJr2KF5PeA9BpftUpMTtwE+DpQ0Tj+scthQXSMsEhDvau/Rh/MfFOc+UHED4tltignmA5+Q==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.325':
+    resolution: {integrity: sha512-wXEWbDmNYiorY5EKASYjvQct8zHShUPmAS9N/IAsgPA/cx2vsOFqPQw8jRQKeaW6AmFgx7k/Wf7THalNXbMEkQ==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.322':
-    resolution: {integrity: sha512-o5sPmBKT4NOglODC45wSTFmjD1AQIboC9NdGFQFOTa8kMF3bok+YqpB0DF81RmMDf3iR5tieonZvOXdYm1TDjQ==}
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.325':
+    resolution: {integrity: sha512-NH3I2o105oKK8lfJ5RlzCp+YTZn3qncwQ1xSzQ4jqn7LUddThIidpFU7B+TKQxh1X9eayAp7EtrBQ36mXflQwQ==}
     cpu: [arm64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.322':
-    resolution: {integrity: sha512-gONOkYx76of3p73opgWAT9gqpV7PRL8+az3vKoWXLc4xaDW6vhZF7fixpCnLDeUmPWxjXhnQxf30WGpKneTzNw==}
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.325':
+    resolution: {integrity: sha512-pjqVL++V/2oMJ6u1HdB608bcTUvzts1e8hX93Q8khasy2JB+R823bnvpQapcOurOWB3+v1X2JXIjXyWcGPJCQQ==}
     cpu: [x64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk@0.3.322':
-    resolution: {integrity: sha512-r88ij7R3SPV2j3BtFuavgrbWZNE8SVVS42AOQ1KxlS+QnSwNNnUhmVXV3Es2dniZySBYX8ENebL43ffhiB0azw==}
+  '@anthropic-ai/claude-agent-sdk@0.3.325':
+    resolution: {integrity: sha512-MhSm2Fhk3DA/hhjdCKXDZWlnykpPWJjX42SogllAHMplY9ZKT+Ltb8QPtQxpe225Imfs4A8IKaNE4biivA+fHg==}
     engines: {node: '>=18.14.0'}
     peerDependencies:
       '@anthropic-ai/sdk': '>=0.93.0'
@@ -1726,43 +1726,43 @@ packages:
   '@nodable/entities@3.1.0':
     resolution: {integrity: sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ==}
 
-  '@openai/codex@0.167.0':
-    resolution: {integrity: sha512-1FSQgbTIKAdTub5Ln6z36NT4eXDmBRkinfigzycbgn9yLZdJ3UdkQZqr0N7jnl8/D1xxT/Pz3Fl2l7S2dmRaFA==}
+  '@openai/codex@0.169.0':
+    resolution: {integrity: sha512-KhzYlkKPxoNssR8CEm45IjqnFWn7UtlF4CiD3tOJPea51xBs7MaHy0UQG9GSbCqk6Lrjn5QdJDV0QD1/FgWlGw==}
     engines: {node: '>=16'}
     hasBin: true
 
-  '@openai/codex@0.167.0-darwin-arm64':
-    resolution: {integrity: sha512-7YtMDZX/jbWH9+fCVQg7BVsov8WvBzu4iuedXJEDlUdZxaTrYX2bEQwHIn3p0gxgSMfm30HGK9+bZm1aGSZaHw==}
+  '@openai/codex@0.169.0-darwin-arm64':
+    resolution: {integrity: sha512-5WsWFBbVP78D+6FvNo1MMVxLPZdmcoQlqVJFrF4qx/TmvneLnMQKtLyXkUo54XOTDfoYKpNouTJ/F7gTVA8FnQ==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [darwin]
 
-  '@openai/codex@0.167.0-darwin-x64':
-    resolution: {integrity: sha512-wKoBiI6SBSg8fqiEYEOJs/NM/ZzKaCgy1cseX9LJbuDq3GCCKkeW9BUGe1ZEkyhhZ5Yfj+HzdUfp698abP2tDA==}
+  '@openai/codex@0.169.0-darwin-x64':
+    resolution: {integrity: sha512-K1FKSsSLl9v3z5TeagBQXyQRDBIGB5Jncy5dxsRxwT3aaTqN3AI8VrCfoxBxKMOOU9O2QX1vg7WkBwNVth/s9A==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [darwin]
 
-  '@openai/codex@0.167.0-linux-arm64':
-    resolution: {integrity: sha512-5cv+sybRWqpRJL6KCv3YSnIx1GHRmjek997C38n1Zfno4HomKDLkNSjWLDOOc2+ISlVNSRRnySWq4zKmzlY12g==}
+  '@openai/codex@0.169.0-linux-arm64':
+    resolution: {integrity: sha512-NZ/DaQUpcQmxmqee7Z9uC1rzw3GhSbooawcaTe1LN5Yk+WlinUKGdTXJgClRT/9ogQEEM9TWxYzvxPfj5G/xFg==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [linux]
 
-  '@openai/codex@0.167.0-linux-x64':
-    resolution: {integrity: sha512-FNc7danfUng9Sp6w+Fh7kofNHHZpA6VMyNKWsWrS3OwHly69gywTWeiuwrUPXpJSho8Df4xqRsHfHRPzj7zYQg==}
+  '@openai/codex@0.169.0-linux-x64':
+    resolution: {integrity: sha512-o05NyAOCDygSPRo1yinzxvkRSdmsZyBD9E7mbpmjRanSfM8lypqWtQgEo4XfNkwhuCR2aFu8mlGOsQGFXVbVww==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [linux]
 
-  '@openai/codex@0.167.0-win32-arm64':
-    resolution: {integrity: sha512-dYeYQZ66LCNnFXyF5vHRsbJQLyfbY3G8vDyn6XG3NxcwMFz4stkgSdC94UPc1NhCxkhpufHlkAm1oe+Z28Pw5Q==}
+  '@openai/codex@0.169.0-win32-arm64':
+    resolution: {integrity: sha512-nTN9SpkacGohq60+I80R3t0R8Mhbnlt3OVYNahgAv1Gu77KFwhPc0vz9Ou/DAGDtYhKVWA/jiYXJXnlzkwb/JA==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [win32]
 
-  '@openai/codex@0.167.0-win32-x64':
-    resolution: {integrity: sha512-duPCBwflc8qhQdLekbL8fDYF646tW4gj0/l9BDnsVhEzoqm6OwxMAJXDFwSOLUUJPCmjBeM+eHYAx4fP/hwfjg==}
+  '@openai/codex@0.169.0-win32-x64':
+    resolution: {integrity: sha512-nC+McFU8xRNL9tk3IhxcKdhcyOElwF/HhPO+gzSQCY7yjh3XdzSajX+MYWcHUVHWRHajfwn3/WgJYJK2wS+XWg==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
@@ -4894,44 +4894,44 @@ snapshots:
       package-manager-detector: 1.8.0
       tinyexec: 1.3.1
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.322':
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.325':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.3.322(@anthropic-ai/sdk@0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))':
+  '@anthropic-ai/claude-agent-sdk@0.3.325(@anthropic-ai/sdk@0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)))(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))':
     dependencies:
       '@anthropic-ai/sdk': 0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       '@modelcontextprotocol/sdk': 1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       zod: 4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38)
     optionalDependencies:
-      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.322
-      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.322
+      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.325
+      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.325
 
   '@anthropic-ai/sdk@0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))':
     dependencies:
@@ -6116,31 +6116,31 @@ snapshots:
   '@nodable/entities@3.1.0':
     optional: true
 
-  '@openai/codex@0.167.0':
+  '@openai/codex@0.169.0':
     optionalDependencies:
-      '@openai/codex-darwin-arm64': '@openai/codex@0.167.0-darwin-arm64'
-      '@openai/codex-darwin-x64': '@openai/codex@0.167.0-darwin-x64'
-      '@openai/codex-linux-arm64': '@openai/codex@0.167.0-linux-arm64'
-      '@openai/codex-linux-x64': '@openai/codex@0.167.0-linux-x64'
-      '@openai/codex-win32-arm64': '@openai/codex@0.167.0-win32-arm64'
-      '@openai/codex-win32-x64': '@openai/codex@0.167.0-win32-x64'
+      '@openai/codex-darwin-arm64': '@openai/codex@0.169.0-darwin-arm64'
+      '@openai/codex-darwin-x64': '@openai/codex@0.169.0-darwin-x64'
+      '@openai/codex-linux-arm64': '@openai/codex@0.169.0-linux-arm64'
+      '@openai/codex-linux-x64': '@openai/codex@0.169.0-linux-x64'
+      '@openai/codex-win32-arm64': '@openai/codex@0.169.0-win32-arm64'
+      '@openai/codex-win32-x64': '@openai/codex@0.169.0-win32-x64'
 
-  '@openai/codex@0.167.0-darwin-arm64':
+  '@openai/codex@0.169.0-darwin-arm64':
     optional: true
 
-  '@openai/codex@0.167.0-darwin-x64':
+  '@openai/codex@0.169.0-darwin-x64':
     optional: true
 
-  '@openai/codex@0.167.0-linux-arm64':
+  '@openai/codex@0.169.0-linux-arm64':
     optional: true
 
-  '@openai/codex@0.167.0-linux-x64':
+  '@openai/codex@0.169.0-linux-x64':
     optional: true
 
-  '@openai/codex@0.167.0-win32-arm64':
+  '@openai/codex@0.169.0-win32-arm64':
     optional: true
 
-  '@openai/codex@0.167.0-win32-x64':
+  '@openai/codex@0.169.0-win32-x64':
     optional: true
 
   '@opentelemetry/api@1.9.1':
