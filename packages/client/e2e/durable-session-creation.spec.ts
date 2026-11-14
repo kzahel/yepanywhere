@@ -23,6 +23,10 @@ import {
   disposeYaServerProcess,
 } from "./support/ya-server-process.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
+import {
+  startTypingDiagnostics,
+  typingAckLimitMs,
+} from "./support/typing-diagnostics.js";
 
 const prompt = "OWNED_BROWSER_CREATION";
 const reply = "OWNED_CREATION_REPLY";
@@ -532,7 +536,7 @@ test("retiring the form before acceptance preserves recovery and never creates t
 
 test("background typing during delayed acceptance stays responsive with 200 saved sessions and preserves the newer draft", async ({
   browser,
-}) => {
+}, testInfo) => {
   const owned = await fixture(false, 200);
   const context = await browser.newContext({ serviceWorkers: "block" });
   const page = await context.newPage();
@@ -569,6 +573,7 @@ test("background typing during delayed acceptance stays responsive with 200 save
     await admitted;
     await expect.poll(() => owned.modelRequests.length).toBe(1);
     await expect(composer).toBeEnabled();
+    const attachTypingDiagnostics = await startTypingDiagnostics(composer);
     // Include input dispatch delay using the browser event timestamp. The
     // second animation frame follows the first frame's rendering/paint.
     await composer.evaluate((element) => {
@@ -628,10 +633,10 @@ test("background typing during delayed acceptance stays responsive with 200 save
           }
         ).acks,
     );
+    const maxMs = Math.max(...acks.map((ack) => ack.latency));
+    await attachTypingDiagnostics(testInfo, "delayed-creation", acks, maxMs);
     expect(acks).toHaveLength(" newer draft".length);
-    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThanOrEqual(
-      100,
-    );
+    expect(maxMs).toBeLessThanOrEqual(typingAckLimitMs);
     expect(acks[0]!.eventAt).toBeLessThan(acceptedAt);
     expect(acceptedAt).toBeLessThan(acks.at(-1)!.eventAt);
     release();

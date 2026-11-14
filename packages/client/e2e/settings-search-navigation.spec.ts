@@ -1,5 +1,9 @@
 import { expect, test } from "./fixtures.js";
 import { recordUiCapture } from "./support/ui-capture.js";
+import {
+  startTypingDiagnostics,
+  typingAckLimitMs,
+} from "./support/typing-diagnostics.js";
 
 test("selecting a settings category clears the search", async ({
   page,
@@ -37,13 +41,14 @@ for (const viewport of [
   test(`search results save and navigate safely at ${viewport.width}px`, async ({
     page,
     baseURL,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize(viewport);
     await page.goto(`${baseURL}/settings`);
     const search = page.getByRole("searchbox", { name: "Search settings" });
     // Cold acquisition exercises the complete eligible settings corpus. Native
     // key events measure the retained rendered prefix, independent of IPC time.
     await search.focus();
+    const attachTypingDiagnostics = await startTypingDiagnostics(search);
     await search.evaluate((element) => {
       const input = element as HTMLInputElement;
       const samples: Array<{ value: string; elapsed: number }> = [];
@@ -77,13 +82,19 @@ for (const viewport of [
           }
         ).settingsSearchTyping,
     );
+    const maxMs = Math.max(...samples.map((sample) => sample.elapsed));
+    await attachTypingDiagnostics(
+      testInfo,
+      `settings-search-${viewport.width}`,
+      samples,
+      maxMs,
+    );
     expect(samples.map((sample) => sample.value)).toEqual(
       Array.from("activity", (_, index) => "activity".slice(0, index + 1)),
     );
-    expect(
-      Math.max(...samples.map((sample) => sample.elapsed)),
-      JSON.stringify(samples),
-    ).toBeLessThanOrEqual(100);
+    expect(maxMs, JSON.stringify(samples)).toBeLessThanOrEqual(
+      typingAckLimitMs,
+    );
     const activity = results.locator(
       '[data-settings-item="show-session-activity-in-tab-title"]',
     );

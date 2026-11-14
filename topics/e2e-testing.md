@@ -308,13 +308,14 @@ replaces them. Measure before and after on comparable runs:
   A retry pass leaves its shard job green, so job results hide these cases.
   `node scripts/e2e-flake-report.mjs --since <date>` counts them from the
   shards' JSON reports, and `--case <substring>` lists each failing attempt.
-  The queued-compaction and field-ownership typing cases also preserve
+  The measured typing cases listed in the
+  [shared-CI typing policy](ui-testing.md#sequential-typing-latency) also preserve
   `typing-diagnostics-*.json` attachments in the browser evidence artifact,
   including the first failed attempt. They contain the original gate samples,
   per-key dispatch/input/two-frame timings and supported browser long-task and
   long-animation-frame script attribution. Use those phases to diagnose a
   miss; they never replace or reduce the measured acknowledgement latency.
-  These two cases use the documented [shared-CI typing ceiling](ui-testing.md#sequential-typing-latency).
+  These explicitly selected cases use that policy's CI ceiling.
   The report script also counts recorded 100 ms target misses in passing
   cases separately from test failures; these annotations are unavailable in
   older reports.

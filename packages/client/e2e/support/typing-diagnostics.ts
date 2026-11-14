@@ -5,6 +5,8 @@ export const typingAckTargetMs = 100;
 // Nov 7–14, 2026: 78 queued-compaction CI executions peaked at 246.4 ms;
 // 34 field-ownership executions peaked at 132.5 ms. Shared CI gets 500 ms
 // (2.0–3.8x those maxima); controlled/local runs retain the 100 ms target.
+// The same window's settings-search (189.8/185.3 ms) and delayed-creation
+// typing (142.1 ms) misses also qualify for this explicitly selected ceiling.
 export const typingAckLimitMs = process.env.CI ? 500 : typingAckTargetMs;
 
 type KeyTiming = {
