@@ -59,7 +59,7 @@
  */
 
 import { realpathSync } from "node:fs";
-import { open } from "node:fs/promises";
+import { open, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, sep } from "node:path";
 import { StringDecoder } from "node:string_decoder";
@@ -69,6 +69,15 @@ import { stripBom } from "../utils/jsonl.js";
 /** Check if a path is absolute (works for both Unix and Windows paths). */
 export function isAbsolutePath(p: string): boolean {
   return isAbsolute(p);
+}
+
+/** Whether a project's folder is on disk now, following links to it. */
+export async function isProjectFolder(projectPath: string): Promise<boolean> {
+  try {
+    return (await stat(projectPath)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /** The root directory where Claude stores project sessions */

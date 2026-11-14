@@ -1210,8 +1210,9 @@ Claude persists a `/tmp` alias under `/private/tmp`, and the selected YA route
 then loses access to that history, so a run against an alias can appear to pass
 live continuity. The browser test rejects noncanonical fixtures and requires
 persisted command/approval records after reload. The general alias-routing bug
-remains in [its own gap](../gaps/project-path-identity-and-session-routing.md);
-that fixture requirement neither fixes nor hides the separate defect.
+was its own gap, since resolved for new sessions by
+[project paths](project-paths.md); that fixture requirement neither fixed nor
+hid the separate defect.
 
 ## Verification Matrix
 

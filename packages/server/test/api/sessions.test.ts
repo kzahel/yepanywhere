@@ -23,6 +23,14 @@ import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import type { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 
+// These cases resume sessions in project folders that exist only as names.
+vi.mock("../../src/projects/launch-project.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/projects/launch-project.js")
+  >()),
+  missingProjectFolder: async () => undefined,
+}));
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, "..", "fixtures", "agents");
 

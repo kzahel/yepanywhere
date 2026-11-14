@@ -32,6 +32,8 @@ import {
 } from "./project-creation.js";
 import type { LimitedUsersService } from "../auth/LimitedUsersService.js";
 import { principalFor } from "../auth/limitedLaunchPolicy.js";
+import { limitedProjectPolicy } from "../auth/limitedProjectPolicy.js";
+import { launchProject } from "../projects/launch-project.js";
 import type { CodexSessionScanner } from "../projects/codex-scanner.js";
 import type { GeminiSessionScanner } from "../projects/gemini-scanner.js";
 import {
@@ -99,7 +101,10 @@ export interface ProjectsDeps {
   projectMetadataService?: ProjectMetadataService;
   projectAppStore?: ProjectAppStore;
   /** Grants a limited user the project they just created. */
-  limitedUsersService?: Pick<LimitedUsersService, "grantNewSessionProject">;
+  limitedUsersService?: Pick<
+    LimitedUsersService,
+    "grantNewSessionProject" | "list"
+  >;
   eventBus?: EventBus;
   projectQueueService?: Pick<ProjectQueueService, "listAll" | "listProject">;
   sessionIndexService?: SessionIndexService;
@@ -730,8 +735,22 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       );
     }
 
-    // Create projectId and try to get/create the project
-    const projectId = toUrlProjectId(normalizedPath);
+    // A link is a way to reach a folder, not a project, so the folder it
+    // names is what gets registered (topics/project-paths.md). A limited
+    // user's project keeps the path their access names.
+    const { projectPath, projectId } = owner
+      ? {
+          projectPath: normalizedPath,
+          projectId: toUrlProjectId(normalizedPath),
+        }
+      : await launchProject(
+          normalizedPath,
+          undefined,
+          limitedProjectPolicy(
+            deps.limitedUsersService,
+            deps.projectMetadataService,
+          ),
+        );
     let project = await deps.scanner.getOrCreateProject(projectId);
 
     if (!project) {
@@ -749,7 +768,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       const registered = deps.projectMetadataService.getMetadata(projectId);
       if (
         owner &&
-        (deps.projectMetadataService.isHiddenProjectPath(normalizedPath) ||
+        (deps.projectMetadataService.isHiddenProjectPath(projectPath) ||
           (registered && registered.ownerUsername !== owner.username))
       ) {
         return c.json(
@@ -762,14 +781,11 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       }
       await deps.projectMetadataService.addProject(
         projectId,
-        normalizedPath,
+        projectPath,
         owner?.username,
       );
       // A name equal to the path's own is no override at all.
-      if (
-        chosenName !== null &&
-        chosenName !== getProjectName(normalizedPath)
-      ) {
+      if (chosenName !== null && chosenName !== getProjectName(projectPath)) {
         await deps.projectMetadataService.setProjectNameOverride(
           project.id,
           chosenName,

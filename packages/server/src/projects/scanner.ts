@@ -54,6 +54,7 @@ import {
   getProjectIdentityKey,
   getProjectName,
   isAbsolutePath,
+  isProjectFolder,
   normalizeProjectPathForDedup,
 } from "./paths.js";
 
@@ -88,6 +89,8 @@ export interface GetProjectOptions {
    * provider-session inventory scan part of their foreground latency.
    */
   allowStaleSnapshot?: boolean;
+  /** A saved session names this project; its folder may be gone. */
+  savedSession?: boolean;
 }
 
 const CLAUDE_PROJECT_SCAN_BATCH_SIZE = 16;
@@ -1382,15 +1385,9 @@ export class ProjectScanner {
       return null;
     }
 
-    // Check if the directory exists on disk
-    try {
-      const stats = await stat(projectPath);
-      if (!stats.isDirectory()) {
-        return null;
-      }
-    } catch {
+    // New work needs the folder; a saved session's history does not.
+    if (!options?.savedSession && !(await isProjectFolder(projectPath)))
       return null;
-    }
 
     // Determine provider: use preferred if specified, otherwise check for Codex/Gemini sessions
     let provider: ProviderName = preferredProvider ?? DEFAULT_PROVIDER;

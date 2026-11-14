@@ -125,7 +125,7 @@ it("projects an OpenCode row moved to its bound project on every read", async ()
   }
 });
 
-it("keeps a bound Claude project alias in retained lists and rechecks a changed symlink", async () => {
+it("keeps a bound Claude session under its saved project whatever its link names", async () => {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "ya-claude-alias-")));
   dirs.push(dir);
   const physical = join(dir, "physical");
@@ -169,8 +169,63 @@ it("keeps a bound Claude project alias in retained lists and rechecks a changed 
     ),
   ).resolves.toEqual([]);
 
+  // The binding names this exact transcript, so a link that is retargeted or
+  // removed leaves the session where it was saved, with nothing withheld.
+  await projectCatalogIdentities([native], metadata);
+  await rm(alias);
+  await symlink(other, alias, linkType);
+  const retargeted = await projectCatalogIdentityResult([native], metadata);
+  expect(retargeted.conflicts).toEqual([]);
+  expect(retargeted.rows).toEqual([
+    expect.objectContaining({
+      sessionId: id,
+      projectId: toUrlProjectId(alias),
+    }),
+  ]);
+  await rm(alias);
+  const unlinked = await readRetainedSessionItems(collection, deps);
+  expect(unlinked.sessions.map((session) => session.id).sort()).toEqual(
+    [id, healthy.sessionId].sort(),
+  );
+  expect(unlinked.catalog.complete).toBe(true);
+  expect(unlinked.catalog.refreshError).toBeUndefined();
+});
+
+it("withholds an OpenCode row whose bound project link changed and rechecks it", async () => {
+  const dir = await realpath(
+    await mkdtemp(join(tmpdir(), "ya-opencode-alias-")),
+  );
+  dirs.push(dir);
+  const physical = join(dir, "physical");
+  const other = join(dir, "other");
+  const alias = join(dir, "alias");
+  await Promise.all([physical, other].map((path) => mkdir(path)));
+  const linkType = process.platform === "win32" ? "junction" : "dir";
+  await symlink(physical, alias, linkType);
+  const metadata = createTestSessionMetadataService(dir);
+  await metadata.initialize();
+  const id = "55555555-5555-4555-8555-555555555555";
+  const opencode = { catalogFamily: "opencode", provider: "opencode" } as const;
+  // Saved under the link, then listed from another worktree in the folder
+  // the link names: the same session only while the link still names it.
+  const native = row(id, join(dir, "worktree"), {
+    ...opencode,
+    nativeDirectoryProjectId: toUrlProjectId(physical),
+  });
+  const healthy = row("44444444-4444-4444-8444-444444444444", other);
+  await projectCatalogIdentities([row(id, alias, opencode)], metadata);
+
+  const collection = await seedRetainedCollection(dir, [native, healthy]);
+  owned.push(collection);
+  const deps = { sessionMetadataService: metadata };
+  expect((await readRetainedSessionItems(collection, deps)).sessions).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id, projectId: toUrlProjectId(alias) }),
+    ]),
+  );
+
   // Keep the same published row object: filesystem-dependent projections must
-  // not inherit the permanent cache used for a matching project id.
+  // not inherit the permanent cache used for a saved project id.
   await projectCatalogIdentities([native], metadata);
   await rm(alias);
   await symlink(other, alias, linkType);

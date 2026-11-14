@@ -54,6 +54,14 @@ import {
   createTestSessionMetadataService,
 } from "../utils/session-metadata-database.js";
 
+// These cases resume sessions in project folders that exist only as names.
+vi.mock("../../src/projects/launch-project.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/projects/launch-project.js")
+  >()),
+  missingProjectFolder: async () => undefined,
+}));
+
 afterEach(() => {
   vi.restoreAllMocks();
 });

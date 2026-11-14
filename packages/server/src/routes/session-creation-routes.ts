@@ -4,6 +4,7 @@ import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retire
 import { isUrlProjectId } from "@yep-anywhere/shared";
 import { mkdir } from "node:fs/promises";
 import type { Context, Hono } from "hono";
+import { launchProject } from "../projects/launch-project.js";
 import {
   DETACHED_PROJECT_PATH,
   limitedDetachedProjectPath,
@@ -33,13 +34,16 @@ import { buildThinkingOptions } from "./session-thinking-options.js";
 import {
   actingUsername,
   applyLimitedLaunchPolicy,
+  principalFor,
 } from "../auth/limitedLaunchPolicy.js";
+import type { ProjectMetadataService } from "../metadata/ProjectMetadataService.js";
 import type { UserUsageService } from "../auth/UserUsageService.js";
 
 /** What the session-creation routes read from the sessions route deps. */
 export interface SessionCreationRouteDeps extends CompactModelSettingsDeps {
   supervisor: Supervisor;
   scanner: ProjectScanner;
+  projectMetadataService?: Pick<ProjectMetadataService, "getProjectOwner">;
   userUsageService?: UserUsageService;
 }
 
@@ -97,9 +101,27 @@ export function registerSessionCreationRoutes(
 
     const acceptance = creationAcceptance(c, body, projectId);
     if (acceptance instanceof Response) return acceptance;
-    const project = await deps.scanner.getOrCreateProject(projectId);
-    if (!project)
+    const selected = await deps.scanner.getOrCreateProject(projectId);
+    if (!selected)
       return c.json({ error: "Project not found or path does not exist" }, 404);
+    // New work belongs to the folder the selected path names, not to a link
+    // that reaches it (topics/project-paths.md). A limited user's session
+    // stays in the project their access names.
+    const limited = principalFor(c).kind === "limited";
+    const launch = await launchProject(
+      selected.path,
+      { projectId: selected.id },
+      {
+        namesProject: (_id, path) =>
+          limited ||
+          Boolean(deps.projectMetadataService?.getProjectOwner(path)),
+      },
+    );
+    const project =
+      launch.projectId === selected.id
+        ? selected
+        : ((await deps.scanner.getOrCreateProject(launch.projectId)) ??
+          selected);
 
     if (
       body.machineControl !== undefined &&

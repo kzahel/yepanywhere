@@ -192,7 +192,9 @@ and where a later resume runs; it passes unchanged, as do the unsandboxed
 pins in `test/routes/session-launch-records.test.ts`. The mocked route
 tests now check the project named to the copy. The cases also found a
 defect left as it was, recorded in
-[gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
+`gaps/symlinked-sandboxed-session-leaves-its-project-list.md`, since
+narrowed into
+[gaps/link-spelled-projects-saved-before-path-resolution.md](../../gaps/link-spelled-projects-saved-before-path-resolution.md).
 
 ### SRR-024: The Shared Launch Code Moves Below The Routes
 

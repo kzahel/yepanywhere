@@ -394,7 +394,8 @@ completed approvals and reachable composer controls, without a stale-server
 banner. The artifact capture facility presents those captures.
 
 The `/tmp` versus `/private/tmp` Claude transcript-routing issue discovered in
-validation remains a [separate gap](../../gaps/project-path-identity-and-session-routing.md).
+validation was a separate gap, since resolved for new sessions by
+[project paths](../../topics/project-paths.md).
 It is not repaired by canonicalizing the test fixture. Bun, compiled macOS
 servers and Desktop remain excluded rather than inheriting this result.
 

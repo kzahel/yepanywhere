@@ -37,6 +37,12 @@ export async function resolveExistingSessionIdentity(options: {
   requestFallbackProvider?: ProviderName;
   metadata?: SessionMetadata;
   identityLookup?: SessionIdentityLookup;
+  /**
+   * Resolve a saved session whose project folder is gone. For callers that
+   * read its history, or that refuse a missing folder themselves before
+   * starting work; every other caller is refused here.
+   */
+  folderOptional?: boolean;
   scanner: Pick<ProjectScanner, "getOrCreateProject">;
   providerDeps: ProviderResolutionDeps;
 }): Promise<ExistingSessionIdentity | null> {
@@ -63,15 +69,18 @@ export async function resolveExistingSessionIdentity(options: {
   if (storedIdentity) {
     const identity = storedIdentity;
     if (identity.sessionId !== sessionId || !identity.native) return null;
+    const saved = options.folderOptional ? { savedSession: true } : undefined;
     const transcriptProject = await scanner.getOrCreateProject(
       identity.projectId,
+      undefined,
+      saved,
     );
     if (!transcriptProject || providerDeps.signal?.aborted) return null;
     const workingProjectId = metadata?.workingProjectId ?? identity.projectId;
     const workingProject =
       workingProjectId === identity.projectId
         ? transcriptProject
-        : await scanner.getOrCreateProject(workingProjectId);
+        : await scanner.getOrCreateProject(workingProjectId, undefined, saved);
     return workingProject && !providerDeps.signal?.aborted
       ? {
           provider: identity.provider,

@@ -372,14 +372,18 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   that string may also be another session's unrelated public metadata key.
   Other provider adoption and the remaining source/watch consumers are still
   being migrated before differing-id launches are enabled.
-- Claude catalogue rows with an exact existing native binding retain that
-  binding's public session id and selected project when both project paths
-  successfully resolve to the same physical directory. This includes macOS
-  `/tmp` versus `/private/tmp` and explicit directory symlinks. It does not merge
-  projects or authorize another native storage scope. Missing paths or distinct
-  physical directories still refuse as identity conflicts. Filesystem-dependent
-  projections, including retained collection reads, recheck the paths rather than
-  permanently caching their equivalence.
+- Claude catalogue rows with an exact existing native binding keep that
+  binding's public session id and saved project, whatever folder the
+  transcript was observed under. Claude records the folder its process ran
+  in, which differs from the saved project when that was selected through a
+  link (or `/tmp` on macOS) before [project paths](project-paths.md) resolved
+  links at selection. The binding names the transcript's own directory and
+  id, so the row is the saved session: a link retargeted or removed later is
+  not a second claim, raises no conflict and withholds nothing. The observed
+  folder never re-homes a session; only the saved project is published, so
+  this neither merges projects nor authorizes another native storage scope.
+  The projection reads no filesystem state and is kept like any other bound
+  row.
 - Read-side catalogue projection withholds conflicting native observations
   while continuing to publish healthy rows. The selected project, public id,
   native binding, metadata and transcript are never rewritten to settle a

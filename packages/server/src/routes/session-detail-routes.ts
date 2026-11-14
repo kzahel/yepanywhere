@@ -358,6 +358,7 @@ export function registerSessionDetailRoute(
         sessionId,
         requestProjectId: projectId,
         identityLookup: { kind: "stored", identity },
+        folderOptional: true,
         metadata: deps.sessionMetadataService?.getMetadata(sessionId),
         scanner: deps.scanner,
         providerDeps: providerResolutionDeps(deps),

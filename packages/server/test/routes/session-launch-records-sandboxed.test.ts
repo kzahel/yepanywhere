@@ -23,10 +23,13 @@ import { createApp } from "../setup/create-app.js";
 
 /**
  * What a session made from a sandboxed one keeps, when the source was opened
- * through a symlinked project folder. The sandbox runs in the folder's real
- * path while the source stays listed under the link, so the record of each
- * copy names one or the other. Sandboxing needs Linux and Bubblewrap; the
- * unsandboxed cases are in session-launch-records.test.ts.
+ * through a symlinked project folder. A session started through a link
+ * belongs to the folder the link names (topics/project-paths.md), which is
+ * also where the sandbox runs, so the source and every copy of it name the
+ * real path's project and are listed there from the start. Before that rule
+ * the source was saved under the link while its sandbox ran in the real
+ * path, and each copy named one or the other. Sandboxing needs Linux and
+ * Bubblewrap; the unsandboxed cases are in session-launch-records.test.ts.
  */
 describe.skipIf(process.platform !== "linux")(
   "the sandbox record of a session made from a symlinked sandboxed source",
@@ -297,12 +300,12 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "workingProjectId": "<link-id>",
+          "workingProjectId": "<real-id>",
         }
       `);
       expect(await listedUnder(source)).toMatchInlineSnapshot(`
         [
-          "link",
+          "real",
         ]
       `);
       expect(await laterResume(source)).toMatchInlineSnapshot(`
@@ -331,13 +334,12 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "transcriptProjectId": "<link-id>",
-          "workingProjectId": "<link-id>",
+          "workingProjectId": "<real-id>",
         }
       `);
       expect(await listedUnder(child)).toMatchInlineSnapshot(`
         [
-          "link",
+          "real",
         ]
       `);
       expect(await laterResume(child)).toMatchInlineSnapshot(`
@@ -368,7 +370,6 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "transcriptProjectId": "<link-id>",
           "workingProjectId": "<real-id>",
         }
       `);
@@ -446,7 +447,6 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "transcriptProjectId": "<link-id>",
           "workingProjectId": "<real-id>",
         }
       `);
@@ -488,8 +488,7 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "transcriptProjectId": "<link-id>",
-          "workingProjectId": "<link-id>",
+          "workingProjectId": "<real-id>",
         }
       `);
     });
@@ -524,8 +523,7 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "transcriptProjectId": "<link-id>",
-          "workingProjectId": "<link-id>",
+          "workingProjectId": "<real-id>",
         }
       `);
       expect(sandboxRecord(target!.targetSessionId!)).toMatchInlineSnapshot(`
@@ -535,7 +533,6 @@ describe.skipIf(process.platform !== "linux")(
           "sandboxNetworkFirewall": false,
           "sandboxProjectPath": "<real>",
           "sandboxStateKey": "<state-key>",
-          "transcriptProjectId": "<link-id>",
           "workingProjectId": "<real-id>",
         }
       `);

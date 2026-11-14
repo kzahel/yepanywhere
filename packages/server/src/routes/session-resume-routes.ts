@@ -7,6 +7,7 @@ import {
 import type { Hono } from "hono";
 import { getLogger } from "../logging/logger.js";
 import type { SessionMetadataService } from "../metadata/index.js";
+import { missingProjectFolder } from "../projects/launch-project.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import {
   type CreateSessionBody,
@@ -184,7 +185,13 @@ export function registerSessionResumeRoutes(
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const requestProject = await deps.scanner.getOrCreateProject(projectId);
+    // A missing folder is refused below, once the session is known, so the
+    // answer can say its history is intact rather than "not found".
+    const requestProject = await deps.scanner.getOrCreateProject(
+      projectId,
+      undefined,
+      { savedSession: true },
+    );
     if (!requestProject) {
       return c.json({ error: "Project not found or path does not exist" }, 404);
     }
@@ -243,6 +250,7 @@ export function registerSessionResumeRoutes(
       preferredProvider: body.provider,
       requestFallbackProvider: requestProject.provider,
       metadata: persistedMetadata,
+      folderOptional: true,
       scanner: deps.scanner,
       providerDeps: providerResolutionDeps(deps),
     });
@@ -414,6 +422,13 @@ export function registerSessionResumeRoutes(
       return c.json({ error: limitedResume.error }, 403);
     }
 
+    // A stopped session starts a new process, which needs its folder.
+    const missingFolder =
+      previousProcess || resumeSettings.executor
+        ? undefined
+        : await missingProjectFolder(resumeProjectPath);
+    if (missingFolder) return c.json(missingFolder, 409);
+
     let launched: LaunchResult;
     try {
       launched = await deps.supervisor.resumeSession(
@@ -550,7 +565,11 @@ export function registerSessionResumeRoutes(
       if (helperSettings.error) {
         return c.json({ error: helperSettings.error }, 400);
       }
-      const requestProject = await deps.scanner.getOrCreateProject(projectId);
+      const requestProject = await deps.scanner.getOrCreateProject(
+        projectId,
+        undefined,
+        { savedSession: true },
+      );
       if (!requestProject) {
         return c.json(
           { error: "Project not found or path does not exist" },
@@ -595,6 +614,7 @@ export function registerSessionResumeRoutes(
               ? body.provider
               : (metadata?.provider as ProviderName | undefined),
             metadata,
+            folderOptional: true,
             scanner: deps.scanner,
             providerDeps: providerResolutionDeps(deps),
           });
@@ -741,6 +761,12 @@ export function registerSessionResumeRoutes(
           : (existingProcess?.projectPath ??
             identity?.workingProject.path ??
             requestProject.path);
+      // Waking a stopped session starts a new process, which needs its folder.
+      const missingFolder =
+        existingProcess || executor
+          ? undefined
+          : await missingProjectFolder(reactivationProjectPath);
+      if (missingFolder) return c.json(missingFolder, 409);
       const reservationProjectId =
         existingProcess?.projectId ?? identity?.workingProjectId ?? projectId;
       const release =

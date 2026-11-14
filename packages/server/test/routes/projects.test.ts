@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId, type UrlProjectId } from "@yep-anywhere/shared";
@@ -408,9 +415,58 @@ describe("Projects Routes", () => {
     }
   });
 
+  it.skipIf(process.platform === "win32")(
+    "registers the folder a link names, not the link",
+    async () => {
+      const dataDir = await mkdtemp(join(tmpdir(), "ya-linked-route-"));
+      const root = await realpath(
+        await mkdtemp(join(tmpdir(), "ya-linked-project-")),
+      );
+      try {
+        const folder = join(root, "folder");
+        const link = join(root, "link");
+        await mkdir(folder);
+        await symlink(folder, link, "dir");
+        const metadata = new ProjectMetadataService({ dataDir });
+        await metadata.initialize();
+        const routes = createProjectsRoutes({
+          scanner: new ProjectScanner({
+            projectsDir: join(dataDir, "claude-projects"),
+            projectMetadataService: metadata,
+            enableCodex: false,
+            enableGemini: false,
+          }),
+          readerFactory: vi.fn(),
+          projectMetadataService: metadata,
+        });
+        const added = await routes.request("/", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ path: link }),
+        });
+        expect(added.status).toBe(200);
+        expect((await added.json()).project).toMatchObject({
+          id: toUrlProjectId(folder),
+          path: folder,
+        });
+        // One project: the link never becomes a second card.
+        expect(metadata.isAddedProject(toUrlProjectId(folder))).toBe(true);
+        expect(metadata.isAddedProject(toUrlProjectId(link))).toBe(false);
+        const listed = (await (await routes.request("/")).json()).projects;
+        expect(listed.map((p: { path: string }) => p.path)).toEqual([folder]);
+      } finally {
+        await rm(dataDir, { recursive: true, force: true });
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("adds a project under a chosen name and code, then announces the change", async () => {
     const dataDir = await mkdtemp(join(tmpdir(), "ya-named-route-"));
-    const projectDir = await mkdtemp(join(tmpdir(), "ya-named-project-"));
+    // The temp root is itself a link on macOS; a project is its real folder.
+    const projectDir = await realpath(
+      await mkdtemp(join(tmpdir(), "ya-named-project-")),
+    );
     try {
       const metadata = new ProjectMetadataService({ dataDir });
       await metadata.initialize();

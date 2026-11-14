@@ -203,28 +203,17 @@ export async function projectCatalogIdentityResult(
         ? identities.lookupNative(native)
         : boundIdentities[index];
       let projectId = row.projectId;
-      if (
+      // Claude records the folder its process ran in, which is not the saved
+      // project when that was selected through a link (or /tmp on macOS).
+      // The binding names this exact transcript directory and id, so the row
+      // is the saved session whatever the link names today: a retargeted or
+      // missing link is not a second claim on it. The observed folder never
+      // re-homes the session; only the saved project is published.
+      const savedClaudeProject =
         row.catalogFamily === "claude" &&
-        bound &&
-        bound.projectId !== row.projectId
-      ) {
-        // Claude records physical cwd (e.g. /private/tmp on macOS), while
-        // admission keeps the project the caller selected. Exact native
-        // binding plus two successfully resolved paths proves this alias;
-        // neither a missing path nor an unrelated project can approve it.
-        yielded = true;
-        const [original, discovered] = await Promise.all([
-          physicalProject(fromUrlProjectId(bound.projectId)),
-          physicalProject(row.projectPath),
-        ]);
-        if (signal?.aborted) return { rows: [], conflicts };
-        if (
-          original !== undefined &&
-          discovered !== undefined &&
-          getProjectIdentityKey(original) === getProjectIdentityKey(discovered)
-        )
-          projectId = bound.projectId;
-      }
+        bound !== undefined &&
+        bound.projectId !== row.projectId;
+      if (savedClaudeProject) projectId = bound.projectId;
       if (
         row.catalogFamily === "opencode" &&
         bound &&
@@ -255,8 +244,8 @@ export async function projectCatalogIdentityResult(
         nativeSessionFamily(provider) === native.family
       ) {
         const projected = project(position, bound);
-        // Alias/worktree overrides depend on the filesystem; they are not kept.
-        if (projectId === row.projectId)
+        // OpenCode overrides depend on the filesystem; they are not kept.
+        if (projectId === row.projectId || savedClaudeProject)
           cached.set(row, Object.freeze(projected));
         continue;
       }

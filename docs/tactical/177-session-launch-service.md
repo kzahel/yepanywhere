@@ -384,7 +384,9 @@ passes unchanged, as do the unsandboxed pins.
   continuation of a symlinked sandboxed source record the folder's real
   path as the working project, so those sessions leave the list of the
   project the user opened; recorded in
-  [gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
+  `gaps/symlinked-sandboxed-session-leaves-its-project-list.md`, since
+  narrowed into
+  [gaps/link-spelled-projects-saved-before-path-resolution.md](../../gaps/link-spelled-projects-saved-before-path-resolution.md).
 
 ## Not in scope
 

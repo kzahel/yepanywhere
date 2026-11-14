@@ -245,12 +245,22 @@ describe("scoped durable session identity", () => {
       projectCatalogIdentities(
         [
           row("/fixture/a", "unseen-native"),
-          row("/fixture/a", "same-native", toUrlProjectId("/wrong/project")),
+          row("/fixture/a", "same-native", projectId, "codex"),
         ],
         metadata,
       ),
     ).resolves.toEqual([
       expect.objectContaining({ sessionId: "unseen-native" }),
+    ]);
+    // A bound Claude transcript observed under another folder is still the
+    // saved session: it keeps its saved project and is not a second claim.
+    await expect(
+      projectCatalogIdentities(
+        [row("/fixture/a", "same-native", toUrlProjectId("/wrong/project"))],
+        metadata,
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({ sessionId: "public-a", projectId }),
     ]);
     await expect(
       projectCatalogIdentities(

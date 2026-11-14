@@ -170,8 +170,14 @@ export function createSessionProjectRouting(
       return { redirectProjectId };
     }
 
-    const workingProject =
-      await deps.scanner.getOrCreateProject(requestProjectId);
+    // These routes read a session; one that is saved keeps its project, and
+    // so its history, when the folder or the link to it is gone.
+    const saved = identity ? { savedSession: true } : undefined;
+    const workingProject = await deps.scanner.getOrCreateProject(
+      requestProjectId,
+      undefined,
+      saved,
+    );
     if (!workingProject) {
       return { error: "Project not found", status: 404 };
     }
@@ -180,7 +186,11 @@ export function createSessionProjectRouting(
       const transcriptProject =
         identity.projectId === requestProjectId
           ? workingProject
-          : await deps.scanner.getOrCreateProject(identity.projectId);
+          : await deps.scanner.getOrCreateProject(
+              identity.projectId,
+              undefined,
+              saved,
+            );
       return transcriptProject
         ? {
             transcriptProject,

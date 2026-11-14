@@ -807,6 +807,15 @@ A limited user creates projects only where the superuser said they may.
   refused even when it points back inside, and the check is repeated after
   the directory is made and before it is registered. The superuser may still
   add anything.
+- **A limited user's project keeps the path that names it.** Elsewhere a
+  project is the folder its path names, so a path reached through a link is
+  resolved when a project is added or a session is started
+  ([project paths](project-paths.md)). Ownership and grants name a project
+  by its selected path, so that resolution is skipped for a project a
+  limited user owns, for a session a limited user starts, and when the
+  superuser adds a path a limited user already owns or may reach. A session
+  the superuser starts in their own link-spelled project lands in the real
+  folder's project, which a grant on the link's project does not cover.
 - **A directory that does not exist yet** is offered rather than refused.
   The client asks, and only a request that explicitly says `create` makes
   it: YA creates the directory, runs `git init`, and leaves one empty commit

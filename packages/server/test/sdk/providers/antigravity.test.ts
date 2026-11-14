@@ -2,6 +2,7 @@ import {
   chmod,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   writeFile,
   mkdir,
@@ -89,7 +90,8 @@ describe("Antigravity native process boundary", () => {
   let executable: string;
   let log: string;
   beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), "ya-agy-test-"));
+    // The temp root is itself a link on macOS; a project is its real folder.
+    directory = await realpath(await mkdtemp(join(tmpdir(), "ya-agy-test-")));
     executable = join(directory, "peer.cjs");
     log = join(directory, "methods.log");
     await writeFile(executable, peer);

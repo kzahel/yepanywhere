@@ -364,7 +364,7 @@ without a Vitest runtime dependency. Existing readiness and case budgets remain
 unchanged.
 
 ```bash
-pnpm test:providers:app             # Twelve API/socket and relationship cases
+pnpm test:providers:app             # Fourteen API/socket, relationship and project-link cases
 pnpm --filter @yep-anywhere/client exec playwright install chromium
 pnpm test:providers:app --browser   # Three real browser scenarios
 pnpm test:providers:app --browser --repeat-each=3
