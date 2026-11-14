@@ -153,7 +153,8 @@ enum class HistoryLimit(val wire: String) {
     MAX_MESSAGES("maxMessages"),
     COMPACTION_SCOPE("compactionScope"),
     BYTES("bytes"),
-    UNAVAILABLE("unavailable")
+    UNAVAILABLE("unavailable"),
+    RECORDS("records")
 }
 
 data class HistoryCoverage(
@@ -433,13 +434,13 @@ object SimpleClientContract {
         val obj = objectValue(value)
         return HistoryCoverage(
             scope = stringValue(field(obj, "scope"), 0, 1000).also { require(it == "recentCompactions") { "Unexpected constant" } },
-            compactions = intValue(field(obj, "compactions"), -2147483648, 2147483647).also { require(it == 2) { "Unexpected constant" } },
+            compactions = intValue(field(obj, "compactions"), 1, 20),
             maxMessages = intValue(field(obj, "maxMessages"), 1, 100),
             returnedMessages = intValue(field(obj, "returnedMessages"), 0, 100),
             earlierInScope = booleanValue(field(obj, "earlierInScope")),
             earlierOutsideScope = decodeKnowledge(field(obj, "earlierOutsideScope")),
             completeForRequest = booleanValue(field(obj, "completeForRequest")),
-            limitedBy = arrayValue(field(obj, "limitedBy"), 0, 4).map { decodeHistoryLimit(it) },
+            limitedBy = arrayValue(field(obj, "limitedBy"), 0, 5).map { decodeHistoryLimit(it) },
             anchorMessageId = field(obj, "anchorMessageId").let { if (it == JSONObject.NULL) null else decodeId(it) },
         )
     }

@@ -310,7 +310,7 @@
     }
   },
   {
-    "name": "compaction scope cannot expand",
+    "name": "compaction scope exceeds the server ceiling",
     "payload": {
       "apiRevision": "simple-client-spike-1",
       "subscriptionId": "fixture-subscription",
@@ -368,7 +368,7 @@
         ],
         "coverage": {
           "scope": "recentCompactions",
-          "compactions": 3,
+          "compactions": 21,
           "maxMessages": 2,
           "returnedMessages": 1,
           "earlierInScope": true,

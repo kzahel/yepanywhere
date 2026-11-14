@@ -17,6 +17,7 @@ import {
   relationshipsSchema,
 } from "./command-contracts.js";
 import { z } from "zod";
+import { backingStoreSchema } from "./backing-store.js";
 import {
   conversationQuery,
   conversationSchema,
@@ -24,7 +25,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-11-13.1";
+export const API_REVISION = "2026-11-14.1";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -172,6 +173,11 @@ export const sessionDetailSchema = sessionSchema.extend({
   // Optional so existing configured peers can still return their older summary.
   settings: sessionInspectionSchema.shape.settings.optional(),
   routing: sessionInspectionSchema.shape.routing.optional(),
+  backingStore: backingStoreSchema
+    .optional()
+    .describe(
+      "Native backing resource on this session's owning server. Paths are not download URLs or proof of local filesystem access; history may require ancestors or sidecars.",
+    ),
 });
 export type ApiSession = z.infer<typeof sessionSchema>;
 export const catalogSchema = z.object({
@@ -566,7 +572,7 @@ export const operationDocumentation: Record<
   conversation: {
     summary: "Read compact conversation and activity",
     description:
-      "Read exact user prose and agent Markdown, stable message ids, observed activity, bounded failure/media references and pending attention. Routine tool payloads, thinking and HTML are excluded. Defaults to 20 messages within the recent two compactions; coverage and truncated flags state limits. idle is not proof of successful completion. Unsupported providers/history return 503 conversation_unavailable; missing anchors return 404 anchor_unavailable.",
+      "Read exact user prose and agent Markdown, stable message ids, observed activity, bounded failure/media references and pending attention as one JSON object. Routine tool payloads, thinking and HTML are excluded. Defaults to maxMessages=20 within tailCompactions=2; applied ceilings are 100 messages and 20 compactions. Larger valid counts return 200 with requested/applied counts and serverLimit coverage. Byte-limited reads return partial history with coverage and truncated flags. idle is not proof of successful completion. Unsupported or unreadable history returns 503 conversation_unavailable; missing anchors return 404 anchor_unavailable. Session detail exposes backingStore locations on the owning server.",
     example:
       "/v0/servers/{serverId}/sessions/{sessionId}/conversation?maxMessages=20",
   },
@@ -585,7 +591,7 @@ export const errorDescriptions = {
   404: "Unknown resource/server, or session absent/inaccessible/ambiguous in a complete catalog; anchor_unavailable means choose another history window explicitly. No target fallback.",
   409: "request_id_conflict: retry key names a different payload; identity_pending: owning session is not bound yet; session_not_running: input requires the incumbent active owner.",
   500: "internal_error: unexpected read failure; private exception details are not returned.",
-  503: "catalog_not_ready: session absence is uncertain in an incomplete catalog; controller_unavailable: the catalog owner is detached/reloading. Retry reads later; neither means the session was deleted. conversation_unavailable means unsupported, unreadable or over-budget history; do not infer successful completion.",
+  503: "catalog_not_ready: session absence is uncertain in an incomplete catalog; controller_unavailable: the catalog owner is detached/reloading. Retry reads later; neither means the session was deleted. conversation_unavailable means history could not be acquired or projected, including unsupported/unreadable sources or the acquisition deadline. Usable size-limited windows return partial coverage instead; do not infer successful completion.",
 };
 
 export function apiHelp(selected?: Operation, targetServerId?: string) {

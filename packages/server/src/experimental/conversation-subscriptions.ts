@@ -31,6 +31,7 @@ export type OpenConversationSource = (
   sessionId: string,
   invalidate: () => void,
   signal: AbortSignal,
+  compactions?: number,
 ) => Promise<ConversationSource>;
 
 type Prepared = PreparedConversation | ApiError;
@@ -47,6 +48,8 @@ interface Subscriber {
   consumer: ConversationConsumer;
 }
 interface Owner {
+  key: string;
+  compactions: number;
   sessionId: string;
   abort: AbortController;
   subscribers: Set<Subscriber>;
@@ -76,18 +79,24 @@ export class ConversationSubscriptions {
     query: ConversationQuery,
     subscriptionId: string,
     consumer: ConversationConsumer,
+    compactions = 2,
   ): () => void {
+    if (!Number.isInteger(compactions) || compactions < 1 || compactions > 20)
+      throw new Error("Invalid compaction scope");
     const parsedQuery = ConversationQuerySchema.parse(query);
     IdSchema.parse(subscriptionId);
     if (this.closed) throw new Error("Conversation subscriptions are closed");
     if (this.subscriberCount >= MAX_CONVERSATION_SUBSCRIPTIONS)
       throw new Error("Conversation subscription capacity reached");
-    let owner = this.owners.get(parsedQuery.sessionId);
+    const key = JSON.stringify([parsedQuery.sessionId, compactions]);
+    let owner = this.owners.get(key);
     const opening = !owner;
     if (!owner) {
       if (this.sourceSlots.size >= MAX_CONVERSATION_SOURCES)
         throw new Error("Conversation source capacity reached");
       owner = {
+        key,
+        compactions,
         sessionId: parsedQuery.sessionId,
         abort: new AbortController(),
         subscribers: new Set(),
@@ -97,7 +106,7 @@ export class ConversationSubscriptions {
         opening: true,
         lastReadAt: -Infinity,
       };
-      this.owners.set(owner.sessionId, owner);
+      this.owners.set(key, owner);
       this.sourceSlots.add(owner);
     }
     const subscriber: Subscriber = {
@@ -132,6 +141,7 @@ export class ConversationSubscriptions {
           this.schedule(owner);
         },
         owner.abort.signal,
+        owner.compactions,
       );
       if (owner.abort.signal.aborted) {
         source.close();
@@ -179,7 +189,7 @@ export class ConversationSubscriptions {
       if (owner.abort.signal.aborted || revision !== owner.revision) return;
       owner.prepared =
         input.sessionId === owner.sessionId
-          ? prepareConversation(input)
+          ? prepareConversation(input, owner.compactions)
           : this.unavailable();
       owner.preparedRevision = revision;
       this.publishAll(owner);
@@ -271,7 +281,7 @@ export class ConversationSubscriptions {
     this.subscriberCount -= owner.subscribers.size;
     const subscribers = [...owner.subscribers];
     owner.subscribers.clear();
-    this.owners.delete(owner.sessionId);
+    this.owners.delete(owner.key);
     owner.prepared = undefined;
     const source = owner.source;
     owner.source = undefined;

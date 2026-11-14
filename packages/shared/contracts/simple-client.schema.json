@@ -467,7 +467,13 @@
     },
     "HistoryLimit": {
       "type": "string",
-      "enum": ["maxMessages", "compactionScope", "bytes", "unavailable"]
+      "enum": [
+        "maxMessages",
+        "compactionScope",
+        "bytes",
+        "unavailable",
+        "records"
+      ]
     },
     "HistoryCoverage": {
       "type": "object",
@@ -476,7 +482,9 @@
           "const": "recentCompactions"
         },
         "compactions": {
-          "const": 2
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
         },
         "maxMessages": {
           "type": "integer",
@@ -503,7 +511,7 @@
             "$ref": "#/$defs/HistoryLimit"
           },
           "minItems": 0,
-          "maxItems": 4
+          "maxItems": 5
         },
         "anchorMessageId": {
           "anyOf": [

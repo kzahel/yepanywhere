@@ -6,7 +6,6 @@ import {
   ActivityContentSchema,
   FailureContentSchema,
   MediaContentSchema,
-  HistoryCoverageSchema,
   SnapshotEnvelopeSchema,
 } from "@yep-anywhere/shared/experimental/simple-client.generated";
 import type { ConversationSubscriptions } from "../experimental/conversation-subscriptions.js";
@@ -16,10 +15,17 @@ export const conversationQuery = z
   .object({
     maxMessages: z
       .string()
-      .regex(/^(?:[1-9]|[1-9][0-9]|100)$/)
+      .regex(/^[1-9][0-9]{0,8}$/)
       .optional()
       .describe(
-        "Visible user/agent messages, 1–100, default 20; scoped to the recent two compactions.",
+        "Requested visible user/agent messages, default 20. Positive integers up to 999999999 are accepted; the applied maximum is 100 and coverage reports clamping.",
+      ),
+    tailCompactions: z
+      .string()
+      .regex(/^[1-9][0-9]{0,8}$/)
+      .optional()
+      .describe(
+        "Recent compaction boundaries to include, default 2. The applied maximum is 20; maxMessages further narrows this scope. Coverage reports clamping.",
       ),
     anchorMessageId: z
       .string()
@@ -97,9 +103,34 @@ export const conversationSchema = z.object({
     .describe(
       "Read-only pending attention. No approval/answer endpoint is implied.",
     ),
-  coverage: HistoryCoverageSchema.describe(
-    "Incomplete/byte/compaction/anchor evidence; an empty or idle view does not establish successful completion.",
-  ),
+  coverage: z
+    .object({
+      scope: z.literal("recentCompactions"),
+      compactions: z.number().int().min(1).max(20),
+      maxMessages: z.number().int().min(1).max(100),
+      returnedMessages: z.number().int().min(0).max(100),
+      earlierInScope: z.boolean(),
+      earlierOutsideScope: z.enum(["yes", "no", "unknown"]),
+      completeForRequest: z.boolean(),
+      anchorMessageId: z.string().nullable(),
+      requestedMessages: z.number().int().min(1).max(999999999),
+      requestedCompactions: z.number().int().min(1).max(999999999),
+      limitedBy: z
+        .array(
+          z.enum([
+            "maxMessages",
+            "compactionScope",
+            "bytes",
+            "records",
+            "unavailable",
+            "serverLimit",
+          ]),
+        )
+        .max(6),
+    })
+    .describe(
+      "Incomplete/byte/compaction/anchor evidence; an empty or idle view does not establish successful completion.",
+    ),
 });
 export type ApiConversation = z.infer<typeof conversationSchema>;
 
@@ -141,6 +172,7 @@ function cursorFor(
           serverId,
           query.maxMessages ?? "20",
           query.anchorMessageId ?? null,
+          query.tailCompactions ?? "2",
           visible,
         ]),
       )
@@ -210,6 +242,12 @@ function observeConversation(
   follow?: { unchanged: (view: ApiConversation) => boolean; waitMs: number },
 ): Promise<ApiConversation | null> {
   return new Promise((resolve, reject) => {
+    const requestedMessages = Number(query.maxMessages ?? 20);
+    const requestedCompactions = Number(query.tailCompactions ?? 2);
+    const maxMessages = Math.min(requestedMessages, 100);
+    const compactions = Math.min(requestedCompactions, 20);
+    const clamped =
+      maxMessages !== requestedMessages || compactions !== requestedCompactions;
     let release: (() => void) | undefined;
     let finished = false;
     const finish = (value?: ApiConversation | null, error?: unknown) => {
@@ -226,7 +264,7 @@ function observeConversation(
         undefined,
         new CoreApiError(
           "conversation_unavailable",
-          "Conversation history is unavailable or exceeds its acquisition bounds",
+          "Conversation history is unavailable or could not be acquired before its deadline",
           503,
         ),
       );
@@ -247,7 +285,7 @@ function observeConversation(
       release = subscriptions.subscribe(
         {
           sessionId,
-          maxMessages: Number(query.maxMessages ?? 20),
+          maxMessages,
           anchorMessageId: query.anchorMessageId ?? null,
         },
         randomUUID(),
@@ -298,18 +336,29 @@ function observeConversation(
                         canAnswer: false as const,
                       },
                 ),
-                coverage: opaque
-                  ? {
-                      ...view.coverage,
-                      completeForRequest: false,
-                      limitedBy: [
-                        ...new Set([
-                          ...view.coverage.limitedBy,
-                          "unavailable" as const,
-                        ]),
-                      ],
-                    }
-                  : view.coverage,
+                coverage: {
+                  ...view.coverage,
+                  requestedMessages,
+                  requestedCompactions,
+                  completeForRequest:
+                    view.coverage.completeForRequest &&
+                    !opaque &&
+                    !(
+                      requestedMessages > maxMessages &&
+                      view.coverage.earlierInScope
+                    ) &&
+                    !(
+                      requestedCompactions > compactions &&
+                      view.coverage.earlierOutsideScope !== "no"
+                    ),
+                  limitedBy: [
+                    ...new Set([
+                      ...view.coverage.limitedBy,
+                      ...(opaque ? ["unavailable" as const] : []),
+                      ...(clamped ? ["serverLimit" as const] : []),
+                    ]),
+                  ],
+                },
               };
               const revision = createHash("sha256")
                 .update(JSON.stringify(body))
@@ -327,6 +376,7 @@ function observeConversation(
             }
           },
         },
+        compactions,
       );
       if (finished) release();
     } catch {

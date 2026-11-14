@@ -1,4 +1,5 @@
 import type { ApiHttpRequest } from "./http-contracts.js";
+import { backingStoreSchema, type ApiBackingStore } from "./backing-store.js";
 import { respondRequest, controlRequest } from "./session-control-contracts.js";
 import {
   selectionQuery,
@@ -49,6 +50,10 @@ import {
 } from "./contracts.js";
 
 export interface CoreApiSources {
+  backingStore?(
+    session: ApiSession,
+    signal?: AbortSignal,
+  ): Promise<ApiBackingStore>;
   selection?(
     query: SelectionQuery,
     signal?: AbortSignal,
@@ -778,9 +783,21 @@ export class CoreApi {
               404,
             );
           const inspection = this.sources.sessionInspection?.(item.id);
+          const backingStore = await this.sources.backingStore?.(
+            item,
+            input.signal,
+          );
           return {
             ...item,
             ...(inspection ? sessionInspectionSchema.parse(inspection) : {}),
+            ...(backingStore
+              ? {
+                  backingStore: backingStoreSchema.parse({
+                    ...backingStore,
+                    serverId: this.serverId,
+                  }),
+                }
+              : {}),
           };
         }
         const unique = [

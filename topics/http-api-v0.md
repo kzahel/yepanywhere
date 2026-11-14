@@ -250,14 +250,34 @@ Implemented in revision `2026-10-30.4`: `GET
 ids, exact visible prose/Markdown, observed activity, bounded failure/media
 references, read-only pending attention, coverage and an opaque content revision.
 It excludes routine tool bodies, thinking and rendered HTML. This is a filtered
-projection, not an LLM summary or a completion verdict. Truncation, byte limits,
-recent-two-compaction scope and unknown evidence remain explicit. `idle` does not
-establish successful completion. Provider/history shapes outside acquisition
-support return `503 conversation_unavailable`; no native history is guessed.
+projection, not an LLM summary or a completion verdict. The response is one JSON
+object, not JSONL: `messages`, `activity`, `pendingRequests`, `revision` and
+`coverage` travel together. Truncation, byte limits, compaction scope and unknown
+evidence remain explicit. `idle` does not establish successful completion.
+Provider/history shapes outside acquisition support return `503 conversation_unavailable`; no native history is guessed.
 
-`maxMessages` is 1–100, default 20. `anchorMessageId` selects an existing stable
-visible message; an unavailable anchor returns `404 anchor_unavailable`, without
-silently moving to the latest window. Unknown window parameters fail. The
+Revision `2026-11-14.1` accepts positive decimal `maxMessages` and
+`tailCompactions` counts up to 999999999. Defaults are 20 messages inside two
+compaction boundaries; applied ceilings are 100 messages and 20 boundaries.
+`maxMessages` narrows the compaction scope, never extends it. With fewer than
+N boundaries the available session beginning is in scope. Larger valid requests
+return 200 with `coverage.requestedMessages`, `requestedCompactions`, applied
+`maxMessages`/`compactions` and `limitedBy: ["serverLimit", ...]`. A request
+can still be complete if all available messages fit below the applied ceiling.
+Malformed, zero, fractional, negative and out-of-range counts return 400.
+
+Acquisition byte/record limits return a usable recent suffix with
+`completeForRequest=false`, `earlierInScope` and `limitedBy` evidence. A single
+oversized source record becomes an explicitly truncated unavailable-content
+message rather than an apparently complete older answer. Payload limits may
+omit additional content and messages. Fewer returned messages do not alone
+mean incompleteness: a short session can contain fewer than requested.
+Unsupported providers, unresolved identity, unreadable sources and the initial
+publication deadline still return explicit errors. Missing anchors do not
+silently select a different window.
+
+`anchorMessageId` selects an existing stable visible message; an unavailable
+anchor returns `404 anchor_unavailable`, without silently moving to the latest window. Unknown window parameters fail. The
 served help and OpenAPI schema describe the same bounds and examples. A launch
 read lease can read this surface; no creation, sending or approval authority is
 added by this slice. Resource access is checked before acquiring history.
@@ -270,8 +290,35 @@ Final-consumer removal cancels source work and releases watches/viewers.
 An exact managed Claude/Codex owner may precede retained catalog materialization:
 its summary and bounded replay are immediately usable, with incomplete history
 coverage. A later catalog row reconciles normal durable history. Unsupported
-owners and mismatched/ambiguous identities never supply guessed history. Native
-acquisition constraints are owned by [Simple Client API](simple-client-api.md).
+owners and mismatched/ambiguous identities never supply guessed history.
+Production acquisition reuses the app's native Claude/Codex readers, normalizes
+branch/lineage evidence, then selects a byte/record-bounded normalized window.
+This fixes the experimental reader's retained-input refusal for long sessions;
+it does not promise bounded disk I/O for every history. Reader fallbacks, SQL
+index consolidation and cancellation propagation are deferred in the
+[acquisition cost gap](../gaps/conversation-window-acquisition-cost.md).
+[Simple Client API](simple-client-api.md) owns projection and observation rules.
+
+### Native backing-store descriptors
+
+In revision `2026-11-14.1`, authorized single-session detail includes
+`backingStore`. Collection summaries do not include native storage locations.
+The descriptor reports owning `serverId`, provider, native session id, location
+`kind` (`file`, `database`, `provider`, or `unavailable`), nullable `path`,
+`format`, `recordId` and `shared`, and `history` (`unknown` or `unavailable`).
+A database location is shared and requires its provider-native session selector;
+a file's sharing status may be unknown. Unobserved formats remain null. An
+owner without an observed native resource returns `unavailable` with null
+location fields instead of a guessed filename.
+
+Paths are absolute locations on the owning server, not URLs or a promise that
+the caller can access that filesystem. Local agents with filesystem access may
+use native tools such as `rg` on JSONL; a database needs its provider-specific
+schema and session selector. A leaf may require ancestors, sidecars or live
+unpersisted state, so a descriptor never claims complete history. Metadata
+resolution runs only after the existing session/project/creator authorization
+and ambiguity checks. Native ids remain explicitly separate from public YA
+session ids; this grants no arbitrary file download, shell or database access.
 
 ## Bounded HTTP following
 
@@ -297,8 +344,9 @@ promises current-state recovery, not event-log replay or every intermediate
 message. Coverage still describes retained history limits.
 
 One request owns at most one response and one bounded wait. There is no SSE/PTY
-or permanent per-client loop in this slice. Identical requests share source
-acquisition and coalescing. A disconnect, deadline, controller replacement or
+or permanent per-client loop in this slice. Requests for the same session and
+applied compaction scope share acquisition and coalescing; different message
+limits share that source. A disconnect, deadline, controller replacement or
 launch-credential revocation cancels demand; the final consumer releases the
 source/watch/viewer. Active private reads revoked or detached return 503 where
 the transport remains writable; later revoked-credential requests return 401.

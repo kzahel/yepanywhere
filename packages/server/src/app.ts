@@ -58,7 +58,7 @@ import {
   machineControlEnabled,
   mountMachineControl,
 } from "./routes/machine-control.js";
-import { createConversationSource } from "./experimental/conversation-source.js";
+import { createProviderConversationSource } from "./experimental/provider-conversation-source.js";
 import { createExperimentalConversationRoutes } from "./routes/experimental-conversation.js";
 import { IssueStore } from "./services/issues/IssueStore.js";
 import { IssueContentRefresher } from "./services/issues/content.js";
@@ -3517,14 +3517,9 @@ export function createApp(options: AppOptions): AppResult {
   });
   const conversationCatalog = retainedCollections;
   conversationSubscriptions = new ConversationSubscriptions(
-    createConversationSource({
-      resolveRolloutPath: (row, nativeId) =>
-        row.nativeStorageScope
-          ? codexReaderFactory(
-              row.projectPath,
-              row.nativeStorageScope,
-            ).getSessionFilePath(parseNativeSessionId(nativeId))
-          : Promise.resolve(null),
+    createProviderConversationSource({
+      readerFactory,
+      metadata: options.sessionMetadataService,
       resolve: async (sessionId, signal) => {
         signal?.throwIfAborted();
         const identity = isYaSessionId(sessionId)

@@ -45,10 +45,15 @@ export interface ConversationInput {
     earlierOutsideScope: Knowledge;
     complete: boolean;
     leadingUserMessageId?: string | null;
+    earlierInScope?: boolean;
+    limitedBy?: HistoryLimit[];
   };
 }
 
 export interface PreparedConversation extends GroupedConversation {
+  compactions: number;
+  sourceEarlierInScope: boolean;
+  sourceLimits: HistoryLimit[];
   kind: "prepared";
   sessionId: string;
   activity: ActivityState;
@@ -92,6 +97,7 @@ export function serializeConversationSnapshot(
 /** Prepare once per scoped input revision; many windows may reuse this result. */
 export function prepareConversation(
   input: ConversationInput,
+  compactions = 2,
 ): PreparedConversation | ApiError {
   if (
     !IdSchema.safeParse(input.sessionId).success ||
@@ -105,7 +111,10 @@ export function prepareConversation(
     return error("unavailable", "Normalized input exceeds the record budget");
   // Reuse the authoritative existing scope selector before compiling or grouping.
   // Both structural message types represent this same normalized server boundary.
-  const slice = sliceAtCompactBoundaries(input.messages as ServerMessage[], 2);
+  const slice = sliceAtCompactBoundaries(
+    input.messages as ServerMessage[],
+    compactions,
+  );
   const messages = slice.messages as Message[];
   try {
     if (
@@ -185,6 +194,9 @@ export function prepareConversation(
     }
     return {
       kind: "prepared",
+      compactions,
+      sourceEarlierInScope: input.sourceCoverage.earlierInScope ?? false,
+      sourceLimits: input.sourceCoverage.limitedBy ?? [],
       sessionId: input.sessionId,
       activity: input.activity,
       pendingRequests,
@@ -259,7 +271,7 @@ export function selectConversation(
     );
   const start = Math.max(0, end - query.maxMessages);
   const messages = prepared.messages.slice(start, end);
-  const limitedBy = new Set<HistoryLimit>();
+  const limitedBy = new Set<HistoryLimit>(prepared.sourceLimits);
   if (start > 0) limitedBy.add("maxMessages");
   if (prepared.earlierOutsideScope !== "no") limitedBy.add("compactionScope");
   if (
@@ -279,10 +291,10 @@ export function selectConversation(
     pendingRequests: prepared.pendingRequests,
     coverage: {
       scope: "recentCompactions",
-      compactions: 2,
+      compactions: prepared.compactions,
       maxMessages: query.maxMessages,
       returnedMessages: messages.length,
-      earlierInScope: start > 0,
+      earlierInScope: start > 0 || prepared.sourceEarlierInScope,
       earlierOutsideScope: prepared.earlierOutsideScope,
       completeForRequest:
         prepared.sourceComplete &&

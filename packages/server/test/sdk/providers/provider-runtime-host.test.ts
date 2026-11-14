@@ -2266,7 +2266,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         ["?anchorMessageId=missing", "anchor_unavailable", 404],
         ["?anchorMessageID=misspelled", "invalid_request", 400],
         ["?maxMessages=0", "invalid_request", 400],
-        ["?maxMessages=101", "invalid_request", 400],
+        ["?maxMessages=1000000000", "invalid_request", 400],
       ] as const) {
         first.queue.push({
           text:

@@ -12,7 +12,7 @@ import { readConversation } from "@yep-anywhere/shared/experimental/conversation
 it("consumes a captured native session through the real app, catalog, capability gate and typed client", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ya-conversation-app-"));
   const capture = await loadCapture("claude-basic-2026-09-12");
-  const path = join(directory, "native.jsonl");
+  const path = join(directory, `${capture.manifest.sessionId}.jsonl`);
   await writeFile(
     path,
     `${capture.native.map((row) => JSON.stringify(row)).join("\n")}\n`,

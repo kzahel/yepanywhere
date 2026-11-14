@@ -25,6 +25,80 @@ import { productionApiSources } from "../../src/core-api/production-sources.js";
 import { CoreApi } from "../../src/core-api/service.js";
 import { createV0Routes } from "../../src/routes/v0/index.js";
 
+it("keeps shared native store locations out of collection summaries", async () => {
+  const projectId = toUrlProjectId("/work/visible");
+  const locations: SessionCatalogRow["location"][] = [
+    { kind: "database", path: "/native/opencode.db", recordId: "ses_native" },
+    { kind: "provider", recordId: "provider-handle" },
+  ];
+  const rows: SessionCatalogRow[] = locations.map((location, index) => ({
+    sessionId: `session-${index}`,
+    projectId,
+    projectPath: "/work/visible",
+    projectIdentityKey: projectId,
+    catalogFamily: "opencode",
+    provider: "opencode",
+    storeKey: "fixture",
+    sourceVersion: "fixture",
+    fidelity: "head",
+    updatedAt: "2026-11-14T00:00:00Z",
+    location,
+  }));
+  const sources = productionApiSources({
+    scanner: {
+      readRetainedProjects: async () => ({
+        projects: [],
+        complete: true,
+        refreshing: false,
+      }),
+    },
+    sessions: {
+      read: async () => ({
+        rows,
+        catalog: {
+          catalogEpoch: "fixture",
+          catalogGeneration: 1,
+          complete: true,
+          refreshing: false,
+        },
+      }),
+    },
+    providers: () => [],
+    hiddenProjects: async () => new Set(),
+  });
+  const app = new Hono<{ Variables: { yaPrincipal: Principal } }>();
+  app.use("*", async (c, next) => {
+    c.set(PRINCIPAL_VARIABLE, SUPERUSER);
+    await next();
+  });
+  app.route("/v0", createV0Routes(new CoreApi("A", sources)));
+  expect(
+    JSON.stringify(await (await app.request("/v0/servers/A/sessions")).json()),
+  ).not.toContain("/native/");
+  expect(
+    (await (await app.request("/v0/servers/A/sessions/session-0")).json())
+      .backingStore,
+  ).toMatchObject({
+    serverId: "A",
+    kind: "database",
+    path: "/native/opencode.db",
+    recordId: "ses_native",
+    format: "sqlite",
+    shared: true,
+    history: "unknown",
+  });
+  expect(
+    (await (await app.request("/v0/servers/A/sessions/session-1")).json())
+      .backingStore,
+  ).toMatchObject({
+    serverId: "A",
+    kind: "provider",
+    path: null,
+    recordId: "provider-handle",
+    format: null,
+  });
+});
+
 it("rejects native cross-project collisions before session-wide metadata can hide them", async () => {
   const visible = toUrlProjectId("/work/visible"),
     privateId = toUrlProjectId("/work/private");
@@ -208,9 +282,16 @@ it("keeps a session under the YA id its creator holds once only its native trans
           item.state,
         ]),
       ).toEqual([[publicId, state]]);
-      expect(
-        (await app.request(`/v0/servers/A/sessions/${publicId}`)).status,
-      ).toBe(200);
+      const detail = await app.request(`/v0/servers/A/sessions/${publicId}`);
+      expect(detail.status).toBe(200);
+      expect((await detail.json()).backingStore).toMatchObject({
+        serverId: "A",
+        kind: "file",
+        format: "jsonl",
+        nativeSessionId: thread,
+        path: `/store/rollout-${thread}.jsonl`,
+        history: "unknown",
+      });
       expect(
         (await app.request(`/v0/servers/A/sessions/${thread}`)).status,
       ).toBe(404);

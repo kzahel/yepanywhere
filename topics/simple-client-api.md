@@ -236,7 +236,7 @@ continue to exercise the extracted core through the existing web adapter.
 ## Subscription-owner checkpoint (2026-09-12)
 
 The internal `ConversationSubscriptions` service now owns reference-counted
-per-session acquisition and projection. The live-operation checkpoint below
+per-session/acquisition-scope acquisition and projection. The live-operation checkpoint below
 now connects it to bounded native acquisition and experimental transport routes.
 This remains an experiment, not a shipped mobile client.
 
@@ -554,3 +554,23 @@ WebView. An unsupported direct endpoint shape has no guessed handoff URL.
 
 The [tactical checkpoint](../docs/tactical/130-simple-client-api-and-three-client-demo.md#first-android-compose-preview--2026-09-12)
 records AVD evidence and the remaining deployed/physical-device boundaries.
+
+
+## Native reader integration — 2026-11-14
+
+Production Conversation observations now acquire normalized Claude/Codex windows
+through the app's existing native readers. The standalone experimental file
+reader retains its documented scan/cache limits for direct diagnostic callers.
+Provider acquisition completes branch/lineage normalization before selecting a
+bounded suffix; oversized rows become explicit unavailable content and source
+budget omissions remain incomplete coverage. Projection and output limits stay
+unchanged. The optional internal compaction scope is 1–20, default two; ordinary
+experimental clients still request two. Observations are shared by session and
+applied scope, with the existing global source/subscription ceilings and final
+consumer teardown. v0 additionally exposes requested/applied limits and clamping
+through its own JSON coverage contract.
+
+The native reader may still scan complete history or finish an already started
+read after cancellation. Efficient per-provider message windows, shared index
+facts and acquisition budget propagation remain in the
+[acquisition cost gap](../gaps/conversation-window-acquisition-cost.md).

@@ -79,3 +79,10 @@ jsdom navigation diagnostics, with 7,401 client cases passing. No client source
 changes in this API/control slice. The asynchronous stacks still identify no
 triggering test; a safe repair needs the fixture attribution audit above,
 not global navigation interception or diagnostic suppression.
+
+2026-11-14: conversation-window/backing-store verification on Node 24.22.1
+again prints five timer-only jsdom navigation diagnostics while all 7,419
+client cases pass. The API's focused reader/core/HTTP cases are clean and no
+client navigation code changed. The asynchronous stacks still provide no
+owning fixture, so an isolated repair requires the attribution audit above.
+Evidence: local `/tmp/ya-conversation-tests-node24.log`.

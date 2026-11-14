@@ -368,16 +368,18 @@ export type HistoryLimit =
   | "maxMessages"
   | "compactionScope"
   | "bytes"
-  | "unavailable";
+  | "unavailable"
+  | "records";
 export const HistoryLimitSchema: z.ZodType<HistoryLimit> = z.enum([
   "maxMessages",
   "compactionScope",
   "bytes",
   "unavailable",
+  "records",
 ]);
 export type HistoryCoverage = {
   scope: "recentCompactions";
-  compactions: 2;
+  compactions: number;
   maxMessages: number;
   returnedMessages: number;
   earlierInScope: boolean;
@@ -388,13 +390,13 @@ export type HistoryCoverage = {
 };
 export const HistoryCoverageSchema: z.ZodType<HistoryCoverage> = z.object({
   scope: z.literal("recentCompactions"),
-  compactions: z.literal(2),
+  compactions: z.number().int().min(1).max(20),
   maxMessages: z.number().int().min(1).max(100),
   returnedMessages: z.number().int().min(0).max(100),
   earlierInScope: z.boolean(),
   earlierOutsideScope: KnowledgeSchema,
   completeForRequest: z.boolean(),
-  limitedBy: z.array(HistoryLimitSchema).min(0).max(4),
+  limitedBy: z.array(HistoryLimitSchema).min(0).max(5),
   anchorMessageId: IdSchema.nullable(),
 });
 export type Conversation = {

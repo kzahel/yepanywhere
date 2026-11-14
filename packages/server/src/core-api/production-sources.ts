@@ -1,4 +1,5 @@
 import { inspectApiSession } from "./session-inspection.js";
+import { describeBackingStore } from "./backing-store.js";
 import { selectionSchema } from "./selection-contracts.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { AgentAuthRouter } from "../services/AgentAuthRouter.js";
@@ -37,6 +38,29 @@ export function productionApiSources(deps: {
   hiddenProjects: NonNullable<CoreApiSources["hiddenProjects"]>;
 }): CoreApiSources {
   return {
+    async backingStore(session, signal) {
+      signal?.throwIfAborted();
+      const result = await deps.sessions.read();
+      const projection = await projectCatalogIdentityResult(
+        result.rows,
+        deps.metadata?.identities
+          ? (deps.metadata as SessionMetadataService)
+          : undefined,
+        signal,
+      );
+      signal?.throwIfAborted();
+      const candidates = projection.rows.filter(
+        (row) => row.sessionId === session.id,
+      );
+      const candidate = candidates.length === 1 ? candidates[0] : undefined;
+      const row =
+        candidate &&
+        (deps.metadata?.getMetadata(session.id)?.workingProjectId ??
+          candidate.projectId) === session.projectId
+          ? candidate
+          : undefined;
+      return describeBackingStore(session.provider, row);
+    },
     sessionInspection: (id) =>
       inspectApiSession(id, deps.metadata, deps.supervisor),
     async selection(query, signal) {

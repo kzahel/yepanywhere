@@ -9,6 +9,7 @@ import type { ProcessEvent } from "../supervisor/types.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import { normalizeStreamMessage } from "../subscriptions.js";
 import { readConversationFile } from "./conversation-reader.js";
+import { selectConversationWindow } from "../sessions/conversation-window.js";
 import {
   MAX_PROJECTION_INPUT_BYTES,
   MAX_PROJECTION_RECORDS,
@@ -34,6 +35,11 @@ export interface ConversationSourceDependencies {
   eventBus?: EventBus;
   watch?(row: Readonly<SessionCatalogRow>, invalidate: () => void): () => void;
   readFile?: typeof readConversationFile;
+  readWindow?(
+    row: Readonly<SessionCatalogRow> & { nativeSessionId?: string },
+    compactions: number,
+    signal: AbortSignal,
+  ): Promise<ConversationInput>;
   resolveRolloutPath?: (
     row: Readonly<SessionCatalogRow>,
     id: string,
@@ -44,7 +50,7 @@ export interface ConversationSourceDependencies {
 export function createConversationSource(
   deps: ConversationSourceDependencies,
 ): OpenConversationSource {
-  return async (sessionId, invalidate, signal) => {
+  return async (sessionId, invalidate, signal, compactions = 2) => {
     let row:
       | (Readonly<SessionCatalogRow> & { nativeSessionId?: string })
       | undefined;
@@ -59,6 +65,8 @@ export function createConversationSource(
     // that starts after it, with the turn settled, can cover that record.
     let failedAtRevision = 0;
     let liveBytes = 0;
+    const liveLimits = new Set<"bytes" | "records">();
+    let liveOmittedPrefix = false;
     const live = new Map<string, { message: Message; bytes: number }>();
     const drop = () => {
       failed = true;
@@ -73,7 +81,7 @@ export function createConversationSource(
       if (raw.type === "stream_event" || raw._isStreaming === true) return;
       if (!["assistant", "user", "error", "system"].includes(String(raw.type)))
         return;
-      const message = markSubagent(
+      let message = markSubagent(
         normalizeStreamMessage({ ...raw }) as Message &
           Parameters<typeof markSubagent>[0],
       );
@@ -83,7 +91,36 @@ export function createConversationSource(
         drop();
         return;
       }
-      const bytes = Buffer.byteLength(JSON.stringify(message), "utf8");
+      let bytes = Buffer.byteLength(JSON.stringify(message), "utf8");
+      if (deps.readWindow && bytes > MAX_PROJECTION_INPUT_BYTES) {
+        message = selectConversationWindow([message], {
+          tailCompactions: compactions,
+          maxBytes: MAX_PROJECTION_INPUT_BYTES,
+          maxRecords: MAX_PROJECTION_RECORDS,
+          signal,
+        }).messages[0]!;
+        bytes = Buffer.byteLength(JSON.stringify(message), "utf8");
+        liveLimits.add("bytes");
+      }
+      if (deps.readWindow) {
+        while (
+          live.size &&
+          (liveBytes - (live.get(id)?.bytes ?? 0) + bytes >
+            MAX_PROJECTION_INPUT_BYTES ||
+            (!live.has(id) && live.size >= MAX_PROJECTION_RECORDS))
+        ) {
+          const oldest = live.keys().next().value!;
+          liveLimits.add(
+            liveBytes - (live.get(id)?.bytes ?? 0) + bytes >
+              MAX_PROJECTION_INPUT_BYTES
+              ? "bytes"
+              : "records",
+          );
+          liveBytes -= live.get(oldest)!.bytes;
+          live.delete(oldest);
+          liveOmittedPrefix = true;
+        }
+      }
       const nextBytes = liveBytes - (live.get(id)?.bytes ?? 0) + bytes;
       if (
         nextBytes > MAX_PROJECTION_INPUT_BYTES ||
@@ -213,18 +250,24 @@ export function createConversationSource(
             !process ||
             process.state.type === "idle" ||
             process.state.type === "terminated";
-          const result = await (deps.readFile ?? readConversationFile)({
-            path: row.location.path,
-            provider: row.catalogFamily as "claude" | "codex",
-            sessionId: row.nativeSessionId ?? row.sessionId,
-            signal: readSignal,
-            resolveRolloutPath: deps.resolveRolloutPath
-              ? (id) => deps.resolveRolloutPath!(row!, id)
-              : undefined,
-          });
+          const result = deps.readWindow
+            ? await deps.readWindow(row, compactions, readSignal)
+            : await (deps.readFile ?? readConversationFile)({
+                path: row.location.path,
+                provider: row.catalogFamily as "claude" | "codex",
+                sessionId: row.nativeSessionId ?? row.sessionId,
+                signal: readSignal,
+                resolveRolloutPath: deps.resolveRolloutPath
+                  ? (id) => deps.resolveRolloutPath!(row!, id)
+                  : undefined,
+              });
           readSignal.throwIfAborted();
           signal.throwIfAborted();
           baseline = { ...result, sessionId };
+          if (settledAtReadStart && observedRevision === durableRevision) {
+            liveLimits.clear();
+            liveOmittedPrefix = false;
+          }
           dirty = observedRevision !== durableRevision;
           for (const message of result.messages) {
             const id = getMessageId(message);
@@ -280,9 +323,17 @@ export function createConversationSource(
         ];
         const state = process?.state;
         const waiting = state?.type === "waiting-input";
+        const window = deps.readWindow
+          ? selectConversationWindow(messages, {
+              tailCompactions: compactions,
+              maxBytes: MAX_PROJECTION_INPUT_BYTES,
+              maxRecords: MAX_PROJECTION_RECORDS,
+              signal: readSignal,
+            })
+          : undefined;
         return {
           ...durable,
-          messages,
+          messages: window?.messages ?? messages,
           activity:
             state?.type === "in-turn"
               ? "working"
@@ -308,8 +359,29 @@ export function createConversationSource(
             : [],
           sourceCoverage: {
             ...durable.sourceCoverage,
+            ...(deps.readWindow
+              ? {
+                  earlierInScope:
+                    durable.sourceCoverage.earlierInScope ||
+                    window?.sourceCoverage.earlierInScope ||
+                    liveOmittedPrefix,
+                  limitedBy: [
+                    ...new Set([
+                      ...(durable.sourceCoverage.limitedBy ?? []),
+                      ...(window?.sourceCoverage.limitedBy ?? []),
+                      ...liveLimits,
+                    ]),
+                  ],
+                  leadingUserMessageId:
+                    window?.sourceCoverage.leadingUserMessageId ??
+                    durable.sourceCoverage.leadingUserMessageId,
+                }
+              : {}),
             complete:
-              durable.sourceCoverage.complete && state?.type !== "in-turn",
+              durable.sourceCoverage.complete &&
+              state?.type !== "in-turn" &&
+              liveLimits.size === 0 &&
+              (window?.sourceCoverage.complete ?? true),
           },
         };
       },
