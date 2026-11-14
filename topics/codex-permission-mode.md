@@ -132,6 +132,13 @@ policy preserves the last requested behavior when the pair is unambiguous; it
 does not turn the rollout into proof that native or outer sandbox enforcement
 succeeded.
 
+The latest context is read backward from the end of the rollout within the
+[point-read budget](provider-history-facts.md). A fork that references its
+parent's history (`history_base`), a compressed rollout or a final turn longer
+than the budget takes the named complete read instead: an unanswered recovery
+would launch with the default permission mode rather than the one the rollout
+records.
+
 Reading recovery evidence does not mutate session metadata. Once a cold resume
 successfully starts Codex with the resolved settings, that actual process state
 is authoritative and the ordinary complete launch snapshot is persisted. A

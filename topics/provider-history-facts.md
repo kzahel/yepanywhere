@@ -211,8 +211,9 @@ adds its row here before adding a reader.
 | Async questions (`sessions/codex-async-questions.ts`) | Point, forward | Answer/dismissal state is domain state, not rebuildable facts. |
 | Task lists and cross-window state (`claude-source-index.ts`, `claude-linear-writer.ts`) | Prefix facts | A tail must not lose state created before it. |
 | Tool details and media ([media handles](session-media-handles.md)) | Point by locator | Large bodies load on demand; an omitted body is not an absent result. |
-| Resume guard, rewind boundary, fork/clone (`session-claude-resume-guard.ts`, `sessions/fork.ts`) | Point | Today the Claude guard loads the complete session to inspect trailing turns. Incomplete facts never certify a safe resume or copy. |
-| Instruction restoration and Codex launch-settings recovery (`app.ts`, `codex-reader.ts`) | Point | Today both read complete history per launch for a latest-state answer. |
+| Resume guard, rewind boundary, fork/clone (`session-claude-resume-guard.ts`, `sessions/fork.ts`) | Point | The Claude guard still loads the complete session. Its tip is selected across the whole file, and the source index's maintained tip can diverge from that selection ([gap](../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md)), so a bounded check waits on an exact tip fact. Incomplete facts never certify a safe resume or copy. |
+| Codex launch-settings recovery (`sessions/codex-launch-settings.ts`) | Point | Done: the latest `turn_context` from a bounded tail read. A fork that references its parent (`history_base`), a compressed rollout or a final turn beyond the budget takes the named complete read, because a missing answer would launch with default permissions. |
+| Instruction restoration history (`readInstructionHistory` in `app.ts`) | Prefix facts | The ledger folds every read since the session began: files opened before a compaction are the ones it restores after it, so a tail would drop them. A named complete read per resumed launch until a durable fold exists. |
 | Children, nested harness evidence, lineage (`ProviderChildRelationshipService`, `claude-harness-history.ts`) | Point | Prefer native headers/sidecars; evidence is not authority. |
 | Content search (`routes/session-content-search.ts`, `sessions/issue-text-reader.ts`) | Forward | Separate project; see above. |
 | Issue associations (`services/issues/IssueIndexer.ts`) | Forward | Keeps its scheduler, eligibility and atomic output/checkpoint commits. |
@@ -249,6 +250,9 @@ apply; UI-affecting changes keep the sequential-typing gate.
    them. The 200 largest local Codex rollouts (13–512 MB) answered in 182 ms
    total, one unknown; the excerpt matched the complete read on 299 of 299
    compared rollouts. v0 conversation now passes the Codex summary hint.
+   Codex launch-settings recovery followed: it matched the complete read on
+   507 of 534 sampled local rollouts, the other 27 ending in a turn longer
+   than the budget and taking the named complete read.
 2. **Length axis, windows:** app detail and v0 conversation share one
    eligible Claude/Codex window path with cancellation and coverage; no
    caller-specific complete fallback.
@@ -257,9 +261,9 @@ apply; UI-affecting changes keep the sequential-typing gate.
 4. **Count axis:** connect issue/search/question/vocabulary forward reads to
    the same source generations and reset evidence, keeping their projections.
    Decide the common runner from these concrete consumers.
-5. **Remaining readers and lifecycle:** resume guard, instruction restoration,
-   evidence consumers; disk budget, cleanup and crash recovery before any
-   broad backfill.
+5. **Remaining readers and lifecycle:** resume guard (after an exact
+   indexed tip), instruction-restoration fold, evidence consumers; disk
+   budget, cleanup and crash recovery before any broad backfill.
 
 ## Non-goals
 
@@ -276,5 +280,6 @@ Related open gaps: [conversation acquisition](../gaps/conversation-window-acquis
 [rewind visibility](../gaps/rewind-records-ignored-by-secondary-readers.md),
 [search index](../gaps/all-sessions-search-index.md),
 [vocabulary live arrival](../gaps/vocabulary-learning-has-no-live-tail.md),
+[index tip divergence](../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md),
 [active-session cost](../gaps/active-session-tab-background-cost.md).
 The [roadmap](../docs/roadmap/README.md) owns priority.

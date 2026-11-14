@@ -279,6 +279,10 @@ settings, history, and pause state. Disable/path changes clear stale work; pause
 remove still-queued restoration. Ordinary queued user work takes priority.
 There is no background idle poll. Enabling on an already live worker begins
 observing future reads; a resumed provider reconstructs historical evidence.
+That reconstruction is a complete read of the session per resumed launch, by
+design: the ledger's opened sources accumulate across compactions, so a tail
+would lose exactly the sources restoration exists to restore
+([provider history](provider-history-facts.md)).
 
 ### Provider force-read primitive
 

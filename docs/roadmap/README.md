@@ -1120,7 +1120,11 @@ with the length axis (bounded preview excerpt, then shared detail/v0 windows,
 then Codex durable facts) before forward consumers on the count axis. Step 1
 is done (2026-11-14): Claude and Codex hover excerpts use a bounded tail read
 with no complete-read fallback, and v0 conversation passes the Codex summary
-hint. Shared windows, Codex durable facts and the count axis remain open. All Sessions text indexing is a separate
+hint. Codex launch-settings recovery now reads the tail too, with a named
+complete read when the tail cannot decide. Instruction restoration is a
+prefix fold and keeps its complete read. The Claude resume guard waits on an
+exact indexed tip ([gap](../../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md)). Shared
+windows, Codex durable facts and the count axis remain open. All Sessions text indexing is a separate
 downstream project and does not gate this work.
 
 This maintenance work does not displace release delivery or concurrent design work.
