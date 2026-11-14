@@ -13,10 +13,10 @@ acquisition is implemented and measured; the indexer runner is not a dependency.
 
 Remaining work belongs in this provider-history effort:
 
-- Codex conversation reads currently lack the cached summary hint needed to
-  activate its compact-tail optimization. Ordinary, uncompressed histories can
-  therefore take the complete reader path even when only a few messages are
-  returned. Reuse its existing indexed summary and native window owner.
+- Codex conversation reads pass the indexed summary hint (2026-11-14), so
+  ordinary uncompressed rollouts with enough compactions take the compact
+  tail. Rollouts below the reader's size estimate, reference-backed forks and
+  compressed rollouts still take the complete reader.
 - Claude's durable index handles accepted ordinary windows, but a first unseen
   source or an exceptional branch/rewind can still require a history scan.
 - Message-count selection happens after native normalization. Large tool bodies

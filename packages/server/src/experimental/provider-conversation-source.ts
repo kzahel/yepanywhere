@@ -4,6 +4,7 @@ import {
   parseNativeSessionId,
   type ProviderName,
 } from "@yep-anywhere/shared";
+import type { SessionIndexService } from "../indexes/SessionIndexService.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { SessionReaderFactory } from "../sessions/types.js";
 import { normalizeSession } from "../sessions/normalization.js";
@@ -23,6 +24,10 @@ export function createProviderConversationSource(
   deps: ConversationSourceDependencies & {
     readerFactory: SessionReaderFactory;
     metadata?: Pick<SessionMetadataService, "getMetadata">;
+    sessionIndexService?: Pick<
+      SessionIndexService,
+      "getCachedSessionSummary" | "getSessionSummaryWithCache"
+    >;
   },
 ) {
   return createConversationSource({
@@ -63,6 +68,27 @@ export function createProviderConversationSource(
       const rewindRecords = deps.metadata?.getMetadata(
         row.sessionId,
       )?.rewindRecords;
+      // Codex reads only the compact tail when given an index summary to take
+      // head-derived fields from; without one it reads the whole rollout.
+      // Same hint as the session detail route (session-detail-routes.ts).
+      const index = deps.sessionIndexService;
+      const summaryHint =
+        row.catalogFamily === "codex" && index
+          ? ((await index.getCachedSessionSummary(
+              scope,
+              row.projectId,
+              nativeId,
+              reader,
+              { acceptAppendedFile: true },
+            )) ??
+            (await index.getSessionSummaryWithCache(
+              scope,
+              row.projectId,
+              nativeId,
+              reader,
+            )))
+          : null;
+      signal.throwIfAborted();
       const loaded = await reader.getSession(
         nativeId,
         row.projectId,
@@ -70,6 +96,7 @@ export function createProviderConversationSource(
         {
           tailCompactions: compactions,
           rewindRecords,
+          ...(summaryHint ? { summaryHint } : {}),
         },
       );
       signal.throwIfAborted();

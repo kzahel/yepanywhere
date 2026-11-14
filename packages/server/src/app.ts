@@ -3520,18 +3520,18 @@ export function createApp(options: AppOptions): AppResult {
       antigravitySessionsDir: options.antigravitySessionsDir,
     }),
   });
-  const conversationCatalog = retainedCollections;
   conversationSubscriptions = new ConversationSubscriptions(
     createProviderConversationSource({
       readerFactory,
       metadata: options.sessionMetadataService,
+      sessionIndexService: options.sessionIndexService,
       resolve: async (sessionId, signal) => {
         signal?.throwIfAborted();
         const identity = isYaSessionId(sessionId)
           ? options.sessionMetadataService?.identities.resolveYa(sessionId)
           : undefined;
         if (identity && !identity.native) return undefined;
-        const { rows } = await conversationCatalog.read();
+        const { rows } = await retainedCollections.read();
         signal?.throwIfAborted();
         if (identity?.native) {
           const native = identity.native;
