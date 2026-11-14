@@ -1,13 +1,14 @@
 # Project path changes can split project lists, hide history and redirect resumes
 
-Updated 2026-11-14. This is a cross-provider project/session identity gap;
-the filename is retained for existing links and historical evidence. The
-current end-to-end evidence is Claude on macOS. **Codex was not exercised in
-this investigation: its behavior remains unknown, not safe or equivalent by
-assumption.** Qualifying Codex and other supported providers is part of this gap.
+Updated 2026-11-14. This is a cross-provider project/session identity gap, with
+real Claude and Codex evidence on macOS. Renamed from the Claude-specific gap
+after Codex qualification reproduced changed execution folders and mixed-folder
+project membership, with different history/list behavior. Other supported
+providers, platforms and sandbox variants still need qualification.
 
-The maintainer requested that all findings and coverage limits be recorded and
-that the intended behavior be decided later. No project merge, path migration,
+The maintainer requested that all findings and coverage limits be recorded,
+then that Codex be investigated and this gap renamed if affected too. The
+intended behavior is still to be decided later. No project merge, path migration,
 automatic repair, resume policy or warning UX is selected here.
 
 ## What is fixed, and what remains open
@@ -25,9 +26,12 @@ listed from its saved creation record even when discovery cannot reconcile it.
 Unexpected storage errors and strict identity adoption are not suppressed.
 
 That containment does not resolve duplicate project cards, history routing,
-changed working folders, or persistent warnings. Nor is it an automatic repair
-workflow. Backend incomplete-result reporting and the newer client warning UI
-are separate rollout concerns; an older hosted client may not show that UI.
+changed working folders, or persistent warnings. Codex did not reproduce the
+original collection identity conflict in the matrix below; its confirmed
+execution-folder problems do not depend on that conflict. Containment is not an
+automatic repair workflow. Backend incomplete-result reporting and the newer
+client warning UI are separate rollout concerns; an older hosted client may
+not show that UI.
 
 ## Observed cases: ordinary Claude on macOS
 
@@ -37,6 +41,8 @@ profiles and scripted local model responses via
 credentials or paid model calls were used. Sessions were stopped after saving
 replies; collection and history checks were repeated after backend restarts.
 The working-folder checks used actual Bash `pwd` tool results.
+The fixture enables the shared provider host; these are ordinary unsandboxed
+sessions, not qualification of the default macOS in-Hono ownership variant.
 
 Notation: `L` is the selected symlink, initially pointing to real folder `A`;
 `B` is a different real folder; `M` is a renamed symlink. `S1` starts through
@@ -83,6 +89,67 @@ whether its process survived. This is a concrete wrong-folder risk for resumed
 work, beyond list presentation or warning annoyance. Merely allowing history
 to open does not establish that a resume uses the intended project.
 
+## Observed cases: ordinary Codex on macOS
+
+The same native full-app fixture ran the pinned Codex CLI **0.167.0**, matching
+`package.json` and local upstream reference tag `rust-v0.167.0`. These are real
+app-server processes, native JSONL transcripts and shell tools against scripted
+local Responses API replies. Shared provider hosting was enabled, sandboxing
+was bypassed, and all owned profiles/processes/listeners were cleaned up.
+The cold matrix finished in about 42 seconds, working-folder qualification in
+5 seconds, and the additional path-reuse/missing-folder probe in 13 seconds.
+These are diagnostic durations, not performance or CI acceptance claims.
+
+Codex wrote the selected spelling L into `session_meta.payload.cwd`; it did not
+replace L with A as Claude did. This changes which failures are visible:
+
+| Case | Project cards and session placement | Saved history | Collection warning |
+| --- | --- | --- | --- |
+| Create S1 through L -> A | Only L appears, count 1, with S1. No extra A card or duplicated S1. | Opens after stop/backend restart. | No |
+| Use L -> intermediate -> A, then remove intermediate | S1 stays under L; the project session route still works even with the broken link. | Opens in both cases. | No |
+| Also create S2 directly in A | Separate L and A projects, each containing its own conversation. | Both open. | No |
+| Retarget L from A to B | S1 stays under L. | Opens. | No |
+| Create S3 through L -> B | S1 and S3 share L, count 2, despite starting in different real folders. No extra B card. | Both open. | No |
+| Rename L to M without registering M | Old L remains with its sessions; M does not automatically appear. L's session route still works. | Old L histories open. | No |
+| Start S4 through M -> B | M appears with S4; old L membership remains. No extra B card. | All saved histories open. | No |
+| Restore L -> A after S1-in-A and S3-in-B | Both remain under L; restoration does not separate their membership. | Both open. | No |
+| Move A, breaking L; then update L to the moved A | Saved project labels/membership remain. | Alias and directly created histories open before and after relinking. | No |
+| Delete a link but keep its target, then delete the target too | Old project cards/membership remain. | Saved histories still open. | No |
+| Create through both /tmp/... and /private/tmp/... spellings of the same L | Two selected-path projects, each with its own session and matching count. No automatic alias merge. | Both open. | No |
+| Delete directly selected A, then create a new directory at the same A path | The original A project/session remain; no distinction is shown for the replacement directory. | Original history still opens. | No |
+
+Across all 13 cold-matrix stages, Projects, global Sessions and Inbox returned
+200 and reported complete results with no refresh warning. Saved-history reads
+returned 200 with their expected persisted replies, including after missing
+links/targets. This does not establish that the folder is safe for continued
+work: completeness of transcript discovery is not physical-folder identity.
+
+### Codex execution can follow a changed link even without a resume
+
+With L initially pointing to A, change it to B after the native process has
+started and while its first model response is held open. Then ask its real
+`exec` tool to run `tools.exec_command({cmd:"pwd"})` without a workdir override:
+
+- A stopped S1 resumed after retargeting executed in **B**.
+- The next shell command in the **already-running** conversation also executed
+  in **B**. This differs from Claude's already-running process, which used A.
+
+Both results were confirmed from the actual shell output sent back to the
+model endpoint, not inferred from metadata. This does not claim that a shell
+command already executing in A is moved to B; it qualifies the next tool spawn.
+No project-list warning accompanied the retargeting in the cold matrix.
+
+The direct-path replacement probe also resumed an old A conversation after A
+was deleted and recreated. The resume returned 200 and its shell read a marker
+present only in the replacement directory. Thus changed-folder execution is
+not confined to symlinks.
+
+When L was deleted altogether, resuming the old L conversation returned
+**HTTP 500, `Provider worker closed during attach`** in the hosted fixture.
+Its saved history still returned 200 afterward. This is a separate poor
+missing-folder error/recovery experience; it did not crash the collections.
+The exact failure for in-Hono ownership or other platforms remains unqualified.
+
 ## Related sandbox behavior and missing qualification
 
 The separate [sandbox membership gap](symlinked-sandboxed-session-leaves-its-project-list.md)
@@ -91,20 +158,23 @@ working-project membership from the selected link to the real path. Forks,
 clones and restart continuations have different recorded outcomes. That issue
 is still open; the ordinary macOS Claude matrix does not supersede it.
 
-Before choosing or closing a shared fix, build the same matrix for **Codex**
-and each other supported provider. Check actual native discovery/storage,
+Before choosing or closing a shared fix, extend the matrix to each other
+supported provider and the unqualified Codex/Claude variants. Check actual
+native discovery/storage,
 public YA identity, Projects cards/counts, project/global/Inbox membership,
 history after stop/restart, and actual execution folder after resume. Include
 provider-native imports as well as YA-created sessions; saved creation rows
-can mask a discovery conflict for the latter. Do not infer Codex behavior from
-Claude's transcript-directory conventions or alias-specific fix.
+can mask a discovery conflict for the latter. The November probes cover
+YA-created sessions only. Do not infer Codex behavior from Claude's
+transcript-directory conventions or alias-specific fix; the measured
+differences above demonstrate why separate qualification is required.
 
 Also qualify sandboxed and ordinary launches, provider-host survival versus
 fresh provider processes, forks/clones/restarts, filesystem watchers, macOS
 `/tmp` versus `/private/tmp`, symlink chains, missing targets, rename/move,
 retargeting, deletion/recreation at the same path, and supported Linux/Windows
-path behavior. Reusing a pathname for a different directory is a separate
-identity question, even without a symlink. These untested cases are coverage
+path behavior. Direct-path replacement and /tmp spelling are now qualified for
+the stated Codex fixture only. The remaining untested cases are coverage
 requirements, not claimed reproductions.
 
 ## Decisions deferred to a later design
@@ -146,7 +216,16 @@ implementation must preserve existing YA identities and storage/scope isolation.
   comparison, conflict containment and retained-read revalidation.
 - `packages/server/src/sdk/providers/claude.ts`: captured transcript scope can
   remain fixed while a new process resolves its working folder through the
-  changed selected path. Audit Codex's own reader/launch behavior independently.
+  changed selected path.
+- `packages/server/src/sdk/providers/codex-session-config.ts`: both thread start
+  and resume pass `options.cwd`. `sessions/codex-discovery.ts` reads the native
+  session header's cwd; `sessions/codex-reader.ts` filters by that spelling.
+  Unlike Claude's project-directory transcripts, the Codex rollout lives under
+  the profile's date-partitioned sessions store, independent of project existence.
+  The pinned upstream `codex-rs/rollout/src/recorder.rs` persists cwd, and
+  `codex-rs/core/src/unified_exec/process_manager.rs` passes a working path for
+  each spawned command. These source observations support, but do not replace,
+  the real-tool execution evidence above.
 - Existing contracts: [session identity](../topics/session-identity.md),
   [catalog observation](../topics/session-catalog-observation.md), and
   [collection queries](../topics/session-collection-queries.md).
@@ -168,7 +247,13 @@ and logs are local disposable evidence, not retained regression tests:
 `probe-single-session.mts`, `probe-working-directory.mts` and the corresponding
 `/tmp/ya-alias-matrix-*.log` files. The matrix above preserves their findings
 without depending on those ignored artifacts remaining available.
+Codex evidence uses the same ignored directory's `probe-codex-cold.mts`,
+`probe-codex-working-directory.mts`, `probe-codex-extra.mts` and corresponding
+`/tmp/ya-alias-matrix-codex-*.log` files.
+All three completed Codex probes reported no model-endpoint failures and joined
+cleanup; these exploratory scripts are not newly retained CI tests.
 
 Found 2026-09-12 while validating tactical 128 with real Claude sessions on macOS.
 Expanded 2026-11-14 while investigating localhost:3400 collection failures and
-the maintainer's project-path/symlink questions; cross-provider policy deferred.
+the maintainer's project-path/symlink questions; Codex then qualified and the gap
+renamed at the maintainer's request. Cross-provider policy remains deferred.
