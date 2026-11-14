@@ -123,6 +123,19 @@ normalized transcript store.
 
 These are internal entry points; app/v0 wire contracts stay as they are.
 
+**Compatibility: none needed, by construction.** This effort is a server-internal
+refactor under the [capability rules](server-capabilities.md#when-to-add-one):
+no new routes, fields, events or changed meanings, so no capability, protocol
+version or compatibility-floor change. Any client/server version pairing
+behaves as before, only cheaper. An honest "unknown" maps to an absence the
+wire already carries: a preview refresh with no excerpt returns
+`lastAgentText: null` and emits no `session-updated` event (the hovercard
+ignores the body), and v0 conversation already reports partial coverage.
+Exposing new states to clients (for example a visible "building" or "stale"
+coverage) or a new query parameter is outside this effort; it gets its own
+review and prefers an optional field whose absence is the documented fallback
+over a new capability.
+
 Every result states its source generation, projection version, covered range
 and freshness, and distinguishes never-indexed, building, current, stale and
 unsupported. An empty result never stands in for any of those. Each query
