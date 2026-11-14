@@ -6,7 +6,12 @@ oversized projected input, and expose native backing-store descriptors. This
 establishes the API contract without claiming efficient acquisition for every
 provider or source shape.
 
-Remaining work belongs in one provider-history effort:
+The proposed [provider history facts and queries](../topics/provider-history-facts.md)
+architecture now supplies the consumer inventory, common ownership
+boundary and staged qualification. This gap remains open until native
+acquisition is implemented and measured; the indexer runner is not a dependency.
+
+Remaining work belongs in this provider-history effort:
 
 - Codex conversation reads currently lack the cached summary hint needed to
   activate its compact-tail optimization. Ordinary, uncompressed histories can

@@ -514,6 +514,12 @@ and remaining provider/coverage limitations. Candidate indexing, maintenance
 and measurement choices remain in the
 [sketches](all-session-content-search.sketches.md).
 
+The proposed [provider history architecture](provider-history-facts.md#consumers-own-their-projections)
+treats a durable text index as a separate downstream consumer that may reuse
+source identity, generations, locators and reset evidence. Matching and
+indexed-through progress remain search-owned. Current bounded scanning
+remains the implementation.
+
 Search and future index state stay in YA app data, never selected projects or
 their Git metadata. Provider transcripts remain canonical.
 

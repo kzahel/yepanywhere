@@ -6,6 +6,11 @@
 
 Topic: session-compact-tail-pagination
 
+The proposed [provider history architecture](provider-history-facts.md) owns
+cross-consumer source facts, index/query ownership and the migration inventory.
+This topic retains the implemented pagination contract; a forward indexer
+runner is not a prerequisite for the existing Claude/Codex window readers.
+
 ## Contract
 
 For `GET /api/projects/:projectId/sessions/:sessionId?tailCompactions=N`,

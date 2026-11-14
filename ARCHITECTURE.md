@@ -217,6 +217,12 @@ that request's data until they close. Details and the owner table are in
   — approved direction for a stable server ingest kernel, bounded transcript
   windows with prefix facts, and a versioned presentation compiler shared by
   web, Android, and iOS while platform renderers remain native to each surface.
+- [`topics/provider-history-facts.md`](topics/provider-history-facts.md)
+  — proposed rule and architecture: a history question costs in proportion to
+  the answer, not the session's length, and index upkeep costs in proportion
+  to what changed, not the session count. Extends the Claude durable SQLite
+  index to a shared bounded-query module and inventories every history
+  reader. Read before adding a provider-history cache, scanner or consumer.
 - [`topics/conversation-view.md`](topics/conversation-view.md) — compact default
   transcript projection that preserves user/agent text, media, and important
   failures while summarizing routine per-turn activity; selected as the first

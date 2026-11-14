@@ -51,6 +51,9 @@
   and live managed-session preservation opt-in)
 - [Required SQLite storage](required-sqlite.md) (Node/Bun adapters,
   startup policy, migrations, and source-server readiness)
+- [Provider history facts and queries](provider-history-facts.md) (proposed:
+  history reads cost in proportion to the answer, upkeep in proportion to
+  change; shared bounded-query module, consumer inventory, delivery order)
 - OpenCode backend capability and rendering parity
 - [ACP integration and sharing](acp.md) (current YA/T3 comparison and proposed
   transport/session composition; native Copilot and generic registry boundaries)

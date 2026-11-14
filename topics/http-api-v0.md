@@ -299,6 +299,9 @@ This fixes the experimental reader's retained-input refusal for long sessions;
 it does not promise bounded disk I/O for every history. Reader fallbacks, SQL
 index consolidation and cancellation propagation are deferred in the
 [acquisition cost gap](../gaps/conversation-window-acquisition-cost.md).
+[Provider history facts and queries](provider-history-facts.md) supplies the
+proposed shared architecture and consumer inventory for that follow-up,
+including reuse of the implemented Claude durable index and Codex windows.
 [Simple Client API](simple-client-api.md) owns projection and observation rules.
 
 ### Native backing-store descriptors

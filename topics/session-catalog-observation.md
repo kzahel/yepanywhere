@@ -21,6 +21,9 @@ See also:
 - [`inbox.md`](inbox.md)
 - [`architecture-mandates.md`](architecture-mandates.md)
 - [`server-cache-publication.md`](server-cache-publication.md)
+- [`provider-history-facts.md`](provider-history-facts.md) — proposed common
+  source-fact/query architecture; catalog observation remains the discovery and
+  freshness owner rather than becoming a transcript payload index.
 
 ## Retained Global Sessions and Inbox
 

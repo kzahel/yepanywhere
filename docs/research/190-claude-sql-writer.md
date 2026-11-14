@@ -8,6 +8,12 @@ appends now share the profile's SQL-owned source/projection state. The cache
 retains a small accepted header and selected payload, rather than reconstructing
 and retaining the complete historical graph on the first changed read.
 
+The proposed [provider history architecture](../../topics/provider-history-facts.md)
+connects this implementation to the full consumer inventory and the
+[forward transcript indexer plan](../tactical/192-transcript-indexer.md).
+It preserves this writer's provider semantics while proposing common source
+evidence and query ownership; it does not change the qualification below.
+
 ## Ownership and update boundary
 
 Migration 036 adds rebuildable node/tool ownership, source-offset positions,

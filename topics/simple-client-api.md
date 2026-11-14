@@ -38,6 +38,11 @@ Implementation sequence and unresolved decisions live in
 
 ## Relationship to existing work
 
+- [Provider history facts and queries](provider-history-facts.md) supplies the
+  proposed source-fact/query architecture and full consumer inventory for
+  indexed acquisition. It connects the implemented Claude durable index and
+  Codex windows to forward ingestion without making a shared runner a
+  prerequisite for Conversation reads.
 - [Portable transcript compiler](portable-transcript-compiler.md) supplies the
   server-ingest and semantic-projection direction. The internal web compiler
   is useful source material, not the new wire schema. For these consumers,

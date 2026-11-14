@@ -7,6 +7,12 @@
 
 Topic: portable-transcript-compiler
 
+The proposed [provider history facts and queries](provider-history-facts.md)
+architecture connects the server ingest/window/prefix-fact boundary here to
+existing SQL indexes and all history-derived consumers. It owns source-fact
+storage and acquisition planning; this topic retains semantic compilation and
+presentation ownership.
+
 Status: Architecture direction approved; the internal web-only foundation is
 complete. The 2026-09-12 consumer sequence starts with a minimal multi-server web
 demo of a server-owned Simple Client API, followed closely by Android Compose.

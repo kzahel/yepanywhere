@@ -8,6 +8,11 @@
 
 Topic: required-sqlite (commits before 2026-11-09 used `optional-sqlite`)
 
+The proposed [provider history architecture](provider-history-facts.md) inventories
+source facts and consumer queries before adding more history indexes. It keeps
+the adapter/storage rules here and explicitly leaves physical database layout
+to the query and lifecycle audit, including the existing session-scoped sketch.
+
 Verified: 2026-10-11
 
 See also: [YA environment variables](ya-env-vars.md) for `YEP_DATA_DIR`.

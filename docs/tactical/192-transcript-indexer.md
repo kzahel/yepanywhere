@@ -11,6 +11,19 @@ step 1 sound and steps 2, 3 and 6 not implementable as written; its findings
 are in [Second review](#second-review--2026-11-13). Step 1 is implemented.
 Steps 2, 3 and 6 wait for the decisions that section lists.
 
+## Architectural coordination — 2026-11-14
+
+[Provider history facts and queries](../../topics/provider-history-facts.md)
+now owns the cross-consumer architecture. This plan is its forward-batch
+(count-axis) part: the consumers below keep their projections and
+checkpoints, and should read through that topic's shared source generations
+and reset evidence. Request-path windows and point queries do not wait for
+this plan's runner, and the Claude durable index
+([index](../research/190-claude-durable-index.md),
+[writer](../research/190-claude-sql-writer.md)) is not replaced by a
+competing source-fact owner. The second review's scheduler and transaction
+decisions remain open.
+
 ## Goal
 
 One server component reads each provider transcript forward from where it
@@ -19,8 +32,8 @@ feature that derives state from transcripts. Features declare what they want
 indexed and own their projections and checkpoints; they do not each frame,
 schedule and detect rewrites on their own.
 
-Today four features derive state from transcripts, each with its own reader,
-trigger, checkpoint and reset rule, and none shares work with the others:
+The original forward-consumer inventory covered four features with distinct
+triggers, checkpoints and reset rules:
 
 | Feature | Reads | Remembers where it stopped | Providers |
 | --- | --- | --- | --- |
@@ -68,7 +81,8 @@ because it is recomputed from a file tail.
   lets the transcript view serve windows of a long Claude session without
   reparsing it. It needs Claude's raw branch structure and swaps whole
   generations on rewinds. It may later read through the same source
-  adapter; it does not become a consumer.
+  adapter; it does not become a consumer. Shared facts/query ownership with
+  other readers is covered by the architectural overview above.
 - **The session summary index** stays as it is. It owns complete-summary
   fidelity rules ([session summary fidelity](../../topics/session-summary-fidelity.md))
   this plan does not change.

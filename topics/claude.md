@@ -663,6 +663,12 @@ Suspected contributing areas to check before declaring this fixed:
 
 ### Durable source facts and incremental writer ownership
 
+The [provider history architecture](provider-history-facts.md) maps this
+implemented index into the proposed shared source-fact/query foundation and
+consumer inventory. The separate [transcript indexer plan](../docs/tactical/192-transcript-indexer.md)
+shares forward acquisition; its runner does not replace this logical-window
+index or gate its use by conversation consumers.
+
 The app owns one Claude transcript cache and SQL writer per YA profile. Detail
 acquisition persists compact source facts, logical positions, task overlays,
 orphan facts, summary witnesses and rewind context in the existing required

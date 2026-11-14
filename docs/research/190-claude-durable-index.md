@@ -13,6 +13,13 @@ The subsequent [SQL writer slice](190-claude-sql-writer.md) removes that ordinar
 changed-read restoration and active graph residency. Figures in this document
 remain the historical measurements of this earlier implementation.
 
+For cross-consumer ownership, see the proposed
+[provider history facts and queries](../../topics/provider-history-facts.md)
+architecture and the separate [forward transcript indexer plan](../tactical/192-transcript-indexer.md).
+The durable window index is an existing implementation to reuse, not a
+prerequisite still awaiting that runner. This evidence document retains the
+scope and measurements of its original slice.
+
 ## Ownership and acquisition
 
 Migration 035 adds rebuildable source headers, compact source records, logical

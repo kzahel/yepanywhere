@@ -1110,6 +1110,18 @@ its second review and its first step, one append-source adapter under issue
 indexing and content search, verified against every local transcript. Its
 runner, question and vocabulary steps wait on the decision that review
 records.
+
+[Provider history facts and queries](../../topics/provider-history-facts.md)
+(proposed 2026-11-14) sets the rule for both growth axes: a history question
+costs in proportion to the answer, not the session's length, and upkeep costs
+in proportion to what changed, not the session count. It extends the Claude
+durable index to a shared bounded-query module. Its delivery order starts
+with the length axis (bounded preview excerpt, then shared detail/v0 windows,
+then Codex durable facts) before forward consumers on the count axis. Nothing
+beyond the existing Claude index and Codex windows is implemented yet; the
+acquisition gaps remain open. All Sessions text indexing is a separate
+downstream project and does not gate this work.
+
 This maintenance work does not displace release delivery or concurrent design work.
 
 ## Design language unification

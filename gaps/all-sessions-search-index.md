@@ -8,6 +8,12 @@ sessions; reaching 1024 matches or a text-byte cap stops that session and makes
 the next needle rescan it. Batches rotate among eligible sessions; appends resume at
 saved tails, and catalog changes no longer restart unchanged sessions.
 
+The proposed [provider history architecture](../topics/provider-history-facts.md#consumers-own-their-projections)
+treats this index as a separate downstream consumer. It may reuse source
+identity, generations, locators and reset evidence; search owns its matching
+and indexed-through progress. Source-position indexes do not close this gap,
+and this gap does not block them.
+
 Build the index behind the existing capability/coverage boundary in
 [all-session content search](../topics/all-session-content-search.md). Evaluate
 full substring candidates against token-begin-anchored search, including disk
