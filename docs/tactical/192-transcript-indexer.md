@@ -6,7 +6,10 @@ Status: proposed 2026-11-13, checked against the code at `153768485`.
 Revised the same day after a plan review (Codex `gpt-6.1-sol`, high effort);
 the revision changes the consumer transaction boundary, keeps issue job
 state, keeps projections consumer-specific, and reorders the later steps.
-Not started. The revised plan needs a second review before step 1.
+A second review (Claude `fable-5-2`, the same day, against `68cc52815`) found
+step 1 sound and steps 2, 3 and 6 not implementable as written; its findings
+are in [Second review](#second-review--2026-11-13). Step 1 is implemented.
+Steps 2, 3 and 6 wait for the decisions that section lists.
 
 ## Goal
 
@@ -265,6 +268,45 @@ tolerates.
 No behavior change: issue evidence, coverage states and search results are
 identical before and after on a copy of the maintainer's profile.
 
+Implemented 2026-11-13 as `sessions/transcript-append-source.ts`
+(`readAppendSourceBatch`), with `issue-text-reader.ts` reduced to the
+visible-text projection over it. What the implementation settled:
+
+- **Framing** is `readTranscriptRange` with new optional limits (lines per
+  call, a record-size ceiling that drops a longer line unbuffered, and
+  resuming inside a dropped line). Detail reads pass no limits and are
+  unchanged.
+- **Records are decoded once.** The adapter parses each line and hands it to
+  a per-provider `decode`; a consumer never parses JSON. Codex lines were
+  parsed twice before (`JSON.parse`, then `parseCodexSessionEntry`);
+  `parseCodexSessionEntry` now also accepts an already parsed line.
+- **The cursor is a position, not consumer state.** It holds a digest of
+  the segment layout, the segment index, the byte offset, whether the offset
+  is inside a dropped record, the cumulative skipped-record flag, and a
+  fence: device, inode and SHA-256 digests of the same head and boundary
+  probes `transcript-ingestion` uses, kept as digests so a cursor stays a
+  few hundred bytes when stored per job or sent to a search client. The
+  last message id, which only the issue projection needs for diagnostic
+  anchors, moved out of it into the projection's own wrapper.
+- **Holding a record back** is an adapter option. Codex identifies a user
+  message together with the records after it, so a batch that stops short of
+  the source's end on one leaves it for the next batch. The old reader did
+  this inside its framing loop.
+- **The byte budget counts source bytes examined**, not the probes that
+  check the cursor, and is never less than twice the record ceiling, so a
+  batch that starts at a record always reaches its end or the point where
+  it is dropped.
+- **Deliberate differences** from the old reader, none seen in real data:
+  a line holding a JSON scalar (`null`, a number) is reported as a skipped
+  record for Claude, where `null` was reported and other scalars passed
+  silently; a first line with a byte-order mark parses instead of failing;
+  holding back a Codex user message no longer leaves the cursor marked as
+  inside a dropped record; and a held-back record's offset is taken from
+  its own segment.
+
+The gate was run as a stronger and cheaper check than the profile copy:
+see [Step 1 evidence](#step-1-evidence).
+
 ### 2 — the runner, with issues as the first consumer
 
 Add `transcript_index_queue` and the runner. Port `IssueIndexer` to a
@@ -478,3 +520,156 @@ reach it too. The live path and replay deduplicate by message id.
   and search see them sooner than 300 ms?
 - Should consumer output live in per-session databases from the start, or
   wait for that sketch to be adopted?
+
+## Step 1 evidence
+
+The step's gate names a profile copy served by a second server. What was
+run instead compares the two readers directly, which is what issue evidence,
+coverage states and search results are all computed from: the reader at
+`68cc528150` and the new one each read every local transcript to its end,
+batch by batch, and every batch's messages (id, role, timestamp, text,
+source id), `done`, `partial`, `recordErrors` and diagnostics were compared.
+The stores were read in place and not written. The profile-copy run was
+not done.
+
+| Pass | Files | Bytes | Messages | Identical batch for batch | Same content, batches split elsewhere | Different |
+|---|---:|---:|---:|---:|---:|---:|
+| Claude, 2,000 records a batch (issues) | 7,777 | 5.17 GB | 157,653 | 7,777 | 0 | 0 |
+| Codex, 2,000 records a batch (issues) | 2,850 | 13.16 GB | 143,025 | 2,846 | 4 | 0 |
+| Claude, 128 records a batch (search), every eighth file | 972 | 0.59 GB | 19,146 | 972 | 0 | 0 |
+| Codex, 128 records a batch (search), every eighth file | 356 | 1.88 GB | 17,155 | 356 | 0 | 0 |
+
+299 of the files in the first two passes carry skipped-record diagnostics,
+which match. The four Codex files that split differently are rollouts of
+43 to 512 MB read in the same number of batches: the byte budget no longer
+counts the cursor probes, so a batch bounded by bytes ends a few hundred
+bytes later. Codex ancestor segments (`history_base`) are covered by the
+adapter's tests, not by this corpus run, which read each rollout as a
+single segment. None of the deliberate differences listed under step 1
+occurred in this corpus.
+
+One existing assertion changed: a search tail resume now reads the appended
+record plus four 1 KiB cursor probes (about 4.3 KiB) where the old
+fingerprint read 256 bytes, so its bound moved from 2,000 to 5,000 bytes
+and gained a check against the file's size.
+
+## Second review — 2026-11-13
+
+A read-only review of the revised plan against the code at `68cc528150`.
+Findings marked *checked* were read in the code again after the review;
+the rest are the reviewer's reading and should be confirmed when their step
+is revised. Paths are under `packages/server/src`.
+
+### What blocks step 2 (the runner, issues first)
+
+- **The queue cannot be rebuilt from checkpoints, and seeding drops
+  unfinished jobs** (*checked*). `issue_index_jobs.source_version` is stamped
+  when a job is admitted, before anything is read
+  (`services/issues/IssueStore.ts`, `admitJob`), and `recordJobBatch` only
+  fences on it. A half-read job already equals the catalog's version, so
+  "queue whatever differs from the catalog" skips it. Jobs a crash left in
+  `indexing` return to `queued` only in the indexer's constructor, after the
+  planned migration has seeded the queue from `queued` and `paused`.
+- **Scheduling state would live in two tables with two writers.** The jobs
+  table and the proposed queue share `discovery.sqlite`, so one transaction
+  could cover both, but `commit` opens its own and nesting is refused.
+  One table has to be named authoritative for `queued`, `indexing`, `paused`
+  and `failed`; `indexed`, `partial`, `viewed` and `unsupported` have no
+  queue state at all, and coverage counts read job state.
+- **Capture cannot move behind a `prepare`/`commit` split** (*checked*).
+  `captureChunked` writes through `store.capture` between yields, and
+  capture reads deletion receipts, tracker identity and namespace matches
+  between its writes. Issues are the plan's "idempotent" case: capture
+  stays incremental and `commit` records only the cursor and state.
+- **The consumer interface cannot express the sweep.** It has no hook for
+  changed rows that are ineligible, which is where project ownership
+  updates and `rekeyJob` run; no place for identity projection and the
+  `excluded` retry set; no way for `delete` and `configure` to fence the
+  runner; no "unsupported" outcome; and `commit` lacks the admitted catalog
+  version that `recordJobBatch`, `failJob` and deletion receipts key on.
+  `SessionKey` is undefined, and `(consumer, session_id)` is not unique:
+  catalog identity is family, store and id, while issue jobs use the
+  public id.
+
+### What blocks step 3 (Codex questions)
+
+- **The scan has more readers than the plan removes** (*checked*).
+  `readCodexAsyncQuestions` also runs for complete summaries
+  (`sessions/codex-reader.ts`, two call sites), the summary index stores
+  its result, and `sessions/provider-resolution.ts` treats a cached Codex
+  summary without it as a miss. Deleting the function without giving
+  those callers a by-session read makes every such lookup miss, and
+  contradicts the non-goal that the summary index stays as it is.
+- **Removing the catalog's question pass removes the only retry**
+  (*checked*). A full reconcile retries rows whose `async_questions` is
+  null (`services/session-catalog-sqlite.ts`). Under the plan a row with a
+  current checkpoint and a null column is never queued again. Unarchiving
+  arrives as a metadata event rather than through `readChanges`, and a
+  Claude rewind changes neither the file nor the row version, so the
+  branch-sensitive reset has nothing to trigger it.
+- **`commit` cannot publish.** The catalog's row write is asynchronous,
+  waits for reconciles and replaces whole rows; `commit` is synchronous.
+  Publication needs a hook that runs after the commit.
+- **Rules that differ from the scan.** `omitted` becomes true on reaching
+  128 questions, not on exceeding it (*checked*). A user turn is each
+  `user_message` event or completed user-message item. A repeated message
+  id keeps the newest occurrence, so the fold must replace and clear the
+  answer. "Created after the step ships" cannot be known; the test is a
+  file no longer than the tail. `turns_since_start` accumulates where the
+  scan recounts its tail, so the two agree only at a cold start. Catching
+  up after a long pause is unbounded unless it restarts from the tail. The
+  location of the two new tables is not stated.
+
+### What blocks step 6 (vocabulary)
+
+- Replay deduplicates by a content fingerprint with a floor, not by
+  message id.
+- Replay reads the visible branch. Forward batches include hidden Claude
+  branches, so the step's gate (counts equal to the current replay) cannot
+  pass for Claude.
+- Compaction and relearning reread recent history outside any cursor, and
+  Stop-and-Clear bumps a runtime generation that a static consumer version
+  cannot express. Counts are aggregate, so a per-session `reset` has
+  nothing to retract.
+
+### The fan-out rule
+
+Consumers "at the same cursor" cannot be found by comparing cursor strings:
+the old cursor carried the segment layout, a coverage flag and the issue
+projection's last message id, and a question consumer that starts in the
+tail of the leaf file never shares a layout with an issue consumer that
+walks a fork's ancestors. Step 1 moved the message id out and reduced the
+layout to a digest. Sharing a read still needs positions compared by
+segment file and offset, the skipped-record flag kept by each consumer,
+and a way to mint a starting position ("the first record in the last 2 MiB
+of the leaf") that step 1 does not yet provide.
+
+### Checked and found correct
+
+The reader budgets; that only Claude and Codex implement the batch read;
+the 2 MiB, 32-turn, 128-question and 320-character limits; leaf-only scope;
+that compressed rollouts stay unknown; nearest-preceding answer resolution;
+that the preview persists in the catalog row; that both indexers follow
+`readChanges`; and the description of vocabulary's reads, checkpoint,
+separate database and deferred writer. No conflict with the
+[architecture mandates](../../topics/architecture-mandates.md), provided the
+runner writes nothing for an unchanged row.
+
+### Decision needed before step 2
+
+The findings change the cost of the shared runner more than the value of
+the shared source. Two ways forward:
+
+1. **Keep the runner.** Revise the consumer interface until `IssueIndexer`
+   fits it: an authoritative scheduling table, hooks for ineligible rows,
+   identity and fencing, and outcome states. Most of the work is moving a
+   working indexer for no change in behavior.
+2. **Share the source, not the scheduler** (recommended). Leave
+   `IssueIndexer` as it is, now reading through the step 1 adapter. Build
+   the question fold as a second, small follower of catalog changes that
+   owns its tables and publishes after its commit, and keep the scan's
+   other readers behind a by-session read. Extract a shared runner only
+   when a third consumer shows what the two have in common. This reaches
+   steps 3 to 5 (incremental questions, server-side question state, other
+   providers in issues and search) without step 2.
+

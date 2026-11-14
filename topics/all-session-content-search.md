@@ -399,8 +399,9 @@ line breaks, and whitespace runs are normalized using the preview rules;
 Markdown-delimiter normalization from the index sketch
 is not implemented. Ordinals count normalized visible records.
 
-The native reader's separate `MAX_RECORD = 1048576` limit applies to one raw
-JSONL line in bytes before JSON parsing or text extraction. It is neither a
+The native reader's separate 1,048,576-byte record limit (the append source's
+`RECORD_BYTES`) applies to one raw JSONL line in bytes before JSON parsing or
+text extraction. It is neither a
 total-file size limit nor a limit on the cursor's byte offset. A transcript
 larger than 1 MiB is traversed normally. A larger single record is skipped
 through its newline and scanning continues with partial coverage. One record

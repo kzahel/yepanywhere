@@ -885,12 +885,14 @@ export const CodexSessionEntrySchema = z.discriminatedUnion("type", [
 export type CodexSessionEntry = z.infer<typeof CodexSessionEntrySchema>;
 
 /**
- * Parse a JSONL line from a Codex session file.
- * Returns null if parsing fails.
+ * Parse a JSONL line from a Codex session file, or the value a caller has
+ * already parsed from one. Returns null if parsing fails.
  */
-export function parseCodexSessionEntry(line: string): CodexSessionEntry | null {
+export function parseCodexSessionEntry(
+  line: string | object,
+): CodexSessionEntry | null {
   try {
-    const json = JSON.parse(line);
+    const json: unknown = typeof line === "string" ? JSON.parse(line) : line;
     const result = CodexSessionEntrySchema.safeParse(json);
     if (result.success) {
       return result.data;

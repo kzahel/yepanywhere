@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Stats } from "node:fs";
 import { open, stat } from "node:fs/promises";
 
@@ -31,7 +32,26 @@ export interface TranscriptRange<T> {
   maxLineLength: number;
   readLinesMs: number;
   parseMs: number;
+  /** The range ended inside a line that `maxLineBytes` is dropping. */
+  dropping: boolean;
   appendFence?: TranscriptAppendFence;
+}
+/** Bounds for a reader that takes a source in batches rather than whole. */
+export interface TranscriptRangeLimits {
+  /** Bytes per read; the default suits a range read to its end. */
+  chunkBytes?: number;
+  /**
+   * Stop after this many newline-terminated lines, parsed or dropped.
+   * `sourceBytes` then ends after the last of them and no partial line is
+   * returned.
+   */
+  maxLines?: number;
+  /** A longer line is dropped without being buffered or parsed. */
+  maxLineBytes?: number;
+  /** The range starts inside a line an earlier range began dropping. */
+  dropping?: boolean;
+  /** Called once per dropped line, with the byte offset the line starts at. */
+  dropped?(sourceByteOffset: number): void;
 }
 
 /** Shared byte/newline framing; provider schemas and projections stay in adapters.
@@ -50,7 +70,12 @@ export async function readTranscriptRange<T>(
   ) => T | null,
   initialPartialLine: Buffer = Buffer.alloc(0),
   readStartedAt = Date.now(),
+  limits: TranscriptRangeLimits = {},
 ): Promise<TranscriptRange<T>> {
+  const chunkBytes = limits.chunkBytes ?? CHUNK_BYTES;
+  const maxLineBytes = limits.maxLineBytes ?? Number.POSITIVE_INFINITY;
+  const maxLines = limits.maxLines ?? Number.POSITIVE_INFINITY;
+  let dropping = limits.dropping ?? false;
   const entries: T[] = [];
   let fragments: Buffer[] = initialPartialLine.length
     ? [initialPartialLine]
@@ -82,8 +107,10 @@ export async function readTranscriptRange<T>(
     parseMs += Date.now() - began;
   };
   let consumed = 0;
-  while (consumed < length) {
-    const amount = Math.min(CHUNK_BYTES, length - consumed);
+  // `fragmentBytes` counts the open line's bytes whether or not they are
+  // buffered, so a dropped line still advances `lineOffset` by its length.
+  chunks: while (consumed < length) {
+    const amount = Math.min(chunkBytes, length - consumed);
     const block = await read(filePath, start + consumed, amount);
     if (block.length !== amount)
       throw new Error("Transcript changed during range read");
@@ -93,23 +120,37 @@ export async function readTranscriptRange<T>(
       const newline = block.indexOf(0x0a, from);
       if (newline < 0) break;
       const segment = block.subarray(from, newline);
-      consume(
-        fragments.length
-          ? Buffer.concat(
-              [...fragments, segment],
-              fragmentBytes + segment.length,
-            )
-          : segment,
-      );
-      lineOffset += fragmentBytes + segment.length + 1;
+      const lineBytes = fragmentBytes + segment.length;
+      if (dropping) {
+        dropping = false;
+        lineCount++;
+      } else if (lineBytes > maxLineBytes) {
+        limits.dropped?.(lineOffset);
+        lineCount++;
+      } else
+        consume(
+          fragments.length
+            ? Buffer.concat([...fragments, segment], lineBytes)
+            : segment,
+        );
+      lineOffset += lineBytes + 1;
       fragments = [];
       fragmentBytes = 0;
       from = newline + 1;
+      if (lineCount >= maxLines) {
+        consumed = lineOffset - start;
+        break chunks;
+      }
     }
     if (from < block.length) {
-      const fragment = Buffer.from(block.subarray(from));
-      fragments.push(fragment);
-      fragmentBytes += fragment.length;
+      const rest = block.length - from;
+      if (!dropping && fragmentBytes + rest > maxLineBytes) {
+        limits.dropped?.(lineOffset);
+        dropping = true;
+        fragments = [];
+      }
+      if (!dropping) fragments.push(Buffer.from(block.subarray(from)));
+      fragmentBytes += rest;
     }
   }
   const partialLine = fragments.length
@@ -127,6 +168,7 @@ export async function readTranscriptRange<T>(
     maxLineLength,
     parseMs,
     readLinesMs: Math.max(0, Date.now() - readStartedAt - parseMs),
+    dropping,
   };
 }
 
@@ -210,6 +252,51 @@ export async function captureTranscriptFence(
       Math.min(PROBE_BYTES, stats.size),
     ),
   };
+}
+/** A fence small enough to persist or round-trip: probe digests, not probe bytes. */
+export interface TranscriptFenceDigest {
+  dev: number;
+  ino: number;
+  size: number;
+  head: string;
+  boundary: string;
+}
+export function digestTranscriptFence(
+  fence: TranscriptAppendFence,
+): TranscriptFenceDigest {
+  const digest = (probe: Buffer) =>
+    createHash("sha256").update(probe).digest("base64");
+  return {
+    dev: fence.dev,
+    ino: fence.ino,
+    size: fence.size,
+    head: digest(fence.head),
+    boundary: digest(fence.boundary),
+  };
+}
+/** `isTranscriptPrefix` for a digest: the same probes, compared by hash. */
+export async function isTranscriptPrefixOfDigest(
+  read: TranscriptRangeRead,
+  filePath: string,
+  previous: TranscriptFenceDigest,
+  next: Pick<Stats, "dev" | "ino" | "size">,
+): Promise<boolean> {
+  if (
+    previous.dev !== next.dev ||
+    previous.ino !== next.ino ||
+    next.size < previous.size
+  )
+    return false;
+  const current = digestTranscriptFence(
+    await captureTranscriptFence(read, filePath, {
+      dev: next.dev,
+      ino: next.ino,
+      size: previous.size,
+    }),
+  );
+  return (
+    current.head === previous.head && current.boundary === previous.boundary
+  );
 }
 export async function readObservedTranscriptRange<T>(
   read: TranscriptRangeRead,

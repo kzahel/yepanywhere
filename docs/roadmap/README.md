@@ -1095,6 +1095,11 @@ need a decision: statement reuse under the 64-statement ceiling, WAL for the
 discovery database (about 6% in an experiment), the
 [stall recorder's idle cost](../../gaps/stall-recorder-idle-cost-and-rotation-stall.md),
 and a project refetch on every Codex write.
+The [shared transcript indexer](../tactical/192-transcript-indexer.md) has
+its second review and its first step, one append-source adapter under issue
+indexing and content search, verified against every local transcript. Its
+runner, question and vocabulary steps wait on the decision that review
+records.
 This maintenance work does not displace release delivery or concurrent design work.
 
 ## Design language unification

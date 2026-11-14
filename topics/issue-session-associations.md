@@ -545,8 +545,10 @@ does when a widened recent window or a reopened session admits it again.
 Provider-owned acquisition uses 64 KiB reads, an 8 MiB/2,000-record batch budget,
 a 30-second acquisition deadline and a 1 MiB individual JSONL record limit.
 Oversized/malformed records leave partial coverage. Codex lineage traversal is
-limited to 32 segments. Cursor state tracks source position, lineage layout,
-file identity, modification and a boundary hash. Appends resume; detected rewrites
+limited to 32 segments. Cursor state tracks source position, a digest of the
+lineage layout, file identity, modification and digests of the file's first
+bytes and of the bytes before the position. A cursor written by an older
+reader restarts its session once. Appends resume; detected rewrites
 reset acquisition without erasing historical evidence. Batch limits yield and
 requeue automatically. Provider readers never fall back to full-transcript reads.
 

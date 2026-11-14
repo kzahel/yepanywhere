@@ -1,4 +1,11 @@
-import { mkdtemp, mkdir, writeFile, appendFile, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  appendFile,
+  rm,
+  stat,
+} from "node:fs/promises";
 import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import {
@@ -256,7 +263,10 @@ it("searches cold turns in bounded batches through the mounted route, with role/
   expect(appendedResponse.status).toBe(200);
   const appended = (await appendedResponse.json()) as SessionContentSearchBatch;
   expect(appended.matches.map((match) => match.id)).toEqual(["appended"]);
-  expect(appended.bytesRead).toBeLessThan(2000);
+  // The appended record and the four 1 KiB probes that check and renew the
+  // cursor, not the transcript before it.
+  expect(appended.bytesRead).toBeLessThan(5000);
+  expect(appended.bytesRead).toBeLessThan((await stat(file)).size / 4);
   expect(appended.done).toBe(true);
   await writeFile(file, `${JSON.stringify(entries[0])}\n`);
   row.sourceVersion = "fixture-4";
