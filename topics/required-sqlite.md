@@ -8,10 +8,10 @@
 
 Topic: required-sqlite (commits before 2026-11-09 used `optional-sqlite`)
 
-The proposed [provider history architecture](provider-history-facts.md) inventories
-source facts and consumer queries before adding more history indexes. It keeps
-the adapter/storage rules here and explicitly leaves physical database layout
-to the query and lifecycle audit, including the existing session-scoped sketch.
+[Provider history](provider-history-facts.md) inventories history readers and
+the homes for facts derived from history. The adapter and storage rules stay
+here; rebuildable facts live in the
+[cache database](#rebuildable-cache-database) rather than `discovery.sqlite`.
 
 Verified: 2026-10-11
 
@@ -20,7 +20,8 @@ See also: [YA environment variables](ya-env-vars.md) for `YEP_DATA_DIR`.
 ## Startup policy
 
 The server opens `{dataDir}/discovery.sqlite` once at startup, before any
-service that stores state in it. If it cannot, the server logs one actionable
+service that stores state in it, and the
+[rebuildable cache database](#rebuildable-cache-database) beside it. If it cannot, the server logs one actionable
 `[Startup]` line and exits with a non-zero status. Every failure is fatal:
 
 - the runtime has no SQLite builtin;
@@ -259,6 +260,10 @@ remains in the native file; profile-owned detail acquisition populates the index
 See [Claude acquisition](claude.md#transcript-acquisition-and-retention) and
 [the implementation evidence](../docs/research/190-claude-durable-index.md).
 
+Version 38 drops the version 35 and 36 tables: the Claude transcript index
+moved to the [rebuildable cache database](#rebuildable-cache-database). The
+freed pages stay in the file for reuse; the migration does not vacuum.
+
 Version 36 adds rebuildable Claude node/tool ownership, source-offset lookup,
 pending queues and a semantic task-reducer checkpoint. The profile-owned writer
 updates affected rows and its source header in one transaction; ordinary appends
@@ -297,6 +302,44 @@ restoring a consistent pre-upgrade backup.
 
 Other JSON metadata/caches and OpenCode's independently owned database and
 reader are unaffected.
+
+## Rebuildable cache database
+
+`{dataDir}/cache.sqlite` holds only facts that can be recomputed from provider
+history. It opens at startup beside `discovery.sqlite`, with the same lock
+wait and cache-spill settings, and closes with it. The Claude transcript
+index is its first tenant; new history-derived facts belong here rather than
+in `discovery.sqlite` ([provider history](provider-history-facts.md#where-derived-facts-live)).
+
+Deleting the file while the server is stopped is always safe. Each session's
+facts are rebuilt the next time that session is read; nothing is rebuilt at
+startup.
+
+Its schema is a list of steps in `packages/server/src/storage/cache-sqlite.ts`,
+separate from the discovery migrations and not frozen:
+
+- A plain step alters a database at the previous version and keeps its rows.
+- A rebuild step carries the complete schema. A database older than it is
+  deleted and starts again empty.
+
+Each schema change picks one. Keep rows when the rebuild they save is worth
+the alter statement; rebuild when the tables change shape. Steps before the
+latest rebuild can never run again and may be deleted.
+
+The file is replaced by an empty one, with one `[CacheSqlite]` log line naming
+the reason, when it is foreign, malformed, written by a newer build, older
+than the latest rebuild step, or when a plain step fails. A newer build's
+cache therefore never blocks starting an older build, unlike
+`discovery.sqlite`. A locked file is not replaced, because another process is
+using it; startup fails as it does for a locked discovery database, and it
+also fails when the replacement cannot be created.
+
+One schema version covers the whole file, so a rebuild step discards every
+tenant's facts. Give a tenant its own version or file when that cost becomes
+real.
+
+Durable state never goes in this file: anything a user chose or that cannot
+be recomputed stays in `discovery.sqlite`.
 
 Relay and push broker moved off `better-sqlite3` to this adapter on 2026-09-10,
 so the repository ships no native SQLite addon and needs no compiler on any

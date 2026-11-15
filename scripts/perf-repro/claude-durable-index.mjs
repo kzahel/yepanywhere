@@ -37,16 +37,13 @@ const work = resolve(args.work),
   file = join(native, `${id}.jsonl`);
 const load = (file) => import(pathToFileURL(join(dist, file)).href);
 if (args.phase) {
-  const { openDiscoveryDatabase } = await load("storage/discovery-sqlite.js");
+  const { openCacheDatabase } = await load("storage/cache-sqlite.js");
   const { claudeTranscriptCache, createClaudeTranscriptCache } = await load(
     "sessions/claude-transcript-cache.js",
   );
   const { SessionReader } = await load("sessions/reader.js");
   const { normalizeSession } = await load("sessions/normalization.js");
-  const db = openDiscoveryDatabase({
-    dataDir: profile,
-    probeNetworkFilesystem: () => undefined,
-  });
+  const db = openCacheDatabase({ dataDir: profile });
   const cache =
     args.durable === "1"
       ? createClaudeTranscriptCache(db)
@@ -177,7 +174,7 @@ if (args.phase) {
       "sessions/claude-transcript-cache.js",
       "sessions/claude-durable-index.js",
       "sessions/reader.js",
-      "storage/discovery-sqlite.js",
+      "storage/cache-sqlite.js",
     ];
     const fingerprints = Object.fromEntries(
       files.map((file) => {

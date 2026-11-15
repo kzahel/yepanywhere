@@ -2,7 +2,7 @@ import { mkdtemp, writeFile, appendFile, rm, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { openDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
+import { openCacheDatabase } from "../../src/storage/cache-sqlite.js";
 import {
   createClaudeTranscriptCache,
   ClaudeTranscriptCache,
@@ -28,7 +28,7 @@ import type { UrlProjectId, SessionRewindRecord } from "@yep-anywhere/shared";
 let dir: string,
   file: string,
   cache: ClaudeTranscriptCache,
-  db: ReturnType<typeof openDiscoveryDatabase>,
+  db: ReturnType<typeof openCacheDatabase>,
   seq: number;
 const projectId = "project" as UrlProjectId;
 const jsonl = (rows: unknown[]) =>
@@ -72,10 +72,7 @@ beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "ya-claude-sql-"));
   file = join(dir, "session.jsonl");
   seq = 0;
-  db = openDiscoveryDatabase({
-    dataDir: join(dir, "profile"),
-    probeNetworkFilesystem: () => undefined,
-  });
+  db = openCacheDatabase({ dataDir: join(dir, "profile") });
   cache = createClaudeTranscriptCache(db);
 });
 afterEach(async () => {
@@ -88,10 +85,7 @@ afterEach(async () => {
 async function restart() {
   await cache.close();
   db.close();
-  db = openDiscoveryDatabase({
-    dataDir: join(dir, "profile"),
-    probeNetworkFilesystem: () => undefined,
-  });
+  db = openCacheDatabase({ dataDir: join(dir, "profile") });
   cache = createClaudeTranscriptCache(db);
 }
 async function parity(

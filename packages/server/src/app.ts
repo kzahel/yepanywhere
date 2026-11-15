@@ -1688,7 +1688,7 @@ export function createApp(options: AppOptions): AppResult {
     eventBus: options.eventBus,
   });
   const claudeTranscripts = createClaudeTranscriptCache(
-    discoverySqlite.getDatabase(),
+    discoverySqlite.getCacheDatabase(),
   );
   const closeReader = async (
     key: string,

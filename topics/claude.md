@@ -671,9 +671,10 @@ index or gate its use by conversation consumers.
 
 The app owns one Claude transcript cache and SQL writer per YA profile. Detail
 acquisition persists compact source facts, logical positions, task overlays,
-orphan facts, summary witnesses and rewind context in the existing required
-profile database. It stores no full historical text/media/thinking/tool-output
-copy. Native transcript bytes remain authoritative. No project/provider writes,
+orphan facts, summary witnesses and rewind context in the profile's
+[rebuildable cache database](required-sqlite.md#rebuildable-cache-database).
+It stores no full historical text/media/thinking/tool-output copy. Native
+transcript bytes remain authoritative. No project/provider writes,
 new watcher or background scan is authorized by this index.
 
 After restart or eviction, an unchanged accepted source uses bounded identity/

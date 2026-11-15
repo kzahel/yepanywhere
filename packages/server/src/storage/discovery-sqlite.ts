@@ -1,3 +1,4 @@
+import { CLAUDE_TRANSCRIPT_TO_CACHE_SCHEMA } from "./migrations/038-claude-transcript-to-cache.js";
 import { PROJECT_DISCOVERY_FACTS_SCHEMA } from "./migrations/037-project-discovery-facts.js";
 import { CLAUDE_WRITER_STATE_SCHEMA } from "./migrations/036-claude-writer-state.js";
 import { CLAUDE_TRANSCRIPT_SOURCE_SCHEMA } from "./migrations/035-claude-transcript-source.js";
@@ -32,6 +33,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { SqliteStatus } from "@yep-anywhere/shared";
 import { networkFilesystemName } from "../lib/filesystemKind.js";
+import { openCacheDatabase } from "./cache-sqlite.js";
 import {
   SPEECH_VOCABULARY_SCHEMA,
   SPEECH_VOCABULARY_SET_SCHEMA,
@@ -94,6 +96,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 35, sql: CLAUDE_TRANSCRIPT_SOURCE_SCHEMA },
   { version: 36, sql: CLAUDE_WRITER_STATE_SCHEMA },
   { version: 37, sql: PROJECT_DISCOVERY_FACTS_SCHEMA },
+  { version: 38, sql: CLAUDE_TRANSCRIPT_TO_CACHE_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */
@@ -238,13 +241,26 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The required database connection for one server, owned below the YA data dir. */
+/**
+ * The SQLite connections for one server, owned below the YA data dir: the
+ * required database and the rebuildable cache beside it.
+ */
 export class DiscoverySqliteService {
   private database: SqliteDatabase | undefined;
+  private cache: SqliteDatabase | undefined;
 
-  /** Throws {@link DiscoveryStorageError} when the database cannot be opened. */
+  /** Throws {@link DiscoveryStorageError} when either database cannot be opened. */
   constructor(options: Parameters<typeof openDiscoveryDatabase>[0]) {
     this.database = openDiscoveryDatabase(options);
+    try {
+      this.cache = openCacheDatabase({
+        dataDir: options.dataDir,
+        loadDriver: options.loadDriver,
+      });
+    } catch (error) {
+      this.close();
+      throw new DiscoveryStorageError(errorMessage(error), { cause: error });
+    }
   }
 
   getStatus(): SqliteStatus {
@@ -256,13 +272,22 @@ export class DiscoverySqliteService {
     return this.database;
   }
 
+  /** Rebuildable facts only (`cache-sqlite.ts`); durable state never goes here. */
+  getCacheDatabase(): SqliteDatabase {
+    if (!this.cache) throw new Error("Cache database is closed");
+    return this.cache;
+  }
+
   close(): void {
-    const database = this.database;
+    const databases = [this.database, this.cache];
     this.database = undefined;
-    try {
-      database?.close();
-    } catch (error) {
-      console.warn("[DiscoverySqlite] Close failed:", error);
+    this.cache = undefined;
+    for (const database of databases) {
+      try {
+        database?.close();
+      } catch (error) {
+        console.warn("[DiscoverySqlite] Close failed:", error);
+      }
     }
   }
 }

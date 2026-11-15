@@ -32,14 +32,8 @@ const durableClaude = args["claude-durable"] === "1";
 const indexedClaude = durableClaude || args["claude-indexed"] === "1";
 let afterDatabase;
 if (durableClaude) {
-  const { openDiscoveryDatabase } = await load(
-    "after",
-    "storage/discovery-sqlite.js",
-  );
-  afterDatabase = openDiscoveryDatabase({
-    dataDir: join(out, "profile"),
-    probeNetworkFilesystem: () => undefined,
-  });
+  const { openCacheDatabase } = await load("after", "storage/cache-sqlite.js");
+  afterDatabase = openCacheDatabase({ dataDir: join(out, "profile") });
 }
 const implementations = {};
 for (const build of ["before", "after"]) {
