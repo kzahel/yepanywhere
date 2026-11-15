@@ -566,5 +566,57 @@ Remaining YA work, not implemented:
   checks are unchanged.
 - For remote connections, the inference-origin check requires `https:` and the
   configured host instead of loopback.
-- Settings UI for the URL, Pair, and the pending code.
+- Settings UI for the URL, Pair, and the pending code, as specified below.
+
+#### Hosted router settings (agreed 2026-11-15)
+
+Extend the existing **Settings → Providers → Agent Auth Router** card. After
+pairing, accounts, pools, the New Session selector and binding details behave
+exactly as with a local router.
+
+1. **Choose the router.** The card offers **On this computer** (today's socket
+   flow, unchanged) or **Hosted**. Hosted asks for an HTTPS URL and a **Name**.
+   The name defaults to `Yep Anywhere on <hostname>`, can be edited before
+   connecting, and is what the owner sees in AAR's approval list.
+2. **Connect** runs on the YA server, never in the browser. It reads
+   `/control/v1/info` with normal certificate verification, requires protocol 1
+   and `remote-pairing-v1`, then creates the control credential and sends only
+   its hash to `POST /control/v1/pair`. Failures are specific and plain:
+   unreachable host, certificate not valid for the host, protocol mismatch, or
+   no hosted pairing support.
+3. **Code screen.** It shows the `userCode` prominently, the instruction to
+   open the router's dashboard (Connections → Pair a device), type the code and
+   choose pools, an **Open router dashboard** link to `verificationUri`, an
+   expiry countdown and **Cancel**.
+   - The YA server polls `GET /control/v1/pair/status` at the returned
+     `interval`. The pending request (URL, integration ID, credential, code,
+     expiry) is kept in YA's private server state, so closing the tab or
+     restarting YA resumes waiting. Starting from a phone over the relay works
+     the same way.
+   - On expiry, or if the router dropped the request (a 401 while pending,
+     e.g. after an AAR restart), the screen says the code expired and offers
+     **Get a new code**.
+4. **Connected.** The card shows "Connected to `<host>`" and the router's
+   accounts and pools.
+5. **Later failures.**
+   - Unreachable router: "Can't reach `<host>`" with **Retry**; sessions keep
+     their pins.
+   - Revocation by the router owner (401 for an active pairing): the card says
+     the router removed this computer and offers **Pair again**.
+
+Decisions:
+
+- **One router per YA installation.** Bindings are tied to the router ID, so
+  switching between local and hosted means Disconnect, then pair the new
+  router. Existing routed sessions stay with the old router and are not moved.
+  Multiple simultaneous routers are out of scope.
+- **The owner types the code.** The verification link does not carry the code,
+  so an approval always means the owner typed the code shown on this YA. A
+  prefilled one-tap link with a name confirmation is a possible later
+  convenience, not part of this slice.
+- **The control credential stays on the YA server.** It is a long-lived bearer
+  credential. It lives only in YA's private server state and never appears in
+  browser storage, settings exports, launch metadata, logs or transcripts, in
+  line with the [Secrets](#verification-and-completion-criteria)
+  verification row.
 
