@@ -1,0 +1,24 @@
+# Comment review: scripts/lib, part 1
+
+[Index and review procedure](README.md)
+
+Snapshot: `3fe898ce5`. 16 blocks. Every item starts unreviewed.
+
+Check an item only after recording **remove**, **keep**, or **rewrite/move** and a brief reason. Then apply and verify the corresponding source change.
+
+- [ ] `76a351b729a5de8f` [scripts/lib/css-attribute-hooks.mjs:34](../../../scripts/lib/css-attribute-hooks.mjs#L34) — **unreviewed** — ` /** Emission evidence is syntax, never a selector or an incidental source token. */ `
+- [ ] `2cb78b7948303277` [scripts/lib/css-class-strings.mjs:4](../../../scripts/lib/css-class-strings.mjs#L4) — **unreviewed** — ` /** Follow values into class sinks, including local/imported helpers and maps. */ `
+- [ ] `9e022688278a41c5` [scripts/lib/css-class-strings.mjs:274](../../../scripts/lib/css-class-strings.mjs#L274) — **unreviewed** — ` // Imported CSS module exports are opaque, and their lookup keys aren't classes. `
+- [ ] `0741c87bfa2861f3` [scripts/lib/css-class-strings.mjs:341–342](../../../scripts/lib/css-class-strings.mjs#L341-L342) — **unreviewed** — ` // Enumerate selected values, keeping state/map keys separate from class // dictionary keys. A helper may receive either strings or dictionaries. `
+- [ ] `c58e75728047bd4c` [scripts/lib/css-custom-properties.mjs:1–15](../../../scripts/lib/css-custom-properties.mjs#L1-L15) — **unreviewed** — `` /** * Static inventory of CSS custom properties: which names some source defines, * and where each name is read through `var()`. * * Shared by `scripts/check-css-architecture.mjs` (the undefined-property * ratchet) and the design playground's token page, so both report the same * names. It is a text scan, not a cascade model: a name counts as defined when * any scanned source declares it, wherever that declaration applies. * * Definitions are CSS declarations (`--name:`), `@property --name`, and the * TypeScript forms that set one at runtime: `"--name":` in a style object, * `["--name" as …]`, `setProperty("--name", …)`, `setProperty(NAME, …)` where * the same file declares `const NAME = "--name"`, and `--name:` inside a * string. */ ``
+- [ ] `146ceacb9806175e` [scripts/lib/css-custom-properties.mjs:17–24](../../../scripts/lib/css-custom-properties.mjs#L17-L24) — **unreviewed** — ` /** @typedef {{ path: string, text: string }} SourceText */ /** @typedef {{ path: string, line: number, fallback: boolean }} CustomPropertySite */ /** * @typedef {{ * defined: Set<string>, * uses: Map<string, CustomPropertySite[]>, * }} CustomPropertyScan */ `
+- [ ] `e58861ebe8727a4c` [scripts/lib/css-custom-properties.mjs:40](../../../scripts/lib/css-custom-properties.mjs#L40) — **unreviewed** — ` /** Blank out comments while keeping offsets, so line numbers stay true. */ `
+- [ ] `ce4ef80f0db0996f` [scripts/lib/css-custom-properties.mjs:69–72](../../../scripts/lib/css-custom-properties.mjs#L69-L72) — **unreviewed** — ` /** * @param {readonly SourceText[]} sources * @returns {CustomPropertyScan} */ `
+- [ ] `38819bb830edfa76` [scripts/lib/css-custom-properties.mjs:75](../../../scripts/lib/css-custom-properties.mjs#L75) — **unreviewed** — ` /** @type {Map<string, CustomPropertySite[]>} */ `
+- [ ] `0797f10c5e14aa6a` [scripts/lib/css-custom-properties.mjs:107–111](../../../scripts/lib/css-custom-properties.mjs#L107-L111) — **unreviewed** — `` /** * Names read through `var()` that no scanned source defines, most-used first. * * @param {CustomPropertyScan} scan */ ``
+- [ ] `77fbd4144f5bac8f` [scripts/lib/css-global-purposes.mjs:10](../../../scripts/lib/css-global-purposes.mjs#L10) — **unreviewed** — ` /** Purpose findings are counted individually; wrapper interop is reviewed debt. */ `
+- [ ] `da1155402787e87c` [scripts/lib/css-global-purposes.mjs:41](../../../scripts/lib/css-global-purposes.mjs#L41) — **unreviewed** — ` // Theme/root selectors are global; component-local variables stay owned. `
+- [ ] `d3b55423af82866d` [scripts/lib/css-global-purposes.mjs:82–83](../../../scripts/lib/css-global-purposes.mjs#L82-L83) — **unreviewed** — ` // A React shell is only an anchor, never the styled subject. Tags // beneath a shell describe emitted markdown/HTML, not the shell. `
+- [ ] `aed54410c592f8f2` [scripts/lib/css-global-purposes.mjs:117](../../../scripts/lib/css-global-purposes.mjs#L117) — **unreviewed** — ` /** Validate first, then return a lower-only record; never partially accept growth. */ `
+- [ ] `2ffbe80de51ecdc3` [scripts/lib/simple-client-schema.mjs:1–2](../../../scripts/lib/simple-client-schema.mjs#L1-L2) — **unreviewed** — ` // This emitter supports a closed subset of JSON Schema, not arbitrary schemas. // Reject unimplemented validation keywords instead of producing weaker decoders. `
+- [ ] `77fc548cbe3eaf7d` [scripts/lib/simple-client-schema.mjs:157](../../../scripts/lib/simple-client-schema.mjs#L157) — **unreviewed** — ` // General regex portability is deliberately outside this spike. `

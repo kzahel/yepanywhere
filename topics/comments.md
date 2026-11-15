@@ -2,9 +2,12 @@
 
 Topic: comments
 
-Direction agreed 2026-11-14: comment cleanup is worthwhile. The cleanup workflow
-and any automated gate remain undecided; this does not introduce a blanket
-comment ban or adopt pstack's deletion policy.
+Direction agreed 2026-11-14: comment cleanup is worthwhile. On 2026-11-15 the
+maintainer selected a repository-wide block checklist, suspecting roughly 90%
+of comments may be removable. The [review inventory](../docs/research/comment-review/README.md)
+records the committed snapshot, per-block decisions and extraction limits.
+The estimate is a hypothesis to test through review, not a deletion quota.
+No automated gate or blanket comment ban is adopted.
 
 ## What earns a comment
 
@@ -36,7 +39,7 @@ is insufficient enforcement.
   behavior before changing a suppression; deleting a directive is not a fix
   for the bug it suppresses.
 
-## Cleanup direction and open decision
+## Cleanup workflow
 
 Start with a bounded diff or module and inspect each comment against its code.
 Separate obvious comment-only deletions from behavior changes. When a comment
@@ -50,10 +53,15 @@ The audit found misleading explanations around
 alongside redundant narration. These defects retain their existing owners.
 Comment counts and keyword matches identify candidates, not a quality score.
 
-Open: how to make review repeatable without losing useful constraints or
-creating noisy CI. Candidate approaches are review of changed comments and
-small module sweeps, with mechanical checks only for rules they can reliably
-establish. No bulk cleanup or new gate is implemented by this document.
+Review the inventory in bounded module sweeps, recording remove, keep or
+rewrite/move decisions with brief reasons. Check off a block after its decision
+has been applied and verified. Verify the current source against the snapshot
+before editing, and resolve the inventory's extraction-completeness checks
+before claiming every block has been found. Keep useful constraints under the
+criteria above; measure the resulting removal rate rather than forcing it.
+
+An automated gate remains undecided. Mechanical checks should enforce only
+rules they can reliably establish without creating noisy CI.
 
 ## What pstack contributes
 

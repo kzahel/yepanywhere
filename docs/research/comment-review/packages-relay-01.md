@@ -1,0 +1,353 @@
+# Comment review: packages/relay, part 1
+
+[Index and review procedure](README.md)
+
+Snapshot: `3fe898ce5`. 345 blocks. Every item starts unreviewed.
+
+Check an item only after recording **remove**, **keep**, or **rewrite/move** and a brief reason. Then apply and verify the corresponding source change.
+
+- [ ] `8eae8749081fc848` [packages/relay/src/client-ip.ts:9–12](../../../packages/relay/src/client-ip.ts#L9-L12) — **unreviewed** — ` /** * Parse a comma-separated list of IPs or CIDRs into normalized form. * Silently drops malformed entries. */ `
+- [ ] `65f005f921139f3d` [packages/relay/src/client-ip.ts:25–33](../../../packages/relay/src/client-ip.ts#L25-L33) — **unreviewed** — `` /** * Resolve the real client IP from an upgrade/HTTP request. * * When the immediate peer is one of the trusted proxies, walk * `X-Forwarded-For` from right (most recent) to left (original client), * skipping entries that are themselves trusted proxies. Return the first * non-trusted entry as the client IP. If trustedProxies is empty or the * peer is not trusted, return the socket address unchanged. */ ``
+- [ ] `409b8d7a4a35012c` [packages/relay/src/config.ts:21](../../../packages/relay/src/config.ts#L21) — **unreviewed** — ` /** Port for the relay server (default: 4400) */ `
+- [ ] `f2e2543dacfc0af0` [packages/relay/src/config.ts:23](../../../packages/relay/src/config.ts#L23) — **unreviewed** — ` /** Maximum bytes accepted in one physical WebSocket message. */ `
+- [ ] `567e186f2f434be7` [packages/relay/src/config.ts:25](../../../packages/relay/src/config.ts#L25) — **unreviewed** — ` /** File to write the actual port to after binding (for test harnesses) */ `
+- [ ] `a2af28d3d15a4ce1` [packages/relay/src/config.ts:27](../../../packages/relay/src/config.ts#L27) — **unreviewed** — ` /** Data directory for SQLite database (default: ~/.yep-relay/) */ `
+- [ ] `a88310c0bb793c4b` [packages/relay/src/config.ts:29](../../../packages/relay/src/config.ts#L29) — **unreviewed** — ` /** Ping interval for waiting connections in ms (default: 60000) */ `
+- [ ] `4ecb2b13395c2708` [packages/relay/src/config.ts:31](../../../packages/relay/src/config.ts#L31) — **unreviewed** — ` /** Pong timeout in ms - drop connection if no pong (default: 30000) */ `
+- [ ] `4e7ee805d583e829` [packages/relay/src/config.ts:33](../../../packages/relay/src/config.ts#L33) — **unreviewed** — ` /** Close a pair whose client sends nothing within this window (0 disables). */ `
+- [ ] `4c8c19132acc1018` [packages/relay/src/config.ts:35](../../../packages/relay/src/config.ts#L35) — **unreviewed** — ` /** Days of inactivity before username can be reclaimed (default: 90) */ `
+- [ ] `06b52cc53f1dbf85` [packages/relay/src/config.ts:37](../../../packages/relay/src/config.ts#L37) — **unreviewed** — ` /** Pending unauthenticated WebSocket connections allowed per source IP. */ `
+- [ ] `7bd7e3d03e1f215f` [packages/relay/src/config.ts:39](../../../packages/relay/src/config.ts#L39) — **unreviewed** — ` /** Time allowed for a new WebSocket to send a valid relay protocol message. */ `
+- [ ] `74354cf46b0b03f5` [packages/relay/src/config.ts:41](../../../packages/relay/src/config.ts#L41) — **unreviewed** — ` /** Maximum logical circuits carried by one client mux socket. */ `
+- [ ] `ffa0c41d014ec785` [packages/relay/src/config.ts:43](../../../packages/relay/src/config.ts#L43) — **unreviewed** — ` /** Maximum live mux circuits associated with one effective client IP. */ `
+- [ ] `3bd5b893b6ac9ce0` [packages/relay/src/config.ts:45](../../../packages/relay/src/config.ts#L45) — **unreviewed** — ` /** Maximum circuit-open attempts per minute on one mux socket. */ `
+- [ ] `27583a872d2f6161` [packages/relay/src/config.ts:47](../../../packages/relay/src/config.ts#L47) — **unreviewed** — ` /** Maximum circuit-open attempts per minute from one effective client IP. */ `
+- [ ] `a467cc17250867a4` [packages/relay/src/config.ts:49](../../../packages/relay/src/config.ts#L49) — **unreviewed** — ` /** Maximum circuit-open attempts per minute for one IP/username pair. */ `
+- [ ] `acf7c6daf6629687` [packages/relay/src/config.ts:51](../../../packages/relay/src/config.ts#L51) — **unreviewed** — ` /** Maximum opaque inner payload size accepted by mux. */ `
+- [ ] `a0d9827cb3edf287` [packages/relay/src/config.ts:53](../../../packages/relay/src/config.ts#L53) — **unreviewed** — ` /** Maximum queued relay-to-client bytes for one mux circuit. */ `
+- [ ] `9df4cb4a11736006` [packages/relay/src/config.ts:55](../../../packages/relay/src/config.ts#L55) — **unreviewed** — ` /** Maximum queued relay-to-client bytes for one physical mux socket. */ `
+- [ ] `265c4ebeaa957260` [packages/relay/src/config.ts:57](../../../packages/relay/src/config.ts#L57) — **unreviewed** — ` /** Physical socket bufferedAmount threshold before mux queues writes. */ `
+- [ ] `0e4a2f07b7d76fbd` [packages/relay/src/config.ts:59](../../../packages/relay/src/config.ts#L59) — **unreviewed** — ` /** Maximum lifetime of a mux socket with no circuits. */ `
+- [ ] `9a3e9a231a85a66a` [packages/relay/src/config.ts:61–67](../../../packages/relay/src/config.ts#L61-L67) — **unreviewed** — `` /** * IPs/CIDRs whose `X-Forwarded-For` header is trusted when resolving the * client IP for the per-IP unauthenticated-connection cap. Empty by default * (use only the direct socket peer). Set this to the reverse proxy's IP * when running behind nginx/Caddy/Cloudflare; otherwise the per-IP cap * collapses into a single global counter. */ ``
+- [ ] `1b6be9e3d2387803` [packages/relay/src/config.ts:69](../../../packages/relay/src/config.ts#L69) — **unreviewed** — ` /** Browser origins allowed to use the public relay websocket/HTTP endpoints. */ `
+- [ ] `90ebd15df5519c42` [packages/relay/src/config.ts:71](../../../packages/relay/src/config.ts#L71) — **unreviewed** — ` /** Logging configuration */ `
+- [ ] `b9a86429aa453e2c` [packages/relay/src/config.ts:73](../../../packages/relay/src/config.ts#L73) — **unreviewed** — ` /** Structured relay telemetry configuration */ `
+- [ ] `8268c13180b717cc` [packages/relay/src/connections.ts:36](../../../packages/relay/src/connections.ts#L36) — **unreviewed** — ` /** Stable object identity used to route and close this logical client. */ `
+- [ ] `d9bc9ff0b6be548c` [packages/relay/src/connections.ts:45](../../../packages/relay/src/connections.ts#L45) — **unreviewed** — ` /** Armed until the client forwards its first frame. */ `
+- [ ] `830d1080673015fa` [packages/relay/src/connections.ts:50–54](../../../packages/relay/src/connections.ts#L50-L54) — **unreviewed** — ` /** * Close a pair whose client sends nothing within this window (0 disables). * The server learns of a claim only from the client's first frame, so a * silent client would otherwise leave the server unreachable. */ `
+- [ ] `fa78edbf1ab4841d` [packages/relay/src/connections.ts:56](../../../packages/relay/src/connections.ts#L56) — **unreviewed** — ` /** Called after a silent pair is closed. */ `
+- [ ] `013a04ce98cf2cd2` [packages/relay/src/connections.ts:62](../../../packages/relay/src/connections.ts#L62) — **unreviewed** — ` /** Production wiring: time out silent pairs and record each one. */ `
+- [ ] `47dc1354a2723617` [packages/relay/src/connections.ts:104–112](../../../packages/relay/src/connections.ts#L104-L112) — **unreviewed** — ` /** * Manages WebSocket connections for the relay. * * Responsibilities: * - Track waiting server connections (one per username) * - Match clients to waiting servers * - Forward messages between paired connections * - Clean up on disconnect */ `
+- [ ] `c92a189072a5a720` [packages/relay/src/connections.ts:114](../../../packages/relay/src/connections.ts#L114) — **unreviewed** — ` /** Waiting server connections by username/channel. */ `
+- [ ] `893bb47857a7600f` [packages/relay/src/connections.ts:116](../../../packages/relay/src/connections.ts#L116) — **unreviewed** — ` /** Active server/client pairs */ `
+- [ ] `6be3e1cf3190965d` [packages/relay/src/connections.ts:118](../../../packages/relay/src/connections.ts#L118) — **unreviewed** — ` /** Lookup from server WebSocket or logical client identity to its pair. */ `
+- [ ] `4be4284710dc801d` [packages/relay/src/connections.ts:120](../../../packages/relay/src/connections.ts#L120) — **unreviewed** — ` /** Active server connections keyed by the server WebSocket. */ `
+- [ ] `02e8664c940fc817` [packages/relay/src/connections.ts:122](../../../packages/relay/src/connections.ts#L122) — **unreviewed** — ` /** Registry for username validation */ `
+- [ ] `ad993fd4c7856e5f` [packages/relay/src/connections.ts:134–141](../../../packages/relay/src/connections.ts#L134-L141) — **unreviewed** — ` /** * Register a server's waiting connection. * * @param ws - The WebSocket connection * @param username - Username to register * @param installId - Installation ID for ownership verification * @returns Registration result */ `
+- [ ] `fa0e7731e55e858c` [packages/relay/src/connections.ts:149](../../../packages/relay/src/connections.ts#L149) — **unreviewed** — ` // Validate username format `
+- [ ] `a75113707ede0ca5` [packages/relay/src/connections.ts:154](../../../packages/relay/src/connections.ts#L154) — **unreviewed** — ` // Check registry (persistent ownership) `
+- [ ] `3e2f51abe7024c76` [packages/relay/src/connections.ts:159](../../../packages/relay/src/connections.ts#L159) — **unreviewed** — ` // Register in persistent storage `
+- [ ] `0d32b4921f4e6667` [packages/relay/src/connections.ts:166](../../../packages/relay/src/connections.ts#L166) — **unreviewed** — ` // Close existing waiting connection for this username/channel (same installId reconnecting) `
+- [ ] `2d14af0d5391b748` [packages/relay/src/connections.ts:173](../../../packages/relay/src/connections.ts#L173) — **unreviewed** — ` // Ignore close errors `
+- [ ] `0112006b8d472054` [packages/relay/src/connections.ts:177](../../../packages/relay/src/connections.ts#L177) — **unreviewed** — ` // Store as waiting connection `
+- [ ] `6fc6e1dfce51af46` [packages/relay/src/connections.ts:197–203](../../../packages/relay/src/connections.ts#L197-L203) — **unreviewed** — ` /** * Connect a client to a waiting server. * * @param ws - The client WebSocket connection * @param username - Username to connect to * @returns Connection result with server WebSocket on success */ `
+- [ ] `2878a5884a4497e8` [packages/relay/src/connections.ts:229](../../../packages/relay/src/connections.ts#L229) — **unreviewed** — ` // Check if username is registered at all `
+- [ ] `f8d79e440592749a` [packages/relay/src/connections.ts:234](../../../packages/relay/src/connections.ts#L234) — **unreviewed** — ` // Check if server is currently online (has a waiting connection) `
+- [ ] `9674ae7288f5f31c` [packages/relay/src/connections.ts:241](../../../packages/relay/src/connections.ts#L241) — **unreviewed** — ` // Remove from waiting map (server is now paired) `
+- [ ] `a4e2964d8475c3e6` [packages/relay/src/connections.ts:248](../../../packages/relay/src/connections.ts#L248) — **unreviewed** — ` // Create pair `
+- [ ] `95b66d7277f9330c` [packages/relay/src/connections.ts:262](../../../packages/relay/src/connections.ts#L262) — **unreviewed** — ` // Update last seen for the username `
+- [ ] `e1230dc7bf8dd120` [packages/relay/src/connections.ts:268–275](../../../packages/relay/src/connections.ts#L268-L275) — **unreviewed** — ` /** * Forward data from one WebSocket to its pair. * Preserves frame type (text vs binary) by using the isBinary flag. * * @param source - Source server WebSocket or logical client identity * @param data - Data to forward (Buffer from ws library) * @param isBinary - Whether the data was received as a binary frame */ `
+- [ ] `e238b458bbe7d74b` [packages/relay/src/connections.ts:279](../../../packages/relay/src/connections.ts#L279) — **unreviewed** — ` // Not paired, ignore `
+- [ ] `48052378914f932e` [packages/relay/src/connections.ts:290](../../../packages/relay/src/connections.ts#L290) — **unreviewed** — ` // Ignore send errors (connection may have closed) `
+- [ ] `ef651c81d225dd7b` [packages/relay/src/connections.ts:294–301](../../../packages/relay/src/connections.ts#L294-L301) — **unreviewed** — ` /** * Handle WebSocket close event. * Cleans up waiting/paired state and closes the other end if paired. * * @param ws - The WebSocket that closed * @param username - Username associated with this connection (if known) * @returns true if a pair was disconnected, false otherwise */ `
+- [ ] `1650db9b73bcef7a` [packages/relay/src/connections.ts:303](../../../packages/relay/src/connections.ts#L303) — **unreviewed** — ` // Check if this was a waiting connection `
+- [ ] `cbad9565ab301f8f` [packages/relay/src/connections.ts:312](../../../packages/relay/src/connections.ts#L312) — **unreviewed** — ` // Check if this was part of a pair `
+- [ ] `747f701ac307ec5a` [packages/relay/src/connections.ts:322](../../../packages/relay/src/connections.ts#L322) — **unreviewed** — ` // Close the other end `
+- [ ] `6a86453be17e9de1` [packages/relay/src/connections.ts:330](../../../packages/relay/src/connections.ts#L330) — **unreviewed** — ` // Ignore close errors `
+- [ ] `cb4f66412e18926d` [packages/relay/src/connections.ts:356](../../../packages/relay/src/connections.ts#L356) — **unreviewed** — ` // Ignore close errors `
+- [ ] `5d4df77ca85b2f00` [packages/relay/src/connections.ts:365](../../../packages/relay/src/connections.ts#L365) — **unreviewed** — ` /** Release the server so it can register a fresh waiting connection. */ `
+- [ ] `27dc1c68d51b9990` [packages/relay/src/connections.ts:372](../../../packages/relay/src/connections.ts#L372) — **unreviewed** — ` // Ignore close errors `
+- [ ] `68f5580ed7ce0177` [packages/relay/src/connections.ts:377–379](../../../packages/relay/src/connections.ts#L377-L379) — **unreviewed** — ` /** * Check if a WebSocket is currently paired. */ `
+- [ ] `1947f80fb95603c7` [packages/relay/src/connections.ts:384–386](../../../packages/relay/src/connections.ts#L384-L386) — **unreviewed** — ` /** * Check if a WebSocket is waiting for a client. */ `
+- [ ] `47636d4d66dca434` [packages/relay/src/connections.ts:412–414](../../../packages/relay/src/connections.ts#L412-L414) — **unreviewed** — ` /** * Check if a username has a server waiting for a client. */ `
+- [ ] `ba3d2dbd10f7e96b` [packages/relay/src/connections.ts:422–424](../../../packages/relay/src/connections.ts#L422-L424) — **unreviewed** — ` /** * Get the number of waiting connections. */ `
+- [ ] `e09f574f7ee3d63d` [packages/relay/src/connections.ts:429–431](../../../packages/relay/src/connections.ts#L429-L431) — **unreviewed** — ` /** * Get the number of active pairs. */ `
+- [ ] `9880dcc33e8f5a6f` [packages/relay/src/connections.ts:436–438](../../../packages/relay/src/connections.ts#L436-L438) — **unreviewed** — ` /** * Get all waiting usernames (for debugging/admin). */ `
+- [ ] `776245c981ac5110` [packages/relay/src/connections.ts:449–451](../../../packages/relay/src/connections.ts#L449-L451) — **unreviewed** — ` /** * Get all active server registrations, including paired connections. */ `
+- [ ] `3bdbd7eca3415407` [packages/relay/src/connections.ts:460–462](../../../packages/relay/src/connections.ts#L460-L462) — **unreviewed** — ` /** * Summarize active server compatibility metadata for observability. */ `
+- [ ] `b237b68f7d6eb86c` [packages/relay/src/db.ts:19–24](../../../packages/relay/src/db.ts#L19-L24) — **unreviewed** — ` /** * Creates and initializes the SQLite database for username registry. * * Schema: * - usernames: Maps usernames to installation IDs with timestamps */ `
+- [ ] `67527a3562cf0cea` [packages/relay/src/db.ts:26](../../../packages/relay/src/db.ts#L26) — **unreviewed** — ` // Ensure data directory exists `
+- [ ] `b5ac3d619df6b6cb` [packages/relay/src/db.ts:33](../../../packages/relay/src/db.ts#L33) — **unreviewed** — ` // WAL mode gives better concurrent read performance `
+- [ ] `35b4694a31ba1e3c` [packages/relay/src/db.ts:40–42](../../../packages/relay/src/db.ts#L40-L42) — **unreviewed** — ` /** * Creates an in-memory database for testing. */ `
+- [ ] `a39ab03eee4994f6` [packages/relay/src/index.ts:29](../../../packages/relay/src/index.ts#L29) — **unreviewed** — ` // Initialize logger with file logging enabled by default `
+- [ ] `f3fc341ce22ece08` [packages/relay/src/index.ts:49](../../../packages/relay/src/index.ts#L49) — **unreviewed** — ` // Initialize database and registry `
+- [ ] `642d41e062d94612` [packages/relay/src/index.ts:53](../../../packages/relay/src/index.ts#L53) — **unreviewed** — ` // Run reclamation on startup `
+- [ ] `74e900fccfa731b4` [packages/relay/src/index.ts:64](../../../packages/relay/src/index.ts#L64) — **unreviewed** — ` // Create connection manager `
+- [ ] `cc73b9c2f5d8f352` [packages/relay/src/index.ts:70](../../../packages/relay/src/index.ts#L70) — **unreviewed** — ` // Create Hono app for HTTP endpoints `
+- [ ] `41598a3137642975` [packages/relay/src/index.ts:73](../../../packages/relay/src/index.ts#L73) — **unreviewed** — ` // Add CORS for browser clients `
+- [ ] `8362e4fbd4c87506` [packages/relay/src/index.ts:83](../../../packages/relay/src/index.ts#L83) — **unreviewed** — ` // Health check endpoint `
+- [ ] `cf53ad66539a47ef` [packages/relay/src/index.ts:94](../../../packages/relay/src/index.ts#L94) — **unreviewed** — ` // Status endpoint with more details `
+- [ ] `f5290c67bd86c19c` [packages/relay/src/index.ts:123](../../../packages/relay/src/index.ts#L123) — **unreviewed** — ` // Check if a specific username has a server online (waiting for client) `
+- [ ] `2997edc387344fbf` [packages/relay/src/index.ts:130](../../../packages/relay/src/index.ts#L130) — **unreviewed** — ` // Create WebSocket handler `
+- [ ] `36dc56a0494e43de` [packages/relay/src/index.ts:162](../../../packages/relay/src/index.ts#L162) — **unreviewed** — ` // Create HTTP server with Hono `
+- [ ] `7c5547d6f96b1ea8` [packages/relay/src/index.ts:166–167](../../../packages/relay/src/index.ts#L166-L167) — **unreviewed** — ` // Create WebSocket server attached to the HTTP server, but with noServer // so we can manually handle upgrades for the supported relay paths. `
+- [ ] `4a8fb473b2df5871` [packages/relay/src/index.ts:173](../../../packages/relay/src/index.ts#L173) — **unreviewed** — ` // Handle WebSocket connections `
+- [ ] `3c077894250061f8` [packages/relay/src/index.ts:215](../../../packages/relay/src/index.ts#L215) — **unreviewed** — ` // Handle HTTP upgrade requests for WebSocket `
+- [ ] `2b7bc6600aa11111` [packages/relay/src/index.ts:240](../../../packages/relay/src/index.ts#L240) — **unreviewed** — ` // Upgrade to WebSocket `
+- [ ] `12ca6cdc15df9572` [packages/relay/src/index.ts:254](../../../packages/relay/src/index.ts#L254) — **unreviewed** — ` // Start the server `
+- [ ] `efd3c5bf8d13cc1e` [packages/relay/src/index.ts:256](../../../packages/relay/src/index.ts#L256) — **unreviewed** — ` // Get the actual port (important when binding to port 0) `
+- [ ] `2a64b96e2af55940` [packages/relay/src/index.ts:261](../../../packages/relay/src/index.ts#L261) — **unreviewed** — ` // Write port to file if requested (for test harnesses) `
+- [ ] `20c4591a6eee62d9` [packages/relay/src/index.ts:274](../../../packages/relay/src/index.ts#L274) — **unreviewed** — ` // Graceful shutdown `
+- [ ] `cd98b1bea18138f5` [packages/relay/src/index.ts:278](../../../packages/relay/src/index.ts#L278) — **unreviewed** — ` // Close all WebSocket connections first `
+- [ ] `73f021e00e3c3127` [packages/relay/src/index.ts:283](../../../packages/relay/src/index.ts#L283) — **unreviewed** — ` // Ignore errors `
+- [ ] `221350644c57d985` [packages/relay/src/index.ts:286](../../../packages/relay/src/index.ts#L286) — **unreviewed** — ` // Give connections a moment to close gracefully, then force exit `
+- [ ] `eaafb1ce777827bc` [packages/relay/src/logger.ts:5–7](../../../packages/relay/src/logger.ts#L5-L7) — **unreviewed** — ` /** * Valid log levels. */ `
+- [ ] `47d8224de5def2c6` [packages/relay/src/logger.ts:20](../../../packages/relay/src/logger.ts#L20) — **unreviewed** — ` /** Directory for log files */ `
+- [ ] `155491b4006488ba` [packages/relay/src/logger.ts:22](../../../packages/relay/src/logger.ts#L22) — **unreviewed** — ` /** Log filename. Default: relay.log */ `
+- [ ] `37631955a504fa8f` [packages/relay/src/logger.ts:24](../../../packages/relay/src/logger.ts#L24) — **unreviewed** — ` /** Minimum log level for console. Default: info */ `
+- [ ] `4681e03423e3a8df` [packages/relay/src/logger.ts:26](../../../packages/relay/src/logger.ts#L26) — **unreviewed** — ` /** Minimum log level for file. Default: info */ `
+- [ ] `05e51e8829342284` [packages/relay/src/logger.ts:28](../../../packages/relay/src/logger.ts#L28) — **unreviewed** — ` /** Also log to console. Default: true */ `
+- [ ] `c9cff627b54f3f11` [packages/relay/src/logger.ts:30](../../../packages/relay/src/logger.ts#L30) — **unreviewed** — ` /** Log to file. Default: true */ `
+- [ ] `a5a5a21af87a9c9d` [packages/relay/src/logger.ts:32](../../../packages/relay/src/logger.ts#L32) — **unreviewed** — ` /** Use pretty printing for console. Default: true in dev */ `
+- [ ] `72d72d611e2674fb` [packages/relay/src/logger.ts:36–38](../../../packages/relay/src/logger.ts#L36-L38) — **unreviewed** — ` /** * Get the minimum (most verbose) of two log levels. */ `
+- [ ] `5b81063ecb7b8609` [packages/relay/src/logger.ts:52–54](../../../packages/relay/src/logger.ts#L52-L54) — **unreviewed** — ` /** * Create a logger with the given configuration. */ `
+- [ ] `5ab596ac64b81718` [packages/relay/src/logger.ts:56](../../../packages/relay/src/logger.ts#L56) — **unreviewed** — ` // Ensure log directory exists `
+- [ ] `ab3d0abe5d27907e` [packages/relay/src/logger.ts:63](../../../packages/relay/src/logger.ts#L63) — **unreviewed** — ` // Console stream `
+- [ ] `c47747aa07784e7e` [packages/relay/src/logger.ts:66](../../../packages/relay/src/logger.ts#L66) — **unreviewed** — ` // Use pino-pretty for development `
+- [ ] `de408ce7801143b6` [packages/relay/src/logger.ts:87](../../../packages/relay/src/logger.ts#L87) — **unreviewed** — ` // File stream `
+- [ ] `8693bf367570a77b` [packages/relay/src/logger.ts:100](../../../packages/relay/src/logger.ts#L100) — **unreviewed** — ` // Determine minimum level across all streams (pino needs base level <= stream levels) `
+- [ ] `46e1bb09ac200629` [packages/relay/src/logger.ts:104](../../../packages/relay/src/logger.ts#L104) — **unreviewed** — ` // No streams configured, use a silent logger `
+- [ ] `b8f4164891e4e9ef` [packages/relay/src/origin-policy.ts:132](../../../packages/relay/src/origin-policy.ts#L132) — **unreviewed** — ` // URL.origin is "null" for this scheme; compare the validated spelling. `
+- [ ] `bb917c4c3bf6565c` [packages/relay/src/registry.ts:14–22](../../../packages/relay/src/registry.ts#L14-L22) — **unreviewed** — ` /** * Username registry backed by SQLite. * * Manages username ownership: * - First-come-first-served registration * - Same installId can reclaim their username * - Different installId is rejected * - Inactive usernames can be reclaimed after N days */ `
+- [ ] `d160049e7d14cacf` [packages/relay/src/registry.ts:25–29](../../../packages/relay/src/registry.ts#L25-L29) — **unreviewed** — ` /** * One prepared statement per distinct SQL, reused for the registry's life. * Preparing per call repeats SQLite's parse and plan work on every request, * and under Bun each statement also stays alive until the database closes. */ `
+- [ ] `9d0a663c75cbc158` [packages/relay/src/registry.ts:45–50](../../../packages/relay/src/registry.ts#L45-L50) — **unreviewed** — ` /** * Check if a username can be registered by the given installId. * Returns true if: * - Username is not registered, or * - Username is registered to this installId */ `
+- [ ] `4bd60d7ed437351c` [packages/relay/src/registry.ts:61](../../../packages/relay/src/registry.ts#L61) — **unreviewed** — ` // Not registered `
+- [ ] `24c59a86f552e4f1` [packages/relay/src/registry.ts:64](../../../packages/relay/src/registry.ts#L64) — **unreviewed** — ` // Same owner `
+- [ ] `5f0aadf5bb57ed3d` [packages/relay/src/registry.ts:67–72](../../../packages/relay/src/registry.ts#L67-L72) — **unreviewed** — ` /** * Register or update a username claim. * Updates last_seen_at on every call. * * @returns true if registration succeeded, false if username is taken by another installId */ `
+- [ ] `e1b2f0ec3d732cd6` [packages/relay/src/registry.ts:80](../../../packages/relay/src/registry.ts#L80) — **unreviewed** — ` // Check existing registration `
+- [ ] `7b51114cd0cec7df` [packages/relay/src/registry.ts:87](../../../packages/relay/src/registry.ts#L87) — **unreviewed** — ` // Different owner `
+- [ ] `e0bd1b124acadbef` [packages/relay/src/registry.ts:90](../../../packages/relay/src/registry.ts#L90) — **unreviewed** — ` // Update last_seen_at for existing owner `
+- [ ] `0c9e914024a9f24a` [packages/relay/src/registry.ts:97](../../../packages/relay/src/registry.ts#L97) — **unreviewed** — ` // New registration `
+- [ ] `16a0900020878041` [packages/relay/src/registry.ts:104–107](../../../packages/relay/src/registry.ts#L104-L107) — **unreviewed** — ` /** * Update last_seen_at timestamp for a username. * Called on activity to prevent reclamation. */ `
+- [ ] `8f9a1fa2f8b92d4b` [packages/relay/src/registry.ts:115–117](../../../packages/relay/src/registry.ts#L115-L117) — **unreviewed** — ` /** * Get a username record. */ `
+- [ ] `db73f0ae8933cc97` [packages/relay/src/registry.ts:124–126](../../../packages/relay/src/registry.ts#L124-L126) — **unreviewed** — ` /** * Check if a username is registered (by any installId). */ `
+- [ ] `625f9c5ba6e47f33` [packages/relay/src/registry.ts:134–137](../../../packages/relay/src/registry.ts#L134-L137) — **unreviewed** — ` /** * Delete usernames that haven't been seen in N days. * Returns the number of deleted records. */ `
+- [ ] `0001596afbb1483e` [packages/relay/src/registry.ts:150–153](../../../packages/relay/src/registry.ts#L150-L153) — **unreviewed** — ` /** * Delete a username registration. * Used for testing or administrative cleanup. */ `
+- [ ] `ff2a954fbc7a2bec` [packages/relay/src/registry.ts:161–163](../../../packages/relay/src/registry.ts#L161-L163) — **unreviewed** — ` /** * Get all registered usernames (for debugging/admin). */ `
+- [ ] `c8d20324b99d5057` [packages/relay/src/registry.ts:170–172](../../../packages/relay/src/registry.ts#L170-L172) — **unreviewed** — ` /** * Get the count of registered usernames. */ `
+- [ ] `a9059e5c5ab3def8` [packages/relay/src/registry.ts:177](../../../packages/relay/src/registry.ts#L177) — **unreviewed** — ` // COUNT(*) always yields a row; treat its absence as an empty registry. `
+- [ ] `44d65890f96c6d12` [packages/relay/src/server.ts:1–6](../../../packages/relay/src/server.ts#L1-L6) — **unreviewed** — ` /** * Relay server factory for both production and testing use. * * Exports a createRelayServer function that returns a fully configured * server instance that can be started on any port. */ `
+- [ ] `21c265be8b0f1e93` [packages/relay/src/server.ts:45](../../../packages/relay/src/server.ts#L45) — **unreviewed** — ` /** Port to listen on (default: 0 for random available port) */ `
+- [ ] `698045013e1e7594` [packages/relay/src/server.ts:47](../../../packages/relay/src/server.ts#L47) — **unreviewed** — ` /** Maximum bytes accepted in one physical WebSocket message. */ `
+- [ ] `33c364f59c2a4c37` [packages/relay/src/server.ts:49](../../../packages/relay/src/server.ts#L49) — **unreviewed** — ` /** Data directory for SQLite database (default: in-memory for testing) */ `
+- [ ] `4c6a2fb78f1f5afd` [packages/relay/src/server.ts:51](../../../packages/relay/src/server.ts#L51) — **unreviewed** — ` /** Use in-memory database for testing */ `
+- [ ] `91c62667c047a09c` [packages/relay/src/server.ts:53](../../../packages/relay/src/server.ts#L53) — **unreviewed** — ` /** Log level (default: warn) */ `
+- [ ] `24b92bcc60624579` [packages/relay/src/server.ts:55](../../../packages/relay/src/server.ts#L55) — **unreviewed** — ` /** Ping interval for waiting connections in ms (default: 60000) */ `
+- [ ] `a0aaf7e55ebd8cd2` [packages/relay/src/server.ts:57](../../../packages/relay/src/server.ts#L57) — **unreviewed** — ` /** Pong timeout in ms (default: 30000) */ `
+- [ ] `412326c3c554f74a` [packages/relay/src/server.ts:60](../../../packages/relay/src/server.ts#L60) — **unreviewed** — ` /** Days of inactivity before username can be reclaimed (default: 90) */ `
+- [ ] `5a426ad7c7831f11` [packages/relay/src/server.ts:62](../../../packages/relay/src/server.ts#L62) — **unreviewed** — ` /** Disable pretty printing (for tests) */ `
+- [ ] `732859fdb3c695d4` [packages/relay/src/server.ts:64](../../../packages/relay/src/server.ts#L64) — **unreviewed** — ` /** Structured telemetry directory override */ `
+- [ ] `9eeabe61198ec9d4` [packages/relay/src/server.ts:66](../../../packages/relay/src/server.ts#L66) — **unreviewed** — ` /** Structured telemetry sampling interval override */ `
+- [ ] `e267e0431da6e2d4` [packages/relay/src/server.ts:68](../../../packages/relay/src/server.ts#L68) — **unreviewed** — ` /** Structured telemetry node ID override */ `
+- [ ] `525f0f335fe5ccbe` [packages/relay/src/server.ts:70](../../../packages/relay/src/server.ts#L70) — **unreviewed** — ` /** Disable structured telemetry */ `
+- [ ] `892f7a016f4d7526` [packages/relay/src/server.ts:72](../../../packages/relay/src/server.ts#L72) — **unreviewed** — ` /** Pending unauthenticated WebSocket connections allowed per source IP. */ `
+- [ ] `129274a96950fa9c` [packages/relay/src/server.ts:74](../../../packages/relay/src/server.ts#L74) — **unreviewed** — ` /** Time allowed for a new WebSocket to send a valid relay protocol message. */ `
+- [ ] `49dd8e71065f3f3e` [packages/relay/src/server.ts:76](../../../packages/relay/src/server.ts#L76) — **unreviewed** — ` /** Maximum logical circuits carried by one client mux socket. */ `
+- [ ] `93f44ae5a6d722da` [packages/relay/src/server.ts:78](../../../packages/relay/src/server.ts#L78) — **unreviewed** — ` /** Maximum live mux circuits associated with one effective client IP. */ `
+- [ ] `4f11827ff28b94b4` [packages/relay/src/server.ts:80](../../../packages/relay/src/server.ts#L80) — **unreviewed** — ` /** Maximum circuit-open attempts per minute on one mux socket. */ `
+- [ ] `02ecb1d1d7081ed8` [packages/relay/src/server.ts:82](../../../packages/relay/src/server.ts#L82) — **unreviewed** — ` /** Maximum circuit-open attempts per minute from one effective client IP. */ `
+- [ ] `8203b7a254b21439` [packages/relay/src/server.ts:84](../../../packages/relay/src/server.ts#L84) — **unreviewed** — ` /** Maximum circuit-open attempts per minute for one IP/username pair. */ `
+- [ ] `6c3ad7da2d4ea2ae` [packages/relay/src/server.ts:86](../../../packages/relay/src/server.ts#L86) — **unreviewed** — ` /** Maximum opaque inner payload size accepted by mux. */ `
+- [ ] `03d0edd024096269` [packages/relay/src/server.ts:88](../../../packages/relay/src/server.ts#L88) — **unreviewed** — ` /** Maximum queued relay-to-client bytes for one mux circuit. */ `
+- [ ] `a0bc4f1e360ba1e2` [packages/relay/src/server.ts:90](../../../packages/relay/src/server.ts#L90) — **unreviewed** — ` /** Maximum queued relay-to-client bytes for one physical mux socket. */ `
+- [ ] `d9522c35bda1a7b5` [packages/relay/src/server.ts:92](../../../packages/relay/src/server.ts#L92) — **unreviewed** — ` /** Physical socket bufferedAmount threshold before mux queues writes. */ `
+- [ ] `54bcc0af5d9f62ed` [packages/relay/src/server.ts:94](../../../packages/relay/src/server.ts#L94) — **unreviewed** — ` /** Maximum lifetime of a mux socket with no circuits. */ `
+- [ ] `076e540f7c7888f8` [packages/relay/src/server.ts:96–99](../../../packages/relay/src/server.ts#L96-L99) — **unreviewed** — `` /** * Comma-separated list of IPs/CIDRs whose `X-Forwarded-For` is trusted * for client-IP resolution. Default: none. */ ``
+- [ ] `08fa744a1932eab8` [packages/relay/src/server.ts:101](../../../packages/relay/src/server.ts#L101) — **unreviewed** — ` /** Comma-separated browser Origin allowlist for relay HTTP/WS access. */ `
+- [ ] `05401bfe5090b59a` [packages/relay/src/server.ts:106](../../../packages/relay/src/server.ts#L106) — **unreviewed** — ` /** The underlying HTTP server */ `
+- [ ] `b56fd7f09571ed3c` [packages/relay/src/server.ts:108](../../../packages/relay/src/server.ts#L108) — **unreviewed** — ` /** The WebSocket server */ `
+- [ ] `dfa04fd63bafae23` [packages/relay/src/server.ts:110](../../../packages/relay/src/server.ts#L110) — **unreviewed** — ` /** The port the server is listening on */ `
+- [ ] `4f9cc6d1fee9be47` [packages/relay/src/server.ts:112](../../../packages/relay/src/server.ts#L112) — **unreviewed** — ` /** The Hono app instance */ `
+- [ ] `5ee4aa5a300ff885` [packages/relay/src/server.ts:114](../../../packages/relay/src/server.ts#L114) — **unreviewed** — ` /** The connection manager */ `
+- [ ] `d97e96498340683a` [packages/relay/src/server.ts:116](../../../packages/relay/src/server.ts#L116) — **unreviewed** — ` /** The username registry */ `
+- [ ] `b8736ad4f261355a` [packages/relay/src/server.ts:118](../../../packages/relay/src/server.ts#L118) — **unreviewed** — ` /** The database instance */ `
+- [ ] `17bf96da747b9360` [packages/relay/src/server.ts:120](../../../packages/relay/src/server.ts#L120) — **unreviewed** — ` /** The logger instance */ `
+- [ ] `6d9a3bee8fae9d56` [packages/relay/src/server.ts:122](../../../packages/relay/src/server.ts#L122) — **unreviewed** — ` /** Structured telemetry status */ `
+- [ ] `eb554c23b3e9e235` [packages/relay/src/server.ts:126](../../../packages/relay/src/server.ts#L126) — **unreviewed** — ` /** Close the server and clean up resources */ `
+- [ ] `3871b96ae538618c` [packages/relay/src/server.ts:130–135](../../../packages/relay/src/server.ts#L130-L135) — **unreviewed** — ` /** * Creates a relay server instance. * * @param options - Server configuration options * @returns A promise that resolves to a RelayServer instance */ `
+- [ ] `bbd8937320f3e887` [packages/relay/src/server.ts:142](../../../packages/relay/src/server.ts#L142) — **unreviewed** — ` // 0 = random available port `
+- [ ] `11f5f5ab929a2fc9` [packages/relay/src/server.ts:146](../../../packages/relay/src/server.ts#L146) — **unreviewed** — ` // Not used in test/factory mode - caller checks .port directly `
+- [ ] `c34d75a8097c9cc4` [packages/relay/src/server.ts:183](../../../packages/relay/src/server.ts#L183) — **unreviewed** — ` // Disable file logging in test mode by default `
+- [ ] `fc0c2f906dfa2085` [packages/relay/src/server.ts:198](../../../packages/relay/src/server.ts#L198) — **unreviewed** — ` // Initialize logger (simple pino for server factory - no file logging in tests) `
+- [ ] `081c0963ac174aef` [packages/relay/src/server.ts:219](../../../packages/relay/src/server.ts#L219) — **unreviewed** — ` // Initialize database `
+- [ ] `a50f7b0d75b23fa0` [packages/relay/src/server.ts:222](../../../packages/relay/src/server.ts#L222) — **unreviewed** — ` // Initialize registry `
+- [ ] `606708dde0e4147d` [packages/relay/src/server.ts:225](../../../packages/relay/src/server.ts#L225) — **unreviewed** — ` // Run reclamation on startup `
+- [ ] `e77ab5ab7e9d8fe0` [packages/relay/src/server.ts:236](../../../packages/relay/src/server.ts#L236) — **unreviewed** — ` // Create connection manager `
+- [ ] `15b1ca7d368cf6af` [packages/relay/src/server.ts:242](../../../packages/relay/src/server.ts#L242) — **unreviewed** — ` // Create Hono app for HTTP endpoints `
+- [ ] `fd13160052cc616c` [packages/relay/src/server.ts:245](../../../packages/relay/src/server.ts#L245) — **unreviewed** — ` // Add CORS for browser clients `
+- [ ] `b0182e05ee30d993` [packages/relay/src/server.ts:256](../../../packages/relay/src/server.ts#L256) — **unreviewed** — ` // Health check endpoint `
+- [ ] `faa36debfc850a6f` [packages/relay/src/server.ts:267](../../../packages/relay/src/server.ts#L267) — **unreviewed** — ` // Status endpoint with more details `
+- [ ] `e8ac7b42dfe6ca77` [packages/relay/src/server.ts:300](../../../packages/relay/src/server.ts#L300) — **unreviewed** — ` // Check if a specific username has a server online (waiting for client) `
+- [ ] `108357caf557aaaf` [packages/relay/src/server.ts:307](../../../packages/relay/src/server.ts#L307) — **unreviewed** — ` // Create WebSocket handler `
+- [ ] `acfd2cf1494d6e62` [packages/relay/src/server.ts:339](../../../packages/relay/src/server.ts#L339) — **unreviewed** — ` // Create HTTP server with Hono `
+- [ ] `5295a821605490c7` [packages/relay/src/server.ts:343](../../../packages/relay/src/server.ts#L343) — **unreviewed** — ` // Create WebSocket server with noServer mode `
+- [ ] `bab6b451ce387bab` [packages/relay/src/server.ts:349](../../../packages/relay/src/server.ts#L349) — **unreviewed** — ` // Handle WebSocket connections `
+- [ ] `2e6f1af742f48bd9` [packages/relay/src/server.ts:391](../../../packages/relay/src/server.ts#L391) — **unreviewed** — ` // Handle HTTP upgrade requests for WebSocket `
+- [ ] `62c5e082fa002b20` [packages/relay/src/server.ts:412](../../../packages/relay/src/server.ts#L412) — **unreviewed** — ` // Upgrade to WebSocket `
+- [ ] `10d690c99c58294e` [packages/relay/src/server.ts:425](../../../packages/relay/src/server.ts#L425) — **unreviewed** — ` // Start server and wait for it to be ready `
+- [ ] `8c9b87ab5018f79d` [packages/relay/src/server.ts:448](../../../packages/relay/src/server.ts#L448) — **unreviewed** — ` // Close all WebSocket connections first `
+- [ ] `8e48ff0098c0ed5d` [packages/relay/src/server.ts:453](../../../packages/relay/src/server.ts#L453) — **unreviewed** — ` // Ignore errors `
+- [ ] `826b12cc53b7a082` [packages/relay/src/server.ts:457](../../../packages/relay/src/server.ts#L457) — **unreviewed** — ` // Close the WebSocket server `
+- [ ] `c0c528c1501e1c5d` [packages/relay/src/server.ts:462](../../../packages/relay/src/server.ts#L462) — **unreviewed** — ` // Close the database `
+- [ ] `c79e279da474bfbb` [packages/relay/src/server.ts:465](../../../packages/relay/src/server.ts#L465) — **unreviewed** — ` // Close the HTTP server `
+- [ ] `82eb0543c8a7d9e0` [packages/relay/src/stats.ts:106](../../../packages/relay/src/stats.ts#L106) — **unreviewed** — ` // Ignore malformed lines. `
+- [ ] `5ff3259baa9c3ad8` [packages/relay/src/stats.ts:110](../../../packages/relay/src/stats.ts#L110) — **unreviewed** — ` // Ignore files that disappear or cannot be opened while stats are read. `
+- [ ] `5290ab6c7482a43e` [packages/relay/src/unauthenticated-limiter.ts:33](../../../packages/relay/src/unauthenticated-limiter.ts#L33) — **unreviewed** — ` // Socket is already closed or closing. `
+- [ ] `339c0a5049a9bbe7` [packages/relay/src/ws-handler.ts:19](../../../packages/relay/src/ws-handler.ts#L19) — **unreviewed** — ` /** State for each WebSocket connection */ `
+- [ ] `f49f0c91603de3b3` [packages/relay/src/ws-handler.ts:21](../../../packages/relay/src/ws-handler.ts#L21) — **unreviewed** — ` /** Username this connection is associated with (after registration) */ `
+- [ ] `ca82a3a1ca160a6d` [packages/relay/src/ws-handler.ts:23](../../../packages/relay/src/ws-handler.ts#L23) — **unreviewed** — ` /** Relay channel this connection is associated with. */ `
+- [ ] `013ba2b91c036520` [packages/relay/src/ws-handler.ts:25](../../../packages/relay/src/ws-handler.ts#L25) — **unreviewed** — ` /** Whether this is a server connection (vs client) */ `
+- [ ] `ab7736d56cf1d6a5` [packages/relay/src/ws-handler.ts:27](../../../packages/relay/src/ws-handler.ts#L27) — **unreviewed** — ` /** Whether this connection has been paired */ `
+- [ ] `e1ca97b398a8aeba` [packages/relay/src/ws-handler.ts:29](../../../packages/relay/src/ws-handler.ts#L29) — **unreviewed** — ` /** Ping interval timer */ `
+- [ ] `0cad54003d60eebd` [packages/relay/src/ws-handler.ts:31](../../../packages/relay/src/ws-handler.ts#L31) — **unreviewed** — ` /** Pong timeout timer */ `
+- [ ] `fafadc04e178d3a5` [packages/relay/src/ws-handler.ts:33](../../../packages/relay/src/ws-handler.ts#L33) — **unreviewed** — ` /** Last pong received */ `
+- [ ] `640606daf679d9b3` [packages/relay/src/ws-handler.ts:37](../../../packages/relay/src/ws-handler.ts#L37) — **unreviewed** — ` /** Track connection state by WebSocket */ `
+- [ ] `cb4624793e853f11` [packages/relay/src/ws-handler.ts:53–55](../../../packages/relay/src/ws-handler.ts#L53-L55) — **unreviewed** — ` /** * Creates the WebSocket message handler for the relay. */ `
+- [ ] `f78cbce581d1b168` [packages/relay/src/ws-handler.ts:65](../../../packages/relay/src/ws-handler.ts#L65) — **unreviewed** — ` // Send as text frame (binary: false) `
+- [ ] `51b2f76514b58278` [packages/relay/src/ws-handler.ts:73](../../../packages/relay/src/ws-handler.ts#L73) — **unreviewed** — ` // Only ping waiting connections (not paired) `
+- [ ] `cba06ef9414aa8b2` [packages/relay/src/ws-handler.ts:76](../../../packages/relay/src/ws-handler.ts#L76) — **unreviewed** — ` // Stop pinging paired connections `
+- [ ] `036cab43f3df3a80` [packages/relay/src/ws-handler.ts:84](../../../packages/relay/src/ws-handler.ts#L84) — **unreviewed** — ` // Send WebSocket ping frame `
+- [ ] `2ecbfb1bf66c97a2` [packages/relay/src/ws-handler.ts:88](../../../packages/relay/src/ws-handler.ts#L88) — **unreviewed** — ` // Ignore ping errors `
+- [ ] `06793efc0c8be345` [packages/relay/src/ws-handler.ts:91](../../../packages/relay/src/ws-handler.ts#L91) — **unreviewed** — ` // Set pong timeout `
+- [ ] `863d0d7d2e8f0088` [packages/relay/src/ws-handler.ts:100](../../../packages/relay/src/ws-handler.ts#L100) — **unreviewed** — ` // Ignore close errors `
+- [ ] `3ef58facbc0f3005` [packages/relay/src/ws-handler.ts:128](../../../packages/relay/src/ws-handler.ts#L128) — **unreviewed** — ` // State is initialized lazily on first message `
+- [ ] `9692435e94292241` [packages/relay/src/ws-handler.ts:140](../../../packages/relay/src/ws-handler.ts#L140) — **unreviewed** — ` // Debug logging `
+- [ ] `444758b2e5f83325` [packages/relay/src/ws-handler.ts:153](../../../packages/relay/src/ws-handler.ts#L153) — **unreviewed** — ` // Convert RawData to Buffer for consistent handling `
+- [ ] `b4f120120151abc7` [packages/relay/src/ws-handler.ts:158](../../../packages/relay/src/ws-handler.ts#L158) — **unreviewed** — ` // Array of Buffers - concatenate `
+- [ ] `b685ec19f75b3bf6` [packages/relay/src/ws-handler.ts:161](../../../packages/relay/src/ws-handler.ts#L161) — **unreviewed** — ` // ArrayBuffer - need to wrap in Uint8Array first `
+- [ ] `4c3aefd68964e929` [packages/relay/src/ws-handler.ts:165](../../../packages/relay/src/ws-handler.ts#L165) — **unreviewed** — ` // If already paired, forward everything preserving frame type `
+- [ ] `a59b37dea3094aee` [packages/relay/src/ws-handler.ts:171](../../../packages/relay/src/ws-handler.ts#L171) — **unreviewed** — ` // Before pairing, we only accept text frames with JSON protocol messages `
+- [ ] `b511f04cbfa1263a` [packages/relay/src/ws-handler.ts:177](../../../packages/relay/src/ws-handler.ts#L177) — **unreviewed** — ` // Parse JSON message for protocol handling `
+- [ ] `91880cfa7efae1ee` [packages/relay/src/ws-handler.ts:186](../../../packages/relay/src/ws-handler.ts#L186) — **unreviewed** — ` // Handle server registration `
+- [ ] `ca8cae52402b8e40` [packages/relay/src/ws-handler.ts:213](../../../packages/relay/src/ws-handler.ts#L213) — **unreviewed** — ` // Start ping interval for waiting connections `
+- [ ] `bc89a92f99825f0f` [packages/relay/src/ws-handler.ts:249](../../../packages/relay/src/ws-handler.ts#L249) — **unreviewed** — ` // Close connection after rejection `
+- [ ] `feb62f90fec3eef9` [packages/relay/src/ws-handler.ts:255](../../../packages/relay/src/ws-handler.ts#L255) — **unreviewed** — ` // Handle client connection `
+- [ ] `6aecf3cc845d2eeb` [packages/relay/src/ws-handler.ts:273](../../../packages/relay/src/ws-handler.ts#L273) — **unreviewed** — ` // Also mark the server as paired `
+- [ ] `73baf99397fafd9b` [packages/relay/src/ws-handler.ts:278](../../../packages/relay/src/ws-handler.ts#L278) — **unreviewed** — ` // Stop ping interval on server (paired connections don't need keepalive from relay) `
+- [ ] `9b6409f63782b002` [packages/relay/src/ws-handler.ts:313](../../../packages/relay/src/ws-handler.ts#L313) — **unreviewed** — ` // Close connection after error `
+- [ ] `860479432d21b907` [packages/relay/src/ws-handler.ts:319–320](../../../packages/relay/src/ws-handler.ts#L319-L320) — **unreviewed** — ` // If server is waiting and receives a non-protocol message, // this means a client was paired and this is the first forwarded message `
+- [ ] `be49e0533810a983` [packages/relay/src/ws-handler.ts:322–323](../../../packages/relay/src/ws-handler.ts#L322-L323) — **unreviewed** — ` // This shouldn't happen - clients send client_connect first // But if we receive data before client_connect, treat it as claim detection `
+- [ ] `cb0f136ed9c7ac25` [packages/relay/test/connections.test.ts:9](../../../packages/relay/test/connections.test.ts#L9) — **unreviewed** — ` /** Create a mock WSContext for testing */ `
+- [ ] `1b68b7e632155cc7` [packages/relay/test/connections.test.ts:36](../../../packages/relay/test/connections.test.ts#L36) — **unreviewed** — ` // OPEN `
+- [ ] `8449a3553da5cd6e` [packages/relay/test/connections.test.ts:100](../../../packages/relay/test/connections.test.ts#L100) — **unreviewed** — ` // First connection should be closed `
+- [ ] `5fe4c51fa5a6ea41` [packages/relay/test/connections.test.ts:177](../../../packages/relay/test/connections.test.ts#L177) — **unreviewed** — ` // Register but don't have a waiting connection `
+- [ ] `b3b729ee96377fb6` [packages/relay/test/connections.test.ts:261](../../../packages/relay/test/connections.test.ts#L261) — **unreviewed** — ` // Client sends to server (isBinary: false for text) `
+- [ ] `85c18ff634ee0e57` [packages/relay/test/connections.test.ts:268](../../../packages/relay/test/connections.test.ts#L268) — **unreviewed** — ` // Server sends to client `
+- [ ] `62b4027188c4de15` [packages/relay/test/connections.test.ts:291](../../../packages/relay/test/connections.test.ts#L291) — **unreviewed** — ` // Should not throw and no message should be sent `
+- [ ] `3b444eabe5220f47` [packages/relay/test/connections.test.ts:321](../../../packages/relay/test/connections.test.ts#L321) — **unreviewed** — ` // Client disconnects `
+- [ ] `69e23bb05aa542b1` [packages/relay/test/connections.test.ts:333](../../../packages/relay/test/connections.test.ts#L333) — **unreviewed** — ` // Server should be closed `
+- [ ] `6336f0546bb67064` [packages/relay/test/connections.test.ts:344](../../../packages/relay/test/connections.test.ts#L344) — **unreviewed** — ` // Server disconnects `
+- [ ] `1d0e255e0a74360f` [packages/relay/test/connections.test.ts:356](../../../packages/relay/test/connections.test.ts#L356) — **unreviewed** — ` // Client should be closed `
+- [ ] `8993b13121d93052` [packages/relay/test/connections.test.ts:433](../../../packages/relay/test/connections.test.ts#L433) — **unreviewed** — ` // First client connects `
+- [ ] `41663835a3de7a23` [packages/relay/test/connections.test.ts:437](../../../packages/relay/test/connections.test.ts#L437) — **unreviewed** — ` // Second client fails (server now paired) `
+- [ ] `aaf5e464026a89ab` [packages/relay/test/connections.test.ts:446](../../../packages/relay/test/connections.test.ts#L446) — **unreviewed** — ` // First session `
+- [ ] `dc6bdc04ed66e4dc` [packages/relay/test/connections.test.ts:451](../../../packages/relay/test/connections.test.ts#L451) — **unreviewed** — ` // Server reconnects with new waiting connection `
+- [ ] `b5e2d7d288ecde4b` [packages/relay/test/connections.test.ts:457](../../../packages/relay/test/connections.test.ts#L457) — **unreviewed** — ` // New client can connect `
+- [ ] `f445ddb061cd0d30` [packages/relay/test/e2e/relay-mux.e2e.test.ts:56](../../../packages/relay/test/e2e/relay-mux.e2e.test.ts#L56) — **unreviewed** — ` // Ignore non-JSON text frames. `
+- [ ] `c286264d206e3e17` [packages/relay/test/e2e/relay-mux.e2e.test.ts:492–495](../../../packages/relay/test/e2e/relay-mux.e2e.test.ts#L492-L495) — **unreviewed** — ` // Fairness applies to circuits that are queued together, not to the // relative arrival of frames on independent TCP connections. Enter the // production forwarding seam synchronously so all three frames are queued // before its scheduled drain; outgoing mux frames still cross the socket. `
+- [ ] `b70d2c5db7d49372` [packages/relay/test/e2e/relay.e2e.test.ts:1–16](../../../packages/relay/test/e2e/relay.e2e.test.ts#L1-L16) — **unreviewed** — ` /** * E2E tests for the relay server (Phase 6). * * These tests spin up a relay server and simulate both yepanywhere servers * and phone clients connecting through it. * * Test scenarios: * 1. Server registration flow * 2. Client connection flow * 3. Message forwarding * 4. Server offline * 5. Username taken * 6. Same installId replacement * 7. Reconnection after disconnect * 8. Full relay flow (server -> relay -> client) */ `
+- [ ] `131d540682bb94bc` [packages/relay/test/e2e/relay.e2e.test.ts:35](../../../packages/relay/test/e2e/relay.e2e.test.ts#L35) — **unreviewed** — ` // Track WebSocket connections for cleanup `
+- [ ] `2d588f5d68a6d092` [packages/relay/test/e2e/relay.e2e.test.ts:39](../../../packages/relay/test/e2e/relay.e2e.test.ts#L39) — **unreviewed** — ` // Start relay server with in-memory database `
+- [ ] `c951c0125b61794d` [packages/relay/test/e2e/relay.e2e.test.ts:44](../../../packages/relay/test/e2e/relay.e2e.test.ts#L44) — **unreviewed** — ` // Use short ping intervals for faster tests `
+- [ ] `3999b3aea4621734` [packages/relay/test/e2e/relay.e2e.test.ts:53](../../../packages/relay/test/e2e/relay.e2e.test.ts#L53) — **unreviewed** — ` // Close all open connections `
+- [ ] `e37540f149bc9a81` [packages/relay/test/e2e/relay.e2e.test.ts:65](../../../packages/relay/test/e2e/relay.e2e.test.ts#L65) — **unreviewed** — ` // Close any connections that weren't cleaned up `
+- [ ] `8fdaa6741484011b` [packages/relay/test/e2e/relay.e2e.test.ts:74–76](../../../packages/relay/test/e2e/relay.e2e.test.ts#L74-L76) — **unreviewed** — ` /** * Helper to create a WebSocket connection to the relay. */ `
+- [ ] `29bb24f839bcb3d8` [packages/relay/test/e2e/relay.e2e.test.ts:98–100](../../../packages/relay/test/e2e/relay.e2e.test.ts#L98-L100) — **unreviewed** — ` /** * Helper to wait for a message matching a predicate. */ `
+- [ ] `8c7ad340f388183d` [packages/relay/test/e2e/relay.e2e.test.ts:121](../../../packages/relay/test/e2e/relay.e2e.test.ts#L121) — **unreviewed** — ` // Ignore parse errors `
+- [ ] `149f1db35135c83e` [packages/relay/test/e2e/relay.e2e.test.ts:129–131](../../../packages/relay/test/e2e/relay.e2e.test.ts#L129-L131) — **unreviewed** — ` /** * Helper to register a server with the relay. */ `
+- [ ] `4ce6df530761a4e0` [packages/relay/test/e2e/relay.e2e.test.ts:148–150](../../../packages/relay/test/e2e/relay.e2e.test.ts#L148-L150) — **unreviewed** — ` /** * Helper to connect a client to a server via the relay. */ `
+- [ ] `40010a4029103cef` [packages/relay/test/e2e/relay.e2e.test.ts:181](../../../packages/relay/test/e2e/relay.e2e.test.ts#L181) — **unreviewed** — ` // Verify server is in waiting state `
+- [ ] `5021fd96183bfba1` [packages/relay/test/e2e/relay.e2e.test.ts:212](../../../packages/relay/test/e2e/relay.e2e.test.ts#L212) — **unreviewed** — ` // Connection should still be open `
+- [ ] `e60f5a46957ef85a` [packages/relay/test/e2e/relay.e2e.test.ts:215](../../../packages/relay/test/e2e/relay.e2e.test.ts#L215) — **unreviewed** — ` // Server should be waiting `
+- [ ] `e263920d6bb1fe5a` [packages/relay/test/e2e/relay.e2e.test.ts:316](../../../packages/relay/test/e2e/relay.e2e.test.ts#L316) — **unreviewed** — ` // Register server `
+- [ ] `f74ebad084d6cfd0` [packages/relay/test/e2e/relay.e2e.test.ts:319](../../../packages/relay/test/e2e/relay.e2e.test.ts#L319) — **unreviewed** — ` // Connect client `
+- [ ] `cf5bd6eb81644025` [packages/relay/test/e2e/relay.e2e.test.ts:365](../../../packages/relay/test/e2e/relay.e2e.test.ts#L365) — **unreviewed** — ` // Server should no longer be waiting `
+- [ ] `1e6e662910141854` [packages/relay/test/e2e/relay.e2e.test.ts:383](../../../packages/relay/test/e2e/relay.e2e.test.ts#L383) — **unreviewed** — ` // Set up message receiver on server `
+- [ ] `87d90500e48ce9cf` [packages/relay/test/e2e/relay.e2e.test.ts:388](../../../packages/relay/test/e2e/relay.e2e.test.ts#L388) — **unreviewed** — ` // Client sends message `
+- [ ] `0b2d14a1117cb312` [packages/relay/test/e2e/relay.e2e.test.ts:392](../../../packages/relay/test/e2e/relay.e2e.test.ts#L392) — **unreviewed** — ` // Server should receive it `
+- [ ] `e550144be1dbcfc7` [packages/relay/test/e2e/relay.e2e.test.ts:407](../../../packages/relay/test/e2e/relay.e2e.test.ts#L407) — **unreviewed** — ` // Set up message receiver on client `
+- [ ] `9163718f6807e010` [packages/relay/test/e2e/relay.e2e.test.ts:412](../../../packages/relay/test/e2e/relay.e2e.test.ts#L412) — **unreviewed** — ` // Server sends message `
+- [ ] `2b11d2ba0c54c0ee` [packages/relay/test/e2e/relay.e2e.test.ts:416](../../../packages/relay/test/e2e/relay.e2e.test.ts#L416) — **unreviewed** — ` // Client should receive it `
+- [ ] `37f82434d65a7361` [packages/relay/test/e2e/relay.e2e.test.ts:431](../../../packages/relay/test/e2e/relay.e2e.test.ts#L431) — **unreviewed** — ` // Set up message receiver on server `
+- [ ] `703d1196faab43a3` [packages/relay/test/e2e/relay.e2e.test.ts:438](../../../packages/relay/test/e2e/relay.e2e.test.ts#L438) — **unreviewed** — ` // Client sends binary data `
+- [ ] `840298aabef4db2a` [packages/relay/test/e2e/relay.e2e.test.ts:442](../../../packages/relay/test/e2e/relay.e2e.test.ts#L442) — **unreviewed** — ` // Server should receive it `
+- [ ] `c35ae0f8d478d489` [packages/relay/test/e2e/relay.e2e.test.ts:457](../../../packages/relay/test/e2e/relay.e2e.test.ts#L457) — **unreviewed** — ` // Collect messages on server `
+- [ ] `bf6dd55c30185284` [packages/relay/test/e2e/relay.e2e.test.ts:461](../../../packages/relay/test/e2e/relay.e2e.test.ts#L461) — **unreviewed** — ` // Send multiple messages `
+- [ ] `67b1817f0486d767` [packages/relay/test/e2e/relay.e2e.test.ts:466](../../../packages/relay/test/e2e/relay.e2e.test.ts#L466) — **unreviewed** — ` // Wait for messages to arrive `
+- [ ] `4783ff70f182a731` [packages/relay/test/e2e/relay.e2e.test.ts:482](../../../packages/relay/test/e2e/relay.e2e.test.ts#L482) — **unreviewed** — ` // Should get error response (unknown_username since not registered at all) `
+- [ ] `c8098ebd221e1e2c` [packages/relay/test/e2e/relay.e2e.test.ts:498](../../../packages/relay/test/e2e/relay.e2e.test.ts#L498) — **unreviewed** — ` // Register server `
+- [ ] `4307b1bb373ffd53` [packages/relay/test/e2e/relay.e2e.test.ts:501](../../../packages/relay/test/e2e/relay.e2e.test.ts#L501) — **unreviewed** — ` // Disconnect server `
+- [ ] `72d0cdd254532c39` [packages/relay/test/e2e/relay.e2e.test.ts:505](../../../packages/relay/test/e2e/relay.e2e.test.ts#L505) — **unreviewed** — ` // Try to connect client `
+- [ ] `d058a321d4096eac` [packages/relay/test/e2e/relay.e2e.test.ts:529](../../../packages/relay/test/e2e/relay.e2e.test.ts#L529) — **unreviewed** — ` // First server registers successfully `
+- [ ] `d824de4fe49a5485` [packages/relay/test/e2e/relay.e2e.test.ts:532](../../../packages/relay/test/e2e/relay.e2e.test.ts#L532) — **unreviewed** — ` // Second server tries to register same username with different installId `
+- [ ] `ff2dbb14ac36f4e5` [packages/relay/test/e2e/relay.e2e.test.ts:581](../../../packages/relay/test/e2e/relay.e2e.test.ts#L581) — **unreviewed** — ` // First connection registers `
+- [ ] `6f5c37317f9b875f` [packages/relay/test/e2e/relay.e2e.test.ts:585](../../../packages/relay/test/e2e/relay.e2e.test.ts#L585) — **unreviewed** — ` // Second connection with same installId `
+- [ ] `d572e4e91d74be10` [packages/relay/test/e2e/relay.e2e.test.ts:589](../../../packages/relay/test/e2e/relay.e2e.test.ts#L589) — **unreviewed** — ` // Should still have exactly one waiting connection for this username `
+- [ ] `2858abc68d01807f` [packages/relay/test/e2e/relay.e2e.test.ts:606](../../../packages/relay/test/e2e/relay.e2e.test.ts#L606) — **unreviewed** — ` // Second connection with same installId should close the first `
+- [ ] `b78e1f347f38545d` [packages/relay/test/e2e/relay.e2e.test.ts:623](../../../packages/relay/test/e2e/relay.e2e.test.ts#L623) — **unreviewed** — ` // Replace with new connection `
+- [ ] `0737f08f5705dcb1` [packages/relay/test/e2e/relay.e2e.test.ts:627](../../../packages/relay/test/e2e/relay.e2e.test.ts#L627) — **unreviewed** — ` // Wait for first connection to close `
+- [ ] `9641262cd93b8f5f` [packages/relay/test/e2e/relay.e2e.test.ts:630](../../../packages/relay/test/e2e/relay.e2e.test.ts#L630) — **unreviewed** — ` // Client should be able to connect `
+- [ ] `98b1a0fb90b2faea` [packages/relay/test/e2e/relay.e2e.test.ts:634](../../../packages/relay/test/e2e/relay.e2e.test.ts#L634) — **unreviewed** — ` // Verify forwarding works to the new server `
+- [ ] `ab8771a93d6d56a8` [packages/relay/test/e2e/relay.e2e.test.ts:650](../../../packages/relay/test/e2e/relay.e2e.test.ts#L650) — **unreviewed** — ` // First connection `
+- [ ] `1edcef480eca8617` [packages/relay/test/e2e/relay.e2e.test.ts:655](../../../packages/relay/test/e2e/relay.e2e.test.ts#L655) — **unreviewed** — ` // Wait for cleanup `
+- [ ] `73602e9cdc93c6a7` [packages/relay/test/e2e/relay.e2e.test.ts:658](../../../packages/relay/test/e2e/relay.e2e.test.ts#L658) — **unreviewed** — ` // Reconnect `
+- [ ] `e0f901485de3fa77` [packages/relay/test/e2e/relay.e2e.test.ts:662](../../../packages/relay/test/e2e/relay.e2e.test.ts#L662) — **unreviewed** — ` // Should be waiting again `
+- [ ] `0486a471b0071137` [packages/relay/test/e2e/relay.e2e.test.ts:670](../../../packages/relay/test/e2e/relay.e2e.test.ts#L670) — **unreviewed** — ` // Server connects and disconnects `
+- [ ] `fbe7890551da50f5` [packages/relay/test/e2e/relay.e2e.test.ts:677](../../../packages/relay/test/e2e/relay.e2e.test.ts#L677) — **unreviewed** — ` // Server reconnects `
+- [ ] `9cfb208da6c87789` [packages/relay/test/e2e/relay.e2e.test.ts:681](../../../packages/relay/test/e2e/relay.e2e.test.ts#L681) — **unreviewed** — ` // Client should be able to connect `
+- [ ] `e18acf2d96732f80` [packages/relay/test/e2e/relay.e2e.test.ts:685](../../../packages/relay/test/e2e/relay.e2e.test.ts#L685) — **unreviewed** — ` // Verify forwarding works `
+- [ ] `a3f472008a78fb41` [packages/relay/test/e2e/relay.e2e.test.ts:704](../../../packages/relay/test/e2e/relay.e2e.test.ts#L704) — **unreviewed** — ` // 1. Server registers `
+- [ ] `8d835aa8e20410ad` [packages/relay/test/e2e/relay.e2e.test.ts:707](../../../packages/relay/test/e2e/relay.e2e.test.ts#L707) — **unreviewed** — ` // 2. Client connects `
+- [ ] `8dbc2dc8ed150599` [packages/relay/test/e2e/relay.e2e.test.ts:710](../../../packages/relay/test/e2e/relay.e2e.test.ts#L710) — **unreviewed** — ` // 3. Bidirectional communication `
+- [ ] `6781963e8bb5db59` [packages/relay/test/e2e/relay.e2e.test.ts:719](../../../packages/relay/test/e2e/relay.e2e.test.ts#L719) — **unreviewed** — ` // Client sends to server `
+- [ ] `042c1cbc2d0f87d7` [packages/relay/test/e2e/relay.e2e.test.ts:724](../../../packages/relay/test/e2e/relay.e2e.test.ts#L724) — **unreviewed** — ` // Server responds to client `
+- [ ] `26099b59476a55e8` [packages/relay/test/e2e/relay.e2e.test.ts:740](../../../packages/relay/test/e2e/relay.e2e.test.ts#L740) — **unreviewed** — ` // Set up close handler on server `
+- [ ] `c0f00728513836f4` [packages/relay/test/e2e/relay.e2e.test.ts:745](../../../packages/relay/test/e2e/relay.e2e.test.ts#L745) — **unreviewed** — ` // Client disconnects `
+- [ ] `7e15d5e1c83fa7de` [packages/relay/test/e2e/relay.e2e.test.ts:748](../../../packages/relay/test/e2e/relay.e2e.test.ts#L748) — **unreviewed** — ` // Server should be notified (connection closed) `
+- [ ] `6bdcbc152718b780` [packages/relay/test/e2e/relay.e2e.test.ts:763](../../../packages/relay/test/e2e/relay.e2e.test.ts#L763) — **unreviewed** — ` // Set up close handler on client `
+- [ ] `6a043e1eb72af66d` [packages/relay/test/e2e/relay.e2e.test.ts:768](../../../packages/relay/test/e2e/relay.e2e.test.ts#L768) — **unreviewed** — ` // Server disconnects `
+- [ ] `b7d0ad2ace54bdcf` [packages/relay/test/e2e/relay.e2e.test.ts:771](../../../packages/relay/test/e2e/relay.e2e.test.ts#L771) — **unreviewed** — ` // Client should be notified (connection closed) `
+- [ ] `7bf70a2c076b990b` [packages/relay/test/e2e/relay.e2e.test.ts:783](../../../packages/relay/test/e2e/relay.e2e.test.ts#L783) — **unreviewed** — ` // Too short (minimum 3 characters) `
+- [ ] `25019a5e1e607357` [packages/relay/test/e2e/relay.e2e.test.ts:800](../../../packages/relay/test/e2e/relay.e2e.test.ts#L800) — **unreviewed** — ` // Underscore not allowed `
+- [ ] `bdc7e5903d2e0619` [packages/relay/test/e2e/relay.e2e.test.ts:832](../../../packages/relay/test/e2e/relay.e2e.test.ts#L832) — **unreviewed** — ` // Get initial health `
+- [ ] `7c9c733e69093168` [packages/relay/test/e2e/relay.e2e.test.ts:838](../../../packages/relay/test/e2e/relay.e2e.test.ts#L838) — **unreviewed** — ` // Register a server `
+- [ ] `b37954ec8563fd26` [packages/relay/test/e2e/relay.e2e.test.ts:843](../../../packages/relay/test/e2e/relay.e2e.test.ts#L843) — **unreviewed** — ` // Check health again `
+- [ ] `3d9bf75a596c1344` [packages/relay/test/e2e/relay.e2e.test.ts:851](../../../packages/relay/test/e2e/relay.e2e.test.ts#L851) — **unreviewed** — ` // Get initial health `
+- [ ] `beb79fb683962632` [packages/relay/test/e2e/relay.e2e.test.ts:857](../../../packages/relay/test/e2e/relay.e2e.test.ts#L857) — **unreviewed** — ` // Create a pair `
+- [ ] `992b33207ff903ed` [packages/relay/test/e2e/relay.e2e.test.ts:865](../../../packages/relay/test/e2e/relay.e2e.test.ts#L865) — **unreviewed** — ` // Check health again `
+- [ ] `0f89ef35c3d4d0ca` [packages/relay/test/e2e/silent-pair.e2e.test.ts:1–6](../../../packages/relay/test/e2e/silent-pair.e2e.test.ts#L1-L6) — **unreviewed** — ` /** * A server learns that its waiting connection was claimed only from the * client's first frame. A client that pairs and then says nothing would leave * the server believing it is still waiting while every other client is told * server_offline. The relay closes such pairs so the server re-registers. */ `
+- [ ] `c9ea7f5fb58951bb` [packages/relay/test/e2e/silent-pair.e2e.test.ts:44](../../../packages/relay/test/e2e/silent-pair.e2e.test.ts#L44) — **unreviewed** — ` /** Open a socket with a message queue attached before the first frame. */ `
+- [ ] `18252beb46c8eb8a` [packages/relay/test/e2e/silent-pair.e2e.test.ts:101](../../../packages/relay/test/e2e/silent-pair.e2e.test.ts#L101) — **unreviewed** — ` // Until the timeout the server is unreachable, as in the incident. `
+- [ ] `68e93906b33bded1` [packages/relay/test/e2e/xff.e2e.test.ts:1–8](../../../packages/relay/test/e2e/xff.e2e.test.ts#L1-L8) — **unreviewed** — `` /** * E2E test for trusted-proxy X-Forwarded-For handling. * * Asserts that with `RELAY_TRUSTED_PROXIES` covering localhost, the * per-IP unauthenticated-connection cap is bucketed by the XFF entry * (not the direct socket peer) and that an untrusted XFF gets the * peer's bucket instead. */ ``
+- [ ] `c92691310801982d` [packages/relay/test/e2e/xff.e2e.test.ts:32](../../../packages/relay/test/e2e/xff.e2e.test.ts#L32) — **unreviewed** — ` // Keep idle pre-handshake connections alive for the duration of the test. `
+- [ ] `b7f2d1fddd6dd651` [packages/relay/test/e2e/xff.e2e.test.ts:74–76](../../../packages/relay/test/e2e/xff.e2e.test.ts#L74-L76) — **unreviewed** — ` // Some failure modes surface as 'error' without 'unexpected-response'. // The open / unexpected-response branches will already have resolved // on success or explicit reject; here we only catch the residual case. `
+- [ ] `3c58e10a8ee9056d` [packages/relay/test/e2e/xff.e2e.test.ts:84–85](../../../packages/relay/test/e2e/xff.e2e.test.ts#L84-L85) — **unreviewed** — ` // Two connections from localhost claiming to originate at 203.0.113.7 // both succeed (cap is 2). `
+- [ ] `a5add3a4c3f5f317` [packages/relay/test/e2e/xff.e2e.test.ts:91](../../../packages/relay/test/e2e/xff.e2e.test.ts#L91) — **unreviewed** — ` // A third XFF=203.0.113.7 hits the cap and gets 429. `
+- [ ] `122c062b539728d2` [packages/relay/test/e2e/xff.e2e.test.ts:96](../../../packages/relay/test/e2e/xff.e2e.test.ts#L96) — **unreviewed** — ` // A different XFF gets its own counter. `
+- [ ] `fb275afd89833712` [packages/relay/test/e2e/xff.e2e.test.ts:102–103](../../../packages/relay/test/e2e/xff.e2e.test.ts#L102-L103) — **unreviewed** — ` // Real client, then a downstream proxy at 127.0.0.1 (trusted). // The relay should pick the leftmost non-trusted entry. `
+- [ ] `ea4b444d1a11e2eb` [packages/relay/test/origin-policy.test.ts:44](../../../packages/relay/test/origin-policy.test.ts#L44) — **unreviewed** — ` // Explicit operator configuration replaces the defaults. `
+- [ ] `96c6e2bbab426c72` [packages/relay/test/registry.test.ts:35](../../../packages/relay/test/registry.test.ts#L35) — **unreviewed** — ` // Too short `
+- [ ] `d29202da0591c46a` [packages/relay/test/registry.test.ts:36](../../../packages/relay/test/registry.test.ts#L36) — **unreviewed** — ` // Uppercase `
+- [ ] `65c4b11ce69a249f` [packages/relay/test/registry.test.ts:37](../../../packages/relay/test/registry.test.ts#L37) — **unreviewed** — ` // Starts with hyphen `
+- [ ] `cd7b4a27811e878f` [packages/relay/test/registry.test.ts:66](../../../packages/relay/test/registry.test.ts#L66) — **unreviewed** — ` // Wait a tiny bit and re-register `
+- [ ] `45ea440576a3fe64` [packages/relay/test/registry.test.ts:72](../../../packages/relay/test/registry.test.ts#L72) — **unreviewed** — ` // registered_at should be the same `
+- [ ] `2511d8c719bf649f` [packages/relay/test/registry.test.ts:74](../../../packages/relay/test/registry.test.ts#L74) — **unreviewed** — ` // last_seen_at should be updated (or same if too fast) `
+- [ ] `40e3a12201eacfaf` [packages/relay/test/registry.test.ts:101](../../../packages/relay/test/registry.test.ts#L101) — **unreviewed** — ` // Small delay to ensure timestamp changes `
+- [ ] `493be7005852dae6` [packages/relay/test/registry.test.ts:105](../../../packages/relay/test/registry.test.ts#L105) — **unreviewed** — ` // Should be same or later `
+- [ ] `78ca40b45bb24378` [packages/relay/test/registry.test.ts:114](../../../packages/relay/test/registry.test.ts#L114) — **unreviewed** — ` // Register a username `
+- [ ] `1adcf7a94b7c77f8` [packages/relay/test/registry.test.ts:117](../../../packages/relay/test/registry.test.ts#L117) — **unreviewed** — ` // Manually set last_seen_at to 100 days ago `
+- [ ] `50978455057d7c79` [packages/relay/test/registry.test.ts:124](../../../packages/relay/test/registry.test.ts#L124) — **unreviewed** — ` // Reclaim with 90-day threshold `
+- [ ] `79fffd75949844a0` [packages/relay/test/registry.test.ts:133](../../../packages/relay/test/registry.test.ts#L133) — **unreviewed** — ` // Reclaim with 90-day threshold - should not affect recent registration `
+- [ ] `da3e094cdd32d9e1` [packages/relay/test/registry.test.ts:140](../../../packages/relay/test/registry.test.ts#L140) — **unreviewed** — ` // Register multiple usernames `
+- [ ] `3f6845bfa581d737` [packages/relay/test/registry.test.ts:145](../../../packages/relay/test/registry.test.ts#L145) — **unreviewed** — ` // Make alice and bob old `
+- [ ] `84c33ae3cfc8a952` [packages/relay/vitest.config.ts:6–11](../../../packages/relay/vitest.config.ts#L6-L11) — **unreviewed** — `` // Relay prepares a fixed set of statements and reuses them. Node cannot // observe the difference between that and preparing per call, because // StatementSync has no finalize and the collector reclaims each one; // under Bun the per-call pattern retains every statement until close. // Failing here keeps the ordinary `pnpm test` path, and therefore CI, // honest about it without anyone opting in. ``

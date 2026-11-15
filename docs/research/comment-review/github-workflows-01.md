@@ -1,0 +1,216 @@
+# Comment review: .github/workflows, part 1
+
+[Index and review procedure](README.md)
+
+Snapshot: `3fe898ce5`. 208 blocks. Every item starts unreviewed.
+
+Check an item only after recording **remove**, **keep**, or **rewrite/move** and a brief reason. Then apply and verify the corresponding source change.
+
+- [ ] `fe7ad6660ee299a6` [.github/workflows/android-app-ci.yml:4](../../../.github/workflows/android-app-ci.yml#L4) — **unreviewed** — ` # Shared web/server and lockfile changes are covered by nightly runs. `
+- [ ] `644268103d49ce50` [.github/workflows/android-app-ci.yml:53–54](../../../.github/workflows/android-app-ci.yml#L53-L54) — **unreviewed** — ` # Verification runs coalesce; explicit releases use a separate group so a # later push cannot cancel the selected release or interrupt its Play edit. `
+- [ ] `0ec1747cf7f23b9e` [.github/workflows/android-app-ci.yml:66](../../../.github/workflows/android-app-ci.yml#L66) — **unreviewed** — ` # v6 `
+- [ ] `39dc6f102c3f8c31` [.github/workflows/android-app-ci.yml:69](../../../.github/workflows/android-app-ci.yml#L69) — **unreviewed** — ` # v6 `
+- [ ] `315956ea4da318ea` [.github/workflows/android-app-ci.yml:72](../../../.github/workflows/android-app-ci.yml#L72) — **unreviewed** — ` # v6 `
+- [ ] `2eab90d21170260b` [.github/workflows/android-app-ci.yml:74](../../../.github/workflows/android-app-ci.yml#L74) — **unreviewed** — ` # JavaScript tasks install/build the root workspace, whose engines changed. `
+- [ ] `1bfb8affc5056c13` [.github/workflows/android-app-ci.yml:79](../../../.github/workflows/android-app-ci.yml#L79) — **unreviewed** — ` # v5 `
+- [ ] `edbe5b04c4352035` [.github/workflows/android-app-ci.yml:133](../../../.github/workflows/android-app-ci.yml#L133) — **unreviewed** — ` # v7 `
+- [ ] `9b1c97506329e7dd` [.github/workflows/android-app-ci.yml:141](../../../.github/workflows/android-app-ci.yml#L141) — **unreviewed** — ` # v7 `
+- [ ] `6ed021f248a88644` [.github/workflows/android-app-ci.yml:154–156](../../../.github/workflows/android-app-ci.yml#L154-L156) — **unreviewed** — ` # Run 37704886933/attempts/2 spent ~13 minutes preparing the APK/emulator # and 8m18s in passing direct tests, then reached 30m during relay tests. # Keep per-test deadlines unchanged; allow bounded whole-job headroom. `
+- [ ] `c6e5c60e397aa3ad` [.github/workflows/android-app-ci.yml:161](../../../.github/workflows/android-app-ci.yml#L161) — **unreviewed** — ` # v6 `
+- [ ] `d68e2b1e9316b125` [.github/workflows/android-app-ci.yml:164](../../../.github/workflows/android-app-ci.yml#L164) — **unreviewed** — ` # v6 `
+- [ ] `21a22d7914061218` [.github/workflows/android-app-ci.yml:167](../../../.github/workflows/android-app-ci.yml#L167) — **unreviewed** — ` # v6 `
+- [ ] `3a27c00dc120b777` [.github/workflows/android-app-ci.yml:169](../../../.github/workflows/android-app-ci.yml#L169) — **unreviewed** — ` # JavaScript tasks install/build the root workspace, whose engines changed. `
+- [ ] `c841e52de6ddc45a` [.github/workflows/android-app-ci.yml:174](../../../.github/workflows/android-app-ci.yml#L174) — **unreviewed** — ` # v5 `
+- [ ] `129fb21c81d0a9c9` [.github/workflows/android-app-ci.yml:207–210](../../../.github/workflows/android-app-ci.yml#L207-L210) — **unreviewed** — ` # Do not starve the freshly booted launcher with Rust/NDK compilation. # Run 37219989321 left a Pixel Launcher ANR covering the live test UI. # Use the live probe's exact variant throughout, including R8, so the # later test:live command does not rebuild it beside the running emulator. `
+- [ ] `e3c0c81387e26f54` [.github/workflows/android-app-ci.yml:225](../../../.github/workflows/android-app-ci.yml#L225) — **unreviewed** — ` # v2 `
+- [ ] `e8176e2cbc4fe787` [.github/workflows/android-app-ci.yml:231–235](../../../.github/workflows/android-app-ci.yml#L231-L235) — **unreviewed** — ` # Two-core software-rendered runs 36974124012/36977714721 missed # the unchanged 100 ms frame gate at 122/128 ms (physical: 24 ms). # Use the hosted runner's four cores and the current software backend; # swiftshader_indirect was deprecated in emulator 36.4.9. # https://developer.android.com/studio/run/emulator-acceleration `
+- [ ] `bf5520d1d3f7711a` [.github/workflows/android-app-ci.yml:252](../../../.github/workflows/android-app-ci.yml#L252) — **unreviewed** — ` # v7 `
+- [ ] `1e3b8499a9c3751b` [.github/workflows/android-app-ci.yml:276](../../../.github/workflows/android-app-ci.yml#L276) — **unreviewed** — ` # v6 `
+- [ ] `17ce2f3473349688` [.github/workflows/android-app-ci.yml:277](../../../.github/workflows/android-app-ci.yml#L277) — **unreviewed** — ` # v6 `
+- [ ] `93cac098a35afdc4` [.github/workflows/android-app-ci.yml:280](../../../.github/workflows/android-app-ci.yml#L280) — **unreviewed** — ` # v5 `
+- [ ] `702652c4777d0cc4` [.github/workflows/android-app-ci.yml:284](../../../.github/workflows/android-app-ci.yml#L284) — **unreviewed** — ` # v8 `
+- [ ] `acfa7936ddfd8e42` [.github/workflows/android-app-ci.yml:310](../../../.github/workflows/android-app-ci.yml#L310) — **unreviewed** — ` # v3 `
+- [ ] `6570503d0f623ff3` [.github/workflows/android-app-ci.yml:329](../../../.github/workflows/android-app-ci.yml#L329) — **unreviewed** — ` # v7 `
+- [ ] `5b04a95f50b79494` [.github/workflows/bridge-ci.yml:51](../../../.github/workflows/bridge-ci.yml#L51) — **unreviewed** — ` # v6 `
+- [ ] `590ea59a4b3ad00f` [.github/workflows/bridge-ci.yml:54](../../../.github/workflows/bridge-ci.yml#L54) — **unreviewed** — ` # v7 `
+- [ ] `02e0c209cf9e37e7` [.github/workflows/bridge-ci.yml:59](../../../.github/workflows/bridge-ci.yml#L59) — **unreviewed** — ` # Tests run on the runner's own platform; darwin/amd64 is cross-compiled. `
+- [ ] `16e2155b01c52022` [.github/workflows/bridge-ci.yml:95](../../../.github/workflows/bridge-ci.yml#L95) — **unreviewed** — ` # v7 `
+- [ ] `17e7df5f4b803531` [.github/workflows/bridge-ci.yml:104](../../../.github/workflows/bridge-ci.yml#L104) — **unreviewed** — ` # v6 `
+- [ ] `0d5e8f63f270abf4` [.github/workflows/bridge-ci.yml:107](../../../.github/workflows/bridge-ci.yml#L107) — **unreviewed** — ` # v4 `
+- [ ] `46fc2f84b08f9a3d` [.github/workflows/bridge-ci.yml:112–113](../../../.github/workflows/bridge-ci.yml#L112-L113) — **unreviewed** — ` # The runner image ships the Android SDK; install only what the build # needs, as android-app-ci.yml does. `
+- [ ] `c4f2d1830cfd96db` [.github/workflows/bridge-ci.yml:124](../../../.github/workflows/bridge-ci.yml#L124) — **unreviewed** — ` # v7 `
+- [ ] `ec066e837d56f49d` [.github/workflows/bridge-ci.yml:135](../../../.github/workflows/bridge-ci.yml#L135) — **unreviewed** — ` # v6 `
+- [ ] `c42b0ae8469c73c0` [.github/workflows/bridge-ci.yml:138](../../../.github/workflows/bridge-ci.yml#L138) — **unreviewed** — ` # v4 `
+- [ ] `e7a6e969d56dcc7e` [.github/workflows/bridge-ci.yml:154](../../../.github/workflows/bridge-ci.yml#L154) — **unreviewed** — ` # v2 `
+- [ ] `85c5ceffc0cca029` [.github/workflows/browser-extension.yml:33](../../../.github/workflows/browser-extension.yml#L33) — **unreviewed** — ` # Pinned for the held Playwright; see ci.yml computer-control. `
+- [ ] `3870907c8010ef8f` [.github/workflows/browser-extension.yml:37](../../../.github/workflows/browser-extension.yml#L37) — **unreviewed** — ` # v6 `
+- [ ] `21047d379e027fa3` [.github/workflows/browser-extension.yml:38](../../../.github/workflows/browser-extension.yml#L38) — **unreviewed** — ` # v6 `
+- [ ] `170f2188cf59722b` [.github/workflows/browser-extension.yml:39](../../../.github/workflows/browser-extension.yml#L39) — **unreviewed** — ` # v6 `
+- [ ] `e8aba6f450a9e62d` [.github/workflows/browser-extension.yml:82](../../../.github/workflows/browser-extension.yml#L82) — **unreviewed** — ` # v7 `
+- [ ] `58613a0fa42b992f` [.github/workflows/browser-extension.yml:89](../../../.github/workflows/browser-extension.yml#L89) — **unreviewed** — ` # v7 `
+- [ ] `3cb9c87c193a0a82` [.github/workflows/browser-extension.yml:97](../../../.github/workflows/browser-extension.yml#L97) — **unreviewed** — ` # v7 `
+- [ ] `0f04f0b93d3429f5` [.github/workflows/browser-extension.yml:118](../../../.github/workflows/browser-extension.yml#L118) — **unreviewed** — ` # v6 `
+- [ ] `fe98ec26105ce031` [.github/workflows/browser-extension.yml:123](../../../.github/workflows/browser-extension.yml#L123) — **unreviewed** — ` # v6 `
+- [ ] `a52685fa136dba3f` [.github/workflows/browser-extension.yml:126](../../../.github/workflows/browser-extension.yml#L126) — **unreviewed** — ` # v8 `
+- [ ] `6181f7a92ab7060c` [.github/workflows/browser-extension.yml:133](../../../.github/workflows/browser-extension.yml#L133) — **unreviewed** — ` # v3 `
+- [ ] `af23aaabfdf5ffbe` [.github/workflows/browser-extension.yml:148](../../../.github/workflows/browser-extension.yml#L148) — **unreviewed** — ` # v7 `
+- [ ] `d5a43b22b1df633a` [.github/workflows/browser-extension.yml:164](../../../.github/workflows/browser-extension.yml#L164) — **unreviewed** — ` # v6 `
+- [ ] `02792601eff16283` [.github/workflows/browser-extension.yml:165](../../../.github/workflows/browser-extension.yml#L165) — **unreviewed** — ` # v6 `
+- [ ] `a876bccf84e0ca2d` [.github/workflows/browser-extension.yml:170](../../../.github/workflows/browser-extension.yml#L170) — **unreviewed** — ` # v3 `
+- [ ] `7b9663f4ac63e4cd` [.github/workflows/browser-extension.yml:183](../../../.github/workflows/browser-extension.yml#L183) — **unreviewed** — ` # v7 `
+- [ ] `d3d71ed87a726fa9` [.github/workflows/browser-extension.yml:195](../../../.github/workflows/browser-extension.yml#L195) — **unreviewed** — ` # v8 `
+- [ ] `0e4fd606b09e1cf8` [.github/workflows/browser-extension.yml:200](../../../.github/workflows/browser-extension.yml#L200) — **unreviewed** — ` # v8 `
+- [ ] `3913db8e191604ac` [.github/workflows/ci.yml:2–3](../../../.github/workflows/ci.yml#L2-L3) — **unreviewed** — ` # Other branches run through their pull request; pushing them too would run # every PR (Renovate's included) twice. `
+- [ ] `92cf7f12963aa067` [.github/workflows/ci.yml:26–29](../../../.github/workflows/ci.yml#L26-L29) — **unreviewed** — `` # A new push to a pull request cancels that PR's superseded run, freeing # runners for the gate that matters. `main` pushes and manual comparisons get # a group of their own run, so every main commit keeps a complete result for # the deployment workflow that follows it. ``
+- [ ] `5632ca2de51b8f39` [.github/workflows/ci.yml:34–35](../../../.github/workflows/ci.yml#L34-L35) — **unreviewed** — ` # Server checks run at the supported Node floor. SQLite boundary and Bun # distribution checks live in sqlite.yml; managed runners retain their own floor. `
+- [ ] `3c43c69a2143ac3c` [.github/workflows/ci.yml:37–41](../../../.github/workflows/ci.yml#L37-L41) — **unreviewed** — `` # Every job sets timeout-minutes, because a hung job otherwise holds the run, # and the deployment that waits on it, for GitHub's six-hour default. Limits # without their own note are 2.5-4x the slowest of 60 `main` runs measured # 2026-11-13: site-build 0.6m, audit 1.1m, lint 5.0m, typecheck 3.8m, # windows-host-awake-smoke 1.9m and an e2e shard 12.2m. ``
+- [ ] `1d87dc9f22be9ae7` [.github/workflows/ci.yml:51–53](../../../.github/workflows/ci.yml#L51-L53) — **unreviewed** — ` # Jobs that install Playwright browsers pin ubuntu-24.04: the held # Playwright refuses ubuntu-latest's 26.04 image # (docs/development/dependencies.md, @playwright/test hold). `
+- [ ] `1b8c22d74d3ca50f` [.github/workflows/ci.yml:58](../../../.github/workflows/ci.yml#L58) — **unreviewed** — ` # v6 `
+- [ ] `91012364583bbf72` [.github/workflows/ci.yml:59](../../../.github/workflows/ci.yml#L59) — **unreviewed** — ` # v6 `
+- [ ] `11bc0bfc0b0a028b` [.github/workflows/ci.yml:60](../../../.github/workflows/ci.yml#L60) — **unreviewed** — ` # v6 `
+- [ ] `d46fc71dacc5e537` [.github/workflows/ci.yml:80](../../../.github/workflows/ci.yml#L80) — **unreviewed** — ` # v7 `
+- [ ] `60d9ccbc45d9fdc7` [.github/workflows/ci.yml:94](../../../.github/workflows/ci.yml#L94) — **unreviewed** — ` # v6 `
+- [ ] `3619e04d6141c6e8` [.github/workflows/ci.yml:95](../../../.github/workflows/ci.yml#L95) — **unreviewed** — ` # v6 `
+- [ ] `638494f936047438` [.github/workflows/ci.yml:96](../../../.github/workflows/ci.yml#L96) — **unreviewed** — ` # v6 `
+- [ ] `7b5b35bb6085a8eb` [.github/workflows/ci.yml:129](../../../.github/workflows/ci.yml#L129) — **unreviewed** — ` # v6 `
+- [ ] `c49d9ca8425a4206` [.github/workflows/ci.yml:130](../../../.github/workflows/ci.yml#L130) — **unreviewed** — ` # v6 `
+- [ ] `f21975833ad1dee5` [.github/workflows/ci.yml:131](../../../.github/workflows/ci.yml#L131) — **unreviewed** — ` # v6 `
+- [ ] `b8c9911b0f4d2a8f` [.github/workflows/ci.yml:167](../../../.github/workflows/ci.yml#L167) — **unreviewed** — ` # v6 `
+- [ ] `a2eb7acce6475ac1` [.github/workflows/ci.yml:168](../../../.github/workflows/ci.yml#L168) — **unreviewed** — ` # v6 `
+- [ ] `477189eb59e16554` [.github/workflows/ci.yml:169](../../../.github/workflows/ci.yml#L169) — **unreviewed** — ` # v6 `
+- [ ] `440a5f6aeaacfee4` [.github/workflows/ci.yml:182](../../../.github/workflows/ci.yml#L182) — **unreviewed** — ` # v6 `
+- [ ] `48d39596c24907a5` [.github/workflows/ci.yml:183](../../../.github/workflows/ci.yml#L183) — **unreviewed** — ` # v6 `
+- [ ] `3364695337268bc6` [.github/workflows/ci.yml:184](../../../.github/workflows/ci.yml#L184) — **unreviewed** — ` # v6 `
+- [ ] `411286bf054ec8b6` [.github/workflows/ci.yml:196](../../../.github/workflows/ci.yml#L196) — **unreviewed** — ` # v6 `
+- [ ] `8bcea12a0ac5ecf9` [.github/workflows/ci.yml:197](../../../.github/workflows/ci.yml#L197) — **unreviewed** — ` # v6 `
+- [ ] `c8cf9b43e45cb8ce` [.github/workflows/ci.yml:211](../../../.github/workflows/ci.yml#L211) — **unreviewed** — ` # v6 `
+- [ ] `bddd0a263a246ef8` [.github/workflows/ci.yml:212](../../../.github/workflows/ci.yml#L212) — **unreviewed** — ` # v6 `
+- [ ] `ecfa39d46fa00e22` [.github/workflows/ci.yml:213](../../../.github/workflows/ci.yml#L213) — **unreviewed** — ` # v6 `
+- [ ] `2fed71d9f787d828` [.github/workflows/ci.yml:218–219](../../../.github/workflows/ci.yml#L218-L219) — **unreviewed** — ` # The source-file budget check compares raises with this revision; the # shallow checkout only holds HEAD, which already contains any raise. `
+- [ ] `ee9bcc995d731a30` [.github/workflows/ci.yml:240](../../../.github/workflows/ci.yml#L240) — **unreviewed** — ` # v6 `
+- [ ] `797473e05708029f` [.github/workflows/ci.yml:241](../../../.github/workflows/ci.yml#L241) — **unreviewed** — ` # v6 `
+- [ ] `591511d59f2f22d0` [.github/workflows/ci.yml:242](../../../.github/workflows/ci.yml#L242) — **unreviewed** — ` # v6 `
+- [ ] `6c16f97cd9842ce5` [.github/workflows/ci.yml:245–249](../../../.github/workflows/ci.yml#L245-L249) — **unreviewed** — ` # Advisories triaged as unreachable are listed in auditConfig.ignoreGhsas # (pnpm-workspace.yaml) with rationale in docs/development/dependencies.md # "Known-unreachable advisories". # A failure here means a new, untriaged advisory: fix it or triage it in both # places — never ignore without a table entry. `
+- [ ] `896d62cc881bfee9` [.github/workflows/ci.yml:251–255](../../../.github/workflows/ci.yml#L251-L255) — **unreviewed** — ` # Each later step runs even after a failure above. The audits are # independent, and stopping at the first one hid a website advisory # behind a workspace one until the workspace was repaired. # Standalone npm manifests are outside the pnpm workspace. Include dev # dependencies: the sharing worker's Wrangler/Miniflare edge is dev-only. `
+- [ ] `854f26ab1d57df02` [.github/workflows/ci.yml:266](../../../.github/workflows/ci.yml#L266) — **unreviewed** — ` # v6 `
+- [ ] `cab8c98c343b93ca` [.github/workflows/ci.yml:307](../../../.github/workflows/ci.yml#L307) — **unreviewed** — ` # v6 `
+- [ ] `9b6793d3ab4d7cc9` [.github/workflows/ci.yml:308](../../../.github/workflows/ci.yml#L308) — **unreviewed** — ` # v6 `
+- [ ] `d7ec5685d36c600a` [.github/workflows/ci.yml:309](../../../.github/workflows/ci.yml#L309) — **unreviewed** — ` # v6 `
+- [ ] `0acbdba649bc3d14` [.github/workflows/ci.yml:320](../../../.github/workflows/ci.yml#L320) — **unreviewed** — ` # v6 `
+- [ ] `f69623a61425d2b5` [.github/workflows/ci.yml:324](../../../.github/workflows/ci.yml#L324) — **unreviewed** — ` # v6 `
+- [ ] `d1f004cc07129127` [.github/workflows/ci.yml:325](../../../.github/workflows/ci.yml#L325) — **unreviewed** — ` # v6 `
+- [ ] `b04a7a46c48c1d66` [.github/workflows/ci.yml:338](../../../.github/workflows/ci.yml#L338) — **unreviewed** — ` # v6 `
+- [ ] `b55097979eb06b2e` [.github/workflows/ci.yml:341](../../../.github/workflows/ci.yml#L341) — **unreviewed** — ` # v6 `
+- [ ] `5aaae81fbb1b9b89` [.github/workflows/ci.yml:347](../../../.github/workflows/ci.yml#L347) — **unreviewed** — ` # v6 `
+- [ ] `1abcb6b187b2f031` [.github/workflows/ci.yml:348](../../../.github/workflows/ci.yml#L348) — **unreviewed** — ` # v6 `
+- [ ] `6443e15955706e59` [.github/workflows/ci.yml:367](../../../.github/workflows/ci.yml#L367) — **unreviewed** — ` # v7 `
+- [ ] `e99ff055a10746b7` [.github/workflows/ci.yml:383](../../../.github/workflows/ci.yml#L383) — **unreviewed** — ` # v6 `
+- [ ] `5dabed18ca9268ac` [.github/workflows/ci.yml:384](../../../.github/workflows/ci.yml#L384) — **unreviewed** — ` # v6 `
+- [ ] `fbeaeb644026b9af` [.github/workflows/ci.yml:385](../../../.github/workflows/ci.yml#L385) — **unreviewed** — ` # v6 `
+- [ ] `65c0a6bf93f09d1f` [.github/workflows/ci.yml:396](../../../.github/workflows/ci.yml#L396) — **unreviewed** — ` # v6 `
+- [ ] `a75b1347dfff423f` [.github/workflows/ci.yml:397](../../../.github/workflows/ci.yml#L397) — **unreviewed** — ` # v6 `
+- [ ] `d0317ab5e77de543` [.github/workflows/ci.yml:398](../../../.github/workflows/ci.yml#L398) — **unreviewed** — ` # v6 `
+- [ ] `8c088524af167279` [.github/workflows/ci.yml:404–406](../../../.github/workflows/ci.yml#L404-L406) — **unreviewed** — ` # A hosted runner can rarely spend the full production startup bound in # cold PowerShell/Add-Type setup. One isolated-test retry distinguishes # that host jitter without extending YA's bounded 20-second probe. `
+- [ ] `9416ea2dadcec1d7` [.github/workflows/ci.yml:411–413](../../../.github/workflows/ci.yml#L411-L413) — **unreviewed** — ` # Shards hold equal planned seconds, not equal case counts: Playwright's own # --shard splits by count, which left one shard with over twice the work. # scripts/e2e-shard-plan.mjs owns the plan and its durations record. `
+- [ ] `c4ee045d0b8e7dc8` [.github/workflows/ci.yml:423](../../../.github/workflows/ci.yml#L423) — **unreviewed** — ` # v6 `
+- [ ] `14c0957376f56fd2` [.github/workflows/ci.yml:424](../../../.github/workflows/ci.yml#L424) — **unreviewed** — ` # v6 `
+- [ ] `3af0576f93a5c3f9` [.github/workflows/ci.yml:425](../../../.github/workflows/ci.yml#L425) — **unreviewed** — ` # v6 `
+- [ ] `107c055c57e16e73` [.github/workflows/ci.yml:445–446](../../../.github/workflows/ci.yml#L445-L446) — **unreviewed** — `` # `node scripts/e2e-shard-plan.mjs record <reports...>` refreshes the # plan's durations from a green run's reports. ``
+- [ ] `2bdc6a3d0ae80744` [.github/workflows/ci.yml:449](../../../.github/workflows/ci.yml#L449) — **unreviewed** — ` # v7 `
+- [ ] `91a31b38aee5a053` [.github/workflows/ci.yml:457](../../../.github/workflows/ci.yml#L457) — **unreviewed** — ` # v7 `
+- [ ] `872c07e32b4a82ff` [.github/workflows/ci.yml:468–469](../../../.github/workflows/ci.yml#L468-L469) — **unreviewed** — ` # Safari's engine on an emulated iPad: a limited user's relay login resumes # from the Home Screen start URL (site/src/content/docs/home-screen.md). `
+- [ ] `b282f6c1cbf53e24` [.github/workflows/ci.yml:472–474](../../../.github/workflows/ci.yml#L472-L474) — **unreviewed** — ` # Run 36908114440 exhausted 15m downloading 125 MB of Ubuntu WebKit # dependencies before tests began. Allow 3x that observed setup limit; # Playwright's per-test and input-latency assertions remain unchanged. `
+- [ ] `ea172ae04d69841e` [.github/workflows/ci.yml:477](../../../.github/workflows/ci.yml#L477) — **unreviewed** — ` # v6 `
+- [ ] `fd5f589beab59afd` [.github/workflows/ci.yml:478](../../../.github/workflows/ci.yml#L478) — **unreviewed** — ` # v6 `
+- [ ] `d865a606eece1193` [.github/workflows/ci.yml:479](../../../.github/workflows/ci.yml#L479) — **unreviewed** — ` # v6 `
+- [ ] `a8c28972dc036b10` [.github/workflows/ci.yml:489](../../../.github/workflows/ci.yml#L489) — **unreviewed** — ` # v7 `
+- [ ] `0b186a916df29ad4` [.github/workflows/desktop-ci.yml:4](../../../.github/workflows/desktop-ci.yml#L4) — **unreviewed** — ` # Shared web/server and lockfile changes are covered by nightly runs. `
+- [ ] `4581221ab7c9986c` [.github/workflows/desktop-ci.yml:71](../../../.github/workflows/desktop-ci.yml#L71) — **unreviewed** — ` # v6 `
+- [ ] `d9c2edde55829a96` [.github/workflows/desktop-ci.yml:74](../../../.github/workflows/desktop-ci.yml#L74) — **unreviewed** — ` # v6 `
+- [ ] `28ebf2c578170789` [.github/workflows/desktop-ci.yml:89](../../../.github/workflows/desktop-ci.yml#L89) — **unreviewed** — ` # tauri-action merges updater metadata in the shared private draft. `
+- [ ] `5f92e95ebda2a50b` [.github/workflows/desktop-ci.yml:93–97](../../../.github/workflows/desktop-ci.yml#L93-L97) — **unreviewed** — `` # macos-latest is mid-migration to macOS 26 (runner-images#14167, rolling # out 2026-06-15 → 2026-07-15). Pin the actual runner to macos-26 so releases # are deterministic instead of a coin-flip between the 15 and 26 images. # `platform: macos-latest` stays as the discriminator the `if:` steps key on; # `runner` controls the image. Bump to macos-27 after a test build when announced. ``
+- [ ] `23ddb956f7a187a6` [.github/workflows/desktop-ci.yml:122](../../../.github/workflows/desktop-ci.yml#L122) — **unreviewed** — ` # v6 `
+- [ ] `a8661038bef70dab` [.github/workflows/desktop-ci.yml:148](../../../.github/workflows/desktop-ci.yml#L148) — **unreviewed** — ` # --- Node.js + pnpm --- `
+- [ ] `6be280d8ad2c6f60` [.github/workflows/desktop-ci.yml:150](../../../.github/workflows/desktop-ci.yml#L150) — **unreviewed** — ` # v6 `
+- [ ] `22f52a3846e0bd7f` [.github/workflows/desktop-ci.yml:155](../../../.github/workflows/desktop-ci.yml#L155) — **unreviewed** — ` # v6 `
+- [ ] `3627ac8c6c593ac8` [.github/workflows/desktop-ci.yml:157](../../../.github/workflows/desktop-ci.yml#L157) — **unreviewed** — ` # --- Rust --- `
+- [ ] `0b2db39256609fe5` [.github/workflows/desktop-ci.yml:159](../../../.github/workflows/desktop-ci.yml#L159) — **unreviewed** — ` # stable `
+- [ ] `453017ec40a9941b` [.github/workflows/desktop-ci.yml:164](../../../.github/workflows/desktop-ci.yml#L164) — **unreviewed** — ` # v2 `
+- [ ] `63dea81f72685c73` [.github/workflows/desktop-ci.yml:168](../../../.github/workflows/desktop-ci.yml#L168) — **unreviewed** — ` # --- macOS code signing --- `
+- [ ] `9018c94f93e92fdf` [.github/workflows/desktop-ci.yml:203–210](../../../.github/workflows/desktop-ci.yml#L203-L210) — **unreviewed** — `` # --- Signing env vars --- # Inject secrets via this step's `env:` block (GitHub sets the values WITHOUT shell # re-parsing) and write them to $GITHUB_ENV with heredocs. Do NOT inline # ${{ secrets.* }} into `echo "VAR=..."`: a value containing shell metacharacters # (" $ ` \) gets mangled there — an updater password with such a character yields # "incorrect updater private key password: Wrong password for that key" at bundle # time. Writes stay conditional so empty values don't reach the bundler (an empty # APPLE_CERTIFICATE makes Tauri's bundler crash on import). ``
+- [ ] `2167227757d5061c` [.github/workflows/desktop-ci.yml:236](../../../.github/workflows/desktop-ci.yml#L236) — **unreviewed** — ` # --- Windows signing tool --- `
+- [ ] `f6601d263d2dff49` [.github/workflows/desktop-ci.yml:241–243](../../../.github/workflows/desktop-ci.yml#L241-L243) — **unreviewed** — ` # --- Install frontend dependencies --- # --ignore-scripts avoids building native modules (e.g. better-sqlite3) # that belong to other workspace packages and aren't needed for the desktop build `
+- [ ] `a7f4a95b5636a8ae` [.github/workflows/desktop-ci.yml:258–260](../../../.github/workflows/desktop-ci.yml#L258-L260) — **unreviewed** — ` # Tauri signs external binaries with the release identity while # assembling the app bundle. Avoid an earlier ad-hoc replacement # after CI has switched macOS to its isolated signing keychain. `
+- [ ] `98e20e115022b9e4` [.github/workflows/desktop-ci.yml:306](../../../.github/workflows/desktop-ci.yml#L306) — **unreviewed** — ` # --- Build Tauri app --- `
+- [ ] `66989e6c4101d3a4` [.github/workflows/desktop-ci.yml:308](../../../.github/workflows/desktop-ci.yml#L308) — **unreviewed** — ` # v0 `
+- [ ] `29bbfcc5bc033633` [.github/workflows/desktop-ci.yml:312](../../../.github/workflows/desktop-ci.yml#L312) — **unreviewed** — ` # Windows signing `
+- [ ] `dca73f6850acc22e` [.github/workflows/desktop-ci.yml:336–339](../../../.github/workflows/desktop-ci.yml#L336-L339) — **unreviewed** — ` # --- Diagnose macOS build failure --- # Only blame the flaky hdiutil DMG issue when the build actually got past codesign # (a signed .app exists) but produced no .dmg. Otherwise point at the real failure, # so we don't chase a phantom DMG flake (config error, updater key/pubkey, etc.). `
+- [ ] `b3dc4874c5598ff8` [.github/workflows/desktop-ci.yml:362](../../../.github/workflows/desktop-ci.yml#L362) — **unreviewed** — ` # --- Cleanup --- `
+- [ ] `ef18c4eabb5eaaf5` [.github/workflows/desktop-ci.yml:374](../../../.github/workflows/desktop-ci.yml#L374) — **unreviewed** — ` # v6 `
+- [ ] `08075ca65b1045c3` [.github/workflows/desktop-ci.yml:377](../../../.github/workflows/desktop-ci.yml#L377) — **unreviewed** — ` # v6 `
+- [ ] `7264b6e87f9c08e6` [.github/workflows/ios-app-ci.yml:4](../../../.github/workflows/ios-app-ci.yml#L4) — **unreviewed** — ` # Shared web/server and lockfile changes are covered by nightly runs. `
+- [ ] `359fed4a5264e226` [.github/workflows/ios-app-ci.yml:58–60](../../../.github/workflows/ios-app-ci.yml#L58-L60) — **unreviewed** — ` # The older runtime settled on arm64; its prior memory rejection measured # free pages rather than availability. Intel remained CPU-bound without video. # Retain all tests/gates, the simulator profile and corrected memory sampler. `
+- [ ] `83fcec95b983c5fc` [.github/workflows/ios-app-ci.yml:66–67](../../../.github/workflows/ios-app-ci.yml#L66-L67) — **unreviewed** — ` # Cold Intel run 36898374886 took 42 minutes before UI/device acceptance. # Allow ~2x that measured elapsed time for all gates; input stays at 100ms. `
+- [ ] `363ce1c64d638968` [.github/workflows/ios-app-ci.yml:71–72](../../../.github/workflows/ios-app-ci.yml#L71-L72) — **unreviewed** — ` # The failed headroom samples also show mds/mdworker contention. # This is an ephemeral hosted VM, never a developer's workstation. `
+- [ ] `fd16a359f5e96eab` [.github/workflows/ios-app-ci.yml:74](../../../.github/workflows/ios-app-ci.yml#L74) — **unreviewed** — ` # v6 `
+- [ ] `7c492f65119c59bf` [.github/workflows/ios-app-ci.yml:75](../../../.github/workflows/ios-app-ci.yml#L75) — **unreviewed** — ` # v6 `
+- [ ] `b46bc88061050e88` [.github/workflows/ios-app-ci.yml:76](../../../.github/workflows/ios-app-ci.yml#L76) — **unreviewed** — ` # v6 `
+- [ ] `f1492fb5f4c089d7` [.github/workflows/ios-app-ci.yml:104](../../../.github/workflows/ios-app-ci.yml#L104) — **unreviewed** — ` # v7 `
+- [ ] `84698f890cac9bb7` [.github/workflows/latest-remote-client.yml:20](../../../.github/workflows/latest-remote-client.yml#L20) — **unreviewed** — ` # Skipped PR/manual CI completions must not cancel a real push deploy. `
+- [ ] `572fde2ea8cd2139` [.github/workflows/latest-remote-client.yml:51](../../../.github/workflows/latest-remote-client.yml#L51) — **unreviewed** — ` # v6 `
+- [ ] `b75936625fa1120e` [.github/workflows/latest-remote-client.yml:57](../../../.github/workflows/latest-remote-client.yml#L57) — **unreviewed** — ` # v6 `
+- [ ] `f17b6fb373b202ca` [.github/workflows/latest-remote-client.yml:61](../../../.github/workflows/latest-remote-client.yml#L61) — **unreviewed** — ` # v6 `
+- [ ] `6030609809e2137b` [.github/workflows/native-provider-model-api.yml:3–4](../../../.github/workflows/native-provider-model-api.yml#L3-L4) — **unreviewed** — ` # Linux's complete native suite is qualified. Gate only its relevant source; # the slower app/browser matrix and worker controls remain explicit dispatches. `
+- [ ] `332d3b6ed7221d4c` [.github/workflows/native-provider-model-api.yml:67](../../../.github/workflows/native-provider-model-api.yml#L67) — **unreviewed** — ` # Superseded automatic checks cancel; explicit manual controls have unique groups. `
+- [ ] `f3ff336cfea63ec8` [.github/workflows/native-provider-model-api.yml:82](../../../.github/workflows/native-provider-model-api.yml#L82) — **unreviewed** — ` # v6 `
+- [ ] `930105829b3705c2` [.github/workflows/native-provider-model-api.yml:83](../../../.github/workflows/native-provider-model-api.yml#L83) — **unreviewed** — ` # v6 `
+- [ ] `4446e7c9bf283672` [.github/workflows/native-provider-model-api.yml:84](../../../.github/workflows/native-provider-model-api.yml#L84) — **unreviewed** — ` # v6 `
+- [ ] `0884a32aa0037f87` [.github/workflows/native-provider-model-api.yml:93–94](../../../.github/workflows/native-provider-model-api.yml#L93-L94) — **unreviewed** — ` # Its Google native bootstrap resolves this name before ACP initialize. # Ubuntu calls nobody's existing primary group nogroup. Preserve its GID. `
+- [ ] `707e925c6fb9bc92` [.github/workflows/native-provider-model-api.yml:108](../../../.github/workflows/native-provider-model-api.yml#L108) — **unreviewed** — ` # The held Playwright supports this Ubuntu image, not 26.04. `
+- [ ] `0963036cf4053692` [.github/workflows/native-provider-model-api.yml:111–112](../../../.github/workflows/native-provider-model-api.yml#L111-L112) — **unreviewed** — ` # M1 run 42115449136 used 8m57s before the wider cold-mount guard. # 20min is 2.23x that observed job; provider/Linux budgets are unchanged. `
+- [ ] `4b895f9f0fb9f9f7` [.github/workflows/native-provider-model-api.yml:115](../../../.github/workflows/native-provider-model-api.yml#L115) — **unreviewed** — ` # Same-source M1 control qualifies one app worker; explicit controls win. `
+- [ ] `fa9b6da90501c7a0` [.github/workflows/native-provider-model-api.yml:118](../../../.github/workflows/native-provider-model-api.yml#L118) — **unreviewed** — ` # v6 `
+- [ ] `cf3695b97c263946` [.github/workflows/native-provider-model-api.yml:119](../../../.github/workflows/native-provider-model-api.yml#L119) — **unreviewed** — ` # v6 `
+- [ ] `25a90c7858e1bdee` [.github/workflows/native-provider-model-api.yml:120](../../../.github/workflows/native-provider-model-api.yml#L120) — **unreviewed** — ` # v6 `
+- [ ] `dc06b951f3b93309` [.github/workflows/native-provider-model-api.yml:132](../../../.github/workflows/native-provider-model-api.yml#L132) — **unreviewed** — ` # v7 `
+- [ ] `01003996d2ae5d8a` [.github/workflows/nightly-desktop.yml:17](../../../.github/workflows/nightly-desktop.yml#L17) — **unreviewed** — ` # Never interrupt an active signer/publisher. Superseded pending runs coalesce. `
+- [ ] `88da5665aa469ae3` [.github/workflows/nightly-desktop.yml:35](../../../.github/workflows/nightly-desktop.yml#L35) — **unreviewed** — ` # v6 `
+- [ ] `ed8baf358cc49010` [.github/workflows/nightly-desktop.yml:38](../../../.github/workflows/nightly-desktop.yml#L38) — **unreviewed** — ` # v6 `
+- [ ] `80cdfc134e498721` [.github/workflows/npm-package.yml:37](../../../.github/workflows/npm-package.yml#L37) — **unreviewed** — ` # v6 `
+- [ ] `feec480a46a18731` [.github/workflows/npm-package.yml:38](../../../.github/workflows/npm-package.yml#L38) — **unreviewed** — ` # v6 `
+- [ ] `6040615e02c93d52` [.github/workflows/npm-package.yml:39](../../../.github/workflows/npm-package.yml#L39) — **unreviewed** — ` # v6 `
+- [ ] `0d0631fb9a5ec6c0` [.github/workflows/npm-package.yml:68](../../../.github/workflows/npm-package.yml#L68) — **unreviewed** — ` # v7 `
+- [ ] `1be16e67e35050c6` [.github/workflows/pages.yml:29](../../../.github/workflows/pages.yml#L29) — **unreviewed** — ` # v6 `
+- [ ] `8b8ee64f4dc120b0` [.github/workflows/pages.yml:32](../../../.github/workflows/pages.yml#L32) — **unreviewed** — ` # v6 `
+- [ ] `c12bd3db0aef4d2f` [.github/workflows/pages.yml:35](../../../.github/workflows/pages.yml#L35) — **unreviewed** — ` # v6 `
+- [ ] `a8c8a4a69a292402` [.github/workflows/pages.yml:66](../../../.github/workflows/pages.yml#L66) — **unreviewed** — ` # v6 `
+- [ ] `53843e5cba7cad7b` [.github/workflows/pages.yml:74](../../../.github/workflows/pages.yml#L74) — **unreviewed** — ` # v5 `
+- [ ] `b983720c2d836b4b` [.github/workflows/pages.yml:81](../../../.github/workflows/pages.yml#L81) — **unreviewed** — ` # v5 `
+- [ ] `39bcf34a49b8e85e` [.github/workflows/performance.yml:19](../../../.github/workflows/performance.yml#L19) — **unreviewed** — ` # Pinned for the held Playwright; see ci.yml computer-control. `
+- [ ] `f2ff2d16e3e0c7f0` [.github/workflows/performance.yml:49](../../../.github/workflows/performance.yml#L49) — **unreviewed** — ` # v6 `
+- [ ] `6235faff3e0d4c0e` [.github/workflows/performance.yml:54](../../../.github/workflows/performance.yml#L54) — **unreviewed** — ` # v6 `
+- [ ] `3837582f0f766538` [.github/workflows/performance.yml:62](../../../.github/workflows/performance.yml#L62) — **unreviewed** — ` # v6 `
+- [ ] `b45b274ecc6cfef8` [.github/workflows/performance.yml:65](../../../.github/workflows/performance.yml#L65) — **unreviewed** — ` # v6 `
+- [ ] `a74cc8a7f2607030` [.github/workflows/performance.yml:114](../../../.github/workflows/performance.yml#L114) — **unreviewed** — ` # v7 `
+- [ ] `22fabac8c63205a4` [.github/workflows/publish.yml:14](../../../.github/workflows/publish.yml#L14) — **unreviewed** — ` # Pinned for the held Playwright; see ci.yml computer-control. `
+- [ ] `a80046154fb4e921` [.github/workflows/publish.yml:21](../../../.github/workflows/publish.yml#L21) — **unreviewed** — ` # v6 `
+- [ ] `1c07d4705bd99108` [.github/workflows/publish.yml:24](../../../.github/workflows/publish.yml#L24) — **unreviewed** — ` # v6 `
+- [ ] `cc1779fbfc11d886` [.github/workflows/publish.yml:27](../../../.github/workflows/publish.yml#L27) — **unreviewed** — ` # v6 `
+- [ ] `4f32256561cc293b` [.github/workflows/publish.yml:48–49](../../../.github/workflows/publish.yml#L48-L49) — **unreviewed** — ` # Same runtime as ci.yml's unit-tests job; the sandboxed session tests # need Bubblewrap and fail release validation without it. `
+- [ ] `6440c9cd28d27ee4` [.github/workflows/publish.yml:72](../../../.github/workflows/publish.yml#L72) — **unreviewed** — ` # For creating GitHub releases `
+- [ ] `5a71a7ac5d7f4ea1` [.github/workflows/publish.yml:73](../../../.github/workflows/publish.yml#L73) — **unreviewed** — ` # Required for OIDC trusted publishing `
+- [ ] `d9b35bf19f577516` [.github/workflows/publish.yml:80](../../../.github/workflows/publish.yml#L80) — **unreviewed** — ` # v6 `
+- [ ] `c7ce922da2629941` [.github/workflows/publish.yml:83](../../../.github/workflows/publish.yml#L83) — **unreviewed** — ` # v6 `
+- [ ] `7ec371d5d25ddba5` [.github/workflows/publish.yml:127](../../../.github/workflows/publish.yml#L127) — **unreviewed** — ` # v8 `
+- [ ] `01b8a27df2b538cf` [.github/workflows/publish.yml:220](../../../.github/workflows/publish.yml#L220) — **unreviewed** — ` # v2 `
+- [ ] `50e93f72423cd597` [.github/workflows/sqlite.yml:13–14](../../../.github/workflows/sqlite.yml#L13-L14) — **unreviewed** — ` # Restored Windows coverage runs twelve cold Node/Bun launches across # clean npm and locked dependencies; Windows host probes dominate them. `
+- [ ] `260344fdc1bb21e8` [.github/workflows/sqlite.yml:23](../../../.github/workflows/sqlite.yml#L23) — **unreviewed** — ` # v6 `
+- [ ] `e5e82a98904852aa` [.github/workflows/sqlite.yml:24](../../../.github/workflows/sqlite.yml#L24) — **unreviewed** — ` # v6 `
+- [ ] `c57a78f01c0a2b45` [.github/workflows/sqlite.yml:25](../../../.github/workflows/sqlite.yml#L25) — **unreviewed** — ` # v6 `
+- [ ] `4f526e96f0d69848` [.github/workflows/sqlite.yml:29–30](../../../.github/workflows/sqlite.yml#L29-L30) — **unreviewed** — ` # Only core ships this feature. Relay/push-broker's separate native # better-sqlite3 dependency must not require a compiler for this matrix. `
+- [ ] `d9bf7442f491d430` [.github/workflows/sqlite.yml:35](../../../.github/workflows/sqlite.yml#L35) — **unreviewed** — ` # v2 `
+- [ ] `a15fffe6fc72705d` [.github/workflows/sqlite.yml:52–53](../../../.github/workflows/sqlite.yml#L52-L53) — **unreviewed** — ` # Exercise the published modules with the repository's tested dependency # versions, rather than re-resolving npm ranges to unrelated newer deps. `
+- [ ] `3904d0883d2c4859` [.github/workflows/sqlite.yml:65](../../../.github/workflows/sqlite.yml#L65) — **unreviewed** — ` # v6 `
+- [ ] `abdb76cd81fda258` [.github/workflows/triage-prs.yml:1–15](../../../.github/workflows/triage-prs.yml#L1-L15) — **unreviewed** — ` # Auto-triage unsolicited code PRs. # # Why this exists: drive-by pull requests (often agent-generated) aren't useful # to a small core team — reconciling an outside patch against in-flight work # costs more than it saves, and these PRs aren't more likely to land. Issues # are what we want: bug reports with repro/logs, and feature ideas with # reasoning. This workflow closes non-maintainer PRs and redirects the author # to open an issue instead. # # Scope: this fires ONLY on pull_request events. It never touches issues — the # Issues tab stays fully open and welcoming. # # Security: pull_request_target runs with the base repo's write token, so it # MUST NOT check out or execute the PR's code. This job only reads PR metadata # and posts a comment, which is safe. `
+- [ ] `42522cae4a7006dc` [.github/workflows/triage-prs.yml:30–31](../../../.github/workflows/triage-prs.yml#L30-L31) — **unreviewed** — ` # Skip maintainers (by repo association) and bots (e.g. a future Dependabot). # The login allowlist below is a belt-and-suspenders second check. `
+- [ ] `67336c547d3ab457` [.github/workflows/triage-prs.yml:38](../../../.github/workflows/triage-prs.yml#L38) — **unreviewed** — ` # v7 `
